@@ -1,0 +1,98 @@
+import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
+import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { GOALS } from '../../lib/constants';
+import { calculateBMR, calculateTDEE, calculateCalorieTarget, calculateMacros, getAge } from '../../lib/utils';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+
+export default function GoalsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
+  const { user } = useAuthStore();
+  const { profile, updateProfile } = useProfileStore();
+  const [goal, setGoal] = useState(profile?.goal ?? 'maintain');
+  const storedKg = profile?.target_weight_kg ?? 0;
+  const displayWeight = profile?.unit_weight === 'lbs' && storedKg ? Math.round(storedKg * 2.20462).toString() : (storedKg ? storedKg.toString() : '');
+  const [targetWeight, setTargetWeight] = useState(displayWeight);
+  const [waterTarget, setWaterTarget] = useState(profile?.daily_water_target_ml?.toString() ?? '2500');
+  const [stepsTarget, setStepsTarget] = useState(profile?.daily_steps_target?.toString() ?? '10000');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!user || !profile) return;
+    setSaving(true);
+
+    const age = profile.date_of_birth ? getAge(profile.date_of_birth) : 25;
+    const bmr = calculateBMR(profile.weight_kg, profile.height_cm, age, profile.gender);
+    const tdee = calculateTDEE(bmr, profile.activity_level);
+    const calories = calculateCalorieTarget(tdee, goal);
+    const macros = calculateMacros(calories, goal);
+
+    const rawWeight = +targetWeight || 0;
+    const targetKg = profile.unit_weight === 'lbs' ? rawWeight / 2.20462 : rawWeight;
+
+    await updateProfile(user.id, {
+      goal,
+      target_weight_kg: targetKg,
+      daily_water_target_ml: +waterTarget,
+      daily_steps_target: +stepsTarget,
+      daily_calorie_target: calories,
+      protein_target: macros.protein,
+      carbs_target: macros.carbs,
+      fat_target: macros.fat,
+    });
+
+    setSaving(false);
+    onBack();
+  };
+
+  return (
+    <div>
+      {!inline && (
+        <>
+          <button onClick={onBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6 transition-colors">
+            <ArrowLeft size={18} /> <span className="text-sm">Back</span>
+          </button>
+          <h2 className="text-xl font-bold text-white mb-6">Goals & Targets</h2>
+        </>
+      )}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-neutral-300">Goal</label>
+          {GOALS.map(g => (
+            <button
+              key={g.value}
+              onClick={() => setGoal(g.value)}
+              className={`w-full text-left p-3 rounded-xl text-sm transition-all border
+                ${goal === g.value
+                  ? 'bg-blue-600/20 border-blue-500 text-white'
+                  : 'bg-neutral-900 border-neutral-800 text-neutral-400'}`}
+            >
+              <div className="font-medium">{g.label}</div>
+              <div className="text-xs text-neutral-500 mt-0.5">{g.description}</div>
+            </button>
+          ))}
+        </div>
+        <Input
+          label={`Target Weight (${profile?.unit_weight ?? 'kg'})`}
+          type="number"
+          value={targetWeight}
+          onChange={e => setTargetWeight(e.target.value)}
+        />
+        <Input
+          label="Daily Water Target (ml)"
+          type="number"
+          value={waterTarget}
+          onChange={e => setWaterTarget(e.target.value)}
+        />
+        <Input
+          label="Daily Steps Target"
+          type="number"
+          value={stepsTarget}
+          onChange={e => setStepsTarget(e.target.value)}
+        />
+        <Button onClick={handleSave} loading={saving} className="w-full">Save Changes</Button>
+      </div>
+    </div>
+  );
+}
