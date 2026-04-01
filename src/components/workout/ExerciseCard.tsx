@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History } from 'lucide-react';
 import { useWorkoutStore } from '../../stores/workoutStore';
+import { useAuthStore } from '../../stores/authStore';
 import type { WorkoutExercise } from '../../lib/types';
 import { SET_TYPES } from '../../lib/constants';
 import Card from '../ui/Card';
@@ -95,12 +96,14 @@ function SetRow({ set, index, onDelete }: {
 }
 
 export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }) {
-  const { addSet, deleteSet, deleteExercise } = useWorkoutStore();
+  const { addSet, deleteSet, deleteExercise, currentWorkout, fetchPreviousSets } = useWorkoutStore();
+  const { user } = useAuthStore();
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
   const [localNotes, setLocalNotes] = useState('');
   const [localName, setLocalName] = useState(exercise.name);
+  const [prevSets, setPrevSets] = useState<{ weight_kg: number; reps: number; rir: number; set_type: string }[]>([]);
 
   useEffect(() => {
     initExerciseDraft(exercise.id, exercise.notes || '');
@@ -108,6 +111,11 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
     setLocalNotes(draft.notes ?? exercise.notes ?? '');
     setLocalName(exercise.name);
   }, [exercise.id]);
+
+  useEffect(() => {
+    if (!user || !currentWorkout) return;
+    fetchPreviousSets(user.id, exercise.name, currentWorkout.id).then(setPrevSets);
+  }, [user?.id, exercise.name, currentWorkout?.id]);
 
   const handleAddSet = () => {
     const idx = exercise.sets?.length ?? 0;
@@ -137,6 +145,23 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
           <Trash2 size={16} />
         </button>
       </div>
+
+      {prevSets.length > 0 && (
+        <div className="px-4 pb-1 animate-fade-in">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="flex items-center gap-1 text-neutral-600">
+              <History size={11} />
+              <span className="text-[10px] font-medium uppercase tracking-wider">Last time</span>
+            </div>
+            {prevSets.map((s, i) => (
+              <span key={i} className="text-[11px] text-neutral-500 bg-neutral-900/60 rounded px-1.5 py-0.5">
+                {s.weight_kg > 0 ? `${s.weight_kg}kg` : '—'} × {s.reps > 0 ? s.reps : '—'}
+                {s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {showNotes && (
         <div className="px-4 pb-2 animate-fade-in">

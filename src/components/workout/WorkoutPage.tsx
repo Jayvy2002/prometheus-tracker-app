@@ -151,7 +151,20 @@ export default function WorkoutPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-neutral-500">Loading...</div>
+        <div className="space-y-2">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 animate-pulse">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-neutral-800 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-neutral-800 rounded-md w-2/3" />
+                  <div className="h-3 bg-neutral-800/70 rounded-md w-1/3" />
+                </div>
+                <div className="w-10 h-3 bg-neutral-800 rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
         <Card className="text-center py-12">
           <Dumbbell className="mx-auto mb-3 text-neutral-600" size={32} />

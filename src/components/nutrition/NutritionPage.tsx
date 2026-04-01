@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ScanLine, ChefHat } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -22,7 +22,7 @@ export default function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, loading: nutritionLoading } = useNutritionStore();
   const { measurements } = useWeightStore();
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
@@ -61,6 +61,19 @@ export default function NutritionPage() {
 
   const hasEnoughData = measurements.length >= 7;
 
+  const getTimeBasedCategory = () => {
+    const hour = new Date().getHours();
+    if (hour < 11) return 'breakfast';
+    if (hour < 14) return 'lunch';
+    if (hour < 18) return 'snack';
+    return 'dinner';
+  };
+
+  const handleQuickAdd = () => {
+    setAddCategory(getTimeBasedCategory());
+    setShowAdd(true);
+  };
+
   return (
     <PageTransition>
     <div className="px-4 pt-6">
@@ -72,6 +85,13 @@ export default function NutritionPage() {
           </button>
           <button onClick={() => navigate('/scanner')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
             <ScanLine size={18} />
+          </button>
+          <button
+            onClick={handleQuickAdd}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <Plus size={16} />
+            Add
           </button>
         </div>
       </div>
@@ -108,17 +128,34 @@ export default function NutritionPage() {
       </div>
 
       <div className="mt-4 space-y-4">
-        {MEAL_CATEGORIES.map((cat, i) => (
-          <div key={cat.value} className="animate-fade-in-up" style={{ animationDelay: `${(i + 3) * 60}ms` }}>
-          <MealSection
-            category={cat.value}
-            label={cat.label}
-            logs={logs.filter(l => l.category === cat.value)}
-            onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
-            onEdit={(log) => setEditingLog(log)}
-          />
-          </div>
-        ))}
+        {nutritionLoading ? (
+          <>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 animate-pulse">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 bg-neutral-800 rounded-md w-24" />
+                  <div className="h-3 bg-neutral-800/70 rounded-md w-16" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-10 bg-neutral-800/50 rounded-xl w-full" />
+                  <div className="h-10 bg-neutral-800/50 rounded-xl w-full" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          MEAL_CATEGORIES.map((cat, i) => (
+            <div key={cat.value} className="animate-fade-in-up" style={{ animationDelay: `${(i + 3) * 60}ms` }}>
+              <MealSection
+                category={cat.value}
+                label={cat.label}
+                logs={logs.filter(l => l.category === cat.value)}
+                onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
+                onEdit={(log) => setEditingLog(log)}
+              />
+            </div>
+          ))
+        )}
       </div>
 
       {showAdd && (

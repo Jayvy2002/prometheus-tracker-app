@@ -3,6 +3,14 @@ import { supabase } from '../lib/supabase';
 import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
 
+interface PreviousSet {
+  weight_kg: number;
+  reps: number;
+  rir: number;
+  set_type: string;
+  order_index: number;
+}
+
 interface WorkoutState {
   workouts: Workout[];
   currentWorkout: Workout | null;
@@ -19,6 +27,7 @@ interface WorkoutState {
   updateSet: (id: string, data: Partial<WorkoutSet>) => Promise<void>;
   deleteSet: (id: string) => Promise<void>;
   setCurrentWorkout: (w: Workout | null) => void;
+  fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string) => Promise<PreviousSet[]>;
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -228,4 +237,30 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   setCurrentWorkout: (w) => set({ currentWorkout: w }),
+
+  fetchPreviousSets: async (userId, exerciseName, currentWorkoutId) => {
+    // Find all exercises with this name for this user, excluding current workout
+    const { data: exercises } = await supabase
+      .from('workout_exercises')
+      .select('id, workout_id, workouts!inner(user_id, date)')
+      .eq('workouts.user_id', userId)
+      .ilike('name', exerciseName)
+      .neq('workout_id', currentWorkoutId);
+
+    if (!exercises || exercises.length === 0) return [];
+
+    // Sort by date desc, pick most recent
+    const sorted = [...exercises].sort((a: any, b: any) =>
+      new Date(b.workouts.date).getTime() - new Date(a.workouts.date).getTime()
+    );
+    const mostRecent = sorted[0];
+
+    const { data: sets } = await supabase
+      .from('workout_sets')
+      .select('weight_kg, reps, rir, set_type, order_index')
+      .eq('exercise_id', mostRecent.id)
+      .order('order_index');
+
+    return (sets ?? []) as PreviousSet[];
+  },
 }));

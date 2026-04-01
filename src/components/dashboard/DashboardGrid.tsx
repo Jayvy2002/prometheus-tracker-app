@@ -363,6 +363,8 @@ export default function DashboardGrid({ widgets, editMode, onSave, onEnterEditMo
                 onRemove={() => removeWidget(pw.id)}
                 onCycleSize={() => cycleSize(pw.id)}
                 onPointerDown={handleWidgetMouseDown(pw.id)}
+                onPointerUp={handleLongPressEnd}
+                onPointerLeave={handleLongPressEnd}
                 onTouchStart={handleWidgetTouchStart(pw.id)}
                 onTouchMove={handleWidgetTouchMove}
                 onTouchEnd={handleWidgetTouchEnd}

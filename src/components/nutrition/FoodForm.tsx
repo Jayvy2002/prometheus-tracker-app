@@ -298,6 +298,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                   placeholder="Search food..."
                   className="pl-10"
+                  autoFocus
                 />
               </div>
               <Button onClick={handleSearch} variant="secondary" loading={searching}>Search</Button>

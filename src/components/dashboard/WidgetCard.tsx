@@ -40,6 +40,8 @@ interface WidgetCardProps {
   onRemove: () => void;
   onCycleSize: () => void;
   onPointerDown?: (e: React.MouseEvent) => void;
+  onPointerUp?: () => void;
+  onPointerLeave?: () => void;
   onTouchStart?: (e: React.TouchEvent) => void;
   onTouchMove?: (e: React.TouchEvent) => void;
   onTouchEnd?: () => void;
@@ -53,6 +55,8 @@ export default function WidgetCard({
   onRemove,
   onCycleSize,
   onPointerDown,
+  onPointerUp,
+  onPointerLeave,
   onTouchStart,
   onTouchMove,
   onTouchEnd,
@@ -86,6 +90,8 @@ export default function WidgetCard({
     <div
       className={`relative select-none ${isSmall ? 'aspect-square' : ''}`}
       onMouseDown={onPointerDown}
+      onMouseUp={onPointerUp}
+      onMouseLeave={onPointerLeave}
       onTouchStart={onTouchStart}
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
