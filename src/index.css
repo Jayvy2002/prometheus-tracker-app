@@ -488,6 +488,89 @@ select option {
 }
 
 /* ============================================================
+   DASHBOARD – DROP ZONE & DRAG
+   ============================================================ */
+
+/* Drop zone pulsing target */
+@keyframes drop-zone-pulse {
+  0%, 100% {
+    border-color: rgba(59, 130, 246, 0.35);
+    background-color: rgba(59, 130, 246, 0.04);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.0);
+  }
+  50% {
+    border-color: rgba(59, 130, 246, 0.7);
+    background-color: rgba(59, 130, 246, 0.10);
+    box-shadow: 0 0 18px 4px rgba(59, 130, 246, 0.15);
+  }
+}
+
+/* Long-press ripple expanding outward */
+@keyframes long-press-ripple {
+  0%   { transform: scale(0.8); opacity: 0.6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* Widget entering edit mode – quick pop */
+@keyframes edit-mode-enter {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.94); }
+  65%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+/* Widget being removed */
+@keyframes widget-remove {
+  0%   { transform: scale(1);    opacity: 1; }
+  40%  { transform: scale(1.06); opacity: 0.8; }
+  100% { transform: scale(0);    opacity: 0; }
+}
+
+/* Smooth land/settle after drop */
+@keyframes widget-land {
+  0%   { transform: scale(1.06); }
+  40%  { transform: scale(0.96); }
+  70%  { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Subtle jiggle for OTHER widgets when one passes through */
+@keyframes widget-nudge {
+  0%,100% { transform: translateX(0); }
+  25%      { transform: translateX(-3px); }
+  75%      { transform: translateX(3px); }
+}
+
+/* Hint text shimmer */
+@keyframes hint-shimmer {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}
+
+.animate-drop-zone-pulse {
+  animation: drop-zone-pulse 1.1s ease-in-out infinite;
+}
+.animate-edit-mode-enter {
+  animation: edit-mode-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.animate-widget-remove {
+  animation: widget-remove 0.35s cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+.animate-widget-land {
+  animation: widget-land 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.animate-widget-nudge {
+  animation: widget-nudge 0.3s ease-in-out;
+}
+.animate-long-press-ripple {
+  animation: long-press-ripple 0.7s ease-out forwards;
+}
+.animate-hint-shimmer {
+  animation: hint-shimmer 2s ease-in-out infinite;
+}
+
+/* ============================================================
    SCAN LINE (SCANNER)
    ============================================================ */
 
