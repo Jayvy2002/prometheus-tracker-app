@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Camera, X, Search, AlertCircle, ArrowLeft, ScanLine, Loader2, Image as ImageIcon } from 'lucide-react';
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
+import { useAuthStore } from '../../stores/authStore';
 import { MEAL_CATEGORIES } from '../../lib/constants';
 import { todayStr } from '../../lib/utils';
 import type { FoodProduct } from '../../lib/types';
@@ -20,6 +21,7 @@ export default function ScannerPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { findByBarcode, createProduct } = useNutritionStore();
+  const { user } = useAuthStore();
 
   const [state, setState] = useState<ScannerState>('idle');
   const [manualCode, setManualCode] = useState('');
@@ -86,15 +88,15 @@ export default function ScannerPage() {
         const nutrients = p.nutriments || {};
         const productData = {
           barcode: code.trim(),
-          name: p.product_name || 'Unknown product',
+          name: p.product_name || p.product_name_fr || p.product_name_en || 'Unknown product',
           brand: p.brands || null,
-          calories_per_100g: nutrients['energy-kcal_100g'] || 0,
-          protein_per_100g: nutrients.proteins_100g || 0,
-          carbs_per_100g: nutrients.carbohydrates_100g || 0,
-          fat_per_100g: nutrients.fat_100g || 0,
+          calories_per_100g: nutrients['energy-kcal_100g'] ?? nutrients['energy-kcal'] ?? 0,
+          protein_per_100g: nutrients.proteins_100g ?? nutrients.proteins ?? 0,
+          carbs_per_100g: nutrients.carbohydrates_100g ?? nutrients.carbohydrates ?? 0,
+          fat_per_100g: nutrients.fat_100g ?? nutrients.fat ?? 0,
           serving_size: +(p.serving_quantity || 100),
-          serving_unit: 'g',
-          created_by: null,
+          serving_unit: p.serving_size?.includes('ml') ? 'ml' : 'g',
+          created_by: user?.id ?? null,
           data_source: null,
         };
         const saved = await createProduct(productData);

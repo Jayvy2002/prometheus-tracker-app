@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Search, Plus, Dumbbell, Loader2, Sparkles } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import { useExerciseStore } from '../../stores/exerciseStore';
@@ -114,7 +114,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-blue-300">Proposer "{search.trim()}"</p>
-                    <p className="text-[11px] text-neutral-500">L'IA verifiera et ajoutera l'exercice</p>
+                    <p className="text-[11px] text-neutral-500">Soumis pour validation — disponible sous peu</p>
                   </div>
                   <Plus size={16} className="text-blue-400" />
                 </button>
@@ -127,11 +127,9 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
       {showNewForm && (
         <NewExerciseModal
           initialName={search.trim()}
-          onClose={() => setShowNewForm(false)}
-          onAdded={(name) => {
+          onClose={() => {
             setShowNewForm(false);
-            onSelect(name);
-            setSearch('');
+            onClose(); // Ferme aussi l'ExercisePicker et renvoie l'user là où il était
           }}
         />
       )}
@@ -139,18 +137,26 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
   );
 }
 
-function NewExerciseModal({ initialName, onClose, onAdded }: {
+function NewExerciseModal({ initialName, onClose }: {
   initialName: string;
   onClose: () => void;
-  onAdded: (name: string) => void;
 }) {
-  const { submitExercise, pollRequest } = useExerciseStore();
+  const { submitExercise } = useExerciseStore();
   const [name, setName] = useState(initialName);
   const [muscles, setMuscles] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'polling' | 'approved' | 'rejected'>('idle');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'submitted'>('idle');
   const [error, setError] = useState('');
-  const [approvedName, setApprovedName] = useState('');
+  const autoCloseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Auto-close 3s après l'écran de remerciement
+  useEffect(() => {
+    if (status !== 'submitted') return;
+    autoCloseRef.current = setTimeout(() => onClose(), 3000);
+    return () => {
+      if (autoCloseRef.current) clearTimeout(autoCloseRef.current);
+    };
+  }, [status, onClose]);
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -159,144 +165,124 @@ function NewExerciseModal({ initialName, onClose, onAdded }: {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setError('Vous devez etre connecte.');
+      setError('Vous devez être connecté.');
       setStatus('idle');
       return;
     }
 
     const request = await submitExercise(user.id, name.trim(), muscles.trim(), description.trim());
     if (!request) {
-      setError('Erreur lors de la soumission.');
+      setError('Erreur lors de la soumission. Réessayez.');
       setStatus('idle');
       return;
     }
 
-    setStatus('polling');
-
-    let attempts = 0;
-    const maxAttempts = 30;
-    const poll = async () => {
-      if (attempts >= maxAttempts) {
-        setError('La verification prend trop de temps. Reessayez plus tard.');
-        setStatus('idle');
-        return;
-      }
-      attempts++;
-
-      const result = await pollRequest(request.id);
-      if (!result) {
-        setError('Erreur lors de la verification.');
-        setStatus('idle');
-        return;
-      }
-
-      if (result.status === 'approved') {
-        setStatus('approved');
-        setApprovedName(name.trim());
-        return;
-      }
-
-      if (result.status === 'rejected') {
-        setError(result.error_message || 'Exercice non reconnu.');
-        setStatus('rejected');
-        return;
-      }
-
-      setTimeout(poll, 1500);
-    };
-
-    setTimeout(poll, 2000);
+    setStatus('submitted');
   };
+
+  // Écran de remerciement
+  if (status === 'submitted') {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70" />
+        <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10 animate-modal-pop">
+          <div className="text-center py-3">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle size={28} className="text-emerald-400 animate-spring-bounce" />
+            </div>
+            <p className="text-white font-semibold text-lg mb-2">Merci pour ta contribution !</p>
+            <p className="text-neutral-400 text-sm leading-relaxed mb-1">
+              Ta demande pour <span className="text-white font-medium">"{name.trim()}"</span> a bien été reçue.
+            </p>
+            <p className="text-neutral-500 text-sm leading-relaxed mb-6">
+              L'IA analysera cet exercice et l'ajoutera à la base de données s'il est reconnu. Il sera disponible sous peu.
+            </p>
+            {/* Barre de progression auto-close */}
+            <div className="w-full h-0.5 bg-neutral-800 rounded-full mb-5 overflow-hidden">
+              <div
+                className="h-full bg-emerald-500/60 rounded-full"
+                style={{ animation: 'progress-drain 3s linear forwards' }}
+              />
+            </div>
+            <button
+              onClick={onClose}
+              className="w-full py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-medium transition-colors active:scale-95"
+            >
+              Retour
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/70" onClick={onClose} />
+      <div className="fixed inset-0 bg-black/70" onClick={status === 'idle' ? onClose : undefined} />
       <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10">
-        <h3 className="text-lg font-semibold text-white mb-4">Proposer un exercice</h3>
+        <h3 className="text-lg font-semibold text-white mb-1">Proposer un exercice</h3>
+        <p className="text-neutral-500 text-xs mb-4">L'IA vérifiera ta demande et l'ajoutera si elle est valide</p>
 
-        {status === 'approved' ? (
-          <div className="text-center py-6">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/15 flex items-center justify-center mx-auto mb-4">
-              <Sparkles size={24} className="text-blue-400" />
-            </div>
-            <p className="text-white font-medium mb-1">Exercice approuve !</p>
-            <p className="text-neutral-400 text-sm mb-6">
-              L'IA a verifie et ajoute cet exercice a la base de donnees.
-            </p>
-            <button
-              onClick={() => onAdded(approvedName)}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors"
-            >
-              Utiliser cet exercice
-            </button>
+        <div className="space-y-3 mb-5">
+          <div>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block">Nom de l'exercice</label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ex: Seated Cable Row"
+              disabled={status === 'submitting'}
+            />
           </div>
-        ) : (
-          <>
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="text-xs font-medium text-neutral-400 mb-1 block">Nom de l'exercice</label>
-                <Input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Ex: Seated Cable Row"
-                  disabled={status !== 'idle' && status !== 'rejected'}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-400 mb-1 block">Muscles travailles (optionnel)</label>
-                <Input
-                  value={muscles}
-                  onChange={e => setMuscles(e.target.value)}
-                  placeholder="Ex: dos, biceps"
-                  disabled={status !== 'idle' && status !== 'rejected'}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-400 mb-1 block">Description (optionnel)</label>
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="Decrivez l'exercice : mouvement, position, equipement..."
-                  rows={3}
-                  disabled={status !== 'idle' && status !== 'rejected'}
-                  className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-                />
-                <p className="text-[11px] text-neutral-600 mt-1">Aide l'IA a mieux identifier l'exercice</p>
-              </div>
-            </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block">Muscles travaillés <span className="text-neutral-600">(optionnel)</span></label>
+            <Input
+              value={muscles}
+              onChange={e => setMuscles(e.target.value)}
+              placeholder="Ex: dos, biceps"
+              disabled={status === 'submitting'}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block">Description <span className="text-neutral-600">(optionnel)</span></label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Décrivez le mouvement, la position, l'équipement..."
+              rows={3}
+              disabled={status === 'submitting'}
+              className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+            />
+            <p className="text-[11px] text-neutral-600 mt-1">Aide l'IA à mieux identifier l'exercice</p>
+          </div>
+        </div>
 
-            {error && (
-              <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 mb-4">
-                {error}
-              </div>
-            )}
-
-            {(status === 'submitting' || status === 'polling') && (
-              <div className="flex items-center gap-3 bg-neutral-900/50 rounded-xl p-3 mb-4">
-                <Loader2 size={16} className="animate-spin text-blue-400" />
-                <p className="text-sm text-neutral-300">
-                  {status === 'submitting' ? 'Envoi de la demande...' : 'L\'IA verifie l\'exercice...'}
-                </p>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="flex-1 py-2.5 bg-neutral-900 text-neutral-300 rounded-xl font-medium hover:bg-neutral-800 transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={!name.trim() || (status !== 'idle' && status !== 'rejected')}
-                className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {status === 'rejected' ? 'Reessayer' : 'Verifier avec l\'IA'}
-              </button>
-            </div>
-          </>
+        {error && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 mb-4">
+            {error}
+          </div>
         )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            disabled={status === 'submitting'}
+            className="flex-1 py-2.5 bg-neutral-900 text-neutral-300 rounded-xl font-medium hover:bg-neutral-800 transition-colors disabled:opacity-40"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!name.trim() || status === 'submitting'}
+            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {status === 'submitting' ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Envoi...
+              </>
+            ) : 'Soumettre'}
+          </button>
+        </div>
       </div>
     </div>
   );
