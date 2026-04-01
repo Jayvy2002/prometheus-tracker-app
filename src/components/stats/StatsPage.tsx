@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
-import { formatWeight } from '../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';

@@ -56,7 +56,7 @@ export default function WidgetCard({
   const isSmall = widget.size === 'small';
   const route = WIDGET_ROUTES[widget.type];
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = (_e: React.MouseEvent) => {
     if (editMode) return;
     if (route) navigate(route);
   };

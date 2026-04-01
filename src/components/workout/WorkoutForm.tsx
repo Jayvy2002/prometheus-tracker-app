@@ -93,7 +93,7 @@ function WorkoutFormInner() {
       const safeFloat = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
       const safeInt = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
-      const setUpdates: Promise<any>[] = [];
+      const setUpdates: PromiseLike<any>[] = [];
       setDrafts.forEach((draft, setId) => {
         const updates: Record<string, any> = {};
         if (draft.weight_kg !== undefined) updates.weight_kg = draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg);
@@ -107,7 +107,7 @@ function WorkoutFormInner() {
         }
       });
 
-      const exerciseUpdates: Promise<any>[] = [];
+      const exerciseUpdates: PromiseLike<any>[] = [];
       exerciseDrafts.forEach((draft, exerciseId) => {
         const updates: Record<string, any> = {};
         if (draft.notes !== undefined) updates.notes = draft.notes;

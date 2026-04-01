@@ -86,7 +86,7 @@ export default function ScannerPage() {
         const productData = {
           barcode: code.trim(),
           name: p.product_name || 'Unknown product',
-          brand: p.brands || '',
+          brand: p.brands || null,
           calories_per_100g: nutrients['energy-kcal_100g'] || 0,
           protein_per_100g: nutrients.proteins_100g || 0,
           carbs_per_100g: nutrients.carbohydrates_100g || 0,
@@ -94,6 +94,7 @@ export default function ScannerPage() {
           serving_size: +(p.serving_quantity || 100),
           serving_unit: 'g',
           created_by: null,
+          data_source: null,
         };
         const saved = await createProduct(productData);
         const offProduct: FoodProduct = saved ?? { id: '', created_at: '', ...productData };

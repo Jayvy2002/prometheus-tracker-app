@@ -33,7 +33,7 @@ export default function RecipesPage() {
     setConfirmDelete(null);
   };
 
-  const handleSaved = (recipe: Recipe) => {
+  const handleSaved = (_recipe: Recipe) => {
     setShowNew(false);
     setEditing(null);
     if (user) fetchRecipes(user.id);

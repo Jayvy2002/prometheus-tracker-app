@@ -275,7 +275,7 @@ IMPORTANT - Internet knowledge:
       .insert({
         barcode: prodReq.barcode || null,
         name: productData.name || "Unknown Product",
-        brand: productData.brand || "",
+        brand: productData.brand || null,
         calories_per_100g: productData.calories_per_100g || 0,
         protein_per_100g: productData.protein_per_100g || 0,
         carbs_per_100g: productData.carbs_per_100g || 0,
@@ -283,6 +283,7 @@ IMPORTANT - Internet knowledge:
         serving_size: productData.serving_size || 100,
         serving_unit: productData.serving_unit || "g",
         created_by: user.id,
+        data_source: "user",
       })
       .select()
       .maybeSingle();

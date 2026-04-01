@@ -170,11 +170,13 @@ export interface ExerciseRequest {
   updated_at: string;
 }
 
+export type FoodDataSource = 'foundation' | 'sr_legacy' | 'fndds' | 'branded' | 'user';
+
 export interface FoodProduct {
   id: string;
   barcode: string | null;
   name: string;
-  brand: string;
+  brand: string | null;
   calories_per_100g: number;
   protein_per_100g: number;
   carbs_per_100g: number;
@@ -183,6 +185,8 @@ export interface FoodProduct {
   serving_unit: string;
   created_by: string | null;
   created_at: string;
+  /** Source USDA ou 'user' pour les produits créés par l'utilisateur */
+  data_source: FoodDataSource | null;
 }
 
 export type ProductRequestStatus = 'pending' | 'processing' | 'completed' | 'failed';

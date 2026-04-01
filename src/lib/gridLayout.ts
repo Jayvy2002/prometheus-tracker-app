@@ -62,8 +62,8 @@ export function autoLayout(widgets: DashboardWidget[]): PlacedWidget[] {
 }
 
 export function findDropTarget(
-  placed: PlacedWidget[],
-  dragId: string,
+  _placed: PlacedWidget[],
+  _dragId: string,
   gridRect: DOMRect,
   cellWidth: number,
   rowHeight: number,
