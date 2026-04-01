@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
@@ -182,7 +183,7 @@ function NewExerciseModal({ initialName, onClose }: {
 
   // Écran de remerciement
   if (status === 'submitted') {
-    return (
+    return createPortal(
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/70" />
         <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10 animate-modal-pop">
@@ -212,11 +213,12 @@ function NewExerciseModal({ initialName, onClose }: {
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/70" onClick={status === 'idle' ? onClose : undefined} />
       <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10">
@@ -284,6 +286,7 @@ function NewExerciseModal({ initialName, onClose }: {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
