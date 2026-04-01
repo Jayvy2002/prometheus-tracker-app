@@ -80,7 +80,8 @@ export default function OnboardingFlow() {
   const titles = ['About You', 'Your Body', 'Activity Level', 'Your Goal', 'Summary'];
 
   return (
-    <div className="min-h-screen bg-black flex flex-col px-6 py-8">
+    <div className="min-h-screen bg-black flex flex-col items-center justify-start">
+      <div className="w-full max-w-lg px-6 py-8 flex flex-col flex-1">
       <div className="flex items-center gap-3 mb-2">
         <img src="/logo.svg" alt="Prometheus" className="w-7 h-7" />
         <span className="text-white font-semibold">Prometheus</span>
@@ -118,6 +119,7 @@ export default function OnboardingFlow() {
             <Check size={18} /> Get Started
           </Button>
         )}
+      </div>
       </div>
     </div>
   );

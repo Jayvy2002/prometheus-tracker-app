@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import FullPageLayout from '../layout/FullPageLayout';
 import { ArrowLeft, Plus, Check, Clock, Play, Pause, RotateCcw } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -229,8 +230,10 @@ function WorkoutFormInner() {
 
 export default function WorkoutForm() {
   return (
-    <WorkoutDraftProvider>
-      <WorkoutFormInner />
-    </WorkoutDraftProvider>
+    <FullPageLayout>
+      <WorkoutDraftProvider>
+        <WorkoutFormInner />
+      </WorkoutDraftProvider>
+    </FullPageLayout>
   );
 }

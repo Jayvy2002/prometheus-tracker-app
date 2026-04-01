@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import FullPageLayout from '../layout/FullPageLayout';
 
 type Period = 'week' | 'month' | '3months';
 
@@ -206,6 +207,7 @@ export default function StatsPage() {
   }));
 
   return (
+    <FullPageLayout>
     <PageTransition>
     <div className="px-4 pt-6 pb-24">
       <div className="flex items-center gap-3 mb-6 animate-fade-in-down">
@@ -360,5 +362,6 @@ export default function StatsPage() {
       )}
     </div>
     </PageTransition>
+    </FullPageLayout>
   );
 }

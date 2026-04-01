@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import FullPageLayout from '../layout/FullPageLayout';
 
 interface ExerciseEntry {
   date: string;
@@ -123,6 +124,7 @@ export default function ExerciseProgressPage() {
   const diff = latest && previous ? latest[metric] - previous[metric] : null;
 
   return (
+    <FullPageLayout>
     <PageTransition>
     <div className="px-4 pt-6">
       <div className="flex items-center gap-3 mb-6 animate-fade-in-down">
@@ -240,5 +242,6 @@ export default function ExerciseProgressPage() {
       ) : null}
     </div>
     </PageTransition>
+    </FullPageLayout>
   );
 }

@@ -12,6 +12,7 @@ import Select from '../ui/Select';
 import Card from '../ui/Card';
 import FoodForm from '../nutrition/FoodForm';
 import CreateProductForm from './CreateProductForm';
+import FullPageLayout from '../layout/FullPageLayout';
 
 type ScannerState = 'idle' | 'scanning' | 'searching' | 'not_found' | 'food_form' | 'create_form';
 
@@ -216,26 +217,31 @@ export default function ScannerPage() {
 
   if (state === 'food_form' && product) {
     return (
-      <FoodForm
-        category={selectedCategory}
-        date={selectedDate}
-        onClose={() => navigate('/nutrition')}
-        prefill={product}
-      />
+      <FullPageLayout>
+        <FoodForm
+          category={selectedCategory}
+          date={selectedDate}
+          onClose={() => navigate('/nutrition')}
+          prefill={product}
+        />
+      </FullPageLayout>
     );
   }
 
   if (state === 'create_form') {
     return (
-      <CreateProductForm
-        barcode={scannedCode || manualCode}
-        onClose={handleReset}
-        onCreated={(p) => { setProduct(p); setState('food_form'); }}
-      />
+      <FullPageLayout>
+        <CreateProductForm
+          barcode={scannedCode || manualCode}
+          onClose={handleReset}
+          onCreated={(p) => { setProduct(p); setState('food_form'); }}
+        />
+      </FullPageLayout>
     );
   }
 
   return (
+    <FullPageLayout>
     <div className="px-4 pt-6 pb-24">
       <input
         ref={fileInputRef}
@@ -426,5 +432,6 @@ export default function ScannerPage() {
         </div>
       )}
     </div>
+    </FullPageLayout>
   );
 }

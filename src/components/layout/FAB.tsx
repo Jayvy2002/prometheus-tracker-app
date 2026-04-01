@@ -22,12 +22,12 @@ export default function FAB() {
     <>
       {open && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+          className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         />
       )}
 
-      <div className="fixed bottom-[68px] left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+      <div className="md:hidden fixed bottom-[68px] left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
         {open && (
           <div className="flex flex-col items-center gap-2 mb-1 animate-fade-in-up">
             {actions.map((action, i) => {
