@@ -1,6 +1,7 @@
 # Audit & Plan d'Amélioration — Prometheus Tracker
 
-> Audit réalisé le 1er avril 2026. Ce document ne contient aucune modification de code — uniquement des recommandations priorisées.
+> Audit réalisé le 1er avril 2026.
+> Dernière mise à jour : 1er avril 2026.
 
 ---
 
@@ -10,112 +11,121 @@ Prometheus est une application de suivi fitness bien architecturée, couvrant l'
 
 ---
 
+## Légende
+
+- ✅ **Implémenté**
+- 🔴 **Priorité haute — à faire**
+- 🟠 **Priorité moyenne — à faire**
+- 🟡 **Priorité basse / nice-to-have**
+
+---
+
 ## 1. Expérience Utilisateur (UX)
 
-### 1.1 Navigation & Structure
+### ✅ 1.1 Navigation & Structure
 
-**Problème :** Certaines pages importantes (`/stats`, `/exercise-progress`, `/health`) ne sont accessibles que via des routes directes — elles n'apparaissent pas dans la navigation principale (SideNav/BottomNav). L'utilisateur peut ne jamais les découvrir.
+**Problème :** Certaines pages importantes (`/stats`, `/exercise-progress`) n'apparaissaient pas dans la navigation principale.
 
-**Recommandation :**
-- Intégrer `/stats` dans la navigation principale (remplacer ou compléter `/calendar`)
-- Ajouter un menu "Plus" ou une section découverte dans le profil pour les pages secondaires
-- Revoir la hiérarchie de navigation : Dashboard → Workout → Nutrition → Stats → Profil
-
----
-
-### 1.2 Onboarding
-
-**Problème :** Le flux d'onboarding en 5 étapes est fonctionnel mais ne montre pas à l'utilisateur la **valeur immédiate** de l'app avant qu'il s'engage à remplir toutes ses données.
-
-**Recommandation :**
-- Ajouter un écran de "preview" avant l'onboarding montrant les fonctionnalités clés (screenshots animés ou démo)
-- Permettre de passer certaines étapes (ex : mensurations) et les compléter plus tard
-- Ajouter une barre de progression visuelle avec estimation du temps restant ("2 min pour finir")
-- Message de bienvenue personnalisé à la fin de l'onboarding avec le prénom et les objectifs calculés
+**Implémenté :**
+- `/stats` intégré dans la BottomNav mobile (remplace Calendar) : Dashboard → Workout → Stats → Nutrition → Profil
+- `/stats` et `/exercise-progress` ajoutés dans la SideNav desktop
+- Les deux pages déplacées dans `AppLayout` — elles ont maintenant la nav active, la BottomNav mobile et le FAB
 
 ---
 
-### 1.3 Dashboard
+### 🟠 1.2 Onboarding
 
-**Problème :** Le dashboard est personnalisable mais l'état par défaut peut sembler vide ou peu engageant pour un nouvel utilisateur sans données.
+**Problème :** Le flux d'onboarding en 5 étapes ne montre pas la valeur immédiate avant que l'utilisateur s'engage à remplir toutes ses données.
 
 **Recommandation :**
-- État vide (empty state) guidé : si aucune donnée, chaque widget suggère une action ("Ajouter votre premier repas", "Démarrer un entraînement")
-- Widget "Aujourd'hui en bref" : résumé top-niveau (calories restantes, prochain entraînement prévu, poids de la veille)
-- Mémoriser le scroll position du dashboard lors de la navigation retour
-- Ajouter un widget "Objectif hebdomadaire" (ex : 3 séances/semaine → 2/3 cette semaine)
+- Ajouter un écran de "preview" avant l'onboarding montrant les fonctionnalités clés
+- Permettre de passer certaines étapes et les compléter plus tard
+- Barre de progression visuelle avec estimation du temps restant ("2 min pour finir")
+- Message de bienvenue personnalisé à la fin avec le prénom et les objectifs calculés
 
 ---
 
-### 1.4 Workout — Formulaire de logging
+### 🟠 1.3 Dashboard
 
-> ⚠️ Rappel de philosophie : Prometheus est une app de **logging**, pas un companion de séance. L'objectif est de **capturer fidèlement ce qui s'est passé à la salle**, le plus rapidement possible. Les recommandations ci-dessous visent la vitesse de saisie et la consultation de l'historique — pas un flow guidé.
-
-**Problème :** La saisie des séries (poids/reps) manque de rapidité, et l'utilisateur n'a pas accès à ses performances passées au moment où il en a le plus besoin (pendant ou juste après sa séance).
+**Problème :** Le dashboard peut sembler vide ou peu engageant pour un nouvel utilisateur sans données.
 
 **Recommandation :**
-- Afficher les performances de la dernière séance sur le même exercice directement dans la fiche, sans navigation (ex : "Dernière fois — Série 1 : 80kg × 8, Série 2 : 80kg × 6")
-- Saisie numérique optimisée : ouvrir directement le pavé numérique au tap sur un champ poids/reps, pas de clavier alphanumérique
-- Permettre le logging rétroactif sans friction : la date de séance doit être facilement modifiable en haut du formulaire (pour ceux qui loggent après coup)
-- Enregistrement automatique à chaque modification (pas de bouton "Sauvegarder" à ne pas oublier)
+- Empty states guidés : chaque widget sans données suggère une action
+- Widget "Aujourd'hui en bref" : résumé top-niveau (calories restantes, poids de la veille)
+- Mémoriser la scroll position lors de la navigation retour
+- Widget "Objectif hebdomadaire" (ex : 3 séances/semaine → 2/3 cette semaine)
 
 ---
 
-### 1.5 Nutrition — Logging des repas
+### ✅ 1.4 Workout — Formulaire de logging
 
-**Problème :** Ajouter un aliment nécessite de naviguer dans plusieurs écrans. Le flux n'est pas aussi rapide que sur des apps concurrentes (MyFitnessPal).
+> ⚠️ Philosophie : Prometheus est une app de **logging**, pas un companion de séance. L'objectif est de capturer fidèlement ce qui s'est passé à la salle, le plus rapidement possible.
 
-**Recommandation :**
-- Barre de recherche d'aliments directement accessible depuis la page Nutrition (pas de navigation supplémentaire)
-- Suggestions "récents" et "favoris" affichées en premier dans la recherche d'aliments
-- Logging rapide : ajouter un aliment favori en 1 tap depuis la page Nutrition
-- Copier les repas d'une journée précédente ("Réutiliser le repas d'hier")
-- Indicateur visuel de progression calorique (ex : barre de couleur qui passe de vert à orange à rouge)
-- **Recherche intelligente par ranking IA** : plutôt qu'afficher une liste brute de tous les aliments correspondant au texte saisi, classer les résultats par ordre de probabilité contextuelle (fréquence d'utilisation du user, heure de la journée, repas précédents, popularité globale). Cette fonctionnalité est peut-être déjà partiellement implémentée — à vérifier. Si elle ne l'est pas, une alternative sans IA est possible via un scoring simple (fuzzy match + fréquence personnelle + popularité). Si on utilise l'IA, envoyer l'input + contexte (heure, repas du jour) à GPT pour re-scorer les résultats avant affichage.
+**Implémenté :**
+- Performances de la dernière séance sur le même exercice affichées directement dans la fiche (poids × reps par série)
+- Données chargées au montage via `fetchPreviousSets` dans le workout store
+
+**Reste à faire :**
+- Saisie numérique optimisée : ouvrir le pavé numérique au tap sur un champ poids/reps
+- Logging rétroactif : date de séance facilement modifiable en haut du formulaire
+- Enregistrement automatique à chaque modification
 
 ---
 
-### 1.6 Scanner & Reconnaissance de produits
+### ✅ 1.5 Nutrition — Logging des repas
 
-**Problème :** Le scanner actuel est exclusivement basé sur la lecture de codes-barres. Les produits sans code-barres (aliments frais, plats cuisinés maison, restaurants) ne peuvent pas être identifiés via cette interface.
+**Implémenté :**
+- Bouton **"+ Add"** dans le header de la page Nutrition, détection automatique de la catégorie par heure (avant 11h → breakfast, 11h–14h → lunch, 14h–18h → snack, après 18h → dinner)
+- Auto-focus sur le champ de recherche à l'ouverture du formulaire
+- Recherche intelligente par ranking IA — à vérifier si déjà en place (bolt.new)
+
+**Reste à faire :**
+- "Réutiliser le repas d'hier"
+- Indicateur visuel de progression calorique sur la page principale
+
+---
+
+### 🟠 1.6 Scanner & Reconnaissance de produits
+
+**Problème :** Le scanner est exclusivement basé sur les codes-barres. Les produits sans code-barres ne peuvent pas être identifiés.
 
 **Recommandation — Reconnaissance produit par image (sans code-barres) :**
-- Ajouter un mode "Photo du produit" dans le scanner : l'utilisateur prend une photo de l'aliment ou de l'emballage
-- L'image est envoyée à GPT-4o Vision (déjà intégré dans l'app via la edge function `analyze-product`) pour identifier le produit
-- Une fois le produit identifié par l'IA (ex : "Yaourt nature Danone 125g"), recherche automatique dans : la base interne `food_products`, puis Open Food Facts API (`https://world.openfoodfacts.org/api/v2/search?product_name=...`)
-- Si un match est trouvé, proposer le produit à l'utilisateur pour confirmation avant de logger
-- Si aucun match, afficher la fiche produit pré-remplie par l'IA pour que l'utilisateur la valide/corrige avant enregistrement
-- Cette approche réutilise l'infrastructure OpenAI déjà en place — pas de nouveau service à intégrer
+- Mode "Photo du produit" : l'utilisateur prend une photo de l'aliment ou de l'emballage
+- Image envoyée à GPT-4o Vision (déjà intégré via la edge function `analyze-product`) pour identification
+- Recherche automatique dans la base interne, puis Open Food Facts API
+- Confirmation par l'utilisateur avant logging, ou pré-remplissage de la fiche si aucun match
 
-> **Note technique :** Open Food Facts est une base publique gratuite (~3M produits), accessible via API REST sans clé. Elle couvre bien les produits européens/français. À intégrer comme fallback après la base interne.
+> **Note technique :** Open Food Facts est une base publique gratuite (~3M produits), déjà utilisée dans FoodForm.tsx. À réutiliser.
 
 **Recommandation — Robustesse du scanner code-barres :**
-- Afficher clairement les navigateurs supportés avec un message d'aide si la Barcode Detection API n'est pas disponible
-- Ajouter une librairie de fallback JavaScript (ex : `zxing-js`) pour les navigateurs non compatibles (Firefox, etc.)
-- Permettre la saisie manuelle du code-barres dans la même page (pas de navigation séparée)
+- Fallback JavaScript (`zxing-js`) pour les navigateurs non compatibles (Firefox, etc.)
+- Saisie manuelle du code-barres dans la même page
 
 ---
 
-### 1.7 Page Calendrier
+### ✅ 1.7 Page Calendrier
 
-**Problème :** La page Calendrier existe mais son contenu est peu développé. Elle n'affiche probablement pas assez d'informations pour être utile (séances, repas, poids ce jour-là).
+**Implémenté :**
+- Résumé hebdomadaire : 3 compteurs (séances, jours nutritionnels loggés, pesées de la semaine)
+- Progression calorique vs objectif avec barre de couleur dans la carte nutrition
+- Clic sur la carte nutrition navigue vers `/nutrition` en pré-sélectionnant le bon jour dans le store
+- Skeleton loader dans le panel de résumé journalier
 
-**Recommandation :**
-- Afficher sur chaque jour : indicateur de séance complétée, calories du jour, poids du jour
-- Vue semaine et vue mois
-- Cliquer sur un jour ouvre un résumé de la journée (séances, macros, poids)
-- Visualisation des streaks directement sur le calendrier
+**Reste à faire :**
+- Vue mois (actuellement uniquement vue semaine)
+- Visualisation des streaks sur le calendrier
 
 ---
 
-### 1.9 États vides & Feedback
+### ✅ 1.8 États vides & Feedback
 
-**Problème :** Plusieurs pages n'ont probablement pas d'état vide (empty state) bien défini, ce qui peut perturber les nouveaux utilisateurs.
+**Implémenté :**
+- Skeleton loaders sur WorkoutPage (remplace "Loading..." basique)
+- Skeleton loaders sur NutritionPage (meal sections)
+- Skeleton loader dans le résumé journalier du Calendrier
 
-**Recommandation :**
-- Chaque liste (workouts, repas, recettes, routines) doit avoir un empty state illustré avec un CTA clair
-- Messages d'erreur réseau plus explicites (distinguer "pas de données" de "erreur de chargement")
-- Skeleton loaders sur toutes les listes pour éviter le flash de contenu vide
+**Reste à faire :**
+- Messages d'erreur réseau plus explicites
 - Toast de confirmation sur toutes les actions critiques (suppression, sauvegarde)
 
 ---
@@ -130,33 +140,30 @@ L'app n'a aucun système de rappels ou notifications, ce qui est un facteur clé
 **À implémenter :**
 - Rappels configurables : "N'oublie pas ton entraînement" (heure définie par l'utilisateur)
 - Rappel de log nutritionnel si aucun repas enregistré après 14h
-- Rappel d'hydrataion (ex : "Tu n'as pas encore loggé d'eau aujourd'hui")
-- Notification de fin de timer de repos
+- Rappel d'hydratation
 - Utiliser les **Web Notifications API** + Service Worker
 
 ---
 
-#### Historique des performances par exercice
-Le suivi de progression par exercice (`/exercise-progress`) existe mais est accessible uniquement via une route directe.
+#### ✅ Historique des performances par exercice
 
-**À implémenter :**
-- Accès rapide depuis la fiche exercice dans une séance active
-- Graphique de 1RM estimé (formule d'Epley) calculé automatiquement depuis les séries
-- Tableau comparatif semaine par semaine
-- Record personnel (PR) affiché et célébré lors d'un dépassement
+**Implémenté :**
+- `/exercise-progress` intégré dans la navigation principale (SideNav desktop + accessible depuis WorkoutPage)
+- Record personnel (PR) all-time affiché sous la valeur de la dernière session
+- Badge 🏆 "PR" sur la dernière session si elle égale le record all-time
+- Trophée et bordure ambrée dans l'historique pour les sessions record
+- Calcul 1RM via formule d'Epley déjà en place
 
 ---
 
 ### 2.2 🟠 Priorité Moyenne
 
 #### Routines — Améliorations
-Les routines sont fonctionnelles mais pourraient être bien plus puissantes.
+Les routines sont fonctionnelles mais pourraient être plus puissantes.
 
 **À implémenter :**
-- Programmes d'entraînement prédéfinis (PPL, 5/3/1, etc.) importables en 1 clic
 - Historique des performances sur chaque routine (tonnage moyen, évolution)
 - Planification de routine sur le calendrier (ex : "Lundi : Push, Mercredi : Pull")
-- Partage de routine entre utilisateurs
 
 ---
 
@@ -165,19 +172,18 @@ Les routines sont fonctionnelles mais pourraient être bien plus puissantes.
 #### Intelligence Artificielle — Coach Virtuel
 
 **À implémenter :**
-- Analyse hebdomadaire automatique : "Tu as mangé 15% sous ton objectif cette semaine, voici pourquoi c'est risqué..."
+- Analyse hebdomadaire automatique : résumé de la semaine avec observations
 - Suggestions d'ajustement de charge (progressive overload automatiquement détectée)
-- Chatbot coach nutritionnel (utilisation de l'intégration OpenAI déjà présente)
+- Chatbot coach nutritionnel (réutilise l'intégration OpenAI déjà présente)
 
 ---
 
 #### Social & Communauté
 
 **À implémenter :**
-- Profil public optionnel
-- Défi entre amis (ex : "Qui fait le plus de séances ce mois-ci ?")
-- Partage d'une séance ou d'un résumé nutritionnel sur les réseaux sociaux (image générée)
-- Leaderboard (optionnel, opt-in)
+- Partage d'une séance ou d'un résumé nutritionnel (image générée)
+- Défi entre amis
+- Leaderboard optionnel (opt-in)
 
 ---
 
@@ -185,97 +191,87 @@ Les routines sont fonctionnelles mais pourraient être bien plus puissantes.
 
 **À implémenter :**
 - Planificateur de repas pour la semaine
-- Liste de courses générée automatiquement depuis le plan alimentaire
+- Liste de courses générée automatiquement
 - Suggestions de repas selon les objectifs macros restants de la journée
 
 ---
 
 ## 3. Performance & Technique
 
-### 3.1 Pagination & virtualisation des listes
-
-**Problème :** Les listes (séances, logs nutritionnels) chargent probablement toutes les données sans pagination. Cela deviendra un problème de performance après plusieurs mois d'utilisation.
+### 🟡 3.1 Pagination & virtualisation des listes
 
 **Recommandation :**
 - Pagination ou infinite scroll sur : historique des workouts, logs nutritionnels, liste d'aliments
-- Virtualisation (`react-window` ou `react-virtual`) pour les longues listes d'exercices et d'aliments
+- Virtualisation (`react-window` ou `react-virtual`) pour les longues listes
 
 ---
 
-### 3.2 PWA & Offline
-
-**Problème :** L'app n'est pas configurée comme PWA (Progressive Web App). Il n'y a pas de Service Worker, pas de manifeste d'installation.
+### 🟠 3.2 PWA & Offline
 
 **Recommandation :**
-- Ajouter un `manifest.json` pour permettre l'installation sur l'écran d'accueil mobile
+- `manifest.json` pour permettre l'installation sur l'écran d'accueil mobile
 - Service Worker avec cache-first pour les assets statiques
-- Offline-first pour le logging de séances (déjà partiellement en place avec le localStorage)
 - Sync en arrière-plan quand la connexion est rétablie
 
 ---
 
-### 3.3 Optimisation des requêtes Supabase
-
-**Problème :** Les requêtes sont effectuées de manière séquentielle pour les données imbriquées (workout → exercises → sets), ce qui multiplie les aller-retours réseau.
+### 🟡 3.3 Optimisation des requêtes Supabase
 
 **Recommandation :**
-- Utiliser les **jointures Supabase** (`.select('*, workout_exercises(*, workout_sets(*))') `) pour récupérer les données imbriquées en une seule requête
-- Mettre en cache les données de référence (exercices, produits fréquents) avec une stratégie stale-while-revalidate
-- Utiliser Supabase **Realtime** pour les mises à jour en temps réel si plusieurs appareils utilisés
+- Jointures Supabase pour récupérer les données imbriquées en une seule requête
+- Cache stale-while-revalidate pour les données de référence
 
 ---
 
-### 3.4 Validation des formulaires
-
-**Problème :** La validation côté client est minimale sur certains formulaires.
+### 🟠 3.4 Validation des formulaires
 
 **Recommandation :**
-- Intégrer une librairie de validation (ex : `zod` + `react-hook-form`) pour une validation cohérente
-- Messages d'erreur inline sur tous les champs (pas seulement des toasts)
-- Validation en temps réel (au blur) plutôt qu'uniquement à la soumission
+- Librairie de validation (`zod` + `react-hook-form`) pour une validation cohérente
+- Messages d'erreur inline sur tous les champs
+- Validation en temps réel (au blur)
 
 ---
 
-### 3.5 Sécurité & Authentification
-
-**Problème :** Pas de vérification d'email, pas de 2FA, pas de rate limiting côté client.
+### 🟠 3.5 Sécurité & Authentification
 
 **Recommandation :**
-- Activer la vérification email obligatoire (configurable dans Supabase Auth)
-- Proposer l'authentification sociale (Google, Apple) pour réduire la friction à l'inscription
-- Ajouter un délai côté client entre les tentatives de connexion échouées
+- Vérification email obligatoire (Supabase Auth)
+- Authentification sociale (Google, Apple)
 - Politique de mot de passe affichée à la création de compte
 
 ---
 
-## 4. Accessibilité
-
-**Problème :** L'app semble être développée sans attention particulière à l'accessibilité.
+## 4. Accessibilité 🟡
 
 **Recommandation :**
-- Tous les boutons icônes doivent avoir un `aria-label`
-- Contraste de texte : vérifier les ratios sur les éléments en gris clair sur fond sombre
-- Navigation au clavier testée sur les modales et les formulaires
-- Messages d'état (loading, erreur, succès) annoncés avec `aria-live`
-- Support du mode "Reduce Motion" pour désactiver les animations
+- `aria-label` sur tous les boutons icônes
+- Vérification des ratios de contraste sur fond sombre
+- Navigation au clavier sur les modales et formulaires
+- `aria-live` pour les messages d'état
+- Support du mode "Reduce Motion"
 
 ---
 
-## 5. Roadmap Priorisée
+## 5. Roadmap
 
-| Priorité | Amélioration | Impact | Effort |
-|----------|-------------|--------|--------|
-| 🔴 1 | Notifications & rappels (Web Push) | Rétention élevée | Moyen |
-| 🔴 2 | Performances précédentes affichées inline dans le formulaire | UX quotidienne | Faible |
-| 🔴 4 | Empty states + skeleton loaders cohérents | Qualité perçue | Faible |
-| 🟠 5 | Barre de recherche nutrition directe | UX quotidienne | Faible |
-| 🟠 6 | PWA (manifest + service worker) | Mobile UX | Moyen |
-| 🟠 7 | Programmes d'entraînement prédéfinis importables | Onboarding | Moyen |
-| 🟠 8 | Planificateur de repas hebdomadaire | Valeur ajoutée | Élevé |
-| 🟡 9 | Pagination & virtualisation des listes | Performance | Moyen |
-| 🟡 10 | Optimisation requêtes Supabase (jointures) | Performance | Faible |
-| 🟡 11 | Social — partage de séances | Acquisition | Élevé |
-| 🟡 12 | Coach IA — analyse hebdomadaire | Différenciation | Élevé |
+| Statut | Amélioration | Impact | Effort |
+|--------|-------------|--------|--------|
+| ✅ | Performances précédentes inline dans le formulaire workout | UX quotidienne | Faible |
+| ✅ | Bouton Quick Add nutrition + auto-focus search | UX quotidienne | Faible |
+| ✅ | Skeleton loaders cohérents (Workout, Nutrition, Calendrier) | Qualité perçue | Faible |
+| ✅ | Stats & Exercise Progress dans la navigation principale | Découvrabilité | Faible |
+| ✅ | Record personnel (PR) + badge sur Exercise Progress | Motivation | Faible |
+| ✅ | Calendrier enrichi (résumé hebdo, progression calorique, navigation date) | UX | Faible |
+| 🔴 | Notifications & rappels (Web Push) | Rétention élevée | Moyen |
+| 🟠 | Scanner — reconnaissance produit par image sans code-barres | Fonctionnalité clé | Moyen |
+| 🟠 | Programmes d'entraînement prédéfinis importables (PPL, 5/3/1…) | Onboarding | Moyen |
+| 🟠 | PWA (manifest + service worker) | Mobile UX | Moyen |
+| 🟠 | Validation formulaires (zod + react-hook-form) | Qualité | Moyen |
+| 🟠 | Planificateur de repas hebdomadaire | Valeur ajoutée | Élevé |
+| 🟡 | Pagination & virtualisation des listes | Performance | Moyen |
+| 🟡 | Optimisation requêtes Supabase (jointures) | Performance | Faible |
+| 🟡 | Coach IA — analyse hebdomadaire | Différenciation | Élevé |
+| 🟡 | Social — partage de séances | Acquisition | Élevé |
 
 ---
 
@@ -284,11 +280,11 @@ Les routines sont fonctionnelles mais pourraient être bien plus puissantes.
 - Architecture Zustand bien organisée par domaine
 - Dark theme cohérent et moderne
 - Animations et transitions fluides
-- Barcode scanning natif + fallback image
+- Barcode scanning natif + fallback image + Open Food Facts déjà intégré
 - Calcul automatique BMR/TDEE/macros à l'onboarding
 - Système de widgets dashboard personnalisable
 - RLS Supabase correctement configuré (sécurité des données)
-- Intégration OpenAI pour l'analyse des produits alimentaires
+- Intégration OpenAI pour l'analyse des produits alimentaires (edge function `analyze-product`)
 
 ---
 

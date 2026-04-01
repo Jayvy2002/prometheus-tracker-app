@@ -1,10 +1,12 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
 
 const tabs = [
   { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/workout', icon: Dumbbell, label: 'Workouts' },
+  { path: '/exercise-progress', icon: TrendingUp, label: 'Exercise Progress' },
+  { path: '/stats', icon: BarChart2, label: 'Stats' },
   { path: '/calendar', icon: CalendarDays, label: 'Calendar' },
   { path: '/nutrition', icon: Apple, label: 'Nutrition' },
   { path: '/profile', icon: User, label: 'Profile' },

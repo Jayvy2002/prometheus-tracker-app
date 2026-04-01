@@ -64,11 +64,11 @@ function AppRoutes() {
         <Route path="/weight" element={<WeightPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/exercise-progress" element={<ExerciseProgressPage />} />
+        <Route path="/stats" element={<StatsPage />} />
       </Route>
       <Route path="/workout/new" element={<WorkoutForm />} />
       <Route path="/workout/:id" element={<WorkoutForm />} />
-      <Route path="/exercise-progress" element={<ExerciseProgressPage />} />
-      <Route path="/stats" element={<StatsPage />} />
       <Route path="/routines" element={<AppLayout />}>
         <Route index element={<RoutinesPage />} />
       </Route>

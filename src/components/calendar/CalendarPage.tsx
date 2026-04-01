@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useWeightStore } from '../../stores/weightStore';
+import { useNutritionStore } from '../../stores/nutritionStore';
 import { supabase } from '../../lib/supabase';
 import { parseDateStr, parseDate, formatWeight } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
@@ -47,6 +48,7 @@ export default function CalendarPage() {
   const { profile } = useProfileStore();
   const { workouts, fetchWorkouts } = useWorkoutStore();
   const { measurements, fetchMeasurements } = useWeightStore();
+  const { setSelectedDate: setNutritionDate } = useNutritionStore();
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDate, setSelectedDate] = useState(dateToStr(new Date()));
   const [nutritionDates, setNutritionDates] = useState<Set<string>>(new Set());
@@ -253,12 +255,40 @@ export default function CalendarPage() {
         </div>
       </Card>
 
+      {/* Weekly summary */}
+      <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-blue-400">{dayData.filter(d => d.hasWorkout).length}</p>
+          <p className="text-[10px] text-neutral-500">Workouts</p>
+        </div>
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-emerald-400">{dayData.filter(d => d.hasNutrition).length}</p>
+          <p className="text-[10px] text-neutral-500">Days logged</p>
+        </div>
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-amber-400">{dayData.filter(d => d.hasWeight).length}</p>
+          <p className="text-[10px] text-neutral-500">Weigh-ins</p>
+        </div>
+      </div>
+
       <div className="mb-3 animate-fade-in-up stagger-2">
         <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-1">{selectedDateLabel}</h2>
       </div>
 
       {summaryLoading ? (
-        <div className="text-center py-8 text-neutral-500 text-sm animate-fade-in">Loading...</div>
+        <div className="space-y-3 animate-pulse">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-neutral-800 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 bg-neutral-800 rounded-md w-1/2" />
+                  <div className="h-3 bg-neutral-800/70 rounded-md w-1/3" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="space-y-3 animate-fade-in-up stagger-3">
           {daySummary?.workout ? (
@@ -286,15 +316,30 @@ export default function CalendarPage() {
           {daySummary?.nutrition ? (
             <Card
               className="cursor-pointer hover:border-neutral-700/70 active:scale-[0.98] transition-all"
-              onClick={() => navigate(`/nutrition`)}
+              onClick={() => { setNutritionDate(selectedDate); navigate('/nutrition'); }}
             >
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-9 h-9 rounded-xl bg-emerald-600/20 flex items-center justify-center shrink-0">
                   <Apple size={16} className="text-emerald-400" />
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">{daySummary.nutrition.totalCals} kcal</p>
-                  <p className="text-xs text-neutral-500">Nutrition logged</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline gap-1.5">
+                    <p className="text-sm font-semibold text-white">{daySummary.nutrition.totalCals} kcal</p>
+                    {profile?.daily_calorie_target && (
+                      <p className="text-xs text-neutral-500">/ {profile.daily_calorie_target}</p>
+                    )}
+                  </div>
+                  {profile?.daily_calorie_target && (
+                    <div className="mt-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden w-full">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${Math.min(100, (daySummary.nutrition.totalCals / profile.daily_calorie_target) * 100)}%`,
+                          backgroundColor: daySummary.nutrition.totalCals > profile.daily_calorie_target ? '#f43f5e' : '#10b981',
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2">
