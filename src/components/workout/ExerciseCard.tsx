@@ -6,7 +6,7 @@ import type { WorkoutExercise } from '../../lib/types';
 import { SET_TYPES } from '../../lib/constants';
 import Card from '../ui/Card';
 import { useDraftContext } from './WorkoutDraftContext';
-import { toast } from '../ui/Toast';
+import { toastWithUndo } from '../ui/Toast';
 
 function SetRow({ set, index, onDelete }: {
   set: { id: string; set_type: string; weight_kg: number; reps: number; rir: number };
@@ -97,7 +97,7 @@ function SetRow({ set, index, onDelete }: {
 }
 
 export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }) {
-  const { addSet, deleteSet, deleteExercise, currentWorkout, fetchPreviousSets } = useWorkoutStore();
+  const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, currentWorkout, fetchPreviousSets } = useWorkoutStore();
   const { user } = useAuthStore();
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
@@ -143,7 +143,14 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
           <StickyNote size={16} />
         </button>
         <button
-          onClick={() => { deleteExercise(exercise.id); toast('Exercise removed', 'info'); }}
+          onClick={() => {
+            const exerciseSnapshot = { ...exercise, sets: [...(exercise.sets ?? [])] };
+            const workoutId = currentWorkout?.id;
+            deleteExercise(exercise.id);
+            toastWithUndo('Exercise removed', () => {
+              if (workoutId) restoreExercise(workoutId, exerciseSnapshot);
+            });
+          }}
           className="p-1 text-neutral-600 hover:text-rose-400 transition-colors"
         >
           <Trash2 size={16} />
@@ -201,7 +208,12 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
                 key={set.id}
                 set={set}
                 index={i}
-                onDelete={() => deleteSet(set.id)}
+                onDelete={() => {
+                const setSnapshot = { ...set } as import('../../lib/types').WorkoutSet;
+                const exerciseId = exercise.id;
+                deleteSet(setSnapshot.id);
+                toastWithUndo('Set removed', () => restoreSet(exerciseId, setSnapshot));
+              }}
               />
             ))}
           </div>

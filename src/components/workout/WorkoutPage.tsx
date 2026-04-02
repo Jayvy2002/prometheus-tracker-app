@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp } from 'lucide-react';
-import { toast } from '../ui/Toast';
+import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRoutineStore } from '../../stores/routineStore';
@@ -43,11 +43,28 @@ export default function WorkoutPage() {
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
+    const targetWorkout = workouts.find(w => w.id === deleteTarget);
     setDeleting(true);
     await deleteWorkout(deleteTarget);
     setDeleting(false);
     setDeleteTarget(null);
-    toast('Workout deleted', 'info');
+    if (targetWorkout) {
+      toastWithUndo(`"${targetWorkout.name}" deleted`, async () => {
+        if (!user) return;
+        await createWorkout({
+          user_id: user.id,
+          name: targetWorkout.name,
+          date: targetWorkout.date,
+          duration_seconds: targetWorkout.duration_seconds,
+          notes: targetWorkout.notes,
+          completed: targetWorkout.completed,
+          routine_id: targetWorkout.routine_id,
+        });
+        toast('Workout restored', 'success');
+      });
+    } else {
+      toast('Workout deleted', 'info');
+    }
   };
 
   const startFromRoutine = async (routineId: string) => {

@@ -26,6 +26,8 @@ interface WorkoutState {
   addSet: (exerciseId: string, orderIndex: number) => Promise<WorkoutSet | null>;
   updateSet: (id: string, data: Partial<WorkoutSet>) => Promise<void>;
   deleteSet: (id: string) => Promise<void>;
+  restoreSet: (exerciseId: string, setData: WorkoutSet) => Promise<void>;
+  restoreExercise: (workoutId: string, exerciseData: WorkoutExercise) => Promise<void>;
   setCurrentWorkout: (w: Workout | null) => void;
   fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string) => Promise<PreviousSet[]>;
 }
@@ -232,6 +234,83 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         })),
       };
       setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+      return { currentWorkout: updated };
+    });
+  },
+
+  restoreSet: async (exerciseId, setData) => {
+    const { data } = await supabase
+      .from('workout_sets')
+      .insert({
+        exercise_id: exerciseId,
+        set_type: setData.set_type,
+        weight_kg: setData.weight_kg,
+        reps: setData.reps,
+        rir: setData.rir,
+        completed: setData.completed,
+        order_index: setData.order_index,
+      })
+      .select()
+      .maybeSingle();
+    if (data) {
+      const restoredSet = data as WorkoutSet;
+      set(s => {
+        if (!s.currentWorkout) return s;
+        const updated = {
+          ...s.currentWorkout,
+          exercises: s.currentWorkout.exercises?.map(e =>
+            e.id === exerciseId
+              ? { ...e, sets: [...(e.sets ?? []), restoredSet].sort((a, b) => a.order_index - b.order_index) }
+              : e
+          ),
+        };
+        setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+        return { currentWorkout: updated };
+      });
+    }
+  },
+
+  restoreExercise: async (workoutId, exerciseData) => {
+    const { data: newEx } = await supabase
+      .from('workout_exercises')
+      .insert({
+        workout_id: workoutId,
+        name: exerciseData.name,
+        order_index: exerciseData.order_index,
+        notes: exerciseData.notes,
+      })
+      .select()
+      .maybeSingle();
+    if (!newEx) return;
+
+    const setsToInsert = (exerciseData.sets ?? []).map(s => ({
+      exercise_id: newEx.id,
+      set_type: s.set_type,
+      weight_kg: s.weight_kg,
+      reps: s.reps,
+      rir: s.rir,
+      completed: s.completed,
+      order_index: s.order_index,
+    }));
+
+    let restoredSets: WorkoutSet[] = [];
+    if (setsToInsert.length > 0) {
+      const { data: setsData } = await supabase
+        .from('workout_sets')
+        .insert(setsToInsert)
+        .select();
+      restoredSets = (setsData ?? []) as WorkoutSet[];
+    }
+
+    const restoredExercise = { ...newEx, sets: restoredSets } as WorkoutExercise;
+    set(s => {
+      if (!s.currentWorkout) return s;
+      const updated = {
+        ...s.currentWorkout,
+        exercises: [...(s.currentWorkout.exercises ?? []), restoredExercise]
+          .sort((a, b) => a.order_index - b.order_index),
+      };
+      setCacheItem(workoutCacheKey(workoutId), updated);
       return { currentWorkout: updated };
     });
   },

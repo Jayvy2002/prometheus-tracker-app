@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, Heart, BarChart2, MessageSquare, Bell } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, Heart, BarChart2, MessageSquare, Bell, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import PersonalInfoForm from './PersonalInfoForm';
 import GoalsForm from './GoalsForm';
@@ -55,12 +56,27 @@ function AccordionSection({ id: _id, icon: Icon, label, isOpen, onToggle, childr
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { signOut, user } = useAuthStore();
+  const { signOut, deleteAccount, user } = useAuthStore();
   const { profile } = useProfileStore();
   const [openSection, setOpenSection] = useState<Section | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    setDeleteError(null);
+    const { error } = await deleteAccount();
+    if (error) {
+      setDeleteError(error);
+      setDeleting(false);
+    }
+    // On success, the auth store clears user/session and the app redirects automatically
   };
 
   const toggle = (section: Section) => {
@@ -142,6 +158,49 @@ export default function ProfilePage() {
       <Button variant="danger" onClick={handleSignOut} className="w-full animate-fade-in-up stagger-7">
         <LogOut size={16} /> Sign Out
       </Button>
+
+      <button
+        onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(''); setDeleteError(null); }}
+        className="w-full mt-3 text-xs text-neutral-600 hover:text-rose-500 transition-colors animate-fade-in-up"
+      >
+        Delete my account
+      </button>
+
+      <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete Account">
+        <div className="space-y-4">
+          <p className="text-sm text-neutral-300">
+            This will permanently delete your account and all your data — workouts, nutrition logs, weight history. <span className="text-rose-400 font-medium">This action cannot be undone.</span>
+          </p>
+          <div>
+            <label className="block text-xs text-neutral-500 mb-1.5">
+              Type <span className="font-mono text-white">DELETE</span> to confirm
+            </label>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-rose-500"
+            />
+          </div>
+          {deleteError && (
+            <p className="text-xs text-rose-400">{deleteError}</p>
+          )}
+          <div className="flex gap-3">
+            <Button variant="secondary" onClick={() => setShowDeleteModal(false)} className="flex-1" disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleDeleteAccount}
+              className="flex-1 !bg-rose-600 hover:!bg-rose-700"
+              disabled={deleteConfirmText !== 'DELETE' || deleting}
+            >
+              <Trash2 size={14} />
+              {deleting ? 'Deleting…' : 'Delete Account'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
     </PageTransition>
   );

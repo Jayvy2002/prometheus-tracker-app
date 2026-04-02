@@ -1,7 +1,7 @@
 # Audit & Plan d'Amélioration — Prometheus Tracker
 
 > Audit réalisé le 1er avril 2026.
-> Dernière mise à jour : 1er avril 2026.
+> Dernière mise à jour : 2 avril 2026.
 
 ---
 
@@ -316,7 +316,7 @@ Créer une séance, ajouter des exercices, loguer des séries (poids, reps, RIR)
 
 ✅ **Les séances passées sont éditables.** Cliquer sur une séance dans l'historique rouvre le WorkoutForm — l'utilisateur peut modifier les séries, les poids, les exercices.
 
-🔴 **Impossible de supprimer une série individuelle.** On peut supprimer un exercice entier, mais pas une série spécifique. Si l'utilisateur a ajouté une série par erreur dans une séance en cours, il est bloqué.
+✅ **Suppression de série individuelle.** Un bouton `Trash2` est présent sur chaque `SetRow` dans `ExerciseCard.tsx` et appelle `deleteSet(set.id)` via le workout store.
 
 🟡 **Pas de vue lecture seule d'une séance.** Cliquer sur une séance passée ouvre directement le mode édition — ce qui fonctionne pour relire les données, mais crée une ambiguïté : l'utilisateur qui veut juste consulter sa séance se retrouve en mode "edit" sans l'avoir voulu. Une vue dédiée en lecture seule serait plus claire.
 
@@ -423,7 +423,7 @@ Modifier ses informations personnelles, ses objectifs, ses unités, son mot de p
 
 **Problèmes logiques :**
 
-🔴 **Pas d'export ni de suppression des données.** L'utilisateur ne peut pas télécharger son historique ni demander la suppression de son compte. C'est une friction légale (RGPD) et une friction de confiance : l'utilisateur doit pouvoir partir avec ses données.
+✅ **Suppression de compte implémentée.** Bouton "Delete my account" dans ProfilePage → modal de confirmation avec saisie obligatoire de "DELETE" → edge function `delete-account` (Supabase, service role) qui supprime l'utilisateur et toutes ses données en cascade. L'export de données n'est pas proposé (choix délibéré).
 
 🟠 **Les objectifs (calories, macros, eau) sont dans le profil mais leur impact n'est pas visible depuis là.** L'utilisateur modifie son objectif calorique à 2200 kcal, mais il ne voit pas ce que ça changera. Un mini-preview "Voici à quoi ressemblera votre dashboard avec ces valeurs" renforcerait la compréhension.
 
@@ -435,7 +435,7 @@ Modifier ses informations personnelles, ses objectifs, ses unités, son mot de p
 
 Ces problèmes touchent plusieurs fonctionnalités simultanément :
 
-**🔴 Pas de mécanisme d'annulation (undo) global.** Supprimer une séance, un log, un exercice — toutes ces actions sont irréversibles. Un simple "Annuler" sur le toast après suppression (pattern classique de Gmail) suffirait à éviter beaucoup de frustration.
+**✅ Mécanisme d'annulation (undo) implémenté.** `Toast.tsx` étendu avec `toastWithUndo()` — bouton "Undo" visible 4,5s après chaque suppression : série (ExerciseCard), exercice (ExerciseCard + restauration complète avec toutes ses séries via `restoreExercise`), repas nutrition (MealSection — modal de confirmation remplacée par undo toast direct), séance (WorkoutPage — undo s'ajoute au modal de confirmation existant).
 
 ✅ **La philosophie "logging" est cohérente.** Séances et logs nutrition sont tous les deux éditables après sauvegarde — l'utilisateur peut toujours corriger une erreur de saisie.
 
@@ -450,9 +450,9 @@ Ces problèmes touchent plusieurs fonctionnalités simultanément :
 | Priorité | Problème | Impact utilisateur |
 |----------|----------|-------------------|
 | ✅ | Édition des séances et logs passés | Fonctionnel — WorkoutForm réouvre la séance, EditFoodModal édite les logs |
-| 🔴 | Pas de suppression individuelle de série | Blocage en cours de séance |
-| 🔴 | Pas d'undo sur les suppressions | Perte de données irréversible |
-| 🔴 | Pas d'export / suppression de compte | Problème de confiance et de conformité |
+| ✅ | Suppression individuelle de série | Implémenté — bouton Trash2 sur chaque SetRow |
+| ✅ | Undo sur suppressions (série, exercice, repas, séance) | Implémenté — toastWithUndo() + restoreSet/restoreExercise |
+| ✅ | Suppression de compte | Implémenté — edge function delete-account + modal avec confirmation textuelle |
 | ✅ | Macros avec barre de progression vs objectif | Fonctionnel — MacroSummary affiche une barre par macro avec cible du profil |
 | ✅ | Navigation vers les jours passés depuis Nutrition | Fonctionnel |
 | ✅ | Fil conducteur entre pages (ajout rapide + date modifiable) | Fonctionnel |
@@ -469,3 +469,191 @@ Ces problèmes touchent plusieurs fonctionnalités simultanément :
 ---
 
 *Audit logique réalisé par Claude — Prometheus Tracker v1.0*
+
+---
+
+## 8. Audit des Fonctions IA
+
+> Audit réalisé le 2 avril 2026. Objectif : évaluer la **pertinence et l'efficacité** de chaque fonction intelligente de l'app — est-ce que la logique utilisée est la bonne ? Y a-t-il des bugs, des incohérences scientifiques, ou des améliorations architecturales qui rendraient ces fonctions plus fiables et moins coûteuses ?
+
+L'app contient **4 fonctions intelligentes** : 2 edge functions GPT-4o (analyse produit, vérification exercice), 1 utilitaire de calcul de macros, et 1 composant de recommandation calorique basé sur des règles.
+
+---
+
+### 8.1 Edge Function `analyze-product` — Extraction nutritionnelle par image
+
+**Ce que ça fait :** Reçoit jusqu'à 3 photos d'un produit (face avant, face arrière, tableau nutritionnel) + un code-barres optionnel + des notes, et renvoie les valeurs nutritionnelles per 100g via GPT-4o.
+
+**Ce qui fonctionne bien :**
+- `temperature: 0.1` — bon choix, force des sorties déterministes et structurées
+- Le prompt gère les aliments frais sans étiquette (pomme, poulet…) en utilisant les connaissances USDA du modèle
+- La déduplication par code-barres puis par nom/marque évite les doublons dans la base
+
+**Problèmes identifiés :**
+
+🔴 **Aucun score de confiance dans la réponse.** L'IA retourne des valeurs avec le même JSON qu'il s'agisse d'une photo nette d'un tableau nutritionnel ou d'une image floue. L'utilisateur n'a aucun signal que les valeurs sont "estimées" plutôt que "lues". Résultat : des entrées potentiellement fausses dans la base sans aucune indication.
+
+🟠 **GPT-4o utilisé même quand il n'y a pas d'images.** Si l'utilisateur fournit seulement un code-barres ou des notes textuelles, GPT-4o (le modèle le plus cher) est quand même appelé, alors qu'un modèle de type `gpt-4o-mini` suffit amplement pour un input purement textuel. Coût inutile.
+
+🟠 **Pas de vérification Open Food Facts côté edge function.** La logique actuelle tente Open Food Facts dans `FoodForm.tsx` (côté client), mais la edge function `analyze-product` ne vérifie pas si le code-barres correspond à un produit connu avant d'appeler GPT-4o. Si le client échoue et passe par l'IA, un appel coûteux est fait pour un produit qui aurait pu être résolu gratuitement.
+
+🟡 **`max_tokens: 500` légèrement juste.** Suffisant pour le JSON en temps normal, mais en cas de produit avec un nom long ou une marque étendue, la réponse peut être tronquée, causant un échec de parsing JSON silencieux.
+
+🟡 **Pas d'instruction sur la gestion des contradictions entre images.** Si la face avant dit "250 kcal" mais le tableau nutritionnel dit "240 kcal/100g", le prompt ne précise pas quelle source privilégier. Le tableau nutritionnel doit toujours primer.
+
+**Recommandation :**
+
+```
+1. Ajouter un champ "confidence": 0-100 dans le JSON retourné (100 = valeurs lues
+   directement sur étiquette, <70 = estimation). Afficher une alerte UI si < 70.
+
+2. Dans la edge function : si barcode fourni, tenter Open Food Facts AVANT d'appeler GPT.
+   Ne passer à GPT que si la requête échoue ou ne renvoie rien.
+
+3. Brancher sur gpt-4o-mini quand l'input est textuel uniquement (barcode + notes,
+   pas d'images). Utiliser gpt-4o uniquement pour les requêtes avec images.
+
+4. Passer max_tokens à 600.
+
+5. Ajouter dans le prompt : "If images contain conflicting values, always prioritize
+   the official nutrition facts label over front-of-pack claims."
+```
+
+---
+
+### 8.2 Edge Function `verify-exercise` — Validation et description d'exercice
+
+**Ce que ça fait :** Reçoit un nom d'exercice (+ muscles/description optionnels) et utilise GPT-4o pour valider s'il s'agit d'un vrai exercice, puis retourne les muscles primaires/secondaires, les instructions en français et la difficulté.
+
+**Ce qui fonctionne bien :**
+- Le prompt est strict sur les noms de muscles (enum fixe), ce qui garantit la cohérence des données en base
+- Les instructions et tips sont retournés en français — cohérent avec l'audience cible
+- La détection de variantes (ex : "close grip bench press") est bien gérée
+
+**Problèmes identifiés :**
+
+🔴 **Aucune vérification en base avant l'appel GPT-4o.** Si 500 utilisateurs ajoutent "Bench Press", GPT-4o est appelé 500 fois alors que la réponse serait identique à chaque fois. La table `exercises` est peuplée au fil du temps — une simple recherche insensible à la casse devrait être la première étape.
+
+🟠 **GPT-4o est surdimensionné pour cette tâche.** Valider qu'un exercice existe et extraire des données structurées est une tâche de niveau `gpt-4o-mini` — pas de vision, raisonnement simple. Le coût par appel est 10× supérieur à ce qui est nécessaire.
+
+🟠 **Pas de gestion du cas "nom de muscle hors enum".** Si GPT-4o retourne `"deltoids"` au lieu de `"side_delts"`, le JSON est techniquement valide mais la donnée est corrompue. Il n'y a pas de validation post-parsing qui vérifie que chaque muscle est bien dans la liste attendue.
+
+🟡 **Pas de suggestion d'exercices similaires existants.** Si l'utilisateur tape "Incline Dumbbell Press" alors que "Incline DB Press" existe déjà, deux entrées quasi-identiques sont créées. L'IA devrait d'abord retourner les exercices similaires en base pour éviter les doublons sémantiques.
+
+**Recommandation :**
+
+```
+1. Avant tout appel GPT : chercher l'exercice dans la table exercises avec
+   ILIKE '%nom%'. Si match exact ou très proche, retourner directement sans appel IA.
+
+2. Remplacer gpt-4o par gpt-4o-mini — suffisant pour cette tâche, 10× moins cher.
+
+3. Post-parsing : valider chaque muscle retourné contre l'enum autorisé.
+   Mapper les synonymes courants (deltoids → side_delts, etc.) avant de sauvegarder.
+
+4. Ajouter un champ "similar_exercises": string[] dans le prompt pour que l'IA
+   suggère les noms proches — utilisable côté client pour prévenir les doublons.
+```
+
+---
+
+### 8.3 Utilitaire `calculateMacros()` — Calcul des macronutriments
+
+**Ce que ça fait :** Calcule les objectifs protéines/lipides/glucides en grammes à partir d'un objectif calorique et d'un goal (cut/bulk/maintain).
+
+**Ce qui fonctionne bien :**
+- Logique simple et déterministe, aucune dépendance externe
+
+**Problèmes identifiés :**
+
+🔴 **Bug critique : `maintain` et `bulk` ont des paramètres identiques.** Les deux utilisent `protein: 30%, fat: 25%, carbs: 45%`. C'est un copier-coller oublié — un objectif "maintien" et un objectif "prise de masse" ne devraient pas avoir les mêmes ratios macros.
+
+🔴 **La protéine est calculée en pourcentage de calories, pas en fonction du poids corporel.** C'est l'approche la moins précise scientifiquement. Pour un athlète de 90kg en phase de sèche avec un objectif de 1800 kcal : `35% × 1800 / 4 = 157g` de protéines, soit seulement 1.75g/kg — acceptable mais sous-optimal. Pour un athlète de 60kg avec 2500 kcal en prise de masse : `30% × 2500 / 4 = 187g`, soit 3.1g/kg — bien trop élevé. Le pourcentage ne s'adapte pas au profil de l'utilisateur.
+
+🟠 **Le consensus scientifique recommande un calcul basé sur le poids** : 2.0–2.2g/kg en sèche, 1.8g/kg en prise de masse, 1.6g/kg en maintien (source : International Society of Sports Nutrition, 2017). L'approche actuelle peut sur ou sous-estimer les besoins selon le profil.
+
+**Recommandation :**
+
+```typescript
+// Logique recommandée
+export function calculateMacros(calorieTarget: number, goal: string, weightKg?: number) {
+  // Protéine basée sur le poids corporel (consensus ISSN)
+  const proteinPerKg = goal === 'cut' ? 2.2 : goal === 'bulk' ? 1.8 : 1.6;
+  const proteinG = weightKg
+    ? Math.min(Math.round(weightKg * proteinPerKg), Math.round(calorieTarget * 0.40 / 4))
+    : Math.round(calorieTarget * 0.30 / 4); // fallback si pas de poids
+
+  const proteinCals = proteinG * 4;
+  const remainingCals = calorieTarget - proteinCals;
+
+  // Distribution fat/carbs selon l'objectif
+  const fatPct = goal === 'cut' ? 0.35 : 0.25; // sèche = plus de lipides, prise = plus de glucides
+  const fatG = Math.round((remainingCals * fatPct) / 9);
+  const carbsG = Math.round((remainingCals * (1 - fatPct)) / 4);
+
+  return { protein: proteinG, fat: fatG, carbs: carbsG };
+}
+```
+
+Ce calcul nécessite de passer le `weightKg` du profil utilisateur — données déjà disponibles dans `profileStore`.
+
+---
+
+### 8.4 Composant `WeeklyAdjustment` — Suggestion d'ajustement calorique
+
+**Ce que ça fait :** Compare la moyenne de poids de la semaine en cours à la semaine précédente et suggère d'augmenter ou baisser les calories de 100–150 kcal selon l'objectif.
+
+**Ce qui fonctionne bien :**
+- La logique de base est saine (comparer les tendances de poids à l'objectif) et s'appuie sur un principe utilisé par des apps comme MacroFactor
+- Les seuils de variation (trop vite/trop lentement) sont différenciés par objectif
+
+**Problèmes identifiés :**
+
+🟠 **Fenêtre de 7 jours insuffisante pour des tendances fiables.** La rétention d'eau peut provoquer des fluctuations de ±1.5kg sur une semaine sans aucun changement de composition corporelle. Une suggestion basée sur 7 jours peut être fausse à cause d'une pesée après un repas salé, d'un cycle hormonal, ou d'une activité physique inhabituelle.
+
+🟠 **La suggestion s'affiche même avec 1 ou 2 pesées disponibles.** Il n'y a pas de garde-fou sur le nombre minimum de points de données. Une suggestion affichée avec 2 pesées sur 7 jours est statistiquement non fiable et peut induire l'utilisateur en erreur.
+
+🟠 **Aucune explication du raisonnement.** L'utilisateur voit "+100 kcal" mais ne sait pas pourquoi. "Ta moyenne cette semaine est 80.2kg vs 80.8kg la semaine dernière, soit –0.6kg — ta prise de masse stagne" serait bien plus actionnable et pédagogique.
+
+🟡 **Pas de bouton "Appliquer".** La suggestion est affichée mais l'utilisateur doit aller manuellement dans son profil pour modifier son objectif calorique. Ce friction inutile réduit drastiquement le taux d'adoption de la recommandation.
+
+🟡 **La fenêtre d'analyse ne glisse pas (rolling window).** Le système compare "semaine N" à "semaine N-1" en blocs fixes. Si l'utilisateur a pesé lundi et vendredi cette semaine et mercredi la semaine dernière, la comparaison est biaisée. Une moyenne glissante sur 14 jours serait plus robuste.
+
+**Recommandation :**
+
+```
+1. Exiger un minimum de 5 pesées sur les 14 derniers jours avant d'afficher
+   une suggestion. En dessous, afficher : "Pèse-toi plus régulièrement pour
+   recevoir des recommandations fiables (5 pesées/2 semaines minimum)."
+
+2. Passer à une moyenne glissante sur 14 jours (au lieu de 7) pour réduire
+   le bruit statistique.
+
+3. Afficher le raisonnement complet : "Moyenne 14j : 80.4kg → tendance : –0.3kg/sem
+   (objectif : –0.25kg/sem). Tu es légèrement en dessous de ta cible — bon rythme."
+
+4. Ajouter un bouton "Appliquer (+100 kcal)" qui met à jour directement
+   l'objectif calorique dans le profil sans navigation supplémentaire.
+```
+
+---
+
+### 8.5 Résumé des priorités — Fonctions IA
+
+| Priorité | Problème | Fonction | Impact |
+|----------|----------|----------|--------|
+| ✅ | Bug : `maintain` = `bulk` dans `calculateMacros()` | Macros | Corrigé — maintain : 30% P / 30% F / 40% G (vs bulk 30/25/45) |
+| 🔴 | Protéine calculée en % calories, pas en g/kg | Macros | Surestimation pour les petits gabarits, sous-estimation pour les grands |
+| 🔴 | Pas de vérification en base avant appel GPT (`verify-exercise`) | Exercices | Coût élevé + résultats redondants |
+| 🟠 | Pas de score de confiance dans `analyze-product` | Nutrition IA | Fausses valeurs nutritionnelles silencieuses |
+| 🟠 | GPT-4o au lieu de GPT-4o-mini pour `verify-exercise` | Exercices | Coût 10× supérieur au nécessaire |
+| 🟠 | Pas de check Open Food Facts dans la edge function | Nutrition IA | Appels GPT inutiles pour produits connus |
+| 🟠 | `WeeklyAdjustment` sans minimum de pesées requis | Recommandation | Suggestions non fiables avec peu de données |
+| 🟠 | Pas de bouton "Appliquer" sur `WeeklyAdjustment` | Recommandation | Friction qui réduit l'adoption des suggestions |
+| 🟡 | Pas de muscle validation post-parsing (`verify-exercise`) | Exercices | Données corrompues possibles |
+| 🟡 | `max_tokens: 500` juste pour `analyze-product` | Nutrition IA | Parsing JSON qui peut échouer sur produits complexes |
+| 🟡 | Fenêtre 7j trop courte dans `WeeklyAdjustment` | Recommandation | Bruit statistique élevé |
+
+---
+
+*Audit fonctions IA réalisé par Claude — Prometheus Tracker v1.0*

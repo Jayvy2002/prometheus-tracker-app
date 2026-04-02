@@ -1,9 +1,7 @@
-import { useState } from 'react';
-import { Plus, Trash2, Sunrise, Sun, Moon, Cookie, Pencil } from 'lucide-react';
+import { Trash2, Plus, Sunrise, Sun, Moon, Cookie, Pencil } from 'lucide-react';
 import type { NutritionLog } from '../../lib/types';
 import { useNutritionStore } from '../../stores/nutritionStore';
-import Modal from '../ui/Modal';
-import Button from '../ui/Button';
+import { toastWithUndo } from '../ui/Toast';
 
 const iconMap: Record<string, React.ElementType> = {
   breakfast: Sunrise,
@@ -21,15 +19,27 @@ interface Props {
 }
 
 export default function MealSection({ category, label, logs, onAdd, onEdit }: Props) {
-  const { deleteLog } = useNutritionStore();
+  const { deleteLog, addLog } = useNutritionStore();
   const Icon = iconMap[category] || Cookie;
   const totalCals = logs.reduce((s, l) => s + l.calories, 0);
-  const [deleteTarget, setDeleteTarget] = useState<NutritionLog | null>(null);
 
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    await deleteLog(deleteTarget.id);
-    setDeleteTarget(null);
+  const handleDelete = async (log: NutritionLog) => {
+    const snapshot = { ...log };
+    await deleteLog(snapshot.id);
+    toastWithUndo(`${snapshot.name} removed`, () =>
+      addLog({
+        user_id: snapshot.user_id,
+        name: snapshot.name,
+        calories: snapshot.calories,
+        protein: snapshot.protein,
+        carbs: snapshot.carbs,
+        fat: snapshot.fat,
+        category: snapshot.category,
+        quantity: snapshot.quantity,
+        unit: snapshot.unit,
+        logged_at: snapshot.logged_at,
+      })
+    );
   };
 
   return (
@@ -63,27 +73,13 @@ export default function MealSection({ category, label, logs, onAdd, onEdit }: Pr
               <button onClick={() => onEdit(log)} className="p-1 text-neutral-600 hover:text-blue-400 transition-colors">
                 <Pencil size={12} />
               </button>
-              <button onClick={() => setDeleteTarget(log)} className="p-1 text-neutral-600 hover:text-rose-400 transition-colors">
+              <button onClick={() => handleDelete(log)} className="p-1 text-neutral-600 hover:text-rose-400 transition-colors">
                 <Trash2 size={12} />
               </button>
             </div>
           ))}
         </div>
       )}
-
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Food">
-        <p className="text-neutral-300 mb-6">
-          Are you sure you want to delete <span className="font-semibold text-white">{deleteTarget?.name || 'this food'}</span>? This action cannot be undone.
-        </p>
-        <div className="flex gap-3">
-          <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1">
-            Cancel
-          </Button>
-          <Button onClick={handleDelete} className="flex-1 !bg-red-600 hover:!bg-red-700">
-            Delete
-          </Button>
-        </div>
-      </Modal>
     </div>
   );
 }

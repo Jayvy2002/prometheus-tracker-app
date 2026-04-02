@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
+import { CheckCircle, XCircle, AlertCircle, X, Undo2 } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -7,6 +7,7 @@ export interface ToastMessage {
   id: string;
   message: string;
   type: ToastType;
+  onUndo?: () => void;
 }
 
 let toastQueue: ToastMessage[] = [];
@@ -24,6 +25,22 @@ export function toast(message: string, type: ToastType = 'success') {
     toastQueue = toastQueue.filter(t => t.id !== id);
     notify();
   }, 3000);
+}
+
+export function toastWithUndo(message: string, onUndo: () => void) {
+  const id = crypto.randomUUID();
+  const wrappedUndo = () => {
+    // Dismiss toast immediately when undo is clicked
+    toastQueue = toastQueue.filter(t => t.id !== id);
+    notify();
+    onUndo();
+  };
+  toastQueue = [...toastQueue, { id, message, type: 'info', onUndo: wrappedUndo }];
+  notify();
+  setTimeout(() => {
+    toastQueue = toastQueue.filter(t => t.id !== id);
+    notify();
+  }, 4500);
 }
 
 export function useToasts() {
@@ -78,6 +95,15 @@ export function ToastContainer() {
           >
             <Icon size={16} className={`shrink-0 ${iconColors[t.type]}`} />
             <span className="flex-1 text-sm text-white font-medium">{t.message}</span>
+            {t.onUndo && (
+              <button
+                onClick={t.onUndo}
+                className="flex items-center gap-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors shrink-0 border border-blue-500/30 rounded-lg px-2 py-1"
+              >
+                <Undo2 size={11} />
+                Undo
+              </button>
+            )}
             <button onClick={() => dismiss(t.id)} className="text-neutral-500 hover:text-white transition-colors">
               <X size={14} />
             </button>
