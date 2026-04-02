@@ -84,7 +84,10 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showNewRecipe, setShowNewRecipe] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(prefill ?? null);
+  const [favDisplayCount, setFavDisplayCount] = useState(15);
+  const [recentDisplayCount, setRecentDisplayCount] = useState(15);
   const searchRef = useRef(0);
+  const LIST_PAGE = 15;
 
   const UNIT_TO_GRAMS: Record<string, number> = { g: 1, ml: 1, oz: 28.35, cup: 240, tbsp: 15, tsp: 5, serving: 1 };
   const grams = (+quantity || 0) * (UNIT_TO_GRAMS[unit] ?? 1);
@@ -379,7 +382,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
               <div className="text-center py-8 text-neutral-500 text-sm">No recent foods yet</div>
             ) : (
               <div className="space-y-2">
-                {recentProducts.map((p, i) => (
+                {recentProducts.slice(0, recentDisplayCount).map((p, i) => (
                   <button
                     key={i}
                     onClick={() => { selectProduct(p); setTab('search'); }}
@@ -392,6 +395,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     </div>
                   </button>
                 ))}
+                {recentProducts.length > recentDisplayCount && (
+                  <button
+                    onClick={() => setRecentDisplayCount(c => c + LIST_PAGE)}
+                    className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
+                  >
+                    Show more ({recentProducts.length - recentDisplayCount} remaining)
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -403,7 +414,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
               <div className="text-center py-8 text-neutral-500 text-sm">No favorites yet. Star a product after selecting it.</div>
             ) : (
               <div className="space-y-2">
-                {favorites.map(f => (
+                {favorites.slice(0, favDisplayCount).map(f => (
                   <button
                     key={f.id}
                     onClick={() => selectFavorite(f)}
@@ -419,6 +430,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     </div>
                   </button>
                 ))}
+                {favorites.length > favDisplayCount && (
+                  <button
+                    onClick={() => setFavDisplayCount(c => c + LIST_PAGE)}
+                    className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
+                  >
+                    Show more ({favorites.length - favDisplayCount} remaining)
+                  </button>
+                )}
               </div>
             )}
           </div>

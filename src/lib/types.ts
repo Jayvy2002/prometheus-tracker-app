@@ -43,7 +43,7 @@ export interface DashboardWidget {
   col?: number;
 }
 
-export type WidgetType = 'weight' | 'calories' | 'macros' | 'water' | 'workout_volume' | 'exercise_progress' | 'steps' | 'streak';
+export type WidgetType = 'weight' | 'calories' | 'macros' | 'water' | 'workout_volume' | 'exercise_progress' | 'steps' | 'streak' | 'weekly_goal';
 
 export interface Workout {
   id: string;

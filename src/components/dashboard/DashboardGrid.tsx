@@ -6,7 +6,7 @@ import WidgetCard from './WidgetCard';
 
 const COLS = 3;
 const GAP = 8;
-const RESIZABLE_TYPES: WidgetType[] = ['calories', 'water', 'macros', 'steps', 'streak'];
+const RESIZABLE_TYPES: WidgetType[] = ['calories', 'water', 'macros', 'steps', 'streak', 'weekly_goal'];
 const SIZE_CYCLE: DashboardWidget['size'][] = ['small', 'medium', 'large'];
 const LONG_PRESS_DURATION = 3000;
 

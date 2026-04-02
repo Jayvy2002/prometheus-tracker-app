@@ -65,9 +65,11 @@ Prometheus est une application de suivi fitness bien architecturée, couvrant l'
 - Performances de la dernière séance sur le même exercice affichées directement dans la fiche (poids × reps par série)
 - Données chargées au montage via `fetchPreviousSets` dans le workout store
 
+**Implémenté :**
+- Label "Session date" visible au-dessus du DateInput pour mieux signaler la possibilité de modifier la date
+
 **Reste à faire :**
 - Saisie numérique optimisée : ouvrir le pavé numérique au tap sur un champ poids/reps
-- Logging rétroactif : date de séance facilement modifiable en haut du formulaire
 - Enregistrement automatique à chaque modification
 
 ---
@@ -124,9 +126,14 @@ Prometheus est une application de suivi fitness bien architecturée, couvrant l'
 - Skeleton loaders sur NutritionPage (meal sections)
 - Skeleton loader dans le résumé journalier du Calendrier
 
+**Implémenté :**
+- Toast "Workout saved!" à la fin d'une séance
+- Toast "Workout deleted" sur la suppression d'un workout
+- Toast "Exercise removed" sur la suppression d'un exercice
+- `ToastContainer` ajouté à `FullPageLayout` (WorkoutForm, ScannerPage)
+
 **Reste à faire :**
 - Messages d'erreur réseau plus explicites
-- Toast de confirmation sur toutes les actions critiques (suppression, sauvegarde)
 
 ---
 
@@ -262,13 +269,19 @@ Les routines sont fonctionnelles mais pourraient être plus puissantes.
 | ✅ | Stats & Exercise Progress dans la navigation principale | Découvrabilité | Faible |
 | ✅ | Record personnel (PR) + badge sur Exercise Progress | Motivation | Faible |
 | ✅ | Calendrier enrichi (résumé hebdo, progression calorique, navigation date) | UX | Faible |
-| 🔴 | Notifications & rappels (Web Push) | Rétention élevée | Moyen |
-| 🟠 | Scanner — reconnaissance produit par image sans code-barres | Fonctionnalité clé | Moyen |
-| 🟠 | Programmes d'entraînement prédéfinis importables (PPL, 5/3/1…) | Onboarding | Moyen |
-| 🟠 | PWA (manifest + service worker) | Mobile UX | Moyen |
+| ✅ | Notifications & rappels — UI + permission + scheduling local | Rétention | Moyen |
+| ✅ | Scanner — reconnaissance produit par image sans code-barres | Fonctionnalité clé | Moyen |
+| ✅ | Scanner — déduplication par nom pour éviter les doublons | Qualité données | Faible |
+| ✅ | PWA (manifest + service worker) | Mobile UX | Moyen |
+| ✅ | Logging rétroactif — label "Session date" visible | UX | Faible |
+| ✅ | Toasts sur les actions critiques (save, delete workout, remove exercise) | Feedback | Faible |
+| ✅ | Dashboard — Widget "Objectif hebdomadaire" (dots Mon–Dim, barre de progression) | Motivation | Faible |
+| ✅ | Dashboard — Empty states guidés (Weight, WorkoutVolume) avec CTA | UX nouvel utilisateur | Faible |
+| ✅ | Pagination — Load more sur historique workouts, favoris & récents nutrition | Performance | Faible |
+| ✅ | Routines — Historique (nb utilisations + dernière date) dans chaque carte | Découvrabilité | Faible |
+| 🟠 | Notifications push serveur (VAPID + Supabase cron) | Rétention background | Élevé |
 | 🟠 | Validation formulaires (zod + react-hook-form) | Qualité | Moyen |
 | 🟠 | Planificateur de repas hebdomadaire | Valeur ajoutée | Élevé |
-| 🟡 | Pagination & virtualisation des listes | Performance | Moyen |
 | 🟡 | Optimisation requêtes Supabase (jointures) | Performance | Faible |
 | 🟡 | Coach IA — analyse hebdomadaire | Différenciation | Élevé |
 | 🟡 | Social — partage de séances | Acquisition | Élevé |

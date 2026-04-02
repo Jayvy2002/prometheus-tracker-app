@@ -13,6 +13,7 @@ import RestTimer from './RestTimer';
 import ExercisePicker from './ExercisePicker';
 import DateInput from '../ui/DateInput';
 import { WorkoutDraftProvider, useDraftContext } from './WorkoutDraftContext';
+import { toast } from '../ui/Toast';
 
 function WorkoutFormInner() {
   const { id } = useParams();
@@ -144,6 +145,7 @@ function WorkoutFormInner() {
 
       setRunning(false);
       setCurrentWorkout(null);
+      toast('Workout saved!');
       navigate('/workout');
     } finally {
       setSaving(false);
@@ -189,6 +191,7 @@ function WorkoutFormInner() {
       </div>
 
       <div className="mb-4">
+        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 px-1">Session date</p>
         <DateInput
           value={workoutDate}
           onChange={dateStr => setWorkoutDate(dateStr)}

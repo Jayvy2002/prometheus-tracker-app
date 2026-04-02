@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, X, Search, AlertCircle, ArrowLeft, ScanLine, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Camera, X, Search, AlertCircle, ArrowLeft, ScanLine, Loader2, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -293,10 +293,24 @@ export default function ScannerPage() {
                 size="lg"
                 variant="secondary"
               >
-                <ImageIcon size={16} /> Take a photo
+                <ImageIcon size={16} /> Photo (barcode)
               </Button>
             </div>
           </Card>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-neutral-900" />
+            <span className="text-neutral-600 text-xs">no barcode?</span>
+            <div className="flex-1 h-px bg-neutral-900" />
+          </div>
+
+          <button
+            onClick={() => setState('create_form')}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-600/10 border border-violet-500/30 text-violet-400 hover:bg-violet-600/20 transition-colors text-sm font-medium"
+          >
+            <Sparkles size={15} />
+            Identify by photo — AI
+          </button>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-neutral-900" />

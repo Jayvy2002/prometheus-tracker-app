@@ -6,6 +6,7 @@ import type { WorkoutExercise } from '../../lib/types';
 import { SET_TYPES } from '../../lib/constants';
 import Card from '../ui/Card';
 import { useDraftContext } from './WorkoutDraftContext';
+import { toast } from '../ui/Toast';
 
 function SetRow({ set, index, onDelete }: {
   set: { id: string; set_type: string; weight_kg: number; reps: number; rir: number };
@@ -141,7 +142,10 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
         >
           <StickyNote size={16} />
         </button>
-        <button onClick={() => deleteExercise(exercise.id)} className="p-1 text-neutral-600 hover:text-rose-400 transition-colors">
+        <button
+          onClick={() => { deleteExercise(exercise.id); toast('Exercise removed', 'info'); }}
+          className="p-1 text-neutral-600 hover:text-rose-400 transition-colors"
+        >
           <Trash2 size={16} />
         </button>
       </div>

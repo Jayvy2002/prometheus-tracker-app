@@ -270,6 +270,51 @@ IMPORTANT - Internet knowledge:
       );
     }
 
+    // --- Deduplication: search by name (+ brand if available) before inserting ---
+    const nameToMatch = (productData.name || "").trim();
+    const brandToMatch = (productData.brand || "").trim();
+
+    // Also check barcode first if provided (fastest path)
+    let dedupeProduct = null;
+    if (prodReq.barcode) {
+      const { data: byBarcode } = await adminClient
+        .from("food_products")
+        .select("*")
+        .eq("barcode", prodReq.barcode)
+        .limit(1);
+      dedupeProduct = byBarcode?.[0] ?? null;
+    }
+
+    if (!dedupeProduct && nameToMatch) {
+      let nameQuery = adminClient
+        .from("food_products")
+        .select("*")
+        .ilike("name", nameToMatch);
+
+      if (brandToMatch) {
+        nameQuery = nameQuery.ilike("brand", brandToMatch);
+      }
+
+      const { data: byName } = await nameQuery.limit(1);
+      dedupeProduct = byName?.[0] ?? null;
+    }
+
+    if (dedupeProduct) {
+      await adminClient
+        .from("product_requests")
+        .update({
+          status: "completed",
+          result_product_id: dedupeProduct.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", request_id);
+
+      return new Response(JSON.stringify({ product: dedupeProduct }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // --- End deduplication ---
+
     const { data: newProduct, error: insertErr } = await adminClient
       .from("food_products")
       .insert({

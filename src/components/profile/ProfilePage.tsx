@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, Heart, BarChart2, MessageSquare } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, Heart, BarChart2, MessageSquare, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -12,8 +12,9 @@ import UnitsForm from './UnitsForm';
 import PasswordForm from './PasswordForm';
 import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
+import NotificationSettings from './NotificationSettings';
 
-type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback';
+type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications';
 
 interface AccordionSectionProps {
   id: Section;
@@ -99,7 +100,11 @@ export default function ProfilePage() {
           <PasswordForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
-        <AccordionSection id="feedback" icon={MessageSquare} label="Suggestion / Report a Problem" isOpen={openSection === 'feedback'} onToggle={() => toggle('feedback')} animationDelay="300ms">
+        <AccordionSection id="notifications" icon={Bell} label="Notifications & Reminders" isOpen={openSection === 'notifications'} onToggle={() => toggle('notifications')} animationDelay="300ms">
+          <NotificationSettings />
+        </AccordionSection>
+
+        <AccordionSection id="feedback" icon={MessageSquare} label="Suggestion / Report a Problem" isOpen={openSection === 'feedback'} onToggle={() => toggle('feedback')} animationDelay="360ms">
           <FeedbackForm />
         </AccordionSection>
 

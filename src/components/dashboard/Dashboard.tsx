@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X } from 'lucide-react';
+import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -10,6 +10,7 @@ import { todayStr } from '../../lib/utils';
 import type { DashboardWidget, WidgetType } from '../../lib/types';
 import DashboardGrid from './DashboardGrid';
 import PageTransition from '../ui/PageTransition';
+import { getNotificationSettings, scheduleNotificationsForToday } from '../../lib/notifications';
 
 const WIDGET_CATALOG: {
   type: WidgetType;
@@ -28,6 +29,7 @@ const WIDGET_CATALOG: {
   { type: 'steps', label: 'Steps', description: 'Daily step count', defaultSize: 'medium', icon: Footprints, color: 'text-amber-400', bg: 'bg-amber-500/10' },
   { type: 'exercise_progress', label: 'Routine Tonnage', description: 'Track strength over time', defaultSize: 'large', icon: LineChart, color: 'text-rose-400', bg: 'bg-rose-500/10' },
   { type: 'streak', label: 'Streak', description: 'Activity consistency streak', defaultSize: 'medium', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+  { type: 'weekly_goal', label: 'Weekly Goal', description: 'Track your weekly workout target', defaultSize: 'large', icon: Target, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
 ];
 
 function getGreeting(firstName: string, hour: number): string {
@@ -41,9 +43,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { logs, fetchLogs, fetchWaterLogs } = useNutritionStore();
   const { fetchMeasurements } = useWeightStore();
-  const { fetchWorkouts } = useWorkoutStore();
+  const { workouts, fetchWorkouts } = useWorkoutStore();
   const [showAdd, setShowAdd] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -58,6 +60,16 @@ export default function Dashboard() {
     fetchMeasurements(user.id);
     fetchWorkouts(user.id);
   }, [user]);
+
+  // Schedule local notifications once data is loaded
+  useEffect(() => {
+    const settings = getNotificationSettings();
+    if (!settings.workout_enabled && !settings.nutrition_enabled) return;
+    const today = todayStr();
+    const workoutsLoggedToday = workouts.some(w => w.completed && w.date?.startsWith(today));
+    const mealsLoggedToday = logs.length > 0;
+    scheduleNotificationsForToday(settings, workoutsLoggedToday, mealsLoggedToday);
+  }, [workouts.length, logs.length]);
 
   const widgets = profile?.dashboard_layout ?? [];
 

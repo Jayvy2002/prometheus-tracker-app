@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import SideNav from './SideNav';
+import { ToastContainer } from '../ui/Toast';
 
 interface FullPageLayoutProps {
   children: ReactNode;
@@ -22,6 +23,8 @@ export default function FullPageLayout({ children }: FullPageLayoutProps) {
           {children}
         </div>
       </main>
+
+      <ToastContainer />
     </div>
   );
 }

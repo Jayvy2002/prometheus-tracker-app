@@ -9,8 +9,9 @@ import WorkoutVolumeWidget from './widgets/WorkoutVolumeWidget';
 import StepsWidget from './widgets/StepsWidget';
 import RoutineTonnageWidget from './widgets/RoutineTonnageWidget';
 import StreakWidget from './widgets/StreakWidget';
+import WeeklyGoalWidget from './widgets/WeeklyGoalWidget';
 
-const RESIZABLE_TYPES: WidgetType[] = ['calories', 'water', 'macros', 'steps', 'streak'];
+const RESIZABLE_TYPES: WidgetType[] = ['calories', 'water', 'macros', 'steps', 'streak', 'weekly_goal'];
 
 const WIDGET_ROUTES: Partial<Record<WidgetType, string>> = {
   calories: '/nutrition',
@@ -19,6 +20,7 @@ const WIDGET_ROUTES: Partial<Record<WidgetType, string>> = {
   weight: '/weight',
   workout_volume: '/workout',
   exercise_progress: '/exercise-progress',
+  weekly_goal: '/workout',
 };
 
 const SIZE_LABELS: Record<DashboardWidget['size'], string> = {
@@ -82,6 +84,7 @@ export default function WidgetCard({
       case 'steps': return <StepsWidget size={widget.size} />;
       case 'exercise_progress': return <RoutineTonnageWidget />;
       case 'streak': return <StreakWidget size={widget.size} />;
+      case 'weekly_goal': return <WeeklyGoalWidget size={widget.size} />;
       default: return null;
     }
   };

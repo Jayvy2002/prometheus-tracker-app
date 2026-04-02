@@ -1,9 +1,12 @@
+import { useNavigate } from 'react-router-dom';
+import { Dumbbell } from 'lucide-react';
 import { useWorkoutStore } from '../../../stores/workoutStore';
 import { parseDate } from '../../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function WorkoutVolumeWidget() {
   const { workouts } = useWorkoutStore();
+  const navigate = useNavigate();
 
   const last7 = Array.from({ length: 7 }, (_, i) => {
     const d = new Date();
@@ -25,6 +28,23 @@ export default function WorkoutVolumeWidget() {
     week.setDate(week.getDate() - 7);
     return d >= week;
   }).length;
+
+  if (workouts.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-3 text-center">
+        <div className="w-10 h-10 rounded-xl bg-violet-600/10 flex items-center justify-center">
+          <Dumbbell size={20} className="text-violet-600/50" />
+        </div>
+        <p className="text-xs text-neutral-500 leading-tight">No workouts logged yet</p>
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate('/workout/new'); }}
+          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+        >
+          Start your first workout →
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

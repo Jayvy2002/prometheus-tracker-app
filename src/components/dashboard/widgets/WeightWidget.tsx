@@ -1,3 +1,5 @@
+import { useNavigate } from 'react-router-dom';
+import { TrendingUp } from 'lucide-react';
 import { useWeightStore } from '../../../stores/weightStore';
 import { useProfileStore } from '../../../stores/profileStore';
 import { formatDateShort, parseDateStr } from '../../../lib/utils';
@@ -6,6 +8,7 @@ import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'rec
 export default function WeightWidget() {
   const { measurements } = useWeightStore();
   const { profile } = useProfileStore();
+  const navigate = useNavigate();
   const unit = profile?.unit_weight ?? 'kg';
 
   const data = [...measurements]
@@ -17,7 +20,20 @@ export default function WeightWidget() {
     }));
 
   if (data.length === 0) {
-    return <p className="text-neutral-500 text-sm">No weight data yet</p>;
+    return (
+      <div className="flex flex-col items-center gap-2 py-3 text-center">
+        <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center">
+          <TrendingUp size={20} className="text-blue-600/50" />
+        </div>
+        <p className="text-xs text-neutral-500 leading-tight">No weight logged yet</p>
+        <button
+          onClick={(e) => { e.stopPropagation(); navigate('/weight'); }}
+          className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
+        >
+          Log your first weigh-in →
+        </button>
+      </div>
+    );
   }
 
   const latest = data[data.length - 1]?.weight;
