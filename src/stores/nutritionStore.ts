@@ -24,7 +24,7 @@ interface NutritionState {
   createProduct: (product: Partial<FoodProduct>) => Promise<FoodProduct | null>;
   uploadProductImage: (userId: string, file: File, slot: string) => Promise<string | null>;
   createProductRequest: (request: Partial<ProductRequest>) => Promise<ProductRequest | null>;
-  analyzeProductRequest: (requestId: string) => Promise<FoodProduct | null>;
+  analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | null>;
   fetchFavorites: (userId: string) => Promise<void>;
   addFavorite: (userId: string, product: FoodProduct) => Promise<void>;
   removeFavorite: (id: string) => Promise<void>;
@@ -179,7 +179,11 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
     if (!res.ok) return null;
     const result = await res.json();
-    return (result.product as FoodProduct) ?? null;
+    if (!result.product) return null;
+    return {
+      product: result.product as FoodProduct,
+      confidence: typeof result.confidence === 'number' ? result.confidence : 100,
+    };
   },
 
   fetchFavorites: async (userId) => {

@@ -14,6 +14,7 @@ function SetRow({ set, index, onDelete }: {
   onDelete: () => void;
 }) {
   const { initSetDraft, getSetDraft, updateSetDraft, updateSetType } = useDraftContext();
+  const { updateSet } = useWorkoutStore();
   const [localWeight, setLocalWeight] = useState('');
   const [localReps, setLocalReps] = useState('');
   const [localRir, setLocalRir] = useState('');
@@ -54,6 +55,11 @@ function SetRow({ set, index, onDelete }: {
             setLocalWeight(e.target.value);
             updateSetDraft(set.id, 'weight_kg', e.target.value);
           }}
+          onFocus={e => e.target.select()}
+          onBlur={() => {
+            const w = parseFloat(localWeight);
+            updateSet(set.id, { weight_kg: isNaN(w) ? 0 : w });
+          }}
           className="w-full bg-neutral-800/60 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="0"
         />
@@ -67,6 +73,11 @@ function SetRow({ set, index, onDelete }: {
             setLocalReps(e.target.value);
             updateSetDraft(set.id, 'reps', e.target.value);
           }}
+          onFocus={e => e.target.select()}
+          onBlur={() => {
+            const r = parseInt(localReps, 10);
+            updateSet(set.id, { reps: isNaN(r) ? 0 : r });
+          }}
           className="w-full bg-neutral-800/60 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="0"
         />
@@ -79,6 +90,11 @@ function SetRow({ set, index, onDelete }: {
           onChange={e => {
             setLocalRir(e.target.value);
             updateSetDraft(set.id, 'rir', e.target.value);
+          }}
+          onFocus={e => e.target.select()}
+          onBlur={() => {
+            const r = parseInt(localRir, 10);
+            updateSet(set.id, { rir: isNaN(r) ? 0 : r });
           }}
           className="w-full bg-neutral-800/60 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="0"
@@ -97,7 +113,7 @@ function SetRow({ set, index, onDelete }: {
 }
 
 export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }) {
-  const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, currentWorkout, fetchPreviousSets } = useWorkoutStore();
+  const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, currentWorkout, fetchPreviousSets } = useWorkoutStore();
   const { user } = useAuthStore();
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
@@ -182,6 +198,7 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
               setLocalNotes(e.target.value);
               updateExerciseDraft(exercise.id, 'notes', e.target.value);
             }}
+            onBlur={() => updateExercise(exercise.id, { notes: localNotes })}
             placeholder="Notes : tempo, indications, variante..."
             rows={2}
             className="w-full bg-neutral-900/60 border border-neutral-800/50 rounded-lg px-3 py-2 text-sm text-neutral-300 placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none"

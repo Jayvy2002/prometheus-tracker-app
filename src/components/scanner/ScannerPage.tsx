@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, X, Search, AlertCircle, ArrowLeft, ScanLine, Loader2, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { Camera, X, Search, AlertCircle, ArrowLeft, ScanLine, Loader2, Image as ImageIcon, Sparkles, Clock } from 'lucide-react';
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -20,7 +20,7 @@ type ScannerState = 'idle' | 'scanning' | 'searching' | 'not_found' | 'food_form
 export default function ScannerPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { findByBarcode, createProduct } = useNutritionStore();
+  const { findByBarcode, createProduct, recentProducts, fetchRecentProducts } = useNutritionStore();
   const { user } = useAuthStore();
 
   const [state, setState] = useState<ScannerState>('idle');
@@ -66,6 +66,10 @@ export default function ScannerPage() {
       stopScanning();
     };
   }, [stopScanning]);
+
+  useEffect(() => {
+    if (user) fetchRecentProducts(user.id);
+  }, [user]);
 
   const lookupProduct = useCallback(async (code: string) => {
     if (!mountedRef.current) return;
@@ -335,6 +339,29 @@ export default function ScannerPage() {
             <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 flex items-center gap-2">
               <AlertCircle size={16} className="shrink-0" />
               {error}
+            </div>
+          )}
+
+          {recentProducts.length > 0 && (
+            <div className="animate-fade-in-up">
+              <p className="text-xs font-medium text-neutral-500 mb-2 flex items-center gap-1.5">
+                <Clock size={11} />
+                Recently logged
+              </p>
+              <div className="space-y-1.5">
+                {recentProducts.slice(0, 5).map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setProduct(p); setState('food_form'); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition-colors text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                      <p className="text-xs text-neutral-500">{p.calories_per_100g} kcal · P:{p.protein_per_100g}g · C:{p.carbs_per_100g}g · F:{p.fat_per_100g}g /100g</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

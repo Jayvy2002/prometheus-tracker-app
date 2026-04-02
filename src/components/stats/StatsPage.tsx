@@ -47,6 +47,22 @@ function getPeriodDates(period: Period): { start: string; end: string; days: num
   return { start: fmt(start), end: fmt(end), days };
 }
 
+function getPrevPeriodDates(period: Period): { start: string; end: string } {
+  const end = new Date();
+  const days = period === 'week' ? 7 : period === 'month' ? 30 : 90;
+  const prevEnd = new Date(end);
+  prevEnd.setDate(end.getDate() - days);
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevEnd.getDate() - days + 1);
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  return { start: fmt(prevStart), end: fmt(prevEnd) };
+}
+
+function pctDelta(curr: number, prev: number): number | null {
+  if (prev === 0) return null;
+  return Math.round(((curr - prev) / prev) * 100);
+}
+
 function StatCard({
   label,
   value,
@@ -54,6 +70,7 @@ function StatCard({
   color,
   icon: Icon,
   trend,
+  insight,
 }: {
   label: string;
   value: string;
@@ -61,6 +78,7 @@ function StatCard({
   color: string;
   icon: React.ElementType;
   trend?: number | null;
+  insight?: string | null;
 }) {
   return (
     <Card>
@@ -72,9 +90,10 @@ function StatCard({
           <p className="text-xs text-neutral-500">{label}</p>
           <p className="text-xl font-bold text-white leading-tight">{value}</p>
           {sub && <p className="text-xs text-neutral-500 mt-0.5">{sub}</p>}
+          {insight && <p className="text-[11px] text-neutral-500 mt-1 italic">{insight}</p>}
         </div>
         {trend !== null && trend !== undefined && (
-          <div className={`flex items-center gap-0.5 text-xs font-medium px-2 py-1 rounded-lg
+          <div className={`flex items-center gap-0.5 text-xs font-medium px-2 py-1 rounded-lg shrink-0
             ${trend > 0 ? 'bg-emerald-500/10 text-emerald-400' : trend < 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-neutral-800 text-neutral-500'}`}>
             {trend > 0 ? <TrendingUp size={11} /> : trend < 0 ? <TrendingDown size={11} /> : <Minus size={11} />}
             {Math.abs(trend)}%
@@ -93,42 +112,30 @@ export default function StatsPage() {
   const [nutrition, setNutrition] = useState<DayNutrition[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutStat[]>([]);
   const [weights, setWeights] = useState<WeightStat[]>([]);
+  const [prevAvgCalories, setPrevAvgCalories] = useState<number>(0);
+  const [prevAvgProtein, setPrevAvgProtein] = useState<number>(0);
+  const [prevAvgWater, setPrevAvgWater] = useState<number>(0);
+  const [prevTotalWorkouts, setPrevTotalWorkouts] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const unit = profile?.unit_weight ?? 'kg';
 
   const { start, end } = useMemo(() => getPeriodDates(period), [period]);
+  const { start: prevStart, end: prevEnd } = useMemo(() => getPrevPeriodDates(period), [period]);
 
   useEffect(() => {
     if (!user) return;
     setLoading(true);
 
     Promise.all([
-      supabase
-        .from('nutrition_logs')
-        .select('logged_at, calories, protein, carbs, fat')
-        .eq('user_id', user.id)
-        .gte('logged_at', start)
-        .lte('logged_at', end),
-      supabase
-        .from('water_logs')
-        .select('logged_at, amount_ml')
-        .eq('user_id', user.id)
-        .gte('logged_at', start)
-        .lte('logged_at', end),
-      supabase
-        .from('workouts')
-        .select('date')
-        .eq('user_id', user.id)
-        .gte('date', start)
-        .lte('date', end + 'T23:59:59'),
-      supabase
-        .from('weight_measurements')
-        .select('measured_at, weight_kg')
-        .eq('user_id', user.id)
-        .gte('measured_at', start)
-        .lte('measured_at', end)
-        .order('measured_at', { ascending: true }),
-    ]).then(([nutritionRes, waterRes, workoutsRes, weightRes]) => {
+      supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
+      supabase.from('water_logs').select('logged_at, amount_ml').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
+      supabase.from('workouts').select('date').eq('user_id', user.id).gte('date', start).lte('date', end + 'T23:59:59'),
+      supabase.from('weight_measurements').select('measured_at, weight_kg').eq('user_id', user.id).gte('measured_at', start).lte('measured_at', end).order('measured_at', { ascending: true }),
+      // Previous period
+      supabase.from('nutrition_logs').select('logged_at, calories, protein').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
+      supabase.from('water_logs').select('logged_at, amount_ml').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
+      supabase.from('workouts').select('date').eq('user_id', user.id).gte('date', prevStart).lte('date', prevEnd + 'T23:59:59'),
+    ]).then(([nutritionRes, waterRes, workoutsRes, weightRes, prevNutRes, prevWaterRes, prevWkRes]) => {
       const nutritionLogs = (nutritionRes.data ?? []) as { logged_at: string; calories: number; protein: number; carbs: number; fat: number }[];
       const waterLogs = (waterRes.data ?? []) as { logged_at: string; amount_ml: number }[];
 
@@ -160,9 +167,33 @@ export default function StatsPage() {
         weight: unit === 'lbs' ? +(w.weight_kg * 2.20462).toFixed(1) : +w.weight_kg.toFixed(1),
       })));
 
+      // Previous period aggregates
+      const prevNutLogs = (prevNutRes.data ?? []) as { logged_at: string; calories: number; protein: number }[];
+      const prevNutByDate: Record<string, { calories: number; protein: number }> = {};
+      for (const log of prevNutLogs) {
+        const d = log.logged_at;
+        if (!prevNutByDate[d]) prevNutByDate[d] = { calories: 0, protein: 0 };
+        prevNutByDate[d].calories += log.calories;
+        prevNutByDate[d].protein += log.protein;
+      }
+      const prevNutDays = Object.values(prevNutByDate);
+      setPrevAvgCalories(prevNutDays.length > 0 ? Math.round(prevNutDays.reduce((s, d) => s + d.calories, 0) / prevNutDays.length) : 0);
+      setPrevAvgProtein(prevNutDays.length > 0 ? Math.round(prevNutDays.reduce((s, d) => s + d.protein, 0) / prevNutDays.length) : 0);
+
+      const prevWaterLogs = (prevWaterRes.data ?? []) as { logged_at: string; amount_ml: number }[];
+      const prevWaterByDate: Record<string, number> = {};
+      for (const w of prevWaterLogs) {
+        prevWaterByDate[w.logged_at] = (prevWaterByDate[w.logged_at] ?? 0) + w.amount_ml;
+      }
+      const prevWaterDays = Object.values(prevWaterByDate);
+      setPrevAvgWater(prevWaterDays.length > 0 ? Math.round(prevWaterDays.reduce((s, v) => s + v, 0) / prevWaterDays.length) : 0);
+
+      const prevWkCount = (prevWkRes.data ?? []).length;
+      setPrevTotalWorkouts(prevWkCount);
+
       setLoading(false);
     });
-  }, [user, start, end, unit]);
+  }, [user, start, end, prevStart, prevEnd, unit]);
 
   const avgCalories = nutrition.length > 0
     ? Math.round(nutrition.reduce((s, d) => s + d.calories, 0) / nutrition.length)
@@ -183,9 +214,40 @@ export default function StatsPage() {
     : null;
 
   const calorieTarget = profile?.daily_calorie_target ?? 2000;
-  const calorieTrend = avgCalories > 0 && calorieTarget > 0
-    ? Math.round(((avgCalories - calorieTarget) / calorieTarget) * 100)
-    : null;
+  const proteinTarget = profile?.protein_target ?? 0;
+  const waterTarget = profile?.daily_water_target_ml ?? 2000;
+
+  // Period-over-period deltas
+  const calorieDelta = pctDelta(avgCalories, prevAvgCalories);
+  const proteinDelta = pctDelta(avgProtein, prevAvgProtein);
+  const waterDelta = pctDelta(avgWater, prevAvgWater);
+  const workoutDelta = pctDelta(totalWorkouts, prevTotalWorkouts);
+
+  // Interpretation text vs targets
+  function calorieInsight(): string | null {
+    if (!avgCalories || !calorieTarget) return null;
+    const diff = avgCalories - calorieTarget;
+    const pct = Math.abs(Math.round((diff / calorieTarget) * 100));
+    if (pct <= 5) return 'Right on target';
+    if (diff > 0) return `${pct}% above your target`;
+    return `${pct}% below your target`;
+  }
+  function proteinInsight(): string | null {
+    if (!avgProtein || !proteinTarget) return null;
+    const diff = avgProtein - proteinTarget;
+    const pct = Math.abs(Math.round((diff / proteinTarget) * 100));
+    if (pct <= 5) return 'Meeting your protein target';
+    if (diff > 0) return `${pct}% above target`;
+    return `${pct}% below target — aim for ${proteinTarget}g`;
+  }
+  function waterInsight(): string | null {
+    if (!avgWater || !waterTarget) return null;
+    const diff = avgWater - waterTarget;
+    const pct = Math.abs(Math.round((diff / waterTarget) * 100));
+    if (pct <= 10) return 'Good hydration';
+    if (diff > 0) return 'Well hydrated';
+    return `${pct}% below target — stay hydrated`;
+  }
 
   const calorieChartData = nutrition.map(d => ({
     date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -239,7 +301,8 @@ export default function StatsPage() {
               sub={`target: ${calorieTarget}`}
               color="bg-rose-500/20 text-rose-400"
               icon={Flame}
-              trend={calorieTrend}
+              trend={calorieDelta}
+              insight={calorieInsight()}
             />
             <StatCard
               label="Workouts"
@@ -247,23 +310,25 @@ export default function StatsPage() {
               sub={period === 'week' ? 'this week' : period === 'month' ? 'this month' : 'last 3 months'}
               color="bg-blue-500/20 text-blue-400"
               icon={Dumbbell}
-              trend={null}
+              trend={workoutDelta}
             />
             <StatCard
               label="Avg. Protein"
               value={`${avgProtein}g`}
-              sub={`target: ${profile?.protein_target ?? 0}g`}
+              sub={`target: ${proteinTarget}g`}
               color="bg-amber-500/20 text-amber-400"
               icon={TrendingUp}
-              trend={null}
+              trend={proteinDelta}
+              insight={proteinInsight()}
             />
             <StatCard
               label="Avg. Water"
               value={`${(avgWater / 1000).toFixed(1)}L`}
-              sub={`target: ${((profile?.daily_water_target_ml ?? 2000) / 1000).toFixed(1)}L`}
+              sub={`target: ${(waterTarget / 1000).toFixed(1)}L`}
               color="bg-sky-500/20 text-sky-400"
               icon={Droplets}
-              trend={null}
+              trend={waterDelta}
+              insight={waterInsight()}
             />
           </div>
 

@@ -68,9 +68,9 @@ Prometheus est une application de suivi fitness bien architecturée, couvrant l'
 **Implémenté :**
 - Label "Session date" visible au-dessus du DateInput pour mieux signaler la possibilité de modifier la date
 
-**Reste à faire :**
-- Saisie numérique optimisée : ouvrir le pavé numérique au tap sur un champ poids/reps
-- Enregistrement automatique à chaque modification
+**Implémenté :**
+- `onFocus` → select all text dans les champs poids, reps, RIR (pavé numérique optimisé)
+- Auto-save `onBlur` sur chaque champ (poids, reps, RIR, notes) — appel direct à `updateSet` / `updateExercise` dans Supabase
 
 ---
 
@@ -350,7 +350,7 @@ Visualiser l'activité semaine par semaine, cliquer sur un jour pour voir un ré
 
 **Problèmes logiques :**
 
-🟠 **Impossible de naviguer vers les jours futurs.** L'utilisateur ne peut pas planifier ou voir les semaines à venir. Même sans planification, bloquer la navigation vers l'avenir est surprenant — si on est jeudi, on ne peut pas voir vendredi.
+✅ **Navigation vers les jours futurs débloquée.** `CalendarPage.tsx` — suppression de `Math.min(0, o + 1)` et de `disabled={weekOffset >= 0}` sur le bouton droit. Les jours futurs sont cliquables (opacity réduite pour signaler l'absence de données).
 
 🟡 **Résumé journalier trop dense.** Toutes les infos (séance, nutrition, poids) sont empilées dans un seul panneau sans hiérarchie claire. Au premier coup d'œil, il est difficile de distinguer "j'ai bien mangé" de "j'ai bien entraîné".
 
@@ -365,7 +365,7 @@ Créer des templates de séances, les démarrer directement, voir le nombre d'ut
 
 🟠 **Impossible de voir la progression sur une routine.** L'utilisateur sait qu'il a utilisé une routine 8 fois, mais pas si ses charges ont augmenté. L'objectif d'une routine est de progresser — il manque un graphe ou un résumé "Dernière fois : 80kg × 5 / Cette fois : 82.5kg × 5".
 
-🟠 **Modifier une routine n'affecte que les futures séances, mais ce n'est pas indiqué.** Si l'utilisateur modifie une routine (ex : change un exercice), il ne sait pas si ses anciennes séances seront impactées ou non. Il manque une indication claire : "Les séances passées ne seront pas modifiées."
+✅ **Avertissement ajouté à l'édition de routine.** `RoutineForm.tsx` — bannière informative affichée uniquement quand `routine !== null` : "Editing this routine won't affect past sessions already logged."
 
 🟡 **Pas d'ordre des exercices modifiable.** Lors de la création ou l'édition d'une routine, si l'utilisateur veut réorganiser l'ordre des exercices, ce n'est pas possible (drag-and-drop absent). Il doit supprimer et re-ajouter.
 
@@ -378,9 +378,9 @@ Voir des graphiques et statistiques agrégées sur 1 semaine, 1 mois ou 3 mois (
 
 **Problèmes logiques :**
 
-🟠 **Les stats sont descriptives, jamais prescriptives.** L'utilisateur voit que sa moyenne calorique est de 2100 kcal pour un objectif de 2500 — mais rien ne lui dit "tu es en déficit depuis 2 semaines, est-ce intentionnel ?". Les stats sans interprétation ont une valeur limitée.
+✅ **Stats prescriptives implémentées.** `StatsPage.tsx` — chaque carte affiche un texte d'interprétation contextuel basé sur l'objectif (ex : "Right on target", "12% above target", "Below target — aim for 160g"). Fonctions `calorieInsight()`, `proteinInsight()`, `waterInsight()` calculées en temps réel.
 
-🟠 **Pas de comparaison entre périodes.** Il n'est pas possible de comparer "cette semaine vs la semaine dernière" ou "ce mois vs le mois précédent". Le progrès ne se lit qu'en ayant mémorisé les valeurs passées.
+✅ **Comparaison période précédente implémentée.** `StatsPage.tsx` — fetching du période précédent équivalent (7/30/90 jours en arrière), calcul de la variation % (calories, protéines, eau, workouts) affichée comme badge tendance sur chaque stat card.
 
 🟡 **Le graphe de poids n'apparaît que si 2+ pesées existent.** Un utilisateur qui a pesé une seule fois voit une page vide sans savoir pourquoi. Il n'y a pas de message d'état vide clair pour ce graphe.
 
@@ -393,7 +393,7 @@ Voir un tableau de bord personnalisable avec des widgets (calories, eau, poids, 
 
 **Problèmes logiques :**
 
-🟠 **La customisation n'est pas découvrable.** Le long-press pour activer le mode édition est une interaction cachée. Il n'y a pas d'icône de crayon ou de bouton "Modifier" visible au premier regard. L'utilisateur qui ne connaît pas ce pattern ne saura jamais qu'il peut personnaliser son dashboard.
+✅ **Bouton d'édition visible ajouté au Dashboard.** `Dashboard.tsx` — icône `Pencil` (crayon) ajoutée à gauche du bouton `+` dans le header, visible uniquement quand des widgets existent. Permet d'entrer en mode édition sans long-press.
 
 🟠 **Les widgets naviguent vers la page, mais ne permettent pas d'agir directement.** Taper sur le widget "Calories" ouvre la page Nutrition. Mais l'utilisateur voulait peut-être juste ajouter un repas rapide. Un raccourci "+" sur le widget lui éviterait un aller-retour.
 
@@ -408,9 +408,9 @@ Scanner un code-barres, uploader une photo de produit, créer un produit via IA,
 
 **Problèmes logiques :**
 
-🟠 **La catégorie de repas est choisie avant de scanner.** Si l'utilisateur change d'avis ou scanne plusieurs produits pour des repas différents, il doit sortir du scanner et recommencer. La catégorie devrait être sélectionnable après le scan, au moment de confirmer.
+✅ **Catégorie sélectionnable dans FoodForm (confirmation).** `FoodForm.tsx` — ajout d'un sélecteur de catégorie (4 boutons Breakfast/Lunch/Dinner/Snack) en haut du formulaire de confirmation, initialisé depuis le contexte mais modifiable. L'état `activeCategory` remplace le prop `category` fixe dans `handleSave`.
 
-🟠 **Aucun historique de scans récents.** L'utilisateur qui scanne son pot de yaourt chaque matin doit répéter toute l'opération chaque fois. Un "Récemment scannés" dans le scanner permettrait d'aller 3× plus vite.
+✅ **Produits récents dans le scanner.** `ScannerPage.tsx` — fetch de `recentProducts` au montage, affichage des 5 derniers aliments loggés dans l'état `idle`. Clic direct → `food_form` sans scan nécessaire.
 
 🟡 **Le processus de création IA manque de guidage.** Quand un produit n'est pas trouvé, l'IA demande des photos, mais sans instructions claires : combien de photos ? Face avant, tableau nutritionnel, liste d'ingrédients ? L'utilisateur ne sait pas ce qui aide l'IA.
 
@@ -456,11 +456,13 @@ Ces problèmes touchent plusieurs fonctionnalités simultanément :
 | ✅ | Macros avec barre de progression vs objectif | Fonctionnel — MacroSummary affiche une barre par macro avec cible du profil |
 | ✅ | Navigation vers les jours passés depuis Nutrition | Fonctionnel |
 | ✅ | Fil conducteur entre pages (ajout rapide + date modifiable) | Fonctionnel |
+| ✅ | Navigation vers les jours futurs dans le Calendrier | Implémenté — suppression du guard `Math.min(0, ...)` |
+| ✅ | Avertissement édition de routine | Implémenté — bannière info dans RoutineForm si routine existante |
 | 🟠 | Routines sans vue de progression | La valeur principale de la routine n'est pas visible |
-| 🟠 | Stats descriptives sans interprétation | Données sans sens actionnable |
-| 🟠 | Customisation dashboard non découvrable | Fonctionnalité clé inconnue de la majorité |
+| ✅ | Stats descriptives sans interprétation | Texte contextuel + delta vs période précédente implémentés |
+| ✅ | Customisation dashboard non découvrable | Bouton Pencil visible dans le header |
 | 🟠 | Widget objectif hebdo non lié aux objectifs du profil | Incohérence de données |
-| 🟠 | Catégorie repas choisie avant le scan | Contrainte artificielle |
+| ✅ | Catégorie repas choisie avant le scan | Sélecteur dans FoodForm + produits récents dans ScannerPage |
 | 🟡 | Timer démarre automatiquement à la création | Imprécision involontaire |
 | 🟡 | Détection catégorie repas basée sur l'heure actuelle | Incohérence sur les logs rétroactifs |
 | ✅ | Recettes avec page de gestion dédiée | Fonctionnel — RecipesPage existe |
@@ -491,7 +493,7 @@ L'app contient **4 fonctions intelligentes** : 2 edge functions GPT-4o (analyse 
 
 **Problèmes identifiés :**
 
-🔴 **Aucun score de confiance dans la réponse.** L'IA retourne des valeurs avec le même JSON qu'il s'agisse d'une photo nette d'un tableau nutritionnel ou d'une image floue. L'utilisateur n'a aucun signal que les valeurs sont "estimées" plutôt que "lues". Résultat : des entrées potentiellement fausses dans la base sans aucune indication.
+✅ **Score de confiance implémenté.** `analyze-product/index.ts` — champ `confidence: number` (0–100) ajouté au JSON retourné par GPT-4o, avec critères détaillés dans le prompt (95-100 = étiquette lisible, 75-94 = produit connu, 50-74 = estimation, 0-49 = approximation). `CreateProductForm.tsx` affiche un banner amber si `confidence < 70`. `nutritionStore.ts` retourne maintenant `{ product, confidence }` au lieu du seul produit.
 
 🟠 **GPT-4o utilisé même quand il n'y a pas d'images.** Si l'utilisateur fournit seulement un code-barres ou des notes textuelles, GPT-4o (le modèle le plus cher) est quand même appelé, alors qu'un modèle de type `gpt-4o-mini` suffit amplement pour un input purement textuel. Coût inutile.
 
@@ -532,9 +534,9 @@ L'app contient **4 fonctions intelligentes** : 2 edge functions GPT-4o (analyse 
 
 **Problèmes identifiés :**
 
-🔴 **Aucune vérification en base avant l'appel GPT-4o.** Si 500 utilisateurs ajoutent "Bench Press", GPT-4o est appelé 500 fois alors que la réponse serait identique à chaque fois. La table `exercises` est peuplée au fil du temps — une simple recherche insensible à la casse devrait être la première étape.
+✅ **Vérification en base avant appel GPT.** `verify-exercise/index.ts` — déjà implémenté (ILIKE search, lignes 108–127) : si l'exercice existe en base, retour direct sans appel IA.
 
-🟠 **GPT-4o est surdimensionné pour cette tâche.** Valider qu'un exercice existe et extraire des données structurées est une tâche de niveau `gpt-4o-mini` — pas de vision, raisonnement simple. Le coût par appel est 10× supérieur à ce qui est nécessaire.
+✅ **Modèle rétrogradé à GPT-4o-mini.** `verify-exercise/index.ts` — `"gpt-4o"` remplacé par `"gpt-4o-mini"` (tâche purement textuelle/structurée, pas de vision requise, 10× moins cher).
 
 🟠 **Pas de gestion du cas "nom de muscle hors enum".** Si GPT-4o retourne `"deltoids"` au lieu de `"side_delts"`, le JSON est techniquement valide mais la donnée est corrompue. Il n'y a pas de validation post-parsing qui vérifie que chaque muscle est bien dans la liste attendue.
 
@@ -609,15 +611,13 @@ Ce calcul nécessite de passer le `weightKg` du profil utilisateur — données 
 
 **Problèmes identifiés :**
 
-🟠 **Fenêtre de 7 jours insuffisante pour des tendances fiables.** La rétention d'eau peut provoquer des fluctuations de ±1.5kg sur une semaine sans aucun changement de composition corporelle. Une suggestion basée sur 7 jours peut être fausse à cause d'une pesée après un repas salé, d'un cycle hormonal, ou d'une activité physique inhabituelle.
+✅ **Fenêtre étendue à 14 jours.** `WeeklyAdjustment.tsx` — `WINDOW_DAYS = 14` (au lieu de 7). Comparaison rolling average sur 14j vs 14j précédents (28 jours de données au total).
 
-🟠 **La suggestion s'affiche même avec 1 ou 2 pesées disponibles.** Il n'y a pas de garde-fou sur le nombre minimum de points de données. Une suggestion affichée avec 2 pesées sur 7 jours est statistiquement non fiable et peut induire l'utilisateur en erreur.
+✅ **Garde-fou sur le nombre de pesées.** `WeeklyAdjustment.tsx` — `MIN_WEIGH_INS = 5` : le composant retourne `null` si le total de pesées sur les 28 jours est < 5. Pas de suggestion sans données suffisantes.
 
-🟠 **Aucune explication du raisonnement.** L'utilisateur voit "+100 kcal" mais ne sait pas pourquoi. "Ta moyenne cette semaine est 80.2kg vs 80.8kg la semaine dernière, soit –0.6kg — ta prise de masse stagne" serait bien plus actionnable et pédagogique.
+✅ **Raisonnement affiché.** `WeeklyAdjustment.tsx` — ligne informative : "Based on X weigh-ins over 28 days · avg X.X kg now vs X.X kg before".
 
-🟡 **Pas de bouton "Appliquer".** La suggestion est affichée mais l'utilisateur doit aller manuellement dans son profil pour modifier son objectif calorique. Ce friction inutile réduit drastiquement le taux d'adoption de la recommandation.
-
-🟡 **La fenêtre d'analyse ne glisse pas (rolling window).** Le système compare "semaine N" à "semaine N-1" en blocs fixes. Si l'utilisateur a pesé lundi et vendredi cette semaine et mercredi la semaine dernière, la comparaison est biaisée. Une moyenne glissante sur 14 jours serait plus robuste.
+✅ **Bouton "Apply" implémenté.** `WeeklyAdjustment.tsx` — bouton "Apply" appelle `updateProfile` et recalcule les macros via `calculateMacros`. Toast de confirmation et dismissal automatique.
 
 **Recommandation :**
 
@@ -643,16 +643,16 @@ Ce calcul nécessite de passer le `weightKg` du profil utilisateur — données 
 | Priorité | Problème | Fonction | Impact |
 |----------|----------|----------|--------|
 | ✅ | Bug : `maintain` = `bulk` dans `calculateMacros()` | Macros | Corrigé — maintain : 30% P / 30% F / 40% G (vs bulk 30/25/45) |
+| ✅ | Pas de score de confiance dans `analyze-product` | Nutrition IA | Champ `confidence` 0–100 + banner UI si < 70 |
+| ✅ | GPT-4o au lieu de GPT-4o-mini pour `verify-exercise` | Exercices | Rétrogradé à `gpt-4o-mini`, 10× moins cher |
+| ✅ | Pas de vérification en base avant appel GPT (`verify-exercise`) | Exercices | Déjà implémenté — ILIKE search avant tout appel IA |
+| ✅ | `WeeklyAdjustment` sans minimum de pesées requis | Recommandation | `MIN_WEIGH_INS = 5` + fenêtre 14j + raisonnement affiché |
+| ✅ | Pas de bouton "Appliquer" sur `WeeklyAdjustment` | Recommandation | Bouton Apply → updateProfile + recalcul macros |
+| ✅ | Fenêtre 7j trop courte dans `WeeklyAdjustment` | Recommandation | Étendue à 14j (rolling average sur 28j de données) |
+| ✅ | `max_tokens: 500` juste pour `analyze-product` | Nutrition IA | Passé à 600 |
 | 🔴 | Protéine calculée en % calories, pas en g/kg | Macros | Surestimation pour les petits gabarits, sous-estimation pour les grands |
-| 🔴 | Pas de vérification en base avant appel GPT (`verify-exercise`) | Exercices | Coût élevé + résultats redondants |
-| 🟠 | Pas de score de confiance dans `analyze-product` | Nutrition IA | Fausses valeurs nutritionnelles silencieuses |
-| 🟠 | GPT-4o au lieu de GPT-4o-mini pour `verify-exercise` | Exercices | Coût 10× supérieur au nécessaire |
 | 🟠 | Pas de check Open Food Facts dans la edge function | Nutrition IA | Appels GPT inutiles pour produits connus |
-| 🟠 | `WeeklyAdjustment` sans minimum de pesées requis | Recommandation | Suggestions non fiables avec peu de données |
-| 🟠 | Pas de bouton "Appliquer" sur `WeeklyAdjustment` | Recommandation | Friction qui réduit l'adoption des suggestions |
 | 🟡 | Pas de muscle validation post-parsing (`verify-exercise`) | Exercices | Données corrompues possibles |
-| 🟡 | `max_tokens: 500` juste pour `analyze-product` | Nutrition IA | Parsing JSON qui peut échouer sur produits complexes |
-| 🟡 | Fenêtre 7j trop courte dans `WeeklyAdjustment` | Recommandation | Bruit statistique élevé |
 
 ---
 

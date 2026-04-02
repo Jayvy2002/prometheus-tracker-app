@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus, RotateCcw } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { todayStr } from '../../lib/utils';
+import { supabase } from '../../lib/supabase';
+import { toast } from '../ui/Toast';
 import { MEAL_CATEGORIES } from '../../lib/constants';
 import type { NutritionLog } from '../../lib/types';
 import ProgressRing from '../ui/ProgressRing';
@@ -22,7 +24,7 @@ export default function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, loading: nutritionLoading } = useNutritionStore();
+  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, addLog, loading: nutritionLoading } = useNutritionStore();
   const { measurements } = useWeightStore();
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
@@ -74,12 +76,54 @@ export default function NutritionPage() {
     setShowAdd(true);
   };
 
+  const handleReuseYesterday = async () => {
+    if (!user) return;
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    const prevStr = prev.toISOString().split('T')[0];
+
+    const { data } = await supabase
+      .from('nutrition_logs')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('logged_at', prevStr);
+
+    if (!data || data.length === 0) {
+      toast('No meals logged the previous day');
+      return;
+    }
+
+    for (const l of data) {
+      await addLog({
+        user_id: user.id,
+        food_product_id: l.food_product_id ?? null,
+        name: l.name,
+        calories: l.calories,
+        protein: l.protein,
+        carbs: l.carbs,
+        fat: l.fat,
+        category: l.category,
+        quantity: l.quantity,
+        unit: l.unit,
+        logged_at: selectedDate,
+      });
+    }
+    toast(`${data.length} meal${data.length > 1 ? 's' : ''} copied from previous day`);
+  };
+
   return (
     <PageTransition>
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Nutrition</h1>
         <div className="flex gap-2">
+          <button
+            onClick={handleReuseYesterday}
+            title="Reuse previous day's meals"
+            className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
+          >
+            <RotateCcw size={18} />
+          </button>
           <button onClick={() => navigate('/recipes')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
             <ChefHat size={18} />
           </button>
@@ -120,6 +164,25 @@ export default function NutritionPage() {
             </div>
           </ProgressRing>
           <MacroSummary />
+        </div>
+        <div className="mt-3 pt-3 border-t border-neutral-800/50 flex items-center gap-3">
+          <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${pct}%`,
+                backgroundColor: pct > 100 ? '#f43f5e' : pct >= 95 ? '#10b981' : '#2563eb',
+              }}
+            />
+          </div>
+          <span className="text-xs shrink-0">
+            {pct > 100
+              ? <span className="text-rose-400">+{Math.round(totalCals - target)} over</span>
+              : pct >= 95
+              ? <span className="text-emerald-400">Goal reached!</span>
+              : <span className="text-neutral-400">{Math.round(target - totalCals)} remaining</span>
+            }
+          </span>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target } from 'lucide-react';
+import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target, Pencil } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -175,12 +175,22 @@ export default function Dashboard() {
               Done
             </button>
           ) : (
-            <button
-              onClick={() => setShowAdd(true)}
-              className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all flex items-center justify-center"
-            >
-              <Plus size={18} className="text-white" />
-            </button>
+            <div className="flex items-center gap-2">
+              {widgets.length > 0 && (
+                <button
+                  onClick={enterEditMode}
+                  className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all flex items-center justify-center"
+                >
+                  <Pencil size={15} className="text-neutral-400" />
+                </button>
+              )}
+              <button
+                onClick={() => setShowAdd(true)}
+                className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all flex items-center justify-center"
+              >
+                <Plus size={18} className="text-white" />
+              </button>
+            </div>
           )}
         </div>
 

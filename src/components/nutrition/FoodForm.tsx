@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useRecipeStore } from '../../stores/recipeStore';
-import { FOOD_UNITS } from '../../lib/constants';
+import { FOOD_UNITS, MEAL_CATEGORIES } from '../../lib/constants';
 import type { FoodProduct, FoodFavorite, Recipe } from '../../lib/types';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
@@ -81,6 +81,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const [searching, setSearching] = useState(false);
   const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
   const [saving, setSaving] = useState(false);
+  const [activeCategory, setActiveCategory] = useState(category);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showNewRecipe, setShowNewRecipe] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(prefill ?? null);
@@ -223,7 +224,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       protein: +protein * scale,
       carbs: +carbs * scale,
       fat: +fat * scale,
-      category: category as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+      category: activeCategory as 'breakfast' | 'lunch' | 'dinner' | 'snack',
       quantity: +quantity,
       unit,
       logged_at: date,
@@ -478,6 +479,25 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
         )}
 
         <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-neutral-400 mb-2">Add to meal</p>
+            <div className="grid grid-cols-4 gap-1">
+              {MEAL_CATEGORIES.map(c => (
+                <button
+                  key={c.value}
+                  onClick={() => setActiveCategory(c.value)}
+                  className={`py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeCategory === c.value
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input label="Food Name" value={name} onChange={e => setName(e.target.value)} placeholder="Chicken breast" />
