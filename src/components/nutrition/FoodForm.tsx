@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useRecipeStore } from '../../stores/recipeStore';
-import { FOOD_UNITS, MEAL_CATEGORIES } from '../../lib/constants';
+import { FOOD_UNITS, MEAL_CATEGORIES, UNIT_TO_GRAMS } from '../../lib/constants';
 import type { FoodProduct, FoodFavorite, Recipe } from '../../lib/types';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
@@ -64,7 +64,7 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
 export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { addLog, searchProducts, createProduct, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite } = useNutritionStore();
+  const { addLog, searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite } = useNutritionStore();
   const { recipes, fetchRecipes } = useRecipeStore();
 
   const [tab, setTab] = useState<Tab>('search');
@@ -90,9 +90,10 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const searchRef = useRef(0);
   const LIST_PAGE = 15;
 
-  const UNIT_TO_GRAMS: Record<string, number> = { g: 1, ml: 1, oz: 28.35, cup: 240, tbsp: 15, tsp: 5, serving: 1 };
-  const grams = (+quantity || 0) * (UNIT_TO_GRAMS[unit] ?? 1);
-  const scale = grams / 100;
+  // 'serving' unit: values in the form are per-serving, scale = number of servings
+  const isServingUnit = unit === 'serving';
+  const grams = isServingUnit ? 0 : (+quantity || 0) * (UNIT_TO_GRAMS[unit] ?? 1);
+  const scale = isServingUnit ? (+quantity || 1) : grams / 100;
 
   useEffect(() => {
     if (!user) return;
@@ -129,6 +130,8 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setSearched(true);
     setSearching(false);
     setSearchPhase('idle');
+    // Persist barcoded products to local DB in background to grow the catalog
+    if (offResults.length > 0) batchSaveProducts(offResults);
   };
 
   const selectProduct = async (p: SearchResult) => {
@@ -537,7 +540,18 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
             />
           </div>
 
-          <p className="text-xs text-neutral-500">Nutritional values per 100g (auto-scaled to your quantity and unit):</p>
+          {selectedProduct && selectedProduct.serving_size > 0 && (selectedProduct.serving_size !== +quantity || selectedProduct.serving_unit !== unit) && (
+            <button
+              onClick={() => { setQuantity(selectedProduct.serving_size.toString()); setUnit(selectedProduct.serving_unit); }}
+              className="text-xs text-blue-400 hover:text-blue-300 transition-colors -mt-1"
+            >
+              → 1 serving ({selectedProduct.serving_size} {selectedProduct.serving_unit})
+            </button>
+          )}
+
+          <p className="text-xs text-neutral-500">
+            {isServingUnit ? 'Nutritional values per serving:' : 'Nutritional values per 100g (scaled to your quantity):'}
+          </p>
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Calories" type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />

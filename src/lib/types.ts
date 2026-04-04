@@ -171,7 +171,7 @@ export interface ExerciseRequest {
   updated_at: string;
 }
 
-export type FoodDataSource = 'foundation' | 'sr_legacy' | 'fndds' | 'branded' | 'user';
+export type FoodDataSource = 'foundation' | 'sr_legacy' | 'fndds' | 'branded' | 'openfoodfacts' | 'user';
 
 export interface FoodProduct {
   id: string;

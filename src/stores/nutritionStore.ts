@@ -22,6 +22,7 @@ interface NutritionState {
   searchProducts: (query: string) => Promise<FoodProduct[]>;
   findByBarcode: (barcode: string) => Promise<FoodProduct | null>;
   createProduct: (product: Partial<FoodProduct>) => Promise<FoodProduct | null>;
+  batchSaveProducts: (products: Partial<FoodProduct>[]) => Promise<void>;
   uploadProductImage: (userId: string, file: File, slot: string) => Promise<string | null>;
   createProductRequest: (request: Partial<ProductRequest>) => Promise<ProductRequest | null>;
   analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | null>;
@@ -145,6 +146,26 @@ export const useNutritionStore = create<NutritionState>((set) => ({
     }
 
     return null;
+  },
+
+  batchSaveProducts: async (products) => {
+    const toSave = products
+      .filter(p => p.barcode)
+      .map(p => ({
+        barcode: p.barcode,
+        name: p.name,
+        brand: p.brand ?? null,
+        calories_per_100g: p.calories_per_100g ?? 0,
+        protein_per_100g: p.protein_per_100g ?? 0,
+        carbs_per_100g: p.carbs_per_100g ?? 0,
+        fat_per_100g: p.fat_per_100g ?? 0,
+        serving_size: p.serving_size ?? 100,
+        serving_unit: p.serving_unit ?? 'g',
+        data_source: 'openfoodfacts',
+      }));
+    if (toSave.length === 0) return;
+    // ignoreDuplicates: existing barcodes are silently skipped
+    await supabase.from('food_products').upsert(toSave, { onConflict: 'barcode', ignoreDuplicates: true });
   },
 
   uploadProductImage: async (userId, file, slot) => {
