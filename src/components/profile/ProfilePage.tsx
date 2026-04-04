@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink, Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -62,9 +62,10 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { tier, status, currentPeriodEnd, cancelAtPeriodEnd } = useSubscriptionStore();
+  const { tier, status, currentPeriodEnd, cancelAtPeriodEnd, role } = useSubscriptionStore();
   const { openPaywall } = usePaywallStore();
-  const isPremium = tier === 'premium' && (status === 'active' || status === 'trialing');
+  const isAdmin = role === 'admin';
+  const isPremium = isAdmin || (tier === 'premium' && (status === 'active' || status === 'trialing'));
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -135,8 +136,25 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      {/* Subscription card */}
-      {isPremium ? (
+      {/* Subscription / role card */}
+      {isAdmin ? (
+        <div className="mb-4 animate-fade-in-scale">
+          <Card className="!p-0 overflow-hidden">
+            <div className="bg-gradient-to-r from-indigo-500/10 to-transparent px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
+                <Shield size={16} className="text-indigo-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white">Admin</p>
+                <p className="text-xs text-neutral-500">Accès complet à toutes les fonctionnalités</p>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-semibold tracking-wide uppercase">
+                Admin
+              </span>
+            </div>
+          </Card>
+        </div>
+      ) : isPremium ? (
         <div className="mb-4 animate-fade-in-scale">
           <Card className="!p-0 overflow-hidden">
             <div className="bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-3 flex items-center gap-3">

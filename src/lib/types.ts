@@ -275,3 +275,12 @@ export interface ProductRequest {
   created_at: string;
   updated_at: string;
 }
+
+export type AppRole = 'free' | 'premium' | 'admin';
+
+export interface UserRole {
+  user_id: string;
+  role: AppRole;
+  created_at: string;
+  updated_at: string;
+}

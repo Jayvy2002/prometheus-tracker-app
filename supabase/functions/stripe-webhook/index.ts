@@ -10,6 +10,21 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
 );
 
+/** Sync user_roles.role unless the user is admin (admin bypass Stripe) */
+async function syncRole(userId: string, newRole: 'free' | 'premium') {
+  const { data } = await supabaseAdmin
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (data?.role === 'admin') return; // never downgrade admins
+
+  await supabaseAdmin
+    .from('user_roles')
+    .upsert({ user_id: userId, role: newRole }, { onConflict: 'user_id' });
+}
+
 Deno.serve(async (req) => {
   const signature = req.headers.get('stripe-signature');
   if (!signature) {
@@ -52,6 +67,7 @@ Deno.serve(async (req) => {
           cancel_at_period_end: subscription.cancel_at_period_end,
         }, { onConflict: 'user_id' });
 
+        await syncRole(userId, 'premium');
         break;
       }
 
@@ -72,6 +88,7 @@ Deno.serve(async (req) => {
           cancel_at_period_end: subscription.cancel_at_period_end,
         }, { onConflict: 'user_id' });
 
+        await syncRole(userId, isActive ? 'premium' : 'free');
         break;
       }
 
@@ -90,6 +107,7 @@ Deno.serve(async (req) => {
           cancel_at_period_end: false,
         }, { onConflict: 'user_id' });
 
+        await syncRole(userId, 'free');
         break;
       }
 

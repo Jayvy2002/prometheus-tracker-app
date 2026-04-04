@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Crown, X, Check, Zap, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePaywallStore } from '../../stores/paywallStore';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
 
 const MONTHLY_PRICE = import.meta.env.VITE_STRIPE_MONTHLY_PRICE ?? '9,99 $';
 const ANNUAL_PRICE = import.meta.env.VITE_STRIPE_ANNUAL_PRICE ?? '79,99 $';
@@ -17,11 +18,13 @@ const PREMIUM_FEATURES = [
 
 export default function PaywallModal() {
   const { isOpen, featureName, featureDescription, closePaywall } = usePaywallStore();
+  const { role } = useSubscriptionStore();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // Admins bypass the paywall entirely
+  if (!isOpen || role === 'admin') return null;
 
   const handleUpgrade = async () => {
     setLoading(true);
