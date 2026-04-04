@@ -155,8 +155,23 @@ function WorkoutFormInner() {
 
       setRunning(false);
 
-      // Show summary screen before navigating
-      const snapshot = { ...currentWorkout, name: workoutName || currentWorkout.name };
+      // Build snapshot with draft values merged in so the summary reflects actual saved data
+      const mergedExercises = (currentWorkout.exercises ?? []).map(ex => ({
+        ...ex,
+        sets: (ex.sets ?? []).map(s => {
+          const draft = setDrafts.get(s.id);
+          if (!draft) return s;
+          return {
+            ...s,
+            weight_kg: draft.weight_kg !== undefined ? (draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg)) : s.weight_kg,
+            reps: draft.reps !== undefined ? (draft.reps === '' ? 0 : safeInt(draft.reps)) : s.reps,
+            rir: draft.rir !== undefined ? (draft.rir === '' ? 0 : safeInt(draft.rir)) : s.rir,
+            set_type: draft.set_type !== undefined ? draft.set_type : s.set_type,
+          };
+        }),
+      }));
+
+      const snapshot = { ...currentWorkout, name: workoutName || currentWorkout.name, exercises: mergedExercises };
       setSummaryDuration(finalDuration);
       setSummaryWorkout(snapshot);
       setCurrentWorkout(null);
