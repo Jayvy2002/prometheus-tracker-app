@@ -93,6 +93,27 @@ Deno.serve(async (req) => {
         break;
       }
 
+      // Restore premium status when a past-due invoice is recovered
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        // Only act on subscription invoices (not one-off)
+        if (!invoice.subscription) break;
+        const customerId = invoice.customer as string;
+
+        const { data: sub } = await supabaseAdmin
+          .from('subscriptions')
+          .select('user_id, status')
+          .eq('stripe_customer_id', customerId)
+          .maybeSingle();
+
+        if (sub && sub.status === 'past_due') {
+          await supabaseAdmin.from('subscriptions')
+            .update({ status: 'active' })
+            .eq('user_id', sub.user_id);
+        }
+        break;
+      }
+
       // Resolve customer → user_id via stripe_customer_id lookup
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;

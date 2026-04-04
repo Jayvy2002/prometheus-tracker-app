@@ -3,6 +3,9 @@ import { Crown, X, Check, Zap, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePaywallStore } from '../../stores/paywallStore';
 
+const MONTHLY_PRICE = import.meta.env.VITE_STRIPE_MONTHLY_PRICE ?? '9,99 $';
+const ANNUAL_PRICE = import.meta.env.VITE_STRIPE_ANNUAL_PRICE ?? '79,99 $';
+
 const PREMIUM_FEATURES = [
   'Widgets illimités (9 types)',
   'Historique séances illimité',
@@ -10,7 +13,6 @@ const PREMIUM_FEATURES = [
   'Stats avancées (mois, 3 mois)',
   'Graphique poids complet',
   'Rappels & notifications push',
-  'Intégrations santé (Garmin, Apple Health…)',
 ];
 
 export default function PaywallModal() {
@@ -109,7 +111,7 @@ export default function PaywallModal() {
                     : 'border-neutral-800 text-neutral-500 hover:border-neutral-700'
                 }`}
               >
-                <div className="text-base font-bold">9,99 $</div>
+                <div className="text-base font-bold">{MONTHLY_PRICE}</div>
                 <div className="text-xs opacity-70 mt-0.5">/ mois</div>
               </button>
 
@@ -124,7 +126,7 @@ export default function PaywallModal() {
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-bold tracking-wide whitespace-nowrap">
                   -33%
                 </div>
-                <div className="text-base font-bold">79,99 $</div>
+                <div className="text-base font-bold">{ANNUAL_PRICE}</div>
                 <div className="text-xs opacity-70 mt-0.5">/ an</div>
               </button>
             </div>

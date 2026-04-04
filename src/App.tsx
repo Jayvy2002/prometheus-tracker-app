@@ -17,7 +17,6 @@ import WeightPage from './components/weight/WeightPage';
 import NutritionPage from './components/nutrition/NutritionPage';
 import ScannerPage from './components/scanner/ScannerPage';
 import ProfilePage from './components/profile/ProfilePage';
-import HealthIntegrations from './components/health/HealthIntegrations';
 import CalendarPage from './components/calendar/CalendarPage';
 import RecipesPage from './components/nutrition/RecipesPage';
 
@@ -79,7 +78,6 @@ function AppRoutes() {
       </Route>
       <Route path="/scanner" element={<ScannerPage />} />
       <Route path="/recipes" element={<RecipesPage />} />
-      <Route path="/health" element={<HealthIntegrations />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

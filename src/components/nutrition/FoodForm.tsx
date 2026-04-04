@@ -216,20 +216,28 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
 
   const handleSave = async () => {
     if (!user || !name.trim()) return;
+    const qty = +quantity;
+    const cal = +calories;
+    const pro = +protein;
+    const carb = +carbs;
+    const f = +fat;
+    if (qty <= 0) { toast('La quantité doit être supérieure à 0.', 'error'); return; }
+    if (cal < 0 || pro < 0 || carb < 0 || f < 0) { toast('Les valeurs nutritionnelles ne peuvent pas être négatives.', 'error'); return; }
+    if (cal > 9000) { toast('Calories par 100g trop élevées (max 9000).', 'error'); return; }
     setSaving(true);
     await addLog({
       user_id: user.id,
       name,
-      calories: +calories * scale,
-      protein: +protein * scale,
-      carbs: +carbs * scale,
-      fat: +fat * scale,
+      calories: cal * scale,
+      protein: pro * scale,
+      carbs: carb * scale,
+      fat: f * scale,
       category: activeCategory as 'breakfast' | 'lunch' | 'dinner' | 'snack',
-      quantity: +quantity,
+      quantity: qty,
       unit,
       logged_at: date,
     });
-    toast('Food logged');
+    toast('Aliment enregistré');
     setSaving(false);
     onClose();
   };

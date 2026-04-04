@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuthStore } from '../../stores/authStore';
@@ -29,7 +30,7 @@ export default function OnboardingFlow() {
   const [form, setForm] = useState<FormData>({
     full_name: '',
     gender: 'male',
-    date_of_birth: '1995-01-01',
+    date_of_birth: '',
     height_cm: 175,
     weight_kg: 75,
     activity_level: 'moderate',
@@ -43,7 +44,7 @@ export default function OnboardingFlow() {
   const finish = async () => {
     if (!user) return;
     setSaving(true);
-    const age = getAge(form.date_of_birth);
+    const age = form.date_of_birth ? getAge(form.date_of_birth) : 25;
     const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
     const tdee = calculateTDEE(bmr, form.activity_level);
     const calories = calculateCalorieTarget(tdee, form.goal);
@@ -111,7 +112,15 @@ export default function OnboardingFlow() {
           </Button>
         )}
         {step < steps.length - 1 ? (
-          <Button onClick={() => setStep(s => s + 1)} className="flex-1">
+          <Button onClick={() => {
+            if (step === 0) {
+              if (!form.full_name.trim()) { toast('Ton prénom est requis.', 'error'); return; }
+              if (!form.date_of_birth) { toast('Ta date de naissance est requise.', 'error'); return; }
+              const age = getAge(form.date_of_birth);
+              if (age < 10 || age > 100) { toast('Date de naissance invalide.', 'error'); return; }
+            }
+            setStep(s => s + 1);
+          }} className="flex-1">
             Continue <ArrowRight size={18} />
           </Button>
         ) : (

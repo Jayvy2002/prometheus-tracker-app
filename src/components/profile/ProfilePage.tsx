@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, Heart, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { usePaywallStore } from '../../stores/paywallStore';
 import { supabase } from '../../lib/supabase';
+import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -73,21 +74,30 @@ export default function ProfilePage() {
 
   const openBillingPortal = async () => {
     setPortalLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setPortalLoading(false); return; }
-    const res = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setPortalLoading(false); return; }
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
         },
-      },
-    );
-    const { url } = await res.json();
-    setPortalLoading(false);
-    if (url) window.location.href = url;
+      );
+      const json = await res.json();
+      if (json.url) {
+        window.location.href = json.url;
+      } else {
+        toast('Impossible d\'ouvrir le portail de facturation. Réessaie.', 'error');
+      }
+    } catch {
+      toast('Erreur réseau. Réessaie.', 'error');
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   const handleSignOut = async () => {
@@ -208,16 +218,6 @@ export default function ProfilePage() {
             <Activity size={16} />
           </div>
           <span className="flex-1 text-sm font-medium text-white">Routines</span>
-          <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
-        </Card>
-        </div>
-
-        <div className="animate-fade-in-up" style={{ animationDelay: '420ms' }}>
-        <Card onClick={() => navigate('/health')} className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
-            <Heart size={16} />
-          </div>
-          <span className="flex-1 text-sm font-medium text-white">Health Integrations</span>
           <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
         </Card>
         </div>

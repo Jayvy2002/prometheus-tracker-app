@@ -1,12 +1,14 @@
 {
   "name": "Prometheus Tracker",
   "short_name": "Prometheus",
-  "description": "Track your workouts and nutrition",
+  "description": "Suivi d'entraînement, nutrition et poids — conçu pour les athlètes sérieux.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "orientation": "portrait-primary",
+  "categories": ["health", "fitness", "sports"],
+  "lang": "fr",
   "icons": [
     {
       "src": "/logo.svg",
@@ -19,6 +21,38 @@
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/logo.svg",
+      "sizes": "390x844",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "Dashboard Prometheus"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouveau workout",
+      "short_name": "Workout",
+      "description": "Démarrer une nouvelle séance",
+      "url": "/workout/new",
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Ajouter un repas",
+      "short_name": "Nutrition",
+      "description": "Enregistrer un repas",
+      "url": "/nutrition?add=1",
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Peser",
+      "short_name": "Poids",
+      "description": "Enregistrer mon poids",
+      "url": "/weight?log=1",
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     }
   ]
 }

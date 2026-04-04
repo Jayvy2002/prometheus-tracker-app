@@ -65,14 +65,21 @@ export default function WeightPage() {
 
   const handleSubmit = async () => {
     if (!user || !weight) return;
-    const kg = unit === 'lbs' ? +weight / 2.20462 : +weight;
+    const val = +weight;
+    const minVal = unit === 'lbs' ? 44 : 20;
+    const maxVal = unit === 'lbs' ? 660 : 300;
+    if (isNaN(val) || val < minVal || val > maxVal) {
+      toast(`Poids invalide (${minVal}–${maxVal} ${unit}).`, 'error');
+      return;
+    }
+    const kg = unit === 'lbs' ? val / 2.20462 : val;
     if (editId) {
       await updateMeasurement(editId, { weight_kg: kg, measured_at: date });
-      toast('Weight updated');
+      toast('Poids mis à jour');
       setEditId(null);
     } else {
       await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: date });
-      toast('Weight logged');
+      toast('Poids enregistré');
     }
     setWeight('');
     setDate(todayStr());
