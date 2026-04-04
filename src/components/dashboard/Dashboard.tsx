@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target, Pencil } from 'lucide-react';
+import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target, Pencil, Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -11,6 +11,8 @@ import type { DashboardWidget, WidgetType } from '../../lib/types';
 import DashboardGrid from './DashboardGrid';
 import PageTransition from '../ui/PageTransition';
 import { getNotificationSettings, scheduleNotificationsForToday } from '../../lib/notifications';
+import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
 
 const WIDGET_CATALOG: {
   type: WidgetType;
@@ -46,6 +48,8 @@ export default function Dashboard() {
   const { logs, fetchLogs, fetchWaterLogs } = useNutritionStore();
   const { fetchMeasurements } = useWeightStore();
   const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { canAddWidget, canUseWidgetType, isPremium } = usePremium();
+  const { openPaywall } = usePaywallStore();
   const [showAdd, setShowAdd] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [showHint, setShowHint] = useState(false);
@@ -102,6 +106,20 @@ export default function Dashboard() {
   }, [user, profile, updateProfile]);
 
   const addWidget = async (type: WidgetType) => {
+    if (!canAddWidget(widgets.length)) {
+      openPaywall(
+        'Widgets illimités',
+        `Le plan gratuit est limité à ${FREE_LIMITS.maxDashboardWidgets} widgets. Passez à Premium pour en ajouter autant que vous voulez.`,
+      );
+      return;
+    }
+    if (!canUseWidgetType(type)) {
+      openPaywall(
+        WIDGET_CATALOG.find(w => w.type === type)?.label ?? 'Widget Premium',
+        'Ce widget est réservé aux abonnés Premium.',
+      );
+      return;
+    }
     const catalog = WIDGET_CATALOG.find(w => w.type === type);
     const newWidget: DashboardWidget = {
       id: crypto.randomUUID(),
@@ -292,9 +310,23 @@ export default function Dashboard() {
             </div>
 
             <div className="overflow-y-auto flex-1 px-4 pb-5 scrollbar-hide">
+              {!isPremium && (
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <p className="text-xs text-neutral-500">
+                    {widgets.length}/{FREE_LIMITS.maxDashboardWidgets} widgets utilisés
+                  </p>
+                  <button
+                    onClick={() => openPaywall('Widgets illimités', 'Ajoutez autant de widgets que vous voulez avec Premium.')}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                  >
+                    <Crown size={10} /> Premium
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 {WIDGET_CATALOG.map((wt, index) => {
                   const alreadyAdded = alreadyAddedTypes.has(wt.type);
+                  const isLocked = !canUseWidgetType(wt.type);
                   const Icon = wt.icon;
                   return (
                     <button
@@ -304,7 +336,9 @@ export default function Dashboard() {
                       className={`relative text-left p-4 rounded-2xl border transition-all active:scale-95 animate-fade-in-scale
                         ${alreadyAdded
                           ? 'bg-neutral-900/40 border-neutral-800/40 opacity-50 cursor-not-allowed'
-                          : 'bg-neutral-900 border-neutral-800/60 hover:border-neutral-700 hover:bg-neutral-800/80'
+                          : isLocked
+                            ? 'bg-neutral-900/60 border-amber-500/20 hover:border-amber-500/40 hover:bg-neutral-800/60'
+                            : 'bg-neutral-900 border-neutral-800/60 hover:border-neutral-700 hover:bg-neutral-800/80'
                         }`}
                       style={{ animationDelay: `${index * 40}ms` }}
                     >
@@ -316,6 +350,11 @@ export default function Dashboard() {
                       {alreadyAdded && (
                         <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center">
                           <Check size={11} className="text-neutral-400" />
+                        </div>
+                      )}
+                      {isLocked && !alreadyAdded && (
+                        <div className="absolute top-3 right-3 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30">
+                          <Crown size={9} className="text-amber-400" />
                         </div>
                       )}
                     </button>

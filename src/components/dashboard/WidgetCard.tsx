@@ -69,7 +69,7 @@ export default function WidgetCard({
   const route = WIDGET_ROUTES[widget.type];
   const isLongPressing = longPressProgress > 0;
 
-  const handleClick = (_e: React.MouseEvent) => {
+  const handleClick = () => {
     if (editMode) return;
     if (route) navigate(route);
   };

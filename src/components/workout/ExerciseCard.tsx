@@ -1,17 +1,51 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp } from 'lucide-react';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
-import type { WorkoutExercise } from '../../lib/types';
+import { usePreferencesStore } from '../../stores/preferencesStore';
+import type { WorkoutExercise, SetType } from '../../lib/types';
 import { SET_TYPES } from '../../lib/constants';
 import Card from '../ui/Card';
 import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 
-function SetRow({ set, index, onDelete }: {
+interface PreviousSet {
+  weight_kg: number;
+  reps: number;
+  rir: number;
+  set_type: string;
+  order_index: number;
+}
+
+function getOverloadSuggestion(prevSets: PreviousSet[]): string | null {
+  const workingSets = prevSets.filter(s => s.set_type === 'working' && s.weight_kg > 0 && s.reps > 0);
+  if (workingSets.length === 0) return null;
+  const avgRir = workingSets.reduce((sum, s) => sum + s.rir, 0) / workingSets.length;
+  const lastSet = workingSets[workingSets.length - 1];
+  if (avgRir <= 1) {
+    // Near failure — suggest ~2.5% increase rounded to nearest 1.25 kg
+    const raw = lastSet.weight_kg * 1.025;
+    const suggested = Math.ceil(raw / 1.25) * 1.25;
+    return `Try ${suggested}kg × ${lastSet.reps}`;
+  }
+  if (avgRir <= 2) {
+    return `Try ${lastSet.weight_kg}kg × ${lastSet.reps + 1}`;
+  }
+  return null;
+}
+
+function SetRow({
+  set,
+  index,
+  showRir,
+  onDelete,
+  onSetComplete,
+}: {
   set: { id: string; set_type: string; weight_kg: number; reps: number; rir: number };
   index: number;
+  showRir: boolean;
   onDelete: () => void;
+  onSetComplete?: () => void;
 }) {
   const { initSetDraft, getSetDraft, updateSetDraft, updateSetType } = useDraftContext();
   const { updateSet } = useWorkoutStore();
@@ -21,23 +55,41 @@ function SetRow({ set, index, onDelete }: {
   const [localType, setLocalType] = useState(set.set_type);
 
   useEffect(() => {
-    initSetDraft(set.id, set.weight_kg, set.reps, set.rir, set.set_type as any);
+    initSetDraft(set.id, set.weight_kg, set.reps, set.rir, set.set_type as SetType);
     const draft = getSetDraft(set.id);
     setLocalWeight(draft.weight_kg ?? (set.weight_kg ? String(set.weight_kg) : ''));
     setLocalReps(draft.reps ?? (set.reps ? String(set.reps) : ''));
     setLocalRir(draft.rir ?? (set.rir ? String(set.rir) : ''));
     setLocalType(draft.set_type ?? set.set_type);
-  }, [set.id]);
+  }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRepsBlur = () => {
+    const r = parseInt(localReps, 10);
+    updateSet(set.id, { reps: isNaN(r) ? 0 : r });
+    if (!showRir && localReps && onSetComplete) {
+      onSetComplete();
+    }
+  };
+
+  const handleRirBlur = () => {
+    const r = parseInt(localRir, 10);
+    updateSet(set.id, { rir: isNaN(r) ? 0 : r });
+    if (localReps && onSetComplete) {
+      onSetComplete();
+    }
+  };
+
+  const cols = showRir ? 'grid-cols-12' : 'grid-cols-11';
 
   return (
-    <div className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-neutral-900/60">
+    <div className={`grid ${cols} gap-2 items-center p-2 rounded-lg bg-neutral-900/60`}>
       <div className="col-span-1 text-xs text-neutral-500 font-medium">{index + 1}</div>
       <div className="col-span-3">
         <select
           value={localType}
           onChange={e => {
             setLocalType(e.target.value);
-            updateSetType(set.id, e.target.value as any);
+            updateSetType(set.id, e.target.value as SetType);
           }}
           className="w-full bg-transparent text-xs border-0 p-0 focus:ring-0 text-neutral-300"
         >
@@ -46,7 +98,7 @@ function SetRow({ set, index, onDelete }: {
           ))}
         </select>
       </div>
-      <div className="col-span-3">
+      <div className={showRir ? 'col-span-3' : 'col-span-4'}>
         <input
           type="number"
           inputMode="decimal"
@@ -64,7 +116,7 @@ function SetRow({ set, index, onDelete }: {
           placeholder="0"
         />
       </div>
-      <div className="col-span-2">
+      <div className={showRir ? 'col-span-2' : 'col-span-2'}>
         <input
           type="number"
           inputMode="numeric"
@@ -74,32 +126,28 @@ function SetRow({ set, index, onDelete }: {
             updateSetDraft(set.id, 'reps', e.target.value);
           }}
           onFocus={e => e.target.select()}
-          onBlur={() => {
-            const r = parseInt(localReps, 10);
-            updateSet(set.id, { reps: isNaN(r) ? 0 : r });
-          }}
+          onBlur={handleRepsBlur}
           className="w-full bg-neutral-800/60 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
           placeholder="0"
         />
       </div>
-      <div className="col-span-2">
-        <input
-          type="number"
-          inputMode="numeric"
-          value={localRir}
-          onChange={e => {
-            setLocalRir(e.target.value);
-            updateSetDraft(set.id, 'rir', e.target.value);
-          }}
-          onFocus={e => e.target.select()}
-          onBlur={() => {
-            const r = parseInt(localRir, 10);
-            updateSet(set.id, { rir: isNaN(r) ? 0 : r });
-          }}
-          className="w-full bg-neutral-800/60 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
-          placeholder="0"
-        />
-      </div>
+      {showRir && (
+        <div className="col-span-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            value={localRir}
+            onChange={e => {
+              setLocalRir(e.target.value);
+              updateSetDraft(set.id, 'rir', e.target.value);
+            }}
+            onFocus={e => e.target.select()}
+            onBlur={handleRirBlur}
+            className="w-full bg-neutral-800/60 rounded px-2 py-1 text-xs text-white text-center focus:outline-none focus:ring-1 focus:ring-blue-500"
+            placeholder="0"
+          />
+        </div>
+      )}
       <div className="col-span-1 flex items-center justify-end">
         <button
           onClick={onDelete}
@@ -112,32 +160,41 @@ function SetRow({ set, index, onDelete }: {
   );
 }
 
-export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }) {
+export default function ExerciseCard({
+  exercise,
+  onStartRestTimer,
+}: {
+  exercise: WorkoutExercise;
+  onStartRestTimer?: () => void;
+}) {
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, currentWorkout, fetchPreviousSets } = useWorkoutStore();
   const { user } = useAuthStore();
+  const { showRir } = usePreferencesStore();
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
   const [localNotes, setLocalNotes] = useState('');
   const [localName, setLocalName] = useState(exercise.name);
-  const [prevSets, setPrevSets] = useState<{ weight_kg: number; reps: number; rir: number; set_type: string }[]>([]);
+  const [prevSets, setPrevSets] = useState<PreviousSet[]>([]);
 
   useEffect(() => {
     initExerciseDraft(exercise.id, exercise.notes || '');
     const draft = getExerciseDraft(exercise.id);
     setLocalNotes(draft.notes ?? exercise.notes ?? '');
     setLocalName(exercise.name);
-  }, [exercise.id]);
+  }, [exercise.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user || !currentWorkout) return;
     fetchPreviousSets(user.id, exercise.name, currentWorkout.id).then(setPrevSets);
-  }, [user?.id, exercise.name, currentWorkout?.id]);
+  }, [user?.id, exercise.name, currentWorkout?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAddSet = () => {
     const idx = exercise.sets?.length ?? 0;
     addSet(exercise.id, idx);
   };
+
+  const suggestion = getOverloadSuggestion(prevSets);
 
   return (
     <Card padding={false} className="animate-fade-in-up">
@@ -173,6 +230,7 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
         </button>
       </div>
 
+      {/* Previous session info */}
       {prevSets.length > 0 && (
         <div className="px-4 pb-1 animate-fade-in">
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -183,9 +241,16 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
             {prevSets.map((s, i) => (
               <span key={i} className="text-[11px] text-neutral-500 bg-neutral-900/60 rounded px-1.5 py-0.5">
                 {s.weight_kg > 0 ? `${s.weight_kg}kg` : '—'} × {s.reps > 0 ? s.reps : '—'}
-                {s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
+                {showRir && s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
               </span>
             ))}
+            {/* Progressive overload suggestion */}
+            {suggestion && (
+              <span className="flex items-center gap-0.5 text-[11px] text-blue-400 bg-blue-500/10 rounded px-1.5 py-0.5 font-medium">
+                <TrendingUp size={9} />
+                {suggestion}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -209,12 +274,12 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
       {expanded && (
         <div className="px-4 pb-4 animate-fade-in">
           {(exercise.sets?.length ?? 0) > 0 && (
-            <div className="grid grid-cols-12 gap-2 text-[10px] text-neutral-500 font-medium uppercase tracking-wider mb-2 px-1">
+            <div className={`grid ${showRir ? 'grid-cols-12' : 'grid-cols-11'} gap-2 text-[10px] text-neutral-500 font-medium uppercase tracking-wider mb-2 px-1`}>
               <div className="col-span-1">#</div>
               <div className="col-span-3">Type</div>
-              <div className="col-span-3">Kg</div>
+              <div className={showRir ? 'col-span-3' : 'col-span-4'}>Kg</div>
               <div className="col-span-2">Reps</div>
-              <div className="col-span-2">RIR</div>
+              {showRir && <div className="col-span-2">RIR</div>}
               <div className="col-span-1"></div>
             </div>
           )}
@@ -225,12 +290,14 @@ export default function ExerciseCard({ exercise }: { exercise: WorkoutExercise }
                 key={set.id}
                 set={set}
                 index={i}
+                showRir={showRir}
+                onSetComplete={onStartRestTimer}
                 onDelete={() => {
-                const setSnapshot = { ...set } as import('../../lib/types').WorkoutSet;
-                const exerciseId = exercise.id;
-                deleteSet(setSnapshot.id);
-                toastWithUndo('Set removed', () => restoreSet(exerciseId, setSnapshot));
-              }}
+                  const setSnapshot = { ...set } as import('../../lib/types').WorkoutSet;
+                  const exerciseId = exercise.id;
+                  deleteSet(setSnapshot.id);
+                  toastWithUndo('Set removed', () => restoreSet(exerciseId, setSnapshot));
+                }}
               />
             ))}
           </div>

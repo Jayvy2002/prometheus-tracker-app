@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
+import { useSubscriptionStore } from './stores/subscriptionStore';
+import PaywallModal from './components/premium/PaywallModal';
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
@@ -22,12 +24,15 @@ import RecipesPage from './components/nutrition/RecipesPage';
 function AppRoutes() {
   const { user, loading: authLoading, initialized } = useAuthStore();
   const { profile, loading: profileLoading, fetchProfile, clearProfile } = useProfileStore();
+  const { fetchSubscription, clearSubscription } = useSubscriptionStore();
 
   useEffect(() => {
     if (user) {
       fetchProfile(user.id);
+      fetchSubscription(user.id);
     } else if (initialized) {
       clearProfile();
+      clearSubscription();
     }
   }, [user, initialized]);
 
@@ -90,6 +95,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <PaywallModal />
     </BrowserRouter>
   );
 }

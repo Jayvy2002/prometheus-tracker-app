@@ -1,4 +1,4 @@
-import { Trash2, Plus, Sunrise, Sun, Moon, Cookie, Pencil } from 'lucide-react';
+import { Trash2, Plus, Sunrise, Sun, Moon, Cookie, Pencil, RotateCcw } from 'lucide-react';
 import type { NutritionLog } from '../../lib/types';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { toastWithUndo } from '../ui/Toast';
@@ -16,9 +16,10 @@ interface Props {
   logs: NutritionLog[];
   onAdd: () => void;
   onEdit: (log: NutritionLog) => void;
+  onReuse?: () => void;
 }
 
-export default function MealSection({ category, label, logs, onAdd, onEdit }: Props) {
+export default function MealSection({ category, label, logs, onAdd, onEdit, onReuse }: Props) {
   const { deleteLog, addLog } = useNutritionStore();
   const Icon = iconMap[category] || Cookie;
   const totalCals = logs.reduce((s, l) => s + l.calories, 0);
@@ -48,6 +49,15 @@ export default function MealSection({ category, label, logs, onAdd, onEdit }: Pr
         <Icon size={16} className="text-neutral-400" />
         <span className="text-sm font-medium text-white flex-1">{label}</span>
         <span className="text-xs text-neutral-500">{Math.round(totalCals)} cal</span>
+        {onReuse && (
+          <button
+            onClick={onReuse}
+            title="Copy from yesterday"
+            className="p-1 rounded-lg text-neutral-500 hover:text-neutral-300 transition-colors"
+          >
+            <RotateCcw size={13} />
+          </button>
+        )}
         <button
           onClick={onAdd}
           className="p-1 rounded-lg text-blue-400 hover:bg-blue-600/20 transition-colors"

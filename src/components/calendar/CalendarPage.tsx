@@ -206,8 +206,6 @@ export default function CalendarPage() {
   }, [weekOffset]);
 
   const weekDates = useMemo(() => getWeekDates(weekBaseDate), [weekBaseDate]);
-  const weekStart = dateToStr(weekDates[0]);
-  const weekEnd = dateToStr(weekDates[6]);
 
   const weekLabel = useMemo(() => {
     if (weekOffset === 0) return 'This Week';
@@ -248,8 +246,6 @@ export default function CalendarPage() {
     monthDates.map(m => m.date),
     (d) => monthDates.find(m => dateToStr(m.date) === dateToStr(d))?.inMonth ?? true
   );
-
-  const activeDayData = viewMode === 'week' ? weekDayData : monthDayData;
 
   const selectedDateLabel = useMemo(() => {
     const d = parseDateStr(selectedDate);

@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { Bell, Check } from 'lucide-react';
+import { Bell, Check, Crown } from 'lucide-react';
 import {
   getNotificationSettings,
   saveNotificationSettings,
   requestNotificationPermission,
 } from '../../lib/notifications';
 import type { NotificationSettings as NS } from '../../lib/notifications';
+import { usePremium } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -22,12 +24,35 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 
 export default function NotificationSettings() {
   const supported = 'Notification' in window;
+  const { canUseNotifications } = usePremium();
+  const { openPaywall } = usePaywallStore();
   const [permission, setPermission] = useState<NotificationPermission>(
     supported ? Notification.permission : 'denied',
   );
   const [settings, setSettings] = useState<NS>(getNotificationSettings());
   const [requesting, setRequesting] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  if (!canUseNotifications) {
+    return (
+      <button
+        onClick={() => openPaywall('Rappels & Notifications', 'Configurez des rappels quotidiens pour vos séances et votre nutrition avec Premium.')}
+        className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/12 transition-colors"
+      >
+        <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+          <Bell size={16} className="text-amber-400" />
+        </div>
+        <div className="flex-1 text-left">
+          <p className="text-sm font-medium text-white">Rappels & Notifications</p>
+          <p className="text-xs text-neutral-500 mt-0.5">Disponible avec Premium</p>
+        </div>
+        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/15 border border-amber-500/30">
+          <Crown size={10} className="text-amber-400" />
+          <span className="text-[10px] text-amber-400 font-semibold">Premium</span>
+        </div>
+      </button>
+    );
+  }
 
   const handleRequest = async () => {
     setRequesting(true);

@@ -43,7 +43,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       .from('workouts')
       .select('*')
       .eq('user_id', userId)
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .limit(500);
     set({ workouts: (data ?? []) as Workout[], loading: false });
   },
 
@@ -329,9 +330,11 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     if (!exercises || exercises.length === 0) return [];
 
     // Sort by date desc, pick most recent
-    const sorted = [...exercises].sort((a: any, b: any) =>
-      new Date(b.workouts.date).getTime() - new Date(a.workouts.date).getTime()
-    );
+    const sorted = [...exercises].sort((a, b) => {
+      const aDate = (a.workouts as unknown as { date: string }).date;
+      const bDate = (b.workouts as unknown as { date: string }).date;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
     const mostRecent = sorted[0];
 
     const { data: sets } = await supabase

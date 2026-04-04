@@ -1,9 +1,11 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Flame, Dumbbell, Droplets, Scale } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Minus, Flame, Dumbbell, Droplets, Scale, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
+import { usePremium } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -108,6 +110,8 @@ export default function StatsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
+  const { canUseStatsPeriod } = usePremium();
+  const { openPaywall } = usePaywallStore();
   const [period, setPeriod] = useState<Period>('week');
   const [nutrition, setNutrition] = useState<DayNutrition[]>([]);
   const [workouts, setWorkouts] = useState<WorkoutStat[]>([]);
@@ -217,11 +221,12 @@ export default function StatsPage() {
   const proteinTarget = profile?.protein_target ?? 0;
   const waterTarget = profile?.daily_water_target_ml ?? 2000;
 
-  // Period-over-period deltas
-  const calorieDelta = pctDelta(avgCalories, prevAvgCalories);
-  const proteinDelta = pctDelta(avgProtein, prevAvgProtein);
-  const waterDelta = pctDelta(avgWater, prevAvgWater);
-  const workoutDelta = pctDelta(totalWorkouts, prevTotalWorkouts);
+  // Period-over-period deltas (premium only)
+  const { isPremium } = usePremium();
+  const calorieDelta = isPremium ? pctDelta(avgCalories, prevAvgCalories) : null;
+  const proteinDelta = isPremium ? pctDelta(avgProtein, prevAvgProtein) : null;
+  const waterDelta = isPremium ? pctDelta(avgWater, prevAvgWater) : null;
+  const workoutDelta = isPremium ? pctDelta(totalWorkouts, prevTotalWorkouts) : null;
 
   // Interpretation text vs targets
   function calorieInsight(): string | null {
@@ -278,16 +283,26 @@ export default function StatsPage() {
       </div>
 
       <div className="flex gap-1 bg-neutral-900 rounded-xl p-1 mb-6 animate-fade-in-scale">
-        {PERIODS.map(p => (
-          <button
-            key={p.value}
-            onClick={() => setPeriod(p.value)}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all
-              ${period === p.value ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
-          >
-            {p.label}
-          </button>
-        ))}
+        {PERIODS.map(p => {
+          const locked = !canUseStatsPeriod(p.value);
+          return (
+            <button
+              key={p.value}
+              onClick={() => {
+                if (locked) {
+                  openPaywall('Stats avancées', 'Les statistiques sur 1 mois et 3 mois sont réservées aux abonnés Premium.');
+                  return;
+                }
+                setPeriod(p.value);
+              }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1
+                ${period === p.value ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+            >
+              {p.label}
+              {locked && <Crown size={9} className="text-amber-400 shrink-0" />}
+            </button>
+          );
+        })}
       </div>
 
       {loading ? (
