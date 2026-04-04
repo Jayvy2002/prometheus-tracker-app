@@ -10,10 +10,11 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: string | null }>;
   initialize: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   loading: true,
@@ -36,9 +37,36 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null, session: null });
   },
 
+  deleteAccount: async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return { error: 'Not authenticated' };
+
+    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/delete-account`;
+    const res = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      return { error: body.error ?? 'Failed to delete account' };
+    }
+
+    await supabase.auth.signOut();
+    set({ user: null, session: null });
+    return { error: null };
+  },
+
   initialize: () => {
+    // Guard against double-invocation (React StrictMode, hot-reload)
+    if (get().initialized) return;
+    set({ initialized: true });
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      set({ session, user: session?.user ?? null, loading: false, initialized: true });
+      set({ session, user: session?.user ?? null, loading: false });
     });
 
     supabase.auth.onAuthStateChange((_event, session) => {

@@ -7,11 +7,17 @@ import type { Recipe } from '../../lib/types';
 import { toast } from '../ui/Toast';
 import PageTransition from '../ui/PageTransition';
 import RecipeForm from './RecipeForm';
+import FullPageLayout from '../layout/FullPageLayout';
+import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
+import PremiumBadge from '../premium/PremiumBadge';
 
 export default function RecipesPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { recipes, loading, fetchRecipes, deleteRecipe } = useRecipeStore();
+  const { canAddRecipe } = usePremium();
+  const { openPaywall } = usePaywallStore();
 
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Recipe | null>(null);
@@ -33,7 +39,7 @@ export default function RecipesPage() {
     setConfirmDelete(null);
   };
 
-  const handleSaved = (recipe: Recipe) => {
+  const handleSaved = () => {
     setShowNew(false);
     setEditing(null);
     if (user) fetchRecipes(user.id);
@@ -41,24 +47,29 @@ export default function RecipesPage() {
 
   if (showNew) {
     return (
-      <RecipeForm
-        onClose={() => setShowNew(false)}
-        onSaved={handleSaved}
-      />
+      <FullPageLayout>
+        <RecipeForm
+          onClose={() => setShowNew(false)}
+          onSaved={handleSaved}
+        />
+      </FullPageLayout>
     );
   }
 
   if (editing) {
     return (
-      <RecipeForm
-        recipe={editing}
-        onClose={() => setEditing(null)}
-        onSaved={handleSaved}
-      />
+      <FullPageLayout>
+        <RecipeForm
+          recipe={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
+      </FullPageLayout>
     );
   }
 
   return (
+    <FullPageLayout>
     <PageTransition>
       <div className="px-4 pt-6 pb-24">
         <div className="flex items-center gap-3 mb-6">
@@ -70,13 +81,32 @@ export default function RecipesPage() {
           </button>
           <h1 className="text-2xl font-bold text-white flex-1">Recipes</h1>
           <button
-            onClick={() => setShowNew(true)}
+            onClick={() => {
+              if (!canAddRecipe(recipes.length)) {
+                openPaywall(
+                  'Recettes illimitées',
+                  `Le plan gratuit est limité à ${FREE_LIMITS.maxRecipes} recettes. Passez à Premium pour en créer autant que vous voulez.`,
+                );
+                return;
+              }
+              setShowNew(true);
+            }}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
           >
             <Plus size={15} />
             New
           </button>
         </div>
+
+        {!canAddRecipe(recipes.length) && recipes.length >= FREE_LIMITS.maxRecipes && (
+          <button
+            onClick={() => openPaywall('Recettes illimitées', `Vous avez atteint la limite de ${FREE_LIMITS.maxRecipes} recettes du plan gratuit.`)}
+            className="flex items-center gap-2 w-full mb-4 px-4 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 text-left hover:bg-amber-500/12 transition-colors"
+          >
+            <PremiumBadge variant="crown" size="sm" />
+            <p className="text-xs text-amber-300 flex-1">Limite de {FREE_LIMITS.maxRecipes} recettes atteinte — Passez à Premium</p>
+          </button>
+        )}
 
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
@@ -107,7 +137,13 @@ export default function RecipesPage() {
             )}
             {!search && (
               <button
-                onClick={() => setShowNew(true)}
+                onClick={() => {
+                  if (!canAddRecipe(recipes.length)) {
+                    openPaywall('Recettes illimitées', `Limite de ${FREE_LIMITS.maxRecipes} recettes atteinte.`);
+                    return;
+                  }
+                  setShowNew(true);
+                }}
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
               >
                 <Plus size={15} />
@@ -195,5 +231,6 @@ export default function RecipesPage() {
         </div>
       )}
     </PageTransition>
+    </FullPageLayout>
   );
 }

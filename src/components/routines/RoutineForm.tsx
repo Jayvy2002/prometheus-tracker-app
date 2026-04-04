@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Trash2, GripVertical } from 'lucide-react';
+import { X, Plus, Trash2, GripVertical, Info } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import type { Routine, RoutineExercise } from '../../lib/types';
@@ -104,6 +104,13 @@ export default function RoutineForm({ routine, onClose }: Props) {
         </div>
 
         <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+          {routine && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-neutral-900/60 border border-neutral-800/50">
+              <Info size={13} className="text-neutral-500 mt-0.5 shrink-0" />
+              <p className="text-xs text-neutral-500">Editing this routine won't affect past sessions already logged.</p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <Input label="Name" value={name} onChange={e => setName(e.target.value)} placeholder="Push Day" />
             <Input label="Description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Chest, shoulders, triceps" />

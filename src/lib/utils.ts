@@ -20,11 +20,14 @@ export function calculateCalorieTarget(tdee: number, goal: string): number {
 export function calculateMacros(calorieTarget: number, goal: string) {
   let proteinPct: number, fatPct: number, carbsPct: number;
   if (goal === 'cut') {
+    // Sèche : protéine élevée pour préserver la masse, lipides modérés
     proteinPct = 0.35; fatPct = 0.30; carbsPct = 0.35;
   } else if (goal === 'bulk') {
+    // Prise de masse : glucides élevés pour l'énergie et l'anabolisme
     proteinPct = 0.30; fatPct = 0.25; carbsPct = 0.45;
   } else {
-    proteinPct = 0.30; fatPct = 0.25; carbsPct = 0.45;
+    // Maintien : macros équilibrées, plus de lipides que la prise de masse
+    proteinPct = 0.30; fatPct = 0.30; carbsPct = 0.40;
   }
   return {
     protein: Math.round((calorieTarget * proteinPct) / 4),

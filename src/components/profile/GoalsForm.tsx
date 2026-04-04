@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { GOALS } from '../../lib/constants';
 import { calculateBMR, calculateTDEE, calculateCalorieTarget, calculateMacros, getAge } from '../../lib/utils';
+import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
@@ -20,6 +21,18 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
 
   const handleSave = async () => {
     if (!user || !profile) return;
+
+    const water = +waterTarget;
+    const steps = +stepsTarget;
+    if (water < 500 || water > 10000) { toast('Objectif eau invalide (500–10 000 ml).', 'error'); return; }
+    if (steps < 0 || steps > 100000) { toast('Objectif pas invalide (0–100 000).', 'error'); return; }
+    if (targetWeight) {
+      const minW = profile.unit_weight === 'lbs' ? 66 : 30;
+      const maxW = profile.unit_weight === 'lbs' ? 660 : 300;
+      const tw = +targetWeight;
+      if (isNaN(tw) || tw < minW || tw > maxW) { toast(`Poids cible invalide (${minW}–${maxW} ${profile.unit_weight ?? 'kg'}).`, 'error'); return; }
+    }
+
     setSaving(true);
 
     const age = profile.date_of_birth ? getAge(profile.date_of_birth) : 25;
@@ -34,8 +47,8 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
     await updateProfile(user.id, {
       goal,
       target_weight_kg: targetKg,
-      daily_water_target_ml: +waterTarget,
-      daily_steps_target: +stepsTarget,
+      daily_water_target_ml: water,
+      daily_steps_target: steps,
       daily_calorie_target: calories,
       protein_target: macros.protein,
       carbs_target: macros.carbs,

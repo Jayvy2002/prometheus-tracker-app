@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Plus, TrendingDown, TrendingUp, Minus, Trash2, CreditCard as Edit3 } from 'lucide-react';
+import { Plus, TrendingDown, TrendingUp, Minus, Trash2, CreditCard as Edit3, Crown } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
+import { usePremium } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
 import { formatWeight, formatDate, formatDateShort, parseDateStr, todayStr } from '../../lib/utils';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { toast } from '../ui/Toast';
@@ -37,6 +39,8 @@ export default function WeightPage() {
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { measurements, fetchMeasurements, addMeasurement, updateMeasurement, deleteMeasurement } = useWeightStore();
+  const { canUseWeightPeriod } = usePremium();
+  const { openPaywall } = usePaywallStore();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [weight, setWeight] = useState('');
@@ -61,14 +65,21 @@ export default function WeightPage() {
 
   const handleSubmit = async () => {
     if (!user || !weight) return;
-    const kg = unit === 'lbs' ? +weight / 2.20462 : +weight;
+    const val = +weight;
+    const minVal = unit === 'lbs' ? 44 : 20;
+    const maxVal = unit === 'lbs' ? 660 : 300;
+    if (isNaN(val) || val < minVal || val > maxVal) {
+      toast(`Poids invalide (${minVal}–${maxVal} ${unit}).`, 'error');
+      return;
+    }
+    const kg = unit === 'lbs' ? val / 2.20462 : val;
     if (editId) {
       await updateMeasurement(editId, { weight_kg: kg, measured_at: date });
-      toast('Weight updated');
+      toast('Poids mis à jour');
       setEditId(null);
     } else {
       await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: date });
-      toast('Weight logged');
+      toast('Poids enregistré');
     }
     setWeight('');
     setDate(todayStr());
@@ -139,16 +150,26 @@ export default function WeightPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-neutral-400">Progress</h3>
             <div className="flex gap-1">
-              {PERIODS.map(p => (
-                <button
-                  key={p.value}
-                  onClick={() => setPeriod(p.value)}
-                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors
-                    ${period === p.value ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-300'}`}
-                >
-                  {p.label}
-                </button>
-              ))}
+              {PERIODS.map(p => {
+                const locked = !canUseWeightPeriod(p.value);
+                return (
+                  <button
+                    key={p.value}
+                    onClick={() => {
+                      if (locked) {
+                        openPaywall('Historique de poids complet', 'Accédez à tout votre historique de poids avec Premium.');
+                        return;
+                      }
+                      setPeriod(p.value);
+                    }}
+                    className={`px-2 py-1 rounded-md text-xs font-medium transition-colors flex items-center gap-1
+                      ${period === p.value ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-300'}`}
+                  >
+                    {p.label}
+                    {locked && <Crown size={8} className="text-amber-400" />}
+                  </button>
+                );
+              })}
             </div>
           </div>
           <div className="h-44">

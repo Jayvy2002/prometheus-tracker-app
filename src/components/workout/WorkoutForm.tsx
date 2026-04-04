@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import FullPageLayout from '../layout/FullPageLayout';
 import { ArrowLeft, Plus, Check, Clock, Play, Pause, RotateCcw } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -12,6 +13,8 @@ import RestTimer from './RestTimer';
 import ExercisePicker from './ExercisePicker';
 import DateInput from '../ui/DateInput';
 import { WorkoutDraftProvider, useDraftContext } from './WorkoutDraftContext';
+import WorkoutSummaryScreen from './WorkoutSummaryScreen';
+import type { Workout } from '../../lib/types';
 
 function WorkoutFormInner() {
   const { id } = useParams();
@@ -27,10 +30,13 @@ function WorkoutFormInner() {
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
+  const [autoStartTimer, setAutoStartTimer] = useState(false);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDate, setWorkoutDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [summaryWorkout, setSummaryWorkout] = useState<Workout | null>(null);
+  const [summaryDuration, setSummaryDuration] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const [initError, setInitError] = useState(false);
   const createdRef = useRef(false);
@@ -57,7 +63,7 @@ function WorkoutFormInner() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [user, id]);
+  }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (currentWorkout) {
@@ -82,6 +88,11 @@ function WorkoutFormInner() {
     setShowExercisePicker(false);
   };
 
+  const handleStartRestTimer = () => {
+    setAutoStartTimer(true);
+    setShowTimer(true);
+  };
+
   const handleFinish = async () => {
     if (!currentWorkout || saving) return;
     setSaving(true);
@@ -93,9 +104,9 @@ function WorkoutFormInner() {
       const safeFloat = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
       const safeInt = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
-      const setUpdates: Promise<any>[] = [];
+      const setUpdates: PromiseLike<unknown>[] = [];
       setDrafts.forEach((draft, setId) => {
-        const updates: Record<string, any> = {};
+        const updates: Record<string, unknown> = {};
         if (draft.weight_kg !== undefined) updates.weight_kg = draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg);
         if (draft.reps !== undefined) updates.reps = draft.reps === '' ? 0 : safeInt(draft.reps);
         if (draft.rir !== undefined) updates.rir = draft.rir === '' ? 0 : safeInt(draft.rir);
@@ -107,9 +118,9 @@ function WorkoutFormInner() {
         }
       });
 
-      const exerciseUpdates: Promise<any>[] = [];
+      const exerciseUpdates: PromiseLike<unknown>[] = [];
       exerciseDrafts.forEach((draft, exerciseId) => {
-        const updates: Record<string, any> = {};
+        const updates: Record<string, unknown> = {};
         if (draft.notes !== undefined) updates.notes = draft.notes;
         if (Object.keys(updates).length > 0) {
           exerciseUpdates.push(
@@ -120,7 +131,7 @@ function WorkoutFormInner() {
 
       await Promise.all([...setUpdates, ...exerciseUpdates]);
 
-      const workoutUpdates: Record<string, any> = {};
+      const workoutUpdates: Record<string, unknown> = {};
       if (workoutName !== currentWorkout.name) workoutUpdates.name = workoutName;
       if (workoutDate && workoutDate !== currentWorkout.date) workoutUpdates.date = workoutDate;
       if (Object.keys(workoutUpdates).length > 0) {
@@ -136,18 +147,36 @@ function WorkoutFormInner() {
           .neq('set_type', 'warmup');
       }
 
+      const finalDuration = elapsed || currentWorkout.duration_seconds;
       await updateWorkout(currentWorkout.id, {
         completed: true,
-        duration_seconds: elapsed || currentWorkout.duration_seconds,
+        duration_seconds: finalDuration,
       });
 
       setRunning(false);
+
+      // Show summary screen before navigating
+      const snapshot = { ...currentWorkout, name: workoutName || currentWorkout.name };
+      setSummaryDuration(finalDuration);
+      setSummaryWorkout(snapshot);
       setCurrentWorkout(null);
-      navigate('/workout');
     } finally {
       setSaving(false);
     }
   };
+
+  if (summaryWorkout) {
+    return (
+      <WorkoutSummaryScreen
+        workout={summaryWorkout}
+        duration={summaryDuration}
+        onClose={() => {
+          setSummaryWorkout(null);
+          navigate('/workout');
+        }}
+      />
+    );
+  }
 
   if (initError) {
     return (
@@ -188,6 +217,7 @@ function WorkoutFormInner() {
       </div>
 
       <div className="mb-4">
+        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 px-1">Session date</p>
         <DateInput
           value={workoutDate}
           onChange={dateStr => setWorkoutDate(dateStr)}
@@ -201,14 +231,21 @@ function WorkoutFormInner() {
         <button onClick={() => setRunning(!running)} className="p-2 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors">
           {running ? <Pause size={16} /> : <Play size={16} />}
         </button>
-        <button onClick={() => setShowTimer(true)} className="p-2 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors">
+        <button
+          onClick={() => { setAutoStartTimer(false); setShowTimer(true); }}
+          className="p-2 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors"
+        >
           <RotateCcw size={16} />
         </button>
       </div>
 
       <div className="space-y-4">
         {currentWorkout.exercises?.map(ex => (
-          <ExerciseCard key={ex.id} exercise={ex} />
+          <ExerciseCard
+            key={ex.id}
+            exercise={ex}
+            onStartRestTimer={handleStartRestTimer}
+          />
         ))}
       </div>
 
@@ -221,7 +258,11 @@ function WorkoutFormInner() {
         </Button>
       </div>
 
-      <RestTimer open={showTimer} onClose={() => setShowTimer(false)} />
+      <RestTimer
+        open={showTimer}
+        autoStart={autoStartTimer}
+        onClose={() => { setShowTimer(false); setAutoStartTimer(false); }}
+      />
       <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />
     </div>
   );
@@ -229,8 +270,10 @@ function WorkoutFormInner() {
 
 export default function WorkoutForm() {
   return (
-    <WorkoutDraftProvider>
-      <WorkoutFormInner />
-    </WorkoutDraftProvider>
+    <FullPageLayout>
+      <WorkoutDraftProvider>
+        <WorkoutFormInner />
+      </WorkoutDraftProvider>
+    </FullPageLayout>
   );
 }

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, X, Search, AlertCircle, ArrowLeft, ScanLine, Loader2, Image as ImageIcon } from 'lucide-react';
+import { Camera, X, Search, AlertCircle, ArrowLeft, ScanLine, Loader2, Image as ImageIcon, Sparkles, Clock } from 'lucide-react';
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
+import { useAuthStore } from '../../stores/authStore';
 import { MEAL_CATEGORIES } from '../../lib/constants';
 import { todayStr } from '../../lib/utils';
 import type { FoodProduct } from '../../lib/types';
@@ -12,13 +13,15 @@ import Select from '../ui/Select';
 import Card from '../ui/Card';
 import FoodForm from '../nutrition/FoodForm';
 import CreateProductForm from './CreateProductForm';
+import FullPageLayout from '../layout/FullPageLayout';
 
 type ScannerState = 'idle' | 'scanning' | 'searching' | 'not_found' | 'food_form' | 'create_form';
 
 export default function ScannerPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { findByBarcode, createProduct } = useNutritionStore();
+  const { findByBarcode, createProduct, recentProducts, fetchRecentProducts } = useNutritionStore();
+  const { user } = useAuthStore();
 
   const [state, setState] = useState<ScannerState>('idle');
   const [manualCode, setManualCode] = useState('');
@@ -64,6 +67,10 @@ export default function ScannerPage() {
     };
   }, [stopScanning]);
 
+  useEffect(() => {
+    if (user) fetchRecentProducts(user.id);
+  }, [user]);
+
   const lookupProduct = useCallback(async (code: string) => {
     if (!mountedRef.current) return;
     setState('searching');
@@ -85,15 +92,16 @@ export default function ScannerPage() {
         const nutrients = p.nutriments || {};
         const productData = {
           barcode: code.trim(),
-          name: p.product_name || 'Unknown product',
-          brand: p.brands || '',
-          calories_per_100g: nutrients['energy-kcal_100g'] || 0,
-          protein_per_100g: nutrients.proteins_100g || 0,
-          carbs_per_100g: nutrients.carbohydrates_100g || 0,
-          fat_per_100g: nutrients.fat_100g || 0,
+          name: p.product_name || p.product_name_fr || p.product_name_en || 'Unknown product',
+          brand: p.brands || null,
+          calories_per_100g: nutrients['energy-kcal_100g'] ?? nutrients['energy-kcal'] ?? 0,
+          protein_per_100g: nutrients.proteins_100g ?? nutrients.proteins ?? 0,
+          carbs_per_100g: nutrients.carbohydrates_100g ?? nutrients.carbohydrates ?? 0,
+          fat_per_100g: nutrients.fat_100g ?? nutrients.fat ?? 0,
           serving_size: +(p.serving_quantity || 100),
-          serving_unit: 'g',
-          created_by: null,
+          serving_unit: p.serving_size?.includes('ml') ? 'ml' : 'g',
+          created_by: user?.id ?? null,
+          data_source: null,
         };
         const saved = await createProduct(productData);
         const offProduct: FoodProduct = saved ?? { id: '', created_at: '', ...productData };
@@ -215,26 +223,31 @@ export default function ScannerPage() {
 
   if (state === 'food_form' && product) {
     return (
-      <FoodForm
-        category={selectedCategory}
-        date={selectedDate}
-        onClose={() => navigate('/nutrition')}
-        prefill={product}
-      />
+      <FullPageLayout>
+        <FoodForm
+          category={selectedCategory}
+          date={selectedDate}
+          onClose={() => navigate('/nutrition')}
+          prefill={product}
+        />
+      </FullPageLayout>
     );
   }
 
   if (state === 'create_form') {
     return (
-      <CreateProductForm
-        barcode={scannedCode || manualCode}
-        onClose={handleReset}
-        onCreated={(p) => { setProduct(p); setState('food_form'); }}
-      />
+      <FullPageLayout>
+        <CreateProductForm
+          barcode={scannedCode || manualCode}
+          onClose={handleReset}
+          onCreated={(p) => { setProduct(p); setState('food_form'); }}
+        />
+      </FullPageLayout>
     );
   }
 
   return (
+    <FullPageLayout>
     <div className="px-4 pt-6 pb-24">
       <input
         ref={fileInputRef}
@@ -284,10 +297,24 @@ export default function ScannerPage() {
                 size="lg"
                 variant="secondary"
               >
-                <ImageIcon size={16} /> Take a photo
+                <ImageIcon size={16} /> Photo (barcode)
               </Button>
             </div>
           </Card>
+
+          <div className="flex items-center gap-3">
+            <div className="flex-1 h-px bg-neutral-900" />
+            <span className="text-neutral-600 text-xs">no barcode?</span>
+            <div className="flex-1 h-px bg-neutral-900" />
+          </div>
+
+          <button
+            onClick={() => setState('create_form')}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-violet-600/10 border border-violet-500/30 text-violet-400 hover:bg-violet-600/20 transition-colors text-sm font-medium"
+          >
+            <Sparkles size={15} />
+            Identify by photo — AI
+          </button>
 
           <div className="flex items-center gap-3">
             <div className="flex-1 h-px bg-neutral-900" />
@@ -312,6 +339,29 @@ export default function ScannerPage() {
             <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 flex items-center gap-2">
               <AlertCircle size={16} className="shrink-0" />
               {error}
+            </div>
+          )}
+
+          {recentProducts.length > 0 && (
+            <div className="animate-fade-in-up">
+              <p className="text-xs font-medium text-neutral-500 mb-2 flex items-center gap-1.5">
+                <Clock size={11} />
+                Recently logged
+              </p>
+              <div className="space-y-1.5">
+                {recentProducts.slice(0, 5).map((p, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setProduct(p); setState('food_form'); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition-colors text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                      <p className="text-xs text-neutral-500">{p.calories_per_100g} kcal · P:{p.protein_per_100g}g · C:{p.carbs_per_100g}g · F:{p.fat_per_100g}g /100g</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -425,5 +475,6 @@ export default function ScannerPage() {
         </div>
       )}
     </div>
+    </FullPageLayout>
   );
 }

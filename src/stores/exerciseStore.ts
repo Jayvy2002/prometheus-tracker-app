@@ -9,7 +9,7 @@ interface ExerciseState {
   fetchExercises: () => Promise<void>;
   searchExercises: (query: string) => Exercise[];
   submitExercise: (userId: string, name: string, muscles: string, description: string) => Promise<ExerciseRequest | null>;
-  pollRequest: (requestId: string) => Promise<ExerciseRequest | null>;
+  addExercise: (exercise: Exercise) => void;
 }
 
 export const useExerciseStore = create<ExerciseState>((set, get) => ({
@@ -44,54 +44,12 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
       .insert({ user_id: userId, name, muscles, description })
       .select()
       .maybeSingle();
-    if (!data) return null;
-
-    const request = data as ExerciseRequest;
-
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-exercise`;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-
-    if (token) {
-      fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ request_id: request.id }),
-      }).catch(() => {});
-    }
-
-    return request;
+    return data ? (data as ExerciseRequest) : null;
   },
 
-  pollRequest: async (requestId) => {
-    const { data } = await supabase
-      .from('exercise_requests')
-      .select('*')
-      .eq('id', requestId)
-      .maybeSingle();
-
-    if (!data) return null;
-    const req = data as ExerciseRequest;
-
-    if (req.status === 'approved' && req.result_exercise_id) {
-      const { data: exercise } = await supabase
-        .from('exercises')
-        .select('*')
-        .eq('id', req.result_exercise_id)
-        .maybeSingle();
-
-      if (exercise) {
-        set(s => {
-          const exists = s.exercises.some(e => e.id === exercise.id);
-          if (exists) return s;
-          return { exercises: [...s.exercises, exercise as Exercise].sort((a, b) => a.name.localeCompare(b.name)) };
-        });
-      }
-    }
-
-    return req;
+  addExercise: (exercise: Exercise) => {
+    set(state => ({
+      exercises: [...state.exercises, exercise].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
   },
 }));

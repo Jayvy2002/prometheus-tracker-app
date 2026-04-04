@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ScanLine, ChefHat } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { todayStr } from '../../lib/utils';
+import { supabase } from '../../lib/supabase';
+import { toast } from '../ui/Toast';
 import { MEAL_CATEGORIES } from '../../lib/constants';
 import type { NutritionLog } from '../../lib/types';
 import ProgressRing from '../ui/ProgressRing';
@@ -22,11 +24,16 @@ export default function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, addLog, loading: nutritionLoading } = useNutritionStore();
   const { measurements } = useWeightStore();
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
-  const [showAdjustment, setShowAdjustment] = useState(true);
+  const [showAdjustment, setShowAdjustment] = useState(() => {
+    const dismissed = localStorage.getItem('weeklyAdjustmentDismissed');
+    if (!dismissed) return true;
+    const dismissedAt = parseInt(dismissed, 10);
+    return Date.now() - dismissedAt > 7 * 24 * 60 * 60 * 1000;
+  });
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
 
   useEffect(() => {
@@ -61,6 +68,55 @@ export default function NutritionPage() {
 
   const hasEnoughData = measurements.length >= 7;
 
+  const getTimeBasedCategory = () => {
+    const hour = new Date().getHours();
+    if (hour < 11) return 'breakfast';
+    if (hour < 14) return 'lunch';
+    if (hour < 18) return 'snack';
+    return 'dinner';
+  };
+
+  const handleQuickAdd = () => {
+    setAddCategory(getTimeBasedCategory());
+    setShowAdd(true);
+  };
+
+  const handleReuseCategory = async (category: string) => {
+    if (!user) return;
+    const prev = new Date(selectedDate);
+    prev.setDate(prev.getDate() - 1);
+    const prevStr = prev.toISOString().split('T')[0];
+
+    const { data } = await supabase
+      .from('nutrition_logs')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('logged_at', prevStr)
+      .eq('category', category);
+
+    if (!data || data.length === 0) {
+      toast('Nothing logged for this meal yesterday');
+      return;
+    }
+
+    for (const l of data) {
+      await addLog({
+        user_id: user.id,
+        food_product_id: l.food_product_id ?? null,
+        name: l.name,
+        calories: l.calories,
+        protein: l.protein,
+        carbs: l.carbs,
+        fat: l.fat,
+        category: l.category,
+        quantity: l.quantity,
+        unit: l.unit,
+        logged_at: selectedDate,
+      });
+    }
+    toast(`${data.length} item${data.length > 1 ? 's' : ''} copied from yesterday`);
+  };
+
   return (
     <PageTransition>
     <div className="px-4 pt-6">
@@ -73,11 +129,21 @@ export default function NutritionPage() {
           <button onClick={() => navigate('/scanner')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
             <ScanLine size={18} />
           </button>
+          <button
+            onClick={handleQuickAdd}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <Plus size={16} />
+            Add
+          </button>
         </div>
       </div>
 
       {isToday && showAdjustment && hasEnoughData && (
-        <WeeklyAdjustment onDismiss={() => setShowAdjustment(false)} />
+        <WeeklyAdjustment onDismiss={() => {
+          localStorage.setItem('weeklyAdjustmentDismissed', String(Date.now()));
+          setShowAdjustment(false);
+        }} />
       )}
 
       <div className="flex items-center justify-between mb-6">
@@ -101,6 +167,25 @@ export default function NutritionPage() {
           </ProgressRing>
           <MacroSummary />
         </div>
+        <div className="mt-3 pt-3 border-t border-neutral-800/50 flex items-center gap-3">
+          <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${pct}%`,
+                backgroundColor: pct > 100 ? '#f43f5e' : pct >= 95 ? '#10b981' : '#2563eb',
+              }}
+            />
+          </div>
+          <span className="text-xs shrink-0">
+            {pct > 100
+              ? <span className="text-rose-400">+{Math.round(totalCals - target)} over</span>
+              : pct >= 95
+              ? <span className="text-emerald-400">Goal reached!</span>
+              : <span className="text-neutral-400">{Math.round(target - totalCals)} remaining</span>
+            }
+          </span>
+        </div>
       </div>
 
       <div className="animate-fade-in-up stagger-2">
@@ -108,17 +193,35 @@ export default function NutritionPage() {
       </div>
 
       <div className="mt-4 space-y-4">
-        {MEAL_CATEGORIES.map((cat, i) => (
-          <div key={cat.value} className="animate-fade-in-up" style={{ animationDelay: `${(i + 3) * 60}ms` }}>
-          <MealSection
-            category={cat.value}
-            label={cat.label}
-            logs={logs.filter(l => l.category === cat.value)}
-            onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
-            onEdit={(log) => setEditingLog(log)}
-          />
-          </div>
-        ))}
+        {nutritionLoading ? (
+          <>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 animate-pulse">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="h-4 bg-neutral-800 rounded-md w-24" />
+                  <div className="h-3 bg-neutral-800/70 rounded-md w-16" />
+                </div>
+                <div className="space-y-2">
+                  <div className="h-10 bg-neutral-800/50 rounded-xl w-full" />
+                  <div className="h-10 bg-neutral-800/50 rounded-xl w-full" />
+                </div>
+              </div>
+            ))}
+          </>
+        ) : (
+          MEAL_CATEGORIES.map((cat, i) => (
+            <div key={cat.value} className="animate-fade-in-up" style={{ animationDelay: `${(i + 3) * 60}ms` }}>
+              <MealSection
+                category={cat.value}
+                label={cat.label}
+                logs={logs.filter(l => l.category === cat.value)}
+                onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
+                onEdit={(log) => setEditingLog(log)}
+                onReuse={() => handleReuseCategory(cat.value)}
+              />
+            </div>
+          ))
+        )}
       </div>
 
       {showAdd && (

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { WeightMeasurement } from '../lib/types';
+import { useProfileStore } from './profileStore';
 
 interface WeightState {
   measurements: WeightMeasurement[];
@@ -32,7 +33,15 @@ export const useWeightStore = create<WeightState>((set) => ({
       .select()
       .maybeSingle();
     if (data) {
-      set(s => ({ measurements: [data as WeightMeasurement, ...s.measurements] }));
+      const newMeasurement = data as WeightMeasurement;
+      set(s => ({ measurements: [newMeasurement, ...s.measurements] }));
+
+      // Keep user_profiles.weight_kg in sync with the latest measurement
+      if (newMeasurement.user_id && newMeasurement.weight_kg != null) {
+        await useProfileStore.getState().updateProfile(newMeasurement.user_id, {
+          weight_kg: newMeasurement.weight_kg,
+        });
+      }
     }
   },
 

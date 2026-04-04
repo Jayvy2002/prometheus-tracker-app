@@ -43,7 +43,7 @@ export interface DashboardWidget {
   col?: number;
 }
 
-export type WidgetType = 'weight' | 'calories' | 'macros' | 'water' | 'workout_volume' | 'exercise_progress' | 'steps' | 'streak';
+export type WidgetType = 'weight' | 'calories' | 'macros' | 'water' | 'workout_volume' | 'exercise_progress' | 'steps' | 'streak' | 'weekly_goal';
 
 export interface Workout {
   id: string;
@@ -117,6 +117,7 @@ export interface WeightMeasurement {
 export interface NutritionLog {
   id: string;
   user_id: string;
+  food_product_id?: string | null;
   name: string;
   calories: number;
   protein: number;
@@ -170,11 +171,13 @@ export interface ExerciseRequest {
   updated_at: string;
 }
 
+export type FoodDataSource = 'foundation' | 'sr_legacy' | 'fndds' | 'branded' | 'user';
+
 export interface FoodProduct {
   id: string;
   barcode: string | null;
   name: string;
-  brand: string;
+  brand: string | null;
   calories_per_100g: number;
   protein_per_100g: number;
   carbs_per_100g: number;
@@ -183,6 +186,8 @@ export interface FoodProduct {
   serving_unit: string;
   created_by: string | null;
   created_at: string;
+  /** Source USDA ou 'user' pour les produits créés par l'utilisateur */
+  data_source: FoodDataSource | null;
 }
 
 export type ProductRequestStatus = 'pending' | 'processing' | 'completed' | 'failed';
@@ -240,6 +245,22 @@ export interface DailySteps {
   created_at: string;
 }
 
+export type SubscriptionTier = 'free' | 'premium';
+export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'inactive';
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
+  tier: SubscriptionTier;
+  status: SubscriptionStatus;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProductRequest {
   id: string;
   user_id: string;
@@ -251,6 +272,15 @@ export interface ProductRequest {
   status: ProductRequestStatus;
   result_product_id: string | null;
   error_message: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AppRole = 'free' | 'premium' | 'admin';
+
+export interface UserRole {
+  user_id: string;
+  role: AppRole;
   created_at: string;
   updated_at: string;
 }

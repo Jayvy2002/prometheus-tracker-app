@@ -2,6 +2,8 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
+import { useSubscriptionStore } from './stores/subscriptionStore';
+import PaywallModal from './components/premium/PaywallModal';
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
@@ -15,19 +17,21 @@ import WeightPage from './components/weight/WeightPage';
 import NutritionPage from './components/nutrition/NutritionPage';
 import ScannerPage from './components/scanner/ScannerPage';
 import ProfilePage from './components/profile/ProfilePage';
-import HealthIntegrations from './components/health/HealthIntegrations';
 import CalendarPage from './components/calendar/CalendarPage';
 import RecipesPage from './components/nutrition/RecipesPage';
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized } = useAuthStore();
   const { profile, loading: profileLoading, fetchProfile, clearProfile } = useProfileStore();
+  const { fetchSubscription, clearSubscription } = useSubscriptionStore();
 
   useEffect(() => {
     if (user) {
       fetchProfile(user.id);
+      fetchSubscription(user.id);
     } else if (initialized) {
       clearProfile();
+      clearSubscription();
     }
   }, [user, initialized]);
 
@@ -64,17 +68,16 @@ function AppRoutes() {
         <Route path="/weight" element={<WeightPage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/exercise-progress" element={<ExerciseProgressPage />} />
+        <Route path="/stats" element={<StatsPage />} />
       </Route>
       <Route path="/workout/new" element={<WorkoutForm />} />
       <Route path="/workout/:id" element={<WorkoutForm />} />
-      <Route path="/exercise-progress" element={<ExerciseProgressPage />} />
-      <Route path="/stats" element={<StatsPage />} />
       <Route path="/routines" element={<AppLayout />}>
         <Route index element={<RoutinesPage />} />
       </Route>
       <Route path="/scanner" element={<ScannerPage />} />
       <Route path="/recipes" element={<RecipesPage />} />
-      <Route path="/health" element={<HealthIntegrations />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
@@ -90,6 +93,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <PaywallModal />
     </BrowserRouter>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Dumbbell, Loader2, Sparkles } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle, XCircle } from 'lucide-react';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import { useExerciseStore } from '../../stores/exerciseStore';
@@ -114,7 +115,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                   </div>
                   <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-blue-300">Proposer "{search.trim()}"</p>
-                    <p className="text-[11px] text-neutral-500">L'IA verifiera et ajoutera l'exercice</p>
+                    <p className="text-[11px] text-neutral-500">Vérification IA instantanée</p>
                   </div>
                   <Plus size={16} className="text-blue-400" />
                 </button>
@@ -127,11 +128,14 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
       {showNewForm && (
         <NewExerciseModal
           initialName={search.trim()}
-          onClose={() => setShowNewForm(false)}
-          onAdded={(name) => {
+          onClose={() => {
+            setShowNewForm(false);
+            onClose();
+          }}
+          onSelect={(name) => {
             setShowNewForm(false);
             onSelect(name);
-            setSearch('');
+            handleClose();
           }}
         />
       )}
@@ -139,18 +143,19 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
   );
 }
 
-function NewExerciseModal({ initialName, onClose, onAdded }: {
+function NewExerciseModal({ initialName, onClose, onSelect }: {
   initialName: string;
   onClose: () => void;
-  onAdded: (name: string) => void;
+  onSelect: (name: string) => void;
 }) {
-  const { submitExercise, pollRequest } = useExerciseStore();
+  const { submitExercise, addExercise } = useExerciseStore();
   const [name, setName] = useState(initialName);
   const [muscles, setMuscles] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'polling' | 'approved' | 'rejected'>('idle');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'verifying' | 'approved' | 'rejected'>('idle');
   const [error, setError] = useState('');
-  const [approvedName, setApprovedName] = useState('');
+  const [approvedExercise, setApprovedExercise] = useState<Exercise | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   const handleSubmit = async () => {
     if (!name.trim()) return;
@@ -159,145 +164,226 @@ function NewExerciseModal({ initialName, onClose, onAdded }: {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      setError('Vous devez etre connecte.');
+      setError('Vous devez être connecté.');
       setStatus('idle');
       return;
     }
 
     const request = await submitExercise(user.id, name.trim(), muscles.trim(), description.trim());
     if (!request) {
-      setError('Erreur lors de la soumission.');
+      setError('Erreur lors de la soumission. Réessayez.');
       setStatus('idle');
       return;
     }
 
-    setStatus('polling');
+    setStatus('verifying');
 
-    let attempts = 0;
-    const maxAttempts = 30;
-    const poll = async () => {
-      if (attempts >= maxAttempts) {
-        setError('La verification prend trop de temps. Reessayez plus tard.');
-        setStatus('idle');
-        return;
+    const { data, error: fnError } = await supabase.functions.invoke('verify-exercise', {
+      body: { request_id: request.id },
+    });
+
+    if (fnError) {
+      const msg = (fnError.message ?? '').toLowerCase();
+      if (msg.includes('daily limit') || msg.includes('429')) {
+        setError('Limite atteinte : 20 vérifications par jour maximum.');
+      } else {
+        setError('Erreur lors de la vérification IA. Réessayez.');
       }
-      attempts++;
+      setStatus('idle');
+      return;
+    }
 
-      const result = await pollRequest(request.id);
-      if (!result) {
-        setError('Erreur lors de la verification.');
-        setStatus('idle');
-        return;
-      }
+    if (data?.rejected) {
+      setRejectionReason(data.reason || "Cet exercice n'a pas été reconnu comme un exercice valide.");
+      setStatus('rejected');
+      return;
+    }
 
-      if (result.status === 'approved') {
-        setStatus('approved');
-        setApprovedName(name.trim());
-        return;
-      }
+    if (data?.exercise) {
+      addExercise(data.exercise as Exercise);
+      setApprovedExercise(data.exercise as Exercise);
+      setStatus('approved');
+      return;
+    }
 
-      if (result.status === 'rejected') {
-        setError(result.error_message || 'Exercice non reconnu.');
-        setStatus('rejected');
-        return;
-      }
-
-      setTimeout(poll, 1500);
-    };
-
-    setTimeout(poll, 2000);
+    setError('Réponse inattendue du serveur. Réessayez.');
+    setStatus('idle');
   };
 
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div className="fixed inset-0 bg-black/70" onClick={onClose} />
-      <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10">
-        <h3 className="text-lg font-semibold text-white mb-4">Proposer un exercice</h3>
-
-        {status === 'approved' ? (
-          <div className="text-center py-6">
-            <div className="w-14 h-14 rounded-2xl bg-blue-500/15 flex items-center justify-center mx-auto mb-4">
-              <Sparkles size={24} className="text-blue-400" />
+  // Verifying screen
+  if (status === 'verifying') {
+    return createPortal(
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70" />
+        <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10">
+          <div className="text-center py-4">
+            <div className="w-16 h-16 rounded-2xl bg-blue-500/15 flex items-center justify-center mx-auto mb-4">
+              <Loader2 size={28} className="text-blue-400 animate-spin" />
             </div>
-            <p className="text-white font-medium mb-1">Exercice approuve !</p>
-            <p className="text-neutral-400 text-sm mb-6">
-              L'IA a verifie et ajoute cet exercice a la base de donnees.
+            <p className="text-white font-semibold text-lg mb-2">Vérification en cours…</p>
+            <p className="text-neutral-400 text-sm">
+              L'IA analyse <span className="text-white font-medium">"{name.trim()}"</span>
             </p>
-            <button
-              onClick={() => onAdded(approvedName)}
-              className="w-full py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors"
-            >
-              Utiliser cet exercice
-            </button>
+            <p className="text-neutral-500 text-xs mt-1">Quelques secondes…</p>
           </div>
-        ) : (
-          <>
-            <div className="space-y-3 mb-5">
-              <div>
-                <label className="text-xs font-medium text-neutral-400 mb-1 block">Nom de l'exercice</label>
-                <Input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  placeholder="Ex: Seated Cable Row"
-                  disabled={status !== 'idle' && status !== 'rejected'}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-400 mb-1 block">Muscles travailles (optionnel)</label>
-                <Input
-                  value={muscles}
-                  onChange={e => setMuscles(e.target.value)}
-                  placeholder="Ex: dos, biceps"
-                  disabled={status !== 'idle' && status !== 'rejected'}
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-neutral-400 mb-1 block">Description (optionnel)</label>
-                <textarea
-                  value={description}
-                  onChange={e => setDescription(e.target.value)}
-                  placeholder="Decrivez l'exercice : mouvement, position, equipement..."
-                  rows={3}
-                  disabled={status !== 'idle' && status !== 'rejected'}
-                  className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
-                />
-                <p className="text-[11px] text-neutral-600 mt-1">Aide l'IA a mieux identifier l'exercice</p>
-              </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Approved screen
+  if (status === 'approved' && approvedExercise) {
+    return createPortal(
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70" />
+        <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10 animate-modal-pop">
+          <div className="text-center py-2">
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle size={28} className="text-emerald-400" />
             </div>
-
-            {error && (
-              <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 mb-4">
-                {error}
+            <p className="text-white font-semibold text-lg mb-1">Exercice ajouté !</p>
+            <p className="text-neutral-400 text-sm mb-4">
+              <span className="text-white font-medium">"{approvedExercise.name}"</span> est maintenant disponible.
+            </p>
+            {approvedExercise.primary_muscles.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-1.5 mb-5">
+                {approvedExercise.primary_muscles.slice(0, 3).map(m => (
+                  <span key={m} className="text-xs text-blue-400/80 bg-blue-500/10 px-2 py-1 rounded-lg">
+                    {MUSCLE_LABELS[m] || m}
+                  </span>
+                ))}
               </div>
             )}
-
-            {(status === 'submitting' || status === 'polling') && (
-              <div className="flex items-center gap-3 bg-neutral-900/50 rounded-xl p-3 mb-4">
-                <Loader2 size={16} className="animate-spin text-blue-400" />
-                <p className="text-sm text-neutral-300">
-                  {status === 'submitting' ? 'Envoi de la demande...' : 'L\'IA verifie l\'exercice...'}
-                </p>
-              </div>
-            )}
-
             <div className="flex gap-2">
               <button
                 onClick={onClose}
-                className="flex-1 py-2.5 bg-neutral-900 text-neutral-300 rounded-xl font-medium hover:bg-neutral-800 transition-colors"
+                className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-medium transition-colors"
               >
-                Annuler
+                Fermer
               </button>
               <button
-                onClick={handleSubmit}
-                disabled={!name.trim() || (status !== 'idle' && status !== 'rejected')}
-                className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => onSelect(approvedExercise.name)}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-colors"
               >
-                {status === 'rejected' ? 'Reessayer' : 'Verifier avec l\'IA'}
+                Utiliser maintenant
               </button>
             </div>
-          </>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Rejected screen
+  if (status === 'rejected') {
+    return createPortal(
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/70" />
+        <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10 animate-modal-pop">
+          <div className="text-center py-2">
+            <div className="w-16 h-16 rounded-2xl bg-rose-500/15 flex items-center justify-center mx-auto mb-4">
+              <XCircle size={28} className="text-rose-400" />
+            </div>
+            <p className="text-white font-semibold text-lg mb-2">Exercice non reconnu</p>
+            <p className="text-neutral-400 text-sm leading-relaxed mb-5">{rejectionReason}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-medium transition-colors"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={() => { setStatus('idle'); setError(''); }}
+                className="flex-1 py-2.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-xl font-medium transition-colors"
+              >
+                Réessayer
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Main form
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/70" onClick={status === 'idle' ? onClose : undefined} />
+      <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10">
+        <h3 className="text-lg font-semibold text-white mb-1">Proposer un exercice</h3>
+        <p className="text-neutral-500 text-xs mb-4">L'IA vérifie et ajoute l'exercice en temps réel</p>
+
+        <div className="space-y-3 mb-5">
+          <div>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block">Nom de l'exercice</label>
+            <Input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Ex: Seated Cable Row"
+              disabled={status === 'submitting'}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block">Muscles travaillés <span className="text-neutral-600">(optionnel)</span></label>
+            <Input
+              value={muscles}
+              onChange={e => setMuscles(e.target.value)}
+              placeholder="Ex: dos, biceps"
+              disabled={status === 'submitting'}
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block">Description <span className="text-neutral-600">(optionnel)</span></label>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              placeholder="Décrivez le mouvement, la position, l'équipement..."
+              rows={3}
+              disabled={status === 'submitting'}
+              className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+            />
+            <p className="text-[11px] text-neutral-600 mt-1">Aide l'IA à mieux identifier l'exercice</p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 mb-4">
+            {error}
+          </div>
         )}
+
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            disabled={status === 'submitting'}
+            className="flex-1 py-2.5 bg-neutral-900 text-neutral-300 rounded-xl font-medium hover:bg-neutral-800 transition-colors disabled:opacity-40"
+          >
+            Annuler
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!name.trim() || status === 'submitting'}
+            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {status === 'submitting' ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Envoi...
+              </>
+            ) : (
+              <>
+                <Sparkles size={15} />
+                Vérifier avec l'IA
+              </>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

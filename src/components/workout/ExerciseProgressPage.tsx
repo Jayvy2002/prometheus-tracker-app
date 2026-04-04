@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, TrendingUp, ChevronDown } from 'lucide-react';
+import { ArrowLeft, TrendingUp, ChevronDown, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
@@ -122,6 +122,12 @@ export default function ExerciseProgressPage() {
   const previous = summary?.entries[summary.entries.length - 2];
   const diff = latest && previous ? latest[metric] - previous[metric] : null;
 
+  // Personal Record — all-time best for the selected metric
+  const allTimeBest = summary && summary.entries.length > 0
+    ? Math.max(...summary.entries.map(e => e[metric]))
+    : null;
+  const isNewPR = latest && allTimeBest !== null && latest[metric] === allTimeBest && summary!.entries.length > 1;
+
   return (
     <PageTransition>
     <div className="px-4 pt-6">
@@ -177,21 +183,39 @@ export default function ExerciseProgressPage() {
           </div>
 
           {latest && (
-            <Card className="mb-4 animate-fade-in-scale">
-              <div className="flex items-start gap-4">
-                <div>
-                  <p className="text-3xl font-bold text-white">{latest[metric]}{metric === 'totalVolume' ? '' : ' kg'}</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">{METRIC_LABELS[metric]} — latest session</p>
-                </div>
-                {diff !== null && diff !== 0 && (
-                  <div className={`ml-auto px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1
-                    ${diff > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
-                    <TrendingUp size={12} className={diff < 0 ? 'rotate-180' : ''} />
-                    {diff > 0 ? '+' : ''}{Math.round(diff * 10) / 10}
+            <div className="mb-4 animate-fade-in-scale space-y-2">
+              <Card>
+                <div className="flex items-start gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-3xl font-bold text-white">{latest[metric]}{metric === 'totalVolume' ? '' : ' kg'}</p>
+                      {isNewPR && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-[11px] font-bold">
+                          <Trophy size={11} />
+                          PR
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-500 mt-0.5">{METRIC_LABELS[metric]} — latest session</p>
                   </div>
-                )}
-              </div>
-            </Card>
+                  {diff !== null && diff !== 0 && (
+                    <div className={`ml-auto px-2.5 py-1 rounded-lg text-xs font-medium flex items-center gap-1
+                      ${diff > 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                      <TrendingUp size={12} className={diff < 0 ? 'rotate-180' : ''} />
+                      {diff > 0 ? '+' : ''}{Math.round(diff * 10) / 10}
+                    </div>
+                  )}
+                </div>
+              </Card>
+              {allTimeBest !== null && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/5 border border-amber-500/20">
+                  <Trophy size={14} className="text-amber-400 shrink-0" />
+                  <span className="text-xs text-neutral-400">
+                    All-time best — <span className="text-amber-400 font-semibold">{allTimeBest}{metric === 'totalVolume' ? '' : ' kg'}</span>
+                  </span>
+                </div>
+              )}
+            </div>
           )}
 
           {chartData.length > 1 && (
@@ -214,12 +238,17 @@ export default function ExerciseProgressPage() {
 
           <h3 className="text-sm font-medium text-neutral-400 mb-3 animate-fade-in-up stagger-4">Sessions</h3>
           <div className="space-y-2">
-            {[...summary.entries].reverse().slice(0, 15).map((e, i) => (
+            {[...summary.entries].reverse().slice(0, 15).map((e, i) => {
+              const isEntryPR = allTimeBest !== null && e[metric] === allTimeBest;
+              return (
               <div key={e.date} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
-                <Card>
+                <Card className={isEntryPR ? 'border-amber-500/30' : ''}>
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-white">{new Date(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-white">{new Date(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+                        {isEntryPR && <Trophy size={12} className="text-amber-400" />}
+                      </div>
                       <p className="text-xs text-neutral-500">{e.sets} working sets</p>
                     </div>
                     <div className="text-right">
@@ -229,7 +258,7 @@ export default function ExerciseProgressPage() {
                   </div>
                 </Card>
               </div>
-            ))}
+            )})}
           </div>
         </>
       ) : selected ? (

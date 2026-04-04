@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Repeat, ChevronRight, Trash2, Play, ArrowLeft } from 'lucide-react';
+import { Plus, Repeat, ChevronRight, Trash2, Play, ArrowLeft, BarChart2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
+import { formatDate } from '../../lib/utils';
+import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
+import PremiumBadge from '../premium/PremiumBadge';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -15,15 +19,29 @@ export default function RoutinesPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { routines, loading, fetchRoutines, deleteRoutine, fetchRoutineWithExercises } = useRoutineStore();
-  const { createWorkout, addExercise, addSet } = useWorkoutStore();
+  const { workouts, createWorkout, addExercise, addSet, fetchWorkouts } = useWorkoutStore();
+  const { canAddRoutine } = usePremium();
+  const { openPaywall } = usePaywallStore();
   const [showForm, setShowForm] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (user) fetchRoutines(user.id);
+    if (!user) return;
+    fetchRoutines(user.id);
+    if (workouts.length === 0) fetchWorkouts(user.id);
   }, [user]);
+
+  const getRoutineStats = (routineId: string) => {
+    const used = workouts.filter(w => w.routine_id === routineId && w.completed);
+    if (used.length === 0) return null;
+    const sorted = [...used].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return {
+      count: used.length,
+      lastDate: sorted[0].date,
+    };
+  };
 
   const startFromRoutine = async (routineId: string) => {
     if (!user) return;
@@ -72,10 +90,33 @@ export default function RoutinesPage() {
           </button>
           <h1 className="text-2xl font-bold text-white">Routines</h1>
         </div>
-        <Button onClick={() => { setEditingRoutine(null); setShowForm(true); }} size="sm">
+        <Button
+          onClick={() => {
+            if (!canAddRoutine(routines.length)) {
+              openPaywall(
+                'Routines illimitées',
+                `Le plan gratuit est limité à ${FREE_LIMITS.maxRoutines} routines. Passez à Premium pour en créer autant que vous voulez.`,
+              );
+              return;
+            }
+            setEditingRoutine(null);
+            setShowForm(true);
+          }}
+          size="sm"
+        >
           <Plus size={16} /> New
         </Button>
       </div>
+
+      {!canAddRoutine(routines.length) && routines.length >= FREE_LIMITS.maxRoutines && (
+        <button
+          onClick={() => openPaywall('Routines illimitées', `Vous avez atteint la limite de ${FREE_LIMITS.maxRoutines} routines du plan gratuit.`)}
+          className="flex items-center gap-2 w-full mb-4 px-4 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 text-left hover:bg-amber-500/12 transition-colors"
+        >
+          <PremiumBadge variant="crown" size="sm" />
+          <p className="text-xs text-amber-300 flex-1">Limite de {FREE_LIMITS.maxRoutines} routines atteinte — Passez à Premium</p>
+        </button>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-neutral-500">Loading...</div>
@@ -89,6 +130,7 @@ export default function RoutinesPage() {
         <div className="space-y-3">
           {routines.map((r, i) => {
             const exercises = (r as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? r.exercises ?? [];
+            const stats = getRoutineStats(r.id);
             return (
               <div key={r.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
               <Card className="group">
@@ -98,7 +140,20 @@ export default function RoutinesPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-white truncate">{r.name}</p>
-                    <p className="text-xs text-neutral-500">{exercises.length} exercises</p>
+                    <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                      <span className="text-xs text-neutral-500">{exercises.length} exercise{exercises.length !== 1 ? 's' : ''}</span>
+                      {stats && (
+                        <>
+                          <span className="text-neutral-700">·</span>
+                          <span className="flex items-center gap-1 text-xs text-neutral-500">
+                            <BarChart2 size={10} className="text-neutral-600" />
+                            {stats.count}×
+                          </span>
+                          <span className="text-neutral-700">·</span>
+                          <span className="text-xs text-neutral-500">Last {formatDate(stats.lastDate)}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1">
                     <button

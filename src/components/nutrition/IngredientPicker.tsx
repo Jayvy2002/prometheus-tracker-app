@@ -48,7 +48,7 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
           id: '',
           barcode: (p.code as string) || null,
           name: p.product_name as string,
-          brand: (p.brands as string) || '',
+          brand: (p.brands as string) || null,
           calories_per_100g: n['energy-kcal_100g'] || 0,
           protein_per_100g: n.proteins_100g || 0,
           carbs_per_100g: n.carbohydrates_100g || 0,
@@ -57,6 +57,7 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
           serving_unit: 'g',
           created_by: null,
           created_at: '',
+          data_source: null,
           _source: 'openfoodfacts' as const,
         };
       });
@@ -161,7 +162,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
       id: f.product_id ?? '',
       barcode: null,
       name: f.product_name,
-      brand: f.brand,
+      brand: f.brand || null,
       calories_per_100g: f.calories_per_100g,
       protein_per_100g: f.protein_per_100g,
       carbs_per_100g: f.carbs_per_100g,
@@ -170,6 +171,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
       serving_unit: f.serving_unit,
       created_by: null,
       created_at: '',
+      data_source: null,
     });
     setTab('search');
   };

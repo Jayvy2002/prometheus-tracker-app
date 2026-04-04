@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useRecipeStore } from '../../stores/recipeStore';
-import { FOOD_UNITS } from '../../lib/constants';
+import { FOOD_UNITS, MEAL_CATEGORIES } from '../../lib/constants';
 import type { FoodProduct, FoodFavorite, Recipe } from '../../lib/types';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
@@ -43,7 +43,7 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
           id: '',
           barcode: (p.code as string) || null,
           name: p.product_name as string,
-          brand: (p.brands as string) || '',
+          brand: (p.brands as string) || null,
           calories_per_100g: n['energy-kcal_100g'] || 0,
           protein_per_100g: n.proteins_100g || 0,
           carbs_per_100g: n.carbohydrates_100g || 0,
@@ -52,6 +52,7 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
           serving_unit: 'g',
           created_by: null,
           created_at: '',
+          data_source: null,
           _source: 'openfoodfacts' as const,
         };
       });
@@ -80,10 +81,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const [searching, setSearching] = useState(false);
   const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
   const [saving, setSaving] = useState(false);
+  const [activeCategory, setActiveCategory] = useState(category);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
   const [showNewRecipe, setShowNewRecipe] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(prefill ?? null);
+  const [favDisplayCount, setFavDisplayCount] = useState(15);
+  const [recentDisplayCount, setRecentDisplayCount] = useState(15);
   const searchRef = useRef(0);
+  const LIST_PAGE = 15;
 
   const UNIT_TO_GRAMS: Record<string, number> = { g: 1, ml: 1, oz: 28.35, cup: 240, tbsp: 15, tsp: 5, serving: 1 };
   const grams = (+quantity || 0) * (UNIT_TO_GRAMS[unit] ?? 1);
@@ -162,7 +167,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       id: f.product_id ?? '',
       barcode: null,
       name: f.product_name,
-      brand: f.brand,
+      brand: f.brand || null,
       calories_per_100g: f.calories_per_100g,
       protein_per_100g: f.protein_per_100g,
       carbs_per_100g: f.carbs_per_100g,
@@ -171,6 +176,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       serving_unit: f.serving_unit,
       created_by: null,
       created_at: '',
+      data_source: null,
     });
     setTab('search');
   };
@@ -210,20 +216,28 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
 
   const handleSave = async () => {
     if (!user || !name.trim()) return;
+    const qty = +quantity;
+    const cal = +calories;
+    const pro = +protein;
+    const carb = +carbs;
+    const f = +fat;
+    if (qty <= 0) { toast('La quantité doit être supérieure à 0.', 'error'); return; }
+    if (cal < 0 || pro < 0 || carb < 0 || f < 0) { toast('Les valeurs nutritionnelles ne peuvent pas être négatives.', 'error'); return; }
+    if (cal > 9000) { toast('Calories par 100g trop élevées (max 9000).', 'error'); return; }
     setSaving(true);
     await addLog({
       user_id: user.id,
       name,
-      calories: +calories * scale,
-      protein: +protein * scale,
-      carbs: +carbs * scale,
-      fat: +fat * scale,
-      category: category as 'breakfast' | 'lunch' | 'dinner' | 'snack',
-      quantity: +quantity,
+      calories: cal * scale,
+      protein: pro * scale,
+      carbs: carb * scale,
+      fat: f * scale,
+      category: activeCategory as 'breakfast' | 'lunch' | 'dinner' | 'snack',
+      quantity: qty,
       unit,
       logged_at: date,
     });
-    toast('Food logged');
+    toast('Aliment enregistré');
     setSaving(false);
     onClose();
   };
@@ -296,6 +310,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                   placeholder="Search food..."
                   className="pl-10"
+                  autoFocus
                 />
               </div>
               <Button onClick={handleSearch} variant="secondary" loading={searching}>Search</Button>
@@ -376,7 +391,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
               <div className="text-center py-8 text-neutral-500 text-sm">No recent foods yet</div>
             ) : (
               <div className="space-y-2">
-                {recentProducts.map((p, i) => (
+                {recentProducts.slice(0, recentDisplayCount).map((p, i) => (
                   <button
                     key={i}
                     onClick={() => { selectProduct(p); setTab('search'); }}
@@ -389,6 +404,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     </div>
                   </button>
                 ))}
+                {recentProducts.length > recentDisplayCount && (
+                  <button
+                    onClick={() => setRecentDisplayCount(c => c + LIST_PAGE)}
+                    className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
+                  >
+                    Show more ({recentProducts.length - recentDisplayCount} remaining)
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -400,7 +423,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
               <div className="text-center py-8 text-neutral-500 text-sm">No favorites yet. Star a product after selecting it.</div>
             ) : (
               <div className="space-y-2">
-                {favorites.map(f => (
+                {favorites.slice(0, favDisplayCount).map(f => (
                   <button
                     key={f.id}
                     onClick={() => selectFavorite(f)}
@@ -416,6 +439,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     </div>
                   </button>
                 ))}
+                {favorites.length > favDisplayCount && (
+                  <button
+                    onClick={() => setFavDisplayCount(c => c + LIST_PAGE)}
+                    className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
+                  >
+                    Show more ({favorites.length - favDisplayCount} remaining)
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -456,6 +487,25 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
         )}
 
         <div className="space-y-4">
+          <div>
+            <p className="text-xs font-medium text-neutral-400 mb-2">Add to meal</p>
+            <div className="grid grid-cols-4 gap-1">
+              {MEAL_CATEGORIES.map(c => (
+                <button
+                  key={c.value}
+                  onClick={() => setActiveCategory(c.value)}
+                  className={`py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeCategory === c.value
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'
+                  }`}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Input label="Food Name" value={name} onChange={e => setName(e.target.value)} placeholder="Chicken breast" />

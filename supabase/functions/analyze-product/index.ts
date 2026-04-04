@@ -21,6 +21,7 @@ interface ProductData {
   fat_per_100g: number;
   serving_size: number;
   serving_unit: string;
+  confidence: number;
 }
 
 Deno.serve(async (req: Request) => {
@@ -77,6 +78,28 @@ Deno.serve(async (req: Request) => {
     }
 
     const adminClient = createClient(supabaseUrl, serviceKey);
+
+    // Rate limiting: 10 AI analyses per user per day
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const { count: usageCount } = await adminClient
+      .from("ai_usage_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("function_name", "analyze-product")
+      .gte("called_at", dayStart.toISOString());
+
+    if ((usageCount ?? 0) >= 10) {
+      return new Response(
+        JSON.stringify({ error: "Daily limit reached. You can analyse up to 10 products per day." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    await adminClient.from("ai_usage_logs").insert({
+      user_id: user.id,
+      function_name: "analyze-product",
+    });
 
     const { data: prodReq, error: fetchErr } = await adminClient
       .from("product_requests")
@@ -150,8 +173,16 @@ You MUST respond with ONLY a valid JSON object (no markdown, no code blocks, no 
   "carbs_per_100g": number,
   "fat_per_100g": number,
   "serving_size": number,
-  "serving_unit": "g or ml"
+  "serving_unit": "g or ml",
+  "confidence": number
 }
+
+The "confidence" field must be an integer from 0 to 100 representing how certain you are about the nutritional values:
+- 95-100: Values read directly and clearly from a nutrition facts label in the image
+- 75-94: Values from a partially visible label, or from a well-known branded product you can identify with high certainty
+- 50-74: Values estimated from product name/notes using your knowledge (no label visible), or from a fresh/unpackaged food
+- 0-49: Values are a rough guess — image unclear, product unidentifiable, or conflicting information
+IMPORTANT: If images contain conflicting values between front-of-pack and the nutrition facts label, always prioritize the nutrition facts label.
 
 Rules:
 - All nutritional values MUST be per 100g (or 100ml for liquids)
@@ -215,7 +246,7 @@ IMPORTANT - Internet knowledge:
         body: JSON.stringify({
           model: "gpt-4o",
           messages,
-          max_tokens: 500,
+          max_tokens: 600,
           temperature: 0.1,
         }),
       }
@@ -270,12 +301,57 @@ IMPORTANT - Internet knowledge:
       );
     }
 
+    // --- Deduplication: search by name (+ brand if available) before inserting ---
+    const nameToMatch = (productData.name || "").trim();
+    const brandToMatch = (productData.brand || "").trim();
+
+    // Also check barcode first if provided (fastest path)
+    let dedupeProduct = null;
+    if (prodReq.barcode) {
+      const { data: byBarcode } = await adminClient
+        .from("food_products")
+        .select("*")
+        .eq("barcode", prodReq.barcode)
+        .limit(1);
+      dedupeProduct = byBarcode?.[0] ?? null;
+    }
+
+    if (!dedupeProduct && nameToMatch) {
+      let nameQuery = adminClient
+        .from("food_products")
+        .select("*")
+        .ilike("name", nameToMatch);
+
+      if (brandToMatch) {
+        nameQuery = nameQuery.ilike("brand", brandToMatch);
+      }
+
+      const { data: byName } = await nameQuery.limit(1);
+      dedupeProduct = byName?.[0] ?? null;
+    }
+
+    if (dedupeProduct) {
+      await adminClient
+        .from("product_requests")
+        .update({
+          status: "completed",
+          result_product_id: dedupeProduct.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", request_id);
+
+      return new Response(JSON.stringify({ product: dedupeProduct }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    // --- End deduplication ---
+
     const { data: newProduct, error: insertErr } = await adminClient
       .from("food_products")
       .insert({
         barcode: prodReq.barcode || null,
         name: productData.name || "Unknown Product",
-        brand: productData.brand || "",
+        brand: productData.brand || null,
         calories_per_100g: productData.calories_per_100g || 0,
         protein_per_100g: productData.protein_per_100g || 0,
         carbs_per_100g: productData.carbs_per_100g || 0,
@@ -283,6 +359,7 @@ IMPORTANT - Internet knowledge:
         serving_size: productData.serving_size || 100,
         serving_unit: productData.serving_unit || "g",
         created_by: user.id,
+        data_source: "user",
       })
       .select()
       .maybeSingle();
@@ -340,7 +417,7 @@ IMPORTANT - Internet knowledge:
       })
       .eq("id", request_id);
 
-    return new Response(JSON.stringify({ product: newProduct }), {
+    return new Response(JSON.stringify({ product: newProduct, confidence: productData.confidence ?? 100 }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {

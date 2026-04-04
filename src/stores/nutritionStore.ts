@@ -24,7 +24,7 @@ interface NutritionState {
   createProduct: (product: Partial<FoodProduct>) => Promise<FoodProduct | null>;
   uploadProductImage: (userId: string, file: File, slot: string) => Promise<string | null>;
   createProductRequest: (request: Partial<ProductRequest>) => Promise<ProductRequest | null>;
-  analyzeProductRequest: (requestId: string) => Promise<FoodProduct | null>;
+  analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | null>;
   fetchFavorites: (userId: string) => Promise<void>;
   addFavorite: (userId: string, product: FoodProduct) => Promise<void>;
   removeFavorite: (id: string) => Promise<void>;
@@ -105,11 +105,9 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   searchProducts: async (query) => {
+    // RPC avec index GIN trigram + ranking par similarité de nom uniquement
     const { data } = await supabase
-      .from('food_products')
-      .select('*')
-      .ilike('name', `%${query}%`)
-      .limit(20);
+      .rpc('search_food_products', { query, max_results: 20 });
     const products = (data ?? []) as FoodProduct[];
     set({ products });
     return products;
@@ -125,12 +123,25 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   createProduct: async (product) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('food_products')
       .insert(product)
       .select()
       .maybeSingle();
-    return data as FoodProduct | null;
+
+    if (data) return data as FoodProduct;
+
+    // Conflit de barcode (23505 = unique_violation) → retourner le produit existant
+    if (product.barcode && error?.code === '23505') {
+      const { data: existing } = await supabase
+        .from('food_products')
+        .select('*')
+        .eq('barcode', String(product.barcode))
+        .maybeSingle();
+      return existing as FoodProduct | null;
+    }
+
+    return null;
   },
 
   uploadProductImage: async (userId, file, slot) => {
@@ -168,7 +179,11 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
     if (!res.ok) return null;
     const result = await res.json();
-    return (result.product as FoodProduct) ?? null;
+    if (!result.product) return null;
+    return {
+      product: result.product as FoodProduct,
+      confidence: typeof result.confidence === 'number' ? result.confidence : 100,
+    };
   },
 
   fetchFavorites: async (userId) => {
@@ -187,7 +202,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
         user_id: userId,
         product_id: product.id || null,
         product_name: product.name,
-        brand: product.brand || '',
+        brand: product.brand ?? '',
         calories_per_100g: product.calories_per_100g,
         protein_per_100g: product.protein_per_100g,
         carbs_per_100g: product.carbs_per_100g,
@@ -226,7 +241,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
           id: '',
           barcode: null,
           name: log.name,
-          brand: '',
+          brand: null,
           calories_per_100g: Math.round(log.calories * scale),
           protein_per_100g: Math.round(log.protein * scale),
           carbs_per_100g: Math.round(log.carbs * scale),
@@ -235,6 +250,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
           serving_unit: log.unit || 'g',
           created_by: null,
           created_at: '',
+          data_source: null,
         });
       }
       if (recent.length >= 10) break;

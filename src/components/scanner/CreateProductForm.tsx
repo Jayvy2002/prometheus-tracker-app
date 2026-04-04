@@ -37,6 +37,7 @@ export default function CreateProductForm({ barcode, onClose, onCreated }: Props
   const [status, setStatus] = useState<'idle' | 'uploading' | 'analyzing' | 'done' | 'error'>('idle');
   const [progress, setProgress] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [lowConfidence, setLowConfidence] = useState(false);
   const fileInputRefs = useRef<Record<ImageSlot, HTMLInputElement | null>>({
     front: null,
     back: null,
@@ -105,12 +106,14 @@ export default function CreateProductForm({ barcode, onClose, onCreated }: Props
     setStatus('analyzing');
     setProgress('AI is analyzing your product...');
 
-    const product = await analyzeProductRequest(request.id);
+    const result = await analyzeProductRequest(request.id);
 
-    if (product) {
+    if (result) {
+      const { product, confidence } = result;
+      setLowConfidence(confidence < 70);
       setStatus('done');
       setProgress('Product identified!');
-      setTimeout(() => onCreated(product), 800);
+      setTimeout(() => onCreated(product), 1200);
     } else {
       setStatus('error');
       setErrorMsg('AI could not identify this product. Try adding clearer photos or more details in notes.');
@@ -248,6 +251,12 @@ export default function CreateProductForm({ barcode, onClose, onCreated }: Props
               {status === 'done' && 'Product found!'}
             </p>
             <p className="text-sm text-neutral-400">{progress}</p>
+            {status === 'done' && lowConfidence && (
+              <div className="mt-4 w-full max-w-xs bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-start gap-2">
+                <AlertCircle size={15} className="text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-300">Low confidence — please verify the nutritional values before saving.</p>
+              </div>
+            )}
 
             {status === 'analyzing' && (
               <div className="mt-6 w-full max-w-xs">

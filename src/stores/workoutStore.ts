@@ -3,6 +3,14 @@ import { supabase } from '../lib/supabase';
 import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
 
+interface PreviousSet {
+  weight_kg: number;
+  reps: number;
+  rir: number;
+  set_type: string;
+  order_index: number;
+}
+
 interface WorkoutState {
   workouts: Workout[];
   currentWorkout: Workout | null;
@@ -18,7 +26,10 @@ interface WorkoutState {
   addSet: (exerciseId: string, orderIndex: number) => Promise<WorkoutSet | null>;
   updateSet: (id: string, data: Partial<WorkoutSet>) => Promise<void>;
   deleteSet: (id: string) => Promise<void>;
+  restoreSet: (exerciseId: string, setData: WorkoutSet) => Promise<void>;
+  restoreExercise: (workoutId: string, exerciseData: WorkoutExercise) => Promise<void>;
   setCurrentWorkout: (w: Workout | null) => void;
+  fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string) => Promise<PreviousSet[]>;
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -32,7 +43,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       .from('workouts')
       .select('*')
       .eq('user_id', userId)
-      .order('date', { ascending: false });
+      .order('date', { ascending: false })
+      .limit(500);
     set({ workouts: (data ?? []) as Workout[], loading: false });
   },
 
@@ -227,5 +239,110 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     });
   },
 
+  restoreSet: async (exerciseId, setData) => {
+    const { data } = await supabase
+      .from('workout_sets')
+      .insert({
+        exercise_id: exerciseId,
+        set_type: setData.set_type,
+        weight_kg: setData.weight_kg,
+        reps: setData.reps,
+        rir: setData.rir,
+        completed: setData.completed,
+        order_index: setData.order_index,
+      })
+      .select()
+      .maybeSingle();
+    if (data) {
+      const restoredSet = data as WorkoutSet;
+      set(s => {
+        if (!s.currentWorkout) return s;
+        const updated = {
+          ...s.currentWorkout,
+          exercises: s.currentWorkout.exercises?.map(e =>
+            e.id === exerciseId
+              ? { ...e, sets: [...(e.sets ?? []), restoredSet].sort((a, b) => a.order_index - b.order_index) }
+              : e
+          ),
+        };
+        setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+        return { currentWorkout: updated };
+      });
+    }
+  },
+
+  restoreExercise: async (workoutId, exerciseData) => {
+    const { data: newEx } = await supabase
+      .from('workout_exercises')
+      .insert({
+        workout_id: workoutId,
+        name: exerciseData.name,
+        order_index: exerciseData.order_index,
+        notes: exerciseData.notes,
+      })
+      .select()
+      .maybeSingle();
+    if (!newEx) return;
+
+    const setsToInsert = (exerciseData.sets ?? []).map(s => ({
+      exercise_id: newEx.id,
+      set_type: s.set_type,
+      weight_kg: s.weight_kg,
+      reps: s.reps,
+      rir: s.rir,
+      completed: s.completed,
+      order_index: s.order_index,
+    }));
+
+    let restoredSets: WorkoutSet[] = [];
+    if (setsToInsert.length > 0) {
+      const { data: setsData } = await supabase
+        .from('workout_sets')
+        .insert(setsToInsert)
+        .select();
+      restoredSets = (setsData ?? []) as WorkoutSet[];
+    }
+
+    const restoredExercise = { ...newEx, sets: restoredSets } as WorkoutExercise;
+    set(s => {
+      if (!s.currentWorkout) return s;
+      const updated = {
+        ...s.currentWorkout,
+        exercises: [...(s.currentWorkout.exercises ?? []), restoredExercise]
+          .sort((a, b) => a.order_index - b.order_index),
+      };
+      setCacheItem(workoutCacheKey(workoutId), updated);
+      return { currentWorkout: updated };
+    });
+  },
+
   setCurrentWorkout: (w) => set({ currentWorkout: w }),
+
+  fetchPreviousSets: async (userId, exerciseName, currentWorkoutId) => {
+    // Find all exercises with this name for this user, excluding current workout
+    const { data: exercises } = await supabase
+      .from('workout_exercises')
+      .select('id, workout_id, workouts!inner(user_id, date)')
+      .eq('workouts.user_id', userId)
+      .ilike('name', exerciseName)
+      .neq('workout_id', currentWorkoutId);
+
+    if (!exercises || exercises.length === 0) return [];
+
+    // Sort by date desc, pick most recent
+    const sorted = [...exercises].sort((a, b) => {
+      const aDate = (a.workouts as unknown as { date: string }).date;
+      const bDate = (b.workouts as unknown as { date: string }).date;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+    const mostRecent = sorted[0];
+
+    const { data: sets } = await supabase
+      .from('workout_sets')
+      .select('weight_kg, reps, rir, set_type, order_index')
+      .eq('exercise_id', mostRecent.id)
+      .order('order_index');
+
+    return (sets ?? []) as PreviousSet[];
+  },
 }));
