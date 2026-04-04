@@ -101,7 +101,7 @@ export default function ScannerPage() {
           serving_size: +(p.serving_quantity || 100),
           serving_unit: p.serving_size?.includes('ml') ? 'ml' : 'g',
           created_by: user?.id ?? null,
-          data_source: null,
+          data_source: 'openfoodfacts' as const,
         };
         const saved = await createProduct(productData);
         const offProduct: FoodProduct = saved ?? { id: '', created_at: '', ...productData };

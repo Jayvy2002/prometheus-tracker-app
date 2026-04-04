@@ -26,7 +26,20 @@ export const MEAL_CATEGORIES = [
   { value: 'snack', label: 'Snack', icon: 'Cookie' },
 ] as const;
 
-export const FOOD_UNITS = ['g', 'ml', 'oz', 'cup', 'tbsp', 'tsp', 'serving'] as const;
+export const FOOD_UNITS = ['g', 'kg', 'oz', 'lb', 'ml', 'cup', 'tbsp', 'tsp', 'serving'] as const;
+
+/** Conversion factor → grams (or ml, treated as g for liquids).
+ *  'serving' is intentionally absent — handled specially in forms (scale = number of servings). */
+export const UNIT_TO_GRAMS: Record<string, number> = {
+  g: 1,
+  kg: 1000,
+  oz: 28.35,
+  lb: 453.6,
+  ml: 1,
+  cup: 240,
+  tbsp: 15,
+  tsp: 5,
+};
 
 export const DEFAULT_DASHBOARD_WIDGETS = [
   { id: 'w1', type: 'calories' as const, title: 'Calories Today', config: {}, size: 'medium' as const, order: 0 },
