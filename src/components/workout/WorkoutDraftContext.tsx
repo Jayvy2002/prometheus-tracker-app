@@ -16,8 +16,10 @@ interface DraftContext {
   getSetDraft: (setId: string) => SetDraft;
   updateSetDraft: (setId: string, field: keyof SetDraft, value: string) => void;
   updateSetType: (setId: string, value: SetType) => void;
+  clearSetDraft: (setId: string) => void;
   getExerciseDraft: (exerciseId: string) => ExerciseDraft;
   updateExerciseDraft: (exerciseId: string, field: keyof ExerciseDraft, value: string) => void;
+  clearExerciseDraft: (exerciseId: string) => void;
   getAllSetDrafts: () => Map<string, SetDraft>;
   getAllExerciseDrafts: () => Map<string, ExerciseDraft>;
   initSetDraft: (setId: string, weight_kg: number, reps: number, rir: number, set_type: SetType) => void;
@@ -67,6 +69,10 @@ export function WorkoutDraftProvider({ children }: { children: React.ReactNode }
     setDrafts.current.set(setId, { ...existing, set_type: value });
   }, []);
 
+  const clearSetDraft = useCallback((setId: string) => {
+    setDrafts.current.delete(setId);
+  }, []);
+
   const getExerciseDraft = useCallback((exerciseId: string): ExerciseDraft => {
     return exerciseDrafts.current.get(exerciseId) || {};
   }, []);
@@ -76,13 +82,17 @@ export function WorkoutDraftProvider({ children }: { children: React.ReactNode }
     exerciseDrafts.current.set(exerciseId, { ...existing, [field]: value });
   }, []);
 
+  const clearExerciseDraft = useCallback((exerciseId: string) => {
+    exerciseDrafts.current.delete(exerciseId);
+  }, []);
+
   const getAllSetDrafts = useCallback(() => setDrafts.current, []);
   const getAllExerciseDrafts = useCallback(() => exerciseDrafts.current, []);
 
   return (
     <Ctx.Provider value={{
-      getSetDraft, updateSetDraft, updateSetType,
-      getExerciseDraft, updateExerciseDraft,
+      getSetDraft, updateSetDraft, updateSetType, clearSetDraft,
+      getExerciseDraft, updateExerciseDraft, clearExerciseDraft,
       getAllSetDrafts, getAllExerciseDrafts,
       initSetDraft, initExerciseDraft,
     }}>

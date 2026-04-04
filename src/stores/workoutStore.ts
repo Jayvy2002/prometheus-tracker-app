@@ -107,10 +107,11 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   updateWorkout: async (id, updates) => {
-    await supabase
+    const { error } = await supabase
       .from('workouts')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);
+    if (error) { console.error('updateWorkout failed:', error.message); return; }
     const current = get().currentWorkout;
     if (current?.id === id) {
       const updated = { ...current, ...updates };
@@ -123,7 +124,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   deleteWorkout: async (id) => {
-    await supabase.from('workouts').delete().eq('id', id);
+    const { error } = await supabase.from('workouts').delete().eq('id', id);
+    if (error) { console.error('deleteWorkout failed:', error.message); return; }
     clearCacheItem(workoutCacheKey(id));
     set(s => ({
       workouts: s.workouts.filter(w => w.id !== id),
@@ -154,7 +156,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   updateExercise: async (id, updates) => {
-    await supabase.from('workout_exercises').update(updates).eq('id', id);
+    const { error } = await supabase.from('workout_exercises').update(updates).eq('id', id);
+    if (error) { console.error('updateExercise failed:', error.message); return; }
     set(s => {
       if (!s.currentWorkout) return s;
       return {
@@ -169,7 +172,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   deleteExercise: async (id) => {
-    await supabase.from('workout_exercises').delete().eq('id', id);
+    const { error } = await supabase.from('workout_exercises').delete().eq('id', id);
+    if (error) { console.error('deleteExercise failed:', error.message); return; }
     set(s => {
       if (!s.currentWorkout) return s;
       const updated = {
@@ -208,7 +212,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   updateSet: async (id, updates) => {
-    await supabase.from('workout_sets').update(updates).eq('id', id);
+    const { error } = await supabase.from('workout_sets').update(updates).eq('id', id);
+    if (error) { console.error('updateSet failed:', error.message); return; }
     set(s => {
       if (!s.currentWorkout) return s;
       const updated = {
@@ -224,7 +229,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   deleteSet: async (id) => {
-    await supabase.from('workout_sets').delete().eq('id', id);
+    const { error } = await supabase.from('workout_sets').delete().eq('id', id);
+    if (error) { console.error('deleteSet failed:', error.message); return; }
     set(s => {
       if (!s.currentWorkout) return s;
       const updated = {
@@ -272,7 +278,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   restoreExercise: async (workoutId, exerciseData) => {
-    const { data: newEx } = await supabase
+    const { data: newEx, error: exError } = await supabase
       .from('workout_exercises')
       .insert({
         workout_id: workoutId,
@@ -282,7 +288,10 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       })
       .select()
       .maybeSingle();
-    if (!newEx) return;
+    if (exError || !newEx) {
+      console.error('restoreExercise failed:', exError?.message);
+      return;
+    }
 
     const setsToInsert = (exerciseData.sets ?? []).map(s => ({
       exercise_id: newEx.id,
@@ -296,10 +305,11 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
     let restoredSets: WorkoutSet[] = [];
     if (setsToInsert.length > 0) {
-      const { data: setsData } = await supabase
+      const { data: setsData, error: setsError } = await supabase
         .from('workout_sets')
         .insert(setsToInsert)
         .select();
+      if (setsError) console.error('restoreExercise sets failed:', setsError.message);
       restoredSets = (setsData ?? []) as WorkoutSet[];
     }
 
@@ -319,7 +329,6 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   setCurrentWorkout: (w) => set({ currentWorkout: w }),
 
   fetchPreviousSets: async (userId, exerciseName, currentWorkoutId) => {
-    // Find all exercises with this name for this user, excluding current workout
     const { data: exercises } = await supabase
       .from('workout_exercises')
       .select('id, workout_id, workouts!inner(user_id, date)')
@@ -329,7 +338,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
     if (!exercises || exercises.length === 0) return [];
 
-    // Sort by date desc, pick most recent
+    // Sort by date desc, pick most recent session
     const sorted = [...exercises].sort((a, b) => {
       const aDate = (a.workouts as unknown as { date: string }).date;
       const bDate = (b.workouts as unknown as { date: string }).date;

@@ -23,7 +23,6 @@ function getOverloadSuggestion(prevSets: PreviousSet[]): string | null {
   const avgRir = workingSets.reduce((sum, s) => sum + s.rir, 0) / workingSets.length;
   const lastSet = workingSets[workingSets.length - 1];
   if (avgRir <= 1) {
-    // Near failure — suggest ~2.5% increase rounded to nearest 1.25 kg
     const raw = lastSet.weight_kg * 1.025;
     const suggested = Math.ceil(raw / 1.25) * 1.25;
     return `Try ${suggested}kg × ${lastSet.reps}`;
@@ -47,13 +46,14 @@ function SetRow({
   onDelete: () => void;
   onSetComplete?: () => void;
 }) {
-  const { initSetDraft, getSetDraft, updateSetDraft, updateSetType } = useDraftContext();
+  const { initSetDraft, getSetDraft, updateSetDraft, updateSetType, clearSetDraft } = useDraftContext();
   const { updateSet } = useWorkoutStore();
   const [localWeight, setLocalWeight] = useState('');
   const [localReps, setLocalReps] = useState('');
   const [localRir, setLocalRir] = useState('');
   const [localType, setLocalType] = useState(set.set_type);
 
+  // Initialize draft on first mount for this set id
   useEffect(() => {
     initSetDraft(set.id, set.weight_kg, set.reps, set.rir, set.set_type as SetType);
     const draft = getSetDraft(set.id);
@@ -62,6 +62,35 @@ function SetRow({
     setLocalRir(draft.rir ?? (set.rir ? String(set.rir) : ''));
     setLocalType(draft.set_type ?? set.set_type);
   }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync local state when server data changes and there is no active user edit
+  // (draft matches the old server value → safe to update to new server value)
+  useEffect(() => {
+    const draft = getSetDraft(set.id);
+    if (!draft.weight_kg || draft.weight_kg === localWeight) {
+      const newVal = set.weight_kg ? String(set.weight_kg) : '';
+      setLocalWeight(newVal);
+      updateSetDraft(set.id, 'weight_kg', newVal);
+    }
+  }, [set.weight_kg]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const draft = getSetDraft(set.id);
+    if (!draft.reps || draft.reps === localReps) {
+      const newVal = set.reps ? String(set.reps) : '';
+      setLocalReps(newVal);
+      updateSetDraft(set.id, 'reps', newVal);
+    }
+  }, [set.reps]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const draft = getSetDraft(set.id);
+    if (!draft.rir || draft.rir === localRir) {
+      const newVal = set.rir ? String(set.rir) : '';
+      setLocalRir(newVal);
+      updateSetDraft(set.id, 'rir', newVal);
+    }
+  }, [set.rir]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRepsBlur = () => {
     const r = parseInt(localReps, 10);
@@ -78,6 +107,11 @@ function SetRow({
       onSetComplete();
     }
   };
+
+  // Clean up draft when this set row unmounts (set was deleted)
+  useEffect(() => {
+    return () => { clearSetDraft(set.id); };
+  }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const cols = showRir ? 'grid-cols-12' : 'grid-cols-11';
 
@@ -170,7 +204,7 @@ export default function ExerciseCard({
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, currentWorkout, fetchPreviousSets } = useWorkoutStore();
   const { user } = useAuthStore();
   const { showRir } = usePreferencesStore();
-  const { initExerciseDraft, getExerciseDraft, updateExerciseDraft } = useDraftContext();
+  const { initExerciseDraft, getExerciseDraft, updateExerciseDraft, clearExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
   const [localNotes, setLocalNotes] = useState('');
@@ -182,6 +216,11 @@ export default function ExerciseCard({
     const draft = getExerciseDraft(exercise.id);
     setLocalNotes(draft.notes ?? exercise.notes ?? '');
     setLocalName(exercise.name);
+  }, [exercise.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clean up exercise draft on unmount
+  useEffect(() => {
+    return () => { clearExerciseDraft(exercise.id); };
   }, [exercise.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -244,7 +283,6 @@ export default function ExerciseCard({
                 {showRir && s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
               </span>
             ))}
-            {/* Progressive overload suggestion */}
             {suggestion && (
               <span className="flex items-center gap-0.5 text-[11px] text-blue-400 bg-blue-500/10 rounded px-1.5 py-0.5 font-medium">
                 <TrendingUp size={9} />

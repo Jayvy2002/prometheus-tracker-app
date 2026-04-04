@@ -67,14 +67,16 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   updateLog: async (id, updates) => {
-    await supabase.from('nutrition_logs').update(updates).eq('id', id);
+    const { error } = await supabase.from('nutrition_logs').update(updates).eq('id', id);
+    if (error) { console.error('updateLog failed:', error.message); return; }
     set(s => ({
       logs: s.logs.map(l => l.id === id ? { ...l, ...updates } as NutritionLog : l),
     }));
   },
 
   deleteLog: async (id) => {
-    await supabase.from('nutrition_logs').delete().eq('id', id);
+    const { error } = await supabase.from('nutrition_logs').delete().eq('id', id);
+    if (error) { console.error('deleteLog failed:', error.message); return; }
     set(s => ({ logs: s.logs.filter(l => l.id !== id) }));
   },
 
@@ -100,7 +102,8 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   deleteWater: async (id) => {
-    await supabase.from('water_logs').delete().eq('id', id);
+    const { error } = await supabase.from('water_logs').delete().eq('id', id);
+    if (error) { console.error('deleteWater failed:', error.message); return; }
     set(s => ({ waterLogs: s.waterLogs.filter(w => w.id !== id) }));
   },
 
