@@ -508,7 +508,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
 
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <Input label="Food Name" value={name} onChange={e => setName(e.target.value)} placeholder="Chicken breast" />
+              {selectedProduct ? (
+                <div>
+                  <p className="text-xs font-medium text-neutral-400 mb-1.5">Food Name</p>
+                  <p className="px-3 py-2 rounded-xl bg-neutral-900/60 border border-neutral-800/50 text-white text-sm truncate">{name}</p>
+                </div>
+              ) : (
+                <Input label="Food Name" value={name} onChange={e => setName(e.target.value)} placeholder="Chicken breast" />
+              )}
             </div>
             {selectedProduct?.id && (
               <button
