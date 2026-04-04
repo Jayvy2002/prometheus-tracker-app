@@ -46,14 +46,16 @@ export const useWeightStore = create<WeightState>((set) => ({
   },
 
   updateMeasurement: async (id, updates) => {
-    await supabase.from('weight_measurements').update(updates).eq('id', id);
+    const { error } = await supabase.from('weight_measurements').update(updates).eq('id', id);
+    if (error) { console.error('updateMeasurement failed:', error.message); return; }
     set(s => ({
       measurements: s.measurements.map(m => m.id === id ? { ...m, ...updates } as WeightMeasurement : m),
     }));
   },
 
   deleteMeasurement: async (id) => {
-    await supabase.from('weight_measurements').delete().eq('id', id);
+    const { error } = await supabase.from('weight_measurements').delete().eq('id', id);
+    if (error) { console.error('deleteMeasurement failed:', error.message); return; }
     set(s => ({ measurements: s.measurements.filter(m => m.id !== id) }));
   },
 }));

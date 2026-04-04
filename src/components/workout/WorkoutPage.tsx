@@ -54,35 +54,40 @@ export default function WorkoutPage() {
     const targetWorkout = workouts.find(w => w.id === deleteTarget);
     setDeleting(true);
 
-    // Capture full workout (exercises + sets) before deleting
-    await fetchWorkout(deleteTarget);
-    const { currentWorkout: fullWorkout } = useWorkoutStore.getState();
+    try {
+      // Capture full workout (exercises + sets) before deleting
+      await fetchWorkout(deleteTarget);
+      const { currentWorkout: fullWorkout } = useWorkoutStore.getState();
 
-    await deleteWorkout(deleteTarget);
-    setDeleting(false);
-    setDeleteTarget(null);
+      await deleteWorkout(deleteTarget);
 
-    if (targetWorkout) {
-      toastWithUndo(`"${targetWorkout.name}" deleted`, async () => {
-        if (!user) return;
-        const restoredId = await createWorkout({
-          user_id: user.id,
-          name: targetWorkout.name,
-          date: targetWorkout.date,
-          duration_seconds: targetWorkout.duration_seconds,
-          notes: targetWorkout.notes,
-          completed: targetWorkout.completed,
-          routine_id: targetWorkout.routine_id,
-        });
-        if (restoredId && fullWorkout?.exercises?.length) {
-          for (const ex of fullWorkout.exercises) {
-            await restoreExercise(restoredId, ex);
+      if (targetWorkout) {
+        toastWithUndo(`"${targetWorkout.name}" deleted`, async () => {
+          if (!user) return;
+          const restoredId = await createWorkout({
+            user_id: user.id,
+            name: targetWorkout.name,
+            date: targetWorkout.date,
+            duration_seconds: targetWorkout.duration_seconds,
+            notes: targetWorkout.notes,
+            completed: targetWorkout.completed,
+            routine_id: targetWorkout.routine_id,
+          });
+          if (restoredId && fullWorkout?.exercises?.length) {
+            for (const ex of fullWorkout.exercises) {
+              await restoreExercise(restoredId, ex);
+            }
           }
-        }
-        toast('Workout restored', 'success');
-      });
-    } else {
-      toast('Workout deleted', 'info');
+          toast('Workout restored', 'success');
+        });
+      } else {
+        toast('Workout deleted', 'info');
+      }
+    } catch {
+      toast('Failed to delete workout. Please try again.', 'error');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
