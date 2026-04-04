@@ -167,25 +167,6 @@ export default function NutritionPage() {
           </ProgressRing>
           <MacroSummary />
         </div>
-        <div className="mt-3 pt-3 border-t border-neutral-800/50 flex items-center gap-3">
-          <div className="flex-1 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${pct}%`,
-                backgroundColor: pct > 100 ? '#f43f5e' : pct >= 95 ? '#10b981' : '#2563eb',
-              }}
-            />
-          </div>
-          <span className="text-xs shrink-0">
-            {pct > 100
-              ? <span className="text-rose-400">+{Math.round(totalCals - target)} over</span>
-              : pct >= 95
-              ? <span className="text-emerald-400">Goal reached!</span>
-              : <span className="text-neutral-400">{Math.round(target - totalCals)} remaining</span>
-            }
-          </span>
-        </div>
       </div>
 
       <div className="animate-fade-in-up stagger-2">
