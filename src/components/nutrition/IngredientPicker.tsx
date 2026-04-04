@@ -85,6 +85,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
   const [searching, setSearching] = useState(false);
   const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
   const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(null);
   const searchRef = useRef(0);
 
   const UNIT_TO_GRAMS: Record<string, number> = { g: 1, ml: 1, oz: 28.35, cup: 240, tbsp: 15, tsp: 5, serving: 1 };
@@ -145,6 +146,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
       if (saved) product = saved;
     }
 
+    setSelectedProduct(product);
     setName(product.name);
     setCalories(product.calories_per_100g.toString());
     setProtein(product.protein_per_100g.toString());
@@ -382,7 +384,14 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
         )}
 
         <div className="space-y-4">
-          <Input label="Ingredient Name" value={name} onChange={e => setName(e.target.value)} placeholder="Ingredient name" />
+          {selectedProduct ? (
+            <div>
+              <p className="text-xs font-medium text-neutral-400 mb-1.5">Ingredient Name</p>
+              <p className="px-3 py-2 rounded-xl bg-neutral-900/60 border border-neutral-800/50 text-white text-sm truncate">{name}</p>
+            </div>
+          ) : (
+            <Input label="Ingredient Name" value={name} onChange={e => setName(e.target.value)} placeholder="Ingredient name" />
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Quantity" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} />

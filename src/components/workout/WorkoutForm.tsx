@@ -1,11 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import FullPageLayout from '../layout/FullPageLayout';
-import { ArrowLeft, Plus, Check, Clock, Play, Pause, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Timer } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
-import { formatDuration } from '../../lib/utils';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import ExerciseCard from './ExerciseCard';
@@ -27,8 +26,6 @@ function WorkoutFormInner() {
   } = useWorkoutStore();
   const { getAllSetDrafts, getAllExerciseDrafts } = useDraftContext();
 
-  const [elapsed, setElapsed] = useState(0);
-  const [running, setRunning] = useState(false);
   const [showTimer, setShowTimer] = useState(false);
   const [autoStartTimer, setAutoStartTimer] = useState(false);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
@@ -37,7 +34,6 @@ function WorkoutFormInner() {
   const [saving, setSaving] = useState(false);
   const [summaryWorkout, setSummaryWorkout] = useState<Workout | null>(null);
   const [summaryDuration, setSummaryDuration] = useState(0);
-  const timerRef = useRef<ReturnType<typeof setInterval>>();
   const [initError, setInitError] = useState(false);
   const createdRef = useRef(false);
   const isNew = !id || location.endsWith('/new');
@@ -53,16 +49,12 @@ function WorkoutFormInner() {
       createWorkout({ user_id: user.id, name: '', date: localDate })
         .then((workoutId) => {
           if (!workoutId) setInitError(true);
-          else setRunning(true);
         })
         .catch(() => setInitError(true));
     } else if (id) {
       fetchWorkout(id);
     }
 
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
   }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -71,15 +63,6 @@ function WorkoutFormInner() {
       setWorkoutDate(currentWorkout.date || '');
     }
   }, [currentWorkout?.id]);
-
-  useEffect(() => {
-    if (running) {
-      timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-    }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [running]);
 
   const handleAddExercise = async (name: string) => {
     if (!currentWorkout) return;
@@ -147,13 +130,11 @@ function WorkoutFormInner() {
           .neq('set_type', 'warmup');
       }
 
-      const finalDuration = elapsed || currentWorkout.duration_seconds;
+      const finalDuration = currentWorkout.duration_seconds || 0;
       await updateWorkout(currentWorkout.id, {
         completed: true,
         duration_seconds: finalDuration,
       });
-
-      setRunning(false);
 
       // Build snapshot with draft values merged in so the summary reflects actual saved data
       const mergedExercises = (currentWorkout.exercises ?? []).map(ex => ({
@@ -220,7 +201,7 @@ function WorkoutFormInner() {
   return (
     <div className="px-4 pt-4 pb-6">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => { setRunning(false); navigate('/workout'); }} className="p-2 -ml-2 text-neutral-400 hover:text-white">
+        <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white">
           <ArrowLeft size={20} />
         </button>
         <Input
@@ -229,6 +210,13 @@ function WorkoutFormInner() {
           placeholder="Workout name"
           className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
         />
+        <button
+          onClick={() => { setAutoStartTimer(false); setShowTimer(true); }}
+          className="p-2 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
+          title="Rest timer"
+        >
+          <Timer size={18} />
+        </button>
       </div>
 
       <div className="mb-4">
@@ -237,21 +225,6 @@ function WorkoutFormInner() {
           value={workoutDate}
           onChange={dateStr => setWorkoutDate(dateStr)}
         />
-      </div>
-
-      <div className="flex items-center gap-3 mb-6 bg-neutral-900/60 rounded-xl p-3 border border-neutral-800/50">
-        <Clock size={16} className="text-neutral-400" />
-        <span className="text-white font-mono text-lg">{formatDuration(elapsed)}</span>
-        <div className="flex-1" />
-        <button onClick={() => setRunning(!running)} className="p-2 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors">
-          {running ? <Pause size={16} /> : <Play size={16} />}
-        </button>
-        <button
-          onClick={() => { setAutoStartTimer(false); setShowTimer(true); }}
-          className="p-2 rounded-lg bg-neutral-800 text-neutral-300 hover:text-white transition-colors"
-        >
-          <RotateCcw size={16} />
-        </button>
       </div>
 
       <div className="space-y-4">
