@@ -9,6 +9,7 @@ interface ExerciseState {
   fetchExercises: () => Promise<void>;
   searchExercises: (query: string) => Exercise[];
   submitExercise: (userId: string, name: string, muscles: string, description: string) => Promise<ExerciseRequest | null>;
+  addExercise: (exercise: Exercise) => void;
 }
 
 export const useExerciseStore = create<ExerciseState>((set, get) => ({
@@ -44,5 +45,11 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
       .select()
       .maybeSingle();
     return data ? (data as ExerciseRequest) : null;
+  },
+
+  addExercise: (exercise: Exercise) => {
+    set(state => ({
+      exercises: [...state.exercises, exercise].sort((a, b) => a.name.localeCompare(b.name)),
+    }));
   },
 }));

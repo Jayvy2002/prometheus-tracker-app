@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ScanLine, ChefHat, Plus } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -28,7 +28,12 @@ export default function NutritionPage() {
   const { measurements } = useWeightStore();
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
-  const [showAdjustment, setShowAdjustment] = useState(true);
+  const [showAdjustment, setShowAdjustment] = useState(() => {
+    const dismissed = localStorage.getItem('weeklyAdjustmentDismissed');
+    if (!dismissed) return true;
+    const dismissedAt = parseInt(dismissed, 10);
+    return Date.now() - dismissedAt > 7 * 24 * 60 * 60 * 1000;
+  });
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
 
   useEffect(() => {
@@ -76,7 +81,7 @@ export default function NutritionPage() {
     setShowAdd(true);
   };
 
-  const handleReuseYesterday = async () => {
+  const handleReuseCategory = async (category: string) => {
     if (!user) return;
     const prev = new Date(selectedDate);
     prev.setDate(prev.getDate() - 1);
@@ -86,10 +91,11 @@ export default function NutritionPage() {
       .from('nutrition_logs')
       .select('*')
       .eq('user_id', user.id)
-      .eq('logged_at', prevStr);
+      .eq('logged_at', prevStr)
+      .eq('category', category);
 
     if (!data || data.length === 0) {
-      toast('No meals logged the previous day');
+      toast('Nothing logged for this meal yesterday');
       return;
     }
 
@@ -108,7 +114,7 @@ export default function NutritionPage() {
         logged_at: selectedDate,
       });
     }
-    toast(`${data.length} meal${data.length > 1 ? 's' : ''} copied from previous day`);
+    toast(`${data.length} item${data.length > 1 ? 's' : ''} copied from yesterday`);
   };
 
   return (
@@ -117,13 +123,6 @@ export default function NutritionPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Nutrition</h1>
         <div className="flex gap-2">
-          <button
-            onClick={handleReuseYesterday}
-            title="Reuse previous day's meals"
-            className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-          >
-            <RotateCcw size={18} />
-          </button>
           <button onClick={() => navigate('/recipes')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
             <ChefHat size={18} />
           </button>
@@ -141,7 +140,10 @@ export default function NutritionPage() {
       </div>
 
       {isToday && showAdjustment && hasEnoughData && (
-        <WeeklyAdjustment onDismiss={() => setShowAdjustment(false)} />
+        <WeeklyAdjustment onDismiss={() => {
+          localStorage.setItem('weeklyAdjustmentDismissed', String(Date.now()));
+          setShowAdjustment(false);
+        }} />
       )}
 
       <div className="flex items-center justify-between mb-6">
@@ -215,6 +217,7 @@ export default function NutritionPage() {
                 logs={logs.filter(l => l.category === cat.value)}
                 onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
                 onEdit={(log) => setEditingLog(log)}
+                onReuse={() => handleReuseCategory(cat.value)}
               />
             </div>
           ))

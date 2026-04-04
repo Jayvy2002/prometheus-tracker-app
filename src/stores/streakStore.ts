@@ -36,13 +36,11 @@ export const useStreakStore = create<StreakState>((set, get) => ({
 
   recordActivity: async (userId, date) => {
     const current = get().streak;
-    const today = date;
 
-    if (current?.last_activity_date === today) {
-      return;
-    }
+    // Already recorded for this date — no-op
+    if (current?.last_activity_date === date) return;
 
-    const yesterday = new Date(today);
+    const yesterday = new Date(date);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
 
@@ -53,10 +51,10 @@ export const useStreakStore = create<StreakState>((set, get) => ({
     const updatedStreak: StreakData = {
       current_streak: newCurrent,
       longest_streak: newLongest,
-      last_activity_date: today,
+      last_activity_date: date,
     };
 
-    await supabase
+    const { error } = await supabase
       .from('user_streaks')
       .upsert({
         user_id: userId,
@@ -65,6 +63,9 @@ export const useStreakStore = create<StreakState>((set, get) => ({
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,streak_type' });
 
-    set({ streak: updatedStreak });
+    // Only update local state if the DB write succeeded
+    if (!error) {
+      set({ streak: updatedStreak });
+    }
   },
 }));

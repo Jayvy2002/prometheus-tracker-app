@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp } from 'lucide-react';
+import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp, Crown } from 'lucide-react';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { formatDate, formatDuration } from '../../lib/utils';
 import type { RoutineExercise } from '../../lib/types';
+import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -15,8 +17,10 @@ import PageTransition from '../ui/PageTransition';
 export default function WorkoutPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { workouts, loading, fetchWorkouts, deleteWorkout, createWorkout, addExercise, addSet } = useWorkoutStore();
+  const { workouts, loading, fetchWorkouts, fetchWorkout, deleteWorkout, createWorkout, addExercise, addSet, restoreExercise } = useWorkoutStore();
   const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
+  const { canViewWorkout, isPremium } = usePremium();
+  const { openPaywall } = usePaywallStore();
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -33,10 +37,14 @@ export default function WorkoutPage() {
   }, [user]);
 
   const filtered = workouts.filter(w => {
+    if (!canViewWorkout(w.date)) return false;
     if (filter === 'completed') return w.completed;
     if (filter === 'incomplete') return !w.completed;
     return true;
   });
+
+  // Count workouts hidden behind paywall
+  const hiddenCount = workouts.filter(w => !canViewWorkout(w.date)).length;
 
   const displayed = filtered.slice(0, displayCount);
   const hasMore = filtered.length > displayCount;
@@ -45,13 +53,19 @@ export default function WorkoutPage() {
     if (!deleteTarget) return;
     const targetWorkout = workouts.find(w => w.id === deleteTarget);
     setDeleting(true);
+
+    // Capture full workout (exercises + sets) before deleting
+    await fetchWorkout(deleteTarget);
+    const { currentWorkout: fullWorkout } = useWorkoutStore.getState();
+
     await deleteWorkout(deleteTarget);
     setDeleting(false);
     setDeleteTarget(null);
+
     if (targetWorkout) {
       toastWithUndo(`"${targetWorkout.name}" deleted`, async () => {
         if (!user) return;
-        await createWorkout({
+        const restoredId = await createWorkout({
           user_id: user.id,
           name: targetWorkout.name,
           date: targetWorkout.date,
@@ -60,6 +74,11 @@ export default function WorkoutPage() {
           completed: targetWorkout.completed,
           routine_id: targetWorkout.routine_id,
         });
+        if (restoredId && fullWorkout?.exercises?.length) {
+          for (const ex of fullWorkout.exercises) {
+            await restoreExercise(restoredId, ex);
+          }
+        }
         toast('Workout restored', 'success');
       });
     } else {
@@ -70,28 +89,37 @@ export default function WorkoutPage() {
   const startFromRoutine = async (routineId: string) => {
     if (!user) return;
     setStartingRoutine(routineId);
-    const routine = await fetchRoutineWithExercises(routineId);
-    if (!routine) { setStartingRoutine(null); return; }
+    let workoutId: string | null = null;
+    try {
+      const routine = await fetchRoutineWithExercises(routineId);
+      if (!routine) return;
 
-    const exercises = (routine as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? routine.exercises ?? [];
-    const workoutId = await createWorkout({
-      user_id: user.id,
-      name: routine.name,
-      date: (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}T12:00:00`; })(),
-      routine_id: routineId,
-    });
-    if (!workoutId) { setStartingRoutine(null); return; }
+      const exercises = (routine as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? routine.exercises ?? [];
+      const now = new Date();
+      workoutId = await createWorkout({
+        user_id: user.id,
+        name: routine.name,
+        date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`,
+        routine_id: routineId,
+      });
+      if (!workoutId) return;
 
-    for (const ex of exercises) {
-      const addedEx = await addExercise(workoutId, ex.name, ex.order_index);
-      if (addedEx) {
-        for (let i = 0; i < ex.default_sets; i++) {
-          await addSet(addedEx.id, i);
+      for (const ex of exercises) {
+        const addedEx = await addExercise(workoutId, ex.name, ex.order_index);
+        if (addedEx) {
+          for (let i = 0; i < ex.default_sets; i++) {
+            await addSet(addedEx.id, i);
+          }
         }
       }
+      navigate(`/workout/${workoutId}`);
+    } catch {
+      // Delete orphaned workout shell if exercise/set creation failed
+      if (workoutId) await deleteWorkout(workoutId);
+      toast('Failed to start routine. Please try again.', 'error');
+    } finally {
+      setStartingRoutine(null);
     }
-    setStartingRoutine(null);
-    navigate(`/workout/${workoutId}`);
   };
 
   const deleteTargetWorkout = workouts.find(w => w.id === deleteTarget);
@@ -244,6 +272,18 @@ export default function WorkoutPage() {
             Load more ({filtered.length - displayCount} remaining)
           </button>
         </div>
+      )}
+
+      {!isPremium && hiddenCount > 0 && (
+        <button
+          onClick={() => openPaywall('Historique illimité', `${hiddenCount} séance${hiddenCount > 1 ? 's' : ''} masquée${hiddenCount > 1 ? 's' : ''} car antérieure${hiddenCount > 1 ? 's' : ''} à ${FREE_LIMITS.workoutHistoryDays} jours. Passez à Premium pour accéder à tout votre historique.`)}
+          className="mt-3 w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/12 transition-colors"
+        >
+          <Crown size={14} className="text-amber-400 shrink-0" />
+          <p className="text-xs text-amber-300 flex-1 text-left">
+            {hiddenCount} séance{hiddenCount > 1 ? 's' : ''} masquée{hiddenCount > 1 ? 's' : ''} — Débloquer l'historique complet
+          </p>
+        </button>
       )}
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Workout">

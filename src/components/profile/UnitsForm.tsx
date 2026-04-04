@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { usePreferencesStore } from '../../stores/preferencesStore';
 import Button from '../ui/Button';
 
 export default function UnitsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
+  const { showRir, setShowRir } = usePreferencesStore();
   const [unitWeight, setUnitWeight] = useState(profile?.unit_weight ?? 'kg');
   const [unitDistance, setUnitDistance] = useState(profile?.unit_distance ?? 'km');
   const [unitHeight, setUnitHeight] = useState(profile?.unit_height ?? 'cm');
@@ -58,6 +60,24 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
         <UnitToggle label="Weight" value={unitWeight} options={['kg', 'lbs']} onChange={(v) => setUnitWeight(v as 'kg' | 'lbs')} />
         <UnitToggle label="Distance" value={unitDistance} options={['km', 'mi']} onChange={(v) => setUnitDistance(v as 'km' | 'mi')} />
         <UnitToggle label="Height" value={unitHeight} options={['cm', 'in']} onChange={(v) => setUnitHeight(v as 'cm' | 'in')} />
+
+        <div className="pt-3 mt-1 border-t border-neutral-800/60">
+          <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-3">Workout Display</p>
+          <div className="flex items-center justify-between py-1">
+            <div>
+              <span className="text-sm text-neutral-300">Show RIR column</span>
+              <p className="text-[11px] text-neutral-600 mt-0.5">Reps In Reserve — advanced training metric</p>
+            </div>
+            <button
+              onClick={() => setShowRir(!showRir)}
+              className={`relative w-11 h-6 rounded-full transition-colors ${showRir ? 'bg-blue-600' : 'bg-neutral-700'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${showRir ? 'translate-x-5' : 'translate-x-0'}`}
+              />
+            </button>
+          </div>
+        </div>
       </div>
       <Button onClick={handleSave} loading={saving} className="w-full">Save Preferences</Button>
     </div>

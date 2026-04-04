@@ -36,12 +36,28 @@ function vibrate() {
   }
 }
 
-export default function RestTimer({ open, onClose }: { open: boolean; onClose: () => void }) {
+export default function RestTimer({
+  open,
+  onClose,
+  autoStart = false,
+}: {
+  open: boolean;
+  onClose: () => void;
+  autoStart?: boolean;
+}) {
   const [duration, setDuration] = useState(90);
   const [remaining, setRemaining] = useState(90);
   const [active, setActive] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (open && autoStart) {
+      firedRef.current = false;
+      setRemaining(duration);
+      setActive(true);
+    }
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (active && remaining > 0) {

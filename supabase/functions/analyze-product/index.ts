@@ -79,6 +79,28 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
+    // Rate limiting: 10 AI analyses per user per day
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const { count: usageCount } = await adminClient
+      .from("ai_usage_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("function_name", "analyze-product")
+      .gte("called_at", dayStart.toISOString());
+
+    if ((usageCount ?? 0) >= 10) {
+      return new Response(
+        JSON.stringify({ error: "Daily limit reached. You can analyse up to 10 products per day." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    await adminClient.from("ai_usage_logs").insert({
+      user_id: user.id,
+      function_name: "analyze-product",
+    });
+
     const { data: prodReq, error: fetchErr } = await adminClient
       .from("product_requests")
       .select("*")

@@ -14,7 +14,7 @@ interface AuthState {
   initialize: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
   loading: true,
@@ -61,8 +61,12 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   initialize: () => {
+    // Guard against double-invocation (React StrictMode, hot-reload)
+    if (get().initialized) return;
+    set({ initialized: true });
+
     supabase.auth.getSession().then(({ data: { session } }) => {
-      set({ session, user: session?.user ?? null, loading: false, initialized: true });
+      set({ session, user: session?.user ?? null, loading: false });
     });
 
     supabase.auth.onAuthStateChange((_event, session) => {

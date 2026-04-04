@@ -83,6 +83,28 @@ Deno.serve(async (req: Request) => {
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
+    // Rate limiting: 20 exercise verifications per user per day
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
+    const { count: usageCount } = await adminClient
+      .from("ai_usage_logs")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("function_name", "verify-exercise")
+      .gte("called_at", dayStart.toISOString());
+
+    if ((usageCount ?? 0) >= 20) {
+      return new Response(
+        JSON.stringify({ error: "Daily limit reached. You can verify up to 20 exercises per day." }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    await adminClient.from("ai_usage_logs").insert({
+      user_id: user.id,
+      function_name: "verify-exercise",
+    });
+
     const { data: exReq, error: fetchErr } = await adminClient
       .from("exercise_requests")
       .select("*")

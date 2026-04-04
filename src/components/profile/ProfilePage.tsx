@@ -1,8 +1,12 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, Heart, BarChart2, MessageSquare, Bell, Trash2 } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
+import { usePaywallStore } from '../../stores/paywallStore';
+import { supabase } from '../../lib/supabase';
+import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -27,7 +31,7 @@ interface AccordionSectionProps {
   animationDelay: string;
 }
 
-function AccordionSection({ id: _id, icon: Icon, label, isOpen, onToggle, children, animationDelay }: AccordionSectionProps) {
+function AccordionSection({ icon: Icon, label, isOpen, onToggle, children, animationDelay }: AccordionSectionProps) {
   return (
     <div className="animate-fade-in-up" style={{ animationDelay }}>
       <Card className="overflow-hidden !p-0">
@@ -58,11 +62,43 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile } = useProfileStore();
+  const { tier, status, currentPeriodEnd, cancelAtPeriodEnd } = useSubscriptionStore();
+  const { openPaywall } = usePaywallStore();
+  const isPremium = tier === 'premium' && (status === 'active' || status === 'trialing');
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const openBillingPortal = async () => {
+    setPortalLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setPortalLoading(false); return; }
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+      const json = await res.json();
+      if (json.url) {
+        window.location.href = json.url;
+      } else {
+        toast('Impossible d\'ouvrir le portail de facturation. Réessaie.', 'error');
+      }
+    } catch {
+      toast('Erreur réseau. Réessaie.', 'error');
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -99,6 +135,58 @@ export default function ProfilePage() {
         </div>
       </Card>
 
+      {/* Subscription card */}
+      {isPremium ? (
+        <div className="mb-4 animate-fade-in-scale">
+          <Card className="!p-0 overflow-hidden">
+            <div className="bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Crown size={16} className="text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-white">Premium</p>
+                <p className="text-xs text-neutral-500 truncate">
+                  {cancelAtPeriodEnd && currentPeriodEnd
+                    ? `Se termine le ${new Date(currentPeriodEnd).toLocaleDateString('fr-FR')}`
+                    : currentPeriodEnd
+                      ? `Renouvellement le ${new Date(currentPeriodEnd).toLocaleDateString('fr-FR')}`
+                      : 'Actif'}
+                </p>
+              </div>
+              <button
+                onClick={openBillingPortal}
+                disabled={portalLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs text-neutral-300 transition-colors disabled:opacity-60"
+              >
+                <ExternalLink size={11} />
+                {portalLoading ? '...' : 'Gérer'}
+              </button>
+            </div>
+          </Card>
+        </div>
+      ) : (
+        <button
+          onClick={() => openPaywall('Premium', 'Débloquez toutes les fonctionnalités de Prometheus.')}
+          className="w-full mb-4 animate-fade-in-scale"
+        >
+          <Card className="!p-0 overflow-hidden">
+            <div className="bg-gradient-to-r from-amber-500/8 to-transparent px-4 py-3 flex items-center gap-3 hover:from-amber-500/15 transition-all">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                <Crown size={16} className="text-amber-400" />
+              </div>
+              <div className="flex-1 text-left">
+                <p className="text-sm font-semibold text-white">Passer à Premium</p>
+                <p className="text-xs text-neutral-500">Débloquer toutes les fonctionnalités</p>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-semibold">
+                <Zap size={11} fill="currentColor" />
+                Upgrade
+              </div>
+            </div>
+          </Card>
+        </button>
+      )}
+
       <div className="space-y-2 mb-6">
         <AccordionSection id="personal" icon={User} label="Personal Information" isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
@@ -134,25 +222,6 @@ export default function ProfilePage() {
         </Card>
         </div>
 
-        <div className="animate-fade-in-up" style={{ animationDelay: '420ms' }}>
-        <Card onClick={() => navigate('/health')} className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
-            <Heart size={16} />
-          </div>
-          <span className="flex-1 text-sm font-medium text-white">Health Integrations</span>
-          <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
-        </Card>
-        </div>
-
-        <div className="animate-fade-in-up" style={{ animationDelay: '480ms' }}>
-        <Card onClick={() => navigate('/stats')} className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
-            <BarChart2 size={16} />
-          </div>
-          <span className="flex-1 text-sm font-medium text-white">Statistics</span>
-          <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
-        </Card>
-        </div>
       </div>
 
       <Button variant="danger" onClick={handleSignOut} className="w-full animate-fade-in-up stagger-7">

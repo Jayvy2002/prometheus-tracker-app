@@ -5,6 +5,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { formatDate } from '../../lib/utils';
+import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
+import PremiumBadge from '../premium/PremiumBadge';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -17,6 +20,8 @@ export default function RoutinesPage() {
   const { user } = useAuthStore();
   const { routines, loading, fetchRoutines, deleteRoutine, fetchRoutineWithExercises } = useRoutineStore();
   const { workouts, createWorkout, addExercise, addSet, fetchWorkouts } = useWorkoutStore();
+  const { canAddRoutine } = usePremium();
+  const { openPaywall } = usePaywallStore();
   const [showForm, setShowForm] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -85,10 +90,33 @@ export default function RoutinesPage() {
           </button>
           <h1 className="text-2xl font-bold text-white">Routines</h1>
         </div>
-        <Button onClick={() => { setEditingRoutine(null); setShowForm(true); }} size="sm">
+        <Button
+          onClick={() => {
+            if (!canAddRoutine(routines.length)) {
+              openPaywall(
+                'Routines illimitées',
+                `Le plan gratuit est limité à ${FREE_LIMITS.maxRoutines} routines. Passez à Premium pour en créer autant que vous voulez.`,
+              );
+              return;
+            }
+            setEditingRoutine(null);
+            setShowForm(true);
+          }}
+          size="sm"
+        >
           <Plus size={16} /> New
         </Button>
       </div>
+
+      {!canAddRoutine(routines.length) && routines.length >= FREE_LIMITS.maxRoutines && (
+        <button
+          onClick={() => openPaywall('Routines illimitées', `Vous avez atteint la limite de ${FREE_LIMITS.maxRoutines} routines du plan gratuit.`)}
+          className="flex items-center gap-2 w-full mb-4 px-4 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 text-left hover:bg-amber-500/12 transition-colors"
+        >
+          <PremiumBadge variant="crown" size="sm" />
+          <p className="text-xs text-amber-300 flex-1">Limite de {FREE_LIMITS.maxRoutines} routines atteinte — Passez à Premium</p>
+        </button>
+      )}
 
       {loading ? (
         <div className="text-center py-12 text-neutral-500">Loading...</div>
