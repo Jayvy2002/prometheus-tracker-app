@@ -23,6 +23,7 @@ interface DayData {
 interface DaySummary {
   workout: { name: string; exerciseCount: number } | null;
   nutrition: { totalCals: number; protein: number; carbs: number; fat: number } | null;
+  nutritionCount: number;
   weight: number | null;
 }
 
@@ -154,6 +155,7 @@ export default function CalendarPage() {
             setDaySummary({
               workout: workoutRes.data ? { name: workoutRes.data.name || 'Workout', exerciseCount: count ?? 0 } : null,
               nutrition: totalNutrition,
+              nutritionCount: nutritionLogs.length,
               weight: weightRes.data ? weightRes.data.weight_kg : null,
             });
             setSummaryLoading(false);
@@ -169,6 +171,7 @@ export default function CalendarPage() {
         setDaySummary({
           workout: null,
           nutrition: totalNutrition,
+          nutritionCount: nutritionLogs.length,
           weight: weightRes.data ? weightRes.data.weight_kg : null,
         });
         setSummaryLoading(false);
@@ -357,21 +360,21 @@ export default function CalendarPage() {
       <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
           <p className="text-lg font-bold text-blue-400">
-            {summaryLoading ? '–' : daySummary?.workout ? daySummary.workout.exerciseCount : 0}
+            {summaryLoading ? '–' : daySummary?.workout ? 1 : 0}
           </p>
-          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.exercises')}</p>
+          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.workouts')}</p>
         </div>
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
           <p className="text-lg font-bold text-emerald-400">
-            {summaryLoading ? '–' : daySummary?.nutrition?.totalCals ?? 0}
+            {summaryLoading ? '–' : daySummary?.nutritionCount ?? 0}
           </p>
-          <p className="text-[10px] text-neutral-500">{t('common.kcal')}</p>
+          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.meals')}</p>
         </div>
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
           <p className="text-lg font-bold text-amber-400">
-            {summaryLoading ? '–' : daySummary?.weight ? formatWeight(daySummary.weight, unit) : '–'}
+            {summaryLoading ? '–' : daySummary?.weight ? 1 : 0}
           </p>
-          <p className="text-[10px] text-neutral-500">{t('nav.weight')}</p>
+          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.weighIns')}</p>
         </div>
       </div>
 

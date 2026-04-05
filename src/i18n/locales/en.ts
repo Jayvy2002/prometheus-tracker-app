@@ -648,7 +648,9 @@ const en = {
       weighIns: 'Weigh-ins',
     },
     daySummary: {
-      exercises: 'Exercises',
+      workouts: 'Workouts',
+      meals: 'Meals',
+      weighIns: 'Weigh-ins',
     },
     day: {
       noWorkout: 'No workout logged',
