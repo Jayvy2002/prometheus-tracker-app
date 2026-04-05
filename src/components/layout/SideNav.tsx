@@ -13,11 +13,11 @@ export default function SideNav() {
   const tabs = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
     { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
-    { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
-    { path: '/stats', icon: BarChart2, label: t('nav.stats') },
-    { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
-    { path: '/weight', icon: Scale, label: t('nav.weight') },
     { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
+    { path: '/weight', icon: Scale, label: t('nav.weight') },
+    { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
+    { path: '/stats', icon: BarChart2, label: t('nav.stats') },
+    { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
     { path: '/profile', icon: User, label: t('nav.profile') },
   ];
 
