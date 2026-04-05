@@ -30,6 +30,7 @@ interface NutritionState {
   addFavorite: (userId: string, product: FoodProduct) => Promise<void>;
   removeFavorite: (id: string) => Promise<void>;
   fetchRecentProducts: (userId: string) => Promise<void>;
+  fetchCaloriesForRange: (userId: string, startDate: string, endDate: string) => Promise<{ logged_at: string; calories: number }[]>;
   fetchOrCreateSteps: (userId: string, date: string) => Promise<DailySteps | null>;
   logSteps: (userId: string, steps: number, date: string) => Promise<void>;
 }
@@ -280,6 +281,16 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       if (recent.length >= 10) break;
     }
     set({ recentProducts: recent });
+  },
+
+  fetchCaloriesForRange: async (userId, startDate, endDate) => {
+    const { data } = await supabase
+      .from('nutrition_logs')
+      .select('logged_at, calories')
+      .eq('user_id', userId)
+      .gte('logged_at', startDate)
+      .lte('logged_at', endDate);
+    return (data ?? []) as { logged_at: string; calories: number }[];
   },
 
   fetchOrCreateSteps: async (userId, date) => {

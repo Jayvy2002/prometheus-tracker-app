@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Sparkles, Star, Clock, ChefHat, Heart, Plus, ScanLine, Globe, Database, Loader2 } from 'lucide-react';
+import { Search, Sparkles, Star, Clock, ChefHat, Heart, Plus, ScanLine, Globe, Database, Loader2, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -11,6 +11,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import CreateProductForm from '../scanner/CreateProductForm';
+import FoodPhotoAnalyzer from './FoodPhotoAnalyzer';
 import RecipeForm from './RecipeForm';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
@@ -83,6 +84,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const [saving, setSaving] = useState(false);
   const [activeCategory, setActiveCategory] = useState(category);
   const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [showPhotoAnalyzer, setShowPhotoAnalyzer] = useState(false);
   const [showNewRecipe, setShowNewRecipe] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(prefill ?? null);
   const [favDisplayCount, setFavDisplayCount] = useState(15);
@@ -217,6 +219,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     selectProduct(p);
   };
 
+  const handlePhotoResult = (p: FoodProduct, confidence: number) => {
+    setShowPhotoAnalyzer(false);
+    selectProduct(p);
+    if (confidence < 70) {
+      toast('Low confidence — verify the nutritional values before saving', 'info');
+    }
+  };
+
   const handleSave = async () => {
     if (!user || !name.trim()) return;
     const qty = +quantity;
@@ -255,6 +265,15 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     );
   }
 
+  if (showPhotoAnalyzer) {
+    return (
+      <FoodPhotoAnalyzer
+        onResult={handlePhotoResult}
+        onClose={() => setShowPhotoAnalyzer(false)}
+      />
+    );
+  }
+
   if (showNewRecipe) {
     return (
       <RecipeForm
@@ -276,7 +295,15 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-xl font-bold text-white">Add Food</h2>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowPhotoAnalyzer(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
+              title="Identify food with AI photo analysis"
+            >
+              <Camera size={14} />
+              Photo
+            </button>
             <button
               onClick={() => navigate('/scanner')}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"

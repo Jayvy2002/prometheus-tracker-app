@@ -11,6 +11,11 @@ interface PreviousSet {
   order_index: number;
 }
 
+export interface ExerciseSession {
+  date: string;
+  sets: PreviousSet[];
+}
+
 interface WorkoutState {
   workouts: Workout[];
   currentWorkout: Workout | null;
@@ -30,6 +35,7 @@ interface WorkoutState {
   restoreExercise: (workoutId: string, exerciseData: WorkoutExercise) => Promise<void>;
   setCurrentWorkout: (w: Workout | null) => void;
   fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string) => Promise<PreviousSet[]>;
+  fetchExerciseHistory: (userId: string, exerciseName: string, currentWorkoutId: string, limit?: number) => Promise<ExerciseSession[]>;
 }
 
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
@@ -353,5 +359,40 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       .order('order_index');
 
     return (sets ?? []) as PreviousSet[];
+  },
+
+  fetchExerciseHistory: async (userId, exerciseName, currentWorkoutId, limit = 5) => {
+    const { data: exercises } = await supabase
+      .from('workout_exercises')
+      .select('id, workout_id, workouts!inner(user_id, date)')
+      .eq('workouts.user_id', userId)
+      .ilike('name', exerciseName)
+      .neq('workout_id', currentWorkoutId);
+
+    if (!exercises || exercises.length === 0) return [];
+
+    const sorted = [...exercises].sort((a, b) => {
+      const aDate = (a.workouts as unknown as { date: string }).date;
+      const bDate = (b.workouts as unknown as { date: string }).date;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+
+    const recent = sorted.slice(0, limit);
+    const results: ExerciseSession[] = [];
+
+    for (const ex of recent) {
+      const { data: sets } = await supabase
+        .from('workout_sets')
+        .select('weight_kg, reps, rir, set_type, order_index')
+        .eq('exercise_id', ex.id)
+        .order('order_index');
+
+      results.push({
+        date: (ex.workouts as unknown as { date: string }).date,
+        sets: (sets ?? []) as PreviousSet[],
+      });
+    }
+
+    return results;
   },
 }));
