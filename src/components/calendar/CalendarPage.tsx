@@ -354,22 +354,26 @@ export default function CalendarPage() {
         </div>
       </Card>
 
-      {viewMode === 'week' && (
-        <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-            <p className="text-lg font-bold text-blue-400">{weekDayData.filter(d => d.hasWorkout).length}</p>
-            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.workouts')}</p>
-          </div>
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-            <p className="text-lg font-bold text-emerald-400">{weekDayData.filter(d => d.hasNutrition).length}</p>
-            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.daysLogged')}</p>
-          </div>
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-            <p className="text-lg font-bold text-amber-400">{weekDayData.filter(d => d.hasWeight).length}</p>
-            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.weighIns')}</p>
-          </div>
+      <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-blue-400">
+            {summaryLoading ? '–' : daySummary?.workout ? daySummary.workout.exerciseCount : 0}
+          </p>
+          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.exercises')}</p>
         </div>
-      )}
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-emerald-400">
+            {summaryLoading ? '–' : daySummary?.nutrition?.totalCals ?? 0}
+          </p>
+          <p className="text-[10px] text-neutral-500">{t('common.kcal')}</p>
+        </div>
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-amber-400">
+            {summaryLoading ? '–' : daySummary?.weight ? formatWeight(daySummary.weight, unit) : '–'}
+          </p>
+          <p className="text-[10px] text-neutral-500">{t('nav.weight')}</p>
+        </div>
+      </div>
 
       <div className="mb-3 animate-fade-in-up stagger-2">
         <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-1">{selectedDateLabel}</h2>

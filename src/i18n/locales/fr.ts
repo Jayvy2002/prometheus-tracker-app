@@ -647,6 +647,9 @@ const fr = {
       daysLogged: 'Jours enregistrés',
       weighIns: 'Pesées',
     },
+    daySummary: {
+      exercises: 'Exercices',
+    },
     day: {
       noWorkout: 'Aucun entraînement enregistré',
       noNutrition: 'Aucune nutrition enregistrée',
