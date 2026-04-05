@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import FullPageLayout from '../layout/FullPageLayout';
 import { ArrowLeft, Plus, Check, Timer } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
@@ -16,6 +17,7 @@ import WorkoutSummaryScreen from './WorkoutSummaryScreen';
 import type { Workout } from '../../lib/types';
 
 function WorkoutFormInner() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = window.location.pathname;
@@ -181,10 +183,10 @@ function WorkoutFormInner() {
           <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white">
             <ArrowLeft size={20} />
           </button>
-          <p className="text-red-400">Failed to create workout. Please try again.</p>
+          <p className="text-red-400">{t('workout.createFailed')}</p>
         </div>
         <Button onClick={() => navigate('/workout')} variant="secondary" className="w-full">
-          Go Back
+          {t('workout.goBack')}
         </Button>
       </div>
     );
@@ -207,20 +209,20 @@ function WorkoutFormInner() {
         <Input
           value={workoutName}
           onChange={e => setWorkoutName(e.target.value)}
-          placeholder="Workout name"
+          placeholder={t('workout.workoutName')}
           className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
         />
         <button
           onClick={() => { setAutoStartTimer(false); setShowTimer(true); }}
           className="p-2 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-          title="Rest timer"
+          title={t('workout.restTimer.title')}
         >
           <Timer size={18} />
         </button>
       </div>
 
       <div className="mb-4">
-        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 px-1">Session date</p>
+        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 px-1">{t('workout.sessionDate')}</p>
         <DateInput
           value={workoutDate}
           onChange={dateStr => setWorkoutDate(dateStr)}
@@ -239,10 +241,10 @@ function WorkoutFormInner() {
 
       <div className="mt-4 space-y-3">
         <Button variant="secondary" onClick={() => setShowExercisePicker(true)} className="w-full">
-          <Plus size={16} /> Add Exercise
+          <Plus size={16} /> {t('workout.addExercise')}
         </Button>
         <Button onClick={handleFinish} disabled={saving} className="w-full">
-          <Check size={16} /> {saving ? 'Saving...' : 'Finish Workout'}
+          <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
       </div>
 

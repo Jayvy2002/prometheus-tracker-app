@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { TrendingUp } from 'lucide-react';
 import { useWeightStore } from '../../../stores/weightStore';
 import { useProfileStore } from '../../../stores/profileStore';
@@ -6,6 +7,7 @@ import { formatDateShort, parseDateStr } from '../../../lib/utils';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function WeightWidget() {
+  const { t } = useTranslation();
   const { measurements } = useWeightStore();
   const { profile } = useProfileStore();
   const navigate = useNavigate();
@@ -25,12 +27,12 @@ export default function WeightWidget() {
         <div className="w-10 h-10 rounded-xl bg-blue-600/10 flex items-center justify-center">
           <TrendingUp size={20} className="text-blue-600/50" />
         </div>
-        <p className="text-xs text-neutral-500 leading-tight">No weight logged yet</p>
+        <p className="text-xs text-neutral-500 leading-tight">{t('widgets.weight.noWeightYet')}</p>
         <button
           onClick={(e) => { e.stopPropagation(); navigate('/weight'); }}
           className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
         >
-          Log your first weigh-in →
+          {t('widgets.weight.logFirstWeighIn')}
         </button>
       </div>
     );

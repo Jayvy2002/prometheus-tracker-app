@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Plus, TrendingDown, TrendingUp, Minus, Trash2, CreditCard as Edit3, Crown } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -35,6 +36,7 @@ function filterByPeriod(measurements: Array<{ weight_kg: number; measured_at: st
 }
 
 export default function WeightPage() {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
@@ -69,17 +71,17 @@ export default function WeightPage() {
     const minVal = unit === 'lbs' ? 44 : 20;
     const maxVal = unit === 'lbs' ? 660 : 300;
     if (isNaN(val) || val < minVal || val > maxVal) {
-      toast(`Poids invalide (${minVal}–${maxVal} ${unit}).`, 'error');
+      toast(`${t('weight.errors.invalid')} (${minVal}–${maxVal} ${unit}).`, 'error');
       return;
     }
     const kg = unit === 'lbs' ? val / 2.20462 : val;
     if (editId) {
       await updateMeasurement(editId, { weight_kg: kg, measured_at: date });
-      toast('Poids mis à jour');
+      toast(t('weight.toasts.updated'));
       setEditId(null);
     } else {
       await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: date });
-      toast('Poids enregistré');
+      toast(t('weight.toasts.saved'));
     }
     setWeight('');
     setDate(todayStr());
@@ -96,7 +98,7 @@ export default function WeightPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     await deleteMeasurement(deleteTarget);
-    toast('Measurement deleted', 'error');
+    toast(t('weight.toasts.deleted'), 'error');
     setDeleteTarget(null);
   };
 
@@ -120,9 +122,9 @@ export default function WeightPage() {
     <PageTransition>
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white">Weight</h1>
+        <h1 className="text-2xl font-bold text-white">{t('weight.title')}</h1>
         <Button onClick={() => { setEditId(null); setWeight(''); setDate(todayStr()); setShowAdd(true); }} size="sm">
-          <Plus size={16} /> Log
+          <Plus size={16} /> {t('weight.log')}
         </Button>
       </div>
 
@@ -131,7 +133,7 @@ export default function WeightPage() {
           <div className="flex items-center gap-4">
             <div>
               <p className="text-3xl font-bold text-white">{formatWeight(latest, unit)}</p>
-              <p className="text-sm text-neutral-500 mt-0.5">Current weight</p>
+              <p className="text-sm text-neutral-500 mt-0.5">{t('weight.current')}</p>
             </div>
             <div className="flex-1" />
             {diff !== 0 && (
@@ -148,7 +150,7 @@ export default function WeightPage() {
       {chartData.length > 1 && (
         <Card className="mb-4 animate-fade-in-up stagger-2">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-neutral-400">Progress</h3>
+            <h3 className="text-sm font-medium text-neutral-400">{t('weight.progress')}</h3>
             <div className="flex gap-1">
               {PERIODS.map(p => {
                 const locked = !canUseWeightPeriod(p.value);
@@ -196,7 +198,7 @@ export default function WeightPage() {
         </Card>
       )}
 
-      <h3 className="text-sm font-medium text-neutral-400 mb-3">History</h3>
+      <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('weight.history')}</h3>
       <div className="space-y-2">
         {measurements.map((m, i) => (
           <div key={m.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
@@ -216,26 +218,26 @@ export default function WeightPage() {
         ))}
       </div>
 
-      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditId(null); }} title={editId ? 'Edit Weight' : 'Log Weight'}>
+      <Modal open={showAdd} onClose={() => { setShowAdd(false); setEditId(null); }} title={editId ? t('weight.editTitle') : t('weight.logTitle')}>
         <div className="space-y-4">
           <Input
-            label={`Weight (${unit})`}
+            label={t('weight.weightField', { unit })}
             type="number"
             step="0.1"
             value={weight}
             onChange={e => setWeight(e.target.value)}
             placeholder="75.0"
           />
-          <Input label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} />
-          <Button onClick={handleSubmit} className="w-full">{editId ? 'Update' : 'Save'}</Button>
+          <Input label={t('weight.date')} type="date" value={date} onChange={e => setDate(e.target.value)} />
+          <Button onClick={handleSubmit} className="w-full">{editId ? t('common.update') : t('common.save')}</Button>
         </div>
       </Modal>
 
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Measurement">
-        <p className="text-neutral-300 mb-6">Are you sure you want to delete this weight measurement? This action cannot be undone.</p>
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('weight.deleteTitle')}>
+        <p className="text-neutral-300 mb-6">{t('weight.deleteConfirm')}</p>
         <div className="flex gap-3">
-          <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1">Cancel</Button>
-          <Button onClick={handleDelete} className="flex-1 !bg-red-600 hover:!bg-red-700">Delete</Button>
+          <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1">{t('common.cancel')}</Button>
+          <Button onClick={handleDelete} className="flex-1 !bg-red-600 hover:!bg-red-700">{t('common.delete')}</Button>
         </div>
       </Modal>
     </div>

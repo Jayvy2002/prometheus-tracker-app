@@ -1,9 +1,11 @@
+import { useTranslation } from 'react-i18next';
 import { useNutritionStore } from '../../../stores/nutritionStore';
 import { useProfileStore } from '../../../stores/profileStore';
 
 type WidgetSize = 'small' | 'medium' | 'large';
 
 export default function MacrosWidget({ size = 'large' }: { size?: WidgetSize }) {
+  const { t } = useTranslation();
   const { logs } = useNutritionStore();
   const { profile } = useProfileStore();
 
@@ -19,9 +21,9 @@ export default function MacrosWidget({ size = 'large' }: { size?: WidgetSize }) 
   };
 
   const macros = [
-    { name: 'Protein', short: 'P', current: Math.round(totals.protein), target: targets.protein, color: 'bg-sky-400', textColor: 'text-sky-400' },
-    { name: 'Carbs', short: 'C', current: Math.round(totals.carbs), target: targets.carbs, color: 'bg-amber-400', textColor: 'text-amber-400' },
-    { name: 'Fat', short: 'F', current: Math.round(totals.fat), target: targets.fat, color: 'bg-rose-400', textColor: 'text-rose-400' },
+    { name: t('widgets.macros.protein'), short: t('widgets.macros.proteinShort'), current: Math.round(totals.protein), target: targets.protein, color: 'bg-sky-400', textColor: 'text-sky-400' },
+    { name: t('widgets.macros.carbs'), short: t('widgets.macros.carbsShort'), current: Math.round(totals.carbs), target: targets.carbs, color: 'bg-amber-400', textColor: 'text-amber-400' },
+    { name: t('widgets.macros.fat'), short: t('widgets.macros.fatShort'), current: Math.round(totals.fat), target: targets.fat, color: 'bg-rose-400', textColor: 'text-rose-400' },
   ];
 
   if (size === 'small') {

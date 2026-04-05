@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Sparkles, Star, Clock, ScanLine, Globe, Database, Loader2, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { FOOD_UNITS, UNIT_TO_GRAMS } from '../../lib/constants';
@@ -8,7 +8,7 @@ import type { FoodProduct, FoodFavorite } from '../../lib/types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import CreateProductForm from '../scanner/CreateProductForm';
+import UnifiedScanner from '../scanner/UnifiedScanner';
 
 type Tab = 'search' | 'recent' | 'favorites';
 
@@ -67,7 +67,7 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
 }
 
 export default function IngredientPicker({ onAdd, onClose }: Props) {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts } = useNutritionStore();
 
@@ -84,7 +84,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(null);
   const searchRef = useRef(0);
 
@@ -192,28 +192,28 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
     });
   };
 
-  const handleProductCreated = (p: FoodProduct) => {
-    setShowCreateProduct(false);
-    selectProduct(p);
+  const handleScannerResult = (product: FoodProduct) => {
+    setShowScanner(false);
+    selectProduct(product);
   };
 
-  if (showCreateProduct) {
-    return (
-      <CreateProductForm
-        barcode=""
-        onClose={() => setShowCreateProduct(false)}
-        onCreated={handleProductCreated}
-      />
-    );
-  }
-
   const tabList: { id: Tab; label: string; Icon: typeof Search }[] = [
-    { id: 'search', label: 'Search', Icon: Search },
-    { id: 'recent', label: 'Recent', Icon: Clock },
-    { id: 'favorites', label: 'Saved', Icon: Star },
+    { id: 'search', label: t('nutrition.foodForm.tabs.search'), Icon: Search },
+    { id: 'recent', label: t('nutrition.foodForm.tabs.recent'), Icon: Clock },
+    { id: 'favorites', label: t('nutrition.foodForm.tabs.saved'), Icon: Star },
   ];
 
   return (
+    <>
+    {showScanner && (
+      <div className="fixed inset-0 z-[70] bg-black overflow-y-auto">
+        <UnifiedScanner
+          onResult={handleScannerResult}
+          onClose={() => setShowScanner(false)}
+          showRecent={false}
+        />
+      </div>
+    )}
     <div className="fixed inset-0 z-[60] bg-black overflow-y-auto animate-fade-in">
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center justify-between mb-5">
@@ -221,15 +221,15 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
             <button onClick={onClose} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
               <ArrowLeft size={20} />
             </button>
-            <h2 className="text-xl font-bold text-white">Add Ingredient</h2>
+            <h2 className="text-xl font-bold text-white">{t('nutrition.ingredientPicker.title')}</h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/scanner')}
+              onClick={() => setShowScanner(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
             >
               <ScanLine size={14} />
-              Scan
+              {t('nutrition.ingredientPicker.scannerButton')}
             </button>
           </div>
         </div>
@@ -257,18 +257,18 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  placeholder="Search food..."
+                  placeholder={t('nutrition.foodForm.searchPlaceholder')}
                   className="pl-10"
                 />
               </div>
-              <Button onClick={handleSearch} variant="secondary" loading={searching}>Search</Button>
+              <Button onClick={handleSearch} variant="secondary" loading={searching}>{t('common.search')}</Button>
             </div>
 
             {searching && (
               <div className="mt-3 flex items-center justify-center gap-2 py-4 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in">
                 <Loader2 size={16} className="text-blue-400 animate-spin" />
                 <span className="text-sm text-neutral-400">
-                  {searchPhase === 'db' ? 'Searching local database...' : 'Searching Open Food Facts...'}
+                  {searchPhase === 'db' ? t('nutrition.foodForm.searchingLocal') : t('nutrition.foodForm.searchingOpenFoodFacts')}
                 </span>
               </div>
             )}
@@ -278,13 +278,13 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                 {results[0]?._source === 'openfoodfacts' && (
                   <div className="flex items-center gap-1.5 mb-1.5 px-1">
                     <Globe size={11} className="text-emerald-500" />
-                    <span className="text-[10px] text-neutral-500">Results from Open Food Facts</span>
+                    <span className="text-[10px] text-neutral-500">{t('nutrition.foodForm.resultsFromOFF')}</span>
                   </div>
                 )}
                 {results[0]?._source === 'db' && (
                   <div className="flex items-center gap-1.5 mb-1.5 px-1">
                     <Database size={11} className="text-blue-400" />
-                    <span className="text-[10px] text-neutral-500">Results from database</span>
+                    <span className="text-[10px] text-neutral-500">{t('nutrition.foodForm.resultsFromDB')}</span>
                   </div>
                 )}
                 <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-h-52 overflow-y-auto">
@@ -308,25 +308,25 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                   ))}
                 </div>
                 <button
-                  onClick={() => setShowCreateProduct(true)}
+                  onClick={() => setShowScanner(true)}
                   className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
                 >
                   <Sparkles size={12} />
-                  Can't find it? Add with AI
+                  {t('nutrition.ingredientPicker.notRight')}
                 </button>
               </div>
             )}
 
             {!searching && searched && results.length === 0 && (
               <div className="mt-3 text-center py-6 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in-up">
-                <p className="text-sm text-neutral-400 mb-1">No products found</p>
-                <p className="text-xs text-neutral-600 mb-4">Not in database or Open Food Facts</p>
+                <p className="text-sm text-neutral-400 mb-1">{t('nutrition.foodForm.notFound')}</p>
+                <p className="text-xs text-neutral-600 mb-4">{t('nutrition.ingredientPicker.tryScanning')}</p>
                 <button
-                  onClick={() => setShowCreateProduct(true)}
+                  onClick={() => setShowScanner(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600/15 border border-blue-500/30 text-sm font-medium text-blue-400 hover:bg-blue-600/25 transition-colors"
                 >
                   <Sparkles size={14} />
-                  Add with AI photo analysis
+                  {t('nutrition.foodForm.openScanner')}
                 </button>
               </div>
             )}
@@ -336,7 +336,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
         {tab === 'recent' && (
           <div className="mb-5">
             {recentProducts.length === 0 ? (
-              <div className="text-center py-8 text-neutral-500 text-sm">No recent foods yet</div>
+              <div className="text-center py-8 text-neutral-500 text-sm">{t('nutrition.foodForm.noRecentFoods')}</div>
             ) : (
               <div className="space-y-2">
                 {recentProducts.map((p, i) => (
@@ -360,7 +360,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
         {tab === 'favorites' && (
           <div className="mb-5">
             {favorites.length === 0 ? (
-              <div className="text-center py-8 text-neutral-500 text-sm">No favorites yet</div>
+              <div className="text-center py-8 text-neutral-500 text-sm">{t('nutrition.ingredientPicker.noFavorites')}</div>
             ) : (
               <div className="space-y-2">
                 {favorites.map(f => (
@@ -387,17 +387,17 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
         <div className="space-y-4">
           {selectedProduct ? (
             <div>
-              <p className="text-xs font-medium text-neutral-400 mb-1.5">Ingredient Name</p>
+              <p className="text-xs font-medium text-neutral-400 mb-1.5">{t('nutrition.ingredientPicker.ingredientName')}</p>
               <p className="px-3 py-2 rounded-xl bg-neutral-900/60 border border-neutral-800/50 text-white text-sm truncate">{name}</p>
             </div>
           ) : (
-            <Input label="Ingredient Name" value={name} onChange={e => setName(e.target.value)} placeholder="Ingredient name" />
+            <Input label={t('nutrition.ingredientPicker.ingredientName')} value={name} onChange={e => setName(e.target.value)} placeholder={t('nutrition.ingredientPicker.ingredientName')} />
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Quantity" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} />
+            <Input label={t('nutrition.foodForm.quantity')} type="number" value={quantity} onChange={e => setQuantity(e.target.value)} />
             <Select
-              label="Unit"
+              label={t('nutrition.foodForm.unit')}
               value={unit}
               onChange={e => setUnit(e.target.value)}
               options={FOOD_UNITS.map(u => ({ value: u, label: u }))}
@@ -414,27 +414,28 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
           )}
 
           <p className="text-xs text-neutral-500">
-            {isServingUnit ? 'Nutritional values per serving:' : 'Nutritional values per 100g (scaled to your quantity):'}
+            {isServingUnit ? t('nutrition.foodForm.nutritionalValuesPer') : t('nutrition.foodForm.nutritionalValuesPer100g')}
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Calories" type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />
-            <Input label="Protein (g)" type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="0" />
-            <Input label="Carbs (g)" type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="0" />
-            <Input label="Fat (g)" type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
+            <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />
+            <Input label={`${t('common.protein')} (g)`} type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="0" />
+            <Input label={`${t('common.carbs')} (g)`} type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="0" />
+            <Input label={`${t('common.fat')} (g)`} type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
           </div>
 
           {+calories > 0 && +quantity > 0 && (
             <div className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm">
               <p className="text-blue-400 font-medium">
-                Total: {Math.round(+calories * scale)} cal | P: {Math.round(+protein * scale)}g | C: {Math.round(+carbs * scale)}g | F: {Math.round(+fat * scale)}g
+                {t('nutrition.foodForm.total')} {Math.round(+calories * scale)} {t('common.cal')} | P: {Math.round(+protein * scale)}g | C: {Math.round(+carbs * scale)}g | F: {Math.round(+fat * scale)}g
               </p>
             </div>
           )}
 
-          <Button onClick={handleAdd} className="w-full">Add Ingredient</Button>
+          <Button onClick={handleAdd} className="w-full">{t('nutrition.ingredientPicker.addButton')}</Button>
         </div>
       </div>
     </div>
+    </>
   );
 }

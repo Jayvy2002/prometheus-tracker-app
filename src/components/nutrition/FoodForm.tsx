@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Sparkles, Star, Clock, ChefHat, Heart, Plus, ScanLine, Globe, Database, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useRecipeStore } from '../../stores/recipeStore';
@@ -10,7 +10,7 @@ import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import CreateProductForm from '../scanner/CreateProductForm';
+import UnifiedScanner from '../scanner/UnifiedScanner';
 import RecipeForm from './RecipeForm';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
@@ -62,7 +62,7 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
 }
 
 export default function FoodForm({ category, date, onClose, prefill }: Props) {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { addLog, searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite } = useNutritionStore();
   const { recipes, fetchRecipes } = useRecipeStore();
@@ -82,7 +82,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
   const [saving, setSaving] = useState(false);
   const [activeCategory, setActiveCategory] = useState(category);
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [showNewRecipe, setShowNewRecipe] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(prefill ?? null);
   const [favDisplayCount, setFavDisplayCount] = useState(15);
@@ -130,7 +130,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setSearched(true);
     setSearching(false);
     setSearchPhase('idle');
-    // Persist barcoded products to local DB in background to grow the catalog
+    // Persist barcoded products to DB in background to grow the catalog
     if (offResults.length > 0) batchSaveProducts(offResults);
   };
 
@@ -196,6 +196,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setTab('search');
   };
 
+  const handleScannerResult = (product: FoodProduct, confidence?: number) => {
+    setShowScanner(false);
+    selectProduct(product);
+    if (confidence !== undefined && confidence < 70) {
+      toast(t('nutrition.foodForm.lowConfidence'), 'info');
+    }
+  };
+
   const isFavorited = selectedProduct?.id ? favorites.some(f => f.product_id === selectedProduct.id) : false;
 
   const toggleFavorite = async () => {
@@ -204,17 +212,12 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       const fav = favorites.find(f => f.product_id === selectedProduct.id);
       if (fav) {
         await removeFavorite(fav.id);
-        toast('Removed from favorites', 'info');
+        toast(t('nutrition.foodForm.removedFromFavorites'), 'info');
       }
     } else {
       await addFavorite(user.id, selectedProduct);
-      toast('Added to favorites');
+      toast(t('nutrition.foodForm.addedToFavorites'));
     }
-  };
-
-  const handleProductCreated = (p: FoodProduct) => {
-    setShowCreateProduct(false);
-    selectProduct(p);
   };
 
   const handleSave = async () => {
@@ -224,9 +227,9 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     const pro = +protein;
     const carb = +carbs;
     const f = +fat;
-    if (qty <= 0) { toast('La quantité doit être supérieure à 0.', 'error'); return; }
-    if (cal < 0 || pro < 0 || carb < 0 || f < 0) { toast('Les valeurs nutritionnelles ne peuvent pas être négatives.', 'error'); return; }
-    if (cal > 9000) { toast('Calories par 100g trop élevées (max 9000).', 'error'); return; }
+    if (qty <= 0) { toast(t('nutrition.foodForm.errors.quantityPositive'), 'error'); return; }
+    if (cal < 0 || pro < 0 || carb < 0 || f < 0) { toast(t('nutrition.foodForm.errors.negativeNutrition'), 'error'); return; }
+    if (cal > 9000) { toast(t('nutrition.foodForm.errors.caloriesTooHigh'), 'error'); return; }
     setSaving(true);
     await addLog({
       user_id: user.id,
@@ -240,18 +243,21 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       unit,
       logged_at: date,
     });
-    toast('Aliment enregistré');
+    toast(t('nutrition.foodForm.saved'));
     setSaving(false);
     onClose();
   };
 
-  if (showCreateProduct) {
+  // UnifiedScanner as full-screen modal overlay
+  if (showScanner) {
     return (
-      <CreateProductForm
-        barcode=""
-        onClose={() => setShowCreateProduct(false)}
-        onCreated={handleProductCreated}
-      />
+      <div className="fixed inset-0 z-[60] bg-black overflow-y-auto">
+        <UnifiedScanner
+          onResult={handleScannerResult}
+          onClose={() => setShowScanner(false)}
+          showRecent={false}
+        />
+      </div>
     );
   }
 
@@ -265,39 +271,40 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   }
 
   const tabList: { id: Tab; label: string; Icon: typeof Search }[] = [
-    { id: 'search', label: 'Search', Icon: Search },
-    { id: 'recent', label: 'Recent', Icon: Clock },
-    { id: 'favorites', label: 'Saved', Icon: Star },
-    { id: 'recipes', label: 'Recipes', Icon: ChefHat },
+    { id: 'search', label: t('nutrition.foodForm.tabs.search'), Icon: Search },
+    { id: 'recent', label: t('nutrition.foodForm.tabs.recent'), Icon: Clock },
+    { id: 'favorites', label: t('nutrition.foodForm.tabs.saved'), Icon: Star },
+    { id: 'recipes', label: t('nutrition.foodForm.tabs.recipes'), Icon: ChefHat },
   ];
 
   return (
     <div className="fixed inset-0 z-50 bg-black overflow-y-auto animate-fade-in">
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-white">Add Food</h2>
-          <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-white">{t('nutrition.foodForm.title')}</h2>
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/scanner')}
+              onClick={() => setShowScanner(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
+              title={t('nutrition.foodForm.openScanner')}
             >
               <ScanLine size={14} />
-              Scan
+              Scanner
             </button>
-            <button onClick={onClose} className="text-neutral-400 hover:text-white text-sm transition-colors">Cancel</button>
+            <button onClick={onClose} className="text-neutral-400 hover:text-white text-sm transition-colors">{t('common.cancel')}</button>
           </div>
         </div>
 
         <div className="flex gap-1 mb-5 bg-neutral-900 rounded-xl p-1">
-          {tabList.map(t => (
+          {tabList.map(tabItem => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+              key={tabItem.id}
+              onClick={() => setTab(tabItem.id)}
               className={`flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-medium transition-all
-                ${tab === t.id ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                ${tab === tabItem.id ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
-              <t.Icon size={11} />
-              {t.label}
+              <tabItem.Icon size={11} />
+              {tabItem.label}
             </button>
           ))}
         </div>
@@ -311,19 +318,19 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  placeholder="Search food..."
+                  placeholder={t('nutrition.foodForm.searchPlaceholder')}
                   className="pl-10"
                   autoFocus
                 />
               </div>
-              <Button onClick={handleSearch} variant="secondary" loading={searching}>Search</Button>
+              <Button onClick={handleSearch} variant="secondary" loading={searching}>{t('common.search')}</Button>
             </div>
 
             {searching && (
               <div className="mt-3 flex items-center justify-center gap-2 py-4 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in">
                 <Loader2 size={16} className="text-blue-400 animate-spin" />
                 <span className="text-sm text-neutral-400">
-                  {searchPhase === 'db' ? 'Searching local database...' : 'Searching Open Food Facts...'}
+                  {searchPhase === 'db' ? t('nutrition.foodForm.searchingLocal') : t('nutrition.foodForm.searchingOpenFoodFacts')}
                 </span>
               </div>
             )}
@@ -333,13 +340,13 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 {results[0]?._source === 'openfoodfacts' && (
                   <div className="flex items-center gap-1.5 mb-1.5 px-1">
                     <Globe size={11} className="text-emerald-500" />
-                    <span className="text-[10px] text-neutral-500">Results from Open Food Facts</span>
+                    <span className="text-[10px] text-neutral-500">{t('nutrition.foodForm.resultsFromOFF')}</span>
                   </div>
                 )}
                 {results[0]?._source === 'db' && (
                   <div className="flex items-center gap-1.5 mb-1.5 px-1">
                     <Database size={11} className="text-blue-400" />
-                    <span className="text-[10px] text-neutral-500">Results from database</span>
+                    <span className="text-[10px] text-neutral-500">{t('nutrition.foodForm.resultsFromDB')}</span>
                   </div>
                 )}
                 <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-h-52 overflow-y-auto">
@@ -362,26 +369,19 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={() => setShowCreateProduct(true)}
-                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
-                >
-                  <Sparkles size={12} />
-                  Can't find it? Add with AI
-                </button>
               </div>
             )}
 
             {!searching && searched && results.length === 0 && (
               <div className="mt-3 text-center py-6 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in-up">
-                <p className="text-sm text-neutral-400 mb-1">No products found anywhere</p>
-                <p className="text-xs text-neutral-600 mb-4">Not in database or Open Food Facts</p>
+                <p className="text-sm text-neutral-400 mb-1">{t('nutrition.foodForm.notFound')}</p>
+                <p className="text-xs text-neutral-600 mb-4">{t('nutrition.foodForm.openScanner')}</p>
                 <button
-                  onClick={() => setShowCreateProduct(true)}
+                  onClick={() => setShowScanner(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600/15 border border-blue-500/30 text-sm font-medium text-blue-400 hover:bg-blue-600/25 transition-colors"
                 >
                   <Sparkles size={14} />
-                  Add with AI photo analysis
+                  {t('nutrition.foodForm.openScanner')}
                 </button>
               </div>
             )}
@@ -391,7 +391,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
         {tab === 'recent' && (
           <div className="mb-5">
             {recentProducts.length === 0 ? (
-              <div className="text-center py-8 text-neutral-500 text-sm">No recent foods yet</div>
+              <div className="text-center py-8 text-neutral-500 text-sm">{t('nutrition.foodForm.noRecentFoods')}</div>
             ) : (
               <div className="space-y-2">
                 {recentProducts.slice(0, recentDisplayCount).map((p, i) => (
@@ -412,7 +412,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     onClick={() => setRecentDisplayCount(c => c + LIST_PAGE)}
                     className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
                   >
-                    Show more ({recentProducts.length - recentDisplayCount} remaining)
+                    {t('nutrition.foodForm.showMore', { count: recentProducts.length - recentDisplayCount })}
                   </button>
                 )}
               </div>
@@ -423,7 +423,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
         {tab === 'favorites' && (
           <div className="mb-5">
             {favorites.length === 0 ? (
-              <div className="text-center py-8 text-neutral-500 text-sm">No favorites yet. Star a product after selecting it.</div>
+              <div className="text-center py-8 text-neutral-500 text-sm">{t('nutrition.foodForm.noFavorites')}</div>
             ) : (
               <div className="space-y-2">
                 {favorites.slice(0, favDisplayCount).map(f => (
@@ -447,7 +447,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     onClick={() => setFavDisplayCount(c => c + LIST_PAGE)}
                     className="w-full py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors text-center"
                   >
-                    Show more ({favorites.length - favDisplayCount} remaining)
+                    {t('nutrition.foodForm.showMore', { count: favorites.length - favDisplayCount })}
                   </button>
                 )}
               </div>
@@ -458,14 +458,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
         {tab === 'recipes' && (
           <div className="mb-5">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm text-neutral-400">Your recipes</span>
+              <span className="text-sm text-neutral-400">{t('nutrition.foodForm.yourRecipes')}</span>
               <button onClick={() => setShowNewRecipe(true)} className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors">
-                <Plus size={13} /> New
+                <Plus size={13} /> {t('common.new')}
               </button>
             </div>
             {recipes.length === 0 ? (
               <div className="text-center py-6 text-neutral-500 text-sm border border-neutral-800 rounded-xl">
-                No recipes yet
+                {t('nutrition.foodForm.noRecipes')}
               </div>
             ) : (
               <div className="space-y-2">
@@ -491,7 +491,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
 
         <div className="space-y-4">
           <div>
-            <p className="text-xs font-medium text-neutral-400 mb-2">Add to meal</p>
+            <p className="text-xs font-medium text-neutral-400 mb-2">{t('nutrition.foodForm.addToMeal')}</p>
             <div className="grid grid-cols-4 gap-1">
               {MEAL_CATEGORIES.map(c => (
                 <button
@@ -513,11 +513,11 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
             <div className="flex-1">
               {selectedProduct ? (
                 <div>
-                  <p className="text-xs font-medium text-neutral-400 mb-1.5">Food Name</p>
+                  <p className="text-xs font-medium text-neutral-400 mb-1.5">{t('nutrition.foodForm.foodName')}</p>
                   <p className="px-3 py-2 rounded-xl bg-neutral-900/60 border border-neutral-800/50 text-white text-sm truncate">{name}</p>
                 </div>
               ) : (
-                <Input label="Food Name" value={name} onChange={e => setName(e.target.value)} placeholder="Chicken breast" />
+                <Input label={t('nutrition.foodForm.foodName')} value={name} onChange={e => setName(e.target.value)} placeholder="Chicken breast" />
               )}
             </div>
             {selectedProduct?.id && (
@@ -526,14 +526,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 className={`mb-0.5 p-2.5 rounded-xl border transition-all ${isFavorited ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:text-amber-400'}`}
               >
                 <Heart size={16} className={isFavorited ? 'fill-current' : ''} />
-              </button>
+            </button>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Quantity" type="number" value={quantity} onChange={e => setQuantity(e.target.value)} />
+            <Input label={t('nutrition.foodForm.quantity')} type="number" value={quantity} onChange={e => setQuantity(e.target.value)} />
             <Select
-              label="Unit"
+              label={t('nutrition.foodForm.unit')}
               value={unit}
               onChange={e => setUnit(e.target.value)}
               options={FOOD_UNITS.map(u => ({ value: u, label: u }))}
@@ -550,25 +550,25 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           )}
 
           <p className="text-xs text-neutral-500">
-            {isServingUnit ? 'Nutritional values per serving:' : 'Nutritional values per 100g (scaled to your quantity):'}
+            {isServingUnit ? t('nutrition.foodForm.nutritionalValuesPer') : t('nutrition.foodForm.nutritionalValuesPer100g')}
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label="Calories" type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />
-            <Input label="Protein (g)" type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="0" />
-            <Input label="Carbs (g)" type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="0" />
-            <Input label="Fat (g)" type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
+            <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />
+            <Input label={`${t('common.protein')} (g)`} type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="0" />
+            <Input label={`${t('common.carbs')} (g)`} type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="0" />
+            <Input label={`${t('common.fat')} (g)`} type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
           </div>
 
           {+calories > 0 && +quantity > 0 && (
             <div className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm">
               <p className="text-blue-400 font-medium">
-                Total: {Math.round(+calories * scale)} cal | P: {Math.round(+protein * scale)}g | C: {Math.round(+carbs * scale)}g | F: {Math.round(+fat * scale)}g
+                {t('nutrition.foodForm.total')} {Math.round(+calories * scale)} cal | P: {Math.round(+protein * scale)}g | C: {Math.round(+carbs * scale)}g | F: {Math.round(+fat * scale)}g
               </p>
             </div>
           )}
 
-          <Button onClick={handleSave} loading={saving} className="w-full">Save</Button>
+          <Button onClick={handleSave} loading={saving} className="w-full">{t('common.save')}</Button>
         </div>
       </div>
     </div>

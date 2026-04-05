@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Flame } from 'lucide-react';
 import { useAuthStore } from '../../../stores/authStore';
 import { useStreakStore } from '../../../stores/streakStore';
@@ -8,6 +9,7 @@ interface StreakWidgetProps {
 }
 
 export default function StreakWidget({ size }: StreakWidgetProps) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { streak, fetchStreak } = useStreakStore();
 
@@ -53,9 +55,9 @@ export default function StreakWidget({ size }: StreakWidgetProps) {
                 isActive      ? 'text-orange-400' : 'text-neutral-400'}`}>
               {current}
             </span>
-            <span className="text-xs text-neutral-500">day{current !== 1 ? 's' : ''}</span>
+            <span className="text-xs text-neutral-500">{current !== 1 ? t('widgets.streak.days') : t('widgets.streak.day')}</span>
           </div>
-          <p className="text-xs text-neutral-500">Current streak</p>
+          <p className="text-xs text-neutral-500">{t('widgets.streak.currentStreak')}</p>
         </div>
 
         {/* Fire badge for long streaks */}
@@ -63,7 +65,7 @@ export default function StreakWidget({ size }: StreakWidgetProps) {
           <div className="ml-auto flex items-center gap-1 bg-orange-500/15 border border-orange-500/25 rounded-lg px-2 py-1 animate-badge-pop">
             <Flame size={10} className="text-orange-400" />
             <span className="text-[10px] font-bold text-orange-400">
-              {current >= 30 ? 'Legend' : current >= 14 ? 'On Fire!' : 'Hot!'}
+              {current >= 30 ? t('widgets.streak.legend') : current >= 14 ? t('widgets.streak.onFire') : t('widgets.streak.hot')}
             </span>
           </div>
         )}
@@ -79,21 +81,21 @@ export default function StreakWidget({ size }: StreakWidgetProps) {
             />
           </div>
           <p className="text-[10px] text-neutral-600 mt-1 text-right">
-            {current % 7 === 0 ? '🎉 Week complete!' : `${7 - (current % 7)} days to next week`}
+            {current % 7 === 0 ? t('widgets.streak.weekComplete') : t('widgets.streak.daysToNextWeek', { n: 7 - (current % 7) })}
           </p>
         </div>
       )}
 
       <div className="flex items-center justify-between bg-neutral-800/50 rounded-xl px-3 py-2">
-        <span className="text-xs text-neutral-400">Best streak</span>
+        <span className="text-xs text-neutral-400">{t('widgets.streak.bestStreak')}</span>
         <div className="flex items-center gap-1">
           {longest >= current && current > 0 && <span className="text-[10px] text-amber-400">🏆</span>}
-          <span className="text-xs font-semibold text-white">{longest} day{longest !== 1 ? 's' : ''}</span>
+          <span className="text-xs font-semibold text-white">{longest} {longest !== 1 ? t('widgets.streak.days') : t('widgets.streak.day')}</span>
         </div>
       </div>
 
       {!isActive && (
-        <p className="text-xs text-neutral-600 mt-2 text-center">Log any activity today to start a streak</p>
+        <p className="text-xs text-neutral-600 mt-2 text-center">{t('widgets.streak.startStreak')}</p>
       )}
     </div>
   );

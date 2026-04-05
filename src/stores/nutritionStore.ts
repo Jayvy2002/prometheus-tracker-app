@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { NutritionLog, WaterLog, FoodProduct, ProductRequest, FoodFavorite, DailySteps } from '../lib/types';
 import { todayStr } from '../lib/utils';
+import { toast } from '../components/ui/Toast';
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -25,11 +26,12 @@ interface NutritionState {
   batchSaveProducts: (products: Partial<FoodProduct>[]) => Promise<void>;
   uploadProductImage: (userId: string, file: File, slot: string) => Promise<string | null>;
   createProductRequest: (request: Partial<ProductRequest>) => Promise<ProductRequest | null>;
-  analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | null>;
+  analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | { error: string }>;
   fetchFavorites: (userId: string) => Promise<void>;
   addFavorite: (userId: string, product: FoodProduct) => Promise<void>;
   removeFavorite: (id: string) => Promise<void>;
   fetchRecentProducts: (userId: string) => Promise<void>;
+  fetchCaloriesForRange: (userId: string, startDate: string, endDate: string) => Promise<{ logged_at: string; calories: number }[]>;
   fetchOrCreateSteps: (userId: string, date: string) => Promise<DailySteps | null>;
   logSteps: (userId: string, steps: number, date: string) => Promise<void>;
 }
@@ -69,7 +71,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
   updateLog: async (id, updates) => {
     const { error } = await supabase.from('nutrition_logs').update(updates).eq('id', id);
-    if (error) { console.error('updateLog failed:', error.message); return; }
+    if (error) { toast(error.message, 'error'); return; }
     set(s => ({
       logs: s.logs.map(l => l.id === id ? { ...l, ...updates } as NutritionLog : l),
     }));
@@ -77,7 +79,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
   deleteLog: async (id) => {
     const { error } = await supabase.from('nutrition_logs').delete().eq('id', id);
-    if (error) { console.error('deleteLog failed:', error.message); return; }
+    if (error) { toast(error.message, 'error'); return; }
     set(s => ({ logs: s.logs.filter(l => l.id !== id) }));
   },
 
@@ -104,7 +106,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
   deleteWater: async (id) => {
     const { error } = await supabase.from('water_logs').delete().eq('id', id);
-    if (error) { console.error('deleteWater failed:', error.message); return; }
+    if (error) { toast(error.message, 'error'); return; }
     set(s => ({ waterLogs: s.waterLogs.filter(w => w.id !== id) }));
   },
 
@@ -188,25 +190,24 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   analyzeProductRequest: async (requestId) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return null;
-
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-product`;
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ request_id: requestId }),
+    // Use supabase.functions.invoke() — automatically adds Authorization + apikey headers
+    const { data, error } = await supabase.functions.invoke('analyze-product', {
+      body: { request_id: requestId },
     });
 
-    if (!res.ok) return null;
-    const result = await res.json();
-    if (!result.product) return null;
+    if (error) {
+      console.error('[analyzeProductRequest] Edge Function error:', error);
+      return { error: 'scanner.aiStartError' };
+    }
+    if (!data?.product) {
+      console.error('[analyzeProductRequest] No product in response:', data);
+      const errCode = (data?.error as string) ?? '';
+      if (errCode === 'DAILY_LIMIT_REACHED') return { error: 'scanner.dailyLimitReached' };
+      return { error: 'scanner.aiStartError' };
+    }
     return {
-      product: result.product as FoodProduct,
-      confidence: typeof result.confidence === 'number' ? result.confidence : 100,
+      product: data.product as FoodProduct,
+      confidence: typeof data.confidence === 'number' ? data.confidence : 100,
     };
   },
 
@@ -280,6 +281,16 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       if (recent.length >= 10) break;
     }
     set({ recentProducts: recent });
+  },
+
+  fetchCaloriesForRange: async (userId, startDate, endDate) => {
+    const { data } = await supabase
+      .from('nutrition_logs')
+      .select('logged_at, calories')
+      .eq('user_id', userId)
+      .gte('logged_at', startDate)
+      .lte('logged_at', endDate);
+    return (data ?? []) as { logged_at: string; calories: number }[];
   },
 
   fetchOrCreateSteps: async (userId, date) => {

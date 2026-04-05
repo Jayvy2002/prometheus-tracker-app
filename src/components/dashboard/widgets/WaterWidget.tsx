@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useNutritionStore } from '../../../stores/nutritionStore';
 import { useProfileStore } from '../../../stores/profileStore';
 import { Droplets } from 'lucide-react';
@@ -5,6 +6,7 @@ import { Droplets } from 'lucide-react';
 type WidgetSize = 'small' | 'medium' | 'large';
 
 export default function WaterWidget({ size = 'large' }: { size?: WidgetSize }) {
+  const { t } = useTranslation();
   const { waterLogs } = useNutritionStore();
   const { profile } = useProfileStore();
   const target = profile?.daily_water_target_ml ?? 2500;
@@ -71,7 +73,7 @@ export default function WaterWidget({ size = 'large' }: { size?: WidgetSize }) {
         <span className="text-sm text-neutral-400">/ {target} ml</span>
         {isGoalMet && (
           <span className="ml-auto text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-2 py-0.5 animate-fade-in-scale">
-            Goal! 💧
+            {t('widgets.water.goal')}
           </span>
         )}
       </div>
@@ -107,7 +109,7 @@ export default function WaterWidget({ size = 'large' }: { size?: WidgetSize }) {
         {targetGlasses > 10 && (
           <span className="text-[10px] text-neutral-600">+{targetGlasses - 10}</span>
         )}
-        <span className="text-xs text-neutral-500 ml-1">{glasses}/{targetGlasses} glasses</span>
+        <span className="text-xs text-neutral-500 ml-1">{t('widgets.water.glasses', { glasses, target: targetGlasses })}</span>
       </div>
     </div>
   );

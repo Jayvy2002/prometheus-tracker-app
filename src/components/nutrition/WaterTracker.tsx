@@ -1,4 +1,5 @@
 import { Droplets, Minus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -7,6 +8,7 @@ import Card from '../ui/Card';
 const QUICK_ADD = [150, 250, 500];
 
 export default function WaterTracker() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { waterLogs, addWater, deleteWater, selectedDate } = useNutritionStore();
@@ -28,7 +30,7 @@ export default function WaterTracker() {
     <Card>
       <div className="flex items-center gap-2 mb-3">
         <Droplets className="text-sky-400" size={18} />
-        <span className="text-sm font-medium text-white">Water</span>
+        <span className="text-sm font-medium text-white">{t('nutrition.water.title')}</span>
         <span className="text-xs text-neutral-500 ml-auto">{consumed} / {target} ml</span>
       </div>
       <div className="h-2 bg-neutral-800 rounded-full overflow-hidden mb-3">

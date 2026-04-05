@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Dumbbell, Apple, Scale, Flame, CalendarDays, CalendarRange } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -64,15 +65,24 @@ function dateToStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 export default function CalendarPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { workouts, fetchWorkouts } = useWorkoutStore();
   const { measurements, fetchMeasurements } = useWeightStore();
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
+
+  const DAY_LABELS = [
+    t('calendar.days.mon'),
+    t('calendar.days.tue'),
+    t('calendar.days.wed'),
+    t('calendar.days.thu'),
+    t('calendar.days.fri'),
+    t('calendar.days.sat'),
+    t('calendar.days.sun'),
+  ];
 
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekOffset, setWeekOffset] = useState(0);
@@ -83,14 +93,12 @@ export default function CalendarPage() {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const unit = profile?.unit_weight ?? 'kg';
 
-  // Fetch all workout and weight data on mount
   useEffect(() => {
     if (!user) return;
     fetchWorkouts(user.id);
     fetchMeasurements(user.id);
   }, [user]);
 
-  // Fetch all nutrition dates (past 90 days) for streaks + display
   useEffect(() => {
     if (!user) return;
     const start = new Date();
@@ -106,7 +114,6 @@ export default function CalendarPage() {
       });
   }, [user]);
 
-  // Fetch day summary when selectedDate changes
   useEffect(() => {
     if (!user || !selectedDate) return;
     setSummaryLoading(true);
@@ -177,7 +184,6 @@ export default function CalendarPage() {
     return new Set(measurements.map(m => m.measured_at));
   }, [measurements]);
 
-  // Streak calculation
   const streakCount = useMemo(() => {
     const todayDate = dateToStr(new Date());
     const allLogged = new Set([...workoutDateSet, ...weightDateSet, ...allNutritionDates]);
@@ -198,7 +204,6 @@ export default function CalendarPage() {
     return count;
   }, [workoutDateSet, weightDateSet, allNutritionDates]);
 
-  // Week view data
   const weekBaseDate = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + weekOffset * 7);
@@ -208,12 +213,11 @@ export default function CalendarPage() {
   const weekDates = useMemo(() => getWeekDates(weekBaseDate), [weekBaseDate]);
 
   const weekLabel = useMemo(() => {
-    if (weekOffset === 0) return 'This Week';
-    if (weekOffset === -1) return 'Last Week';
+    if (weekOffset === 0) return t('calendar.thisWeek');
+    if (weekOffset === -1) return t('calendar.lastWeek');
     return `${weekDates[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekDates[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  }, [weekDates, weekOffset]);
+  }, [weekDates, weekOffset, t]);
 
-  // Month view data
   const monthBaseDate = useMemo(() => {
     const d = new Date();
     d.setDate(1);
@@ -282,7 +286,7 @@ export default function CalendarPage() {
     <PageTransition>
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
-        <h1 className="text-2xl font-bold text-white">Calendar</h1>
+        <h1 className="text-2xl font-bold text-white">{t('calendar.title')}</h1>
         <div className="flex items-center gap-2">
           {streakCount > 0 && (
             <div className="flex items-center gap-1 bg-orange-500/15 border border-orange-500/25 rounded-xl px-2.5 py-1.5">
@@ -293,7 +297,6 @@ export default function CalendarPage() {
           <button
             onClick={() => setViewMode(viewMode === 'week' ? 'month' : 'week')}
             className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-            title={viewMode === 'week' ? 'Switch to month view' : 'Switch to week view'}
           >
             {viewMode === 'week' ? <CalendarRange size={18} /> : <CalendarDays size={18} />}
           </button>
@@ -332,39 +335,38 @@ export default function CalendarPage() {
         <div className="flex items-center gap-4 mt-4 pt-3 border-t border-neutral-800">
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-            Workout
+            {t('calendar.legend.workout')}
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Nutrition
+            {t('calendar.legend.nutrition')}
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
             <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-            Weight
+            {t('calendar.legend.weight')}
           </div>
           {streakCount > 0 && (
             <div className="ml-auto flex items-center gap-1 text-[11px] text-orange-400">
               <Flame size={11} />
-              <span>{streakCount} day streak</span>
+              <span>{t('calendar.legend.streak', { n: streakCount })}</span>
             </div>
           )}
         </div>
       </Card>
 
-      {/* Weekly summary (only in week view) */}
       {viewMode === 'week' && (
         <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
             <p className="text-lg font-bold text-blue-400">{weekDayData.filter(d => d.hasWorkout).length}</p>
-            <p className="text-[10px] text-neutral-500">Workouts</p>
+            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.workouts')}</p>
           </div>
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
             <p className="text-lg font-bold text-emerald-400">{weekDayData.filter(d => d.hasNutrition).length}</p>
-            <p className="text-[10px] text-neutral-500">Days logged</p>
+            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.daysLogged')}</p>
           </div>
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
             <p className="text-lg font-bold text-amber-400">{weekDayData.filter(d => d.hasWeight).length}</p>
-            <p className="text-[10px] text-neutral-500">Weigh-ins</p>
+            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.weighIns')}</p>
           </div>
         </div>
       )}
@@ -399,7 +401,9 @@ export default function CalendarPage() {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white">{daySummary.workout.name}</p>
-                <p className="text-xs text-neutral-500">{daySummary.workout.exerciseCount} exercise{daySummary.workout.exerciseCount !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-neutral-500">
+                  {daySummary.workout.exerciseCount} {daySummary.workout.exerciseCount !== 1 ? t('calendar.day.exercises') : t('calendar.day.exercise')}
+                </p>
               </div>
             </Card>
           ) : (
@@ -407,7 +411,7 @@ export default function CalendarPage() {
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
                 <Dumbbell size={16} className="text-neutral-500" />
               </div>
-              <p className="text-sm text-neutral-500">No workout logged</p>
+              <p className="text-sm text-neutral-500">{t('calendar.day.noWorkout')}</p>
             </Card>
           )}
 
@@ -422,7 +426,7 @@ export default function CalendarPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-1.5">
-                    <p className="text-sm font-semibold text-white">{daySummary.nutrition.totalCals} kcal</p>
+                    <p className="text-sm font-semibold text-white">{daySummary.nutrition.totalCals} {t('common.kcal')}</p>
                     {profile?.daily_calorie_target && (
                       <p className="text-xs text-neutral-500">/ {profile.daily_calorie_target}</p>
                     )}
@@ -443,15 +447,15 @@ export default function CalendarPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="bg-neutral-800/50 rounded-lg px-2 py-1.5 text-center">
                   <p className="text-xs font-bold text-blue-400">{daySummary.nutrition.protein}g</p>
-                  <p className="text-[10px] text-neutral-500">Protein</p>
+                  <p className="text-[10px] text-neutral-500">{t('common.protein')}</p>
                 </div>
                 <div className="bg-neutral-800/50 rounded-lg px-2 py-1.5 text-center">
                   <p className="text-xs font-bold text-amber-400">{daySummary.nutrition.carbs}g</p>
-                  <p className="text-[10px] text-neutral-500">Carbs</p>
+                  <p className="text-[10px] text-neutral-500">{t('common.carbs')}</p>
                 </div>
                 <div className="bg-neutral-800/50 rounded-lg px-2 py-1.5 text-center">
                   <p className="text-xs font-bold text-rose-400">{daySummary.nutrition.fat}g</p>
-                  <p className="text-[10px] text-neutral-500">Fat</p>
+                  <p className="text-[10px] text-neutral-500">{t('common.fat')}</p>
                 </div>
               </div>
             </Card>
@@ -460,7 +464,7 @@ export default function CalendarPage() {
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
                 <Apple size={16} className="text-neutral-500" />
               </div>
-              <p className="text-sm text-neutral-500">No nutrition logged</p>
+              <p className="text-sm text-neutral-500">{t('calendar.day.noNutrition')}</p>
             </Card>
           )}
 
@@ -474,7 +478,7 @@ export default function CalendarPage() {
               </div>
               <div>
                 <p className="text-sm font-semibold text-white">{formatWeight(daySummary.weight, unit)}</p>
-                <p className="text-xs text-neutral-500">Weight logged</p>
+                <p className="text-xs text-neutral-500">{t('calendar.day.weightLogged')}</p>
               </div>
             </Card>
           ) : (
@@ -482,7 +486,7 @@ export default function CalendarPage() {
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
                 <Scale size={16} className="text-neutral-500" />
               </div>
-              <p className="text-sm text-neutral-500">No weight logged</p>
+              <p className="text-sm text-neutral-500">{t('calendar.day.noWeight')}</p>
             </Card>
           )}
         </div>

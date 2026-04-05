@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react';
+import i18n from '../i18n';
 
 interface Props {
   children: ReactNode;
@@ -33,7 +34,7 @@ export class ErrorBoundary extends Component<Props, State> {
           padding: '2rem',
           fontFamily: 'monospace',
         }}>
-          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚠️ Erreur de rendu</div>
+          <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⚠️ {i18n.t('errors.renderError')}</div>
           <div style={{
             background: '#1a1a1a',
             border: '1px solid #ef4444',
@@ -62,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
               cursor: 'pointer',
             }}
           >
-            Réessayer
+            {i18n.t('errors.retry')}
           </button>
         </div>
       );

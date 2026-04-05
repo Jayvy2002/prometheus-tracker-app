@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, TrendingUp, ChevronDown, Trophy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
@@ -22,11 +23,7 @@ interface ExerciseSummary {
 
 type Metric = 'estimated1RM' | 'maxWeight' | 'totalVolume';
 
-const METRIC_LABELS: Record<Metric, string> = {
-  estimated1RM: 'Est. 1RM',
-  maxWeight: 'Max Weight',
-  totalVolume: 'Volume (kg)',
-};
+// METRIC_LABELS is now computed inside the component using t()
 
 const METRICS: Metric[] = ['estimated1RM', 'maxWeight', 'totalVolume'];
 
@@ -36,8 +33,15 @@ function estimate1RM(weight: number, reps: number): number {
 }
 
 export default function ExerciseProgressPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+
+  const METRIC_LABELS: Record<Metric, string> = {
+    estimated1RM: t('workout.progressPage.metrics.estOneRM'),
+    maxWeight: t('workout.progressPage.metrics.maxWeight'),
+    totalVolume: t('workout.progressPage.metrics.volume'),
+  };
   const [exercises, setExercises] = useState<string[]>([]);
   const [selected, setSelected] = useState<string>('');
   const [summary, setSummary] = useState<ExerciseSummary | null>(null);
@@ -121,7 +125,7 @@ export default function ExerciseProgressPage() {
         <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-bold text-white flex-1">Exercise Progress</h1>
+        <h1 className="text-2xl font-bold text-white flex-1">{t('workout.progressPage.title')}</h1>
       </div>
 
       <div className="mb-4 animate-fade-in-scale">
@@ -129,7 +133,7 @@ export default function ExerciseProgressPage() {
           onClick={() => setShowPicker(o => !o)}
           className="w-full flex items-center justify-between bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-sm font-medium text-white hover:border-neutral-700 transition-colors"
         >
-          {selected || 'Select exercise'}
+          {selected || t('workout.progressPage.selectExercise')}
           <ChevronDown size={16} className={`text-neutral-400 transition-transform ${showPicker ? 'rotate-180' : ''}`} />
         </button>
         {showPicker && (
@@ -145,14 +149,14 @@ export default function ExerciseProgressPage() {
               </button>
             ))}
             {exercises.length === 0 && (
-              <p className="px-4 py-3 text-sm text-neutral-500">No exercises logged yet</p>
+              <p className="px-4 py-3 text-sm text-neutral-500">{t('workout.progressPage.noExercisesYet')}</p>
             )}
           </div>
         )}
       </div>
 
       {loading ? (
-        <div className="text-center py-12 text-neutral-500">Loading...</div>
+        <div className="text-center py-12 text-neutral-500">{t('common.loading')}</div>
       ) : summary && summary.entries.length > 0 ? (
         <>
           <div className="space-y-3 mb-4">
@@ -202,18 +206,18 @@ export default function ExerciseProgressPage() {
                       </ResponsiveContainer>
                     </div>
                   ) : (
-                    <p className="text-xs text-neutral-600 mt-1">Log more sessions to see the chart</p>
+                    <p className="text-xs text-neutral-600 mt-1">{t('workout.progressPage.logMoreSessions')}</p>
                   )}
                   <div className="flex items-center gap-1 mt-2">
                     <Trophy size={11} className="text-amber-500 shrink-0" />
-                    <span className="text-[11px] text-neutral-500">All-time best — <span className="text-amber-400 font-medium">{allTimeBest}{unit}</span></span>
+                    <span className="text-[11px] text-neutral-500">{t('workout.progressPage.allTimeBest')} — <span className="text-amber-400 font-medium">{allTimeBest}{unit}</span></span>
                   </div>
                 </Card>
               );
             })}
           </div>
 
-          <h3 className="text-sm font-medium text-neutral-400 mb-3 animate-fade-in-up stagger-5">Sessions</h3>
+          <h3 className="text-sm font-medium text-neutral-400 mb-3 animate-fade-in-up stagger-5">{t('workout.progressPage.sessions')}</h3>
           <div className="space-y-2">
             {[...summary.entries].reverse().slice(0, 15).map((e, i) => (
               <div key={e.date} className="animate-fade-in-up" style={{ animationDelay: `${i * 40}ms` }}>
@@ -221,7 +225,7 @@ export default function ExerciseProgressPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-white">{new Date(e.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</p>
-                      <p className="text-xs text-neutral-500">{e.sets} working sets</p>
+                      <p className="text-xs text-neutral-500">{e.sets} {t('workout.progressPage.workingSets')}</p>
                     </div>
                     <div className="text-right space-y-0.5">
                       <p className="text-xs text-blue-400 font-medium">{e.estimated1RM} kg <span className="text-neutral-600 font-normal">1RM</span></p>
@@ -237,7 +241,7 @@ export default function ExerciseProgressPage() {
       ) : selected ? (
         <Card className="text-center py-12">
           <TrendingUp className="mx-auto mb-3 text-neutral-600" size={32} />
-          <p className="text-neutral-400">No completed working sets found for {selected}</p>
+          <p className="text-neutral-400">{t('workout.progressPage.noSetsFound', { name: selected })}</p>
         </Card>
       ) : null}
     </div>

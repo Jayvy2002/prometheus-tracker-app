@@ -1,7 +1,9 @@
+import { useTranslation } from 'react-i18next';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useProfileStore } from '../../stores/profileStore';
 
 export default function MacroSummary() {
+  const { t } = useTranslation();
   const { logs } = useNutritionStore();
   const { profile } = useProfileStore();
 
@@ -11,9 +13,9 @@ export default function MacroSummary() {
   );
 
   const macros = [
-    { label: 'Protein', value: Math.round(totals.p), target: profile?.protein_target ?? 150, color: 'text-sky-400', bg: 'bg-sky-400' },
-    { label: 'Carbs', value: Math.round(totals.c), target: profile?.carbs_target ?? 250, color: 'text-amber-400', bg: 'bg-amber-400' },
-    { label: 'Fat', value: Math.round(totals.f), target: profile?.fat_target ?? 65, color: 'text-rose-400', bg: 'bg-rose-400' },
+    { label: t('common.protein'), value: Math.round(totals.p), target: profile?.protein_target ?? 150, color: 'text-sky-400', bg: 'bg-sky-400' },
+    { label: t('common.carbs'), value: Math.round(totals.c), target: profile?.carbs_target ?? 250, color: 'text-amber-400', bg: 'bg-amber-400' },
+    { label: t('common.fat'), value: Math.round(totals.f), target: profile?.fat_target ?? 65, color: 'text-rose-400', bg: 'bg-rose-400' },
   ];
 
   return (

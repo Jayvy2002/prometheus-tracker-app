@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
 export default function PersonalInfoForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const [name, setName] = useState(profile?.full_name ?? '');
@@ -32,15 +34,15 @@ export default function PersonalInfoForm({ onBack, inline }: { onBack: () => voi
       {!inline && (
         <>
           <button onClick={onBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6 transition-colors">
-            <ArrowLeft size={18} /> <span className="text-sm">Back</span>
+            <ArrowLeft size={18} /> <span className="text-sm">{t('common.back')}</span>
           </button>
-          <h2 className="text-xl font-bold text-white mb-6">Personal Information</h2>
+          <h2 className="text-xl font-bold text-white mb-6">{t('profile.personalInfo.title')}</h2>
         </>
       )}
       <div className="space-y-4">
-        <Input label="Full Name" value={name} onChange={e => setName(e.target.value)} />
+        <Input label={t('profile.personalInfo.fullName')} value={name} onChange={e => setName(e.target.value)} />
         <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-neutral-300">Gender</label>
+          <label className="block text-sm font-medium text-neutral-300">{t('profile.personalInfo.gender')}</label>
           <div className="grid grid-cols-3 gap-2">
             {['male', 'female', 'other'].map(g => (
               <button
@@ -54,9 +56,9 @@ export default function PersonalInfoForm({ onBack, inline }: { onBack: () => voi
             ))}
           </div>
         </div>
-        <Input label="Date of Birth" type="date" value={dob} onChange={e => setDob(e.target.value)} />
-        <Input label="Height (cm)" type="number" value={height} onChange={e => setHeight(e.target.value)} />
-        <Button onClick={handleSave} loading={saving} className="w-full">Save Changes</Button>
+        <Input label={t('profile.personalInfo.dateOfBirth')} type="date" value={dob} onChange={e => setDob(e.target.value)} />
+        <Input label={t('profile.personalInfo.heightCm')} type="number" value={height} onChange={e => setHeight(e.target.value)} />
+        <Button onClick={handleSave} loading={saving} className="w-full">{t('common.saveChanges')}</Button>
       </div>
     </div>
   );

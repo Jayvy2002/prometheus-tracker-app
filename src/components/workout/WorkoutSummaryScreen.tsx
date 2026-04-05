@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { CheckCircle, Zap, Dumbbell, Clock, BarChart2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { formatDuration } from '../../lib/utils';
 import type { Workout } from '../../lib/types';
 
@@ -77,14 +78,15 @@ export default function WorkoutSummaryScreen({
   duration: number;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   const stats = computeStats(workout, duration);
   const closedRef = useRef(false);
 
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (!closedRef.current) onClose();
     }, 30000);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [onClose]);
 
   const handleClose = () => {
@@ -108,11 +110,11 @@ export default function WorkoutSummaryScreen({
               <CheckCircle size={36} className="text-blue-400" strokeWidth={1.5} />
             </div>
           </div>
-          <h1 className="text-3xl font-bold text-white mb-1">Workout Complete!</h1>
+          <h1 className="text-3xl font-bold text-white mb-1">{t('workout.summary.title')}</h1>
           {workout.name ? (
             <p className="text-neutral-400 text-sm">{workout.name}</p>
           ) : (
-            <p className="text-neutral-500 text-sm">Great session 💪</p>
+            <p className="text-neutral-500 text-sm">{t('workout.summary.subtitle')}</p>
           )}
         </div>
 
@@ -123,25 +125,25 @@ export default function WorkoutSummaryScreen({
         >
           <StatCard
             icon={Clock}
-            label="Duration"
+            label={t('workout.summary.duration')}
             value={formatDuration(duration)}
             colorClass="bg-blue-500/15 text-blue-400"
           />
           <StatCard
             icon={BarChart2}
-            label="Total Volume"
+            label={t('workout.summary.totalVolume')}
             value={volumeLabel}
             colorClass="bg-emerald-500/15 text-emerald-400"
           />
           <StatCard
             icon={Dumbbell}
-            label="Exercises"
+            label={t('workout.summary.exercises')}
             value={String(stats.exerciseCount)}
             colorClass="bg-orange-500/15 text-orange-400"
           />
           <StatCard
             icon={Zap}
-            label="Sets Done"
+            label={t('workout.summary.setsDone')}
             value={String(stats.setCount)}
             colorClass="bg-violet-500/15 text-violet-400"
           />
@@ -154,7 +156,7 @@ export default function WorkoutSummaryScreen({
             style={{ animationDelay: '160ms' }}
           >
             <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-2 px-0.5">
-              Top Lifts
+              {t('workout.summary.topLifts')}
             </p>
             <div className="space-y-2">
               {stats.topExercises.map((ex, i) => (
@@ -171,12 +173,12 @@ export default function WorkoutSummaryScreen({
                         {ex.volume >= 1000
                           ? `${(ex.volume / 1000).toFixed(1)}t`
                           : `${Math.round(ex.volume)} kg`}{' '}
-                        vol
+                        {t('workout.summary.vol')}
                       </p>
                     )}
                     {ex.estimated1RM > 0 && (
                       <p className="text-[11px] text-blue-400 font-medium">
-                        ~{Math.round(ex.estimated1RM)} kg 1RM
+                        ~{Math.round(ex.estimated1RM)} kg {t('workout.summary.oneRM')}
                       </p>
                     )}
                   </div>
@@ -194,7 +196,7 @@ export default function WorkoutSummaryScreen({
           className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base transition-colors animate-fade-in-up shadow-lg shadow-blue-900/30"
           style={{ animationDelay: '240ms' }}
         >
-          Back to Workouts
+          {t('workout.summary.backToWorkouts')}
         </button>
       </div>
     </div>

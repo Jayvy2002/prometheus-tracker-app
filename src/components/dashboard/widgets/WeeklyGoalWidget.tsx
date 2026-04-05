@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../../stores/workoutStore';
 
 type WidgetSize = 'small' | 'medium' | 'large';
@@ -19,6 +20,7 @@ function getWeekDates(): string[] {
 }
 
 export default function WeeklyGoalWidget({ size = 'large' }: { size?: WidgetSize }) {
+  const { t } = useTranslation();
   const { workouts } = useWorkoutStore();
   const navigate = useNavigate();
 
@@ -41,7 +43,7 @@ export default function WeeklyGoalWidget({ size = 'large' }: { size?: WidgetSize
         <div className={`text-xl font-bold ${isGoalMet ? 'text-emerald-400' : 'text-white'}`}>
           {done}/{TARGET}
         </div>
-        <div className="text-[9px] text-neutral-500">sessions</div>
+        <div className="text-[9px] text-neutral-500">{t('widgets.weeklyGoal.sessions')}</div>
         {isGoalMet && <span className="text-[10px] text-emerald-400 animate-celebration">✓</span>}
       </div>
     );
@@ -68,8 +70,8 @@ export default function WeeklyGoalWidget({ size = 'large' }: { size?: WidgetSize
           </div>
           <p className="text-[11px] text-neutral-500">
             {isGoalMet
-              ? '🏆 Weekly goal achieved!'
-              : `${remaining} session${remaining > 1 ? 's' : ''} to go`}
+              ? t('widgets.weeklyGoal.goalAchieved')
+              : t('widgets.weeklyGoal.sessionsToGo', { n: remaining })}
           </p>
         </div>
       </div>
@@ -81,7 +83,7 @@ export default function WeeklyGoalWidget({ size = 'large' }: { size?: WidgetSize
     <div>
       <div className="flex items-end gap-2 mb-3">
         <span className={`text-2xl font-bold ${isGoalMet ? 'text-emerald-400' : 'text-white'}`}>{done}</span>
-        <span className="text-sm text-neutral-400 mb-0.5">/ {TARGET} sessions this week</span>
+        <span className="text-sm text-neutral-400 mb-0.5">/ {TARGET} {t('widgets.weeklyGoal.sessions')}</span>
         {isGoalMet && <span className="text-lg mb-0.5">🎯</span>}
       </div>
 
@@ -128,14 +130,14 @@ export default function WeeklyGoalWidget({ size = 'large' }: { size?: WidgetSize
       {/* CTA or celebration */}
       {isGoalMet ? (
         <div className="mt-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-1.5 text-center animate-fade-in-scale">
-          <span className="text-xs font-semibold text-emerald-400">🏆 Weekly goal achieved!</span>
+          <span className="text-xs font-semibold text-emerald-400">{t('widgets.weeklyGoal.goalAchieved')}</span>
         </div>
       ) : remaining > 0 && todayIndex < 6 ? (
         <button
           onClick={() => navigate('/workout/new')}
           className="mt-3 w-full text-xs text-blue-400 hover:text-blue-300 font-medium text-center transition-colors"
         >
-          {remaining} session{remaining > 1 ? 's' : ''} left — log a workout →
+          {t('widgets.weeklyGoal.sessionsLeft', { n: remaining })}
         </button>
       ) : null}
     </div>
