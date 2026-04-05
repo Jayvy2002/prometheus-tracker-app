@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { NutritionLog, WaterLog, FoodProduct, ProductRequest, FoodFavorite, DailySteps } from '../lib/types';
 import { todayStr } from '../lib/utils';
+import { toast } from '../components/ui/Toast';
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -70,7 +71,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
   updateLog: async (id, updates) => {
     const { error } = await supabase.from('nutrition_logs').update(updates).eq('id', id);
-    if (error) { console.error('updateLog failed:', error.message); return; }
+    if (error) { toast(error.message, 'error'); return; }
     set(s => ({
       logs: s.logs.map(l => l.id === id ? { ...l, ...updates } as NutritionLog : l),
     }));
@@ -78,7 +79,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
   deleteLog: async (id) => {
     const { error } = await supabase.from('nutrition_logs').delete().eq('id', id);
-    if (error) { console.error('deleteLog failed:', error.message); return; }
+    if (error) { toast(error.message, 'error'); return; }
     set(s => ({ logs: s.logs.filter(l => l.id !== id) }));
   },
 
@@ -105,7 +106,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
   deleteWater: async (id) => {
     const { error } = await supabase.from('water_logs').delete().eq('id', id);
-    if (error) { console.error('deleteWater failed:', error.message); return; }
+    if (error) { toast(error.message, 'error'); return; }
     set(s => ({ waterLogs: s.waterLogs.filter(w => w.id !== id) }));
   },
 
@@ -196,12 +197,13 @@ export const useNutritionStore = create<NutritionState>((set) => ({
 
     if (error) {
       console.error('[analyzeProductRequest] Edge Function error:', error);
-      const msg = (error as { message?: string })?.message ?? 'Erreur lors de l\'analyse IA.';
-      return { error: msg };
+      return { error: 'scanner.aiStartError' };
     }
     if (!data?.product) {
       console.error('[analyzeProductRequest] No product in response:', data);
-      return { error: (data?.error as string) ?? "L'IA n'a pas pu extraire les données nutritionnelles." };
+      const errCode = (data?.error as string) ?? '';
+      if (errCode === 'DAILY_LIMIT_REACHED') return { error: 'scanner.dailyLimitReached' };
+      return { error: 'scanner.aiStartError' };
     }
     return {
       product: data.product as FoodProduct,

@@ -5,10 +5,13 @@ import {
   getNotificationSettings,
   saveNotificationSettings,
   requestNotificationPermission,
+  subscribeToPush,
+  syncNotificationSettingsToDB,
 } from '../../lib/notifications';
 import type { NotificationSettings as NS } from '../../lib/notifications';
 import { usePremium } from '../../hooks/usePremium';
 import { usePaywallStore } from '../../stores/paywallStore';
+import { useAuthStore } from '../../stores/authStore';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -28,6 +31,7 @@ export default function NotificationSettings() {
   const supported = 'Notification' in window;
   const { canUseNotifications } = usePremium();
   const { openPaywall } = usePaywallStore();
+  const { user } = useAuthStore();
   const [permission, setPermission] = useState<NotificationPermission>(
     supported ? Notification.permission : 'denied',
   );
@@ -38,7 +42,7 @@ export default function NotificationSettings() {
   if (!canUseNotifications) {
     return (
       <button
-        onClick={() => openPaywall(t('profile.notifications.title'), 'Configurez des rappels quotidiens pour vos séances et votre nutrition avec Premium.')}
+        onClick={() => openPaywall(t('profile.notifications.title'), t('profile.notifications.premiumDesc'))}
         className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/12 transition-colors"
       >
         <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
@@ -59,6 +63,9 @@ export default function NotificationSettings() {
   const handleRequest = async () => {
     setRequesting(true);
     const granted = await requestNotificationPermission();
+    if (granted && user) {
+      await subscribeToPush(user.id);
+    }
     setPermission(granted ? 'granted' : 'denied');
     setRequesting(false);
   };
@@ -67,13 +74,14 @@ export default function NotificationSettings() {
     const updated = { ...settings, ...patch };
     setSettings(updated);
     saveNotificationSettings(updated);
+    if (user) syncNotificationSettingsToDB(user.id, updated);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   if (!supported) {
     return (
-      <p className="text-xs text-neutral-500">Notifications are not supported in this browser.</p>
+      <p className="text-xs text-neutral-500">{t('profile.notifications.notSupported')}</p>
     );
   }
 
@@ -167,7 +175,7 @@ export default function NotificationSettings() {
       )}
 
       <p className="text-[11px] text-neutral-600 leading-relaxed">
-        Reminders are scheduled when you open the app. They will trigger at the selected time if the condition is met.
+        {t('profile.notifications.backgroundNote')}
       </p>
     </div>
   );

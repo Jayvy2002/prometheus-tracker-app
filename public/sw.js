@@ -27,6 +27,41 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Push — show notification when server sends a Web Push message
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  let payload;
+  try { payload = event.data.json(); } catch { payload = { title: 'Prometheus', body: event.data.text() }; }
+
+  const title = payload.title ?? 'Prometheus';
+  const options = {
+    body: payload.body ?? '',
+    icon: '/logo.svg',
+    badge: '/logo.svg',
+    tag: payload.tag ?? 'prometheus-reminder',
+    data: { url: payload.url ?? '/' },
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+// Notification click — focus or open the app
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url ?? '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (const client of windowClients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(url);
+    })
+  );
+});
+
 // Fetch — stale-while-revalidate for static assets, network-only for API calls
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;

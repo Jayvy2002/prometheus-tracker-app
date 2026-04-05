@@ -447,7 +447,6 @@ const fr = {
     tapToChange: 'Appuie sur la photo pour la changer',
     signOut: 'Se déconnecter',
     deleteAccount: 'Supprimer mon compte',
-    admin: 'Admin',
     adminAccess: 'Accès complet à toutes les fonctionnalités',
     premium: 'Premium',
     cancelAtPeriodEnd: 'Renouvellement le {{date}}',
@@ -458,6 +457,12 @@ const fr = {
       title: 'Supprimer le compte',
       typeToConfirm: 'Tape SUPPRIMER pour confirmer',
       deleting: 'Suppression…',
+      confirmText: 'Ceci supprimera définitivement ton compte et toutes tes données — entraînements, journal alimentaire, historique de poids.',
+    },
+    admin: {
+      label: 'Admin',
+      feedbackInbox: 'Boîte de retours',
+      noFeedback: 'Aucun retour pour le moment.',
     },
     sections: {
       personalInfo: 'Informations personnelles',
@@ -522,6 +527,8 @@ const fr = {
     notifications: {
       title: 'Notifications & rappels',
       premiumOnly: 'Disponible avec Premium',
+      premiumDesc: 'Configure des rappels quotidiens pour tes entraînements et ta nutrition avec Premium.',
+      notSupported: 'Les notifications ne sont pas prises en charge par ce navigateur.',
       enabled: 'Notifications activées',
       workoutReminder: "Rappel d'entraînement",
       workoutReminderDesc: "Alerte si aucune séance n'est enregistrée aujourd'hui",
@@ -533,6 +540,7 @@ const fr = {
       requesting: 'Demande de permission…',
       enable: 'Activer les notifications',
       saved: 'Paramètres enregistrés',
+      backgroundNote: 'Les rappels sont envoyés en tant que notifications push, même quand l\'appli est fermée.',
     },
     feedback: {
       suggestion: 'Suggestion',
@@ -579,6 +587,7 @@ const fr = {
 
   stats: {
     title: 'Statistiques',
+    premiumPeriodDesc: 'Les statistiques sur 1 mois et 3 mois sont réservées aux abonnés Premium.',
     periods: {
       week: 'Semaine',
       month: 'Mois',
@@ -685,6 +694,7 @@ const fr = {
     noCameraFound: 'Aucune caméra détectée sur cet appareil.',
     cameraInaccessible: 'Caméra inaccessible. Vérifie les permissions ou entre le code-barres manuellement.',
     aiStartError: 'Impossible de démarrer l\'analyse. Réessaie.',
+    dailyLimitReached: 'Limite quotidienne atteinte. Maximum 10 analyses IA par jour.',
   },
 
   health: {

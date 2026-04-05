@@ -34,27 +34,37 @@ Deno.serve(async (req) => {
       });
     }
 
+    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
+      apiVersion: '2024-06-20',
+    });
+
     const { data: sub } = await supabaseAdmin
       .from('subscriptions')
       .select('stripe_customer_id')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (!sub?.stripe_customer_id) {
-      return new Response(JSON.stringify({ error: 'No subscription found' }), {
+    let customerId = sub?.stripe_customer_id ?? null;
+
+    // Fallback: webhook may not have fired yet — look up customer by email in Stripe
+    if (!customerId && user.email) {
+      const customers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (customers.data.length > 0) {
+        customerId = customers.data[0].id;
+      }
+    }
+
+    if (!customerId) {
+      return new Response(JSON.stringify({ error: 'No billing account found' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY')!, {
-      apiVersion: '2024-06-20',
-    });
-
     const siteUrl = Deno.env.get('SITE_URL') ?? 'http://localhost:5173';
 
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: sub.stripe_customer_id,
+      customer: customerId,
       return_url: `${siteUrl}/profile`,
     });
 

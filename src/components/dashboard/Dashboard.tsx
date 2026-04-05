@@ -11,7 +11,6 @@ import { todayStr } from '../../lib/utils';
 import type { DashboardWidget, WidgetType } from '../../lib/types';
 import DashboardGrid from './DashboardGrid';
 import PageTransition from '../ui/PageTransition';
-import { getNotificationSettings, scheduleNotificationsForToday } from '../../lib/notifications';
 import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
 import { usePaywallStore } from '../../stores/paywallStore';
 
@@ -41,9 +40,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { logs, fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { fetchLogs, fetchWaterLogs } = useNutritionStore();
   const { fetchMeasurements } = useWeightStore();
-  const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { fetchWorkouts } = useWorkoutStore();
   const { canAddWidget, canUseWidgetType, isPremium } = usePremium();
   const { openPaywall } = usePaywallStore();
   const [showAdd, setShowAdd] = useState(false);
@@ -60,16 +59,6 @@ export default function Dashboard() {
     fetchMeasurements(user.id);
     fetchWorkouts(user.id);
   }, [user]);
-
-  // Schedule local notifications once data is loaded
-  useEffect(() => {
-    const settings = getNotificationSettings();
-    if (!settings.workout_enabled && !settings.nutrition_enabled) return;
-    const today = todayStr();
-    const workoutsLoggedToday = workouts.some(w => w.completed && w.date?.startsWith(today));
-    const mealsLoggedToday = logs.length > 0;
-    scheduleNotificationsForToday(settings, workoutsLoggedToday, mealsLoggedToday);
-  }, [workouts.length, logs.length]);
 
   const widgets = profile?.dashboard_layout ?? [];
 

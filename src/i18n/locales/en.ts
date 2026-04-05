@@ -447,7 +447,6 @@ const en = {
     tapToChange: 'Tap photo to change',
     signOut: 'Sign Out',
     deleteAccount: 'Delete my account',
-    admin: 'Admin',
     adminAccess: 'Full access to all features',
     premium: 'Premium',
     cancelAtPeriodEnd: 'Renews on {{date}}',
@@ -458,6 +457,12 @@ const en = {
       title: 'Delete Account',
       typeToConfirm: 'Type DELETE to confirm',
       deleting: 'Deleting…',
+      confirmText: 'This will permanently delete your account and all your data — workouts, nutrition logs, weight history.',
+    },
+    admin: {
+      label: 'Admin',
+      feedbackInbox: 'Feedback Inbox',
+      noFeedback: 'No feedback yet.',
     },
     sections: {
       personalInfo: 'Personal Information',
@@ -522,6 +527,8 @@ const en = {
     notifications: {
       title: 'Notifications & Reminders',
       premiumOnly: 'Available with Premium',
+      premiumDesc: 'Set up daily reminders for your workouts and nutrition with Premium.',
+      notSupported: 'Notifications are not supported in this browser.',
       enabled: 'Notifications are enabled',
       workoutReminder: 'Workout reminder',
       workoutReminderDesc: 'Alert if no workout logged today',
@@ -533,6 +540,7 @@ const en = {
       requesting: 'Requesting permission…',
       enable: 'Enable notifications',
       saved: 'Settings saved',
+      backgroundNote: 'Reminders are sent as push notifications even when the app is closed.',
     },
     feedback: {
       suggestion: 'Suggestion',
@@ -579,6 +587,7 @@ const en = {
 
   stats: {
     title: 'Statistics',
+    premiumPeriodDesc: 'Month and 3-month stats are available with Premium.',
     periods: {
       week: 'Week',
       month: 'Month',
@@ -685,6 +694,7 @@ const en = {
     noCameraFound: 'No camera detected on this device.',
     cameraInaccessible: 'Camera not accessible. Check permissions or enter the barcode manually.',
     aiStartError: 'Unable to start analysis. Try again.',
+    dailyLimitReached: 'Daily limit reached. Up to 10 AI analyses per day.',
   },
 
   health: {

@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 export interface NotificationSettings {
   workout_enabled: boolean;
   workout_time: string; // "HH:MM"
@@ -6,7 +8,6 @@ export interface NotificationSettings {
 }
 
 const STORAGE_KEY = 'prometheus_notification_settings';
-const SCHEDULED_KEY = 'prometheus_notifications_scheduled_date';
 
 export function getNotificationSettings(): NotificationSettings {
   try {
@@ -35,64 +36,78 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return result === 'granted';
 }
 
-function msUntilTime(timeStr: string): number {
-  const [h, m] = timeStr.split(':').map(Number);
-  const now = new Date();
-  const target = new Date(now);
-  target.setHours(h, m, 0, 0);
-  return target.getTime() - now.getTime();
+// ─── Web Push subscription ─────────────────────────────────────────────────
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
 
-const scheduledTimeouts: ReturnType<typeof setTimeout>[] = [];
+export async function subscribeToPush(userId: string): Promise<boolean> {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return false;
 
-export function cancelScheduledNotifications(): void {
-  scheduledTimeouts.forEach(clearTimeout);
-  scheduledTimeouts.length = 0;
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+  if (!vapidKey) {
+    console.warn('[Push] VITE_VAPID_PUBLIC_KEY not set — background push disabled');
+    return false;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) {
+      await storePushSubscription(userId, existing);
+      return true;
+    }
+
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidKey),
+    });
+
+    await storePushSubscription(userId, subscription);
+    return true;
+  } catch (err) {
+    console.error('[Push] subscribe failed:', err);
+    return false;
+  }
 }
 
-export function scheduleNotificationsForToday(
-  settings: NotificationSettings,
-  workoutsLoggedToday: boolean,
-  mealsLoggedToday: boolean,
-): void {
-  cancelScheduledNotifications();
+async function storePushSubscription(userId: string, sub: PushSubscription): Promise<void> {
+  const json = sub.toJSON();
+  await supabase.from('push_subscriptions').upsert(
+    {
+      user_id: userId,
+      endpoint: sub.endpoint,
+      p256dh: json.keys?.p256dh ?? '',
+      auth: json.keys?.auth ?? '',
+      user_agent: navigator.userAgent.slice(0, 200),
+    },
+    { onConflict: 'user_id,endpoint' },
+  );
+}
 
-  if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-  const today = new Date().toISOString().split('T')[0];
-  const lastScheduled = localStorage.getItem(SCHEDULED_KEY);
-
-  // Only schedule once per day
-  if (lastScheduled === today) return;
-  localStorage.setItem(SCHEDULED_KEY, today);
-
-  if (settings.workout_enabled && !workoutsLoggedToday) {
-    const ms = msUntilTime(settings.workout_time);
-    if (ms > 0) {
-      scheduledTimeouts.push(
-        setTimeout(() => {
-          new Notification('Prometheus — Time to train 💪', {
-            body: "You haven't logged a workout today. Go crush it!",
-            icon: '/logo.svg',
-            tag: 'workout-reminder',
-          });
-        }, ms),
-      );
+export async function unsubscribeFromPush(userId: string): Promise<void> {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const sub = await registration.pushManager.getSubscription();
+    if (sub) {
+      await supabase.from('push_subscriptions').delete().eq('user_id', userId).eq('endpoint', sub.endpoint);
+      await sub.unsubscribe();
     }
+  } catch (err) {
+    console.error('[Push] unsubscribe failed:', err);
   }
+}
 
-  if (settings.nutrition_enabled && !mealsLoggedToday) {
-    const ms = msUntilTime(settings.nutrition_time);
-    if (ms > 0) {
-      scheduledTimeouts.push(
-        setTimeout(() => {
-          new Notification('Prometheus — Log your meals 🥗', {
-            body: "Don't forget to track your nutrition today.",
-            icon: '/logo.svg',
-            tag: 'nutrition-reminder',
-          });
-        }, ms),
-      );
-    }
-  }
+export async function syncNotificationSettingsToDB(userId: string, settings: NotificationSettings): Promise<void> {
+  await supabase.from('profiles').update({
+    notification_workout_enabled: settings.workout_enabled,
+    notification_workout_time: settings.workout_time,
+    notification_nutrition_enabled: settings.nutrition_enabled,
+    notification_nutrition_time: settings.nutrition_time,
+  }).eq('id', userId);
 }

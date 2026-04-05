@@ -231,7 +231,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     } else {
       // AI failed — show actual error and try text search as fallback
       setPhase('ai_capture');
-      setAiError(result.error);
+      setAiError(t(result.error as Parameters<typeof t>[0]));
 
       const query = aiNotes.trim();
       if (query) {

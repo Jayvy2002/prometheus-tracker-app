@@ -117,6 +117,7 @@ export default function StatsPage() {
   const [prevAvgWater, setPrevAvgWater] = useState<number>(0);
   const [prevTotalWorkouts, setPrevTotalWorkouts] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const unit = profile?.unit_weight ?? 'kg';
 
   const PERIODS: { value: Period; label: string }[] = [
@@ -131,6 +132,7 @@ export default function StatsPage() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
+    setLoadError(false);
 
     Promise.all([
       supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
@@ -197,6 +199,9 @@ export default function StatsPage() {
       const prevWkCount = (prevWkRes.data ?? []).length;
       setPrevTotalWorkouts(prevWkCount);
 
+      setLoading(false);
+    }).catch(() => {
+      setLoadError(true);
       setLoading(false);
     });
   }, [user, start, end, prevStart, prevEnd, unit]);
@@ -293,7 +298,7 @@ export default function StatsPage() {
               key={p.value}
               onClick={() => {
                 if (locked) {
-                  openPaywall('Stats avancées', 'Les statistiques sur 1 mois et 3 mois sont réservées aux abonnés Premium.');
+                  openPaywall(t('premium.features.advancedStats'), t('stats.premiumPeriodDesc'));
                   return;
                 }
                 setPeriod(p.value);
@@ -310,6 +315,8 @@ export default function StatsPage() {
 
       {loading ? (
         <div className="text-center py-16 text-neutral-500">{t('common.loading')}</div>
+      ) : loadError ? (
+        <div className="text-center py-16 text-neutral-500">{t('common.tryAgain')}</div>
       ) : (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-2">

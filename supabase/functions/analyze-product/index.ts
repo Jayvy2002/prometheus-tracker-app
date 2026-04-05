@@ -91,7 +91,7 @@ Deno.serve(async (req: Request) => {
 
     if ((usageCount ?? 0) >= 10) {
       return new Response(
-        JSON.stringify({ error: "Daily limit reached. You can analyse up to 10 products per day." }),
+        JSON.stringify({ error: "DAILY_LIMIT_REACHED", limit: 10 }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
