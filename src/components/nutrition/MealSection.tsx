@@ -1,4 +1,5 @@
 import { Trash2, Plus, Sunrise, Sun, Moon, Cookie, Pencil, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { NutritionLog } from '../../lib/types';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { toastWithUndo } from '../ui/Toast';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export default function MealSection({ category, label, logs, onAdd, onEdit, onReuse }: Props) {
+  const { t } = useTranslation();
   const { deleteLog, addLog } = useNutritionStore();
   const Icon = iconMap[category] || Cookie;
   const totalCals = logs.reduce((s, l) => s + l.calories, 0);
@@ -27,7 +29,7 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
   const handleDelete = async (log: NutritionLog) => {
     const snapshot = { ...log };
     await deleteLog(snapshot.id);
-    toastWithUndo(`${snapshot.name} removed`, () =>
+    toastWithUndo(`${snapshot.name} ${t('nutrition.removedFromMeal')}`, () =>
       addLog({
         user_id: snapshot.user_id,
         name: snapshot.name,
@@ -52,7 +54,7 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
         {onReuse && (
           <button
             onClick={onReuse}
-            title="Copy from yesterday"
+            title={t('nutrition.copyFromYesterday')}
             className="p-1 rounded-lg text-neutral-500 hover:text-neutral-300 transition-colors"
           >
             <RotateCcw size={13} />

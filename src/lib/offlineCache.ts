@@ -24,7 +24,17 @@ function writeCache(store: CacheStore) {
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(store));
   } catch {
-    // localStorage full or unavailable
+    // localStorage full — evict the oldest half of entries and retry
+    if (store.entries.length > 1) {
+      store.entries.sort((a, b) => a.timestamp - b.timestamp);
+      store.entries = store.entries.slice(Math.ceil(store.entries.length / 2));
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(store));
+      } catch {
+        // Still failing — clear the cache entirely to avoid a broken state
+        try { localStorage.removeItem(CACHE_KEY); } catch { /* ignore */ }
+      }
+    }
   }
 }
 

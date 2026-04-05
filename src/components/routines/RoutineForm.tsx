@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, GripVertical, Info } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import type { Routine, RoutineExercise } from '../../lib/types';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export default function RoutineForm({ routine, onClose }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { createRoutine, updateRoutine, addRoutineExercise, deleteRoutineExercise, updateRoutineExercise, fetchRoutineWithExercises } = useRoutineStore();
   const [name, setName] = useState(routine?.name ?? '');
@@ -97,7 +99,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-neutral-950 border border-neutral-800/60 rounded-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col shadow-2xl z-10">
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/60 shrink-0">
-          <h2 className="text-lg font-bold text-white">{routine ? 'Edit' : 'New'} Routine</h2>
+          <h2 className="text-lg font-bold text-white">{routine ? t('routines.form.editTitle') : t('routines.form.newTitle')}</h2>
           <button onClick={onClose} className="p-1.5 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors">
             <X size={18} />
           </button>
@@ -107,17 +109,17 @@ export default function RoutineForm({ routine, onClose }: Props) {
           {routine && (
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-neutral-900/60 border border-neutral-800/50">
               <Info size={13} className="text-neutral-500 mt-0.5 shrink-0" />
-              <p className="text-xs text-neutral-500">Editing this routine won't affect past sessions already logged.</p>
+              <p className="text-xs text-neutral-500">{t('routines.form.editWarning')}</p>
             </div>
           )}
 
           <div className="space-y-4">
-            <Input label="Name" value={name} onChange={e => setName(e.target.value)} placeholder="Push Day" />
-            <Input label="Description" value={description} onChange={e => setDescription(e.target.value)} placeholder="Chest, shoulders, triceps" />
+            <Input label={t('routines.form.name')} value={name} onChange={e => setName(e.target.value)} placeholder="Push Day" />
+            <Input label={t('routines.form.description')} value={description} onChange={e => setDescription(e.target.value)} placeholder="Chest, shoulders, triceps" />
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-neutral-400 mb-3">Exercises</h3>
+            <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('routines.form.exercises')}</h3>
             <div className="space-y-2">
               {exercises.map((ex) => (
                 <div key={ex.id} className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3">
@@ -130,7 +132,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="text-[10px] text-neutral-500 uppercase">Sets</label>
+                      <label className="text-[10px] text-neutral-500 uppercase">{t('routines.form.sets')}</label>
                       <input
                         type="number" inputMode="numeric" value={ex.default_sets || ''}
                         onChange={e => updateLocal(ex.id, 'default_sets', +e.target.value || 0)}
@@ -138,7 +140,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 uppercase">Reps</label>
+                      <label className="text-[10px] text-neutral-500 uppercase">{t('routines.form.reps')}</label>
                       <input
                         type="number" inputMode="numeric" value={ex.default_reps || ''}
                         onChange={e => updateLocal(ex.id, 'default_reps', +e.target.value || 0)}
@@ -146,7 +148,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] text-neutral-500 uppercase">Rest (s)</label>
+                      <label className="text-[10px] text-neutral-500 uppercase">{t('routines.form.rest')}</label>
                       <input
                         type="number" inputMode="numeric" value={ex.default_rest_seconds || ''}
                         onChange={e => updateLocal(ex.id, 'default_rest_seconds', +e.target.value || 0)}
@@ -159,14 +161,14 @@ export default function RoutineForm({ routine, onClose }: Props) {
             </div>
 
             <Button variant="secondary" onClick={() => setShowPicker(true)} className="w-full mt-3">
-              <Plus size={16} /> Add Exercise
+              <Plus size={16} /> {t('routines.form.addExercise')}
             </Button>
           </div>
         </div>
 
         <div className="px-5 py-4 border-t border-neutral-800/60 shrink-0">
           <Button onClick={handleSave} loading={saving} className="w-full">
-            {routine ? 'Update' : 'Create'} Routine
+            {routine ? t('routines.form.update') : t('routines.form.create')}
           </Button>
         </div>
       </div>

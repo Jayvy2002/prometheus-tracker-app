@@ -1,34 +1,30 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Crown, X, Check, Zap, Loader2 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { usePaywallStore } from '../../stores/paywallStore';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
 
 const MONTHLY_PRICE = import.meta.env.VITE_STRIPE_MONTHLY_PRICE ?? '9,99 $';
 const ANNUAL_PRICE = import.meta.env.VITE_STRIPE_ANNUAL_PRICE ?? '79,99 $';
 
-const PREMIUM_FEATURES = [
-  'Widgets illimités (9 types)',
-  'Historique séances illimité',
-  'Routines & recettes illimitées',
-  'Stats avancées (mois, 3 mois)',
-  'Graphique poids complet',
-  'Rappels & notifications push',
-];
-
 export default function PaywallModal() {
+  const { t } = useTranslation();
   const { isOpen, featureName, featureDescription, closePaywall } = usePaywallStore();
+  const { role } = useSubscriptionStore();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('annual');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // Admins bypass the paywall entirely
+  if (!isOpen || role === 'admin') return null;
 
   const handleUpgrade = async () => {
     setLoading(true);
     setError(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setError('Non authentifié'); setLoading(false); return; }
+      if (!session) { setError(t('premium.notAuthenticated')); setLoading(false); return; }
 
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-checkout-session`,
@@ -44,13 +40,13 @@ export default function PaywallModal() {
 
       const json = await res.json();
       if (json.error || !json.url) {
-        setError("Erreur lors de la redirection. Réessaie.");
+        setError(t('premium.redirectError'));
         setLoading(false);
         return;
       }
       window.location.href = json.url;
     } catch {
-      setError("Erreur réseau. Réessaie.");
+      setError(t('premium.networkError'));
       setLoading(false);
     }
   };
@@ -81,7 +77,7 @@ export default function PaywallModal() {
             </div>
 
             <h2 className="text-xl font-bold text-white leading-tight">
-              {featureName ? `Débloquer : ${featureName}` : 'Passer à Premium'}
+              {featureName ? t('premium.unlock', { name: featureName }) : t('premium.upgradeToPremium')}
             </h2>
             {featureDescription && (
               <p className="text-sm text-neutral-400 mt-1 leading-snug">{featureDescription}</p>
@@ -91,12 +87,12 @@ export default function PaywallModal() {
           {/* Features list */}
           <div className="px-5 pb-2">
             <div className="space-y-2 mb-5">
-              {PREMIUM_FEATURES.map(f => (
-                <div key={f} className="flex items-start gap-2.5">
+              {(['unlimitedWidgets', 'unlimitedHistory', 'unlimitedRoutines', 'advancedStats', 'weightChart', 'pushNotifications'] as const).map(key => (
+                <div key={key} className="flex items-start gap-2.5">
                   <div className="w-4 h-4 rounded-full bg-emerald-500/15 flex items-center justify-center shrink-0 mt-0.5">
                     <Check size={10} className="text-emerald-400" />
                   </div>
-                  <p className="text-sm text-neutral-300">{f}</p>
+                  <p className="text-sm text-neutral-300">{t(`premium.features.${key}`)}</p>
                 </div>
               ))}
             </div>
@@ -112,7 +108,7 @@ export default function PaywallModal() {
                 }`}
               >
                 <div className="text-base font-bold">{MONTHLY_PRICE}</div>
-                <div className="text-xs opacity-70 mt-0.5">/ mois</div>
+                <div className="text-xs opacity-70 mt-0.5">{t('premium.perMonth')}</div>
               </button>
 
               <button
@@ -124,10 +120,10 @@ export default function PaywallModal() {
                 }`}
               >
                 <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded-full bg-amber-500 text-black text-[10px] font-bold tracking-wide whitespace-nowrap">
-                  -33%
+                  {t('premium.discount')}
                 </div>
                 <div className="text-base font-bold">{ANNUAL_PRICE}</div>
-                <div className="text-xs opacity-70 mt-0.5">/ an</div>
+                <div className="text-xs opacity-70 mt-0.5">{t('premium.perYear')}</div>
               </button>
             </div>
 
@@ -146,14 +142,14 @@ export default function PaywallModal() {
               ) : (
                 <Zap size={15} fill="currentColor" />
               )}
-              {loading ? 'Redirection…' : 'Passer à Premium'}
+              {loading ? t('premium.redirecting') : t('premium.upgradeToPremium')}
             </button>
 
             <button
               onClick={closePaywall}
               className="w-full py-2 text-xs text-neutral-600 hover:text-neutral-400 transition-colors mb-1"
             >
-              Peut-être plus tard
+              {t('premium.maybeLater')}
             </button>
           </div>
         </div>

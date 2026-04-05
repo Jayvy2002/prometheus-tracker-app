@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Repeat, ChevronRight, Trash2, Play, ArrowLeft, BarChart2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -16,6 +17,7 @@ import RoutineForm from './RoutineForm';
 import type { Routine, RoutineExercise } from '../../lib/types';
 
 export default function RoutinesPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { routines, loading, fetchRoutines, deleteRoutine, fetchRoutineWithExercises } = useRoutineStore();
@@ -88,13 +90,13 @@ export default function RoutinesPage() {
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-2xl font-bold text-white">Routines</h1>
+          <h1 className="text-2xl font-bold text-white">{t('routines.title')}</h1>
         </div>
         <Button
           onClick={() => {
             if (!canAddRoutine(routines.length)) {
               openPaywall(
-                'Routines illimitées',
+                t('routines.unlimitedRoutines'),
                 `Le plan gratuit est limité à ${FREE_LIMITS.maxRoutines} routines. Passez à Premium pour en créer autant que vous voulez.`,
               );
               return;
@@ -104,27 +106,27 @@ export default function RoutinesPage() {
           }}
           size="sm"
         >
-          <Plus size={16} /> New
+          <Plus size={16} /> {t('common.new')}
         </Button>
       </div>
 
       {!canAddRoutine(routines.length) && routines.length >= FREE_LIMITS.maxRoutines && (
         <button
-          onClick={() => openPaywall('Routines illimitées', `Vous avez atteint la limite de ${FREE_LIMITS.maxRoutines} routines du plan gratuit.`)}
+          onClick={() => openPaywall(t('routines.unlimitedRoutines'), `Vous avez atteint la limite de ${FREE_LIMITS.maxRoutines} routines du plan gratuit.`)}
           className="flex items-center gap-2 w-full mb-4 px-4 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 text-left hover:bg-amber-500/12 transition-colors"
         >
           <PremiumBadge variant="crown" size="sm" />
-          <p className="text-xs text-amber-300 flex-1">Limite de {FREE_LIMITS.maxRoutines} routines atteinte — Passez à Premium</p>
+          <p className="text-xs text-amber-300 flex-1">{t('routines.limitReached', { count: FREE_LIMITS.maxRoutines })} — Passez à Premium</p>
         </button>
       )}
 
       {loading ? (
-        <div className="text-center py-12 text-neutral-500">Loading...</div>
+        <div className="text-center py-12 text-neutral-500">{t('common.loading')}</div>
       ) : routines.length === 0 ? (
         <Card className="text-center py-12">
           <Repeat className="mx-auto mb-3 text-neutral-600" size={32} />
-          <p className="text-neutral-400 mb-4">No routines yet</p>
-          <Button onClick={() => setShowForm(true)} size="sm">Create your first routine</Button>
+          <p className="text-neutral-400 mb-4">{t('routines.noRoutines')}</p>
+          <Button onClick={() => setShowForm(true)} size="sm">{t('routines.createFirstRoutine')}</Button>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -141,7 +143,9 @@ export default function RoutinesPage() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-white truncate">{r.name}</p>
                     <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                      <span className="text-xs text-neutral-500">{exercises.length} exercise{exercises.length !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-neutral-500">
+                        {exercises.length} {exercises.length !== 1 ? t('routines.exercises') : t('routines.exercise')}
+                      </span>
                       {stats && (
                         <>
                           <span className="text-neutral-700">·</span>
@@ -150,7 +154,7 @@ export default function RoutinesPage() {
                             {stats.count}×
                           </span>
                           <span className="text-neutral-700">·</span>
-                          <span className="text-xs text-neutral-500">Last {formatDate(stats.lastDate)}</span>
+                          <span className="text-xs text-neutral-500">{t('routines.lastUsed', { date: formatDate(stats.lastDate) })}</span>
                         </>
                       )}
                     </div>
@@ -190,16 +194,16 @@ export default function RoutinesPage() {
         />
       )}
 
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Routine">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('routines.deleteTitle')}>
         <p className="text-neutral-300 mb-6">
-          Are you sure you want to delete <span className="font-semibold text-white">{deleteTargetRoutine?.name || 'this routine'}</span>? This action cannot be undone.
+          {t('routines.deleteConfirm')} <span className="font-semibold text-white">{deleteTargetRoutine?.name}</span>
         </p>
         <div className="flex gap-3">
           <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1" disabled={deleting}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleDelete} className="flex-1 !bg-red-600 hover:!bg-red-700" disabled={deleting}>
-            {deleting ? 'Deleting...' : 'Delete'}
+            {deleting ? t('common.deleting') : t('common.delete')}
           </Button>
         </div>
       </Modal>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Plus, ChefHat, Pencil, Trash2, Search } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useRecipeStore } from '../../stores/recipeStore';
 import type { Recipe } from '../../lib/types';
@@ -13,6 +14,7 @@ import { usePaywallStore } from '../../stores/paywallStore';
 import PremiumBadge from '../premium/PremiumBadge';
 
 export default function RecipesPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { recipes, loading, fetchRecipes, deleteRecipe } = useRecipeStore();
@@ -35,7 +37,7 @@ export default function RecipesPage() {
 
   const handleDelete = async (id: string) => {
     await deleteRecipe(id);
-    toast('Recipe deleted', 'info');
+    toast(t('nutrition.recipes.deleteTitle'), 'info');
     setConfirmDelete(null);
   };
 

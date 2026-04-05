@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
 import Button from '../ui/Button';
 
 export default function UnitsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const { showRir, setShowRir } = usePreferencesStore();
@@ -51,22 +53,22 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
       {!inline && (
         <>
           <button onClick={onBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6 transition-colors">
-            <ArrowLeft size={18} /> <span className="text-sm">Back</span>
+            <ArrowLeft size={18} /> <span className="text-sm">{t('common.back')}</span>
           </button>
-          <h2 className="text-xl font-bold text-white mb-6">Units & Preferences</h2>
+          <h2 className="text-xl font-bold text-white mb-6">{t('profile.units.title')}</h2>
         </>
       )}
       <div className="space-y-1 mb-6">
-        <UnitToggle label="Weight" value={unitWeight} options={['kg', 'lbs']} onChange={(v) => setUnitWeight(v as 'kg' | 'lbs')} />
-        <UnitToggle label="Distance" value={unitDistance} options={['km', 'mi']} onChange={(v) => setUnitDistance(v as 'km' | 'mi')} />
-        <UnitToggle label="Height" value={unitHeight} options={['cm', 'in']} onChange={(v) => setUnitHeight(v as 'cm' | 'in')} />
+        <UnitToggle label={t('profile.units.weight')} value={unitWeight} options={['kg', 'lbs']} onChange={(v) => setUnitWeight(v as 'kg' | 'lbs')} />
+        <UnitToggle label={t('profile.units.distance')} value={unitDistance} options={['km', 'mi']} onChange={(v) => setUnitDistance(v as 'km' | 'mi')} />
+        <UnitToggle label={t('profile.units.height')} value={unitHeight} options={['cm', 'in']} onChange={(v) => setUnitHeight(v as 'cm' | 'in')} />
 
         <div className="pt-3 mt-1 border-t border-neutral-800/60">
-          <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-3">Workout Display</p>
+          <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-3">{t('profile.units.workoutDisplay')}</p>
           <div className="flex items-center justify-between py-1">
             <div>
-              <span className="text-sm text-neutral-300">Show RIR column</span>
-              <p className="text-[11px] text-neutral-600 mt-0.5">Reps In Reserve — advanced training metric</p>
+              <span className="text-sm text-neutral-300">{t('profile.units.showRir')}</span>
+              <p className="text-[11px] text-neutral-600 mt-0.5">{t('profile.units.rirDescription')}</p>
             </div>
             <button
               onClick={() => setShowRir(!showRir)}
@@ -79,7 +81,7 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
           </div>
         </div>
       </div>
-      <Button onClick={handleSave} loading={saving} className="w-full">Save Preferences</Button>
+      <Button onClick={handleSave} loading={saving} className="w-full">{t('profile.units.savePreferences')}</Button>
     </div>
   );
 }

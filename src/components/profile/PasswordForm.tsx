@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
 export default function PasswordForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const [currentPassword, setCurrentPassword] = useState('');
   const [password, setPassword] = useState('');
@@ -19,15 +21,15 @@ export default function PasswordForm({ onBack, inline }: { onBack: () => void; i
     setSuccess(false);
 
     if (!currentPassword) {
-      setError('Please enter your current password');
+      setError(t('profile.password.errors.currentRequired'));
       return;
     }
     if (password.length < 6) {
-      setError('New password must be at least 6 characters');
+      setError(t('profile.password.errors.minLength'));
       return;
     }
     if (password !== confirm) {
-      setError('Passwords do not match');
+      setError(t('profile.password.errors.mismatch'));
       return;
     }
 
@@ -40,7 +42,7 @@ export default function PasswordForm({ onBack, inline }: { onBack: () => void; i
 
     if (signInErr) {
       setSaving(false);
-      setError('Current password is incorrect');
+      setError(t('profile.password.errors.incorrect'));
       return;
     }
 
@@ -62,38 +64,38 @@ export default function PasswordForm({ onBack, inline }: { onBack: () => void; i
       {!inline && (
         <>
           <button onClick={onBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6 transition-colors">
-            <ArrowLeft size={18} /> <span className="text-sm">Back</span>
+            <ArrowLeft size={18} /> <span className="text-sm">{t('common.back')}</span>
           </button>
-          <h2 className="text-xl font-bold text-white mb-6">Change Password</h2>
+          <h2 className="text-xl font-bold text-white mb-6">{t('profile.password.title')}</h2>
         </>
       )}
       <div className="space-y-4">
         <Input
-          label="Current Password"
+          label={t('profile.password.current')}
           type="password"
           value={currentPassword}
           onChange={e => setCurrentPassword(e.target.value)}
-          placeholder="Enter your current password"
+          placeholder={t('profile.password.currentPlaceholder')}
         />
         <div className="border-t border-neutral-800/60 pt-4">
           <Input
-            label="New Password"
+            label={t('profile.password.new')}
             type="password"
             value={password}
             onChange={e => setPassword(e.target.value)}
-            placeholder="At least 6 characters"
+            placeholder={t('profile.password.newPlaceholder')}
           />
         </div>
         <Input
-          label="Confirm New Password"
+          label={t('profile.password.confirm')}
           type="password"
           value={confirm}
           onChange={e => setConfirm(e.target.value)}
-          placeholder="Repeat new password"
+          placeholder={t('profile.password.confirmPlaceholder')}
         />
         {error && <p className="text-sm text-rose-400">{error}</p>}
-        {success && <p className="text-sm text-blue-400">Password updated successfully</p>}
-        <Button onClick={handleSave} loading={saving} className="w-full">Update Password</Button>
+        {success && <p className="text-sm text-blue-400">{t('profile.password.success')}</p>}
+        <Button onClick={handleSave} loading={saving} className="w-full">{t('profile.password.update')}</Button>
       </div>
     </div>
   );

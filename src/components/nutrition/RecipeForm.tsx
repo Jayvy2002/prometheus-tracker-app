@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useRecipeStore } from '../../stores/recipeStore';
@@ -26,6 +27,7 @@ interface IngredientDraft {
 }
 
 export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { createRecipe, updateRecipe, addIngredient, deleteIngredient, recomputeMacros } = useRecipeStore();
 
@@ -93,7 +95,7 @@ export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
         }
       }
       await recomputeMacros(savedRecipe.id);
-      toast(recipe ? 'Recipe updated' : 'Recipe created');
+      toast(recipe ? t('nutrition.recipeForm.updated') : t('nutrition.recipeForm.created'));
       onSaved(savedRecipe);
     } finally {
       setSaving(false);
@@ -116,35 +118,35 @@ export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
           <button onClick={onClose} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
             <ArrowLeft size={20} />
           </button>
-          <h2 className="text-xl font-bold text-white flex-1">{recipe ? 'Edit Recipe' : 'New Recipe'}</h2>
-          <Button onClick={handleSave} loading={saving} size="sm">Save</Button>
+          <h2 className="text-xl font-bold text-white flex-1">{recipe ? t('nutrition.recipeForm.editTitle') : t('nutrition.recipeForm.newTitle')}</h2>
+          <Button onClick={handleSave} loading={saving} size="sm">{t('common.save')}</Button>
         </div>
 
         <div className="space-y-4 mb-6">
-          <Input label="Recipe Name" value={name} onChange={e => setName(e.target.value)} placeholder="My protein pancakes" />
-          <Input label="Description (optional)" value={description} onChange={e => setDescription(e.target.value)} placeholder="Quick breakfast..." />
-          <Input label="Number of servings" type="number" min="1" value={servings} onChange={e => setServings(e.target.value)} />
+          <Input label={t('nutrition.recipeForm.recipeName')} value={name} onChange={e => setName(e.target.value)} placeholder={t('nutrition.recipeForm.recipeName')} />
+          <Input label={t('nutrition.recipeForm.description')} value={description} onChange={e => setDescription(e.target.value)} placeholder={t('nutrition.recipeForm.description')} />
+          <Input label={t('nutrition.recipeForm.servings')} type="number" min="1" value={servings} onChange={e => setServings(e.target.value)} />
         </div>
 
         {totals.calories > 0 && (
           <Card className="mb-4 bg-blue-600/10 border-blue-500/30">
-            <p className="text-xs text-neutral-400 mb-2">Per serving ({servings} servings total)</p>
+            <p className="text-xs text-neutral-400 mb-2">{t('nutrition.recipeForm.perServing', { n: servings })}</p>
             <div className="grid grid-cols-4 gap-2 text-center">
               <div>
                 <p className="text-base font-bold text-white">{perServing.calories}</p>
-                <p className="text-[10px] text-neutral-500">kcal</p>
+                <p className="text-[10px] text-neutral-500">{t('common.kcal')}</p>
               </div>
               <div>
                 <p className="text-base font-bold text-blue-400">{perServing.protein}g</p>
-                <p className="text-[10px] text-neutral-500">protein</p>
+                <p className="text-[10px] text-neutral-500">{t('common.protein')}</p>
               </div>
               <div>
                 <p className="text-base font-bold text-amber-400">{perServing.carbs}g</p>
-                <p className="text-[10px] text-neutral-500">carbs</p>
+                <p className="text-[10px] text-neutral-500">{t('common.carbs')}</p>
               </div>
               <div>
                 <p className="text-base font-bold text-rose-400">{perServing.fat}g</p>
-                <p className="text-[10px] text-neutral-500">fat</p>
+                <p className="text-[10px] text-neutral-500">{t('common.fat')}</p>
               </div>
             </div>
           </Card>
@@ -152,18 +154,18 @@ export default function RecipeForm({ recipe, onClose, onSaved }: Props) {
 
         <div className="mb-4">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Ingredients</h3>
+            <h3 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('nutrition.recipeForm.ingredients')}</h3>
             <button
               onClick={() => setShowPicker(true)}
               className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition-colors"
             >
-              <Plus size={14} /> Add
+              <Plus size={14} /> {t('common.add')}
             </button>
           </div>
 
           {ingredients.length === 0 && (
             <div className="text-center py-6 text-neutral-500 text-sm border border-neutral-800 rounded-xl">
-              No ingredients yet
+              {t('nutrition.recipeForm.noIngredients')}
             </div>
           )}
 

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ArrowLeft, TrendingUp, TrendingDown, Minus, Flame, Dumbbell, Droplets, Scale, Crown } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
@@ -11,12 +12,6 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 
 type Period = 'week' | 'month' | '3months';
-
-const PERIODS: { value: Period; label: string }[] = [
-  { value: 'week', label: 'Week' },
-  { value: 'month', label: 'Month' },
-  { value: '3months', label: '3 Months' },
-];
 
 interface DayNutrition {
   date: string;
@@ -107,6 +102,7 @@ function StatCard({
 }
 
 export default function StatsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
@@ -121,7 +117,14 @@ export default function StatsPage() {
   const [prevAvgWater, setPrevAvgWater] = useState<number>(0);
   const [prevTotalWorkouts, setPrevTotalWorkouts] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const unit = profile?.unit_weight ?? 'kg';
+
+  const PERIODS: { value: Period; label: string }[] = [
+    { value: 'week', label: t('stats.periods.week') },
+    { value: 'month', label: t('stats.periods.month') },
+    { value: '3months', label: t('stats.periods.threeMonths') },
+  ];
 
   const { start, end } = useMemo(() => getPeriodDates(period), [period]);
   const { start: prevStart, end: prevEnd } = useMemo(() => getPrevPeriodDates(period), [period]);
@@ -129,6 +132,7 @@ export default function StatsPage() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
+    setLoadError(false);
 
     Promise.all([
       supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
@@ -196,6 +200,9 @@ export default function StatsPage() {
       setPrevTotalWorkouts(prevWkCount);
 
       setLoading(false);
+    }).catch(() => {
+      setLoadError(true);
+      setLoading(false);
     });
   }, [user, start, end, prevStart, prevEnd, unit]);
 
@@ -228,31 +235,32 @@ export default function StatsPage() {
   const waterDelta = isPremium ? pctDelta(avgWater, prevAvgWater) : null;
   const workoutDelta = isPremium ? pctDelta(totalWorkouts, prevTotalWorkouts) : null;
 
-  // Interpretation text vs targets
   function calorieInsight(): string | null {
     if (!avgCalories || !calorieTarget) return null;
     const diff = avgCalories - calorieTarget;
     const pct = Math.abs(Math.round((diff / calorieTarget) * 100));
-    if (pct <= 5) return 'Right on target';
-    if (diff > 0) return `${pct}% above your target`;
-    return `${pct}% below your target`;
+    if (pct <= 5) return t('stats.rightOnTarget');
+    if (diff > 0) return t('stats.aboveTarget', { pct });
+    return t('stats.belowTarget', { pct });
   }
   function proteinInsight(): string | null {
     if (!avgProtein || !proteinTarget) return null;
     const diff = avgProtein - proteinTarget;
     const pct = Math.abs(Math.round((diff / proteinTarget) * 100));
-    if (pct <= 5) return 'Meeting your protein target';
-    if (diff > 0) return `${pct}% above target`;
-    return `${pct}% below target — aim for ${proteinTarget}g`;
+    if (pct <= 5) return t('stats.rightOnTarget');
+    if (diff > 0) return t('stats.aboveTarget', { pct });
+    return t('stats.belowTarget', { pct });
   }
   function waterInsight(): string | null {
     if (!avgWater || !waterTarget) return null;
     const diff = avgWater - waterTarget;
     const pct = Math.abs(Math.round((diff / waterTarget) * 100));
-    if (pct <= 10) return 'Good hydration';
-    if (diff > 0) return 'Well hydrated';
-    return `${pct}% below target — stay hydrated`;
+    if (pct <= 10) return t('stats.rightOnTarget');
+    if (diff > 0) return t('stats.aboveTarget', { pct });
+    return t('stats.belowTarget', { pct });
   }
+
+  const periodLabel = period === 'week' ? t('stats.periodLabels.thisWeek') : period === 'month' ? t('stats.periodLabels.thisMonth') : t('stats.periodLabels.last3Months');
 
   const calorieChartData = nutrition.map(d => ({
     date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
@@ -279,7 +287,7 @@ export default function StatsPage() {
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-bold text-white flex-1">Statistics</h1>
+        <h1 className="text-2xl font-bold text-white flex-1">{t('stats.title')}</h1>
       </div>
 
       <div className="flex gap-1 bg-neutral-900 rounded-xl p-1 mb-6 animate-fade-in-scale">
@@ -290,7 +298,7 @@ export default function StatsPage() {
               key={p.value}
               onClick={() => {
                 if (locked) {
-                  openPaywall('Stats avancées', 'Les statistiques sur 1 mois et 3 mois sont réservées aux abonnés Premium.');
+                  openPaywall(t('premium.features.advancedStats'), t('stats.premiumPeriodDesc'));
                   return;
                 }
                 setPeriod(p.value);
@@ -306,40 +314,42 @@ export default function StatsPage() {
       </div>
 
       {loading ? (
-        <div className="text-center py-16 text-neutral-500">Loading...</div>
+        <div className="text-center py-16 text-neutral-500">{t('common.loading')}</div>
+      ) : loadError ? (
+        <div className="text-center py-16 text-neutral-500">{t('common.tryAgain')}</div>
       ) : (
         <div className="space-y-5">
           <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-2">
             <StatCard
-              label="Avg. Calories"
+              label={t('stats.labels.avgCalories')}
               value={`${avgCalories}`}
-              sub={`target: ${calorieTarget}`}
+              sub={`${t('stats.target')} ${calorieTarget}`}
               color="bg-rose-500/20 text-rose-400"
               icon={Flame}
               trend={calorieDelta}
               insight={calorieInsight()}
             />
             <StatCard
-              label="Workouts"
+              label={t('stats.labels.workouts')}
               value={`${totalWorkouts}`}
-              sub={period === 'week' ? 'this week' : period === 'month' ? 'this month' : 'last 3 months'}
+              sub={periodLabel}
               color="bg-blue-500/20 text-blue-400"
               icon={Dumbbell}
               trend={workoutDelta}
             />
             <StatCard
-              label="Avg. Protein"
+              label={t('stats.labels.avgProtein')}
               value={`${avgProtein}g`}
-              sub={`target: ${proteinTarget}g`}
+              sub={`${t('stats.target')} ${proteinTarget}g`}
               color="bg-amber-500/20 text-amber-400"
               icon={TrendingUp}
               trend={proteinDelta}
               insight={proteinInsight()}
             />
             <StatCard
-              label="Avg. Water"
+              label={t('stats.labels.avgWater')}
               value={`${(avgWater / 1000).toFixed(1)}L`}
-              sub={`target: ${(waterTarget / 1000).toFixed(1)}L`}
+              sub={`${t('stats.target')} ${(waterTarget / 1000).toFixed(1)}L`}
               color="bg-sky-500/20 text-sky-400"
               icon={Droplets}
               trend={waterDelta}
@@ -350,7 +360,7 @@ export default function StatsPage() {
           {weightChange !== null && (
             <div className="animate-fade-in-up stagger-3">
               <StatCard
-                label="Weight Change"
+                label={t('stats.labels.weightChange')}
                 value={weightChange > 0 ? `+${weightChange} ${unit}` : `${weightChange} ${unit}`}
                 sub={`${weights[0]?.weight} → ${weights[weights.length - 1]?.weight} ${unit}`}
                 color="bg-emerald-500/20 text-emerald-400"
@@ -362,7 +372,7 @@ export default function StatsPage() {
 
           {calorieChartData.length > 1 && (
             <Card className="animate-fade-in-up stagger-3">
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">Daily Calories</h3>
+              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('stats.charts.dailyCalories')}</h3>
               <div className="h-40">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={calorieChartData} barSize={period === '3months' ? 4 : 12}>
@@ -381,7 +391,7 @@ export default function StatsPage() {
 
           {macroChartData.length > 1 && (
             <Card className="animate-fade-in-up stagger-4">
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">Macros Breakdown</h3>
+              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('stats.charts.macrosBreakdown')}</h3>
               <div className="h-40">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={macroChartData} barSize={period === '3months' ? 3 : 8}>
@@ -399,13 +409,13 @@ export default function StatsPage() {
               </div>
               <div className="flex items-center gap-4 mt-2">
                 <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" /> Protein
+                  <div className="w-2 h-2 rounded-full bg-blue-500" /> {t('stats.legend.protein')}
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" /> Carbs
+                  <div className="w-2 h-2 rounded-full bg-amber-500" /> {t('stats.legend.carbs')}
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                  <div className="w-2 h-2 rounded-full bg-rose-500" /> Fat
+                  <div className="w-2 h-2 rounded-full bg-rose-500" /> {t('stats.legend.fat')}
                 </div>
               </div>
             </Card>
@@ -413,7 +423,7 @@ export default function StatsPage() {
 
           {weightChartData.length > 1 && (
             <Card className="animate-fade-in-up stagger-5">
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">Weight Trend ({unit})</h3>
+              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('stats.charts.weightTrend', { unit })}</h3>
               <div className="h-40">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={weightChartData}>
@@ -433,7 +443,7 @@ export default function StatsPage() {
           {nutrition.length === 0 && workouts.length === 0 && weights.length === 0 && (
             <Card className="text-center py-12">
               <TrendingUp className="mx-auto mb-3 text-neutral-600" size={32} />
-              <p className="text-neutral-400">No data logged for this period yet</p>
+              <p className="text-neutral-400">{t('stats.charts.noData')}</p>
             </Card>
           )}
         </div>

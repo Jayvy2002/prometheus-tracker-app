@@ -19,6 +19,7 @@ export interface UserProfile {
   unit_distance: 'km' | 'mi';
   unit_height: 'cm' | 'in';
   avatar_url: string;
+  language?: string;
   onboarding_completed: boolean;
   dashboard_layout: DashboardWidget[];
   health_integrations: Record<string, HealthIntegration>;
@@ -171,7 +172,7 @@ export interface ExerciseRequest {
   updated_at: string;
 }
 
-export type FoodDataSource = 'foundation' | 'sr_legacy' | 'fndds' | 'branded' | 'user';
+export type FoodDataSource = 'foundation' | 'sr_legacy' | 'fndds' | 'branded' | 'openfoodfacts' | 'user';
 
 export interface FoodProduct {
   id: string;
@@ -272,6 +273,15 @@ export interface ProductRequest {
   status: ProductRequestStatus;
   result_product_id: string | null;
   error_message: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AppRole = 'free' | 'premium' | 'admin';
+
+export interface UserRole {
+  user_id: string;
+  role: AppRole;
   created_at: string;
   updated_at: string;
 }

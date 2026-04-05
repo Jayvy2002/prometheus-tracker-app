@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { Bell, Check, Crown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   getNotificationSettings,
   saveNotificationSettings,
   requestNotificationPermission,
+  subscribeToPush,
+  syncNotificationSettingsToDB,
 } from '../../lib/notifications';
 import type { NotificationSettings as NS } from '../../lib/notifications';
 import { usePremium } from '../../hooks/usePremium';
 import { usePaywallStore } from '../../stores/paywallStore';
+import { useAuthStore } from '../../stores/authStore';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
@@ -23,9 +27,11 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 }
 
 export default function NotificationSettings() {
+  const { t } = useTranslation();
   const supported = 'Notification' in window;
   const { canUseNotifications } = usePremium();
   const { openPaywall } = usePaywallStore();
+  const { user } = useAuthStore();
   const [permission, setPermission] = useState<NotificationPermission>(
     supported ? Notification.permission : 'denied',
   );
@@ -36,15 +42,15 @@ export default function NotificationSettings() {
   if (!canUseNotifications) {
     return (
       <button
-        onClick={() => openPaywall('Rappels & Notifications', 'Configurez des rappels quotidiens pour vos séances et votre nutrition avec Premium.')}
+        onClick={() => openPaywall(t('profile.notifications.title'), t('profile.notifications.premiumDesc'))}
         className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/12 transition-colors"
       >
         <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
           <Bell size={16} className="text-amber-400" />
         </div>
         <div className="flex-1 text-left">
-          <p className="text-sm font-medium text-white">Rappels & Notifications</p>
-          <p className="text-xs text-neutral-500 mt-0.5">Disponible avec Premium</p>
+          <p className="text-sm font-medium text-white">{t('profile.notifications.title')}</p>
+          <p className="text-xs text-neutral-500 mt-0.5">{t('profile.notifications.premiumOnly')}</p>
         </div>
         <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/15 border border-amber-500/30">
           <Crown size={10} className="text-amber-400" />
@@ -57,6 +63,9 @@ export default function NotificationSettings() {
   const handleRequest = async () => {
     setRequesting(true);
     const granted = await requestNotificationPermission();
+    if (granted && user) {
+      await subscribeToPush(user.id);
+    }
     setPermission(granted ? 'granted' : 'denied');
     setRequesting(false);
   };
@@ -65,13 +74,14 @@ export default function NotificationSettings() {
     const updated = { ...settings, ...patch };
     setSettings(updated);
     saveNotificationSettings(updated);
+    if (user) syncNotificationSettingsToDB(user.id, updated);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   if (!supported) {
     return (
-      <p className="text-xs text-neutral-500">Notifications are not supported in this browser.</p>
+      <p className="text-xs text-neutral-500">{t('profile.notifications.notSupported')}</p>
     );
   }
 
@@ -79,7 +89,7 @@ export default function NotificationSettings() {
     return (
       <div className="space-y-2">
         <p className="text-xs text-neutral-400 leading-relaxed">
-          Notifications are blocked. You can re-enable them in your browser settings (site permissions).
+          {t('profile.notifications.blocked')}
         </p>
       </div>
     );
@@ -89,7 +99,7 @@ export default function NotificationSettings() {
     return (
       <div className="space-y-3">
         <p className="text-xs text-neutral-400 leading-relaxed">
-          Enable notifications to get reminders for your workouts and nutrition logging.
+          {t('profile.notifications.enablePrompt')}
         </p>
         <button
           onClick={handleRequest}
@@ -97,7 +107,7 @@ export default function NotificationSettings() {
           className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-blue-600/15 border border-blue-500/30 text-sm font-medium text-blue-400 hover:bg-blue-600/25 transition-colors disabled:opacity-60"
         >
           <Bell size={15} />
-          {requesting ? 'Requesting permission...' : 'Enable notifications'}
+          {requesting ? t('profile.notifications.requesting') : t('profile.notifications.enable')}
         </button>
       </div>
     );
@@ -107,15 +117,14 @@ export default function NotificationSettings() {
     <div className="space-y-5">
       <div className="flex items-center gap-2 text-emerald-400 text-xs font-medium">
         <Check size={13} />
-        Notifications are enabled
+        {t('profile.notifications.enabled')}
       </div>
 
-      {/* Workout reminder */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-white font-medium">Workout reminder</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Alert if no workout logged today</p>
+            <p className="text-sm text-white font-medium">{t('profile.notifications.workoutReminder')}</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{t('profile.notifications.workoutReminderDesc')}</p>
           </div>
           <Toggle
             checked={settings.workout_enabled}
@@ -124,7 +133,7 @@ export default function NotificationSettings() {
         </div>
         {settings.workout_enabled && (
           <div className="animate-fade-in">
-            <label className="text-xs text-neutral-500 block mb-1">Reminder time</label>
+            <label className="text-xs text-neutral-500 block mb-1">{t('profile.notifications.reminderTime')}</label>
             <input
               type="time"
               value={settings.workout_time}
@@ -135,12 +144,11 @@ export default function NotificationSettings() {
         )}
       </div>
 
-      {/* Nutrition reminder */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-white font-medium">Nutrition reminder</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Alert if no meal logged today</p>
+            <p className="text-sm text-white font-medium">{t('profile.notifications.nutritionReminder')}</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{t('profile.notifications.nutritionReminderDesc')}</p>
           </div>
           <Toggle
             checked={settings.nutrition_enabled}
@@ -149,7 +157,7 @@ export default function NotificationSettings() {
         </div>
         {settings.nutrition_enabled && (
           <div className="animate-fade-in">
-            <label className="text-xs text-neutral-500 block mb-1">Reminder time</label>
+            <label className="text-xs text-neutral-500 block mb-1">{t('profile.notifications.reminderTime')}</label>
             <input
               type="time"
               value={settings.nutrition_time}
@@ -162,12 +170,12 @@ export default function NotificationSettings() {
 
       {saved && (
         <p className="text-xs text-emerald-400 animate-fade-in flex items-center gap-1.5">
-          <Check size={11} /> Settings saved
+          <Check size={11} /> {t('profile.notifications.saved')}
         </p>
       )}
 
       <p className="text-[11px] text-neutral-600 leading-relaxed">
-        Reminders are scheduled when you open the app. They will trigger at the selected time if the condition is met.
+        {t('profile.notifications.backgroundNote')}
       </p>
     </div>
   );

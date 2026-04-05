@@ -27,8 +27,9 @@ export const PREMIUM_WIDGET_TYPES: WidgetType[] = [
 ];
 
 export function usePremium() {
-  const { tier, status } = useSubscriptionStore();
-  const isPremium = tier === 'premium' && (status === 'active' || status === 'trialing');
+  const { tier, status, role } = useSubscriptionStore();
+  const isPremium = role === 'admin' || role === 'premium' ||
+    (tier === 'premium' && (status === 'active' || status === 'trialing'));
 
   return {
     isPremium,

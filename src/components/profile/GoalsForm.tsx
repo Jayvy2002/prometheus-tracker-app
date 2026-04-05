@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { GOALS } from '../../lib/constants';
@@ -9,6 +10,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 
 export default function GoalsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const [goal, setGoal] = useState(profile?.goal ?? 'maintain');
@@ -24,13 +26,13 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
 
     const water = +waterTarget;
     const steps = +stepsTarget;
-    if (water < 500 || water > 10000) { toast('Objectif eau invalide (500–10 000 ml).', 'error'); return; }
-    if (steps < 0 || steps > 100000) { toast('Objectif pas invalide (0–100 000).', 'error'); return; }
+    if (water < 500 || water > 10000) { toast(`${t('profile.goals.errors.waterInvalid')} (500–10 000 ml).`, 'error'); return; }
+    if (steps < 0 || steps > 100000) { toast(`${t('profile.goals.errors.stepsInvalid')} (0–100 000).`, 'error'); return; }
     if (targetWeight) {
       const minW = profile.unit_weight === 'lbs' ? 66 : 30;
       const maxW = profile.unit_weight === 'lbs' ? 660 : 300;
       const tw = +targetWeight;
-      if (isNaN(tw) || tw < minW || tw > maxW) { toast(`Poids cible invalide (${minW}–${maxW} ${profile.unit_weight ?? 'kg'}).`, 'error'); return; }
+      if (isNaN(tw) || tw < minW || tw > maxW) { toast(`${t('profile.goals.errors.weightInvalid')} (${minW}–${maxW} ${profile.unit_weight ?? 'kg'}).`, 'error'); return; }
     }
 
     setSaving(true);
@@ -64,14 +66,14 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
       {!inline && (
         <>
           <button onClick={onBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6 transition-colors">
-            <ArrowLeft size={18} /> <span className="text-sm">Back</span>
+            <ArrowLeft size={18} /> <span className="text-sm">{t('common.back')}</span>
           </button>
-          <h2 className="text-xl font-bold text-white mb-6">Goals & Targets</h2>
+          <h2 className="text-xl font-bold text-white mb-6">{t('profile.goals.title')}</h2>
         </>
       )}
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-neutral-300">Goal</label>
+          <label className="block text-sm font-medium text-neutral-300">{t('profile.goals.goal')}</label>
           {GOALS.map(g => (
             <button
               key={g.value}
@@ -87,24 +89,24 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
           ))}
         </div>
         <Input
-          label={`Target Weight (${profile?.unit_weight ?? 'kg'})`}
+          label={`${t('profile.goals.targetWeight')} (${profile?.unit_weight ?? 'kg'})`}
           type="number"
           value={targetWeight}
           onChange={e => setTargetWeight(e.target.value)}
         />
         <Input
-          label="Daily Water Target (ml)"
+          label={t('profile.goals.dailyWater')}
           type="number"
           value={waterTarget}
           onChange={e => setWaterTarget(e.target.value)}
         />
         <Input
-          label="Daily Steps Target"
+          label={t('profile.goals.dailySteps')}
           type="number"
           value={stepsTarget}
           onChange={e => setStepsTarget(e.target.value)}
         />
-        <Button onClick={handleSave} loading={saving} className="w-full">Save Changes</Button>
+        <Button onClick={handleSave} loading={saving} className="w-full">{t('common.saveChanges')}</Button>
       </div>
     </div>
   );

@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Crown, Lock } from 'lucide-react';
 
 interface PremiumBadgeProps {
@@ -11,6 +12,7 @@ export default function PremiumBadge({
   size = 'xs',
   className = '',
 }: PremiumBadgeProps) {
+  const { t } = useTranslation();
   const Icon = variant === 'lock' ? Lock : Crown;
   const iconSize = size === 'xs' ? 9 : 11;
 
@@ -21,7 +23,7 @@ export default function PremiumBadge({
       } ${className}`}
     >
       <Icon size={iconSize} />
-      {size !== 'xs' && 'Premium'}
+      {size !== 'xs' && t('profile.premium')}
     </span>
   );
 }

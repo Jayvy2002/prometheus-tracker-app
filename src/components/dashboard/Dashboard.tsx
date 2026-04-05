@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target, Pencil, Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -10,44 +11,38 @@ import { todayStr } from '../../lib/utils';
 import type { DashboardWidget, WidgetType } from '../../lib/types';
 import DashboardGrid from './DashboardGrid';
 import PageTransition from '../ui/PageTransition';
-import { getNotificationSettings, scheduleNotificationsForToday } from '../../lib/notifications';
 import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
 import { usePaywallStore } from '../../stores/paywallStore';
 
 const WIDGET_CATALOG: {
   type: WidgetType;
-  label: string;
-  description: string;
+  i18nKey: string;
   defaultSize: DashboardWidget['size'];
   icon: typeof Flame;
   color: string;
   bg: string;
 }[] = [
-  { type: 'calories', label: 'Calories', description: 'Daily calorie intake and goal', defaultSize: 'medium', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-  { type: 'weight', label: 'Weight', description: 'Weight trend over time', defaultSize: 'large', icon: TrendingUp, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-  { type: 'water', label: 'Water', description: 'Daily hydration tracking', defaultSize: 'medium', icon: Droplets, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-  { type: 'macros', label: 'Macros', description: 'Protein, carbs and fat', defaultSize: 'medium', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  { type: 'workout_volume', label: 'Workout Volume', description: 'Weekly training activity', defaultSize: 'large', icon: Dumbbell, color: 'text-violet-400', bg: 'bg-violet-500/10' },
-  { type: 'steps', label: 'Steps', description: 'Daily step count', defaultSize: 'medium', icon: Footprints, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-  { type: 'exercise_progress', label: 'Routine Tonnage', description: 'Track strength over time', defaultSize: 'large', icon: LineChart, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-  { type: 'streak', label: 'Streak', description: 'Activity consistency streak', defaultSize: 'medium', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  { type: 'weekly_goal', label: 'Weekly Goal', description: 'Track your weekly workout target', defaultSize: 'large', icon: Target, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  { type: 'calories', i18nKey: 'calories', defaultSize: 'medium', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  { type: 'weight', i18nKey: 'weight', defaultSize: 'large', icon: TrendingUp, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  { type: 'water', i18nKey: 'water', defaultSize: 'medium', icon: Droplets, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+  { type: 'macros', i18nKey: 'macros', defaultSize: 'medium', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  { type: 'workout_volume', i18nKey: 'workoutVolume', defaultSize: 'large', icon: Dumbbell, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  { type: 'steps', i18nKey: 'steps', defaultSize: 'medium', icon: Footprints, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  { type: 'exercise_progress', i18nKey: 'routineTonnage', defaultSize: 'large', icon: LineChart, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+  { type: 'streak', i18nKey: 'streak', defaultSize: 'medium', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+  { type: 'weekly_goal', i18nKey: 'weeklyGoal', defaultSize: 'large', icon: Target, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
 ];
-
-function getGreeting(firstName: string, hour: number): string {
-  const timeGreet = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  return `${timeGreet}, ${firstName}!`;
-}
 
 const HINT_KEY = 'dashboard_hint_dismissed';
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { logs, fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { fetchLogs, fetchWaterLogs } = useNutritionStore();
   const { fetchMeasurements } = useWeightStore();
-  const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { fetchWorkouts } = useWorkoutStore();
   const { canAddWidget, canUseWidgetType, isPremium } = usePremium();
   const { openPaywall } = usePaywallStore();
   const [showAdd, setShowAdd] = useState(false);
@@ -64,16 +59,6 @@ export default function Dashboard() {
     fetchMeasurements(user.id);
     fetchWorkouts(user.id);
   }, [user]);
-
-  // Schedule local notifications once data is loaded
-  useEffect(() => {
-    const settings = getNotificationSettings();
-    if (!settings.workout_enabled && !settings.nutrition_enabled) return;
-    const today = todayStr();
-    const workoutsLoggedToday = workouts.some(w => w.completed && w.date?.startsWith(today));
-    const mealsLoggedToday = logs.length > 0;
-    scheduleNotificationsForToday(settings, workoutsLoggedToday, mealsLoggedToday);
-  }, [workouts.length, logs.length]);
 
   const widgets = profile?.dashboard_layout ?? [];
 
@@ -108,15 +93,16 @@ export default function Dashboard() {
   const addWidget = async (type: WidgetType) => {
     if (!canAddWidget(widgets.length)) {
       openPaywall(
-        'Widgets illimités',
-        `Le plan gratuit est limité à ${FREE_LIMITS.maxDashboardWidgets} widgets. Passez à Premium pour en ajouter autant que vous voulez.`,
+        t('dashboard.unlimitedWidgets'),
+        t('dashboard.freeWidgetsLimitDesc', { max: FREE_LIMITS.maxDashboardWidgets }),
       );
       return;
     }
     if (!canUseWidgetType(type)) {
+      const catalog = WIDGET_CATALOG.find(w => w.type === type);
       openPaywall(
-        WIDGET_CATALOG.find(w => w.type === type)?.label ?? 'Widget Premium',
-        'Ce widget est réservé aux abonnés Premium.',
+        catalog ? t(`dashboard.widgetCatalog.${catalog.i18nKey}.label`) : t('dashboard.unlimitedWidgets'),
+        t('dashboard.premiumWidgetDesc'),
       );
       return;
     }
@@ -124,7 +110,7 @@ export default function Dashboard() {
     const newWidget: DashboardWidget = {
       id: crypto.randomUUID(),
       type,
-      title: catalog?.label ?? type,
+      title: catalog ? t(`dashboard.widgetCatalog.${catalog.i18nKey}.label`) : type,
       config: {},
       size: catalog?.defaultSize ?? 'large',
       order: widgets.length,
@@ -152,7 +138,8 @@ export default function Dashboard() {
 
   const firstName = profile?.full_name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
-  const greeting = getGreeting(firstName, hour);
+  const timeKey = hour < 12 ? 'goodMorning' : hour < 18 ? 'goodAfternoon' : 'goodEvening';
+  const greeting = `${t(`dashboard.${timeKey}`)}, ${firstName}!`;
 
   const alreadyAddedTypes = new Set(widgets.map(w => w.type));
 
@@ -190,7 +177,7 @@ export default function Dashboard() {
               className="animate-done-btn-in flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-black text-sm font-semibold hover:bg-neutral-100 active:scale-95 transition-all shadow-lg"
             >
               <Check size={15} strokeWidth={2.5} />
-              Done
+              {t('common.done')}
             </button>
           ) : (
             <div className="flex items-center gap-2">
@@ -216,7 +203,7 @@ export default function Dashboard() {
         {editMode && (
           <div className="flex items-center gap-2 mb-3 animate-fade-in-scale">
             <div className="flex-1 h-px bg-neutral-800" />
-            <p className="text-xs text-neutral-500 font-medium px-1">Drag to rearrange • Tap S/M/L to resize</p>
+            <p className="text-xs text-neutral-500 font-medium px-1">{t('dashboard.dragHint')}</p>
             <div className="flex-1 h-px bg-neutral-800" />
           </div>
         )}
@@ -234,14 +221,14 @@ export default function Dashboard() {
         ) : (
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-center py-12 animate-fade-in-up stagger-2">
             <LayoutGrid className="mx-auto mb-3 text-neutral-600" size={32} />
-            <p className="text-neutral-400 mb-1">Your dashboard is empty</p>
-            <p className="text-neutral-600 text-sm mb-4">Tap + to add your first widget</p>
+            <p className="text-neutral-400 mb-1">{t('dashboard.emptyTitle')}</p>
+            <p className="text-neutral-600 text-sm mb-4">{t('dashboard.emptySubtitle')}</p>
             <button
               onClick={() => setShowAdd(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white text-black rounded-full text-sm font-semibold hover:bg-neutral-100 active:scale-95 transition-all"
             >
               <Plus size={15} />
-              Add Widget
+              {t('dashboard.addWidget')}
             </button>
           </div>
         )}
@@ -254,7 +241,7 @@ export default function Dashboard() {
               className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all text-sm text-white font-medium border border-neutral-700/50"
             >
               <Plus size={16} />
-              Add Widget
+              {t('dashboard.addWidget')}
             </button>
           </div>
         )}
@@ -269,8 +256,8 @@ export default function Dashboard() {
                 <Hand size={16} className="text-blue-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-blue-300 font-medium leading-tight">Hold any widget for 3s</p>
-                <p className="text-xs text-neutral-500 mt-0.5">to enter customization mode</p>
+                <p className="text-sm text-blue-300 font-medium leading-tight">{t('dashboard.editModeHint')}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">{t('dashboard.editModeHint2')}</p>
               </div>
               <button
                 onClick={dismissHint}
@@ -298,8 +285,8 @@ export default function Dashboard() {
           >
             <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
               <div>
-                <h2 className="text-white font-semibold text-base">Add Widget</h2>
-                <p className="text-neutral-500 text-xs mt-0.5">Personalize your dashboard</p>
+                <h2 className="text-white font-semibold text-base">{t('dashboard.addWidget')}</h2>
+                <p className="text-neutral-500 text-xs mt-0.5">{t('dashboard.personalizeTitle')}</p>
               </div>
               <button
                 onClick={() => setShowAdd(false)}
@@ -313,10 +300,10 @@ export default function Dashboard() {
               {!isPremium && (
                 <div className="flex items-center justify-between mb-3 px-1">
                   <p className="text-xs text-neutral-500">
-                    {widgets.length}/{FREE_LIMITS.maxDashboardWidgets} widgets utilisés
+                    {t('dashboard.widgetsUsed', { count: `${widgets.length}/${FREE_LIMITS.maxDashboardWidgets}` })}
                   </p>
                   <button
-                    onClick={() => openPaywall('Widgets illimités', 'Ajoutez autant de widgets que vous voulez avec Premium.')}
+                    onClick={() => openPaywall(t('dashboard.unlimitedWidgets'), t('dashboard.freeWidgetsLimitDesc', { max: FREE_LIMITS.maxDashboardWidgets }))}
                     className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
                   >
                     <Crown size={10} /> Premium
@@ -345,8 +332,8 @@ export default function Dashboard() {
                       <div className={`w-9 h-9 rounded-xl ${wt.bg} flex items-center justify-center mb-2.5 ${wt.color}`}>
                         <Icon size={18} />
                       </div>
-                      <p className="text-white font-medium text-sm leading-tight">{wt.label}</p>
-                      <p className="text-neutral-500 text-xs mt-0.5 leading-tight">{wt.description}</p>
+                      <p className="text-white font-medium text-sm leading-tight">{t(`dashboard.widgetCatalog.${wt.i18nKey}.label`)}</p>
+                      <p className="text-neutral-500 text-xs mt-0.5 leading-tight">{t(`dashboard.widgetCatalog.${wt.i18nKey}.description`)}</p>
                       {alreadyAdded && (
                         <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center">
                           <Check size={11} className="text-neutral-400" />

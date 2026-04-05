@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp, Crown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -15,6 +16,7 @@ import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 
 export default function WorkoutPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { workouts, loading, fetchWorkouts, fetchWorkout, deleteWorkout, createWorkout, addExercise, addSet, restoreExercise } = useWorkoutStore();
@@ -43,7 +45,6 @@ export default function WorkoutPage() {
     return true;
   });
 
-  // Count workouts hidden behind paywall
   const hiddenCount = workouts.filter(w => !canViewWorkout(w.date)).length;
 
   const displayed = filtered.slice(0, displayCount);
@@ -54,35 +55,39 @@ export default function WorkoutPage() {
     const targetWorkout = workouts.find(w => w.id === deleteTarget);
     setDeleting(true);
 
-    // Capture full workout (exercises + sets) before deleting
-    await fetchWorkout(deleteTarget);
-    const { currentWorkout: fullWorkout } = useWorkoutStore.getState();
+    try {
+      await fetchWorkout(deleteTarget);
+      const { currentWorkout: fullWorkout } = useWorkoutStore.getState();
 
-    await deleteWorkout(deleteTarget);
-    setDeleting(false);
-    setDeleteTarget(null);
+      await deleteWorkout(deleteTarget);
 
-    if (targetWorkout) {
-      toastWithUndo(`"${targetWorkout.name}" deleted`, async () => {
-        if (!user) return;
-        const restoredId = await createWorkout({
-          user_id: user.id,
-          name: targetWorkout.name,
-          date: targetWorkout.date,
-          duration_seconds: targetWorkout.duration_seconds,
-          notes: targetWorkout.notes,
-          completed: targetWorkout.completed,
-          routine_id: targetWorkout.routine_id,
-        });
-        if (restoredId && fullWorkout?.exercises?.length) {
-          for (const ex of fullWorkout.exercises) {
-            await restoreExercise(restoredId, ex);
+      if (targetWorkout) {
+        toastWithUndo(`"${targetWorkout.name}" deleted`, async () => {
+          if (!user) return;
+          const restoredId = await createWorkout({
+            user_id: user.id,
+            name: targetWorkout.name,
+            date: targetWorkout.date,
+            duration_seconds: targetWorkout.duration_seconds,
+            notes: targetWorkout.notes,
+            completed: targetWorkout.completed,
+            routine_id: targetWorkout.routine_id,
+          });
+          if (restoredId && fullWorkout?.exercises?.length) {
+            for (const ex of fullWorkout.exercises) {
+              await restoreExercise(restoredId, ex);
+            }
           }
-        }
-        toast('Workout restored', 'success');
-      });
-    } else {
-      toast('Workout deleted', 'info');
+          toast(t('workout.restored'), 'success');
+        });
+      } else {
+        toast(t('workout.deleted'), 'info');
+      }
+    } catch {
+      toast(t('workout.deleteFailed'), 'error');
+    } finally {
+      setDeleting(false);
+      setDeleteTarget(null);
     }
   };
 
@@ -114,9 +119,8 @@ export default function WorkoutPage() {
       }
       navigate(`/workout/${workoutId}`);
     } catch {
-      // Delete orphaned workout shell if exercise/set creation failed
       if (workoutId) await deleteWorkout(workoutId);
-      toast('Failed to start routine. Please try again.', 'error');
+      toast(t('workout.startRoutineFailed'), 'error');
     } finally {
       setStartingRoutine(null);
     }
@@ -124,21 +128,26 @@ export default function WorkoutPage() {
 
   const deleteTargetWorkout = workouts.find(w => w.id === deleteTarget);
 
+  const filterLabels = {
+    all: t('workout.filters.all'),
+    completed: t('workout.filters.completed'),
+    incomplete: t('workout.filters.incomplete'),
+  };
+
   return (
     <PageTransition>
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
-        <h1 className="text-2xl font-bold text-white">Workouts</h1>
+        <h1 className="text-2xl font-bold text-white">{t('workout.title')}</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/exercise-progress')}
             className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-            title="Exercise Progress"
           >
             <TrendingUp size={18} />
           </button>
           <Button onClick={() => navigate('/workout/new')} size="sm">
-            <Plus size={16} /> New
+            <Plus size={16} /> {t('common.new')}
           </Button>
         </div>
       </div>
@@ -146,12 +155,12 @@ export default function WorkoutPage() {
       {!routinesLoading && routines.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">My Routines</h2>
+            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.myRoutines')}</h2>
             <button
               onClick={() => navigate('/routines')}
               className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
             >
-              Manage
+              {t('common.manage')}
             </button>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
@@ -179,7 +188,9 @@ export default function WorkoutPage() {
                     </div>
                   </div>
                   <p className="text-sm font-medium text-white truncate">{r.name}</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">{exercises.length} exercise{exercises.length !== 1 ? 's' : ''}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">
+                    {exercises.length} {exercises.length !== 1 ? t('workout.exercises') : t('workout.exercise')}
+                  </p>
                 </button>
               );
             })}
@@ -188,7 +199,7 @@ export default function WorkoutPage() {
       )}
 
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">History</h2>
+        <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.history')}</h2>
         <div className="flex gap-1.5">
           {(['all', 'completed', 'incomplete'] as const).map(f => (
             <button
@@ -197,7 +208,7 @@ export default function WorkoutPage() {
               className={`px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-colors
                 ${filter === f ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:text-neutral-300'}`}
             >
-              {f}
+              {filterLabels[f]}
             </button>
           ))}
         </div>
@@ -221,8 +232,8 @@ export default function WorkoutPage() {
       ) : filtered.length === 0 ? (
         <Card className="text-center py-12">
           <Dumbbell className="mx-auto mb-3 text-neutral-600" size={32} />
-          <p className="text-neutral-400 mb-4">No workouts yet</p>
-          <Button onClick={() => navigate('/workout/new')} size="sm">Start your first workout</Button>
+          <p className="text-neutral-400 mb-4">{t('workout.noWorkoutsYet')}</p>
+          <Button onClick={() => navigate('/workout/new')} size="sm">{t('workout.startFirstWorkout')}</Button>
         </Card>
       ) : (
         <div className="space-y-2">
@@ -269,7 +280,7 @@ export default function WorkoutPage() {
             onClick={() => setDisplayCount(c => c + PAGE_SIZE)}
             className="px-5 py-2 rounded-xl bg-neutral-900 border border-neutral-800/50 text-sm text-neutral-400 hover:text-white hover:border-neutral-700 transition-all"
           >
-            Load more ({filtered.length - displayCount} remaining)
+            {t('workout.loadMore', { count: filtered.length - displayCount })}
           </button>
         </div>
       )}
@@ -281,21 +292,21 @@ export default function WorkoutPage() {
         >
           <Crown size={14} className="text-amber-400 shrink-0" />
           <p className="text-xs text-amber-300 flex-1 text-left">
-            {hiddenCount} séance{hiddenCount > 1 ? 's' : ''} masquée{hiddenCount > 1 ? 's' : ''} — Débloquer l'historique complet
+            {hiddenCount} {t('workout.hiddenSession')}{hiddenCount > 1 ? 's' : ''} — {t('workout.unlockFullHistory')}
           </p>
         </button>
       )}
 
-      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title="Delete Workout">
+      <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('workout.deleteTitle')}>
         <p className="text-neutral-300 mb-6">
-          Are you sure you want to delete <span className="font-semibold text-white">{deleteTargetWorkout?.name || 'this workout'}</span>? This action cannot be undone.
+          {t('workout.deleteConfirm').replace('this workout', deleteTargetWorkout?.name || 'this workout')}
         </p>
         <div className="flex gap-3">
           <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1" disabled={deleting}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button onClick={handleDelete} className="flex-1 !bg-red-600 hover:!bg-red-700" disabled={deleting}>
-            {deleting ? 'Deleting...' : 'Delete'}
+            {deleting ? t('common.deleting') : t('common.delete')}
           </Button>
         </div>
       </Modal>

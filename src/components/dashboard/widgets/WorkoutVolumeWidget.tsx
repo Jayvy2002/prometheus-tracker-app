@@ -1,10 +1,12 @@
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Dumbbell } from 'lucide-react';
 import { useWorkoutStore } from '../../../stores/workoutStore';
 import { parseDate } from '../../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function WorkoutVolumeWidget() {
+  const { t } = useTranslation();
   const { workouts } = useWorkoutStore();
   const navigate = useNavigate();
 
@@ -35,12 +37,12 @@ export default function WorkoutVolumeWidget() {
         <div className="w-10 h-10 rounded-xl bg-violet-600/10 flex items-center justify-center">
           <Dumbbell size={20} className="text-violet-600/50" />
         </div>
-        <p className="text-xs text-neutral-500 leading-tight">No workouts logged yet</p>
+        <p className="text-xs text-neutral-500 leading-tight">{t('widgets.workoutVolume.noWorkoutsYet')}</p>
         <button
           onClick={(e) => { e.stopPropagation(); navigate('/workout/new'); }}
           className="text-xs text-blue-400 hover:text-blue-300 font-medium transition-colors"
         >
-          Start your first workout →
+          {t('widgets.workoutVolume.startFirstWorkout')}
         </button>
       </div>
     );
@@ -50,7 +52,7 @@ export default function WorkoutVolumeWidget() {
     <div>
       <div className="flex items-end gap-2 mb-3">
         <span className="text-2xl font-bold text-white">{total}</span>
-        <span className="text-sm text-neutral-400 mb-0.5">workouts this week</span>
+        <span className="text-sm text-neutral-400 mb-0.5">{t('widgets.workoutVolume.workoutsThisWeek')}</span>
       </div>
       <div className="h-24">
         <ResponsiveContainer width="100%" height="100%">

@@ -1,27 +1,29 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp } from 'lucide-react';
 import { useState } from 'react';
-
-const tabs = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/workout', icon: Dumbbell, label: 'Workouts' },
-  { path: '/exercise-progress', icon: TrendingUp, label: 'Exercise Progress' },
-  { path: '/stats', icon: BarChart2, label: 'Stats' },
-  { path: '/calendar', icon: CalendarDays, label: 'Calendar' },
-  { path: '/nutrition', icon: Apple, label: 'Nutrition' },
-  { path: '/profile', icon: User, label: 'Profile' },
-];
-
-const quickActions = [
-  { label: 'New Workout', icon: Dumbbell, path: '/workout/new' },
-  { label: 'Log Weight', icon: Scale, path: '/weight?log=1' },
-  { label: 'Add Meal', icon: Flame, path: '/nutrition?add=1' },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function SideNav() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+
+  const tabs = [
+    { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
+    { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
+    { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
+    { path: '/stats', icon: BarChart2, label: t('nav.stats') },
+    { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
+    { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
+    { path: '/profile', icon: User, label: t('nav.profile') },
+  ];
+
+  const quickActions = [
+    { label: t('nav.newWorkout'), icon: Dumbbell, path: '/workout/new' },
+    { label: t('nav.logWeight'), icon: Scale, path: '/weight?log=1' },
+    { label: t('nav.addMeal'), icon: Flame, path: '/nutrition?add=1' },
+  ];
 
   return (
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-800/60 z-40">
@@ -66,7 +68,7 @@ export default function SideNav() {
       {/* Quick Actions */}
       <div className="px-3 pb-4 border-t border-neutral-800/60 pt-4">
         <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
-          Quick Add
+          {t('nav.quickAdd')}
         </p>
         <div className="space-y-1">
           {quickActions.map((action, i) => {
