@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../../stores/authStore';
 import { useRoutineStore } from '../../../stores/routineStore';
 import { supabase } from '../../../lib/supabase';
@@ -10,6 +11,7 @@ interface TonnageEntry {
 }
 
 export default function RoutineTonnageWidget() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { routines, fetchRoutines } = useRoutineStore();
   const [selectedRoutineId, setSelectedRoutineId] = useState<string>('');
@@ -82,7 +84,7 @@ export default function RoutineTonnageWidget() {
   const trend = latest && previous ? latest.tonnage - previous.tonnage : null;
 
   if (routines.length === 0) {
-    return <p className="text-xs text-neutral-500 text-center py-2">No routines yet</p>;
+    return <p className="text-xs text-neutral-500 text-center py-2">{t('widgets.routineTonnage.noRoutines')}</p>;
   }
 
   return (
@@ -101,13 +103,13 @@ export default function RoutineTonnageWidget() {
       </select>
 
       {loading ? (
-        <div className="h-20 flex items-center justify-center text-neutral-500 text-xs">Loading...</div>
+        <div className="h-20 flex items-center justify-center text-neutral-500 text-xs">{t('widgets.routineTonnage.loading')}</div>
       ) : chartData.length > 1 ? (
         <>
           {latest && (
             <div className="flex items-end gap-2 mb-2">
               <span className="text-xl font-bold text-white">{latest.tonnage.toLocaleString()}</span>
-              <span className="text-xs text-neutral-400 mb-0.5">kg tonnage</span>
+              <span className="text-xs text-neutral-400 mb-0.5">{t('widgets.routineTonnage.kgTonnage')}</span>
               {trend !== null && trend !== 0 && (
                 <span className={`text-xs ml-auto ${trend > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                   {trend > 0 ? '+' : ''}{trend.toLocaleString()} kg
@@ -129,7 +131,7 @@ export default function RoutineTonnageWidget() {
           </div>
         </>
       ) : (
-        <p className="text-xs text-neutral-500 text-center py-3">Not enough data yet</p>
+        <p className="text-xs text-neutral-500 text-center py-3">{t('widgets.routineTonnage.notEnoughData')}</p>
       )}
     </div>
   );

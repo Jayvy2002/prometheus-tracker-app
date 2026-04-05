@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Camera, X, ScanLine, Loader2, Sparkles,
   AlertCircle, Image as ImageIcon, Clock, Search as SearchIcon,
@@ -36,6 +37,7 @@ interface Props {
  * Used as a modal overlay from FoodForm or as a standalone page via ScannerPage.
  */
 export default function UnifiedScanner({ onResult, onClose, showRecent = true }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const {
     findByBarcode, createProduct, recentProducts, fetchRecentProducts,
@@ -151,11 +153,11 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       setPhase('idle');
       const err = lastErr as { name?: string };
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
-        setError('Accès à la caméra refusé. Autorise la caméra dans les paramètres du navigateur.');
+        setError(t('scanner.cameraPermissionDenied'));
       } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
-        setError('Aucune caméra détectée sur cet appareil.');
+        setError(t('scanner.noCameraFound'));
       } else {
-        setError('Caméra inaccessible. Vérifie les permissions ou entre le code-barres manuellement.');
+        setError(t('scanner.cameraInaccessible'));
       }
       return;
     }
@@ -217,7 +219,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     });
 
     if (!request) {
-      if (mountedRef.current) { setPhase('ai_capture'); setAiError('Impossible de démarrer l\'analyse. Réessaie.'); }
+      if (mountedRef.current) { setPhase('ai_capture'); setAiError(t('scanner.aiStartError')); }
       return;
     }
 
@@ -269,8 +271,8 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           <Loader2 size={28} className="text-blue-400 animate-spin" />
         </div>
         {scannedCode && <p className="text-[11px] text-neutral-600 font-mono mb-3">{scannedCode}</p>}
-        <p className="text-white font-semibold mb-1">Looking up product...</p>
-        <p className="text-sm text-neutral-500 text-center">Checking database and Open Food Facts</p>
+        <p className="text-white font-semibold mb-1">{t('scanner.lookingUp')}</p>
+        <p className="text-sm text-neutral-500 text-center">{t('scanner.checkingDb')}</p>
       </div>
     );
   }
@@ -281,9 +283,9 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         <div className="w-20 h-20 rounded-full bg-neutral-900 flex items-center justify-center mb-6">
           <Loader2 size={32} className="text-blue-400 animate-spin" />
         </div>
-        <p className="text-white font-bold text-xl mb-2">AI is analyzing...</p>
+        <p className="text-white font-bold text-xl mb-2">{t('scanner.aiAnalyzing')}</p>
         <p className="text-sm text-neutral-400 text-center max-w-xs">
-          Identifying the food and extracting nutritional data.
+          {t('scanner.aiAnalyzingDesc')}
         </p>
         <div className="mt-8 w-48">
           <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
@@ -304,7 +306,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           >
             <ArrowLeft size={20} />
           </button>
-          <h2 className="text-base font-semibold text-white">Scan barcode</h2>
+          <h2 className="text-base font-semibold text-white">{t('scanner.scanBarcode')}</h2>
           <button
             onClick={() => { stopCamera(); onClose(); }}
             className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
@@ -325,7 +327,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
             {!cameraActive ? (
               <div className="flex flex-col items-center gap-3">
                 <Loader2 size={28} className="text-blue-400 animate-spin" />
-                <p className="text-white/70 text-sm">Starting camera...</p>
+                <p className="text-white/70 text-sm">{t('scanner.startingCamera')}</p>
               </div>
             ) : (
               <>
@@ -339,7 +341,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                   </div>
                 </div>
                 <p className="mt-4 text-white/90 text-sm font-medium bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm">
-                  Point at the barcode
+                  {t('scanner.pointAtBarcode')}
                 </p>
               </>
             )}
@@ -352,7 +354,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
             className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-neutral-700 text-neutral-300 text-sm hover:bg-neutral-800 transition-colors"
           >
             <Sparkles size={15} className="text-violet-400" />
-            No barcode — identify with AI instead
+            {t('scanner.noBarcodeUseAi')}
           </button>
         </div>
       </div>
@@ -365,11 +367,11 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       <div className="px-4 py-6 pb-24">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold text-white">AI Identification</h2>
+            <h2 className="text-xl font-bold text-white">{t('scanner.aiIdentification')}</h2>
             <p className="text-xs text-neutral-500 mt-0.5">
               {scannedCode
-                ? `Barcode ${scannedCode} — not in any database`
-                : 'Identify food from a photo or description'}
+                ? t('scanner.barcodeNotInDb', { code: scannedCode })
+                : t('scanner.identifyFromPhoto')}
             </p>
           </div>
           <button onClick={reset} className="p-2 text-neutral-400 hover:text-white rounded-xl transition-colors">
@@ -381,8 +383,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           <div className="mb-4 px-3 py-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2">
             <AlertCircle size={14} className="text-amber-400 shrink-0" />
             <p className="text-xs text-amber-300">
-              Code <span className="font-mono font-semibold">{scannedCode}</span> is unknown —
-              take a photo so AI can identify it.
+              {t('scanner.codeUnknown', { code: scannedCode })}
             </p>
           </div>
         )}
@@ -413,13 +414,13 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                 onClick={() => cameraFileRef.current?.click()}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs hover:bg-black/80 transition-colors"
               >
-                <Camera size={11} /> Retake
+                <Camera size={11} /> {t('scanner.retake')}
               </button>
               <button
                 onClick={() => galleryFileRef.current?.click()}
                 className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs hover:bg-black/80 transition-colors"
               >
-                <ImageIcon size={11} /> Change
+                <ImageIcon size={11} /> {t('scanner.change')}
               </button>
             </div>
           </div>
@@ -433,9 +434,9 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                 <Camera size={22} className="text-neutral-500 group-hover:text-blue-400 transition-colors" />
               </div>
               <div className="text-left">
-                <p className="text-sm font-semibold text-neutral-200">Take a photo</p>
+                <p className="text-sm font-semibold text-neutral-200">{t('scanner.takePhoto')}</p>
                 <p className="text-xs text-neutral-500">
-                  {scannedCode ? 'Front of the package' : 'Photo of the food or meal'}
+                  {scannedCode ? t('scanner.frontOfPackage') : t('scanner.photoOfFood')}
                 </p>
               </div>
             </button>
@@ -446,7 +447,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
               <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center shrink-0">
                 <ImageIcon size={18} className="text-neutral-600 group-hover:text-neutral-400 transition-colors" />
               </div>
-              <p className="text-sm text-neutral-400 group-hover:text-neutral-200 transition-colors">Pick from gallery</p>
+              <p className="text-sm text-neutral-400 group-hover:text-neutral-200 transition-colors">{t('scanner.pickFromGallery')}</p>
             </button>
           </div>
         )}
@@ -454,15 +455,15 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         {/* Notes */}
         <div className="mb-5">
           <label className="block text-xs font-medium text-neutral-400 mb-1.5">
-            Description <span className="text-neutral-600">(optional — improves accuracy)</span>
+            {t('scanner.descriptionLabel')} <span className="text-neutral-600">{t('scanner.descriptionOptional')}</span>
           </label>
           <textarea
             value={aiNotes}
             onChange={e => setAiNotes(e.target.value)}
             placeholder={
               scannedCode
-                ? "Product name, brand, flavour..."
-                : "e.g. 'Greek yogurt with granola', '200g grilled chicken breast', 'homemade pasta bolognese'..."
+                ? t('scanner.descriptionPlaceholderBarcode')
+                : t('scanner.descriptionPlaceholderPhoto')
             }
             rows={3}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:border-blue-500/50 resize-none"
@@ -480,14 +481,14 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         {isFallbackSearching && (
           <div className="mb-3 flex items-center gap-2 text-sm text-neutral-400">
             <Loader2 size={13} className="animate-spin shrink-0" />
-            Recherche dans la base de données…
+            {t('scanner.searchingDb')}
           </div>
         )}
         {!isFallbackSearching && fallbackResults.length > 0 && (
           <div className="mb-4">
             <p className="text-xs text-neutral-500 mb-2 flex items-center gap-1.5">
               <SearchIcon size={11} />
-              Correspondances trouvées — sélectionne un résultat :
+              {t('scanner.matchesFound')}
             </p>
             <div className="space-y-1.5">
               {fallbackResults.map((p, i) => (
@@ -510,10 +511,10 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         )}
 
         <Button onClick={handleAiSubmit} disabled={!canAnalyze} className="w-full" size="lg">
-          <Sparkles size={16} /> Identify with AI
+          <Sparkles size={16} /> {t('scanner.identifyWithAi')}
         </Button>
         <p className="text-center text-xs text-neutral-600 mt-2.5">
-          Works with packaged foods, fresh produce, cooked meals and restaurant dishes.
+          {t('scanner.aiDisclaimer')}
         </p>
       </div>
     );
@@ -531,7 +532,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         >
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-xl font-bold text-white">Scanner</h1>
+        <h1 className="text-xl font-bold text-white">{t('scanner.title')}</h1>
       </div>
 
       {/* Primary actions */}
@@ -544,8 +545,8 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
             <ScanLine size={24} className="text-white" />
           </div>
           <div className="text-left flex-1">
-            <p className="text-base font-bold text-white">Scan a barcode</p>
-            <p className="text-sm text-blue-100">Looks up in database + Open Food Facts</p>
+            <p className="text-base font-bold text-white">{t('scanner.scanBarcode')}</p>
+            <p className="text-sm text-blue-100">{t('scanner.scanBarcodeDesc')}</p>
           </div>
           <ChevronRight size={20} className="text-blue-200 shrink-0" />
         </button>
@@ -558,8 +559,8 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
             <Sparkles size={22} className="text-violet-400" />
           </div>
           <div className="text-left flex-1">
-            <p className="text-sm font-bold text-white">Identify with photo</p>
-            <p className="text-xs text-neutral-500">No barcode — AI identifies from photo or description</p>
+            <p className="text-sm font-bold text-white">{t('scanner.identifyWithPhoto')}</p>
+            <p className="text-xs text-neutral-500">{t('scanner.identifyWithPhotoDesc')}</p>
           </div>
           <ChevronRight size={18} className="text-neutral-600 shrink-0" />
         </button>
@@ -568,7 +569,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       {/* Manual barcode entry */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1 h-px bg-neutral-800" />
-        <span className="text-xs text-neutral-600">or enter barcode manually</span>
+        <span className="text-xs text-neutral-600">{t('scanner.orEnterManually')}</span>
         <div className="flex-1 h-px bg-neutral-800" />
       </div>
 
@@ -576,7 +577,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         <Input
           value={manualCode}
           onChange={e => setManualCode(e.target.value)}
-          placeholder="Type barcode..."
+          placeholder={t('scanner.typeBarcode')}
           className="flex-1"
           onKeyDown={e => { if (e.key === 'Enter' && manualCode.trim()) lookupBarcode(manualCode.trim()); }}
         />
@@ -601,7 +602,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         <div>
           <p className="text-xs font-medium text-neutral-500 mb-2.5 flex items-center gap-1.5">
             <Clock size={11} />
-            Recently logged
+            {t('scanner.recentlyLogged')}
           </p>
           <div className="space-y-1.5">
             {recentProducts.slice(0, 5).map((p, i) => (
