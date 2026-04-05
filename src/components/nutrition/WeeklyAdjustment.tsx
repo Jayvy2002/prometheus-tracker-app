@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, X, Check, Info, Flame, Minus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -95,6 +96,7 @@ interface Props {
 }
 
 export default function WeeklyAdjustment({ onDismiss }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const { measurements } = useWeightStore();
@@ -145,65 +147,64 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
   if (goal === 'cut') {
     if (absDiff < 0.2) {
       if (isUnderEating) {
-        // Under-eating but not losing — adherence issue, not calorie target
-        message = 'Weight stable but you\'re under your calorie target.';
-        reason = 'Try being more consistent with your intake before adjusting the target.';
+        message = t('nutrition.weeklyAdjustment.messages.stableUnderEating');
+        reason = t('nutrition.weeklyAdjustment.messages.stableUnderEatingReason');
         severity = 'info';
-        // No calorie suggestion — it's an adherence problem
       } else {
         suggestion = currentCalories - 100;
-        message = 'Weight hasn\'t changed over the last 2 weeks.';
-        reason = 'Reduce by 100 kcal to maintain your cutting deficit.';
+        message = t('nutrition.weeklyAdjustment.messages.stableNoLoss');
+        reason = t('nutrition.weeklyAdjustment.messages.stableNoLossReason');
         severity = 'warning';
       }
     } else if (weekDiff < -1) {
       suggestion = currentCalories + 100;
-      message = `Losing too fast (${weekDiff.toFixed(1)} kg / 2 weeks).`;
-      reason = 'Increase by 100 kcal to preserve muscle mass.';
+      message = t('nutrition.weeklyAdjustment.messages.losingTooFast', { diff: weekDiff.toFixed(1) });
+      reason = t('nutrition.weeklyAdjustment.messages.losingTooFastReason');
       severity = 'warning';
     } else if (weekDiff > 0.3) {
       if (isOverEating) {
-        message = `Weight up ${absDiff.toFixed(1)} kg — you're over your target by ${Math.round((calorieAdherence! - 1) * 100)}%.`;
-        reason = 'Focus on hitting your current target before lowering it further.';
+        message = t('nutrition.weeklyAdjustment.messages.weightUpOvereating', { diff: absDiff.toFixed(1), pct: Math.round((calorieAdherence! - 1) * 100) });
+        reason = t('nutrition.weeklyAdjustment.messages.weightUpOvereatingReason');
         severity = 'warning';
       } else {
         suggestion = currentCalories - 150;
-        message = `Weight increased +${absDiff.toFixed(1)} kg over 2 weeks.`;
-        reason = 'Reduce by 150 kcal to get back on track.';
+        message = t('nutrition.weeklyAdjustment.messages.weightIncreased', { diff: absDiff.toFixed(1) });
+        reason = t('nutrition.weeklyAdjustment.messages.weightIncreasedReason');
         severity = 'warning';
       }
     } else if (weekDiff >= -1 && weekDiff <= -0.2) {
-      // Good progress
-      message = `Good pace: −${absDiff.toFixed(1)} kg over 2 weeks.`;
-      reason = 'Keep your current target — you\'re losing at a healthy rate.';
+      message = t('nutrition.weeklyAdjustment.messages.goodPace', { diff: absDiff.toFixed(1) });
+      reason = t('nutrition.weeklyAdjustment.messages.goodPaceReason');
       severity = 'success';
     }
   } else if (goal === 'bulk') {
     if (weekDiff < 0.1) {
       suggestion = currentCalories + 100;
-      message = 'Weight isn\'t increasing over the last 2 weeks.';
-      reason = 'Add 100 kcal to support muscle growth.';
+      message = t('nutrition.weeklyAdjustment.messages.bulkNotIncreasing');
+      reason = t('nutrition.weeklyAdjustment.messages.bulkNotIncreasingReason');
       severity = 'info';
     } else if (weekDiff > 0.6) {
       suggestion = currentCalories - 100;
-      message = `Gaining too fast (+${absDiff.toFixed(1)} kg / 2 weeks).`;
-      reason = 'Reduce by 100 kcal to limit fat gain.';
+      message = t('nutrition.weeklyAdjustment.messages.bulkTooFast', { diff: absDiff.toFixed(1) });
+      reason = t('nutrition.weeklyAdjustment.messages.bulkTooFastReason');
       severity = 'warning';
     } else {
-      message = `On track: +${absDiff.toFixed(1)} kg over 2 weeks.`;
-      reason = 'Lean bulk pace is optimal. Maintain your current target.';
+      message = t('nutrition.weeklyAdjustment.messages.bulkOnTrack', { diff: absDiff.toFixed(1) });
+      reason = t('nutrition.weeklyAdjustment.messages.bulkOnTrackReason');
       severity = 'success';
     }
   } else if (goal === 'maintain') {
     if (absDiff > 0.5) {
       const dir = weekDiff > 0 ? -1 : 1;
       suggestion = currentCalories + dir * 100;
-      message = `Weight ${weekDiff > 0 ? 'increased' : 'decreased'} by ${absDiff.toFixed(1)} kg.`;
-      reason = `${dir > 0 ? 'Increase' : 'Reduce'} by 100 kcal to stabilize.`;
+      const direction = weekDiff > 0 ? t('nutrition.weeklyAdjustment.messages.increased') : t('nutrition.weeklyAdjustment.messages.decreased');
+      const action = dir > 0 ? t('nutrition.weeklyAdjustment.messages.increase') : t('nutrition.weeklyAdjustment.messages.reduce');
+      message = t('nutrition.weeklyAdjustment.messages.maintainChanged', { direction, diff: absDiff.toFixed(1) });
+      reason = t('nutrition.weeklyAdjustment.messages.maintainChangedReason', { direction: action });
       severity = 'info';
     } else {
-      message = `Weight is stable (±${absDiff.toFixed(2)} kg).`;
-      reason = 'Your maintenance target is working well.';
+      message = t('nutrition.weeklyAdjustment.messages.maintainStable', { diff: absDiff.toFixed(2) });
+      reason = t('nutrition.weeklyAdjustment.messages.maintainStableReason');
       severity = 'success';
     }
   }
@@ -224,7 +225,7 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
       carbs_target: newMacros!.carbs,
       fat_target: newMacros!.fat,
     });
-    toast('Calorie target updated');
+    toast(t('common.saveChanges'));
     setSaving(false);
     onDismiss();
   };
@@ -248,7 +249,7 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
 
           {suggestion !== null && newMacros && (
             <p className="text-xs text-neutral-500 mt-1.5">
-              Suggested target:{' '}
+              {t('nutrition.weeklyAdjustment.suggestedTarget')}{' '}
               <span className="font-semibold text-white">{suggestion} kcal</span>
               <span className="text-neutral-600"> · P:{newMacros.protein}g C:{newMacros.carbs}g F:{newMacros.fat}g</span>
             </p>
@@ -259,15 +260,15 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
             <div className="flex items-center gap-1.5">
               <Info size={9} className="text-neutral-600 shrink-0" />
               <p className="text-[10px] text-neutral-600">
-                {totalWeighIns} weigh-ins · {avgPrev.toFixed(1)} → {avgCurrent.toFixed(1)} kg
+                {totalWeighIns} {t('nutrition.weeklyAdjustment.weighIns')} · {avgPrev.toFixed(1)} → {avgCurrent.toFixed(1)} kg
               </p>
             </div>
             {calorieAdherence !== null && (
               <div className="flex items-center gap-1">
                 <Flame size={9} className={calorieAdherence < 0.85 ? 'text-blue-500' : calorieAdherence > 1.15 ? 'text-rose-400' : 'text-emerald-500'} />
                 <p className="text-[10px] text-neutral-600">
-                  Avg intake: <span className={`font-medium ${calorieAdherence < 0.85 ? 'text-blue-400' : calorieAdherence > 1.15 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                    {Math.round(calorieAdherence * 100)}% of target
+                  {t('nutrition.weeklyAdjustment.avgIntake')} <span className={`font-medium ${calorieAdherence < 0.85 ? 'text-blue-400' : calorieAdherence > 1.15 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {Math.round(calorieAdherence * 100)} {t('nutrition.weeklyAdjustment.ofTarget')}
                   </span>
                 </p>
               </div>
@@ -287,15 +288,15 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
 
       {suggestion !== null && (
         <div className="flex gap-2 mt-3">
-          <Button variant="secondary" onClick={onDismiss} size="sm" className="flex-1">Ignore</Button>
+          <Button variant="secondary" onClick={onDismiss} size="sm" className="flex-1">{t('common.ignore')}</Button>
           <Button onClick={handleAccept} loading={saving} size="sm" className="flex-1">
-            <Check size={14} /> Apply {suggestion} kcal
+            <Check size={14} /> {t('nutrition.weeklyAdjustment.apply', { n: suggestion })}
           </Button>
         </div>
       )}
       {suggestion === null && (
         <div className="mt-3 flex justify-end">
-          <button onClick={onDismiss} className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">Dismiss</button>
+          <button onClick={onDismiss} className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">{t('common.dismiss')}</button>
         </div>
       )}
     </div>

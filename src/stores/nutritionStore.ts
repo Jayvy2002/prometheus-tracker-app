@@ -25,7 +25,7 @@ interface NutritionState {
   batchSaveProducts: (products: Partial<FoodProduct>[]) => Promise<void>;
   uploadProductImage: (userId: string, file: File, slot: string) => Promise<string | null>;
   createProductRequest: (request: Partial<ProductRequest>) => Promise<ProductRequest | null>;
-  analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | null>;
+  analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | { error: string }>;
   fetchFavorites: (userId: string) => Promise<void>;
   addFavorite: (userId: string, product: FoodProduct) => Promise<void>;
   removeFavorite: (id: string) => Promise<void>;
@@ -189,25 +189,23 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   analyzeProductRequest: async (requestId) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return null;
-
-    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-product`;
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ request_id: requestId }),
+    // Use supabase.functions.invoke() — automatically adds Authorization + apikey headers
+    const { data, error } = await supabase.functions.invoke('analyze-product', {
+      body: { request_id: requestId },
     });
 
-    if (!res.ok) return null;
-    const result = await res.json();
-    if (!result.product) return null;
+    if (error) {
+      console.error('[analyzeProductRequest] Edge Function error:', error);
+      const msg = (error as { message?: string })?.message ?? 'Erreur lors de l\'analyse IA.';
+      return { error: msg };
+    }
+    if (!data?.product) {
+      console.error('[analyzeProductRequest] No product in response:', data);
+      return { error: (data?.error as string) ?? "L'IA n'a pas pu extraire les données nutritionnelles." };
+    }
     return {
-      product: result.product as FoodProduct,
-      confidence: typeof result.confidence === 'number' ? result.confidence : 100,
+      product: data.product as FoodProduct,
+      confidence: typeof data.confidence === 'number' ? data.confidence : 100,
     };
   },
 

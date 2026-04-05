@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Dumbbell, Scale, Flame, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface FABAction {
   label: string;
@@ -9,13 +10,14 @@ interface FABAction {
 }
 
 export default function FAB() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
   const actions: FABAction[] = [
-    { label: 'Add Workout', icon: Dumbbell, onClick: () => { navigate('/workout'); setOpen(false); } },
-    { label: 'Add Weight', icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } },
-    { label: 'Add Meal', icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } },
+    { label: t('nav.addWorkout'), icon: Dumbbell, onClick: () => { navigate('/workout'); setOpen(false); } },
+    { label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } },
+    { label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } },
   ];
 
   return (

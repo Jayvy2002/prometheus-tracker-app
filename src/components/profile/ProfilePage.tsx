@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink, Shield } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink, Shield, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { usePaywallStore } from '../../stores/paywallStore';
 import { supabase } from '../../lib/supabase';
+import { setAppLanguage } from '../../i18n';
 import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -19,7 +21,7 @@ import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
 
-type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications';
+type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language';
 
 interface AccordionSectionProps {
   id: Section;
@@ -59,9 +61,10 @@ function AccordionSection({ icon: Icon, label, isOpen, onToggle, children, anima
 }
 
 export default function ProfilePage() {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
-  const { profile } = useProfileStore();
+  const { profile, updateProfile } = useProfileStore();
   const { tier, status, currentPeriodEnd, cancelAtPeriodEnd, role } = useSubscriptionStore();
   const { openPaywall } = usePaywallStore();
   const isAdmin = role === 'admin';
@@ -101,6 +104,13 @@ export default function ProfilePage() {
     }
   };
 
+  const handleLanguageChange = async (lang: string) => {
+    setAppLanguage(lang);
+    if (user) {
+      await updateProfile(user.id, { language: lang });
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
   };
@@ -113,7 +123,6 @@ export default function ProfilePage() {
       setDeleteError(error);
       setDeleting(false);
     }
-    // On success, the auth store clears user/session and the app redirects automatically
   };
 
   const toggle = (section: Section) => {
@@ -123,7 +132,7 @@ export default function ProfilePage() {
   return (
     <PageTransition>
     <div className="px-4 pt-6 pb-4">
-      <h1 className="text-2xl font-bold text-white mb-6">Profile</h1>
+      <h1 className="text-2xl font-bold text-white mb-6">{t('profile.title')}</h1>
 
       <Card className="mb-6 animate-fade-in-scale">
         <div className="flex items-center gap-4">
@@ -131,7 +140,7 @@ export default function ProfilePage() {
           <div className="flex-1 min-w-0">
             <p className="text-lg font-semibold text-white truncate">{profile?.full_name || 'User'}</p>
             <p className="text-sm text-neutral-400 truncate">{user?.email}</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Tap photo to change</p>
+            <p className="text-xs text-neutral-500 mt-0.5">{t('profile.tapToChange')}</p>
           </div>
         </div>
       </Card>
@@ -145,11 +154,11 @@ export default function ProfilePage() {
                 <Shield size={16} className="text-indigo-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white">Admin</p>
-                <p className="text-xs text-neutral-500">Accès complet à toutes les fonctionnalités</p>
+                <p className="text-sm font-semibold text-white">{t('profile.admin')}</p>
+                <p className="text-xs text-neutral-500">{t('profile.adminAccess')}</p>
               </div>
               <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-semibold tracking-wide uppercase">
-                Admin
+                {t('profile.admin')}
               </span>
             </div>
           </Card>
@@ -162,13 +171,13 @@ export default function ProfilePage() {
                 <Crown size={16} className="text-amber-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white">Premium</p>
+                <p className="text-sm font-semibold text-white">{t('profile.premium')}</p>
                 <p className="text-xs text-neutral-500 truncate">
                   {cancelAtPeriodEnd && currentPeriodEnd
-                    ? `Se termine le ${new Date(currentPeriodEnd).toLocaleDateString('fr-FR')}`
+                    ? t('profile.cancelledOn', { date: new Date(currentPeriodEnd).toLocaleDateString() })
                     : currentPeriodEnd
-                      ? `Renouvellement le ${new Date(currentPeriodEnd).toLocaleDateString('fr-FR')}`
-                      : 'Actif'}
+                      ? t('profile.cancelAtPeriodEnd', { date: new Date(currentPeriodEnd).toLocaleDateString() })
+                      : 'Active'}
                 </p>
               </div>
               <button
@@ -193,8 +202,8 @@ export default function ProfilePage() {
                 <Crown size={16} className="text-amber-400" />
               </div>
               <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-white">Passer à Premium</p>
-                <p className="text-xs text-neutral-500">Débloquer toutes les fonctionnalités</p>
+                <p className="text-sm font-semibold text-white">{t('profile.upgradeToPremium')}</p>
+                <p className="text-xs text-neutral-500">{t('profile.unlockFeatures')}</p>
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-semibold">
                 <Zap size={11} fill="currentColor" />
@@ -206,27 +215,44 @@ export default function ProfilePage() {
       )}
 
       <div className="space-y-2 mb-6">
-        <AccordionSection id="personal" icon={User} label="Personal Information" isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">
+        <AccordionSection id="personal" icon={User} label={t('profile.sections.personalInfo')} isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
-        <AccordionSection id="goals" icon={Target} label="Goals & Targets" isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
+        <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           <GoalsForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
-        <AccordionSection id="units" icon={Ruler} label="Units & Preferences" isOpen={openSection === 'units'} onToggle={() => toggle('units')} animationDelay="180ms">
+        <AccordionSection id="units" icon={Ruler} label={t('profile.sections.units')} isOpen={openSection === 'units'} onToggle={() => toggle('units')} animationDelay="180ms">
           <UnitsForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
-        <AccordionSection id="password" icon={Lock} label="Change Password" isOpen={openSection === 'password'} onToggle={() => toggle('password')} animationDelay="240ms">
+        <AccordionSection id="language" icon={Globe} label={t('profile.sections.language')} isOpen={openSection === 'language'} onToggle={() => toggle('language')} animationDelay="210ms">
+          <div className="flex gap-2">
+            {(['en', 'fr'] as const).map(lang => (
+              <button
+                key={lang}
+                onClick={() => handleLanguageChange(lang)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all border
+                  ${i18n.language === lang
+                    ? 'bg-blue-600 text-white border-blue-500'
+                    : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:border-neutral-600'}`}
+              >
+                {t(`profile.language.${lang}`)}
+              </button>
+            ))}
+          </div>
+        </AccordionSection>
+
+        <AccordionSection id="password" icon={Lock} label={t('profile.sections.changePassword')} isOpen={openSection === 'password'} onToggle={() => toggle('password')} animationDelay="240ms">
           <PasswordForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
-        <AccordionSection id="notifications" icon={Bell} label="Notifications & Reminders" isOpen={openSection === 'notifications'} onToggle={() => toggle('notifications')} animationDelay="300ms">
+        <AccordionSection id="notifications" icon={Bell} label={t('profile.sections.notifications')} isOpen={openSection === 'notifications'} onToggle={() => toggle('notifications')} animationDelay="300ms">
           <NotificationSettings />
         </AccordionSection>
 
-        <AccordionSection id="feedback" icon={MessageSquare} label="Suggestion / Report a Problem" isOpen={openSection === 'feedback'} onToggle={() => toggle('feedback')} animationDelay="360ms">
+        <AccordionSection id="feedback" icon={MessageSquare} label={t('profile.sections.feedback')} isOpen={openSection === 'feedback'} onToggle={() => toggle('feedback')} animationDelay="360ms">
           <FeedbackForm />
         </AccordionSection>
 
@@ -235,7 +261,7 @@ export default function ProfilePage() {
           <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
             <Activity size={16} />
           </div>
-          <span className="flex-1 text-sm font-medium text-white">Routines</span>
+          <span className="flex-1 text-sm font-medium text-white">{t('profile.sections.routines')}</span>
           <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
         </Card>
         </div>
@@ -243,24 +269,24 @@ export default function ProfilePage() {
       </div>
 
       <Button variant="danger" onClick={handleSignOut} className="w-full animate-fade-in-up stagger-7">
-        <LogOut size={16} /> Sign Out
+        <LogOut size={16} /> {t('profile.signOut')}
       </Button>
 
       <button
         onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(''); setDeleteError(null); }}
         className="w-full mt-3 text-xs text-neutral-600 hover:text-rose-500 transition-colors animate-fade-in-up"
       >
-        Delete my account
+        {t('profile.deleteAccount')}
       </button>
 
-      <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title="Delete Account">
+      <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title={t('profile.deleteModal.title')}>
         <div className="space-y-4">
           <p className="text-sm text-neutral-300">
-            This will permanently delete your account and all your data — workouts, nutrition logs, weight history. <span className="text-rose-400 font-medium">This action cannot be undone.</span>
+            This will permanently delete your account and all your data — workouts, nutrition logs, weight history. <span className="text-rose-400 font-medium">{t('common.cannotBeUndone')}</span>
           </p>
           <div>
             <label className="block text-xs text-neutral-500 mb-1.5">
-              Type <span className="font-mono text-white">DELETE</span> to confirm
+              {t('profile.deleteModal.typeToConfirm')}
             </label>
             <input
               type="text"
@@ -275,7 +301,7 @@ export default function ProfilePage() {
           )}
           <div className="flex gap-3">
             <Button variant="secondary" onClick={() => setShowDeleteModal(false)} className="flex-1" disabled={deleting}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleDeleteAccount}
@@ -283,7 +309,7 @@ export default function ProfilePage() {
               disabled={deleteConfirmText !== 'DELETE' || deleting}
             >
               <Trash2 size={14} />
-              {deleting ? 'Deleting…' : 'Delete Account'}
+              {deleting ? t('profile.deleteModal.deleting') : t('profile.deleteModal.title')}
             </Button>
           </div>
         </div>

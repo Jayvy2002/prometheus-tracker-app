@@ -1,5 +1,6 @@
 import { ArrowLeft, Heart, Activity, Watch, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { HEALTH_PROVIDERS } from '../../lib/constants';
 import Card from '../ui/Card';
 import FullPageLayout from '../layout/FullPageLayout';
@@ -10,6 +11,7 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 export default function HealthIntegrations() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -17,9 +19,9 @@ export default function HealthIntegrations() {
       <PageTransition>
         <div className="px-4 pt-6 pb-24">
           <button onClick={() => navigate('/profile')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6 transition-colors animate-fade-in-left">
-            <ArrowLeft size={18} /> <span className="text-sm">Back</span>
+            <ArrowLeft size={18} /> <span className="text-sm">{t('common.back')}</span>
           </button>
-          <h1 className="text-2xl font-bold text-white mb-2 animate-fade-in-down">Health Integrations</h1>
+          <h1 className="text-2xl font-bold text-white mb-2 animate-fade-in-down">{t('health.title')}</h1>
           <p className="text-sm text-neutral-400 mb-6 animate-fade-in stagger-2">Connect external health services to sync your data</p>
 
           <div className="mb-6 bg-blue-600/10 border border-blue-500/30 rounded-2xl p-4 flex items-start gap-3 animate-fade-in-scale">
@@ -27,9 +29,9 @@ export default function HealthIntegrations() {
               <Clock size={16} className="text-blue-400" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-white mb-1">Coming Soon</p>
+              <p className="text-sm font-semibold text-white mb-1">{t('health.comingSoon')}</p>
               <p className="text-xs text-neutral-400 leading-relaxed">
-                Health integrations are currently in development. You will soon be able to sync your steps, heart rate, and activity data from Apple Health, Google Fit, and Garmin Connect.
+                {t('health.inDevelopment')}
               </p>
             </div>
           </div>
@@ -46,9 +48,9 @@ export default function HealthIntegrations() {
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-white text-sm">{provider.name}</p>
-                        <p className="text-xs text-neutral-500">Not yet available</p>
+                        <p className="text-xs text-neutral-500">{t('common.notAvailableYet')}</p>
                       </div>
-                      <span className="text-xs text-neutral-600 font-medium bg-neutral-800 px-2 py-1 rounded-lg">Soon</span>
+                      <span className="text-xs text-neutral-600 font-medium bg-neutral-800 px-2 py-1 rounded-lg">{t('common.soon')}</span>
                     </div>
                   </Card>
                 </div>

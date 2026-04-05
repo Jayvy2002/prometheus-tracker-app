@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
@@ -256,6 +257,7 @@ export default function ExerciseCard({
   exercise: WorkoutExercise;
   onStartRestTimer?: () => void;
 }) {
+  const { t } = useTranslation();
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, currentWorkout, fetchExerciseHistory } = useWorkoutStore();
   const { user } = useAuthStore();
   const { showRir } = usePreferencesStore();
@@ -309,7 +311,7 @@ export default function ExerciseCard({
           value={localName}
           onChange={e => setLocalName(e.target.value)}
           className="flex-1 bg-transparent text-white font-semibold focus:outline-none"
-          placeholder="Exercise name"
+          placeholder={t('workout.exerciseCard.exerciseNamePlaceholder')}
           readOnly
         />
         {isPR && (
@@ -329,7 +331,7 @@ export default function ExerciseCard({
             const exerciseSnapshot = { ...exercise, sets: [...(exercise.sets ?? [])] };
             const workoutId = currentWorkout?.id;
             deleteExercise(exercise.id);
-            toastWithUndo('Exercise removed', () => {
+            toastWithUndo(t('workout.exerciseCard.exerciseRemoved'), () => {
               if (workoutId) restoreExercise(workoutId, exerciseSnapshot);
             });
           }}
@@ -345,7 +347,7 @@ export default function ExerciseCard({
           <div className="flex items-start gap-1.5 flex-wrap">
             <div className="flex items-center gap-1 text-neutral-600 mt-0.5">
               <History size={11} />
-              <span className="text-[10px] font-medium uppercase tracking-wider">Last</span>
+              <span className="text-[10px] font-medium uppercase tracking-wider">{t('workout.exerciseCard.last')}</span>
             </div>
             {prevSets.filter(s => s.set_type === 'working').map((s, i) => (
               <span key={i} className="text-[11px] text-neutral-500 bg-neutral-900/60 rounded px-1.5 py-0.5">
@@ -358,7 +360,7 @@ export default function ExerciseCard({
           {/* History trend dots (up to 5 sessions) */}
           {history.length >= 2 && (
             <div className="flex items-center gap-1 mt-1">
-              <span className="text-[9px] text-neutral-700 uppercase tracking-wider mr-0.5">Trend</span>
+              <span className="text-[9px] text-neutral-700 uppercase tracking-wider mr-0.5">{t('workout.exerciseCard.trend')}</span>
               {history.slice(0, 5).reverse().map((h, i) => {
                 const maxW = Math.max(...h.sets.filter(s => s.set_type === 'working' && s.weight_kg > 0).map(s => s.weight_kg), 0);
                 const prevH = history.slice(0, 5).reverse()[i - 1];
@@ -407,7 +409,7 @@ export default function ExerciseCard({
               updateExerciseDraft(exercise.id, 'notes', e.target.value);
             }}
             onBlur={() => updateExercise(exercise.id, { notes: localNotes })}
-            placeholder="Notes : tempo, indications, variante..."
+            placeholder={t('workout.exerciseCard.notesPlaceholder')}
             rows={2}
             className="w-full bg-neutral-900/60 border border-neutral-800/50 rounded-lg px-3 py-2 text-sm text-neutral-300 placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-blue-500/50 resize-none"
           />
@@ -418,11 +420,11 @@ export default function ExerciseCard({
         <div className="px-4 pb-4 animate-fade-in">
           {(exercise.sets?.length ?? 0) > 0 && (
             <div className={`grid ${showRir ? 'grid-cols-12' : 'grid-cols-11'} gap-2 text-[10px] text-neutral-500 font-medium uppercase tracking-wider mb-2 px-1`}>
-              <div className="col-span-1">#</div>
-              <div className="col-span-3">Type</div>
-              <div className={showRir ? 'col-span-3' : 'col-span-4'}>Kg</div>
-              <div className="col-span-2">Reps</div>
-              {showRir && <div className="col-span-2">RIR</div>}
+              <div className="col-span-1">{t('workout.exerciseCard.number')}</div>
+              <div className="col-span-3">{t('workout.exerciseCard.type')}</div>
+              <div className={showRir ? 'col-span-3' : 'col-span-4'}>{t('workout.exerciseCard.weight')}</div>
+              <div className="col-span-2">{t('workout.exerciseCard.reps')}</div>
+              {showRir && <div className="col-span-2">{t('workout.exerciseCard.rir')}</div>}
               <div className="col-span-1"></div>
             </div>
           )}
@@ -440,7 +442,7 @@ export default function ExerciseCard({
                   const setSnapshot = { ...set } as import('../../lib/types').WorkoutSet;
                   const exerciseId = exercise.id;
                   deleteSet(setSnapshot.id);
-                  toastWithUndo('Set removed', () => restoreSet(exerciseId, setSnapshot));
+                  toastWithUndo(t('workout.exerciseCard.setRemoved'), () => restoreSet(exerciseId, setSnapshot));
                 }}
               />
             ))}
@@ -450,7 +452,7 @@ export default function ExerciseCard({
             onClick={handleAddSet}
             className="mt-2 w-full py-2 text-xs text-neutral-400 hover:text-blue-400 font-medium flex items-center justify-center gap-1 transition-colors"
           >
-            <Plus size={14} /> Add Set
+            <Plus size={14} /> {t('workout.exerciseCard.addSet')}
           </button>
         </div>
       )}

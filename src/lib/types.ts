@@ -19,6 +19,7 @@ export interface UserProfile {
   unit_distance: 'km' | 'mi';
   unit_height: 'cm' | 'in';
   avatar_url: string;
+  language?: string;
   onboarding_completed: boolean;
   dashboard_layout: DashboardWidget[];
   health_integrations: Record<string, HealthIntegration>;

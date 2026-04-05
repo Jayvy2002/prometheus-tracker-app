@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -21,6 +22,7 @@ interface FormData {
 }
 
 export default function OnboardingFlow() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { updateProfile } = useProfileStore();
@@ -70,6 +72,14 @@ export default function OnboardingFlow() {
     navigate('/dashboard');
   };
 
+  const titles = [
+    t('onboarding.steps.aboutYou'),
+    t('onboarding.steps.yourBody'),
+    t('onboarding.steps.activityLevel'),
+    t('onboarding.steps.yourGoal'),
+    t('onboarding.steps.summary'),
+  ];
+
   const steps = [
     <StepPersonal key="p" form={form} update={update} />,
     <StepPhysical key="ph" form={form} update={update} />,
@@ -77,8 +87,6 @@ export default function OnboardingFlow() {
     <StepGoal key="g" form={form} update={update} />,
     <StepSummary key="s" form={form} />,
   ];
-
-  const titles = ['About You', 'Your Body', 'Activity Level', 'Your Goal', 'Summary'];
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-start">
@@ -101,31 +109,31 @@ export default function OnboardingFlow() {
       </div>
 
       <h2 className="text-2xl font-bold text-white mb-1">{titles[step]}</h2>
-      <p className="text-neutral-400 text-sm mb-6">Step {step + 1} of {titles.length}</p>
+      <p className="text-neutral-400 text-sm mb-6">{t('onboarding.stepOf', { step: step + 1, total: titles.length })}</p>
 
       <div className="flex-1 animate-fade-in-up" key={step}>{steps[step]}</div>
 
       <div className="flex gap-3 mt-8 animate-fade-in-up">
         {step > 0 && (
           <Button variant="secondary" onClick={() => setStep(s => s - 1)} className="flex-1">
-            <ArrowLeft size={18} /> Back
+            <ArrowLeft size={18} /> {t('onboarding.back')}
           </Button>
         )}
         {step < steps.length - 1 ? (
           <Button onClick={() => {
             if (step === 0) {
-              if (!form.full_name.trim()) { toast('Ton prénom est requis.', 'error'); return; }
-              if (!form.date_of_birth) { toast('Ta date de naissance est requise.', 'error'); return; }
+              if (!form.full_name.trim()) { toast(t('onboarding.errors.nameRequired'), 'error'); return; }
+              if (!form.date_of_birth) { toast(t('onboarding.errors.dobRequired'), 'error'); return; }
               const age = getAge(form.date_of_birth);
-              if (age < 10 || age > 100) { toast('Date de naissance invalide.', 'error'); return; }
+              if (age < 10 || age > 100) { toast(t('onboarding.errors.dobInvalid'), 'error'); return; }
             }
             setStep(s => s + 1);
           }} className="flex-1">
-            Continue <ArrowRight size={18} />
+            {t('onboarding.continue')} <ArrowRight size={18} />
           </Button>
         ) : (
           <Button onClick={finish} loading={saving} className="flex-1">
-            <Check size={18} /> Get Started
+            <Check size={18} /> {t('onboarding.getStarted')}
           </Button>
         )}
       </div>
@@ -135,11 +143,12 @@ export default function OnboardingFlow() {
 }
 
 function StepPersonal({ form, update }: { form: FormData; update: (k: keyof FormData, v: string | number) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5">
-      <Input label="Full Name" value={form.full_name} onChange={e => update('full_name', e.target.value)} placeholder="John Doe" />
+      <Input label={t('onboarding.fields.fullName')} value={form.full_name} onChange={e => update('full_name', e.target.value)} placeholder="John Doe" />
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-neutral-300">Gender</label>
+        <label className="block text-sm font-medium text-neutral-300">{t('onboarding.fields.gender')}</label>
         <div className="grid grid-cols-3 gap-2">
           {['male', 'female', 'other'].map(g => (
             <button
@@ -155,16 +164,17 @@ function StepPersonal({ form, update }: { form: FormData; update: (k: keyof Form
           ))}
         </div>
       </div>
-      <Input label="Date of Birth" type="date" value={form.date_of_birth} onChange={e => update('date_of_birth', e.target.value)} />
+      <Input label={t('onboarding.fields.dateOfBirth')} type="date" value={form.date_of_birth} onChange={e => update('date_of_birth', e.target.value)} />
     </div>
   );
 }
 
 function StepPhysical({ form, update }: { form: FormData; update: (k: keyof FormData, v: string | number) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5">
       <div>
-        <label className="block text-sm font-medium text-neutral-300 mb-1.5">Height (cm)</label>
+        <label className="block text-sm font-medium text-neutral-300 mb-1.5">{t('onboarding.fields.heightCm')}</label>
         <div className="flex items-center gap-4">
           <input
             type="range"
@@ -178,7 +188,7 @@ function StepPhysical({ form, update }: { form: FormData; update: (k: keyof Form
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium text-neutral-300 mb-1.5">Weight (kg)</label>
+        <label className="block text-sm font-medium text-neutral-300 mb-1.5">{t('onboarding.fields.weightKg')}</label>
         <div className="flex items-center gap-4">
           <input
             type="range"
@@ -237,6 +247,7 @@ function StepGoal({ form, update }: { form: FormData; update: (k: keyof FormData
 }
 
 function StepSummary({ form }: { form: FormData }) {
+  const { t } = useTranslation();
   const age = getAge(form.date_of_birth);
   const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
   const tdee = calculateTDEE(bmr, form.activity_level);
@@ -246,33 +257,33 @@ function StepSummary({ form }: { form: FormData }) {
   return (
     <div className="space-y-4">
       <div className="bg-neutral-900/50 rounded-2xl p-5 border border-neutral-800/50">
-        <h3 className="text-sm font-medium text-neutral-400 mb-3">Your Stats</h3>
+        <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('onboarding.summary.yourStats')}</h3>
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <div><span className="text-neutral-500">Age:</span> <span className="text-white font-medium">{age} years</span></div>
-          <div><span className="text-neutral-500">Height:</span> <span className="text-white font-medium">{form.height_cm} cm</span></div>
-          <div><span className="text-neutral-500">Weight:</span> <span className="text-white font-medium">{form.weight_kg} kg</span></div>
-          <div><span className="text-neutral-500">BMR:</span> <span className="text-white font-medium">{bmr} cal</span></div>
+          <div><span className="text-neutral-500">{t('onboarding.summary.age')}:</span> <span className="text-white font-medium">{age} years</span></div>
+          <div><span className="text-neutral-500">{t('onboarding.summary.height')}:</span> <span className="text-white font-medium">{form.height_cm} cm</span></div>
+          <div><span className="text-neutral-500">{t('onboarding.summary.weight')}:</span> <span className="text-white font-medium">{form.weight_kg} kg</span></div>
+          <div><span className="text-neutral-500">{t('onboarding.summary.bmr')}:</span> <span className="text-white font-medium">{bmr} {t('onboarding.summary.calDay')}</span></div>
         </div>
       </div>
 
       <div className="bg-blue-600/10 rounded-2xl p-5 border border-blue-500/30">
-        <h3 className="text-sm font-medium text-blue-400 mb-3">Your Daily Targets</h3>
+        <h3 className="text-sm font-medium text-blue-400 mb-3">{t('onboarding.summary.yourDailyTargets')}</h3>
         <div className="text-center mb-4">
           <span className="text-4xl font-bold text-white">{calories}</span>
-          <span className="text-neutral-400 ml-1">cal/day</span>
+          <span className="text-neutral-400 ml-1">{t('onboarding.summary.calDay')}</span>
         </div>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div className="bg-neutral-900/50 rounded-xl p-3">
             <div className="text-lg font-bold text-sky-400">{macros.protein}g</div>
-            <div className="text-xs text-neutral-500">Protein</div>
+            <div className="text-xs text-neutral-500">{t('common.protein')}</div>
           </div>
           <div className="bg-neutral-900/50 rounded-xl p-3">
             <div className="text-lg font-bold text-amber-400">{macros.carbs}g</div>
-            <div className="text-xs text-neutral-500">Carbs</div>
+            <div className="text-xs text-neutral-500">{t('common.carbs')}</div>
           </div>
           <div className="bg-neutral-900/50 rounded-xl p-3">
             <div className="text-lg font-bold text-rose-400">{macros.fat}g</div>
-            <div className="text-xs text-neutral-500">Fat</div>
+            <div className="text-xs text-neutral-500">{t('common.fat')}</div>
           </div>
         </div>
       </div>

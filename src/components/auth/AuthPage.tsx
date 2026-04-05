@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function AuthPage() {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -31,7 +33,7 @@ export default function AuthPage() {
           <div className="text-center mb-10 animate-fade-in-scale">
             <img src="/logo.svg" alt="Prometheus Tracker" className="w-16 h-16 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-white tracking-tight">Prometheus</h1>
-            <p className="text-neutral-400 mt-2">Track. Train. Transform.</p>
+            <p className="text-neutral-400 mt-2">{t('auth.tagline')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-up stagger-2">
@@ -39,7 +41,7 @@ export default function AuthPage() {
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
               <Input
                 type="email"
-                placeholder="Email address"
+                placeholder={t('auth.emailAddress')}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 className="pl-11"
@@ -51,7 +53,7 @@ export default function AuthPage() {
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
               <Input
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Password"
+                placeholder={t('auth.password')}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 className="pl-11 pr-11"
@@ -74,7 +76,7 @@ export default function AuthPage() {
             )}
 
             <Button type="submit" loading={loading} className="w-full" size="lg">
-              {mode === 'login' ? 'Sign In' : 'Create Account'}
+              {mode === 'login' ? t('auth.signIn') : t('auth.createAccount')}
               <ArrowRight size={18} />
             </Button>
           </form>
@@ -84,7 +86,7 @@ export default function AuthPage() {
               onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}
               className="text-sm text-neutral-400 hover:text-blue-400 transition-colors"
             >
-              {mode === 'login' ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+              {mode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')}
             </button>
           </div>
         </div>

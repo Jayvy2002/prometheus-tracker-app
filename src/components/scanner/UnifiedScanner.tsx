@@ -39,7 +39,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const { user } = useAuthStore();
   const {
     findByBarcode, createProduct, recentProducts, fetchRecentProducts,
-    uploadProductImage, createProductRequest, analyzeProductRequest,
+    uploadProductImage, createProductRequest, analyzeProductRequest, searchProducts,
   } = useNutritionStore();
 
   const [phase, setPhase] = useState<Phase>('idle');
@@ -51,6 +51,8 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const [aiPhoto, setAiPhoto] = useState<{ file: File; preview: string } | null>(null);
   const [aiNotes, setAiNotes] = useState('');
   const [aiError, setAiError] = useState('');
+  const [fallbackResults, setFallbackResults] = useState<FoodProduct[]>([]);
+  const [isFallbackSearching, setIsFallbackSearching] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraFileRef = useRef<HTMLInputElement>(null);
@@ -126,37 +128,61 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setError('');
     foundRef.current = false;
     setPhase('scanning');
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
-      if (!mountedRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
-      streamRef.current = stream;
-      if (!videoRef.current) { setPhase('idle'); return; }
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
-      setCameraActive(true);
 
-      scanIntervalRef.current = window.setInterval(async () => {
-        if (foundRef.current || !mountedRef.current || !videoRef.current) return;
-        if (videoRef.current.readyState < 2) return;
-        try {
-          const barcodes = await detectBarcodes(videoRef.current);
-          if (barcodes.length > 0 && !foundRef.current && mountedRef.current) {
-            const code = barcodes[0].rawValue;
-            if (code) {
-              foundRef.current = true;
-              setFlashActive(true);
-              setTimeout(() => setFlashActive(false), 300);
-              lookupBarcode(code);
-            }
-          }
-        } catch { /* ignore frame errors */ }
-      }, 200);
-    } catch {
-      setPhase('idle');
-      setError('Camera not accessible. Check permissions or enter the barcode manually.');
+    // Try progressive constraints: rear camera → any camera → minimal
+    const constraintsList = [
+      { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+      { video: { facingMode: { ideal: 'environment' } } },
+      { video: true },
+    ];
+
+    let stream: MediaStream | null = null;
+    let lastErr: unknown;
+    for (const constraints of constraintsList) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        break;
+      } catch (e) {
+        lastErr = e;
+      }
     }
+
+    if (!stream) {
+      setPhase('idle');
+      const err = lastErr as { name?: string };
+      if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
+        setError('Accès à la caméra refusé. Autorise la caméra dans les paramètres du navigateur.');
+      } else if (err?.name === 'NotFoundError' || err?.name === 'DevicesNotFoundError') {
+        setError('Aucune caméra détectée sur cet appareil.');
+      } else {
+        setError('Caméra inaccessible. Vérifie les permissions ou entre le code-barres manuellement.');
+      }
+      return;
+    }
+
+    if (!mountedRef.current) { stream.getTracks().forEach(t => t.stop()); return; }
+    streamRef.current = stream;
+    if (!videoRef.current) { setPhase('idle'); return; }
+    videoRef.current.srcObject = stream;
+    await videoRef.current.play();
+    setCameraActive(true);
+
+    scanIntervalRef.current = window.setInterval(async () => {
+      if (foundRef.current || !mountedRef.current || !videoRef.current) return;
+      if (videoRef.current.readyState < 2) return;
+      try {
+        const barcodes = await detectBarcodes(videoRef.current);
+        if (barcodes.length > 0 && !foundRef.current && mountedRef.current) {
+          const code = barcodes[0].rawValue;
+          if (code) {
+            foundRef.current = true;
+            setFlashActive(true);
+            setTimeout(() => setFlashActive(false), 300);
+            lookupBarcode(code);
+          }
+        }
+      } catch { /* ignore frame errors */ }
+    }, 200);
   };
 
   // -------------------------------------------------------------------
@@ -172,6 +198,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     if (!user || (!aiPhoto && !aiNotes.trim() && !scannedCode)) return;
     setPhase('ai_analyzing');
     setAiError('');
+    setFallbackResults([]);
 
     let imagePath = '';
     if (aiPhoto) {
@@ -190,18 +217,30 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     });
 
     if (!request) {
-      if (mountedRef.current) { setPhase('ai_capture'); setAiError('Failed to start analysis. Try again.'); }
+      if (mountedRef.current) { setPhase('ai_capture'); setAiError('Impossible de démarrer l\'analyse. Réessaie.'); }
       return;
     }
 
     const result = await analyzeProductRequest(request.id);
     if (!mountedRef.current) return;
 
-    if (result) {
+    if ('product' in result) {
       onResult(result.product, result.confidence);
     } else {
+      // AI failed — show actual error and try text search as fallback
       setPhase('ai_capture');
-      setAiError('AI could not identify this product. Try a clearer photo or add a description.');
+      setAiError(result.error);
+
+      const query = aiNotes.trim();
+      if (query) {
+        setIsFallbackSearching(true);
+        try {
+          const found = await searchProducts(query);
+          if (mountedRef.current) setFallbackResults(found.slice(0, 5));
+        } catch { /* ignore */ } finally {
+          if (mountedRef.current) setIsFallbackSearching(false);
+        }
+      }
     }
   };
 
@@ -214,6 +253,8 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setAiNotes('');
     setAiError('');
     setError('');
+    setFallbackResults([]);
+    setIsFallbackSearching(false);
     foundRef.current = false;
   };
 
@@ -429,9 +470,42 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         </div>
 
         {aiError && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2">
+          <div className="mb-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2">
             <AlertCircle size={14} className="text-rose-400 mt-0.5 shrink-0" />
             <p className="text-sm text-rose-300">{aiError}</p>
+          </div>
+        )}
+
+        {/* Fallback: text search results when AI fails */}
+        {isFallbackSearching && (
+          <div className="mb-3 flex items-center gap-2 text-sm text-neutral-400">
+            <Loader2 size={13} className="animate-spin shrink-0" />
+            Recherche dans la base de données…
+          </div>
+        )}
+        {!isFallbackSearching && fallbackResults.length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs text-neutral-500 mb-2 flex items-center gap-1.5">
+              <SearchIcon size={11} />
+              Correspondances trouvées — sélectionne un résultat :
+            </p>
+            <div className="space-y-1.5">
+              {fallbackResults.map((p, i) => (
+                <button
+                  key={i}
+                  onClick={() => onResult(p)}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-neutral-900 border border-neutral-800 hover:bg-neutral-800 transition-colors text-left"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                    <p className="text-xs text-neutral-500">
+                      {p.calories_per_100g} kcal · P:{p.protein_per_100g}g · C:{p.carbs_per_100g}g · F:{p.fat_per_100g}g / 100g
+                    </p>
+                  </div>
+                  <ChevronRight size={14} className="text-neutral-600 shrink-0" />
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

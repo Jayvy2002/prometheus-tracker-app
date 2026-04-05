@@ -1,17 +1,19 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Dumbbell, Apple, User, BarChart2 } from 'lucide-react';
-
-const tabs = [
-  { path: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-  { path: '/workout', icon: Dumbbell, label: 'Workout' },
-  { path: '/stats', icon: BarChart2, label: 'Stats' },
-  { path: '/nutrition', icon: Apple, label: 'Nutrition' },
-  { path: '/profile', icon: User, label: 'Profile' },
-];
+import { useTranslation } from 'react-i18next';
 
 export default function BottomNav() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
+
+  const tabs = [
+    { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home') },
+    { path: '/workout', icon: Dumbbell, label: t('nav.workout') },
+    { path: '/stats', icon: BarChart2, label: t('nav.stats') },
+    { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
+    { path: '/profile', icon: User, label: t('nav.profile') },
+  ];
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 z-40 safe-area-bottom">

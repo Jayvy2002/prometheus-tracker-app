@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Send, Lightbulb, Bug } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
 import Button from '../ui/Button';
@@ -8,6 +9,7 @@ import Input from '../ui/Input';
 type FeedbackType = 'suggestion' | 'bug';
 
 export default function FeedbackForm() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const [type, setType] = useState<FeedbackType>('suggestion');
   const [title, setTitle] = useState('');
@@ -21,11 +23,11 @@ export default function FeedbackForm() {
     setSuccess(false);
 
     if (!title.trim()) {
-      setError('Please enter a title');
+      setError(t('profile.feedback.titleRequired'));
       return;
     }
     if (!description.trim()) {
-      setError('Please enter a description');
+      setError(t('profile.feedback.descRequired'));
       return;
     }
 
@@ -60,7 +62,7 @@ export default function FeedbackForm() {
           }`}
         >
           <Lightbulb size={15} />
-          Suggestion
+          {t('profile.feedback.suggestion')}
         </button>
         <button
           onClick={() => setType('bug')}
@@ -71,23 +73,23 @@ export default function FeedbackForm() {
           }`}
         >
           <Bug size={15} />
-          Bug Report
+          {t('profile.feedback.bugReport')}
         </button>
       </div>
 
       <Input
-        label="Title"
+        label={t('profile.feedback.title')}
         value={title}
         onChange={e => setTitle(e.target.value)}
-        placeholder={type === 'suggestion' ? 'What would you like to see?' : 'What went wrong?'}
+        placeholder={type === 'suggestion' ? t('profile.feedback.suggestionTitlePlaceholder') : t('profile.feedback.bugTitlePlaceholder')}
       />
 
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-neutral-300">Description</label>
+        <label className="block text-sm font-medium text-neutral-300">{t('profile.feedback.description')}</label>
         <textarea
           value={description}
           onChange={e => setDescription(e.target.value)}
-          placeholder={type === 'suggestion' ? 'Describe your idea in detail...' : 'Steps to reproduce the issue...'}
+          placeholder={type === 'suggestion' ? t('profile.feedback.suggestionDescPlaceholder') : t('profile.feedback.bugDescPlaceholder')}
           rows={4}
           className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-white
             placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500
@@ -99,12 +101,12 @@ export default function FeedbackForm() {
       {success && (
         <div className="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-xl px-3 py-2">
           <Send size={14} />
-          Thank you! Your feedback has been submitted.
+          {t('profile.feedback.submitted')}
         </div>
       )}
 
       <Button onClick={handleSubmit} loading={sending} className="w-full">
-        <Send size={15} /> Send Feedback
+        <Send size={15} /> {t('profile.feedback.send')}
       </Button>
     </div>
   );

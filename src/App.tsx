@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
 import { useSubscriptionStore } from './stores/subscriptionStore';
@@ -24,6 +25,7 @@ function AppRoutes() {
   const { user, loading: authLoading, initialized } = useAuthStore();
   const { profile, loading: profileLoading, fetchProfile, clearProfile } = useProfileStore();
   const { fetchSubscription, clearSubscription } = useSubscriptionStore();
+  const { i18n } = useTranslation();
 
   useEffect(() => {
     if (user) {
@@ -34,6 +36,12 @@ function AppRoutes() {
       clearSubscription();
     }
   }, [user, initialized]);
+
+  useEffect(() => {
+    if (profile?.language) {
+      i18n.changeLanguage(profile.language);
+    }
+  }, [profile?.language]);
 
   if (authLoading || !initialized) {
     return (

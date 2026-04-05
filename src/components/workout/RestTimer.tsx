@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal';
 
 const PRESETS = [30, 60, 90, 120, 180];
@@ -45,6 +46,7 @@ export default function RestTimer({
   onClose: () => void;
   autoStart?: boolean;
 }) {
+  const { t } = useTranslation();
   const [duration, setDuration] = useState(90);
   const [remaining, setRemaining] = useState(90);
   const [active, setActive] = useState(false);
@@ -97,7 +99,7 @@ export default function RestTimer({
   const isFinished = remaining === 0;
 
   return (
-    <Modal open={open} onClose={onClose} title="Rest Timer">
+    <Modal open={open} onClose={onClose} title={t('workout.restTimer.title')}>
       <div className="text-center">
         <div className="relative w-48 h-48 mx-auto mb-6 animate-fade-in-scale">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
@@ -114,7 +116,7 @@ export default function RestTimer({
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
             <span className={`text-4xl font-bold font-mono ${isFinished ? 'text-emerald-400 animate-pulse' : 'text-white'}`}>
-              {isFinished ? 'GO!' : `${mins}:${secs.toString().padStart(2, '0')}`}
+              {isFinished ? t('workout.restTimer.go') : `${mins}:${secs.toString().padStart(2, '0')}`}
             </span>
           </div>
         </div>
