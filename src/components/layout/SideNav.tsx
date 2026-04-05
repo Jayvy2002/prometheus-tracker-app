@@ -1,5 +1,6 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp } from 'lucide-react';
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +16,7 @@ export default function SideNav() {
     { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
     { path: '/stats', icon: BarChart2, label: t('nav.stats') },
     { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
+    { path: '/weight', icon: Scale, label: t('nav.weight') },
     { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
     { path: '/profile', icon: User, label: t('nav.profile') },
   ];

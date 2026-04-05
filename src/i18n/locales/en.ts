@@ -57,6 +57,7 @@ const en = {
     calendar: 'Calendar',
     quickAdd: 'Quick Add',
     newWorkout: 'New Workout',
+    weight: 'Weight',
     logWeight: 'Log Weight',
     addMeal: 'Add Meal',
     addWorkout: 'Add Workout',

@@ -57,6 +57,7 @@ const fr = {
     calendar: 'Calendrier',
     quickAdd: 'Ajout rapide',
     newWorkout: 'Nouvelle séance',
+    weight: 'Poids',
     logWeight: 'Peser',
     addMeal: 'Ajouter un repas',
     addWorkout: 'Ajouter une séance',
