@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, Sparkles, Star, Clock, ScanLine, Globe, Database, Loader2, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { FOOD_UNITS, UNIT_TO_GRAMS } from '../../lib/constants';
@@ -8,7 +7,7 @@ import type { FoodProduct, FoodFavorite } from '../../lib/types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import CreateProductForm from '../scanner/CreateProductForm';
+import UnifiedScanner from '../scanner/UnifiedScanner';
 
 type Tab = 'search' | 'recent' | 'favorites';
 
@@ -67,7 +66,6 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
 }
 
 export default function IngredientPicker({ onAdd, onClose }: Props) {
-  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts } = useNutritionStore();
 
@@ -84,7 +82,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
   const [searched, setSearched] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(null);
   const searchRef = useRef(0);
 
@@ -192,20 +190,10 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
     });
   };
 
-  const handleProductCreated = (p: FoodProduct) => {
-    setShowCreateProduct(false);
-    selectProduct(p);
+  const handleScannerResult = (product: FoodProduct) => {
+    setShowScanner(false);
+    selectProduct(product);
   };
-
-  if (showCreateProduct) {
-    return (
-      <CreateProductForm
-        barcode=""
-        onClose={() => setShowCreateProduct(false)}
-        onCreated={handleProductCreated}
-      />
-    );
-  }
 
   const tabList: { id: Tab; label: string; Icon: typeof Search }[] = [
     { id: 'search', label: 'Search', Icon: Search },
@@ -214,6 +202,16 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
   ];
 
   return (
+    <>
+    {showScanner && (
+      <div className="fixed inset-0 z-[70] bg-black overflow-y-auto">
+        <UnifiedScanner
+          onResult={handleScannerResult}
+          onClose={() => setShowScanner(false)}
+          showRecent={false}
+        />
+      </div>
+    )}
     <div className="fixed inset-0 z-[60] bg-black overflow-y-auto animate-fade-in">
       <div className="max-w-lg mx-auto px-4 py-6 animate-fade-in-up">
         <div className="flex items-center justify-between mb-5">
@@ -223,13 +221,13 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
             </button>
             <h2 className="text-xl font-bold text-white">Add Ingredient</h2>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => navigate('/scanner')}
+              onClick={() => setShowScanner(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
             >
               <ScanLine size={14} />
-              Scan
+              Scanner
             </button>
           </div>
         </div>
@@ -308,25 +306,25 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                   ))}
                 </div>
                 <button
-                  onClick={() => setShowCreateProduct(true)}
+                  onClick={() => setShowScanner(true)}
                   className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
                 >
                   <Sparkles size={12} />
-                  Can't find it? Add with AI
+                  Not the right one? Try the scanner
                 </button>
               </div>
             )}
 
             {!searching && searched && results.length === 0 && (
               <div className="mt-3 text-center py-6 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in-up">
-                <p className="text-sm text-neutral-400 mb-1">No products found</p>
-                <p className="text-xs text-neutral-600 mb-4">Not in database or Open Food Facts</p>
+                <p className="text-sm text-neutral-400 mb-1">Not found in database or Open Food Facts</p>
+                <p className="text-xs text-neutral-600 mb-4">Try scanning the barcode or AI photo identification</p>
                 <button
-                  onClick={() => setShowCreateProduct(true)}
+                  onClick={() => setShowScanner(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600/15 border border-blue-500/30 text-sm font-medium text-blue-400 hover:bg-blue-600/25 transition-colors"
                 >
                   <Sparkles size={14} />
-                  Add with AI photo analysis
+                  Open Scanner
                 </button>
               </div>
             )}
@@ -436,5 +434,6 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
         </div>
       </div>
     </div>
+    </>
   );
 }

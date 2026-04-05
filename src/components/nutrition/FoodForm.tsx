@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, Sparkles, Star, Clock, ChefHat, Heart, Plus, ScanLine, Globe, Database, Loader2, Camera } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Search, Sparkles, Star, Clock, ChefHat, Heart, Plus, ScanLine, Globe, Database, Loader2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useRecipeStore } from '../../stores/recipeStore';
@@ -10,8 +9,7 @@ import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
-import CreateProductForm from '../scanner/CreateProductForm';
-import FoodPhotoAnalyzer from './FoodPhotoAnalyzer';
+import UnifiedScanner from '../scanner/UnifiedScanner';
 import RecipeForm from './RecipeForm';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
@@ -63,7 +61,6 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
 }
 
 export default function FoodForm({ category, date, onClose, prefill }: Props) {
-  const navigate = useNavigate();
   const { user } = useAuthStore();
   const { addLog, searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite } = useNutritionStore();
   const { recipes, fetchRecipes } = useRecipeStore();
@@ -83,8 +80,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
   const [saving, setSaving] = useState(false);
   const [activeCategory, setActiveCategory] = useState(category);
-  const [showCreateProduct, setShowCreateProduct] = useState(false);
-  const [showPhotoAnalyzer, setShowPhotoAnalyzer] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [showNewRecipe, setShowNewRecipe] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(prefill ?? null);
   const [favDisplayCount, setFavDisplayCount] = useState(15);
@@ -132,7 +128,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setSearched(true);
     setSearching(false);
     setSearchPhase('idle');
-    // Persist barcoded products to local DB in background to grow the catalog
+    // Persist barcoded products to DB in background to grow the catalog
     if (offResults.length > 0) batchSaveProducts(offResults);
   };
 
@@ -198,6 +194,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setTab('search');
   };
 
+  const handleScannerResult = (product: FoodProduct, confidence?: number) => {
+    setShowScanner(false);
+    selectProduct(product);
+    if (confidence !== undefined && confidence < 70) {
+      toast('Low AI confidence — verify the nutritional values before saving', 'info');
+    }
+  };
+
   const isFavorited = selectedProduct?.id ? favorites.some(f => f.product_id === selectedProduct.id) : false;
 
   const toggleFavorite = async () => {
@@ -211,19 +215,6 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     } else {
       await addFavorite(user.id, selectedProduct);
       toast('Added to favorites');
-    }
-  };
-
-  const handleProductCreated = (p: FoodProduct) => {
-    setShowCreateProduct(false);
-    selectProduct(p);
-  };
-
-  const handlePhotoResult = (p: FoodProduct, confidence: number) => {
-    setShowPhotoAnalyzer(false);
-    selectProduct(p);
-    if (confidence < 70) {
-      toast('Low confidence — verify the nutritional values before saving', 'info');
     }
   };
 
@@ -255,22 +246,16 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     onClose();
   };
 
-  if (showCreateProduct) {
+  // UnifiedScanner as full-screen modal overlay
+  if (showScanner) {
     return (
-      <CreateProductForm
-        barcode=""
-        onClose={() => setShowCreateProduct(false)}
-        onCreated={handleProductCreated}
-      />
-    );
-  }
-
-  if (showPhotoAnalyzer) {
-    return (
-      <FoodPhotoAnalyzer
-        onResult={handlePhotoResult}
-        onClose={() => setShowPhotoAnalyzer(false)}
-      />
+      <div className="fixed inset-0 z-[60] bg-black overflow-y-auto">
+        <UnifiedScanner
+          onResult={handleScannerResult}
+          onClose={() => setShowScanner(false)}
+          showRecent={false}
+        />
+      </div>
     );
   }
 
@@ -297,19 +282,12 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           <h2 className="text-xl font-bold text-white">Add Food</h2>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowPhotoAnalyzer(true)}
+              onClick={() => setShowScanner(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
-              title="Identify food with AI photo analysis"
-            >
-              <Camera size={14} />
-              Photo
-            </button>
-            <button
-              onClick={() => navigate('/scanner')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300 hover:text-white hover:border-neutral-700 text-sm transition-colors"
+              title="Open scanner — barcode or AI photo"
             >
               <ScanLine size={14} />
-              Scan
+              Scanner
             </button>
             <button onClick={onClose} className="text-neutral-400 hover:text-white text-sm transition-colors">Cancel</button>
           </div>
@@ -389,26 +367,19 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={() => setShowCreateProduct(true)}
-                  className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
-                >
-                  <Sparkles size={12} />
-                  Can't find it? Add with AI
-                </button>
               </div>
             )}
 
             {!searching && searched && results.length === 0 && (
               <div className="mt-3 text-center py-6 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in-up">
-                <p className="text-sm text-neutral-400 mb-1">No products found anywhere</p>
-                <p className="text-xs text-neutral-600 mb-4">Not in database or Open Food Facts</p>
+                <p className="text-sm text-neutral-400 mb-1">Not found in database or Open Food Facts</p>
+                <p className="text-xs text-neutral-600 mb-4">Try scanning the barcode or use AI photo identification</p>
                 <button
-                  onClick={() => setShowCreateProduct(true)}
+                  onClick={() => setShowScanner(true)}
                   className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-blue-600/15 border border-blue-500/30 text-sm font-medium text-blue-400 hover:bg-blue-600/25 transition-colors"
                 >
                   <Sparkles size={14} />
-                  Add with AI photo analysis
+                  Open Scanner
                 </button>
               </div>
             )}
@@ -553,7 +524,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 className={`mb-0.5 p-2.5 rounded-xl border transition-all ${isFavorited ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:text-amber-400'}`}
               >
                 <Heart size={16} className={isFavorited ? 'fill-current' : ''} />
-              </button>
+            </button>
             )}
           </div>
 
