@@ -65,9 +65,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (get().initialized) return;
     set({ initialized: true });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      set({ session, user: session?.user ?? null, loading: false });
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        set({ session, user: session?.user ?? null, loading: false });
+      })
+      .catch(() => {
+        // Should not happen in practice, but ensure we never stay stuck on loading
+        set({ loading: false });
+      });
 
     supabase.auth.onAuthStateChange((_event, session) => {
       set({ session, user: session?.user ?? null, loading: false });

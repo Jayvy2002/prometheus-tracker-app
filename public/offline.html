@@ -1,46 +1,43 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Prometheus — Hors ligne</title>
+  <title>Prometheus — Offline</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: #000;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      color: #f8fafc;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 2rem;
       text-align: center;
     }
-    img { width: 48px; height: 48px; margin-bottom: 24px; opacity: 0.8; }
-    h1 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
-    p { font-size: 14px; color: #737373; line-height: 1.6; max-width: 280px; }
-    .hint { margin-top: 24px; font-size: 12px; color: #525252; }
+    .icon { font-size: 3rem; margin-bottom: 1.5rem; }
+    h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    p { color: #64748b; font-size: 0.95rem; margin-bottom: 2rem; }
     button {
-      margin-top: 28px;
-      padding: 12px 28px;
-      background: #2563eb;
+      background: #3b82f6;
       color: #fff;
       border: none;
       border-radius: 12px;
-      font-size: 14px;
+      padding: 0.75rem 2rem;
+      font-size: 0.95rem;
       font-weight: 600;
       cursor: pointer;
     }
-    button:active { opacity: 0.85; }
+    button:hover { background: #2563eb; }
   </style>
 </head>
 <body>
-  <img src="/logo.svg" alt="Prometheus" />
-  <h1>Tu es hors ligne</h1>
-  <p>Vérifie ta connexion internet et réessaie. Tes dernières données sont disponibles en cache.</p>
-  <button onclick="window.location.reload()">Réessayer</button>
-  <p class="hint">Les données saisies hors ligne seront synchronisées dès le retour du réseau.</p>
+  <div class="icon">📡</div>
+  <h1>You're offline</h1>
+  <p>Check your connection and try again.</p>
+  <button onclick="window.location.reload()">Retry</button>
 </body>
 </html>
