@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Camera, X, ScanLine, Loader2, Sparkles,
   AlertCircle, Image as ImageIcon, Clock, Search as SearchIcon,
-  ChevronRight, ArrowLeft,
+  ChevronRight, ArrowLeft, Check,
 } from 'lucide-react';
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -47,6 +47,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const [phase, setPhase] = useState<Phase>('idle');
   const [scannedCode, setScannedCode] = useState('');
   const [manualCode, setManualCode] = useState('');
+  const [searchingStep, setSearchingStep] = useState<'db' | 'off'>('db');
   const [error, setError] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
@@ -83,44 +84,58 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const lookupBarcode = useCallback(async (code: string) => {
     stopCamera();
     setScannedCode(code);
+    setSearchingStep('db');
     setPhase('searching');
 
-    // 1. Local database
-    const dbProduct = await findByBarcode(code.trim());
-    if (!mountedRef.current) return;
-    if (dbProduct) { onResult(dbProduct); return; }
-
-    // 2. Open Food Facts
     try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${code.trim()}.json`);
-      const data = await res.json();
+      // 1. Local database
+      const dbProduct = await findByBarcode(code.trim());
       if (!mountedRef.current) return;
-      if (data.status === 1 && data.product) {
-        const p = data.product;
-        const n = (p.nutriments ?? {}) as Record<string, number>;
-        const productData = {
-          barcode: code.trim(),
-          name: (p.product_name || p.product_name_fr || p.product_name_en || 'Unknown product') as string,
-          brand: (p.brands as string) || null,
-          calories_per_100g: n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0,
-          protein_per_100g: n.proteins_100g ?? n.proteins ?? 0,
-          carbs_per_100g: n.carbohydrates_100g ?? n.carbohydrates ?? 0,
-          fat_per_100g: n.fat_100g ?? n.fat ?? 0,
-          serving_size: +(p.serving_quantity || 100),
-          serving_unit: ((p.serving_size as string) ?? '').includes('ml') ? 'ml' : 'g',
-          created_by: user?.id ?? null,
-          data_source: 'openfoodfacts' as const,
-        };
-        const saved = await createProduct(productData);
-        const finalProduct: FoodProduct = saved ?? { id: '', created_at: '', ...productData };
-        if (!mountedRef.current) return;
-        onResult(finalProduct);
-        return;
-      }
-    } catch { /* fallthrough to AI */ }
+      if (dbProduct) { onResult(dbProduct); return; }
 
-    // 3. Not found anywhere → AI identification
-    if (mountedRef.current) setPhase('ai_capture');
+      // 2. Open Food Facts (v2, with 6-second timeout)
+      if (mountedRef.current) setSearchingStep('off');
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 6000);
+        const res = await fetch(
+          `https://world.openfoodfacts.org/api/v2/product/${code.trim()}` +
+          `?fields=product_name,product_name_fr,product_name_en,brands,nutriments,serving_quantity,serving_size`,
+          { signal: controller.signal },
+        );
+        clearTimeout(timer);
+        const data = await res.json();
+        if (!mountedRef.current) return;
+        if (data.status === 1 && data.product) {
+          const p = data.product;
+          const n = (p.nutriments ?? {}) as Record<string, number>;
+          const productData = {
+            barcode: code.trim(),
+            name: (p.product_name || p.product_name_fr || p.product_name_en || 'Unknown product') as string,
+            brand: (p.brands as string) || null,
+            calories_per_100g: n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0,
+            protein_per_100g: n.proteins_100g ?? n.proteins ?? 0,
+            carbs_per_100g: n.carbohydrates_100g ?? n.carbohydrates ?? 0,
+            fat_per_100g: n.fat_100g ?? n.fat ?? 0,
+            serving_size: +(p.serving_quantity || 100),
+            serving_unit: ((p.serving_size as string) ?? '').includes('ml') ? 'ml' : 'g',
+            created_by: user?.id ?? null,
+            data_source: 'openfoodfacts' as const,
+          };
+          const saved = await createProduct(productData);
+          const finalProduct: FoodProduct = saved ?? { id: '', created_at: '', ...productData };
+          if (!mountedRef.current) return;
+          onResult(finalProduct);
+          return;
+        }
+      } catch { /* timeout or network error → fallthrough to AI */ }
+
+      // 3. Not found anywhere → AI identification
+      if (mountedRef.current) setPhase('ai_capture');
+    } catch {
+      // Unexpected error → still bring user to AI capture rather than leaving stuck
+      if (mountedRef.current) setPhase('ai_capture');
+    }
   }, [findByBarcode, createProduct, user?.id, onResult, stopCamera]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------
@@ -251,6 +266,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setPhase('idle');
     setScannedCode('');
     setManualCode('');
+    setSearchingStep('db');
     setAiPhoto(null);
     setAiNotes('');
     setAiError('');
@@ -270,9 +286,35 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center mb-5">
           <Loader2 size={28} className="text-blue-400 animate-spin" />
         </div>
-        {scannedCode && <p className="text-[11px] text-neutral-600 font-mono mb-3">{scannedCode}</p>}
-        <p className="text-white font-semibold mb-1">{t('scanner.lookingUp')}</p>
-        <p className="text-sm text-neutral-500 text-center">{t('scanner.checkingDb')}</p>
+        {scannedCode && (
+          <p className="text-[11px] font-mono mb-4 bg-neutral-900 border border-neutral-800 text-neutral-400 px-3 py-1.5 rounded-lg tracking-widest">
+            {scannedCode}
+          </p>
+        )}
+        <p className="text-white font-semibold mb-5">{t('scanner.lookingUp')}</p>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          {/* Step 1 — local DB */}
+          <div className="flex items-center gap-3">
+            <div className="w-6 h-6 flex items-center justify-center shrink-0">
+              {searchingStep === 'db'
+                ? <Loader2 size={16} className="animate-spin text-blue-400" />
+                : <Check size={16} className="text-emerald-400" />
+              }
+            </div>
+            <p className={`text-sm ${searchingStep === 'db' ? 'text-white' : 'text-neutral-500'}`}>
+              {t('scanner.checkingDb')}
+            </p>
+          </div>
+          {/* Step 2 — Open Food Facts */}
+          <div className={`flex items-center gap-3 transition-opacity ${searchingStep === 'off' ? 'opacity-100' : 'opacity-35'}`}>
+            <div className="w-6 h-6 flex items-center justify-center shrink-0">
+              {searchingStep === 'off' && <Loader2 size={16} className="animate-spin text-blue-400" />}
+            </div>
+            <p className={`text-sm ${searchingStep === 'off' ? 'text-white' : 'text-neutral-500'}`}>
+              {t('scanner.checkingOff')}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
