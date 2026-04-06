@@ -51,15 +51,21 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const [error, setError] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
-  const [aiPhoto, setAiPhoto] = useState<{ file: File; preview: string } | null>(null);
+  const [photoFront, setPhotoFront] = useState<{ file: File; preview: string } | null>(null);
+  const [photoBack, setPhotoBack] = useState<{ file: File; preview: string } | null>(null);
+  const [photoNutrition, setPhotoNutrition] = useState<{ file: File; preview: string } | null>(null);
   const [aiNotes, setAiNotes] = useState('');
   const [aiError, setAiError] = useState('');
   const [fallbackResults, setFallbackResults] = useState<FoodProduct[]>([]);
   const [isFallbackSearching, setIsFallbackSearching] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const cameraFileRef = useRef<HTMLInputElement>(null);
-  const galleryFileRef = useRef<HTMLInputElement>(null);
+  const cameraFrontRef = useRef<HTMLInputElement>(null);
+  const galleryFrontRef = useRef<HTMLInputElement>(null);
+  const cameraBackRef = useRef<HTMLInputElement>(null);
+  const galleryBackRef = useRef<HTMLInputElement>(null);
+  const cameraNutritionRef = useRef<HTMLInputElement>(null);
+  const galleryNutritionRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(true);
   const foundRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
@@ -205,31 +211,41 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   // -------------------------------------------------------------------
   // AI photo identification
   // -------------------------------------------------------------------
-  const handleAiPhotoFile = (file: File) => {
-    if (aiPhoto?.preview) URL.revokeObjectURL(aiPhoto.preview);
-    setAiPhoto({ file, preview: URL.createObjectURL(file) });
+  type PhotoState = { file: File; preview: string } | null;
+  type PhotoSetter = (v: PhotoState) => void;
+
+  const handlePhotoFile = (file: File, setter: PhotoSetter, current: PhotoState) => {
+    if (current?.preview) URL.revokeObjectURL(current.preview);
+    setter({ file, preview: URL.createObjectURL(file) });
     setAiError('');
   };
 
   const handleAiSubmit = async () => {
-    if (!user || (!aiPhoto && !aiNotes.trim() && !scannedCode)) return;
+    const hasPhoto = photoFront || photoBack || photoNutrition;
+    if (!user || (!hasPhoto && !aiNotes.trim() && !scannedCode)) return;
     setPhase('ai_analyzing');
     setAiError('');
     setFallbackResults([]);
 
-    let imagePath = '';
-    if (aiPhoto) {
-      const path = await uploadProductImage(user.id, aiPhoto.file, 'front');
-      if (path) imagePath = path;
-    }
+    // Upload all 3 photos in parallel (skip nulls)
+    const upload = async (photo: PhotoState, slot: string): Promise<string> => {
+      if (!photo) return '';
+      const path = await uploadProductImage(user.id, photo.file, slot);
+      return path ?? '';
+    };
+    const [frontPath, backPath, nutritionPath] = await Promise.all([
+      upload(photoFront, 'front'),
+      upload(photoBack, 'back'),
+      upload(photoNutrition, 'nutrition'),
+    ]);
 
     const request = await createProductRequest({
       user_id: user.id,
       barcode: scannedCode || '',
       notes: aiNotes.trim(),
-      image_front: imagePath,
-      image_back: '',
-      image_nutrition: '',
+      image_front: frontPath,
+      image_back: backPath,
+      image_nutrition: nutritionPath,
       status: 'pending',
     });
 
@@ -267,7 +283,12 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setScannedCode('');
     setManualCode('');
     setSearchingStep('db');
-    setAiPhoto(null);
+    if (photoFront?.preview) URL.revokeObjectURL(photoFront.preview);
+    if (photoBack?.preview) URL.revokeObjectURL(photoBack.preview);
+    if (photoNutrition?.preview) URL.revokeObjectURL(photoNutrition.preview);
+    setPhotoFront(null);
+    setPhotoBack(null);
+    setPhotoNutrition(null);
     setAiNotes('');
     setAiError('');
     setError('');
@@ -404,10 +425,43 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   }
 
   if (phase === 'ai_capture') {
-    const canAnalyze = !!(aiPhoto || aiNotes.trim() || scannedCode);
+    const hasPhoto = !!(photoFront || photoBack || photoNutrition);
+    const canAnalyze = !!(hasPhoto || aiNotes.trim() || scannedCode);
+
+    // Photo slot config
+    const photoSlots = [
+      {
+        key: 'front',
+        label: t('scanner.photoFront'),
+        photo: photoFront,
+        cameraRef: cameraFrontRef,
+        galleryRef: galleryFrontRef,
+        onRemove: () => { if (photoFront?.preview) URL.revokeObjectURL(photoFront.preview); setPhotoFront(null); },
+        onFile: (f: File) => handlePhotoFile(f, setPhotoFront, photoFront),
+      },
+      {
+        key: 'back',
+        label: t('scanner.photoBack'),
+        photo: photoBack,
+        cameraRef: cameraBackRef,
+        galleryRef: galleryBackRef,
+        onRemove: () => { if (photoBack?.preview) URL.revokeObjectURL(photoBack.preview); setPhotoBack(null); },
+        onFile: (f: File) => handlePhotoFile(f, setPhotoBack, photoBack),
+      },
+      {
+        key: 'nutrition',
+        label: t('scanner.photoNutrition'),
+        photo: photoNutrition,
+        cameraRef: cameraNutritionRef,
+        galleryRef: galleryNutritionRef,
+        onRemove: () => { if (photoNutrition?.preview) URL.revokeObjectURL(photoNutrition.preview); setPhotoNutrition(null); },
+        onFile: (f: File) => handlePhotoFile(f, setPhotoNutrition, photoNutrition),
+      },
+    ] as const;
+
     return (
       <div className="px-4 py-6 pb-24">
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-bold text-white">{t('scanner.aiIdentification')}</h2>
             <p className="text-xs text-neutral-500 mt-0.5">
@@ -430,69 +484,81 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           </div>
         )}
 
-        {/* Hidden file inputs */}
-        <input
-          ref={cameraFileRef} type="file" accept="image/*" capture="environment" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleAiPhotoFile(f); e.target.value = ''; }}
-        />
-        <input
-          ref={galleryFileRef} type="file" accept="image/*" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleAiPhotoFile(f); e.target.value = ''; }}
-        />
+        {/* Hidden file inputs — 2 per photo slot (camera + gallery) */}
+        {photoSlots.map(slot => (
+          <span key={slot.key}>
+            <input
+              ref={slot.cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) slot.onFile(f); e.target.value = ''; }}
+            />
+            <input
+              ref={slot.galleryRef} type="file" accept="image/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) slot.onFile(f); e.target.value = ''; }}
+            />
+          </span>
+        ))}
 
-        {/* Photo area */}
-        {aiPhoto ? (
-          <div className="relative rounded-2xl overflow-hidden mb-4 shadow-lg">
-            <img src={aiPhoto.preview} alt="Food" className="w-full max-h-56 object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
-            <button
-              onClick={() => { URL.revokeObjectURL(aiPhoto.preview); setAiPhoto(null); }}
-              className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/60 text-white hover:bg-rose-500/80 transition-colors"
-            >
-              <X size={14} />
-            </button>
-            <div className="absolute bottom-3 left-3 flex gap-2">
-              <button
-                onClick={() => cameraFileRef.current?.click()}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs hover:bg-black/80 transition-colors"
-              >
-                <Camera size={11} /> {t('scanner.retake')}
-              </button>
-              <button
-                onClick={() => galleryFileRef.current?.click()}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-black/60 text-white text-xs hover:bg-black/80 transition-colors"
-              >
-                <ImageIcon size={11} /> {t('scanner.change')}
-              </button>
+        {/* 3 photo slots */}
+        <div className="grid grid-cols-3 gap-2.5 mb-4">
+          {photoSlots.map(slot => (
+            <div key={slot.key} className="flex flex-col gap-1.5">
+              <p className="text-[10px] font-semibold text-neutral-400 text-center uppercase tracking-wide truncate">
+                {slot.label}
+              </p>
+              {slot.photo ? (
+                <div className="relative rounded-xl overflow-hidden aspect-square bg-neutral-900">
+                  <img src={slot.photo.preview} alt={slot.label} className="w-full h-full object-cover" />
+                  <button
+                    onClick={slot.onRemove}
+                    className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/70 text-white hover:bg-rose-500/80 transition-colors"
+                  >
+                    <X size={10} />
+                  </button>
+                  {/* Retake buttons */}
+                  <div className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1">
+                    <button
+                      onClick={() => slot.cameraRef.current?.click()}
+                      className="flex-1 flex items-center justify-center py-1 rounded-md bg-black/70 hover:bg-black/90 transition-colors"
+                    >
+                      <Camera size={10} className="text-white" />
+                    </button>
+                    <button
+                      onClick={() => slot.galleryRef.current?.click()}
+                      className="flex-1 flex items-center justify-center py-1 rounded-md bg-black/70 hover:bg-black/90 transition-colors"
+                    >
+                      <ImageIcon size={10} className="text-white" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {/* Main area → camera */}
+                  <button
+                    onClick={() => slot.cameraRef.current?.click()}
+                    className="w-full aspect-square rounded-xl border-2 border-dashed border-neutral-700 hover:border-blue-500/40 hover:bg-blue-500/5 transition-all flex items-center justify-center bg-neutral-900/50"
+                  >
+                    <Camera size={20} className="text-neutral-600" />
+                  </button>
+                  {/* Sub-row: camera + gallery */}
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => slot.cameraRef.current?.click()}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-neutral-800 hover:bg-neutral-800 transition-colors"
+                    >
+                      <Camera size={10} className="text-neutral-500" />
+                    </button>
+                    <button
+                      onClick={() => slot.galleryRef.current?.click()}
+                      className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-neutral-800 hover:bg-neutral-800 transition-colors"
+                    >
+                      <ImageIcon size={10} className="text-neutral-500" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="space-y-2 mb-4">
-            <button
-              onClick={() => cameraFileRef.current?.click()}
-              className="w-full flex items-center gap-4 p-5 rounded-2xl border-2 border-dashed border-neutral-700 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all group"
-            >
-              <div className="w-12 h-12 rounded-2xl bg-neutral-900 flex items-center justify-center group-hover:bg-blue-600/20 transition-colors shrink-0">
-                <Camera size={22} className="text-neutral-500 group-hover:text-blue-400 transition-colors" />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-semibold text-neutral-200">{t('scanner.takePhoto')}</p>
-                <p className="text-xs text-neutral-500">
-                  {scannedCode ? t('scanner.frontOfPackage') : t('scanner.photoOfFood')}
-                </p>
-              </div>
-            </button>
-            <button
-              onClick={() => galleryFileRef.current?.click()}
-              className="w-full flex items-center gap-4 p-4 rounded-2xl border border-neutral-800 hover:border-neutral-700 hover:bg-neutral-900/50 transition-all group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center shrink-0">
-                <ImageIcon size={18} className="text-neutral-600 group-hover:text-neutral-400 transition-colors" />
-              </div>
-              <p className="text-sm text-neutral-400 group-hover:text-neutral-200 transition-colors">{t('scanner.pickFromGallery')}</p>
-            </button>
-          </div>
-        )}
+          ))}
+        </div>
 
         {/* Notes */}
         <div className="mb-5">
