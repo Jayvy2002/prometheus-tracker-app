@@ -405,6 +405,61 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   // RENDER — each phase
   // ===================================================================
 
+  // In-app camera overlay MUST be checked first — it can be open while phase === 'ai_capture'
+  if (photoCameraOpen) {
+    return (
+      <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 80px)' }}>
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
+          <button
+            onClick={closePhotoCamera}
+            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h2 className="text-base font-semibold text-white">
+            {photoCaptureTarget?.label ?? t('scanner.photoFront')}
+          </h2>
+          <button
+            onClick={closePhotoCamera}
+            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        <div className="relative mx-4 rounded-2xl overflow-hidden bg-black flex-1 min-h-64">
+          <video
+            ref={photoCaptureVideoRef}
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay playsInline muted
+          />
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            {!photoCaptureCameraActive ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 size={28} className="text-blue-400 animate-spin" />
+                <p className="text-white/70 text-sm">{t('scanner.startingCamera')}</p>
+              </div>
+            ) : (
+              <p className="text-white/90 text-sm font-medium bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm">
+                {photoCaptureTarget?.label}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center py-8">
+          <button
+            onClick={capturePhoto}
+            disabled={!photoCaptureCameraActive}
+            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/10 active:scale-95 transition-all disabled:opacity-40"
+          >
+            <div className="w-14 h-14 rounded-full bg-white" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (phase === 'searching') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] px-6">
@@ -723,67 +778,6 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         <p className="text-center text-xs text-neutral-600 mt-2.5">
           {t('scanner.aiDisclaimer')}
         </p>
-      </div>
-    );
-  }
-
-  // -------------------------------------------------------------------
-  // In-app camera overlay for photo capture — same layout as barcode scanner
-  // -------------------------------------------------------------------
-  if (photoCameraOpen) {
-    return (
-      <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 80px)' }}>
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 pt-4 pb-3">
-          <button
-            onClick={closePhotoCamera}
-            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h2 className="text-base font-semibold text-white">
-            {photoCaptureTarget?.label ?? t('scanner.photoFront')}
-          </h2>
-          <button
-            onClick={closePhotoCamera}
-            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Camera viewfinder — same container as barcode scanner */}
-        <div className="relative mx-4 rounded-2xl overflow-hidden bg-black flex-1 min-h-64">
-          <video
-            ref={photoCaptureVideoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            autoPlay playsInline muted
-          />
-
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            {!photoCaptureCameraActive ? (
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 size={28} className="text-blue-400 animate-spin" />
-                <p className="text-white/70 text-sm">{t('scanner.startingCamera')}</p>
-              </div>
-            ) : (
-              <p className="text-white/90 text-sm font-medium bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm">
-                {photoCaptureTarget?.label}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* Shutter button */}
-        <div className="flex items-center justify-center py-8">
-          <button
-            onClick={capturePhoto}
-            disabled={!photoCaptureCameraActive}
-            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/10 active:scale-95 transition-all disabled:opacity-40"
-          >
-            <div className="w-14 h-14 rounded-full bg-white" />
-          </button>
-        </div>
       </div>
     );
   }
