@@ -8,6 +8,7 @@ import {
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useAuthStore } from '../../stores/authStore';
+import { supabase } from '../../lib/supabase';
 import type { FoodProduct } from '../../lib/types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -258,6 +259,10 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setFallbackResults([]);
 
     try {
+      // Refresh session before network calls — the camera app (launched by capture="environment")
+      // suspends the PWA on both Android and iOS, which can drop Supabase connections.
+      await supabase.auth.getSession();
+
       // Upload all 3 photos in parallel (skip nulls)
       const upload = async (photo: PhotoState, slot: string): Promise<string> => {
         if (!photo) return '';
@@ -522,11 +527,16 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           </div>
         )}
 
-        {/* Hidden file inputs — 2 per photo slot (camera + gallery) */}
+        {/* Hidden file inputs — 1 per photo slot.
+            NOTE: We intentionally do NOT use capture="environment" here.
+            On iOS PWA, capture="environment" launches the native Camera app as a
+            separate process, fully suspending the PWA and killing Supabase network
+            connections. Without it, iOS shows a sheet (Take Photo / Photo Library)
+            that keeps the app active and connections alive. */}
         {photoSlots.map(slot => (
           <span key={slot.key}>
             <input
-              ref={slot.cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+              ref={slot.cameraRef} type="file" accept="image/*" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) slot.onFile(f); e.target.value = ''; }}
             />
             <input
