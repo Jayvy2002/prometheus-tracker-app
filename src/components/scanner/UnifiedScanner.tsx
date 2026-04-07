@@ -91,7 +91,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const [isFallbackSearching, setIsFallbackSearching] = useState(false);
   // In-app camera overlay for photo capture (avoids OS camera launch that drops connections)
   const [photoCameraOpen, setPhotoCameraOpen] = useState(false);
-  const [photoCaptureTarget, setPhotoCaptureTarget] = useState<{ setter: PhotoSetter; current: PhotoState } | null>(null);
+  const [photoCaptureTarget, setPhotoCaptureTarget] = useState<{ setter: PhotoSetter; current: PhotoState; label: string } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const photoCaptureVideoRef = useRef<HTMLVideoElement>(null);
@@ -118,8 +118,11 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // In-app camera overlay — start/stop stream as overlay opens/closes
+  const [photoCaptureCameraActive, setPhotoCaptureCameraActive] = useState(false);
+
   useEffect(() => {
     if (!photoCameraOpen) return;
+    setPhotoCaptureCameraActive(false);
     let localStream: MediaStream | null = null;
     const constraintsList = [
       { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
@@ -135,15 +138,20 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       photoCaptureStreamRef.current = localStream;
       if (photoCaptureVideoRef.current) {
         photoCaptureVideoRef.current.srcObject = localStream;
-        photoCaptureVideoRef.current.play().catch(() => {});
+        await photoCaptureVideoRef.current.play().catch(() => {});
+        if (mountedRef.current) setPhotoCaptureCameraActive(true);
       }
     };
     start();
-    return () => { localStream?.getTracks().forEach(t => t.stop()); photoCaptureStreamRef.current = null; };
+    return () => {
+      localStream?.getTracks().forEach(t => t.stop());
+      photoCaptureStreamRef.current = null;
+      setPhotoCaptureCameraActive(false);
+    };
   }, [photoCameraOpen]);
 
-  const openPhotoCamera = (setter: PhotoSetter, current: PhotoState) => {
-    setPhotoCaptureTarget({ setter, current });
+  const openPhotoCamera = (setter: PhotoSetter, current: PhotoState, label: string) => {
+    setPhotoCaptureTarget({ setter, current, label });
     setPhotoCameraOpen(true);
   };
 
@@ -156,7 +164,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
 
   const capturePhoto = () => {
     const video = photoCaptureVideoRef.current;
-    if (!video || !photoCaptureTarget) return;
+    if (!video || !photoCaptureTarget || !photoCaptureCameraActive) return;
     const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -533,7 +541,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         galleryRef: galleryFrontRef,
         onRemove: () => { if (photoFront?.preview) URL.revokeObjectURL(photoFront.preview); setPhotoFront(null); },
         onFile: (f: File) => handlePhotoFile(f, setPhotoFront, photoFront),
-        onOpenCamera: () => openPhotoCamera(setPhotoFront, photoFront),
+        onOpenCamera: () => openPhotoCamera(setPhotoFront, photoFront, t('scanner.photoFront')),
       },
       {
         key: 'back',
@@ -542,7 +550,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         galleryRef: galleryBackRef,
         onRemove: () => { if (photoBack?.preview) URL.revokeObjectURL(photoBack.preview); setPhotoBack(null); },
         onFile: (f: File) => handlePhotoFile(f, setPhotoBack, photoBack),
-        onOpenCamera: () => openPhotoCamera(setPhotoBack, photoBack),
+        onOpenCamera: () => openPhotoCamera(setPhotoBack, photoBack, t('scanner.photoBack')),
       },
       {
         key: 'nutrition',
@@ -551,7 +559,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         galleryRef: galleryNutritionRef,
         onRemove: () => { if (photoNutrition?.preview) URL.revokeObjectURL(photoNutrition.preview); setPhotoNutrition(null); },
         onFile: (f: File) => handlePhotoFile(f, setPhotoNutrition, photoNutrition),
-        onOpenCamera: () => openPhotoCamera(setPhotoNutrition, photoNutrition),
+        onOpenCamera: () => openPhotoCamera(setPhotoNutrition, photoNutrition, t('scanner.photoNutrition')),
       },
     ];
 
@@ -720,31 +728,58 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   }
 
   // -------------------------------------------------------------------
-  // In-app camera overlay for photo capture
+  // In-app camera overlay for photo capture — same layout as barcode scanner
   // -------------------------------------------------------------------
   if (photoCameraOpen) {
     return (
-      <div className="fixed inset-0 z-[60] bg-black flex flex-col">
-        {/* Close button */}
-        <button
-          onClick={closePhotoCamera}
-          className="absolute top-4 left-4 z-10 p-3 rounded-full bg-black/60 text-white active:scale-95 transition-transform"
-        >
-          <X size={22} />
-        </button>
+      <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 80px)' }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-3">
+          <button
+            onClick={closePhotoCamera}
+            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h2 className="text-base font-semibold text-white">
+            {photoCaptureTarget?.label ?? t('scanner.photoFront')}
+          </h2>
+          <button
+            onClick={closePhotoCamera}
+            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-        {/* Live camera feed */}
-        <video
-          ref={photoCaptureVideoRef}
-          autoPlay playsInline muted
-          className="flex-1 w-full object-cover"
-        />
+        {/* Camera viewfinder — same container as barcode scanner */}
+        <div className="relative mx-4 rounded-2xl overflow-hidden bg-black flex-1 min-h-64">
+          <video
+            ref={photoCaptureVideoRef}
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay playsInline muted
+          />
 
-        {/* Capture button */}
-        <div className="absolute bottom-14 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            {!photoCaptureCameraActive ? (
+              <div className="flex flex-col items-center gap-3">
+                <Loader2 size={28} className="text-blue-400 animate-spin" />
+                <p className="text-white/70 text-sm">{t('scanner.startingCamera')}</p>
+              </div>
+            ) : (
+              <p className="text-white/90 text-sm font-medium bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm">
+                {photoCaptureTarget?.label}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Shutter button */}
+        <div className="flex items-center justify-center py-8">
           <button
             onClick={capturePhoto}
-            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/10 active:scale-95 transition-transform"
+            disabled={!photoCaptureCameraActive}
+            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/10 active:scale-95 transition-all disabled:opacity-40"
           >
             <div className="w-14 h-14 rounded-full bg-white" />
           </button>
