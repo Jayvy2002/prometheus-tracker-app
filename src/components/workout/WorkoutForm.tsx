@@ -234,7 +234,6 @@ function WorkoutFormInner() {
           <ExerciseCard
             key={ex.id}
             exercise={ex}
-            onStartRestTimer={handleStartRestTimer}
           />
         ))}
       </div>

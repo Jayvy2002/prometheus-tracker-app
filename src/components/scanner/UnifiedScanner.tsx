@@ -227,52 +227,60 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setAiError('');
     setFallbackResults([]);
 
-    // Upload all 3 photos in parallel (skip nulls)
-    const upload = async (photo: PhotoState, slot: string): Promise<string> => {
-      if (!photo) return '';
-      const path = await uploadProductImage(user.id, photo.file, slot);
-      return path ?? '';
-    };
-    const [frontPath, backPath, nutritionPath] = await Promise.all([
-      upload(photoFront, 'front'),
-      upload(photoBack, 'back'),
-      upload(photoNutrition, 'nutrition'),
-    ]);
+    try {
+      // Upload all 3 photos in parallel (skip nulls)
+      const upload = async (photo: PhotoState, slot: string): Promise<string> => {
+        if (!photo) return '';
+        const path = await uploadProductImage(user.id, photo.file, slot);
+        return path ?? '';
+      };
+      const [frontPath, backPath, nutritionPath] = await Promise.all([
+        upload(photoFront, 'front'),
+        upload(photoBack, 'back'),
+        upload(photoNutrition, 'nutrition'),
+      ]);
 
-    const request = await createProductRequest({
-      user_id: user.id,
-      barcode: scannedCode || '',
-      notes: aiNotes.trim(),
-      image_front: frontPath,
-      image_back: backPath,
-      image_nutrition: nutritionPath,
-      status: 'pending',
-    });
+      const request = await createProductRequest({
+        user_id: user.id,
+        barcode: scannedCode || '',
+        notes: aiNotes.trim(),
+        image_front: frontPath,
+        image_back: backPath,
+        image_nutrition: nutritionPath,
+        status: 'pending',
+      });
 
-    if (!request) {
-      if (mountedRef.current) { setPhase('ai_capture'); setAiError(t('scanner.aiStartError')); }
-      return;
-    }
+      if (!request) {
+        if (mountedRef.current) { setPhase('ai_capture'); setAiError(t('scanner.aiStartError')); }
+        return;
+      }
 
-    const result = await analyzeProductRequest(request.id);
-    if (!mountedRef.current) return;
+      const result = await analyzeProductRequest(request.id);
+      if (!mountedRef.current) return;
 
-    if ('product' in result) {
-      onResult(result.product, result.confidence);
-    } else {
-      // AI failed — show actual error and try text search as fallback
-      setPhase('ai_capture');
-      setAiError(t(result.error as Parameters<typeof t>[0]));
+      if ('product' in result) {
+        onResult(result.product, result.confidence);
+      } else {
+        // AI failed — show actual error and try text search as fallback
+        setPhase('ai_capture');
+        setAiError(t(result.error as Parameters<typeof t>[0]));
 
-      const query = aiNotes.trim();
-      if (query) {
-        setIsFallbackSearching(true);
-        try {
-          const found = await searchProducts(query);
-          if (mountedRef.current) setFallbackResults(found.slice(0, 5));
-        } catch { /* ignore */ } finally {
-          if (mountedRef.current) setIsFallbackSearching(false);
+        const query = aiNotes.trim();
+        if (query) {
+          setIsFallbackSearching(true);
+          try {
+            const found = await searchProducts(query);
+            if (mountedRef.current) setFallbackResults(found.slice(0, 5));
+          } catch { /* ignore */ } finally {
+            if (mountedRef.current) setIsFallbackSearching(false);
+          }
         }
+      }
+    } catch (err) {
+      console.error('[handleAiSubmit] Unexpected error:', err);
+      if (mountedRef.current) {
+        setPhase('ai_capture');
+        setAiError(t('scanner.aiStartError'));
       }
     }
   };

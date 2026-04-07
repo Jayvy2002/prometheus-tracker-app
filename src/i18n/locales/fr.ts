@@ -20,6 +20,7 @@ const fr = {
     send: 'Envoyer',
     new: 'Nouveau',
     manage: 'Gérer',
+    upgrade: 'Passer à Premium',
     yes: 'Oui',
     no: 'Non',
     or: 'ou',
@@ -435,12 +436,15 @@ const fr = {
     deleteConfirm: 'Es-tu sûr(e) de vouloir supprimer cette mesure de poids ?',
     errors: {
       invalid: 'Poids invalide',
+      saveFailed: 'Erreur lors de l\'enregistrement. Veuillez réessayer.',
     },
     toasts: {
       updated: 'Poids mis à jour',
       saved: 'Poids enregistré',
       deleted: 'Mesure supprimée',
     },
+    paywallTitle: 'Historique de poids complet',
+    paywallDescription: 'Accédez à tout votre historique de poids avec Premium.',
   },
 
   profile: {
@@ -470,6 +474,7 @@ const fr = {
       goalsTargets: 'Objectifs & cibles',
       units: 'Unités & préférences',
       language: 'Langue',
+      appearance: 'Apparence',
       changePassword: 'Changer le mot de passe',
       notifications: 'Notifications & rappels',
       feedback: 'Suggestion / Signaler un problème',
@@ -478,6 +483,10 @@ const fr = {
     language: {
       en: 'English',
       fr: 'Français',
+    },
+    theme: {
+      dark: 'Sombre',
+      light: 'Clair',
     },
     personalInfo: {
       title: 'Informations personnelles',
@@ -583,6 +592,8 @@ const fr = {
       create: 'Créer la routine',
       update: 'Mettre à jour la routine',
       editWarning: 'Modifier cette routine n\'affectera pas les séances déjà enregistrées.',
+      schedule: 'Planification',
+      notificationTime: 'Heure de rappel (optionnel)',
     },
   },
 
@@ -640,6 +651,7 @@ const fr = {
       workout: 'Entraînement',
       nutrition: 'Nutrition',
       weight: 'Poids',
+      routine: 'Routine planifiée',
       streak: '{{n}} jours de suite',
     },
     weekSummary: {
@@ -659,6 +671,7 @@ const fr = {
       exercise: 'exercice',
       exercises: 'exercices',
       weightLogged: 'Poids enregistré',
+      scheduledRoutine: 'Routine planifiée',
     },
   },
 

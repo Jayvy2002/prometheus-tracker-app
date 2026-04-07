@@ -20,6 +20,7 @@ const en = {
     send: 'Send',
     new: 'New',
     manage: 'Manage',
+    upgrade: 'Upgrade',
     yes: 'Yes',
     no: 'No',
     or: 'or',
@@ -435,12 +436,15 @@ const en = {
     deleteConfirm: 'Are you sure you want to delete this weight measurement?',
     errors: {
       invalid: 'Invalid weight',
+      saveFailed: 'Failed to save weight. Please try again.',
     },
     toasts: {
       updated: 'Weight updated',
       saved: 'Weight saved',
       deleted: 'Measurement deleted',
     },
+    paywallTitle: 'Full weight history',
+    paywallDescription: 'Access your entire weight history with Premium.',
   },
 
   profile: {
@@ -470,6 +474,7 @@ const en = {
       goalsTargets: 'Goals & Targets',
       units: 'Units & Preferences',
       language: 'Language',
+      appearance: 'Appearance',
       changePassword: 'Change Password',
       notifications: 'Notifications & Reminders',
       feedback: 'Suggestion / Report a Problem',
@@ -478,6 +483,10 @@ const en = {
     language: {
       en: 'English',
       fr: 'Français',
+    },
+    theme: {
+      dark: 'Dark',
+      light: 'Light',
     },
     personalInfo: {
       title: 'Personal Information',
@@ -583,6 +592,8 @@ const en = {
       create: 'Create Routine',
       update: 'Update Routine',
       editWarning: "Editing this routine won't affect past sessions already logged.",
+      schedule: 'Schedule',
+      notificationTime: 'Reminder time (optional)',
     },
   },
 
@@ -640,6 +651,7 @@ const en = {
       workout: 'Workout',
       nutrition: 'Nutrition',
       weight: 'Weight',
+      routine: 'Routine planned',
       streak: '{{n}} day streak',
     },
     weekSummary: {
@@ -659,6 +671,7 @@ const en = {
       exercise: 'exercise',
       exercises: 'exercises',
       weightLogged: 'Weight logged',
+      scheduledRoutine: 'Planned routine',
     },
   },
 
