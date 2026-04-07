@@ -171,12 +171,23 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   uploadProductImage: async (userId, file, slot) => {
-    const ext = file.name.split('.').pop() ?? 'jpg';
+    // Normalize MIME type — camera photos from iOS may have empty or HEIC type.
+    // compressImage() in UnifiedScanner already converts everything to image/jpeg,
+    // but we keep this fallback in case the function is called with a raw file.
+    const mimeType = file.type && file.type !== 'application/octet-stream'
+      ? file.type
+      : 'image/jpeg';
+    const ext = mimeType.includes('png') ? 'png'
+      : mimeType.includes('webp') ? 'webp'
+      : 'jpg';
     const path = `${userId}/${crypto.randomUUID()}_${slot}.${ext}`;
     const { error } = await supabase.storage
       .from('product-images')
-      .upload(path, file, { contentType: file.type });
-    if (error) return null;
+      .upload(path, file, { contentType: mimeType });
+    if (error) {
+      console.error('[uploadProductImage] Upload failed:', error.message);
+      return null;
+    }
     return path;
   },
 

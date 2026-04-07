@@ -14,6 +14,34 @@ import Input from '../ui/Input';
 
 type Phase = 'idle' | 'scanning' | 'searching' | 'ai_capture' | 'ai_analyzing';
 
+/**
+ * Resize + re-encode any image (including HEIC from iOS camera) to JPEG via Canvas.
+ * Reduces large camera photos (5-12 MB) to a web-friendly size before upload.
+ */
+function compressImage(file: File, maxPx = 1920, quality = 0.85): Promise<File> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => resolve(blob ? new File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file),
+        'image/jpeg',
+        quality,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 interface Props {
   /** Called with the identified product (+ optional AI confidence 0-100) */
   onResult: (product: FoodProduct, confidence?: number) => void;
@@ -214,9 +242,11 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   type PhotoState = { file: File; preview: string } | null;
   type PhotoSetter = (v: PhotoState) => void;
 
-  const handlePhotoFile = (file: File, setter: PhotoSetter, current: PhotoState) => {
+  const handlePhotoFile = async (file: File, setter: PhotoSetter, current: PhotoState) => {
     if (current?.preview) URL.revokeObjectURL(current.preview);
-    setter({ file, preview: URL.createObjectURL(file) });
+    const compressed = await compressImage(file);
+    if (!mountedRef.current) return;
+    setter({ file: compressed, preview: URL.createObjectURL(compressed) });
     setAiError('');
   };
 
