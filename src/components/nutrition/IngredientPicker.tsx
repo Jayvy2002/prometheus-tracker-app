@@ -126,7 +126,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
     setSearched(true);
     setSearching(false);
     setSearchPhase('idle');
-    if (offResults.length > 0) batchSaveProducts(offResults);
+    if (offResults.length > 0 && user) batchSaveProducts(offResults, user.id);
   };
 
   const selectProduct = async (p: SearchResult) => {
@@ -143,6 +143,8 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
         fat_per_100g: p.fat_per_100g,
         serving_size: p.serving_size,
         serving_unit: p.serving_unit,
+        created_by: user?.id ?? null,
+        data_source: 'openfoodfacts',
       });
       if (saved) product = saved;
     }

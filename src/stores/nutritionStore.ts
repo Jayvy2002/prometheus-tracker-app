@@ -23,7 +23,7 @@ interface NutritionState {
   searchProducts: (query: string) => Promise<FoodProduct[]>;
   findByBarcode: (barcode: string) => Promise<FoodProduct | null>;
   createProduct: (product: Partial<FoodProduct>) => Promise<FoodProduct | null>;
-  batchSaveProducts: (products: Partial<FoodProduct>[]) => Promise<void>;
+  batchSaveProducts: (products: Partial<FoodProduct>[], userId: string) => Promise<void>;
   uploadProductImage: (userId: string, file: File, slot: string) => Promise<string | null>;
   createProductRequest: (request: Partial<ProductRequest>) => Promise<ProductRequest | null>;
   analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | { error: string }>;
@@ -147,10 +147,11 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       return existing as FoodProduct | null;
     }
 
+    console.error('[createProduct] Insert failed:', error?.code, error?.message);
     return null;
   },
 
-  batchSaveProducts: async (products) => {
+  batchSaveProducts: async (products, userId) => {
     const toSave = products
       .filter(p => p.barcode)
       .map(p => ({
@@ -164,10 +165,12 @@ export const useNutritionStore = create<NutritionState>((set) => ({
         serving_size: p.serving_size ?? 100,
         serving_unit: p.serving_unit ?? 'g',
         data_source: 'openfoodfacts',
+        created_by: userId,
       }));
     if (toSave.length === 0) return;
     // ignoreDuplicates: existing barcodes are silently skipped
-    await supabase.from('food_products').upsert(toSave, { onConflict: 'barcode', ignoreDuplicates: true });
+    const { error } = await supabase.from('food_products').upsert(toSave, { onConflict: 'barcode', ignoreDuplicates: true });
+    if (error) console.error('[batchSaveProducts] Upsert failed:', error.code, error.message);
   },
 
   uploadProductImage: async (userId, file, slot) => {
