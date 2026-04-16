@@ -32,6 +32,7 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
     toastWithUndo(`${snapshot.name} ${t('nutrition.removedFromMeal')}`, () =>
       addLog({
         user_id: snapshot.user_id,
+        food_product_id: snapshot.food_product_id ?? null,
         name: snapshot.name,
         calories: snapshot.calories,
         protein: snapshot.protein,

@@ -233,8 +233,29 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     if (cal < 0 || pro < 0 || carb < 0 || f < 0) { toast(t('nutrition.foodForm.errors.negativeNutrition'), 'error'); return; }
     if (cal > 9000) { toast(t('nutrition.foodForm.errors.caloriesTooHigh'), 'error'); return; }
     setSaving(true);
+
+    // Ensure every logged food exists in the shared food_products catalog.
+    // - Catalog pick (barcode scan, search, favorite) → selectedProduct.id already set
+    // - Custom/manual entry (no product, not a recipe serving) → create a new product
+    let foodProductId: string | null = selectedProduct?.id || null;
+    if (!foodProductId && !isServingUnit) {
+      const saved = await createProduct({
+        name,
+        calories_per_100g: cal,
+        protein_per_100g: pro,
+        carbs_per_100g: carb,
+        fat_per_100g: f,
+        serving_size: qty,
+        serving_unit: unit,
+        created_by: user.id,
+        data_source: 'user',
+      });
+      foodProductId = saved?.id ?? null;
+    }
+
     await addLog({
       user_id: user.id,
+      food_product_id: foodProductId,
       name,
       calories: cal * scale,
       protein: pro * scale,
