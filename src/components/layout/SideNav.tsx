@@ -1,21 +1,25 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, Sun, Moon } from 'lucide-react';
+
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useThemeStore } from '../../stores/themeStore';
 
 export default function SideNav() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
+  const { theme, toggleTheme } = useThemeStore();
 
   const tabs = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
     { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
-    { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
-    { path: '/stats', icon: BarChart2, label: t('nav.stats') },
-    { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
     { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
+    { path: '/weight', icon: Scale, label: t('nav.weight') },
+    { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
+    { path: '/stats', icon: BarChart2, label: t('nav.stats') },
+    { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
     { path: '/profile', icon: User, label: t('nav.profile') },
   ];
 
@@ -33,6 +37,13 @@ export default function SideNav() {
           <img src="/logo.svg" alt="Prometheus" className="w-8 h-8" />
         </div>
         <span className="text-white font-bold text-lg tracking-tight">Prometheus</span>
+        <button
+          onClick={toggleTheme}
+          className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800/60 transition-all duration-200"
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
       </div>
 
       {/* Navigation */}

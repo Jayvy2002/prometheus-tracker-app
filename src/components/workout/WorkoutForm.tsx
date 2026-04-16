@@ -73,11 +73,6 @@ function WorkoutFormInner() {
     setShowExercisePicker(false);
   };
 
-  const handleStartRestTimer = () => {
-    setAutoStartTimer(true);
-    setShowTimer(true);
-  };
-
   const handleFinish = async () => {
     if (!currentWorkout || saving) return;
     setSaving(true);
@@ -234,7 +229,6 @@ function WorkoutFormInner() {
           <ExerciseCard
             key={ex.id}
             exercise={ex}
-            onStartRestTimer={handleStartRestTimer}
           />
         ))}
       </div>

@@ -20,6 +20,7 @@ const en = {
     send: 'Send',
     new: 'New',
     manage: 'Manage',
+    upgrade: 'Upgrade',
     yes: 'Yes',
     no: 'No',
     or: 'or',
@@ -57,6 +58,7 @@ const en = {
     calendar: 'Calendar',
     quickAdd: 'Quick Add',
     newWorkout: 'New Workout',
+    weight: 'Weight',
     logWeight: 'Log Weight',
     addMeal: 'Add Meal',
     addWorkout: 'Add Workout',
@@ -434,12 +436,15 @@ const en = {
     deleteConfirm: 'Are you sure you want to delete this weight measurement?',
     errors: {
       invalid: 'Invalid weight',
+      saveFailed: 'Failed to save weight. Please try again.',
     },
     toasts: {
       updated: 'Weight updated',
       saved: 'Weight saved',
       deleted: 'Measurement deleted',
     },
+    paywallTitle: 'Full weight history',
+    paywallDescription: 'Access your entire weight history with Premium.',
   },
 
   profile: {
@@ -469,6 +474,7 @@ const en = {
       goalsTargets: 'Goals & Targets',
       units: 'Units & Preferences',
       language: 'Language',
+      appearance: 'Appearance',
       changePassword: 'Change Password',
       notifications: 'Notifications & Reminders',
       feedback: 'Suggestion / Report a Problem',
@@ -477,6 +483,10 @@ const en = {
     language: {
       en: 'English',
       fr: 'Français',
+    },
+    theme: {
+      dark: 'Dark',
+      light: 'Light',
     },
     personalInfo: {
       title: 'Personal Information',
@@ -582,6 +592,8 @@ const en = {
       create: 'Create Routine',
       update: 'Update Routine',
       editWarning: "Editing this routine won't affect past sessions already logged.",
+      schedule: 'Schedule',
+      notificationTime: 'Reminder time (optional)',
     },
   },
 
@@ -639,11 +651,17 @@ const en = {
       workout: 'Workout',
       nutrition: 'Nutrition',
       weight: 'Weight',
+      routine: 'Routine planned',
       streak: '{{n}} day streak',
     },
     weekSummary: {
       workouts: 'Workouts',
       daysLogged: 'Days logged',
+      weighIns: 'Weigh-ins',
+    },
+    daySummary: {
+      workouts: 'Workouts',
+      meals: 'Meals',
       weighIns: 'Weigh-ins',
     },
     day: {
@@ -653,6 +671,7 @@ const en = {
       exercise: 'exercise',
       exercises: 'exercises',
       weightLogged: 'Weight logged',
+      scheduledRoutine: 'Planned routine',
     },
   },
 
@@ -665,8 +684,9 @@ const en = {
     orEnterManually: 'or enter barcode manually',
     typeBarcode: 'Type barcode...',
     recentlyLogged: 'Recently logged',
-    lookingUp: 'Looking up product...',
-    checkingDb: 'Checking database and Open Food Facts',
+    lookingUp: 'Looking up product…',
+    checkingDb: 'Checking local database',
+    checkingOff: 'Checking Open Food Facts',
     aiAnalyzing: 'AI is analyzing...',
     aiAnalyzingDesc: 'Identifying the food and extracting nutritional data.',
     startingCamera: 'Starting camera...',
@@ -682,6 +702,9 @@ const en = {
     pickFromGallery: 'Pick from gallery',
     retake: 'Retake',
     change: 'Change',
+    photoFront: 'Front',
+    photoBack: 'Back',
+    photoNutrition: 'Nutrition',
     descriptionLabel: 'Description',
     descriptionOptional: '(optional — improves accuracy)',
     descriptionPlaceholderBarcode: 'Product name, brand, flavour...',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink, Shield, Globe, Inbox, Bug, Lightbulb } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink, Shield, Globe, Inbox, Bug, Lightbulb, Sun, Moon, Palette } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -9,6 +9,7 @@ import { usePaywallStore } from '../../stores/paywallStore';
 import { supabase } from '../../lib/supabase';
 import { setAppLanguage } from '../../i18n';
 import { toast } from '../ui/Toast';
+import { useThemeStore } from '../../stores/themeStore';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -21,7 +22,7 @@ import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
 
-type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language';
+type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'appearance';
 
 interface AccordionSectionProps {
   id: Section;
@@ -69,6 +70,7 @@ export default function ProfilePage() {
   const { openPaywall } = usePaywallStore();
   const isAdmin = role === 'admin';
   const isPremium = isAdmin || (tier === 'premium' && (status === 'active' || status === 'trialing'));
+  const { theme, setTheme } = useThemeStore();
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -219,7 +221,7 @@ export default function ProfilePage() {
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-semibold">
                 <Zap size={11} fill="currentColor" />
-                Upgrade
+                {t('common.upgrade')}
               </div>
             </div>
           </Card>
@@ -251,6 +253,24 @@ export default function ProfilePage() {
                     : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:border-neutral-600'}`}
               >
                 {t(`profile.language.${lang}`)}
+              </button>
+            ))}
+          </div>
+        </AccordionSection>
+
+        <AccordionSection id="appearance" icon={Palette} label={t('profile.sections.appearance')} isOpen={openSection === 'appearance'} onToggle={() => toggle('appearance')} animationDelay="225ms">
+          <div className="flex gap-2">
+            {(['dark', 'light'] as const).map(t_ => (
+              <button
+                key={t_}
+                onClick={() => setTheme(t_)}
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all border
+                  ${theme === t_
+                    ? 'bg-blue-600 text-white border-blue-500'
+                    : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:border-neutral-600'}`}
+              >
+                {t_ === 'dark' ? <Moon size={14} /> : <Sun size={14} />}
+                {t(`profile.theme.${t_}`)}
               </button>
             ))}
           </div>

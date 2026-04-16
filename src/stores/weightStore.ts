@@ -27,11 +27,15 @@ export const useWeightStore = create<WeightState>((set) => ({
   },
 
   addMeasurement: async (measurement) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('weight_measurements')
       .insert(measurement)
       .select()
       .maybeSingle();
+    if (error) {
+      console.error('addMeasurement failed:', error.message);
+      throw new Error(error.message);
+    }
     if (data) {
       const newMeasurement = data as WeightMeasurement;
       set(s => ({ measurements: [newMeasurement, ...s.measurements] }));

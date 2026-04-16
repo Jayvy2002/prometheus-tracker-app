@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
+import './stores/themeStore'; // initializes theme class on <html> before first render
 import { useProfileStore } from './stores/profileStore';
 import { useSubscriptionStore } from './stores/subscriptionStore';
 import PaywallModal from './components/premium/PaywallModal';

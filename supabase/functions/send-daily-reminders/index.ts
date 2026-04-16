@@ -311,6 +311,42 @@ Deno.serve(async (req) => {
     processUsers(nutritionUsers, 'nutrition'),
   ]);
 
+  // ── Routine-specific reminders ──────────────────────────────────────────────
+  // Current UTC day of week (0=Sun, 1=Mon, … 6=Sat)
+  const todayDayOfWeek = now.getUTCDay();
+
+  // Find routines whose notification_time matches now AND scheduled for today
+  const { data: scheduledRoutines } = await admin
+    .from('routines')
+    .select('id, user_id, name')
+    .eq('notification_time', currentTime)
+    .contains('scheduled_days', [todayDayOfWeek]);
+
+  for (const routine of scheduledRoutines ?? []) {
+    const { data: subs } = await admin
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth')
+      .eq('user_id', routine.user_id);
+
+    if (!subs?.length) continue;
+
+    const payload = {
+      title: 'Prometheus 💪',
+      body: `Time for your ${routine.name} session!`,
+      tag: `routine-${routine.id}`,
+      url: '/workout',
+    };
+
+    for (const sub of subs) {
+      try {
+        const ok = await sendPush(sub.endpoint, sub.p256dh, sub.auth, vapidPublicKey, vapidPrivateKey, vapidSubject, payload);
+        if (ok) { sent++; } else { staleEndpoints.push(sub.endpoint); }
+      } catch {
+        staleEndpoints.push(sub.endpoint);
+      }
+    }
+  }
+
   // Clean up dead endpoints
   if (staleEndpoints.length) {
     await admin.from('push_subscriptions').delete().in('endpoint', staleEndpoints);

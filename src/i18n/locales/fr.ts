@@ -20,6 +20,7 @@ const fr = {
     send: 'Envoyer',
     new: 'Nouveau',
     manage: 'Gérer',
+    upgrade: 'Passer à Premium',
     yes: 'Oui',
     no: 'Non',
     or: 'ou',
@@ -57,6 +58,7 @@ const fr = {
     calendar: 'Calendrier',
     quickAdd: 'Ajout rapide',
     newWorkout: 'Nouvelle séance',
+    weight: 'Poids',
     logWeight: 'Peser',
     addMeal: 'Ajouter un repas',
     addWorkout: 'Ajouter une séance',
@@ -434,12 +436,15 @@ const fr = {
     deleteConfirm: 'Es-tu sûr(e) de vouloir supprimer cette mesure de poids ?',
     errors: {
       invalid: 'Poids invalide',
+      saveFailed: 'Erreur lors de l\'enregistrement. Veuillez réessayer.',
     },
     toasts: {
       updated: 'Poids mis à jour',
       saved: 'Poids enregistré',
       deleted: 'Mesure supprimée',
     },
+    paywallTitle: 'Historique de poids complet',
+    paywallDescription: 'Accédez à tout votre historique de poids avec Premium.',
   },
 
   profile: {
@@ -469,6 +474,7 @@ const fr = {
       goalsTargets: 'Objectifs & cibles',
       units: 'Unités & préférences',
       language: 'Langue',
+      appearance: 'Apparence',
       changePassword: 'Changer le mot de passe',
       notifications: 'Notifications & rappels',
       feedback: 'Suggestion / Signaler un problème',
@@ -477,6 +483,10 @@ const fr = {
     language: {
       en: 'English',
       fr: 'Français',
+    },
+    theme: {
+      dark: 'Sombre',
+      light: 'Clair',
     },
     personalInfo: {
       title: 'Informations personnelles',
@@ -582,6 +592,8 @@ const fr = {
       create: 'Créer la routine',
       update: 'Mettre à jour la routine',
       editWarning: 'Modifier cette routine n\'affectera pas les séances déjà enregistrées.',
+      schedule: 'Planification',
+      notificationTime: 'Heure de rappel (optionnel)',
     },
   },
 
@@ -639,11 +651,17 @@ const fr = {
       workout: 'Entraînement',
       nutrition: 'Nutrition',
       weight: 'Poids',
+      routine: 'Routine planifiée',
       streak: '{{n}} jours de suite',
     },
     weekSummary: {
       workouts: 'Entraînements',
       daysLogged: 'Jours enregistrés',
+      weighIns: 'Pesées',
+    },
+    daySummary: {
+      workouts: 'Entraînements',
+      meals: 'Repas',
       weighIns: 'Pesées',
     },
     day: {
@@ -653,6 +671,7 @@ const fr = {
       exercise: 'exercice',
       exercises: 'exercices',
       weightLogged: 'Poids enregistré',
+      scheduledRoutine: 'Routine planifiée',
     },
   },
 
@@ -665,8 +684,9 @@ const fr = {
     orEnterManually: 'ou entre le code-barres manuellement',
     typeBarcode: 'Tape le code-barres...',
     recentlyLogged: 'Récemment journalisé',
-    lookingUp: 'Recherche du produit...',
-    checkingDb: 'Vérification dans la base de données + Open Food Facts',
+    lookingUp: 'Recherche du produit…',
+    checkingDb: 'Vérification dans la base locale',
+    checkingOff: 'Vérification sur Open Food Facts',
     aiAnalyzing: 'L\'IA analyse...',
     aiAnalyzingDesc: 'Identification de l\'aliment et extraction des données nutritionnelles.',
     startingCamera: 'Démarrage de la caméra...',
@@ -682,6 +702,9 @@ const fr = {
     pickFromGallery: 'Choisir depuis la galerie',
     retake: 'Reprendre',
     change: 'Changer',
+    photoFront: 'Avant',
+    photoBack: 'Arrière',
+    photoNutrition: 'Nutrition',
     descriptionLabel: 'Description',
     descriptionOptional: '(optionnel — améliore la précision)',
     descriptionPlaceholderBarcode: 'Nom du produit, marque, saveur...',

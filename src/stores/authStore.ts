@@ -65,11 +65,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (get().initialized) return;
     set({ initialized: true });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      set({ session, user: session?.user ?? null, loading: false });
-    });
+    // Safety net: never stay stuck on the loading screen more than 8 seconds
+    const timeout = setTimeout(() => {
+      if (get().loading) {
+        console.error('[Prometheus] Auth timed out — forcing loading=false. Check console for errors.');
+        set({ loading: false });
+      }
+    }, 8000);
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(timeout);
+        set({ session, user: session?.user ?? null, loading: false });
+      })
+      .catch((err: unknown) => {
+        clearTimeout(timeout);
+        console.error('[Prometheus] getSession() failed:', err);
+        set({ loading: false });
+      });
 
     supabase.auth.onAuthStateChange((_event, session) => {
+      clearTimeout(timeout);
       set({ session, user: session?.user ?? null, loading: false });
     });
   },

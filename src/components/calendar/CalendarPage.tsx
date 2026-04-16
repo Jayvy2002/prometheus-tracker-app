@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
+import { useRoutineStore } from '../../stores/routineStore';
 import { supabase } from '../../lib/supabase';
 import { parseDateStr, parseDate, formatWeight } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
@@ -17,12 +18,14 @@ interface DayData {
   hasWorkout: boolean;
   hasNutrition: boolean;
   hasWeight: boolean;
+  hasScheduledRoutine: boolean;
   inCurrentPeriod?: boolean;
 }
 
 interface DaySummary {
   workout: { name: string; exerciseCount: number } | null;
   nutrition: { totalCals: number; protein: number; carbs: number; fat: number } | null;
+  nutritionCount: number;
   weight: number | null;
 }
 
@@ -73,6 +76,7 @@ export default function CalendarPage() {
   const { workouts, fetchWorkouts } = useWorkoutStore();
   const { measurements, fetchMeasurements } = useWeightStore();
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
+  const { routines, fetchRoutines } = useRoutineStore();
 
   const DAY_LABELS = [
     t('calendar.days.mon'),
@@ -97,6 +101,7 @@ export default function CalendarPage() {
     if (!user) return;
     fetchWorkouts(user.id);
     fetchMeasurements(user.id);
+    fetchRoutines(user.id);
   }, [user]);
 
   useEffect(() => {
@@ -154,6 +159,7 @@ export default function CalendarPage() {
             setDaySummary({
               workout: workoutRes.data ? { name: workoutRes.data.name || 'Workout', exerciseCount: count ?? 0 } : null,
               nutrition: totalNutrition,
+              nutritionCount: nutritionLogs.length,
               weight: weightRes.data ? weightRes.data.weight_kg : null,
             });
             setSummaryLoading(false);
@@ -169,6 +175,7 @@ export default function CalendarPage() {
         setDaySummary({
           workout: null,
           nutrition: totalNutrition,
+          nutritionCount: nutritionLogs.length,
           weight: weightRes.data ? weightRes.data.weight_kg : null,
         });
         setSummaryLoading(false);
@@ -236,11 +243,15 @@ export default function CalendarPage() {
   const buildDayData = (dates: Date[], inMonthFn?: (d: Date) => boolean): DayData[] =>
     dates.map(d => {
       const ds = dateToStr(d);
+      const isFutureOrToday = ds >= today;
+      const dow = d.getDay();
+      const hasScheduledRoutine = isFutureOrToday && routines.some(r => (r.scheduled_days ?? []).map(Number).includes(dow));
       return {
         date: ds,
         hasWorkout: workoutDateSet.has(ds),
         hasNutrition: allNutritionDates.has(ds),
         hasWeight: weightDateSet.has(ds),
+        hasScheduledRoutine,
         inCurrentPeriod: inMonthFn ? inMonthFn(d) : true,
       };
     });
@@ -256,6 +267,13 @@ export default function CalendarPage() {
     return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   }, [selectedDate]);
 
+  const isFutureSelected = selectedDate > today;
+
+  const scheduledRoutinesForSelected = useMemo(() => {
+    const dow = parseDateStr(selectedDate).getDay();
+    return routines.filter(r => (r.scheduled_days ?? []).map(Number).includes(dow));
+  }, [routines, selectedDate]);
+
   const renderDayButton = (day: DayData) => {
     const isToday = day.date === today;
     const isSelected = day.date === selectedDate;
@@ -265,10 +283,11 @@ export default function CalendarPage() {
     return (
       <button
         key={day.date}
-        onClick={() => !isFuture && setSelectedDate(day.date)}
+        onClick={() => setSelectedDate(day.date)}
         className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-all active:scale-95
           ${isSelected ? 'bg-blue-600 text-white' : isToday ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-800/50'}
-          ${isFuture || dimmed ? 'opacity-30' : 'cursor-pointer'}`}
+          ${dimmed ? 'opacity-30' : 'cursor-pointer'}
+          ${isFuture && !day.hasScheduledRoutine ? 'opacity-40' : ''}`}
       >
         <span className={`font-semibold ${viewMode === 'month' ? 'text-[11px]' : 'text-xs'}`}>
           {parseDateStr(day.date).getDate()}
@@ -277,6 +296,9 @@ export default function CalendarPage() {
           {day.hasWorkout && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/80' : 'bg-blue-400'}`} />}
           {day.hasNutrition && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/80' : 'bg-emerald-400'}`} />}
           {day.hasWeight && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/80' : 'bg-amber-400'}`} />}
+          {day.hasScheduledRoutine && !day.hasWorkout && (
+            <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/80' : 'bg-violet-400'}`} />
+          )}
         </div>
       </button>
     );
@@ -345,6 +367,10 @@ export default function CalendarPage() {
             <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
             {t('calendar.legend.weight')}
           </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+            <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+            {t('calendar.legend.routine')}
+          </div>
           {streakCount > 0 && (
             <div className="ml-auto flex items-center gap-1 text-[11px] text-orange-400">
               <Flame size={11} />
@@ -354,22 +380,26 @@ export default function CalendarPage() {
         </div>
       </Card>
 
-      {viewMode === 'week' && (
-        <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-            <p className="text-lg font-bold text-blue-400">{weekDayData.filter(d => d.hasWorkout).length}</p>
-            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.workouts')}</p>
-          </div>
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-            <p className="text-lg font-bold text-emerald-400">{weekDayData.filter(d => d.hasNutrition).length}</p>
-            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.daysLogged')}</p>
-          </div>
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
-            <p className="text-lg font-bold text-amber-400">{weekDayData.filter(d => d.hasWeight).length}</p>
-            <p className="text-[10px] text-neutral-500">{t('calendar.weekSummary.weighIns')}</p>
-          </div>
+      <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-blue-400">
+            {summaryLoading ? '–' : daySummary?.workout ? 1 : 0}
+          </p>
+          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.workouts')}</p>
         </div>
-      )}
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-emerald-400">
+            {summaryLoading ? '–' : daySummary?.nutritionCount ?? 0}
+          </p>
+          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.meals')}</p>
+        </div>
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
+          <p className="text-lg font-bold text-amber-400">
+            {summaryLoading ? '–' : daySummary?.weight ? 1 : 0}
+          </p>
+          <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.weighIns')}</p>
+        </div>
+      </div>
 
       <div className="mb-3 animate-fade-in-up stagger-2">
         <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-1">{selectedDateLabel}</h2>
@@ -406,6 +436,22 @@ export default function CalendarPage() {
                 </p>
               </div>
             </Card>
+          ) : isFutureSelected && scheduledRoutinesForSelected.length > 0 ? (
+            scheduledRoutinesForSelected.map(r => (
+              <Card
+                key={r.id}
+                className="flex items-center gap-3 cursor-pointer hover:border-violet-700/50 active:scale-[0.98] transition-all border-violet-800/30"
+                onClick={() => navigate('/workout')}
+              >
+                <div className="w-9 h-9 rounded-xl bg-violet-600/20 flex items-center justify-center shrink-0">
+                  <Dumbbell size={16} className="text-violet-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white">{r.name}</p>
+                  <p className="text-xs text-neutral-500">{t('calendar.day.scheduledRoutine')}</p>
+                </div>
+              </Card>
+            ))
           ) : (
             <Card className="flex items-center gap-3 opacity-40">
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
