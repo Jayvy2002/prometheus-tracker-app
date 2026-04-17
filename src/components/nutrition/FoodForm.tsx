@@ -235,6 +235,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setSaving(true);
     await addLog({
       user_id: user.id,
+      food_product_id: selectedProduct?.id ? selectedProduct.id : null,
       name,
       calories: cal * scale,
       protein: pro * scale,
