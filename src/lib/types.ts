@@ -23,6 +23,20 @@ export interface UserProfile {
   onboarding_completed: boolean;
   dashboard_layout: DashboardWidget[];
   health_integrations: Record<string, HealthIntegration>;
+  diet_type: string;
+  food_allergies: string[];
+  meals_per_day: number;
+  cooking_level: string;
+  daily_steps_average: number;
+  sleep_hours_average: number;
+  training_experience: string;
+  training_frequency: number;
+  training_focus: string;
+  injuries_limitations: string;
+  stress_level: string;
+  hydration_habit: string;
+  supplement_use: string[];
+  motivation: string;
   created_at: string;
   updated_at: string;
 }

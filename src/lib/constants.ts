@@ -69,3 +69,90 @@ export const HEALTH_PROVIDERS = [
   { id: 'garmin', name: 'Garmin', icon: 'Watch' },
   { id: 'fitbit', name: 'Fitbit', icon: 'Activity' },
 ] as const;
+
+export const DIET_TYPES = [
+  { value: 'omnivore', label: 'Omnivore', description: 'No dietary restrictions' },
+  { value: 'vegetarian', label: 'Vegetarian', description: 'No meat or fish' },
+  { value: 'vegan', label: 'Vegan', description: 'No animal products' },
+  { value: 'pescatarian', label: 'Pescatarian', description: 'Fish but no meat' },
+  { value: 'paleo', label: 'Paleo', description: 'Whole foods, no grains/dairy' },
+  { value: 'keto', label: 'Keto', description: 'Very low carb, high fat' },
+  { value: 'carnivore', label: 'Carnivore', description: 'Animal products only' },
+  { value: 'mediterranean', label: 'Mediterranean', description: 'Balanced, plant-rich' },
+  { value: 'halal', label: 'Halal', description: 'Islamic dietary laws' },
+  { value: 'gluten_free', label: 'Gluten Free', description: 'No gluten-containing foods' },
+] as const;
+
+export const FOOD_ALLERGIES = [
+  { value: 'dairy', label: 'Dairy' },
+  { value: 'gluten', label: 'Gluten' },
+  { value: 'nuts', label: 'Tree Nuts' },
+  { value: 'peanuts', label: 'Peanuts' },
+  { value: 'soy', label: 'Soy' },
+  { value: 'eggs', label: 'Eggs' },
+  { value: 'shellfish', label: 'Shellfish' },
+  { value: 'fish', label: 'Fish' },
+  { value: 'sesame', label: 'Sesame' },
+  { value: 'corn', label: 'Corn' },
+  { value: 'sulfites', label: 'Sulfites' },
+  { value: 'lactose', label: 'Lactose' },
+] as const;
+
+export const COOKING_LEVELS = [
+  { value: 'none', label: 'None', description: 'I don\'t cook' },
+  { value: 'basic', label: 'Basic', description: 'Simple meals only' },
+  { value: 'intermediate', label: 'Intermediate', description: 'Comfortable in the kitchen' },
+  { value: 'advanced', label: 'Advanced', description: 'I enjoy complex recipes' },
+] as const;
+
+export const TRAINING_EXPERIENCES = [
+  { value: 'beginner', label: 'Beginner', description: '0-1 year of training' },
+  { value: 'intermediate', label: 'Intermediate', description: '1-3 years of training' },
+  { value: 'advanced', label: 'Advanced', description: '3-5 years of training' },
+  { value: 'elite', label: 'Elite', description: '5+ years of training' },
+] as const;
+
+export const TRAINING_FOCUSES = [
+  { value: 'hypertrophy', label: 'Hypertrophy', description: 'Muscle growth' },
+  { value: 'strength', label: 'Strength', description: 'Max force production' },
+  { value: 'endurance', label: 'Endurance', description: 'Stamina & conditioning' },
+  { value: 'powerlifting', label: 'Powerlifting', description: 'Squat, Bench, Deadlift' },
+  { value: 'crossfit', label: 'CrossFit', description: 'Functional fitness' },
+  { value: 'calisthenics', label: 'Calisthenics', description: 'Bodyweight mastery' },
+  { value: 'mixed', label: 'Mixed', description: 'General fitness' },
+] as const;
+
+export const STRESS_LEVELS = [
+  { value: 'low', label: 'Low', description: 'Calm and relaxed' },
+  { value: 'moderate', label: 'Moderate', description: 'Average day-to-day stress' },
+  { value: 'high', label: 'High', description: 'Frequently stressed' },
+  { value: 'very_high', label: 'Very High', description: 'Chronic high stress' },
+] as const;
+
+export const HYDRATION_HABITS = [
+  { value: 'poor', label: 'Poor', description: 'I often forget to drink' },
+  { value: 'average', label: 'Average', description: 'I drink when thirsty' },
+  { value: 'good', label: 'Good', description: 'I actively track my water' },
+] as const;
+
+export const SUPPLEMENTS = [
+  { value: 'creatine', label: 'Creatine' },
+  { value: 'protein_powder', label: 'Protein Powder' },
+  { value: 'caffeine', label: 'Caffeine/Pre-Workout' },
+  { value: 'omega3', label: 'Omega-3 / Fish Oil' },
+  { value: 'vitamin_d', label: 'Vitamin D' },
+  { value: 'multivitamin', label: 'Multivitamin' },
+  { value: 'bcaa', label: 'BCAAs' },
+  { value: 'magnesium', label: 'Magnesium' },
+  { value: 'zinc', label: 'Zinc' },
+  { value: 'collagen', label: 'Collagen' },
+] as const;
+
+export const MOTIVATIONS = [
+  { value: 'aesthetics', label: 'Aesthetics', description: 'Look my best' },
+  { value: 'health', label: 'Health', description: 'Long-term wellness' },
+  { value: 'performance', label: 'Performance', description: 'Get stronger/faster' },
+  { value: 'sport', label: 'Sport Specific', description: 'Improve in my sport' },
+  { value: 'mental_health', label: 'Mental Health', description: 'Stress relief & clarity' },
+  { value: 'rehabilitation', label: 'Rehabilitation', description: 'Recover from injury' },
+] as const;

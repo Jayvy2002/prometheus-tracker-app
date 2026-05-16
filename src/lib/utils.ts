@@ -17,16 +17,20 @@ export function calculateCalorieTarget(tdee: number, goal: string): number {
   return Math.round(tdee + (g?.modifier ?? 0));
 }
 
-export function calculateMacros(calorieTarget: number, goal: string) {
+export function calculateMacros(calorieTarget: number, goal: string, dietType?: string) {
   let proteinPct: number, fatPct: number, carbsPct: number;
-  if (goal === 'cut') {
-    // Sèche : protéine élevée pour préserver la masse, lipides modérés
+
+  if (dietType === 'keto') {
+    proteinPct = 0.25; fatPct = 0.70; carbsPct = 0.05;
+  } else if (dietType === 'carnivore') {
+    proteinPct = 0.35; fatPct = 0.60; carbsPct = 0.05;
+  } else if (dietType === 'paleo') {
+    proteinPct = 0.30; fatPct = 0.40; carbsPct = 0.30;
+  } else if (goal === 'cut') {
     proteinPct = 0.35; fatPct = 0.30; carbsPct = 0.35;
   } else if (goal === 'bulk') {
-    // Prise de masse : glucides élevés pour l'énergie et l'anabolisme
     proteinPct = 0.30; fatPct = 0.25; carbsPct = 0.45;
   } else {
-    // Maintien : macros équilibrées, plus de lipides que la prise de masse
     proteinPct = 0.30; fatPct = 0.30; carbsPct = 0.40;
   }
   return {
@@ -34,6 +38,47 @@ export function calculateMacros(calorieTarget: number, goal: string) {
     fat: Math.round((calorieTarget * fatPct) / 9),
     carbs: Math.round((calorieTarget * carbsPct) / 4),
   };
+}
+
+export function calculateEnhancedTDEE(
+  bmr: number,
+  activityLevel: string,
+  dailyStepsAverage: number,
+  trainingFrequency: number,
+): number {
+  const level = ACTIVITY_LEVELS.find(l => l.value === activityLevel);
+  const baseMultiplier = level?.multiplier ?? 1.55;
+
+  const stepsAbove5k = Math.max(0, dailyStepsAverage - 5000);
+  const neatBonus = stepsAbove5k * 0.04;
+
+  const trainingBonus = trainingFrequency > 4 ? 50 : 0;
+
+  return Math.round(bmr * baseMultiplier + neatBonus + trainingBonus);
+}
+
+export function calculateWaterTarget(
+  weightKg: number,
+  dailyStepsAverage: number,
+  activityLevel: string,
+  hydrationHabit: string,
+): number {
+  let base = weightKg * 33;
+
+  const stepsAbove5k = Math.max(0, dailyStepsAverage - 5000);
+  base += stepsAbove5k * 0.05;
+
+  if (activityLevel === 'active' || activityLevel === 'very_active') {
+    base += 500;
+  } else if (activityLevel === 'moderate') {
+    base += 250;
+  }
+
+  if (hydrationHabit === 'poor') {
+    base = Math.min(base, base * 0.9);
+  }
+
+  return Math.round(base / 50) * 50;
 }
 
 export function getAge(dateOfBirth: string): number {
