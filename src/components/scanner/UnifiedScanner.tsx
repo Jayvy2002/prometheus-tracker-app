@@ -8,42 +8,11 @@ import {
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useAuthStore } from '../../stores/authStore';
-import { supabase } from '../../lib/supabase';
 import type { FoodProduct } from '../../lib/types';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
 type Phase = 'idle' | 'scanning' | 'searching' | 'ai_capture' | 'ai_analyzing';
-type PhotoState = { file: File; preview: string } | null;
-type PhotoSetter = (v: PhotoState) => void;
-
-/**
- * Resize + re-encode any image (including HEIC from iOS camera) to JPEG via Canvas.
- * Reduces large camera photos (5-12 MB) to a web-friendly size before upload.
- */
-function compressImage(file: File, maxPx = 1920, quality = 0.85): Promise<File> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
-      const w = Math.round(img.width * scale);
-      const h = Math.round(img.height * scale);
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      canvas.getContext('2d')!.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        (blob) => resolve(blob ? new File([blob], 'photo.jpg', { type: 'image/jpeg' }) : file),
-        'image/jpeg',
-        quality,
-      );
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
-    img.src = url;
-  });
-}
 
 interface Props {
   /** Called with the identified product (+ optional AI confidence 0-100) */
@@ -89,15 +58,13 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const [aiError, setAiError] = useState('');
   const [fallbackResults, setFallbackResults] = useState<FoodProduct[]>([]);
   const [isFallbackSearching, setIsFallbackSearching] = useState(false);
-  // In-app camera overlay for photo capture (avoids OS camera launch that drops connections)
-  const [photoCameraOpen, setPhotoCameraOpen] = useState(false);
-  const [photoCaptureTarget, setPhotoCaptureTarget] = useState<{ setter: PhotoSetter; current: PhotoState; label: string } | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
-  const photoCaptureVideoRef = useRef<HTMLVideoElement>(null);
-  const photoCaptureStreamRef = useRef<MediaStream | null>(null);
+  const cameraFrontRef = useRef<HTMLInputElement>(null);
   const galleryFrontRef = useRef<HTMLInputElement>(null);
+  const cameraBackRef = useRef<HTMLInputElement>(null);
   const galleryBackRef = useRef<HTMLInputElement>(null);
+  const cameraNutritionRef = useRef<HTMLInputElement>(null);
   const galleryNutritionRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(true);
   const foundRef = useRef(false);
@@ -116,66 +83,6 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     if (user && showRecent) fetchRecentProducts(user.id);
     return () => { mountedRef.current = false; stopCamera(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // In-app camera overlay — start/stop stream as overlay opens/closes
-  const [photoCaptureCameraActive, setPhotoCaptureCameraActive] = useState(false);
-
-  useEffect(() => {
-    if (!photoCameraOpen) return;
-    setPhotoCaptureCameraActive(false);
-    let localStream: MediaStream | null = null;
-    const constraintsList = [
-      { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
-      { video: { facingMode: { ideal: 'environment' } } },
-      { video: true },
-    ];
-    const start = async () => {
-      for (const c of constraintsList) {
-        try { localStream = await navigator.mediaDevices.getUserMedia(c); break; } catch { /* try next */ }
-      }
-      if (!mountedRef.current) { localStream?.getTracks().forEach(t => t.stop()); return; }
-      if (!localStream) { setPhotoCameraOpen(false); return; }
-      photoCaptureStreamRef.current = localStream;
-      if (photoCaptureVideoRef.current) {
-        photoCaptureVideoRef.current.srcObject = localStream;
-        await photoCaptureVideoRef.current.play().catch(() => {});
-        if (mountedRef.current) setPhotoCaptureCameraActive(true);
-      }
-    };
-    start();
-    return () => {
-      localStream?.getTracks().forEach(t => t.stop());
-      photoCaptureStreamRef.current = null;
-      setPhotoCaptureCameraActive(false);
-    };
-  }, [photoCameraOpen]);
-
-  const openPhotoCamera = (setter: PhotoSetter, current: PhotoState, label: string) => {
-    setPhotoCaptureTarget({ setter, current, label });
-    setPhotoCameraOpen(true);
-  };
-
-  const closePhotoCamera = useCallback(() => {
-    photoCaptureStreamRef.current?.getTracks().forEach(t => t.stop());
-    photoCaptureStreamRef.current = null;
-    setPhotoCameraOpen(false);
-    setPhotoCaptureTarget(null);
-  }, []);
-
-  const capturePhoto = () => {
-    const video = photoCaptureVideoRef.current;
-    if (!video || !photoCaptureTarget || !photoCaptureCameraActive) return;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    canvas.getContext('2d')!.drawImage(video, 0, 0);
-    canvas.toBlob(async (blob) => {
-      if (!blob || !mountedRef.current) return;
-      const file = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
-      closePhotoCamera();
-      await handlePhotoFile(file, photoCaptureTarget.setter, photoCaptureTarget.current);
-    }, 'image/jpeg', 0.92);
-  };
 
   // -------------------------------------------------------------------
   // Barcode lookup: DB → OpenFoodFacts → AI capture
@@ -304,11 +211,12 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   // -------------------------------------------------------------------
   // AI photo identification
   // -------------------------------------------------------------------
-  const handlePhotoFile = async (file: File, setter: PhotoSetter, current: PhotoState) => {
+  type PhotoState = { file: File; preview: string } | null;
+  type PhotoSetter = (v: PhotoState) => void;
+
+  const handlePhotoFile = (file: File, setter: PhotoSetter, current: PhotoState) => {
     if (current?.preview) URL.revokeObjectURL(current.preview);
-    const compressed = await compressImage(file);
-    if (!mountedRef.current) return;
-    setter({ file: compressed, preview: URL.createObjectURL(compressed) });
+    setter({ file, preview: URL.createObjectURL(file) });
     setAiError('');
   };
 
@@ -319,64 +227,52 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setAiError('');
     setFallbackResults([]);
 
-    try {
-      // Refresh session before network calls — the camera app (launched by capture="environment")
-      // suspends the PWA on both Android and iOS, which can drop Supabase connections.
-      await supabase.auth.getSession();
+    // Upload all 3 photos in parallel (skip nulls)
+    const upload = async (photo: PhotoState, slot: string): Promise<string> => {
+      if (!photo) return '';
+      const path = await uploadProductImage(user.id, photo.file, slot);
+      return path ?? '';
+    };
+    const [frontPath, backPath, nutritionPath] = await Promise.all([
+      upload(photoFront, 'front'),
+      upload(photoBack, 'back'),
+      upload(photoNutrition, 'nutrition'),
+    ]);
 
-      // Upload all 3 photos in parallel (skip nulls)
-      const upload = async (photo: PhotoState, slot: string): Promise<string> => {
-        if (!photo) return '';
-        const path = await uploadProductImage(user.id, photo.file, slot);
-        return path ?? '';
-      };
-      const [frontPath, backPath, nutritionPath] = await Promise.all([
-        upload(photoFront, 'front'),
-        upload(photoBack, 'back'),
-        upload(photoNutrition, 'nutrition'),
-      ]);
+    const request = await createProductRequest({
+      user_id: user.id,
+      barcode: scannedCode || '',
+      notes: aiNotes.trim(),
+      image_front: frontPath,
+      image_back: backPath,
+      image_nutrition: nutritionPath,
+      status: 'pending',
+    });
 
-      const request = await createProductRequest({
-        user_id: user.id,
-        barcode: scannedCode || '',
-        notes: aiNotes.trim(),
-        image_front: frontPath,
-        image_back: backPath,
-        image_nutrition: nutritionPath,
-        status: 'pending',
-      });
+    if (!request) {
+      if (mountedRef.current) { setPhase('ai_capture'); setAiError(t('scanner.aiStartError')); }
+      return;
+    }
 
-      if (!request) {
-        if (mountedRef.current) { setPhase('ai_capture'); setAiError(t('scanner.aiStartError')); }
-        return;
-      }
+    const result = await analyzeProductRequest(request.id);
+    if (!mountedRef.current) return;
 
-      const result = await analyzeProductRequest(request.id);
-      if (!mountedRef.current) return;
+    if ('product' in result) {
+      onResult(result.product, result.confidence);
+    } else {
+      // AI failed — show actual error and try text search as fallback
+      setPhase('ai_capture');
+      setAiError(t(result.error as Parameters<typeof t>[0]));
 
-      if ('product' in result) {
-        onResult(result.product, result.confidence);
-      } else {
-        // AI failed — show actual error and try text search as fallback
-        setPhase('ai_capture');
-        setAiError(t(result.error as Parameters<typeof t>[0]));
-
-        const query = aiNotes.trim();
-        if (query) {
-          setIsFallbackSearching(true);
-          try {
-            const found = await searchProducts(query);
-            if (mountedRef.current) setFallbackResults(found.slice(0, 5));
-          } catch { /* ignore */ } finally {
-            if (mountedRef.current) setIsFallbackSearching(false);
-          }
+      const query = aiNotes.trim();
+      if (query) {
+        setIsFallbackSearching(true);
+        try {
+          const found = await searchProducts(query);
+          if (mountedRef.current) setFallbackResults(found.slice(0, 5));
+        } catch { /* ignore */ } finally {
+          if (mountedRef.current) setIsFallbackSearching(false);
         }
-      }
-    } catch (err) {
-      console.error('[handleAiSubmit] Unexpected error:', err);
-      if (mountedRef.current) {
-        setPhase('ai_capture');
-        setAiError(t('scanner.aiStartError'));
       }
     }
   };
@@ -404,61 +300,6 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   // ===================================================================
   // RENDER — each phase
   // ===================================================================
-
-  // In-app camera overlay MUST be checked first — it can be open while phase === 'ai_capture'
-  if (photoCameraOpen) {
-    return (
-      <div className="flex flex-col" style={{ minHeight: 'calc(100vh - 80px)' }}>
-        <div className="flex items-center justify-between px-4 pt-4 pb-3">
-          <button
-            onClick={closePhotoCamera}
-            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h2 className="text-base font-semibold text-white">
-            {photoCaptureTarget?.label ?? t('scanner.photoFront')}
-          </h2>
-          <button
-            onClick={closePhotoCamera}
-            className="p-2 rounded-xl text-neutral-400 hover:text-white transition-colors"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="relative mx-4 rounded-2xl overflow-hidden bg-black flex-1 min-h-64">
-          <video
-            ref={photoCaptureVideoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            autoPlay playsInline muted
-          />
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            {!photoCaptureCameraActive ? (
-              <div className="flex flex-col items-center gap-3">
-                <Loader2 size={28} className="text-blue-400 animate-spin" />
-                <p className="text-white/70 text-sm">{t('scanner.startingCamera')}</p>
-              </div>
-            ) : (
-              <p className="text-white/90 text-sm font-medium bg-black/50 px-4 py-1.5 rounded-full backdrop-blur-sm">
-                {photoCaptureTarget?.label}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="flex items-center justify-center py-8">
-          <button
-            onClick={capturePhoto}
-            disabled={!photoCaptureCameraActive}
-            className="w-20 h-20 rounded-full border-4 border-white flex items-center justify-center bg-white/10 active:scale-95 transition-all disabled:opacity-40"
-          >
-            <div className="w-14 h-14 rounded-full bg-white" />
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   if (phase === 'searching') {
     return (
@@ -593,30 +434,30 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         key: 'front',
         label: t('scanner.photoFront'),
         photo: photoFront,
+        cameraRef: cameraFrontRef,
         galleryRef: galleryFrontRef,
         onRemove: () => { if (photoFront?.preview) URL.revokeObjectURL(photoFront.preview); setPhotoFront(null); },
         onFile: (f: File) => handlePhotoFile(f, setPhotoFront, photoFront),
-        onOpenCamera: () => openPhotoCamera(setPhotoFront, photoFront, t('scanner.photoFront')),
       },
       {
         key: 'back',
         label: t('scanner.photoBack'),
         photo: photoBack,
+        cameraRef: cameraBackRef,
         galleryRef: galleryBackRef,
         onRemove: () => { if (photoBack?.preview) URL.revokeObjectURL(photoBack.preview); setPhotoBack(null); },
         onFile: (f: File) => handlePhotoFile(f, setPhotoBack, photoBack),
-        onOpenCamera: () => openPhotoCamera(setPhotoBack, photoBack, t('scanner.photoBack')),
       },
       {
         key: 'nutrition',
         label: t('scanner.photoNutrition'),
         photo: photoNutrition,
+        cameraRef: cameraNutritionRef,
         galleryRef: galleryNutritionRef,
         onRemove: () => { if (photoNutrition?.preview) URL.revokeObjectURL(photoNutrition.preview); setPhotoNutrition(null); },
         onFile: (f: File) => handlePhotoFile(f, setPhotoNutrition, photoNutrition),
-        onOpenCamera: () => openPhotoCamera(setPhotoNutrition, photoNutrition, t('scanner.photoNutrition')),
       },
-    ];
+    ] as const;
 
     return (
       <div className="px-4 py-6 pb-24">
@@ -643,13 +484,18 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           </div>
         )}
 
-        {/* Hidden gallery file inputs — camera uses in-app getUserMedia overlay */}
+        {/* Hidden file inputs — 2 per photo slot (camera + gallery) */}
         {photoSlots.map(slot => (
-          <input
-            key={slot.key}
-            ref={slot.galleryRef} type="file" accept="image/*" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) slot.onFile(f); e.target.value = ''; }}
-          />
+          <span key={slot.key}>
+            <input
+              ref={slot.cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) slot.onFile(f); e.target.value = ''; }}
+            />
+            <input
+              ref={slot.galleryRef} type="file" accept="image/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) slot.onFile(f); e.target.value = ''; }}
+            />
+          </span>
         ))}
 
         {/* 3 photo slots */}
@@ -671,7 +517,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                   {/* Retake buttons */}
                   <div className="absolute bottom-1.5 left-1.5 right-1.5 flex gap-1">
                     <button
-                      onClick={slot.onOpenCamera}
+                      onClick={() => slot.cameraRef.current?.click()}
                       className="flex-1 flex items-center justify-center py-1 rounded-md bg-black/70 hover:bg-black/90 transition-colors"
                     >
                       <Camera size={10} className="text-white" />
@@ -686,9 +532,9 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                 </div>
               ) : (
                 <div className="flex flex-col gap-1">
-                  {/* Main area → in-app camera */}
+                  {/* Main area → camera */}
                   <button
-                    onClick={slot.onOpenCamera}
+                    onClick={() => slot.cameraRef.current?.click()}
                     className="w-full aspect-square rounded-xl border-2 border-dashed border-neutral-700 hover:border-blue-500/40 hover:bg-blue-500/5 transition-all flex items-center justify-center bg-neutral-900/50"
                   >
                     <Camera size={20} className="text-neutral-600" />
@@ -696,7 +542,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
                   {/* Sub-row: camera + gallery */}
                   <div className="flex gap-1">
                     <button
-                      onClick={slot.onOpenCamera}
+                      onClick={() => slot.cameraRef.current?.click()}
                       className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-neutral-800 hover:bg-neutral-800 transition-colors"
                     >
                       <Camera size={10} className="text-neutral-500" />

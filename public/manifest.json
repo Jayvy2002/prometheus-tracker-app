@@ -11,10 +11,16 @@
   "lang": "fr",
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/logo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [
@@ -32,21 +38,21 @@
       "short_name": "Workout",
       "description": "Démarrer une nouvelle séance",
       "url": "/workout/new",
-      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     },
     {
       "name": "Ajouter un repas",
       "short_name": "Nutrition",
       "description": "Enregistrer un repas",
       "url": "/nutrition?add=1",
-      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     },
     {
       "name": "Peser",
       "short_name": "Poids",
       "description": "Enregistrer mon poids",
       "url": "/weight?log=1",
-      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+      "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     }
   ]
 }

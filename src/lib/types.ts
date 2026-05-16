@@ -89,8 +89,6 @@ export interface Routine {
   user_id: string;
   name: string;
   description: string;
-  scheduled_days: number[];
-  notification_time: string | null;
   exercises?: RoutineExercise[];
   created_at: string;
   updated_at: string;

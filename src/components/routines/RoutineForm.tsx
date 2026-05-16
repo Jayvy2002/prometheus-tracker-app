@@ -14,29 +14,13 @@ interface Props {
   onClose: () => void;
 }
 
-// Mon=1, Tue=2, Wed=3, Thu=4, Fri=5, Sat=6, Sun=0
-const WEEK_DAYS = [
-  { day: 1, key: 'mon' },
-  { day: 2, key: 'tue' },
-  { day: 3, key: 'wed' },
-  { day: 4, key: 'thu' },
-  { day: 5, key: 'fri' },
-  { day: 6, key: 'sat' },
-  { day: 0, key: 'sun' },
-] as const;
-
 export default function RoutineForm({ routine, onClose }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { createRoutine, updateRoutine, addRoutineExercise, deleteRoutineExercise, updateRoutineExercise, fetchRoutineWithExercises } = useRoutineStore();
   const [name, setName] = useState(routine?.name ?? '');
   const [description, setDescription] = useState(routine?.description ?? '');
-  const [scheduledDays, setScheduledDays] = useState<number[]>(
-    [...new Set((routine?.scheduled_days ?? []).map(Number))]
-  );
-  const [notificationTime, setNotificationTime] = useState(routine?.notification_time ?? '');
   const [exercises, setExercises] = useState<RoutineExercise[]>([]);
-  const [savedExerciseIds, setSavedExerciseIds] = useState<Set<string>>(new Set());
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -45,57 +29,29 @@ export default function RoutineForm({ routine, onClose }: Props) {
       fetchRoutineWithExercises(routine.id).then(r => {
         if (r) {
           const exs = (r as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? r.exercises ?? [];
-          const sorted = exs.sort((a, b) => a.order_index - b.order_index);
-          setExercises(sorted);
-          setSavedExerciseIds(new Set(sorted.map(e => e.id)));
+          setExercises(exs.sort((a, b) => a.order_index - b.order_index));
         }
       });
     }
   }, [routine]);
 
-  const toggleDay = (day: number) => {
-    setScheduledDays(prev =>
-      prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
-    );
-  };
-
   const handleSave = async () => {
     if (!user || !name.trim()) return;
     setSaving(true);
 
-    const scheduleData = {
-      scheduled_days: scheduledDays,
-      notification_time: notificationTime || null,
-    };
-
     if (routine) {
-      await updateRoutine(routine.id, { name, description, ...scheduleData });
-
-      const existingExs = exercises.filter(ex => savedExerciseIds.has(ex.id));
-      const newExs = exercises.filter(ex => !savedExerciseIds.has(ex.id));
-
-      await Promise.all(
-        existingExs.map(ex =>
-          updateRoutineExercise(ex.id, {
-            default_sets: ex.default_sets,
-            default_reps: ex.default_reps,
-            default_rest_seconds: ex.default_rest_seconds,
-            order_index: ex.order_index,
-          })
-        )
-      );
-
-      for (const ex of newExs) {
-        await addRoutineExercise(routine.id, {
-          name: ex.name,
+      await updateRoutine(routine.id, { name, description });
+      const updates = exercises.map(ex =>
+        updateRoutineExercise(ex.id, {
           default_sets: ex.default_sets,
           default_reps: ex.default_reps,
           default_rest_seconds: ex.default_rest_seconds,
           order_index: ex.order_index,
-        });
-      }
+        })
+      );
+      await Promise.all(updates);
     } else {
-      const routineId = await createRoutine({ user_id: user.id, name, description, ...scheduleData });
+      const routineId = await createRoutine({ user_id: user.id, name, description });
       if (routineId) {
         for (const ex of exercises) {
           await addRoutineExercise(routineId, {
@@ -160,32 +116,6 @@ export default function RoutineForm({ routine, onClose }: Props) {
           <div className="space-y-4">
             <Input label={t('routines.form.name')} value={name} onChange={e => setName(e.target.value)} placeholder="Push Day" />
             <Input label={t('routines.form.description')} value={description} onChange={e => setDescription(e.target.value)} placeholder="Chest, shoulders, triceps" />
-          </div>
-
-          <div>
-            <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('routines.form.schedule')}</h3>
-            <div className="flex gap-1.5 mb-3">
-              {WEEK_DAYS.map(({ day, key }) => (
-                <button
-                  key={day}
-                  onClick={() => toggleDay(day)}
-                  className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors
-                    ${scheduledDays.includes(day)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-neutral-800 text-neutral-400 hover:text-neutral-200'}`}
-                >
-                  {t(`calendar.days.${key}`)}
-                </button>
-              ))}
-            </div>
-            {scheduledDays.length > 0 && (
-              <Input
-                label={t('routines.form.notificationTime')}
-                type="time"
-                value={notificationTime}
-                onChange={e => setNotificationTime(e.target.value)}
-              />
-            )}
           </div>
 
           <div>

@@ -80,13 +80,8 @@ export default function WeightPage() {
       toast(t('weight.toasts.updated'));
       setEditId(null);
     } else {
-      try {
-        await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: date });
-        toast(t('weight.toasts.saved'));
-      } catch {
-        toast(t('weight.errors.saveFailed'), 'error');
-        return;
-      }
+      await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: date });
+      toast(t('weight.toasts.saved'));
     }
     setWeight('');
     setDate(todayStr());
@@ -106,12 +101,6 @@ export default function WeightPage() {
     toast(t('weight.toasts.deleted'), 'error');
     setDeleteTarget(null);
   };
-
-  // Dates that appear more than once — used to show time alongside the date
-  const dateCounts = measurements.reduce<Record<string, number>>((acc, m) => {
-    acc[m.measured_at] = (acc[m.measured_at] ?? 0) + 1;
-    return acc;
-  }, {});
 
   const sortedAsc = [...measurements].sort(
     (a, b) => parseDateStr(a.measured_at).getTime() - parseDateStr(b.measured_at).getTime()
@@ -170,7 +159,7 @@ export default function WeightPage() {
                     key={p.value}
                     onClick={() => {
                       if (locked) {
-                        openPaywall(t('weight.paywallTitle'), t('weight.paywallDescription'));
+                        openPaywall('Historique de poids complet', 'Accédez à tout votre historique de poids avec Premium.');
                         return;
                       }
                       setPeriod(p.value);
@@ -199,7 +188,7 @@ export default function WeightPage() {
                     y={unit === 'lbs' ? +(targetKg * 2.20462).toFixed(1) : +targetKg.toFixed(1)}
                     stroke="#f59e0b"
                     strokeDasharray="4 4"
-                    label={{ value: t('common.target'), fill: '#f59e0b', fontSize: 10 }}
+                    label={{ value: 'Goal', fill: '#f59e0b', fontSize: 10 }}
                   />
                 )}
                 <Line type="monotone" dataKey="weight" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: '#2563eb' }} />
@@ -216,14 +205,7 @@ export default function WeightPage() {
           <Card className="flex items-center gap-3">
             <div className="flex-1">
               <p className="font-medium text-white">{formatWeight(m.weight_kg, unit)}</p>
-              <p className="text-xs text-neutral-500">
-                {formatDate(m.measured_at)}
-                {dateCounts[m.measured_at] > 1 && m.created_at && (
-                  <span className="ml-1.5 text-neutral-600">
-                    · {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                )}
-              </p>
+              <p className="text-xs text-neutral-500">{formatDate(m.measured_at)}</p>
             </div>
             <button onClick={() => startEdit(m)} className="p-2 text-neutral-500 hover:text-white transition-colors">
               <Edit3 size={14} />

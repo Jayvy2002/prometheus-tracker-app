@@ -60,11 +60,10 @@ export const useRoutineStore = create<RoutineState>((set) => ({
   },
 
   updateRoutine: async (id, updates) => {
-    const { error } = await supabase
+    await supabase
       .from('routines')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);
-    if (error) { console.error('updateRoutine failed:', error.message); return; }
     set(s => ({
       routines: s.routines.map(r => r.id === id ? { ...r, ...updates } : r),
     }));

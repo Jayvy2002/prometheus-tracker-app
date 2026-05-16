@@ -131,7 +131,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setSearching(false);
     setSearchPhase('idle');
     // Persist barcoded products to DB in background to grow the catalog
-    if (offResults.length > 0 && user) batchSaveProducts(offResults, user.id);
+    if (offResults.length > 0) batchSaveProducts(offResults);
   };
 
   const selectProduct = async (p: SearchResult) => {
@@ -148,8 +148,6 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
         fat_per_100g: p.fat_per_100g,
         serving_size: p.serving_size,
         serving_unit: p.serving_unit,
-        created_by: user?.id ?? null,
-        data_source: 'openfoodfacts',
       });
       if (saved) product = saved;
     }
@@ -235,7 +233,6 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     setSaving(true);
     await addLog({
       user_id: user.id,
-      food_product_id: selectedProduct?.id ? selectedProduct.id : null,
       name,
       calories: cal * scale,
       protein: pro * scale,

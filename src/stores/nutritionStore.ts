@@ -23,7 +23,7 @@ interface NutritionState {
   searchProducts: (query: string) => Promise<FoodProduct[]>;
   findByBarcode: (barcode: string) => Promise<FoodProduct | null>;
   createProduct: (product: Partial<FoodProduct>) => Promise<FoodProduct | null>;
-  batchSaveProducts: (products: Partial<FoodProduct>[], userId: string) => Promise<void>;
+  batchSaveProducts: (products: Partial<FoodProduct>[]) => Promise<void>;
   uploadProductImage: (userId: string, file: File, slot: string) => Promise<string | null>;
   createProductRequest: (request: Partial<ProductRequest>) => Promise<ProductRequest | null>;
   analyzeProductRequest: (requestId: string) => Promise<{ product: FoodProduct; confidence: number } | { error: string }>;
@@ -147,11 +147,10 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       return existing as FoodProduct | null;
     }
 
-    console.error('[createProduct] Insert failed:', error?.code, error?.message);
     return null;
   },
 
-  batchSaveProducts: async (products, userId) => {
+  batchSaveProducts: async (products) => {
     const toSave = products
       .filter(p => p.barcode)
       .map(p => ({
@@ -165,32 +164,19 @@ export const useNutritionStore = create<NutritionState>((set) => ({
         serving_size: p.serving_size ?? 100,
         serving_unit: p.serving_unit ?? 'g',
         data_source: 'openfoodfacts',
-        created_by: userId,
       }));
     if (toSave.length === 0) return;
     // ignoreDuplicates: existing barcodes are silently skipped
-    const { error } = await supabase.from('food_products').upsert(toSave, { onConflict: 'barcode', ignoreDuplicates: true });
-    if (error) console.error('[batchSaveProducts] Upsert failed:', error.code, error.message);
+    await supabase.from('food_products').upsert(toSave, { onConflict: 'barcode', ignoreDuplicates: true });
   },
 
   uploadProductImage: async (userId, file, slot) => {
-    // Normalize MIME type — camera photos from iOS may have empty or HEIC type.
-    // compressImage() in UnifiedScanner already converts everything to image/jpeg,
-    // but we keep this fallback in case the function is called with a raw file.
-    const mimeType = file.type && file.type !== 'application/octet-stream'
-      ? file.type
-      : 'image/jpeg';
-    const ext = mimeType.includes('png') ? 'png'
-      : mimeType.includes('webp') ? 'webp'
-      : 'jpg';
+    const ext = file.name.split('.').pop() ?? 'jpg';
     const path = `${userId}/${crypto.randomUUID()}_${slot}.${ext}`;
     const { error } = await supabase.storage
       .from('product-images')
-      .upload(path, file, { contentType: mimeType });
-    if (error) {
-      console.error('[uploadProductImage] Upload failed:', error.message);
-      return null;
-    }
+      .upload(path, file, { contentType: file.type });
+    if (error) return null;
     return path;
   },
 
