@@ -12,11 +12,15 @@ export const GOALS = [
   { value: 'bulk', label: 'Build Muscle', description: 'Caloric surplus', modifier: 300 },
 ] as const;
 
-export const SET_TYPES: { value: string; label: string; color: string }[] = [
-  { value: 'warmup', label: 'Warm-up', color: 'text-amber-400' },
-  { value: 'working', label: 'Working', color: 'text-blue-400' },
-  { value: 'drop', label: 'Drop Set', color: 'text-sky-400' },
-  { value: 'failure', label: 'To Failure', color: 'text-rose-400' },
+export const SET_TYPES: { value: string; label: string; shortLabel: string; color: string; bgColor: string }[] = [
+  { value: 'warmup', label: 'Warm-up', shortLabel: 'W', color: 'text-amber-400', bgColor: 'bg-amber-400/15' },
+  { value: 'working', label: 'Working', shortLabel: 'S', color: 'text-blue-400', bgColor: 'bg-blue-400/15' },
+  { value: 'drop', label: 'Drop', shortLabel: 'D', color: 'text-sky-400', bgColor: 'bg-sky-400/15' },
+  { value: 'superset', label: 'Superset', shortLabel: 'SS', color: 'text-green-400', bgColor: 'bg-green-400/15' },
+  { value: 'myo', label: 'Myo-rep', shortLabel: 'M', color: 'text-rose-400', bgColor: 'bg-rose-400/15' },
+  { value: 'tempo', label: 'Tempo', shortLabel: 'T', color: 'text-teal-400', bgColor: 'bg-teal-400/15' },
+  { value: 'isometric', label: 'Iso', shortLabel: 'I', color: 'text-orange-400', bgColor: 'bg-orange-400/15' },
+  { value: 'cluster', label: 'Cluster', shortLabel: 'C', color: 'text-cyan-400', bgColor: 'bg-cyan-400/15' },
 ];
 
 export const MEAL_CATEGORIES = [

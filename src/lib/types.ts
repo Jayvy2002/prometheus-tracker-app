@@ -79,10 +79,12 @@ export interface WorkoutSet {
   rir: number;
   completed: boolean;
   order_index: number;
+  duration_seconds: number | null;
+  tempo: string | null;
   created_at: string;
 }
 
-export type SetType = 'warmup' | 'working' | 'drop' | 'failure';
+export type SetType = 'warmup' | 'working' | 'drop' | 'superset' | 'myo' | 'tempo' | 'isometric' | 'cluster';
 
 export interface Routine {
   id: string;

@@ -6,6 +6,8 @@ interface SetDraft {
   reps?: string;
   rir?: string;
   set_type?: SetType;
+  duration_seconds?: string;
+  tempo?: string;
 }
 
 interface ExerciseDraft {
@@ -22,7 +24,7 @@ interface DraftContext {
   clearExerciseDraft: (exerciseId: string) => void;
   getAllSetDrafts: () => Map<string, SetDraft>;
   getAllExerciseDrafts: () => Map<string, ExerciseDraft>;
-  initSetDraft: (setId: string, weight_kg: number, reps: number, rir: number, set_type: SetType) => void;
+  initSetDraft: (setId: string, weight_kg: number, reps: number, rir: number, set_type: SetType, duration_seconds?: number | null, tempo?: string | null) => void;
   initExerciseDraft: (exerciseId: string, notes: string) => void;
 }
 
@@ -38,13 +40,15 @@ export function WorkoutDraftProvider({ children }: { children: React.ReactNode }
   const setDrafts = useRef(new Map<string, SetDraft>());
   const exerciseDrafts = useRef(new Map<string, ExerciseDraft>());
 
-  const initSetDraft = useCallback((setId: string, weight_kg: number, reps: number, rir: number, set_type: SetType) => {
+  const initSetDraft = useCallback((setId: string, weight_kg: number, reps: number, rir: number, set_type: SetType, duration_seconds?: number | null, tempo?: string | null) => {
     if (!setDrafts.current.has(setId)) {
       setDrafts.current.set(setId, {
         weight_kg: weight_kg ? String(weight_kg) : '',
         reps: reps ? String(reps) : '',
         rir: rir ? String(rir) : '',
         set_type,
+        duration_seconds: duration_seconds ? String(duration_seconds) : '',
+        tempo: tempo || '',
       });
     }
   }, []);

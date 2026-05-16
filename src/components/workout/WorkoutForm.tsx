@@ -96,6 +96,8 @@ function WorkoutFormInner() {
         if (draft.reps !== undefined) updates.reps = draft.reps === '' ? 0 : safeInt(draft.reps);
         if (draft.rir !== undefined) updates.rir = draft.rir === '' ? 0 : safeInt(draft.rir);
         if (draft.set_type !== undefined) updates.set_type = draft.set_type;
+        if (draft.duration_seconds !== undefined) updates.duration_seconds = draft.duration_seconds === '' ? null : safeInt(draft.duration_seconds);
+        if (draft.tempo !== undefined) updates.tempo = draft.tempo === '' ? null : draft.tempo;
         if (Object.keys(updates).length > 0) {
           setUpdates.push(
             supabase.from('workout_sets').update(updates).eq('id', setId)
@@ -150,6 +152,8 @@ function WorkoutFormInner() {
             reps: draft.reps !== undefined ? (draft.reps === '' ? 0 : safeInt(draft.reps)) : s.reps,
             rir: draft.rir !== undefined ? (draft.rir === '' ? 0 : safeInt(draft.rir)) : s.rir,
             set_type: draft.set_type !== undefined ? draft.set_type : s.set_type,
+            duration_seconds: draft.duration_seconds !== undefined ? (draft.duration_seconds === '' ? null : safeInt(draft.duration_seconds)) : s.duration_seconds,
+            tempo: draft.tempo !== undefined ? (draft.tempo === '' ? null : draft.tempo) : s.tempo,
           };
         }),
       }));

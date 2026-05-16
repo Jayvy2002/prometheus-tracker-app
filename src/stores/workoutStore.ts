@@ -262,6 +262,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         rir: setData.rir,
         completed: setData.completed,
         order_index: setData.order_index,
+        duration_seconds: setData.duration_seconds,
+        tempo: setData.tempo,
       })
       .select()
       .maybeSingle();
@@ -307,6 +309,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       rir: s.rir,
       completed: s.completed,
       order_index: s.order_index,
+      duration_seconds: s.duration_seconds,
+      tempo: s.tempo,
     }));
 
     let restoredSets: WorkoutSet[] = [];
