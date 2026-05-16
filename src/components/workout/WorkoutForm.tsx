@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import ExerciseCard from './ExerciseCard';
+import SupersetGroup from './SupersetGroup';
 import RestTimer from './RestTimer';
 import ExercisePicker from './ExercisePicker';
 import DateInput from '../ui/DateInput';
@@ -30,6 +31,7 @@ function WorkoutFormInner() {
 
   const [showTimer, setShowTimer] = useState(false);
   const [autoStartTimer, setAutoStartTimer] = useState(false);
+  const [timerOverrideDuration, setTimerOverrideDuration] = useState<number | null>(null);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDate, setWorkoutDate] = useState('');
@@ -73,7 +75,8 @@ function WorkoutFormInner() {
     setShowExercisePicker(false);
   };
 
-  const handleStartRestTimer = () => {
+  const handleStartRestTimer = (overrideDuration?: number) => {
+    setTimerOverrideDuration(overrideDuration ?? null);
     setAutoStartTimer(true);
     setShowTimer(true);
   };
@@ -98,6 +101,10 @@ function WorkoutFormInner() {
         if (draft.set_type !== undefined) updates.set_type = draft.set_type;
         if (draft.duration_seconds !== undefined) updates.duration_seconds = draft.duration_seconds === '' ? null : safeInt(draft.duration_seconds);
         if (draft.tempo !== undefined) updates.tempo = draft.tempo === '' ? null : draft.tempo;
+        if (draft.cluster_rest_seconds !== undefined) updates.cluster_rest_seconds = draft.cluster_rest_seconds === '' ? null : safeInt(draft.cluster_rest_seconds);
+        if (draft.cluster_reps_per_burst !== undefined) updates.cluster_reps_per_burst = draft.cluster_reps_per_burst === '' ? null : safeInt(draft.cluster_reps_per_burst);
+        if (draft.myo_is_activation !== undefined) updates.myo_is_activation = draft.myo_is_activation;
+        if (draft.drop_percentage !== undefined) updates.drop_percentage = draft.drop_percentage === '' ? null : safeInt(draft.drop_percentage);
         if (Object.keys(updates).length > 0) {
           setUpdates.push(
             supabase.from('workout_sets').update(updates).eq('id', setId)
@@ -234,13 +241,37 @@ function WorkoutFormInner() {
       </div>
 
       <div className="space-y-4">
-        {currentWorkout.exercises?.map(ex => (
-          <ExerciseCard
-            key={ex.id}
-            exercise={ex}
-            onStartRestTimer={handleStartRestTimer}
-          />
-        ))}
+        {(() => {
+          const exercises = currentWorkout.exercises ?? [];
+          const rendered = new Set<string>();
+          const items: React.ReactNode[] = [];
+
+          for (const ex of exercises) {
+            if (rendered.has(ex.id)) continue;
+
+            if (ex.superset_group_id) {
+              const group = exercises.filter(e => e.superset_group_id === ex.superset_group_id);
+              group.forEach(g => rendered.add(g.id));
+              items.push(
+                <SupersetGroup
+                  key={`ss-${ex.superset_group_id}`}
+                  exercises={group}
+                  onStartRestTimer={handleStartRestTimer}
+                />
+              );
+            } else {
+              rendered.add(ex.id);
+              items.push(
+                <ExerciseCard
+                  key={ex.id}
+                  exercise={ex}
+                  onStartRestTimer={handleStartRestTimer}
+                />
+              );
+            }
+          }
+          return items;
+        })()}
       </div>
 
       <div className="mt-4 space-y-3">
@@ -255,7 +286,8 @@ function WorkoutFormInner() {
       <RestTimer
         open={showTimer}
         autoStart={autoStartTimer}
-        onClose={() => { setShowTimer(false); setAutoStartTimer(false); }}
+        overrideDuration={timerOverrideDuration}
+        onClose={() => { setShowTimer(false); setAutoStartTimer(false); setTimerOverrideDuration(null); }}
       />
       <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />
     </div>

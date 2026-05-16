@@ -66,6 +66,7 @@ export interface WorkoutExercise {
   name: string;
   order_index: number;
   notes: string;
+  superset_group_id: string | null;
   sets?: WorkoutSet[];
   created_at: string;
 }
@@ -81,6 +82,10 @@ export interface WorkoutSet {
   order_index: number;
   duration_seconds: number | null;
   tempo: string | null;
+  cluster_rest_seconds: number | null;
+  cluster_reps_per_burst: number | null;
+  myo_is_activation: boolean;
+  drop_percentage: number | null;
   created_at: string;
 }
 

@@ -41,10 +41,12 @@ export default function RestTimer({
   open,
   onClose,
   autoStart = false,
+  overrideDuration,
 }: {
   open: boolean;
   onClose: () => void;
   autoStart?: boolean;
+  overrideDuration?: number | null;
 }) {
   const { t } = useTranslation();
   const [duration, setDuration] = useState(90);
@@ -55,8 +57,10 @@ export default function RestTimer({
 
   useEffect(() => {
     if (open && autoStart) {
+      const dur = overrideDuration ?? duration;
       firedRef.current = false;
-      setRemaining(duration);
+      setDuration(dur);
+      setRemaining(dur);
       setActive(true);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps

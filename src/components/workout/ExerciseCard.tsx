@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -44,15 +44,15 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 
       if (avgRirAll <= 2) {
         const suggested = roundTo125(w0 * 1.025);
-        return { text: `Stagnant 3× → ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
+        return { text: `Stagnant 3\u00d7 \u2192 ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
       }
-      return { text: `Same weight 3×. Push harder (lower RIR)`, suggestedWeight: null, confidence: 'low' };
+      return { text: `Same weight 3\u00d7. Push harder (lower RIR)`, suggestedWeight: null, confidence: 'low' };
     }
 
     if (w0 > w1 && w1 >= w2 && avgRirLatest <= 2) {
       const increment = w0 - w1;
       const suggested = roundTo125(w0 + increment);
-      return { text: `Keep progressing → ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
+      return { text: `Keep progressing \u2192 ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
     }
   }
 
@@ -61,7 +61,7 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 
     if (maxWeightLatest > maxWeightPrev && avgRirLatest <= 2) {
       const suggested = roundTo125(maxWeightLatest * 1.025);
-      return { text: `Progressing → try ${suggested}kg`, suggestedWeight: suggested, confidence: 'medium' };
+      return { text: `Progressing \u2192 try ${suggested}kg`, suggestedWeight: suggested, confidence: 'medium' };
     }
 
     if (maxWeightLatest < maxWeightPrev) {
@@ -71,14 +71,16 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 
   if (avgRirLatest <= 1) {
     const suggested = roundTo125(lastSet.weight_kg * 1.025);
-    return { text: `${suggested}kg × ${lastSet.reps}`, suggestedWeight: suggested, confidence: 'medium' };
+    return { text: `${suggested}kg \u00d7 ${lastSet.reps}`, suggestedWeight: suggested, confidence: 'medium' };
   }
   if (avgRirLatest <= 2) {
-    return { text: `${lastSet.weight_kg}kg × ${lastSet.reps + 1}`, suggestedWeight: lastSet.weight_kg, confidence: 'low' };
+    return { text: `${lastSet.weight_kg}kg \u00d7 ${lastSet.reps + 1}`, suggestedWeight: lastSet.weight_kg, confidence: 'low' };
   }
 
   return null;
 }
+
+// --- Set Type Picker ---
 
 function SetTypePicker({ currentType, onChange, onClose }: { currentType: string; onChange: (type: SetType) => void; onClose: () => void }) {
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -113,12 +115,15 @@ function SetTypePicker({ currentType, onChange, onClose }: { currentType: string
   );
 }
 
+// --- Set Row ---
+
 function SetRow({
   set,
   index,
   showRir,
   suggestedWeight,
   prevSet,
+  previousSet,
   onDelete,
   onDuplicate,
   onSetComplete,
@@ -128,9 +133,10 @@ function SetRow({
   showRir: boolean;
   suggestedWeight?: number | null;
   prevSet?: { weight_kg: number; reps: number; rir: number } | null;
+  previousSet?: WorkoutSet | null;
   onDelete: () => void;
   onDuplicate: () => void;
-  onSetComplete?: () => void;
+  onSetComplete?: (setType: SetType, restOverride?: number) => void;
 }) {
   const { initSetDraft, getSetDraft, updateSetDraft, updateSetType, clearSetDraft } = useDraftContext();
   const { updateSet } = useWorkoutStore();
@@ -139,11 +145,16 @@ function SetRow({
   const [localRir, setLocalRir] = useState('');
   const [localDuration, setLocalDuration] = useState('');
   const [localTempo, setLocalTempo] = useState('');
+  const [localClusterRest, setLocalClusterRest] = useState('');
+  const [localClusterBurst, setLocalClusterBurst] = useState('');
   const [localType, setLocalType] = useState(set.set_type);
   const [showTypePicker, setShowTypePicker] = useState(false);
 
   const isIsometric = localType === 'isometric';
   const isTempo = localType === 'tempo';
+  const isCluster = localType === 'cluster';
+  const isDrop = localType === 'drop';
+  const isMyo = localType === 'myo';
 
   useEffect(() => {
     initSetDraft(set.id, set.weight_kg, set.reps, set.rir, set.set_type as SetType, set.duration_seconds, set.tempo);
@@ -153,6 +164,8 @@ function SetRow({
     setLocalRir(draft.rir ?? (set.rir ? String(set.rir) : ''));
     setLocalDuration(draft.duration_seconds ?? (set.duration_seconds ? String(set.duration_seconds) : ''));
     setLocalTempo(draft.tempo ?? (set.tempo || ''));
+    setLocalClusterRest(draft.cluster_rest_seconds ?? (set.cluster_rest_seconds ? String(set.cluster_rest_seconds) : '20'));
+    setLocalClusterBurst(draft.cluster_reps_per_burst ?? (set.cluster_reps_per_burst ? String(set.cluster_reps_per_burst) : ''));
     setLocalType(draft.set_type ?? set.set_type);
   }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -188,7 +201,8 @@ function SetRow({
     const hasReps = isIsometric ? !!localDuration : !!localReps;
     const hasRir = !showRir || !!localRir;
     if (hasWeight && hasReps && hasRir && onSetComplete) {
-      onSetComplete();
+      const clusterRest = isCluster ? parseInt(localClusterRest, 10) || 20 : undefined;
+      onSetComplete(localType as SetType, clusterRest);
     }
   };
 
@@ -214,10 +228,37 @@ function SetRow({
     updateSet(set.id, { tempo: localTempo || null });
   };
 
+  const handleClusterRestBlur = () => {
+    const v = parseInt(localClusterRest, 10);
+    updateSet(set.id, { cluster_rest_seconds: isNaN(v) ? null : v });
+    updateSetDraft(set.id, 'cluster_rest_seconds', localClusterRest);
+  };
+
+  const handleClusterBurstBlur = () => {
+    const v = parseInt(localClusterBurst, 10);
+    updateSet(set.id, { cluster_reps_per_burst: isNaN(v) ? null : v });
+    updateSetDraft(set.id, 'cluster_reps_per_burst', localClusterBurst);
+  };
+
   const handleTypeChange = (newType: SetType) => {
     setLocalType(newType);
     updateSetType(set.id, newType);
-    updateSet(set.id, { set_type: newType });
+    const updates: Partial<WorkoutSet> = { set_type: newType };
+
+    if (newType === 'myo' && index === 0) {
+      updates.myo_is_activation = true;
+    }
+    if (newType === 'drop' && previousSet) {
+      const dropWeight = Math.round(previousSet.weight_kg * 0.8 * 4) / 4;
+      const pct = previousSet.weight_kg > 0 ? Math.round((1 - dropWeight / previousSet.weight_kg) * 100) : 20;
+      updates.drop_percentage = pct;
+      if (!localWeight) {
+        setLocalWeight(String(dropWeight));
+        updateSetDraft(set.id, 'weight_kg', String(dropWeight));
+        updates.weight_kg = dropWeight;
+      }
+    }
+    updateSet(set.id, updates);
   };
 
   useEffect(() => {
@@ -230,8 +271,19 @@ function SetRow({
 
   const isFilled = !!localWeight && (isIsometric ? !!localDuration : !!localReps);
 
+  // Drop percentage badge
+  const dropPct = isDrop && previousSet && previousSet.weight_kg > 0 && localWeight
+    ? Math.round((1 - parseFloat(localWeight) / previousSet.weight_kg) * 100)
+    : set.drop_percentage;
+
+  // Myo activation badge
+  const isMyoActivation = isMyo && set.myo_is_activation;
+
   return (
-    <div className={`relative rounded-xl transition-all ${isFilled ? 'bg-neutral-900/80 ring-1 ring-emerald-500/20' : 'bg-neutral-900/60'}`}>
+    <div className={`relative rounded-xl transition-all
+      ${isFilled ? 'bg-neutral-900/80 ring-1 ring-emerald-500/20' : 'bg-neutral-900/60'}
+      ${isDrop && index > 0 ? '-mt-0.5' : ''}
+    `}>
       <div className="flex items-center gap-1.5 p-2">
         {/* Index */}
         <div className="w-5 text-center text-[11px] text-neutral-600 font-semibold shrink-0">
@@ -255,6 +307,19 @@ function SetRow({
             />
           )}
         </div>
+
+        {/* Drop % badge */}
+        {isDrop && dropPct != null && dropPct > 0 && (
+          <span className="text-[9px] font-bold text-sky-400/70 shrink-0">-{dropPct}%</span>
+        )}
+
+        {/* Myo activation badge */}
+        {isMyoActivation && (
+          <span className="text-[9px] font-bold text-rose-400/70 shrink-0">ACT</span>
+        )}
+        {isMyo && !isMyoActivation && (
+          <span className="text-[9px] font-medium text-rose-400/50 shrink-0">mini</span>
+        )}
 
         {/* Weight */}
         <div className="flex-1 min-w-0">
@@ -347,7 +412,7 @@ function SetRow({
         </div>
       </div>
 
-      {/* Tempo row -- shown below the main row */}
+      {/* Tempo row */}
       {isTempo && (
         <div className="px-2 pb-2 -mt-0.5 animate-fade-in">
           <div className="flex items-center gap-2 pl-6">
@@ -367,6 +432,42 @@ function SetRow({
         </div>
       )}
 
+      {/* Cluster row */}
+      {isCluster && (
+        <div className="px-2 pb-2 -mt-0.5 animate-fade-in">
+          <div className="flex items-center gap-2 pl-6">
+            <span className="text-[10px] text-cyan-400/70 font-medium shrink-0">Cluster</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={localClusterBurst}
+              onChange={e => setLocalClusterBurst(e.target.value)}
+              onBlur={handleClusterBurstBlur}
+              className="w-12 bg-neutral-800/60 border border-cyan-500/20 rounded-lg px-2 py-1 text-xs text-cyan-300 text-center focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-neutral-600"
+              placeholder="reps"
+            />
+            <span className="text-[10px] text-neutral-600">/burst</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              value={localClusterRest}
+              onChange={e => setLocalClusterRest(e.target.value)}
+              onBlur={handleClusterRestBlur}
+              className="w-12 bg-neutral-800/60 border border-cyan-500/20 rounded-lg px-2 py-1 text-xs text-cyan-300 text-center focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-neutral-600"
+              placeholder="20"
+            />
+            <span className="text-[10px] text-neutral-600">s rest</span>
+          </div>
+          {localClusterBurst && localReps && (
+            <div className="pl-6 mt-1">
+              <span className="text-[10px] text-cyan-400/60 font-medium">
+                {Math.ceil(parseInt(localReps, 10) / (parseInt(localClusterBurst, 10) || 1))}\u00d7{localClusterBurst} @ {localClusterRest}s
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Completion indicator */}
       {isFilled && (
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full bg-emerald-500/60" />
@@ -375,12 +476,57 @@ function SetRow({
   );
 }
 
+// --- Superset Link Picker ---
+
+function SupersetLinkPicker({ currentExerciseId, onClose }: { currentExerciseId: string; onClose: () => void }) {
+  const { t } = useTranslation();
+  const { currentWorkout, linkSuperset } = useWorkoutStore();
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const exercises = currentWorkout?.exercises?.filter(e => e.id !== currentExerciseId && !e.superset_group_id) ?? [];
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const handleSelect = (targetId: string) => {
+    linkSuperset([currentExerciseId, targetId]);
+    onClose();
+  };
+
+  if (exercises.length === 0) return null;
+
+  return (
+    <div ref={pickerRef} className="absolute top-full right-0 mt-1 z-50 bg-neutral-900 border border-neutral-700/50 rounded-xl p-2 shadow-xl animate-fade-in min-w-[200px]">
+      <p className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider mb-1.5 px-1">{t('workout.exerciseCard.linkWith')}</p>
+      <div className="space-y-1">
+        {exercises.map(ex => (
+          <button
+            key={ex.id}
+            onClick={() => handleSelect(ex.id)}
+            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors"
+          >
+            {ex.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- Main ExerciseCard ---
+
 export default function ExerciseCard({
   exercise,
   onStartRestTimer,
+  isInSuperset = false,
 }: {
   exercise: WorkoutExercise;
-  onStartRestTimer?: () => void;
+  onStartRestTimer: (overrideDuration?: number) => void;
+  isInSuperset?: boolean;
 }) {
   const { t } = useTranslation();
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, updateSet, currentWorkout, fetchExerciseHistory } = useWorkoutStore();
@@ -392,6 +538,7 @@ export default function ExerciseCard({
   const [localNotes, setLocalNotes] = useState('');
   const [localName, setLocalName] = useState(exercise.name);
   const [history, setHistory] = useState<ExerciseSession[]>([]);
+  const [showLinkPicker, setShowLinkPicker] = useState(false);
 
   useEffect(() => {
     initExerciseDraft(exercise.id, exercise.notes || '');
@@ -427,7 +574,31 @@ export default function ExerciseCard({
         set_type: sourceSet.set_type,
         duration_seconds: sourceSet.duration_seconds,
         tempo: sourceSet.tempo,
+        cluster_rest_seconds: sourceSet.cluster_rest_seconds,
+        cluster_reps_per_burst: sourceSet.cluster_reps_per_burst,
+        myo_is_activation: false,
+        drop_percentage: sourceSet.drop_percentage,
       });
+    }
+  };
+
+  const handleSetComplete = (setType: SetType, restOverride?: number) => {
+    const typeConfig = SET_TYPES.find(t => t.value === setType);
+    if (!typeConfig) return;
+
+    switch (typeConfig.restBehavior) {
+      case 'none':
+        return;
+      case 'short':
+        onStartRestTimer(typeConfig.defaultRestSeconds);
+        return;
+      case 'custom':
+        onStartRestTimer(restOverride ?? typeConfig.defaultRestSeconds);
+        return;
+      case 'normal':
+      default:
+        onStartRestTimer(typeConfig.defaultRestSeconds);
+        return;
     }
   };
 
@@ -448,6 +619,10 @@ export default function ExerciseCard({
     return hasWeight && hasReps;
   }).length ?? 0;
   const totalSets = exercise.sets?.length ?? 0;
+
+  // Myo-rep total reps counter
+  const myoSets = exercise.sets?.filter(s => s.set_type === 'myo') ?? [];
+  const myoTotalReps = myoSets.reduce((sum, s) => sum + (s.reps || 0), 0);
 
   return (
     <Card padding={false} className="animate-fade-in-up">
@@ -472,6 +647,24 @@ export default function ExerciseCard({
           <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${completedCount === totalSets ? 'text-emerald-400 bg-emerald-400/10' : 'text-neutral-500 bg-neutral-800/50'}`}>
             {completedCount}/{totalSets}
           </span>
+        )}
+        {/* Superset link button -- only if not already in a superset */}
+        {!isInSuperset && !exercise.superset_group_id && (
+          <div className="relative">
+            <button
+              onClick={() => setShowLinkPicker(!showLinkPicker)}
+              className="p-1 text-neutral-600 hover:text-green-400 transition-colors"
+              title="Link superset"
+            >
+              <Link2 size={14} />
+            </button>
+            {showLinkPicker && (
+              <SupersetLinkPicker
+                currentExerciseId={exercise.id}
+                onClose={() => setShowLinkPicker(false)}
+              />
+            )}
+          </div>
         )}
         <button
           onClick={() => setShowNotes(!showNotes)}
@@ -504,7 +697,7 @@ export default function ExerciseCard({
             </div>
             {prevSets.filter(s => s.set_type === 'working').map((s, i) => (
               <span key={i} className="text-[11px] text-neutral-500 bg-neutral-900/60 rounded px-1.5 py-0.5">
-                {s.weight_kg > 0 ? `${s.weight_kg}kg` : '—'} × {s.reps > 0 ? s.reps : '—'}
+                {s.weight_kg > 0 ? `${s.weight_kg}kg` : '\u2014'} \u00d7 {s.reps > 0 ? s.reps : '\u2014'}
                 {showRir && s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
               </span>
             ))}
@@ -587,6 +780,7 @@ export default function ExerciseCard({
             {exercise.sets?.map((set, i) => {
               const prevWorkingIndex = prevSets.filter(s => s.set_type === 'working');
               const matchingPrev = prevWorkingIndex[i] ?? null;
+              const previousSetInList = i > 0 ? (exercise.sets?.[i - 1] ?? null) : null;
               return (
                 <SetRow
                   key={set.id}
@@ -595,7 +789,8 @@ export default function ExerciseCard({
                   showRir={showRir}
                   suggestedWeight={suggestion?.suggestedWeight}
                   prevSet={matchingPrev}
-                  onSetComplete={onStartRestTimer}
+                  previousSet={previousSetInList}
+                  onSetComplete={handleSetComplete}
                   onDuplicate={() => handleDuplicateSet(set)}
                   onDelete={() => {
                     const setSnapshot = { ...set } as WorkoutSet;
@@ -607,6 +802,15 @@ export default function ExerciseCard({
               );
             })}
           </div>
+
+          {/* Myo-rep total reps counter */}
+          {myoSets.length > 1 && myoTotalReps > 0 && (
+            <div className="mt-1.5 px-1">
+              <span className="text-[10px] text-rose-400/70 font-medium">
+                Myo total: {myoTotalReps} reps ({myoSets.length} sets)
+              </span>
+            </div>
+          )}
 
           <button
             onClick={handleAddSet}

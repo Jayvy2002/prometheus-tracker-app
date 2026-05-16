@@ -34,6 +34,8 @@ interface WorkoutState {
   restoreSet: (exerciseId: string, setData: WorkoutSet) => Promise<void>;
   restoreExercise: (workoutId: string, exerciseData: WorkoutExercise) => Promise<void>;
   setCurrentWorkout: (w: Workout | null) => void;
+  linkSuperset: (exerciseIds: string[]) => Promise<void>;
+  unlinkSuperset: (exerciseId: string) => Promise<void>;
   fetchPreviousSets: (userId: string, exerciseName: string, currentWorkoutId: string) => Promise<PreviousSet[]>;
   fetchExerciseHistory: (userId: string, exerciseName: string, currentWorkoutId: string, limit?: number) => Promise<ExerciseSession[]>;
 }
@@ -264,6 +266,10 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         order_index: setData.order_index,
         duration_seconds: setData.duration_seconds,
         tempo: setData.tempo,
+        cluster_rest_seconds: setData.cluster_rest_seconds,
+        cluster_reps_per_burst: setData.cluster_reps_per_burst,
+        myo_is_activation: setData.myo_is_activation,
+        drop_percentage: setData.drop_percentage,
       })
       .select()
       .maybeSingle();
@@ -293,6 +299,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         name: exerciseData.name,
         order_index: exerciseData.order_index,
         notes: exerciseData.notes,
+        superset_group_id: exerciseData.superset_group_id,
       })
       .select()
       .maybeSingle();
@@ -311,6 +318,10 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       order_index: s.order_index,
       duration_seconds: s.duration_seconds,
       tempo: s.tempo,
+      cluster_rest_seconds: s.cluster_rest_seconds,
+      cluster_reps_per_burst: s.cluster_reps_per_burst,
+      myo_is_activation: s.myo_is_activation,
+      drop_percentage: s.drop_percentage,
     }));
 
     let restoredSets: WorkoutSet[] = [];
@@ -337,6 +348,53 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   setCurrentWorkout: (w) => set({ currentWorkout: w }),
+
+  linkSuperset: async (exerciseIds) => {
+    const groupId = crypto.randomUUID().slice(0, 8);
+    const { error } = await supabase
+      .from('workout_exercises')
+      .update({ superset_group_id: groupId })
+      .in('id', exerciseIds);
+    if (error) { console.error('linkSuperset failed:', error.message); return; }
+    set(s => {
+      if (!s.currentWorkout) return s;
+      const updated = {
+        ...s.currentWorkout,
+        exercises: s.currentWorkout.exercises?.map(e =>
+          exerciseIds.includes(e.id) ? { ...e, superset_group_id: groupId } : e
+        ),
+      };
+      setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+      return { currentWorkout: updated };
+    });
+  },
+
+  unlinkSuperset: async (exerciseId) => {
+    const { error } = await supabase
+      .from('workout_exercises')
+      .update({ superset_group_id: null })
+      .eq('id', exerciseId);
+    if (error) { console.error('unlinkSuperset failed:', error.message); return; }
+    set(s => {
+      if (!s.currentWorkout) return s;
+      const exercise = s.currentWorkout.exercises?.find(e => e.id === exerciseId);
+      const groupId = exercise?.superset_group_id;
+      let exercises = s.currentWorkout.exercises?.map(e =>
+        e.id === exerciseId ? { ...e, superset_group_id: null } : e
+      );
+      if (groupId && exercises) {
+        const remaining = exercises.filter(e => e.superset_group_id === groupId);
+        if (remaining.length === 1) {
+          exercises = exercises.map(e =>
+            e.superset_group_id === groupId ? { ...e, superset_group_id: null } : e
+          );
+        }
+      }
+      const updated = { ...s.currentWorkout, exercises };
+      setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+      return { currentWorkout: updated };
+    });
+  },
 
   fetchPreviousSets: async (userId, exerciseName, currentWorkoutId) => {
     const { data: exercises } = await supabase

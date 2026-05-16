@@ -8,6 +8,10 @@ interface SetDraft {
   set_type?: SetType;
   duration_seconds?: string;
   tempo?: string;
+  cluster_rest_seconds?: string;
+  cluster_reps_per_burst?: string;
+  myo_is_activation?: boolean;
+  drop_percentage?: string;
 }
 
 interface ExerciseDraft {
