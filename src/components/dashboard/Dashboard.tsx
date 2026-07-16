@@ -11,6 +11,7 @@ import { todayStr } from '../../lib/utils';
 import type { DashboardWidget, WidgetType } from '../../lib/types';
 import DashboardGrid from './DashboardGrid';
 import PageTransition from '../ui/PageTransition';
+import CoachingWidget from './widgets/CoachingWidget';
 import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
 import { usePaywallStore } from '../../stores/paywallStore';
 
@@ -207,6 +208,11 @@ export default function Dashboard() {
             <div className="flex-1 h-px bg-neutral-800" />
           </div>
         )}
+
+        {/* Coaching Widget */}
+        <div className="mb-4 animate-fade-in-up stagger-1">
+          <CoachingWidget />
+        </div>
 
         {/* Widget grid */}
         {widgets.length > 0 ? (

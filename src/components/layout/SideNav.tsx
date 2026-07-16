@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, Brain } from 'lucide-react';
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ export default function SideNav() {
   const tabs = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
     { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
+    { path: '/coaching', icon: Brain, label: 'Coach' },
     { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
     { path: '/weight', icon: Scale, label: t('nav.weight') },
     { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },

@@ -20,6 +20,7 @@ import ScannerPage from './components/scanner/ScannerPage';
 import ProfilePage from './components/profile/ProfilePage';
 import CalendarPage from './components/calendar/CalendarPage';
 import RecipesPage from './components/nutrition/RecipesPage';
+import CoachingPage from './components/coaching/CoachingPage';
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized } = useAuthStore();
@@ -78,6 +79,7 @@ function AppRoutes() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/exercise-progress" element={<ExerciseProgressPage />} />
         <Route path="/stats" element={<StatsPage />} />
+        <Route path="/coaching" element={<CoachingPage />} />
       </Route>
       <Route path="/workout/new" element={<WorkoutForm />} />
       <Route path="/workout/:id" element={<WorkoutForm />} />

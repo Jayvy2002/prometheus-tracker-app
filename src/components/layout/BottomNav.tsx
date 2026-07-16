@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, Scale } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, Brain } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export default function BottomNav() {
@@ -10,7 +10,7 @@ export default function BottomNav() {
   const tabs = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home') },
     { path: '/workout', icon: Dumbbell, label: t('nav.workout') },
-    { path: '/weight', icon: Scale, label: t('nav.weight') },
+    { path: '/coaching', icon: Brain, label: 'Coach' },
     { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
     { path: '/profile', icon: User, label: t('nav.profile') },
   ];

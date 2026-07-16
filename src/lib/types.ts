@@ -298,6 +298,76 @@ export interface ProductRequest {
   updated_at: string;
 }
 
+export interface DailyCheckin {
+  id: string;
+  user_id: string;
+  checked_at: string;
+  hunger: number | null;
+  fatigue: number | null;
+  sleep_quality: number | null;
+  sleep_hours: number | null;
+  stress: number | null;
+  motivation: number | null;
+  muscle_soreness: number | null;
+  joint_pain: number | null;
+  adherence_nutrition: number | null;
+  adherence_training: number | null;
+  energy_level: number | null;
+  mood: number | null;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CoachingRecommendation {
+  id: string;
+  user_id: string;
+  checkin_id: string | null;
+  phase: string;
+  decision: string;
+  calorie_adjustment: number;
+  new_calorie_target: number | null;
+  new_protein_target: number | null;
+  new_carbs_target: number | null;
+  new_fat_target: number | null;
+  cardio_recommendation: string | null;
+  training_recommendation: string | null;
+  lifestyle_recommendation: string | null;
+  reasoning: string;
+  applied: boolean;
+  applied_at: string | null;
+  week_start: string | null;
+  week_end: string | null;
+  priority: CoachingPriority;
+  category: CoachingCategory;
+  metrics_snapshot: Record<string, unknown>;
+  status: 'pending' | 'accepted' | 'dismissed';
+  created_at: string;
+}
+
+export type CoachingCategory = 'nutrition' | 'training' | 'recovery' | 'lifestyle' | 'deload';
+export type CoachingPriority = 'critical' | 'high' | 'medium' | 'low';
+
+export interface WeeklyMetrics {
+  weightAverage: number | null;
+  weightTrend: number | null;
+  hungerAvg: number | null;
+  fatigueAvg: number | null;
+  sleepQualityAvg: number | null;
+  sleepHoursAvg: number | null;
+  stressAvg: number | null;
+  motivationAvg: number | null;
+  sorenessAvg: number | null;
+  jointPainAvg: number | null;
+  adherenceNutritionAvg: number | null;
+  adherenceTrainingAvg: number | null;
+  energyAvg: number | null;
+  moodAvg: number | null;
+  workoutsCompleted: number;
+  totalVolume: number;
+  checkinCount: number;
+}
+
 export type AppRole = 'free' | 'premium' | 'admin';
 
 export interface UserRole {
