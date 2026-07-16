@@ -35,7 +35,7 @@ function filterByPeriod(measurements: Array<{ weight_kg: number; measured_at: st
   return measurements.filter((m: { weight_kg: number; measured_at: string }) => parseDateStr(m.measured_at) >= cutoff);
 }
 
-export default function WeightPage() {
+export default function WeightPage({ embedded }: { embedded?: boolean }) {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
@@ -118,15 +118,26 @@ export default function WeightPage() {
   const diff = latest && previous ? +(latest - previous).toFixed(2) : 0;
   const targetKg = profile?.target_weight_kg ?? 0;
 
+  const Wrapper = embedded ? ({ children }: { children: React.ReactNode }) => <>{children}</> : PageTransition;
+
   return (
-    <PageTransition>
-    <div className="px-4 pt-6">
+    <Wrapper>
+    <div className={embedded ? "px-4" : "px-4 pt-6"}>
+      {!embedded && (
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">{t('weight.title')}</h1>
         <Button onClick={() => { setEditId(null); setWeight(''); setDate(todayStr()); setShowAdd(true); }} size="sm">
           <Plus size={16} /> {t('weight.log')}
         </Button>
       </div>
+      )}
+      {embedded && (
+        <div className="flex justify-end mb-3">
+          <Button onClick={() => { setEditId(null); setWeight(''); setDate(todayStr()); setShowAdd(true); }} size="sm">
+            <Plus size={16} /> {t('weight.log')}
+          </Button>
+        </div>
+      )}
 
       {latest && (
         <Card className="mb-4 animate-fade-in-scale">
@@ -241,6 +252,6 @@ export default function WeightPage() {
         </div>
       </Modal>
     </div>
-    </PageTransition>
+    </Wrapper>
   );
 }

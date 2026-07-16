@@ -66,7 +66,7 @@ function dateToStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export default function CalendarPage() {
+export default function CalendarPage({ embedded }: { embedded?: boolean }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -284,6 +284,149 @@ export default function CalendarPage() {
       </button>
     );
   };
+
+  if (embedded) {
+    return (
+      <div className="px-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            {streakCount > 0 && (
+              <div className="flex items-center gap-1 bg-orange-500/15 border border-orange-500/25 rounded-xl px-2.5 py-1.5">
+                <Flame size={13} className="text-orange-400" />
+                <span className="text-xs font-bold text-orange-400">{streakCount}</span>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setViewMode(viewMode === 'week' ? 'month' : 'week')}
+            className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
+          >
+            {viewMode === 'week' ? <CalendarRange size={18} /> : <CalendarDays size={18} />}
+          </button>
+        </div>
+
+        <Card className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <button
+              onClick={() => viewMode === 'week' ? setWeekOffset(o => o - 1) : setMonthOffset(o => o - 1)}
+              className="p-2 text-neutral-400 hover:text-white transition-colors"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <span className="text-sm font-semibold text-white">
+              {viewMode === 'week' ? weekLabel : monthLabel}
+            </span>
+            <button
+              onClick={() => viewMode === 'week' ? setWeekOffset(o => o + 1) : setMonthOffset(o => o + 1)}
+              className="p-2 text-neutral-400 hover:text-white transition-colors"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 gap-1">
+            {DAY_LABELS.map(l => (
+              <div key={l} className="text-center text-[10px] font-medium text-neutral-500 mb-1">{l}</div>
+            ))}
+            {viewMode === 'week'
+              ? weekDayData.map(renderDayButton)
+              : monthDayData.map(renderDayButton)
+            }
+          </div>
+
+          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-neutral-800">
+            <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+              {t('calendar.legend.workout')}
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+              {t('calendar.legend.nutrition')}
+            </div>
+            <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+              {t('calendar.legend.weight')}
+            </div>
+          </div>
+        </Card>
+
+        <div className="mb-3">
+          <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-1">{selectedDateLabel}</h2>
+        </div>
+
+        {summaryLoading ? (
+          <div className="space-y-3 animate-pulse">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-neutral-800 shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-neutral-800 rounded-md w-1/2" />
+                    <div className="h-3 bg-neutral-800/70 rounded-md w-1/3" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {daySummary?.workout ? (
+              <Card className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/workout')}>
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 flex items-center justify-center shrink-0">
+                  <Dumbbell size={16} className="text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white">{daySummary.workout.name}</p>
+                  <p className="text-xs text-neutral-500">{daySummary.workout.exerciseCount} exercices</p>
+                </div>
+              </Card>
+            ) : (
+              <Card className="flex items-center gap-3 opacity-40">
+                <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
+                  <Dumbbell size={16} className="text-neutral-500" />
+                </div>
+                <p className="text-sm text-neutral-500">{t('calendar.day.noWorkout')}</p>
+              </Card>
+            )}
+
+            {daySummary?.nutrition ? (
+              <Card className="cursor-pointer" onClick={() => { setNutritionDate(selectedDate); navigate('/nutrition'); }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600/20 flex items-center justify-center shrink-0">
+                    <Apple size={16} className="text-emerald-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-white">{daySummary.nutrition.totalCals} {t('common.kcal')}</p>
+                </div>
+              </Card>
+            ) : (
+              <Card className="flex items-center gap-3 opacity-40">
+                <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
+                  <Apple size={16} className="text-neutral-500" />
+                </div>
+                <p className="text-sm text-neutral-500">{t('calendar.day.noNutrition')}</p>
+              </Card>
+            )}
+
+            {daySummary?.weight ? (
+              <Card className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/progress')}>
+                <div className="w-9 h-9 rounded-xl bg-amber-600/20 flex items-center justify-center shrink-0">
+                  <Scale size={16} className="text-amber-400" />
+                </div>
+                <p className="text-sm font-semibold text-white">{formatWeight(daySummary.weight, unit)}</p>
+              </Card>
+            ) : (
+              <Card className="flex items-center gap-3 opacity-40">
+                <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
+                  <Scale size={16} className="text-neutral-500" />
+                </div>
+                <p className="text-sm text-neutral-500">{t('calendar.day.noWeight')}</p>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <PageTransition>

@@ -4,6 +4,7 @@ import {
   ChevronDown, ChevronUp, RefreshCw, Loader2, Calendar, Dumbbell,
   Utensils, Moon, Heart, Zap, Target, Award
 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCheckinStore } from '../../stores/checkinStore';
@@ -15,9 +16,10 @@ export default function CoachingPage() {
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { checkins, todayCheckin, fetchCheckins } = useCheckinStore();
-  const { recommendations, loading, analyzing, fetchRecommendations, runWeeklyAnalysis, acceptRecommendation, dismissRecommendation } = useCoachingStore();
+  const { recommendations, loading, analyzing, fetchRecommendations, runWeeklyAnalysis, maybeAutoAnalyze, acceptRecommendation, dismissRecommendation } = useCoachingStore();
   const [showCheckin, setShowCheckin] = useState(false);
   const [expandedRec, setExpandedRec] = useState<string | null>(null);
+  const [activeMetricsTab, setActiveMetricsTab] = useState<'wellness' | 'adherence'>('wellness');
 
   useEffect(() => {
     if (user) {
@@ -25,6 +27,12 @@ export default function CoachingPage() {
       fetchRecommendations(user.id);
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user && profile && checkins.length > 0) {
+      maybeAutoAnalyze(user.id, profile);
+    }
+  }, [user, profile, checkins.length]);
 
   const handleRunAnalysis = async () => {
     if (!user || !profile) return;
@@ -42,8 +50,36 @@ export default function CoachingPage() {
   });
   const checkinDays = new Set(checkins.map(c => c.checked_at));
 
+  // Trends chart data (last 14 days)
+  const last14 = Array.from({ length: 14 }).map((_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (13 - i));
+    return d.toISOString().split('T')[0];
+  });
+
+  const trendsData = last14.map(date => {
+    const checkin = checkins.find(c => c.checked_at === date);
+    return {
+      date: new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+      energy: checkin?.energy_level || null,
+      sleep: checkin?.sleep_quality || null,
+      stress: checkin?.stress || null,
+      motivation: checkin?.motivation || null,
+      fatigue: checkin?.fatigue || null,
+    };
+  }).filter(d => d.energy !== null || d.sleep !== null);
+
+  const adherenceData = last14.map(date => {
+    const checkin = checkins.find(c => c.checked_at === date);
+    return {
+      date: new Date(date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }),
+      nutrition: checkin?.adherence_nutrition || null,
+      training: checkin?.adherence_training || null,
+    };
+  }).filter(d => d.nutrition !== null || d.training !== null);
+
   return (
-    <div className="pb-28 md:pb-8 space-y-6">
+    <div className="pb-28 md:pb-8 space-y-5 px-4 pt-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -52,7 +88,7 @@ export default function CoachingPage() {
             Mon Coach
           </h1>
           <p className="text-sm text-neutral-400 mt-1">
-            Recommandations basees sur tes donnees reelles
+            Algorithme base sur tes donnees reelles
           </p>
         </div>
         <button
@@ -125,6 +161,76 @@ export default function CoachingPage() {
         </div>
       </div>
 
+      {/* Trends Charts */}
+      {trendsData.length >= 3 && (
+        <div className="bg-neutral-900/60 border border-neutral-800/60 rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-white">Tendances (14 jours)</p>
+            <div className="flex gap-1">
+              <button
+                onClick={() => setActiveMetricsTab('wellness')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  activeMetricsTab === 'wellness' ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400'
+                }`}
+              >
+                Bien-etre
+              </button>
+              <button
+                onClick={() => setActiveMetricsTab('adherence')}
+                className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                  activeMetricsTab === 'adherence' ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400'
+                }`}
+              >
+                Adherence
+              </button>
+            </div>
+          </div>
+
+          <div className="h-36">
+            <ResponsiveContainer width="100%" height="100%">
+              {activeMetricsTab === 'wellness' ? (
+                <LineChart data={trendsData}>
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#525252' }} axisLine={false} tickLine={false} interval={2} />
+                  <YAxis domain={[0, 5]} tick={{ fontSize: 9, fill: '#525252' }} axisLine={false} tickLine={false} width={20} ticks={[1, 2, 3, 4, 5]} />
+                  <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
+                  <Line type="monotone" dataKey="energy" stroke="#eab308" strokeWidth={2} dot={false} name="Energie" connectNulls />
+                  <Line type="monotone" dataKey="sleep" stroke="#6366f1" strokeWidth={2} dot={false} name="Sommeil" connectNulls />
+                  <Line type="monotone" dataKey="motivation" stroke="#22c55e" strokeWidth={2} dot={false} name="Motivation" connectNulls />
+                  <Line type="monotone" dataKey="stress" stroke="#ef4444" strokeWidth={1.5} dot={false} name="Stress" strokeDasharray="3 3" connectNulls />
+                </LineChart>
+              ) : (
+                <LineChart data={adherenceData}>
+                  <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#525252' }} axisLine={false} tickLine={false} interval={2} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: '#525252' }} axisLine={false} tickLine={false} width={25} ticks={[0, 50, 90, 100]} />
+                  <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
+                  <Line type="monotone" dataKey="nutrition" stroke="#3b82f6" strokeWidth={2} dot={false} name="Nutrition" connectNulls />
+                  <Line type="monotone" dataKey="training" stroke="#10b981" strokeWidth={2} dot={false} name="Entrainement" connectNulls />
+                </LineChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+
+          <div className="flex items-center gap-3 mt-2">
+            {activeMetricsTab === 'wellness' ? (
+              <>
+                <Legend color="#eab308" label="Energie" />
+                <Legend color="#6366f1" label="Sommeil" />
+                <Legend color="#22c55e" label="Motivation" />
+                <Legend color="#ef4444" label="Stress" dashed />
+              </>
+            ) : (
+              <>
+                <Legend color="#3b82f6" label="Nutrition" />
+                <Legend color="#10b981" label="Entrainement" />
+                <div className="ml-auto">
+                  <span className="text-[10px] text-neutral-600">Seuil: 90%</span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Quick Metrics Overview */}
       {todayCheckin && <MetricsOverview checkin={todayCheckin as unknown as Record<string, number | string | null>} />}
 
@@ -141,7 +247,7 @@ export default function CoachingPage() {
               rec={rec}
               expanded={expandedRec === rec.id}
               onToggle={() => setExpandedRec(expandedRec === rec.id ? null : rec.id)}
-              onAccept={() => acceptRecommendation(rec.id)}
+              onAccept={() => user && acceptRecommendation(rec.id, user.id)}
               onDismiss={() => dismissRecommendation(rec.id)}
             />
           ))}
@@ -175,11 +281,11 @@ export default function CoachingPage() {
             >
               <div className="flex items-center gap-3">
                 <CategoryIcon category={rec.category} size={14} />
-                <p className="text-sm text-neutral-300 flex-1">{rec.reasoning.slice(0, 80)}...</p>
+                <p className="text-sm text-neutral-300 flex-1 truncate">{rec.reasoning.slice(0, 80)}...</p>
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                   rec.status === 'accepted' ? 'bg-green-500/20 text-green-400' : 'bg-neutral-700 text-neutral-400'
                 }`}>
-                  {rec.status === 'accepted' ? 'Acceptee' : 'Ignoree'}
+                  {rec.status === 'accepted' ? 'Appliquee' : 'Ignoree'}
                 </span>
               </div>
             </div>
@@ -190,14 +296,23 @@ export default function CoachingPage() {
   );
 }
 
+function Legend({ color, label, dashed }: { color: string; label: string; dashed?: boolean }) {
+  return (
+    <div className="flex items-center gap-1.5 text-[10px] text-neutral-500">
+      <div className="w-3 h-0.5 rounded-full" style={{ backgroundColor: color, borderBottom: dashed ? '1px dashed' : undefined }} />
+      {label}
+    </div>
+  );
+}
+
 function MetricsOverview({ checkin }: { checkin: Record<string, number | string | null> }) {
   const metrics = [
-    { key: 'energy_level', label: 'Energie', icon: Zap, color: 'yellow' },
-    { key: 'sleep_quality', label: 'Sommeil', icon: Moon, color: 'indigo' },
-    { key: 'stress', label: 'Stress', icon: Brain, color: 'red', inverted: true },
-    { key: 'motivation', label: 'Motivation', icon: Heart, color: 'green' },
-    { key: 'fatigue', label: 'Fatigue', icon: Dumbbell, color: 'orange', inverted: true },
-    { key: 'hunger', label: 'Faim', icon: Utensils, color: 'blue' },
+    { key: 'energy_level', label: 'Energie', icon: Zap, inverted: false },
+    { key: 'sleep_quality', label: 'Sommeil', icon: Moon, inverted: false },
+    { key: 'stress', label: 'Stress', icon: Brain, inverted: true },
+    { key: 'motivation', label: 'Motivation', icon: Heart, inverted: false },
+    { key: 'fatigue', label: 'Fatigue', icon: Dumbbell, inverted: true },
+    { key: 'hunger', label: 'Faim', icon: Utensils, inverted: false },
   ];
 
   return (
@@ -268,7 +383,7 @@ function RecommendationCard({
       </button>
 
       {expanded && (
-        <div className="px-5 pb-4 space-y-3 border-t border-neutral-800/40 pt-3 animate-fade-in">
+        <div className="px-5 pb-4 space-y-3 border-t border-neutral-800/40 pt-3">
           {rec.calorie_adjustment !== 0 && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-neutral-800/50">
               <Utensils size={14} className="text-blue-400" />
@@ -311,6 +426,12 @@ function RecommendationCard({
               <X size={14} /> Ignorer
             </button>
           </div>
+
+          {rec.calorie_adjustment !== 0 && (
+            <p className="text-[10px] text-neutral-600 text-center">
+              Appliquer met a jour automatiquement tes objectifs caloriques et macros.
+            </p>
+          )}
         </div>
       )}
     </div>

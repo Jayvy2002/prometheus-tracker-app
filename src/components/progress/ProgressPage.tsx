@@ -3,7 +3,6 @@ import { Scale, BarChart2, CalendarDays } from 'lucide-react';
 import WeightPage from '../weight/WeightPage';
 import StatsPage from '../stats/StatsPage';
 import CalendarPage from '../calendar/CalendarPage';
-import PageTransition from '../ui/PageTransition';
 
 type Tab = 'weight' | 'stats' | 'calendar';
 
@@ -17,10 +16,10 @@ export default function ProgressPage() {
   ];
 
   return (
-    <PageTransition>
-      <div className="px-4 pt-6">
-        {/* Tab switcher */}
-        <div className="flex gap-1 bg-neutral-900/80 rounded-xl p-1 mb-4 animate-fade-in-down">
+    <div className="pb-28 md:pb-8">
+      {/* Tab switcher - sticky */}
+      <div className="sticky top-0 z-10 bg-black/95 backdrop-blur-md px-4 pt-6 pb-3">
+        <div className="flex gap-1 bg-neutral-900/80 rounded-xl p-1">
           {tabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -28,7 +27,7 @@ export default function ProgressPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-medium transition-all ${
                   isActive
                     ? 'bg-neutral-800 text-white shadow-sm'
                     : 'text-neutral-500 hover:text-neutral-300'
@@ -42,12 +41,12 @@ export default function ProgressPage() {
         </div>
       </div>
 
-      {/* Tab content - rendered without the default headers */}
-      <div className="-mt-6">
-        {activeTab === 'weight' && <WeightPage />}
-        {activeTab === 'stats' && <StatsPage />}
-        {activeTab === 'calendar' && <CalendarPage />}
+      {/* Tab content */}
+      <div>
+        {activeTab === 'weight' && <WeightPage embedded />}
+        {activeTab === 'stats' && <StatsPage embedded />}
+        {activeTab === 'calendar' && <CalendarPage embedded />}
       </div>
-    </PageTransition>
+    </div>
   );
 }

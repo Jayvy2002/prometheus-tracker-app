@@ -26,7 +26,7 @@ export default function Dashboard() {
   const { measurements, fetchMeasurements } = useWeightStore();
   const { workouts, fetchWorkouts } = useWorkoutStore();
   const { todayCheckin, fetchCheckins } = useCheckinStore();
-  const { recommendations, fetchRecommendations } = useCoachingStore();
+  const { recommendations, fetchRecommendations, maybeAutoAnalyze } = useCoachingStore();
   const [showCheckin, setShowCheckin] = useState(false);
 
   useEffect(() => {
@@ -39,6 +39,10 @@ export default function Dashboard() {
     fetchCheckins(user.id);
     fetchRecommendations(user.id);
   }, [user]);
+
+  useEffect(() => {
+    if (user && profile) maybeAutoAnalyze(user.id, profile);
+  }, [user, profile]);
 
   const firstName = profile?.full_name?.split(' ')[0] || '';
   const hour = new Date().getHours();

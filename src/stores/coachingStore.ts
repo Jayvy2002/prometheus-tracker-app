@@ -3,15 +3,18 @@ import { supabase } from '../lib/supabase';
 import { CoachingRecommendation, UserProfile, WeeklyMetrics } from '../lib/types';
 import { analyzeWeeklyData, CoachingDecision } from '../lib/coachingEngine';
 import { useCheckinStore } from './checkinStore';
+import { useProfileStore } from './profileStore';
 
 interface CoachingState {
   recommendations: CoachingRecommendation[];
   loading: boolean;
   analyzing: boolean;
+  lastAnalysisDate: string | null;
 
   fetchRecommendations: (userId: string) => Promise<void>;
   runWeeklyAnalysis: (userId: string, profile: UserProfile) => Promise<CoachingDecision[]>;
-  acceptRecommendation: (id: string) => Promise<void>;
+  maybeAutoAnalyze: (userId: string, profile: UserProfile) => Promise<void>;
+  acceptRecommendation: (id: string, userId: string) => Promise<void>;
   dismissRecommendation: (id: string) => Promise<void>;
   clearCoaching: () => void;
 }
@@ -77,6 +80,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   recommendations: [],
   loading: false,
   analyzing: false,
+  lastAnalysisDate: null,
 
   fetchRecommendations: async (userId) => {
     set({ loading: true });
@@ -88,9 +92,33 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .limit(20);
 
     if (!error && data) {
-      set({ recommendations: data, loading: false });
+      const lastDate = data.length > 0 ? data[0].created_at?.split('T')[0] : null;
+      set({ recommendations: data, loading: false, lastAnalysisDate: lastDate });
     } else {
       set({ loading: false });
+    }
+  },
+
+  maybeAutoAnalyze: async (userId, profile) => {
+    const { lastAnalysisDate, analyzing } = get();
+    if (analyzing) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const dayOfWeek = new Date().getDay();
+
+    // Auto-analyze on Mondays (day 1) or if never analyzed
+    if (dayOfWeek !== 1 && lastAnalysisDate) return;
+    if (lastAnalysisDate === today) return;
+
+    // Check if we have enough check-in data
+    const checkinStore = useCheckinStore.getState();
+    const currentWeek = getWeekBounds(1); // Analyze previous week
+    const weekCheckins = checkinStore.checkins.filter(
+      c => c.checked_at >= currentWeek.start && c.checked_at <= currentWeek.end
+    );
+
+    if (weekCheckins.length >= 4) {
+      await get().runWeeklyAnalysis(userId, profile);
     }
   },
 
@@ -105,7 +133,6 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const currentMetrics = checkinStore.getWeeklyMetrics(currentWeek.start, currentWeek.end);
     const prevMetrics = checkinStore.getWeeklyMetrics(prevWeek.start, prevWeek.end);
 
-    // Get weight data for trend analysis
     const [currentWeightAvg, prevWeightAvg, twoWeeksWeightAvg, currentWorkout, prevWorkout] = await Promise.all([
       getWeightAverages(userId, currentWeek.start, currentWeek.end),
       getWeightAverages(userId, prevWeek.start, prevWeek.end),
@@ -114,7 +141,6 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       getWorkoutVolume(userId, prevWeek.start, prevWeek.end),
     ]);
 
-    // Enrich metrics with weight & workout data
     const enrichedCurrent: WeeklyMetrics = {
       ...currentMetrics,
       weightAverage: currentWeightAvg,
@@ -139,10 +165,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       twoWeekChange: currentWeightAvg && twoWeeksWeightAvg ? currentWeightAvg - twoWeeksWeightAvg : null,
     };
 
-    // Run the coaching algorithm
     const decisions = analyzeWeeklyData(enrichedCurrent, profile, weightTrend, enrichedPrev);
 
-    // Save recommendations to DB
     const calorieTarget = profile.daily_calorie_target || 2200;
     for (const decision of decisions) {
       const newTarget = calorieTarget + decision.calorieAdjustment;
@@ -166,20 +190,47 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       });
     }
 
-    // Refresh recommendations
     await get().fetchRecommendations(userId);
-    set({ analyzing: false });
+    set({ analyzing: false, lastAnalysisDate: new Date().toISOString().split('T')[0] });
 
     return decisions;
   },
 
-  acceptRecommendation: async (id) => {
+  acceptRecommendation: async (id, userId) => {
+    const rec = get().recommendations.find(r => r.id === id);
+    if (!rec) return;
+
     const { error } = await supabase
       .from('coaching_recommendations')
       .update({ applied: true, applied_at: new Date().toISOString(), status: 'accepted' })
       .eq('id', id);
 
     if (!error) {
+      // Auto-apply calorie/macro adjustments to profile
+      if (rec.calorie_adjustment !== 0 && rec.new_calorie_target) {
+        const profileStore = useProfileStore.getState();
+        const currentProfile = profileStore.profile;
+        if (currentProfile) {
+          const newCalories = rec.new_calorie_target;
+          const weightKg = currentProfile.weight_kg || 75;
+
+          // Recalculate macros per SOP Phase 4: Protein (2g/kg) > Lipids (0.9g/kg) > Carbs (remaining)
+          const proteinGrams = Math.round(weightKg * 2.0);
+          const fatGrams = Math.round(weightKg * 0.9);
+          const proteinCals = proteinGrams * 4;
+          const fatCals = fatGrams * 9;
+          const carbsCals = Math.max(0, newCalories - proteinCals - fatCals);
+          const carbsGrams = Math.round(carbsCals / 4);
+
+          await profileStore.updateProfile(userId, {
+            daily_calorie_target: newCalories,
+            protein_target: proteinGrams,
+            fat_target: fatGrams,
+            carbs_target: carbsGrams,
+          });
+        }
+      }
+
       set(state => ({
         recommendations: state.recommendations.map(r =>
           r.id === id ? { ...r, applied: true, applied_at: new Date().toISOString(), status: 'accepted' as const } : r
@@ -203,5 +254,5 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     }
   },
 
-  clearCoaching: () => set({ recommendations: [] }),
+  clearCoaching: () => set({ recommendations: [], lastAnalysisDate: null }),
 }));
