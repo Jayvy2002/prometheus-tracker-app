@@ -1,33 +1,55 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-import {
-  Dumbbell, Apple, Scale, Brain, Target,
-  ChevronRight, Flame, Droplets, TrendingUp, AlertCircle,
-  Check, Zap, Moon
-} from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target, Pencil, Crown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { useCheckinStore } from '../../stores/checkinStore';
-import { useCoachingStore } from '../../stores/coachingStore';
-import { todayStr, formatWeight } from '../../lib/utils';
-import DailyCheckinForm from '../coaching/DailyCheckinForm';
+import { todayStr } from '../../lib/utils';
+import type { DashboardWidget, WidgetType } from '../../lib/types';
+import DashboardGrid from './DashboardGrid';
 import PageTransition from '../ui/PageTransition';
+import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
+import { usePaywallStore } from '../../stores/paywallStore';
+
+const WIDGET_CATALOG: {
+  type: WidgetType;
+  i18nKey: string;
+  defaultSize: DashboardWidget['size'];
+  icon: typeof Flame;
+  color: string;
+  bg: string;
+}[] = [
+  { type: 'calories', i18nKey: 'calories', defaultSize: 'medium', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/10' },
+  { type: 'weight', i18nKey: 'weight', defaultSize: 'large', icon: TrendingUp, color: 'text-blue-400', bg: 'bg-blue-500/10' },
+  { type: 'water', i18nKey: 'water', defaultSize: 'medium', icon: Droplets, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
+  { type: 'macros', i18nKey: 'macros', defaultSize: 'medium', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  { type: 'workout_volume', i18nKey: 'workoutVolume', defaultSize: 'large', icon: Dumbbell, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+  { type: 'steps', i18nKey: 'steps', defaultSize: 'medium', icon: Footprints, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  { type: 'exercise_progress', i18nKey: 'routineTonnage', defaultSize: 'large', icon: LineChart, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+  { type: 'streak', i18nKey: 'streak', defaultSize: 'medium', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-500/10' },
+  { type: 'weekly_goal', i18nKey: 'weeklyGoal', defaultSize: 'large', icon: Target, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+];
+
+const HINT_KEY = 'dashboard_hint_dismissed';
 
 export default function Dashboard() {
-
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { profile } = useProfileStore();
-  const { logs, waterLogs, fetchLogs, fetchWaterLogs } = useNutritionStore();
-  const { measurements, fetchMeasurements } = useWeightStore();
-  const { workouts, fetchWorkouts } = useWorkoutStore();
-  const { todayCheckin, fetchCheckins } = useCheckinStore();
-  const { recommendations, fetchRecommendations, maybeAutoAnalyze } = useCoachingStore();
-  const [showCheckin, setShowCheckin] = useState(false);
+  const { profile, updateProfile } = useProfileStore();
+  const { fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { fetchMeasurements } = useWeightStore();
+  const { fetchWorkouts } = useWorkoutStore();
+  const { canAddWidget, canUseWidgetType, isPremium } = usePremium();
+  const { openPaywall } = usePaywallStore();
+  const [showAdd, setShowAdd] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [showHint, setShowHint] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -36,63 +58,105 @@ export default function Dashboard() {
     fetchWaterLogs(user.id, today);
     fetchMeasurements(user.id);
     fetchWorkouts(user.id);
-    fetchCheckins(user.id);
-    fetchRecommendations(user.id);
   }, [user]);
 
+  const widgets = profile?.dashboard_layout ?? [];
+
+  // Show hint once per session after a short delay
   useEffect(() => {
-    if (user && profile) maybeAutoAnalyze(user.id, profile);
-  }, [user, profile]);
+    if (widgets.length === 0) return;
+    if (sessionStorage.getItem(HINT_KEY)) return;
+    hintTimerRef.current = setTimeout(() => setShowHint(true), 2000);
+    return () => { if (hintTimerRef.current) clearTimeout(hintTimerRef.current); };
+  }, [widgets.length]);
 
-  const firstName = profile?.full_name?.split(' ')[0] || '';
+  // Auto-dismiss hint after 6s
+  useEffect(() => {
+    if (!showHint) return;
+    const t = setTimeout(() => {
+      setShowHint(false);
+      sessionStorage.setItem(HINT_KEY, '1');
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [showHint]);
+
+  const dismissHint = () => {
+    setShowHint(false);
+    sessionStorage.setItem(HINT_KEY, '1');
+  };
+
+  const saveWidgets = useCallback(async (updated: DashboardWidget[]) => {
+    if (!user || !profile) return;
+    await updateProfile(user.id, { dashboard_layout: updated });
+  }, [user, profile, updateProfile]);
+
+  const addWidget = async (type: WidgetType) => {
+    if (!canAddWidget(widgets.length)) {
+      openPaywall(
+        t('dashboard.unlimitedWidgets'),
+        t('dashboard.freeWidgetsLimitDesc', { max: FREE_LIMITS.maxDashboardWidgets }),
+      );
+      return;
+    }
+    if (!canUseWidgetType(type)) {
+      const catalog = WIDGET_CATALOG.find(w => w.type === type);
+      openPaywall(
+        catalog ? t(`dashboard.widgetCatalog.${catalog.i18nKey}.label`) : t('dashboard.unlimitedWidgets'),
+        t('dashboard.premiumWidgetDesc'),
+      );
+      return;
+    }
+    const catalog = WIDGET_CATALOG.find(w => w.type === type);
+    const newWidget: DashboardWidget = {
+      id: crypto.randomUUID(),
+      type,
+      title: catalog ? t(`dashboard.widgetCatalog.${catalog.i18nKey}.label`) : type,
+      config: {},
+      size: catalog?.defaultSize ?? 'large',
+      order: widgets.length,
+    };
+    await saveWidgets([...widgets, newWidget]);
+    setShowAdd(false);
+  };
+
+  const enterEditMode = useCallback(() => {
+    setShowHint(false);
+    sessionStorage.setItem(HINT_KEY, '1');
+    setEditMode(true);
+  }, []);
+
+  const exitEditMode = useCallback(() => {
+    setEditMode(false);
+  }, []);
+
+  useEffect(() => {
+    if (!showAdd) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowAdd(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showAdd]);
+
+  const firstName = profile?.full_name?.split(' ')[0] || 'there';
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Bonjour' : hour < 18 ? 'Bon apres-midi' : 'Bonsoir';
+  const timeKey = hour < 12 ? 'goodMorning' : hour < 18 ? 'goodAfternoon' : 'goodEvening';
+  const greeting = `${t(`dashboard.${timeKey}`)}, ${firstName}!`;
 
-  // Today's nutrition summary
-  const today = todayStr();
-  const todayLogs = logs.filter(l => l.logged_at === today);
-  const todayCalories = todayLogs.reduce((s, l) => s + l.calories, 0);
-  const todayProtein = todayLogs.reduce((s, l) => s + l.protein, 0);
-  const todayCarbs = todayLogs.reduce((s, l) => s + l.carbs, 0);
-  const todayFat = todayLogs.reduce((s, l) => s + l.fat, 0);
-  const todayWater = waterLogs.reduce((s, l) => s + l.amount_ml, 0);
-
-  const calorieTarget = profile?.daily_calorie_target || 2200;
-  const proteinTarget = profile?.protein_target || 150;
-  const waterTarget = profile?.daily_water_target_ml || 2500;
-  const calorieProgress = Math.min(100, (todayCalories / calorieTarget) * 100);
-
-  // Weight
-  const latestWeight = measurements[0]?.weight_kg;
-  const previousWeight = measurements[1]?.weight_kg;
-  const weightDiff = latestWeight && previousWeight ? latestWeight - previousWeight : null;
-  const unit = profile?.unit_weight || 'kg';
-
-  // This week's workouts
-  const now = new Date();
-  const mondayOffset = now.getDay() === 0 ? -6 : 1 - now.getDay();
-  const monday = new Date(now);
-  monday.setDate(now.getDate() + mondayOffset);
-  const mondayStr = monday.toISOString().split('T')[0];
-  const weekWorkouts = workouts.filter(w => w.date >= mondayStr);
-
-  // Pending coaching recommendations
-  const pendingRecs = recommendations.filter(r => r.status === 'pending');
-  const hasCritical = pendingRecs.some(r => r.priority === 'critical');
+  const alreadyAddedTypes = new Set(widgets.map(w => w.type));
 
   return (
+    <>
     <PageTransition>
-      <div className="px-4 pt-6 pb-28 md:pb-8 space-y-4">
+      <div className="px-4 pt-6 pb-8 relative">
 
         {/* Header */}
-        <div className="flex items-center justify-between animate-fade-in-down">
+        <div className="flex items-center justify-between mb-4 animate-fade-in-down">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/profile')}
-              className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-blue-500 transition-all"
+              onClick={() => { if (!editMode) navigate('/profile'); }}
+              className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-blue-500 transition-all active:scale-95"
             >
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-blue-600/20 flex items-center justify-center text-blue-400 text-sm font-bold">
                   {firstName[0]?.toUpperCase() || 'U'}
@@ -101,305 +165,194 @@ export default function Dashboard() {
             </button>
             <div>
               <p className="text-neutral-400 text-xs">
-                {new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
               </p>
-              <p className="text-sm font-semibold text-white">{greeting}, {firstName} !</p>
+              <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
             </div>
           </div>
+
+          {editMode ? (
+            <button
+              onClick={exitEditMode}
+              className="animate-done-btn-in flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-black text-sm font-semibold hover:bg-neutral-100 active:scale-95 transition-all shadow-lg"
+            >
+              <Check size={15} strokeWidth={2.5} />
+              {t('common.done')}
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              {widgets.length > 0 && (
+                <button
+                  onClick={enterEditMode}
+                  className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all flex items-center justify-center"
+                >
+                  <Pencil size={15} className="text-neutral-400" />
+                </button>
+              )}
+              <button
+                onClick={() => setShowAdd(true)}
+                className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all flex items-center justify-center"
+              >
+                <Plus size={18} className="text-white" />
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Daily Check-in CTA */}
-        {!todayCheckin && !showCheckin && (
-          <button
-            onClick={() => setShowCheckin(true)}
-            className="w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600/15 to-blue-500/5 border border-blue-500/25 hover:border-blue-500/40 transition-all animate-fade-in-up"
-          >
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-              <Brain size={18} className="text-blue-400" />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-semibold text-white">Comment te sens-tu ?</p>
-              <p className="text-xs text-neutral-400">Ton check-in quotidien nourrit le coaching</p>
-            </div>
-            <ChevronRight size={16} className="text-blue-400" />
-          </button>
-        )}
-
-        {/* Check-in Form (expanded) */}
-        {showCheckin && (
-          <div className="bg-neutral-900/60 border border-neutral-800/60 rounded-2xl p-5 animate-fade-in-scale">
-            <DailyCheckinForm onComplete={() => setShowCheckin(false)} />
+        {/* Edit mode label */}
+        {editMode && (
+          <div className="flex items-center gap-2 mb-3 animate-fade-in-scale">
+            <div className="flex-1 h-px bg-neutral-800" />
+            <p className="text-xs text-neutral-500 font-medium px-1">{t('dashboard.dragHint')}</p>
+            <div className="flex-1 h-px bg-neutral-800" />
           </div>
         )}
 
-        {/* Coaching Alerts */}
-        {pendingRecs.length > 0 && !showCheckin && (
-          <button
-            onClick={() => navigate('/coaching')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all animate-fade-in-up stagger-1 ${
-              hasCritical
-                ? 'bg-red-500/8 border-red-500/25 hover:border-red-500/40'
-                : 'bg-orange-500/8 border-orange-500/20 hover:border-orange-500/35'
-            }`}
-          >
-            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-              hasCritical ? 'bg-red-500/20' : 'bg-orange-500/20'
-            }`}>
-              <AlertCircle size={16} className={hasCritical ? 'text-red-400' : 'text-orange-400'} />
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium text-white">
-                {pendingRecs.length} recommandation{pendingRecs.length > 1 ? 's' : ''} du coach
-              </p>
-              <p className="text-xs text-neutral-500 truncate">
-                {pendingRecs[0]?.reasoning.slice(0, 60)}...
-              </p>
-            </div>
-            <ChevronRight size={14} className="text-neutral-500" />
-          </button>
+        {/* Widget grid */}
+        {widgets.length > 0 ? (
+          <div className="animate-fade-in-up stagger-2">
+            <DashboardGrid
+              widgets={widgets}
+              editMode={editMode}
+              onSave={saveWidgets}
+              onEnterEditMode={enterEditMode}
+            />
+          </div>
+        ) : (
+          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-center py-12 animate-fade-in-up stagger-2">
+            <LayoutGrid className="mx-auto mb-3 text-neutral-600" size={32} />
+            <p className="text-neutral-400 mb-1">{t('dashboard.emptyTitle')}</p>
+            <p className="text-neutral-600 text-sm mb-4">{t('dashboard.emptySubtitle')}</p>
+            <button
+              onClick={() => setShowAdd(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-black rounded-full text-sm font-semibold hover:bg-neutral-100 active:scale-95 transition-all"
+            >
+              <Plus size={15} />
+              {t('dashboard.addWidget')}
+            </button>
+          </div>
         )}
 
-        {/* Today's Targets */}
-        <div className="space-y-3 animate-fade-in-up stagger-2">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Aujourd'hui</h2>
-            {todayCheckin && (
-              <div className="flex items-center gap-1 text-xs text-green-400">
-                <Check size={12} /> Check-in fait
+        {/* Edit mode: add widget button */}
+        {editMode && (
+          <div className="mt-4 flex justify-center animate-fade-in-up">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all text-sm text-white font-medium border border-neutral-700/50"
+            >
+              <Plus size={16} />
+              {t('dashboard.addWidget')}
+            </button>
+          </div>
+        )}
+
+        {/* Customize hint banner */}
+        {showHint && !editMode && widgets.length > 0 && (
+          <div className="mt-4 animate-fade-in-scale">
+            <div className="relative flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-600/8 border border-blue-500/20 overflow-hidden">
+              {/* Shimmer sweep */}
+              <div className="absolute inset-0 animate-hint-shimmer pointer-events-none" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(59,130,246,0.06) 50%, transparent 100%)' }} />
+              <div className="w-8 h-8 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
+                <Hand size={16} className="text-blue-400" />
               </div>
-            )}
-          </div>
-
-          {/* Calorie progress card */}
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Flame size={16} className="text-orange-400" />
-                <span className="text-sm font-medium text-white">Calories</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-blue-300 font-medium leading-tight">{t('dashboard.editModeHint')}</p>
+                <p className="text-xs text-neutral-500 mt-0.5">{t('dashboard.editModeHint2')}</p>
               </div>
-              <span className="text-sm text-neutral-400">
-                <span className="text-white font-bold">{todayCalories}</span> / {calorieTarget} kcal
-              </span>
+              <button
+                onClick={dismissHint}
+                className="w-6 h-6 rounded-full bg-neutral-800/80 flex items-center justify-center shrink-0 hover:bg-neutral-700 transition-colors"
+              >
+                <X size={12} className="text-neutral-400" />
+              </button>
             </div>
-            <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all duration-500"
-                style={{
-                  width: `${calorieProgress}%`,
-                  backgroundColor: calorieProgress > 100 ? '#f43f5e' : calorieProgress > 80 ? '#10b981' : '#3b82f6',
-                }}
-              />
-            </div>
-            {/* Macros row */}
-            <div className="flex gap-3 mt-3">
-              <MacroChip label="P" value={todayProtein} target={proteinTarget} color="text-blue-400" />
-              <MacroChip label="G" value={todayCarbs} target={profile?.carbs_target || 200} color="text-amber-400" />
-              <MacroChip label="L" value={todayFat} target={profile?.fat_target || 70} color="text-rose-400" />
-            </div>
-          </div>
-
-          {/* Quick stats row */}
-          <div className="grid grid-cols-3 gap-2">
-            <QuickStat
-              icon={Droplets}
-              label="Eau"
-              value={`${(todayWater / 1000).toFixed(1)}L`}
-              sub={`/ ${(waterTarget / 1000).toFixed(1)}L`}
-              color="text-cyan-400"
-              bgColor="bg-cyan-500/10"
-              progress={Math.min(100, (todayWater / waterTarget) * 100)}
-            />
-            <QuickStat
-              icon={Dumbbell}
-              label="Seances"
-              value={`${weekWorkouts.length}`}
-              sub={`/ ${profile?.training_frequency || 4}`}
-              color="text-blue-400"
-              bgColor="bg-blue-500/10"
-              progress={Math.min(100, (weekWorkouts.length / (profile?.training_frequency || 4)) * 100)}
-            />
-            <QuickStat
-              icon={Scale}
-              label="Poids"
-              value={latestWeight ? formatWeight(latestWeight, unit).replace(` ${unit}`, '') : '--'}
-              sub={weightDiff !== null ? `${weightDiff > 0 ? '+' : ''}${(unit === 'lbs' ? weightDiff * 2.205 : weightDiff).toFixed(1)}` : unit}
-              color="text-emerald-400"
-              bgColor="bg-emerald-500/10"
-            />
-          </div>
-        </div>
-
-        {/* Quick Wellness Summary (if check-in done) */}
-        {todayCheckin && (
-          <div className="grid grid-cols-4 gap-2 animate-fade-in-up stagger-3">
-            <WellnessChip icon={Zap} value={todayCheckin.energy_level} label="Energie" goodThreshold={4} />
-            <WellnessChip icon={Moon} value={todayCheckin.sleep_quality} label="Sommeil" goodThreshold={4} />
-            <WellnessChip icon={Brain} value={todayCheckin.stress} label="Stress" inverted goodThreshold={2} />
-            <WellnessChip icon={Target} value={todayCheckin.motivation} label="Motiv." goodThreshold={4} />
           </div>
         )}
-
-        {/* Quick Actions */}
-        <div className="space-y-2 animate-fade-in-up stagger-3">
-          <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">Actions rapides</h2>
-          <div className="grid grid-cols-2 gap-2">
-            <QuickAction
-              icon={Dumbbell}
-              label="Nouvelle seance"
-              onClick={() => navigate('/workout/new')}
-              color="bg-blue-500/10 text-blue-400 border-blue-500/20"
-            />
-            <QuickAction
-              icon={Apple}
-              label="Ajouter un repas"
-              onClick={() => navigate('/nutrition')}
-              color="bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-            />
-            <QuickAction
-              icon={Scale}
-              label="Peser"
-              onClick={() => navigate('/progress')}
-              color="bg-amber-500/10 text-amber-400 border-amber-500/20"
-            />
-            <QuickAction
-              icon={TrendingUp}
-              label="Voir progression"
-              onClick={() => navigate('/progress')}
-              color="bg-rose-500/10 text-rose-400 border-rose-500/20"
-            />
-          </div>
-        </div>
-
-        {/* Weekly Progress Bar */}
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 animate-fade-in-up stagger-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-white">Semaine en cours</p>
-            <p className="text-xs text-neutral-500">{weekWorkouts.length}/{profile?.training_frequency || 4} seances</p>
-          </div>
-          <div className="flex gap-1.5">
-            {Array.from({ length: 7 }).map((_, i) => {
-              const d = new Date(monday);
-              d.setDate(monday.getDate() + i);
-              const dayStr = d.toISOString().split('T')[0];
-              const hasWorkout = workouts.some(w => w.date.startsWith(dayStr));
-              const isToday = dayStr === today;
-              const dayLabel = d.toLocaleDateString('fr-FR', { weekday: 'narrow' });
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                  <span className="text-[10px] text-neutral-600 uppercase">{dayLabel}</span>
-                  <div className={`w-full h-8 rounded-lg flex items-center justify-center transition-all ${
-                    hasWorkout
-                      ? 'bg-blue-500/20 border border-blue-500/30'
-                      : isToday
-                      ? 'bg-neutral-800 border border-neutral-700'
-                      : 'bg-neutral-900/50 border border-neutral-800/30'
-                  }`}>
-                    {hasWorkout && <Dumbbell size={12} className="text-blue-400" />}
-                    {isToday && !hasWorkout && <div className="w-1.5 h-1.5 rounded-full bg-neutral-600" />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </PageTransition>
-  );
-}
 
-function MacroChip({ label: macroLabel, value, target, color }: { label: string; value: number; target: number; color: string }) {
-  const pct = Math.min(100, (value / target) * 100);
-  return (
-    <div className="flex-1 bg-neutral-800/50 rounded-lg px-2.5 py-2">
-      <div className="flex items-center justify-between mb-1">
-        <span className={`text-[10px] font-bold ${color}`}>{macroLabel}</span>
-        <span className="text-[10px] text-neutral-500">{value}/{target}g</span>
-      </div>
-      <div className="h-1 bg-neutral-700 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all`} style={{ width: `${pct}%`, backgroundColor: 'currentColor' }} />
-      </div>
-    </div>
-  );
-}
+    {/* Add Widget sheet */}
+    {showAdd && (
+      <div className="fixed inset-0 z-50">
+        <div
+          className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-modal-overlay"
+          onClick={() => setShowAdd(false)}
+        />
+        <div className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none">
+          <div
+            ref={sheetRef}
+            className="pointer-events-auto w-full max-w-sm max-h-[78vh] bg-neutral-950 rounded-3xl border border-neutral-800/60 animate-modal-pop flex flex-col shadow-2xl"
+          >
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
+              <div>
+                <h2 className="text-white font-semibold text-base">{t('dashboard.addWidget')}</h2>
+                <p className="text-neutral-500 text-xs mt-0.5">{t('dashboard.personalizeTitle')}</p>
+              </div>
+              <button
+                onClick={() => setShowAdd(false)}
+                className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center hover:bg-neutral-700 active:scale-95 transition-all"
+              >
+                <X size={15} className="text-neutral-400" />
+              </button>
+            </div>
 
-function QuickStat({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  color,
-  bgColor,
-  progress,
-}: {
-  icon: typeof Scale;
-  label: string;
-  value: string;
-  sub: string;
-  color: string;
-  bgColor: string;
-  progress?: number;
-}) {
-  return (
-    <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3 flex flex-col items-center gap-1">
-      <div className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center`}>
-        <Icon size={14} className={color} />
-      </div>
-      <span className="text-[10px] text-neutral-500 font-medium">{label}</span>
-      <span className="text-sm font-bold text-white">{value}</span>
-      <span className="text-[10px] text-neutral-500">{sub}</span>
-      {progress !== undefined && (
-        <div className="w-full h-1 bg-neutral-800 rounded-full overflow-hidden mt-1">
-          <div className="h-full bg-current rounded-full" style={{ width: `${progress}%`, color: color.replace('text-', '').includes('cyan') ? '#06b6d4' : '#3b82f6' }} />
+            <div className="overflow-y-auto flex-1 px-4 pb-5 scrollbar-hide">
+              {!isPremium && (
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <p className="text-xs text-neutral-500">
+                    {t('dashboard.widgetsUsed', { count: `${widgets.length}/${FREE_LIMITS.maxDashboardWidgets}` })}
+                  </p>
+                  <button
+                    onClick={() => openPaywall(t('dashboard.unlimitedWidgets'), t('dashboard.freeWidgetsLimitDesc', { max: FREE_LIMITS.maxDashboardWidgets }))}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                  >
+                    <Crown size={10} /> Premium
+                  </button>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                {WIDGET_CATALOG.map((wt, index) => {
+                  const alreadyAdded = alreadyAddedTypes.has(wt.type);
+                  const isLocked = !canUseWidgetType(wt.type);
+                  const Icon = wt.icon;
+                  return (
+                    <button
+                      key={wt.type}
+                      onClick={() => !alreadyAdded && addWidget(wt.type)}
+                      disabled={alreadyAdded}
+                      className={`relative text-left p-4 rounded-2xl border transition-all active:scale-95 animate-fade-in-scale
+                        ${alreadyAdded
+                          ? 'bg-neutral-900/40 border-neutral-800/40 opacity-50 cursor-not-allowed'
+                          : isLocked
+                            ? 'bg-neutral-900/60 border-amber-500/20 hover:border-amber-500/40 hover:bg-neutral-800/60'
+                            : 'bg-neutral-900 border-neutral-800/60 hover:border-neutral-700 hover:bg-neutral-800/80'
+                        }`}
+                      style={{ animationDelay: `${index * 40}ms` }}
+                    >
+                      <div className={`w-9 h-9 rounded-xl ${wt.bg} flex items-center justify-center mb-2.5 ${wt.color}`}>
+                        <Icon size={18} />
+                      </div>
+                      <p className="text-white font-medium text-sm leading-tight">{t(`dashboard.widgetCatalog.${wt.i18nKey}.label`)}</p>
+                      <p className="text-neutral-500 text-xs mt-0.5 leading-tight">{t(`dashboard.widgetCatalog.${wt.i18nKey}.description`)}</p>
+                      {alreadyAdded && (
+                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center">
+                          <Check size={11} className="text-neutral-400" />
+                        </div>
+                      )}
+                      {isLocked && !alreadyAdded && (
+                        <div className="absolute top-3 right-3 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30">
+                          <Crown size={9} className="text-amber-400" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function WellnessChip({
-  icon: Icon,
-  value,
-  label,
-  inverted,
-  goodThreshold,
-}: {
-  icon: typeof Zap;
-  value: number | null;
-  label: string;
-  inverted?: boolean;
-  goodThreshold: number;
-}) {
-  if (!value) return null;
-  const isGood = inverted ? value <= goodThreshold : value >= goodThreshold;
-  return (
-    <div className={`flex flex-col items-center gap-0.5 p-2 rounded-xl border ${
-      isGood ? 'bg-green-500/5 border-green-500/20' : 'bg-neutral-900/40 border-neutral-800/40'
-    }`}>
-      <Icon size={12} className={isGood ? 'text-green-400' : 'text-neutral-400'} />
-      <span className="text-xs font-bold text-white">{value}/5</span>
-      <span className="text-[9px] text-neutral-500">{label}</span>
-    </div>
-  );
-}
-
-function QuickAction({
-  icon: Icon,
-  label,
-  onClick,
-  color,
-}: {
-  icon: typeof Dumbbell;
-  label: string;
-  onClick: () => void;
-  color: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-2.5 px-3.5 py-3 rounded-xl border transition-all hover:scale-[1.02] active:scale-[0.98] ${color}`}
-    >
-      <Icon size={16} />
-      <span className="text-xs font-medium text-white">{label}</span>
-    </button>
+      </div>
+    )}
+    </>
   );
 }

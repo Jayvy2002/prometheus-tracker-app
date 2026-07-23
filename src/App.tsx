@@ -12,13 +12,14 @@ import Dashboard from './components/dashboard/Dashboard';
 import WorkoutPage from './components/workout/WorkoutPage';
 import WorkoutForm from './components/workout/WorkoutForm';
 import ExerciseProgressPage from './components/workout/ExerciseProgressPage';
+import StatsPage from './components/stats/StatsPage';
 import RoutinesPage from './components/routines/RoutinesPage';
+import WeightPage from './components/weight/WeightPage';
 import NutritionPage from './components/nutrition/NutritionPage';
 import ScannerPage from './components/scanner/ScannerPage';
 import ProfilePage from './components/profile/ProfilePage';
+import CalendarPage from './components/calendar/CalendarPage';
 import RecipesPage from './components/nutrition/RecipesPage';
-import CoachingPage from './components/coaching/CoachingPage';
-import ProgressPage from './components/progress/ProgressPage';
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized } = useAuthStore();
@@ -72,20 +73,19 @@ function AppRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/workout" element={<WorkoutPage />} />
         <Route path="/nutrition" element={<NutritionPage />} />
-        <Route path="/progress" element={<ProgressPage />} />
-        <Route path="/coaching" element={<CoachingPage />} />
+        <Route path="/weight" element={<WeightPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/exercise-progress" element={<ExerciseProgressPage />} />
-        <Route path="/routines" element={<RoutinesPage />} />
+        <Route path="/stats" element={<StatsPage />} />
       </Route>
       <Route path="/workout/new" element={<WorkoutForm />} />
       <Route path="/workout/:id" element={<WorkoutForm />} />
+      <Route path="/routines" element={<AppLayout />}>
+        <Route index element={<RoutinesPage />} />
+      </Route>
       <Route path="/scanner" element={<ScannerPage />} />
       <Route path="/recipes" element={<RecipesPage />} />
-      {/* Redirects for old routes */}
-      <Route path="/weight" element={<Navigate to="/progress" replace />} />
-      <Route path="/stats" element={<Navigate to="/progress" replace />} />
-      <Route path="/calendar" element={<Navigate to="/progress" replace />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

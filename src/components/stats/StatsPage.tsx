@@ -101,7 +101,7 @@ function StatCard({
   );
 }
 
-export default function StatsPage({ embedded }: { embedded?: boolean }) {
+export default function StatsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -280,19 +280,15 @@ export default function StatsPage({ embedded }: { embedded?: boolean }) {
     weight: w.weight,
   }));
 
-  const Wrapper = embedded ? ({ children }: { children: React.ReactNode }) => <>{children}</> : PageTransition;
-
   return (
-    <Wrapper>
-    <div className={embedded ? "px-4 pb-24" : "px-4 pt-6 pb-24"}>
-      {!embedded && (
+    <PageTransition>
+    <div className="px-4 pt-6 pb-24">
       <div className="flex items-center gap-3 mb-6 animate-fade-in-down">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold text-white flex-1">{t('stats.title')}</h1>
       </div>
-      )}
 
       <div className="flex gap-1 bg-neutral-900 rounded-xl p-1 mb-6 animate-fade-in-scale">
         {PERIODS.map(p => {
@@ -453,6 +449,6 @@ export default function StatsPage({ embedded }: { embedded?: boolean }) {
         </div>
       )}
     </div>
-    </Wrapper>
+    </PageTransition>
   );
 }
