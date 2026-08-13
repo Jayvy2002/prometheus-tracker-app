@@ -20,9 +20,24 @@ export default function RoutineForm({ routine, onClose }: Props) {
   const { createRoutine, updateRoutine, addRoutineExercise, deleteRoutineExercise, updateRoutineExercise, fetchRoutineWithExercises } = useRoutineStore();
   const [name, setName] = useState(routine?.name ?? '');
   const [description, setDescription] = useState(routine?.description ?? '');
+  const [scheduledDays, setScheduledDays] = useState<string[]>(routine?.scheduled_days ?? []);
   const [exercises, setExercises] = useState<RoutineExercise[]>([]);
   const [showPicker, setShowPicker] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const WEEK_DAYS = [
+    { value: 'monday', label: t('routines.form.days.mon') },
+    { value: 'tuesday', label: t('routines.form.days.tue') },
+    { value: 'wednesday', label: t('routines.form.days.wed') },
+    { value: 'thursday', label: t('routines.form.days.thu') },
+    { value: 'friday', label: t('routines.form.days.fri') },
+    { value: 'saturday', label: t('routines.form.days.sat') },
+    { value: 'sunday', label: t('routines.form.days.sun') },
+  ];
+
+  const toggleDay = (day: string) => {
+    setScheduledDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+  };
 
   useEffect(() => {
     if (routine) {
@@ -38,9 +53,10 @@ export default function RoutineForm({ routine, onClose }: Props) {
   const handleSave = async () => {
     if (!user || !name.trim()) return;
     setSaving(true);
+    const daysToSave = scheduledDays.length > 0 ? scheduledDays : null;
 
     if (routine) {
-      await updateRoutine(routine.id, { name, description });
+      await updateRoutine(routine.id, { name, description, scheduled_days: daysToSave });
       const updates = exercises.map(ex =>
         updateRoutineExercise(ex.id, {
           default_sets: ex.default_sets,
@@ -51,7 +67,7 @@ export default function RoutineForm({ routine, onClose }: Props) {
       );
       await Promise.all(updates);
     } else {
-      const routineId = await createRoutine({ user_id: user.id, name, description });
+      const routineId = await createRoutine({ user_id: user.id, name, description, scheduled_days: daysToSave });
       if (routineId) {
         for (const ex of exercises) {
           await addRoutineExercise(routineId, {
@@ -116,6 +132,28 @@ export default function RoutineForm({ routine, onClose }: Props) {
           <div className="space-y-4">
             <Input label={t('routines.form.name')} value={name} onChange={e => setName(e.target.value)} placeholder="Push Day" />
             <Input label={t('routines.form.description')} value={description} onChange={e => setDescription(e.target.value)} placeholder="Chest, shoulders, triceps" />
+
+            {/* Day scheduler */}
+            <div>
+              <label className="text-sm font-medium text-neutral-400 mb-2 block">{t('routines.form.scheduledDays')}</label>
+              <div className="flex gap-1.5">
+                {WEEK_DAYS.map(day => (
+                  <button
+                    key={day.value}
+                    type="button"
+                    onClick={() => toggleDay(day.value)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all
+                      ${scheduledDays.includes(day.value)
+                        ? 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/40'
+                        : 'bg-neutral-800/60 text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800'
+                      }`}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-neutral-600 mt-1.5">{t('routines.form.scheduledDaysHint')}</p>
+            </div>
           </div>
 
           <div>

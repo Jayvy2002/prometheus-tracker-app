@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -95,8 +95,39 @@ export default function Dashboard() {
     ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
     : null;
 
-  // Next routine to suggest
-  const nextRoutine = routines.length > 0 ? routines[0] : null;
+  // Next routine to suggest — prefer one scheduled for today
+  const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
+  const alreadyTrainedToday = doneDays[todayIndex];
+  const scheduledToday = !alreadyTrainedToday
+    ? routines.find(r => r.scheduled_days?.includes(todayDow))
+    : null;
+  const nextRoutine = scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null);
+
+  // Reminders
+  const lastWeighIn = measurements.length > 0
+    ? measurements.sort((a, b) => b.measured_at.localeCompare(a.measured_at))[0]
+    : null;
+  const daysSinceWeighIn = lastWeighIn
+    ? Math.floor((Date.now() - new Date(lastWeighIn.measured_at).getTime()) / 86400000)
+    : 999;
+  const showWeightReminder = daysSinceWeighIn >= 3;
+
+  const hourNow = new Date().getHours();
+  const hasLoggedLunch = logs.some(l => l.category === 'lunch');
+  const showMealReminder = hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0 || (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3);
+
+  const showWaterReminder = hourNow >= 15 && waterPct < 50;
+
+  // Deload suggestion — if trained 4+ consecutive weeks without a break
+  const fourWeeksAgo = new Date();
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  const recentCompletedWorkouts = workouts.filter(w => w.completed && new Date(w.date) >= fourWeeksAgo);
+  const weeksWithWorkouts = new Set(recentCompletedWorkouts.map(w => {
+    const d = new Date(w.date);
+    const startOfYear = new Date(d.getFullYear(), 0, 1);
+    return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
+  }));
+  const showDeloadSuggestion = weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
 
   return (
     <PageTransition>
@@ -321,6 +352,48 @@ export default function Dashboard() {
             )}
           </button>
         </div>
+
+        {/* Reminders */}
+        {(showWeightReminder || showMealReminder || showWaterReminder || showDeloadSuggestion) && (
+          <div className="space-y-2 mb-4 animate-fade-in-up stagger-5">
+            {showDeloadSuggestion && (
+              <button
+                onClick={() => navigate('/workout')}
+                className="w-full flex items-center gap-3 bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-left hover:border-amber-500/40 transition-colors"
+              >
+                <Battery size={16} className="text-amber-400 shrink-0" />
+                <p className="text-xs text-amber-200/80 flex-1">{t('dashboard.reminders.deload')}</p>
+              </button>
+            )}
+            {showWeightReminder && (
+              <button
+                onClick={() => navigate('/weight')}
+                className="w-full flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3 text-left hover:border-neutral-700 transition-colors"
+              >
+                <AlertCircle size={14} className="text-neutral-500 shrink-0" />
+                <p className="text-xs text-neutral-400 flex-1">{t('dashboard.reminders.weight', { days: daysSinceWeighIn })}</p>
+              </button>
+            )}
+            {showMealReminder && (
+              <button
+                onClick={() => navigate('/nutrition')}
+                className="w-full flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3 text-left hover:border-neutral-700 transition-colors"
+              >
+                <AlertCircle size={14} className="text-neutral-500 shrink-0" />
+                <p className="text-xs text-neutral-400 flex-1">{t('dashboard.reminders.meal')}</p>
+              </button>
+            )}
+            {showWaterReminder && (
+              <button
+                onClick={() => navigate('/nutrition')}
+                className="w-full flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3 text-left hover:border-neutral-700 transition-colors"
+              >
+                <AlertCircle size={14} className="text-neutral-500 shrink-0" />
+                <p className="text-xs text-neutral-400 flex-1">{t('dashboard.reminders.water')}</p>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Quick actions */}
         <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">

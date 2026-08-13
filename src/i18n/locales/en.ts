@@ -133,6 +133,12 @@ const en = {
     statsDesc: 'Trends & insights',
     viewProgress: 'Progress',
     progressDesc: 'PRs & performance',
+    reminders: {
+      weight: "No weigh-in for {{days}} days. Step on the scale to track your progress.",
+      meal: "You haven't logged lunch yet. Don't forget to track your meals.",
+      water: "You're below 50% of your water goal. Grab a glass!",
+      deload: "4 weeks of intense training without a break. Consider reducing weights this week to recover better.",
+    },
   },
 
   widgets: {
@@ -238,6 +244,15 @@ const en = {
       vol: 'vol',
       oneRM: '1RM',
       backToWorkouts: 'Back to Workouts',
+      coaching: {
+        title: 'Coach tip',
+        shortSession: 'Quick and efficient! Intensity matters more than duration.',
+        longSession: "Long session today. Make sure to recover well and stay hydrated.",
+        highVolume: "High volume! Your muscles will rebuild well if you eat enough.",
+        lightSession: "Light session but it all adds up. Every rep counts.",
+        manyExercises: "{{count}} exercises, great variety! Keep quality form on each one.",
+        protein: "Aim for 30-40g of protein within the next hour.",
+      },
     },
     exerciseCard: {
       number: '#',
@@ -564,6 +579,9 @@ const en = {
       create: 'Create Routine',
       update: 'Update Routine',
       editWarning: "Editing this routine won't affect past sessions already logged.",
+      scheduledDays: 'Scheduled days',
+      scheduledDaysHint: 'Pick the days you do this routine',
+      days: { mon: 'M', tue: 'T', wed: 'W', thu: 'T', fri: 'F', sat: 'S', sun: 'S' },
     },
   },
 

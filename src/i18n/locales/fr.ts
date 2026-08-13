@@ -133,6 +133,12 @@ const fr = {
     statsDesc: 'Bilans et tendances',
     viewProgress: 'Progression',
     progressDesc: 'Records et perfs',
+    reminders: {
+      weight: "Pas de pesée depuis {{days}} jours. Monte sur la balance pour suivre ta progression.",
+      meal: "Tu n'as rien enregistré pour le déjeuner. Pense à noter tes repas.",
+      water: "Tu es en dessous de 50% de ton objectif eau. Bois un verre !",
+      deload: "4 semaines d'entraînement intense sans pause. Pense à réduire les charges cette semaine pour mieux récupérer.",
+    },
   },
 
   widgets: {
@@ -238,6 +244,15 @@ const fr = {
       vol: 'vol',
       oneRM: '1RM',
       backToWorkouts: 'Retour aux entraînements',
+      coaching: {
+        title: 'Conseil du coach',
+        shortSession: "Séance rapide et efficace ! L'intensité compte plus que la durée.",
+        longSession: "Séance longue aujourd'hui. Pense à bien récupérer et t'hydrater.",
+        highVolume: "Gros volume ! Tes muscles vont bien se reconstruire si tu manges assez.",
+        lightSession: "Séance légère mais utile. Chaque rep compte.",
+        manyExercises: "{{count}} exercices, belle diversité ! Assure-toi de garder la qualité sur chaque mouvement.",
+        protein: "Pense à consommer 30-40g de protéines dans l'heure qui suit.",
+      },
     },
     exerciseCard: {
       number: '#',
@@ -564,6 +579,9 @@ const fr = {
       create: 'Créer la routine',
       update: 'Mettre à jour la routine',
       editWarning: 'Modifier cette routine n\'affectera pas les séances déjà enregistrées.',
+      scheduledDays: 'Jours planifiés',
+      scheduledDaysHint: 'Sélectionne les jours où tu fais cette routine',
+      days: { mon: 'L', tue: 'M', wed: 'M', thu: 'J', fri: 'V', sat: 'S', sun: 'D' },
     },
   },
 

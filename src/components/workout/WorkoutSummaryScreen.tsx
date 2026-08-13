@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { CheckCircle, Zap, Dumbbell, Clock, BarChart2 } from 'lucide-react';
+import { CheckCircle, Zap, Dumbbell, Clock, BarChart2, MessageCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDuration } from '../../lib/utils';
 import type { Workout } from '../../lib/types';
@@ -10,11 +10,13 @@ interface SummaryStats {
   exerciseCount: number;
   setCount: number;
   topExercises: { name: string; volume: number; estimated1RM: number }[];
+  prCount: number;
 }
 
 function computeStats(workout: Workout, duration: number): SummaryStats {
   let totalVolume = 0;
   let setCount = 0;
+  let prCount = 0;
   const exerciseStats: { name: string; volume: number; estimated1RM: number }[] = [];
 
   for (const ex of workout.exercises ?? []) {
@@ -44,7 +46,32 @@ function computeStats(workout: Workout, duration: number): SummaryStats {
     exerciseCount: workout.exercises?.length ?? 0,
     setCount,
     topExercises: exerciseStats.slice(0, 3),
+    prCount,
   };
+}
+
+function getCoachingTips(stats: SummaryStats, t: (key: string, opts?: Record<string, unknown>) => string): string[] {
+  const tips: string[] = [];
+
+  if (stats.duration > 0 && stats.duration < 30 * 60) {
+    tips.push(t('workout.summary.coaching.shortSession'));
+  } else if (stats.duration >= 75 * 60) {
+    tips.push(t('workout.summary.coaching.longSession'));
+  }
+
+  if (stats.totalVolume >= 10000) {
+    tips.push(t('workout.summary.coaching.highVolume'));
+  } else if (stats.totalVolume > 0 && stats.totalVolume < 3000) {
+    tips.push(t('workout.summary.coaching.lightSession'));
+  }
+
+  if (stats.exerciseCount >= 6) {
+    tips.push(t('workout.summary.coaching.manyExercises', { count: stats.exerciseCount }));
+  }
+
+  tips.push(t('workout.summary.coaching.protein'));
+
+  return tips.slice(0, 2);
 }
 
 function StatCard({
@@ -187,6 +214,30 @@ export default function WorkoutSummaryScreen({
             </div>
           </div>
         )}
+
+        {/* Coaching tips */}
+        {(() => {
+          const tips = getCoachingTips(stats, t);
+          if (tips.length === 0) return null;
+          return (
+            <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
+              <div className="flex items-center gap-1.5 mb-2 px-0.5">
+                <MessageCircle size={12} className="text-blue-400" />
+                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+                  {t('workout.summary.coaching.title')}
+                </span>
+              </div>
+              <div className="space-y-2">
+                {tips.map((tip, i) => (
+                  <div key={i} className="flex items-start gap-2.5 bg-neutral-900/60 border border-neutral-800/40 rounded-xl px-4 py-3">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                    <p className="text-sm text-neutral-300 leading-relaxed">{tip}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="flex-1" />
 
