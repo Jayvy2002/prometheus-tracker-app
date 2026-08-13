@@ -1,55 +1,42 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, LayoutGrid, Check, Flame, Droplets, Dumbbell, TrendingUp, Footprints, Activity, LineChart, Hand, X, Target, Pencil, Crown } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
+import { useStreakStore } from '../../stores/streakStore';
+import { useRoutineStore } from '../../stores/routineStore';
 import { todayStr } from '../../lib/utils';
-import type { DashboardWidget, WidgetType } from '../../lib/types';
-import DashboardGrid from './DashboardGrid';
+import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
-import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
-import { usePaywallStore } from '../../stores/paywallStore';
 
-const WIDGET_CATALOG: {
-  type: WidgetType;
-  i18nKey: string;
-  defaultSize: DashboardWidget['size'];
-  icon: typeof Flame;
-  color: string;
-  bg: string;
-}[] = [
-  { type: 'calories', i18nKey: 'calories', defaultSize: 'medium', icon: Flame, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-  { type: 'weight', i18nKey: 'weight', defaultSize: 'large', icon: TrendingUp, color: 'text-blue-400', bg: 'bg-blue-500/10' },
-  { type: 'water', i18nKey: 'water', defaultSize: 'medium', icon: Droplets, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-  { type: 'macros', i18nKey: 'macros', defaultSize: 'medium', icon: Activity, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  { type: 'workout_volume', i18nKey: 'workoutVolume', defaultSize: 'large', icon: Dumbbell, color: 'text-violet-400', bg: 'bg-violet-500/10' },
-  { type: 'steps', i18nKey: 'steps', defaultSize: 'medium', icon: Footprints, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-  { type: 'exercise_progress', i18nKey: 'routineTonnage', defaultSize: 'large', icon: LineChart, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-  { type: 'streak', i18nKey: 'streak', defaultSize: 'medium', icon: Flame, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-  { type: 'weekly_goal', i18nKey: 'weeklyGoal', defaultSize: 'large', icon: Target, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-];
+function getWeekDates(): string[] {
+  const today = new Date();
+  const dow = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - ((dow + 6) % 7));
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + i);
+    return d.toISOString().split('T')[0];
+  });
+}
 
-const HINT_KEY = 'dashboard_hint_dismissed';
+const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 
 export default function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { profile, updateProfile } = useProfileStore();
-  const { fetchLogs, fetchWaterLogs } = useNutritionStore();
-  const { fetchMeasurements } = useWeightStore();
-  const { fetchWorkouts } = useWorkoutStore();
-  const { canAddWidget, canUseWidgetType, isPremium } = usePremium();
-  const { openPaywall } = usePaywallStore();
-  const [showAdd, setShowAdd] = useState(false);
-  const [editMode, setEditMode] = useState(false);
-  const [showHint, setShowHint] = useState(false);
-  const sheetRef = useRef<HTMLDivElement>(null);
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { profile } = useProfileStore();
+  const { logs, waterLogs, fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { measurements, fetchMeasurements } = useWeightStore();
+  const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { streak, fetchStreak } = useStreakStore();
+  const { routines, fetchRoutines } = useRoutineStore();
 
   useEffect(() => {
     if (!user) return;
@@ -58,301 +45,303 @@ export default function Dashboard() {
     fetchWaterLogs(user.id, today);
     fetchMeasurements(user.id);
     fetchWorkouts(user.id);
+    fetchStreak(user.id);
+    fetchRoutines(user.id);
   }, [user]);
 
-  const widgets = profile?.dashboard_layout ?? [];
-
-  // Show hint once per session after a short delay
-  useEffect(() => {
-    if (widgets.length === 0) return;
-    if (sessionStorage.getItem(HINT_KEY)) return;
-    hintTimerRef.current = setTimeout(() => setShowHint(true), 2000);
-    return () => { if (hintTimerRef.current) clearTimeout(hintTimerRef.current); };
-  }, [widgets.length]);
-
-  // Auto-dismiss hint after 6s
-  useEffect(() => {
-    if (!showHint) return;
-    const t = setTimeout(() => {
-      setShowHint(false);
-      sessionStorage.setItem(HINT_KEY, '1');
-    }, 6000);
-    return () => clearTimeout(t);
-  }, [showHint]);
-
-  const dismissHint = () => {
-    setShowHint(false);
-    sessionStorage.setItem(HINT_KEY, '1');
-  };
-
-  const saveWidgets = useCallback(async (updated: DashboardWidget[]) => {
-    if (!user || !profile) return;
-    await updateProfile(user.id, { dashboard_layout: updated });
-  }, [user, profile, updateProfile]);
-
-  const addWidget = async (type: WidgetType) => {
-    if (!canAddWidget(widgets.length)) {
-      openPaywall(
-        t('dashboard.unlimitedWidgets'),
-        t('dashboard.freeWidgetsLimitDesc', { max: FREE_LIMITS.maxDashboardWidgets }),
-      );
-      return;
-    }
-    if (!canUseWidgetType(type)) {
-      const catalog = WIDGET_CATALOG.find(w => w.type === type);
-      openPaywall(
-        catalog ? t(`dashboard.widgetCatalog.${catalog.i18nKey}.label`) : t('dashboard.unlimitedWidgets'),
-        t('dashboard.premiumWidgetDesc'),
-      );
-      return;
-    }
-    const catalog = WIDGET_CATALOG.find(w => w.type === type);
-    const newWidget: DashboardWidget = {
-      id: crypto.randomUUID(),
-      type,
-      title: catalog ? t(`dashboard.widgetCatalog.${catalog.i18nKey}.label`) : type,
-      config: {},
-      size: catalog?.defaultSize ?? 'large',
-      order: widgets.length,
-    };
-    await saveWidgets([...widgets, newWidget]);
-    setShowAdd(false);
-  };
-
-  const enterEditMode = useCallback(() => {
-    setShowHint(false);
-    sessionStorage.setItem(HINT_KEY, '1');
-    setEditMode(true);
-  }, []);
-
-  const exitEditMode = useCallback(() => {
-    setEditMode(false);
-  }, []);
-
-  useEffect(() => {
-    if (!showAdd) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowAdd(false); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [showAdd]);
-
-  const firstName = profile?.full_name?.split(' ')[0] || 'there';
+  const firstName = profile?.full_name?.split(' ')[0] || '';
   const hour = new Date().getHours();
   const timeKey = hour < 12 ? 'goodMorning' : hour < 18 ? 'goodAfternoon' : 'goodEvening';
-  const greeting = `${t(`dashboard.${timeKey}`)}, ${firstName}!`;
+  const greeting = `${t(`dashboard.${timeKey}`)}${firstName ? `, ${firstName}` : ''} !`;
 
-  const alreadyAddedTypes = new Set(widgets.map(w => w.type));
+  // Daily metrics
+  const calorieTarget = profile?.daily_calorie_target ?? 2000;
+  const consumed = logs.reduce((sum, l) => sum + l.calories, 0);
+  const caloriePct = Math.min(100, (consumed / calorieTarget) * 100);
+
+  const waterTarget = profile?.daily_water_target_ml ?? 2500;
+  const waterConsumed = waterLogs.reduce((sum, l) => sum + l.amount_ml, 0);
+  const waterPct = Math.min(100, (waterConsumed / waterTarget) * 100);
+
+  const proteinTarget = profile?.protein_target ?? 150;
+  const proteinConsumed = logs.reduce((sum, l) => sum + l.protein, 0);
+  const proteinPct = Math.min(100, (proteinConsumed / proteinTarget) * 100);
+
+  // Weekly workout goal
+  const weekDates = getWeekDates();
+  const todayIndex = weekDates.indexOf(todayStr());
+  const trainingTarget = profile?.training_frequency ?? 3;
+  const doneDays = weekDates.map(date =>
+    workouts.some(w => w.completed && w.date?.startsWith(date))
+  );
+  const weekWorkoutsDone = doneDays.filter(Boolean).length;
+  const weekGoalMet = weekWorkoutsDone >= trainingTarget;
+
+  // Streak
+  const currentStreak = streak?.current_streak ?? 0;
+  const longestStreak = streak?.longest_streak ?? 0;
+
+  // Weight mini trend (last 7)
+  const recentWeights = [...measurements]
+    .sort((a, b) => a.measured_at.localeCompare(b.measured_at))
+    .slice(-7);
+  const weightUnit = profile?.unit_weight ?? 'kg';
+  const latestWeight = recentWeights.length > 0
+    ? weightUnit === 'lbs'
+      ? +(recentWeights[recentWeights.length - 1].weight_kg * 2.20462).toFixed(1)
+      : +recentWeights[recentWeights.length - 1].weight_kg
+    : null;
+  const weightDelta = recentWeights.length >= 2
+    ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
+    : null;
+
+  // Next routine to suggest
+  const nextRoutine = routines.length > 0 ? routines[0] : null;
 
   return (
-    <>
     <PageTransition>
-      <div className="px-4 pt-6 pb-8 relative">
-
+      <div className="px-4 pt-6 pb-28">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4 animate-fade-in-down">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => { if (!editMode) navigate('/profile'); }}
-              className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-blue-500 transition-all active:scale-95"
-            >
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full bg-blue-600/20 flex items-center justify-center text-blue-400 text-sm font-bold">
-                  {firstName[0]?.toUpperCase() || 'U'}
-                </div>
-              )}
-            </button>
-            <div>
-              <p className="text-neutral-400 text-xs">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </p>
-              <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
-            </div>
+        <div className="flex items-center gap-3 mb-6 animate-fade-in-down">
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-blue-500 transition-all active:scale-95"
+          >
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-blue-600/20 flex items-center justify-center text-blue-400 text-sm font-bold">
+                {firstName[0]?.toUpperCase() || 'U'}
+              </div>
+            )}
+          </button>
+          <div className="flex-1">
+            <p className="text-neutral-400 text-xs">
+              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+            <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
           </div>
-
-          {editMode ? (
-            <button
-              onClick={exitEditMode}
-              className="animate-done-btn-in flex items-center gap-1.5 px-4 py-2 rounded-full bg-white text-black text-sm font-semibold hover:bg-neutral-100 active:scale-95 transition-all shadow-lg"
-            >
-              <Check size={15} strokeWidth={2.5} />
-              {t('common.done')}
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              {widgets.length > 0 && (
-                <button
-                  onClick={enterEditMode}
-                  className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all flex items-center justify-center"
-                >
-                  <Pencil size={15} className="text-neutral-400" />
-                </button>
-              )}
-              <button
-                onClick={() => setShowAdd(true)}
-                className="w-9 h-9 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all flex items-center justify-center"
-              >
-                <Plus size={18} className="text-white" />
-              </button>
-            </div>
-          )}
         </div>
 
-        {/* Edit mode label */}
-        {editMode && (
-          <div className="flex items-center gap-2 mb-3 animate-fade-in-scale">
-            <div className="flex-1 h-px bg-neutral-800" />
-            <p className="text-xs text-neutral-500 font-medium px-1">{t('dashboard.dragHint')}</p>
-            <div className="flex-1 h-px bg-neutral-800" />
+        {/* Daily Progress Section */}
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
+            <button
+              onClick={() => navigate('/nutrition')}
+              className="text-xs text-neutral-500 hover:text-neutral-300 flex items-center gap-0.5 transition-colors"
+            >
+              {t('common.details')}
+              <ChevronRight size={12} />
+            </button>
           </div>
-        )}
 
-        {/* Widget grid */}
-        {widgets.length > 0 ? (
-          <div className="animate-fade-in-up stagger-2">
-            <DashboardGrid
-              widgets={widgets}
-              editMode={editMode}
-              onSave={saveWidgets}
-              onEnterEditMode={enterEditMode}
+          <div className="flex items-center justify-around">
+            {/* Calories */}
+            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1.5 group">
+              <ProgressRing
+                progress={caloriePct}
+                size={64}
+                strokeWidth={5}
+                color={caloriePct >= 95 && caloriePct <= 105 ? '#10b981' : caloriePct > 105 ? '#f43f5e' : '#2563eb'}
+              >
+                <Flame size={16} className="text-orange-400" />
+              </ProgressRing>
+              <div className="text-center">
+                <p className="text-xs font-semibold text-white">{Math.round(consumed)}</p>
+                <p className="text-[10px] text-neutral-500">/ {calorieTarget} cal</p>
+              </div>
+            </button>
+
+            {/* Protein */}
+            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1.5 group">
+              <ProgressRing
+                progress={proteinPct}
+                size={64}
+                strokeWidth={5}
+                color={proteinPct >= 90 ? '#10b981' : '#f59e0b'}
+              >
+                <TrendingUp size={16} className="text-amber-400" />
+              </ProgressRing>
+              <div className="text-center">
+                <p className="text-xs font-semibold text-white">{Math.round(proteinConsumed)}g</p>
+                <p className="text-[10px] text-neutral-500">/ {proteinTarget}g prot</p>
+              </div>
+            </button>
+
+            {/* Water */}
+            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1.5 group">
+              <ProgressRing
+                progress={waterPct}
+                size={64}
+                strokeWidth={5}
+                color={waterPct >= 90 ? '#10b981' : '#06b6d4'}
+              >
+                <Droplets size={16} className="text-cyan-400" />
+              </ProgressRing>
+              <div className="text-center">
+                <p className="text-xs font-semibold text-white">{(waterConsumed / 1000).toFixed(1)}L</p>
+                <p className="text-[10px] text-neutral-500">/ {(waterTarget / 1000).toFixed(1)}L</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        {/* Weekly Workout Goal */}
+        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${weekGoalMet ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
+                <Dumbbell size={15} className={weekGoalMet ? 'text-emerald-400' : 'text-blue-400'} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">{t('dashboard.weeklyWorkouts')}</p>
+                <p className="text-[11px] text-neutral-500">
+                  {weekWorkoutsDone}/{trainingTarget} {t('dashboard.sessionsThisWeek')}
+                </p>
+              </div>
+            </div>
+            {weekGoalMet && (
+              <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
+                {t('dashboard.goalReached')}
+              </span>
+            )}
+          </div>
+
+          {/* Day dots */}
+          <div className="flex justify-between gap-1">
+            {DAY_LABELS.map((label, i) => {
+              const isDone = doneDays[i];
+              const isToday = i === todayIndex;
+              const isFuture = i > todayIndex;
+              return (
+                <div key={i} className="flex flex-col items-center gap-1 flex-1">
+                  <div className={`
+                    w-full aspect-square max-w-[36px] rounded-lg flex items-center justify-center text-[11px] font-semibold transition-all
+                    ${isDone
+                      ? weekGoalMet
+                        ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+                        : 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30'
+                      : isToday
+                      ? 'bg-neutral-800 text-white ring-1 ring-neutral-600'
+                      : isFuture
+                      ? 'bg-neutral-900/40 text-neutral-700'
+                      : 'bg-neutral-800/60 text-neutral-600'
+                    }
+                  `}>
+                    {isDone ? '✓' : label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Progress bar */}
+          <div className="mt-3 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-700"
+              style={{
+                width: `${Math.min(100, (weekWorkoutsDone / trainingTarget) * 100)}%`,
+                background: weekGoalMet
+                  ? 'linear-gradient(90deg, #10b981, #34d399)'
+                  : 'linear-gradient(90deg, #2563eb, #3b82f6)',
+              }}
             />
           </div>
-        ) : (
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-center py-12 animate-fade-in-up stagger-2">
-            <LayoutGrid className="mx-auto mb-3 text-neutral-600" size={32} />
-            <p className="text-neutral-400 mb-1">{t('dashboard.emptyTitle')}</p>
-            <p className="text-neutral-600 text-sm mb-4">{t('dashboard.emptySubtitle')}</p>
-            <button
-              onClick={() => setShowAdd(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white text-black rounded-full text-sm font-semibold hover:bg-neutral-100 active:scale-95 transition-all"
-            >
-              <Plus size={15} />
-              {t('dashboard.addWidget')}
-            </button>
-          </div>
-        )}
+        </div>
 
-        {/* Edit mode: add widget button */}
-        {editMode && (
-          <div className="mt-4 flex justify-center animate-fade-in-up">
-            <button
-              onClick={() => setShowAdd(true)}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-neutral-800 hover:bg-neutral-700 active:scale-95 transition-all text-sm text-white font-medium border border-neutral-700/50"
-            >
-              <Plus size={16} />
-              {t('dashboard.addWidget')}
-            </button>
-          </div>
-        )}
-
-        {/* Customize hint banner */}
-        {showHint && !editMode && widgets.length > 0 && (
-          <div className="mt-4 animate-fade-in-scale">
-            <div className="relative flex items-center gap-3 px-4 py-3 rounded-2xl bg-blue-600/8 border border-blue-500/20 overflow-hidden">
-              {/* Shimmer sweep */}
-              <div className="absolute inset-0 animate-hint-shimmer pointer-events-none" style={{ background: 'linear-gradient(90deg, transparent 0%, rgba(59,130,246,0.06) 50%, transparent 100%)' }} />
-              <div className="w-8 h-8 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
-                <Hand size={16} className="text-blue-400" />
+        {/* Next Workout (clickable) */}
+        {nextRoutine && (
+          <button
+            onClick={() => navigate('/workout/new', { state: { routineId: nextRoutine.id } })}
+            className="w-full bg-gradient-to-r from-blue-600/15 to-blue-500/5 border border-blue-500/20 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-3 text-left hover:border-blue-500/40 active:scale-[0.98] transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Play size={18} className="text-blue-400 ml-0.5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm text-blue-300 font-medium leading-tight">{t('dashboard.editModeHint')}</p>
-                <p className="text-xs text-neutral-500 mt-0.5">{t('dashboard.editModeHint2')}</p>
-              </div>
-              <button
-                onClick={dismissHint}
-                className="w-6 h-6 rounded-full bg-neutral-800/80 flex items-center justify-center shrink-0 hover:bg-neutral-700 transition-colors"
-              >
-                <X size={12} className="text-neutral-400" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </PageTransition>
-
-    {/* Add Widget sheet */}
-    {showAdd && (
-      <div className="fixed inset-0 z-50">
-        <div
-          className="absolute inset-0 bg-black/70 backdrop-blur-sm animate-modal-overlay"
-          onClick={() => setShowAdd(false)}
-        />
-        <div className="absolute inset-0 flex items-center justify-center px-4 pointer-events-none">
-          <div
-            ref={sheetRef}
-            className="pointer-events-auto w-full max-w-sm max-h-[78vh] bg-neutral-950 rounded-3xl border border-neutral-800/60 animate-modal-pop flex flex-col shadow-2xl"
-          >
-            <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-shrink-0">
-              <div>
-                <h2 className="text-white font-semibold text-base">{t('dashboard.addWidget')}</h2>
-                <p className="text-neutral-500 text-xs mt-0.5">{t('dashboard.personalizeTitle')}</p>
-              </div>
-              <button
-                onClick={() => setShowAdd(false)}
-                className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center hover:bg-neutral-700 active:scale-95 transition-all"
-              >
-                <X size={15} className="text-neutral-400" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto flex-1 px-4 pb-5 scrollbar-hide">
-              {!isPremium && (
-                <div className="flex items-center justify-between mb-3 px-1">
-                  <p className="text-xs text-neutral-500">
-                    {t('dashboard.widgetsUsed', { count: `${widgets.length}/${FREE_LIMITS.maxDashboardWidgets}` })}
+                <p className="text-xs text-blue-400 font-medium">{t('dashboard.nextWorkout')}</p>
+                <p className="text-sm font-semibold text-white truncate">{nextRoutine.name}</p>
+                {nextRoutine.exercises && (
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                    {nextRoutine.exercises.length} {t('dashboard.exercises')}
                   </p>
-                  <button
-                    onClick={() => openPaywall(t('dashboard.unlimitedWidgets'), t('dashboard.freeWidgetsLimitDesc', { max: FREE_LIMITS.maxDashboardWidgets }))}
-                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
-                  >
-                    <Crown size={10} /> Premium
-                  </button>
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3">
-                {WIDGET_CATALOG.map((wt, index) => {
-                  const alreadyAdded = alreadyAddedTypes.has(wt.type);
-                  const isLocked = !canUseWidgetType(wt.type);
-                  const Icon = wt.icon;
-                  return (
-                    <button
-                      key={wt.type}
-                      onClick={() => !alreadyAdded && addWidget(wt.type)}
-                      disabled={alreadyAdded}
-                      className={`relative text-left p-4 rounded-2xl border transition-all active:scale-95 animate-fade-in-scale
-                        ${alreadyAdded
-                          ? 'bg-neutral-900/40 border-neutral-800/40 opacity-50 cursor-not-allowed'
-                          : isLocked
-                            ? 'bg-neutral-900/60 border-amber-500/20 hover:border-amber-500/40 hover:bg-neutral-800/60'
-                            : 'bg-neutral-900 border-neutral-800/60 hover:border-neutral-700 hover:bg-neutral-800/80'
-                        }`}
-                      style={{ animationDelay: `${index * 40}ms` }}
-                    >
-                      <div className={`w-9 h-9 rounded-xl ${wt.bg} flex items-center justify-center mb-2.5 ${wt.color}`}>
-                        <Icon size={18} />
-                      </div>
-                      <p className="text-white font-medium text-sm leading-tight">{t(`dashboard.widgetCatalog.${wt.i18nKey}.label`)}</p>
-                      <p className="text-neutral-500 text-xs mt-0.5 leading-tight">{t(`dashboard.widgetCatalog.${wt.i18nKey}.description`)}</p>
-                      {alreadyAdded && (
-                        <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-neutral-700 flex items-center justify-center">
-                          <Check size={11} className="text-neutral-400" />
-                        </div>
-                      )}
-                      {isLocked && !alreadyAdded && (
-                        <div className="absolute top-3 right-3 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30">
-                          <Crown size={9} className="text-amber-400" />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
+                )}
               </div>
+              <ChevronRight size={18} className="text-blue-400/60 shrink-0" />
             </div>
+          </button>
+        )}
+
+        {/* Streak & Weight row */}
+        <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
+          {/* Streak */}
+          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Flame size={16} className={currentStreak > 0 ? 'text-orange-400' : 'text-neutral-600'} />
+              <span className="text-xs text-neutral-500">{t('dashboard.streak')}</span>
+            </div>
+            <div className="flex items-baseline gap-1">
+              <span className={`text-2xl font-bold ${currentStreak >= 7 ? 'text-orange-300' : currentStreak > 0 ? 'text-orange-400' : 'text-neutral-500'}`}>
+                {currentStreak}
+              </span>
+              <span className="text-xs text-neutral-500">{currentStreak !== 1 ? t('dashboard.days') : t('dashboard.day')}</span>
+            </div>
+            {longestStreak > 0 && (
+              <p className="text-[10px] text-neutral-600 mt-1">
+                {t('dashboard.bestStreak')}: {longestStreak}
+              </p>
+            )}
           </div>
+
+          {/* Weight */}
+          <button
+            onClick={() => navigate('/weight')}
+            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 transition-colors"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <Scale size={16} className="text-emerald-400" />
+              <span className="text-xs text-neutral-500">{t('dashboard.weight')}</span>
+            </div>
+            {latestWeight !== null ? (
+              <>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-2xl font-bold text-white">{latestWeight}</span>
+                  <span className="text-xs text-neutral-500">{weightUnit}</span>
+                </div>
+                {weightDelta !== null && weightDelta !== 0 && (
+                  <p className={`text-[10px] mt-1 font-medium ${weightDelta > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                    {weightDelta > 0 ? '+' : ''}{weightUnit === 'lbs' ? +(weightDelta * 2.20462).toFixed(1) : weightDelta} {weightUnit} {t('dashboard.thisWeek')}
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="text-xs text-neutral-500 mt-1">{t('dashboard.noWeightYet')}</p>
+            )}
+          </button>
+        </div>
+
+        {/* Quick actions */}
+        <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
+          <button
+            onClick={() => navigate('/stats')}
+            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
+          >
+            <Footprints size={18} className="text-blue-400 mb-2" />
+            <p className="text-sm font-medium text-white">{t('dashboard.viewStats')}</p>
+            <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.statsDesc')}</p>
+          </button>
+          <button
+            onClick={() => navigate('/exercise-progress')}
+            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
+          >
+            <TrendingUp size={18} className="text-emerald-400 mb-2" />
+            <p className="text-sm font-medium text-white">{t('dashboard.viewProgress')}</p>
+            <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.progressDesc')}</p>
+          </button>
         </div>
       </div>
-    )}
-    </>
+    </PageTransition>
   );
 }

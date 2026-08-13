@@ -1,17 +1,16 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, TrendingUp, TrendingDown, Minus, Flame, Dumbbell, Droplets, Scale, Crown } from 'lucide-react';
+import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, Award } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
-import { usePremium } from '../../hooks/usePremium';
-import { usePaywallStore } from '../../stores/paywallStore';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line, Area, AreaChart } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 
 type Period = 'week' | 'month' | '3months';
+type ChartTab = 'calories' | 'weight' | 'workouts';
 
 interface DayNutrition {
   date: string;
@@ -20,11 +19,6 @@ interface DayNutrition {
   carbs: number;
   fat: number;
   water_ml: number;
-}
-
-interface WorkoutStat {
-  date: string;
-  count: number;
 }
 
 interface WeightStat {
@@ -39,7 +33,6 @@ function getPeriodDates(period: Period): { start: string; end: string; days: num
   if (period === 'week') { start.setDate(end.getDate() - 6); days = 7; }
   else if (period === 'month') { start.setDate(end.getDate() - 29); days = 30; }
   else { start.setDate(end.getDate() - 89); days = 90; }
-
   const fmt = (d: Date) => d.toISOString().split('T')[0];
   return { start: fmt(start), end: fmt(end), days };
 }
@@ -55,49 +48,15 @@ function getPrevPeriodDates(period: Period): { start: string; end: string } {
   return { start: fmt(prevStart), end: fmt(prevEnd) };
 }
 
-function pctDelta(curr: number, prev: number): number | null {
-  if (prev === 0) return null;
-  return Math.round(((curr - prev) / prev) * 100);
-}
-
-function StatCard({
-  label,
-  value,
-  sub,
-  color,
-  icon: Icon,
-  trend,
-  insight,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  color: string;
-  icon: React.ElementType;
-  trend?: number | null;
-  insight?: string | null;
-}) {
+function TrendBadge({ value }: { value: number | null }) {
+  if (value === null || value === 0) return null;
+  const isUp = value > 0;
   return (
-    <Card>
-      <div className="flex items-start gap-3">
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${color}`}>
-          <Icon size={16} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-xs text-neutral-500">{label}</p>
-          <p className="text-xl font-bold text-white leading-tight">{value}</p>
-          {sub && <p className="text-xs text-neutral-500 mt-0.5">{sub}</p>}
-          {insight && <p className="text-[11px] text-neutral-500 mt-1 italic">{insight}</p>}
-        </div>
-        {trend !== null && trend !== undefined && (
-          <div className={`flex items-center gap-0.5 text-xs font-medium px-2 py-1 rounded-lg shrink-0
-            ${trend > 0 ? 'bg-emerald-500/10 text-emerald-400' : trend < 0 ? 'bg-rose-500/10 text-rose-400' : 'bg-neutral-800 text-neutral-500'}`}>
-            {trend > 0 ? <TrendingUp size={11} /> : trend < 0 ? <TrendingDown size={11} /> : <Minus size={11} />}
-            {Math.abs(trend)}%
-          </div>
-        )}
-      </div>
-    </Card>
+    <span className={`inline-flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-md
+      ${isUp ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}`}>
+      {isUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+      {Math.abs(value)}%
+    </span>
   );
 }
 
@@ -106,19 +65,19 @@ export default function StatsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { canUseStatsPeriod } = usePremium();
-  const { openPaywall } = usePaywallStore();
   const [period, setPeriod] = useState<Period>('week');
+  const [chartTab, setChartTab] = useState<ChartTab>('calories');
   const [nutrition, setNutrition] = useState<DayNutrition[]>([]);
-  const [workouts, setWorkouts] = useState<WorkoutStat[]>([]);
+  const [workoutDates, setWorkoutDates] = useState<string[]>([]);
   const [weights, setWeights] = useState<WeightStat[]>([]);
-  const [prevAvgCalories, setPrevAvgCalories] = useState<number>(0);
-  const [prevAvgProtein, setPrevAvgProtein] = useState<number>(0);
-  const [prevAvgWater, setPrevAvgWater] = useState<number>(0);
-  const [prevTotalWorkouts, setPrevTotalWorkouts] = useState<number>(0);
+  const [prevNutrition, setPrevNutrition] = useState<{ avgCalories: number; avgProtein: number; avgWater: number }>({ avgCalories: 0, avgProtein: 0, avgWater: 0 });
+  const [prevWorkoutCount, setPrevWorkoutCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
+
   const unit = profile?.unit_weight ?? 'kg';
+  const calorieTarget = profile?.daily_calorie_target ?? 2000;
+  const proteinTarget = profile?.protein_target ?? 150;
+  const waterTarget = profile?.daily_water_target_ml ?? 2500;
 
   const PERIODS: { value: Period; label: string }[] = [
     { value: 'week', label: t('stats.periods.week') },
@@ -132,19 +91,17 @@ export default function StatsPage() {
   useEffect(() => {
     if (!user) return;
     setLoading(true);
-    setLoadError(false);
 
     Promise.all([
       supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
       supabase.from('water_logs').select('logged_at, amount_ml').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
-      supabase.from('workouts').select('date').eq('user_id', user.id).gte('date', start).lte('date', end + 'T23:59:59'),
+      supabase.from('workouts').select('date').eq('user_id', user.id).eq('completed', true).gte('date', start).lte('date', end + 'T23:59:59'),
       supabase.from('weight_measurements').select('measured_at, weight_kg').eq('user_id', user.id).gte('measured_at', start).lte('measured_at', end).order('measured_at', { ascending: true }),
-      // Previous period
       supabase.from('nutrition_logs').select('logged_at, calories, protein').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
       supabase.from('water_logs').select('logged_at, amount_ml').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
-      supabase.from('workouts').select('date').eq('user_id', user.id).gte('date', prevStart).lte('date', prevEnd + 'T23:59:59'),
-    ]).then(([nutritionRes, waterRes, workoutsRes, weightRes, prevNutRes, prevWaterRes, prevWkRes]) => {
-      const nutritionLogs = (nutritionRes.data ?? []) as { logged_at: string; calories: number; protein: number; carbs: number; fat: number }[];
+      supabase.from('workouts').select('date').eq('user_id', user.id).eq('completed', true).gte('date', prevStart).lte('date', prevEnd + 'T23:59:59'),
+    ]).then(([nutRes, waterRes, wkRes, weightRes, prevNutRes, prevWaterRes, prevWkRes]) => {
+      const nutritionLogs = (nutRes.data ?? []) as { logged_at: string; calories: number; protein: number; carbs: number; fat: number }[];
       const waterLogs = (waterRes.data ?? []) as { logged_at: string; amount_ml: number }[];
 
       const byDate: Record<string, DayNutrition> = {};
@@ -163,292 +120,308 @@ export default function StatsPage() {
       }
       setNutrition(Object.values(byDate).sort((a, b) => a.date.localeCompare(b.date)));
 
-      const wkByDate: Record<string, number> = {};
-      for (const w of (workoutsRes.data ?? []) as { date: string }[]) {
-        const d = w.date.split('T')[0];
-        wkByDate[d] = (wkByDate[d] ?? 0) + 1;
-      }
-      setWorkouts(Object.entries(wkByDate).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)));
+      const wkDates = (wkRes.data ?? []).map((w: { date: string }) => w.date.split('T')[0]);
+      setWorkoutDates(wkDates);
 
       setWeights((weightRes.data ?? []).map((w: { measured_at: string; weight_kg: number }) => ({
         date: w.measured_at,
         weight: unit === 'lbs' ? +(w.weight_kg * 2.20462).toFixed(1) : +w.weight_kg.toFixed(1),
       })));
 
-      // Previous period aggregates
+      // Previous period
       const prevNutLogs = (prevNutRes.data ?? []) as { logged_at: string; calories: number; protein: number }[];
+      const prevWaterLogs = (prevWaterRes.data ?? []) as { logged_at: string; amount_ml: number }[];
       const prevNutByDate: Record<string, { calories: number; protein: number }> = {};
       for (const log of prevNutLogs) {
-        const d = log.logged_at;
-        if (!prevNutByDate[d]) prevNutByDate[d] = { calories: 0, protein: 0 };
-        prevNutByDate[d].calories += log.calories;
-        prevNutByDate[d].protein += log.protein;
+        if (!prevNutByDate[log.logged_at]) prevNutByDate[log.logged_at] = { calories: 0, protein: 0 };
+        prevNutByDate[log.logged_at].calories += log.calories;
+        prevNutByDate[log.logged_at].protein += log.protein;
       }
       const prevNutDays = Object.values(prevNutByDate);
-      setPrevAvgCalories(prevNutDays.length > 0 ? Math.round(prevNutDays.reduce((s, d) => s + d.calories, 0) / prevNutDays.length) : 0);
-      setPrevAvgProtein(prevNutDays.length > 0 ? Math.round(prevNutDays.reduce((s, d) => s + d.protein, 0) / prevNutDays.length) : 0);
-
-      const prevWaterLogs = (prevWaterRes.data ?? []) as { logged_at: string; amount_ml: number }[];
       const prevWaterByDate: Record<string, number> = {};
       for (const w of prevWaterLogs) {
         prevWaterByDate[w.logged_at] = (prevWaterByDate[w.logged_at] ?? 0) + w.amount_ml;
       }
       const prevWaterDays = Object.values(prevWaterByDate);
-      setPrevAvgWater(prevWaterDays.length > 0 ? Math.round(prevWaterDays.reduce((s, v) => s + v, 0) / prevWaterDays.length) : 0);
 
-      const prevWkCount = (prevWkRes.data ?? []).length;
-      setPrevTotalWorkouts(prevWkCount);
+      setPrevNutrition({
+        avgCalories: prevNutDays.length > 0 ? Math.round(prevNutDays.reduce((s, d) => s + d.calories, 0) / prevNutDays.length) : 0,
+        avgProtein: prevNutDays.length > 0 ? Math.round(prevNutDays.reduce((s, d) => s + d.protein, 0) / prevNutDays.length) : 0,
+        avgWater: prevWaterDays.length > 0 ? Math.round(prevWaterDays.reduce((s, v) => s + v, 0) / prevWaterDays.length) : 0,
+      });
+      setPrevWorkoutCount((prevWkRes.data ?? []).length);
 
       setLoading(false);
-    }).catch(() => {
-      setLoadError(true);
-      setLoading(false);
-    });
+    }).catch(() => setLoading(false));
   }, [user, start, end, prevStart, prevEnd, unit]);
 
-  const avgCalories = nutrition.length > 0
-    ? Math.round(nutrition.reduce((s, d) => s + d.calories, 0) / nutrition.length)
-    : 0;
-
-  const totalWorkouts = workouts.reduce((s, d) => s + d.count, 0);
-
-  const avgProtein = nutrition.length > 0
-    ? Math.round(nutrition.reduce((s, d) => s + d.protein, 0) / nutrition.length)
-    : 0;
-
-  const avgWater = nutrition.length > 0
-    ? Math.round(nutrition.reduce((s, d) => s + d.water_ml, 0) / nutrition.length)
-    : 0;
+  // Computed stats
+  const avgCalories = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.calories, 0) / nutrition.length) : 0;
+  const avgProtein = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.protein, 0) / nutrition.length) : 0;
+  const avgWater = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.water_ml, 0) / nutrition.length) : 0;
+  const totalWorkouts = workoutDates.length;
+  const uniqueWorkoutDays = new Set(workoutDates).size;
 
   const weightChange = weights.length >= 2
     ? +(weights[weights.length - 1].weight - weights[0].weight).toFixed(1)
     : null;
 
-  const calorieTarget = profile?.daily_calorie_target ?? 2000;
-  const proteinTarget = profile?.protein_target ?? 0;
-  const waterTarget = profile?.daily_water_target_ml ?? 2000;
+  // Deltas
+  const pctDelta = (curr: number, prev: number) => prev === 0 ? null : Math.round(((curr - prev) / prev) * 100);
+  const calorieDelta = pctDelta(avgCalories, prevNutrition.avgCalories);
+  const proteinDelta = pctDelta(avgProtein, prevNutrition.avgProtein);
+  const waterDelta = pctDelta(avgWater, prevNutrition.avgWater);
+  const workoutDelta = pctDelta(totalWorkouts, prevWorkoutCount);
 
-  // Period-over-period deltas (premium only)
-  const { isPremium } = usePremium();
-  const calorieDelta = isPremium ? pctDelta(avgCalories, prevAvgCalories) : null;
-  const proteinDelta = isPremium ? pctDelta(avgProtein, prevAvgProtein) : null;
-  const waterDelta = isPremium ? pctDelta(avgWater, prevAvgWater) : null;
-  const workoutDelta = isPremium ? pctDelta(totalWorkouts, prevTotalWorkouts) : null;
+  // Achievements / encouragements
+  const achievements: string[] = [];
+  const daysOnTarget = nutrition.filter(d => d.calories >= calorieTarget * 0.9 && d.calories <= calorieTarget * 1.1).length;
+  if (daysOnTarget >= 5) achievements.push(t('stats.achievements.caloriesOnTarget', { days: daysOnTarget }));
+  const proteinDaysHit = nutrition.filter(d => d.protein >= proteinTarget * 0.9).length;
+  if (proteinDaysHit >= 4) achievements.push(t('stats.achievements.proteinGoal', { days: proteinDaysHit }));
+  if (totalWorkouts >= 3) achievements.push(t('stats.achievements.consistentTraining', { count: totalWorkouts }));
+  if (weightChange !== null && weightChange < 0 && profile?.goal === 'lose') achievements.push(t('stats.achievements.weightLoss'));
+  if (weightChange !== null && weightChange > 0 && profile?.goal === 'gain') achievements.push(t('stats.achievements.weightGain'));
+  if (achievements.length === 0 && nutrition.length > 0) achievements.push(t('stats.achievements.keepGoing'));
 
-  function calorieInsight(): string | null {
-    if (!avgCalories || !calorieTarget) return null;
-    const diff = avgCalories - calorieTarget;
-    const pct = Math.abs(Math.round((diff / calorieTarget) * 100));
-    if (pct <= 5) return t('stats.rightOnTarget');
-    if (diff > 0) return t('stats.aboveTarget', { pct });
-    return t('stats.belowTarget', { pct });
-  }
-  function proteinInsight(): string | null {
-    if (!avgProtein || !proteinTarget) return null;
-    const diff = avgProtein - proteinTarget;
-    const pct = Math.abs(Math.round((diff / proteinTarget) * 100));
-    if (pct <= 5) return t('stats.rightOnTarget');
-    if (diff > 0) return t('stats.aboveTarget', { pct });
-    return t('stats.belowTarget', { pct });
-  }
-  function waterInsight(): string | null {
-    if (!avgWater || !waterTarget) return null;
-    const diff = avgWater - waterTarget;
-    const pct = Math.abs(Math.round((diff / waterTarget) * 100));
-    if (pct <= 10) return t('stats.rightOnTarget');
-    if (diff > 0) return t('stats.aboveTarget', { pct });
-    return t('stats.belowTarget', { pct });
-  }
-
-  const periodLabel = period === 'week' ? t('stats.periodLabels.thisWeek') : period === 'month' ? t('stats.periodLabels.thisMonth') : t('stats.periodLabels.last3Months');
-
+  // Chart data
   const calorieChartData = nutrition.map(d => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    calories: Math.round(d.calories),
+    date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    value: Math.round(d.calories),
     target: calorieTarget,
   }));
 
-  const macroChartData = nutrition.map(d => ({
-    date: new Date(d.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    protein: Math.round(d.protein),
-    carbs: Math.round(d.carbs),
-    fat: Math.round(d.fat),
+  const weightChartData = weights.map(w => ({
+    date: new Date(w.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    value: w.weight,
   }));
 
-  const weightChartData = weights.map(w => ({
-    date: new Date(w.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    weight: w.weight,
-  }));
+  const workoutByWeek = useMemo(() => {
+    const weeks: Record<string, number> = {};
+    for (const d of workoutDates) {
+      const date = new Date(d);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const key = weekStart.toISOString().split('T')[0];
+      weeks[key] = (weeks[key] ?? 0) + 1;
+    }
+    return Object.entries(weeks)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({
+        date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        value: count,
+      }));
+  }, [workoutDates]);
+
+  const CHART_TABS: { key: ChartTab; label: string }[] = [
+    { key: 'calories', label: t('stats.chartTabs.calories') },
+    { key: 'weight', label: t('stats.chartTabs.weight') },
+    { key: 'workouts', label: t('stats.chartTabs.workouts') },
+  ];
+
+  const activeChartData = chartTab === 'calories' ? calorieChartData : chartTab === 'weight' ? weightChartData : workoutByWeek;
+
+  // Natural language summary
+  function buildSummary(): string {
+    if (nutrition.length === 0 && totalWorkouts === 0) return t('stats.summaryEmpty');
+    const parts: string[] = [];
+    if (avgCalories > 0) {
+      const diff = Math.round(((avgCalories - calorieTarget) / calorieTarget) * 100);
+      if (Math.abs(diff) <= 5) parts.push(t('stats.summaryCaloriesOnTarget'));
+      else if (diff > 0) parts.push(t('stats.summaryCaloriesAbove', { pct: diff }));
+      else parts.push(t('stats.summaryCaloriesBelow', { pct: Math.abs(diff) }));
+    }
+    if (totalWorkouts > 0) parts.push(t('stats.summaryWorkouts', { count: totalWorkouts }));
+    return parts.join(' ');
+  }
 
   return (
     <PageTransition>
-    <div className="px-4 pt-6 pb-24">
-      <div className="flex items-center gap-3 mb-6 animate-fade-in-down">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <h1 className="text-2xl font-bold text-white flex-1">{t('stats.title')}</h1>
-      </div>
+      <div className="px-4 pt-6 pb-28">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-5 animate-fade-in-down">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-xl font-bold text-white flex-1">{t('stats.title')}</h1>
+        </div>
 
-      <div className="flex gap-1 bg-neutral-900 rounded-xl p-1 mb-6 animate-fade-in-scale">
-        {PERIODS.map(p => {
-          const locked = !canUseStatsPeriod(p.value);
-          return (
+        {/* Period selector */}
+        <div className="flex gap-1 bg-neutral-900 rounded-xl p-1 mb-5 animate-fade-in-scale">
+          {PERIODS.map(p => (
             <button
               key={p.value}
-              onClick={() => {
-                if (locked) {
-                  openPaywall(t('premium.features.advancedStats'), t('stats.premiumPeriodDesc'));
-                  return;
-                }
-                setPeriod(p.value);
-              }}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1
+              onClick={() => setPeriod(p.value)}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all
                 ${period === p.value ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
             >
               {p.label}
-              {locked && <Crown size={9} className="text-amber-400 shrink-0" />}
             </button>
-          );
-        })}
-      </div>
-
-      {loading ? (
-        <div className="text-center py-16 text-neutral-500">{t('common.loading')}</div>
-      ) : loadError ? (
-        <div className="text-center py-16 text-neutral-500">{t('common.tryAgain')}</div>
-      ) : (
-        <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-2">
-            <StatCard
-              label={t('stats.labels.avgCalories')}
-              value={`${avgCalories}`}
-              sub={`${t('stats.target')} ${calorieTarget}`}
-              color="bg-rose-500/20 text-rose-400"
-              icon={Flame}
-              trend={calorieDelta}
-              insight={calorieInsight()}
-            />
-            <StatCard
-              label={t('stats.labels.workouts')}
-              value={`${totalWorkouts}`}
-              sub={periodLabel}
-              color="bg-blue-500/20 text-blue-400"
-              icon={Dumbbell}
-              trend={workoutDelta}
-            />
-            <StatCard
-              label={t('stats.labels.avgProtein')}
-              value={`${avgProtein}g`}
-              sub={`${t('stats.target')} ${proteinTarget}g`}
-              color="bg-amber-500/20 text-amber-400"
-              icon={TrendingUp}
-              trend={proteinDelta}
-              insight={proteinInsight()}
-            />
-            <StatCard
-              label={t('stats.labels.avgWater')}
-              value={`${(avgWater / 1000).toFixed(1)}L`}
-              sub={`${t('stats.target')} ${(waterTarget / 1000).toFixed(1)}L`}
-              color="bg-sky-500/20 text-sky-400"
-              icon={Droplets}
-              trend={waterDelta}
-              insight={waterInsight()}
-            />
-          </div>
-
-          {weightChange !== null && (
-            <div className="animate-fade-in-up stagger-3">
-              <StatCard
-                label={t('stats.labels.weightChange')}
-                value={weightChange > 0 ? `+${weightChange} ${unit}` : `${weightChange} ${unit}`}
-                sub={`${weights[0]?.weight} → ${weights[weights.length - 1]?.weight} ${unit}`}
-                color="bg-emerald-500/20 text-emerald-400"
-                icon={Scale}
-                trend={null}
-              />
-            </div>
-          )}
-
-          {calorieChartData.length > 1 && (
-            <Card className="animate-fade-in-up stagger-3">
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('stats.charts.dailyCalories')}</h3>
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={calorieChartData} barSize={period === '3months' ? 4 : 12}>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
-                      interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                    <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={32} />
-                    <Tooltip
-                      contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }}
-                    />
-                    <Bar dataKey="calories" fill="#2563eb" radius={[3, 3, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          )}
-
-          {macroChartData.length > 1 && (
-            <Card className="animate-fade-in-up stagger-4">
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('stats.charts.macrosBreakdown')}</h3>
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={macroChartData} barSize={period === '3months' ? 3 : 8}>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
-                      interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                    <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={28} />
-                    <Tooltip
-                      contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }}
-                    />
-                    <Bar dataKey="protein" fill="#3b82f6" radius={[2, 2, 0, 0]} stackId="a" />
-                    <Bar dataKey="carbs" fill="#f59e0b" radius={[0, 0, 0, 0]} stackId="a" />
-                    <Bar dataKey="fat" fill="#f43f5e" radius={[0, 0, 2, 2]} stackId="a" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex items-center gap-4 mt-2">
-                <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                  <div className="w-2 h-2 rounded-full bg-blue-500" /> {t('stats.legend.protein')}
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                  <div className="w-2 h-2 rounded-full bg-amber-500" /> {t('stats.legend.carbs')}
-                </div>
-                <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
-                  <div className="w-2 h-2 rounded-full bg-rose-500" /> {t('stats.legend.fat')}
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {weightChartData.length > 1 && (
-            <Card className="animate-fade-in-up stagger-5">
-              <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('stats.charts.weightTrend', { unit })}</h3>
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weightChartData}>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
-                      interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                    <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
-                    <Tooltip
-                      contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }}
-                    />
-                    <Line type="monotone" dataKey="weight" stroke="#10b981" strokeWidth={2} dot={{ r: 3, fill: '#10b981' }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          )}
-
-          {nutrition.length === 0 && workouts.length === 0 && weights.length === 0 && (
-            <Card className="text-center py-12">
-              <TrendingUp className="mx-auto mb-3 text-neutral-600" size={32} />
-              <p className="text-neutral-400">{t('stats.charts.noData')}</p>
-            </Card>
-          )}
+          ))}
         </div>
-      )}
-    </div>
+
+        {loading ? (
+          <div className="text-center py-16 text-neutral-500">{t('common.loading')}</div>
+        ) : (
+          <div className="space-y-4">
+            {/* Summary card */}
+            <div className="bg-gradient-to-br from-blue-600/10 to-transparent border border-blue-500/15 rounded-2xl p-4 animate-fade-in-up">
+              <p className="text-sm text-neutral-300 leading-relaxed">{buildSummary()}</p>
+            </div>
+
+            {/* Key metrics grid */}
+            <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-2">
+              <Card>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center">
+                    <Flame size={14} className="text-orange-400" />
+                  </div>
+                  <TrendBadge value={calorieDelta} />
+                </div>
+                <p className="text-xl font-bold text-white">{avgCalories}</p>
+                <p className="text-[11px] text-neutral-500">{t('stats.labels.avgCalories')}</p>
+                <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {calorieTarget}</p>
+              </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                    <Dumbbell size={14} className="text-blue-400" />
+                  </div>
+                  <TrendBadge value={workoutDelta} />
+                </div>
+                <p className="text-xl font-bold text-white">{totalWorkouts}</p>
+                <p className="text-[11px] text-neutral-500">{t('stats.labels.workouts')}</p>
+                <p className="text-[10px] text-neutral-600 mt-0.5">{uniqueWorkoutDays} {t('stats.differentDays')}</p>
+              </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                    <TrendingUp size={14} className="text-amber-400" />
+                  </div>
+                  <TrendBadge value={proteinDelta} />
+                </div>
+                <p className="text-xl font-bold text-white">{avgProtein}g</p>
+                <p className="text-[11px] text-neutral-500">{t('stats.labels.avgProtein')}</p>
+                <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {proteinTarget}g</p>
+              </Card>
+
+              <Card>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+                    <Droplets size={14} className="text-cyan-400" />
+                  </div>
+                  <TrendBadge value={waterDelta} />
+                </div>
+                <p className="text-xl font-bold text-white">{(avgWater / 1000).toFixed(1)}L</p>
+                <p className="text-[11px] text-neutral-500">{t('stats.labels.avgWater')}</p>
+                <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {(waterTarget / 1000).toFixed(1)}L</p>
+              </Card>
+            </div>
+
+            {/* Weight change */}
+            {weightChange !== null && (
+              <Card className="animate-fade-in-up stagger-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center">
+                    <Scale size={16} className="text-emerald-400" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-neutral-500">{t('stats.labels.weightChange')}</p>
+                    <p className="text-lg font-bold text-white">
+                      {weightChange > 0 ? '+' : ''}{weightChange} {unit}
+                    </p>
+                  </div>
+                  <div className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg
+                    ${weightChange === 0 ? 'bg-neutral-800 text-neutral-400' :
+                      (weightChange < 0 && profile?.goal === 'lose') || (weightChange > 0 && profile?.goal === 'gain')
+                        ? 'bg-emerald-500/10 text-emerald-400' : 'bg-neutral-800 text-neutral-400'}`}>
+                    {weightChange > 0 ? <TrendingUp size={12} /> : weightChange < 0 ? <TrendingDown size={12} /> : <Minus size={12} />}
+                    {weights[0]?.weight} → {weights[weights.length - 1]?.weight}
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Chart section */}
+            {activeChartData.length > 1 && (
+              <Card className="animate-fade-in-up stagger-4">
+                <div className="flex gap-1 bg-neutral-800/50 rounded-lg p-0.5 mb-4">
+                  {CHART_TABS.map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setChartTab(tab.key)}
+                      className={`flex-1 py-1.5 rounded-md text-[11px] font-medium transition-all
+                        ${chartTab === tab.key ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="h-44">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {chartTab === 'calories' ? (
+                      <BarChart data={calorieChartData} barSize={period === '3months' ? 4 : period === 'month' ? 8 : 16}>
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
+                          interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
+                        <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={32} />
+                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
+                        <Bar dataKey="value" fill="#2563eb" radius={[3, 3, 0, 0]} />
+                      </BarChart>
+                    ) : chartTab === 'weight' ? (
+                      <AreaChart data={weightChartData}>
+                        <defs>
+                          <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
+                          interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
+                        <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
+                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
+                        <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#weightGrad)" dot={{ r: 3, fill: '#10b981' }} />
+                      </AreaChart>
+                    ) : (
+                      <BarChart data={workoutByWeek} barSize={24}>
+                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={20} allowDecimals={false} />
+                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
+                        <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            )}
+
+            {/* Achievements */}
+            {achievements.length > 0 && (
+              <div className="space-y-2 animate-fade-in-up stagger-5">
+                <div className="flex items-center gap-2 mb-1">
+                  <Award size={14} className="text-amber-400" />
+                  <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide">{t('stats.encouragements')}</h3>
+                </div>
+                {achievements.map((msg, i) => (
+                  <div key={i} className="flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3">
+                    <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                    <p className="text-sm text-neutral-300">{msg}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {nutrition.length === 0 && totalWorkouts === 0 && weights.length === 0 && (
+              <Card className="text-center py-12">
+                <TrendingUp className="mx-auto mb-3 text-neutral-600" size={32} />
+                <p className="text-neutral-400">{t('stats.charts.noData')}</p>
+              </Card>
+            )}
+          </div>
+        )}
+      </div>
     </PageTransition>
   );
 }
