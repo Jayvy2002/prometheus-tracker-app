@@ -9,17 +9,14 @@ import { toast } from '../ui/Toast';
 import PageTransition from '../ui/PageTransition';
 import RecipeForm from './RecipeForm';
 import FullPageLayout from '../layout/FullPageLayout';
-import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
-import { usePaywallStore } from '../../stores/paywallStore';
-import PremiumBadge from '../premium/PremiumBadge';
+
 
 export default function RecipesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { recipes, loading, fetchRecipes, deleteRecipe } = useRecipeStore();
-  const { canAddRecipe } = usePremium();
-  const { openPaywall } = usePaywallStore();
+
 
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<Recipe | null>(null);
@@ -83,16 +80,7 @@ export default function RecipesPage() {
           </button>
           <h1 className="text-2xl font-bold text-white flex-1">Recipes</h1>
           <button
-            onClick={() => {
-              if (!canAddRecipe(recipes.length)) {
-                openPaywall(
-                  'Recettes illimitées',
-                  `Le plan gratuit est limité à ${FREE_LIMITS.maxRecipes} recettes. Passez à Premium pour en créer autant que vous voulez.`,
-                );
-                return;
-              }
-              setShowNew(true);
-            }}
+            onClick={() => setShowNew(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
           >
             <Plus size={15} />
@@ -100,15 +88,6 @@ export default function RecipesPage() {
           </button>
         </div>
 
-        {!canAddRecipe(recipes.length) && recipes.length >= FREE_LIMITS.maxRecipes && (
-          <button
-            onClick={() => openPaywall('Recettes illimitées', `Vous avez atteint la limite de ${FREE_LIMITS.maxRecipes} recettes du plan gratuit.`)}
-            className="flex items-center gap-2 w-full mb-4 px-4 py-2.5 rounded-xl bg-amber-500/8 border border-amber-500/20 text-left hover:bg-amber-500/12 transition-colors"
-          >
-            <PremiumBadge variant="crown" size="sm" />
-            <p className="text-xs text-amber-300 flex-1">Limite de {FREE_LIMITS.maxRecipes} recettes atteinte — Passez à Premium</p>
-          </button>
-        )}
 
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
@@ -139,13 +118,7 @@ export default function RecipesPage() {
             )}
             {!search && (
               <button
-                onClick={() => {
-                  if (!canAddRecipe(recipes.length)) {
-                    openPaywall('Recettes illimitées', `Limite de ${FREE_LIMITS.maxRecipes} recettes atteinte.`);
-                    return;
-                  }
-                  setShowNew(true);
-                }}
+                onClick={() => setShowNew(true)}
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
               >
                 <Plus size={15} />

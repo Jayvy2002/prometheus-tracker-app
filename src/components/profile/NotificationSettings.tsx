@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Bell, Check, Crown } from 'lucide-react';
+import { Bell, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   getNotificationSettings,
@@ -9,8 +9,7 @@ import {
   syncNotificationSettingsToDB,
 } from '../../lib/notifications';
 import type { NotificationSettings as NS } from '../../lib/notifications';
-import { usePremium } from '../../hooks/usePremium';
-import { usePaywallStore } from '../../stores/paywallStore';
+
 import { useAuthStore } from '../../stores/authStore';
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
@@ -29,8 +28,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 export default function NotificationSettings() {
   const { t } = useTranslation();
   const supported = 'Notification' in window;
-  const { canUseNotifications } = usePremium();
-  const { openPaywall } = usePaywallStore();
+
   const { user } = useAuthStore();
   const [permission, setPermission] = useState<NotificationPermission>(
     supported ? Notification.permission : 'denied',
@@ -39,26 +37,7 @@ export default function NotificationSettings() {
   const [requesting, setRequesting] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  if (!canUseNotifications) {
-    return (
-      <button
-        onClick={() => openPaywall(t('profile.notifications.title'), t('profile.notifications.premiumDesc'))}
-        className="w-full flex items-center gap-3 p-3 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/12 transition-colors"
-      >
-        <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-          <Bell size={16} className="text-amber-400" />
-        </div>
-        <div className="flex-1 text-left">
-          <p className="text-sm font-medium text-white">{t('profile.notifications.title')}</p>
-          <p className="text-xs text-neutral-500 mt-0.5">{t('profile.notifications.premiumOnly')}</p>
-        </div>
-        <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/15 border border-amber-500/30">
-          <Crown size={10} className="text-amber-400" />
-          <span className="text-[10px] text-amber-400 font-semibold">Premium</span>
-        </div>
-      </button>
-    );
-  }
+
 
   const handleRequest = async () => {
     setRequesting(true);

@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Crown, Zap, ExternalLink, Shield, Globe, Inbox, Bug, Lightbulb } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe, Inbox, Bug, Lightbulb } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
-import { useSubscriptionStore } from '../../stores/subscriptionStore';
-import { usePaywallStore } from '../../stores/paywallStore';
+
 import { supabase } from '../../lib/supabase';
 import { setAppLanguage } from '../../i18n';
 import { toast } from '../ui/Toast';
@@ -65,56 +64,27 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { tier, status, currentPeriodEnd, cancelAtPeriodEnd, role } = useSubscriptionStore();
-  const { openPaywall } = usePaywallStore();
-  const isAdmin = role === 'admin';
-  const isPremium = isAdmin || (tier === 'premium' && (status === 'active' || status === 'trialing'));
+
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [portalLoading, setPortalLoading] = useState(false);
+
   const [feedbackItems, setFeedbackItems] = useState<{ id: string; type: string; title: string; description: string; created_at: string }[]>([]);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   useEffect(() => {
-    if (!isAdmin || !feedbackOpen) return;
+    if (!feedbackOpen) return;
     supabase
       .from('user_feedback')
       .select('id, type, title, description, created_at')
       .order('created_at', { ascending: false })
       .limit(50)
       .then(({ data }) => setFeedbackItems((data ?? []) as typeof feedbackItems));
-  }, [isAdmin, feedbackOpen]);
+  }, [feedbackOpen]);
 
-  const openBillingPortal = async () => {
-    setPortalLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { setPortalLoading(false); return; }
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-portal-session`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-        },
-      );
-      const json = await res.json();
-      if (json.url) {
-        window.location.href = json.url;
-      } else {
-        toast(t('premium.redirectError'), 'error');
-      }
-    } catch {
-      toast(t('premium.networkError'), 'error');
-    } finally {
-      setPortalLoading(false);
-    }
-  };
+
 
   const handleLanguageChange = async (lang: string) => {
     setAppLanguage(lang);
@@ -157,74 +127,7 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      {/* Subscription / role card */}
-      {isAdmin ? (
-        <div className="mb-4 animate-fade-in-scale">
-          <Card className="!p-0 overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-500/10 to-transparent px-4 py-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
-                <Shield size={16} className="text-indigo-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white">{t('profile.admin.label')}</p>
-                <p className="text-xs text-neutral-500">{t('profile.adminAccess')}</p>
-              </div>
-              <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 text-[10px] font-semibold tracking-wide uppercase">
-                {t('profile.admin.label')}
-              </span>
-            </div>
-          </Card>
-        </div>
-      ) : isPremium ? (
-        <div className="mb-4 animate-fade-in-scale">
-          <Card className="!p-0 overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-500/10 to-transparent px-4 py-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-                <Crown size={16} className="text-amber-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white">{t('profile.premium')}</p>
-                <p className="text-xs text-neutral-500 truncate">
-                  {cancelAtPeriodEnd && currentPeriodEnd
-                    ? t('profile.cancelledOn', { date: new Date(currentPeriodEnd).toLocaleDateString() })
-                    : currentPeriodEnd
-                      ? t('profile.cancelAtPeriodEnd', { date: new Date(currentPeriodEnd).toLocaleDateString() })
-                      : 'Active'}
-                </p>
-              </div>
-              <button
-                onClick={openBillingPortal}
-                disabled={portalLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-xs text-neutral-300 transition-colors disabled:opacity-60"
-              >
-                <ExternalLink size={11} />
-                {portalLoading ? '...' : t('common.manage')}
-              </button>
-            </div>
-          </Card>
-        </div>
-      ) : (
-        <button
-          onClick={() => openPaywall(t('profile.upgradeToPremium'), t('profile.unlockFeatures'))}
-          className="w-full mb-4 animate-fade-in-scale"
-        >
-          <Card className="!p-0 overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-500/8 to-transparent px-4 py-3 flex items-center gap-3 hover:from-amber-500/15 transition-all">
-              <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-                <Crown size={16} className="text-amber-400" />
-              </div>
-              <div className="flex-1 text-left">
-                <p className="text-sm font-semibold text-white">{t('profile.upgradeToPremium')}</p>
-                <p className="text-xs text-neutral-500">{t('profile.unlockFeatures')}</p>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-semibold">
-                <Zap size={11} fill="currentColor" />
-                Upgrade
-              </div>
-            </div>
-          </Card>
-        </button>
-      )}
+
 
       <div className="space-y-2 mb-6">
         <AccordionSection id="personal" icon={User} label={t('profile.sections.personalInfo')} isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">

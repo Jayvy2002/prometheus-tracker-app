@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp, Crown } from 'lucide-react';
+import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -8,8 +8,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { formatDate, formatDuration } from '../../lib/utils';
 import type { RoutineExercise } from '../../lib/types';
-import { usePremium, FREE_LIMITS } from '../../hooks/usePremium';
-import { usePaywallStore } from '../../stores/paywallStore';
+
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -21,8 +20,7 @@ export default function WorkoutPage() {
   const { user } = useAuthStore();
   const { workouts, loading, fetchWorkouts, fetchWorkout, deleteWorkout, createWorkout, addExercise, addSet, restoreExercise } = useWorkoutStore();
   const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
-  const { canViewWorkout, isPremium } = usePremium();
-  const { openPaywall } = usePaywallStore();
+
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -39,13 +37,10 @@ export default function WorkoutPage() {
   }, [user]);
 
   const filtered = workouts.filter(w => {
-    if (!canViewWorkout(w.date)) return false;
     if (filter === 'completed') return w.completed;
     if (filter === 'incomplete') return !w.completed;
     return true;
   });
-
-  const hiddenCount = workouts.filter(w => !canViewWorkout(w.date)).length;
 
   const displayed = filtered.slice(0, displayCount);
   const hasMore = filtered.length > displayCount;
@@ -285,17 +280,6 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {!isPremium && hiddenCount > 0 && (
-        <button
-          onClick={() => openPaywall('Historique illimité', `${hiddenCount} séance${hiddenCount > 1 ? 's' : ''} masquée${hiddenCount > 1 ? 's' : ''} car antérieure${hiddenCount > 1 ? 's' : ''} à ${FREE_LIMITS.workoutHistoryDays} jours. Passez à Premium pour accéder à tout votre historique.`)}
-          className="mt-3 w-full flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-500/8 border border-amber-500/20 hover:bg-amber-500/12 transition-colors"
-        >
-          <Crown size={14} className="text-amber-400 shrink-0" />
-          <p className="text-xs text-amber-300 flex-1 text-left">
-            {hiddenCount} {t('workout.hiddenSession')}{hiddenCount > 1 ? 's' : ''} — {t('workout.unlockFullHistory')}
-          </p>
-        </button>
-      )}
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('workout.deleteTitle')}>
         <p className="text-neutral-300 mb-6">
