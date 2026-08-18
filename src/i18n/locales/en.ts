@@ -291,6 +291,7 @@ const en = {
     restTimer: {
       title: 'Rest Timer',
       go: 'GO!',
+      customPlaceholder: 'sec',
     },
   },
 

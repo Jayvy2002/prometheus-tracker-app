@@ -30,8 +30,8 @@ function WorkoutFormInner() {
   const { getAllSetDrafts, getAllExerciseDrafts } = useDraftContext();
 
   const [showTimer, setShowTimer] = useState(false);
-  const [autoStartTimer, setAutoStartTimer] = useState(false);
-  const [timerOverrideDuration, setTimerOverrideDuration] = useState<number | null>(null);
+  const [, setAutoStartTimer] = useState(false);
+
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDate, setWorkoutDate] = useState('');
@@ -75,9 +75,7 @@ function WorkoutFormInner() {
     setShowExercisePicker(false);
   };
 
-  const handleStartRestTimer = (overrideDuration?: number) => {
-    setTimerOverrideDuration(overrideDuration ?? null);
-    setAutoStartTimer(true);
+  const handleStartRestTimer = () => {
     setShowTimer(true);
   };
 
@@ -285,9 +283,7 @@ function WorkoutFormInner() {
 
       <RestTimer
         open={showTimer}
-        autoStart={autoStartTimer}
-        overrideDuration={timerOverrideDuration}
-        onClose={() => { setShowTimer(false); setAutoStartTimer(false); setTimerOverrideDuration(null); }}
+        onClose={() => { setShowTimer(false); setAutoStartTimer(false); }}
       />
       <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />
     </div>

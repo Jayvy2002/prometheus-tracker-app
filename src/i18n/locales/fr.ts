@@ -291,6 +291,7 @@ const fr = {
     restTimer: {
       title: 'Minuteur de repos',
       go: 'GO !',
+      customPlaceholder: 'sec',
     },
   },
 

@@ -3,7 +3,14 @@ import { Play, Pause, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal';
 
-const PRESETS = [30, 60, 90, 120, 180];
+const PRESETS = [
+  { label: '30s', value: 30 },
+  { label: '45s', value: 45 },
+  { label: '1:00', value: 60 },
+  { label: '1:30', value: 90 },
+  { label: '2:00', value: 120 },
+  { label: '3:00', value: 180 },
+];
 
 function playBeep() {
   try {
@@ -40,28 +47,23 @@ function vibrate() {
 export default function RestTimer({
   open,
   onClose,
-  autoStart = false,
-  overrideDuration,
 }: {
   open: boolean;
   onClose: () => void;
-  autoStart?: boolean;
-  overrideDuration?: number | null;
 }) {
   const { t } = useTranslation();
   const [duration, setDuration] = useState(90);
   const [remaining, setRemaining] = useState(90);
   const [active, setActive] = useState(false);
+  const [customInput, setCustomInput] = useState('');
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const firedRef = useRef(false);
 
   useEffect(() => {
-    if (open && autoStart) {
-      const dur = overrideDuration ?? duration;
+    if (open) {
       firedRef.current = false;
-      setDuration(dur);
-      setRemaining(dur);
-      setActive(true);
+      setActive(false);
+      setRemaining(duration);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -95,6 +97,14 @@ export default function RestTimer({
     const d = dur ?? duration;
     setDuration(d);
     setRemaining(d);
+  };
+
+  const applyCustom = () => {
+    const parsed = parseInt(customInput, 10);
+    if (parsed > 0 && parsed <= 600) {
+      reset(parsed);
+      setCustomInput('');
+    }
   };
 
   const pct = (remaining / duration) * 100;
@@ -138,17 +148,40 @@ export default function RestTimer({
           </button>
         </div>
 
-        <div className="flex gap-2 justify-center">
+        {/* Presets */}
+        <div className="flex flex-wrap gap-2 justify-center mb-4">
           {PRESETS.map(p => (
             <button
-              key={p}
-              onClick={() => reset(p)}
+              key={p.value}
+              onClick={() => reset(p.value)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-transform active:scale-90
-                ${duration === p ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:text-white'}`}
+                ${duration === p.value ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:text-white'}`}
             >
-              {p}s
+              {p.label}
             </button>
           ))}
+        </div>
+
+        {/* Custom input */}
+        <div className="flex items-center justify-center gap-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={600}
+            value={customInput}
+            onChange={e => setCustomInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') applyCustom(); }}
+            placeholder={t('workout.restTimer.customPlaceholder')}
+            className="w-24 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white text-center focus:outline-none focus:border-blue-500"
+          />
+          <button
+            onClick={applyCustom}
+            disabled={!customInput || parseInt(customInput, 10) <= 0}
+            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-neutral-800 text-neutral-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            OK
+          </button>
         </div>
       </div>
     </Modal>

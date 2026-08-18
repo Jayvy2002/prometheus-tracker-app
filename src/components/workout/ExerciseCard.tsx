@@ -582,24 +582,8 @@ export default function ExerciseCard({
     }
   };
 
-  const handleSetComplete = (setType: SetType, restOverride?: number) => {
-    const typeConfig = SET_TYPES.find(t => t.value === setType);
-    if (!typeConfig) return;
-
-    switch (typeConfig.restBehavior) {
-      case 'none':
-        return;
-      case 'short':
-        onStartRestTimer(typeConfig.defaultRestSeconds);
-        return;
-      case 'custom':
-        onStartRestTimer(restOverride ?? typeConfig.defaultRestSeconds);
-        return;
-      case 'normal':
-      default:
-        onStartRestTimer(typeConfig.defaultRestSeconds);
-        return;
-    }
+  const handleSetComplete = (_setType: SetType, _restOverride?: number) => {
+    // Rest timer is now manual-only — user starts it via the timer button
   };
 
   const suggestion = getOverloadSuggestion(history);
