@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe, Inbox, Bug, Lightbulb } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -71,18 +71,9 @@ export default function ProfilePage() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [feedbackItems, setFeedbackItems] = useState<{ id: string; type: string; title: string; description: string; created_at: string }[]>([]);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
-  useEffect(() => {
-    if (!feedbackOpen) return;
-    supabase
-      .from('user_feedback')
-      .select('id, type, title, description, created_at')
-      .order('created_at', { ascending: false })
-      .limit(50)
-      .then(({ data }) => setFeedbackItems((data ?? []) as typeof feedbackItems));
-  }, [feedbackOpen]);
+
+
 
 
 
@@ -183,48 +174,7 @@ export default function ProfilePage() {
 
       </div>
 
-      {/* Feedback inbox */}
-      {(
-        <div className="mb-4 animate-fade-in-scale">
-          <Card className="!p-0 overflow-hidden">
-            <button
-              onClick={() => setFeedbackOpen(o => !o)}
-              className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
-            >
-              <div className="w-9 h-9 rounded-xl bg-indigo-500/15 flex items-center justify-center shrink-0">
-                <Inbox size={16} className="text-indigo-400" />
-              </div>
-              <span className="flex-1 text-sm font-medium text-white">{t('profile.admin.feedbackInbox')}</span>
-              <ChevronDown
-                size={16}
-                className={`text-neutral-500 transition-transform duration-200 ${feedbackOpen ? 'rotate-180' : ''}`}
-              />
-            </button>
-            {feedbackOpen && (
-              <div className="border-t border-neutral-800/60 divide-y divide-neutral-800/40 max-h-96 overflow-y-auto">
-                {feedbackItems.length === 0 ? (
-                  <p className="px-4 py-6 text-xs text-neutral-500 text-center">{t('profile.admin.noFeedback')}</p>
-                ) : feedbackItems.map(item => (
-                  <div key={item.id} className="px-4 py-3">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      {item.type === 'bug' ? (
-                        <Bug size={11} className="text-rose-400 shrink-0" />
-                      ) : (
-                        <Lightbulb size={11} className="text-amber-400 shrink-0" />
-                      )}
-                      <p className="text-xs font-medium text-white truncate">{item.title}</p>
-                      <span className="ml-auto text-[10px] text-neutral-600 shrink-0">
-                        {new Date(item.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-neutral-400 leading-snug line-clamp-2">{item.description}</p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </Card>
-        </div>
-      )}
+
 
       <Button variant="danger" onClick={handleSignOut} className="w-full animate-fade-in-up stagger-7">
         <LogOut size={16} /> {t('profile.signOut')}
