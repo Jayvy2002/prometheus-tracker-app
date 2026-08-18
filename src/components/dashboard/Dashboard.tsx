@@ -202,7 +202,7 @@ export default function Dashboard() {
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${proteinPct}%`, backgroundColor: '#f59e0b' }}
+                    style={{ width: `${proteinPct}%`, backgroundColor: '#38bdf8' }}
                   />
                 </div>
               </div>
@@ -216,7 +216,7 @@ export default function Dashboard() {
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${carbsPct}%`, backgroundColor: '#3b82f6' }}
+                    style={{ width: `${carbsPct}%`, backgroundColor: '#fbbf24' }}
                   />
                 </div>
               </div>
@@ -230,7 +230,7 @@ export default function Dashboard() {
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${fatPct}%`, backgroundColor: '#ec4899' }}
+                    style={{ width: `${fatPct}%`, backgroundColor: '#fb7185' }}
                   />
                 </div>
               </div>
@@ -247,7 +247,7 @@ export default function Dashboard() {
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${waterPct}%`, backgroundColor: '#06b6d4' }}
+                    style={{ width: `${waterPct}%`, backgroundColor: '#22d3ee' }}
                   />
                 </div>
               </div>
