@@ -183,8 +183,8 @@ export default function ProfilePage() {
 
       </div>
 
-      {/* Admin — feedback inbox */}
-      {isAdmin && (
+      {/* Feedback inbox */}
+      {(
         <div className="mb-4 animate-fade-in-scale">
           <Card className="!p-0 overflow-hidden">
             <button
