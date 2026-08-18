@@ -55,7 +55,8 @@ export default function RestTimer({
   const [duration, setDuration] = useState(90);
   const [remaining, setRemaining] = useState(90);
   const [active, setActive] = useState(false);
-  const [customInput, setCustomInput] = useState('');
+  const [inputMin, setInputMin] = useState('1');
+  const [inputSec, setInputSec] = useState('30');
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const firedRef = useRef(false);
 
@@ -64,6 +65,8 @@ export default function RestTimer({
       firedRef.current = false;
       setActive(false);
       setRemaining(duration);
+      setInputMin(String(Math.floor(duration / 60)));
+      setInputSec(String(duration % 60));
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -97,13 +100,16 @@ export default function RestTimer({
     const d = dur ?? duration;
     setDuration(d);
     setRemaining(d);
+    setInputMin(String(Math.floor(d / 60)));
+    setInputSec(String(d % 60));
   };
 
   const applyCustom = () => {
-    const parsed = parseInt(customInput, 10);
-    if (parsed > 0 && parsed <= 600) {
-      reset(parsed);
-      setCustomInput('');
+    const m = Math.max(0, parseInt(inputMin, 10) || 0);
+    const s = Math.max(0, Math.min(59, parseInt(inputSec, 10) || 0));
+    const total = m * 60 + s;
+    if (total > 0 && total <= 600) {
+      reset(total);
     }
   };
 
@@ -149,7 +155,7 @@ export default function RestTimer({
         </div>
 
         {/* Presets */}
-        <div className="flex flex-wrap gap-2 justify-center mb-4">
+        <div className="flex flex-wrap gap-2 justify-center mb-5">
           {PRESETS.map(p => (
             <button
               key={p.value}
@@ -162,26 +168,36 @@ export default function RestTimer({
           ))}
         </div>
 
-        {/* Custom input */}
-        <div className="flex items-center justify-center gap-2">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={1}
-            max={600}
-            value={customInput}
-            onChange={e => setCustomInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') applyCustom(); }}
-            placeholder={t('workout.restTimer.customPlaceholder')}
-            className="w-24 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-1.5 text-xs text-white text-center focus:outline-none focus:border-blue-500"
-          />
-          <button
-            onClick={applyCustom}
-            disabled={!customInput || parseInt(customInput, 10) <= 0}
-            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-neutral-800 text-neutral-300 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            OK
-          </button>
+        {/* Minutes:Seconds picker */}
+        <div className="flex items-center justify-center gap-1">
+          <div className="flex flex-col items-center">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={10}
+              value={inputMin}
+              onChange={e => setInputMin(e.target.value)}
+              onBlur={applyCustom}
+              className="w-14 h-12 bg-neutral-900 border border-neutral-800 rounded-xl text-center text-lg font-mono text-white focus:outline-none focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <span className="text-[10px] text-neutral-500 mt-1">min</span>
+          </div>
+          <span className="text-xl font-bold text-neutral-500 mb-4">:</span>
+          <div className="flex flex-col items-center">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={0}
+              max={59}
+              value={inputSec}
+              onChange={e => setInputSec(e.target.value)}
+              onBlur={applyCustom}
+              onKeyDown={e => { if (e.key === 'Enter') applyCustom(); }}
+              className="w-14 h-12 bg-neutral-900 border border-neutral-800 rounded-xl text-center text-lg font-mono text-white focus:outline-none focus:border-blue-500 appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            />
+            <span className="text-[10px] text-neutral-500 mt-1">sec</span>
+          </div>
         </div>
       </div>
     </Modal>
