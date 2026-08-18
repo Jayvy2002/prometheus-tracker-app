@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import FullPageLayout from '../layout/FullPageLayout';
 import { ArrowLeft, Plus, Check, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -15,13 +15,16 @@ import ExercisePicker from './ExercisePicker';
 import DateInput from '../ui/DateInput';
 import { WorkoutDraftProvider, useDraftContext } from './WorkoutDraftContext';
 import WorkoutSummaryScreen from './WorkoutSummaryScreen';
+import { useRoutineStore } from '../../stores/routineStore';
 import type { Workout } from '../../lib/types';
 
 function WorkoutFormInner() {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const location = window.location.pathname;
+  const routineId = (routerLocation.state as { routineId?: string } | null)?.routineId;
   const { user } = useAuthStore();
   const {
     currentWorkout, fetchWorkout, createWorkout, updateWorkout,
@@ -40,6 +43,8 @@ function WorkoutFormInner() {
   const [summaryDuration, setSummaryDuration] = useState(0);
   const [initError, setInitError] = useState(false);
   const createdRef = useRef(false);
+  const routineAppliedRef = useRef(false);
+  const { fetchRoutineWithExercises } = useRoutineStore();
   const isNew = !id || location.endsWith('/new');
 
   useEffect(() => {
@@ -50,7 +55,7 @@ function WorkoutFormInner() {
       createdRef.current = true;
       const now = new Date();
       const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`;
-      createWorkout({ user_id: user.id, name: '', date: localDate })
+      createWorkout({ user_id: user.id, name: '', date: localDate, routine_id: routineId || undefined })
         .then((workoutId) => {
           if (!workoutId) setInitError(true);
         })
@@ -60,6 +65,22 @@ function WorkoutFormInner() {
     }
 
   }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!currentWorkout || !routineId || routineAppliedRef.current) return;
+    routineAppliedRef.current = true;
+
+    fetchRoutineWithExercises(routineId).then(async (routine) => {
+      if (!routine?.exercises?.length) return;
+      if (routine.name) {
+        setWorkoutName(routine.name);
+        await updateWorkout(currentWorkout.id, { name: routine.name });
+      }
+      for (const ex of routine.exercises) {
+        await addExercise(currentWorkout.id, ex.name, ex.order_index);
+      }
+    });
+  }, [currentWorkout?.id, routineId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (currentWorkout) {
