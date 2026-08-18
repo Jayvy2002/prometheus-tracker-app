@@ -37,10 +37,8 @@ export const useRoutineStore = create<RoutineState>((set) => ({
       .maybeSingle();
     if (data) {
       const routine = data as Routine;
-      if (routine.exercises) {
-        routine.exercises = (routine as unknown as { routine_exercises: RoutineExercise[] }).routine_exercises
-          ?.sort((a, b) => a.order_index - b.order_index) ?? [];
-      }
+      routine.exercises = (data as unknown as { routine_exercises: RoutineExercise[] }).routine_exercises
+        ?.sort((a, b) => a.order_index - b.order_index) ?? [];
       return routine;
     }
     return null;
