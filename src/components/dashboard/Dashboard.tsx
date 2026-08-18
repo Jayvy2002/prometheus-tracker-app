@@ -68,6 +68,14 @@ export default function Dashboard() {
   const proteinConsumed = logs.reduce((sum, l) => sum + l.protein, 0);
   const proteinPct = Math.min(100, (proteinConsumed / proteinTarget) * 100);
 
+  const carbsTarget = profile?.carbs_target ?? 250;
+  const carbsConsumed = logs.reduce((sum, l) => sum + (l.carbs ?? 0), 0);
+  const carbsPct = Math.min(100, (carbsConsumed / carbsTarget) * 100);
+
+  const fatTarget = profile?.fat_target ?? 70;
+  const fatConsumed = logs.reduce((sum, l) => sum + (l.fat ?? 0), 0);
+  const fatPct = Math.min(100, (fatConsumed / fatTarget) * 100);
+
   // Weekly workout goal
   const weekDates = getWeekDates();
   const todayIndex = weekDates.indexOf(todayStr());
@@ -168,54 +176,82 @@ export default function Dashboard() {
             </button>
           </div>
 
-          <div className="flex items-center justify-around">
-            {/* Calories */}
-            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1.5 group">
+          <div className="flex items-start gap-5">
+            {/* Calorie ring — larger, central */}
+            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1 flex-shrink-0">
               <ProgressRing
                 progress={caloriePct}
-                size={64}
-                strokeWidth={5}
+                size={80}
+                strokeWidth={6}
                 color={caloriePct >= 95 && caloriePct <= 105 ? '#10b981' : caloriePct > 105 ? '#f43f5e' : '#2563eb'}
               >
-                <Flame size={16} className="text-orange-400" />
+                <Flame size={20} className="text-orange-400" />
               </ProgressRing>
-              <div className="text-center">
-                <p className="text-xs font-semibold text-white">{Math.round(consumed)}</p>
-                <p className="text-[10px] text-neutral-500">/ {calorieTarget} cal</p>
-              </div>
+              <p className="text-sm font-bold text-white mt-1">{Math.round(consumed)}</p>
+              <p className="text-[10px] text-neutral-500">/ {calorieTarget} kcal</p>
             </button>
 
-            {/* Protein */}
-            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1.5 group">
-              <ProgressRing
-                progress={proteinPct}
-                size={64}
-                strokeWidth={5}
-                color={proteinPct >= 90 ? '#10b981' : '#f59e0b'}
-              >
-                <TrendingUp size={16} className="text-amber-400" />
-              </ProgressRing>
-              <div className="text-center">
-                <p className="text-xs font-semibold text-white">{Math.round(proteinConsumed)}g</p>
-                <p className="text-[10px] text-neutral-500">/ {proteinTarget}g prot</p>
+            {/* Macros + Water */}
+            <div className="flex-1 space-y-3 pt-1">
+              {/* Protein */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-neutral-300">{t('common.protein')}</span>
+                  <span className="text-[11px] text-neutral-400">{Math.round(proteinConsumed)}g / {proteinTarget}g</span>
+                </div>
+                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${proteinPct}%`, backgroundColor: '#f59e0b' }}
+                  />
+                </div>
               </div>
-            </button>
 
-            {/* Water */}
-            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1.5 group">
-              <ProgressRing
-                progress={waterPct}
-                size={64}
-                strokeWidth={5}
-                color={waterPct >= 90 ? '#10b981' : '#06b6d4'}
-              >
-                <Droplets size={16} className="text-cyan-400" />
-              </ProgressRing>
-              <div className="text-center">
-                <p className="text-xs font-semibold text-white">{(waterConsumed / 1000).toFixed(1)}L</p>
-                <p className="text-[10px] text-neutral-500">/ {(waterTarget / 1000).toFixed(1)}L</p>
+              {/* Carbs */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-neutral-300">{t('common.carbs')}</span>
+                  <span className="text-[11px] text-neutral-400">{Math.round(carbsConsumed)}g / {carbsTarget}g</span>
+                </div>
+                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${carbsPct}%`, backgroundColor: '#3b82f6' }}
+                  />
+                </div>
               </div>
-            </button>
+
+              {/* Fat */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-neutral-300">{t('common.fat')}</span>
+                  <span className="text-[11px] text-neutral-400">{Math.round(fatConsumed)}g / {fatTarget}g</span>
+                </div>
+                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${fatPct}%`, backgroundColor: '#ec4899' }}
+                  />
+                </div>
+              </div>
+
+              {/* Water */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-neutral-300 flex items-center gap-1">
+                    <Droplets size={10} className="text-cyan-400" />
+                    Eau
+                  </span>
+                  <span className="text-[11px] text-neutral-400">{(waterConsumed / 1000).toFixed(1)}L / {(waterTarget / 1000).toFixed(1)}L</span>
+                </div>
+                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${waterPct}%`, backgroundColor: '#06b6d4' }}
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
