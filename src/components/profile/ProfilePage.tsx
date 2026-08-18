@@ -95,6 +95,8 @@ export default function ProfilePage() {
     if (error) {
       setDeleteError(error);
       setDeleting(false);
+    } else {
+      navigate('/auth');
     }
   };
 
