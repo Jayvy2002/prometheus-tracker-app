@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery } from 'lucide-react';
@@ -34,9 +34,10 @@ export default function Dashboard() {
   const { profile } = useProfileStore();
   const { logs, waterLogs, fetchLogs, fetchWaterLogs } = useNutritionStore();
   const { measurements, fetchMeasurements } = useWeightStore();
-  const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { workouts, fetchWorkouts, createWorkout, addExercise, addSet, deleteWorkout } = useWorkoutStore();
   const { streak, fetchStreak } = useStreakStore();
-  const { routines, fetchRoutines } = useRoutineStore();
+  const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
+  const [startingRoutine, setStartingRoutine] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -284,7 +285,38 @@ export default function Dashboard() {
         {/* Next Workout (clickable) */}
         {nextRoutine && (
           <button
-            onClick={() => navigate('/workout/new', { state: { routineId: nextRoutine.id } })}
+            disabled={startingRoutine}
+            onClick={async () => {
+              if (!user || startingRoutine) return;
+              setStartingRoutine(true);
+              let workoutId: string | null = null;
+              try {
+                const routine = await fetchRoutineWithExercises(nextRoutine.id);
+                if (!routine) return;
+                const exercises = (routine as unknown as { routine_exercises?: import('../../lib/types').RoutineExercise[] }).routine_exercises ?? routine.exercises ?? [];
+                const now = new Date();
+                workoutId = await createWorkout({
+                  user_id: user.id,
+                  name: routine.name,
+                  date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`,
+                  routine_id: nextRoutine.id,
+                });
+                if (!workoutId) return;
+                for (const ex of exercises) {
+                  const addedEx = await addExercise(workoutId, ex.name, ex.order_index);
+                  if (addedEx) {
+                    for (let i = 0; i < ex.default_sets; i++) {
+                      await addSet(addedEx.id, i);
+                    }
+                  }
+                }
+                navigate(`/workout/${workoutId}`);
+              } catch {
+                if (workoutId) await deleteWorkout(workoutId);
+              } finally {
+                setStartingRoutine(false);
+              }
+            }}
             className="w-full bg-gradient-to-r from-blue-600/15 to-blue-500/5 border border-blue-500/20 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-3 text-left hover:border-blue-500/40 active:scale-[0.98] transition-all"
           >
             <div className="flex items-center gap-3">
