@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -38,6 +38,11 @@ export default function Dashboard() {
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const [startingRoutine, setStartingRoutine] = useState(false);
+  const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
+
+  const dismissReminder = (key: string) => {
+    setDismissedReminders(prev => [...prev, key]);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -162,6 +167,64 @@ export default function Dashboard() {
             <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
           </div>
         </div>
+
+        {/* Notification Reminders */}
+        {(showWeightReminder || showMealReminder || showWaterReminder || showDeloadSuggestion) && (
+          <div className="space-y-2 mb-4 animate-fade-in-down" style={{ animationDelay: '100ms' }}>
+            {showDeloadSuggestion && !dismissedReminders.includes('deload') && (
+              <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+                  <Battery size={14} className="text-amber-400" />
+                </div>
+                <button onClick={() => navigate('/workout')} className="flex-1 text-left">
+                  <p className="text-xs font-medium text-amber-200/90 leading-snug">{t('dashboard.reminders.deload')}</p>
+                </button>
+                <button onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {showWeightReminder && !dismissedReminders.includes('weight') && (
+              <div className="flex items-center gap-3 bg-blue-500/8 border border-blue-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
+                <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+                  <Scale size={14} className="text-blue-400" />
+                </div>
+                <button onClick={() => navigate('/weight')} className="flex-1 text-left">
+                  <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn })}</p>
+                </button>
+                <button onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {showMealReminder && !dismissedReminders.includes('meal') && (
+              <div className="flex items-center gap-3 bg-orange-500/8 border border-orange-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
+                <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
+                  <AlertCircle size={14} className="text-orange-400" />
+                </div>
+                <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
+                  <p className="text-xs font-medium text-orange-200/80 leading-snug">{t('dashboard.reminders.meal')}</p>
+                </button>
+                <button onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+            {showWaterReminder && !dismissedReminders.includes('water') && (
+              <div className="flex items-center gap-3 bg-cyan-500/8 border border-cyan-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
+                  <Droplets size={14} className="text-cyan-400" />
+                </div>
+                <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
+                  <p className="text-xs font-medium text-cyan-200/80 leading-snug">{t('dashboard.reminders.water')}</p>
+                </button>
+                <button onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Daily Progress Section */}
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
@@ -421,47 +484,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Reminders */}
-        {(showWeightReminder || showMealReminder || showWaterReminder || showDeloadSuggestion) && (
-          <div className="space-y-2 mb-4 animate-fade-in-up stagger-5">
-            {showDeloadSuggestion && (
-              <button
-                onClick={() => navigate('/workout')}
-                className="w-full flex items-center gap-3 bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 text-left hover:border-amber-500/40 transition-colors"
-              >
-                <Battery size={16} className="text-amber-400 shrink-0" />
-                <p className="text-xs text-amber-200/80 flex-1">{t('dashboard.reminders.deload')}</p>
-              </button>
-            )}
-            {showWeightReminder && (
-              <button
-                onClick={() => navigate('/weight')}
-                className="w-full flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3 text-left hover:border-neutral-700 transition-colors"
-              >
-                <AlertCircle size={14} className="text-neutral-500 shrink-0" />
-                <p className="text-xs text-neutral-400 flex-1">{t('dashboard.reminders.weight', { days: daysSinceWeighIn })}</p>
-              </button>
-            )}
-            {showMealReminder && (
-              <button
-                onClick={() => navigate('/nutrition')}
-                className="w-full flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3 text-left hover:border-neutral-700 transition-colors"
-              >
-                <AlertCircle size={14} className="text-neutral-500 shrink-0" />
-                <p className="text-xs text-neutral-400 flex-1">{t('dashboard.reminders.meal')}</p>
-              </button>
-            )}
-            {showWaterReminder && (
-              <button
-                onClick={() => navigate('/nutrition')}
-                className="w-full flex items-center gap-3 bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-4 py-3 text-left hover:border-neutral-700 transition-colors"
-              >
-                <AlertCircle size={14} className="text-neutral-500 shrink-0" />
-                <p className="text-xs text-neutral-400 flex-1">{t('dashboard.reminders.water')}</p>
-              </button>
-            )}
-          </div>
-        )}
+
 
         {/* Quick actions */}
         <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
