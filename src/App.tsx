@@ -22,8 +22,8 @@ import RecipesPage from './components/nutrition/RecipesPage';
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized } = useAuthStore();
-  const { profile, loading: profileLoading, fetchProfile, clearProfile } = useProfileStore();
-  const { i18n } = useTranslation();
+  const { profile, loading: profileLoading, fetchError, fetchProfile, clearProfile } = useProfileStore();
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     if (user) {
@@ -31,13 +31,13 @@ function AppRoutes() {
     } else if (initialized) {
       clearProfile();
     }
-  }, [user, initialized]);
+  }, [user, initialized, fetchProfile, clearProfile]);
 
   useEffect(() => {
     if (profile?.language) {
       i18n.changeLanguage(profile.language);
     }
-  }, [profile?.language]);
+  }, [profile?.language, i18n]);
 
   if (authLoading || !initialized) {
     return (
@@ -55,6 +55,20 @@ function AppRoutes() {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (fetchError && !profile) {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 gap-4">
+        <p className="text-sm text-neutral-300 text-center max-w-sm">{t('errors.loadProfile')}</p>
+        <button
+          onClick={() => fetchProfile(user.id)}
+          className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-500"
+        >
+          {t('errors.retry')}
+        </button>
       </div>
     );
   }
@@ -92,7 +106,7 @@ export default function App() {
 
   useEffect(() => {
     initialize();
-  }, []);
+  }, [initialize]);
 
   return (
     <BrowserRouter>

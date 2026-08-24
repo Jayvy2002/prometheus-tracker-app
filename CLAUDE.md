@@ -55,16 +55,15 @@ src/
 │   ├── ui/                    # Composants génériques : Button, Input, Card, Modal, Toast…
 │   ├── auth/                  # AuthPage (login / signup)
 │   ├── onboarding/            # OnboardingFlow (setup initial)
-│   ├── dashboard/             # Dashboard, DashboardGrid, WidgetCard + /widgets/
+│   ├── dashboard/             # Dashboard (vue unique, plus de widgets)
 │   ├── workout/               # WorkoutPage, WorkoutForm, ExercisePicker, RestTimer…
 │   ├── nutrition/             # NutritionPage, FoodForm, RecipesPage, WaterTracker…
-│   ├── scanner/               # ScannerPage (BarcodeDetection API), CreateProductForm
+│   ├── scanner/               # ScannerPage (BarcodeDetection API + UnifiedScanner)
 │   ├── weight/                # WeightPage
 │   ├── routines/              # RoutinesPage, RoutineForm
 │   ├── profile/               # ProfilePage, GoalsForm, UnitsForm, AvatarUpload…
 │   ├── stats/                 # StatsPage (analytics)
 │   ├── calendar/              # CalendarPage
-│   ├── health/                # HealthIntegrations (Apple Health, Garmin, Fitbit…)
 │   └── ErrorBoundary.tsx
 │
 ├── stores/                    # Zustand stores (un fichier par domaine)
@@ -76,28 +75,33 @@ src/
 │   ├── recipeStore.ts         # Recettes sauvegardées
 │   ├── routineStore.ts        # Templates de routines
 │   ├── weightStore.ts         # Mesures de poids
-│   └── streakStore.ts         # Suivi des streaks
+│   ├── streakStore.ts         # Suivi des streaks
+│   └── preferencesStore.ts    # Préférences locales (ex. affichage RIR)
+│
+├── i18n/                      # i18next — locales en / fr
 │
 ├── lib/
 │   ├── supabase.ts            # Client Supabase (lit VITE_SUPABASE_URL/ANON_KEY)
 │   ├── types.ts               # Tous les types/interfaces TypeScript (source de vérité)
-│   ├── utils.ts               # Fonctions pures : BMR, TDEE, macros, conversions unités
+│   ├── utils.ts               # BMR, TDEE, macros, dates locales, conversions unités
 │   ├── constants.ts           # Constantes de l'app (niveaux d'activité, objectifs…)
 │   ├── barcodeScanner.ts      # Intégration BarcodeDetection API
 │   ├── notifications.ts       # Notifications push
-│   ├── offlineCache.ts        # Cache offline LocalStorage
-│   └── gridLayout.ts          # Logique de layout du dashboard
+│   └── offlineCache.ts        # Cache offline LocalStorage
 │
 public/
 ├── manifest.json              # Config PWA
 └── sw.js                      # Service Worker (cache offline)
 │
 supabase/
-├── migrations/                # 15 migrations SQL Supabase (source de vérité DB)
+├── migrations/                # Migrations SQL Supabase (source de vérité DB)
 └── functions/
-    ├── analyze-product/       # Edge Function : analyse produit barcode par IA
-    ├── delete-account/        # Edge Function : suppression compte + données
-    └── verify-exercise/       # Edge Function : vérification exercice par IA
+    ├── analyze-product/       # IA : analyse produit (images / barcode)
+    ├── verify-exercise/       # IA : validation d'un exercice
+    ├── delete-account/        # Suppression compte + données
+    ├── send-daily-reminders/  # Web Push via VAPID
+    └── create-checkout-session, create-portal-session, stripe-webhook
+                               # Legacy Stripe — plus appelées côté client (paywall retiré)
 ```
 
 ### Routes principales (React Router)
@@ -119,7 +123,8 @@ supabase/
 | `/stats` | StatsPage | Auth requis |
 | `/calendar` | CalendarPage | Auth requis |
 | `/exercise-progress` | ExerciseProgressPage | Auth requis |
-| `/health` | HealthIntegrations | Auth requis |
+
+Les routes `/auth` et `/onboarding` sont rendues conditionnellement dans `App.tsx` (pas de path dédié). Il n'y a pas de page `/health`.
 
 ---
 

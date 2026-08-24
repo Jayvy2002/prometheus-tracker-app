@@ -733,6 +733,7 @@ const en = {
   errors: {
     renderError: 'Rendering error',
     retry: 'Retry',
+    loadProfile: 'Unable to load your profile. Check your connection and try again.',
   },
 
   premium: {

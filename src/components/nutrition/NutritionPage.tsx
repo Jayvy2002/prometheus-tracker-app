@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
-import { todayStr } from '../../lib/utils';
+import { todayStr, addDaysToDateStr } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 import { toast } from '../ui/Toast';
 import { MEAL_CATEGORIES } from '../../lib/constants';
@@ -58,13 +58,11 @@ export default function NutritionPage() {
   const pct = Math.min(100, (totalCals / target) * 100);
 
   const shiftDate = (days: number) => {
-    const d = new Date(selectedDate);
-    d.setDate(d.getDate() + days);
-    setSelectedDate(d.toISOString().split('T')[0]);
+    setSelectedDate(addDaysToDateStr(selectedDate, days));
   };
 
   const isToday = selectedDate === todayStr();
-  const dateLabel = isToday ? t('common.today') : new Date(selectedDate).toLocaleDateString('en-US', {
+  const dateLabel = isToday ? t('common.today') : new Date(selectedDate + 'T12:00:00').toLocaleDateString(undefined, {
     weekday: 'short', month: 'short', day: 'numeric',
   });
 
@@ -85,9 +83,7 @@ export default function NutritionPage() {
 
   const handleReuseCategory = async (category: string) => {
     if (!user) return;
-    const prev = new Date(selectedDate);
-    prev.setDate(prev.getDate() - 1);
-    const prevStr = prev.toISOString().split('T')[0];
+    const prevStr = addDaysToDateStr(selectedDate, -1);
 
     const { data } = await supabase
       .from('nutrition_logs')

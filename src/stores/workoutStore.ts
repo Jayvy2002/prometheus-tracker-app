@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
+import { parseDate, toLocalDateStr } from '../lib/utils';
+import { useStreakStore } from './streakStore';
 
 interface PreviousSet {
   weight_kg: number;
@@ -129,6 +131,17 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     set(s => ({
       workouts: s.workouts.map(w => w.id === id ? { ...w, ...updates } : w),
     }));
+    if (updates.completed) {
+      const workout = get().currentWorkout?.id === id
+        ? { ...get().currentWorkout, ...updates }
+        : get().workouts.find(w => w.id === id);
+      if (workout?.user_id && workout.date) {
+        void useStreakStore.getState().recordActivity(
+          workout.user_id,
+          toLocalDateStr(parseDate(workout.date)),
+        );
+      }
+    }
   },
 
   deleteWorkout: async (id) => {
