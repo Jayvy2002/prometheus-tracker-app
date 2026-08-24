@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import FullPageLayout from '../layout/FullPageLayout';
 import { ArrowLeft, Plus, Check, Timer } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -13,26 +13,41 @@ import SupersetGroup from './SupersetGroup';
 import RestTimer from './RestTimer';
 import ExercisePicker from './ExercisePicker';
 import DateInput from '../ui/DateInput';
-import { WorkoutDraftProvider, useDraftContext } from './WorkoutDraftContext';
+import { WorkoutDraftProvider, useDraftContext, clearFieldDrafts } from './WorkoutDraftContext';
 import WorkoutSummaryScreen from './WorkoutSummaryScreen';
+import WorkoutRecap from './WorkoutRecap';
+import SessionTimer from './SessionTimer';
 import { useRoutineStore } from '../../stores/routineStore';
-import type { Workout } from '../../lib/types';
+import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import {
+  loadSessionTimer, saveSessionTimer, clearSessionTimer,
+  currentElapsedMs, startTimer, pauseTimer, emptyTimer,
+  type SessionTimerState,
+} from '../../lib/sessionTimer';
+import type { Workout, WorkoutTemplateExercise } from '../../lib/types';
+
+interface LocationState {
+  routineId?: string;
+  programAssignmentId?: string;
+  programDayId?: string;
+  programName?: string;
+}
 
 function WorkoutFormInner() {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const routerLocation = useLocation();
-  const routineId = (routerLocation.state as { routineId?: string } | null)?.routineId;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const state = (routerLocation.state as LocationState | null) ?? {};
+  const routineId = state.routineId;
   const { user } = useAuthStore();
   const {
-    currentWorkout, fetchWorkout, createWorkout, updateWorkout,
-    addExercise, setCurrentWorkout,
+    currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, setCurrentWorkout,
   } = useWorkoutStore();
-  const { getAllSetDrafts, getAllExerciseDrafts } = useDraftContext();
+  const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
 
   const [showTimer, setShowTimer] = useState(false);
-
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDate, setWorkoutDate] = useState('');
@@ -40,10 +55,14 @@ function WorkoutFormInner() {
   const [summaryWorkout, setSummaryWorkout] = useState<Workout | null>(null);
   const [summaryDuration, setSummaryDuration] = useState(0);
   const [initError, setInitError] = useState(false);
+  const [timer, setTimer] = useState<SessionTimerState>(emptyTimer());
+  const [elapsedTick, setElapsedTick] = useState(0);
   const createdRef = useRef(false);
   const routineAppliedRef = useRef(false);
+  const leavingRef = useRef(false);
   const { fetchRoutineWithExercises } = useRoutineStore();
   const isNew = !id || routerLocation.pathname.endsWith('/new');
+  const forceEdit = searchParams.get('edit') === '1';
 
   useEffect(() => {
     if (!user) return;
@@ -51,51 +70,164 @@ function WorkoutFormInner() {
     if (isNew) {
       if (createdRef.current) return;
       createdRef.current = true;
-      const now = new Date();
-      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`;
-      createWorkout({ user_id: user.id, name: '', date: localDate, routine_id: routineId || undefined })
-        .then((workoutId) => {
-          if (!workoutId) setInitError(true);
-        })
-        .catch(() => setInitError(true));
+
+      const seed = async () => {
+        if (routineId || state.programDayId) {
+          let exercises: WorkoutTemplateExercise[] = [];
+          let name = state.programName || '';
+          if (state.programDayId) {
+            const { data } = await supabase
+              .from('program_day_exercises')
+              .select('*')
+              .eq('program_day_id', state.programDayId)
+              .order('order_index');
+            exercises = (data ?? []).map((ex, i) => ({
+              name: ex.name as string,
+              default_sets: (ex.default_sets as number) ?? 3,
+              default_reps: (ex.default_reps as number) ?? 10,
+              order_index: (ex.order_index as number) ?? i,
+            }));
+            if (!name) {
+              const { data: day } = await supabase.from('program_days').select('name').eq('id', state.programDayId).maybeSingle();
+              name = (day?.name as string) || t('workout.title');
+            }
+          } else if (routineId) {
+            const routine = await fetchRoutineWithExercises(routineId);
+            if (routine) {
+              name = routine.name;
+              exercises = (routine.exercises ?? []).map(ex => ({
+                name: ex.name,
+                default_sets: ex.default_sets,
+                default_reps: ex.default_reps,
+                order_index: ex.order_index,
+              }));
+            }
+          }
+          const workoutId = await startWorkoutFromTemplate({
+            userId: user.id,
+            name,
+            routineId: routineId || null,
+            programAssignmentId: state.programAssignmentId,
+            programDayId: state.programDayId,
+            exercises,
+          });
+          if (!workoutId) {
+            setInitError(true);
+            return;
+          }
+          navigate(`/workout/${workoutId}`, { replace: true });
+          return;
+        }
+
+        const now = new Date();
+        const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`;
+        const workoutId = await createWorkout({ user_id: user.id, name: '', date: localDate });
+        if (!workoutId) {
+          setInitError(true);
+          return;
+        }
+        navigate(`/workout/${workoutId}`, { replace: true });
+      };
+
+      seed().catch(() => setInitError(true));
     } else if (id) {
       fetchWorkout(id);
     }
-
   }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!currentWorkout || !routineId || routineAppliedRef.current) return;
+    if (!currentWorkout || !routineId || routineAppliedRef.current || !isNew) return;
+    // Seeding is handled in startWorkoutFromTemplate for /new + routineId.
     routineAppliedRef.current = true;
-
-    fetchRoutineWithExercises(routineId).then(async (routine) => {
-      if (!routine?.exercises?.length) return;
-      if (routine.name) {
-        setWorkoutName(routine.name);
-        await updateWorkout(currentWorkout.id, { name: routine.name });
-      }
-      for (const ex of routine.exercises) {
-        await addExercise(currentWorkout.id, ex.name, ex.order_index);
-      }
-    });
-  }, [currentWorkout?.id, routineId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentWorkout?.id, routineId, isNew]);
 
   useEffect(() => {
     if (currentWorkout) {
       setWorkoutName(currentWorkout.name || '');
       setWorkoutDate(currentWorkout.date || '');
+      const stored = loadSessionTimer(currentWorkout.id);
+      if (stored.elapsedMs > 0 || stored.running) {
+        setTimer(stored);
+      } else if (currentWorkout.duration_seconds > 0 && !currentWorkout.completed) {
+        setTimer({ startedAt: null, elapsedMs: currentWorkout.duration_seconds * 1000, running: false });
+      }
     }
-  }, [currentWorkout?.id]);
+  }, [currentWorkout?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!timer.running) return;
+    const id = window.setInterval(() => setElapsedTick(n => n + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [timer.running]);
+
+  useEffect(() => {
+    if (!currentWorkout || currentWorkout.completed) return;
+    saveSessionTimer(currentWorkout.id, timer);
+    const seconds = Math.floor(currentElapsedMs(timer) / 1000);
+    if (seconds > 0 && seconds % 15 === 0) {
+      void updateWorkout(currentWorkout.id, { duration_seconds: seconds });
+    }
+  }, [elapsedTick, timer.running]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!currentWorkout || currentWorkout.completed || timer.running || timer.startedAt) return;
+    const hasWork = (currentWorkout.exercises ?? []).some(ex =>
+      (ex.sets ?? []).some(s => s.weight_kg > 0 || s.reps > 0),
+    );
+    if (hasWork) {
+      const next = startTimer(timer);
+      setTimer(next);
+      saveSessionTimer(currentWorkout.id, next);
+    }
+  }, [currentWorkout?.exercises]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const elapsedSeconds = Math.floor(currentElapsedMs(timer) / 1000);
+  void elapsedTick;
+
+  const toggleSessionTimer = () => {
+    const next = timer.running ? pauseTimer(timer) : startTimer(timer);
+    setTimer(next);
+    if (currentWorkout) saveSessionTimer(currentWorkout.id, next);
+  };
+
+  const workoutIsEmpty = () => {
+    if (!currentWorkout) return true;
+    const exercises = currentWorkout.exercises ?? [];
+    if (exercises.length === 0) return true;
+    return !exercises.some(ex => (ex.sets ?? []).some(s => s.weight_kg > 0 || s.reps > 0 || (s.duration_seconds ?? 0) > 0));
+  };
+
+  const handleBack = async () => {
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    persistNow();
+    if (currentWorkout) {
+      saveSessionTimer(currentWorkout.id, pauseTimer(timer));
+      const seconds = Math.floor(currentElapsedMs(timer) / 1000);
+      if (seconds > 0 && !currentWorkout.completed) {
+        await updateWorkout(currentWorkout.id, { duration_seconds: seconds });
+      }
+      if (!currentWorkout.completed && workoutIsEmpty()) {
+        await deleteWorkout(currentWorkout.id);
+        clearSessionTimer(currentWorkout.id);
+        clearFieldDrafts(currentWorkout.id);
+      }
+    }
+    setCurrentWorkout(null);
+    navigate('/workout');
+  };
 
   const handleAddExercise = async (name: string) => {
     if (!currentWorkout) return;
     const idx = currentWorkout.exercises?.length ?? 0;
-    await addExercise(currentWorkout.id, name, idx);
+    const ex = await addExercise(currentWorkout.id, name, idx);
+    if (ex) await addSet(ex.id, 0);
     setShowExercisePicker(false);
   };
 
   const handleStartRestTimer = () => {
     setShowTimer(true);
+    if (!timer.running) toggleSessionTimer();
   };
 
   const handleFinish = async () => {
@@ -103,6 +235,7 @@ function WorkoutFormInner() {
     setSaving(true);
 
     try {
+      persistNow();
       const setDrafts = getAllSetDrafts();
       const exerciseDrafts = getAllExerciseDrafts();
 
@@ -158,13 +291,15 @@ function WorkoutFormInner() {
           .neq('set_type', 'warmup');
       }
 
-      const finalDuration = currentWorkout.duration_seconds || 0;
+      const paused = pauseTimer(timer);
+      const finalDuration = Math.max(1, Math.floor(currentElapsedMs(paused) / 1000));
       await updateWorkout(currentWorkout.id, {
         completed: true,
         duration_seconds: finalDuration,
       });
+      clearSessionTimer(currentWorkout.id);
+      clearFieldDrafts(currentWorkout.id);
 
-      // Build snapshot with draft values merged in so the summary reflects actual saved data
       const mergedExercises = (currentWorkout.exercises ?? []).map(ex => ({
         ...ex,
         sets: (ex.sets ?? []).map(s => {
@@ -228,10 +363,19 @@ function WorkoutFormInner() {
     );
   }
 
+  if (currentWorkout.completed && !forceEdit) {
+    return (
+      <WorkoutRecap
+        workout={currentWorkout}
+        onEdit={() => setSearchParams({ edit: '1' })}
+      />
+    );
+  }
+
   return (
     <div className="px-4 pt-4 pb-6">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white">
+        <button onClick={handleBack} className="p-2 -ml-2 text-neutral-400 hover:text-white">
           <ArrowLeft size={20} />
         </button>
         <Input
@@ -240,6 +384,7 @@ function WorkoutFormInner() {
           placeholder={t('workout.workoutName')}
           className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
         />
+        <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
         <button
           onClick={() => setShowTimer(true)}
           className="p-2 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white transition-colors"

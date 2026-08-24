@@ -17,27 +17,62 @@ export function calculateCalorieTarget(tdee: number, goal: string): number {
   return Math.round(tdee + (g?.modifier ?? 0));
 }
 
-export function calculateMacros(calorieTarget: number, goal: string, dietType?: string) {
-  let proteinPct: number, fatPct: number, carbsPct: number;
-
-  if (dietType === 'keto') {
-    proteinPct = 0.25; fatPct = 0.70; carbsPct = 0.05;
-  } else if (dietType === 'carnivore') {
-    proteinPct = 0.35; fatPct = 0.60; carbsPct = 0.05;
-  } else if (dietType === 'paleo') {
-    proteinPct = 0.30; fatPct = 0.40; carbsPct = 0.30;
-  } else if (goal === 'cut') {
-    proteinPct = 0.35; fatPct = 0.30; carbsPct = 0.35;
-  } else if (goal === 'bulk') {
-    proteinPct = 0.30; fatPct = 0.25; carbsPct = 0.45;
-  } else {
-    proteinPct = 0.30; fatPct = 0.30; carbsPct = 0.40;
+/**
+ * ISSN-style protein from bodyweight, capped at ~40% of calories.
+ * Fat/carbs fill the remainder. dietType overlays the remaining split.
+ */
+export function calculateMacros(
+  calorieTarget: number,
+  goal: string,
+  dietType?: string,
+  weightKg?: number,
+) {
+  const proteinPerKg = goal === 'cut' ? 2.2 : goal === 'bulk' ? 1.8 : 1.6;
+  const maxProteinCal = calorieTarget * 0.40;
+  let proteinG = weightKg && weightKg > 0
+    ? Math.round(weightKg * proteinPerKg)
+    : Math.round((calorieTarget * 0.30) / 4);
+  if (proteinG * 4 > maxProteinCal) {
+    proteinG = Math.round(maxProteinCal / 4);
   }
-  return {
-    protein: Math.round((calorieTarget * proteinPct) / 4),
-    fat: Math.round((calorieTarget * fatPct) / 9),
-    carbs: Math.round((calorieTarget * carbsPct) / 4),
-  };
+
+  const remainingCal = Math.max(0, calorieTarget - proteinG * 4);
+
+  let fatShare: number;
+  let carbShare: number;
+  if (dietType === 'keto' || dietType === 'carnivore') {
+    fatShare = 0.90;
+    carbShare = 0.10;
+  } else if (dietType === 'paleo') {
+    fatShare = 0.45;
+    carbShare = 0.55;
+  } else if (goal === 'cut') {
+    fatShare = 0.40;
+    carbShare = 0.60;
+  } else if (goal === 'bulk') {
+    fatShare = 0.30;
+    carbShare = 0.70;
+  } else {
+    fatShare = 0.35;
+    carbShare = 0.65;
+  }
+
+  const fatG = Math.round((remainingCal * fatShare) / 9);
+  const carbsG = Math.round((remainingCal * carbShare) / 4);
+
+  return { protein: proteinG, fat: fatG, carbs: carbsG };
+}
+
+export function localWorkoutTimestamp(d: Date = new Date()): string {
+  return `${toLocalDateStr(d)}T12:00:00`;
+}
+
+export function programWeekNumber(startDate: string, durationWeeks: number, today: Date = new Date()): number {
+  const start = parseDate(startDate);
+  const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diffDays = Math.floor((todayLocal.getTime() - start.getTime()) / 86400000);
+  if (diffDays < 0) return 1;
+  return Math.min(durationWeeks, Math.floor(diffDays / 7) + 1);
 }
 
 export function calculateEnhancedTDEE(

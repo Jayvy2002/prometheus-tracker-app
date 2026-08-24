@@ -249,13 +249,13 @@ Deno.serve(async (req) => {
 
   // Find users with a reminder configured at this exact minute
   const { data: workoutUsers } = await admin
-    .from('profiles')
+    .from('user_profiles')
     .select('id')
     .eq('notification_workout_enabled', true)
     .eq('notification_workout_time', currentTime);
 
   const { data: nutritionUsers } = await admin
-    .from('profiles')
+    .from('user_profiles')
     .select('id')
     .eq('notification_nutrition_enabled', true)
     .eq('notification_nutrition_time', currentTime);
