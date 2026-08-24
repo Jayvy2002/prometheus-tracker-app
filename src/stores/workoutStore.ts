@@ -27,7 +27,7 @@ interface WorkoutState {
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
   updateWorkout: (id: string, data: Partial<Workout>) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
-  addExercise: (workoutId: string, name: string, orderIndex: number) => Promise<WorkoutExercise | null>;
+  addExercise: (workoutId: string, name: string, orderIndex: number, extras?: { prescribed_sets?: number; prescribed_reps?: number }) => Promise<WorkoutExercise | null>;
   updateExercise: (id: string, data: Partial<WorkoutExercise>) => Promise<void>;
   deleteExercise: (id: string) => Promise<void>;
   addSet: (exerciseId: string, orderIndex: number) => Promise<WorkoutSet | null>;
@@ -154,10 +154,16 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     }));
   },
 
-  addExercise: async (workoutId, name, orderIndex) => {
+  addExercise: async (workoutId, name, orderIndex, extras) => {
     const { data } = await supabase
       .from('workout_exercises')
-      .insert({ workout_id: workoutId, name, order_index: orderIndex })
+      .insert({
+        workout_id: workoutId,
+        name,
+        order_index: orderIndex,
+        prescribed_sets: extras?.prescribed_sets ?? null,
+        prescribed_reps: extras?.prescribed_reps ?? null,
+      })
       .select()
       .maybeSingle();
     if (data) {

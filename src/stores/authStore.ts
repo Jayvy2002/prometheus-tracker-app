@@ -7,10 +7,14 @@ interface AuthState {
   session: Session | null;
   loading: boolean;
   initialized: boolean;
-  signUp: (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: string | null; needsConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   deleteAccount: () => Promise<{ error: string | null }>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: string | null }>;
+  updatePassword: (password: string) => Promise<{ error: string | null }>;
+  passwordRecovery: boolean;
+  clearPasswordRecovery: () => void;
   initialize: () => void;
 }
 
@@ -19,10 +23,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   session: null,
   loading: true,
   initialized: false,
+  passwordRecovery: false,
 
   signUp: async (email, password) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
     if (error) return { error: error.message };
+    if (!data.session) return { error: null, needsConfirmation: true };
     return { error: null };
   },
 
@@ -31,6 +41,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (error) return { error: error.message };
     return { error: null };
   },
+
+  resetPasswordForEmail: async (email) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  },
+
+  updatePassword: async (password) => {
+    const { error } = await supabase.auth.updateUser({ password });
+    if (error) return { error: error.message };
+    set({ passwordRecovery: false });
+    return { error: null };
+  },
+
+  clearPasswordRecovery: () => set({ passwordRecovery: false }),
 
   signOut: async () => {
     await supabase.auth.signOut();
@@ -85,9 +112,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ loading: false });
       });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange((event, session) => {
       clearTimeout(timeout);
-      set({ session, user: session?.user ?? null, loading: false });
+      set({
+        session,
+        user: session?.user ?? null,
+        loading: false,
+        passwordRecovery: event === 'PASSWORD_RECOVERY' ? true : get().passwordRecovery,
+      });
     });
   },
 }));

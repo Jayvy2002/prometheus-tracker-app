@@ -214,7 +214,7 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
   // For success messages with no suggestion, we still show (as positive feedback)
   // but only for a limited time — they can dismiss
 
-  const newMacros = suggestion ? calculateMacros(suggestion, goal) : null;
+  const newMacros = suggestion ? calculateMacros(suggestion, goal, profile?.diet_type, profile?.weight_kg) : null;
 
   const handleAccept = async () => {
     if (!user || suggestion === null) return;

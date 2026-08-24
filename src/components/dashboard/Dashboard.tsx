@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -9,7 +9,11 @@ import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useStreakStore } from '../../stores/streakStore';
 import { useRoutineStore } from '../../stores/routineStore';
-import { todayStr, toLocalDateStr, kgToLbs } from '../../lib/utils';
+import { useCheckinStore } from '../../stores/checkinStore';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { useProgramStore } from '../../stores/programStore';
+import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber } from '../../lib/utils';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 
@@ -33,9 +37,12 @@ export default function Dashboard() {
   const { profile } = useProfileStore();
   const { logs, waterLogs, fetchLogs, fetchWaterLogs } = useNutritionStore();
   const { measurements, fetchMeasurements } = useWeightStore();
-  const { workouts, fetchWorkouts, createWorkout, addExercise, addSet, deleteWorkout } = useWorkoutStore();
+  const { workouts, fetchWorkouts } = useWorkoutStore();
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
+  const { todayCheckin, fetchToday } = useCheckinStore();
+  const { myCoach, fetchMyCoach } = useCoachingStore();
+  const { assignment, fetchMyAssignment } = useProgramStore();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
 
@@ -52,6 +59,9 @@ export default function Dashboard() {
     fetchWorkouts(user.id);
     fetchStreak(user.id);
     fetchRoutines(user.id);
+    fetchToday(user.id);
+    fetchMyCoach();
+    fetchMyAssignment(user.id);
   }, [user]);
 
   const firstName = profile?.full_name?.split(' ')[0] || '';
@@ -108,13 +118,18 @@ export default function Dashboard() {
     ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
     : null;
 
-  // Next routine to suggest — prefer one scheduled for today
   const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
   const alreadyTrainedToday = doneDays[todayIndex];
+  const assignedDay = assignment?.program && assignment.status === 'active'
+    ? (assignment.program.days ?? []).find(d => d.weekday === new Date().getDay() && (d.name || (d.exercises && d.exercises.length > 0)))
+    : null;
+  const programWeek = assignment?.program
+    ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
+    : null;
   const scheduledToday = !alreadyTrainedToday
     ? routines.find(r => r.scheduled_days?.includes(todayDow))
     : null;
-  const nextRoutine = scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null);
+  const nextRoutine = !assignedDay ? (scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null)) : null;
 
   // Reminders
   const lastWeighIn = measurements.length > 0
@@ -166,6 +181,11 @@ export default function Dashboard() {
               {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
             </p>
             <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
+            {myCoach && (
+              <p className="text-[11px] text-blue-400/80 mt-0.5">
+                {t('coaching.coachedBy', { name: myCoach.full_name || t('coaching.invite.aCoach') })}
+              </p>
+            )}
           </div>
         </div>
 
@@ -227,7 +247,19 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Daily Progress Section */}
+        {!todayCheckin && (
+          <button
+            onClick={() => navigate('/checkin')}
+            className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
+          >
+            <ClipboardCheck size={16} className="text-violet-300 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white">{t('checkin.dashboardCta')}</p>
+              <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHint')}</p>
+            </div>
+            <ChevronRight size={16} className="text-violet-300/70" />
+          </button>
+        )}
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
@@ -383,37 +415,70 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Next Workout (clickable) */}
+        {assignedDay && assignment?.program && !alreadyTrainedToday && (
+          <button
+            disabled={startingRoutine}
+            onClick={async () => {
+              if (!user || startingRoutine) return;
+              setStartingRoutine(true);
+              try {
+                const workoutId = await startWorkoutFromTemplate({
+                  userId: user.id,
+                  name: assignedDay.name || assignment.program!.name,
+                  programAssignmentId: assignment.id,
+                  programDayId: assignedDay.id,
+                  exercises: (assignedDay.exercises ?? []).map(ex => ({
+                    name: ex.name,
+                    default_sets: ex.default_sets,
+                    default_reps: ex.default_reps,
+                    order_index: ex.order_index,
+                  })),
+                });
+                if (workoutId) navigate(`/workout/${workoutId}`);
+              } finally {
+                setStartingRoutine(false);
+              }
+            }}
+            className="w-full bg-gradient-to-r from-blue-600/15 to-blue-500/5 border border-blue-500/20 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-3 text-left hover:border-blue-500/40 active:scale-[0.98] transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Play size={18} className="text-blue-400 ml-0.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-blue-400 font-medium">
+                  {t('programs.weekOf', { current: programWeek, total: assignment.program.duration_weeks })}
+                </p>
+                <p className="text-sm font-semibold text-white truncate">
+                  {t('programs.todaySession', { name: assignedDay.name || assignment.program.name })}
+                </p>
+              </div>
+              <ChevronRight size={18} className="text-blue-400/60 shrink-0" />
+            </div>
+          </button>
+        )}
+
         {nextRoutine && (
           <button
             disabled={startingRoutine}
             onClick={async () => {
               if (!user || startingRoutine) return;
               setStartingRoutine(true);
-              let workoutId: string | null = null;
               try {
                 const routine = await fetchRoutineWithExercises(nextRoutine.id);
                 if (!routine) return;
-                const exercises = (routine as unknown as { routine_exercises?: import('../../lib/types').RoutineExercise[] }).routine_exercises ?? routine.exercises ?? [];
-                const now = new Date();
-                workoutId = await createWorkout({
-                  user_id: user.id,
+                const workoutId = await startWorkoutFromTemplate({
+                  userId: user.id,
                   name: routine.name,
-                  date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`,
-                  routine_id: nextRoutine.id,
+                  routineId: nextRoutine.id,
+                  exercises: (routine.exercises ?? []).map(ex => ({
+                    name: ex.name,
+                    default_sets: ex.default_sets,
+                    default_reps: ex.default_reps,
+                    order_index: ex.order_index,
+                  })),
                 });
-                if (!workoutId) return;
-                for (const ex of exercises) {
-                  const addedEx = await addExercise(workoutId, ex.name, ex.order_index);
-                  if (addedEx) {
-                    for (let i = 0; i < ex.default_sets; i++) {
-                      await addSet(addedEx.id, i);
-                    }
-                  }
-                }
-                navigate(`/workout/${workoutId}`);
-              } catch {
-                if (workoutId) await deleteWorkout(workoutId);
+                if (workoutId) navigate(`/workout/${workoutId}`);
               } finally {
                 setStartingRoutine(false);
               }
