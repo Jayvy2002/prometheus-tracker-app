@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { NutritionLog, WaterLog, FoodProduct, ProductRequest, FoodFavorite, DailySteps } from '../lib/types';
 import { todayStr } from '../lib/utils';
 import { toast } from '../components/ui/Toast';
+import { useStreakStore } from './streakStore';
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -65,7 +66,11 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       .select()
       .maybeSingle();
     if (data) {
-      set(s => ({ logs: [...s.logs, data as NutritionLog] }));
+      const log = data as NutritionLog;
+      set(s => ({ logs: [...s.logs, log] }));
+      if (log.user_id && log.logged_at) {
+        void useStreakStore.getState().recordActivity(log.user_id, log.logged_at);
+      }
     }
   },
 

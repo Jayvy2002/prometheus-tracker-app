@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
-import { parseDateStr, calculateMacros } from '../../lib/utils';
+import { parseDateStr, calculateMacros, toLocalDateStr } from '../../lib/utils';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 
@@ -44,7 +44,7 @@ function getRollingAvg(
 function getDateNDaysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
+  return toLocalDateStr(d);
 }
 
 function WeightSparkline({ data }: { data: { date: string; weight: number }[] }) {

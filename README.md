@@ -20,7 +20,6 @@
 | Edge Functions | Deno (Supabase Functions) | — |
 | Charts | Recharts | 3.8 |
 | Icons | Lucide React | 0.344 |
-| Payments | Stripe | — |
 | PWA | Manual Service Worker | — |
 
 ---
@@ -37,7 +36,6 @@
 - **Stats** — analytics and trends across all categories
 - **Streaks** — daily activity streak tracker
 - **Recipes** — save and reuse meal recipes
-- **Premium** — Stripe-powered subscription (monthly / annual)
 - **PWA** — installable, offline-capable, push notifications
 - **i18n** — English and French
 
@@ -63,6 +61,7 @@ src/
 │   ├── calendar/              # Calendar view
 │   └── profile/               # Profile + settings + notifications
 ├── stores/                    # Zustand stores (one per domain)
+├── i18n/                      # English / French translations
 ├── lib/
 │   ├── supabase.ts            # Supabase client
 │   ├── types.ts               # All TypeScript interfaces
@@ -76,11 +75,10 @@ supabase/
 └── functions/                 # Deno Edge Functions
     ├── analyze-product/       # AI product analysis (OpenAI)
     ├── verify-exercise/       # AI exercise verification
-    ├── create-checkout-session/
-    ├── create-portal-session/
-    ├── stripe-webhook/
     ├── delete-account/
     └── send-daily-reminders/  # Web Push notifications via VAPID
+    # Legacy (no longer called from the client after paywall removal):
+    # create-checkout-session, create-portal-session, stripe-webhook
 ```
 
 ---
@@ -91,7 +89,6 @@ supabase/
 
 - Node.js 20+
 - A [Supabase](https://supabase.com) project
-- (Optional) Stripe account for payments
 - (Optional) OpenAI API key for AI features
 
 ### 1. Clone & install
@@ -148,14 +145,12 @@ Non-secret build-time variables are committed in `.env.production` and picked up
 | Secret | Description |
 |---|---|
 | `OPENAI_API_KEY` | OpenAI API key (AI food/exercise analysis) |
-| `STRIPE_SECRET_KEY` | Stripe secret key |
-| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
-| `STRIPE_PREMIUM_MONTHLY_PRICE_ID` | Stripe monthly price ID |
-| `STRIPE_PREMIUM_ANNUAL_PRICE_ID` | Stripe annual price ID |
 | `VAPID_PUBLIC_KEY` | VAPID public key (Web Push) |
 | `VAPID_PRIVATE_KEY` | VAPID private key (Web Push) |
 | `VAPID_SUBJECT` | `mailto:you@example.com` |
 | `SITE_URL` | `https://tracker.prometheus-fit.com` |
+
+Stripe secrets (`STRIPE_*`) are only needed if the leftover checkout/webhook functions are still deployed.
 
 Generate VAPID keys with:
 

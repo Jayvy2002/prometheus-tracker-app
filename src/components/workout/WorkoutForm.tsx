@@ -23,7 +23,6 @@ function WorkoutFormInner() {
   const { id } = useParams();
   const navigate = useNavigate();
   const routerLocation = useLocation();
-  const location = window.location.pathname;
   const routineId = (routerLocation.state as { routineId?: string } | null)?.routineId;
   const { user } = useAuthStore();
   const {
@@ -33,7 +32,6 @@ function WorkoutFormInner() {
   const { getAllSetDrafts, getAllExerciseDrafts } = useDraftContext();
 
   const [showTimer, setShowTimer] = useState(false);
-  const [, setAutoStartTimer] = useState(false);
 
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
@@ -45,7 +43,7 @@ function WorkoutFormInner() {
   const createdRef = useRef(false);
   const routineAppliedRef = useRef(false);
   const { fetchRoutineWithExercises } = useRoutineStore();
-  const isNew = !id || location.endsWith('/new');
+  const isNew = !id || routerLocation.pathname.endsWith('/new');
 
   useEffect(() => {
     if (!user) return;
@@ -243,7 +241,7 @@ function WorkoutFormInner() {
           className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
         />
         <button
-          onClick={() => { setAutoStartTimer(false); setShowTimer(true); }}
+          onClick={() => setShowTimer(true)}
           className="p-2 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
           title={t('workout.restTimer.title')}
         >
@@ -304,7 +302,7 @@ function WorkoutFormInner() {
 
       <RestTimer
         open={showTimer}
-        onClose={() => { setShowTimer(false); setAutoStartTimer(false); }}
+        onClose={() => setShowTimer(false)}
       />
       <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />
     </div>

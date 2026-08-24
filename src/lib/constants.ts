@@ -63,13 +63,6 @@ export const DEFAULT_DASHBOARD_WIDGETS = [
   { id: 'w5', type: 'workout_volume' as const, title: 'Weekly Volume', config: { range: '7d' }, size: 'medium' as const, order: 4 },
 ];
 
-export const HEALTH_PROVIDERS = [
-  { id: 'apple_health', name: 'Apple Health', icon: 'Heart' },
-  { id: 'google_fit', name: 'Google Fit', icon: 'Activity' },
-  { id: 'garmin', name: 'Garmin', icon: 'Watch' },
-  { id: 'fitbit', name: 'Fitbit', icon: 'Activity' },
-] as const;
-
 export const DIET_TYPES = [
   { value: 'omnivore', label: 'Omnivore', description: 'No dietary restrictions' },
   { value: 'vegetarian', label: 'Vegetarian', description: 'No meat or fish' },

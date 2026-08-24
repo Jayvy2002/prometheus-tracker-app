@@ -16,7 +16,7 @@ interface SummaryStats {
 function computeStats(workout: Workout, duration: number): SummaryStats {
   let totalVolume = 0;
   let setCount = 0;
-  let prCount = 0;
+  const prCount = 0;
   const exerciseStats: { name: string; volume: number; estimated1RM: number }[] = [];
 
   for (const ex of workout.exercises ?? []) {

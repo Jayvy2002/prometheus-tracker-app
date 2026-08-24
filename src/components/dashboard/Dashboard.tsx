@@ -9,23 +9,22 @@ import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useStreakStore } from '../../stores/streakStore';
 import { useRoutineStore } from '../../stores/routineStore';
-import { todayStr } from '../../lib/utils';
+import { todayStr, toLocalDateStr, kgToLbs } from '../../lib/utils';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 
 function getWeekDates(): string[] {
   const today = new Date();
-  const dow = today.getDay();
-  const monday = new Date(today);
-  monday.setDate(today.getDate() - ((dow + 6) % 7));
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  monday.setDate(monday.getDate() - ((today.getDay() + 6) % 7));
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
-    return d.toISOString().split('T')[0];
+    return toLocalDateStr(d);
   });
 }
 
-const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -102,7 +101,7 @@ export default function Dashboard() {
   const weightUnit = profile?.unit_weight ?? 'kg';
   const latestWeight = recentWeights.length > 0
     ? weightUnit === 'lbs'
-      ? +(recentWeights[recentWeights.length - 1].weight_kg * 2.20462).toFixed(1)
+      ? kgToLbs(recentWeights[recentWeights.length - 1].weight_kg)
       : +recentWeights[recentWeights.length - 1].weight_kg
     : null;
   const weightDelta = recentWeights.length >= 2
@@ -119,7 +118,7 @@ export default function Dashboard() {
 
   // Reminders
   const lastWeighIn = measurements.length > 0
-    ? measurements.sort((a, b) => b.measured_at.localeCompare(a.measured_at))[0]
+    ? [...measurements].sort((a, b) => b.measured_at.localeCompare(a.measured_at))[0]
     : null;
   const daysSinceWeighIn = lastWeighIn
     ? Math.floor((Date.now() - new Date(lastWeighIn.measured_at).getTime()) / 86400000)
@@ -128,7 +127,9 @@ export default function Dashboard() {
 
   const hourNow = new Date().getHours();
   const hasLoggedLunch = logs.some(l => l.category === 'lunch');
-  const showMealReminder = hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0 || (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3);
+  const showMealReminder =
+    (hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0) ||
+    (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3);
 
   const showWaterReminder = hourNow >= 15 && waterPct < 50;
 
@@ -341,7 +342,8 @@ export default function Dashboard() {
 
           {/* Day dots */}
           <div className="flex justify-between gap-1">
-            {DAY_LABELS.map((label, i) => {
+            {DAY_KEYS.map((key, i) => {
+              const label = t(`routines.form.days.${key}`);
               const isDone = doneDays[i];
               const isToday = i === todayIndex;
               const isFuture = i > todayIndex;

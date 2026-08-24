@@ -521,7 +521,6 @@ function SupersetLinkPicker({ currentExerciseId, onClose }: { currentExerciseId:
 
 export default function ExerciseCard({
   exercise,
-  onStartRestTimer,
   isInSuperset = false,
 }: {
   exercise: WorkoutExercise;
@@ -582,7 +581,7 @@ export default function ExerciseCard({
     }
   };
 
-  const handleSetComplete = (_setType: SetType, _restOverride?: number) => {
+  const handleSetComplete = () => {
     // Rest timer is now manual-only — user starts it via the timer button
   };
 

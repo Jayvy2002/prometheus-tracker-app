@@ -10,7 +10,7 @@ interface PageTransitionProps {
 const TAB_ORDER: Record<string, number> = {
   '/dashboard': 0,
   '/workout': 1,
-  '/calendar': 2,
+  '/weight': 2,
   '/nutrition': 3,
   '/profile': 4,
 };

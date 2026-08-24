@@ -1,13 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
-
-import { supabase } from '../../lib/supabase';
 import { setAppLanguage } from '../../i18n';
-import { toast } from '../ui/Toast';
+
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';

@@ -47,9 +47,11 @@ export class ErrorBoundary extends Component<Props, State> {
             <div style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: '0.5rem' }}>
               {this.state.error?.name}: {this.state.error?.message}
             </div>
+            {import.meta.env.DEV && (
             <pre style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'pre-wrap' }}>
               {this.state.error?.stack}
             </pre>
+            )}
           </div>
           <button
             onClick={() => this.setState({ hasError: false, error: null })}

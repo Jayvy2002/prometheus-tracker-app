@@ -127,13 +127,13 @@ export function parseDate(dateStr: string): Date {
 }
 
 export function formatDate(dateStr: string): string {
-  return parseDate(dateStr).toLocaleDateString('en-US', {
+  return parseDate(dateStr).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric', year: 'numeric',
   });
 }
 
 export function formatDateShort(dateStr: string): string {
-  return parseDate(dateStr).toLocaleDateString('en-US', {
+  return parseDate(dateStr).toLocaleDateString(undefined, {
     month: 'short', day: 'numeric',
   });
 }
@@ -147,12 +147,22 @@ export function formatDuration(seconds: number): string {
   return `${s}s`;
 }
 
-export function todayStr(): string {
-  const d = new Date();
+/** YYYY-MM-DD in the user's local timezone (never UTC via toISOString). */
+export function toLocalDateStr(d: Date = new Date()): string {
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+export function todayStr(): string {
+  return toLocalDateStr();
+}
+
+export function addDaysToDateStr(dateStr: string, days: number): string {
+  const d = parseDate(dateStr);
+  d.setDate(d.getDate() + days);
+  return toLocalDateStr(d);
 }
 
 export function generateId(): string {

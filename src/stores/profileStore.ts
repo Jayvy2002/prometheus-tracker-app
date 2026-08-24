@@ -5,6 +5,7 @@ import type { UserProfile } from '../lib/types';
 interface ProfileState {
   profile: UserProfile | null;
   loading: boolean;
+  fetchError: string | null;
   uploadingAvatar: boolean;
   fetchProfile: (userId: string) => Promise<void>;
   updateProfile: (userId: string, data: Partial<UserProfile>) => Promise<void>;
@@ -15,16 +16,22 @@ interface ProfileState {
 export const useProfileStore = create<ProfileState>((set) => ({
   profile: null,
   loading: true,
+  fetchError: null,
   uploadingAvatar: false,
 
   fetchProfile: async (userId) => {
-    set({ loading: true });
-    const { data } = await supabase
+    set({ loading: true, fetchError: null });
+    const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
-    set({ profile: data as UserProfile | null, loading: false });
+    if (error) {
+      console.error('[Prometheus] fetchProfile failed:', error.message);
+      set({ loading: false, fetchError: error.message });
+      return;
+    }
+    set({ profile: data as UserProfile | null, loading: false, fetchError: null });
   },
 
   updateProfile: async (userId, updates) => {
@@ -69,5 +76,5 @@ export const useProfileStore = create<ProfileState>((set) => ({
     return avatarUrl;
   },
 
-  clearProfile: () => set({ profile: null, loading: true }),
+  clearProfile: () => set({ profile: null, loading: true, fetchError: null }),
 }));
