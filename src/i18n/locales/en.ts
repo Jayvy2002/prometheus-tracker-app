@@ -86,6 +86,7 @@ const en = {
     clientEntry: 'Client sign-in',
     coachEntryHint: 'Invite athletes and review their training.',
     clientEntryHint: 'Follow your program and log your sessions.',
+    clientNeedsInvite: 'Need an account? Your coach will send you an invite link. Sign-up is only available from that link.',
     backToRoles: 'Change role',
     signingInAsCoach: 'Coach space',
     signingInAsClient: 'Client space',

@@ -5,6 +5,7 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useAuthStore } from '../../stores/authStore';
 import {
+  clearIntendedCoachingRole,
   setIntendedCoachingRole,
   type IntendedCoachingRole,
 } from '../../stores/coachingStore';
@@ -28,10 +29,15 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
   const [resetSent, setResetSent] = useState(false);
   const { signIn, signUp, resetPasswordForEmail } = useAuthStore();
 
+  const canRegister = fromInvite || role === 'coach';
+
   const chooseRole = (next: IntendedCoachingRole) => {
     setRole(next);
     setStep('form');
+    setMode('login');
     setError('');
+    setCheckEmail(false);
+    setResetSent(false);
   };
 
   const backToRoles = () => {
@@ -57,9 +63,19 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
       setResetSent(true);
       return;
     }
-    const resolvedRole: IntendedCoachingRole = fromInvite ? 'client' : (role ?? 'client');
-    setIntendedCoachingRole(resolvedRole);
-    const result = mode === 'login'
+    if (mode === 'register' && !canRegister) {
+      setLoading(false);
+      setError(t('auth.clientNeedsInvite'));
+      return;
+    }
+    // Only the coach picker may persist a role claim. Client accounts are
+    // created and linked exclusively via /invite/:token (accept_coach_invite).
+    if (!fromInvite && role === 'coach') {
+      setIntendedCoachingRole('coach');
+    } else {
+      clearIntendedCoachingRole();
+    }
+    const result = mode === 'login' || !canRegister
       ? await signIn(email, password)
       : await signUp(email, password);
     setLoading(false);
@@ -168,6 +184,12 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
                 {role === 'coach' ? t('auth.signingInAsCoach') : t('auth.signingInAsClient')}
               </p>
 
+              {!canRegister && mode !== 'forgot' && (
+                <p className="text-sm text-neutral-500 mb-4">
+                  {t('auth.clientNeedsInvite')}
+                </p>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-up stagger-2">
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
@@ -227,18 +249,31 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
                 </Button>
               </form>
 
-              <div className="mt-6 text-center animate-fade-in stagger-4">
-                <button
-                  onClick={() => {
-                    setMode(mode === 'login' ? 'register' : 'login');
-                    setError('');
-                    setResetSent(false);
-                  }}
-                  className="text-sm text-neutral-400 hover:text-blue-400 transition-colors"
-                >
-                  {mode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')}
-                </button>
-              </div>
+              {canRegister ? (
+                <div className="mt-6 text-center animate-fade-in stagger-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode(mode === 'login' ? 'register' : 'login');
+                      setError('');
+                      setResetSent(false);
+                    }}
+                    className="text-sm text-neutral-400 hover:text-blue-400 transition-colors"
+                  >
+                    {mode === 'login' ? t('auth.noAccount') : t('auth.haveAccount')}
+                  </button>
+                </div>
+              ) : mode === 'forgot' ? (
+                <div className="mt-6 text-center animate-fade-in stagger-4">
+                  <button
+                    type="button"
+                    onClick={() => { setMode('login'); setError(''); setResetSent(false); }}
+                    className="text-sm text-neutral-400 hover:text-blue-400 transition-colors"
+                  >
+                    {t('auth.backToSignIn')}
+                  </button>
+                </div>
+              ) : null}
             </>
           )}
         </div>
