@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
-import { useCoachingStore, getPendingInviteToken } from './stores/coachingStore';
+import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -25,26 +25,43 @@ import RecipesPage from './components/nutrition/RecipesPage';
 import CheckInPage from './components/checkin/CheckInPage';
 import ClientsPage from './components/coaching/ClientsPage';
 import ClientDetailPage from './components/coaching/ClientDetailPage';
+import ClientSetupPage from './components/coaching/ClientSetupPage';
+import InterventionDraftPage from './components/coaching/InterventionDraftPage';
+import CoachDashboard from './components/coaching/CoachDashboard';
 import ProgramsPage from './components/programs/ProgramsPage';
+
+function HomeDashboard() {
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  return coachingRole === 'coach' ? <CoachDashboard /> : <Dashboard />;
+}
+
+function CoachTrackerRedirect({ children }: { children: ReactNode }) {
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  if (coachingRole === 'coach') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, clearProfile } = useProfileStore();
-  const { fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
+  const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
     if (user) {
       fetchProfile(user.id);
       void (async () => {
-        const token = getPendingInviteToken();
-        if (token) {
-          await acceptInvite(token);
-        } else {
-          await applyIntendedCoachingRole();
+        try {
+          const token = getPendingInviteToken();
+          if (token) {
+            await acceptInvite(token);
+          } else {
+            await applyIntendedCoachingRole();
+          }
+        } finally {
+          await fetchMyRole(user.id);
+          await fetchMyCoach();
         }
-        await fetchMyRole(user.id);
-        await fetchMyCoach();
       })();
     } else if (initialized) {
       clearProfile();
@@ -79,7 +96,7 @@ function AppRoutes() {
     );
   }
 
-  if (profileLoading) {
+  if (profileLoading || !roleReady) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
@@ -101,7 +118,11 @@ function AppRoutes() {
     );
   }
 
-  if (!profile?.onboarding_completed) {
+  const skipPersonalOnboarding =
+    coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
+  const deferClientOnboarding = isOnboardingDeferred() && !!myCoach;
+
+  if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
       <Routes>
         <Route path="/invite/:token" element={<InvitePage />} />
@@ -113,26 +134,29 @@ function AppRoutes() {
   return (
     <Routes>
       <Route element={<AppLayout />}>
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/workout" element={<WorkoutPage />} />
-        <Route path="/nutrition" element={<NutritionPage />} />
-        <Route path="/weight" element={<WeightPage />} />
-        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/dashboard" element={<HomeDashboard />} />
+        <Route path="/workout" element={<CoachTrackerRedirect><WorkoutPage /></CoachTrackerRedirect>} />
+        <Route path="/nutrition" element={<CoachTrackerRedirect><NutritionPage /></CoachTrackerRedirect>} />
+        <Route path="/weight" element={<CoachTrackerRedirect><WeightPage /></CoachTrackerRedirect>} />
+        <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/exercise-progress" element={<ExerciseProgressPage />} />
-        <Route path="/stats" element={<StatsPage />} />
-        <Route path="/checkin" element={<CheckInPage />} />
+        <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
+        <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
+        <Route path="/checkin" element={<CoachTrackerRedirect><CheckInPage /></CoachTrackerRedirect>} />
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/clients/:id" element={<ClientDetailPage />} />
+        <Route path="/clients/:id/setup" element={<ClientSetupPage />} />
+        <Route path="/clients/:id/draft/:interventionId" element={<InterventionDraftPage />} />
+        <Route path="/inbox/:interventionId" element={<InterventionDraftPage />} />
         <Route path="/programs" element={<ProgramsPage />} />
       </Route>
-      <Route path="/workout/new" element={<WorkoutForm />} />
-      <Route path="/workout/:id" element={<WorkoutForm />} />
+      <Route path="/workout/new" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
+      <Route path="/workout/:id" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
       <Route path="/routines" element={<AppLayout />}>
-        <Route index element={<RoutinesPage />} />
+        <Route index element={<CoachTrackerRedirect><RoutinesPage /></CoachTrackerRedirect>} />
       </Route>
-      <Route path="/scanner" element={<ScannerPage />} />
-      <Route path="/recipes" element={<RecipesPage />} />
+      <Route path="/scanner" element={<CoachTrackerRedirect><ScannerPage /></CoachTrackerRedirect>} />
+      <Route path="/recipes" element={<CoachTrackerRedirect><RecipesPage /></CoachTrackerRedirect>} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -1,4 +1,5 @@
 import { ACTIVITY_LEVELS, GOALS } from './constants';
+import type { UserProfile } from './types';
 
 export function calculateBMR(weightKg: number, heightCm: number, age: number, gender: string): number {
   if (gender === 'female') {
@@ -206,4 +207,36 @@ export function generateId(): string {
 
 export function clamp(val: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, val));
+}
+
+export function issnTargetsFromProfile(profile: Pick<
+  UserProfile,
+  | 'weight_kg'
+  | 'height_cm'
+  | 'date_of_birth'
+  | 'gender'
+  | 'activity_level'
+  | 'goal'
+  | 'diet_type'
+  | 'daily_steps_average'
+  | 'training_frequency'
+  | 'hydration_habit'
+>) {
+  const age = profile.date_of_birth ? getAge(profile.date_of_birth) : 25;
+  const bmr = calculateBMR(profile.weight_kg, profile.height_cm, age, profile.gender || 'male');
+  const tdee = calculateEnhancedTDEE(
+    bmr,
+    profile.activity_level,
+    profile.daily_steps_average,
+    profile.training_frequency,
+  );
+  const calories = calculateCalorieTarget(tdee, profile.goal);
+  const macros = calculateMacros(calories, profile.goal, profile.diet_type, profile.weight_kg);
+  const water = calculateWaterTarget(
+    profile.weight_kg,
+    profile.daily_steps_average,
+    profile.activity_level,
+    profile.hydration_habit,
+  );
+  return { calories, protein: macros.protein, carbs: macros.carbs, fat: macros.fat, water, tdee, bmr };
 }

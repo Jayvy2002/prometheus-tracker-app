@@ -5,6 +5,36 @@ import { todayStr } from '../lib/utils';
 import { toast } from '../components/ui/Toast';
 import { useStreakStore } from './streakStore';
 
+const ANALYZE_POLL_MS = 2_000;
+const ANALYZE_TIMEOUT_MS = 90_000;
+
+/** supabase.functions.invoke leaves 4xx/5xx JSON on error.context (a Response), not in data. */
+async function functionsErrorBody(error: unknown): Promise<Record<string, unknown>> {
+  if (!error || typeof error !== 'object' || !('context' in error)) return {};
+  const ctx = (error as { context: unknown }).context;
+  if (typeof Response !== 'undefined' && ctx instanceof Response) {
+    try {
+      const parsed: unknown = await ctx.clone().json();
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+  }
+  if (ctx && typeof ctx === 'object' && !Array.isArray(ctx)) {
+    return ctx as Record<string, unknown>;
+  }
+  return {};
+}
+
+function functionsHttpStatus(error: unknown): number {
+  if (!error || typeof error !== 'object' || !('context' in error)) return 0;
+  const ctx = (error as { context: unknown }).context;
+  if (typeof Response !== 'undefined' && ctx instanceof Response) return ctx.status;
+  return 0;
+}
+
 interface NutritionState {
   logs: NutritionLog[];
   waterLogs: WaterLog[];
@@ -195,25 +225,70 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   analyzeProductRequest: async (requestId) => {
-    // Use supabase.functions.invoke() — automatically adds Authorization + apikey headers
     const { data, error } = await supabase.functions.invoke('analyze-product', {
       body: { request_id: requestId },
     });
 
-    if (error) {
-      console.error('[analyzeProductRequest] Edge Function error:', error);
+    const bodyFromData = (data && typeof data === 'object' && !Array.isArray(data))
+      ? data as Record<string, unknown>
+      : {};
+    const bodyFromError = error ? await functionsErrorBody(error) : {};
+    const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
+    const errCode = typeof body.error === 'string' ? body.error : '';
+    const httpStatus = functionsHttpStatus(error);
+    const errorMessage = error instanceof Error ? error.message : '';
+
+    if (
+      errCode === 'DAILY_LIMIT_REACHED'
+      || httpStatus === 429
+      || errorMessage.includes('DAILY_LIMIT_REACHED')
+    ) {
+      return { error: 'scanner.dailyLimitReached' };
+    }
+    if (errCode === 'WEBHOOK_NOT_CONFIGURED') {
+      return { error: 'scanner.webhookNotConfigured' };
+    }
+    if (errCode === 'WEBHOOK_FAILED' || httpStatus === 502) {
+      return { error: 'scanner.webhookFailed' };
+    }
+    if (error && body.status !== 'processing') {
+      console.error('[analyzeProductRequest] Edge Function error:', error, body);
       return { error: 'scanner.aiStartError' };
     }
-    if (!data?.product) {
-      console.error('[analyzeProductRequest] No product in response:', data);
-      const errCode = (data?.error as string) ?? '';
-      if (errCode === 'DAILY_LIMIT_REACHED') return { error: 'scanner.dailyLimitReached' };
+    if (body.status !== 'processing' && body.status !== 'completed') {
+      console.error('[analyzeProductRequest] Unexpected response:', body);
       return { error: 'scanner.aiStartError' };
     }
-    return {
-      product: data.product as FoodProduct,
-      confidence: typeof data.confidence === 'number' ? data.confidence : 100,
-    };
+
+    const deadline = Date.now() + ANALYZE_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const { data: row } = await supabase
+        .from('product_requests')
+        .select('status, result_product_id, error_message')
+        .eq('id', requestId)
+        .maybeSingle();
+
+      if (row?.status === 'completed' && row.result_product_id) {
+        const { data: product } = await supabase
+          .from('food_products')
+          .select('*')
+          .eq('id', row.result_product_id)
+          .maybeSingle();
+        if (product) {
+          return { product: product as FoodProduct, confidence: 100 };
+        }
+        // Product row may not be visible yet — keep polling until timeout.
+      } else if (row?.status === 'failed') {
+        const msg = typeof row.error_message === 'string' ? row.error_message.trim() : '';
+        if (msg === 'WEBHOOK_NOT_CONFIGURED') return { error: 'scanner.webhookNotConfigured' };
+        if (msg.startsWith('WEBHOOK_FAILED')) return { error: 'scanner.webhookFailed' };
+        return { error: 'scanner.aiFailed' };
+      }
+
+      await new Promise(resolve => setTimeout(resolve, ANALYZE_POLL_MS));
+    }
+
+    return { error: 'scanner.aiTimeout' };
   },
 
   fetchFavorites: async (userId) => {

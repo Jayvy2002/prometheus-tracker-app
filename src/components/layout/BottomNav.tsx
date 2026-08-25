@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 
@@ -13,8 +13,7 @@ export default function BottomNav() {
     ? [
         { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home') },
         { path: '/clients', icon: Users, label: t('nav.clients') },
-        { path: '/workout', icon: Dumbbell, label: t('nav.workout') },
-        { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
+        { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
         { path: '/profile', icon: User, label: t('nav.profile') },
       ]
     : [

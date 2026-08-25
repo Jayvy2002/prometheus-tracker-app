@@ -1,13 +1,19 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type {
+  AiPlanDraft,
+  ClientOpsRow,
+  ClientTrackingConfig,
   CoachingRole,
   CoachClientSummary,
+  CoachIntervention,
+  CoachInterventionStatus,
   CoachInvite,
   CoachNote,
   CoachPreview,
   DailyCheckin,
   NutritionLog,
+  UserProfile,
   UserRole,
   WaterLog,
   WeightMeasurement,
@@ -15,6 +21,10 @@ import type {
   WorkoutExercise,
   WorkoutSet,
 } from '../lib/types';
+import { mapInterventionRow, parseOnboardingPlanDraft, type ProgramOutlineDraft } from '../lib/coachInterventions';
+import { useProgramStore } from './programStore';
+import { buildClientOpsRows, datePrefix, weekAgoStr } from '../lib/coachAlerts';
+import { todayStr } from '../lib/utils';
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -58,20 +68,73 @@ export function clearIntendedCoachingRole() {
   }
 }
 
+const DEFER_ONBOARDING_KEY = 'prometheus_defer_onboarding';
+
+export function setOnboardingDeferred() {
+  try {
+    sessionStorage.setItem(DEFER_ONBOARDING_KEY, '1');
+  } catch {
+    // private mode / quota
+  }
+}
+
+export function clearOnboardingDeferred() {
+  try {
+    sessionStorage.removeItem(DEFER_ONBOARDING_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function isOnboardingDeferred(): boolean {
+  try {
+    return sessionStorage.getItem(DEFER_ONBOARDING_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 interface CoachingState {
   coachingRole: CoachingRole;
   billingRole: UserRole['role'] | null;
+  roleReady: boolean;
   loading: boolean;
   clients: CoachClientSummary[];
   invites: CoachInvite[];
   myCoach: CoachPreview | null;
   notes: CoachNote[];
+  opsRows: ClientOpsRow[];
+  opsLoading: boolean;
+  pendingInterventions: CoachIntervention[];
   fetchMyRole: (userId: string) => Promise<void>;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
   enableCoachMode: () => Promise<{ error: string | null }>;
   disableCoachMode: () => Promise<{ error: string | null }>;
   fetchClients: () => Promise<void>;
+  fetchCoachOps: () => Promise<void>;
+  fetchClientProfile: (clientId: string) => Promise<UserProfile | null>;
+  fetchTrackingConfig: (clientId: string) => Promise<ClientTrackingConfig | null>;
+  saveTrackingConfig: (
+    clientId: string,
+    data: Partial<Pick<ClientTrackingConfig, 'track_weight' | 'track_checkins' | 'track_nutrition' | 'track_workouts' | 'workout_focus' | 'setup_completed_at'>>,
+  ) => Promise<{ error: string | null }>;
+  setClientNutritionTargets: (
+    clientId: string,
+    targets: { calories: number; protein: number; carbs: number; fat: number },
+  ) => Promise<{ error: string | null }>;
+  applyProgramOutline: (clientId: string, outline: ProgramOutlineDraft) => Promise<{ error: string | null }>;
+  fetchPendingInterventions: () => Promise<void>;
+  fetchIntervention: (id: string) => Promise<CoachIntervention | null>;
+  fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
+  resolveIntervention: (
+    id: string,
+    status: Extract<CoachInterventionStatus, 'sent' | 'dismissed' | 'kept'>,
+    payload?: Record<string, unknown>,
+  ) => Promise<{ error: string | null }>;
+  suggestClientPlan: (clientId: string) => Promise<
+    { available: true; draft: AiPlanDraft } | { available: false; error: string }
+  >;
   fetchInvites: () => Promise<void>;
   createInvite: (opts?: { days?: number; maxUses?: number }) => Promise<{ token: string } | { error: string }>;
   revokeInvite: (id: string) => Promise<void>;
@@ -93,23 +156,32 @@ interface CoachingState {
 export const useCoachingStore = create<CoachingState>((set, get) => ({
   coachingRole: 'none',
   billingRole: null,
+  roleReady: false,
   loading: false,
   clients: [],
   invites: [],
   myCoach: null,
   notes: [],
+  opsRows: [],
+  opsLoading: false,
+  pendingInterventions: [],
 
   fetchMyRole: async (userId) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    const row = data as UserRole | null;
-    set({
-      coachingRole: row?.coaching_role ?? 'none',
-      billingRole: row?.role ?? 'free',
-    });
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const row = data as UserRole | null;
+      set({
+        coachingRole: row?.coaching_role ?? 'none',
+        billingRole: row?.role ?? 'free',
+        roleReady: true,
+      });
+    } catch {
+      set({ coachingRole: 'none', billingRole: 'free', roleReady: true });
+    }
   },
 
   setCoachingRole: async (role) => {
@@ -150,7 +222,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const ids = links.map(l => l.client_id as string);
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('id, full_name, email, avatar_url')
+      .select('id, full_name, email, avatar_url, onboarding_completed')
       .in('id', ids);
     const linkedAt = new Map(links.map(l => [l.client_id as string, l.created_at as string]));
     const clients: CoachClientSummary[] = (profiles ?? []).map(p => ({
@@ -159,8 +231,258 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       email: (p.email as string) || '',
       avatar_url: (p.avatar_url as string) || '',
       linked_at: linkedAt.get(p.id as string) ?? '',
+      onboarding_completed: !!p.onboarding_completed,
     }));
     set({ clients, loading: false });
+  },
+
+  fetchCoachOps: async () => {
+    set({ opsLoading: true });
+    await Promise.all([get().fetchClients(), get().fetchPendingInterventions()]);
+    const clients = get().clients;
+    if (clients.length === 0) {
+      set({ opsRows: [], opsLoading: false });
+      return;
+    }
+    const ids = clients.map(c => c.id);
+    const today = todayStr();
+    const weekAgo = weekAgoStr(today);
+    const weekday = new Date().getDay();
+
+    const [
+      trackingRes,
+      assignmentRes,
+      checkinRes,
+      nutritionRes,
+      weightRes,
+      workoutRes,
+    ] = await Promise.all([
+      supabase.from('client_tracking_config').select('*').in('client_id', ids),
+      supabase.from('program_assignments').select('client_id, program_id').in('client_id', ids).eq('status', 'active'),
+      supabase.from('daily_checkins').select('user_id').in('user_id', ids).eq('checked_at', today),
+      supabase.from('nutrition_logs').select('user_id').in('user_id', ids).eq('logged_at', today),
+      supabase.from('weight_measurements').select('user_id').in('user_id', ids).gte('measured_at', weekAgo),
+      supabase.from('workouts').select('user_id, date, completed').in('user_id', ids).eq('completed', true).gte('date', `${weekAgo}T00:00:00`),
+    ]);
+
+    const assignments = assignmentRes.data ?? [];
+    const programIds = [...new Set(assignments.map(a => a.program_id as string))];
+    let programDays: { program_id: string; weekday: number }[] = [];
+    if (programIds.length > 0) {
+      const { data: days } = await supabase
+        .from('program_days')
+        .select('program_id, weekday')
+        .in('program_id', programIds);
+      programDays = (days ?? []) as { program_id: string; weekday: number }[];
+    }
+
+    const trackingByClient = new Map<string, ClientTrackingConfig>();
+    for (const row of (trackingRes.error ? [] : trackingRes.data ?? []) as ClientTrackingConfig[]) {
+      trackingByClient.set(row.client_id, row);
+    }
+
+    const assignedClientIds = new Set(assignments.map(a => a.client_id as string));
+    const programByClient = new Map(assignments.map(a => [a.client_id as string, a.program_id as string]));
+    const scheduledWeekdaysByClient = new Map<string, Set<number>>();
+    for (const client of clients) {
+      const programId = programByClient.get(client.id);
+      if (!programId) continue;
+      const days = programDays.filter(d => d.program_id === programId).map(d => d.weekday);
+      scheduledWeekdaysByClient.set(client.id, new Set(days));
+    }
+
+    const workoutDatesByUser = new Map<string, string[]>();
+    for (const w of workoutRes.data ?? []) {
+      const uid = w.user_id as string;
+      const day = datePrefix(w.date as string);
+      const list = workoutDatesByUser.get(uid) ?? [];
+      list.push(day);
+      workoutDatesByUser.set(uid, list);
+    }
+
+    const opsRows = buildClientOpsRows(clients, {
+      today,
+      weekAgo,
+      weekday,
+      checkinUserIds: new Set((checkinRes.data ?? []).map(r => r.user_id as string)),
+      nutritionUserIds: new Set((nutritionRes.data ?? []).map(r => r.user_id as string)),
+      weightUserIds: new Set((weightRes.data ?? []).map(r => r.user_id as string)),
+      workoutDatesByUser,
+      scheduledWeekdaysByClient,
+      assignedClientIds,
+      trackingByClient,
+    });
+    set({ opsRows, opsLoading: false });
+  },
+
+  fetchClientProfile: async (clientId) => {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', clientId)
+      .maybeSingle();
+    return (data as UserProfile | null) ?? null;
+  },
+
+  fetchTrackingConfig: async (clientId) => {
+    const { data } = await supabase
+      .from('client_tracking_config')
+      .select('*')
+      .eq('client_id', clientId)
+      .maybeSingle();
+    return (data as ClientTrackingConfig | null) ?? null;
+  },
+
+  saveTrackingConfig: async (clientId, data) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const payload = {
+      coach_id: user.id,
+      client_id: clientId,
+      track_weight: data.track_weight ?? true,
+      track_checkins: data.track_checkins ?? true,
+      track_nutrition: data.track_nutrition ?? true,
+      track_workouts: data.track_workouts ?? true,
+      workout_focus: data.workout_focus ?? '',
+      setup_completed_at: data.setup_completed_at ?? new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    const { error } = await supabase
+      .from('client_tracking_config')
+      .upsert(payload, { onConflict: 'coach_id,client_id' });
+    if (error) return { error: error.message };
+    return { error: null };
+  },
+
+  setClientNutritionTargets: async (clientId, targets) => {
+    const { error } = await supabase.rpc('coach_set_client_nutrition_targets', {
+      p_client_id: clientId,
+      p_calories: Math.round(targets.calories),
+      p_protein: Math.round(targets.protein),
+      p_carbs: Math.round(targets.carbs),
+      p_fat: Math.round(targets.fat),
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  },
+
+  applyProgramOutline: async (clientId, outline) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const name = outline.name.trim();
+    if (!name || outline.days.length === 0) return { error: null };
+    const programs = useProgramStore.getState();
+    const programId = await programs.createProgram({
+      owner_id: user.id,
+      name,
+      description: outline.description,
+      duration_weeks: outline.duration_weeks,
+    }, outline.days.map((d, i) => ({
+      weekday: d.weekday,
+      name: d.name,
+      routine_id: null,
+      order_index: i,
+    })));
+    if (!programId) return { error: 'Failed to create program' };
+    const created = await programs.fetchProgram(programId);
+    const createdDays = [...(created?.days ?? [])].sort((a, b) => a.order_index - b.order_index);
+    for (let i = 0; i < outline.days.length; i++) {
+      const draftDay = outline.days[i];
+      const row = createdDays.find(d => d.order_index === i) ?? createdDays[i];
+      if (!row) continue;
+      await programs.setProgramDayExercises(
+        row.id,
+        (draftDay.exercises ?? []).map((ex, idx) => ({
+          name: ex.name,
+          default_sets: ex.default_sets || 3,
+          default_reps: ex.default_reps || 10,
+          order_index: idx,
+        })),
+      );
+    }
+    return programs.assignProgram(programId, clientId, todayStr());
+  },
+
+  fetchPendingInterventions: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      set({ pendingInterventions: [] });
+      return;
+    }
+    const { data, error } = await supabase
+      .from('coach_interventions')
+      .select('*')
+      .eq('coach_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error || !data) {
+      set({ pendingInterventions: [] });
+      return;
+    }
+    const rows = data
+      .map(row => mapInterventionRow(row as Record<string, unknown>))
+      .filter((row): row is CoachIntervention => !!row);
+    set({ pendingInterventions: rows });
+  },
+
+  fetchIntervention: async (id) => {
+    const { data, error } = await supabase
+      .from('coach_interventions')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapInterventionRow(data as Record<string, unknown>);
+  },
+
+  fetchOnboardingPlanDraft: async (clientId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from('coach_interventions')
+      .select('*')
+      .eq('coach_id', user.id)
+      .eq('client_id', clientId)
+      .eq('kind', 'onboarding_plan')
+      .eq('status', 'pending')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapInterventionRow(data as Record<string, unknown>);
+  },
+
+  resolveIntervention: async (id, status, payload) => {
+    const updates: Record<string, unknown> = {
+      status,
+      resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (payload) updates.payload = payload;
+    const { error } = await supabase
+      .from('coach_interventions')
+      .update(updates)
+      .eq('id', id)
+      .eq('status', 'pending');
+    if (error) return { error: error.message };
+    set(s => ({
+      pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
+    }));
+    return { error: null };
+  },
+
+  suggestClientPlan: async (clientId) => {
+    const stored = await get().fetchOnboardingPlanDraft(clientId);
+    const parsed = stored ? parseOnboardingPlanDraft(stored.payload) : null;
+    if (parsed) return { available: true, draft: parsed };
+    const { data, error } = await supabase.functions.invoke('suggest-client-plan', {
+      body: { client_id: clientId },
+    });
+    if (error) return { available: false, error: 'ai_unavailable' };
+    if (!data?.available || !data.draft) {
+      return { available: false, error: (data?.error as string) || 'ai_unavailable' };
+    }
+    return { available: true, draft: data.draft as AiPlanDraft };
   },
 
   fetchInvites: async () => {
@@ -371,9 +693,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   clear: () => set({
     coachingRole: 'none',
     billingRole: null,
+    roleReady: false,
     clients: [],
     invites: [],
     myCoach: null,
     notes: [],
+    opsRows: [],
+    opsLoading: false,
+    pendingInterventions: [],
   }),
 }));

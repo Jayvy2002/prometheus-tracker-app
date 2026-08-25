@@ -1,27 +1,43 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
+/**
+ * Enqueues food-product vision/nutrition extraction via Second (Grok Bot).
+ * Does not call OpenAI and does not insert into food_products.
+ *
+ * Same webhook env as notify-onboarding-complete:
+ *   GROK_BOT_WEBHOOK_URL + NOTIFY_SECRET (fallback GROK_BOT_WEBHOOK_SECRET)
+ *
+ * Second must (service role — RLS will not let another user update the request):
+ *   1. INSERT food_products (data_source may be "user" or "second"; no DB check)
+ *   2. UPDATE product_requests SET status='completed', result_product_id=<id>
+ *      or status='failed' + error_message on failure
+ */
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, X-Client-Info, Apikey",
+    "Content-Type, Authorization, X-Client-Info, Apikey, X-Webhook-Key, X-Sender-Key",
 };
+
+const SIGNED_URL_TTL_SECONDS = 3600;
+const WEBHOOK_TIMEOUT_MS = 5000;
+const IMAGE_SLOTS = [
+  ["image_front", "front"],
+  ["image_back", "back"],
+  ["image_nutrition", "nutrition"],
+] as const;
 
 interface AnalyzeRequest {
   request_id: string;
 }
 
-interface ProductData {
-  name: string;
-  brand: string;
-  calories_per_100g: number;
-  protein_per_100g: number;
-  carbs_per_100g: number;
-  fat_per_100g: number;
-  serving_size: number;
-  serving_unit: string;
-  confidence: number;
+function json(status: number, body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -32,25 +48,15 @@ Deno.serve(async (req: Request) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(401, { error: "Missing authorization" });
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
-
-    if (!openaiKey) {
-      return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY not configured" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
+    const webhookUrl = (Deno.env.get("GROK_BOT_WEBHOOK_URL") ?? "").trim();
+    const webhookSecret = (
+      Deno.env.get("NOTIFY_SECRET") ?? Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ?? ""
+    ).trim();
 
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
@@ -60,26 +66,16 @@ Deno.serve(async (req: Request) => {
       data: { user },
     } = await userClient.auth.getUser();
     if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(401, { error: "Unauthorized" });
     }
 
     const { request_id }: AnalyzeRequest = await req.json();
     if (!request_id) {
-      return new Response(
-        JSON.stringify({ error: "request_id is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json(400, { error: "request_id is required" });
     }
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Rate limiting: 10 AI analyses per user per day
     const dayStart = new Date();
     dayStart.setUTCHours(0, 0, 0, 0);
     const { count: usageCount } = await adminClient
@@ -90,16 +86,8 @@ Deno.serve(async (req: Request) => {
       .gte("called_at", dayStart.toISOString());
 
     if ((usageCount ?? 0) >= 10) {
-      return new Response(
-        JSON.stringify({ error: "DAILY_LIMIT_REACHED", limit: 10 }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json(429, { error: "DAILY_LIMIT_REACHED", limit: 10 });
     }
-
-    await adminClient.from("ai_usage_logs").insert({
-      user_id: user.id,
-      function_name: "analyze-product",
-    });
 
     const { data: prodReq, error: fetchErr } = await adminClient
       .from("product_requests")
@@ -109,39 +97,17 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
 
     if (fetchErr || !prodReq) {
-      return new Response(
-        JSON.stringify({ error: "Product request not found" }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json(404, { error: "Product request not found" });
     }
 
-    await adminClient
-      .from("product_requests")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
-      .eq("id", request_id);
-
-    const imageUrls: { type: string; url: string }[] = [];
-
-    for (const [field, label] of [
-      ["image_front", "front of product"],
-      ["image_back", "back of product"],
-      ["image_nutrition", "nutrition facts label"],
-    ] as const) {
+    const hasNotes = typeof prodReq.notes === "string" && prodReq.notes.trim().length > 0;
+    const hasBarcode = typeof prodReq.barcode === "string" && prodReq.barcode.trim().length > 0;
+    const hasImagePath = IMAGE_SLOTS.some(([field]) => {
       const path = prodReq[field];
-      if (path) {
-        const { data: signedData } = await adminClient.storage
-          .from("product-images")
-          .createSignedUrl(path, 600);
-        if (signedData?.signedUrl) {
-          imageUrls.push({ type: label, url: signedData.signedUrl });
-        }
-      }
-    }
+      return typeof path === "string" && path.length > 0;
+    });
 
-    if (imageUrls.length === 0 && !prodReq.notes && !prodReq.barcode) {
+    if (!hasImagePath && !hasNotes && !hasBarcode) {
       await adminClient
         .from("product_requests")
         .update({
@@ -150,286 +116,99 @@ Deno.serve(async (req: Request) => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({ error: "No data to analyze" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json(400, { error: "No data to analyze" });
     }
 
-    const messages: Array<Record<string, unknown>> = [];
-
-    const systemPrompt = `You are a nutrition data extraction assistant. Your job is to analyze food product images, notes, barcodes, and any available information to extract accurate nutritional data.
-
-You MUST respond with ONLY a valid JSON object (no markdown, no code blocks, no extra text) with these exact fields:
-{
-  "name": "product name",
-  "brand": "brand name or empty string",
-  "calories_per_100g": number,
-  "protein_per_100g": number,
-  "carbs_per_100g": number,
-  "fat_per_100g": number,
-  "serving_size": number,
-  "serving_unit": "g or ml",
-  "confidence": number
-}
-
-The "confidence" field must be an integer from 0 to 100 representing how certain you are about the nutritional values:
-- 95-100: Values read directly and clearly from a nutrition facts label in the image
-- 75-94: Values from a partially visible label, or from a well-known branded product you can identify with high certainty
-- 50-74: Values estimated from product name/notes using your knowledge (no label visible), or from a fresh/unpackaged food
-- 0-49: Values are a rough guess — image unclear, product unidentifiable, or conflicting information
-IMPORTANT: If images contain conflicting values between front-of-pack and the nutrition facts label, always prioritize the nutrition facts label.
-
-Rules:
-- All nutritional values MUST be per 100g (or 100ml for liquids)
-- If the label shows values per serving, convert them to per 100g using the serving size
-- serving_size should be the typical serving size in grams (default 100)
-- serving_unit should be "g" for solids, "ml" for liquids
-- Be precise with the numbers from the nutrition label if visible
-
-IMPORTANT - Handling fresh foods, fruits, vegetables, meat, and unpackaged items:
-- If the image shows a whole food (apple, banana, chicken breast, rice, egg, etc.) with NO nutrition label, you MUST use your extensive knowledge of food nutrition to provide accurate standard values per 100g
-- For example: an apple is ~52 kcal, 0.3g protein, 14g carbs, 0.2g fat per 100g. A banana is ~89 kcal, 1.1g protein, 23g carbs, 0.3g fat per 100g
-- For fresh produce, set brand to "" and serving_size to the typical weight of one unit (e.g. 182g for a medium apple, 118g for a medium banana, 150g for a chicken breast)
-- You have deep knowledge of USDA food composition data - use it confidently
-- If the user provides notes mentioning a food name, use that to identify the product even if images are unclear
-
-IMPORTANT - Barcode lookup:
-- If a barcode is provided, use your knowledge to identify common products associated with that barcode
-- Combine barcode info with any images or notes to determine the most accurate nutritional values
-
-IMPORTANT - Internet knowledge:
-- Use your full training knowledge which includes extensive food databases (USDA, nutritiondata.self.com, etc.) to provide accurate values
-- For branded products you recognize from images or notes, use known nutritional values for that product
-- NEVER return all zeros - if you can identify the food at all, provide your best estimate based on your knowledge`;
-
-    messages.push({ role: "system", content: systemPrompt });
-
-    const userContent: Array<Record<string, unknown>> = [];
-
-    let textPart = "";
-    if (prodReq.barcode) {
-      textPart += `Barcode: ${prodReq.barcode}\n`;
-    }
-    if (prodReq.notes) {
-      textPart += `User notes: ${prodReq.notes}\n`;
-    }
-    if (imageUrls.length > 0) {
-      textPart += `I'm providing ${imageUrls.length} image(s) of this product: ${imageUrls.map((i) => i.type).join(", ")}.\n`;
-    }
-    textPart +=
-      "\nExtract the nutritional information and return the JSON object.";
-
-    userContent.push({ type: "text", text: textPart });
-
-    for (const img of imageUrls) {
-      userContent.push({
-        type: "image_url",
-        image_url: { url: img.url, detail: "high" },
-      });
-    }
-
-    messages.push({ role: "user", content: userContent });
-
-    const openaiRes = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${openaiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages,
-          max_tokens: 600,
-          temperature: 0.1,
-        }),
-      }
-    );
-
-    if (!openaiRes.ok) {
-      const errBody = await openaiRes.text();
+    if (!webhookUrl || !webhookSecret) {
       await adminClient
         .from("product_requests")
         .update({
           status: "failed",
-          error_message: `OpenAI API error: ${openaiRes.status}`,
+          error_message: "WEBHOOK_NOT_CONFIGURED",
           updated_at: new Date().toISOString(),
         })
         .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({ error: "AI analysis failed", details: errBody }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json(503, { error: "WEBHOOK_NOT_CONFIGURED" });
     }
 
-    const aiResult = await openaiRes.json();
-    const rawContent = aiResult.choices?.[0]?.message?.content ?? "";
-
-    let productData: ProductData;
-    try {
-      const cleaned = rawContent
-        .replace(/```json\s*/g, "")
-        .replace(/```\s*/g, "")
-        .trim();
-      productData = JSON.parse(cleaned);
-    } catch {
-      await adminClient
-        .from("product_requests")
-        .update({
-          status: "failed",
-          error_message: `Failed to parse AI response: ${rawContent.substring(0, 200)}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({ error: "Failed to parse AI response" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // --- Deduplication: search by name (+ brand if available) before inserting ---
-    const nameToMatch = (productData.name || "").trim();
-    const brandToMatch = (productData.brand || "").trim();
-
-    // Also check barcode first if provided (fastest path)
-    let dedupeProduct = null;
-    if (prodReq.barcode) {
-      const { data: byBarcode } = await adminClient
-        .from("food_products")
-        .select("*")
-        .eq("barcode", prodReq.barcode)
-        .limit(1);
-      dedupeProduct = byBarcode?.[0] ?? null;
-    }
-
-    if (!dedupeProduct && nameToMatch) {
-      let nameQuery = adminClient
-        .from("food_products")
-        .select("*")
-        .ilike("name", nameToMatch);
-
-      if (brandToMatch) {
-        nameQuery = nameQuery.ilike("brand", brandToMatch);
+    const images: { type: "front" | "back" | "nutrition"; url: string }[] = [];
+    for (const [field, type] of IMAGE_SLOTS) {
+      const path = prodReq[field];
+      if (typeof path !== "string" || !path) continue;
+      const { data: signedData } = await adminClient.storage
+        .from("product-images")
+        .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
+      if (signedData?.signedUrl) {
+        images.push({ type, url: signedData.signedUrl });
       }
-
-      const { data: byName } = await nameQuery.limit(1);
-      dedupeProduct = byName?.[0] ?? null;
-    }
-
-    if (dedupeProduct) {
-      await adminClient
-        .from("product_requests")
-        .update({
-          status: "completed",
-          result_product_id: dedupeProduct.id,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-
-      return new Response(JSON.stringify({ product: dedupeProduct }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    // --- End deduplication ---
-
-    const { data: newProduct, error: insertErr } = await adminClient
-      .from("food_products")
-      .insert({
-        barcode: prodReq.barcode || null,
-        name: productData.name || "Unknown Product",
-        brand: productData.brand || null,
-        calories_per_100g: productData.calories_per_100g || 0,
-        protein_per_100g: productData.protein_per_100g || 0,
-        carbs_per_100g: productData.carbs_per_100g || 0,
-        fat_per_100g: productData.fat_per_100g || 0,
-        serving_size: productData.serving_size || 100,
-        serving_unit: productData.serving_unit || "g",
-        created_by: user.id,
-        data_source: "user",
-      })
-      .select()
-      .maybeSingle();
-
-    if (insertErr || !newProduct) {
-      let dupProduct = null;
-      if (prodReq.barcode) {
-        const { data } = await adminClient
-          .from("food_products")
-          .select("*")
-          .eq("barcode", prodReq.barcode)
-          .maybeSingle();
-        dupProduct = data;
-      }
-
-      if (dupProduct) {
-        await adminClient
-          .from("product_requests")
-          .update({
-            status: "completed",
-            result_product_id: dupProduct.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", request_id);
-
-        return new Response(JSON.stringify({ product: dupProduct }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      await adminClient
-        .from("product_requests")
-        .update({
-          status: "failed",
-          error_message: `DB insert failed: ${insertErr?.message ?? "unknown"}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({ error: "Failed to save product" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
     }
 
     await adminClient
       .from("product_requests")
-      .update({
-        status: "completed",
-        result_product_id: newProduct.id,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", request_id);
 
-    return new Response(JSON.stringify({ product: newProduct, confidence: productData.confidence ?? 100 }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        message: err instanceof Error ? err.message : "unknown",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const payload = {
+      kind: "analyze_product",
+      request_id,
+      user_id: user.id,
+      barcode: hasBarcode ? prodReq.barcode : "",
+      notes: hasNotes ? prodReq.notes : "",
+      images,
+    };
+
+    const webhookHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${webhookSecret}`,
+      "X-Webhook-Key": webhookSecret,
+      "X-Sender-Key": webhookSecret,
+    };
+
+    try {
+      const webhookRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: webhookHeaders,
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+      });
+      if (webhookRes.status >= 400) {
+        await adminClient
+          .from("product_requests")
+          .update({
+            status: "failed",
+            error_message: `WEBHOOK_FAILED:${webhookRes.status}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", request_id);
+        return json(502, { error: "WEBHOOK_FAILED" });
       }
-    );
+    } catch (err) {
+      const errName = err instanceof Error ? err.name : "";
+      const aborted = errName === "TimeoutError" || errName === "AbortError";
+      if (!aborted) {
+        await adminClient
+          .from("product_requests")
+          .update({
+            status: "failed",
+            error_message: "WEBHOOK_FAILED",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", request_id);
+        return json(502, { error: "WEBHOOK_FAILED" });
+      }
+      // Timeout: the POST was likely delivered; Second continues while the app polls.
+    }
+
+    await adminClient.from("ai_usage_logs").insert({
+      user_id: user.id,
+      function_name: "analyze-product",
+    });
+
+    return json(202, { status: "processing", request_id });
+  } catch (err) {
+    return json(500, {
+      error: "Internal server error",
+      message: err instanceof Error ? err.message : "unknown",
+    });
   }
 });

@@ -131,9 +131,11 @@ export default function ProfilePage() {
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
+        {coachingRole !== 'coach' && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           <GoalsForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
+        )}
 
         <AccordionSection id="units" icon={Ruler} label={t('profile.sections.units')} isOpen={openSection === 'units'} onToggle={() => toggle('units')} animationDelay="180ms">
           <UnitsForm onBack={() => setOpenSection(null)} inline />
@@ -168,6 +170,7 @@ export default function ProfilePage() {
           <FeedbackForm />
         </AccordionSection>
 
+        {coachingRole !== 'coach' && (
         <div className="animate-fade-in-up" style={{ animationDelay: '360ms' }}>
         <Card onClick={() => navigate('/routines')} className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
@@ -177,15 +180,21 @@ export default function ProfilePage() {
           <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
         </Card>
         </div>
+        )}
 
         {[
           { to: '/programs', icon: CalendarRange, label: t('nav.programs') },
-          { to: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
-          { to: '/weight', icon: Scale, label: t('nav.weight') },
-          { to: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
-          { to: '/stats', icon: BarChart2, label: t('nav.stats') },
-          { to: '/recipes', icon: ChefHat, label: t('nav.recipes') },
-          ...(coachingRole === 'coach' ? [{ to: '/clients', icon: Users, label: t('nav.clients') }] : []),
+          ...(coachingRole === 'coach'
+            ? [
+                { to: '/clients', icon: Users, label: t('nav.clients') },
+              ]
+            : [
+                { to: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
+                { to: '/weight', icon: Scale, label: t('nav.weight') },
+                { to: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
+                { to: '/stats', icon: BarChart2, label: t('nav.stats') },
+                { to: '/recipes', icon: ChefHat, label: t('nav.recipes') },
+              ]),
         ].map(item => (
           <div key={item.to} className="animate-fade-in-up">
             <Card onClick={() => navigate(item.to)} className="flex items-center gap-3">

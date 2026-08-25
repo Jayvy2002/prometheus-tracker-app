@@ -125,6 +125,21 @@ export default function ClientDetailPage() {
             : ''}
         </p>
 
+        {client && !client.onboarding_completed && (
+          <Card className="mb-4">
+            <p className="text-sm font-medium text-amber-200">{t('coaching.setup.waitingTitle')}</p>
+            <p className="text-xs text-neutral-400 mt-1">{t('coaching.setup.waitingBody')}</p>
+            <Button size="sm" variant="secondary" className="w-full mt-3" onClick={() => navigate(`/clients/${id}/setup`)}>
+              {t('coaching.setupCta')}
+            </Button>
+          </Card>
+        )}
+        {client?.onboarding_completed && (
+          <Button size="sm" variant="secondary" className="w-full mb-4" onClick={() => navigate(`/clients/${id}/setup`)}>
+            {t('coaching.setup.title')}
+          </Button>
+        )}
+
         {programs.length > 0 && (
           <Card className="mb-4 space-y-2">
             <p className="text-sm font-medium text-white">{t('programs.assignToClient')}</p>
@@ -302,10 +317,14 @@ export default function ClientDetailPage() {
         )}
 
         {tab !== 'notes' && tab !== 'workouts' && (
-          <div className="mt-4 flex items-center gap-2 text-neutral-600">
+          <button
+            type="button"
+            onClick={() => { setTab('notes'); setOpenWorkout(null); }}
+            className="mt-4 flex items-center gap-2 text-neutral-500 hover:text-blue-300"
+          >
             <MessageSquare size={14} />
             <span className="text-xs">{t('coaching.switchToNotes')}</span>
-          </div>
+          </button>
         )}
       </div>
     </PageTransition>

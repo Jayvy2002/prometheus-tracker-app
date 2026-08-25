@@ -11,7 +11,8 @@ const TAB_ORDER: Record<string, number> = {
   '/dashboard': 0,
   '/workout': 1,
   '/checkin': 2,
-  '/clients': 2,
+  '/clients': 1,
+  '/programs': 2,
   '/nutrition': 3,
   '/profile': 4,
 };

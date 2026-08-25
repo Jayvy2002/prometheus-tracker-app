@@ -351,6 +351,99 @@ export interface CoachClientSummary {
   email: string;
   avatar_url: string;
   linked_at: string;
+  onboarding_completed: boolean;
+}
+
+export interface ClientTrackingConfig {
+  id: string;
+  coach_id: string;
+  client_id: string;
+  track_weight: boolean;
+  track_checkins: boolean;
+  track_nutrition: boolean;
+  track_workouts: boolean;
+  workout_focus: string;
+  setup_completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type ClientAlertKind =
+  | 'onboarding_incomplete'
+  | 'program_unassigned'
+  | 'missing_checkin'
+  | 'missing_workout_today'
+  | 'missing_workout_week'
+  | 'missing_weight'
+  | 'missing_nutrition';
+
+export interface ClientOpsRow {
+  client: CoachClientSummary;
+  alerts: ClientAlertKind[];
+  hasScheduledTrainingToday: boolean;
+  hasProgram: boolean;
+  setupCompleted: boolean;
+}
+
+export interface AiProgramDayDraft {
+  weekday: number;
+  name: string;
+  exercises: Array<{
+    name: string;
+    default_sets: number;
+    default_reps: number;
+  }>;
+}
+
+export interface AiPlanDraft {
+  program: {
+    name: string;
+    description: string;
+    duration_weeks: number;
+    days: AiProgramDayDraft[];
+  };
+  tracking: {
+    track_weight: boolean;
+    track_checkins: boolean;
+    track_nutrition: boolean;
+    track_workouts: boolean;
+    workout_focus: string;
+  };
+  nutrition?: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    rationale: string;
+  };
+  recipes?: string[];
+}
+
+export type CoachInterventionKind =
+  | 'onboarding_plan'
+  | 'calorie_adjustment'
+  | 'program_adjustment'
+  | 'adherence_nutrition'
+  | 'adherence_training'
+  | 'workflow_improvement'
+  | 'new_question'
+  | 'other';
+
+export type CoachInterventionStatus = 'pending' | 'sent' | 'dismissed' | 'kept';
+
+export interface CoachIntervention {
+  id: string;
+  coach_id: string;
+  client_id: string | null;
+  kind: CoachInterventionKind;
+  title: string | null;
+  rationale: string;
+  payload: Record<string, unknown>;
+  status: CoachInterventionStatus;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
 }
 
 export interface CoachPreview {
