@@ -3,7 +3,29 @@
 -- GROK_BOT_WEBHOOK_URL / GROK_BOT_WEBHOOK_SECRET are Edge Function secrets, not SQL.
 -- Second (assistant-coach) may insert drafts; the head coach can also create everything by hand.
 
-CREATE EXTENSION IF NOT EXISTS pg_net;
+-- pg_net: prefer `WITH SCHEMA net` as requested. On this host that form fails
+-- if schema net is missing (3F000) or was pre-created (extension must own it).
+-- Fallback `CREATE EXTENSION pg_net` lets the extension create schema net.
+-- If both fail, the trigger still no-ops so onboarding never fails.
+DO $ext$
+BEGIN
+  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA net';
+EXCEPTION WHEN OTHERS THEN
+  BEGIN
+    EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net';
+  EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_net unavailable (%); onboarding ping will no-op', SQLERRM;
+  END;
+END;
+$ext$;
+
+DO $grant$
+BEGIN
+  EXECUTE 'GRANT USAGE ON SCHEMA net TO postgres, anon, authenticated, service_role';
+EXCEPTION WHEN OTHERS THEN
+  NULL;
+END;
+$grant$;
 
 CREATE TABLE IF NOT EXISTS coach_interventions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -52,7 +74,7 @@ CREATE POLICY "Coaches read interventions for their clients"
 DROP POLICY IF EXISTS "Coaches update interventions for their clients" ON coach_interventions;
 CREATE POLICY "Coaches update interventions for their clients"
   ON coach_interventions FOR UPDATE TO authenticated
-  USING (coach_id = (select auth.uid()) AND public.is_coach_of(client_id))
+  USING (coach_id = (select auth.uid()) AND (client_id IS NULL OR public.is_coach_of(client_id)))
   WITH CHECK (coach_id = (select auth.uid()) AND (client_id IS NULL OR public.is_coach_of(client_id)));
 
 GRANT SELECT, UPDATE ON TABLE coach_interventions TO authenticated;
@@ -192,6 +214,12 @@ BEGIN
       'Authorization', 'Bearer ' || v_invoke_key,
       'apikey', v_invoke_key
     );
+  END IF;
+
+  -- Skip quietly if pg_net could not be enabled. Onboarding must still succeed.
+  IF to_regprocedure('net.http_post(text, jsonb, jsonb, jsonb, integer)') IS NULL THEN
+    RAISE WARNING 'notify_onboarding_complete: pg_net missing, skip ping';
+    RETURN NEW;
   END IF;
 
   PERFORM net.http_post(
