@@ -26,6 +26,7 @@ import CheckInPage from './components/checkin/CheckInPage';
 import ClientsPage from './components/coaching/ClientsPage';
 import ClientDetailPage from './components/coaching/ClientDetailPage';
 import ClientSetupPage from './components/coaching/ClientSetupPage';
+import InterventionDraftPage from './components/coaching/InterventionDraftPage';
 import CoachDashboard from './components/coaching/CoachDashboard';
 import ProgramsPage from './components/programs/ProgramsPage';
 
@@ -139,6 +140,8 @@ function AppRoutes() {
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/clients/:id" element={<ClientDetailPage />} />
         <Route path="/clients/:id/setup" element={<ClientSetupPage />} />
+        <Route path="/clients/:id/draft/:interventionId" element={<InterventionDraftPage />} />
+        <Route path="/inbox/:interventionId" element={<InterventionDraftPage />} />
         <Route path="/programs" element={<ProgramsPage />} />
       </Route>
       <Route path="/workout/new" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />

@@ -6,6 +6,8 @@ import type {
   ClientTrackingConfig,
   CoachingRole,
   CoachClientSummary,
+  CoachIntervention,
+  CoachInterventionStatus,
   CoachInvite,
   CoachNote,
   CoachPreview,
@@ -19,6 +21,8 @@ import type {
   WorkoutExercise,
   WorkoutSet,
 } from '../lib/types';
+import { mapInterventionRow, parseOnboardingPlanDraft, type ProgramOutlineDraft } from '../lib/coachInterventions';
+import { useProgramStore } from './programStore';
 import { buildClientOpsRows, datePrefix, weekAgoStr } from '../lib/coachAlerts';
 import { todayStr } from '../lib/utils';
 
@@ -75,6 +79,7 @@ interface CoachingState {
   notes: CoachNote[];
   opsRows: ClientOpsRow[];
   opsLoading: boolean;
+  pendingInterventions: CoachIntervention[];
   fetchMyRole: (userId: string) => Promise<void>;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
@@ -91,6 +96,15 @@ interface CoachingState {
   setClientNutritionTargets: (
     clientId: string,
     targets: { calories: number; protein: number; carbs: number; fat: number },
+  ) => Promise<{ error: string | null }>;
+  applyProgramOutline: (clientId: string, outline: ProgramOutlineDraft) => Promise<{ error: string | null }>;
+  fetchPendingInterventions: () => Promise<void>;
+  fetchIntervention: (id: string) => Promise<CoachIntervention | null>;
+  fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
+  resolveIntervention: (
+    id: string,
+    status: Extract<CoachInterventionStatus, 'sent' | 'dismissed' | 'kept'>,
+    payload?: Record<string, unknown>,
   ) => Promise<{ error: string | null }>;
   suggestClientPlan: (clientId: string) => Promise<
     { available: true; draft: AiPlanDraft } | { available: false; error: string }
@@ -124,6 +138,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   notes: [],
   opsRows: [],
   opsLoading: false,
+  pendingInterventions: [],
 
   fetchMyRole: async (userId) => {
     try {
@@ -197,7 +212,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   fetchCoachOps: async () => {
     set({ opsLoading: true });
-    await get().fetchClients();
+    await Promise.all([get().fetchClients(), get().fetchPendingInterventions()]);
     const clients = get().clients;
     if (clients.length === 0) {
       set({ opsRows: [], opsLoading: false });
@@ -325,7 +340,113 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     return { error: null };
   },
 
+  applyProgramOutline: async (clientId, outline) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const name = outline.name.trim();
+    if (!name || outline.days.length === 0) return { error: null };
+    const programs = useProgramStore.getState();
+    const programId = await programs.createProgram({
+      owner_id: user.id,
+      name,
+      description: outline.description,
+      duration_weeks: outline.duration_weeks,
+    }, outline.days.map((d, i) => ({
+      weekday: d.weekday,
+      name: d.name,
+      routine_id: null,
+      order_index: i,
+    })));
+    if (!programId) return { error: 'Failed to create program' };
+    const created = await programs.fetchProgram(programId);
+    for (const draftDay of outline.days) {
+      const row = created?.days?.find(d => d.weekday === draftDay.weekday);
+      if (!row) continue;
+      await programs.setProgramDayExercises(
+        row.id,
+        (draftDay.exercises ?? []).map((ex, i) => ({
+          name: ex.name,
+          default_sets: ex.default_sets || 3,
+          default_reps: ex.default_reps || 10,
+          order_index: i,
+        })),
+      );
+    }
+    return programs.assignProgram(programId, clientId, todayStr());
+  },
+
+  fetchPendingInterventions: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      set({ pendingInterventions: [] });
+      return;
+    }
+    const { data, error } = await supabase
+      .from('coach_interventions')
+      .select('*')
+      .eq('coach_id', user.id)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false });
+    if (error || !data) {
+      set({ pendingInterventions: [] });
+      return;
+    }
+    const rows = data
+      .map(row => mapInterventionRow(row as Record<string, unknown>))
+      .filter((row): row is CoachIntervention => !!row);
+    set({ pendingInterventions: rows });
+  },
+
+  fetchIntervention: async (id) => {
+    const { data, error } = await supabase
+      .from('coach_interventions')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapInterventionRow(data as Record<string, unknown>);
+  },
+
+  fetchOnboardingPlanDraft: async (clientId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data, error } = await supabase
+      .from('coach_interventions')
+      .select('*')
+      .eq('coach_id', user.id)
+      .eq('client_id', clientId)
+      .eq('kind', 'onboarding_plan')
+      .eq('status', 'pending')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    return mapInterventionRow(data as Record<string, unknown>);
+  },
+
+  resolveIntervention: async (id, status, payload) => {
+    const updates: Record<string, unknown> = {
+      status,
+      resolved_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    if (payload) updates.payload = payload;
+    const { error } = await supabase
+      .from('coach_interventions')
+      .update(updates)
+      .eq('id', id)
+      .eq('status', 'pending');
+    if (error) return { error: error.message };
+    set(s => ({
+      pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
+    }));
+    return { error: null };
+  },
+
   suggestClientPlan: async (clientId) => {
+    const stored = await get().fetchOnboardingPlanDraft(clientId);
+    const parsed = stored ? parseOnboardingPlanDraft(stored.payload) : null;
+    if (parsed) return { available: true, draft: parsed };
     const { data, error } = await supabase.functions.invoke('suggest-client-plan', {
       body: { client_id: clientId },
     });
@@ -551,5 +672,6 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     notes: [],
     opsRows: [],
     opsLoading: false,
+    pendingInterventions: [],
   }),
 }));

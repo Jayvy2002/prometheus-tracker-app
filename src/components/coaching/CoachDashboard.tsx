@@ -11,12 +11,14 @@ import {
   Link2,
   Plus,
   Scale,
+  Sparkles,
   Users,
   Utensils,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { isSetupAlert, needsSetup } from '../../lib/coachAlerts';
+import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
 import type { ClientAlertKind, ClientOpsRow } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -73,7 +75,7 @@ export default function CoachDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    opsRows, opsLoading, invites,
+    opsRows, opsLoading, invites, pendingInterventions, clients,
     fetchCoachOps, fetchInvites, createInvite,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
@@ -140,7 +142,53 @@ export default function CoachDashboard() {
           <div className="space-y-2">
             {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
           </div>
-        ) : opsRows.length === 0 ? (
+        ) : (
+          <>
+            {pendingInterventions.length > 0 && (
+              <div className="mb-6">
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
+                  {t('coaching.interventions.title')}
+                </p>
+                <div className="space-y-2">
+                  {pendingInterventions.map(item => {
+                    const client = clients.find(c => c.id === item.client_id);
+                    const coachOnly = isCoachOnlyKind(item.kind);
+                    return (
+                      <Card
+                        key={item.id}
+                        onClick={() => navigate(interventionHref(item))}
+                        className="flex items-start gap-3"
+                      >
+                        <Sparkles size={16} className={`mt-1 shrink-0 ${coachOnly ? 'text-violet-400' : 'text-blue-400'}`} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium text-white truncate">
+                              {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
+                            </p>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                              coachOnly ? 'bg-violet-500/15 text-violet-300' : 'bg-blue-500/15 text-blue-300'
+                            }`}>
+                              {coachOnly ? t('coaching.interventions.badgeApp') : t('coaching.interventions.badgeClient')}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-neutral-500 truncate">
+                            {client?.full_name || client?.email || (coachOnly ? t('coaching.interventions.appWide') : t('coaching.unnamed'))}
+                            {' · '}
+                            {t(`coaching.interventions.kinds.${item.kind}`)}
+                          </p>
+                          <p className="text-xs text-neutral-400 mt-1 line-clamp-2">
+                            {item.rationale || payloadSummary(item)}
+                          </p>
+                        </div>
+                        <ChevronRight size={16} className="text-neutral-600 mt-2 shrink-0" />
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {opsRows.length === 0 ? (
           <Card className="text-center py-10">
             <Users className="mx-auto mb-3 text-neutral-600" size={32} />
             <p className="text-neutral-300 mb-1">{t('coaching.ops.emptyTitle')}</p>
@@ -230,6 +278,8 @@ export default function CoachDashboard() {
                   </Card>
                 ))}
             </div>
+          </>
+            )}
           </>
         )}
       </div>

@@ -409,14 +409,41 @@ export interface AiPlanDraft {
     track_workouts: boolean;
     workout_focus: string;
   };
-  nutrition: {
+  nutrition?: {
     calories: number;
     protein: number;
     carbs: number;
     fat: number;
     rationale: string;
   };
-  recipes: string[];
+  recipes?: string[];
+}
+
+export type CoachInterventionKind =
+  | 'onboarding_plan'
+  | 'calorie_adjustment'
+  | 'program_adjustment'
+  | 'adherence_nutrition'
+  | 'adherence_training'
+  | 'workflow_improvement'
+  | 'new_question'
+  | 'other';
+
+export type CoachInterventionStatus = 'pending' | 'sent' | 'dismissed' | 'kept';
+
+export interface CoachIntervention {
+  id: string;
+  coach_id: string;
+  client_id: string | null;
+  kind: CoachInterventionKind;
+  title: string | null;
+  rationale: string;
+  payload: Record<string, unknown>;
+  status: CoachInterventionStatus;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
 }
 
 export interface CoachPreview {

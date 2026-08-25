@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Sparkles, X } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -9,7 +9,9 @@ import { issnTargetsFromProfile, todayStr } from '../../lib/utils';
 import {
   DIET_TYPES, FOOD_ALLERGIES, GOALS, TRAINING_EXPERIENCES, TRAINING_FOCUSES,
 } from '../../lib/constants';
-import type { AiPlanDraft, AiProgramDayDraft, UserProfile } from '../../lib/types';
+import { parseOnboardingPlanDraft } from '../../lib/coachInterventions';
+import type { AiProgramDayDraft, CoachIntervention, UserProfile } from '../../lib/types';
+import ProgramDraftEditor from './ProgramDraftEditor';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -40,13 +42,15 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 export default function ClientSetupPage() {
   const { t } = useTranslation();
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
     coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
-    saveTrackingConfig, setClientNutritionTargets, suggestClientPlan,
+    fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
+    saveTrackingConfig, setClientNutritionTargets, applyProgramOutline,
   } = useCoachingStore();
-  const { programs, fetchPrograms, createProgram, setProgramDayExercises, assignProgram, fetchProgram } = useProgramStore();
+  const { programs, fetchPrograms, assignProgram } = useProgramStore();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,23 +66,43 @@ export default function ClientSetupPage() {
   const [draftProgramName, setDraftProgramName] = useState('');
   const [draftProgramWeeks, setDraftProgramWeeks] = useState(8);
   const [draftProgramDesc, setDraftProgramDesc] = useState('');
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable'>('idle');
-  const [aiDraft, setAiDraft] = useState<AiPlanDraft | null>(null);
-  const [aiRationale, setAiRationale] = useState('');
-  const [aiRecipes, setAiRecipes] = useState<string[]>([]);
+  const [draftRow, setDraftRow] = useState<CoachIntervention | null>(null);
 
   const client = clients.find(c => c.id === id);
   const issn = useMemo(() => (profile ? issnTargetsFromProfile(profile) : null), [profile]);
+
+  const fillProgramAndTracking = (payload: Record<string, unknown>) => {
+    const parsed = parseOnboardingPlanDraft(payload);
+    if (!parsed) return;
+    if (parsed.tracking) {
+      setTracking({
+        track_weight: !!parsed.tracking.track_weight,
+        track_checkins: !!parsed.tracking.track_checkins,
+        track_nutrition: !!parsed.tracking.track_nutrition,
+        track_workouts: !!parsed.tracking.track_workouts,
+        workout_focus: parsed.tracking.workout_focus || '',
+      });
+    }
+    if (parsed.program) {
+      setDraftProgramName(parsed.program.name || '');
+      setDraftProgramDesc(parsed.program.description || '');
+      setDraftProgramWeeks(parsed.program.duration_weeks || 8);
+      setDraftDays(parsed.program.days ?? []);
+      setAssignId('');
+    }
+  };
 
   useEffect(() => {
     if (!id || !user) return;
     if (!clients.length) fetchClients();
     fetchPrograms(user.id);
     setLoading(true);
+    const draftParam = searchParams.get('draft');
     Promise.all([
       fetchClientProfile(id),
       fetchTrackingConfig(id),
-    ]).then(([p, cfg]) => {
+      draftParam ? fetchIntervention(draftParam) : fetchOnboardingPlanDraft(id),
+    ]).then(([p, cfg, stored]) => {
       setProfile(p);
       if (cfg) {
         setTracking({
@@ -96,6 +120,13 @@ export default function ClientSetupPage() {
         setCarbs(p.carbs_target || targets.carbs);
         setFat(p.fat_target || targets.fat);
       }
+      const usable = stored && stored.status === 'pending' && stored.kind === 'onboarding_plan'
+        ? stored
+        : null;
+      if (usable) {
+        setDraftRow(usable);
+        fillProgramAndTracking(usable.payload);
+      }
     }).finally(() => setLoading(false));
   }, [id, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -107,62 +138,9 @@ export default function ClientSetupPage() {
     setFat(issn.fat);
   };
 
-  const loadAi = async () => {
-    if (!id) return;
-    setAiStatus('loading');
-    const result = await suggestClientPlan(id);
-    if (!result.available) {
-      setAiStatus('unavailable');
-      setAiDraft(null);
-      return;
-    }
-    setAiDraft(result.draft);
-    setAiStatus('ready');
-    setAiRationale(result.draft.nutrition?.rationale || '');
-    setAiRecipes(result.draft.recipes ?? []);
-  };
-
-  const applyAiToForm = () => {
-    if (!aiDraft) return;
-    const tr = aiDraft.tracking;
-    if (tr) {
-      setTracking({
-        track_weight: !!tr.track_weight,
-        track_checkins: !!tr.track_checkins,
-        track_nutrition: !!tr.track_nutrition,
-        track_workouts: !!tr.track_workouts,
-        workout_focus: tr.workout_focus || '',
-      });
-    }
-    if (aiDraft.nutrition) {
-      setCalories(aiDraft.nutrition.calories || calories);
-      setProtein(aiDraft.nutrition.protein || protein);
-      setCarbs(aiDraft.nutrition.carbs || carbs);
-      setFat(aiDraft.nutrition.fat || fat);
-    }
-    if (aiDraft.program) {
-      setDraftProgramName(aiDraft.program.name || '');
-      setDraftProgramDesc(aiDraft.program.description || '');
-      setDraftProgramWeeks(aiDraft.program.duration_weeks || 8);
-      setDraftDays((aiDraft.program.days ?? []).map(d => ({
-        weekday: Number(d.weekday),
-        name: d.name,
-        exercises: (d.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: Number(ex.default_sets) || 3,
-          default_reps: Number(ex.default_reps) || 10,
-        })),
-      })));
-      setAssignId('');
-    }
-    toast(t('coaching.setup.aiApplied'));
-  };
-
-  const discardAi = () => {
-    setAiDraft(null);
-    setAiStatus('idle');
-    setAiRationale('');
-    setAiRecipes([]);
+  const discardDraft = () => {
+    if (draftRow) void resolveIntervention(draftRow.id, 'dismissed');
+    setDraftRow(null);
   };
 
   const handleConfirm = async () => {
@@ -180,46 +158,24 @@ export default function ClientSetupPage() {
 
     if (applyTargets) {
       const targetResult = await setClientNutritionTargets(id, { calories, protein, carbs, fat });
-      if (targetResult.error) {
-        toast(targetResult.error, 'error');
-      }
+      if (targetResult.error) toast(targetResult.error, 'error');
     }
 
     if (draftProgramName.trim() && draftDays.length > 0 && !assignId) {
-      const programId = await createProgram({
-        owner_id: user.id,
-        name: draftProgramName.trim(),
+      const created = await applyProgramOutline(id, {
+        name: draftProgramName,
         description: draftProgramDesc,
         duration_weeks: draftProgramWeeks,
-      }, draftDays.map((d, i) => ({
-        weekday: d.weekday,
-        name: d.name,
-        routine_id: null,
-        order_index: i,
-      })));
-      if (programId) {
-        const created = await fetchProgram(programId);
-        for (const draftDay of draftDays) {
-          const row = created?.days?.find(d => d.weekday === draftDay.weekday);
-          if (!row) continue;
-          await setProgramDayExercises(
-            row.id,
-            (draftDay.exercises ?? []).map((ex, i) => ({
-              name: ex.name,
-              default_sets: ex.default_sets || 3,
-              default_reps: ex.default_reps || 10,
-              order_index: i,
-            })),
-          );
-        }
-        const assigned = await assignProgram(programId, id, todayStr());
-        if (assigned.error) toast(assigned.error, 'error');
-      } else {
-        toast(t('programs.createFailed'), 'error');
-      }
+        days: draftDays,
+      });
+      if (created.error) toast(created.error, 'error');
     } else if (assignId) {
       const assigned = await assignProgram(assignId, id, todayStr());
       if (assigned.error) toast(assigned.error, 'error');
+    }
+
+    if (draftRow) {
+      await resolveIntervention(draftRow.id, 'sent');
     }
 
     setSaving(false);
@@ -284,48 +240,24 @@ export default function ClientSetupPage() {
               <ReviewRow label={t('coaching.setup.fields.sleep')} value={`${profile.sleep_hours_average} h`} />
             </Card>
 
-            <Card className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-medium text-white flex items-center gap-2">
-                  <Sparkles size={14} className="text-blue-400" />
-                  {t('coaching.setup.aiTitle')}
-                </p>
-                {aiStatus === 'ready' && (
-                  <button onClick={discardAi} className="text-neutral-500 hover:text-white">
+            {draftRow && (
+              <Card className="mb-4 border-blue-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-white flex items-center gap-2">
+                    <Sparkles size={14} className="text-blue-400" />
+                    {t('coaching.setup.aiTitle')}
+                  </p>
+                  <button onClick={discardDraft} className="text-neutral-500 hover:text-white" aria-label={t('coaching.interventions.dismiss')}>
                     <X size={14} />
                   </button>
-                )}
-              </div>
-              <p className="text-xs text-neutral-500 mb-3">{t('coaching.setup.aiHint')}</p>
-              {aiStatus === 'unavailable' && (
-                <p className="text-xs text-amber-300 mb-3">{t('coaching.setup.aiUnavailable')}</p>
-              )}
-              {aiStatus === 'ready' && aiDraft && (
-                <div className="space-y-2 mb-3">
-                  <p className="text-xs text-neutral-300">
-                    {aiDraft.program?.name} · {aiDraft.program?.duration_weeks} {t('programs.durationWeeks').toLowerCase()}
-                  </p>
-                  {aiRationale && <p className="text-[11px] text-neutral-500">{aiRationale}</p>}
-                  {aiRecipes.length > 0 && (
-                    <ul className="text-[11px] text-neutral-400 list-disc pl-4">
-                      {aiRecipes.map(r => <li key={r}>{r}</li>)}
-                    </ul>
-                  )}
-                  <Button size="sm" variant="secondary" onClick={applyAiToForm} className="w-full">
-                    {t('coaching.setup.aiApply')}
-                  </Button>
                 </div>
-              )}
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={loadAi}
-                loading={aiStatus === 'loading'}
-                className="w-full"
-              >
-                {t('coaching.setup.aiGenerate')}
-              </Button>
-            </Card>
+                <p className="text-xs text-neutral-500 mb-2">{t('coaching.setup.aiHint')}</p>
+                {draftRow.rationale && (
+                  <p className="text-[11px] text-neutral-400 mb-2">{draftRow.rationale}</p>
+                )}
+                <p className="text-[11px] text-emerald-300">{t('coaching.setup.aiReady')}</p>
+              </Card>
+            )}
 
             <Card className="mb-4 space-y-2">
               <p className="text-sm font-medium text-white">{t('coaching.setup.tracking')}</p>
@@ -377,13 +309,7 @@ export default function ClientSetupPage() {
               <p className="text-xs text-neutral-500">{t('coaching.setup.programHint')}</p>
               <select
                 value={assignId}
-                onChange={e => {
-                  setAssignId(e.target.value);
-                  if (e.target.value) {
-                    setDraftDays([]);
-                    setDraftProgramName('');
-                  }
-                }}
+                onChange={e => setAssignId(e.target.value)}
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
               >
                 <option value="">{t('coaching.setup.newOrPick')}</option>
@@ -392,24 +318,26 @@ export default function ClientSetupPage() {
                 ))}
               </select>
               {!assignId && (
-                <div className="space-y-2">
-                  <Input label={t('programs.name')} value={draftProgramName} onChange={e => setDraftProgramName(e.target.value)} />
-                  <Input label={t('programs.durationWeeks')} type="number" value={draftProgramWeeks} onChange={e => setDraftProgramWeeks(Math.max(1, Math.min(52, +e.target.value || 8)))} />
-                  {draftDays.map((d, i) => (
-                    <p key={`${d.weekday}-${i}`} className="text-xs text-neutral-400">
-                      {t(`programs.weekdays.${d.weekday}`)} — {d.name}
-                      {(d.exercises ?? []).length > 0 ? ` · ${d.exercises.map(e => e.name).join(', ')}` : ''}
-                    </p>
-                  ))}
+                <>
+                  <ProgramDraftEditor
+                    name={draftProgramName}
+                    description={draftProgramDesc}
+                    durationWeeks={draftProgramWeeks}
+                    days={draftDays}
+                    onNameChange={setDraftProgramName}
+                    onDescriptionChange={setDraftProgramDesc}
+                    onWeeksChange={setDraftProgramWeeks}
+                    onDaysChange={setDraftDays}
+                  />
                   <button onClick={() => navigate('/programs')} className="text-xs text-blue-400">
                     {t('coaching.setup.openPrograms')}
                   </button>
-                </div>
+                </>
               )}
             </Card>
 
             <Button onClick={handleConfirm} loading={saving} className="w-full">
-              {t('coaching.setup.confirm')}
+              {t('coaching.interventions.send')}
             </Button>
             <p className="text-[11px] text-neutral-600 text-center mt-2">{t('coaching.setup.confirmHint')}</p>
           </>
