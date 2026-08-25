@@ -26,6 +26,11 @@ i18n
     interpolation: {
       escapeValue: false, // React already escapes
     },
+    // react-i18next v17 defaults to useSuspense: true. Without a boundary,
+    // the first t() suspends forever and the static index.html splash never unmounts.
+    react: {
+      useSuspense: false,
+    },
   });
 
 export default i18n;
