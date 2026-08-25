@@ -86,6 +86,7 @@ const fr = {
     clientEntry: 'Connexion client',
     coachEntryHint: 'Invite tes athlètes et suis leur entraînement.',
     clientEntryHint: 'Suis ton programme et tes séances.',
+    clientNeedsInvite: 'Pas encore de compte ? Ton coach t’envoie un lien d’invitation. L’inscription se fait uniquement depuis ce lien.',
     backToRoles: 'Changer de rôle',
     signingInAsCoach: 'Espace coach',
     signingInAsClient: 'Espace client',

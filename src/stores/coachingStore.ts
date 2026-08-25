@@ -123,6 +123,12 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     if (getPendingInviteToken()) return;
     const intended = getIntendedCoachingRole();
     if (!intended) return;
+    // Never promote a visitor to client from a leftover picker claim.
+    // Client role is assigned only by accept_coach_invite.
+    if (intended !== 'coach') {
+      clearIntendedCoachingRole();
+      return;
+    }
     const result = await get().setCoachingRole(intended);
     if (!result.error) clearIntendedCoachingRole();
   },
