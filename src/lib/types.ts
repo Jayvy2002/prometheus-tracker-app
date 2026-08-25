@@ -69,9 +69,6 @@ export interface Workout {
   notes: string;
   completed: boolean;
   routine_id?: string | null;
-  session_started_at?: string | null;
-  program_assignment_id?: string | null;
-  program_day_id?: string | null;
   exercises?: WorkoutExercise[];
   created_at: string;
   updated_at: string;
@@ -84,8 +81,6 @@ export interface WorkoutExercise {
   order_index: number;
   notes: string;
   superset_group_id: string | null;
-  prescribed_sets?: number | null;
-  prescribed_reps?: number | null;
   sets?: WorkoutSet[];
   created_at: string;
 }
@@ -305,133 +300,10 @@ export interface ProductRequest {
 }
 
 export type AppRole = 'free' | 'premium' | 'admin';
-export type CoachingRole = 'none' | 'coach' | 'client';
 
 export interface UserRole {
   user_id: string;
   role: AppRole;
-  coaching_role: CoachingRole;
   created_at: string;
   updated_at: string;
-}
-
-export interface CoachClientLink {
-  id: string;
-  coach_id: string;
-  client_id: string;
-  status: 'active' | 'ended';
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CoachInvite {
-  id: string;
-  coach_id: string;
-  token: string;
-  expires_at: string;
-  max_uses: number;
-  use_count: number;
-  created_at: string;
-}
-
-export interface CoachNote {
-  id: string;
-  coach_id: string;
-  client_id: string;
-  note_date: string | null;
-  workout_id: string | null;
-  body: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CoachClientSummary {
-  id: string;
-  full_name: string;
-  email: string;
-  avatar_url: string;
-  linked_at: string;
-}
-
-export interface CoachPreview {
-  id: string;
-  full_name: string;
-  avatar_url: string;
-}
-
-export interface DailyCheckin {
-  id: string;
-  user_id: string;
-  checked_at: string;
-  hunger: number | null;
-  fatigue: number | null;
-  sleep_quality: number | null;
-  sleep_hours: number | null;
-  stress: number | null;
-  motivation: number | null;
-  muscle_soreness: number | null;
-  joint_pain: number | null;
-  adherence_nutrition: number | null;
-  adherence_training: number | null;
-  energy_level: number | null;
-  mood: number | null;
-  notes: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export type DailyCheckinInput = Partial<Omit<DailyCheckin, 'id' | 'user_id' | 'created_at' | 'updated_at'>> & {
-  checked_at: string;
-};
-
-export interface Program {
-  id: string;
-  owner_id: string;
-  name: string;
-  description: string;
-  duration_weeks: number;
-  days?: ProgramDay[];
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ProgramDay {
-  id: string;
-  program_id: string;
-  weekday: number;
-  name: string;
-  routine_id: string | null;
-  order_index: number;
-  exercises?: ProgramDayExercise[];
-  created_at: string;
-}
-
-export interface ProgramDayExercise {
-  id: string;
-  program_day_id: string;
-  name: string;
-  default_sets: number;
-  default_reps: number;
-  default_rest_seconds: number;
-  order_index: number;
-  created_at: string;
-}
-
-export interface ProgramAssignment {
-  id: string;
-  program_id: string;
-  client_id: string;
-  assigned_by: string;
-  start_date: string;
-  status: 'active' | 'completed' | 'paused';
-  program?: Program;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface WorkoutTemplateExercise {
-  name: string;
-  default_sets: number;
-  default_reps: number;
-  order_index: number;
 }

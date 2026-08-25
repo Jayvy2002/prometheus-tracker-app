@@ -142,7 +142,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       // Unexpected error → still bring user to AI capture rather than leaving stuck
       if (mountedRef.current) setPhase('ai_capture');
     }
-  }, [findByBarcode, createProduct, user?.id, onResult, stopCamera]);
+  }, [findByBarcode, createProduct, user?.id, onResult, stopCamera]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // -------------------------------------------------------------------
   // Live camera scanner

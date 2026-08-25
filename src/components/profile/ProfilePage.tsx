@@ -1,13 +1,13 @@
-import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe, Scale, CalendarDays, BarChart2, ChefHat, ClipboardCheck, Users, CalendarRange } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
-import { useCoachingStore } from '../../stores/coachingStore';
-import { toast } from '../ui/Toast';
-import { setAppLanguage } from '../../i18n';
 
+import { supabase } from '../../lib/supabase';
+import { setAppLanguage } from '../../i18n';
+import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
@@ -64,7 +64,6 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { coachingRole, myCoach, enableCoachMode, disableCoachMode } = useCoachingStore();
 
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -117,9 +116,6 @@ export default function ProfilePage() {
             <p className="text-lg font-semibold text-white truncate">{profile?.full_name || 'User'}</p>
             <p className="text-sm text-neutral-400 truncate">{user?.email}</p>
             <p className="text-xs text-neutral-500 mt-0.5">{t('profile.tapToChange')}</p>
-            {myCoach && (
-              <p className="text-xs text-blue-400 mt-1">{t('coaching.coachedBy', { name: myCoach.full_name })}</p>
-            )}
           </div>
         </div>
       </Card>
@@ -177,47 +173,6 @@ export default function ProfilePage() {
           <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
         </Card>
         </div>
-
-        {[
-          { to: '/programs', icon: CalendarRange, label: t('nav.programs') },
-          { to: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
-          { to: '/weight', icon: Scale, label: t('nav.weight') },
-          { to: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
-          { to: '/stats', icon: BarChart2, label: t('nav.stats') },
-          { to: '/recipes', icon: ChefHat, label: t('nav.recipes') },
-          ...(coachingRole === 'coach' ? [{ to: '/clients', icon: Users, label: t('nav.clients') }] : []),
-        ].map(item => (
-          <div key={item.to} className="animate-fade-in-up">
-            <Card onClick={() => navigate(item.to)} className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
-                <item.icon size={16} />
-              </div>
-              <span className="flex-1 text-sm font-medium text-white">{item.label}</span>
-              <ChevronDown size={16} className="text-neutral-600 -rotate-90" />
-            </Card>
-          </div>
-        ))}
-
-        <Card className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
-            <Users size={16} />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-white">{t('coaching.coachMode')}</p>
-            <p className="text-[11px] text-neutral-500">{t('coaching.coachModeHint')}</p>
-          </div>
-          <button
-            onClick={async () => {
-              const result = coachingRole === 'coach' ? await disableCoachMode() : await enableCoachMode();
-              if (result.error) toast(result.error, 'error');
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-              coachingRole === 'coach' ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
-            }`}
-          >
-            {coachingRole === 'coach' ? t('common.on') : t('common.off')}
-          </button>
-        </Card>
 
       </div>
 

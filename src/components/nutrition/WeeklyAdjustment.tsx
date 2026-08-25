@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
-import { parseDateStr, calculateMacros, toLocalDateStr } from '../../lib/utils';
+import { parseDateStr, calculateMacros } from '../../lib/utils';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 
@@ -44,7 +44,7 @@ function getRollingAvg(
 function getDateNDaysAgo(n: number): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
-  return toLocalDateStr(d);
+  return d.toISOString().split('T')[0];
 }
 
 function WeightSparkline({ data }: { data: { date: string; weight: number }[] }) {
@@ -214,7 +214,7 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
   // For success messages with no suggestion, we still show (as positive feedback)
   // but only for a limited time — they can dismiss
 
-  const newMacros = suggestion ? calculateMacros(suggestion, goal, profile?.diet_type, profile?.weight_kg) : null;
+  const newMacros = suggestion ? calculateMacros(suggestion, goal) : null;
 
   const handleAccept = async () => {
     if (!user || suggestion === null) return;

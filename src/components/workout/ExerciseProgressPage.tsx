@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { parseDate, toLocalDateStr } from '../../lib/utils';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -66,7 +65,7 @@ export default function ExerciseProgressPage() {
         }[]) {
           const name = ex.name;
           if (!byExercise[name]) byExercise[name] = {};
-          const dateKey = toLocalDateStr(parseDate(ex.workouts.date));
+          const dateKey = new Date(ex.workouts.date).toISOString().split('T')[0];
           if (!byExercise[name][dateKey]) {
             byExercise[name][dateKey] = { maxWeight: 0, totalVolume: 0, best1RM: 0, sets: 0 };
           }

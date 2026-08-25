@@ -1,24 +1,19 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp } from 'lucide-react';
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCoachingStore } from '../../stores/coachingStore';
 
 export default function SideNav() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
-  const coachingRole = useCoachingStore(s => s.coachingRole);
 
   const tabs = [
     { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
-    ...(coachingRole === 'coach' ? [{ path: '/clients', icon: Users, label: t('nav.clients') }] : []),
     { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
-    { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
     { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
-    { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
     { path: '/weight', icon: Scale, label: t('nav.weight') },
     { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
     { path: '/stats', icon: BarChart2, label: t('nav.stats') },

@@ -7,7 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { formatDate, formatDuration } from '../../lib/utils';
-import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import type { RoutineExercise } from '../../lib/types';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -18,7 +18,7 @@ export default function WorkoutPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { workouts, loading, fetchWorkouts, fetchWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
+  const { workouts, loading, fetchWorkouts, fetchWorkout, deleteWorkout, createWorkout, addExercise, addSet, restoreExercise } = useWorkoutStore();
   const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
@@ -89,26 +89,32 @@ export default function WorkoutPage() {
   const startFromRoutine = async (routineId: string) => {
     if (!user) return;
     setStartingRoutine(routineId);
+    let workoutId: string | null = null;
     try {
       const routine = await fetchRoutineWithExercises(routineId);
       if (!routine) return;
-      const workoutId = await startWorkoutFromTemplate({
-        userId: user.id,
+
+      const exercises = (routine as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? routine.exercises ?? [];
+      const now = new Date();
+      workoutId = await createWorkout({
+        user_id: user.id,
         name: routine.name,
-        routineId,
-        exercises: (routine.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          order_index: ex.order_index,
-        })),
+        date: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`,
+        routine_id: routineId,
       });
-      if (!workoutId) {
-        toast(t('workout.startRoutineFailed'), 'error');
-        return;
+      if (!workoutId) return;
+
+      for (const ex of exercises) {
+        const addedEx = await addExercise(workoutId, ex.name, ex.order_index);
+        if (addedEx) {
+          for (let i = 0; i < ex.default_sets; i++) {
+            await addSet(addedEx.id, i);
+          }
+        }
       }
       navigate(`/workout/${workoutId}`);
     } catch {
+      if (workoutId) await deleteWorkout(workoutId);
       toast(t('workout.startRoutineFailed'), 'error');
     } finally {
       setStartingRoutine(null);
@@ -154,7 +160,7 @@ export default function WorkoutPage() {
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
             {routines.map((r, i) => {
-              const exercises = r.exercises ?? [];
+              const exercises = (r as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? r.exercises ?? [];
               const isStarting = startingRoutine === r.id;
               return (
                 <button

@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
-import { parseDate, toLocalDateStr } from '../lib/utils';
-import { useStreakStore } from './streakStore';
 
 interface PreviousSet {
   weight_kg: number;
@@ -27,7 +25,7 @@ interface WorkoutState {
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
   updateWorkout: (id: string, data: Partial<Workout>) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
-  addExercise: (workoutId: string, name: string, orderIndex: number, extras?: { prescribed_sets?: number; prescribed_reps?: number }) => Promise<WorkoutExercise | null>;
+  addExercise: (workoutId: string, name: string, orderIndex: number) => Promise<WorkoutExercise | null>;
   updateExercise: (id: string, data: Partial<WorkoutExercise>) => Promise<void>;
   deleteExercise: (id: string) => Promise<void>;
   addSet: (exerciseId: string, orderIndex: number) => Promise<WorkoutSet | null>;
@@ -131,17 +129,6 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     set(s => ({
       workouts: s.workouts.map(w => w.id === id ? { ...w, ...updates } : w),
     }));
-    if (updates.completed) {
-      const workout = get().currentWorkout?.id === id
-        ? { ...get().currentWorkout, ...updates }
-        : get().workouts.find(w => w.id === id);
-      if (workout?.user_id && workout.date) {
-        void useStreakStore.getState().recordActivity(
-          workout.user_id,
-          toLocalDateStr(parseDate(workout.date)),
-        );
-      }
-    }
   },
 
   deleteWorkout: async (id) => {
@@ -154,16 +141,10 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     }));
   },
 
-  addExercise: async (workoutId, name, orderIndex, extras) => {
+  addExercise: async (workoutId, name, orderIndex) => {
     const { data } = await supabase
       .from('workout_exercises')
-      .insert({
-        workout_id: workoutId,
-        name,
-        order_index: orderIndex,
-        prescribed_sets: extras?.prescribed_sets ?? null,
-        prescribed_reps: extras?.prescribed_reps ?? null,
-      })
+      .insert({ workout_id: workoutId, name, order_index: orderIndex })
       .select()
       .maybeSingle();
     if (data) {

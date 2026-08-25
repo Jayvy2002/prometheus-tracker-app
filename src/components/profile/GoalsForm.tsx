@@ -41,7 +41,7 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
     const bmr = calculateBMR(profile.weight_kg, profile.height_cm, age, profile.gender);
     const tdee = calculateTDEE(bmr, profile.activity_level);
     const calories = calculateCalorieTarget(tdee, goal);
-    const macros = calculateMacros(calories, goal, profile.diet_type, profile.weight_kg);
+    const macros = calculateMacros(calories, goal);
 
     const rawWeight = +targetWeight || 0;
     const targetKg = profile.unit_weight === 'lbs' ? rawWeight / 2.20462 : rawWeight;

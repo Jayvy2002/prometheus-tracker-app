@@ -7,7 +7,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { supabase } from '../../lib/supabase';
-import { parseDateStr, parseDate, formatWeight, toLocalDateStr } from '../../lib/utils';
+import { parseDateStr, parseDate, formatWeight } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -63,7 +63,7 @@ function getMonthDates(year: number, month: number): { date: Date; inMonth: bool
 }
 
 function dateToStr(d: Date): string {
-  return toLocalDateStr(d);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export default function CalendarPage() {

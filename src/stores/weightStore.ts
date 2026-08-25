@@ -2,8 +2,6 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { WeightMeasurement } from '../lib/types';
 import { useProfileStore } from './profileStore';
-import { useStreakStore } from './streakStore';
-import { parseDate, toLocalDateStr } from '../lib/utils';
 
 interface WeightState {
   measurements: WeightMeasurement[];
@@ -43,10 +41,6 @@ export const useWeightStore = create<WeightState>((set) => ({
         await useProfileStore.getState().updateProfile(newMeasurement.user_id, {
           weight_kg: newMeasurement.weight_kg,
         });
-        void useStreakStore.getState().recordActivity(
-          newMeasurement.user_id,
-          toLocalDateStr(parseDate(newMeasurement.measured_at)),
-        );
       }
     }
   },

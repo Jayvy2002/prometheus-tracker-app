@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Plus, Trash2, ChevronUp, ChevronDown, Info } from 'lucide-react';
+import { X, Plus, Trash2, GripVertical, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useRoutineStore } from '../../stores/routineStore';
@@ -106,18 +106,6 @@ export default function RoutineForm({ routine, onClose }: Props) {
     setExercises(prev => prev.filter(e => e.id !== ex.id));
   };
 
-  const moveEx = (index: number, dir: -1 | 1) => {
-    setExercises(prev => {
-      const next = [...prev];
-      const target = index + dir;
-      if (target < 0 || target >= next.length) return prev;
-      const tmp = next[index];
-      next[index] = next[target];
-      next[target] = tmp;
-      return next.map((ex, i) => ({ ...ex, order_index: i }));
-    });
-  };
-
   const updateLocal = (id: string, field: string, value: number) => {
     setExercises(prev => prev.map(e => e.id === id ? { ...e, [field]: value } : e));
   };
@@ -171,17 +159,10 @@ export default function RoutineForm({ routine, onClose }: Props) {
           <div>
             <h3 className="text-sm font-medium text-neutral-400 mb-3">{t('routines.form.exercises')}</h3>
             <div className="space-y-2">
-              {exercises.map((ex, index) => (
+              {exercises.map((ex) => (
                 <div key={ex.id} className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <div className="flex flex-col">
-                      <button type="button" onClick={() => moveEx(index, -1)} disabled={index === 0} className="text-neutral-500 hover:text-white disabled:opacity-30">
-                        <ChevronUp size={14} />
-                      </button>
-                      <button type="button" onClick={() => moveEx(index, 1)} disabled={index === exercises.length - 1} className="text-neutral-500 hover:text-white disabled:opacity-30">
-                        <ChevronDown size={14} />
-                      </button>
-                    </div>
+                    <GripVertical size={14} className="text-neutral-600" />
                     <span className="text-sm font-medium text-white flex-1">{ex.name}</span>
                     <button onClick={() => removeEx(ex)} className="text-neutral-600 hover:text-rose-400 transition-colors">
                       <Trash2 size={14} />

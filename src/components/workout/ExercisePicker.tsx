@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle, XCircle, Info } from 'lucide-react';
+import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle, XCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal';
-import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { supabase } from '../../lib/supabase';
@@ -35,7 +34,6 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
   const { exercises, loading, fetchExercises, searchExercises } = useExerciseStore();
   const [search, setSearch] = useState('');
   const [showNewForm, setShowNewForm] = useState(false);
-  const [detail, setDetail] = useState<Exercise | null>(null);
 
   useEffect(() => {
     if (open) fetchExercises();
@@ -81,14 +79,12 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                 </p>
               )}
               {filtered.map(ex => (
-                <div
+                <button
                   key={ex.id}
-                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-neutral-800 transition-colors group flex items-center gap-2"
+                  onClick={() => handleSelect(ex)}
+                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-neutral-800 transition-colors group"
                 >
-                  <button
-                    onClick={() => handleSelect(ex)}
-                    className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
-                  >
+                  <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-neutral-900 group-hover:bg-neutral-800 flex items-center justify-center shrink-0">
                       <Dumbbell size={14} className="text-blue-400" />
                     </div>
@@ -105,18 +101,8 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                         </span>
                       </div>
                     </div>
-                  </button>
-                  {(ex.instructions || ex.tips) && (
-                    <button
-                      type="button"
-                      onClick={() => setDetail(ex)}
-                      className="p-1.5 text-neutral-600 hover:text-blue-400 shrink-0"
-                      aria-label={t('workout.exercisePicker.details')}
-                    >
-                      <Info size={14} />
-                    </button>
-                  )}
-                </div>
+                  </div>
+                </button>
               ))}
             </div>
 
@@ -140,38 +126,6 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
           </>
         )}
       </div>
-
-      {detail && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/70" onClick={() => setDetail(null)} />
-          <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-white mb-2">{detail.name}</h3>
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {detail.primary_muscles.map(m => (
-                <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                  {MUSCLE_LABELS[m] || m}
-                </span>
-              ))}
-            </div>
-            {detail.instructions && (
-              <div className="mb-3">
-                <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">{t('workout.exercisePicker.instructions')}</p>
-                <p className="text-sm text-neutral-300 whitespace-pre-wrap">{detail.instructions}</p>
-              </div>
-            )}
-            {detail.tips && (
-              <div className="mb-4">
-                <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">{t('workout.exercisePicker.tips')}</p>
-                <p className="text-sm text-neutral-300 whitespace-pre-wrap">{detail.tips}</p>
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button variant="secondary" onClick={() => setDetail(null)} className="flex-1">{t('common.close')}</Button>
-              <Button onClick={() => { handleSelect(detail); setDetail(null); }} className="flex-1">{t('workout.exercisePicker.useNow')}</Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showNewForm && (
         <NewExerciseModal

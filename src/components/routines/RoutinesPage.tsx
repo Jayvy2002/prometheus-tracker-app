@@ -12,15 +12,14 @@ import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import RoutineForm from './RoutineForm';
-import { startWorkoutFromTemplate } from '../../lib/startWorkout';
-import type { Routine } from '../../lib/types';
+import type { Routine, RoutineExercise } from '../../lib/types';
 
 export default function RoutinesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { routines, loading, fetchRoutines, deleteRoutine, fetchRoutineWithExercises } = useRoutineStore();
-  const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { workouts, createWorkout, addExercise, addSet, fetchWorkouts } = useWorkoutStore();
 
   const [showForm, setShowForm] = useState(false);
   const [editingRoutine, setEditingRoutine] = useState<Routine | null>(null);
@@ -47,18 +46,24 @@ export default function RoutinesPage() {
     if (!user) return;
     const routine = await fetchRoutineWithExercises(routineId);
     if (!routine) return;
-    const workoutId = await startWorkoutFromTemplate({
-      userId: user.id,
+
+    const exercises = (routine as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? routine.exercises ?? [];
+    const workoutId = await createWorkout({
+      user_id: user.id,
       name: routine.name,
-      routineId,
-      exercises: (routine.exercises ?? []).map(ex => ({
-        name: ex.name,
-        default_sets: ex.default_sets,
-        default_reps: ex.default_reps,
-        order_index: ex.order_index,
-      })),
+      date: new Date().toISOString(),
     });
-    if (workoutId) navigate(`/workout/${workoutId}`);
+    if (!workoutId) return;
+
+    for (const ex of exercises) {
+      const addedEx = await addExercise(workoutId, ex.name, ex.order_index);
+      if (addedEx) {
+        for (let i = 0; i < ex.default_sets; i++) {
+          await addSet(addedEx.id, i);
+        }
+      }
+    }
+    navigate(`/workout/${workoutId}`);
   };
 
   const handleDelete = async () => {
@@ -107,7 +112,7 @@ export default function RoutinesPage() {
       ) : (
         <div className="space-y-3">
           {routines.map((r, i) => {
-            const exercises = r.exercises ?? [];
+            const exercises = (r as unknown as { routine_exercises?: RoutineExercise[] }).routine_exercises ?? r.exercises ?? [];
             const stats = getRoutineStats(r.id);
             return (
               <div key={r.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>

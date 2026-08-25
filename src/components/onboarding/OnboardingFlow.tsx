@@ -7,7 +7,6 @@ import {
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useAuthStore } from '../../stores/authStore';
-import { useCoachingStore } from '../../stores/coachingStore';
 import {
   ACTIVITY_LEVELS, GOALS, DIET_TYPES, FOOD_ALLERGIES, COOKING_LEVELS,
   TRAINING_EXPERIENCES, TRAINING_FOCUSES, STRESS_LEVELS, HYDRATION_HABITS,
@@ -429,7 +428,7 @@ function StepSummary({ form }: { form: FormData }) {
   const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
   const tdee = calculateEnhancedTDEE(bmr, form.activity_level, form.daily_steps_average, form.training_frequency);
   const calorieTarget = calculateCalorieTarget(tdee, form.goal);
-  const macros = calculateMacros(calorieTarget, form.goal, form.diet_type, form.weight_kg);
+  const macros = calculateMacros(calorieTarget, form.goal, form.diet_type);
   const waterTarget = calculateWaterTarget(form.weight_kg, form.daily_steps_average, form.activity_level, form.hydration_habit);
 
   return (
@@ -522,7 +521,6 @@ export default function OnboardingFlow() {
   const { updateProfile } = useProfileStore();
   const { addMeasurement } = useWeightStore();
   const { user } = useAuthStore();
-  const { myCoach } = useCoachingStore();
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -566,11 +564,11 @@ export default function OnboardingFlow() {
     const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
     const tdee = calculateEnhancedTDEE(bmr, form.activity_level, form.daily_steps_average, form.training_frequency);
     const calorieTarget = calculateCalorieTarget(tdee, form.goal);
-    const macros = calculateMacros(calorieTarget, form.goal, form.diet_type, form.weight_kg);
+    const macros = calculateMacros(calorieTarget, form.goal, form.diet_type);
     const waterTarget = calculateWaterTarget(form.weight_kg, form.daily_steps_average, form.activity_level, form.hydration_habit);
 
     await updateProfile(user.id, {
-      full_name: form.full_name.trim() || user.email?.split('@')[0] || 'Athlete',
+      full_name: form.full_name,
       gender: form.gender,
       date_of_birth: form.date_of_birth,
       height_cm: form.height_cm,
@@ -658,13 +656,6 @@ export default function OnboardingFlow() {
             </Button>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() => { void finish(); }}
-          className="max-w-lg mx-auto mt-2 block text-center text-xs text-neutral-500 hover:text-neutral-300"
-        >
-          {myCoach ? `Skip — continue with ${myCoach.full_name}` : 'Skip for now'}
-        </button>
       </div>
     </div>
   );

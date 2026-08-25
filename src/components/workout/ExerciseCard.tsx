@@ -521,6 +521,7 @@ function SupersetLinkPicker({ currentExerciseId, onClose }: { currentExerciseId:
 
 export default function ExerciseCard({
   exercise,
+  onStartRestTimer,
   isInSuperset = false,
 }: {
   exercise: WorkoutExercise;
@@ -581,7 +582,7 @@ export default function ExerciseCard({
     }
   };
 
-  const handleSetComplete = () => {
+  const handleSetComplete = (_setType: SetType, _restOverride?: number) => {
     // Rest timer is now manual-only — user starts it via the timer button
   };
 
@@ -620,12 +621,6 @@ export default function ExerciseCard({
           placeholder={t('workout.exerciseCard.exerciseNamePlaceholder')}
           readOnly
         />
-        {exercise.prescribed_sets ? (
-          <span className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-            {t('workout.prescribedShort', { sets: exercise.prescribed_sets, reps: exercise.prescribed_reps ?? 0 })}
-            {' → '}{completedCount}
-          </span>
-        ) : null}
         {isPR && (
           <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5 font-bold">
             <Award size={10} />
