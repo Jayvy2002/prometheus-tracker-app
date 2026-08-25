@@ -18,6 +18,10 @@ interface ProgramState {
   updateProgram: (id: string, data: Partial<Program>) => Promise<void>;
   deleteProgram: (id: string) => Promise<void>;
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<void>;
+  setProgramDayExercises: (
+    dayId: string,
+    exercises: Array<{ name: string; default_sets: number; default_reps: number; order_index: number }>,
+  ) => Promise<void>;
   fetchMyAssignment: (clientId: string) => Promise<void>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   pauseAssignment: (id: string) => Promise<void>;
@@ -142,6 +146,24 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       name: routine.name,
       routine_id: routine.id,
     }).eq('id', dayId);
+    const programId = get().programs.find(p => p.days?.some(d => d.id === dayId))?.id;
+    if (programId) await get().fetchProgram(programId);
+  },
+
+  setProgramDayExercises: async (dayId, exercises) => {
+    await supabase.from('program_day_exercises').delete().eq('program_day_id', dayId);
+    if (exercises.length > 0) {
+      await supabase.from('program_day_exercises').insert(
+        exercises.map(ex => ({
+          program_day_id: dayId,
+          name: ex.name,
+          default_sets: ex.default_sets,
+          default_reps: ex.default_reps,
+          default_rest_seconds: 90,
+          order_index: ex.order_index,
+        })),
+      );
+    }
     const programId = get().programs.find(p => p.days?.some(d => d.id === dayId))?.id;
     if (programId) await get().fetchProgram(programId);
   },

@@ -11,20 +11,27 @@ export default function SideNav() {
   const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const coachingRole = useCoachingStore(s => s.coachingRole);
+  const isCoach = coachingRole === 'coach';
 
-  const tabs = [
-    { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
-    ...(coachingRole === 'coach' ? [{ path: '/clients', icon: Users, label: t('nav.clients') }] : []),
-    { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
-    { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
-    { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
-    { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
-    { path: '/weight', icon: Scale, label: t('nav.weight') },
-    { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
-    { path: '/stats', icon: BarChart2, label: t('nav.stats') },
-    { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
-    { path: '/profile', icon: User, label: t('nav.profile') },
-  ];
+  const tabs = isCoach
+    ? [
+        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
+        { path: '/clients', icon: Users, label: t('nav.clients') },
+        { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
+        { path: '/profile', icon: User, label: t('nav.profile') },
+      ]
+    : [
+        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
+        { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
+        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
+        { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
+        { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
+        { path: '/weight', icon: Scale, label: t('nav.weight') },
+        { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
+        { path: '/stats', icon: BarChart2, label: t('nav.stats') },
+        { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
+        { path: '/profile', icon: User, label: t('nav.profile') },
+      ];
 
   const quickActions = [
     { label: t('nav.newWorkout'), icon: Dumbbell, path: '/workout/new' },
@@ -34,7 +41,6 @@ export default function SideNav() {
 
   return (
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-800/60 z-40">
-      {/* Logo */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-neutral-800/60 animate-fade-in-down">
         <div className="w-8 h-8 flex items-center justify-center">
           <img src="/logo.svg" alt="Prometheus" className="w-8 h-8" />
@@ -42,7 +48,6 @@ export default function SideNav() {
         <span className="text-white font-bold text-lg tracking-tight">Prometheus</span>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-hide">
         {tabs.map((tab, i) => {
           const active = location.pathname.startsWith(tab.path);
@@ -72,35 +77,36 @@ export default function SideNav() {
         })}
       </nav>
 
-      {/* Quick Actions */}
-      <div className="px-3 pb-4 border-t border-neutral-800/60 pt-4">
-        <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
-          {t('nav.quickAdd')}
-        </p>
-        <div className="space-y-1">
-          {quickActions.map((action, i) => {
-            const Icon = action.icon;
-            const isHovered = hoveredAction === action.label;
-            return (
-              <button
-                key={action.label}
-                onClick={() => navigate(action.path)}
-                onMouseEnter={() => setHoveredAction(action.label)}
-                onMouseLeave={() => setHoveredAction(null)}
-                className="sidebar-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-blue-600/10 hover:border-blue-600/20 border border-transparent transition-all duration-200 group"
-                style={{ animationDelay: `${(i + 5) * 50}ms` }}
-              >
-                <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200
-                  ${isHovered ? 'bg-blue-600/25 text-blue-400' : 'bg-neutral-800 text-neutral-500 group-hover:bg-blue-600/20 group-hover:text-blue-400'}`}>
-                  <Icon size={13} />
-                </div>
-                <span className="font-medium">{action.label}</span>
-                <Plus size={13} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" />
-              </button>
-            );
-          })}
+      {!isCoach && (
+        <div className="px-3 pb-4 border-t border-neutral-800/60 pt-4">
+          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
+            {t('nav.quickAdd')}
+          </p>
+          <div className="space-y-1">
+            {quickActions.map((action, i) => {
+              const Icon = action.icon;
+              const isHovered = hoveredAction === action.label;
+              return (
+                <button
+                  key={action.label}
+                  onClick={() => navigate(action.path)}
+                  onMouseEnter={() => setHoveredAction(action.label)}
+                  onMouseLeave={() => setHoveredAction(null)}
+                  className="sidebar-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-blue-600/10 hover:border-blue-600/20 border border-transparent transition-all duration-200 group"
+                  style={{ animationDelay: `${(i + 5) * 50}ms` }}
+                >
+                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200
+                    ${isHovered ? 'bg-blue-600/25 text-blue-400' : 'bg-neutral-800 text-neutral-500 group-hover:bg-blue-600/20 group-hover:text-blue-400'}`}>
+                    <Icon size={13} />
+                  </div>
+                  <span className="font-medium">{action.label}</span>
+                  <Plus size={13} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" />
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </aside>
   );
 }

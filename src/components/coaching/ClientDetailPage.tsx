@@ -125,6 +125,18 @@ export default function ClientDetailPage() {
             : ''}
         </p>
 
+        {client && !client.onboarding_completed && (
+          <Card className="mb-4">
+            <p className="text-sm font-medium text-amber-200">{t('coaching.setup.waitingTitle')}</p>
+            <p className="text-xs text-neutral-400 mt-1">{t('coaching.setup.waitingBody')}</p>
+          </Card>
+        )}
+        {client?.onboarding_completed && (
+          <Button size="sm" variant="secondary" className="w-full mb-4" onClick={() => navigate(`/clients/${id}/setup`)}>
+            {t('coaching.setup.title')}
+          </Button>
+        )}
+
         {programs.length > 0 && (
           <Card className="mb-4 space-y-2">
             <p className="text-sm font-medium text-white">{t('programs.assignToClient')}</p>
