@@ -760,6 +760,10 @@ const en = {
     cameraInaccessible: 'Camera not accessible. Check permissions or enter the barcode manually.',
     aiStartError: 'Unable to start analysis. Try again.',
     dailyLimitReached: 'Daily limit reached. Up to 10 AI analyses per day.',
+    webhookNotConfigured: 'Product analysis is not connected yet. Try again later.',
+    webhookFailed: 'Could not reach the analysis service. Try again.',
+    aiFailed: 'Could not identify this product. Add a clearer photo or a short description.',
+    aiTimeout: 'Analysis is taking too long. Try again in a moment.',
   },
 
   health: {

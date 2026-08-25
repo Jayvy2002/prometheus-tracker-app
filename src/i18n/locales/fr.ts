@@ -760,6 +760,10 @@ const fr = {
     cameraInaccessible: 'Caméra inaccessible. Vérifie les permissions ou entre le code-barres manuellement.',
     aiStartError: 'Impossible de démarrer l\'analyse. Réessaie.',
     dailyLimitReached: 'Limite quotidienne atteinte. Maximum 10 analyses IA par jour.',
+    webhookNotConfigured: 'L’analyse produit n’est pas encore branchée. Réessaie plus tard.',
+    webhookFailed: 'Impossible de joindre le service d’analyse. Réessaie.',
+    aiFailed: 'Impossible d’identifier ce produit. Ajoute une photo plus nette ou une courte description.',
+    aiTimeout: 'L’analyse prend trop de temps. Réessaie dans un instant.',
   },
 
   health: {

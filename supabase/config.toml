@@ -3,3 +3,6 @@
 
 [functions.notify-onboarding-complete]
 verify_jwt = false
+
+[functions.analyze-product]
+verify_jwt = true
