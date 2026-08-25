@@ -3,6 +3,7 @@ import { Search, Sparkles, Star, Clock, ChefHat, Heart, Plus, ScanLine, Globe, D
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { useRecipeStore } from '../../stores/recipeStore';
 import { FOOD_UNITS, MEAL_CATEGORIES, UNIT_TO_GRAMS } from '../../lib/constants';
 import type { FoodProduct, FoodFavorite, Recipe } from '../../lib/types';
@@ -64,7 +65,8 @@ async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
 export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { addLog, searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite } = useNutritionStore();
+  const { addLog, searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite, logs } = useNutritionStore();
+  const { profile } = useProfileStore();
   const { recipes, fetchRecipes } = useRecipeStore();
 
   const [tab, setTab] = useState<Tab>('search');
@@ -560,13 +562,26 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
             <Input label={`${t('common.fat')} (g)`} type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
           </div>
 
-          {+calories > 0 && +quantity > 0 && (
-            <div className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm">
-              <p className="text-blue-400 font-medium">
-                {t('nutrition.foodForm.total')} {Math.round(+calories * scale)} cal | P: {Math.round(+protein * scale)}g | C: {Math.round(+carbs * scale)}g | F: {Math.round(+fat * scale)}g
-              </p>
-            </div>
-          )}
+          {+calories > 0 && +quantity > 0 && (() => {
+            const itemCal = Math.round(+calories * scale);
+            const itemP = Math.round(+protein * scale);
+            const itemC = Math.round(+carbs * scale);
+            const itemF = Math.round(+fat * scale);
+            const remainCal = (profile?.daily_calorie_target ?? 0) - logs.reduce((s, l) => s + l.calories, 0) - itemCal;
+            const remainP = (profile?.protein_target ?? 0) - logs.reduce((s, l) => s + l.protein, 0) - itemP;
+            const remainC = (profile?.carbs_target ?? 0) - logs.reduce((s, l) => s + l.carbs, 0) - itemC;
+            const remainF = (profile?.fat_target ?? 0) - logs.reduce((s, l) => s + l.fat, 0) - itemF;
+            return (
+              <div className="bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm space-y-1">
+                <p className="text-blue-400 font-medium">
+                  {t('nutrition.foodForm.total')} {itemCal} cal | P: {itemP}g | C: {itemC}g | F: {itemF}g
+                </p>
+                <p className="text-xs text-neutral-400">
+                  {t('nutrition.foodForm.remainingAfter')}: {remainCal} kcal · P {Math.round(remainP)}g · C {Math.round(remainC)}g · F {Math.round(remainF)}g
+                </p>
+              </div>
+            );
+          })()}
 
           <Button onClick={handleSave} loading={saving} className="w-full">{t('common.save')}</Button>
         </div>

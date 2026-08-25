@@ -15,7 +15,7 @@ export default function FAB() {
   const [open, setOpen] = useState(false);
 
   const actions: FABAction[] = [
-    { label: t('nav.addWorkout'), icon: Dumbbell, onClick: () => { navigate('/workout'); setOpen(false); } },
+    { label: t('nav.addWorkout'), icon: Dumbbell, onClick: () => { navigate('/workout/new'); setOpen(false); } },
     { label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } },
     { label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } },
   ];
@@ -29,7 +29,7 @@ export default function FAB() {
         />
       )}
 
-      <div className="md:hidden fixed bottom-[68px] left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2">
+      <div className="md:hidden fixed bottom-[76px] right-4 z-50 flex flex-col items-end gap-2">
         {open && (
           <div className="flex flex-col items-center gap-2 mb-1 animate-fade-in-up">
             {actions.map((action, i) => {

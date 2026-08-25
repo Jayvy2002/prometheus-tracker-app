@@ -26,7 +26,14 @@ export const useRoutineStore = create<RoutineState>((set) => ({
       .select('*, routine_exercises(*)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
-    set({ routines: (data ?? []) as Routine[], loading: false });
+    set({
+      routines: (data ?? []).map(row => {
+        const routine = row as Routine & { routine_exercises?: RoutineExercise[] };
+        routine.exercises = (routine.routine_exercises ?? []).sort((a, b) => a.order_index - b.order_index);
+        return routine;
+      }),
+      loading: false,
+    });
   },
 
   fetchRoutineWithExercises: async (routineId) => {

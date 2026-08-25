@@ -8,7 +8,7 @@ interface FullPageLayoutProps {
 
 /**
  * Wrapper for full-page routes that live outside AppLayout
- * (WorkoutForm, StatsPage, ExerciseProgressPage, ScannerPage, RecipesPage, HealthIntegrations)
+ * (WorkoutForm, ScannerPage, RecipesPage)
  * On desktop it adds the sidebar + a centered content container.
  */
 export default function FullPageLayout({ children }: FullPageLayoutProps) {
