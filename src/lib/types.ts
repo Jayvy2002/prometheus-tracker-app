@@ -300,18 +300,10 @@ export interface ProductRequest {
 }
 
 export type AppRole = 'free' | 'premium' | 'admin';
-export type CoachingRole = 'none' | 'coach' | 'client';
 
 export interface UserRole {
   user_id: string;
   role: AppRole;
-  coaching_role?: CoachingRole;
   created_at: string;
   updated_at: string;
-}
-
-export interface CoachPreview {
-  id: string;
-  full_name: string;
-  avatar_url: string;
 }
