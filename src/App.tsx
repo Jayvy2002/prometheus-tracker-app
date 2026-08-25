@@ -3,9 +3,11 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
+import { useCoachingStore, getPendingInviteToken } from './stores/coachingStore';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
+import InvitePage from './components/coaching/InvitePage';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import Dashboard from './components/dashboard/Dashboard';
 import WorkoutPage from './components/workout/WorkoutPage';
@@ -23,15 +25,27 @@ import RecipesPage from './components/nutrition/RecipesPage';
 function AppRoutes() {
   const { user, loading: authLoading, initialized } = useAuthStore();
   const { profile, loading: profileLoading, fetchProfile, clearProfile } = useProfileStore();
+  const { fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
   const { i18n } = useTranslation();
 
   useEffect(() => {
     if (user) {
       fetchProfile(user.id);
+      void (async () => {
+        const token = getPendingInviteToken();
+        if (token) {
+          await acceptInvite(token);
+        } else {
+          await applyIntendedCoachingRole();
+        }
+        await fetchMyRole(user.id);
+        await fetchMyCoach();
+      })();
     } else if (initialized) {
       clearProfile();
+      useCoachingStore.getState().clear();
     }
-  }, [user, initialized]);
+  }, [user, initialized, fetchProfile, clearProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
 
   useEffect(() => {
     if (profile?.language) {
@@ -48,7 +62,12 @@ function AppRoutes() {
   }
 
   if (!user) {
-    return <AuthPage />;
+    return (
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="*" element={<AuthPage />} />
+      </Routes>
+    );
   }
 
   if (profileLoading) {
@@ -60,7 +79,12 @@ function AppRoutes() {
   }
 
   if (!profile?.onboarding_completed) {
-    return <OnboardingFlow />;
+    return (
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="*" element={<OnboardingFlow />} />
+      </Routes>
+    );
   }
 
   return (
@@ -82,6 +106,7 @@ function AppRoutes() {
       </Route>
       <Route path="/scanner" element={<ScannerPage />} />
       <Route path="/recipes" element={<RecipesPage />} />
+      <Route path="/invite/:token" element={<InvitePage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );
