@@ -126,17 +126,21 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   opsLoading: false,
 
   fetchMyRole: async (userId) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-    const row = data as UserRole | null;
-    set({
-      coachingRole: row?.coaching_role ?? 'none',
-      billingRole: row?.role ?? 'free',
-      roleReady: true,
-    });
+    try {
+      const { data } = await supabase
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+      const row = data as UserRole | null;
+      set({
+        coachingRole: row?.coaching_role ?? 'none',
+        billingRole: row?.role ?? 'free',
+        roleReady: true,
+      });
+    } catch {
+      set({ coachingRole: 'none', billingRole: 'free', roleReady: true });
+    }
   },
 
   setCoachingRole: async (role) => {
