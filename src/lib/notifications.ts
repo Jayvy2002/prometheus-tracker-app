@@ -104,7 +104,7 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
 }
 
 export async function syncNotificationSettingsToDB(userId: string, settings: NotificationSettings): Promise<void> {
-  await supabase.from('profiles').update({
+  await supabase.from('user_profiles').update({
     notification_workout_enabled: settings.workout_enabled,
     notification_workout_time: settings.workout_time,
     notification_nutrition_enabled: settings.nutrition_enabled,

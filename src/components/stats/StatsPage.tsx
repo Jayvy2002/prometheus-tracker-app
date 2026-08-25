@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, LineChart, Line, Area, AreaChart } from 'recharts';
+import { toLocalDateStr } from '../../lib/utils';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 
@@ -33,7 +34,7 @@ function getPeriodDates(period: Period): { start: string; end: string; days: num
   if (period === 'week') { start.setDate(end.getDate() - 6); days = 7; }
   else if (period === 'month') { start.setDate(end.getDate() - 29); days = 30; }
   else { start.setDate(end.getDate() - 89); days = 90; }
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  const fmt = (d: Date) => toLocalDateStr(d);
   return { start: fmt(start), end: fmt(end), days };
 }
 
@@ -44,7 +45,7 @@ function getPrevPeriodDates(period: Period): { start: string; end: string } {
   prevEnd.setDate(end.getDate() - days);
   const prevStart = new Date(prevEnd);
   prevStart.setDate(prevEnd.getDate() - days + 1);
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  const fmt = (d: Date) => toLocalDateStr(d);
   return { start: fmt(prevStart), end: fmt(prevEnd) };
 }
 
@@ -202,7 +203,7 @@ export default function StatsPage() {
       const date = new Date(d);
       const weekStart = new Date(date);
       weekStart.setDate(date.getDate() - date.getDay());
-      const key = weekStart.toISOString().split('T')[0];
+      const key = toLocalDateStr(weekStart);
       weeks[key] = (weeks[key] ?? 0) + 1;
     }
     return Object.entries(weeks)

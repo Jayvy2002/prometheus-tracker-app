@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { addDaysToDateStr, parseDate, toLocalDateStr } from '../lib/utils';
 
 interface StreakData {
   current_streak: number;
@@ -37,12 +38,12 @@ export const useStreakStore = create<StreakState>((set, get) => ({
   recordActivity: async (userId, date) => {
     const current = get().streak;
 
-    // Already recorded for this date — no-op
-    if (current?.last_activity_date === date) return;
+    const dateKey = date.includes('T') ? toLocalDateStr(parseDate(date)) : date;
 
-    const yesterday = new Date(date);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    // Already recorded for this date — no-op
+    if (current?.last_activity_date === dateKey) return;
+
+    const yesterdayStr = addDaysToDateStr(dateKey, -1);
 
     const wasYesterday = current?.last_activity_date === yesterdayStr;
     const newCurrent = wasYesterday ? (current?.current_streak ?? 0) + 1 : 1;
@@ -51,7 +52,7 @@ export const useStreakStore = create<StreakState>((set, get) => ({
     const updatedStreak: StreakData = {
       current_streak: newCurrent,
       longest_streak: newLongest,
-      last_activity_date: date,
+      last_activity_date: dateKey,
     };
 
     const { error } = await supabase
