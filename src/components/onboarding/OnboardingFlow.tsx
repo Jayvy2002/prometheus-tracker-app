@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   User, Ruler, Dumbbell, Footprints, Salad, Droplets, Target, Sparkles,
   ChevronRight, ChevronLeft, Check, AlertTriangle, Moon, Brain
@@ -7,7 +8,7 @@ import {
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useAuthStore } from '../../stores/authStore';
-import { useCoachingStore } from '../../stores/coachingStore';
+import { useCoachingStore, clearOnboardingDeferred, setOnboardingDeferred } from '../../stores/coachingStore';
 import {
   ACTIVITY_LEVELS, GOALS, DIET_TYPES, FOOD_ALLERGIES, COOKING_LEVELS,
   TRAINING_EXPERIENCES, TRAINING_FOCUSES, STRESS_LEVELS, HYDRATION_HABITS,
@@ -518,6 +519,7 @@ function StepSummary({ form }: { form: FormData }) {
 
 // --- Main Onboarding Component ---
 export default function OnboardingFlow() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { updateProfile } = useProfileStore();
   const { addMeasurement } = useWeightStore();
@@ -603,6 +605,13 @@ export default function OnboardingFlow() {
     });
 
     await addMeasurement({ user_id: user.id, weight_kg: form.weight_kg, measured_at: todayStr() });
+    clearOnboardingDeferred();
+    navigate('/dashboard');
+  };
+
+  const skipWithoutCompleting = () => {
+    if (!myCoach) return;
+    setOnboardingDeferred();
     navigate('/dashboard');
   };
 
@@ -658,13 +667,15 @@ export default function OnboardingFlow() {
             </Button>
           )}
         </div>
+        {myCoach && (
         <button
           type="button"
-          onClick={() => { void finish(); }}
+          onClick={skipWithoutCompleting}
           className="max-w-lg mx-auto mt-2 block text-center text-xs text-neutral-500 hover:text-neutral-300"
         >
-          {myCoach ? `Skip — continue with ${myCoach.full_name}` : 'Skip for now'}
+          {t('onboarding.skipWithCoach', { name: myCoach.full_name })}
         </button>
+        )}
       </div>
     </div>
   );

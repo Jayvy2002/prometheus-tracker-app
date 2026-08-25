@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Copy, Link2, Users, ChevronRight, Plus } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { shouldOpenSetup } from '../../lib/coachAlerts';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -14,8 +15,8 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, invites, loading,
-    fetchMyRole, fetchClients, fetchInvites, createInvite, revokeInvite, enableCoachMode,
+    coachingRole, clients, invites, loading, opsRows,
+    fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, createInvite, revokeInvite, enableCoachMode,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [maxUses, setMaxUses] = useState(1);
@@ -26,6 +27,7 @@ export default function ClientsPage() {
     fetchMyRole(user.id).then(() => {
       fetchClients();
       fetchInvites();
+      fetchCoachOps();
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -148,22 +150,58 @@ export default function ClientsPage() {
           </Card>
         ) : (
           <div className="space-y-2">
-            {clients.map(c => (
+            {clients.map(c => {
+              const ops = opsRows.find(r => r.client.id === c.id);
+              const forceSetup = ops ? shouldOpenSetup(ops) : !c.onboarding_completed;
+              return (
               <Card
                 key={c.id}
-                onClick={() => navigate(`/clients/${c.id}`)}
+                onClick={() => navigate(forceSetup ? `/clients/${c.id}/setup` : `/clients/${c.id}`)}
                 className="flex items-center gap-3"
               >
                 <div className="w-10 h-10 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold shrink-0">
                   {c.avatar_url ? <img src={c.avatar_url} alt="" className="w-full h-full object-cover" /> : (c.full_name[0] || '?').toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-white truncate">{c.full_name || c.email || t('coaching.unnamed')}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-white truncate">{c.full_name || c.email || t('coaching.unnamed')}</p>
+                    {!c.onboarding_completed && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300 shrink-0">
+                        {t('coaching.badgeOnboarding')}
+                      </span>
+                    )}
+                    {c.onboarding_completed && ops && shouldOpenSetup(ops) && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 shrink-0">
+                        {t('coaching.badgeSetup')}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-neutral-500 truncate">{c.email}</p>
                 </div>
-                <ChevronRight size={16} className="text-neutral-600" />
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    navigate(`/clients/${c.id}/setup`);
+                  }}
+                  className="text-[11px] text-blue-400 hover:text-blue-300 shrink-0"
+                >
+                  {t('coaching.setupCta')}
+                </button>
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.stopPropagation();
+                    navigate(`/clients/${c.id}`);
+                  }}
+                  className="text-neutral-600 hover:text-white shrink-0"
+                  aria-label={t('coaching.clientsTitle')}
+                >
+                  <ChevronRight size={16} />
+                </button>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

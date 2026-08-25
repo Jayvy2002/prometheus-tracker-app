@@ -199,11 +199,28 @@ BEGIN
       INTO v_invoke_key
     FROM vault.decrypted_secrets ds
     WHERE ds.name = ANY (ARRAY[
+      'grok_bot_webhook_secret',
+      'GROK_BOT_WEBHOOK_SECRET',
+      'notify_secret',
+      'NOTIFY_SECRET',
       'functions_invoke_key',
       'anon_key',
       'supabase_anon_key',
       'SUPABASE_ANON_KEY'
     ])
+    ORDER BY array_position(
+      ARRAY[
+        'grok_bot_webhook_secret',
+        'GROK_BOT_WEBHOOK_SECRET',
+        'notify_secret',
+        'NOTIFY_SECRET',
+        'functions_invoke_key',
+        'anon_key',
+        'supabase_anon_key',
+        'SUPABASE_ANON_KEY'
+      ],
+      ds.name
+    )
     LIMIT 1;
   EXCEPTION WHEN OTHERS THEN
     v_invoke_key := NULL;
@@ -212,7 +229,8 @@ BEGIN
   IF v_invoke_key IS NOT NULL AND length(v_invoke_key) > 0 THEN
     v_headers := v_headers || jsonb_build_object(
       'Authorization', 'Bearer ' || v_invoke_key,
-      'apikey', v_invoke_key
+      'X-Webhook-Key', v_invoke_key,
+      'X-Sender-Key', v_invoke_key
     );
   END IF;
 

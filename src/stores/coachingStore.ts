@@ -68,6 +68,32 @@ export function clearIntendedCoachingRole() {
   }
 }
 
+const DEFER_ONBOARDING_KEY = 'prometheus_defer_onboarding';
+
+export function setOnboardingDeferred() {
+  try {
+    sessionStorage.setItem(DEFER_ONBOARDING_KEY, '1');
+  } catch {
+    // private mode / quota
+  }
+}
+
+export function clearOnboardingDeferred() {
+  try {
+    sessionStorage.removeItem(DEFER_ONBOARDING_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function isOnboardingDeferred(): boolean {
+  try {
+    return sessionStorage.getItem(DEFER_ONBOARDING_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 interface CoachingState {
   coachingRole: CoachingRole;
   billingRole: UserRole['role'] | null;
@@ -359,16 +385,18 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     })));
     if (!programId) return { error: 'Failed to create program' };
     const created = await programs.fetchProgram(programId);
-    for (const draftDay of outline.days) {
-      const row = created?.days?.find(d => d.weekday === draftDay.weekday);
+    const createdDays = [...(created?.days ?? [])].sort((a, b) => a.order_index - b.order_index);
+    for (let i = 0; i < outline.days.length; i++) {
+      const draftDay = outline.days[i];
+      const row = createdDays.find(d => d.order_index === i) ?? createdDays[i];
       if (!row) continue;
       await programs.setProgramDayExercises(
         row.id,
-        (draftDay.exercises ?? []).map((ex, i) => ({
+        (draftDay.exercises ?? []).map((ex, idx) => ({
           name: ex.name,
           default_sets: ex.default_sets || 3,
           default_reps: ex.default_reps || 10,
-          order_index: i,
+          order_index: idx,
         })),
       );
     }

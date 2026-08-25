@@ -106,6 +106,10 @@ export default function InterventionDraftPage() {
     if (!row || !user || saving) return;
     const targetClientId = id || row.client_id;
     if (!isCoachOnlyKind(row.kind) && !targetClientId) return;
+    if (row.kind === 'calorie_adjustment' && calories <= 0) {
+      toast(t('coaching.interventions.caloriesRequired'), 'error');
+      return;
+    }
     setSaving(true);
 
     if (isCoachOnlyKind(row.kind)) {
@@ -128,7 +132,12 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    if (!targetClientId) return;
+    if (!targetClientId) {
+      setSaving(false);
+      return;
+    }
+
+    const noteOnly = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other';
 
     if (row.kind === 'calorie_adjustment') {
       const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
@@ -166,7 +175,7 @@ export default function InterventionDraftPage() {
       }
     }
 
-    if (row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other') {
+    if (noteOnly) {
       if (notes.trim()) {
         const noteResult = await addNote(targetClientId, notes.trim());
         if (noteResult.error) {
@@ -175,6 +184,18 @@ export default function InterventionDraftPage() {
           return;
         }
       }
+      const resolved = await resolveIntervention(row.id, 'kept', {
+        ...row.payload,
+        suggestion: notes.trim(),
+      });
+      setSaving(false);
+      if (resolved.error) {
+        toast(resolved.error, 'error');
+        return;
+      }
+      toast(t('coaching.interventions.savedNote'));
+      navigate(`/clients/${targetClientId}`);
+      return;
     }
 
     const resolved = await resolveIntervention(row.id, 'sent');
@@ -217,9 +238,12 @@ export default function InterventionDraftPage() {
   const showTracking = row.kind === 'onboarding_plan';
   const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
     || row.kind === 'other' || isCoachOnlyKind(row.kind);
+  const noteOnly = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other';
   const primaryLabel = isCoachOnlyKind(row.kind)
     ? t('coaching.interventions.keep')
-    : t('coaching.interventions.send');
+    : noteOnly
+      ? t('coaching.interventions.saveNote')
+      : t('coaching.interventions.send');
 
   return (
     <PageTransition>

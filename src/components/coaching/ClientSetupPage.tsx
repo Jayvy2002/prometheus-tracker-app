@@ -157,8 +157,17 @@ export default function ClientSetupPage() {
     }
 
     if (applyTargets) {
+      if (calories <= 0) {
+        setSaving(false);
+        toast(t('coaching.interventions.caloriesRequired'), 'error');
+        return;
+      }
       const targetResult = await setClientNutritionTargets(id, { calories, protein, carbs, fat });
-      if (targetResult.error) toast(targetResult.error, 'error');
+      if (targetResult.error) {
+        setSaving(false);
+        toast(targetResult.error, 'error');
+        return;
+      }
     }
 
     if (draftProgramName.trim() && draftDays.length > 0 && !assignId) {
@@ -168,10 +177,18 @@ export default function ClientSetupPage() {
         duration_weeks: draftProgramWeeks,
         days: draftDays,
       });
-      if (created.error) toast(created.error, 'error');
+      if (created.error) {
+        setSaving(false);
+        toast(created.error, 'error');
+        return;
+      }
     } else if (assignId) {
       const assigned = await assignProgram(assignId, id, todayStr());
-      if (assigned.error) toast(assigned.error, 'error');
+      if (assigned.error) {
+        setSaving(false);
+        toast(assigned.error, 'error');
+        return;
+      }
     }
 
     if (draftRow) {

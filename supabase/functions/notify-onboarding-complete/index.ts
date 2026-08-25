@@ -16,6 +16,23 @@ function empty(status: number) {
   return new Response(null, { status, headers: corsHeaders });
 }
 
+function secretsEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let out = 0;
+  for (let i = 0; i < a.length; i++) {
+    out |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return out === 0;
+}
+
+function incomingSecret(req: Request): string {
+  const header = req.headers.get("X-Webhook-Key") || req.headers.get("X-Sender-Key") || "";
+  if (header) return header;
+  const auth = req.headers.get("Authorization") || "";
+  if (auth.toLowerCase().startsWith("bearer ")) return auth.slice(7).trim();
+  return "";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -23,6 +40,15 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== "POST") {
     return empty(204);
+  }
+
+  // Secrets live in the dashboard, never in git.
+  const expected = (Deno.env.get("NOTIFY_SECRET") ?? Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ?? "").trim();
+  if (!expected) {
+    return empty(204);
+  }
+  if (!secretsEqual(incomingSecret(req), expected)) {
+    return empty(401);
   }
 
   let payload: OnboardingPayload = {};
@@ -35,21 +61,17 @@ Deno.serve(async (req: Request) => {
     payload = {};
   }
 
-  // Secrets live in the dashboard, never in git.
   const webhookUrl = Deno.env.get("GROK_BOT_WEBHOOK_URL") ?? "";
   if (!webhookUrl) {
     return empty(204);
   }
 
-  const secret = Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ?? "";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    Authorization: `Bearer ${expected}`,
+    "X-Webhook-Key": expected,
+    "X-Sender-Key": expected,
   };
-  if (secret) {
-    headers.Authorization = `Bearer ${secret}`;
-    headers["X-Webhook-Key"] = secret;
-    headers["X-Sender-Key"] = secret;
-  }
 
   try {
     await fetch(webhookUrl, {

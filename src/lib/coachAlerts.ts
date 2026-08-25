@@ -88,6 +88,12 @@ export function needsSetup(row: ClientOpsRow): boolean {
   return row.client.onboarding_completed && (!row.hasProgram || !row.setupCompleted);
 }
 
+/** Force the setup page only when onboarding is incomplete or neither program nor tracking exists. */
+export function shouldOpenSetup(row: ClientOpsRow): boolean {
+  if (!row.client.onboarding_completed) return true;
+  return !row.setupCompleted && !row.hasProgram;
+}
+
 export function isSetupAlert(kind: ClientAlertKind): boolean {
   return kind === 'onboarding_incomplete' || kind === 'program_unassigned';
 }

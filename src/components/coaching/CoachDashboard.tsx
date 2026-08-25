@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { isSetupAlert, needsSetup } from '../../lib/coachAlerts';
+import { isSetupAlert, needsSetup, shouldOpenSetup } from '../../lib/coachAlerts';
 import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
 import type { ClientAlertKind, ClientOpsRow } from '../../lib/types';
 import Button from '../ui/Button';
@@ -120,7 +120,7 @@ export default function CoachDashboard() {
   };
 
   const openClient = (row: ClientOpsRow) => {
-    if (needsSetup(row) || !row.client.onboarding_completed) {
+    if (shouldOpenSetup(row)) {
       navigate(`/clients/${row.client.id}/setup`);
       return;
     }
@@ -172,7 +172,20 @@ export default function CoachDashboard() {
                             </span>
                           </div>
                           <p className="text-[11px] text-neutral-500 truncate">
-                            {client?.full_name || client?.email || (coachOnly ? t('coaching.interventions.appWide') : t('coaching.unnamed'))}
+                            {item.client_id ? (
+                              <button
+                                type="button"
+                                onClick={e => {
+                                  e.stopPropagation();
+                                  navigate(`/clients/${item.client_id}`);
+                                }}
+                                className="text-blue-400 hover:text-blue-300"
+                              >
+                                {client?.full_name || client?.email || t('coaching.unnamed')}
+                              </button>
+                            ) : (
+                              <span>{t('coaching.interventions.appWide')}</span>
+                            )}
                             {' · '}
                             {t(`coaching.interventions.kinds.${item.kind}`)}
                           </p>

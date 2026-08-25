@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
-import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole } from './stores/coachingStore';
+import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -44,7 +44,7 @@ function CoachTrackerRedirect({ children }: { children: ReactNode }) {
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, clearProfile } = useProfileStore();
-  const { roleReady, coachingRole, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
+  const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
@@ -120,8 +120,9 @@ function AppRoutes() {
 
   const skipPersonalOnboarding =
     coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
+  const deferClientOnboarding = isOnboardingDeferred() && !!myCoach;
 
-  if (!profile?.onboarding_completed && !skipPersonalOnboarding) {
+  if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
       <Routes>
         <Route path="/invite/:token" element={<InvitePage />} />
