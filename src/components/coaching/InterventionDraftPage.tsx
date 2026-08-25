@@ -52,7 +52,8 @@ export default function InterventionDraftPage() {
   const [tracking, setTracking] = useState(EMPTY_TRACKING);
   const [notes, setNotes] = useState('');
 
-  const client = clients.find(c => c.id === id);
+  const clientId = id || row?.client_id || null;
+  const client = clients.find(c => c.id === (id || row?.client_id || ''));
 
   useEffect(() => {
     if (!interventionId) return;
@@ -102,7 +103,9 @@ export default function InterventionDraftPage() {
   };
 
   const handleSend = async () => {
-    if (!row || !user || !id || saving) return;
+    if (!row || !user || saving) return;
+    const targetClientId = id || row.client_id;
+    if (!isCoachOnlyKind(row.kind) && !targetClientId) return;
     setSaving(true);
 
     if (isCoachOnlyKind(row.kind)) {
@@ -116,17 +119,19 @@ export default function InterventionDraftPage() {
         toast(resolved.error, 'error');
         return;
       }
-      if (id && suggestion) {
-        await addNote(id, suggestion);
+      if (targetClientId && suggestion) {
+        await addNote(targetClientId, suggestion);
       }
       setSaving(false);
       toast(t('coaching.interventions.kept'));
-      navigate(id ? `/clients/${id}` : '/dashboard');
+      navigate(targetClientId ? `/clients/${targetClientId}` : '/dashboard');
       return;
     }
 
+    if (!targetClientId) return;
+
     if (row.kind === 'calorie_adjustment') {
-      const result = await setClientNutritionTargets(id, { calories, protein, carbs, fat });
+      const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
       if (result.error) {
         setSaving(false);
         toast(result.error, 'error');
@@ -136,7 +141,7 @@ export default function InterventionDraftPage() {
 
     if (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan') {
       if (row.kind === 'onboarding_plan') {
-        const trackResult = await saveTrackingConfig(id, {
+        const trackResult = await saveTrackingConfig(targetClientId, {
           ...tracking,
           setup_completed_at: new Date().toISOString(),
         });
@@ -147,7 +152,7 @@ export default function InterventionDraftPage() {
         }
       }
       if (programName.trim() && days.length > 0) {
-        const created = await applyProgramOutline(id, {
+        const created = await applyProgramOutline(targetClientId, {
           name: programName,
           description: programDesc,
           duration_weeks: programWeeks,
@@ -163,7 +168,7 @@ export default function InterventionDraftPage() {
 
     if (row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other') {
       if (notes.trim()) {
-        const noteResult = await addNote(id, notes.trim());
+        const noteResult = await addNote(targetClientId, notes.trim());
         if (noteResult.error) {
           setSaving(false);
           toast(noteResult.error, 'error');
@@ -179,7 +184,7 @@ export default function InterventionDraftPage() {
       return;
     }
     toast(t('coaching.interventions.sent'));
-    navigate(`/clients/${id}`);
+    navigate(`/clients/${targetClientId}`);
   };
 
   if (coachingRole !== 'coach') {
@@ -229,7 +234,9 @@ export default function InterventionDraftPage() {
           {row.title || t(`coaching.interventions.kinds.${row.kind}`)}
         </h1>
         <p className="text-sm text-neutral-400 mb-4">
-          {client?.full_name || client?.email || t('coaching.unnamed')}
+          {client?.full_name || client?.email || (isCoachOnlyKind(row.kind) && !clientId
+            ? t('coaching.interventions.appWide')
+            : t('coaching.unnamed'))}
         </p>
         {row.rationale && (
           <Card className="mb-4">

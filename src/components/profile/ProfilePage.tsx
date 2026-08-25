@@ -131,9 +131,11 @@ export default function ProfilePage() {
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
+        {coachingRole !== 'coach' && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           <GoalsForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
+        )}
 
         <AccordionSection id="units" icon={Ruler} label={t('profile.sections.units')} isOpen={openSection === 'units'} onToggle={() => toggle('units')} animationDelay="180ms">
           <UnitsForm onBack={() => setOpenSection(null)} inline />
@@ -185,7 +187,6 @@ export default function ProfilePage() {
           ...(coachingRole === 'coach'
             ? [
                 { to: '/clients', icon: Users, label: t('nav.clients') },
-                { to: '/routines', icon: Activity, label: t('profile.sections.routines') },
               ]
             : [
                 { to: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },

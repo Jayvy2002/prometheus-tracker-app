@@ -877,7 +877,7 @@ const en = {
     setup: {
       title: 'Set up client',
       waitingTitle: 'Waiting on the questionnaire',
-      waitingBody: 'This athlete accepted your invite and is still filling onboarding. Come back when it is done.',
+      waitingBody: 'This athlete is still filling onboarding. You can already set tracking and assign or build a program. Come back to review their answers when the questionnaire is done.',
       readyTitle: 'New client to set up',
       readyBody: 'Questionnaire is done. Review the answers, assign a program, pick what to track, then confirm. Nothing is saved as their plan until you confirm.',
       review: 'Onboarding answers',
@@ -912,7 +912,7 @@ const en = {
       workoutFocus: 'Specific workouts to watch (optional)',
       workoutFocusPh: 'e.g. squat, hinge, push',
       targets: 'Calorie / macro targets',
-      targetsHint: 'ISSN-style starting point from their onboarding. Edit before applying.',
+      targetsHint: 'ISSN-style starting point. Visible here, but not written to the client unless you check the box below.',
       useIssn: 'Reset to ISSN',
       applyTargets: 'Write these targets to the client profile',
       program: 'Training program',
@@ -920,7 +920,7 @@ const en = {
       newOrPick: 'Build new / pick later',
       openPrograms: 'Open Programs to build one',
       confirm: 'Send to client',
-      confirmHint: 'Last word is yours — send to save tracking, optional targets, and program. An empty assistant inbox does not block this.',
+      confirmHint: 'Last word is yours — send saves tracking and program even if onboarding is still in progress. Calorie targets are written only if the checkbox is on.',
       saved: 'Client setup saved',
     },
     interventions: {

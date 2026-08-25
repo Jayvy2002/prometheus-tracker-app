@@ -60,7 +60,7 @@ export default function ClientSetupPage() {
   const [protein, setProtein] = useState(0);
   const [carbs, setCarbs] = useState(0);
   const [fat, setFat] = useState(0);
-  const [applyTargets, setApplyTargets] = useState(true);
+  const [applyTargets, setApplyTargets] = useState(false);
   const [assignId, setAssignId] = useState('');
   const [draftDays, setDraftDays] = useState<AiProgramDayDraft[]>([]);
   const [draftProgramName, setDraftProgramName] = useState('');
@@ -223,125 +223,123 @@ export default function ClientSetupPage() {
         )}
 
         {onboarded && profile && (
-          <>
-            <Card className="mb-4">
-              <p className="text-sm font-medium text-white mb-2">{t('coaching.setup.review')}</p>
-              <ReviewRow label={t('coaching.setup.fields.goal')} value={labelOf(GOALS, profile.goal)} />
-              <ReviewRow label={t('coaching.setup.fields.experience')} value={labelOf(TRAINING_EXPERIENCES, profile.training_experience)} />
-              <ReviewRow label={t('coaching.setup.fields.focus')} value={labelOf(TRAINING_FOCUSES, profile.training_focus)} />
-              <ReviewRow label={t('coaching.setup.fields.frequency')} value={`${profile.training_frequency}x`} />
-              <ReviewRow label={t('coaching.setup.fields.injuries')} value={profile.injuries_limitations || t('coaching.setup.none')} />
-              <ReviewRow label={t('coaching.setup.fields.diet')} value={labelOf(DIET_TYPES, profile.diet_type)} />
-              <ReviewRow
-                label={t('coaching.setup.fields.allergies')}
-                value={(profile.food_allergies ?? []).map(a => labelOf(FOOD_ALLERGIES, a)).join(', ') || t('coaching.setup.none')}
-              />
-              <ReviewRow label={t('coaching.setup.fields.weight')} value={`${profile.weight_kg} → ${profile.target_weight_kg} kg`} />
-              <ReviewRow label={t('coaching.setup.fields.sleep')} value={`${profile.sleep_hours_average} h`} />
-            </Card>
-
-            {draftRow && (
-              <Card className="mb-4 border-blue-500/20">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-white flex items-center gap-2">
-                    <Sparkles size={14} className="text-blue-400" />
-                    {t('coaching.setup.aiTitle')}
-                  </p>
-                  <button onClick={discardDraft} className="text-neutral-500 hover:text-white" aria-label={t('coaching.interventions.dismiss')}>
-                    <X size={14} />
-                  </button>
-                </div>
-                <p className="text-xs text-neutral-500 mb-2">{t('coaching.setup.aiHint')}</p>
-                {draftRow.rationale && (
-                  <p className="text-[11px] text-neutral-400 mb-2">{draftRow.rationale}</p>
-                )}
-                <p className="text-[11px] text-emerald-300">{t('coaching.setup.aiReady')}</p>
-              </Card>
-            )}
-
-            <Card className="mb-4 space-y-2">
-              <p className="text-sm font-medium text-white">{t('coaching.setup.tracking')}</p>
-              <p className="text-xs text-neutral-500">{t('coaching.setup.trackingHint')}</p>
-              {([
-                ['track_workouts', t('coaching.setup.track.workouts')],
-                ['track_checkins', t('coaching.setup.track.checkins')],
-                ['track_nutrition', t('coaching.setup.track.nutrition')],
-                ['track_weight', t('coaching.setup.track.weight')],
-              ] as const).map(([key, label]) => (
-                <label key={key} className="flex items-center gap-3 text-sm text-neutral-200">
-                  <input
-                    type="checkbox"
-                    checked={tracking[key]}
-                    onChange={e => setTracking(s => ({ ...s, [key]: e.target.checked }))}
-                    className="accent-blue-500"
-                  />
-                  {label}
-                </label>
-              ))}
-              <Input
-                label={t('coaching.setup.workoutFocus')}
-                value={tracking.workout_focus}
-                onChange={e => setTracking(s => ({ ...s, workout_focus: e.target.value }))}
-                placeholder={t('coaching.setup.workoutFocusPh')}
-              />
-            </Card>
-
-            <Card className="mb-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-white">{t('coaching.setup.targets')}</p>
-                <button onClick={applyIssn} className="text-xs text-blue-400">{t('coaching.setup.useIssn')}</button>
-              </div>
-              <p className="text-xs text-neutral-500">{t('coaching.setup.targetsHint')}</p>
-              <label className="flex items-center gap-2 text-xs text-neutral-300">
-                <input type="checkbox" checked={applyTargets} onChange={e => setApplyTargets(e.target.checked)} className="accent-blue-500" />
-                {t('coaching.setup.applyTargets')}
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(+e.target.value || 0)} />
-                <Input label={t('common.protein')} type="number" value={protein} onChange={e => setProtein(+e.target.value || 0)} />
-                <Input label={t('common.carbs')} type="number" value={carbs} onChange={e => setCarbs(+e.target.value || 0)} />
-                <Input label={t('common.fat')} type="number" value={fat} onChange={e => setFat(+e.target.value || 0)} />
-              </div>
-            </Card>
-
-            <Card className="mb-4 space-y-3">
-              <p className="text-sm font-medium text-white">{t('coaching.setup.program')}</p>
-              <p className="text-xs text-neutral-500">{t('coaching.setup.programHint')}</p>
-              <select
-                value={assignId}
-                onChange={e => setAssignId(e.target.value)}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
-              >
-                <option value="">{t('coaching.setup.newOrPick')}</option>
-                {programs.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-              {!assignId && (
-                <>
-                  <ProgramDraftEditor
-                    name={draftProgramName}
-                    description={draftProgramDesc}
-                    durationWeeks={draftProgramWeeks}
-                    days={draftDays}
-                    onNameChange={setDraftProgramName}
-                    onDescriptionChange={setDraftProgramDesc}
-                    onWeeksChange={setDraftProgramWeeks}
-                    onDaysChange={setDraftDays}
-                  />
-                  <button onClick={() => navigate('/programs')} className="text-xs text-blue-400">
-                    {t('coaching.setup.openPrograms')}
-                  </button>
-                </>
-              )}
-            </Card>
-
-            <Button onClick={handleConfirm} loading={saving} className="w-full">
-              {t('coaching.interventions.send')}
-            </Button>
-            <p className="text-[11px] text-neutral-600 text-center mt-2">{t('coaching.setup.confirmHint')}</p>
-          </>
+          <Card className="mb-4">
+            <p className="text-sm font-medium text-white mb-2">{t('coaching.setup.review')}</p>
+            <ReviewRow label={t('coaching.setup.fields.goal')} value={labelOf(GOALS, profile.goal)} />
+            <ReviewRow label={t('coaching.setup.fields.experience')} value={labelOf(TRAINING_EXPERIENCES, profile.training_experience)} />
+            <ReviewRow label={t('coaching.setup.fields.focus')} value={labelOf(TRAINING_FOCUSES, profile.training_focus)} />
+            <ReviewRow label={t('coaching.setup.fields.frequency')} value={`${profile.training_frequency}x`} />
+            <ReviewRow label={t('coaching.setup.fields.injuries')} value={profile.injuries_limitations || t('coaching.setup.none')} />
+            <ReviewRow label={t('coaching.setup.fields.diet')} value={labelOf(DIET_TYPES, profile.diet_type)} />
+            <ReviewRow
+              label={t('coaching.setup.fields.allergies')}
+              value={(profile.food_allergies ?? []).map(a => labelOf(FOOD_ALLERGIES, a)).join(', ') || t('coaching.setup.none')}
+            />
+            <ReviewRow label={t('coaching.setup.fields.weight')} value={`${profile.weight_kg} → ${profile.target_weight_kg} kg`} />
+            <ReviewRow label={t('coaching.setup.fields.sleep')} value={`${profile.sleep_hours_average} h`} />
+          </Card>
         )}
+
+        {draftRow && (
+          <Card className="mb-4 border-blue-500/20">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-white flex items-center gap-2">
+                <Sparkles size={14} className="text-blue-400" />
+                {t('coaching.setup.aiTitle')}
+              </p>
+              <button onClick={discardDraft} className="text-neutral-500 hover:text-white" aria-label={t('coaching.interventions.dismiss')}>
+                <X size={14} />
+              </button>
+            </div>
+            <p className="text-xs text-neutral-500 mb-2">{t('coaching.setup.aiHint')}</p>
+            {draftRow.rationale && (
+              <p className="text-[11px] text-neutral-400 mb-2">{draftRow.rationale}</p>
+            )}
+            <p className="text-[11px] text-emerald-300">{t('coaching.setup.aiReady')}</p>
+          </Card>
+        )}
+
+        <Card className="mb-4 space-y-2">
+          <p className="text-sm font-medium text-white">{t('coaching.setup.tracking')}</p>
+          <p className="text-xs text-neutral-500">{t('coaching.setup.trackingHint')}</p>
+          {([
+            ['track_workouts', t('coaching.setup.track.workouts')],
+            ['track_checkins', t('coaching.setup.track.checkins')],
+            ['track_nutrition', t('coaching.setup.track.nutrition')],
+            ['track_weight', t('coaching.setup.track.weight')],
+          ] as const).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-3 text-sm text-neutral-200">
+              <input
+                type="checkbox"
+                checked={tracking[key]}
+                onChange={e => setTracking(s => ({ ...s, [key]: e.target.checked }))}
+                className="accent-blue-500"
+              />
+              {label}
+            </label>
+          ))}
+          <Input
+            label={t('coaching.setup.workoutFocus')}
+            value={tracking.workout_focus}
+            onChange={e => setTracking(s => ({ ...s, workout_focus: e.target.value }))}
+            placeholder={t('coaching.setup.workoutFocusPh')}
+          />
+        </Card>
+
+        <Card className="mb-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-white">{t('coaching.setup.targets')}</p>
+            <button onClick={applyIssn} className="text-xs text-blue-400">{t('coaching.setup.useIssn')}</button>
+          </div>
+          <p className="text-xs text-neutral-500">{t('coaching.setup.targetsHint')}</p>
+          <label className="flex items-center gap-2 text-xs text-neutral-300">
+            <input type="checkbox" checked={applyTargets} onChange={e => setApplyTargets(e.target.checked)} className="accent-blue-500" />
+            {t('coaching.setup.applyTargets')}
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(+e.target.value || 0)} />
+            <Input label={t('common.protein')} type="number" value={protein} onChange={e => setProtein(+e.target.value || 0)} />
+            <Input label={t('common.carbs')} type="number" value={carbs} onChange={e => setCarbs(+e.target.value || 0)} />
+            <Input label={t('common.fat')} type="number" value={fat} onChange={e => setFat(+e.target.value || 0)} />
+          </div>
+        </Card>
+
+        <Card className="mb-4 space-y-3">
+          <p className="text-sm font-medium text-white">{t('coaching.setup.program')}</p>
+          <p className="text-xs text-neutral-500">{t('coaching.setup.programHint')}</p>
+          <select
+            value={assignId}
+            onChange={e => setAssignId(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+          >
+            <option value="">{t('coaching.setup.newOrPick')}</option>
+            {programs.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          {!assignId && (
+            <>
+              <ProgramDraftEditor
+                name={draftProgramName}
+                description={draftProgramDesc}
+                durationWeeks={draftProgramWeeks}
+                days={draftDays}
+                onNameChange={setDraftProgramName}
+                onDescriptionChange={setDraftProgramDesc}
+                onWeeksChange={setDraftProgramWeeks}
+                onDaysChange={setDraftDays}
+              />
+              <button onClick={() => navigate('/programs')} className="text-xs text-blue-400">
+                {t('coaching.setup.openPrograms')}
+              </button>
+            </>
+          )}
+        </Card>
+
+        <Button onClick={handleConfirm} loading={saving} className="w-full">
+          {t('coaching.interventions.send')}
+        </Button>
+        <p className="text-[11px] text-neutral-600 text-center mt-2">{t('coaching.setup.confirmHint')}</p>
       </div>
     </PageTransition>
   );

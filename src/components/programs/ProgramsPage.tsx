@@ -153,9 +153,11 @@ export default function ProgramsPage() {
           </div>
         )}
 
+        {coachingRole !== 'coach' && (
         <button onClick={() => navigate('/routines')} className="mt-6 text-sm text-blue-400">
           {t('programs.manageRoutines')}
         </button>
+        )}
       </div>
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={t('programs.newTitle')}>

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
-import { useCoachingStore, getPendingInviteToken } from './stores/coachingStore';
+import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole } from './stores/coachingStore';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -44,22 +44,24 @@ function CoachTrackerRedirect({ children }: { children: ReactNode }) {
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, clearProfile } = useProfileStore();
-  const { roleReady, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
+  const { roleReady, coachingRole, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
   const { t, i18n } = useTranslation();
 
   useEffect(() => {
     if (user) {
       fetchProfile(user.id);
-      void fetchMyRole(user.id);
       void (async () => {
-        const token = getPendingInviteToken();
-        if (token) {
-          await acceptInvite(token);
-        } else {
-          await applyIntendedCoachingRole();
+        try {
+          const token = getPendingInviteToken();
+          if (token) {
+            await acceptInvite(token);
+          } else {
+            await applyIntendedCoachingRole();
+          }
+        } finally {
+          await fetchMyRole(user.id);
+          await fetchMyCoach();
         }
-        await fetchMyRole(user.id);
-        await fetchMyCoach();
       })();
     } else if (initialized) {
       clearProfile();
@@ -116,7 +118,10 @@ function AppRoutes() {
     );
   }
 
-  if (!profile?.onboarding_completed) {
+  const skipPersonalOnboarding =
+    coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
+
+  if (!profile?.onboarding_completed && !skipPersonalOnboarding) {
     return (
       <Routes>
         <Route path="/invite/:token" element={<InvitePage />} />
@@ -147,7 +152,7 @@ function AppRoutes() {
       <Route path="/workout/new" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
       <Route path="/workout/:id" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
       <Route path="/routines" element={<AppLayout />}>
-        <Route index element={<RoutinesPage />} />
+        <Route index element={<CoachTrackerRedirect><RoutinesPage /></CoachTrackerRedirect>} />
       </Route>
       <Route path="/scanner" element={<CoachTrackerRedirect><ScannerPage /></CoachTrackerRedirect>} />
       <Route path="/recipes" element={<CoachTrackerRedirect><RecipesPage /></CoachTrackerRedirect>} />

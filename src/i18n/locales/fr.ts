@@ -877,7 +877,7 @@ const fr = {
     setup: {
       title: 'Configurer le client',
       waitingTitle: 'En attente du questionnaire',
-      waitingBody: 'Cet athlète a accepté l’invitation et remplit encore l’onboarding. Reviens quand c’est terminé.',
+      waitingBody: 'Cet athlète remplit encore l’onboarding. Tu peux déjà régler le suivi et assigner ou construire un programme. Reviens relire ses réponses quand le questionnaire est terminé.',
       readyTitle: 'Nouveau client à configurer',
       readyBody: 'Le questionnaire est terminé. Relis les réponses, assigne un programme, choisis le suivi, puis confirme. Rien n’est enregistré comme plan tant que tu n’as pas confirmé.',
       review: 'Réponses d’onboarding',
@@ -912,7 +912,7 @@ const fr = {
       workoutFocus: 'Séances précises à surveiller (optionnel)',
       workoutFocusPh: 'ex. squat, hinge, push',
       targets: 'Cibles calories / macros',
-      targetsHint: 'Point de départ style ISSN à partir de l’onboarding. Modifie avant d’appliquer.',
+      targetsHint: 'Point de départ style ISSN. Les chiffres restent visibles, mais ne sont écrits sur le client que si tu coches la case.',
       useIssn: 'Revenir à l’ISSN',
       applyTargets: 'Écrire ces cibles sur le profil client',
       program: 'Programme d’entraînement',
@@ -920,7 +920,7 @@ const fr = {
       newOrPick: 'Créer / plus tard',
       openPrograms: 'Ouvrir Programmes pour en construire un',
       confirm: 'Envoyer au client',
-      confirmHint: 'Toi seul valides — envoie pour enregistrer le suivi, les cibles optionnelles et le programme. Une inbox vide ne bloque rien.',
+      confirmHint: 'Toi seul valides — l’envoi enregistre le suivi et le programme même si l’onboarding n’est pas fini. Les cibles calories ne sont écrites que si la case est cochée.',
       saved: 'Configuration client enregistrée',
     },
     interventions: {
