@@ -683,18 +683,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   touchClientVisit: async (clientId) => {
     const iso = new Date().toISOString();
-    const { error } = await supabase
+    await supabase
       .from('coach_client_links')
       .update({ last_visited_at: iso, updated_at: iso })
       .eq('client_id', clientId)
       .eq('status', 'active');
-    if (error) return;
-    set(s => ({
-      clients: s.clients.map(c => c.id === clientId ? { ...c, last_visited_at: iso } : c),
-      opsRows: s.opsRows.map(r => r.client.id === clientId
-        ? { ...r, client: { ...r.client, last_visited_at: iso } }
-        : r),
-    }));
+    // Keep the in-memory last_visited_at as the previous visit so Client 360
+    // "since last visit" is computed against what the coach had not yet seen.
   },
 
   fetchInvites: async () => {

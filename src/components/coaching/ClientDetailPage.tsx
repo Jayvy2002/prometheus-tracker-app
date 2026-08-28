@@ -67,12 +67,17 @@ export default function ClientDetailPage() {
   const [noteBody, setNoteBody] = useState('');
   const [savingNote, setSavingNote] = useState(false);
   const [rawCheckins, setRawCheckins] = useState(false);
+  const [visitAnchor, setVisitAnchor] = useState<string | null | undefined>(undefined);
 
   const client = clients.find(c => c.id === id);
   const ops = opsRows.find(r => r.client.id === id);
 
   useEffect(() => {
     if (!id) return;
+    const previous = useCoachingStore.getState().opsRows.find(r => r.client.id === id)?.client.last_visited_at
+      ?? useCoachingStore.getState().clients.find(c => c.id === id)?.last_visited_at
+      ?? null;
+    setVisitAnchor(previous);
     if (!clients.length) fetchClients();
     if (!opsRows.length) fetchCoachOps();
     touchClientVisit(id);
@@ -100,10 +105,32 @@ export default function ClientDetailPage() {
 
   const lifts = useMemo(() => (id ? liftsForClient(rosterSignals.lifts, id) : []), [rosterSignals.lifts, id]);
   const workspaceLift = exerciseHint && id ? findLift(lifts, id, exerciseHint) : null;
+  const insightWorkouts = useMemo(() => {
+    if (workouts.length > 0) {
+      return workouts.map(w => ({ date: w.date, completed: w.completed, name: w.name }));
+    }
+    const seen = new Set<string>();
+    const rows: Array<{ date: string; completed: boolean; name: string }> = [];
+    for (const lift of lifts) {
+      for (const session of lift.sessions) {
+        if (seen.has(session.workoutId)) continue;
+        seen.add(session.workoutId);
+        rows.push({ date: session.date, completed: true, name: session.workoutName });
+      }
+    }
+    return rows;
+  }, [workouts, lifts]);
   const insight = useMemo(() => {
     if (!ops) return null;
-    return sinceLastVisit(ops, rosterSignals, workouts);
-  }, [ops, rosterSignals, workouts]);
+    const snapshot = {
+      ...ops,
+      client: {
+        ...ops.client,
+        last_visited_at: visitAnchor === undefined ? ops.client.last_visited_at : visitAnchor,
+      },
+    };
+    return sinceLastVisit(snapshot, rosterSignals, insightWorkouts);
+  }, [ops, rosterSignals, insightWorkouts, visitAnchor]);
   const checkinSummary = useMemo(() => summarizeCheckin(checkins), [checkins]);
   const kpis = useMemo(
     () => insight ? clientKpis(insight, checkinSummary, lifts, weights) : null,
@@ -140,7 +167,7 @@ export default function ClientDetailPage() {
 
   const timeline = useMemo(() => {
     const items: Array<{ at: string; kind: string; label: string }> = [];
-    for (const w of workouts.filter(x => x.completed).slice(0, 12)) {
+    for (const w of (workouts.length ? workouts.filter(x => x.completed) : insightWorkouts.filter(x => x.completed)).slice(0, 12)) {
       items.push({ at: w.date, kind: 'workout', label: w.name || t('workout.title') });
     }
     for (const c of checkins.slice(0, 8)) {
@@ -153,7 +180,7 @@ export default function ClientDetailPage() {
       items.push({ at: n.created_at, kind: 'note', label: n.body.slice(0, 80) });
     }
     return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12);
-  }, [workouts, checkins, weights, notes, t]);
+  }, [workouts, insightWorkouts, checkins, weights, notes, t]);
 
   return (
     <PageTransition>
