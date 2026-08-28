@@ -352,6 +352,11 @@ export interface CoachClientSummary {
   avatar_url: string;
   linked_at: string;
   onboarding_completed: boolean;
+  goal: string;
+  training_frequency: number;
+  target_weight_kg: number;
+  weight_kg: number;
+  last_visited_at: string | null;
 }
 
 export interface ClientTrackingConfig {
@@ -385,14 +390,115 @@ export interface ClientOpsRow {
   setupCompleted: boolean;
 }
 
+export type CoachPrioritySeverity = 'red' | 'orange' | 'yellow';
+
+export type CoachPriorityKind =
+  | 'new_pain'
+  | 'stalled_lift'
+  | 'weight_off_trajectory'
+  | 'dropped_adherence'
+  | 'missed_checkin'
+  | 'missed_workout'
+  | 'missed_nutrition'
+  | 'program_adapt'
+  | 'onboarding_incomplete'
+  | 'program_unassigned';
+
+export type CoachClientTab =
+  | 'overview'
+  | 'training'
+  | 'progress'
+  | 'checkins'
+  | 'health'
+  | 'notes';
+
+export type CoachInboxKind = 'checkin' | 'pain' | 'adherence' | 'draft';
+
+export interface CoachPriority {
+  id: string;
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  kind: CoachPriorityKind;
+  severity: CoachPrioritySeverity;
+  headlineKey: string;
+  headlineParams?: Record<string, string | number>;
+  detailKey: string;
+  detailParams?: Record<string, string | number>;
+  href: string;
+  exerciseName?: string;
+}
+
+export interface LiftSetSnapshot {
+  weight_kg: number;
+  reps: number;
+  rir: number;
+  completed: boolean;
+}
+
+export interface LiftSessionSnapshot {
+  date: string;
+  workoutId: string;
+  workoutName: string;
+  maxWeight: number;
+  bestSet: string;
+  avgRir: number | null;
+  volume: number;
+  sets: LiftSetSnapshot[];
+}
+
+export interface ClientLiftProgress {
+  clientId: string;
+  exerciseName: string;
+  displayName: string;
+  sessions: LiftSessionSnapshot[];
+  stalled: boolean;
+}
+
+export interface CoachRosterSignals {
+  checkins: DailyCheckin[];
+  weights: WeightMeasurement[];
+  lifts: ClientLiftProgress[];
+  lastNoteAt: Record<string, string>;
+  lastInterventionAt: Record<string, string>;
+  assignmentStart: Record<string, string>;
+  assignmentWeeks: Record<string, number>;
+  assignmentName: Record<string, string>;
+  scheduledDays: Record<string, number>;
+}
+
+export interface CoachCommandStats {
+  activeClients: number;
+  needAttention: number;
+  checkinsToReview: number;
+  programsMayAdapt: number;
+  important: number;
+}
+
+export interface ProgramExerciseDraft {
+  name: string;
+  default_sets: number;
+  default_reps: number;
+  default_reps_min?: number | null;
+  default_rir?: number | null;
+  default_rest_seconds?: number;
+}
+
 export interface AiProgramDayDraft {
   weekday: number;
   name: string;
-  exercises: Array<{
-    name: string;
-    default_sets: number;
-    default_reps: number;
-  }>;
+  exercises: ProgramExerciseDraft[];
+}
+
+export interface ProgramExercisePatch {
+  exercise: string;
+  weekday?: number | null;
+  default_sets?: number;
+  default_reps?: number;
+  default_reps_min?: number | null;
+  default_rir?: number | null;
+  default_rest_seconds?: number;
+  replace_with?: string;
 }
 
 export interface AiPlanDraft {
@@ -505,6 +611,8 @@ export interface ProgramDayExercise {
   name: string;
   default_sets: number;
   default_reps: number;
+  default_reps_min?: number | null;
+  default_rir?: number | null;
   default_rest_seconds: number;
   order_index: number;
   created_at: string;
@@ -527,4 +635,22 @@ export interface WorkoutTemplateExercise {
   default_sets: number;
   default_reps: number;
   order_index: number;
+}
+
+export interface CheckinSummary {
+  latest: DailyCheckin | null;
+  previous: DailyCheckin | null;
+  globalStatus: 'good' | 'watch' | 'concern' | 'unknown';
+  training: number | null;
+  recovery: number | null;
+  nutrition: number | null;
+  motivation: number | null;
+  pain: number | null;
+  deltas: {
+    training: number | null;
+    recovery: number | null;
+    nutrition: number | null;
+    motivation: number | null;
+    pain: number | null;
+  };
 }

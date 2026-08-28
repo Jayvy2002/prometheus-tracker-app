@@ -20,8 +20,44 @@ interface ProgramState {
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<void>;
   setProgramDayExercises: (
     dayId: string,
-    exercises: Array<{ name: string; default_sets: number; default_reps: number; order_index: number }>,
+    exercises: Array<{
+      name: string;
+      default_sets: number;
+      default_reps: number;
+      default_reps_min?: number | null;
+      default_rir?: number | null;
+      default_rest_seconds?: number;
+      order_index: number;
+    }>,
   ) => Promise<void>;
+  applyExercisePatch: (
+    programId: string,
+    patch: {
+      exercise: string;
+      weekday?: number | null;
+      default_sets?: number;
+      default_reps?: number;
+      default_reps_min?: number | null;
+      default_rir?: number | null;
+      default_rest_seconds?: number;
+      replace_with?: string;
+    },
+  ) => Promise<{ error: string | null }>;
+  syncProgramDays: (
+    programId: string,
+    days: Array<{
+      weekday: number;
+      name: string;
+      exercises: Array<{
+        name: string;
+        default_sets: number;
+        default_reps: number;
+        default_reps_min?: number | null;
+        default_rir?: number | null;
+        default_rest_seconds?: number;
+      }>;
+    }>,
+  ) => Promise<{ error: string | null }>;
   fetchMyAssignment: (clientId: string) => Promise<void>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   pauseAssignment: (id: string) => Promise<void>;
@@ -153,19 +189,112 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   setProgramDayExercises: async (dayId, exercises) => {
     await supabase.from('program_day_exercises').delete().eq('program_day_id', dayId);
     if (exercises.length > 0) {
-      await supabase.from('program_day_exercises').insert(
-        exercises.map(ex => ({
-          program_day_id: dayId,
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_rest_seconds: 90,
-          order_index: ex.order_index,
-        })),
-      );
+      const rich = exercises.map(ex => ({
+        program_day_id: dayId,
+        name: ex.name,
+        default_sets: ex.default_sets,
+        default_reps: ex.default_reps,
+        default_reps_min: ex.default_reps_min ?? null,
+        default_rir: ex.default_rir ?? null,
+        default_rest_seconds: ex.default_rest_seconds ?? 90,
+        order_index: ex.order_index,
+      }));
+      const { error } = await supabase.from('program_day_exercises').insert(rich);
+      if (error) {
+        await supabase.from('program_day_exercises').insert(
+          exercises.map(ex => ({
+            program_day_id: dayId,
+            name: ex.name,
+            default_sets: ex.default_sets,
+            default_reps: ex.default_reps,
+            default_rest_seconds: ex.default_rest_seconds ?? 90,
+            order_index: ex.order_index,
+          })),
+        );
+      }
     }
     const programId = get().programs.find(p => p.days?.some(d => d.id === dayId))?.id;
     if (programId) await get().fetchProgram(programId);
+  },
+
+  applyExercisePatch: async (programId, patch) => {
+    const program = await get().fetchProgram(programId);
+    if (!program) return { error: 'Program not found' };
+    const days = program.days ?? [];
+    const targetDays = patch.weekday == null ? days : days.filter(d => d.weekday === patch.weekday);
+    let applied = false;
+    for (const day of targetDays) {
+      const exercises = [...(day.exercises ?? [])];
+      const idx = exercises.findIndex(ex => ex.name.toLowerCase() === patch.exercise.toLowerCase()
+        || ex.name.toLowerCase().includes(patch.exercise.toLowerCase())
+        || patch.exercise.toLowerCase().includes(ex.name.toLowerCase()));
+      if (idx < 0) continue;
+      const current = exercises[idx];
+      exercises[idx] = {
+        ...current,
+        name: patch.replace_with?.trim() || current.name,
+        default_sets: patch.default_sets ?? current.default_sets,
+        default_reps: patch.default_reps ?? current.default_reps,
+        default_reps_min: patch.default_reps_min === undefined ? current.default_reps_min : patch.default_reps_min,
+        default_rir: patch.default_rir === undefined ? current.default_rir : patch.default_rir,
+        default_rest_seconds: patch.default_rest_seconds ?? current.default_rest_seconds,
+      };
+      await get().setProgramDayExercises(day.id, exercises.map((ex, order_index) => ({
+        name: ex.name,
+        default_sets: ex.default_sets,
+        default_reps: ex.default_reps,
+        default_reps_min: ex.default_reps_min,
+        default_rir: ex.default_rir,
+        default_rest_seconds: ex.default_rest_seconds,
+        order_index,
+      })));
+      applied = true;
+      if (patch.weekday != null) break;
+    }
+    return applied ? { error: null } : { error: 'Exercise not found in program' };
+  },
+
+  syncProgramDays: async (programId, days) => {
+    const program = await get().fetchProgram(programId);
+    if (!program) return { error: 'Program not found' };
+    const existing = [...(program.days ?? [])];
+    const usedIds = new Set<string>();
+    for (let i = 0; i < days.length; i++) {
+      const draft = days[i];
+      let row = existing.find(d => d.weekday === draft.weekday && !usedIds.has(d.id));
+      if (!row) {
+        const { data } = await supabase.from('program_days').insert({
+          program_id: programId,
+          weekday: draft.weekday,
+          name: draft.name,
+          routine_id: null,
+          order_index: i,
+        }).select().maybeSingle();
+        if (!data) continue;
+        row = { ...(data as ProgramDay), exercises: [] };
+      } else {
+        await supabase.from('program_days').update({
+          name: draft.name,
+          weekday: draft.weekday,
+          order_index: i,
+        }).eq('id', row.id);
+      }
+      usedIds.add(row.id);
+      await get().setProgramDayExercises(row.id, draft.exercises.map((ex, order_index) => ({
+        name: ex.name,
+        default_sets: ex.default_sets,
+        default_reps: ex.default_reps,
+        default_reps_min: ex.default_reps_min,
+        default_rir: ex.default_rir,
+        default_rest_seconds: ex.default_rest_seconds,
+        order_index,
+      })));
+    }
+    for (const extra of existing.filter(d => !usedIds.has(d.id))) {
+      await supabase.from('program_days').delete().eq('id', extra.id);
+    }
+    await get().fetchProgram(programId);
+    return { error: null };
   },
 
   fetchMyAssignment: async (clientId) => {

@@ -2,71 +2,75 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertTriangle,
-  CheckCircle2,
   ChevronRight,
   ClipboardCheck,
   Copy,
-  Dumbbell,
   Link2,
   Plus,
-  Scale,
+  Search,
   Sparkles,
   Users,
-  Utensils,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { isSetupAlert, needsSetup, shouldOpenSetup } from '../../lib/coachAlerts';
 import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
-import type { ClientAlertKind, ClientOpsRow } from '../../lib/types';
+import type { CoachPriority, CoachPrioritySeverity } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 
-const ALERT_ICONS: Record<ClientAlertKind, typeof AlertTriangle> = {
-  onboarding_incomplete: Users,
-  program_unassigned: ClipboardCheck,
-  missing_checkin: ClipboardCheck,
-  missing_workout_today: Dumbbell,
-  missing_workout_week: Dumbbell,
-  missing_weight: Scale,
-  missing_nutrition: Utensils,
+const SEVERITY_DOT: Record<CoachPrioritySeverity, string> = {
+  red: '🔴',
+  orange: '🟠',
+  yellow: '🟡',
 };
 
-function ClientAvatar({ name, avatarUrl }: { name: string; avatarUrl: string }) {
+function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'amber' | 'rose' | 'blue' | 'white' }) {
+  const color = tone === 'amber' ? 'text-amber-300'
+    : tone === 'rose' ? 'text-rose-300'
+    : tone === 'blue' ? 'text-blue-300'
+    : 'text-white';
   return (
-    <div className="w-10 h-10 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold shrink-0">
-      {avatarUrl
-        ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-        : (name[0] || '?').toUpperCase()}
-    </div>
+    <Card className="!p-3 min-w-0">
+      <p className="text-[11px] text-neutral-500 uppercase tracking-wider truncate">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+    </Card>
   );
 }
 
-function AlertPills({ alerts }: { alerts: ClientAlertKind[] }) {
+function PriorityRow({ item, open, onToggle, onOpen }: {
+  item: CoachPriority;
+  open: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
   const { t } = useTranslation();
-  if (alerts.length === 0) return null;
   return (
-    <div className="flex flex-wrap gap-1 mt-1.5">
-      {alerts.map(kind => {
-        const Icon = ALERT_ICONS[kind];
-        return (
-          <span
-            key={kind}
-            className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${
-              isSetupAlert(kind)
-                ? 'bg-amber-500/15 text-amber-300'
-                : 'bg-rose-500/10 text-rose-300'
-            }`}
+    <Card className="!p-0 overflow-hidden">
+      <button type="button" onClick={onToggle} className="w-full flex items-start gap-3 px-4 py-3 text-left">
+        <span className="text-base leading-6 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white">
+            {t(item.headlineKey, item.headlineParams)}
+          </p>
+          <p className="text-[11px] text-neutral-500 truncate">{item.clientName}</p>
+        </div>
+        <ChevronRight size={16} className={`text-neutral-600 mt-1 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
+      </button>
+      {open && (
+        <div className="px-4 pb-3 pt-0 border-t border-neutral-800/60">
+          <p className="text-xs text-neutral-400 mt-2">{t(item.detailKey, item.detailParams)}</p>
+          <button
+            type="button"
+            onClick={onOpen}
+            className="mt-2 text-xs text-blue-400 hover:text-blue-300"
           >
-            <Icon size={10} />
-            {t(`coaching.alerts.${kind}`)}
-          </span>
-        );
-      })}
-    </div>
+            {t('coaching.command.openClient')}
+          </button>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -76,10 +80,12 @@ export default function CoachDashboard() {
   const { user } = useAuthStore();
   const {
     opsRows, opsLoading, invites, pendingInterventions, clients,
-    fetchCoachOps, fetchInvites, createInvite,
+    fetchCoachOps, fetchInvites, createInvite, commandStats: stats,
+    priorities,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -87,15 +93,9 @@ export default function CoachDashboard() {
     fetchInvites();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const withAlerts = useMemo(() => opsRows.filter(r => r.alerts.length > 0), [opsRows]);
-  const allClear = useMemo(() => opsRows.filter(r => r.alerts.length === 0), [opsRows]);
-  const setupRows = useMemo(() => opsRows.filter(needsSetup), [opsRows]);
-  const onboardingRows = useMemo(
-    () => opsRows.filter(r => !r.client.onboarding_completed),
-    [opsRows],
-  );
-
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
+  const topDrafts = pendingInterventions.slice(0, 4);
+  const visiblePriorities = useMemo(() => priorities.slice(0, 12), [priorities]);
 
   const copyUrl = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
@@ -119,89 +119,41 @@ export default function CoachDashboard() {
     await copyUrl(result.token);
   };
 
-  const openClient = (row: ClientOpsRow) => {
-    if (shouldOpenSetup(row)) {
-      navigate(`/clients/${row.client.id}/setup`);
-      return;
-    }
-    navigate(`/clients/${row.client.id}`);
-  };
-
   return (
     <PageTransition>
-      <div className="px-4 pt-6 pb-28">
-        <div className="mb-6">
-          <p className="text-neutral-400 text-xs">
-            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-          <h1 className="text-2xl font-bold text-white">{t('coaching.ops.title')}</h1>
-          <p className="text-sm text-neutral-500 mt-1">{t('coaching.ops.subtitle')}</p>
+      <div className="px-4 pt-6 pb-28 md:px-6">
+        <div className="flex items-start justify-between gap-3 mb-6">
+          <div>
+            <p className="text-neutral-400 text-xs">
+              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+            <h1 className="text-2xl font-bold text-white">{t('coaching.command.title')}</h1>
+            <p className="text-sm text-neutral-500 mt-1">{t('coaching.command.subtitle')}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate('/prometheus')}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-300 hover:text-white"
+            >
+              <Search size={14} />
+              {t('coaching.ask.shortcut')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              className="text-[11px] text-neutral-500 hover:text-white"
+            >
+              {t('nav.profile')}
+            </button>
+          </div>
         </div>
 
         {opsLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
           </div>
-        ) : (
-          <>
-            {pendingInterventions.length > 0 && (
-              <div className="mb-6">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
-                  {t('coaching.interventions.title')}
-                </p>
-                <div className="space-y-2">
-                  {pendingInterventions.map(item => {
-                    const client = clients.find(c => c.id === item.client_id);
-                    const coachOnly = isCoachOnlyKind(item.kind);
-                    return (
-                      <Card
-                        key={item.id}
-                        onClick={() => navigate(interventionHref(item))}
-                        className="flex items-start gap-3"
-                      >
-                        <Sparkles size={16} className={`mt-1 shrink-0 ${coachOnly ? 'text-violet-400' : 'text-blue-400'}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium text-white truncate">
-                              {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
-                            </p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                              coachOnly ? 'bg-violet-500/15 text-violet-300' : 'bg-blue-500/15 text-blue-300'
-                            }`}>
-                              {coachOnly ? t('coaching.interventions.badgeApp') : t('coaching.interventions.badgeClient')}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-neutral-500 truncate">
-                            {item.client_id ? (
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  navigate(`/clients/${item.client_id}`);
-                                }}
-                                className="text-blue-400 hover:text-blue-300"
-                              >
-                                {client?.full_name || client?.email || t('coaching.unnamed')}
-                              </button>
-                            ) : (
-                              <span>{t('coaching.interventions.appWide')}</span>
-                            )}
-                            {' · '}
-                            {t(`coaching.interventions.kinds.${item.kind}`)}
-                          </p>
-                          <p className="text-xs text-neutral-400 mt-1 line-clamp-2">
-                            {item.rationale || payloadSummary(item)}
-                          </p>
-                        </div>
-                        <ChevronRight size={16} className="text-neutral-600 mt-2 shrink-0" />
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {opsRows.length === 0 ? (
+        ) : opsRows.length === 0 ? (
           <Card className="text-center py-10">
             <Users className="mx-auto mb-3 text-neutral-600" size={32} />
             <p className="text-neutral-300 mb-1">{t('coaching.ops.emptyTitle')}</p>
@@ -224,74 +176,81 @@ export default function CoachDashboard() {
                 ))}
               </div>
             )}
-            <button
-              onClick={() => navigate('/clients')}
-              className="mt-4 text-sm text-blue-400"
-            >
-              {t('coaching.ops.manageInvites')}
-            </button>
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <Card className="!p-3">
-                <p className="text-[11px] text-neutral-500 uppercase tracking-wider">{t('coaching.ops.withAlerts')}</p>
-                <p className="text-2xl font-bold text-amber-300 mt-1">{withAlerts.length}</p>
-              </Card>
-              <Card className="!p-3">
-                <p className="text-[11px] text-neutral-500 uppercase tracking-wider">{t('coaching.ops.allClear')}</p>
-                <p className="text-2xl font-bold text-emerald-400 mt-1">{allClear.length}</p>
-              </Card>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+              <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
+              <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
+              <StatCard label={t('coaching.command.stats.checkins')} value={stats.checkinsToReview} tone="blue" />
+              <StatCard label={t('coaching.command.stats.adapt')} value={stats.programsMayAdapt} tone="amber" />
+              <StatCard label={t('coaching.command.stats.important')} value={stats.important} tone="rose" />
             </div>
-            {(setupRows.length > 0 || onboardingRows.length > 0) && (
-              <p className="text-xs text-amber-300/80 mb-4">
-                {t('coaching.ops.setupSummary', {
-                  onboarding: onboardingRows.length,
-                  setup: setupRows.length,
-                })}
-              </p>
+
+            {topDrafts.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
+                    {t('coaching.interventions.title')}
+                  </p>
+                  <button onClick={() => navigate('/messages')} className="text-xs text-blue-400">
+                    {t('coaching.inbox.seeAll')}
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {topDrafts.map(item => {
+                    const client = clients.find(c => c.id === item.client_id);
+                    const coachOnly = isCoachOnlyKind(item.kind);
+                    return (
+                      <Card key={item.id} onClick={() => navigate(interventionHref(item))} className="flex items-start gap-3">
+                        <Sparkles size={16} className={`mt-1 shrink-0 ${coachOnly ? 'text-violet-400' : 'text-blue-400'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
+                          </p>
+                          <p className="text-[11px] text-neutral-500 truncate">
+                            {client?.full_name || client?.email || t('coaching.interventions.appWide')}
+                            {' · '}
+                            {payloadSummary(item)}
+                          </p>
+                        </div>
+                        <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
-                {t('coaching.ops.clients')}
+                {t('coaching.command.priorities')}
               </p>
               <button onClick={() => navigate('/clients')} className="text-xs text-blue-400">
-                {t('coaching.invite.generate')}
+                {t('nav.clients')}
               </button>
             </div>
 
-            <div className="space-y-2">
-              {[...opsRows]
-                .sort((a, b) => {
-                  const score = (r: ClientOpsRow) =>
-                    (!r.client.onboarding_completed ? 0 : needsSetup(r) ? 1 : r.alerts.length > 0 ? 2 : 3);
-                  return score(a) - score(b);
-                })
-                .map(row => (
-                  <Card key={row.client.id} onClick={() => openClient(row)} className="flex items-start gap-3">
-                    <ClientAvatar name={row.client.full_name || row.client.email} avatarUrl={row.client.avatar_url} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-white truncate">
-                          {row.client.full_name || row.client.email || t('coaching.unnamed')}
-                        </p>
-                        {row.alerts.length === 0 && (
-                          <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                        )}
-                      </div>
-                      <p className="text-xs text-neutral-500 truncate">{row.client.email}</p>
-                      {row.alerts.length === 0 ? (
-                        <p className="text-[11px] text-emerald-400/80 mt-1">{t('coaching.ops.loggingOk')}</p>
-                      ) : (
-                        <AlertPills alerts={row.alerts} />
-                      )}
-                    </div>
-                    <ChevronRight size={16} className="text-neutral-600 mt-2 shrink-0" />
-                  </Card>
+            {visiblePriorities.length === 0 ? (
+              <Card className="flex items-center gap-3">
+                <ClipboardCheck size={18} className="text-emerald-400" />
+                <div>
+                  <p className="text-sm text-white">{t('coaching.command.allClearTitle')}</p>
+                  <p className="text-xs text-neutral-500">{t('coaching.command.allClearBody')}</p>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {visiblePriorities.map(item => (
+                  <PriorityRow
+                    key={item.id}
+                    item={item}
+                    open={expanded === item.id}
+                    onToggle={() => setExpanded(expanded === item.id ? null : item.id)}
+                    onOpen={() => navigate(item.href)}
+                  />
                 ))}
-            </div>
-          </>
+              </div>
             )}
           </>
         )}

@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles } from 'lucide-react';
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -15,10 +15,11 @@ export default function SideNav() {
 
   const tabs = isCoach
     ? [
-        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
+        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today') },
         { path: '/clients', icon: Users, label: t('nav.clients') },
         { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
-        { path: '/profile', icon: User, label: t('nav.profile') },
+        { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
+        { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
       ]
     : [
         { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
@@ -76,6 +77,18 @@ export default function SideNav() {
           );
         })}
       </nav>
+
+      {isCoach && (
+        <div className="px-3 pb-4 border-t border-neutral-800/60 pt-3">
+          <button
+            onClick={() => navigate('/profile')}
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-neutral-800/60"
+          >
+            <User size={16} />
+            {t('nav.profile')}
+          </button>
+        </div>
+      )}
 
       {!isCoach && (
         <div className="px-3 pb-4 border-t border-neutral-800/60 pt-4">

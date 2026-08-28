@@ -1,4 +1,4 @@
-import type { AiPlanDraft, AiProgramDayDraft, CoachIntervention, CoachInterventionKind } from './types';
+import type { AiPlanDraft, AiProgramDayDraft, CoachIntervention, CoachInterventionKind, ProgramExercisePatch } from './types';
 
 export type { CoachIntervention, CoachInterventionKind };
 
@@ -46,10 +46,40 @@ export function parseProgramDays(value: unknown): AiProgramDayDraft[] {
           name: asString(ex.name, ''),
           default_sets: Math.max(1, Math.round(asNumber(ex.default_sets, 3))),
           default_reps: Math.max(1, Math.round(asNumber(ex.default_reps, 10))),
+          default_reps_min: ex.default_reps_min == null ? null : Math.max(1, Math.round(asNumber(ex.default_reps_min, 0))) || null,
+          default_rir: ex.default_rir == null || ex.default_rir === '' ? null : asNumber(ex.default_rir, 0),
+          default_rest_seconds: ex.default_rest_seconds == null ? 90 : Math.max(0, Math.round(asNumber(ex.default_rest_seconds, 90))),
         };
       }),
     };
   });
+}
+
+export function parseProgramPatch(payload: unknown): ProgramExercisePatch | null {
+  const root = asRecord(payload);
+  if (!root) return null;
+  const src = asRecord(root.patch) ?? root;
+  const exercise = asString(src.exercise || src.name, '');
+  if (!exercise) return null;
+  if (
+    src.default_sets == null
+    && src.default_reps == null
+    && src.default_reps_min == null
+    && src.default_rir == null
+    && src.replace_with == null
+  ) {
+    return null;
+  }
+  return {
+    exercise,
+    weekday: src.weekday == null ? null : Math.min(6, Math.max(0, Math.round(asNumber(src.weekday, 0)))),
+    default_sets: src.default_sets == null ? undefined : Math.max(1, Math.round(asNumber(src.default_sets, 3))),
+    default_reps: src.default_reps == null ? undefined : Math.max(1, Math.round(asNumber(src.default_reps, 10))),
+    default_reps_min: src.default_reps_min == null ? null : Math.max(1, Math.round(asNumber(src.default_reps_min, 0))) || null,
+    default_rir: src.default_rir == null ? null : asNumber(src.default_rir, 0),
+    default_rest_seconds: src.default_rest_seconds == null ? undefined : Math.max(0, Math.round(asNumber(src.default_rest_seconds, 90))),
+    replace_with: asString(src.replace_with, '') || undefined,
+  };
 }
 
 export function parseProgramOutline(payload: unknown): ProgramOutlineDraft | null {

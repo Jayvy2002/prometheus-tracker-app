@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Copy, Link2, Users, ChevronRight, Plus } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,9 +15,11 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, invites, loading, opsRows,
+    coachingRole, clients, invites, loading, opsRows, priorities,
     fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, createInvite, revokeInvite, enableCoachMode,
   } = useCoachingStore();
+  const [searchParams] = useSearchParams();
+  const rosterFilter = searchParams.get('filter');
   const [creating, setCreating] = useState(false);
   const [maxUses, setMaxUses] = useState(1);
   const [copied, setCopied] = useState<string | null>(null);
@@ -86,12 +88,31 @@ export default function ClientsPage() {
   }
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
+  const kindMap: Record<string, string[]> = {
+    pain: ['new_pain'],
+    stalled: ['stalled_lift'],
+    adherence: ['dropped_adherence'],
+    missed: ['missed_workout', 'missed_checkin', 'missed_nutrition'],
+    weight: ['weight_off_trajectory'],
+    checkin: ['missed_checkin'],
+  };
+  const filteredIds = rosterFilter
+    ? new Set(priorities.filter(p => (kindMap[rosterFilter] ?? []).includes(p.kind)).map(p => p.clientId))
+    : null;
+  const visibleClients = filteredIds ? clients.filter(c => filteredIds.has(c.id)) : clients;
 
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">{t('coaching.clientsTitle')}</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-white">{t('coaching.clientsTitle')}</h1>
+            {rosterFilter && (
+              <p className="text-xs text-blue-300 mt-1">
+                {t('coaching.ask.filterActive', { filter: rosterFilter, n: visibleClients.length })}
+              </p>
+            )}
+          </div>
           <Button size="sm" variant="secondary" onClick={() => navigate('/programs')}>
             {t('programs.title')}
           </Button>
@@ -148,9 +169,13 @@ export default function ClientsPage() {
             <Users className="mx-auto mb-3 text-neutral-600" size={28} />
             <p className="text-neutral-400">{t('coaching.noClients')}</p>
           </Card>
+        ) : visibleClients.length === 0 ? (
+          <Card className="text-center py-10">
+            <p className="text-neutral-400">{t('coaching.ask.roster.empty')}</p>
+          </Card>
         ) : (
           <div className="space-y-2">
-            {clients.map(c => {
+            {visibleClients.map(c => {
               const ops = opsRows.find(r => r.client.id === c.id);
               const forceSetup = ops ? shouldOpenSetup(ops) : !c.onboarding_completed;
               return (

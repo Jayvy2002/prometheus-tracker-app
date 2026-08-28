@@ -1,0 +1,241 @@
+import { needsSetup } from './coachAlerts';
+import { displayName } from './coachText';
+import { liftsForClient } from './coachLifts';
+import type {
+  ClientAlertKind,
+  ClientLiftProgress,
+  ClientOpsRow,
+  CoachCommandStats,
+  CoachInboxKind,
+  CoachPriority,
+  CoachPriorityKind,
+  CoachPrioritySeverity,
+  CoachRosterSignals,
+  DailyCheckin,
+  WeightMeasurement,
+} from './types';
+
+const SEVERITY_RANK: Record<CoachPrioritySeverity, number> = { red: 0, orange: 1, yellow: 2 };
+
+function hrefFor(clientId: string, tab: string, extra = ''): string {
+  return `/clients/${clientId}?tab=${tab}${extra}`;
+}
+
+function checkinsFor(signals: CoachRosterSignals, clientId: string): DailyCheckin[] {
+  return signals.checkins
+    .filter(c => c.user_id === clientId)
+    .sort((a, b) => b.checked_at.localeCompare(a.checked_at));
+}
+
+function weightsFor(signals: CoachRosterSignals, clientId: string): WeightMeasurement[] {
+  return signals.weights
+    .filter(w => w.user_id === clientId)
+    .sort((a, b) => b.measured_at.localeCompare(a.measured_at));
+}
+
+function painPriority(clientId: string, name: string, avatar: string, latest: DailyCheckin, prev: DailyCheckin | null): CoachPriority | null {
+  const pain = latest.joint_pain;
+  if (pain == null) return null;
+  const jumped = prev?.joint_pain != null && pain >= 3 && pain > (prev.joint_pain ?? 0);
+  if (pain < 3 && !jumped) return null;
+  const red = pain >= 4 || jumped;
+  return {
+    id: `${clientId}-pain`,
+    clientId,
+    clientName: name,
+    avatarUrl: avatar,
+    kind: 'new_pain',
+    severity: red ? 'red' : 'orange',
+    headlineKey: 'coaching.priority.headlines.new_pain',
+    headlineParams: { name, n: pain },
+    detailKey: 'coaching.priority.details.new_pain',
+    detailParams: { n: pain, prev: prev?.joint_pain ?? '—' },
+    href: hrefFor(clientId, 'health'),
+  };
+}
+
+function adherencePriority(clientId: string, name: string, avatar: string, latest: DailyCheckin, prev: DailyCheckin | null): CoachPriority | null {
+  const now = latest.adherence_training;
+  if (now == null || prev?.adherence_training == null) return null;
+  const drop = prev.adherence_training - now;
+  if (drop < 2) return null;
+  return {
+    id: `${clientId}-adherence`,
+    clientId,
+    clientName: name,
+    avatarUrl: avatar,
+    kind: 'dropped_adherence',
+    severity: drop >= 3 ? 'red' : 'orange',
+    headlineKey: 'coaching.priority.headlines.dropped_adherence',
+    headlineParams: { name },
+    detailKey: 'coaching.priority.details.dropped_adherence',
+    detailParams: { from: prev.adherence_training, to: now },
+    href: hrefFor(clientId, 'checkins'),
+  };
+}
+
+function weightPriority(row: ClientOpsRow, weights: WeightMeasurement[]): CoachPriority | null {
+  if (weights.length < 2) return null;
+  const goal = row.client.goal;
+  const newest = weights[0].weight_kg;
+  const older = weights[Math.min(weights.length - 1, 3)].weight_kg;
+  const delta = Math.round((newest - older) * 10) / 10;
+  const off =
+    (goal === 'cut' && delta >= 0.6)
+    || (goal === 'bulk' && delta <= -0.6)
+    || (goal === 'maintain' && Math.abs(delta) >= 1.5);
+  if (!off) return null;
+  const { client } = row;
+  const name = displayName(client);
+  return {
+    id: `${client.id}-weight`,
+    clientId: client.id,
+    clientName: name,
+    avatarUrl: client.avatar_url,
+    kind: 'weight_off_trajectory',
+    severity: Math.abs(delta) >= 1.5 ? 'red' : 'orange',
+    headlineKey: 'coaching.priority.headlines.weight_off_trajectory',
+    headlineParams: { name },
+    detailKey: 'coaching.priority.details.weight_off_trajectory',
+    detailParams: { delta: delta > 0 ? `+${delta}` : String(delta), goal: goal || '—' },
+    href: hrefFor(client.id, 'overview'),
+  };
+}
+
+function stallPriority(row: ClientOpsRow, lifts: ClientLiftProgress[]): CoachPriority[] {
+  const stalled = liftsForClient(lifts, row.client.id).filter(l => l.stalled);
+  const name = displayName(row.client);
+  return stalled.slice(0, 2).map(lift => ({
+    id: `${row.client.id}-stall-${lift.exerciseName}`,
+    clientId: row.client.id,
+    clientName: name,
+    avatarUrl: row.client.avatar_url,
+    kind: 'stalled_lift' as const,
+    severity: 'orange' as const,
+    headlineKey: 'coaching.priority.headlines.stalled_lift',
+    headlineParams: { name, lift: lift.displayName },
+    detailKey: 'coaching.priority.details.stalled_lift',
+    detailParams: { lift: lift.displayName, n: lift.sessions.length },
+    href: hrefFor(row.client.id, 'training', `&exercise=${encodeURIComponent(lift.displayName)}`),
+    exerciseName: lift.displayName,
+  }));
+}
+
+function fromAlert(
+  row: ClientOpsRow,
+  kind: ClientAlertKind,
+  mapped: CoachPriorityKind,
+  severity: CoachPrioritySeverity,
+  tab: string,
+): CoachPriority {
+  const name = displayName(row.client);
+  return {
+    id: `${row.client.id}-${kind}`,
+    clientId: row.client.id,
+    clientName: name,
+    avatarUrl: row.client.avatar_url,
+    kind: mapped,
+    severity,
+    headlineKey: `coaching.priority.headlines.${mapped}`,
+    headlineParams: { name },
+    detailKey: `coaching.alerts.${kind}`,
+    href: hrefFor(row.client.id, tab),
+  };
+}
+
+export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRosterSignals): CoachPriority[] {
+  const items: CoachPriority[] = [];
+
+  for (const row of opsRows) {
+    const name = displayName(row.client);
+    const checkins = checkinsFor(signals, row.client.id);
+    const latest = checkins[0] ?? null;
+    const prev = checkins[1] ?? null;
+
+    if (latest) {
+      const pain = painPriority(row.client.id, name, row.client.avatar_url, latest, prev);
+      if (pain) items.push(pain);
+      const adh = adherencePriority(row.client.id, name, row.client.avatar_url, latest, prev);
+      if (adh) items.push(adh);
+    }
+
+    items.push(...stallPriority(row, signals.lifts));
+
+    const weight = weightPriority(row, weightsFor(signals, row.client.id));
+    if (weight) items.push(weight);
+
+    if (row.alerts.includes('onboarding_incomplete')) {
+      items.push(fromAlert(row, 'onboarding_incomplete', 'onboarding_incomplete', 'orange', 'overview'));
+    } else if (row.alerts.includes('program_unassigned') || needsSetup(row)) {
+      items.push(fromAlert(row, 'program_unassigned', 'program_unassigned', 'orange', 'overview'));
+    }
+
+    if (row.alerts.includes('missing_workout_week')) {
+      items.push(fromAlert(row, 'missing_workout_week', 'missed_workout', 'orange', 'training'));
+    } else if (row.alerts.includes('missing_workout_today')) {
+      items.push(fromAlert(row, 'missing_workout_today', 'missed_workout', 'yellow', 'training'));
+    }
+    if (row.alerts.includes('missing_checkin')) {
+      items.push(fromAlert(row, 'missing_checkin', 'missed_checkin', 'yellow', 'checkins'));
+    }
+    if (row.alerts.includes('missing_nutrition')) {
+      items.push(fromAlert(row, 'missing_nutrition', 'missed_nutrition', 'yellow', 'overview'));
+    }
+
+    const stalledHere = liftsForClient(signals.lifts, row.client.id).some(l => l.stalled);
+    if (stalledHere && row.hasProgram) {
+      items.push({
+        id: `${row.client.id}-adapt`,
+        clientId: row.client.id,
+        clientName: name,
+        avatarUrl: row.client.avatar_url,
+        kind: 'program_adapt',
+        severity: 'yellow',
+        headlineKey: 'coaching.priority.headlines.program_adapt',
+        headlineParams: { name },
+        detailKey: 'coaching.priority.details.program_adapt',
+        href: hrefFor(row.client.id, 'training'),
+      });
+    }
+  }
+
+  const seen = new Set<string>();
+  return items
+    .filter(p => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    })
+    .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.clientName.localeCompare(b.clientName));
+}
+
+export function commandStats(opsRows: ClientOpsRow[], priorities: CoachPriority[]): CoachCommandStats {
+  const attentionIds = new Set(priorities.map(p => p.clientId));
+  return {
+    activeClients: opsRows.length,
+    needAttention: attentionIds.size,
+    checkinsToReview: priorities.filter(p => p.kind === 'missed_checkin' || p.kind === 'new_pain' || p.kind === 'dropped_adherence').length,
+    programsMayAdapt: priorities.filter(p => p.kind === 'stalled_lift' || p.kind === 'program_adapt' || p.kind === 'program_unassigned').length,
+    important: priorities.filter(p => p.severity === 'red').length,
+  };
+}
+
+export function inboxItems(priorities: CoachPriority[]): Array<CoachPriority & { inboxKind: CoachInboxKind }> {
+  return priorities
+    .filter(p => p.kind === 'new_pain' || p.kind === 'dropped_adherence' || p.kind === 'missed_checkin' || p.kind === 'missed_workout')
+    .map(p => ({
+      ...p,
+      inboxKind: (p.kind === 'new_pain' ? 'pain' : p.kind === 'dropped_adherence' ? 'adherence' : 'checkin') as CoachInboxKind,
+    }));
+}
+
+export function lastVisitIso(row: ClientOpsRow, signals: CoachRosterSignals): string | null {
+  const id = row.client.id;
+  const candidates = [
+    row.client.last_visited_at,
+    signals.lastNoteAt[id],
+    signals.lastInterventionAt[id],
+  ].filter((v): v is string => !!v);
+  if (candidates.length === 0) return row.client.linked_at || null;
+  return candidates.reduce((a, b) => (a > b ? a : b));
+}

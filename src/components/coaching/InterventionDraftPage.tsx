@@ -9,10 +9,13 @@ import {
   parseCalorieDraft,
   parseOnboardingPlanDraft,
   parseProgramOutline,
+  parseProgramPatch,
   parseTalkingPoints,
   parseWorkflowSuggestion,
 } from '../../lib/coachInterventions';
-import type { AiProgramDayDraft, CoachIntervention } from '../../lib/types';
+import type { AiProgramDayDraft, CoachIntervention, ProgramExercisePatch } from '../../lib/types';
+import { useProgramStore } from '../../stores/programStore';
+import { formatPrescription } from '../../lib/programNl';
 import ProgramDraftEditor from './ProgramDraftEditor';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -37,6 +40,7 @@ export default function InterventionDraftPage() {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
   } = useCoachingStore();
+  const { fetchMyAssignment, assignment, applyExercisePatch } = useProgramStore();
 
   const [row, setRow] = useState<CoachIntervention | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,13 +55,19 @@ export default function InterventionDraftPage() {
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
   const [tracking, setTracking] = useState(EMPTY_TRACKING);
   const [notes, setNotes] = useState('');
+  const [patch, setPatch] = useState<ProgramExercisePatch | null>(null);
 
   const clientId = id || row?.client_id || null;
   const client = clients.find(c => c.id === (id || row?.client_id || ''));
 
   useEffect(() => {
+    if (clientId) fetchMyAssignment(clientId);
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (!interventionId) return;
     if (!clients.length) fetchClients();
+    if (id) fetchMyAssignment(id);
     setLoading(true);
     fetchIntervention(interventionId).then(found => {
       setRow(found);
@@ -76,6 +86,8 @@ export default function InterventionDraftPage() {
         setProgramWeeks(outline.duration_weeks);
         setDays(outline.days);
       }
+      const foundPatch = parseProgramPatch(found.payload);
+      if (foundPatch) setPatch(foundPatch);
       const tr = parseOnboardingPlanDraft(found.payload)?.tracking;
       if (tr) setTracking(tr);
       setNotes(
@@ -160,7 +172,14 @@ export default function InterventionDraftPage() {
           return;
         }
       }
-      if (programName.trim() && days.length > 0) {
+      if (patch && assignment?.program_id) {
+        const patched = await applyExercisePatch(assignment.program_id, patch);
+        if (patched.error) {
+          setSaving(false);
+          toast(patched.error, 'error');
+          return;
+        }
+      } else if (programName.trim() && days.length > 0) {
         const created = await applyProgramOutline(targetClientId, {
           name: programName,
           description: programDesc,
@@ -233,7 +252,8 @@ export default function InterventionDraftPage() {
     );
   }
 
-  const showProgram = row.kind === 'program_adjustment' || row.kind === 'onboarding_plan';
+  const showProgram = (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan') && !patch;
+  const showPatch = row.kind === 'program_adjustment' && !!patch;
   const showCalories = row.kind === 'calorie_adjustment';
   const showTracking = row.kind === 'onboarding_plan';
   const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
@@ -296,6 +316,54 @@ export default function InterventionDraftPage() {
               value={tracking.workout_focus}
               onChange={e => setTracking(s => ({ ...s, workout_focus: e.target.value }))}
             />
+          </Card>
+        )}
+
+        {showPatch && patch && (
+          <Card className="mb-4 space-y-3">
+            <p className="text-sm font-medium text-white">{t('coaching.workspace.patchTitle')}</p>
+            <p className="text-xs text-neutral-400">{patch.exercise}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                label={t('coaching.interventions.sets')}
+                type="number"
+                value={patch.default_sets ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_sets: Math.max(1, +e.target.value || 1) } : p)}
+              />
+              <Input
+                label={t('coaching.interventions.reps')}
+                type="number"
+                value={patch.default_reps ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_reps: Math.max(1, +e.target.value || 1) } : p)}
+              />
+              <Input
+                label={t('coaching.programEditor.repMin')}
+                type="number"
+                value={patch.default_reps_min ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_reps_min: e.target.value === '' ? null : +e.target.value } : p)}
+              />
+              <Input
+                label="RIR"
+                type="number"
+                value={patch.default_rir ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_rir: e.target.value === '' ? null : +e.target.value } : p)}
+              />
+            </div>
+            <Input
+              label={t('coaching.workspace.replaceWith')}
+              value={patch.replace_with ?? ''}
+              onChange={e => setPatch(p => p ? { ...p, replace_with: e.target.value } : p)}
+            />
+            <p className="text-[11px] text-neutral-500">
+              {formatPrescription({
+                name: patch.exercise,
+                default_sets: patch.default_sets ?? 3,
+                default_reps: patch.default_reps ?? 10,
+                default_reps_min: patch.default_reps_min,
+                default_rir: patch.default_rir,
+              })}
+            </p>
+            <p className="text-[11px] text-neutral-600">{t('coaching.workspace.proposalHint')}</p>
           </Card>
         )}
 
