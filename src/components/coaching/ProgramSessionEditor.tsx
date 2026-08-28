@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GripVertical, Plus, Sparkles } from 'lucide-react';
-import type { AiProgramDayDraft, ProgramExerciseDraft } from '../../lib/types';
+import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft } from '../../lib/types';
 import { applyProgramProposal, formatPrescription, parseProgramNl, type ProgramNlProposal } from '../../lib/programNl';
-import { sessionMuscleVolume, volumeWarnings, weekMuscleVolume } from '../../lib/programVolume';
+import { muscleForExercise, sessionMuscleVolume, volumeWarnings, weekMuscleVolume, type MuscleVolume } from '../../lib/programVolume';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import ExercisePicker from '../workout/ExercisePicker';
 import Button from '../ui/Button';
@@ -43,13 +43,20 @@ export default function ProgramSessionEditor({
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const [dayIndex, setDayIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
+  const [analyzed, setAnalyzed] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'add' | 'replace'>('add');
   const [nl, setNl] = useState('');
+  const [nlError, setNlError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<ProgramNlProposal | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const safeIndex = Math.min(dayIndex, Math.max(0, days.length - 1));
   const day = days[safeIndex];
+
+  useEffect(() => {
+    void fetchExercises();
+  }, [fetchExercises]);
 
   const volumes = useMemo(
     () => (day ? sessionMuscleVolume(day.exercises, exercisesLib) : []),
@@ -104,19 +111,29 @@ export default function ProgramSessionEditor({
         onSubmit={e => {
           e.preventDefault();
           const parsed = parseProgramNl(nl, days);
-          setProposal(parsed);
-          if (!parsed) return;
+          if (!parsed.ok) {
+            setProposal(null);
+            setNlError(parsed.reason === 'empty'
+              ? null
+              : parsed.reason === 'noMatch'
+                ? t('coaching.programNl.noMatch')
+                : t('coaching.programNl.noParse'));
+            return;
+          }
+          setNlError(null);
+          setProposal(parsed.proposal);
         }}
         className="flex gap-2"
       >
         <input
           value={nl}
-          onChange={e => setNl(e.target.value)}
+          onChange={e => { setNl(e.target.value); setNlError(null); }}
           placeholder={t('coaching.programNl.placeholder')}
           className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
         />
         <Button type="submit" size="sm" variant="secondary">{t('coaching.programNl.propose')}</Button>
       </form>
+      {nlError && <p className="text-[11px] text-amber-300 -mt-1">{nlError}</p>}
 
       {proposal && (
         <Card className="border-blue-500/20 space-y-2">
@@ -150,7 +167,7 @@ export default function ProgramSessionEditor({
           <button
             key={`day-tab-${i}`}
             type="button"
-            onClick={() => { setDayIndex(i); setSelected(null); }}
+            onClick={() => { setDayIndex(i); setSelected(null); setAnalyzed(null); }}
             className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap ${
               i === safeIndex ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
             }`}
@@ -275,14 +292,24 @@ export default function ProgramSessionEditor({
               </div>
               {selected === ei && (
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" className="text-[11px] text-neutral-300" onClick={() => setPickerOpen(true)}>
-                    {t('common.edit')}
+                  <button
+                    type="button"
+                    className="text-[11px] text-neutral-300"
+                    onClick={() => { setPickerMode('replace'); setPickerOpen(true); }}
+                  >
+                    {t('coaching.programEditor.modify')}
                   </button>
-                  {onAnalyze && ex.name && (
-                    <button type="button" className="text-[11px] text-blue-400" onClick={() => onAnalyze(ex.name)}>
-                      {t('coaching.programEditor.analyze')}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="text-[11px] text-blue-400"
+                    onClick={() => {
+                      void fetchExercises();
+                      setAnalyzed(ei);
+                      onAnalyze?.(ex.name);
+                    }}
+                  >
+                    {t('coaching.programEditor.analyze')}
+                  </button>
                   {onAsk && ex.name && (
                     <button
                       type="button"
@@ -294,6 +321,14 @@ export default function ProgramSessionEditor({
                   )}
                 </div>
               )}
+              {analyzed === ei && (
+                <ExerciseAnalyzeCard
+                  name={ex.name}
+                  library={exercisesLib}
+                  sessionVolumes={volumes}
+                  weekVolumes={weekVol}
+                />
+              )}
             </div>
           ))}
 
@@ -301,6 +336,7 @@ export default function ProgramSessionEditor({
             type="button"
             onClick={() => {
               void fetchExercises();
+              setPickerMode('add');
               setPickerOpen(true);
             }}
             className="text-[11px] text-blue-400 inline-flex items-center gap-1"
@@ -331,11 +367,42 @@ export default function ProgramSessionEditor({
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onSelect={exName => {
-          if (selected != null && day) updateExercise(selected, { name: exName });
-          else if (day) updateDay(safeIndex, { exercises: [...day.exercises, { ...emptyEx(), name: exName }] });
+          if (pickerMode === 'replace' && selected != null && day) {
+            updateExercise(selected, { name: exName });
+          } else if (day) {
+            const nextIndex = day.exercises.length;
+            updateDay(safeIndex, { exercises: [...day.exercises, { ...emptyEx(), name: exName }] });
+            setSelected(nextIndex);
+            setAnalyzed(null);
+          }
           setPickerOpen(false);
         }}
       />
     </div>
+  );
+}
+
+function ExerciseAnalyzeCard({
+  name,
+  library,
+  sessionVolumes,
+  weekVolumes,
+}: {
+  name: string;
+  library: Exercise[];
+  sessionVolumes: MuscleVolume[];
+  weekVolumes: MuscleVolume[];
+}) {
+  const { t } = useTranslation();
+  const muscle = muscleForExercise(name, library);
+  if (!muscle) {
+    return <p className="text-[11px] text-neutral-500">{t('coaching.programEditor.analyzeUnknown')}</p>;
+  }
+  const session = sessionVolumes.find(v => v.muscle === muscle)?.sets ?? 0;
+  const week = weekVolumes.find(v => v.muscle === muscle)?.sets ?? 0;
+  return (
+    <p className="text-[11px] text-blue-200">
+      {t('coaching.programEditor.analyzeMuscle', { muscle, session, week })}
+    </p>
   );
 }

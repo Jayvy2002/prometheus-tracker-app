@@ -63,16 +63,21 @@ function liftHintFrom(raw: string): string {
     .trim();
 }
 
-export function parseProgramNl(raw: string, days: AiProgramDayDraft[]): ProgramNlProposal | null {
+export type ProgramNlFailReason = 'empty' | 'noParse' | 'noMatch';
+
+export type ProgramNlParseResult =
+  | { ok: true; proposal: ProgramNlProposal }
+  | { ok: false; reason: ProgramNlFailReason };
+
+export function parseProgramNl(raw: string, days: AiProgramDayDraft[]): ProgramNlParseResult {
   const q = raw.trim();
-  if (!q) return null;
+  if (!q) return { ok: false, reason: 'empty' };
   const sets = q.match(SETS_RE);
-  if (!sets) return null;
   const weekday = parseWeekday(q);
   const hint = liftHintFrom(q);
-  if (!hint) return null;
+  if (!sets || !hint) return { ok: false, reason: 'noParse' };
   const found = findExercise(days, hint, weekday);
-  if (!found) return null;
+  if (!found) return { ok: false, reason: 'noMatch' };
   const day = days[found.dayIndex];
   const before = day.exercises[found.exerciseIndex];
   const default_sets = Math.max(1, Number(sets[1]));
@@ -89,29 +94,32 @@ export function parseProgramNl(raw: string, days: AiProgramDayDraft[]): ProgramN
     default_rest_seconds: restMatch ? Number(restMatch[1]) : before.default_rest_seconds,
   };
   return {
-    raw: q,
-    patch: {
-      exercise: before.name,
+    ok: true,
+    proposal: {
+      raw: q,
+      patch: {
+        exercise: before.name,
+        weekday: day.weekday,
+        default_sets: after.default_sets,
+        default_reps: after.default_reps,
+        default_reps_min: after.default_reps_min,
+        default_rir: after.default_rir ?? null,
+        default_rest_seconds: after.default_rest_seconds,
+      },
+      before,
+      after,
+      dayIndex: found.dayIndex,
+      exerciseIndex: found.exerciseIndex,
       weekday: day.weekday,
-      default_sets: after.default_sets,
-      default_reps: after.default_reps,
-      default_reps_min: after.default_reps_min,
-      default_rir: after.default_rir ?? null,
-      default_rest_seconds: after.default_rest_seconds,
-    },
-    before,
-    after,
-    dayIndex: found.dayIndex,
-    exerciseIndex: found.exerciseIndex,
-    weekday: day.weekday,
-    summaryKey: 'coaching.programNl.summary',
-    summaryParams: {
-      lift: before.name,
-      sets: after.default_sets,
-      reps: after.default_reps_min && after.default_reps_min !== after.default_reps
-        ? `${after.default_reps_min}-${after.default_reps}`
-        : String(after.default_reps),
-      rir: after.default_rir ?? '—',
+      summaryKey: 'coaching.programNl.summary',
+      summaryParams: {
+        lift: before.name,
+        sets: after.default_sets,
+        reps: after.default_reps_min && after.default_reps_min !== after.default_reps
+          ? `${after.default_reps_min}-${after.default_reps}`
+          : String(after.default_reps),
+        rir: after.default_rir ?? '—',
+      },
     },
   };
 }

@@ -1097,6 +1097,7 @@ const fr = {
       ask: 'Demander à Prometheus',
       openLift: 'Ouvrir le workspace',
       patchTitle: 'Ajustement proposé (à éditer avant envoi)',
+      patchNoProgram: 'Aucun programme n’est assigné à ce client. La proposition a été conservée comme note au lieu d’être appliquée.',
       replaceWith: 'Remplacer par (optionnel)',
     },
     ask: {
@@ -1112,6 +1113,7 @@ const fr = {
       dataUsed: 'Données utilisées',
       filterClients: 'Filtrer la liste clients',
       filterActive: 'Filtre : {{filter}} · {{n}} client(s)',
+      clearFilter: 'Effacer le filtre',
       examples: {
         stalled: 'Qui stagne depuis 3 semaines ?',
         pain: 'Qui a signalé une douleur cette semaine ?',
@@ -1154,8 +1156,11 @@ const fr = {
       repRange: 'Reps',
       rest: 'Repos s',
       repMin: 'Rep min',
+      modify: 'Modifier',
       analyze: 'Analyser',
       ask: 'Demander à Prometheus',
+      analyzeMuscle: '{{muscle}} · {{session}} séries cette séance · {{week}} cette semaine',
+      analyzeUnknown: 'Pas de muscle primaire dans la bibliothèque pour cet exercice. Le volume reste best-effort.',
       volumeSession: 'Volume de séance (best-effort via la bibliothèque d’exercices)',
       volumeWeek: 'Semaine',
       volumeWarn: 'Volume élevé sur {{muscle}} cette séance ({{n}} séries).',
@@ -1167,6 +1172,8 @@ const fr = {
       propose: 'Proposer',
       proposal: 'Avant / après — confirme pour l’appliquer dans l’éditeur',
       summary: '{{lift}} → {{sets}}×{{reps}} RIR {{rir}}',
+      noMatch: 'Aucun exercice correspondant dans ce programme.',
+      noParse: 'Je n’ai pas pu mapper cette instruction sur ce programme. Essaie : « passe le développé incliné à 2×6-10 RIR1 à partir de lundi ».',
     },
     empty: {
       workouts: 'Aucune séance',

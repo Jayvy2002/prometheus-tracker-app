@@ -45,6 +45,11 @@ export default function AskPrometheusPage() {
   const [sending, setSending] = useState(false);
 
   useEffect(() => {
+    const q = searchParams.get('q') || '';
+    if (q && q !== query) setQuery(q);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (!user) return;
     if (opsRows.length === 0) fetchCoachOps();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps

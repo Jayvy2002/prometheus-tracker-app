@@ -1097,6 +1097,7 @@ const en = {
       ask: 'Ask Prometheus',
       openLift: 'Open workspace',
       patchTitle: 'Proposed tweak (edit before send)',
+      patchNoProgram: 'No program is assigned to this client. The proposal was saved as a note instead of being applied.',
       replaceWith: 'Replace with (optional)',
     },
     ask: {
@@ -1112,6 +1113,7 @@ const en = {
       dataUsed: 'Data used',
       filterClients: 'Filter the client list',
       filterActive: 'Filter: {{filter}} · {{n}} client(s)',
+      clearFilter: 'Clear filter',
       examples: {
         stalled: 'Who stalled 3 weeks?',
         pain: 'Who reported pain this week?',
@@ -1154,8 +1156,11 @@ const en = {
       repRange: 'Reps',
       rest: 'Rest s',
       repMin: 'Rep min',
+      modify: 'Edit',
       analyze: 'Analyze',
       ask: 'Ask Prometheus',
+      analyzeMuscle: '{{muscle}} · {{session}} sets this session · {{week}} this week',
+      analyzeUnknown: 'No primary muscle in the library for this exercise. Volume stays best-effort.',
       volumeSession: 'Session volume (best-effort from exercise library)',
       volumeWeek: 'Week',
       volumeWarn: 'High volume on {{muscle}} this session ({{n}} sets).',
@@ -1167,6 +1172,8 @@ const en = {
       propose: 'Propose',
       proposal: 'Before / after — confirm to apply in the editor',
       summary: '{{lift}} → {{sets}}×{{reps}} RIR {{rir}}',
+      noMatch: 'No matching exercise found in this program.',
+      noParse: 'I could not map that instruction onto this program. Try: “set incline bench to 2×6-10 RIR1 starting Monday.”',
     },
     empty: {
       workouts: 'No workouts yet',

@@ -153,10 +153,10 @@ function AppRoutes() {
         <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><CheckInPage /></CoachTrackerRedirect>} />
         <Route path="/clients" element={<ClientsPage />} />
-        <Route path="/clients/:id" element={<ClientDetailPage />} />
-        <Route path="/clients/:id/setup" element={<ClientSetupPage />} />
-        <Route path="/clients/:id/draft/:interventionId" element={<InterventionDraftPage />} />
-        <Route path="/inbox/:interventionId" element={<InterventionDraftPage />} />
+        <Route path="/clients/:id" element={<CoachOnly><ClientDetailPage /></CoachOnly>} />
+        <Route path="/clients/:id/setup" element={<CoachOnly><ClientSetupPage /></CoachOnly>} />
+        <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
+        <Route path="/inbox/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/messages" element={<CoachOnly><CoachInboxPage /></CoachOnly>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsPage />} />

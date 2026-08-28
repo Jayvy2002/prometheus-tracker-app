@@ -5,6 +5,7 @@ import { Copy, Link2, Users, ChevronRight, Plus } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
+import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -15,7 +16,7 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, invites, loading, opsRows, priorities,
+    coachingRole, clients, invites, loading, opsRows, priorities, rosterSignals,
     fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, createInvite, revokeInvite, enableCoachMode,
   } = useCoachingStore();
   const [searchParams] = useSearchParams();
@@ -88,16 +89,12 @@ export default function ClientsPage() {
   }
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
-  const kindMap: Record<string, string[]> = {
-    pain: ['new_pain'],
-    stalled: ['stalled_lift'],
-    adherence: ['dropped_adherence'],
-    missed: ['missed_workout', 'missed_checkin', 'missed_nutrition'],
-    weight: ['weight_off_trajectory'],
-    checkin: ['missed_checkin'],
-  };
-  const filteredIds = rosterFilter
-    ? new Set(priorities.filter(p => (kindMap[rosterFilter] ?? []).includes(p.kind)).map(p => p.clientId))
+  const rosterKey = (rosterFilter === 'pain' || rosterFilter === 'stalled' || rosterFilter === 'adherence'
+    || rosterFilter === 'missed' || rosterFilter === 'weight' || rosterFilter === 'checkin')
+    ? rosterFilter as CoachAskFilter
+    : null;
+  const filteredIds = rosterKey
+    ? new Set(rosterHitsForFilter(rosterKey, opsRows, priorities, rosterSignals).map(h => h.clientId))
     : null;
   const visibleClients = filteredIds ? clients.filter(c => filteredIds.has(c.id)) : clients;
 
@@ -110,6 +107,10 @@ export default function ClientsPage() {
             {rosterFilter && (
               <p className="text-xs text-blue-300 mt-1">
                 {t('coaching.ask.filterActive', { filter: rosterFilter, n: visibleClients.length })}
+                {' · '}
+                <button type="button" className="underline" onClick={() => navigate('/clients')}>
+                  {t('coaching.ask.clearFilter')}
+                </button>
               </p>
             )}
           </div>

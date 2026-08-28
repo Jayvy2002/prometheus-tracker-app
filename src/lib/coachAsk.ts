@@ -127,6 +127,21 @@ function priorityHits(priorities: CoachPriority[], kinds: CoachPriority['kind'][
     }));
 }
 
+export function rosterHitsForFilter(
+  filter: CoachAskFilter,
+  opsRows: ClientOpsRow[],
+  priorities: CoachPriority[],
+  signals: CoachRosterSignals,
+  weeks = 1,
+): CoachAskHit[] {
+  if (filter === 'pain') return painHits(opsRows, signals.checkins, Math.max(7, weeks * 7));
+  if (filter === 'stalled') return stallHits(opsRows, signals.lifts);
+  if (filter === 'adherence') return priorityHits(priorities, ['dropped_adherence', 'missed_workout']);
+  if (filter === 'weight') return priorityHits(priorities, ['weight_off_trajectory']);
+  if (filter === 'checkin') return priorityHits(priorities, ['missed_checkin']);
+  return priorityHits(priorities, ['missed_workout', 'missed_checkin', 'missed_nutrition']);
+}
+
 export function answerCoachAsk(
   intent: CoachAskIntent,
   opsRows: ClientOpsRow[],
@@ -136,26 +151,13 @@ export function answerCoachAsk(
   const dataUsed: string[] = [];
 
   if (intent.type === 'roster') {
-    let hits: CoachAskHit[] = [];
-    if (intent.filter === 'pain') {
-      dataUsed.push('daily_checkins.joint_pain');
-      hits = painHits(opsRows, signals.checkins, Math.max(7, intent.weeks * 7));
-    } else if (intent.filter === 'stalled') {
-      dataUsed.push('workout_sets (21d)', 'workout_exercises');
-      hits = stallHits(opsRows, signals.lifts);
-    } else if (intent.filter === 'adherence') {
-      dataUsed.push('daily_checkins.adherence_training', 'coach_priorities');
-      hits = priorityHits(priorities, ['dropped_adherence', 'missed_workout']);
-    } else if (intent.filter === 'weight') {
-      dataUsed.push('weight_measurements', 'user_profiles.goal');
-      hits = priorityHits(priorities, ['weight_off_trajectory']);
-    } else if (intent.filter === 'checkin') {
-      dataUsed.push('daily_checkins', 'client_tracking_config');
-      hits = priorityHits(priorities, ['missed_checkin']);
-    } else {
-      dataUsed.push('coach_priorities');
-      hits = priorityHits(priorities, ['missed_workout', 'missed_checkin', 'missed_nutrition']);
-    }
+    const hits = rosterHitsForFilter(intent.filter, opsRows, priorities, signals, intent.weeks);
+    if (intent.filter === 'pain') dataUsed.push('daily_checkins.joint_pain');
+    else if (intent.filter === 'stalled') dataUsed.push('workout_sets (21d)', 'workout_exercises');
+    else if (intent.filter === 'adherence') dataUsed.push('daily_checkins.adherence_training', 'coach_priorities');
+    else if (intent.filter === 'weight') dataUsed.push('weight_measurements', 'user_profiles.goal');
+    else if (intent.filter === 'checkin') dataUsed.push('daily_checkins', 'client_tracking_config');
+    else dataUsed.push('coach_priorities');
     return {
       intent,
       titleKey: `coaching.ask.roster.${intent.filter}`,

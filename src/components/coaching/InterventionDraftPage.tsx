@@ -172,7 +172,30 @@ export default function InterventionDraftPage() {
           return;
         }
       }
-      if (patch && assignment?.program_id) {
+      if (patch) {
+        if (!assignment?.program_id) {
+          if (notes.trim()) {
+            const noteResult = await addNote(targetClientId, notes.trim());
+            if (noteResult.error) {
+              setSaving(false);
+              toast(noteResult.error, 'error');
+              return;
+            }
+          }
+          const resolved = await resolveIntervention(row.id, 'kept', {
+            ...row.payload,
+            patch,
+            suggestion: notes.trim(),
+          });
+          setSaving(false);
+          if (resolved.error) {
+            toast(resolved.error, 'error');
+            return;
+          }
+          toast(t('coaching.workspace.patchNoProgram'), 'info');
+          navigate(`/clients/${targetClientId}`);
+          return;
+        }
         const patched = await applyExercisePatch(assignment.program_id, patch);
         if (patched.error) {
           setSaving(false);
@@ -259,7 +282,8 @@ export default function InterventionDraftPage() {
   const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
     || row.kind === 'other' || isCoachOnlyKind(row.kind);
   const noteOnly = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other';
-  const primaryLabel = isCoachOnlyKind(row.kind)
+  const patchWithoutProgram = showPatch && !assignment?.program_id;
+  const primaryLabel = isCoachOnlyKind(row.kind) || patchWithoutProgram
     ? t('coaching.interventions.keep')
     : noteOnly
       ? t('coaching.interventions.saveNote')
@@ -364,6 +388,9 @@ export default function InterventionDraftPage() {
               })}
             </p>
             <p className="text-[11px] text-neutral-600">{t('coaching.workspace.proposalHint')}</p>
+            {!assignment?.program_id && (
+              <p className="text-[11px] text-amber-300">{t('coaching.workspace.patchNoProgram')}</p>
+            )}
           </Card>
         )}
 
