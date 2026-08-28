@@ -1033,7 +1033,7 @@ const en = {
       painFlag: 'Pain flagged at {{n}}/5',
       sinceVisit: 'Since my last visit',
       sinceUnknown: 'No previous coach visit recorded — showing recent logs.',
-      sinceMeta: '{{workouts}} sessions · {{checkins}} check-ins',
+      sinceMeta: '{{workouts}} session(s) · {{checkins}} check-in(s)',
       sinceSource: {
         visit: 'Last opened {{date}}',
         note: 'Last note {{date}}',

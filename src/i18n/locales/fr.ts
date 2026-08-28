@@ -1033,7 +1033,7 @@ const fr = {
       painFlag: 'Douleur signalée à {{n}}/5',
       sinceVisit: 'Depuis ma dernière visite',
       sinceUnknown: 'Aucune visite coach enregistrée — logs récents.',
-      sinceMeta: '{{workouts}} séances · {{checkins}} check-ins',
+      sinceMeta: '{{workouts}} séance(s) · {{checkins}} check-in(s)',
       sinceSource: {
         visit: 'Dernière ouverture {{date}}',
         note: 'Dernière note {{date}}',
