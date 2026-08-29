@@ -168,8 +168,8 @@ export default function RecoverySnapshotPanel({
         />
       )}
       {live && isInterventionReady(live) && (
-        <Button size="sm" onClick={() => navigate(interventionHref(live))}>
-          {t('coaching.second.landed')}
+        <Button type="button" size="sm" onClick={() => navigate(interventionHref(live))}>
+          {t('coaching.ask.openDraft')}
         </Button>
       )}
     </div>

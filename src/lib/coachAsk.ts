@@ -1,4 +1,4 @@
-import { namesMatch, foldText, displayName } from './coachText';
+import { nameAppearsIn, foldText, displayName } from './coachText';
 import { findLift, liftsForClient, stalledLifts } from './coachLifts';
 import { trainingFocusHref } from './coachTraining';
 import type {
@@ -87,8 +87,30 @@ export function parseCoachAsk(raw: string): CoachAskIntent {
   return { type: 'client', clientHint: q, raw: q };
 }
 
-function matchClient(opsRows: ClientOpsRow[], hint: string): ClientOpsRow[] {
-  return opsRows.filter(r => namesMatch(displayName(r.client), hint) || namesMatch(r.client.email, hint));
+export function matchClient(opsRows: ClientOpsRow[], hint: string): ClientOpsRow[] {
+  const q = hint.trim();
+  if (!q) return [];
+  return opsRows.filter(r =>
+    nameAppearsIn(q, displayName(r.client)) || nameAppearsIn(q, r.client.email),
+  );
+}
+
+/** Bind a free-text Ask to a client by name, not the first 12 chars of the sentence. */
+export function resolveAskClientId(
+  intent: CoachAskIntent,
+  opsRows: ClientOpsRow[],
+  query: string,
+  clientHint?: string | null,
+): string | null {
+  if (clientHint) {
+    const hinted = opsRows.find(r => r.client.id === clientHint) ?? matchClient(opsRows, clientHint)[0];
+    if (hinted) return hinted.client.id;
+  }
+  const fromHint = intent.type === 'client' || intent.type === 'client_lift'
+    ? matchClient(opsRows, intent.clientHint)[0]
+    : null;
+  const fromQuery = matchClient(opsRows, query)[0];
+  return fromHint?.client.id ?? fromQuery?.client.id ?? (opsRows.length === 1 ? opsRows[0].client.id : null);
 }
 
 function painHits(opsRows: ClientOpsRow[], checkins: DailyCheckin[], days = 7): CoachAskHit[] {

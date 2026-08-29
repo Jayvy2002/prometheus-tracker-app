@@ -515,6 +515,22 @@ function payloadIsReady(kind: string, payload: Record<string, unknown>): boolean
   return false;
 }
 
+function fallbackAsk(
+  input: CoachAgentInput,
+  profile: Record<string, unknown> | null,
+): { title: string; rationale: string; payload: Record<string, unknown> } {
+  const who = asString(profile?.full_name) || "ce client";
+  const text =
+    `Brouillon de secours pour ${who} (« ${input.prompt} »). `
+    + "L'agent n'a pas pu rédiger un texte complet. Tu édites, puis tu envoies. Rien ne s'applique tout seul.";
+  return buildPayload("ask_prometheus", input, {
+    title: `Ask — ${who}`,
+    answer: text,
+    notes: text,
+    body: text,
+  });
+}
+
 export async function runCoachAgent(
   admin: SupabaseClient,
   openaiKey: string,
@@ -574,15 +590,22 @@ export async function runCoachAgent(
           workout_focus: asString(profile?.training_focus),
         },
       });
-    } else if (!llm) {
-      return { ok: false, error: "AI_FAILED" };
     } else {
-      return { ok: false, error: "AI_EMPTY_DRAFT" };
+      built = fallbackAsk(input, profile);
     }
   }
 
   if (!payloadIsReady(kind, built.payload)) {
-    return { ok: false, error: "AI_EMPTY_DRAFT" };
+    if (kind === "onboarding_plan" || kind === "program_nl_edit") {
+      const program = fallbackProgramFromProfile(profile, input.prompt);
+      built = buildPayload(kind, input, {
+        title: titleFor(kind, ""),
+        notes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",
+        program,
+      });
+    } else {
+      built = fallbackAsk(input, profile);
+    }
   }
 
   const { data: upsertId, error: upsertError } = await admin.rpc("upsert_coach_intervention", {
@@ -670,11 +693,6 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
       .gte("called_at", dayStart.toISOString());
     if ((usageCount ?? 0) >= 40) {
       return json(429, { error: "DAILY_LIMIT_REACHED", limit: 40 });
-    }
-
-    const wantsProgram = kind === "onboarding_plan" || looksLikeCreateProgram(prompt);
-    if (!openaiKey && !wantsProgram) {
-      return json(500, { error: "OPENAI_API_KEY not configured" });
     }
 
     const result = await runCoachAgent(admin, openaiKey, {

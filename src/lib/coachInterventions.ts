@@ -200,6 +200,14 @@ export function interventionHref(row: Pick<CoachIntervention, 'kind' | 'client_i
   return `/inbox/${row.id}`;
 }
 
+/** Href to the draft editor, or null when there is nothing to open. */
+export function openDraftHref(
+  row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id'> | null | undefined,
+): string | null {
+  if (!row?.id) return null;
+  return interventionHref(row);
+}
+
 /** Incomplete 2000/0/0/0 must never open as the first screen. Complete macros → draft. */
 export function coachingPassHref(row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id' | 'payload'>): string {
   if (row.kind === 'calorie_adjustment' && row.client_id && !isCompleteCalorieDraft(parseCalorieDraft(row.payload))) {

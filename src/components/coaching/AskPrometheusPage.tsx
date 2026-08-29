@@ -4,9 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, Search, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { answerCoachAsk, clientsFilterHref, isRosterAsk, parseCoachAsk } from '../../lib/coachAsk';
-import { interventionHref } from '../../lib/coachInterventions';
-import { displayName } from '../../lib/coachText';
+import { answerCoachAsk, clientsFilterHref, isRosterAsk, parseCoachAsk, resolveAskClientId } from '../../lib/coachAsk';
+import { openDraftHref } from '../../lib/coachInterventions';
 import {
   interventionDraftError,
   isInterventionDrafting,
@@ -64,9 +63,9 @@ export default function AskPrometheusPage() {
     if (opsRows.length === 0) fetchCoachOps();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const rosterAnswer = useMemo(() => {
+  const localAnswer = useMemo(() => {
     const q = query.trim();
-    if (!q || !isRosterAsk(q)) return null;
+    if (!q) return null;
     return answerCoachAsk(parseCoachAsk(q), opsRows, priorities, rosterSignals);
   }, [query, opsRows, priorities, rosterSignals]);
 
@@ -90,12 +89,7 @@ export default function AskPrometheusPage() {
     setQuery(q);
     const clientHint = searchParams.get('client');
     const intent = parseCoachAsk(q);
-    const matched = intent.type === 'client' || intent.type === 'client_lift'
-      ? opsRows.find(r => displayName(r.client).toLowerCase().includes(q.toLowerCase().slice(0, 12)))
-      : null;
-    const clientId = clientHint
-      || matched?.client.id
-      || (opsRows.length === 1 ? opsRows[0].client.id : null);
+    const clientId = resolveAskClientId(intent, opsRows, q, clientHint);
     const onboarded = clientId
       ? opsRows.find(r => r.client.id === clientId)?.client.onboarding_completed
       : undefined;
@@ -120,6 +114,10 @@ export default function AskPrometheusPage() {
     });
     setSending(false);
     if ('error' in result) {
+      toast(t('coaching.second.failed'), 'error');
+      return;
+    }
+    if (!result.id) {
       toast(t('coaching.second.failed'), 'error');
       return;
     }
@@ -204,22 +202,29 @@ export default function AskPrometheusPage() {
           />
         )}
 
-        {live && isInterventionReady(live) && (
-          <Card className="mb-5 space-y-2 border-blue-500/20" onClick={() => navigate(interventionHref(live))}>
+        {live && openDraftHref(live) && !isInterventionDrafting(live) && !interventionDraftError(live) && (
+          <Card className="mb-5 space-y-2 border-blue-500/20">
             <p className="text-sm font-medium text-white">{t('coaching.second.landed')}</p>
             <p className="text-xs text-neutral-400">{live.title || t(`coaching.interventions.kinds.${live.kind}`)}</p>
-            <p className="text-[11px] text-blue-400">{t('coaching.ask.openDraft')}</p>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate(openDraftHref(live)!)}
+            >
+              {t('coaching.ask.openDraft')}
+            </Button>
           </Card>
         )}
 
-        {rosterAnswer && (
+        {localAnswer && (
           <Card className="mb-5 space-y-3">
             <p className="text-[11px] uppercase tracking-wider text-neutral-500">{t('coaching.ask.rosterFilter')}</p>
-            <p className="text-sm font-medium text-white">{t(rosterAnswer.titleKey, rosterAnswer.titleParams)}</p>
-            <p className="text-sm text-neutral-300">{t(rosterAnswer.bodyKey, rosterAnswer.bodyParams)}</p>
-            {rosterAnswer.hits.length > 0 && (
+            <p className="text-sm font-medium text-white">{t(localAnswer.titleKey, localAnswer.titleParams)}</p>
+            <p className="text-sm text-neutral-300">{t(localAnswer.bodyKey, localAnswer.bodyParams)}</p>
+            {localAnswer.hits.length > 0 && (
               <div className="space-y-1">
-                {rosterAnswer.hits.map(hit => (
+                {localAnswer.hits.map(hit => (
                   <button
                     key={`${hit.clientId}-${hit.href}`}
                     type="button"
@@ -235,10 +240,10 @@ export default function AskPrometheusPage() {
                 ))}
               </div>
             )}
-            {rosterAnswer.filter && (
+            {localAnswer.filter && (
               <button
                 type="button"
-                onClick={() => navigate(clientsFilterHref(rosterAnswer.filter!))}
+                onClick={() => navigate(clientsFilterHref(localAnswer.filter!))}
                 className="text-xs text-blue-400"
               >
                 {t('coaching.ask.filterClients')}
@@ -267,8 +272,10 @@ export default function AskPrometheusPage() {
           <div className="space-y-2">
             {drafts.map(item => {
               const client = clients.find(c => c.id === item.client_id);
+              const href = openDraftHref(item);
+              if (!href) return null;
               return (
-                <Card key={item.id} onClick={() => navigate(interventionHref(item))} className="flex items-start gap-3">
+                <Card key={item.id} onClick={() => navigate(href)} className="flex items-start gap-3">
                   <Sparkles size={14} className="text-blue-400 mt-1" />
                   <div className="min-w-0">
                     <p className="text-sm text-white truncate">{item.title || t(`coaching.interventions.kinds.${item.kind}`)}</p>

@@ -14,13 +14,14 @@ import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
 import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { GOALS } from '../../lib/constants';
-import { interventionHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
+import { openDraftHref } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import { flagKindForClient, focusCheckin, formatCheckinScore, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
 import {
   canAskCalorieAdjustment,
   detectCutCalorieStall,
   secondCaloriePrompt,
+  shouldShowCutStallCard,
 } from '../../lib/coachNutrition';
 import { relanceThreadHref } from '../../lib/coachQueue';
 import { lastSessionFromLifts, lastSessionFromWorkout } from '../../lib/coachLastSession';
@@ -250,6 +251,10 @@ export default function ClientDetailPage() {
   const trainingRelanceHref = id ? relanceThreadHref(id, 'missed_training') : '';
   const missedTraining = priorities.some(p => p.clientId === id && p.kind === 'missed_workout');
   const calorieDraft = id ? pendingForClient(pendingInterventions, id, 'calorie_adjustment') : null;
+  const openableDraft = id
+    ? pendingInterventions.find(row => row.client_id === id && !!row.id && !isInterventionDrafting(row)) ?? null
+    : null;
+  const progressDraftHref = openDraftHref(openableDraft);
   const nutritionStall = useMemo(() => {
     if (!id || !client) return null;
     const stallWeights = weights.length > 0
@@ -264,7 +269,7 @@ export default function ClientDetailPage() {
       today: todayStr(),
     });
   }, [id, client, rosterSignals.calorieTargets, rosterSignals.nutritionLogs, rosterSignals.weights, weights]);
-  const showNutritionPass = !!nutritionStall || !!calorieDraft;
+  const showNutritionPass = shouldShowCutStallCard(client?.goal, nutritionStall);
   const canAskCalories = canAskCalorieAdjustment(nutritionStall) && !calorieDraft;
 
   const handleOpenWorkout = (workoutId: string) => {
@@ -396,10 +401,13 @@ export default function ClientDetailPage() {
           </Button>
         )}
 
-        {id && pendingForClient(pendingInterventions, id) && (
+        {id && openDraftHref(pendingForClient(pendingInterventions, id)) && (
           <button
             type="button"
-            onClick={() => navigate(interventionHref(pendingForClient(pendingInterventions, id)!))}
+            onClick={() => {
+              const href = openDraftHref(pendingForClient(pendingInterventions, id));
+              if (href) navigate(href);
+            }}
             className="w-full mb-4 text-left rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2"
           >
             <p className="text-[11px] uppercase tracking-wider text-blue-300 flex items-center gap-1">
@@ -616,13 +624,7 @@ export default function ClientDetailPage() {
             {showNutritionPass && id && (
               <NutritionStallPanel
                 relanceHref={relanceHref}
-                draftHref={
-                  (id && pendingForClient(pendingInterventions, id, 'adherence_nutrition'))
-                    ? interventionHref(pendingForClient(pendingInterventions, id, 'adherence_nutrition')!)
-                    : (calorieDraft && isCompleteCalorieDraft(parseCalorieDraft(calorieDraft.payload))
-                      ? interventionHref(calorieDraft)
-                      : null)
-                }
+                draftHref={progressDraftHref}
                 canAskSecond={false}
                 asking={askingCalories}
                 liveDraft={pendingForClient(pendingInterventions, id, 'adherence_nutrition') ?? calorieDraft}

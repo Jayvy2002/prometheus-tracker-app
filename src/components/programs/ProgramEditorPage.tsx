@@ -34,12 +34,16 @@ export default function ProgramEditorPage() {
     }
     setLoading(true);
     fetchProgram(id).then(p => {
-      if (!p) return;
+      const emptyDay = { weekday: 1, name: '', exercises: [] as AiProgramDayDraft['exercises'] };
+      if (!p) {
+        setDays([emptyDay]);
+        return;
+      }
       setName(p.name);
       setDescription(p.description);
       setWeeks(p.duration_weeks);
       const sorted = [...(p.days ?? [])].sort((a, b) => a.order_index - b.order_index);
-      setDays(sorted.map(d => ({
+      setDays(sorted.length > 0 ? sorted.map(d => ({
         weekday: d.weekday,
         name: d.name,
         exercises: (d.exercises ?? []).map(ex => ({
@@ -51,7 +55,7 @@ export default function ProgramEditorPage() {
           default_rest_seconds: ex.default_rest_seconds,
           default_weight_kg: ex.default_weight_kg,
         })),
-      })));
+      })) : [emptyDay]);
     }).finally(() => setLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 

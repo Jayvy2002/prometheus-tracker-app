@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { isCoachedAthlete } from '../../lib/coachRole';
 import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
 
@@ -66,6 +67,8 @@ export default function ProfilePage() {
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const { coachingRole, myCoach, enableCoachMode, disableCoachMode } = useCoachingStore();
+  const isCoach = coachingRole === 'coach';
+  const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -132,13 +135,13 @@ export default function ProfilePage() {
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
-        {coachingRole === 'coach' && (
+        {isCoach && (
         <AccordionSection id="coachPrefs" icon={SlidersHorizontal} label={t('coaching.settings.title')} isOpen={openSection === 'coachPrefs'} onToggle={() => toggle('coachPrefs')} animationDelay="90ms">
           <CoachSettingsPanel />
         </AccordionSection>
         )}
 
-        {coachingRole !== 'coach' && (
+        {!isCoach && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           <GoalsForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
@@ -177,7 +180,7 @@ export default function ProfilePage() {
           <FeedbackForm />
         </AccordionSection>
 
-        {coachingRole !== 'coach' && (
+        {!isCoach && !coached && (
         <div className="animate-fade-in-up" style={{ animationDelay: '360ms' }}>
         <Card onClick={() => navigate('/routines')} className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
@@ -190,9 +193,9 @@ export default function ProfilePage() {
         )}
 
         {[
-          { to: '/programs', icon: CalendarRange, label: t('nav.programs') },
-          ...(coachingRole === 'coach'
+          ...(isCoach
             ? [
+                { to: '/programs', icon: CalendarRange, label: t('nav.programs') },
                 { to: '/clients', icon: Users, label: t('nav.clients') },
               ]
             : [
@@ -202,7 +205,12 @@ export default function ProfilePage() {
                 { to: '/weight', icon: Scale, label: t('nav.weight') },
                 { to: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
                 { to: '/stats', icon: BarChart2, label: t('nav.stats') },
-                { to: '/recipes', icon: ChefHat, label: t('nav.recipes') },
+                ...(!coached
+                  ? [
+                      { to: '/programs', icon: CalendarRange, label: t('nav.programs') },
+                      { to: '/recipes', icon: ChefHat, label: t('nav.recipes') },
+                    ]
+                  : []),
               ]),
         ].map(item => (
           <div key={item.to} className="animate-fade-in-up">
@@ -216,6 +224,7 @@ export default function ProfilePage() {
           </div>
         ))}
 
+        {!coached && (
         <Card className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
             <Users size={16} />
@@ -225,17 +234,19 @@ export default function ProfilePage() {
             <p className="text-[11px] text-neutral-500">{t('coaching.coachModeHint')}</p>
           </div>
           <button
+            type="button"
             onClick={async () => {
-              const result = coachingRole === 'coach' ? await disableCoachMode() : await enableCoachMode();
+              const result = isCoach ? await disableCoachMode() : await enableCoachMode();
               if (result.error) toast(result.error, 'error');
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-              coachingRole === 'coach' ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
+              isCoach ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
             }`}
           >
-            {coachingRole === 'coach' ? t('common.on') : t('common.off')}
+            {isCoach ? t('common.on') : t('common.off')}
           </button>
         </Card>
+        )}
 
       </div>
 

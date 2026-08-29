@@ -1509,6 +1509,8 @@ const en = {
     selfAssigned: 'Program started',
     useMyself: 'Use for myself',
     manageRoutines: 'Manage routines',
+    clientLocked: 'Your coach manages programs. You cannot create or assign them.',
+    noExercises: 'No exercises yet',
     weeksCount: '{{n}} weeks',
     weekOf: 'Week {{current}}/{{total}}',
     todaySession: 'Today: {{name}}',

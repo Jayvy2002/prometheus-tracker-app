@@ -207,3 +207,10 @@ test('onboarding_plan uses a deterministic fallback instead of 502 empty draft',
   assert.match(shared, /wantsProgram/);
   assert.match(shared, /PAS de calories/);
 });
+
+test('Ask free-text always lands a draft via fallbackAsk — never silent 502', () => {
+  const shared = source('supabase/functions/_shared/coachAgent.ts');
+  assert.match(shared, /function fallbackAsk/);
+  assert.match(shared, /Brouillon de secours/);
+  assert.doesNotMatch(shared, /OPENAI_API_KEY not configured/);
+});
