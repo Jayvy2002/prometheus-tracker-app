@@ -682,6 +682,7 @@ export type CoachInterventionKind =
   | 'program_adjustment'
   | 'adherence_nutrition'
   | 'adherence_training'
+  | 'keep_in_touch'
   | 'workflow_improvement'
   | 'new_question'
   | 'other'
@@ -713,7 +714,8 @@ export type CoachFleetFlag =
   | 'adherence_nutrition'
   | 'adherence_training'
   | 'too_fast'
-  | 'stall_adherent';
+  | 'stall_adherent'
+  | 'keep_in_touch';
 
 export interface CoachFleetDossier {
   coach_id: string;
@@ -743,6 +745,10 @@ export interface CoachFleetDossier {
   weight_end_kg: number | null;
   weight_delta_kg: number | null;
   last_message_at: string | null;
+  /** Last outbound coach_messages row (sender_id = coach). Not client replies. */
+  last_coach_message_at: string | null;
+  /** Last keep_in_touch intervention (any status) — cap one per client per week. */
+  last_keep_in_touch_at: string | null;
 }
 
 export interface CoachFleetCard {

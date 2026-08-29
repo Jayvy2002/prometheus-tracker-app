@@ -36,6 +36,7 @@ const MIN_NUTRITION_LOG_DAYS = 4;
 const CUT_STALL_MIN_DELTA_KG = -0.2;
 const CUT_TOO_FAST_PCT_PER_WEEK = 1.5;
 const BULK_TOO_FAST_PCT_PER_WEEK = 0.7;
+const KEEP_IN_TOUCH_DAYS = 7;
 const MACRO_KCAL_TOLERANCE = 0.15;
 const LLM_TIMEOUT_MS = 20_000;
 const MAX_LLM_PER_RUN = 20;
@@ -47,7 +48,8 @@ type FleetFlag =
   | "adherence_nutrition"
   | "adherence_training"
   | "too_fast"
-  | "stall_adherent";
+  | "stall_adherent"
+  | "keep_in_touch";
 
 interface Dossier {
   coach_id: string;
@@ -77,6 +79,8 @@ interface Dossier {
   weight_end_kg: number | null;
   weight_delta_kg: number | null;
   last_message_at: string | null;
+  last_coach_message_at: string | null;
+  last_keep_in_touch_at: string | null;
 }
 
 interface CalorieDraft {
@@ -206,6 +210,8 @@ function mapDossier(raw: Record<string, unknown>): Dossier | null {
     weight_end_kg: dossierRaw.weight_end_kg == null ? null : num(dossierRaw.weight_end_kg),
     weight_delta_kg: dossierRaw.weight_delta_kg == null ? null : num(dossierRaw.weight_delta_kg),
     last_message_at: str(dossierRaw.last_message_at),
+    last_coach_message_at: str(dossierRaw.last_coach_message_at),
+    last_keep_in_touch_at: str(dossierRaw.last_keep_in_touch_at),
   };
 }
 
@@ -259,6 +265,25 @@ function missedTraining(d: Dossier): boolean {
   const expected = expectedWorkouts(d);
   if (expected <= 0) return false;
   return d.workout_count <= Math.max(0, Math.floor(expected * 0.4));
+}
+
+function idleDays(iso: string | null, today: string): number {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const day = iso.slice(0, 10);
+  const a = Date.parse(`${day}T00:00:00Z`);
+  const b = Date.parse(`${today}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return Number.POSITIVE_INFINITY;
+  return Math.round((b - a) / 86_400_000);
+}
+
+function shouldOfferKeepInTouch(d: Dossier, today: string): boolean {
+  if (idleDays(d.last_coach_message_at, today) < KEEP_IN_TOUCH_DAYS) return false;
+  if (idleDays(d.last_keep_in_touch_at, today) < KEEP_IN_TOUCH_DAYS) return false;
+  return true;
+}
+
+function keepInTouchLooksLikeLecture(body: string): boolean {
+  return /\b(kcal|calories?|macros?|stagne|descends)\b/i.test(body);
 }
 
 function classify(d: Dossier, today: string): FleetFlag {
@@ -326,13 +351,42 @@ function fmtDelta(delta: number | null): string {
 }
 
 function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): FleetCard | null {
-  const flag = classify(d, today);
-  if (flag === "on_track") return null;
+  const clinical = classify(d, today);
   const name = firstName(d.full_name);
+  const aiOff = modelUsed === "off";
+
+  if (clinical === "on_track") {
+    if (!shouldOfferKeepInTouch(d, today)) return null;
+    const silentDays = idleDays(d.last_coach_message_at, today);
+    const observation = Number.isFinite(silentDays)
+      ? `Ça va côté logs. Pas de contact coach depuis ${silentDays} jours.`
+      : "Ça va côté logs. Pas de message coach dans le fil.";
+    const cause = "Garder le lien — pas un stall, pas une lecture calories.";
+    const body = `Salut ${name}, petit check de la semaine — comment tu vas ? L’entraînement passe bien, et tu as besoin de quelque chose ?`;
+    return {
+      flag: "keep_in_touch",
+      kind: "keep_in_touch",
+      title: `Prendre des nouvelles de ${name}`,
+      observation,
+      cause,
+      rationale: cause,
+      payload: {
+        source: FLEET_SOURCE,
+        flag: "keep_in_touch",
+        observation,
+        cause,
+        body,
+        notes: body,
+        template_key: "general_followup",
+        ai_off: aiOff,
+      },
+    };
+  }
+
+  const flag = clinical;
   const ratio = overeatRatio(d.avg_calories, d.calorie_target);
   const adh = adherenceOnFive(d.avg_adherence_nutrition);
   const delta = fmtDelta(d.weight_delta_kg);
-  const aiOff = modelUsed === "off";
 
   if (flag === "onboarding") {
     const observation = !d.onboarding_completed
@@ -504,10 +558,11 @@ function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): Flee
 const SYSTEM_PROMPT = `Tu es l'IA de tournée coach de Prometheus. Tu prépares UNE action pour le coach. Rien ne s'applique tout seul.
 Règles (français, tutoiement, tu tutoyes le client dans le message) :
 - Si le client n'applique PAS la nutrition (logs >> cible, adhérence basse) : kind adherence_nutrition. Message Relancer. JAMAIS calorie_adjustment. JAMAIS « descends à 2000 » ni macros 0.
-- Séances manquées / ghost : adherence_training, Relancer. Pas de nouveau programme. Pas de chiffres de récup inventés.
+- Séances manquées / ghost : adherence_training, Relancer. Pas de nouveau programme. Pas de chiffres de récup inventés. Ghost n'est PAS keep_in_touch (Relancer fort).
 - Changement calories/macros SEULEMENT s'il APPLIQUE le plan et reste hors objectif (ou trop vite). Macros COMPLÈTES : protein, carbs, fat tous > 0 et kcal ≈ P*4+C*4+F*9.
 - Nouveau client : onboarding_plan, pas un stall.
-- Si ça va : tu ne dois pas être appelé.
+- On-track + le coach n'a pas écrit depuis ~7 jours : kind keep_in_touch. Message léger (comment tu vas, entraînement, besoin de quelque chose). PAS un stall, PAS une lecture calories, PAS de fausse urgence. JAMAIS adherence_nutrition ni ghost.
+- On-track + le coach a déjà écrit cette semaine : tu ne dois pas être appelé.
 Réponds JSON uniquement : { "kind", "title", "observation", "cause", "body", "nutrition": { "calories", "protein", "carbs", "fat" } | null }.
 ISSN reste la formule app. Tu n'écrases pas l'onboarding.
 Les leçons du coach (si présentes) sont des patterns stables : ton, Relancer vs cibles, split macros. Ne copie pas une erreur ponctuelle.`;
@@ -517,15 +572,19 @@ function mergeLlm(raw: Record<string, unknown>, fallback: FleetCard, d: Dossier)
   let kind = typeof raw.kind === "string" ? raw.kind : fallback.kind;
   if (flag === "adherence_nutrition" && kind === "calorie_adjustment") kind = "adherence_nutrition";
   if (flag === "ghost" && kind !== "adherence_training") kind = "adherence_training";
+  if (flag === "keep_in_touch") kind = "keep_in_touch";
   if (flag === "onboarding") kind = "onboarding_plan";
   const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : fallback.title;
   const observation = typeof raw.observation === "string" && raw.observation.trim()
     ? raw.observation.trim()
     : fallback.observation;
   const cause = typeof raw.cause === "string" && raw.cause.trim() ? raw.cause.trim() : fallback.cause;
-  const body = typeof raw.body === "string" && raw.body.trim()
+  let body = typeof raw.body === "string" && raw.body.trim()
     ? raw.body.trim()
     : typeof fallback.payload.body === "string" ? fallback.payload.body : "";
+  if (flag === "keep_in_touch" && keepInTouchLooksLikeLecture(body)) {
+    body = typeof fallback.payload.body === "string" ? fallback.payload.body : body;
+  }
 
   if (kind === "calorie_adjustment" && (flag === "stall_adherent" || flag === "too_fast")) {
     const nested = asObject(raw.nutrition);
@@ -598,6 +657,7 @@ async function callFleetAgent(
     last_workout_at: d.last_workout_at,
     last_checkin_at: d.last_checkin_at,
     last_nutrition_at: d.last_nutrition_at,
+    last_coach_message_at: d.last_coach_message_at,
     onboarding_completed: d.onboarding_completed,
     has_program: d.has_program,
   };

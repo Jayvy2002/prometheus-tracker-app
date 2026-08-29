@@ -385,9 +385,9 @@ export default function InterventionDraftPage() {
   const showCalories = row.kind === 'calorie_adjustment' && isCompleteCalorieDraft({ calories, protein, carbs, fat });
   const incompleteCals = row.kind === 'calorie_adjustment' && !isCompleteCalorieDraft({ calories, protein, carbs, fat });
   const showTracking = row.kind === 'onboarding_plan';
-  const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
-    || row.kind === 'other' || row.kind === 'ask_prometheus' || isCoachOnlyKind(row.kind);
   const isAdherenceKind = isRelanceKind(row.kind);
+  const showNotes = isAdherenceKind
+    || row.kind === 'other' || row.kind === 'ask_prometheus' || isCoachOnlyKind(row.kind);
   const observation = parseFleetObservation(row.payload);
   const cause = parseFleetCause(row.payload, row.rationale);
   const noteOnly = row.kind === 'other';

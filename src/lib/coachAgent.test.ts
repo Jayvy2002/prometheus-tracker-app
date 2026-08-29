@@ -128,6 +128,20 @@ test('next agent prompt includes last 5–10 lessons for that coach', () => {
   assert.equal(userMsg, true);
 });
 
+test('keep_in_touch edits write the same lessons table as other Relancer cards', () => {
+  const proposed = lessonSnapshot('keep_in_touch', {
+    body: 'Salut Camille, tu stagnes, descends à 1700 kcal.',
+  });
+  const accepted = lessonSnapshot('keep_in_touch', {
+    body: 'Salut Camille, petit check — comment tu vas ?',
+  });
+  assert.equal(shouldRecordLesson(proposed, accepted), true);
+  assert.equal(lessonFromEdit({ kind: 'keep_in_touch', proposed, accepted }).kind, 'keep_in_touch');
+  const fleet = source('supabase/functions/coach-fleet-round/index.ts');
+  assert.match(fleet, /formatLessonsForPrompt/);
+  assert.match(fleet, /keep_in_touch/);
+});
+
 test('Marc still Relancer-first — calorie cut is not the lever', () => {
   const TODAY = '2026-08-29';
   const marc: CoachFleetDossier = {
@@ -158,6 +172,8 @@ test('Marc still Relancer-first — calorie cut is not the lever', () => {
     weight_end_kg: 95.4,
     weight_delta_kg: 0.5,
     last_message_at: null,
+    last_coach_message_at: null,
+    last_keep_in_touch_at: null,
   };
   assert.equal(classifyFleetDossier(marc, TODAY), 'adherence_nutrition');
   const card = buildFleetCard(marc, TODAY, 'off');

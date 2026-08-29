@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
   buildFleetCard,
   classifyFleetDossier,
   isCompleteCalorieDraft,
+  isRelanceKind,
+  sanitizeLlmCard,
 } from './coachFleet';
 import { parseCalorieDraft as parseCalories } from './coachInterventions';
 import type { CoachFleetDossier } from './types';
@@ -37,6 +41,8 @@ function dossier(partial: Partial<CoachFleetDossier> & Pick<CoachFleetDossier, '
     weight_end_kg: 94.2,
     weight_delta_kg: -0.8,
     last_message_at: null,
+    last_coach_message_at: null,
+    last_keep_in_touch_at: null,
     ...partial,
   };
 }
@@ -95,7 +101,7 @@ test('adherent + stall → calorie_adjustment with complete macros (never 2000/0
   assert.notEqual(cals?.protein, 0);
 });
 
-test('Camille cut on-track → no card', () => {
+test('Camille cut on-track + coach wrote this week → no extra card', () => {
   const camille = dossier({
     client_id: 'camille-id',
     full_name: 'Camille Roux',
@@ -109,12 +115,44 @@ test('Camille cut on-track → no card', () => {
     weight_delta_kg: -1.9,
     weight_kg: 68.2,
     workout_count: 8,
+    last_coach_message_at: '2026-08-28',
   });
   assert.equal(classifyFleetDossier(camille, TODAY), 'on_track');
   assert.equal(buildFleetCard(camille, TODAY), null);
 });
 
-test('Léa bulk on-track → no card', () => {
+test('Camille on-track + silent 10d → keep_in_touch, not stall, not calories', () => {
+  const camille = dossier({
+    client_id: 'camille-id',
+    full_name: 'Camille Roux',
+    goal: 'lose',
+    calorie_target: 1850,
+    logged_nutrition_days: 10,
+    avg_calories: 1790,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 70.1,
+    weight_end_kg: 68.2,
+    weight_delta_kg: -1.9,
+    weight_kg: 68.2,
+    workout_count: 8,
+    last_coach_message_at: '2026-08-19',
+  });
+  assert.equal(classifyFleetDossier(camille, TODAY), 'on_track');
+  const card = buildFleetCard(camille, TODAY, 'off');
+  assert.ok(card);
+  assert.equal(card?.kind, 'keep_in_touch');
+  assert.equal(card?.flag, 'keep_in_touch');
+  assert.ok(isRelanceKind(card!.kind));
+  assert.match(card?.title || '', /Camille/i);
+  assert.match(String(card?.payload.body), /comment tu vas/i);
+  assert.match(String(card?.payload.body), /entraînement/i);
+  assert.doesNotMatch(String(card?.payload.body), /kcal|stagne|descends/i);
+  assert.equal(card?.payload.calories, undefined);
+  assert.notEqual(card?.kind, 'adherence_nutrition');
+  assert.notEqual(card?.kind, 'calorie_adjustment');
+});
+
+test('Léa bulk on-track + coach wrote this week → no extra card', () => {
   const lea = dossier({
     client_id: 'lea-id',
     full_name: 'Léa Martin',
@@ -128,6 +166,28 @@ test('Léa bulk on-track → no card', () => {
     weight_delta_kg: 0.6,
     weight_kg: 63.1,
     workout_count: 8,
+    last_coach_message_at: '2026-08-28',
+  });
+  assert.equal(classifyFleetDossier(lea, TODAY), 'on_track');
+  assert.equal(buildFleetCard(lea, TODAY), null);
+});
+
+test('Léa on-track + keep_in_touch already this week → no extra card', () => {
+  const lea = dossier({
+    client_id: 'lea-id',
+    full_name: 'Léa Martin',
+    goal: 'gain',
+    calorie_target: 2400,
+    logged_nutrition_days: 11,
+    avg_calories: 2380,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 62.5,
+    weight_end_kg: 63.1,
+    weight_delta_kg: 0.6,
+    weight_kg: 63.1,
+    workout_count: 8,
+    last_coach_message_at: null,
+    last_keep_in_touch_at: '2026-08-26',
   });
   assert.equal(classifyFleetDossier(lea, TODAY), 'on_track');
   assert.equal(buildFleetCard(lea, TODAY), null);
@@ -158,6 +218,7 @@ test('Sofia ghost → Relancer, not nutrition, not fake recovery numbers', () =>
   assert.ok(card);
   assert.equal(card?.kind, 'adherence_training');
   assert.equal(card?.flag, 'ghost');
+  assert.notEqual(card?.kind, 'keep_in_touch');
   assert.match(String(card?.payload.body), /app/i);
   assert.equal(card?.payload.calories, undefined);
   assert.doesNotMatch(String(card?.payload.body), /sommeil|douleur/i);
@@ -219,7 +280,7 @@ test('Alex first week with a program and 0 séances → setup, not missed traini
   assert.notEqual(card?.kind, 'calorie_adjustment');
 });
 
-test('coaching-copy 5-client calibration: Marc Relancer, Sofia Relancer, Camille/Léa silence', () => {
+test('coaching-copy 5-client calibration: Marc Relancer, Sofia ghost, Camille/Léa keep-in-touch if silent', () => {
   const marc = dossier({
     client_id: '22222222-2222-4222-8222-222222222222',
     full_name: 'Marc Bouchard',
@@ -299,12 +360,52 @@ test('coaching-copy 5-client calibration: Marc Relancer, Sofia Relancer, Camille
   assert.equal(classifyFleetDossier(marc, TODAY), 'adherence_nutrition');
   assert.equal(buildFleetCard(marc, TODAY, 'off')?.kind, 'adherence_nutrition');
   assert.match(buildFleetCard(marc, TODAY, 'off')?.title || '', /2200/);
+  assert.notEqual(buildFleetCard(marc, TODAY, 'off')?.kind, 'keep_in_touch');
   assert.equal(classifyFleetDossier(camille, TODAY), 'on_track');
-  assert.equal(buildFleetCard(camille, TODAY), null);
+  assert.equal(buildFleetCard(camille, TODAY, 'off')?.kind, 'keep_in_touch');
   assert.equal(classifyFleetDossier(sofia, TODAY), 'ghost');
   assert.equal(buildFleetCard(sofia, TODAY, 'off')?.kind, 'adherence_training');
+  assert.notEqual(buildFleetCard(sofia, TODAY, 'off')?.kind, 'keep_in_touch');
   assert.equal(classifyFleetDossier(lea, TODAY), 'on_track');
-  assert.equal(buildFleetCard(lea, TODAY), null);
+  assert.equal(buildFleetCard(lea, TODAY, 'off')?.kind, 'keep_in_touch');
+});
+
+test('LLM cannot turn keep_in_touch into a calorie or adherence card', () => {
+  const camille = dossier({
+    client_id: 'camille-id',
+    full_name: 'Camille Roux',
+    goal: 'lose',
+    calorie_target: 1850,
+    logged_nutrition_days: 10,
+    avg_calories: 1790,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 70.1,
+    weight_end_kg: 68.2,
+    weight_delta_kg: -1.9,
+    last_coach_message_at: null,
+  });
+  const sanitized = sanitizeLlmCard({
+    kind: 'calorie_adjustment',
+    title: 'Coupe les calories',
+    body: 'Salut Camille, descends à 1700 kcal, tu stagnes.',
+    nutrition: { calories: 1700, protein: 140, carbs: 150, fat: 50 },
+  }, camille, TODAY);
+  assert.ok(sanitized);
+  assert.equal(sanitized?.kind, 'keep_in_touch');
+  assert.equal(sanitized?.flag, 'keep_in_touch');
+  assert.doesNotMatch(String(sanitized?.payload.body), /kcal|stagne|descends/i);
+  assert.equal(sanitized?.payload.calories, undefined);
+});
+
+test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000009_keep_in_touch.sql'), 'utf8');
+  assert.match(sql, /keep_in_touch/);
+  assert.match(sql, /last_coach_message_at/);
+  assert.match(sql, /sender_id = m\.coach_id/);
+  assert.match(sql, /last_keep_in_touch_at/);
+  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  assert.match(fleet, /kind keep_in_touch/);
+  assert.doesNotMatch(fleet, /Si ça va : tu ne dois pas être appelé/);
 });
 
 test('incomplete 2000/0/0/0 is not a sendable calorie draft', () => {

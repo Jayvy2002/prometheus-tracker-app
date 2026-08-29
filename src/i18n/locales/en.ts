@@ -973,6 +973,7 @@ const en = {
         program_adjustment: 'Program adjustment',
         adherence_nutrition: 'Nutrition adherence',
         adherence_training: 'Training adherence',
+        keep_in_touch: 'Keep in touch',
         workflow_improvement: 'Workflow improvement',
         new_question: 'New question',
         other: 'Other',

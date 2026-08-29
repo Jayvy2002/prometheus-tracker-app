@@ -20,10 +20,13 @@ export const UNDER_EAT_RATIO = 0.85;
 /** Cut too fast: more than ~1.5% bodyweight per week. Camille ~1.05% stays quiet. */
 export const CUT_TOO_FAST_PCT_PER_WEEK = 1.5;
 export const BULK_TOO_FAST_PCT_PER_WEEK = 0.7;
+/** On-track + no outbound coach message for this many days → keep_in_touch Relancer. */
+export const KEEP_IN_TOUCH_DAYS = 7;
 
 const RELANCE_KINDS = new Set<CoachInterventionKind>([
   'adherence_nutrition',
   'adherence_training',
+  'keep_in_touch',
 ]);
 
 export function firstName(full: string): string {
@@ -107,6 +110,27 @@ function isGhostAt(d: CoachFleetDossier, today: string): boolean {
   return stale(d.last_workout_at) && stale(d.last_nutrition_at) && stale(d.last_checkin_at);
 }
 
+/** Calendar days since an ISO timestamp. Null / unparsable → Infinity (never happened). */
+function idleDays(iso: string | null, today: string): number {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const day = iso.slice(0, 10);
+  const a = Date.parse(`${day}T00:00:00Z`);
+  const b = Date.parse(`${today}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return Number.POSITIVE_INFINITY;
+  return Math.round((b - a) / 86_400_000);
+}
+
+/** Clinical on_track + coach silent ≥7d + no keep-in-touch this week. */
+function shouldOfferKeepInTouch(d: CoachFleetDossier, today: string): boolean {
+  if (idleDays(d.last_coach_message_at, today) < KEEP_IN_TOUCH_DAYS) return false;
+  if (idleDays(d.last_keep_in_touch_at, today) < KEEP_IN_TOUCH_DAYS) return false;
+  return true;
+}
+
+function keepInTouchLooksLikeLecture(body: string): boolean {
+  return /\b(kcal|calories?|macros?|stagne|descends)\b/i.test(body);
+}
+
 function missedTraining(d: CoachFleetDossier): boolean {
   const expected = expectedWorkouts(d);
   if (expected <= 0) return false;
@@ -114,7 +138,8 @@ function missedTraining(d: CoachFleetDossier): boolean {
 }
 
 /**
- * One flag per client. Silence (`on_track`) is correct for Camille / Léa.
+ * One clinical flag per client. `on_track` stays correct for Camille / Léa.
+ * Contact is separate: on_track + coach silent ≥7d → keep_in_touch card (not a stall).
  * Order is locked: setup → first week → ghost → nutrition adherence → training → too fast → adherent stall.
  */
 export function classifyFleetDossier(d: CoachFleetDossier, today: string): CoachFleetFlag {
@@ -193,14 +218,42 @@ function calorieTweak(d: CoachFleetDossier, direction: 'cut_more' | 'cut_less' |
 }
 
 export function buildFleetCard(d: CoachFleetDossier, today: string, modelUsed: 'openai' | 'off' = 'off'): CoachFleetCard | null {
-  const flag = classifyFleetDossier(d, today);
-  if (flag === 'on_track') return null;
-
+  const clinical = classifyFleetDossier(d, today);
   const name = firstName(d.full_name);
+  const aiOff = modelUsed === 'off';
+
+  if (clinical === 'on_track') {
+    if (!shouldOfferKeepInTouch(d, today)) return null;
+    const silentDays = idleDays(d.last_coach_message_at, today);
+    const observation = Number.isFinite(silentDays)
+      ? `Ça va côté logs. Pas de contact coach depuis ${silentDays} jours.`
+      : 'Ça va côté logs. Pas de message coach dans le fil.';
+    const cause = 'Garder le lien — pas un stall, pas une lecture calories.';
+    const body = `Salut ${name}, petit check de la semaine — comment tu vas ? L’entraînement passe bien, et tu as besoin de quelque chose ?`;
+    return {
+      flag: 'keep_in_touch',
+      kind: 'keep_in_touch',
+      title: `Prendre des nouvelles de ${name}`,
+      observation,
+      cause,
+      rationale: cause,
+      payload: {
+        source: FLEET_SOURCE,
+        flag: 'keep_in_touch',
+        observation,
+        cause,
+        body,
+        notes: body,
+        template_key: 'general_followup',
+        ai_off: aiOff,
+      },
+    };
+  }
+
+  const flag = clinical;
   const ratio = overeatRatio(d.avg_calories, d.calorie_target);
   const adh = adherenceOnFive(d.avg_adherence_nutrition);
   const delta = fmtDelta(d.weight_delta_kg);
-  const aiOff = modelUsed === 'off';
 
   if (flag === 'onboarding') {
     const observation = !d.onboarding_completed
@@ -417,6 +470,7 @@ export function preparedTemplateKey(payload: unknown, kind: CoachInterventionKin
   }
   if (kind === 'adherence_training') return 'missed_training';
   if (kind === 'adherence_nutrition') return 'missed_checkins';
+  if (kind === 'keep_in_touch') return 'general_followup';
   return 'general_followup';
 }
 
@@ -432,8 +486,11 @@ export function sanitizeLlmCard(
   if (flag === 'adherence_nutrition' && kind === 'calorie_adjustment') {
     kind = 'adherence_nutrition';
   }
-  if (flag === 'ghost' && (kind === 'calorie_adjustment' || kind === 'adherence_nutrition')) {
+  if (flag === 'ghost' && (kind === 'calorie_adjustment' || kind === 'adherence_nutrition' || kind === 'keep_in_touch')) {
     kind = 'adherence_training';
+  }
+  if (flag === 'keep_in_touch') {
+    kind = 'keep_in_touch';
   }
   if (flag === 'onboarding' && kind !== 'onboarding_plan') {
     kind = 'onboarding_plan';
@@ -448,7 +505,7 @@ export function sanitizeLlmCard(
     : parsePreparedMessage(fallback.payload);
 
   if (kind === 'calorie_adjustment') {
-    if (flag === 'adherence_nutrition' || flag === 'ghost' || flag === 'adherence_training') {
+    if (flag === 'adherence_nutrition' || flag === 'ghost' || flag === 'adherence_training' || flag === 'keep_in_touch') {
       return fallback;
     }
     const nested = raw.nutrition && typeof raw.nutrition === 'object' ? raw.nutrition as Record<string, unknown> : raw;
@@ -496,7 +553,7 @@ export function sanitizeLlmCard(
 
   return {
     flag,
-    kind: (kind === 'onboarding_plan' || kind === 'adherence_nutrition' || kind === 'adherence_training'
+    kind: (kind === 'onboarding_plan' || kind === 'adherence_nutrition' || kind === 'adherence_training' || kind === 'keep_in_touch'
       ? kind
       : fallback.kind) as CoachInterventionKind,
     title,
@@ -507,8 +564,8 @@ export function sanitizeLlmCard(
       ...fallback.payload,
       observation,
       cause,
-      body,
-      notes: body,
+      body: flag === 'keep_in_touch' && keepInTouchLooksLikeLecture(body) ? parsePreparedMessage(fallback.payload) : body,
+      notes: flag === 'keep_in_touch' && keepInTouchLooksLikeLecture(body) ? parsePreparedMessage(fallback.payload) : body,
       ai_off: false,
     },
   };
@@ -554,5 +611,7 @@ export function mapTriageRow(raw: Record<string, unknown>): CoachFleetDossier | 
     weight_end_kg: dossierRaw.weight_end_kg == null ? null : num(dossierRaw.weight_end_kg),
     weight_delta_kg: dossierRaw.weight_delta_kg == null ? null : num(dossierRaw.weight_delta_kg),
     last_message_at: str(dossierRaw.last_message_at),
+    last_coach_message_at: str(dossierRaw.last_coach_message_at),
+    last_keep_in_touch_at: str(dossierRaw.last_keep_in_touch_at),
   };
 }
