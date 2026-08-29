@@ -358,6 +358,7 @@ export interface CoachClientSummary {
   weight_kg: number;
   last_visited_at: string | null;
   last_nudged_at: string | null;
+  daily_calorie_target?: number;
 }
 
 export interface ClientTrackingConfig {
@@ -397,6 +398,7 @@ export type CoachPriorityKind =
   | 'new_pain'
   | 'stalled_lift'
   | 'weight_off_trajectory'
+  | 'nutrition_stall'
   | 'dropped_adherence'
   | 'missed_checkin'
   | 'missed_workout'
@@ -432,6 +434,26 @@ export interface CoachPriority {
 }
 
 export type CheckinReviewKind = 'unread' | 'new_pain' | 'dropped_adherence' | 'missed_checkin';
+
+/** One row in Aujourd’hui → cuts who stall (calories too high). Always a Progression deep-link. */
+export interface NutritionStallRow {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  href: string;
+  relanceHref: string;
+  draftHref: string | null;
+  avgCalories: number;
+  calorieTarget: number;
+  weightDelta: string;
+  title: string;
+}
+
+export interface NutritionLogSnapshot {
+  user_id: string;
+  logged_at: string;
+  calories: number;
+}
 
 /** One row in Aujourd’hui → Check-ins à relire. Always has a submitted check-in. */
 export interface CheckinReviewRow {
@@ -558,6 +580,8 @@ export interface CoachRosterSignals {
   checkins: DailyCheckin[];
   weights: WeightMeasurement[];
   lifts: ClientLiftProgress[];
+  nutritionLogs: NutritionLogSnapshot[];
+  calorieTargets: Record<string, number>;
   lastNoteAt: Record<string, string>;
   lastInterventionAt: Record<string, string>;
   assignmentStart: Record<string, string>;

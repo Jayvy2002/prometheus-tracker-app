@@ -1,7 +1,7 @@
 import type { CoachIntervention, CoachInterventionKind } from './types';
 import { parseOnboardingPlanDraft, parseProgramOutline, parseProgramPatch, payloadSummary } from './coachInterventions';
 
-export const SECOND_PING_KINDS = ['onboarding_plan', 'ask_prometheus', 'program_nl_edit'] as const;
+export const SECOND_PING_KINDS = ['onboarding_plan', 'ask_prometheus', 'program_nl_edit', 'calorie_adjustment'] as const;
 export type SecondPingKind = (typeof SECOND_PING_KINDS)[number];
 
 export type CoachSecondRouteKind = SecondPingKind | 'roster';

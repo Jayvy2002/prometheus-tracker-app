@@ -12,7 +12,7 @@ import {
 } from '../../lib/coachQueue';
 import { resolveNudgeBody } from '../../lib/coachSettings';
 import { displayName } from '../../lib/coachText';
-import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
+import { coachingPassHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
 import { interventionLiveLabel } from '../../lib/coachSecond';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -125,7 +125,7 @@ export default function CoachInboxPage() {
               {pendingInterventions.map(item => {
                 const client = clients.find(c => c.id === item.client_id);
                 return (
-                  <Card key={item.id} onClick={() => navigate(interventionHref(item))} className="flex items-start gap-3">
+                  <Card key={item.id} onClick={() => navigate(coachingPassHref(item))} className="flex items-start gap-3">
                     <Sparkles size={16} className={`mt-1 ${isCoachOnlyKind(item.kind) ? 'text-violet-400' : 'text-blue-400'}`} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">

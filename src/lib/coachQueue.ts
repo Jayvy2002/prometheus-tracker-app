@@ -26,9 +26,15 @@ const INTERVENTION_KINDS_FOR_PRIORITY: Partial<Record<CoachPriorityKind, CoachIn
   stalled_lift: ['calorie_adjustment', 'program_adjustment', 'program_nl_edit', 'ask_prometheus'],
   program_adapt: ['program_adjustment', 'calorie_adjustment', 'program_nl_edit'],
   weight_off_trajectory: ['calorie_adjustment'],
+  nutrition_stall: ['calorie_adjustment'],
   onboarding_incomplete: ['onboarding_plan'],
   program_unassigned: ['onboarding_plan', 'ask_prometheus'],
 };
+
+const PROGRESS_QUEUE_KINDS = new Set<CoachPriorityKind>([
+  'nutrition_stall',
+  'weight_off_trajectory',
+]);
 
 const TEMPLATE_KEYS: CoachMessageTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup', 'reply'];
 
@@ -52,6 +58,14 @@ export function resolveQueueAction(
   priority: CoachPriority,
   pending: CoachIntervention[],
 ): CoachQueueAction {
+  if (PROGRESS_QUEUE_KINDS.has(priority.kind)) {
+    return {
+      kind: 'open_360',
+      href: priority.href,
+      ctaKey: 'coaching.queue.openFile',
+    };
+  }
+
   const match = matchingPendingIntervention(priority, pending);
   if (match) {
     const setup = match.kind === 'onboarding_plan';

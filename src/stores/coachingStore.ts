@@ -128,6 +128,8 @@ const EMPTY_SIGNALS: CoachRosterSignals = {
   checkins: [],
   weights: [],
   lifts: [],
+  nutritionLogs: [],
+  calorieTargets: {},
   lastNoteAt: {},
   lastInterventionAt: {},
   assignmentStart: {},
@@ -198,6 +200,8 @@ function dropUnlinkedClient(s: {
     checkins: signals.checkins.filter(c => c.user_id !== clientId),
     weights: signals.weights.filter(w => w.user_id !== clientId),
     lifts: signals.lifts.filter(l => l.clientId !== clientId),
+    nutritionLogs: signals.nutritionLogs.filter(l => l.user_id !== clientId),
+    calorieTargets: omitRecordKey(signals.calorieTargets, clientId),
     lastNoteAt: omitRecordKey(signals.lastNoteAt, clientId),
     lastInterventionAt: omitRecordKey(signals.lastInterventionAt, clientId),
     assignmentStart: omitRecordKey(signals.assignmentStart, clientId),
@@ -439,7 +443,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const ids = links.map(l => l.client_id as string);
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg')
+      .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg, daily_calorie_target')
       .in('id', ids);
     const linkedAt = new Map(links.map(l => [l.client_id as string, l.created_at as string]));
     const visitedAt = new Map(links.map(l => [l.client_id as string, l.last_visited_at ?? null]));
@@ -457,6 +461,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       weight_kg: Number(p.weight_kg) || 0,
       last_visited_at: visitedAt.get(p.id as string) ?? null,
       last_nudged_at: nudgedAt.get(p.id as string) ?? null,
+      daily_calorie_target: Number(p.daily_calorie_target) || 0,
     }));
     set({ clients, loading: false });
   },
@@ -493,6 +498,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       workoutHistRes,
       notesRes,
       interventionHistRes,
+      nutritionHistRes,
     ] = await Promise.all([
       supabase.from('client_tracking_config').select('*').in('client_id', ids),
       supabase.from('program_assignments').select('client_id, program_id, start_date').in('client_id', ids).eq('status', 'active'),
@@ -505,6 +511,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       supabase.from('workouts').select('id, user_id, date, name, completed').in('user_id', ids).eq('completed', true).gte('date', `${threeWeeks}T00:00:00`).order('date', { ascending: false }).limit(400),
       supabase.from('coach_notes').select('client_id, created_at').in('client_id', ids).order('created_at', { ascending: false }),
       supabase.from('coach_interventions').select('client_id, resolved_at, updated_at, status').in('client_id', ids).in('status', ['sent', 'kept']),
+      supabase.from('nutrition_logs').select('user_id, logged_at, calories').in('user_id', ids).gte('logged_at', threeWeeks),
     ]);
 
     const assignments = assignmentRes.data ?? [];
@@ -613,10 +620,21 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       trackingByClient,
     });
 
+    const calorieTargets: Record<string, number> = {};
+    for (const c of clients) {
+      calorieTargets[c.id] = c.daily_calorie_target ?? 0;
+    }
+
     const rosterSignals: CoachRosterSignals = {
       checkins: (checkinHistRes.data ?? []) as DailyCheckin[],
       weights: (weightHistRes.data ?? []) as WeightMeasurement[],
       lifts: buildClientLifts(histWorkouts, exercises, sets),
+      nutritionLogs: ((nutritionHistRes.data ?? []) as Array<{ user_id: string; logged_at: string; calories: number }>).map(row => ({
+        user_id: row.user_id,
+        logged_at: String(row.logged_at ?? '').slice(0, 10),
+        calories: Number(row.calories) || 0,
+      })),
+      calorieTargets,
       lastNoteAt,
       lastInterventionAt,
       assignmentStart,

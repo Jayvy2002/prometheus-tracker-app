@@ -1,7 +1,9 @@
 import { needsSetup } from './coachAlerts';
 import { checkinFocusHref, checkinReviewRows } from './coachCheckins';
+import { nutritionStallFocusHref, nutritionStallPriority, normalizeGoal } from './coachNutrition';
 import { displayName } from './coachText';
 import { liftsForClient } from './coachLifts';
+import { todayStr } from './utils';
 import type {
   ClientAlertKind,
   ClientLiftProgress,
@@ -86,7 +88,7 @@ function adherencePriority(clientId: string, name: string, avatar: string, lates
 
 function weightPriority(row: ClientOpsRow, weights: WeightMeasurement[]): CoachPriority | null {
   if (weights.length < 2) return null;
-  const goal = row.client.goal;
+  const goal = normalizeGoal(row.client.goal);
   const newest = weights[0].weight_kg;
   const older = weights[Math.min(weights.length - 1, 3)].weight_kg;
   const delta = Math.round((newest - older) * 10) / 10;
@@ -108,7 +110,7 @@ function weightPriority(row: ClientOpsRow, weights: WeightMeasurement[]): CoachP
     headlineParams: { name },
     detailKey: 'coaching.priority.details.weight_off_trajectory',
     detailParams: { delta: delta > 0 ? `+${delta}` : String(delta), goal: goal || '—' },
-    href: hrefFor(client.id, 'overview'),
+    href: nutritionStallFocusHref(client.id),
   };
 }
 
@@ -171,8 +173,13 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
 
     items.push(...stallPriority(row, signals.lifts));
 
-    const weight = weightPriority(row, weightsFor(signals, row.client.id));
-    if (weight) items.push(weight);
+    const nutrition = nutritionStallPriority(row, signals, todayStr());
+    if (nutrition) {
+      items.push(nutrition);
+    } else {
+      const weight = weightPriority(row, weightsFor(signals, row.client.id));
+      if (weight) items.push(weight);
+    }
 
     if (row.alerts.includes('onboarding_incomplete')) {
       items.push(fromAlert(row, 'onboarding_incomplete', 'onboarding_incomplete', 'orange', 'overview'));

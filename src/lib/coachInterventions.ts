@@ -144,11 +144,12 @@ export function parseCalorieDraft(payload: unknown): CalorieDraft | null {
   const root = asRecord(payload);
   if (!root) return null;
   const src = asRecord(root.nutrition) ?? root;
-  if (src.calories == null && src.protein == null && src.carbs == null && src.fat == null) {
+  const calories = src.calories ?? src.suggested_calories;
+  if (calories == null && src.protein == null && src.carbs == null && src.fat == null) {
     return null;
   }
   return {
-    calories: Math.round(asNumber(src.calories, 0)),
+    calories: Math.round(asNumber(calories, 0)),
     protein: Math.round(asNumber(src.protein, 0)),
     carbs: Math.round(asNumber(src.carbs, 0)),
     fat: Math.round(asNumber(src.fat, 0)),
@@ -189,6 +190,14 @@ export function interventionHref(row: Pick<CoachIntervention, 'kind' | 'client_i
   }
   if (row.client_id) return `/clients/${row.client_id}/draft/${row.id}`;
   return `/inbox/${row.id}`;
+}
+
+/** À approuver calorie draft = coaching pass on Progression, not the editor. */
+export function coachingPassHref(row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id'>): string {
+  if (row.kind === 'calorie_adjustment' && row.client_id) {
+    return `/clients/${row.client_id}?tab=progress`;
+  }
+  return interventionHref(row);
 }
 
 const KINDS: CoachInterventionKind[] = [

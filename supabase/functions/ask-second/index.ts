@@ -19,7 +19,7 @@ const corsHeaders = {
 };
 
 const WEBHOOK_TIMEOUT_MS = 5000;
-const PING_KINDS = new Set(["onboarding_plan", "ask_prometheus", "program_nl_edit"]);
+const PING_KINDS = new Set(["onboarding_plan", "ask_prometheus", "program_nl_edit", "calorie_adjustment"]);
 
 function json(status: number, body: Record<string, unknown>) {
   return new Response(JSON.stringify(body), {
@@ -119,6 +119,8 @@ Deno.serve(async (req: Request) => {
         ? "Programme IA — brouillon Second"
         : kind === "program_nl_edit"
         ? "Édition programme — brouillon Second"
+        : kind === "calorie_adjustment"
+        ? "Calories trop élevées — stall cut"
         : "Ask Prometheus — brouillon Second";
 
     const payload = {

@@ -141,7 +141,7 @@ export function rosterHitsForFilter(
   if (filter === 'pain') return painHits(opsRows, signals.checkins, Math.max(7, weeks * 7));
   if (filter === 'stalled') return stallHits(opsRows, signals.lifts);
   if (filter === 'adherence') return priorityHits(priorities, ['dropped_adherence', 'missed_workout']);
-  if (filter === 'weight') return priorityHits(priorities, ['weight_off_trajectory']);
+  if (filter === 'weight') return priorityHits(priorities, ['weight_off_trajectory', 'nutrition_stall']);
   if (filter === 'checkin') return priorityHits(priorities, ['missed_checkin']);
   return priorityHits(priorities, ['missed_workout', 'missed_checkin', 'missed_nutrition']);
 }

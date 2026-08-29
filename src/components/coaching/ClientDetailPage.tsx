@@ -14,14 +14,20 @@ import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
 import { formatDate, formatDuration, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { GOALS } from '../../lib/constants';
+import { interventionHref } from '../../lib/coachInterventions';
+import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
+import { flagKindForClient, focusCheckin, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
+import {
+  canAskCalorieAdjustment,
+  detectCutCalorieStall,
+  secondCaloriePrompt,
+} from '../../lib/coachNutrition';
+import { relanceThreadHref } from '../../lib/coachQueue';
 import { displayName } from '../../lib/coachText';
 import { findLift, liftsForClient } from '../../lib/coachLifts';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { sparklineValues, weightChartPoints } from '../../lib/coachProgress';
-import { interventionHref } from '../../lib/coachInterventions';
-import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
-import { flagKindForClient, focusCheckin, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
 import {
   DEFAULT_COACH_VISIBLE_TABS,
   type CoachClientTab,
@@ -43,6 +49,7 @@ import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
 import ExerciseWorkspace from './ExerciseWorkspace';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
+import NutritionStallPanel from './NutritionStallPanel';
 import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
 
@@ -73,7 +80,7 @@ export default function ClientDetailPage() {
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, coachSettings, fetchCoachSettings,
-    pendingInterventions, endClientLink,
+    pendingInterventions, endClientLink, askSecond,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment } = useProgramStore();
 
@@ -99,6 +106,7 @@ export default function ClientDetailPage() {
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [askingCalories, setAskingCalories] = useState(false);
 
   const client = clients.find(c => c.id === id);
   const ops = opsRows.find(r => r.client.id === id);
@@ -189,6 +197,24 @@ export default function ClientDetailPage() {
   );
   const week = programWeekLabel(rosterSignals.assignmentStart[id ?? ''], rosterSignals.assignmentWeeks[id ?? '']);
   const clientPriorities = priorities.filter(p => p.clientId === id).slice(0, 4);
+  const relanceHref = id ? relanceThreadHref(id, 'general_followup') : '';
+  const calorieDraft = id ? pendingForClient(pendingInterventions, id, 'calorie_adjustment') : null;
+  const nutritionStall = useMemo(() => {
+    if (!id || !client) return null;
+    const stallWeights = weights.length > 0
+      ? weights
+      : rosterSignals.weights.filter(w => w.user_id === id);
+    return detectCutCalorieStall({
+      clientId: id,
+      goal: client.goal,
+      calorieTarget: rosterSignals.calorieTargets[id] ?? client.daily_calorie_target ?? 0,
+      logs: rosterSignals.nutritionLogs,
+      weights: stallWeights,
+      today: todayStr(),
+    });
+  }, [id, client, rosterSignals.calorieTargets, rosterSignals.nutritionLogs, rosterSignals.weights, weights]);
+  const showNutritionPass = !!nutritionStall || !!calorieDraft;
+  const canAskCalories = canAskCalorieAdjustment(nutritionStall) && !calorieDraft;
 
   const handleOpenWorkout = async (workoutId: string) => {
     const full = await fetchClientWorkout(workoutId);
@@ -209,6 +235,35 @@ export default function ClientDetailPage() {
     }
     setNoteBody('');
     toast(t('coaching.noteSaved'));
+  };
+
+  const handleAskCalories = async () => {
+    if (!id || !client || !canAskCalories) return;
+    setAskingCalories(true);
+    const delta = nutritionStall
+      ? (nutritionStall.weightDeltaKg > 0 ? `+${nutritionStall.weightDeltaKg}` : String(nutritionStall.weightDeltaKg))
+      : '—';
+    const result = await askSecond({
+      kind: 'calorie_adjustment',
+      clientId: id,
+      prompt: secondCaloriePrompt({
+        name: displayName(client),
+        avg: nutritionStall?.avgCalories ?? 0,
+        target: nutritionStall?.calorieTarget ?? 0,
+        delta,
+      }),
+      screen: 'client_progress',
+      context: {
+        avg_calories: nutritionStall?.avgCalories ?? 0,
+        calorie_target: nutritionStall?.calorieTarget ?? 0,
+        weight_delta: nutritionStall?.weightDeltaKg ?? 0,
+        goal: client.goal,
+      },
+    });
+    setAskingCalories(false);
+    if ('error' in result) {
+      toast(t('coaching.second.failed'), 'error');
+    }
   };
 
   const handleRemoveClient = async () => {
@@ -500,7 +555,17 @@ export default function ClientDetailPage() {
           <div className="space-y-3">
             <WeightChart points={weightChartPoints(weights)} />
             <NutritionChart points={nutritionDays} />
-            <ProgressPhotoCompare photos={photos} urls={photoUrls} />
+            {showNutritionPass && id && (
+              <NutritionStallPanel
+                relanceHref={relanceHref}
+                draftHref={calorieDraft ? interventionHref(calorieDraft) : null}
+                canAskSecond={canAskCalories}
+                asking={askingCalories}
+                liveDraft={calorieDraft}
+                onAskSecond={() => { void handleAskCalories(); }}
+              />
+            )}
+            <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
             {lifts.length === 0 ? (
               <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.workouts')}</Card>
             ) : lifts.map(l => (
@@ -591,7 +656,7 @@ export default function ClientDetailPage() {
                 <span className="text-xs text-neutral-500 ml-auto">{w.measured_at.slice(0, 10)}</span>
               </Card>
             ))}
-            <ProgressPhotoCompare photos={photos} urls={photoUrls} />
+            <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
           </div>
         ) : (
           <div className="space-y-3">

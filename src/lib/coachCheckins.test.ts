@@ -71,6 +71,8 @@ function signals(checkins: DailyCheckin[]): CoachRosterSignals {
     checkins,
     weights: [],
     lifts: [],
+    nutritionLogs: [],
+    calorieTargets: {},
     lastNoteAt: {},
     lastInterventionAt: {},
     assignmentStart: {},

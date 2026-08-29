@@ -1,101 +1,131 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Card from '../ui/Card';
-import type { ProgressPhoto, ProgressPhotoKind } from '../../lib/types';
-
-const KINDS: ProgressPhotoKind[] = ['front', 'side', 'back'];
+import Button from '../ui/Button';
+import type { ProgressPhoto } from '../../lib/types';
+import {
+  defaultComparePair,
+  photoCompareKind,
+  resolveComparePair,
+  sortedProgressPhotos,
+} from '../../lib/coachPhotos';
 
 export default function ProgressPhotoCompare({
   photos,
   urls,
+  relanceHref,
 }: {
   photos: ProgressPhoto[];
   urls: Record<string, string>;
+  relanceHref?: string | null;
 }) {
   const { t } = useTranslation();
-  const [kind, setKind] = useState<ProgressPhotoKind>('front');
-  const ofKind = useMemo(
-    () => photos.filter(p => p.kind === kind).sort((a, b) => a.taken_at.localeCompare(b.taken_at)),
-    [photos, kind],
-  );
-  const [beforeId, setBeforeId] = useState<string>('');
-  const [afterId, setAfterId] = useState<string>('');
+  const navigate = useNavigate();
+  const sorted = useMemo(() => sortedProgressPhotos(photos), [photos]);
+  const kind = photoCompareKind(sorted);
+  const defaults = useMemo(() => defaultComparePair(sorted), [sorted]);
+  const [oldestId, setOldestId] = useState(defaults.oldest?.id ?? '');
+  const [newestId, setNewestId] = useState(defaults.newest?.id ?? '');
 
   useEffect(() => {
-    if (ofKind.length === 0) {
-      setBeforeId('');
-      setAfterId('');
-      return;
-    }
-    setBeforeId(ofKind[0].id);
-    setAfterId(ofKind[ofKind.length - 1].id);
-  }, [ofKind]);
+    setOldestId(defaults.oldest?.id ?? '');
+    setNewestId(defaults.newest?.id ?? '');
+  }, [defaults.oldest?.id, defaults.newest?.id]);
 
-  const before = ofKind.find(p => p.id === beforeId);
-  const after = ofKind.find(p => p.id === afterId);
+  const pair = resolveComparePair(sorted, oldestId, newestId);
 
-  if (photos.length === 0) {
-    return <Card className="text-sm text-neutral-500">{t('coaching.photos.emptyCoach')}</Card>;
+  if (kind === 'empty') {
+    return (
+      <Card className="space-y-3">
+        <p className="text-[11px] uppercase tracking-wider text-neutral-500">{t('coaching.photos.compareTitle')}</p>
+        <p className="text-sm text-neutral-300">{t('coaching.photos.emptyCoachRelance')}</p>
+        {relanceHref ? (
+          <Button size="sm" onClick={() => navigate(relanceHref)}>
+            {t('coaching.queue.relance')}
+          </Button>
+        ) : null}
+      </Card>
+    );
   }
 
   return (
     <Card className="space-y-3">
       <p className="text-[11px] uppercase tracking-wider text-neutral-500">{t('coaching.photos.compareTitle')}</p>
-      <div className="flex gap-1">
-        {KINDS.map(k => (
-          <button
-            key={k}
-            type="button"
-            onClick={() => setKind(k)}
-            className={`px-2.5 py-1 rounded-lg text-[11px] ${kind === k ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400'}`}
-          >
-            {t(`coaching.photos.kinds.${k}`)}
-          </button>
-        ))}
+      {sorted.length >= 2 && (
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11px] text-neutral-500">
+            {t('coaching.photos.oldest')}
+            <select
+              value={oldestId}
+              onChange={e => setOldestId(e.target.value)}
+              className="mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-white"
+            >
+              {sorted.map(p => (
+                <option key={p.id} value={p.id}>{p.taken_at} · {t(`coaching.photos.kinds.${p.kind}`)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[11px] text-neutral-500">
+            {t('coaching.photos.newest')}
+            <select
+              value={newestId}
+              onChange={e => setNewestId(e.target.value)}
+              className="mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-white"
+            >
+              {sorted.map(p => (
+                <option key={p.id} value={p.id}>{p.taken_at} · {t(`coaching.photos.kinds.${p.kind}`)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-2">
+        <PhotoSlot
+          label={t('coaching.photos.oldest')}
+          photo={pair.oldest}
+          url={pair.oldest ? urls[pair.oldest.id] : undefined}
+          emptyHint={t('coaching.photos.slotEmpty')}
+        />
+        <PhotoSlot
+          label={t('coaching.photos.newest')}
+          photo={pair.newest}
+          url={pair.newest ? urls[pair.newest.id] : undefined}
+          emptyHint={kind === 'single' ? t('coaching.photos.needSecond') : t('coaching.photos.slotEmpty')}
+        />
       </div>
-      {ofKind.length < 2 ? (
-        <p className="text-xs text-neutral-500">{t('coaching.photos.needTwo')}</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-[11px] text-neutral-500">
-              {t('coaching.photos.before')}
-              <select
-                value={beforeId}
-                onChange={e => setBeforeId(e.target.value)}
-                className="mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-white"
-              >
-                {ofKind.map(p => (
-                  <option key={p.id} value={p.id}>{p.taken_at}</option>
-                ))}
-              </select>
-            </label>
-            <label className="text-[11px] text-neutral-500">
-              {t('coaching.photos.after')}
-              <select
-                value={afterId}
-                onChange={e => setAfterId(e.target.value)}
-                className="mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-white"
-              >
-                {ofKind.map(p => (
-                  <option key={p.id} value={p.id}>{p.taken_at}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[before, after].map((photo, i) => (
-              <div key={photo?.id ?? i} className="rounded-xl overflow-hidden bg-neutral-950 aspect-[3/4]">
-                {photo && urls[photo.id] ? (
-                  <img src={urls[photo.id]} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs">—</div>
-                )}
-              </div>
-            ))}
-          </div>
-        </>
+      {kind === 'single' && relanceHref && (
+        <Button size="sm" variant="secondary" onClick={() => navigate(relanceHref)}>
+          {t('coaching.queue.relance')}
+        </Button>
       )}
     </Card>
+  );
+}
+
+function PhotoSlot({
+  label,
+  photo,
+  url,
+  emptyHint,
+}: {
+  label: string;
+  photo: { id: string; taken_at: string } | null;
+  url?: string;
+  emptyHint: string;
+}) {
+  return (
+    <div>
+      <p className="text-[11px] text-neutral-500 mb-1">{label}{photo ? ` · ${photo.taken_at}` : ''}</p>
+      <div className="rounded-xl overflow-hidden bg-neutral-950 aspect-[3/4]">
+        {photo && url ? (
+          <img src={url} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs px-3 text-center">
+            {emptyHint}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
