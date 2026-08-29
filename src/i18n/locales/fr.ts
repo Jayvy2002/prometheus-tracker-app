@@ -1016,11 +1016,13 @@ const fr = {
       setup: 'Configurer',
       openFile: 'Ouvrir la fiche',
       openSession: 'Voir la séance',
+      openRecovery: 'Voir la récup',
       skip: 'Passer',
       nextUp: 'Ensuite : {{names}}',
       draftBadge: 'brouillon',
       items: {
         new_pain: 'Douleur signalée ({{n}}/5)',
+        low_sleep: 'Sommeil court / mauvaise nuit',
         stalled_lift: '{{lift}} stagne',
         weight_off_trajectory: 'Hors trajectoire de poids',
         dropped_adherence: 'Adhérence entraînement en baisse',
@@ -1067,6 +1069,7 @@ const fr = {
     priority: {
       headlines: {
         new_pain: '{{name}} a signalé une douleur ({{n}}/5)',
+        low_sleep: '{{name}} a loggé un sommeil court',
         stalled_lift: '{{name}} — {{lift}} stagne',
         weight_off_trajectory: '{{name}} sort de la trajectoire de poids',
         dropped_adherence: '{{name}} a baissé l’adhérence entraînement',
@@ -1081,6 +1084,7 @@ const fr = {
       },
       details: {
         new_pain: 'Douleur articulaire {{n}}/5 (précédent {{prev}}). Ouvre Santé pour relire.',
+        low_sleep: 'Sommeil {{hours}} h · qualité {{quality}}/5. Ouvre Santé — Relance si tu dois parler.',
         stalled_lift: '{{lift}} n’a pas progressé sur {{n}} séances récentes.',
         weight_off_trajectory: 'Delta {{delta}} kg vs objectif {{goal}}.',
         dropped_adherence: 'Adhérence entraînement {{from}} → {{to}}.',
@@ -1120,6 +1124,21 @@ const fr = {
     },
     sessionReview: {
       title: 'Séances à relire',
+    },
+    recovery: {
+      title: 'Santé & récupération',
+      latest: 'Dernier check-in',
+      empty: 'Pas de check-in récent. Relance pour le prochain — on n’invente rien.',
+      sleep: 'Sommeil',
+      hours: '{{n}} h',
+      pain: 'Douleur / gêne',
+      energy: 'Énergie',
+      soreness: 'Courbatures',
+      trendHint: 'Tendance = valeurs loggées, pas un score inventé.',
+      relanceHint: 'Relance ouvre le fil avec un brouillon. Rien ne part tout seul.',
+      askAdjust: 'Demander un ajustement',
+      askAdjustHint: 'Second rédige un brouillon à partir de la douleur loggée. Tu édites, puis tu envoies. Rien ne s’applique. Ce n’est pas un avis médical.',
+      askAdjustPrompt: '{{name}} a loggé douleur {{pain}}/5 le {{date}}. Sommeil {{sleep}}. Notes : {{notes}}.\nPropose un ajustement léger du programme si besoin. N’applique rien, ne diagnostique pas — le coach édite puis envoie.',
     },
     trainingLift: {
       title: 'Évolution',

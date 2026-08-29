@@ -74,6 +74,14 @@ export function resolveQueueAction(
     };
   }
 
+  if (priority.kind === 'new_pain' || priority.kind === 'low_sleep') {
+    return {
+      kind: 'open_360',
+      href: priority.href,
+      ctaKey: 'coaching.queue.openRecovery',
+    };
+  }
+
   const match = matchingPendingIntervention(priority, pending);
   if (match) {
     const setup = match.kind === 'onboarding_plan';

@@ -1,4 +1,5 @@
 import { relanceThreadHref } from './coachQueue';
+import { recoveryFocusHref } from './coachRecovery';
 import { displayName } from './coachText';
 import type {
   CheckinReviewKind,
@@ -110,7 +111,9 @@ export function checkinReviewRows(
       clientName: displayName(ops.client),
       avatarUrl: ops.client.avatar_url,
       checkin: latest,
-      href: checkinFocusHref(ops.client.id, latest.id),
+      href: kind === 'new_pain'
+        ? recoveryFocusHref(ops.client.id, latest.id)
+        : checkinFocusHref(ops.client.id, latest.id),
       kind,
       relanceHref: relanceHrefForCheckin(ops.client.id, kind),
     });

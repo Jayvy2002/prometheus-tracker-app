@@ -396,6 +396,7 @@ export type CoachPrioritySeverity = 'red' | 'orange' | 'yellow';
 
 export type CoachPriorityKind =
   | 'new_pain'
+  | 'low_sleep'
   | 'stalled_lift'
   | 'weight_off_trajectory'
   | 'nutrition_stall'
@@ -729,6 +730,22 @@ export interface DailyCheckin {
   notes: string;
   created_at: string;
   updated_at: string;
+}
+
+/** Latest recovery fields from a check-in — logged values only, no invented score. */
+export interface RecoverySnapshot {
+  checkin: DailyCheckin;
+  sleepHours: number | null;
+  sleepQuality: number | null;
+  pain: number | null;
+  soreness: number | null;
+  energy: number | null;
+  notes: string;
+  trend: {
+    sleepHours: number[];
+    pain: number[];
+    energy: number[];
+  };
 }
 
 export type DailyCheckinInput = Partial<Omit<DailyCheckin, 'id' | 'user_id' | 'created_at' | 'updated_at'>> & {

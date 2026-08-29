@@ -149,10 +149,10 @@ test('File du jour check-in items keep the fiche deep-link, not the client overv
       clientId: 'marie',
       clientName: 'Marie Dupont',
       kind: 'new_pain',
-      href: '/clients/marie?tab=checkins&checkin=ck-pain',
+      href: '/clients/marie?tab=health&checkin=ck-pain',
       checkinId: 'ck-pain',
     }),
   ]);
-  assert.equal(groups[0]?.items[0]?.href, '/clients/marie?tab=checkins&checkin=ck-pain');
+  assert.equal(groups[0]?.items[0]?.href, '/clients/marie?tab=health&checkin=ck-pain');
   assert.equal(groups[0]?.items[0]?.checkinId, 'ck-pain');
 });

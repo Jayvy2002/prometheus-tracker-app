@@ -39,6 +39,7 @@ export default function CoachTodayQueue() {
   const upcomingNames = nextClientNames(groups);
   const relanceHref = current ? relanceHrefForGroup(current, pendingInterventions) : null;
   const sessionAction = current?.items.find(item => item.kind === 'session_logged') ?? null;
+  const recoveryAction = current?.items.find(item => item.kind === 'new_pain' || item.kind === 'low_sleep') ?? null;
   const setupAction = current
     ? current.items.map(item => resolveQueueAction(item, pendingInterventions)).find(a => a.kind === 'open_setup' || a.kind === 'open_draft')
     : null;
@@ -121,12 +122,17 @@ export default function CoachTodayQueue() {
               {t('coaching.queue.openSession')}
             </Button>
           )}
+          {recoveryAction?.href && (
+            <Button size="sm" variant={sessionAction ? 'secondary' : 'primary'} onClick={() => navigate(recoveryAction.href)}>
+              {t('coaching.queue.openRecovery')}
+            </Button>
+          )}
           {relanceHref && (
-            <Button size="sm" variant={sessionAction ? 'secondary' : 'primary'} onClick={() => navigate(relanceHref)}>
+            <Button size="sm" variant={sessionAction || recoveryAction ? 'secondary' : 'primary'} onClick={() => navigate(relanceHref)}>
               {t('coaching.queue.relance')}
             </Button>
           )}
-          {!relanceHref && !sessionAction && setupAction?.href && (
+          {!relanceHref && !sessionAction && !recoveryAction && setupAction?.href && (
             <Button size="sm" onClick={() => navigate(setupAction.href!)}>
               {t(setupAction.ctaKey)}
             </Button>

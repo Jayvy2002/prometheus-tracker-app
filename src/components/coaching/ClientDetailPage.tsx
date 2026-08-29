@@ -24,6 +24,11 @@ import {
 } from '../../lib/coachNutrition';
 import { relanceThreadHref } from '../../lib/coachQueue';
 import { lastSessionFromLifts, lastSessionFromWorkout } from '../../lib/coachLastSession';
+import {
+  recoverySnapshot,
+  relanceHrefForRecovery,
+  resolveClientTab,
+} from '../../lib/coachRecovery';
 import { displayName } from '../../lib/coachText';
 import { liftsForClient } from '../../lib/coachLifts';
 import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
@@ -36,9 +41,7 @@ import {
   type ClientLiftProgress,
   type DailyCheckin,
   type DailyNutritionPoint,
-  type NutritionLog,
   type ProgressPhoto,
-  type WaterLog,
   type WeightMeasurement,
   type Workout,
 } from '../../lib/types';
@@ -50,6 +53,7 @@ import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
 import ClientLiftChart from './ClientLiftChart';
 import LastSessionReview from './LastSessionReview';
+import RecoverySnapshotPanel from './RecoverySnapshotPanel';
 import ExerciseWorkspace from './ExerciseWorkspace';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
 import NutritionStallPanel from './NutritionStallPanel';
@@ -79,7 +83,7 @@ export default function ClientDetailPage() {
   const { user } = useAuthStore();
   const {
     clients, fetchClients, fetchClientWorkouts, fetchClientWorkout,
-    fetchClientNutrition, fetchClientWeight, fetchClientCheckins, fetchClientProfile,
+    fetchClientWeight, fetchClientCheckins, fetchClientProfile,
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, coachSettings, fetchCoachSettings,
@@ -88,17 +92,13 @@ export default function ClientDetailPage() {
   const { fetchMyAssignment, assignment } = useProgramStore();
 
   const checkinId = parseCheckinQuery(searchParams.get('checkin'));
-  const tab = (checkinId && !searchParams.get('tab')
-    ? 'checkins'
-    : (searchParams.get('tab') as CoachClientTab) || 'overview');
+  const tab = resolveClientTab(searchParams.get('tab'), checkinId);
   const exerciseHint = parseExerciseQuery(searchParams.get('exercise'));
   const workoutQuery = parseWorkoutQuery(searchParams.get('workout'));
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [openWorkout, setOpenWorkout] = useState<Workout | null>(null);
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
-  const [logs, setLogs] = useState<NutritionLog[]>([]);
-  const [water, setWater] = useState<WaterLog[]>([]);
   const [weights, setWeights] = useState<WeightMeasurement[]>([]);
   const [loading, setLoading] = useState(true);
   const [noteBody, setNoteBody] = useState('');
@@ -132,7 +132,6 @@ export default function ClientDetailPage() {
     Promise.all([
       fetchClientWorkouts(id).then(setWorkouts),
       fetchClientCheckins(id).then(setCheckins),
-      fetchClientNutrition(id, todayStr()).then(r => { setLogs(r.logs); setWater(r.water); }),
       fetchClientWeight(id).then(setWeights),
       fetchNotes(id),
       fetchClientProfile(id).then(async profile => {
@@ -153,7 +152,7 @@ export default function ClientDetailPage() {
     params.set('tab', next);
     if (next !== 'training' && next !== 'progress') params.delete('exercise');
     if (next !== 'training') params.delete('workout');
-    if (next !== 'checkins') params.delete('checkin');
+    if (next !== 'checkins' && next !== 'health') params.delete('checkin');
     if (extra) {
       for (const [k, v] of Object.entries(extra)) {
         if (v) params.set(k, v);
@@ -223,6 +222,10 @@ export default function ClientDetailPage() {
   }, [ops, rosterSignals, insightWorkouts, visitAnchor]);
   const checkinSummary = useMemo(() => summarizeCheckin(checkins), [checkins]);
   const focusedCheckin = useMemo(() => focusCheckin(checkins, checkinId), [checkins, checkinId]);
+  const recoveryView = useMemo(
+    () => recoverySnapshot(checkins, { today: todayStr(), checkinId }),
+    [checkins, checkinId],
+  );
   const kpis = useMemo(
     () => insight ? clientKpis(insight, checkinSummary, lifts, weights) : null,
     [insight, checkinSummary, lifts, weights],
@@ -658,27 +661,24 @@ export default function ClientDetailPage() {
           </div>
         ) : tab === 'health' ? (
           <div className="space-y-3">
-            <CheckinSummaryCard summary={checkinSummary} onSeeAnswers={() => setTab('checkins')} />
-            <Card>
-              <p className="text-xs text-neutral-500 mb-2">{t('common.today')}</p>
-              <p className="text-sm text-white">
-                {Math.round(logs.reduce((s, l) => s + l.calories, 0))} kcal ·
-                P {Math.round(logs.reduce((s, l) => s + l.protein, 0))}g ·
-                C {Math.round(logs.reduce((s, l) => s + l.carbs, 0))}g ·
-                F {Math.round(logs.reduce((s, l) => s + l.fat, 0))}g
-              </p>
-              <p className="text-xs text-neutral-500 mt-1">
-                {t('coaching.water')}: {water.reduce((s, w) => s + w.amount_ml, 0)} ml
-              </p>
-            </Card>
-            {weights.slice(0, 8).map(w => (
-              <Card key={w.id} className="flex items-center gap-3">
-                <Scale size={16} className="text-emerald-400" />
-                <span className="text-sm text-white font-medium">{w.weight_kg} kg</span>
-                <span className="text-xs text-neutral-500 ml-auto">{w.measured_at.slice(0, 10)}</span>
+            {id && recoveryView ? (
+              <RecoverySnapshotPanel
+                clientId={id}
+                client={client}
+                snapshot={recoveryView}
+                relanceHref={relanceHrefForRecovery(id, true)}
+              />
+            ) : (
+              <Card className="space-y-3">
+                <p className="text-[11px] uppercase tracking-wider text-rose-300">{t('coaching.recovery.title')}</p>
+                <p className="text-sm text-neutral-300">{t('coaching.recovery.empty')}</p>
+                {id ? (
+                  <Button size="sm" onClick={() => navigate(relanceHrefForRecovery(id, false))}>
+                    {t('coaching.queue.relance')}
+                  </Button>
+                ) : null}
               </Card>
-            ))}
-            <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+            )}
           </div>
         ) : (
           <div className="space-y-3">

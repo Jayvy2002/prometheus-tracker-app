@@ -91,7 +91,7 @@ test('check-in deep-link opens the fiche Check-ins tab with that check-in id', (
   assert.equal(checkinFocusHref('marie-id'), '/clients/marie-id?tab=checkins');
 });
 
-test('File du jour pain/adherence items deep-link to that check-in, not the overview', () => {
+test('File du jour pain/adherence items deep-link to Santé for pain, Check-ins otherwise', () => {
   const marie = client('marie-id', 'Marie Dupont');
   const latest = checkin({
     id: 'ck-pain',
@@ -113,7 +113,7 @@ test('File du jour pain/adherence items deep-link to that check-in, not the over
   const pain = priorities.find(p => p.kind === 'new_pain');
   assert.ok(pain);
   assert.equal(pain?.checkinId, 'ck-pain');
-  assert.equal(pain?.href, '/clients/marie-id?tab=checkins&checkin=ck-pain');
+  assert.equal(pain?.href, '/clients/marie-id?tab=health&checkin=ck-pain');
   assert.equal(checkinIdFromHref(pain?.href ?? ''), 'ck-pain');
 });
 
@@ -133,7 +133,8 @@ test('CHECK-INS À RELIRE lists the latest unread check-in; Relancer is the #21 
   );
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.checkin.id, 'ck-unread');
-  assert.equal(rows[0]?.href, '/clients/marie-id?tab=checkins&checkin=ck-unread');
+  assert.equal(rows[0]?.href, '/clients/marie-id?tab=health&checkin=ck-unread');
+  assert.equal(rows[0]?.kind, 'new_pain');
   assert.equal(rows[0]?.relanceHref, '/messages/marie-id?nudge=general_followup');
   assert.equal(relanceHrefForCheckin('marie-id', 'new_pain'), '/messages/marie-id?nudge=general_followup');
 });

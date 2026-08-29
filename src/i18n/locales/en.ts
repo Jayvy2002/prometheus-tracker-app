@@ -1016,11 +1016,13 @@ const en = {
       setup: 'Set up',
       openFile: 'Open file',
       openSession: 'See session',
+      openRecovery: 'See recovery',
       skip: 'Skip',
       nextUp: 'Next: {{names}}',
       draftBadge: 'draft',
       items: {
         new_pain: 'Pain reported ({{n}}/5)',
+        low_sleep: 'Short / poor sleep',
         stalled_lift: '{{lift}} stalled',
         weight_off_trajectory: 'Off weight trajectory',
         dropped_adherence: 'Training adherence dropped',
@@ -1067,6 +1069,7 @@ const en = {
     priority: {
       headlines: {
         new_pain: '{{name}} reported new pain ({{n}}/5)',
+        low_sleep: '{{name}} logged short sleep',
         stalled_lift: '{{name}} — {{lift}} stalled',
         weight_off_trajectory: '{{name}} is off weight trajectory',
         dropped_adherence: '{{name}} dropped training adherence',
@@ -1081,6 +1084,7 @@ const en = {
       },
       details: {
         new_pain: 'Latest joint pain {{n}}/5 (previous {{prev}}). Open health to review.',
+        low_sleep: 'Sleep {{hours}} h · quality {{quality}}/5. Open Santé — nudge if you need to talk.',
         stalled_lift: '{{lift}} has not progressed across {{n}} recent sessions.',
         weight_off_trajectory: 'Delta {{delta}} kg vs goal {{goal}}.',
         dropped_adherence: 'Training adherence {{from}} → {{to}}.',
@@ -1120,6 +1124,21 @@ const en = {
     },
     sessionReview: {
       title: 'Sessions to review',
+    },
+    recovery: {
+      title: 'Health & recovery',
+      latest: 'Latest check-in',
+      empty: 'No recent check-in. Nudge for the next one — nothing is invented.',
+      sleep: 'Sleep',
+      hours: '{{n}} h',
+      pain: 'Pain / discomfort',
+      energy: 'Energy',
+      soreness: 'Soreness',
+      trendHint: 'Trend = logged values, not an invented score.',
+      relanceHint: 'Nudge opens the thread with a draft. Nothing sends itself.',
+      askAdjust: 'Ask for an adjustment',
+      askAdjustHint: 'Second drafts from the logged pain. You edit, then send. Nothing applies. This is not medical advice.',
+      askAdjustPrompt: '{{name}} logged pain {{pain}}/5 on {{date}}. Sleep {{sleep}}. Notes: {{notes}}.\nSuggest a light program tweak if needed. Apply nothing, do not diagnose — the coach edits then sends.',
     },
     trainingLift: {
       title: 'Lift trend',

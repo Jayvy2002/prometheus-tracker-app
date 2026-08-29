@@ -4,6 +4,7 @@ import { nutritionStallFocusHref, nutritionStallPriority, normalizeGoal } from '
 import { displayName } from './coachText';
 import { liftsForClient } from './coachLifts';
 import { sessionLoggedPriority } from './coachLastSession';
+import { lowSleepPriority, painPriority } from './coachRecovery';
 import { pickDefaultLift, trainingFocusHref } from './coachTraining';
 import { todayStr } from './utils';
 import type {
@@ -45,27 +46,6 @@ function weightsFor(signals: CoachRosterSignals, clientId: string): WeightMeasur
   return signals.weights
     .filter(w => w.user_id === clientId)
     .sort((a, b) => b.measured_at.localeCompare(a.measured_at));
-}
-
-function painPriority(clientId: string, name: string, avatar: string, latest: DailyCheckin, prev: DailyCheckin | null): CoachPriority | null {
-  const pain = latest.joint_pain;
-  if (pain == null) return null;
-  const jumped = prev?.joint_pain != null && pain >= 3 && pain > (prev.joint_pain ?? 0);
-  if (pain < 3 && !jumped) return null;
-  const red = pain >= 4 || jumped;
-  return {
-    id: `${clientId}-pain`,
-    clientId,
-    clientName: name,
-    avatarUrl: avatar,
-    kind: 'new_pain',
-    severity: red ? 'red' : 'orange',
-    headlineKey: 'coaching.priority.headlines.new_pain',
-    headlineParams: { name, n: pain },
-    detailKey: 'coaching.priority.details.new_pain',
-    detailParams: { n: pain, prev: prev?.joint_pain ?? '—' },
-    href: hrefFor(clientId, 'health'),
-  };
 }
 
 function adherencePriority(clientId: string, name: string, avatar: string, latest: DailyCheckin, prev: DailyCheckin | null): CoachPriority | null {
@@ -167,8 +147,10 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
     const prev = checkins[1] ?? null;
 
     if (latest) {
-      const pain = painPriority(row.client.id, name, row.client.avatar_url, latest, prev);
-      if (pain) items.push(withCheckin(pain, latest));
+      const pain = painPriority(row.client.id, name, row.client.avatar_url, latest, prev, todayStr());
+      if (pain) items.push(pain);
+      const sleep = lowSleepPriority(row.client.id, name, row.client.avatar_url, latest, todayStr());
+      if (sleep) items.push(sleep);
       const adh = adherencePriority(row.client.id, name, row.client.avatar_url, latest, prev);
       if (adh) items.push(withCheckin(adh, latest));
     }
