@@ -38,6 +38,10 @@ test('coach-agent paths never ping GROK_BOT_WEBHOOK_URL', () => {
   assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /api\.x\.ai/);
   assert.match(fleet, /OPENAI_API_KEY/);
+  assert.match(fleet, /fleetCardNeedsLlm/);
+  const readme = source('README.md');
+  assert.doesNotMatch(readme, /GROK_BOT_WEBHOOK_URL \| Second webhook/);
+  assert.match(readme, /Do not set `GROK_BOT_WEBHOOK_URL`/);
 });
 
 test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {

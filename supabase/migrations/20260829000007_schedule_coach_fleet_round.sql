@@ -1,4 +1,5 @@
--- Nightly fleet round on the coaching copy only (phyuijjekxtjvipjtdfv).
+-- Nightly in-app fleet round on the coaching copy only (phyuijjekxtjvipjtdfv).
+-- Architecture lock 2026-08-29: no Grok Bots / no Second ping.
 -- Do not apply to backup nebysjpqifqphvmveowe. Secret stays in vault, never git.
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;

@@ -1,13 +1,14 @@
--- Schedule coach-fleet-round via pg_cron + pg_net + vault.
+-- Schedule in-app coach-fleet-round via pg_cron + pg_net + vault.
+-- Architecture lock 2026-08-29: no Grok Bots. This cron is NOT a Second ping.
 -- Coaching copy: phyuijjekxtjvipjtdfv. Do not apply to backup nebysjpqifqphvmveowe.
 -- Never bake SERVICE_ROLE_KEY in git. The invoke function reads vault at runtime
--- (GROK_BOT_WEBHOOK_SECRET / FLEET_CRON_SECRET), same pattern as notify_onboarding.
+-- (FLEET_CRON_SECRET, fallback GROK_BOT_WEBHOOK_SECRET as HMAC only).
 --
 -- 1. pg_cron + pg_net enabled (coaching copy already has both).
--- 2. Edge Function coach-fleet-round: set GROK_BOT_WEBHOOK_SECRET or FLEET_CRON_SECRET
---    to the same vault value so the nightly POST authenticates. Optional XAI_API_KEY.
---    Without a model key the job still writes deterministic Relancer cards (IA off).
--- 3. Nightly 04:00 UTC. JWT is not used here.
+-- 2. Edge Function coach-fleet-round: set FLEET_CRON_SECRET (or GROK_BOT_WEBHOOK_SECRET)
+--    to the same vault value so the nightly POST authenticates. OPENAI_API_KEY is
+--    optional and unused for Relancer / data-driven kcal.
+-- 3. Nightly 04:00 UTC. JWT is not used here. Never POST GROK_BOT_WEBHOOK_URL.
 
 CREATE OR REPLACE FUNCTION public.invoke_coach_fleet_round()
 RETURNS bigint

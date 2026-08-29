@@ -6,6 +6,7 @@ import {
   buildFleetCard,
   classifyFleetDossier,
   completeMacrosFor,
+  fleetCardNeedsLlm,
   fleetEvidenceFromDossier,
   isCompleteCalorieDraft,
   isRelanceKind,
@@ -692,6 +693,57 @@ test('normal cut loss → keep, no calorie_adjustment (keep-in-touch only if sil
   assert.equal(proposal.action, 'keep');
   assert.equal(proposal.draft, null);
   assert.equal(buildFleetCard(camille, TODAY), null);
+});
+
+test('fleetCardNeedsLlm is only for program copy — Relancer and kcal stay deterministic', () => {
+  assert.equal(fleetCardNeedsLlm('program_adjustment'), true);
+  assert.equal(fleetCardNeedsLlm('calorie_adjustment'), false);
+  assert.equal(fleetCardNeedsLlm('adherence_nutrition'), false);
+  assert.equal(fleetCardNeedsLlm('adherence_training'), false);
+  assert.equal(fleetCardNeedsLlm('keep_in_touch'), false);
+  assert.equal(fleetCardNeedsLlm('onboarding_plan'), false);
+  const marc = buildFleetCard(dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 13,
+    avg_calories: 2850,
+    avg_adherence_nutrition: 2,
+    weight_delta_kg: 0.5,
+  }), TODAY, 'off');
+  assert.ok(marc);
+  assert.equal(fleetCardNeedsLlm(marc!.kind), false);
+});
+
+test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', () => {
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
+  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.triage_coach_fleet'));
+  assert.match(fn, /FROM links l\s+JOIN public\.user_profiles p ON p\.id = l\.client_id/);
+  const fromLinks = fn.slice(fn.lastIndexOf('FROM links l'));
+  assert.doesNotMatch(fromLinks, /WHERE EXISTS/);
+  assert.doesNotMatch(fromLinks, /logged_nutrition_days\s*>\s*0/);
+  const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000011_fleet_in_app_weekly_review.sql'), 'utf8');
+  assert.match(lock, /DO NOT create Grok Bots/);
+  assert.match(lock, /COMMENT ON FUNCTION public\.triage_coach_fleet/);
+});
+
+test('architecture lock: weekly review is in-app, not Grok Bots or Second', () => {
+  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  assert.match(fleet, /fleetCardNeedsLlm/);
+  assert.match(fleet, /llm_skipped_deterministic/);
+  assert.match(fleet, /DO NOT create Grok Bots/);
+  assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
+  assert.doesNotMatch(fleet, /XAI_API_KEY|GROK_API_KEY|api\.x\.ai/);
+  const llmGate = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
+  assert.match(llmGate, /fleetCardNeedsLlm\(card\.kind\) && apiKey/);
+  const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
+  assert.match(readme, /Do \*\*not\*\* create Grok Bots/);
+  assert.doesNotMatch(readme, /XAI_API_KEY/);
+  assert.doesNotMatch(readme, /ping → Second/);
+  assert.doesNotMatch(readme, /coach drafts only, never food/);
+  const cron = readFileSync(resolve(process.cwd(), 'supabase/cron/schedule_coach_fleet_round.sql'), 'utf8');
+  assert.doesNotMatch(cron, /XAI_API_KEY/);
+  assert.match(cron, /no Grok Bots/);
 });
 
 test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {

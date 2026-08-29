@@ -27,6 +27,17 @@ export const KEEP_IN_TOUCH_DAYS = 7;
 /** Same signal stays quiet this long after send/dismiss/keep, unless evidence moves. */
 export const FLEET_HANDLE_COOLDOWN_DAYS = 7;
 
+/**
+ * Architecture lock 2026-08-29: no Grok Bots (per coach or per client).
+ * Weekly review is in-app (`coach-fleet-round` + cron). SQL triages every
+ * active client; Relancer templates and data-driven kcal are already complete
+ * proposals — do not spend an LLM call to rephrase them. LLM only for
+ * plan/program copy those formulas do not write. Never auto-apply. Never ping Second.
+ */
+export function fleetCardNeedsLlm(kind: CoachInterventionKind): boolean {
+  return kind === 'program_adjustment';
+}
+
 const RELANCE_KINDS = new Set<CoachInterventionKind>([
   'adherence_nutrition',
   'adherence_training',

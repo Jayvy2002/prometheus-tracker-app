@@ -4,19 +4,25 @@ import { openaiJson } from "../_shared/openaiJson.ts";
 import { fetchCoachLessons, formatLessonsForPrompt } from "../_shared/coachAgent.ts";
 
 /**
- * Fleet round IN THE APP — not Second.
- * Cheap SQL triage of every ACTIVE client, then one LLM (or deterministic
- * Relancer) per flagged client. Writes one coach_interventions row. Never applies.
+ * Architecture lock 2026-08-29 (Jayvy): DO NOT create Grok Bots.
+ * Second was too slow. One bot per coach or per client will not scale.
+ *
+ * Weekly review IN THE APP:
+ *   1. Cheap SQL (`triage_coach_fleet`) of EVERY active linked client.
+ *   2. Data-driven Relancer / kcal+P/C/F (ISSN is the starting formula only).
+ *   3. LLM only when there is a plan/program proposal the formulas do not write.
+ *   4. Writes coach_interventions drafts only. Never auto-applies. Never pings Second.
  *
  * Auth:
  *   JWT (logged-in coach) → that coach's roster, on-demand from Aujourd'hui / Prometheus
- *   service_role → all coaches (pg_cron nightly)
+ *   service_role / FLEET_CRON_SECRET → all coaches (pg_cron nightly)
+ *   GROK_BOT_WEBHOOK_SECRET is cron HMAC only — not a Grok Bot ping.
  *
  * Model:
- *   OPENAI_API_KEY → one coach-agent (OpenAI) call per flagged client
- *   missing key → IA off, deterministic Relancer / complete macros
+ *   OPENAI_API_KEY → optional, and only if fleetCardNeedsLlm (program_adjustment)
+ *   missing key / Relancer / kcal → deterministic templates + complete macros
  *
- * Never POSTs the Grok Bot webhook.
+ * Never POSTs GROK_BOT_WEBHOOK_URL. Never creates per-client/per-coach Grok Bots.
  */
 
 const corsHeaders = {
@@ -792,7 +798,12 @@ function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): Flee
   return null;
 }
 
-const SYSTEM_PROMPT = `Tu es l'IA de tournée coach de Prometheus. Tu prépares UNE action pour le coach. Rien ne s'applique tout seul.
+function fleetCardNeedsLlm(kind: string): boolean {
+  // Relancer templates + data-driven kcal are already the proposal.
+  return kind === "program_adjustment";
+}
+
+const SYSTEM_PROMPT = `Tu es l'IA de tournée coach de Prometheus. Tu n'es appelé QUE pour un ajustement de programme (program_adjustment). Relancer et kcal+macros sont déjà posés en déterministe. Rien ne s'applique tout seul.
 Règles (français, tutoiement, tu tutoyes le client dans le message) :
 - Si le client n'applique PAS la nutrition (logs >> cible, adhérence basse) : kind adherence_nutrition. Message Relancer. JAMAIS calorie_adjustment. JAMAIS « descends à 2000 » ni macros 0. On ne change PAS les cibles.
 - Séances manquées / ghost : adherence_training, Relancer. Pas de nouveau programme. Pas de chiffres de récup inventés. Ghost n'est PAS keep_in_touch (Relancer fort).
@@ -1028,6 +1039,7 @@ Deno.serve(async (req: Request) => {
     let flagged = 0;
     let skipped = 0;
     let llmCalls = 0;
+    let llmSkippedDeterministic = 0;
     const written: Array<{ client_id: string; flag: string; kind: string; title: string; action: string }> = [];
 
     for (const d of dossiers) {
@@ -1038,7 +1050,7 @@ Deno.serve(async (req: Request) => {
       }
       flagged += 1;
       let card = plan.card;
-      if (apiKey && llmCalls < MAX_LLM_PER_RUN) {
+      if (fleetCardNeedsLlm(card.kind) && apiKey && llmCalls < MAX_LLM_PER_RUN) {
         llmCalls += 1;
         let lessons = lessonsByCoach.get(d.coach_id);
         if (!lessons) {
@@ -1047,6 +1059,8 @@ Deno.serve(async (req: Request) => {
         }
         const llm = await callFleetAgent(apiKey, d, card.flag, lessons);
         if (llm) card = withEvidence(d, mergeLlm(llm, card, d));
+      } else if (!fleetCardNeedsLlm(card.kind)) {
+        llmSkippedDeterministic += 1;
       }
       const id = await writeCard(admin, d, card);
       if (id) {
@@ -1067,7 +1081,12 @@ Deno.serve(async (req: Request) => {
         clients_flagged: flagged,
         clients_skipped: skipped,
         model_used: modelUsed,
-        payload: { cards: written, llm_calls: llmCalls, ia_off: modelUsed === "off" },
+        payload: {
+          cards: written,
+          llm_calls: llmCalls,
+          llm_skipped_deterministic: llmSkippedDeterministic,
+          ia_off: modelUsed === "off",
+        },
       }).eq("id", roundId);
     }
 
@@ -1085,6 +1104,8 @@ Deno.serve(async (req: Request) => {
       clients_seen: dossiers.length,
       clients_flagged: flagged,
       clients_skipped: skipped,
+      llm_calls: llmCalls,
+      llm_skipped_deterministic: llmSkippedDeterministic,
       cards: written,
       round_id: roundId ?? null,
     });

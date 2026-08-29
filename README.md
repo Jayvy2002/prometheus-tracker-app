@@ -73,10 +73,12 @@ public/
 supabase/
 ├── migrations/                # SQL migrations (source of truth)
 └── functions/                 # Deno Edge Functions
-    ├── analyze-product/       # Food miss/photo → Second (kind analyze_product)
-    ├── ask-second/            # Coach copilot ping → Second (signed)
-    ├── notify-onboarding-complete/ # Onboarding ping → Second
-    ├── verify-exercise/       # Library miss → Second (kind verify_exercise)
+    ├── analyze-product/       # Food miss/photo → OpenAI in-app
+    ├── verify-exercise/       # Library miss → OpenAI in-app
+    ├── coach-agent/           # Coach Ask + programme IA (OpenAI sync, drafts only)
+    ├── ask-second/            # Alias → coach-agent (never Second / never a Grok Bot)
+    ├── coach-fleet-round/     # Weekly SQL triage of every active client + drafts
+    ├── notify-onboarding-complete/ # HMAC then in-app onboarding_plan draft
     ├── delete-account/
     └── send-daily-reminders/  # Web Push notifications via VAPID
     # Legacy (no longer called from the client after paywall removal):
@@ -91,7 +93,7 @@ supabase/
 
 - Node.js 20+
 - A [Supabase](https://supabase.com) project
-- Second (assistant-coach bot) webhook for copilot drafts — never OpenAI in-app
+- OpenAI API key on the coaching copy for in-app drafts (`OPENAI_API_KEY`). **Do not create Grok Bots** (per coach or per client) — weekly review is `coach-fleet-round` in the app.
 
 ### 1. Clone & install
 
@@ -140,17 +142,27 @@ The repo includes `netlify.toml` with build settings and SPA redirects pre-confi
 
 Connect the GitHub repo in Netlify → it will auto-deploy on every push to `main`.
 
-Non-secret build-time variables are committed in `.env.production` and picked up by Vite automatically. Sensitive server-side secrets (Second webhook, VAPID private key) must be set in **Supabase Dashboard → Edge Functions → Secrets**.
+Non-secret build-time variables are committed in `.env.production` and picked up by Vite automatically. Sensitive server-side secrets (OpenAI, VAPID private key) must be set in **Supabase Dashboard → Edge Functions → Secrets**.
+
+### Architecture lock (2026-08-29) — weekly coach review
+
+Do **not** create Grok Bots (one per coach or per client). Second was too slow; that will not scale.
+
+Weekly / on-demand review is **in the app**:
+1. `triage_coach_fleet` — cheap SQL of **every** active linked client (14-day aggregates, not raw logs).
+2. Data-driven Relancer / complete kcal+P/C/F. ISSN is the starting formula only. Never auto-write cibles.
+3. LLM **only** when there is a plan/program proposal the formulas do not write.
+4. Writes `coach_interventions` drafts only. The coach accepts / edits / sends. Never auto-applies. Never pings Second.
+
+Cron: `invoke_coach_fleet_round` → `coach-fleet-round`. Ask + « Créer un programme IA » go through `coach-agent` (sync OpenAI), not a bot.
 
 ### Required Supabase Edge Function secrets
 
 | Secret | Description |
 |---|---|
-| `OPENAI_API_KEY` | Direct OpenAI call in `analyze-product` / `verify-exercise` (not Second) |
-| `GROK_BOT_WEBHOOK_URL` | Second webhook URL (coaching copy only) — coach drafts only, never food/exercise |
-| `NOTIFY_SECRET` / `GROK_BOT_WEBHOOK_SECRET` | Shared secret for signed Second pings |
-| `XAI_API_KEY` / `GROK_API_KEY` | Optional in-app Grok key for fleet rounds (not Second). Missing key → deterministic Relancer. |
-| `FLEET_CRON_SECRET` | Optional nightly auth for `coach-fleet-round`. Falls back to `GROK_BOT_WEBHOOK_SECRET`. |
+| `OPENAI_API_KEY` | In-app OpenAI for `coach-agent`, `analyze-product`, `verify-exercise`. Fleet uses it only for `program_adjustment`. |
+| `NOTIFY_SECRET` / `GROK_BOT_WEBHOOK_SECRET` | HMAC / cron auth only — **not** a Grok Bot ping. Do not set `GROK_BOT_WEBHOOK_URL`. |
+| `FLEET_CRON_SECRET` | Preferred nightly auth for `coach-fleet-round`. Falls back to `GROK_BOT_WEBHOOK_SECRET`. |
 | `VAPID_PUBLIC_KEY` | VAPID public key (Web Push) |
 | `VAPID_PRIVATE_KEY` | VAPID private key (Web Push) |
 | `VAPID_SUBJECT` | `mailto:you@example.com` |
