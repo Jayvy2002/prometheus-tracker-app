@@ -14,9 +14,6 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { coachingPassHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
 import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import { checkinReviewRows } from '../../lib/coachCheckins';
-import { nutritionStallReviewRows } from '../../lib/coachNutrition';
-import { sessionReviewRows } from '../../lib/coachLastSession';
-import { todayStr } from '../../lib/utils';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -63,14 +60,6 @@ export default function CoachDashboard() {
   const reviewRows = useMemo(
     () => checkinReviewRows(opsRows, rosterSignals, priorities),
     [opsRows, rosterSignals, priorities],
-  );
-  const stallRows = useMemo(
-    () => nutritionStallReviewRows(opsRows, rosterSignals, priorities, pendingInterventions, todayStr()),
-    [opsRows, rosterSignals, priorities, pendingInterventions],
-  );
-  const sessionRows = useMemo(
-    () => sessionReviewRows(opsRows, rosterSignals.lifts, todayStr()),
-    [opsRows, rosterSignals.lifts],
   );
 
   const copyUrl = async (token: string) => {
@@ -248,63 +237,6 @@ export default function CoachDashboard() {
                           {row.checkin.checked_at}
                           {' · '}
                           {t(`coaching.checkinReview.kinds.${row.kind}`, { n: row.checkin.joint_pain ?? '—' })}
-                        </p>
-                      </div>
-                      <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {sessionRows.length > 0 && (
-              <div id="seances-a-relire" className="mb-6">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
-                  {t('coaching.sessionReview.title')}
-                </p>
-                <div className="space-y-2">
-                  {sessionRows.slice(0, 6).map(row => (
-                    <Card key={row.session.workoutId} onClick={() => navigate(row.href)} className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
-                        {row.avatarUrl
-                          ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
-                          : (row.clientName[0] || '?').toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
-                        <p className="text-[11px] text-neutral-500 truncate">
-                          {row.session.name || t('workout.title')}
-                          {' · '}
-                          {row.session.date}
-                        </p>
-                      </div>
-                      <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {stallRows.length > 0 && (
-              <div id="stalls-nutrition" className="mb-6">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
-                  {t('coaching.nutritionStall.title')}
-                </p>
-                <div className="space-y-2">
-                  {stallRows.slice(0, 6).map(row => (
-                    <Card key={row.clientId} onClick={() => navigate(row.href)} className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-amber-600/20 flex items-center justify-center text-amber-300 font-semibold text-sm shrink-0">
-                        {row.avatarUrl
-                          ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
-                          : (row.clientName[0] || '?').toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
-                        <p className="text-[11px] text-neutral-500 truncate">
-                          {row.title || t('coaching.queue.items.nutrition_stall')}
-                          {row.avgCalories > 0 && row.calorieTarget > 0
-                            ? ` · ${row.avgCalories} / ${row.calorieTarget} kcal`
-                            : ''}
                         </p>
                       </div>
                       <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
