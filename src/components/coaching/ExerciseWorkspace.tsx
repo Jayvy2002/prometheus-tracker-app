@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import type { ClientLiftProgress } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { liftChartPoints } from '../../lib/coachProgress';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { toast } from '../ui/Toast';
+import { LiftLineChart } from './ProgressCharts';
 
 type CopilotAction = 'maintain' | 'reduce_volume' | 'change_rep_range' | 'replace_exercise';
 
@@ -83,6 +85,12 @@ export default function ExerciseWorkspace({
           {t('coaching.workspace.meta', { n: sessions.length, freq })}
         </p>
       </div>
+
+      {liftChartPoints(lift).length > 1 && (
+        <Card>
+          <LiftLineChart points={liftChartPoints(lift)} />
+        </Card>
+      )}
 
       <div className="space-y-2">
         {sessions.map(s => (

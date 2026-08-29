@@ -11,6 +11,7 @@ export default function SideNav() {
   const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const coachingRole = useCoachingStore(s => s.coachingRole);
+  const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
   const isCoach = coachingRole === 'coach';
 
   const tabs = isCoach
@@ -26,6 +27,7 @@ export default function SideNav() {
         { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
         { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
         { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
+        { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
         { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
         { path: '/weight', icon: Scale, label: t('nav.weight') },
         { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
@@ -70,7 +72,12 @@ export default function SideNav() {
                 className={active ? 'text-blue-400' : ''}
               />
               <span>{tab.label}</span>
-              {active && (
+              {tab.path === '/messages' && unreadMessageCount > 0 && (
+                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
+                  {unreadMessageCount}
+                </span>
+              )}
+              {active && tab.path !== '/messages' && (
                 <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-scale-in" />
               )}
             </button>

@@ -12,19 +12,36 @@ import {
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
-import { formatDate, formatDuration, todayStr } from '../../lib/utils';
+import { formatDate, formatDuration, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { GOALS } from '../../lib/constants';
 import { displayName } from '../../lib/coachText';
 import { findLift, liftsForClient } from '../../lib/coachLifts';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
-import type { CoachClientTab, DailyCheckin, NutritionLog, WaterLog, WeightMeasurement, Workout } from '../../lib/types';
+import { sparklineValues, weightChartPoints } from '../../lib/coachProgress';
+import {
+  DEFAULT_COACH_VISIBLE_TABS,
+  type CoachNudgeTemplateKey,
+  type CoachClientTab,
+  type ClientLiftProgress,
+  type DailyCheckin,
+  type DailyNutritionPoint,
+  type NutritionLog,
+  type ProgressPhoto,
+  type WaterLog,
+  type WeightMeasurement,
+  type Workout,
+} from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import Sparkline from '../ui/Sparkline';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import ExerciseWorkspace from './ExerciseWorkspace';
+import NudgeComposeModal from './NudgeComposeModal';
+import ProgressPhotoCompare from './ProgressPhotoCompare';
+import { NutritionChart, WeightChart } from './ProgressCharts';
 
 const TABS: CoachClientTab[] = ['overview', 'training', 'progress', 'checkins', 'health', 'notes'];
 
@@ -49,9 +66,10 @@ export default function ClientDetailPage() {
   const { user } = useAuthStore();
   const {
     clients, fetchClients, fetchClientWorkouts, fetchClientWorkout,
-    fetchClientNutrition, fetchClientWeight, fetchClientCheckins,
+    fetchClientNutrition, fetchClientWeight, fetchClientCheckins, fetchClientProfile,
+    fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
-    touchClientVisit, priorities,
+    touchClientVisit, priorities, sendCoachMessage, coachSettings, fetchCoachSettings,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment } = useProgramStore();
 
@@ -68,6 +86,12 @@ export default function ClientDetailPage() {
   const [savingNote, setSavingNote] = useState(false);
   const [rawCheckins, setRawCheckins] = useState(false);
   const [visitAnchor, setVisitAnchor] = useState<string | null | undefined>(undefined);
+  const [nutritionDays, setNutritionDays] = useState<DailyNutritionPoint[]>([]);
+  const [progressLifts, setProgressLifts] = useState<ClientLiftProgress[] | null>(null);
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [sendingMsg, setSendingMsg] = useState(false);
 
   const client = clients.find(c => c.id === id);
   const ops = opsRows.find(r => r.client.id === id);
@@ -82,13 +106,25 @@ export default function ClientDetailPage() {
     if (!opsRows.length) fetchCoachOps();
     touchClientVisit(id);
     if (user) fetchMyAssignment(id);
+    fetchCoachSettings();
     setLoading(true);
+    const start = addDaysToDateStr(todayStr(), -27);
     Promise.all([
       fetchClientWorkouts(id).then(setWorkouts),
       fetchClientCheckins(id).then(setCheckins),
       fetchClientNutrition(id, todayStr()).then(r => { setLogs(r.logs); setWater(r.water); }),
       fetchClientWeight(id).then(setWeights),
       fetchNotes(id),
+      fetchClientProfile(id).then(async profile => {
+        const target = profile?.daily_calorie_target ?? 0;
+        const days = await fetchClientNutritionRange(id, start, todayStr(), target);
+        setNutritionDays(days);
+      }),
+      fetchClientLiftHistory(id).then(setProgressLifts),
+      fetchProgressPhotos(id).then(async rows => {
+        setPhotos(rows);
+        setPhotoUrls(await signProgressPhotoUrls(rows));
+      }),
     ]).finally(() => setLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -103,7 +139,13 @@ export default function ClientDetailPage() {
     setOpenWorkout(null);
   };
 
-  const lifts = useMemo(() => (id ? liftsForClient(rosterSignals.lifts, id) : []), [rosterSignals.lifts, id]);
+  const lifts = useMemo(() => {
+    if (progressLifts && progressLifts.length > 0) return progressLifts;
+    return id ? liftsForClient(rosterSignals.lifts, id) : [];
+  }, [progressLifts, rosterSignals.lifts, id]);
+  const visibleTabs = coachSettings?.visible_tabs?.length
+    ? DEFAULT_COACH_VISIBLE_TABS.filter(tabKey => coachSettings.visible_tabs.includes(tabKey))
+    : TABS;
   const workspaceLift = exerciseHint && id ? findLift(lifts, id, exerciseHint) : null;
   const insightWorkouts = useMemo(() => {
     if (workouts.length > 0) {
@@ -160,6 +202,22 @@ export default function ClientDetailPage() {
     toast(t('coaching.noteSaved'));
   };
 
+  const handleSendMessage = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
+    if (!id) return;
+    setSendingMsg(true);
+    const result = await sendCoachMessage(id, body, opts?.templateKey ?? 'general_followup');
+    if (!result.error && opts?.saveNote) {
+      await addNote(id, body, { noteDate: todayStr() });
+    }
+    setSendingMsg(false);
+    if (result.error) {
+      toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
+      return;
+    }
+    toast(t('coaching.queue.sent'));
+    setComposeOpen(false);
+  };
+
   const progressionLabel = kpis?.progression === 'up' ? t('coaching.kpis.up')
     : kpis?.progression === 'down' ? t('coaching.kpis.down')
     : kpis?.progression === 'flat' ? t('coaching.kpis.flat')
@@ -205,6 +263,14 @@ export default function ClientDetailPage() {
               {client?.training_frequency ? ` · ${client.training_frequency}x` : rosterSignals.scheduledDays[id ?? ''] ? ` · ${rosterSignals.scheduledDays[id ?? '']}x` : ''}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setComposeOpen(true)}
+            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white"
+            aria-label={t('coaching.messages.write')}
+          >
+            <MessageSquare size={18} />
+          </button>
         </div>
 
         {ops && shouldOpenSetup(ops) && (
@@ -214,7 +280,7 @@ export default function ClientDetailPage() {
         )}
 
         <div className="flex gap-1 overflow-x-auto mb-4 -mx-4 px-4 scrollbar-hide">
-          {TABS.map(key => (
+          {visibleTabs.map(key => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -402,24 +468,30 @@ export default function ClientDetailPage() {
             </div>
           )
         ) : tab === 'progress' ? (
-          lifts.length === 0 ? (
-            <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.workouts')}</Card>
-          ) : (
-            <div className="space-y-2">
-              {lifts.map(l => (
-                <Card key={l.exerciseName} onClick={() => setTab('training', { exercise: l.displayName })}>
-                  <div className="flex items-center justify-between gap-2">
+          <div className="space-y-3">
+            <WeightChart points={weightChartPoints(weights)} />
+            <NutritionChart points={nutritionDays} />
+            <ProgressPhotoCompare photos={photos} urls={photoUrls} />
+            {lifts.length === 0 ? (
+              <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.workouts')}</Card>
+            ) : lifts.map(l => (
+              <Card key={l.exerciseName} onClick={() => setTab('training', { exercise: l.displayName })}>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0">
                     <p className="text-sm font-medium text-white truncate">{l.displayName}</p>
-                    {l.stalled && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{t('coaching.kpis.flat')}</span>}
+                    <p className="text-xs text-neutral-500 mt-1">
+                      {l.sessions[0]?.bestSet ?? '—'}
+                      {l.sessions[1] ? ` · prev ${l.sessions[1].bestSet}` : ''}
+                    </p>
                   </div>
-                  <p className="text-xs text-neutral-500 mt-1">
-                    {l.sessions[0]?.bestSet ?? '—'}
-                    {l.sessions[1] ? ` · prev ${l.sessions[1].bestSet}` : ''}
-                  </p>
-                </Card>
-              ))}
-            </div>
-          )
+                  <div className="flex items-center gap-2 shrink-0">
+                    {l.stalled && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{t('coaching.kpis.flat')}</span>}
+                    <Sparkline values={sparklineValues(l)} />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         ) : tab === 'checkins' ? (
           <div className="space-y-3">
             <CheckinSummaryCard summary={checkinSummary} onSeeAnswers={() => setRawCheckins(true)} />
@@ -464,6 +536,7 @@ export default function ClientDetailPage() {
                 <span className="text-xs text-neutral-500 ml-auto">{w.measured_at.slice(0, 10)}</span>
               </Card>
             ))}
+            <ProgressPhotoCompare photos={photos} urls={photoUrls} />
           </div>
         ) : (
           <div className="space-y-3">
@@ -489,6 +562,16 @@ export default function ClientDetailPage() {
             ))}
           </div>
         )}
+        <NudgeComposeModal
+          open={composeOpen}
+          clientName={client?.full_name || client?.email || ''}
+          templateKey="general_followup"
+          sending={sendingMsg}
+          showTemplatePicker
+          templates={coachSettings?.nudge_templates}
+          onClose={() => setComposeOpen(false)}
+          onSend={handleSendMessage}
+        />
       </div>
     </PageTransition>
   );

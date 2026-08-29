@@ -11,14 +11,19 @@ import type {
   CoachInterventionKind,
   CoachInterventionStatus,
   CoachInvite,
+  ClientLiftProgress,
   CoachMessage,
   CoachNote,
   CoachNudgeTemplateKey,
   CoachPreview,
   CoachPriority,
   CoachRosterSignals,
+  CoachSettings,
   DailyCheckin,
+  DailyNutritionPoint,
   NutritionLog,
+  ProgressPhoto,
+  ProgressPhotoKind,
   UserProfile,
   UserRole,
   WaterLog,
@@ -29,6 +34,8 @@ import type {
 } from '../lib/types';
 import { mapInterventionRow, parseOnboardingPlanDraft, type ProgramOutlineDraft } from '../lib/coachInterventions';
 import { mapCoachMessage } from '../lib/coachQueue';
+import { EMPTY_COACH_SETTINGS, mapCoachSettings } from '../lib/coachSettings';
+import { aggregateNutritionByDay } from '../lib/coachProgress';
 import { useProgramStore } from './programStore';
 import { buildClientOpsRows, datePrefix, weekAgoStr } from '../lib/coachAlerts';
 import { buildClientLifts } from '../lib/coachLifts';
@@ -160,6 +167,8 @@ interface CoachingState {
   pendingInterventions: CoachIntervention[];
   sentMessages: CoachMessage[];
   latestCoachMessage: CoachMessage | null;
+  unreadMessageCount: number;
+  coachSettings: CoachSettings | null;
   queueDismissedIds: string[];
   priorities: CoachPriority[];
   rosterSignals: CoachRosterSignals;
@@ -189,7 +198,22 @@ interface CoachingState {
     body: string,
     templateKey: CoachNudgeTemplateKey,
   ) => Promise<{ error: string | null }>;
+  sendClientReply: (body: string) => Promise<{ error: string | null }>;
   markCoachMessageRead: (id: string) => Promise<void>;
+  markThreadRead: (clientId: string) => Promise<void>;
+  fetchCoachSettings: () => Promise<void>;
+  saveCoachSettings: (patch: Partial<Pick<CoachSettings, 'visible_tabs' | 'queue_mode_default' | 'nudge_templates'>>) => Promise<{ error: string | null }>;
+  fetchClientNutritionRange: (clientId: string, start: string, end: string, calorieTarget: number) => Promise<DailyNutritionPoint[]>;
+  fetchClientLiftHistory: (clientId: string) => Promise<ClientLiftProgress[]>;
+  fetchProgressPhotos: (userId: string) => Promise<ProgressPhoto[]>;
+  uploadProgressPhoto: (input: {
+    file: File;
+    takenAt: string;
+    kind: ProgressPhotoKind;
+    notes?: string;
+  }) => Promise<{ photo: ProgressPhoto } | { error: string }>;
+  deleteProgressPhoto: (id: string, storagePath: string) => Promise<{ error: string | null }>;
+  signProgressPhotoUrls: (photos: ProgressPhoto[]) => Promise<Record<string, string>>;
   dismissQueueItem: (id: string) => void;
   fetchIntervention: (id: string) => Promise<CoachIntervention | null>;
   fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
@@ -242,6 +266,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   pendingInterventions: [],
   sentMessages: [],
   latestCoachMessage: null,
+  unreadMessageCount: 0,
+  coachSettings: null,
   queueDismissedIds: loadQueueDismissed(),
   priorities: [],
   rosterSignals: EMPTY_SIGNALS,
@@ -642,24 +668,26 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   fetchCoachMessages: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      set({ sentMessages: [] });
+      set({ sentMessages: [], unreadMessageCount: 0 });
       return;
     }
-    const { data, error } = await supabase
+    const role = get().coachingRole;
+    let query = supabase
       .from('coach_messages')
       .select('*')
-      .eq('coach_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(40);
+      .limit(200);
+    query = role === 'coach' ? query.eq('coach_id', user.id) : query.eq('client_id', user.id);
+    const { data, error } = await query;
     if (error || !data) {
       set({ sentMessages: [] });
       return;
     }
-    set({
-      sentMessages: data
-        .map(row => mapCoachMessage(row as Record<string, unknown>))
-        .filter((row): row is CoachMessage => !!row),
-    });
+    const messages = data
+      .map(row => mapCoachMessage(row as Record<string, unknown>))
+      .filter((row): row is CoachMessage => !!row);
+    const unread = messages.filter(m => m.sender_id !== user.id && !m.read_at).length;
+    set({ sentMessages: messages, unreadMessageCount: unread });
   },
 
   sendCoachMessage: async (clientId, body, templateKey) => {
@@ -672,6 +700,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .insert({
         coach_id: user.id,
         client_id: clientId,
+        sender_id: user.id,
         body: trimmed,
         template_key: templateKey,
       })
@@ -697,12 +726,208 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     return { error: null };
   },
 
+  sendClientReply: async (body) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const coach = get().myCoach;
+    if (!user || !coach) return { error: 'Not authenticated' };
+    const trimmed = body.trim();
+    if (!trimmed) return { error: 'empty' };
+    const { data, error } = await supabase
+      .from('coach_messages')
+      .insert({
+        coach_id: coach.id,
+        client_id: user.id,
+        sender_id: user.id,
+        body: trimmed,
+        template_key: 'reply',
+      })
+      .select()
+      .maybeSingle();
+    if (error || !data) return { error: error?.message ?? 'Failed to send' };
+    const mapped = mapCoachMessage(data as Record<string, unknown>);
+    set(s => ({
+      sentMessages: mapped ? [mapped, ...s.sentMessages] : s.sentMessages,
+    }));
+    return { error: null };
+  },
+
   markCoachMessageRead: async (id) => {
     const iso = new Date().toISOString();
     await supabase.from('coach_messages').update({ read_at: iso }).eq('id', id);
     set(s => ({
       latestCoachMessage: s.latestCoachMessage?.id === id ? null : s.latestCoachMessage,
+      sentMessages: s.sentMessages.map(m => (m.id === id ? { ...m, read_at: iso } : m)),
+      unreadMessageCount: Math.max(0, s.unreadMessageCount - 1),
     }));
+  },
+
+  markThreadRead: async (clientId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const iso = new Date().toISOString();
+    const unread = get().sentMessages.filter(m => m.client_id === clientId && m.sender_id !== user.id && !m.read_at);
+    if (unread.length === 0) return;
+    await supabase
+      .from('coach_messages')
+      .update({ read_at: iso })
+      .in('id', unread.map(m => m.id));
+    set(s => ({
+      sentMessages: s.sentMessages.map(m => (
+        m.client_id === clientId && m.sender_id !== user.id && !m.read_at
+          ? { ...m, read_at: iso }
+          : m
+      )),
+      latestCoachMessage: s.latestCoachMessage && unread.some(m => m.id === s.latestCoachMessage?.id)
+        ? null
+        : s.latestCoachMessage,
+      unreadMessageCount: Math.max(0, s.unreadMessageCount - unread.length),
+    }));
+  },
+
+  fetchCoachSettings: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      set({ coachSettings: null });
+      return;
+    }
+    const { data, error } = await supabase
+      .from('coach_settings')
+      .select('*')
+      .eq('coach_id', user.id)
+      .maybeSingle();
+    if (error || !data) {
+      set({
+        coachSettings: { coach_id: user.id, ...EMPTY_COACH_SETTINGS },
+      });
+      return;
+    }
+    set({ coachSettings: mapCoachSettings(data as Record<string, unknown>, user.id) });
+  },
+
+  saveCoachSettings: async (patch) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const current = get().coachSettings ?? { coach_id: user.id, ...EMPTY_COACH_SETTINGS };
+    const payload = {
+      coach_id: user.id,
+      visible_tabs: patch.visible_tabs ?? current.visible_tabs,
+      queue_mode_default: patch.queue_mode_default ?? current.queue_mode_default,
+      nudge_templates: patch.nudge_templates ?? current.nudge_templates,
+      updated_at: new Date().toISOString(),
+    };
+    const { data, error } = await supabase
+      .from('coach_settings')
+      .upsert(payload, { onConflict: 'coach_id' })
+      .select()
+      .maybeSingle();
+    if (error) return { error: error.message };
+    set({
+      coachSettings: data
+        ? mapCoachSettings(data as Record<string, unknown>, user.id)
+        : { ...current, ...patch, updated_at: payload.updated_at },
+    });
+    return { error: null };
+  },
+
+  fetchClientNutritionRange: async (clientId, start, end, calorieTarget) => {
+    const { data } = await supabase
+      .from('nutrition_logs')
+      .select('logged_at, calories, protein, carbs, fat')
+      .eq('user_id', clientId)
+      .gte('logged_at', start)
+      .lte('logged_at', end);
+    return aggregateNutritionByDay(
+      (data ?? []) as Array<{ logged_at: string; calories: number; protein: number; carbs: number; fat: number }>,
+      calorieTarget,
+    );
+  },
+
+  fetchClientLiftHistory: async (clientId) => {
+    const start = addDaysToDateStr(todayStr(), -90);
+    const { data: workoutRows } = await supabase
+      .from('workouts')
+      .select('id, user_id, date, name, completed')
+      .eq('user_id', clientId)
+      .eq('completed', true)
+      .gte('date', `${start}T00:00:00`)
+      .order('date', { ascending: false })
+      .limit(80);
+    const histWorkouts = (workoutRows ?? []) as Array<{
+      id: string; user_id: string; date: string; name: string; completed: boolean;
+    }>;
+    if (histWorkouts.length === 0) return [];
+    const { data: exRows } = await supabase
+      .from('workout_exercises')
+      .select('id, workout_id, name')
+      .in('workout_id', histWorkouts.map(w => w.id));
+    const exercises = (exRows ?? []) as Array<{ id: string; workout_id: string; name: string }>;
+    const sets: Array<{ exercise_id: string; weight_kg: number; reps: number; rir: number; completed: boolean; set_type?: string }> = [];
+    const exIds = exercises.map(e => e.id);
+    for (let i = 0; i < exIds.length; i += 200) {
+      const { data: setRows } = await supabase
+        .from('workout_sets')
+        .select('exercise_id, weight_kg, reps, rir, completed, set_type')
+        .in('exercise_id', exIds.slice(i, i + 200));
+      sets.push(...((setRows ?? []) as typeof sets));
+    }
+    return buildClientLifts(histWorkouts, exercises, sets);
+  },
+
+  fetchProgressPhotos: async (userId) => {
+    const { data, error } = await supabase
+      .from('progress_photos')
+      .select('*')
+      .eq('user_id', userId)
+      .order('taken_at', { ascending: false });
+    if (error || !data) return [];
+    return data as ProgressPhoto[];
+  },
+
+  uploadProgressPhoto: async ({ file, takenAt, kind, notes }) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace('jpeg', 'jpg');
+    const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from('progress-photos')
+      .upload(path, file, { upsert: false, contentType: file.type || 'image/jpeg' });
+    if (uploadError) return { error: uploadError.message };
+    const { data, error } = await supabase
+      .from('progress_photos')
+      .insert({
+        user_id: user.id,
+        taken_at: takenAt,
+        kind,
+        storage_path: path,
+        notes: (notes ?? '').trim(),
+      })
+      .select()
+      .maybeSingle();
+    if (error || !data) {
+      await supabase.storage.from('progress-photos').remove([path]);
+      return { error: error?.message ?? 'Failed to save photo' };
+    }
+    return { photo: data as ProgressPhoto };
+  },
+
+  deleteProgressPhoto: async (id, storagePath) => {
+    const { error } = await supabase.from('progress_photos').delete().eq('id', id);
+    if (error) return { error: error.message };
+    await supabase.storage.from('progress-photos').remove([storagePath]);
+    return { error: null };
+  },
+
+  signProgressPhotoUrls: async (photos) => {
+    if (photos.length === 0) return {};
+    const { data, error } = await supabase.storage
+      .from('progress-photos')
+      .createSignedUrls(photos.map(p => p.storage_path), 3600);
+    if (error || !data) return {};
+    const out: Record<string, string> = {};
+    data.forEach((row, i) => {
+      if (row.signedUrl && photos[i]) out[photos[i].id] = row.signedUrl;
+    });
+    return out;
   },
 
   dismissQueueItem: (id) => {
@@ -856,7 +1081,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   fetchMyCoach: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      set({ myCoach: null, latestCoachMessage: null });
+      set({ myCoach: null, latestCoachMessage: null, unreadMessageCount: 0 });
       return;
     }
     const { data: link } = await supabase
@@ -866,7 +1091,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .eq('status', 'active')
       .maybeSingle();
     if (!link) {
-      set({ myCoach: null, latestCoachMessage: null });
+      set({ myCoach: null, latestCoachMessage: null, unreadMessageCount: 0 });
       return;
     }
     const { data: profile } = await supabase
@@ -875,24 +1100,28 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .eq('id', link.coach_id)
       .maybeSingle();
     if (!profile) {
-      set({ myCoach: null, latestCoachMessage: null });
+      set({ myCoach: null, latestCoachMessage: null, unreadMessageCount: 0 });
       return;
     }
-    const { data: msg } = await supabase
+    const { data: msgs } = await supabase
       .from('coach_messages')
       .select('*')
       .eq('client_id', user.id)
-      .is('read_at', null)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(50);
+    const messages = (msgs ?? [])
+      .map(row => mapCoachMessage(row as Record<string, unknown>))
+      .filter((row): row is CoachMessage => !!row);
+    const unread = messages.filter(m => m.sender_id !== user.id && !m.read_at);
     set({
       myCoach: {
         id: profile.id as string,
         full_name: (profile.full_name as string) || '',
         avatar_url: (profile.avatar_url as string) || '',
       },
-      latestCoachMessage: msg ? mapCoachMessage(msg as Record<string, unknown>) : null,
+      latestCoachMessage: unread[0] ?? null,
+      sentMessages: messages,
+      unreadMessageCount: unread.length,
     });
   },
 
@@ -976,7 +1205,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .select('*')
       .eq('user_id', clientId)
       .order('measured_at', { ascending: false })
-      .limit(30);
+      .limit(90);
     return (data ?? []) as WeightMeasurement[];
   },
 
@@ -1008,7 +1237,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         coach_id: user.id,
         client_id: clientId,
         body: body.trim(),
-        note_date: opts?.noteDate ?? null,
+        note_date: opts?.noteDate ?? todayStr(),
         workout_id: opts?.workoutId ?? null,
       })
       .select()
@@ -1045,6 +1274,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     pendingInterventions: [],
     sentMessages: [],
     latestCoachMessage: null,
+    unreadMessageCount: 0,
+    coachSettings: null,
     queueDismissedIds: [],
     priorities: [],
     rosterSignals: EMPTY_SIGNALS,

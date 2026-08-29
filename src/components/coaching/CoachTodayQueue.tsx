@@ -22,7 +22,7 @@ export default function CoachTodayQueue() {
   const navigate = useNavigate();
   const {
     priorities, pendingInterventions, clients, queueDismissedIds,
-    dismissQueueItem, sendCoachMessage,
+    dismissQueueItem, sendCoachMessage, coachSettings,
   } = useCoachingStore();
   const [composeFor, setComposeFor] = useState<CoachPriority | null>(null);
   const [templateKey, setTemplateKey] = useState<CoachNudgeTemplateKey>('general_followup');
@@ -138,6 +138,7 @@ export default function CoachTodayQueue() {
         clientName={composeFor?.clientName ?? ''}
         templateKey={templateKey}
         sending={sending}
+        templates={coachSettings?.nudge_templates}
         onClose={() => setComposeFor(null)}
         onSend={handleSend}
       />

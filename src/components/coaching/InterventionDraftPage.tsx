@@ -13,10 +13,13 @@ import {
   parseTalkingPoints,
   parseWorkflowSuggestion,
 } from '../../lib/coachInterventions';
-import type { AiProgramDayDraft, CoachIntervention, ProgramExercisePatch } from '../../lib/types';
+import { templateKeyForAdherence } from '../../lib/coachQueue';
+import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, ProgramExercisePatch } from '../../lib/types';
 import { useProgramStore } from '../../stores/programStore';
 import { formatPrescription } from '../../lib/programNl';
+import { todayStr } from '../../lib/utils';
 import ProgramDraftEditor from './ProgramDraftEditor';
+import NudgeComposeModal from './NudgeComposeModal';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -39,6 +42,7 @@ export default function InterventionDraftPage() {
   const {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
+    sendCoachMessage, coachSettings, fetchCoachSettings,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment, applyExercisePatch } = useProgramStore();
 
@@ -56,6 +60,7 @@ export default function InterventionDraftPage() {
   const [tracking, setTracking] = useState(EMPTY_TRACKING);
   const [notes, setNotes] = useState('');
   const [patch, setPatch] = useState<ProgramExercisePatch | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
 
   const clientId = id || row?.client_id || null;
   const client = clients.find(c => c.id === (id || row?.client_id || ''));
@@ -67,6 +72,7 @@ export default function InterventionDraftPage() {
   useEffect(() => {
     if (!interventionId) return;
     if (!clients.length) fetchClients();
+    fetchCoachSettings();
     if (id) fetchMyAssignment(id);
     setLoading(true);
     fetchIntervention(interventionId).then(found => {
@@ -149,7 +155,7 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    const noteOnly = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other';
+    const noteOnly = row.kind === 'other';
 
     if (row.kind === 'calorie_adjustment') {
       const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
@@ -250,6 +256,39 @@ export default function InterventionDraftPage() {
     navigate(`/clients/${targetClientId}`);
   };
 
+  const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
+    if (!row || !user || saving) return;
+    const targetClientId = id || row.client_id;
+    if (!targetClientId) return;
+    setSaving(true);
+    const sent = await sendCoachMessage(targetClientId, body, opts?.templateKey ?? templateKeyForAdherence(row.kind));
+    if (sent.error) {
+      setSaving(false);
+      toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
+      return;
+    }
+    if (opts?.saveNote) {
+      const noteResult = await addNote(targetClientId, notes.trim() || body, { noteDate: todayStr() });
+      if (noteResult.error) {
+        setSaving(false);
+        toast(noteResult.error, 'error');
+        return;
+      }
+    }
+    const resolved = await resolveIntervention(row.id, 'sent', {
+      ...row.payload,
+      suggestion: notes.trim(),
+    });
+    setSaving(false);
+    if (resolved.error) {
+      toast(resolved.error, 'error');
+      return;
+    }
+    toast(t('coaching.queue.sent'));
+    setComposeOpen(false);
+    navigate(`/clients/${targetClientId}`);
+  };
+
   if (coachingRole !== 'coach') {
     return <Navigate to="/dashboard" replace />;
   }
@@ -281,13 +320,16 @@ export default function InterventionDraftPage() {
   const showTracking = row.kind === 'onboarding_plan';
   const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
     || row.kind === 'other' || isCoachOnlyKind(row.kind);
-  const noteOnly = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other';
+  const isAdherenceKind = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training';
+  const noteOnly = row.kind === 'other';
   const patchWithoutProgram = showPatch && !assignment?.program_id;
-  const primaryLabel = isCoachOnlyKind(row.kind) || patchWithoutProgram
-    ? t('coaching.interventions.keep')
-    : noteOnly
-      ? t('coaching.interventions.saveNote')
-      : t('coaching.interventions.send');
+  const primaryLabel = isAdherenceKind
+    ? t('coaching.queue.relance')
+    : isCoachOnlyKind(row.kind) || patchWithoutProgram
+      ? t('coaching.interventions.keep')
+      : noteOnly
+        ? t('coaching.interventions.saveNote')
+        : t('coaching.interventions.send');
 
   return (
     <PageTransition>
@@ -436,12 +478,30 @@ export default function InterventionDraftPage() {
           </Card>
         )}
 
-        <Button onClick={handleSend} loading={saving} className="w-full">
+        <Button
+          onClick={() => {
+            if (isAdherenceKind) setComposeOpen(true);
+            else void handleSend();
+          }}
+          loading={saving}
+          className="w-full"
+        >
           {primaryLabel}
         </Button>
         <button onClick={handleDismiss} className="w-full mt-3 text-sm text-neutral-500 hover:text-rose-300">
           {t('coaching.interventions.dismiss')}
         </button>
+        <NudgeComposeModal
+          open={composeOpen}
+          clientName={client?.full_name || client?.email || ''}
+          templateKey={templateKeyForAdherence(row.kind)}
+          sending={saving}
+          showTemplatePicker
+          showSaveNote
+          templates={coachSettings?.nudge_templates}
+          onClose={() => setComposeOpen(false)}
+          onSend={handleRelance}
+        />
       </div>
     </PageTransition>
   );

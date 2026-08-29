@@ -431,6 +431,7 @@ export interface CoachPriority {
 }
 
 export type CoachNudgeTemplateKey = 'missed_training' | 'missed_checkins' | 'general_followup';
+export type CoachMessageTemplateKey = CoachNudgeTemplateKey | 'reply';
 
 export type CoachQueueActionKind = 'compose' | 'open_draft' | 'open_setup' | 'open_360';
 
@@ -446,10 +447,61 @@ export interface CoachMessage {
   id: string;
   coach_id: string;
   client_id: string;
+  sender_id: string;
   body: string;
-  template_key: CoachNudgeTemplateKey;
+  template_key: CoachMessageTemplateKey;
   created_at: string;
   read_at: string | null;
+}
+
+export interface CoachMessageThread {
+  clientId: string;
+  lastMessage: CoachMessage | null;
+  unreadCount: number;
+}
+
+export const DEFAULT_COACH_VISIBLE_TABS: CoachClientTab[] = [
+  'overview',
+  'training',
+  'progress',
+  'checkins',
+  'health',
+  'notes',
+];
+
+export interface CoachNudgeTemplateSet {
+  missed_training?: { fr?: string; en?: string };
+  missed_checkins?: { fr?: string; en?: string };
+  general_followup?: { fr?: string; en?: string };
+}
+
+export interface CoachSettings {
+  coach_id: string;
+  visible_tabs: CoachClientTab[];
+  queue_mode_default: boolean;
+  nudge_templates: CoachNudgeTemplateSet;
+  updated_at: string;
+}
+
+export type ProgressPhotoKind = 'front' | 'side' | 'back';
+
+export interface ProgressPhoto {
+  id: string;
+  user_id: string;
+  taken_at: string;
+  kind: ProgressPhotoKind;
+  storage_path: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface DailyNutritionPoint {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  target: number;
 }
 
 export interface LiftSetSnapshot {

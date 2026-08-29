@@ -37,8 +37,8 @@ export default function CoachDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    opsRows, opsLoading, invites, pendingInterventions, clients,
-    fetchCoachOps, fetchInvites, createInvite, commandStats: stats,
+    opsRows, opsLoading, invites, pendingInterventions, clients, priorities,
+    fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings, coachSettings,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -47,6 +47,7 @@ export default function CoachDashboard() {
     if (!user) return;
     fetchCoachOps();
     fetchInvites();
+    fetchCoachSettings();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
@@ -177,7 +178,31 @@ export default function CoachDashboard() {
               </div>
             )}
 
-            <CoachTodayQueue />
+            {coachSettings?.queue_mode_default === false ? (
+              <div>
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
+                  {t('coaching.command.priorities')}
+                </p>
+                {priorities.length === 0 ? (
+                  <CoachTodayQueue />
+                ) : (
+                  <div className="space-y-2">
+                    {priorities.slice(0, 8).map(item => (
+                      <Card key={item.id} onClick={() => navigate(item.href)} className="flex items-start gap-3">
+                        <span aria-hidden>{item.severity === 'red' ? '🔴' : item.severity === 'orange' ? '🟠' : '🟡'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white">{t(item.headlineKey, item.headlineParams)}</p>
+                          <p className="text-[11px] text-neutral-500 truncate">{t(item.detailKey, item.detailParams)}</p>
+                        </div>
+                        <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <CoachTodayQueue />
+            )}
           </>
         )}
       </div>

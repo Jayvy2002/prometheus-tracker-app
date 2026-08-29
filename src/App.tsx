@@ -32,6 +32,8 @@ import ProgramsPage from './components/programs/ProgramsPage';
 import ProgramEditorPage from './components/programs/ProgramEditorPage';
 import AskPrometheusPage from './components/coaching/AskPrometheusPage';
 import CoachInboxPage from './components/coaching/CoachInboxPage';
+import ClientMessagesPage from './components/coaching/ClientMessagesPage';
+import ClientPhotosPage from './components/coaching/ClientPhotosPage';
 
 function HomeDashboard() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -42,6 +44,11 @@ function CoachOnly({ children }: { children: ReactNode }) {
   const coachingRole = useCoachingStore(s => s.coachingRole);
   if (coachingRole !== 'coach') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
+}
+
+function MessagesHome() {
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  return coachingRole === 'coach' ? <CoachInboxPage /> : <ClientMessagesPage />;
 }
 
 function CoachTrackerRedirect({ children }: { children: ReactNode }) {
@@ -157,7 +164,9 @@ function AppRoutes() {
         <Route path="/clients/:id/setup" element={<CoachOnly><ClientSetupPage /></CoachOnly>} />
         <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/inbox/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
-        <Route path="/messages" element={<CoachOnly><CoachInboxPage /></CoachOnly>} />
+        <Route path="/messages" element={<MessagesHome />} />
+        <Route path="/messages/:clientId" element={<CoachOnly><CoachInboxPage /></CoachOnly>} />
+        <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsPage />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />

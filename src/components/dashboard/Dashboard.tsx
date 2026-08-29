@@ -41,7 +41,7 @@ export default function Dashboard() {
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, fetchToday } = useCheckinStore();
-  const { myCoach, latestCoachMessage, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
+  const { myCoach, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
@@ -189,23 +189,45 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {latestCoachMessage && (
-          <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/25 rounded-xl px-3.5 py-2.5 mb-4">
+        {myCoach && (
+          <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
+            {assignment?.program && (
+              <p>{t('coaching.loop.program', { name: assignment.program.name })}</p>
+            )}
+            <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
+          </div>
+        )}
+
+        {myCoach && (latestCoachMessage || unreadMessageCount > 0) && (
+          <button
+            type="button"
+            onClick={() => navigate('/messages')}
+            className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/25 rounded-xl px-3.5 py-2.5 mb-4 w-full text-left"
+          >
             <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
               <MessageSquare size={14} className="text-blue-300" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-medium text-blue-300 mb-0.5">{t('dashboard.coachMessageTitle')}</p>
-              <p className="text-xs text-blue-100/90 whitespace-pre-wrap">{latestCoachMessage.body}</p>
+              <p className="text-[11px] font-medium text-blue-300 mb-0.5">
+                {t('dashboard.coachMessageTitle')}
+                {unreadMessageCount > 1 ? ` · ${unreadMessageCount}` : ''}
+              </p>
+              <p className="text-xs text-blue-100/90 whitespace-pre-wrap line-clamp-3">
+                {latestCoachMessage?.body || t('coaching.messages.openInbox')}
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => markCoachMessageRead(latestCoachMessage.id)}
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={e => {
+                e.stopPropagation();
+                if (latestCoachMessage) void markCoachMessageRead(latestCoachMessage.id);
+              }}
               className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-200 transition-colors shrink-0"
             >
               <X size={14} />
-            </button>
-          </div>
+            </span>
+          </button>
         )}
 
         {/* Notification Reminders */}

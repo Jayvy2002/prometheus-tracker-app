@@ -5,6 +5,8 @@ import type {
   CoachIntervention,
   CoachInterventionKind,
   CoachMessage,
+  CoachMessageTemplateKey,
+  CoachMessageThread,
   CoachNudgeTemplateKey,
   CoachPriority,
   CoachPriorityKind,
@@ -19,9 +21,6 @@ const COMPOSE_KINDS = new Set<CoachPriorityKind>([
 ]);
 
 const INTERVENTION_KINDS_FOR_PRIORITY: Partial<Record<CoachPriorityKind, CoachInterventionKind[]>> = {
-  missed_workout: ['adherence_training'],
-  dropped_adherence: ['adherence_training'],
-  missed_nutrition: ['adherence_nutrition'],
   stalled_lift: ['calorie_adjustment', 'program_adjustment'],
   program_adapt: ['program_adjustment', 'calorie_adjustment'],
   weight_off_trajectory: ['calorie_adjustment'],
@@ -29,7 +28,7 @@ const INTERVENTION_KINDS_FOR_PRIORITY: Partial<Record<CoachPriorityKind, CoachIn
   program_unassigned: ['onboarding_plan'],
 };
 
-const TEMPLATE_KEYS: CoachNudgeTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup'];
+const TEMPLATE_KEYS: CoachMessageTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup', 'reply'];
 
 export function firstNameOf(full: string): string {
   const trimmed = full.trim();
@@ -112,16 +111,53 @@ export function visibleQueueItems(
 
 export function mapCoachMessage(raw: Record<string, unknown>): CoachMessage | null {
   const template = typeof raw.template_key === 'string' ? raw.template_key : '';
-  if (!TEMPLATE_KEYS.includes(template as CoachNudgeTemplateKey)) return null;
+  if (!TEMPLATE_KEYS.includes(template as CoachMessageTemplateKey)) return null;
   const body = typeof raw.body === 'string' ? raw.body.trim() : '';
   if (!body) return null;
+  const coachId = String(raw.coach_id ?? '');
   return {
     id: String(raw.id ?? ''),
-    coach_id: String(raw.coach_id ?? ''),
+    coach_id: coachId,
     client_id: String(raw.client_id ?? ''),
+    sender_id: String(raw.sender_id ?? coachId),
     body,
-    template_key: template as CoachNudgeTemplateKey,
+    template_key: template as CoachMessageTemplateKey,
     created_at: String(raw.created_at ?? ''),
     read_at: typeof raw.read_at === 'string' ? raw.read_at : null,
   };
+}
+
+export function groupMessageThreads(
+  messages: CoachMessage[],
+  clients: CoachClientSummary[],
+  viewerId: string,
+): CoachMessageThread[] {
+  const byClient = new Map<string, CoachMessage[]>();
+  for (const msg of messages) {
+    const list = byClient.get(msg.client_id) ?? [];
+    list.push(msg);
+    byClient.set(msg.client_id, list);
+  }
+  const rows: CoachMessageThread[] = clients.map(client => {
+    const list = (byClient.get(client.id) ?? []).sort((a, b) => b.created_at.localeCompare(a.created_at));
+    return {
+      clientId: client.id,
+      lastMessage: list[0] ?? null,
+      unreadCount: list.filter(m => m.sender_id !== viewerId && !m.read_at).length,
+    };
+  });
+  return rows.sort((a, b) => {
+    const at = a.lastMessage?.created_at ?? '';
+    const bt = b.lastMessage?.created_at ?? '';
+    if (at && bt) return bt.localeCompare(at);
+    if (at) return -1;
+    if (bt) return 1;
+    return 0;
+  });
+}
+
+export function templateKeyForAdherence(kind: CoachInterventionKind): CoachNudgeTemplateKey {
+  if (kind === 'adherence_training') return 'missed_training';
+  if (kind === 'adherence_nutrition') return 'missed_checkins';
+  return 'general_followup';
 }
