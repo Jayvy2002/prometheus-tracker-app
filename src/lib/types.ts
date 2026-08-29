@@ -403,6 +403,7 @@ export type CoachPriorityKind =
   | 'missed_checkin'
   | 'missed_workout'
   | 'missed_nutrition'
+  | 'session_logged'
   | 'program_adapt'
   | 'onboarding_incomplete'
   | 'program_unassigned';
@@ -431,6 +432,7 @@ export interface CoachPriority {
   href: string;
   exerciseName?: string;
   checkinId?: string;
+  workoutId?: string;
 }
 
 export type CheckinReviewKind = 'unread' | 'new_pain' | 'dropped_adherence' | 'missed_checkin';
@@ -555,6 +557,31 @@ export interface LiftSetSnapshot {
   reps: number;
   rir: number;
   completed: boolean;
+  set_type?: string;
+  duration_seconds?: number | null;
+}
+
+/** One completed workout, readable as sets — not a dump of all history. */
+export interface LastSessionExercise {
+  name: string;
+  sets: LiftSetSnapshot[];
+}
+
+export interface LastSessionView {
+  workoutId: string;
+  date: string;
+  name: string;
+  exercises: LastSessionExercise[];
+}
+
+/** Aujourd’hui → séance faite (today / yesterday). Deep-link, not Relancer. */
+export interface SessionReviewRow {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  href: string;
+  relanceHref: string;
+  session: LastSessionView;
 }
 
 export interface LiftSessionSnapshot {

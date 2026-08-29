@@ -6,19 +6,22 @@ import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useRoutineStore } from '../../stores/routineStore';
-import { formatDate, formatDuration } from '../../lib/utils';
+import { formatDate, formatDuration, todayStr } from '../../lib/utils';
+import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import type { Workout } from '../../lib/types';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
+import SessionReadout from './SessionReadout';
 
 export default function WorkoutPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { workouts, loading, fetchWorkouts, fetchWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
+  const { workouts, loading, fetchWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
   const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
@@ -26,6 +29,7 @@ export default function WorkoutPage() {
   const [deleting, setDeleting] = useState(false);
   const [startingRoutine, setStartingRoutine] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
+  const [lastFull, setLastFull] = useState<Workout | null>(null);
 
   const PAGE_SIZE = 20;
 
@@ -35,6 +39,21 @@ export default function WorkoutPage() {
       fetchRoutines(user.id);
     }
   }, [user]);
+
+  const lastCompleted = lastCompletedWorkout(workouts, todayStr());
+  const lastCompletedId = lastCompleted?.id ?? '';
+
+  useEffect(() => {
+    if (!lastCompletedId) {
+      setLastFull(null);
+      return;
+    }
+    let cancelled = false;
+    peekWorkout(lastCompletedId).then(full => {
+      if (!cancelled) setLastFull(full);
+    });
+    return () => { cancelled = true; };
+  }, [lastCompletedId, peekWorkout]);
 
   const filtered = workouts.filter(w => {
     if (filter === 'completed') return w.completed;
@@ -184,6 +203,28 @@ export default function WorkoutPage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {lastCompleted && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.lastSession')}</h2>
+            <button
+              type="button"
+              onClick={() => navigate(`/workout/${lastCompleted.id}`)}
+              className="text-xs text-blue-400 hover:text-blue-300"
+            >
+              {t('workout.lastSessionOpen')}
+            </button>
+          </div>
+          <Card className="!p-4">
+            <p className="text-sm font-medium text-white truncate">{lastCompleted.name || t('workout.title')}</p>
+            <p className="text-xs text-neutral-500 mb-3">{formatDate(lastCompleted.date)}</p>
+            {lastFull && lastFull.id === lastCompleted.id ? (
+              <SessionReadout session={lastSessionFromWorkout(lastFull)} />
+            ) : null}
+          </Card>
         </div>
       )}
 

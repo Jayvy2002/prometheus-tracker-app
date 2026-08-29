@@ -12,7 +12,7 @@ import {
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
-import { formatDate, formatDuration, todayStr, addDaysToDateStr } from '../../lib/utils';
+import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { GOALS } from '../../lib/constants';
 import { interventionHref } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
@@ -23,9 +23,10 @@ import {
   secondCaloriePrompt,
 } from '../../lib/coachNutrition';
 import { relanceThreadHref } from '../../lib/coachQueue';
+import { lastSessionFromLifts, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { displayName } from '../../lib/coachText';
 import { liftsForClient } from '../../lib/coachLifts';
-import { parseExerciseQuery, pickDefaultLift } from '../../lib/coachTraining';
+import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { weightChartPoints } from '../../lib/coachProgress';
@@ -48,6 +49,7 @@ import { toast } from '../ui/Toast';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
 import ClientLiftChart from './ClientLiftChart';
+import LastSessionReview from './LastSessionReview';
 import ExerciseWorkspace from './ExerciseWorkspace';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
 import NutritionStallPanel from './NutritionStallPanel';
@@ -90,6 +92,7 @@ export default function ClientDetailPage() {
     ? 'checkins'
     : (searchParams.get('tab') as CoachClientTab) || 'overview');
   const exerciseHint = parseExerciseQuery(searchParams.get('exercise'));
+  const workoutQuery = parseWorkoutQuery(searchParams.get('workout'));
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [openWorkout, setOpenWorkout] = useState<Workout | null>(null);
@@ -149,14 +152,15 @@ export default function ClientDetailPage() {
     const params = new URLSearchParams(searchParams);
     params.set('tab', next);
     if (next !== 'training' && next !== 'progress') params.delete('exercise');
+    if (next !== 'training') params.delete('workout');
     if (next !== 'checkins') params.delete('checkin');
     if (extra) {
       for (const [k, v] of Object.entries(extra)) {
         if (v) params.set(k, v);
+        else params.delete(k);
       }
     }
     setSearchParams(params, { replace: true });
-    setOpenWorkout(null);
     setWorkspaceOpen(false);
   };
 
@@ -171,6 +175,26 @@ export default function ClientDetailPage() {
     () => (id ? pickDefaultLift(lifts, { hint: exerciseHint, notes, today: todayStr() }) : null),
     [id, lifts, exerciseHint, notes],
   );
+  const lastFromLifts = useMemo(
+    () => (id ? lastSessionFromLifts(lifts, id, { today: todayStr(), workoutId: workoutQuery || undefined }) : null),
+    [id, lifts, workoutQuery],
+  );
+  const focusWorkoutId = workoutQuery || lastFromLifts?.workoutId || '';
+  const sessionView = openWorkout && focusWorkoutId && openWorkout.id === focusWorkoutId
+    ? lastSessionFromWorkout(openWorkout)
+    : lastFromLifts;
+
+  useEffect(() => {
+    if (!focusWorkoutId) {
+      setOpenWorkout(null);
+      return;
+    }
+    let cancelled = false;
+    fetchClientWorkout(focusWorkoutId).then(full => {
+      if (!cancelled) setOpenWorkout(full);
+    });
+    return () => { cancelled = true; };
+  }, [focusWorkoutId, fetchClientWorkout]);
   const insightWorkouts = useMemo(() => {
     if (workouts.length > 0) {
       return workouts.map(w => ({ date: w.date, completed: w.completed, name: w.name }));
@@ -226,9 +250,8 @@ export default function ClientDetailPage() {
   const showNutritionPass = !!nutritionStall || !!calorieDraft;
   const canAskCalories = canAskCalorieAdjustment(nutritionStall) && !calorieDraft;
 
-  const handleOpenWorkout = async (workoutId: string) => {
-    const full = await fetchClientWorkout(workoutId);
-    setOpenWorkout(full);
+  const handleOpenWorkout = (workoutId: string) => {
+    setTab('training', { workout: workoutId });
   };
 
   const handleNote = async () => {
@@ -502,44 +525,23 @@ export default function ClientDetailPage() {
             onAsk={q => navigate(`/prometheus?q=${encodeURIComponent(q)}&client=${id}`)}
           />
         ) : tab === 'training' ? (
-          openWorkout ? (
             <div className="space-y-3">
-              <button onClick={() => setOpenWorkout(null)} className="text-sm text-blue-400">{t('common.back')}</button>
-              <h2 className="text-lg font-semibold text-white">{openWorkout.name}</h2>
-              <p className="text-xs text-neutral-500">
-                {formatDate(openWorkout.date)}
-                {openWorkout.duration_seconds > 0 ? ` · ${formatDuration(openWorkout.duration_seconds)}` : ''}
-              </p>
-              {(openWorkout.exercises ?? []).map(ex => (
-                <Card
-                  key={ex.id}
-                  padding={false}
-                  className="p-3"
-                  onClick={() => setTab('training', { exercise: ex.name })}
-                >
-                  <p className="text-sm font-medium text-white mb-1">
-                    {ex.name}
-                    {ex.prescribed_sets ? (
-                      <span className="text-neutral-500 font-normal"> · {ex.prescribed_sets}×{ex.prescribed_reps}</span>
-                    ) : null}
-                  </p>
-                  {(ex.sets ?? []).map((s, i) => (
-                    <p key={s.id} className="text-xs text-neutral-400">
-                      {i + 1}. {s.weight_kg}kg × {s.reps}
-                      {s.rir ? ` @ RIR ${s.rir}` : ''}
-                    </p>
-                  ))}
-                </Card>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-3">
+              {sessionView && id ? (
+                <LastSessionReview
+                  clientId={id}
+                  client={client}
+                  session={sessionView}
+                  relanceHref={trainingRelanceHref}
+                  showRelance
+                  onExercise={name => setTab('training', { exercise: name })}
+                />
+              ) : null}
               <ClientLiftChart
                 lifts={lifts}
                 selectedName={exerciseHint}
                 notes={notes}
                 relanceHref={trainingRelanceHref}
-                showRelance={missedTraining}
+                showRelance={missedTraining && !sessionView}
                 onSelect={name => setTab('training', { exercise: name })}
                 onOpenSeries={lift => {
                   setTab('training', { exercise: lift.displayName });
@@ -561,7 +563,12 @@ export default function ClientDetailPage() {
                   </button>
                 </Card>
               )}
-              {workouts.slice(0, 6).map(w => (
+              {workouts.filter(w => w.id !== sessionView?.workoutId).slice(0, 6).length > 0 && (
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest pt-1">
+                  {t('coaching.lastSession.older')}
+                </p>
+              )}
+              {workouts.filter(w => w.id !== sessionView?.workoutId).slice(0, 6).map(w => (
                 <Card key={w.id} onClick={() => handleOpenWorkout(w.id)} className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${w.completed ? 'bg-blue-600/20 text-blue-400' : 'bg-neutral-800 text-neutral-500'}`}>
                     <Dumbbell size={16} />
@@ -573,7 +580,6 @@ export default function ClientDetailPage() {
                 </Card>
               ))}
             </div>
-          )
         ) : tab === 'progress' ? (
           <div className="space-y-3">
             <ClientLiftChart

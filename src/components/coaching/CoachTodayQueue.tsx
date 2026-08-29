@@ -38,6 +38,7 @@ export default function CoachTodayQueue() {
   const current = groups[0] ?? null;
   const upcomingNames = nextClientNames(groups);
   const relanceHref = current ? relanceHrefForGroup(current, pendingInterventions) : null;
+  const sessionAction = current?.items.find(item => item.kind === 'session_logged') ?? null;
   const setupAction = current
     ? current.items.map(item => resolveQueueAction(item, pendingInterventions)).find(a => a.kind === 'open_setup' || a.kind === 'open_draft')
     : null;
@@ -115,12 +116,17 @@ export default function CoachTodayQueue() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mt-4">
+          {sessionAction?.href && (
+            <Button size="sm" onClick={() => navigate(sessionAction.href)}>
+              {t('coaching.queue.openSession')}
+            </Button>
+          )}
           {relanceHref && (
-            <Button size="sm" onClick={() => navigate(relanceHref)}>
+            <Button size="sm" variant={sessionAction ? 'secondary' : 'primary'} onClick={() => navigate(relanceHref)}>
               {t('coaching.queue.relance')}
             </Button>
           )}
-          {!relanceHref && setupAction?.href && (
+          {!relanceHref && !sessionAction && setupAction?.href && (
             <Button size="sm" onClick={() => navigate(setupAction.href!)}>
               {t(setupAction.ctaKey)}
             </Button>

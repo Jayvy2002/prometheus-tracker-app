@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "test": "tsx --test src/lib/coachSecond.test.ts src/lib/coachAsk.test.ts src/lib/coachQueue.test.ts src/lib/clientLive.test.ts src/lib/coachCheckins.test.ts src/lib/coachDraftSend.test.ts src/lib/coachNutrition.test.ts src/lib/coachPhotos.test.ts src/lib/coachTraining.test.ts"
+    "test": "tsx --test src/lib/coachSecond.test.ts src/lib/coachAsk.test.ts src/lib/coachQueue.test.ts src/lib/clientLive.test.ts src/lib/coachCheckins.test.ts src/lib/coachDraftSend.test.ts src/lib/coachNutrition.test.ts src/lib/coachPhotos.test.ts src/lib/coachTraining.test.ts src/lib/coachLastSession.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

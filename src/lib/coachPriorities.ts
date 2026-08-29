@@ -3,6 +3,7 @@ import { checkinFocusHref, checkinReviewRows } from './coachCheckins';
 import { nutritionStallFocusHref, nutritionStallPriority, normalizeGoal } from './coachNutrition';
 import { displayName } from './coachText';
 import { liftsForClient } from './coachLifts';
+import { sessionLoggedPriority } from './coachLastSession';
 import { pickDefaultLift, trainingFocusHref } from './coachTraining';
 import { todayStr } from './utils';
 import type {
@@ -187,6 +188,9 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
     } else if (row.alerts.includes('program_unassigned') || needsSetup(row)) {
       items.push(fromAlert(row, 'program_unassigned', 'program_unassigned', 'orange', 'overview'));
     }
+
+    const logged = sessionLoggedPriority(row, signals.lifts, todayStr());
+    if (logged) items.push(logged);
 
     if (row.alerts.includes('missing_workout_week') || row.alerts.includes('missing_workout_today')) {
       const weekMissed = row.alerts.includes('missing_workout_week');

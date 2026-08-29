@@ -66,6 +66,14 @@ export function resolveQueueAction(
     };
   }
 
+  if (priority.kind === 'session_logged') {
+    return {
+      kind: 'open_360',
+      href: priority.href,
+      ctaKey: 'coaching.queue.openSession',
+    };
+  }
+
   const match = matchingPendingIntervention(priority, pending);
   if (match) {
     const setup = match.kind === 'onboarding_plan';

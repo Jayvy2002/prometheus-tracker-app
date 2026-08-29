@@ -5,11 +5,19 @@ import { addDaysToDateStr } from './utils';
 import type { ClientLiftProgress } from './types';
 
 export const TRAINING_TAB = 'training';
+export const WORKOUT_QUERY_PARAM = 'workout';
 
 export function trainingFocusHref(clientId: string, exerciseName?: string | null): string {
   const params = new URLSearchParams({ tab: TRAINING_TAB });
   const name = (exerciseName ?? '').trim();
   if (name) params.set('exercise', name);
+  return `/clients/${clientId}?${params.toString()}`;
+}
+
+export function trainingSessionHref(clientId: string, workoutId: string): string {
+  const params = new URLSearchParams({ tab: TRAINING_TAB });
+  const id = parseWorkoutQuery(workoutId);
+  if (id) params.set(WORKOUT_QUERY_PARAM, id);
   return `/clients/${clientId}?${params.toString()}`;
 }
 
@@ -21,6 +29,19 @@ export function isTrainingHref(href: string): boolean {
 
 export function parseExerciseQuery(value: string | null | undefined): string {
   return (value ?? '').trim();
+}
+
+export function parseWorkoutQuery(value: string | null | undefined): string {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed || trimmed.length > 80 || /\s/.test(trimmed)) return '';
+  return trimmed;
+}
+
+export function workoutIdFromHref(href: string): string | null {
+  const query = href.split('?')[1];
+  if (!query) return null;
+  const id = parseWorkoutQuery(new URLSearchParams(query).get(WORKOUT_QUERY_PARAM));
+  return id || null;
 }
 
 export function lastSessionDate(lift: ClientLiftProgress): string {
