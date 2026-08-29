@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { ClientLiftProgress } from '../../lib/types';
@@ -39,10 +39,14 @@ export default function ClientLiftChart({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const today = todayStr();
+  const [localHint, setLocalHint] = useState(selectedName ?? '');
+  useEffect(() => {
+    setLocalHint(selectedName ?? '');
+  }, [selectedName]);
   const recent = useMemo(() => recentLoggedLifts(lifts, today), [lifts, today]);
   const selected = useMemo(
-    () => pickDefaultLift(lifts, { hint: selectedName, notes, prescribedNames, today }),
-    [lifts, selectedName, notes, prescribedNames, today],
+    () => pickDefaultLift(lifts, { hint: localHint || selectedName, notes, prescribedNames, today }),
+    [lifts, localHint, selectedName, notes, prescribedNames, today],
   );
   const options = useMemo(() => {
     if (selected && !recent.some(l => l.exerciseName === selected.exerciseName)) {
@@ -87,7 +91,10 @@ export default function ClientLiftChart({
               <span className="sr-only">{t('coaching.trainingLift.picker')}</span>
               <select
                 value={selected.displayName}
-                onChange={e => onSelect(e.target.value)}
+                onChange={e => {
+                  setLocalHint(e.target.value);
+                  onSelect(e.target.value);
+                }}
                 className="mt-0.5 w-full max-w-xs bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-sm text-white"
               >
                 {options.map(l => (
