@@ -45,6 +45,7 @@ CREATE OR REPLACE FUNCTION public.coach_agent_payload_fingerprint(p jsonb)
 RETURNS jsonb
 LANGUAGE sql
 IMMUTABLE
+SET search_path = public
 AS $$
   SELECT jsonb_strip_nulls(jsonb_build_object(
     'answer', p->'answer',
