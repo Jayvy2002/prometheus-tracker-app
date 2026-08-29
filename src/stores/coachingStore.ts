@@ -1200,8 +1200,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     if (get().coachingRole === 'coach') return;
-    void get().fetchMyCoach();
-    void get().fetchCoachMessages();
+    void get().fetchMyCoach().then(() => {
+      void get().fetchCoachMessages();
+    });
     void useProgramStore.getState().fetchMyAssignment(user.id);
     if (!clientRealtimeChannel) {
       clientRealtimeChannel = supabase
