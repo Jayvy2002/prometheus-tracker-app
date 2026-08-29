@@ -24,4 +24,4 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "microphone=(), geolocation=()"
 
-# Trigger Netlify deploy preview for PR stacked on #23 (per-exercise lift graphs)
+# Trigger Netlify deploy preview for PR stacked on #31 (clients roster)
