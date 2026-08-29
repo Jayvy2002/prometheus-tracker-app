@@ -535,6 +535,26 @@ test('upsert SQL never reopens sent/dismissed fleet rows', () => {
   assert.match(fleet, /FLEET_HANDLE_COOLDOWN_DAYS/);
 });
 
+test('triage_coach_fleet qualifies handled_agg columns so PL/pgSQL does not treat client_id as OUT', () => {
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
+  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.triage_coach_fleet'));
+  assert.match(fn, /#variable_conflict use_column/);
+  const start = fn.indexOf('handled_agg AS (');
+  const end = fn.indexOf('LEFT JOIN handled_agg');
+  assert.ok(start >= 0 && end > start);
+  const agg = fn.slice(start, end);
+  assert.match(agg, /handled_ord\.client_id/);
+  assert.match(agg, /handled_ord\.kind/);
+  assert.match(agg, /handled_ord\.flag/);
+  assert.match(agg, /handled_ord\.status/);
+  assert.match(agg, /handled_ord\.handled_at/);
+  assert.match(agg, /handled_ord\.evidence/);
+  assert.match(agg, /WHERE handled_ord\.rn = 1/);
+  assert.match(agg, /GROUP BY handled_ord\.client_id/);
+  assert.doesNotMatch(agg, /^\s+client_id,$/m);
+  assert.doesNotMatch(agg, /GROUP BY client_id\s*$/m);
+});
+
 test('incomplete 2000/0/0/0 is not a sendable calorie draft', () => {
   assert.equal(isCompleteCalorieDraft({ calories: 2000, protein: 0, carbs: 0, fat: 0 }), false);
   assert.equal(isCompleteCalorieDraft({ calories: 2000, protein: 160, carbs: 180, fat: 70 }), true);

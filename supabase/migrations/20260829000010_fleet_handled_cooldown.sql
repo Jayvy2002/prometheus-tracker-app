@@ -3,6 +3,7 @@
 -- Same coach+client+signal stays quiet ~7 days after handle, unless facts moved
 -- (another week of 3100 vs 2200, new missed block). Never flip sent/dismissed to pending.
 -- Pending fleet: refresh in place. keep_in_touch uses handled_at, not created_at.
+-- triage RETURNS TABLE(client_id): handled_agg must qualify handled_ord.* or PL/pgSQL 42702.
 
 CREATE OR REPLACE FUNCTION public.fleet_evidence_changed(p_prev jsonb, p_next jsonb)
 RETURNS boolean
@@ -224,6 +225,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+#variable_conflict use_column
 DECLARE
   v_from date := CURRENT_DATE - 13;
   v_coach uuid := p_coach_id;
@@ -366,17 +368,17 @@ BEGIN
   ),
   handled_agg AS (
     SELECT
-      client_id,
+      handled_ord.client_id,
       jsonb_agg(jsonb_build_object(
-        'kind', kind,
-        'flag', flag,
-        'status', status,
-        'handled_at', handled_at,
-        'evidence', evidence
+        'kind', handled_ord.kind,
+        'flag', handled_ord.flag,
+        'status', handled_ord.status,
+        'handled_at', handled_ord.handled_at,
+        'evidence', handled_ord.evidence
       )) AS fleet_handled
     FROM handled_ord
-    WHERE rn = 1
-    GROUP BY client_id
+    WHERE handled_ord.rn = 1
+    GROUP BY handled_ord.client_id
   )
   SELECT
     l.coach_id,
