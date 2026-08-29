@@ -1,5 +1,6 @@
 import { namesMatch, foldText, displayName } from './coachText';
 import { findLift, liftsForClient, stalledLifts } from './coachLifts';
+import { trainingFocusHref } from './coachTraining';
 import type {
   ClientLiftProgress,
   ClientOpsRow,
@@ -115,7 +116,7 @@ function stallHits(opsRows: ClientOpsRow[], lifts: ClientLiftProgress[]): CoachA
   return opsRows.flatMap(r => stalledLifts(liftsForClient(lifts, r.client.id)).slice(0, 2).map(l => ({
     clientId: r.client.id,
     clientName: displayName(r.client),
-    href: `/clients/${r.client.id}?tab=training&exercise=${encodeURIComponent(l.displayName)}`,
+    href: trainingFocusHref(r.client.id, l.displayName),
     reason: l.displayName,
   })));
 }
@@ -196,9 +197,7 @@ export function answerCoachAsk(
     const hits: CoachAskHit[] = [{
       clientId: row.client.id,
       clientName: displayName(row.client),
-      href: lift
-        ? `/clients/${row.client.id}?tab=training&exercise=${encodeURIComponent(lift.displayName)}`
-        : `/clients/${row.client.id}?tab=training`,
+      href: trainingFocusHref(row.client.id, lift?.displayName),
       reason: lift ? `${lift.displayName}${last ? ` · ${last.bestSet}` : ''}` : 'overview',
     }];
     return {

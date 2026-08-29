@@ -1103,6 +1103,17 @@ const en = {
       timelineEmpty: 'No events yet',
       openProgram: 'Open program editor',
     },
+    trainingLift: {
+      title: 'Lift trend',
+      picker: 'Logged exercise',
+      topSet: 'Top set (logged load) — no invented e1RM',
+      last: 'Last: {{set}} · {{date}}',
+      pr: 'PR',
+      sessions: '{{n}} session(s)',
+      emptyBody: 'No training logs. Nudge them to send a session.',
+      singlePoint: 'One logged session ({{set}}). The curve shows up after the next one.',
+      openSeries: 'See sets',
+    },
     kpis: {
       progression: 'Progression',
       adherence: 'Training',

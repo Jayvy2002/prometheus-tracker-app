@@ -7,11 +7,16 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
 import { lastMessageForClient } from '../../lib/coachQueue';
+import { liftsForClient } from '../../lib/coachLifts';
+import { sparklineValues } from '../../lib/coachProgress';
+import { weekMovedLift } from '../../lib/coachTraining';
 import { displayName } from '../../lib/coachText';
+import { todayStr } from '../../lib/utils';
 import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import Sparkline from '../ui/Sparkline';
 import { toast } from '../ui/Toast';
 import RemoveClientDialog from './RemoveClientDialog';
 
@@ -206,6 +211,8 @@ export default function ClientsPage() {
               const ops = opsRows.find(r => r.client.id === c.id);
               const forceSetup = ops ? shouldOpenSetup(ops) : !c.onboarding_completed;
               const lastMessage = lastMessageForClient(sentMessages, c.id);
+              const moved = weekMovedLift(liftsForClient(rosterSignals.lifts, c.id), todayStr());
+              const movedSpark = moved ? sparklineValues(moved, 'topSet') : [];
               return (
               <Card
                 key={c.id}
@@ -233,6 +240,15 @@ export default function ClientsPage() {
                     {lastMessage?.body || c.email}
                   </p>
                 </div>
+                {moved && movedSpark.length >= 2 && (
+                  <div className="shrink-0 text-right max-w-[96px]">
+                    <p className="text-[10px] text-neutral-500 truncate">{moved.displayName}</p>
+                    <div className="flex items-center gap-1 justify-end">
+                      <span className="text-[10px] text-neutral-400">{moved.sessions[0]?.bestSet}</span>
+                      <Sparkline values={movedSpark} width={56} height={20} />
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={e => {

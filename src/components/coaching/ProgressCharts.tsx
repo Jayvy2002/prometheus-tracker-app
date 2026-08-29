@@ -62,20 +62,20 @@ export function NutritionChart({ points }: { points: DailyNutritionPoint[] }) {
   );
 }
 
-export function LiftLineChart({ points }: { points: Array<{ date: string; topSet: number; volume: number; e1rm: number }> }) {
+export function LiftLineChart({ points }: { points: Array<{ date: string; topSet: number; volume?: number; e1rm?: number }> }) {
   const { t } = useTranslation();
   if (points.length === 0) return null;
   return (
-    <div className="h-36">
+    <div className="h-40">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={points}>
           <XAxis dataKey="date" tickFormatter={tick} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
-          <YAxis width={32} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
+          <YAxis domain={['auto', 'auto']} width={36} tick={{ fill: '#737373', fontSize: 10 }} axisLine={false} tickLine={false} />
           <Tooltip
             contentStyle={{ background: '#171717', border: '1px solid #262626', borderRadius: 12, fontSize: 12 }}
+            formatter={(value) => [`${Number(value)} kg`, t('coaching.progress.topSet')]}
           />
-          <Line type="monotone" dataKey="topSet" name={t('coaching.progress.topSet')} stroke="#60a5fa" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="e1rm" name={t('coaching.progress.e1rm')} stroke="#a78bfa" strokeWidth={1.5} dot={false} />
+          <Line type="monotone" dataKey="topSet" name={t('coaching.progress.topSet')} stroke="#60a5fa" strokeWidth={2} dot={{ r: 3 }} />
         </LineChart>
       </ResponsiveContainer>
     </div>

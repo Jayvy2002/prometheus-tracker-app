@@ -24,10 +24,11 @@ import {
 } from '../../lib/coachNutrition';
 import { relanceThreadHref } from '../../lib/coachQueue';
 import { displayName } from '../../lib/coachText';
-import { findLift, liftsForClient } from '../../lib/coachLifts';
+import { liftsForClient } from '../../lib/coachLifts';
+import { parseExerciseQuery, pickDefaultLift } from '../../lib/coachTraining';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
-import { sparklineValues, weightChartPoints } from '../../lib/coachProgress';
+import { weightChartPoints } from '../../lib/coachProgress';
 import {
   DEFAULT_COACH_VISIBLE_TABS,
   type CoachClientTab,
@@ -44,9 +45,9 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import Sparkline from '../ui/Sparkline';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
+import ClientLiftChart from './ClientLiftChart';
 import ExerciseWorkspace from './ExerciseWorkspace';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
 import NutritionStallPanel from './NutritionStallPanel';
@@ -88,8 +89,9 @@ export default function ClientDetailPage() {
   const tab = (checkinId && !searchParams.get('tab')
     ? 'checkins'
     : (searchParams.get('tab') as CoachClientTab) || 'overview');
-  const exerciseHint = searchParams.get('exercise') || '';
+  const exerciseHint = parseExerciseQuery(searchParams.get('exercise'));
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [openWorkout, setOpenWorkout] = useState<Workout | null>(null);
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
   const [logs, setLogs] = useState<NutritionLog[]>([]);
@@ -146,13 +148,16 @@ export default function ClientDetailPage() {
   const setTab = (next: CoachClientTab, extra?: Record<string, string>) => {
     const params = new URLSearchParams(searchParams);
     params.set('tab', next);
-    if (!extra?.exercise) params.delete('exercise');
+    if (next !== 'training' && next !== 'progress') params.delete('exercise');
     if (next !== 'checkins') params.delete('checkin');
     if (extra) {
-      for (const [k, v] of Object.entries(extra)) params.set(k, v);
+      for (const [k, v] of Object.entries(extra)) {
+        if (v) params.set(k, v);
+      }
     }
     setSearchParams(params, { replace: true });
     setOpenWorkout(null);
+    setWorkspaceOpen(false);
   };
 
   const lifts = useMemo(() => {
@@ -162,7 +167,10 @@ export default function ClientDetailPage() {
   const visibleTabs = coachSettings?.visible_tabs?.length
     ? DEFAULT_COACH_VISIBLE_TABS.filter(tabKey => coachSettings.visible_tabs.includes(tabKey))
     : TABS;
-  const workspaceLift = exerciseHint && id ? findLift(lifts, id, exerciseHint) : null;
+  const workspaceLift = useMemo(
+    () => (id ? pickDefaultLift(lifts, { hint: exerciseHint, notes }) : null),
+    [id, lifts, exerciseHint, notes],
+  );
   const insightWorkouts = useMemo(() => {
     if (workouts.length > 0) {
       return workouts.map(w => ({ date: w.date, completed: w.completed, name: w.name }));
@@ -198,6 +206,8 @@ export default function ClientDetailPage() {
   const week = programWeekLabel(rosterSignals.assignmentStart[id ?? ''], rosterSignals.assignmentWeeks[id ?? '']);
   const clientPriorities = priorities.filter(p => p.clientId === id).slice(0, 4);
   const relanceHref = id ? relanceThreadHref(id, 'general_followup') : '';
+  const trainingRelanceHref = id ? relanceThreadHref(id, 'missed_training') : '';
+  const missedTraining = priorities.some(p => p.clientId === id && p.kind === 'missed_workout');
   const calorieDraft = id ? pendingForClient(pendingInterventions, id, 'calorie_adjustment') : null;
   const nutritionStall = useMemo(() => {
     if (!id || !client) return null;
@@ -423,6 +433,15 @@ export default function ClientDetailPage() {
               </p>
             </Card>
 
+            <ClientLiftChart
+              compact
+              lifts={lifts}
+              selectedName={exerciseHint}
+              notes={notes}
+              relanceHref={trainingRelanceHref}
+              onSelect={name => setTab('training', { exercise: name })}
+            />
+
             {kpis && (
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
@@ -475,11 +494,11 @@ export default function ClientDetailPage() {
               )}
             </div>
           </div>
-        ) : tab === 'training' && workspaceLift ? (
+        ) : tab === 'training' && workspaceOpen && workspaceLift ? (
           <ExerciseWorkspace
             clientId={id!}
             lift={workspaceLift}
-            onClose={() => setTab('training')}
+            onClose={() => setWorkspaceOpen(false)}
             onAsk={q => navigate(`/prometheus?q=${encodeURIComponent(q)}&client=${id}`)}
           />
         ) : tab === 'training' ? (
@@ -515,6 +534,18 @@ export default function ClientDetailPage() {
             </div>
           ) : (
             <div className="space-y-3">
+              <ClientLiftChart
+                lifts={lifts}
+                selectedName={exerciseHint}
+                notes={notes}
+                relanceHref={trainingRelanceHref}
+                showRelance={missedTraining}
+                onSelect={name => setTab('training', { exercise: name })}
+                onOpenSeries={lift => {
+                  setTab('training', { exercise: lift.displayName });
+                  setWorkspaceOpen(true);
+                }}
+              />
               {assignment?.program && (
                 <Card>
                   <p className="text-sm text-white">{assignment.program.name}</p>
@@ -530,15 +561,7 @@ export default function ClientDetailPage() {
                   </button>
                 </Card>
               )}
-              {lifts.filter(l => l.stalled).map(l => (
-                <Card key={l.exerciseName} onClick={() => setTab('training', { exercise: l.displayName })}>
-                  <p className="text-sm text-amber-200">{t('coaching.priority.headlines.stalled_lift', { name: displayName(client || { full_name: '' }), lift: l.displayName })}</p>
-                  <p className="text-[11px] text-neutral-500">{t('coaching.workspace.openLift')}</p>
-                </Card>
-              ))}
-              {workouts.length === 0 ? (
-                <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.workouts')}</Card>
-              ) : workouts.map(w => (
+              {workouts.slice(0, 6).map(w => (
                 <Card key={w.id} onClick={() => handleOpenWorkout(w.id)} className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${w.completed ? 'bg-blue-600/20 text-blue-400' : 'bg-neutral-800 text-neutral-500'}`}>
                     <Dumbbell size={16} />
@@ -553,6 +576,18 @@ export default function ClientDetailPage() {
           )
         ) : tab === 'progress' ? (
           <div className="space-y-3">
+            <ClientLiftChart
+              lifts={lifts}
+              selectedName={exerciseHint}
+              notes={notes}
+              relanceHref={trainingRelanceHref}
+              showRelance={missedTraining}
+              onSelect={name => setTab('progress', { exercise: name })}
+              onOpenSeries={lift => {
+                setTab('training', { exercise: lift.displayName });
+                setWorkspaceOpen(true);
+              }}
+            />
             <WeightChart points={weightChartPoints(weights)} />
             <NutritionChart points={nutritionDays} />
             {showNutritionPass && id && (
@@ -566,25 +601,6 @@ export default function ClientDetailPage() {
               />
             )}
             <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
-            {lifts.length === 0 ? (
-              <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.workouts')}</Card>
-            ) : lifts.map(l => (
-              <Card key={l.exerciseName} onClick={() => setTab('training', { exercise: l.displayName })}>
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{l.displayName}</p>
-                    <p className="text-xs text-neutral-500 mt-1">
-                      {l.sessions[0]?.bestSet ?? '—'}
-                      {l.sessions[1] ? ` · prev ${l.sessions[1].bestSet}` : ''}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {l.stalled && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-300">{t('coaching.kpis.flat')}</span>}
-                    <Sparkline values={sparklineValues(l)} />
-                  </div>
-                </div>
-              </Card>
-            ))}
           </div>
         ) : tab === 'checkins' ? (
           <div className="space-y-3">

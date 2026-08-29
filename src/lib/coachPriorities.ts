@@ -3,6 +3,7 @@ import { checkinFocusHref, checkinReviewRows } from './coachCheckins';
 import { nutritionStallFocusHref, nutritionStallPriority, normalizeGoal } from './coachNutrition';
 import { displayName } from './coachText';
 import { liftsForClient } from './coachLifts';
+import { pickDefaultLift, trainingFocusHref } from './coachTraining';
 import { todayStr } from './utils';
 import type {
   ClientAlertKind,
@@ -128,7 +129,7 @@ function stallPriority(row: ClientOpsRow, lifts: ClientLiftProgress[]): CoachPri
     headlineParams: { name, lift: lift.displayName },
     detailKey: 'coaching.priority.details.stalled_lift',
     detailParams: { lift: lift.displayName, n: lift.sessions.length },
-    href: hrefFor(row.client.id, 'training', `&exercise=${encodeURIComponent(lift.displayName)}`),
+    href: trainingFocusHref(row.client.id, lift.displayName),
     exerciseName: lift.displayName,
   }));
 }
@@ -187,10 +188,20 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
       items.push(fromAlert(row, 'program_unassigned', 'program_unassigned', 'orange', 'overview'));
     }
 
-    if (row.alerts.includes('missing_workout_week')) {
-      items.push(fromAlert(row, 'missing_workout_week', 'missed_workout', 'orange', 'training'));
-    } else if (row.alerts.includes('missing_workout_today')) {
-      items.push(fromAlert(row, 'missing_workout_today', 'missed_workout', 'yellow', 'training'));
+    if (row.alerts.includes('missing_workout_week') || row.alerts.includes('missing_workout_today')) {
+      const weekMissed = row.alerts.includes('missing_workout_week');
+      const picked = pickDefaultLift(liftsForClient(signals.lifts, row.client.id));
+      items.push({
+        ...fromAlert(
+          row,
+          weekMissed ? 'missing_workout_week' : 'missing_workout_today',
+          'missed_workout',
+          weekMissed ? 'orange' : 'yellow',
+          'training',
+        ),
+        href: trainingFocusHref(row.client.id, picked?.displayName),
+        exerciseName: picked?.displayName,
+      });
     }
     if (row.alerts.includes('missing_checkin')) {
       items.push(withCheckin(
@@ -202,8 +213,10 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
       items.push(fromAlert(row, 'missing_nutrition', 'missed_nutrition', 'yellow', 'overview'));
     }
 
-    const stalledHere = liftsForClient(signals.lifts, row.client.id).some(l => l.stalled);
+    const clientLifts = liftsForClient(signals.lifts, row.client.id);
+    const stalledHere = clientLifts.some(l => l.stalled);
     if (stalledHere && row.hasProgram) {
+      const focus = clientLifts.find(l => l.stalled) ?? pickDefaultLift(clientLifts);
       items.push({
         id: `${row.client.id}-adapt`,
         clientId: row.client.id,
@@ -214,7 +227,8 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
         headlineKey: 'coaching.priority.headlines.program_adapt',
         headlineParams: { name },
         detailKey: 'coaching.priority.details.program_adapt',
-        href: hrefFor(row.client.id, 'training'),
+        href: trainingFocusHref(row.client.id, focus?.displayName),
+        exerciseName: focus?.displayName,
       });
     }
   }

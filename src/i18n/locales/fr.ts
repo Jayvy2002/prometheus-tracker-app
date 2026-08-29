@@ -1103,6 +1103,17 @@ const fr = {
       timelineEmpty: 'Aucun événement',
       openProgram: 'Ouvrir l’éditeur de programme',
     },
+    trainingLift: {
+      title: 'Évolution',
+      picker: 'Exercice loggé',
+      topSet: 'Charge max (série lourde) — logs, pas d’e1RM inventé',
+      last: 'Dernier : {{set}} · {{date}}',
+      pr: 'PR',
+      sessions: '{{n}} séance(s)',
+      emptyBody: 'Aucun log d’entraînement. Relance-le pour qu’il envoie une séance.',
+      singlePoint: 'Une séance loggée ({{set}}). La courbe apparaît dès la prochaine.',
+      openSeries: 'Voir les séries',
+    },
     kpis: {
       progression: 'Progression',
       adherence: 'Entraînement',
