@@ -253,7 +253,7 @@ export default function InterventionDraftPage() {
         });
         if (created.error) {
           setSaving(false);
-          toast(created.error, 'error');
+          toast(t('coaching.second.failed'), 'error');
           return;
         }
       }

@@ -5,11 +5,15 @@ import { test } from 'node:test';
 import {
   buildFleetCard,
   classifyFleetDossier,
+  completeMacrosFor,
   fleetEvidenceFromDossier,
   isCompleteCalorieDraft,
   isRelanceKind,
   planFleetRoundCard,
+  proposeWeeklyNutrition,
   sanitizeLlmCard,
+  WEEKLY_LARGE_KCAL,
+  WEEKLY_SMALL_KCAL,
 } from './coachFleet';
 import { parseCalorieDraft as parseCalories } from './coachInterventions';
 import type { CoachFleetDossier } from './types';
@@ -103,6 +107,8 @@ test('adherent + stall → calorie_adjustment with complete macros (never 2000/0
   assert.ok((cals?.carbs ?? 0) > 0);
   assert.ok((cals?.fat ?? 0) > 0);
   assert.notEqual(cals?.protein, 0);
+  assert.equal(cals?.calories, 2000);
+  assert.equal(card?.payload.reason, 'cut_gain');
 });
 
 test('Camille cut on-track + coach wrote this week → no extra card', () => {
@@ -558,4 +564,151 @@ test('triage_coach_fleet qualifies handled_agg columns so PL/pgSQL does not trea
 test('incomplete 2000/0/0/0 is not a sendable calorie draft', () => {
   assert.equal(isCompleteCalorieDraft({ calories: 2000, protein: 0, carbs: 0, fat: 0 }), false);
   assert.equal(isCompleteCalorieDraft({ calories: 2000, protein: 160, carbs: 180, fat: 70 }), true);
+});
+
+test('cut stall (flat) → small reduction, not a generic −150', () => {
+  const row = dossier({
+    client_id: 'stall-id',
+    full_name: 'Nina Plat',
+    goal: 'lose',
+    calorie_target: 2200,
+    logged_nutrition_days: 12,
+    avg_calories: 2180,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 80,
+    weight_end_kg: 80,
+    weight_delta_kg: 0,
+    workout_count: 8,
+  });
+  const proposal = proposeWeeklyNutrition(row);
+  assert.equal(proposal.reason, 'cut_stall');
+  assert.equal(proposal.draft?.calories, 2200 - WEEKLY_SMALL_KCAL);
+  assert.equal(isCompleteCalorieDraft(proposal.draft), true);
+  const card = buildFleetCard(row, TODAY, 'off');
+  assert.equal(card?.kind, 'calorie_adjustment');
+  assert.equal(card?.payload.reason, 'cut_stall');
+  assert.equal(card?.payload.calories, 2100);
+});
+
+test('not following (logs >> target) → Relancer, never a calorie card', () => {
+  const marc = dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 13,
+    avg_calories: 2850,
+    avg_adherence_nutrition: 2,
+    weight_delta_kg: 0.5,
+  });
+  const proposal = proposeWeeklyNutrition(marc);
+  assert.equal(proposal.action, 'relance');
+  assert.equal(proposal.reason, 'not_following');
+  assert.equal(proposal.draft, null);
+});
+
+test('fatigue on a followed cut → more carbs, same calories, not another cut', () => {
+  const row = dossier({
+    client_id: 'fatigue-id',
+    full_name: 'Jade Fatigue',
+    goal: 'lose',
+    calorie_target: 2200,
+    protein_target: 160,
+    carbs_target: 200,
+    fat_target: 70,
+    logged_nutrition_days: 12,
+    avg_calories: 2180,
+    avg_adherence_nutrition: 5,
+    avg_adherence_training: 2,
+    weight_start_kg: 80,
+    weight_end_kg: 80.4,
+    weight_delta_kg: 0.4,
+    workout_count: 8,
+  });
+  const proposal = proposeWeeklyNutrition(row);
+  assert.equal(proposal.reason, 'carb_support');
+  assert.equal(proposal.draft?.calories, 2200);
+  assert.ok((proposal.draft?.carbs ?? 0) > 200);
+  assert.ok((proposal.draft?.fat ?? 0) < 70);
+  assert.equal(isCompleteCalorieDraft(proposal.draft), true);
+  const card = buildFleetCard(row, TODAY, 'off');
+  assert.equal(card?.kind, 'calorie_adjustment');
+  assert.equal(card?.payload.reason, 'carb_support');
+  assert.equal(card?.payload.calories, 2200);
+});
+
+test('bulk not gaining → small increase; bulk too fast → smaller surplus', () => {
+  const stall = dossier({
+    client_id: 'bulk-stall',
+    full_name: 'Léa Stall',
+    goal: 'gain',
+    calorie_target: 2400,
+    logged_nutrition_days: 11,
+    avg_calories: 2380,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 62,
+    weight_end_kg: 62,
+    weight_delta_kg: 0,
+    workout_count: 8,
+  });
+  const stallProp = proposeWeeklyNutrition(stall);
+  assert.equal(stallProp.reason, 'bulk_stall');
+  assert.equal(stallProp.draft?.calories, 2400 + WEEKLY_SMALL_KCAL);
+
+  const fast = dossier({
+    client_id: 'bulk-fast',
+    full_name: 'Léa Fast',
+    goal: 'gain',
+    calorie_target: 2400,
+    logged_nutrition_days: 11,
+    avg_calories: 2380,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 62,
+    weight_end_kg: 64,
+    weight_delta_kg: 2,
+    weight_kg: 64,
+    workout_count: 8,
+  });
+  const fastProp = proposeWeeklyNutrition(fast);
+  assert.equal(fastProp.reason, 'bulk_too_fast');
+  assert.equal(fastProp.draft?.calories, 2400 - WEEKLY_SMALL_KCAL);
+  assert.equal(isCompleteCalorieDraft(fastProp.draft), true);
+});
+
+test('normal cut loss → keep, no calorie_adjustment (keep-in-touch only if silent)', () => {
+  const camille = dossier({
+    client_id: 'camille-id',
+    full_name: 'Camille Roux',
+    goal: 'lose',
+    calorie_target: 1850,
+    logged_nutrition_days: 10,
+    avg_calories: 1790,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 70.1,
+    weight_end_kg: 68.2,
+    weight_delta_kg: -1.9,
+    last_coach_message_at: '2026-08-28',
+  });
+  const proposal = proposeWeeklyNutrition(camille);
+  assert.equal(proposal.action, 'keep');
+  assert.equal(proposal.draft, null);
+  assert.equal(buildFleetCard(camille, TODAY), null);
+});
+
+test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
+  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  assert.match(fleet, /proposeWeeklyNutrition/);
+  assert.match(fleet, /WEEKLY_LARGE_KCAL/);
+  assert.match(fleet, /carb_support/);
+  assert.doesNotMatch(fleet, /direction === "down" \? -150/);
+  const src = readFileSync(resolve(process.cwd(), 'src/lib/coachFleet.ts'), 'utf8');
+  assert.doesNotMatch(src, /cut_more' \|\| direction === 'bulk_less' \? -150/);
+  assert.equal(WEEKLY_LARGE_KCAL, 200);
+  const nina = completeMacrosFor(2000, 'lose', 80);
+  assert.equal(isCompleteCalorieDraft(nina), true);
+  const setup = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientSetupPage.tsx'), 'utf8');
+  assert.match(setup, /setCalories\(targets\.calories\)/);
+  assert.doesNotMatch(setup, /daily_calorie_target \|\| targets/);
+  const weekly = readFileSync(resolve(process.cwd(), 'src/components/nutrition/WeeklyAdjustment.tsx'), 'utf8');
+  assert.doesNotMatch(weekly, /updateProfile/);
+  assert.match(weekly, /coachDecides/);
 });

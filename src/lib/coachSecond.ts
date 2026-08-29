@@ -7,7 +7,7 @@ export type SecondPingKind = (typeof SECOND_PING_KINDS)[number];
 
 export type CoachSecondRouteKind = SecondPingKind | 'roster';
 
-const CREATE_PROGRAM_RE = /(cr[eé]er?|create|g[eé]n[eè]re|draft).{0,24}(programme|program)|programme.{0,16}(ia|ai)|ai.{0,12}(programme|program)/i;
+const CREATE_PROGRAM_RE = /(cr[eé]er?|create|g[eé]n[eè]re|draft|fais|fait[es]?|make|build|propose|r[eé]dige).{0,48}(programme|program)|(programme|program).{0,20}(ia|ai)|un programme (pour|d['’e]|ia|ai)|un program (for|ia|ai)/i;
 const NL_EDIT_RE = /(\d+\s*[x×]\s*\d+|passe|change|met |set |rir\s*\d|rep range|volume)/i;
 
 export interface CoachSecondRoute {

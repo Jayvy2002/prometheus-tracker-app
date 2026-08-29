@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, X, Check, Info, Flame, Minus } from 'lucide-react';
+import { TrendingUp, TrendingDown, X, Info, Flame, Minus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
-import { parseDateStr, calculateMacros, toLocalDateStr } from '../../lib/utils';
-import { toast } from '../ui/Toast';
+import { parseDateStr, toLocalDateStr } from '../../lib/utils';
 import Button from '../ui/Button';
 
 const MIN_WEIGH_INS = 4;
@@ -65,7 +64,7 @@ function WeightSparkline({ data }: { data: { date: string; weight: number }[] })
   const firstWeight = data[0].weight;
   const lastWeight = data[data.length - 1].weight;
   const isDown = lastWeight < firstWeight;
-  const strokeColor = isDown ? '#34d399' : '#f87171'; // green if going down (cut context)
+  const strokeColor = isDown ? '#34d399' : '#f87171';
 
   const lastPt = pointList[pointList.length - 1].split(',');
   const lastCx = parseFloat(lastPt[0]);
@@ -98,10 +97,9 @@ interface Props {
 export default function WeeklyAdjustment({ onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { profile, updateProfile } = useProfileStore();
+  const { profile } = useProfileStore();
   const { measurements } = useWeightStore();
   const { fetchCaloriesForRange } = useNutritionStore();
-  const [saving, setSaving] = useState(false);
   const [calorieAdherence, setCalorieAdherence] = useState<number | null>(null);
 
   const goal = profile?.goal ?? 'maintain';
@@ -111,14 +109,12 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
   const { avg: avgPrev, count: countPrev } = getRollingAvg(measurements, WINDOW_DAYS, WINDOW_DAYS);
   const totalWeighIns = countCurrent + countPrev;
 
-  // Fetch average caloric intake for the current 14-day window
   useEffect(() => {
     if (!user) return;
     const start = getDateNDaysAgo(WINDOW_DAYS);
     const end = getDateNDaysAgo(0);
     fetchCaloriesForRange(user.id, start, end).then(rows => {
       if (rows.length === 0) return;
-      // Group by day and sum, then average across days with data
       const byDay: Record<string, number> = {};
       for (const r of rows) {
         byDay[r.logged_at] = (byDay[r.logged_at] ?? 0) + r.calories;
@@ -135,12 +131,10 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
   const weekDiff = avgCurrent - avgPrev;
   const absDiff = Math.abs(weekDiff);
 
-  let suggestion: number | null = null;
   let message = '';
   let reason = '';
   let severity: 'warning' | 'info' | 'success' = 'info';
 
-  // Factor caloric adherence into the suggestion
   const isUnderEating = calorieAdherence !== null && calorieAdherence < 0.85;
   const isOverEating = calorieAdherence !== null && calorieAdherence > 1.15;
 
@@ -151,13 +145,11 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
         reason = t('nutrition.weeklyAdjustment.messages.stableUnderEatingReason');
         severity = 'info';
       } else {
-        suggestion = currentCalories - 100;
         message = t('nutrition.weeklyAdjustment.messages.stableNoLoss');
         reason = t('nutrition.weeklyAdjustment.messages.stableNoLossReason');
         severity = 'warning';
       }
     } else if (weekDiff < -1) {
-      suggestion = currentCalories + 100;
       message = t('nutrition.weeklyAdjustment.messages.losingTooFast', { diff: weekDiff.toFixed(1) });
       reason = t('nutrition.weeklyAdjustment.messages.losingTooFastReason');
       severity = 'warning';
@@ -167,7 +159,6 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
         reason = t('nutrition.weeklyAdjustment.messages.weightUpOvereatingReason');
         severity = 'warning';
       } else {
-        suggestion = currentCalories - 150;
         message = t('nutrition.weeklyAdjustment.messages.weightIncreased', { diff: absDiff.toFixed(1) });
         reason = t('nutrition.weeklyAdjustment.messages.weightIncreasedReason');
         severity = 'warning';
@@ -179,12 +170,10 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
     }
   } else if (goal === 'bulk') {
     if (weekDiff < 0.1) {
-      suggestion = currentCalories + 100;
       message = t('nutrition.weeklyAdjustment.messages.bulkNotIncreasing');
       reason = t('nutrition.weeklyAdjustment.messages.bulkNotIncreasingReason');
       severity = 'info';
     } else if (weekDiff > 0.6) {
-      suggestion = currentCalories - 100;
       message = t('nutrition.weeklyAdjustment.messages.bulkTooFast', { diff: absDiff.toFixed(1) });
       reason = t('nutrition.weeklyAdjustment.messages.bulkTooFastReason');
       severity = 'warning';
@@ -195,12 +184,9 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
     }
   } else if (goal === 'maintain') {
     if (absDiff > 0.5) {
-      const dir = weekDiff > 0 ? -1 : 1;
-      suggestion = currentCalories + dir * 100;
       const direction = weekDiff > 0 ? t('nutrition.weeklyAdjustment.messages.increased') : t('nutrition.weeklyAdjustment.messages.decreased');
-      const action = dir > 0 ? t('nutrition.weeklyAdjustment.messages.increase') : t('nutrition.weeklyAdjustment.messages.reduce');
       message = t('nutrition.weeklyAdjustment.messages.maintainChanged', { direction, diff: absDiff.toFixed(1) });
-      reason = t('nutrition.weeklyAdjustment.messages.maintainChangedReason', { direction: action });
+      reason = t('nutrition.weeklyAdjustment.messages.maintainChangedReason');
       severity = 'info';
     } else {
       message = t('nutrition.weeklyAdjustment.messages.maintainStable', { diff: absDiff.toFixed(2) });
@@ -209,26 +195,7 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
     }
   }
 
-  // If no actionable message was generated at all, don't show
   if (!message) return null;
-  // For success messages with no suggestion, we still show (as positive feedback)
-  // but only for a limited time — they can dismiss
-
-  const newMacros = suggestion ? calculateMacros(suggestion, goal, profile?.diet_type, profile?.weight_kg) : null;
-
-  const handleAccept = async () => {
-    if (!user || suggestion === null) return;
-    setSaving(true);
-    await updateProfile(user.id, {
-      daily_calorie_target: suggestion,
-      protein_target: newMacros!.protein,
-      carbs_target: newMacros!.carbs,
-      fat_target: newMacros!.fat,
-    });
-    toast(t('common.saveChanges'));
-    setSaving(false);
-    onDismiss();
-  };
 
   const borderColor = severity === 'warning' ? 'border-amber-500/30' : severity === 'success' ? 'border-emerald-500/30' : 'border-blue-500/30';
   const bgColor = severity === 'warning' ? 'bg-amber-500/8' : severity === 'success' ? 'bg-emerald-500/8' : 'bg-blue-500/8';
@@ -246,16 +213,8 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white leading-snug">{message}</p>
           <p className="text-xs text-neutral-400 mt-0.5">{reason}</p>
+          <p className="text-[11px] text-neutral-500 mt-1.5">{t('nutrition.weeklyAdjustment.coachDecides')}</p>
 
-          {suggestion !== null && newMacros && (
-            <p className="text-xs text-neutral-500 mt-1.5">
-              {t('nutrition.weeklyAdjustment.suggestedTarget')}{' '}
-              <span className="font-semibold text-white">{suggestion} kcal</span>
-              <span className="text-neutral-600"> · P:{newMacros.protein}g C:{newMacros.carbs}g F:{newMacros.fat}g</span>
-            </p>
-          )}
-
-          {/* Stats row */}
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             <div className="flex items-center gap-1.5">
               <Info size={9} className="text-neutral-600 shrink-0" />
@@ -286,19 +245,9 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
         </div>
       </div>
 
-      {suggestion !== null && (
-        <div className="flex gap-2 mt-3">
-          <Button variant="secondary" onClick={onDismiss} size="sm" className="flex-1">{t('common.ignore')}</Button>
-          <Button onClick={handleAccept} loading={saving} size="sm" className="flex-1">
-            <Check size={14} /> {t('nutrition.weeklyAdjustment.apply', { n: suggestion })}
-          </Button>
-        </div>
-      )}
-      {suggestion === null && (
-        <div className="mt-3 flex justify-end">
-          <button onClick={onDismiss} className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors">{t('common.dismiss')}</button>
-        </div>
-      )}
+      <div className="mt-3 flex justify-end">
+        <Button variant="secondary" onClick={onDismiss} size="sm">{t('common.dismiss')}</Button>
+      </div>
     </div>
   );
 }

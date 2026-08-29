@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { DailyCheckin } from '../../lib/types';
+import { formatCheckinScore } from '../../lib/coachCheckins';
 import { summarizeCheckin } from '../../lib/coachInsight';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -46,7 +47,7 @@ export default function CheckinReviewPanel({
       <Card>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400">
           {HIGHLIGHT_KEYS.map(key => (
-            <span key={key}>{t(`checkin.fields.${key}`)}: {checkin[key] ?? '—'}</span>
+            <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(checkin[key])}</span>
           ))}
         </div>
         {checkin.notes ? (

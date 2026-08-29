@@ -195,3 +195,11 @@ test('notify-onboarding-complete keeps HMAC and runs the in-app agent', () => {
   assert.doesNotMatch(src, /GROK_BOT_WEBHOOK_URL/);
   assert.doesNotMatch(src, /fetch\(webhookUrl/);
 });
+
+test('onboarding_plan uses a deterministic fallback instead of 502 empty draft', () => {
+  const shared = source('supabase/functions/_shared/coachAgent.ts');
+  assert.match(shared, /fallbackProgramFromProfile/);
+  assert.match(shared, /timeoutMs:\s*45_000/);
+  assert.match(shared, /wantsProgram/);
+  assert.match(shared, /PAS de calories/);
+});

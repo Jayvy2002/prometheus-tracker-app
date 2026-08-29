@@ -59,9 +59,12 @@ const LESSON_RULE =
 
 export const SYSTEM_PROMPT = `Tu es l'agent coach in-app de Prometheus. Tu prépares UN brouillon. Rien ne s'applique tout seul. Le coach accepte ou édite, puis envoie.
 Français, tutoiement. Tu tutoyes le client dans les messages.
-ISSN reste la formule de l'app — tu n'écrases pas les calories d'onboarding.
-Levier : adhérence / Relancer d'abord si le client n'applique PAS le plan (logs >> cible, adhérence basse, ghost, séances manquées). JAMAIS une coupe calorie ni un nouveau programme dans ces cas. JAMAIS des macros 0.
-Changement kcal/macros SEULEMENT s'il APPLIQUE le plan et reste hors objectif (ou trop vite). Macros COMPLÈTES : protein, carbs, fat tous > 0 et kcal ≈ P*4+C*4+F*9.
+ISSN reste la formule de l'app — tu n'écrases pas les calories d'onboarding. « Revenir à l'ISSN » = cette formule, pas un seed.
+Levier : adhérence / Relancer d'abord si le client n'applique PAS le plan (logs >> cible, adhérence basse, ghost, séances manquées). JAMAIS une coupe calorie ni un nouveau programme dans ces cas. JAMAIS des macros 0. On ne change PAS les cibles s'il ne suit pas.
+Changement kcal/macros SEULEMENT s'il APPLIQUE le plan. Trajectoire réelle, pas un offset générique ±150 :
+CUT : perte normale → keep ; stall plat → petite baisse (~100) ; reprise de poids → baisse plus franche (~200) ; fatigue/perf → plus de glucides, pas une coupe.
+BULK : prise normale → keep ; pas de prise → petite hausse (~100) ; trop vite → réduire un peu le surplus (~100) ; fatigue → plus de glucides.
+Macros COMPLÈTES : protein, carbs, fat tous > 0 et kcal ≈ P*4+C*4+F*9.
 Nouveau client : onboarding_plan / première semaine, pas un stall.
 Pas de CRM. Pas d'auto-apply.
 ${LESSON_RULE}
@@ -371,6 +374,80 @@ function titleFor(kind: string, llmTitle: string): string {
   return "Ask Prometheus — brouillon";
 }
 
+const CREATE_PROGRAM_RE =
+  /(cr[eé]er?|create|g[eé]n[eè]re|draft|fais|fait[es]?|make|build|propose|r[eé]dige).{0,48}(programme|program)|(programme|program).{0,20}(ia|ai)|un programme (pour|d['’e]|ia|ai)|un program (for|ia|ai)/i;
+
+export function looksLikeCreateProgram(raw: string): boolean {
+  return CREATE_PROGRAM_RE.test(raw.trim());
+}
+
+function lift(
+  name: string,
+  sets = 3,
+  reps = 10,
+  rir: number | null = 2,
+  rest = 90,
+): Record<string, unknown> {
+  return {
+    name,
+    default_sets: sets,
+    default_reps: reps,
+    default_reps_min: null,
+    default_rir: rir,
+    default_rest_seconds: rest,
+  };
+}
+
+function weekdaySpread(dayCount: number): number[] {
+  if (dayCount <= 3) return [1, 3, 5];
+  if (dayCount === 4) return [1, 2, 4, 5];
+  return [1, 2, 3, 4, 5].slice(0, dayCount);
+}
+
+/** Deterministic 3–5 day / 4–6 lift outline. Never includes calories/macros. */
+export function fallbackProgramFromProfile(
+  profile: Record<string, unknown> | null,
+  prompt: string,
+): Record<string, unknown> {
+  const freq = Math.round(num(profile?.training_frequency, 3));
+  const experience = asString(profile?.training_experience).toLowerCase();
+  const focus = asString(profile?.training_focus).toLowerCase();
+  const novice = experience.includes("beginner") || experience.includes("novice")
+    || /novice|débutant|debutant|étudiant|etudiant/i.test(prompt);
+  const dayCount = novice ? Math.min(4, Math.max(3, freq || 3)) : Math.min(5, Math.max(3, freq || 4));
+  const strength = focus.includes("strength") || focus.includes("force");
+  const reps = strength ? 6 : 10;
+  const rest = strength ? 150 : 90;
+
+  const fullBody = [
+    { name: "Full body A", exercises: [lift("Squat goblet", 3, reps, 2, rest), lift("Développé haltères", 3, reps, 2, rest), lift("Row barre", 3, reps, 2, rest), lift("RDL haltères", 3, reps, 2, rest), lift("Planche", 3, 30, null, 60)] },
+    { name: "Full body B", exercises: [lift("Fentes marchées", 3, reps, 2, rest), lift("Développé incliné", 3, reps, 2, rest), lift("Tirage vertical", 3, reps, 2, rest), lift("Hip thrust", 3, reps, 2, rest), lift("Face pulls", 3, 12, 2, 75)] },
+    { name: "Full body C", exercises: [lift("Presse à cuisses", 3, reps, 2, rest), lift("Développé militaire", 3, reps, 2, rest), lift("Row unilatéral", 3, reps, 2, rest), lift("Soulevé de terre roumain", 3, reps, 2, rest), lift("Gainage latéral", 3, 20, null, 60)] },
+    { name: "Full body D", exercises: [lift("Goblet squat tempo", 3, reps, 2, rest), lift("Pompes ou développé", 3, reps, 2, rest), lift("Row assis", 3, reps, 2, rest), lift("Fentes arrière", 3, reps, 2, rest), lift("Curl + extension", 3, 12, 2, 75)] },
+  ];
+  const upperLower = [
+    { name: "Upper A", exercises: [lift("Développé couché", 4, reps, 2, rest), lift("Row barre", 4, reps, 2, rest), lift("Développé militaire", 3, reps, 2, rest), lift("Tirage vertical", 3, reps, 2, rest), lift("Face pulls", 3, 12, 2, 75)] },
+    { name: "Lower A", exercises: [lift("Squat", 4, reps, 2, rest), lift("RDL", 3, reps, 2, rest), lift("Fentes", 3, reps, 2, rest), lift("Hip thrust", 3, reps, 2, rest), lift("Mollets", 3, 12, 2, 60)] },
+    { name: "Upper B", exercises: [lift("Développé incliné", 4, reps, 2, rest), lift("Row unilatéral", 3, reps, 2, rest), lift("Écarté haltères", 3, 12, 2, 75), lift("Curl barre", 3, 10, 2, 75), lift("Extension triceps", 3, 10, 2, 75)] },
+    { name: "Lower B", exercises: [lift("Presse à cuisses", 4, reps, 2, rest), lift("Soulevé de terre roumain", 3, reps, 2, rest), lift("Fentes marchées", 3, reps, 2, rest), lift("Leg curl", 3, 10, 2, 75), lift("Gainage", 3, 30, null, 60)] },
+    { name: "Full accessory", exercises: [lift("Tractions assistées", 3, 8, 2, rest), lift("Développé haltères", 3, reps, 2, rest), lift("Fentes bulgares", 3, reps, 2, rest), lift("Face pulls", 3, 12, 2, 75), lift("Planche", 3, 30, null, 60)] },
+  ];
+  const templates = dayCount <= 3 || novice ? fullBody : upperLower;
+  const weekdays = weekdaySpread(dayCount);
+  const days = templates.slice(0, dayCount).map((day, i) => ({
+    weekday: weekdays[i] ?? ((i + 1) % 7),
+    name: day.name,
+    exercises: day.exercises,
+  }));
+  const who = asString(profile?.full_name) || "client";
+  return {
+    name: novice ? `Base novice — ${who}` : `Programme ${dayCount}j — ${who}`,
+    description: "Brouillon déterministe 3–5 jours / 4–6 exercices. Tu édites, puis tu envoies. Pas de calories.",
+    duration_weeks: 8,
+    days,
+  };
+}
+
 function buildPayload(
   kind: string,
   input: CoachAgentInput,
@@ -466,18 +543,44 @@ export async function runCoachAgent(
     lessons,
   };
 
-  const llm = await openaiJson(
-    openaiKey,
-    [
-      { role: "system", content: `${SYSTEM_PROMPT}\n${kindSchema(kind)}` },
-      { role: "user", content: `${formatLessonsForPrompt(lessons)}\n\nDossier + demande:\n${JSON.stringify(userPayload)}` },
-    ],
-    { maxTokens: kind === "onboarding_plan" ? 2200 : 1400 },
-  );
+  const wantsProgram = kind === "onboarding_plan" || looksLikeCreateProgram(input.prompt);
 
-  if (!llm) return { ok: false, error: "AI_FAILED" };
+  const llm = openaiKey
+    ? await openaiJson(
+      openaiKey,
+      [
+        { role: "system", content: `${SYSTEM_PROMPT}\n${kindSchema(kind)}` },
+        { role: "user", content: `${formatLessonsForPrompt(lessons)}\n\nDossier + demande:\n${JSON.stringify(userPayload)}` },
+      ],
+      wantsProgram
+        ? { maxTokens: 3500, timeoutMs: 45_000 }
+        : { maxTokens: 1400 },
+    )
+    : null;
 
-  const built = buildPayload(kind, input, llm);
+  let built = llm ? buildPayload(kind, input, llm) : null;
+  if (!built || !payloadIsReady(kind, built.payload)) {
+    if (wantsProgram) {
+      const program = fallbackProgramFromProfile(profile, input.prompt);
+      built = buildPayload(kind, input, {
+        title: "Programme IA — brouillon",
+        notes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",
+        program,
+        tracking: {
+          track_weight: true,
+          track_checkins: true,
+          track_nutrition: true,
+          track_workouts: true,
+          workout_focus: asString(profile?.training_focus),
+        },
+      });
+    } else if (!llm) {
+      return { ok: false, error: "AI_FAILED" };
+    } else {
+      return { ok: false, error: "AI_EMPTY_DRAFT" };
+    }
+  }
+
   if (!payloadIsReady(kind, built.payload)) {
     return { ok: false, error: "AI_EMPTY_DRAFT" };
   }
@@ -569,7 +672,8 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
       return json(429, { error: "DAILY_LIMIT_REACHED", limit: 40 });
     }
 
-    if (!openaiKey) {
+    const wantsProgram = kind === "onboarding_plan" || looksLikeCreateProgram(prompt);
+    if (!openaiKey && !wantsProgram) {
       return json(500, { error: "OPENAI_API_KEY not configured" });
     }
 

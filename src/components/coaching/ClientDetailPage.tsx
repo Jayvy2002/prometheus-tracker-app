@@ -16,7 +16,7 @@ import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { GOALS } from '../../lib/constants';
 import { interventionHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
-import { flagKindForClient, focusCheckin, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
+import { flagKindForClient, focusCheckin, formatCheckinScore, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
 import {
   canAskCalorieAdjustment,
   detectCutCalorieStall,
@@ -471,15 +471,15 @@ export default function ClientDetailPage() {
             {kpis && (
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
-                <Kpi label={t('coaching.kpis.adherence')} value={kpis.trainingAdherence == null ? '—' : `${kpis.trainingAdherence}/5`} />
-                <Kpi label={t('coaching.kpis.recovery')} value={kpis.recovery == null ? '—' : String(kpis.recovery)} />
+                <Kpi label={t('coaching.kpis.adherence')} value={formatCheckinScore(kpis.trainingAdherence)} />
+                <Kpi label={t('coaching.kpis.recovery')} value={kpis.recovery == null ? '—' : formatCheckinScore(kpis.recovery)} />
                 <Kpi
                   label={t('coaching.kpis.weight')}
                   value={kpis.weightDelta == null ? '—' : `${kpis.weightDelta > 0 ? '+' : ''}${kpis.weightDelta} kg`}
                 />
                 <Kpi
                   label={t('coaching.kpis.pain')}
-                  value={kpis.pain == null ? '—' : `${kpis.pain}/5`}
+                  value={formatCheckinScore(kpis.pain)}
                   tone={(kpis.pain ?? 0) >= 3 ? 'text-rose-300' : undefined}
                 />
               </div>
@@ -657,7 +657,7 @@ export default function ClientDetailPage() {
                       'energy_level', 'sleep_quality', 'stress', 'motivation', 'fatigue',
                       'mood', 'muscle_soreness', 'joint_pain', 'adherence_training', 'adherence_nutrition',
                     ] as const).map(key => (
-                      <span key={key}>{t(`checkin.fields.${key}`)}: {c[key] ?? '—'}</span>
+                      <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(c[key])}</span>
                     ))}
                   </div>
                   {c.notes && <p className="text-xs text-neutral-500 mt-2">{c.notes}</p>}

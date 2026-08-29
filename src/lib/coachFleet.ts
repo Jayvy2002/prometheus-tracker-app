@@ -58,6 +58,28 @@ export function weeklyWeightPct(deltaKg: number | null, startKg: number | null, 
 
 export { isCompleteCalorieDraft };
 
+export const WEEKLY_SMALL_KCAL = 100;
+export const WEEKLY_LARGE_KCAL = 200;
+export const WEEKLY_CARB_SHIFT_G = 35;
+export const FATIGUE_TRAINING_MAX = 2.5;
+export const CUT_GAIN_MIN_DELTA_KG = 0.3;
+
+export type WeeklyNutritionReason =
+  | 'keep'
+  | 'not_following'
+  | 'cut_stall'
+  | 'cut_gain'
+  | 'too_fast_cut'
+  | 'bulk_stall'
+  | 'bulk_too_fast'
+  | 'carb_support';
+
+export interface WeeklyNutritionProposal {
+  action: 'keep' | 'relance' | 'calorie_adjustment';
+  reason: WeeklyNutritionReason;
+  draft: CalorieDraft | null;
+}
+
 export function completeMacrosFor(calories: number, goal: string, weightKg: number): CalorieDraft {
   const macros = calculateMacros(calories, normalizeGoal(goal) || 'maintain', undefined, weightKg || undefined);
   return {
@@ -66,6 +88,112 @@ export function completeMacrosFor(calories: number, goal: string, weightKg: numb
     carbs: Math.max(1, macros.carbs),
     fat: Math.max(1, macros.fat),
   };
+}
+
+function clampCalories(n: number): number {
+  return Math.min(8000, Math.max(800, Math.round(n)));
+}
+
+function currentOrIssnDraft(d: CoachFleetDossier): CalorieDraft {
+  const current: CalorieDraft = {
+    calories: Math.round(d.calorie_target),
+    protein: Math.round(d.protein_target),
+    carbs: Math.round(d.carbs_target),
+    fat: Math.round(d.fat_target),
+  };
+  if (isCompleteCalorieDraft(current)) return current;
+  const base = d.calorie_target > 0 ? d.calorie_target : Math.round(d.avg_calories) || 2000;
+  return completeMacrosFor(base, d.goal, d.weight_end_kg || d.weight_kg);
+}
+
+export function signsOfFatigue(d: CoachFleetDossier): boolean {
+  const training = adherenceOnFive(d.avg_adherence_training);
+  return training != null && training <= FATIGUE_TRAINING_MAX;
+}
+
+export function shiftCarbsKeepCalories(draft: CalorieDraft, extraCarbs = WEEKLY_CARB_SHIFT_G): CalorieDraft {
+  const protein = Math.max(1, draft.protein);
+  const carbs = Math.max(1, draft.carbs + extraCarbs);
+  const remaining = draft.calories - protein * 4 - carbs * 4;
+  const fat = Math.max(1, Math.round(remaining / 9));
+  return {
+    calories: Math.round(draft.calories),
+    protein,
+    carbs,
+    fat,
+  };
+}
+
+/** Data-driven weekly nutrition proposal. Never auto-applied — coach confirms. */
+export function proposeWeeklyNutrition(d: CoachFleetDossier): WeeklyNutritionProposal {
+  if (!nutritionFollowingPlan(d)) {
+    return { action: 'relance', reason: 'not_following', draft: null };
+  }
+
+  const weight = d.weight_end_kg || d.weight_kg;
+  const base = d.calorie_target > 0 ? d.calorie_target : Math.round(d.avg_calories) || 2000;
+  const goal = normalizeGoal(d.goal);
+  const current = currentOrIssnDraft(d);
+
+  if (signsOfFatigue(d)) {
+    return { action: 'calorie_adjustment', reason: 'carb_support', draft: shiftCarbsKeepCalories(current) };
+  }
+
+  const delta = d.weight_delta_kg;
+  const pct = weeklyWeightPct(delta, d.weight_start_kg ?? d.weight_kg);
+
+  if (goal === 'cut') {
+    if (pct != null && pct <= -CUT_TOO_FAST_PCT_PER_WEEK) {
+      return {
+        action: 'calorie_adjustment',
+        reason: 'too_fast_cut',
+        draft: completeMacrosFor(clampCalories(base + WEEKLY_SMALL_KCAL), d.goal, weight),
+      };
+    }
+    if (delta != null && delta >= CUT_GAIN_MIN_DELTA_KG) {
+      return {
+        action: 'calorie_adjustment',
+        reason: 'cut_gain',
+        draft: completeMacrosFor(clampCalories(base - WEEKLY_LARGE_KCAL), d.goal, weight),
+      };
+    }
+    if (delta != null && delta >= CUT_STALL_MIN_DELTA_KG) {
+      return {
+        action: 'calorie_adjustment',
+        reason: 'cut_stall',
+        draft: completeMacrosFor(clampCalories(base - WEEKLY_SMALL_KCAL), d.goal, weight),
+      };
+    }
+    return { action: 'keep', reason: 'keep', draft: null };
+  }
+
+  if (goal === 'bulk') {
+    if (pct != null && pct >= BULK_TOO_FAST_PCT_PER_WEEK) {
+      return {
+        action: 'calorie_adjustment',
+        reason: 'bulk_too_fast',
+        draft: completeMacrosFor(clampCalories(base - WEEKLY_SMALL_KCAL), d.goal, weight),
+      };
+    }
+    if (delta != null && delta <= 0.1) {
+      return {
+        action: 'calorie_adjustment',
+        reason: 'bulk_stall',
+        draft: completeMacrosFor(clampCalories(base + WEEKLY_SMALL_KCAL), d.goal, weight),
+      };
+    }
+    return { action: 'keep', reason: 'keep', draft: null };
+  }
+
+  if (delta != null && Math.abs(delta) >= 1.5) {
+    const dir = delta > 0 ? -WEEKLY_SMALL_KCAL : WEEKLY_SMALL_KCAL;
+    return {
+      action: 'calorie_adjustment',
+      reason: delta > 0 ? 'cut_gain' : 'bulk_stall',
+      draft: completeMacrosFor(clampCalories(base + dir), d.goal, weight),
+    };
+  }
+  return { action: 'keep', reason: 'keep', draft: null };
 }
 
 function nutritionFollowingPlan(d: CoachFleetDossier): boolean {
@@ -315,19 +443,70 @@ function relanceMessage(flag: CoachFleetFlag, d: CoachFleetDossier): { body: str
   };
 }
 
-function calorieTweak(d: CoachFleetDossier, direction: 'cut_more' | 'cut_less' | 'bulk_more' | 'bulk_less'): CalorieDraft {
-  const base = d.calorie_target > 0 ? d.calorie_target : Math.round(d.avg_calories) || 2000;
-  const delta = direction === 'cut_more' || direction === 'bulk_less' ? -150 : 150;
-  const calories = Math.min(8000, Math.max(800, base + delta));
-  return completeMacrosFor(calories, d.goal, d.weight_end_kg || d.weight_kg);
+function calorieAdjustmentCard(
+  d: CoachFleetDossier,
+  flag: CoachFleetFlag,
+  proposal: WeeklyNutritionProposal,
+  observation: string,
+  aiOff: boolean,
+): CoachFleetCard | null {
+  if (proposal.action !== 'calorie_adjustment' || !proposal.draft || !isCompleteCalorieDraft(proposal.draft)) {
+    return null;
+  }
+  const name = firstName(d.full_name);
+  const tweak = proposal.draft;
+  const reason = proposal.reason;
+  const titles: Record<string, string> = {
+    cut_stall: `${name} stagne malgré l’adhérence`,
+    cut_gain: `${name} reprend du poids sur le cut`,
+    too_fast_cut: `${name} perd trop vite`,
+    bulk_stall: `${name} ne progresse pas malgré l’adhérence`,
+    bulk_too_fast: `${name} prend trop vite`,
+    carb_support: `${name} — plus de glucides (fatigue / perf)`,
+  };
+  const causes: Record<string, string> = {
+    cut_stall: 'Cut plat et plan suivi — petite baisse, macros complètes. Rien ne s’applique tout seul.',
+    cut_gain: 'Prise de poids sur un cut alors que le plan est suivi — baisse plus franche, macros complètes.',
+    too_fast_cut: 'Cut trop rapide et plan suivi — on réduit un peu le déficit, macros complètes.',
+    bulk_stall: 'Pas de prise alors que le plan est suivi — petite hausse, macros complètes.',
+    bulk_too_fast: 'Bulk trop rapide et plan suivi — on réduit un peu le surplus, macros complètes.',
+    carb_support: 'Signes de fatigue / perf en baisse — plus de glucides, pas une nouvelle coupe calorie.',
+  };
+  const cause = causes[reason] || 'Proposition data-driven, macros complètes. Le coach confirme.';
+  return {
+    flag,
+    kind: 'calorie_adjustment',
+    title: titles[reason] || `${name} — ajustement nutrition`,
+    observation,
+    cause,
+    rationale: `${cause} ${tweak.calories} / P${tweak.protein} C${tweak.carbs} F${tweak.fat}.`,
+    payload: {
+      source: FLEET_SOURCE,
+      flag,
+      observation,
+      cause,
+      reason,
+      ai_off: aiOff,
+      nutrition: tweak,
+      calories: tweak.calories,
+      protein: tweak.protein,
+      carbs: tweak.carbs,
+      fat: tweak.fat,
+    },
+  };
 }
 
 function buildFleetCardInner(d: CoachFleetDossier, today: string, modelUsed: 'openai' | 'off' = 'off'): CoachFleetCard | null {
   const clinical = classifyFleetDossier(d, today);
   const name = firstName(d.full_name);
   const aiOff = modelUsed === 'off';
+  const proposal = proposeWeeklyNutrition(d);
 
   if (clinical === 'on_track') {
+    if (proposal.action === 'calorie_adjustment' && proposal.reason === 'carb_support') {
+      const observation = `Cible ${d.calorie_target} kcal, logs ~${Math.round(d.avg_calories)}, poids ${fmtDelta(d.weight_delta_kg)} kg. Fatigue / perf.`;
+      return calorieAdjustmentCard(d, 'on_track', proposal, observation, aiOff);
+    }
     if (!shouldOfferKeepInTouch(d, today)) return null;
     const silentDays = idleDays(d.last_coach_message_at, today);
     const observation = Number.isFinite(silentDays)
@@ -462,31 +641,8 @@ function buildFleetCardInner(d: CoachFleetDossier, today: string, modelUsed: 'op
         ? 'Bulk trop rapide.'
         : 'Rythme hors trajectoire.';
     if (following) {
-      const tweak = calorieTweak(
-        d,
-        goal === 'cut' ? 'cut_less' : goal === 'bulk' ? 'bulk_less' : 'cut_less',
-      );
-      const title = goal === 'cut' ? `${name} perd trop vite` : `${name} prend trop vite`;
-      return {
-        flag,
-        kind: 'calorie_adjustment',
-        title,
-        observation,
-        cause: `${cause} Il suit le plan — tweak de cible complet, pas un 0/0/0.`,
-        rationale: `${cause} Cibles proposées ${tweak.calories} / P${tweak.protein} C${tweak.carbs} F${tweak.fat}.`,
-        payload: {
-          source: FLEET_SOURCE,
-          flag,
-          observation,
-          cause: `${cause} Il suit le plan.`,
-          ai_off: aiOff,
-          nutrition: tweak,
-          calories: tweak.calories,
-          protein: tweak.protein,
-          carbs: tweak.carbs,
-          fat: tweak.fat,
-        },
-      };
+      const card = calorieAdjustmentCard(d, flag, proposal, observation, aiOff);
+      if (card) return card;
     }
     const relance = relanceMessage(flag, d);
     const title = goal === 'cut' ? `${name} perd trop vite` : `${name} prend trop vite`;
@@ -511,33 +667,10 @@ function buildFleetCardInner(d: CoachFleetDossier, today: string, modelUsed: 'op
   }
 
   // stall_adherent — following the plan, still off-goal. Complete macros only.
-  const goal = normalizeGoal(d.goal);
-  const tweak = calorieTweak(
-    d,
-    goal === 'cut' ? 'cut_more' : goal === 'bulk' ? 'bulk_more' : 'cut_more',
-  );
   const observation = `Cible ${d.calorie_target} kcal, logs ~${Math.round(d.avg_calories)} (${d.logged_nutrition_days} j), poids ${delta} kg. Plan suivi.`;
-  const cause = 'Il applique le plan et reste hors objectif — tweak de cible, macros complètes.';
-  return {
-    flag,
-    kind: 'calorie_adjustment',
-    title: goal === 'cut' ? `${name} stagne malgré l’adhérence` : `${name} ne progresse pas malgré l’adhérence`,
-    observation,
-    cause,
-    rationale: cause,
-    payload: {
-      source: FLEET_SOURCE,
-      flag,
-      observation,
-      cause,
-      ai_off: aiOff,
-      nutrition: tweak,
-      calories: tweak.calories,
-      protein: tweak.protein,
-      carbs: tweak.carbs,
-      fat: tweak.fat,
-    },
-  };
+  const card = calorieAdjustmentCard(d, flag, proposal, observation, aiOff);
+  if (card) return card;
+  return null;
 }
 
 export function isRelanceKind(kind: CoachInterventionKind): boolean {
@@ -621,16 +754,27 @@ export function sanitizeLlmCard(
       fat: nested.fat,
     });
     if (!isCompleteCalorieDraft(draft)) {
+      const proposal = proposeWeeklyNutrition(d);
+      const safe = proposal.draft && isCompleteCalorieDraft(proposal.draft)
+        ? proposal.draft
+        : (fallback.payload.nutrition as CalorieDraft | undefined) ?? completeMacrosFor(
+          d.calorie_target || 2000,
+          d.goal,
+          d.weight_kg,
+        );
       return {
         ...fallback,
         kind: 'calorie_adjustment',
         payload: {
           ...fallback.payload,
-          nutrition: fallback.payload.nutrition ?? completeMacrosFor(
-            d.calorie_target || 2000,
-            d.goal,
-            d.weight_kg,
-          ),
+          nutrition: safe,
+          calories: safe.calories,
+          protein: safe.protein,
+          carbs: safe.carbs,
+          fat: safe.fat,
+          reason: proposal.reason !== 'keep' && proposal.reason !== 'not_following'
+            ? proposal.reason
+            : fallback.payload.reason,
         },
       };
     }
