@@ -1,6 +1,7 @@
 import { nameAppearsIn, foldText, displayName } from './coachText';
 import { findLift, liftsForClient, stalledLifts } from './coachLifts';
 import { trainingFocusHref } from './coachTraining';
+import { clientFileHref } from './coachSituation';
 import type {
   ClientLiftProgress,
   ClientOpsRow,
@@ -219,7 +220,7 @@ export function answerCoachAsk(
     const hits: CoachAskHit[] = [{
       clientId: row.client.id,
       clientName: displayName(row.client),
-      href: trainingFocusHref(row.client.id, lift?.displayName),
+      href: lift ? trainingFocusHref(row.client.id, lift.displayName) : clientFileHref(row.client.id),
       reason: lift ? `${lift.displayName}${last ? ` · ${last.bestSet}` : ''}` : 'overview',
     }];
     return {

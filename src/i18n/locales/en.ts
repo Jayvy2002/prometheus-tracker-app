@@ -1122,6 +1122,20 @@ const en = {
       timelineEmpty: 'No events yet',
       openProgram: 'Open program editor',
     },
+    situation: {
+      noProgram: 'No program assigned',
+      noSession: 'No session logged',
+      idleSession: 'No session in {{days}} days',
+    },
+    goalLabels: {
+      cut: 'Cut',
+      cutHint: 'Caloric deficit',
+      maintain: 'Maintain',
+      maintainHint: 'Stay at current weight',
+      bulk: 'Bulk',
+      bulkHint: 'Caloric surplus',
+      gain: 'Bulk',
+    },
     lastSession: {
       title: 'Last session',
       empty: 'No recent session. Nudge only if you need to talk.',

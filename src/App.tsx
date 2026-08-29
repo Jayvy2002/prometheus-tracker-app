@@ -94,9 +94,9 @@ function AppRoutes() {
   }, [user, initialized, fetchProfile, clearProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
 
   useEffect(() => {
-    if (profile?.language) {
-      i18n.changeLanguage(profile.language);
-    }
+    const lang = profile?.language?.trim() || 'fr';
+    i18n.changeLanguage(lang);
+    document.documentElement.lang = lang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
   }, [profile?.language, i18n]);
 
   if (authLoading || !initialized) {

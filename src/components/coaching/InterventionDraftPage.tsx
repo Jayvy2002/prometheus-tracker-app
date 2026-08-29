@@ -29,6 +29,7 @@ import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, Progr
 import { useProgramStore } from '../../stores/programStore';
 import { formatPrescription } from '../../lib/programNl';
 import { todayStr } from '../../lib/utils';
+import { clientFileHref } from '../../lib/coachSituation';
 import ProgramDraftEditor from './ProgramDraftEditor';
 import SecondDraftingCard from './SecondDraftingCard';
 import Button from '../ui/Button';
@@ -126,7 +127,7 @@ export default function InterventionDraftPage() {
   }, [live?.id, live?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goBack = () => {
-    if (id) navigate(`/clients/${id}`);
+    if (id) navigate(clientFileHref(id));
     else navigate('/dashboard');
   };
 
@@ -169,7 +170,7 @@ export default function InterventionDraftPage() {
       }
       setSaving(false);
       toast(t('coaching.interventions.kept'));
-      navigate(targetClientId ? `/clients/${targetClientId}` : '/dashboard');
+      navigate(targetClientId ? clientFileHref(targetClientId) : '/dashboard');
       return;
     }
 
@@ -235,7 +236,7 @@ export default function InterventionDraftPage() {
             return;
           }
           toast(t('coaching.workspace.patchNoProgram'), 'info');
-          navigate(`/clients/${targetClientId}`);
+          navigate(clientFileHref(targetClientId));
           return;
         }
         const patched = await applyExercisePatch(assignment.program_id, patch);
@@ -278,7 +279,7 @@ export default function InterventionDraftPage() {
         return;
       }
       toast(t('coaching.interventions.savedNote'));
-      navigate(`/clients/${targetClientId}`);
+      navigate(clientFileHref(targetClientId));
       return;
     }
 
@@ -289,7 +290,7 @@ export default function InterventionDraftPage() {
       return;
     }
     toast(t('coaching.interventions.sent'));
-    navigate(`/clients/${targetClientId}`);
+    navigate(clientFileHref(targetClientId));
   };
 
   const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
@@ -321,7 +322,7 @@ export default function InterventionDraftPage() {
       return;
     }
     toast(t('coaching.queue.sent'));
-    navigate(`/clients/${targetClientId}`);
+    navigate(clientFileHref(targetClientId));
   };
 
   if (coachingRole !== 'coach') {

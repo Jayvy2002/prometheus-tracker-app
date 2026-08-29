@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { issnTargetsFromProfile, todayStr } from '../../lib/utils';
+import { clientFileHref } from '../../lib/coachSituation';
 import {
   DIET_TYPES, FOOD_ALLERGIES, GOALS, TRAINING_EXPERIENCES, TRAINING_FOCUSES,
 } from '../../lib/constants';
@@ -254,7 +255,7 @@ export default function ClientSetupPage() {
 
     setSaving(false);
     toast(t('coaching.setup.saved'));
-    navigate(`/clients/${id}`);
+    navigate(clientFileHref(id));
   };
 
   if (loading) {
@@ -299,7 +300,10 @@ export default function ClientSetupPage() {
         {onboarded && profile && (
           <Card className="mb-4">
             <p className="text-sm font-medium text-white mb-2">{t('coaching.setup.review')}</p>
-            <ReviewRow label={t('coaching.setup.fields.goal')} value={labelOf(GOALS, profile.goal)} />
+            <ReviewRow
+              label={t('coaching.setup.fields.goal')}
+              value={t(`coaching.goalLabels.${profile.goal === 'gain' ? 'bulk' : profile.goal || 'maintain'}`, { defaultValue: labelOf(GOALS, profile.goal) })}
+            />
             <ReviewRow label={t('coaching.setup.fields.experience')} value={labelOf(TRAINING_EXPERIENCES, profile.training_experience)} />
             <ReviewRow label={t('coaching.setup.fields.focus')} value={labelOf(TRAINING_FOCUSES, profile.training_focus)} />
             <ReviewRow label={t('coaching.setup.fields.frequency')} value={`${profile.training_frequency}x`} />

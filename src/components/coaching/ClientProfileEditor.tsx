@@ -145,7 +145,7 @@ export default function ClientProfileEditor({
                   : 'bg-neutral-900 border-neutral-800 text-neutral-400'
               }`}
             >
-              {g.label}
+              {t(`coaching.goalLabels.${g.value}`)}
             </button>
           ))}
         </div>

@@ -12,6 +12,7 @@ import {
 } from '../../lib/coachQueue';
 import { resolveNudgeBody } from '../../lib/coachSettings';
 import { displayName } from '../../lib/coachText';
+import { clientFileHref } from '../../lib/coachSituation';
 import { coachingPassHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
 import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import Card from '../ui/Card';
@@ -136,7 +137,7 @@ export default function CoachInboxPage() {
             <h1 className="text-lg font-semibold text-white truncate">{clientName}</h1>
             <button
               type="button"
-              onClick={() => navigate(`/clients/${clientId}`)}
+              onClick={() => navigate(clientFileHref(clientId))}
               className="text-xs text-blue-400 shrink-0"
             >
               {t('coaching.command.openClient')}

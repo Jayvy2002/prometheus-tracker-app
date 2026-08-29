@@ -17,6 +17,7 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import CoachTodayQueue from './CoachTodayQueue';
+import { formatWeekdayDate } from '../../lib/utils';
 
 function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'amber' | 'rose' | 'blue' | 'white' }) {
   const color = tone === 'amber' ? 'text-amber-300'
@@ -32,7 +33,7 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
 }
 
 export default function CoachDashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
@@ -96,7 +97,7 @@ export default function CoachDashboard() {
         <div className="flex items-start justify-between gap-3 mb-6">
           <div>
             <p className="text-neutral-400 text-xs">
-              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+              {formatWeekdayDate(new Date(), i18n.language)}
             </p>
             <h1 className="text-2xl font-bold text-white">{t('coaching.command.title')}</h1>
             <p className="text-sm text-neutral-500 mt-1">{t('coaching.command.subtitle')}</p>
