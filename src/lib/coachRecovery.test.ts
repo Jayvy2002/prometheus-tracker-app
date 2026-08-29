@@ -131,8 +131,8 @@ test('recovery snapshot is THAT check-in (sleep, pain, energy) — not a dump or
   assert.equal(view?.energy, 2);
   assert.equal(view?.soreness, 3);
   assert.equal(view?.notes, 'genou gauche');
-  assert.deepEqual(view?.trend.sleepHours, [8, 7.5, 6.5]);
-  assert.deepEqual(view?.trend.pain, [1, 1, 4]);
+  assert.deepEqual(view?.trend.sleepHours, [7.5, 6.5]);
+  assert.deepEqual(view?.trend.pain, [1, 4]);
   assert.equal(canAskRecoveryAdjust(view!), true);
 
   const ctx = recoveryContextPayload(view!);
@@ -154,6 +154,16 @@ test('empty recovery: Sofia stale / Alex none — Relancer, no invented sleep or
   });
   assert.equal(isRecentCheckin(stale, TODAY), false);
   assert.equal(recoverySnapshot([stale], { today: TODAY }), null);
+
+  const sofiaLast = checkin({
+    id: 'ck-sofia',
+    user_id: 'sofia-id',
+    checked_at: '2026-08-18',
+    sleep_hours: 7,
+    joint_pain: 1,
+    created_at: '2026-08-18T08:00:00Z',
+  });
+  assert.equal(recoverySnapshot([sofiaLast], { today: TODAY }), null);
   assert.equal(
     painPriority('sofia-id', 'Sofia Martin', '', stale, null, TODAY),
     null,

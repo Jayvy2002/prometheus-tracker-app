@@ -13,7 +13,7 @@ export const RECOVERY_TAB_ALIAS = 'recovery';
 export const CHECKIN_QUERY_PARAM = 'checkin';
 
 /** Ghost / stale check-ins → empty + Relancer, not leftover pain/sleep. */
-export const RECENT_RECOVERY_DAYS = 14;
+export const RECENT_RECOVERY_DAYS = 7;
 export const LOW_SLEEP_HOURS = 6;
 export const LOW_SLEEP_QUALITY = 2;
 export const PAIN_WATCH = 3;
