@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GripVertical, Plus, Sparkles } from 'lucide-react';
 import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft } from '../../lib/types';
-import { applyProgramProposal, formatPrescription, parseProgramNl, type ProgramNlProposal } from '../../lib/programNl';
+import { applyProgramProposal, formatPrescription, type ProgramNlProposal } from '../../lib/programNl';
 import { muscleForExercise, sessionMuscleVolume, volumeWarnings, weekMuscleVolume, type MuscleVolume } from '../../lib/programVolume';
 import { useExerciseStore } from '../../stores/exerciseStore';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
+import { parseProgramPatch } from '../../lib/coachInterventions';
 import ExercisePicker from '../workout/ExercisePicker';
+import SecondDraftingCard from './SecondDraftingCard';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -23,6 +27,8 @@ interface Props {
   onDaysChange: (days: AiProgramDayDraft[]) => void;
   onAnalyze?: (exerciseName: string) => void;
   onAsk?: (query: string) => void;
+  clientId?: string | null;
+  programId?: string | null;
 }
 
 function emptyDay(weekday: number): AiProgramDayDraft {
@@ -36,11 +42,13 @@ function emptyEx(): ProgramExerciseDraft {
 export default function ProgramSessionEditor({
   name, description, durationWeeks, days,
   onNameChange, onDescriptionChange, onWeeksChange, onDaysChange,
-  onAnalyze, onAsk,
+  onAnalyze, onAsk, clientId, programId,
 }: Props) {
   const { t } = useTranslation();
   const exercisesLib = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
+  const askSecond = useCoachingStore(s => s.askSecond);
+  const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const [dayIndex, setDayIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [analyzed, setAnalyzed] = useState<number | null>(null);
@@ -49,6 +57,8 @@ export default function ProgramSessionEditor({
   const [nl, setNl] = useState('');
   const [nlError, setNlError] = useState<string | null>(null);
   const [proposal, setProposal] = useState<ProgramNlProposal | null>(null);
+  const [nlJobId, setNlJobId] = useState<string | null>(null);
+  const [nlSending, setNlSending] = useState(false);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const safeIndex = Math.min(dayIndex, Math.max(0, days.length - 1));
@@ -90,6 +100,84 @@ export default function ProgramSessionEditor({
     return WEEKDAYS.find(d => !used.has(d)) ?? (days.length % 7);
   };
 
+  const nlRow = pendingInterventions.find(r => r.id === nlJobId) ?? null;
+
+  useEffect(() => {
+    if (!nlRow || !isInterventionReady(nlRow)) return;
+    const patch = parseProgramPatch(nlRow.payload);
+    const afterRec = nlRow.payload.after && typeof nlRow.payload.after === 'object'
+      ? nlRow.payload.after as ProgramExerciseDraft
+      : null;
+    const beforeRec = nlRow.payload.before && typeof nlRow.payload.before === 'object'
+      ? nlRow.payload.before as ProgramExerciseDraft
+      : null;
+    const dayIndex = typeof nlRow.payload.dayIndex === 'number' ? nlRow.payload.dayIndex : days.findIndex(d => d.weekday === (patch?.weekday ?? -1));
+    const exerciseIndex = typeof nlRow.payload.exerciseIndex === 'number'
+      ? nlRow.payload.exerciseIndex
+      : dayIndex >= 0 && patch
+        ? days[dayIndex]?.exercises.findIndex(ex => ex.name === patch.exercise) ?? -1
+        : -1;
+    const before = beforeRec ?? (dayIndex >= 0 && exerciseIndex >= 0 ? days[dayIndex].exercises[exerciseIndex] : null);
+    const after = afterRec ?? (before && patch ? {
+      ...before,
+      default_sets: patch.default_sets ?? before.default_sets,
+      default_reps: patch.default_reps ?? before.default_reps,
+      default_reps_min: patch.default_reps_min === undefined ? before.default_reps_min : patch.default_reps_min,
+      default_rir: patch.default_rir === undefined ? before.default_rir : patch.default_rir,
+      default_rest_seconds: patch.default_rest_seconds ?? before.default_rest_seconds,
+      name: patch.replace_with || before.name,
+    } : null);
+    if (!after || dayIndex < 0 || exerciseIndex < 0) return;
+    setProposal({
+      raw: nl,
+      patch: patch ?? {
+        exercise: before?.name || after.name,
+        weekday: days[dayIndex]?.weekday,
+        default_sets: after.default_sets,
+        default_reps: after.default_reps,
+        default_reps_min: after.default_reps_min,
+        default_rir: after.default_rir ?? null,
+        default_rest_seconds: after.default_rest_seconds,
+      },
+      before,
+      after,
+      dayIndex,
+      exerciseIndex,
+      weekday: days[dayIndex]?.weekday ?? 1,
+      summaryKey: 'coaching.programNl.summary',
+      summaryParams: {
+        lift: after.name,
+        sets: after.default_sets,
+        reps: after.default_reps_min && after.default_reps_min !== after.default_reps
+          ? `${after.default_reps_min}-${after.default_reps}`
+          : String(after.default_reps),
+        rir: after.default_rir ?? '—',
+      },
+    });
+  }, [nlRow?.id, nlRow?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const requestNl = async () => {
+    const q = nl.trim();
+    if (!q) return;
+    setNlError(null);
+    setProposal(null);
+    setNlSending(true);
+    const result = await askSecond({
+      kind: 'program_nl_edit',
+      clientId: clientId ?? null,
+      programId: programId ?? null,
+      prompt: q,
+      screen: programId ? 'program_editor' : 'client_setup',
+      context: { name, description, duration_weeks: durationWeeks, days },
+    });
+    setNlSending(false);
+    if ('error' in result) {
+      setNlError(t('coaching.second.failed'));
+      return;
+    }
+    setNlJobId(result.id);
+  };
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_88px] gap-2">
@@ -108,21 +196,7 @@ export default function ProgramSessionEditor({
       />
 
       <form
-        onSubmit={e => {
-          e.preventDefault();
-          const parsed = parseProgramNl(nl, days);
-          if (!parsed.ok) {
-            setProposal(null);
-            setNlError(parsed.reason === 'empty'
-              ? null
-              : parsed.reason === 'noMatch'
-                ? t('coaching.programNl.noMatch')
-                : t('coaching.programNl.noParse'));
-            return;
-          }
-          setNlError(null);
-          setProposal(parsed.proposal);
-        }}
+        onSubmit={e => { e.preventDefault(); void requestNl(); }}
         className="flex gap-2"
       >
         <input
@@ -131,9 +205,16 @@ export default function ProgramSessionEditor({
           placeholder={t('coaching.programNl.placeholder')}
           className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
         />
-        <Button type="submit" size="sm" variant="secondary">{t('coaching.programNl.propose')}</Button>
+        <Button type="submit" size="sm" variant="secondary" loading={nlSending}>{t('coaching.programNl.propose')}</Button>
       </form>
       {nlError && <p className="text-[11px] text-amber-300 -mt-1">{nlError}</p>}
+      {nlRow && (isInterventionDrafting(nlRow) || interventionDraftError(nlRow)) && (
+        <SecondDraftingCard
+          row={nlRow}
+          retrying={nlSending}
+          onRetry={interventionDraftError(nlRow) ? () => void requestNl() : undefined}
+        />
+      )}
 
       {proposal && (
         <Card className="border-blue-500/20 space-y-2">
@@ -154,6 +235,7 @@ export default function ProgramSessionEditor({
                 setSelected(proposal.exerciseIndex);
                 setProposal(null);
                 setNl('');
+                setNlJobId(null);
               }}
             >
               {t('common.apply')}

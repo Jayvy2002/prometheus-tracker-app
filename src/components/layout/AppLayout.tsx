@@ -5,10 +5,22 @@ import FAB from './FAB';
 import { ToastContainer } from '../ui/Toast';
 import { useCoachingStore } from '../../stores/coachingStore';
 import CoachCommandPalette from '../coaching/CoachCommandPalette';
+import { useEffect } from 'react';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
+  const startCoachRealtime = useCoachingStore(s => s.startCoachRealtime);
+  const stopCoachRealtime = useCoachingStore(s => s.stopCoachRealtime);
   const isCoach = coachingRole === 'coach';
+
+  useEffect(() => {
+    if (!isCoach) {
+      stopCoachRealtime();
+      return;
+    }
+    void startCoachRealtime();
+    return () => stopCoachRealtime();
+  }, [isCoach, startCoachRealtime, stopCoachRealtime]);
 
   return (
     <div className="min-h-screen bg-black text-white flex">

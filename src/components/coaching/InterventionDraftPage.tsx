@@ -14,12 +14,14 @@ import {
   parseWorkflowSuggestion,
 } from '../../lib/coachInterventions';
 import { templateKeyForAdherence } from '../../lib/coachQueue';
+import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, ProgramExercisePatch } from '../../lib/types';
 import { useProgramStore } from '../../stores/programStore';
 import { formatPrescription } from '../../lib/programNl';
 import { todayStr } from '../../lib/utils';
 import ProgramDraftEditor from './ProgramDraftEditor';
 import NudgeComposeModal from './NudgeComposeModal';
+import SecondDraftingCard from './SecondDraftingCard';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -42,7 +44,7 @@ export default function InterventionDraftPage() {
   const {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
-    sendCoachMessage, coachSettings, fetchCoachSettings,
+    sendCoachMessage, coachSettings, fetchCoachSettings, pendingInterventions, askSecond,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment, applyExercisePatch } = useProgramStore();
 
@@ -61,6 +63,7 @@ export default function InterventionDraftPage() {
   const [notes, setNotes] = useState('');
   const [patch, setPatch] = useState<ProgramExercisePatch | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const clientId = id || row?.client_id || null;
   const client = clients.find(c => c.id === (id || row?.client_id || ''));
@@ -68,6 +71,32 @@ export default function InterventionDraftPage() {
   useEffect(() => {
     if (clientId) fetchMyAssignment(clientId);
   }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hydrate = (found: CoachIntervention) => {
+    const cals = parseCalorieDraft(found.payload);
+    if (cals) {
+      setCalories(cals.calories);
+      setProtein(cals.protein);
+      setCarbs(cals.carbs);
+      setFat(cals.fat);
+    }
+    const outline = parseProgramOutline(found.payload) ?? parseOnboardingPlanDraft(found.payload)?.program;
+    if (outline) {
+      setProgramName(outline.name);
+      setProgramDesc(outline.description);
+      setProgramWeeks(outline.duration_weeks);
+      setDays(outline.days);
+    }
+    const foundPatch = parseProgramPatch(found.payload);
+    if (foundPatch) setPatch(foundPatch);
+    const tr = parseOnboardingPlanDraft(found.payload)?.tracking;
+    if (tr) setTracking(tr);
+    setNotes(
+      isCoachOnlyKind(found.kind)
+        ? parseWorkflowSuggestion(found.payload, found.rationale)
+        : parseTalkingPoints(found.payload, found.rationale),
+    );
+  };
 
   useEffect(() => {
     if (!interventionId) return;
@@ -77,32 +106,17 @@ export default function InterventionDraftPage() {
     setLoading(true);
     fetchIntervention(interventionId).then(found => {
       setRow(found);
-      if (!found) return;
-      const cals = parseCalorieDraft(found.payload);
-      if (cals) {
-        setCalories(cals.calories);
-        setProtein(cals.protein);
-        setCarbs(cals.carbs);
-        setFat(cals.fat);
-      }
-      const outline = parseProgramOutline(found.payload) ?? parseOnboardingPlanDraft(found.payload)?.program;
-      if (outline) {
-        setProgramName(outline.name);
-        setProgramDesc(outline.description);
-        setProgramWeeks(outline.duration_weeks);
-        setDays(outline.days);
-      }
-      const foundPatch = parseProgramPatch(found.payload);
-      if (foundPatch) setPatch(foundPatch);
-      const tr = parseOnboardingPlanDraft(found.payload)?.tracking;
-      if (tr) setTracking(tr);
-      setNotes(
-        isCoachOnlyKind(found.kind)
-          ? parseWorkflowSuggestion(found.payload, found.rationale)
-          : parseTalkingPoints(found.payload, found.rationale),
-      );
+      if (found && isInterventionReady(found)) hydrate(found);
     }).finally(() => setLoading(false));
   }, [interventionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const live = pendingInterventions.find(r => r.id === interventionId) ?? row;
+
+  useEffect(() => {
+    if (!live) return;
+    setRow(live);
+    if (isInterventionReady(live)) hydrate(live);
+  }, [live?.id, live?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goBack = () => {
     if (id) navigate(`/clients/${id}`);
@@ -166,7 +180,7 @@ export default function InterventionDraftPage() {
       }
     }
 
-    if (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan') {
+    if (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') {
       if (row.kind === 'onboarding_plan') {
         const trackResult = await saveTrackingConfig(targetClientId, {
           ...tracking,
@@ -314,12 +328,43 @@ export default function InterventionDraftPage() {
     );
   }
 
-  const showProgram = (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan') && !patch;
-  const showPatch = row.kind === 'program_adjustment' && !!patch;
+  if (isInterventionDrafting(row) || interventionDraftError(row)) {
+    return (
+      <PageTransition>
+        <div className="px-4 pt-6 pb-28">
+          <button onClick={goBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
+            <ArrowLeft size={18} /> {t('coaching.ops.title')}
+          </button>
+          <SecondDraftingCard
+            row={row}
+            retrying={retrying}
+            onRetry={interventionDraftError(row) ? async () => {
+              if (!row.rationale && typeof row.payload.prompt !== 'string') return;
+              setRetrying(true);
+              const kind = row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus'
+                ? row.kind
+                : 'ask_prometheus';
+              await askSecond({
+                kind,
+                clientId: row.client_id,
+                programId: typeof row.payload.program_id === 'string' ? row.payload.program_id : null,
+                prompt: typeof row.payload.prompt === 'string' ? row.payload.prompt : row.rationale,
+                screen: typeof row.payload.screen === 'string' ? row.payload.screen : 'inbox',
+              });
+              setRetrying(false);
+            } : undefined}
+          />
+        </div>
+      </PageTransition>
+    );
+  }
+
+  const showProgram = (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') && !patch;
+  const showPatch = (row.kind === 'program_adjustment' || row.kind === 'program_nl_edit') && !!patch;
   const showCalories = row.kind === 'calorie_adjustment';
   const showTracking = row.kind === 'onboarding_plan';
   const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
-    || row.kind === 'other' || isCoachOnlyKind(row.kind);
+    || row.kind === 'other' || row.kind === 'ask_prometheus' || isCoachOnlyKind(row.kind);
   const isAdherenceKind = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training';
   const noteOnly = row.kind === 'other';
   const patchWithoutProgram = showPatch && !assignment?.program_id;
@@ -444,6 +489,7 @@ export default function InterventionDraftPage() {
               description={programDesc}
               durationWeeks={programWeeks}
               days={days}
+              clientId={clientId}
               onNameChange={setProgramName}
               onDescriptionChange={setProgramDesc}
               onWeeksChange={setProgramWeeks}

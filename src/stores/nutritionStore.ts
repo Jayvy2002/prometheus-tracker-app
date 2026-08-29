@@ -5,35 +5,11 @@ import { todayStr } from '../lib/utils';
 import { toast } from '../components/ui/Toast';
 import { useStreakStore } from './streakStore';
 
+import { functionsErrorBody, functionsHttpStatus } from '../lib/supabaseFunctions';
+import { waitForRowChange } from '../lib/realtimeWait';
+
 const ANALYZE_POLL_MS = 2_000;
 const ANALYZE_TIMEOUT_MS = 90_000;
-
-/** supabase.functions.invoke leaves 4xx/5xx JSON on error.context (a Response), not in data. */
-async function functionsErrorBody(error: unknown): Promise<Record<string, unknown>> {
-  if (!error || typeof error !== 'object' || !('context' in error)) return {};
-  const ctx = (error as { context: unknown }).context;
-  if (typeof Response !== 'undefined' && ctx instanceof Response) {
-    try {
-      const parsed: unknown = await ctx.clone().json();
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        return parsed as Record<string, unknown>;
-      }
-    } catch {
-      return {};
-    }
-  }
-  if (ctx && typeof ctx === 'object' && !Array.isArray(ctx)) {
-    return ctx as Record<string, unknown>;
-  }
-  return {};
-}
-
-function functionsHttpStatus(error: unknown): number {
-  if (!error || typeof error !== 'object' || !('context' in error)) return 0;
-  const ctx = (error as { context: unknown }).context;
-  if (typeof Response !== 'undefined' && ctx instanceof Response) return ctx.status;
-  return 0;
-}
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -261,31 +237,41 @@ export const useNutritionStore = create<NutritionState>((set) => ({
     }
 
     const deadline = Date.now() + ANALYZE_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      const { data: row } = await supabase
-        .from('product_requests')
-        .select('status, result_product_id, error_message')
-        .eq('id', requestId)
-        .maybeSingle();
-
-      if (row?.status === 'completed' && row.result_product_id) {
-        const { data: product } = await supabase
-          .from('food_products')
-          .select('*')
-          .eq('id', row.result_product_id)
+    const done = await waitForRowChange<{
+      status: string;
+      result_product_id: string | null;
+      error_message: string | null;
+    }>({
+      table: 'product_requests',
+      filter: `id=eq.${requestId}`,
+      timeoutMs: ANALYZE_TIMEOUT_MS,
+      pollMs: ANALYZE_POLL_MS,
+      poll: async () => {
+        if (Date.now() > deadline) return null;
+        const { data: row } = await supabase
+          .from('product_requests')
+          .select('status, result_product_id, error_message')
+          .eq('id', requestId)
           .maybeSingle();
-        if (product) {
-          return { product: product as FoodProduct, confidence: 100 };
-        }
-        // Product row may not be visible yet — keep polling until timeout.
-      } else if (row?.status === 'failed') {
-        const msg = typeof row.error_message === 'string' ? row.error_message.trim() : '';
-        if (msg === 'WEBHOOK_NOT_CONFIGURED') return { error: 'scanner.webhookNotConfigured' };
-        if (msg.startsWith('WEBHOOK_FAILED')) return { error: 'scanner.webhookFailed' };
-        return { error: 'scanner.aiFailed' };
-      }
+        return row as { status: string; result_product_id: string | null; error_message: string | null } | null;
+      },
+      isDone: row => row.status === 'completed' || row.status === 'failed',
+    });
 
-      await new Promise(resolve => setTimeout(resolve, ANALYZE_POLL_MS));
+    if (done?.status === 'completed' && done.result_product_id) {
+      const { data: product } = await supabase
+        .from('food_products')
+        .select('*')
+        .eq('id', done.result_product_id)
+        .maybeSingle();
+      if (product) {
+        return { product: product as FoodProduct, confidence: 100 };
+      }
+    } else if (done?.status === 'failed') {
+      const msg = typeof done.error_message === 'string' ? done.error_message.trim() : '';
+      if (msg === 'WEBHOOK_NOT_CONFIGURED') return { error: 'scanner.webhookNotConfigured' };
+      if (msg.startsWith('WEBHOOK_FAILED')) return { error: 'scanner.webhookFailed' };
+      return { error: 'scanner.aiFailed' };
     }
 
     return { error: 'scanner.aiTimeout' };

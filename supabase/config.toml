@@ -6,3 +6,6 @@ verify_jwt = false
 
 [functions.analyze-product]
 verify_jwt = true
+
+[functions.ask-second]
+verify_jwt = true

@@ -33,6 +33,14 @@ import type {
   WorkoutSet,
 } from '../lib/types';
 import { mapInterventionRow, parseOnboardingPlanDraft, type ProgramOutlineDraft } from '../lib/coachInterventions';
+import { functionsErrorBody, functionsHttpStatus } from '../lib/supabaseFunctions';
+import {
+  COACH_REALTIME_POLL_MS,
+  isInterventionDrafting,
+  mergeInterventionRealtime,
+  type SecondPingKind,
+} from '../lib/coachSecond';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { mapCoachMessage } from '../lib/coachQueue';
 import { EMPTY_COACH_SETTINGS, mapCoachSettings } from '../lib/coachSettings';
 import { aggregateNutritionByDay } from '../lib/coachProgress';
@@ -153,6 +161,9 @@ function saveQueueDismissed(ids: string[]) {
   }
 }
 
+let coachRealtimeChannel: RealtimeChannel | null = null;
+let coachPollTimer: ReturnType<typeof setInterval> | null = null;
+
 interface CoachingState {
   coachingRole: CoachingRole;
   billingRole: UserRole['role'] | null;
@@ -225,6 +236,16 @@ interface CoachingState {
   suggestClientPlan: (clientId: string) => Promise<
     { available: true; draft: AiPlanDraft } | { available: false; error: string }
   >;
+  askSecond: (input: {
+    kind: SecondPingKind;
+    clientId?: string | null;
+    programId?: string | null;
+    prompt: string;
+    screen: string;
+    context?: Record<string, unknown>;
+  }) => Promise<{ id: string } | { error: string }>;
+  startCoachRealtime: () => Promise<void>;
+  stopCoachRealtime: () => void;
   createIntervention: (input: {
     clientId: string | null;
     kind: CoachInterventionKind;
@@ -988,14 +1009,100 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const stored = await get().fetchOnboardingPlanDraft(clientId);
     const parsed = stored ? parseOnboardingPlanDraft(stored.payload) : null;
     if (parsed) return { available: true, draft: parsed };
-    const { data, error } = await supabase.functions.invoke('suggest-client-plan', {
-      body: { client_id: clientId },
+    return { available: false, error: 'ai_unavailable' };
+  },
+
+  askSecond: async (input) => {
+    const { data, error } = await supabase.functions.invoke('ask-second', {
+      body: {
+        kind: input.kind,
+        client_id: input.clientId ?? null,
+        program_id: input.programId ?? null,
+        prompt: input.prompt,
+        screen: input.screen,
+        context: input.context ?? {},
+      },
     });
-    if (error) return { available: false, error: 'ai_unavailable' };
-    if (!data?.available || !data.draft) {
-      return { available: false, error: (data?.error as string) || 'ai_unavailable' };
+    const bodyFromData = (data && typeof data === 'object' && !Array.isArray(data))
+      ? data as Record<string, unknown>
+      : {};
+    const bodyFromError = error ? await functionsErrorBody(error) : {};
+    const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
+    const errCode = typeof body.error === 'string' ? body.error : '';
+    const rawIntervention = body.intervention && typeof body.intervention === 'object'
+      ? mapInterventionRow(body.intervention as Record<string, unknown>)
+      : null;
+    const id = typeof body.intervention_id === 'string' ? body.intervention_id : rawIntervention?.id;
+    let row = rawIntervention;
+    if (!row && id) row = await get().fetchIntervention(id);
+    if (row) {
+      set(s => ({
+        pendingInterventions: mergeInterventionRealtime(s.pendingInterventions, 'INSERT', row),
+      }));
+      void get().startCoachRealtime();
     }
-    return { available: true, draft: data.draft as AiPlanDraft };
+    if (!row) {
+      if (functionsHttpStatus(error) === 429 || errCode === 'DAILY_LIMIT_REACHED') {
+        return { error: 'DAILY_LIMIT_REACHED' };
+      }
+      return { error: errCode || 'ai_unavailable' };
+    }
+    return { id: row.id };
+  },
+
+  startCoachRealtime: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    if (get().coachingRole !== 'coach') return;
+    if (!coachRealtimeChannel) {
+      void get().fetchPendingInterventions();
+      coachRealtimeChannel = supabase
+        .channel(`coach-interventions-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'coach_interventions',
+            filter: `coach_id=eq.${user.id}`,
+          },
+          payload => {
+            const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            const mapped = raw ? mapInterventionRow(raw) : null;
+            if (!mapped) {
+              void get().fetchPendingInterventions();
+              return;
+            }
+            const event = payload.eventType === 'DELETE' ? 'DELETE' : payload.eventType;
+            set(s => ({
+              pendingInterventions: mergeInterventionRealtime(s.pendingInterventions, event, mapped),
+            }));
+          },
+        )
+        .subscribe(status => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            void get().fetchPendingInterventions();
+          }
+        });
+    }
+    if (!coachPollTimer) {
+      coachPollTimer = setInterval(() => {
+        if (get().pendingInterventions.some(isInterventionDrafting)) {
+          void get().fetchPendingInterventions();
+        }
+      }, COACH_REALTIME_POLL_MS);
+    }
+  },
+
+  stopCoachRealtime: () => {
+    if (coachRealtimeChannel) {
+      void supabase.removeChannel(coachRealtimeChannel);
+      coachRealtimeChannel = null;
+    }
+    if (coachPollTimer) {
+      clearInterval(coachPollTimer);
+      coachPollTimer = null;
+    }
   },
 
   createIntervention: async (input) => {
@@ -1261,24 +1368,27 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     set(s => ({ clients: s.clients.filter(c => c.id !== linkClientId) }));
   },
 
-  clear: () => set({
-    coachingRole: 'none',
-    billingRole: null,
-    roleReady: false,
-    clients: [],
-    invites: [],
-    myCoach: null,
-    notes: [],
-    opsRows: [],
-    opsLoading: false,
-    pendingInterventions: [],
-    sentMessages: [],
-    latestCoachMessage: null,
-    unreadMessageCount: 0,
-    coachSettings: null,
-    queueDismissedIds: [],
-    priorities: [],
-    rosterSignals: EMPTY_SIGNALS,
-    commandStats: EMPTY_STATS,
-  }),
+  clear: () => {
+    get().stopCoachRealtime();
+    set({
+      coachingRole: 'none',
+      billingRole: null,
+      roleReady: false,
+      clients: [],
+      invites: [],
+      myCoach: null,
+      notes: [],
+      opsRows: [],
+      opsLoading: false,
+      pendingInterventions: [],
+      sentMessages: [],
+      latestCoachMessage: null,
+      unreadMessageCount: 0,
+      coachSettings: null,
+      queueDismissedIds: [],
+      priorities: [],
+      rosterSignals: EMPTY_SIGNALS,
+      commandStats: EMPTY_STATS,
+    });
+  },
 }));

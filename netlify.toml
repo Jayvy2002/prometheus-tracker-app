@@ -24,4 +24,4 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "microphone=(), geolocation=()"
 
-# Trigger Netlify deploy preview for PR 19
+# Trigger Netlify deploy preview for PR 20 (Second realtime)

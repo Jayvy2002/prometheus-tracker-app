@@ -10,8 +10,15 @@ import {
   DIET_TYPES, FOOD_ALLERGIES, GOALS, TRAINING_EXPERIENCES, TRAINING_FOCUSES,
 } from '../../lib/constants';
 import { parseOnboardingPlanDraft } from '../../lib/coachInterventions';
+import {
+  interventionDraftError,
+  isInterventionDrafting,
+  isInterventionReady,
+  pendingForClient,
+} from '../../lib/coachSecond';
 import type { AiProgramDayDraft, CoachIntervention, UserProfile } from '../../lib/types';
 import ProgramDraftEditor from './ProgramDraftEditor';
+import SecondDraftingCard from './SecondDraftingCard';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -49,6 +56,7 @@ export default function ClientSetupPage() {
     coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline,
+    pendingInterventions, askSecond,
   } = useCoachingStore();
   const { programs, fetchPrograms, assignProgram } = useProgramStore();
 
@@ -67,6 +75,7 @@ export default function ClientSetupPage() {
   const [draftProgramWeeks, setDraftProgramWeeks] = useState(8);
   const [draftProgramDesc, setDraftProgramDesc] = useState('');
   const [draftRow, setDraftRow] = useState<CoachIntervention | null>(null);
+  const [asking, setAsking] = useState(false);
 
   const client = clients.find(c => c.id === id);
   const issn = useMemo(() => (profile ? issnTargetsFromProfile(profile) : null), [profile]);
@@ -125,10 +134,50 @@ export default function ClientSetupPage() {
         : null;
       if (usable) {
         setDraftRow(usable);
-        fillProgramAndTracking(usable.payload);
+        if (isInterventionReady(usable)) fillProgramAndTracking(usable.payload);
       }
     }).finally(() => setLoading(false));
   }, [id, user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const liveDraft = (id
+    ? pendingForClient(pendingInterventions, id, 'onboarding_plan')
+    : null) ?? draftRow;
+
+  useEffect(() => {
+    if (!liveDraft) return;
+    setDraftRow(liveDraft);
+    if (isInterventionReady(liveDraft)) fillProgramAndTracking(liveDraft.payload);
+  }, [liveDraft?.id, liveDraft?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const requestAiProgram = async () => {
+    if (!id || asking) return;
+    setAsking(true);
+    const result = await askSecond({
+      kind: 'onboarding_plan',
+      clientId: id,
+      prompt: t('coaching.second.createProgramPrompt'),
+      screen: 'client_setup',
+    });
+    setAsking(false);
+    if ('error' in result) {
+      toast(t('coaching.second.failed'), 'error');
+      return;
+    }
+    setDraftRow(pendingInterventions.find(r => r.id === result.id) ?? {
+      id: result.id,
+      coach_id: user?.id ?? '',
+      client_id: id,
+      kind: 'onboarding_plan',
+      title: null,
+      rationale: t('coaching.second.createProgramPrompt'),
+      payload: { drafting: true },
+      status: 'pending',
+      source: 'second',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      resolved_at: null,
+    });
+  };
 
   const applyIssn = () => {
     if (!issn) return;
@@ -139,7 +188,7 @@ export default function ClientSetupPage() {
   };
 
   const discardDraft = () => {
-    if (draftRow) void resolveIntervention(draftRow.id, 'dismissed');
+    if (liveDraft) void resolveIntervention(liveDraft.id, 'dismissed');
     setDraftRow(null);
   };
 
@@ -191,8 +240,8 @@ export default function ClientSetupPage() {
       }
     }
 
-    if (draftRow) {
-      await resolveIntervention(draftRow.id, 'sent');
+    if (liveDraft) {
+      await resolveIntervention(liveDraft.id, 'sent');
     }
 
     setSaving(false);
@@ -257,7 +306,30 @@ export default function ClientSetupPage() {
           </Card>
         )}
 
-        {draftRow && (
+        {onboarded && (
+          <div className="mb-4">
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={asking}
+              onClick={() => void requestAiProgram()}
+              className="w-full"
+            >
+              {t('coaching.second.createProgram')}
+            </Button>
+            <p className="text-[11px] text-neutral-500 mt-1">{t('coaching.second.createProgramHint')}</p>
+          </div>
+        )}
+
+        {liveDraft && (isInterventionDrafting(liveDraft) || interventionDraftError(liveDraft)) && (
+          <SecondDraftingCard
+            row={liveDraft}
+            retrying={asking}
+            onRetry={interventionDraftError(liveDraft) ? () => void requestAiProgram() : undefined}
+          />
+        )}
+
+        {liveDraft && isInterventionReady(liveDraft) && (
           <Card className="mb-4 border-blue-500/20">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-white flex items-center gap-2">
@@ -269,10 +341,10 @@ export default function ClientSetupPage() {
               </button>
             </div>
             <p className="text-xs text-neutral-500 mb-2">{t('coaching.setup.aiHint')}</p>
-            {draftRow.rationale && (
-              <p className="text-[11px] text-neutral-400 mb-2">{draftRow.rationale}</p>
+            {liveDraft.rationale && (
+              <p className="text-[11px] text-neutral-400 mb-2">{liveDraft.rationale}</p>
             )}
-            <p className="text-[11px] text-emerald-300">{t('coaching.setup.aiReady')}</p>
+            <p className="text-[11px] text-emerald-300">{t('coaching.second.landed')}</p>
           </Card>
         )}
 
@@ -341,6 +413,7 @@ export default function ClientSetupPage() {
                 description={draftProgramDesc}
                 durationWeeks={draftProgramWeeks}
                 days={draftDays}
+                clientId={id}
                 onNameChange={setDraftProgramName}
                 onDescriptionChange={setDraftProgramDesc}
                 onWeeksChange={setDraftProgramWeeks}

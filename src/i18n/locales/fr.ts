@@ -972,6 +972,8 @@ const fr = {
         workflow_improvement: 'Amélioration du workflow',
         new_question: 'Nouvelle question',
         other: 'Autre',
+        ask_prometheus: 'Ask Prometheus',
+        program_nl_edit: 'Édition programme (NL)',
       },
     },
     tabs: {
@@ -1130,11 +1132,12 @@ const fr = {
     },
     ask: {
       title: 'Demander à Prometheus',
-      subtitle: 'Réponses locales à partir des logs. Second peut proposer ; toi tu confirmes.',
-      placeholder: 'Qui stagne depuis 3 semaines ? Pourquoi X ne progresse pas au développé ?',
+      subtitle: 'Les filtres roster lisent tes logs. Tout brouillon programme / copilot passe par Second — tu confirmes.',
+      placeholder: 'Qui stagne depuis 3 semaines ? Crée un programme IA pour ce client…',
       shortcut: '⌘K Ask',
       run: 'Demander',
       openPage: 'Ouvrir Ask Prometheus',
+      openDraft: 'Ouvrir le brouillon',
       recent: 'Questions récentes',
       drafts: 'Brouillons copilot récents',
       noDrafts: 'Aucun brouillon en attente',
@@ -1142,10 +1145,12 @@ const fr = {
       filterClients: 'Filtrer la liste clients',
       filterActive: 'Filtre : {{filter}} · {{n}} client(s)',
       clearFilter: 'Effacer le filtre',
+      rosterFilter: 'Filtre roster (données locales, pas de l’IA)',
       examples: {
         stalled: 'Qui stagne depuis 3 semaines ?',
         pain: 'Qui a signalé une douleur cette semaine ?',
         adherence: 'Qui a baissé l’adhérence entraînement ?',
+        program: 'Crée un programme IA pour ce client',
       },
       roster: {
         stalled: '{{n}} exercice(s) stagnant(s)',
@@ -1172,6 +1177,17 @@ const fr = {
       sendToSecond: 'Envoyer dans l’inbox Second',
       sentToSecond: 'Brouillon créé pour Second — rien n’a été appliqué',
       secondDraftTitle: 'Ask Prometheus → Second',
+    },
+    second: {
+      drafting: 'Second rédige le brouillon…',
+      draftingHint: 'Le brouillon apparaîtra ici. Rien n’est envoyé au client tant que tu n’as pas confirmé.',
+      landed: 'Brouillon reçu — modifie puis envoie.',
+      failed: 'Second n’a pas pu rédiger. Réessaie — rien n’a été appliqué.',
+      retry: 'Réessayer',
+      badge: 'Brouillon Second',
+      createProgram: 'Créer un programme par IA',
+      createProgramHint: 'Second rédige un programme + le suivi. Les calories restent ISSN. Tu confirmes avant tout envoi.',
+      createProgramPrompt: 'Rédige un programme et les variables de suivi pour ce client qui a terminé l’onboarding. Pas de calories, macros ni recettes.',
     },
     inbox: {
       title: 'Messages',
@@ -1254,7 +1270,7 @@ const fr = {
     programNl: {
       placeholder: 'ex. passe le développé incliné à 2×6-10 RIR1 à partir de lundi',
       propose: 'Proposer',
-      proposal: 'Avant / après — confirme pour l’appliquer dans l’éditeur',
+      proposal: 'Avant / après — confirme pour l’appliquer dans l’éditeur (pas encore au client)',
       summary: '{{lift}} → {{sets}}×{{reps}} RIR {{rir}}',
       noMatch: 'Aucun exercice correspondant dans ce programme.',
       noParse: 'Je n’ai pas pu mapper cette instruction sur ce programme. Essaie : « passe le développé incliné à 2×6-10 RIR1 à partir de lundi ».',

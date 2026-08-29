@@ -608,7 +608,9 @@ export type CoachInterventionKind =
   | 'adherence_training'
   | 'workflow_improvement'
   | 'new_question'
-  | 'other';
+  | 'other'
+  | 'ask_prometheus'
+  | 'program_nl_edit';
 
 export type CoachInterventionStatus = 'pending' | 'sent' | 'dismissed' | 'kept';
 

@@ -21,11 +21,11 @@ const COMPOSE_KINDS = new Set<CoachPriorityKind>([
 ]);
 
 const INTERVENTION_KINDS_FOR_PRIORITY: Partial<Record<CoachPriorityKind, CoachInterventionKind[]>> = {
-  stalled_lift: ['calorie_adjustment', 'program_adjustment'],
-  program_adapt: ['program_adjustment', 'calorie_adjustment'],
+  stalled_lift: ['calorie_adjustment', 'program_adjustment', 'program_nl_edit', 'ask_prometheus'],
+  program_adapt: ['program_adjustment', 'calorie_adjustment', 'program_nl_edit'],
   weight_off_trajectory: ['calorie_adjustment'],
   onboarding_incomplete: ['onboarding_plan'],
-  program_unassigned: ['onboarding_plan'],
+  program_unassigned: ['onboarding_plan', 'ask_prometheus'],
 };
 
 const TEMPLATE_KEYS: CoachMessageTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup', 'reply'];

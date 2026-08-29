@@ -972,6 +972,8 @@ const en = {
         workflow_improvement: 'Workflow improvement',
         new_question: 'New question',
         other: 'Other',
+        ask_prometheus: 'Ask Prometheus',
+        program_nl_edit: 'Program NL edit',
       },
     },
     tabs: {
@@ -1130,11 +1132,12 @@ const en = {
     },
     ask: {
       title: 'Ask Prometheus',
-      subtitle: 'Local answers from client logs. Second can draft; you always confirm.',
-      placeholder: 'Who stalled 3 weeks? Why isn’t X progressing on bench?',
+      subtitle: 'Roster filters read your logs. Every program / copilot draft goes through Second — you confirm.',
+      placeholder: 'Who stalled 3 weeks? Create an AI program for this client…',
       shortcut: '⌘K Ask',
       run: 'Ask',
       openPage: 'Open Ask Prometheus',
+      openDraft: 'Open the draft',
       recent: 'Recent questions',
       drafts: 'Recent copilot drafts',
       noDrafts: 'No pending drafts',
@@ -1142,10 +1145,12 @@ const en = {
       filterClients: 'Filter the client list',
       filterActive: 'Filter: {{filter}} · {{n}} client(s)',
       clearFilter: 'Clear filter',
+      rosterFilter: 'Roster filter (local data, not AI)',
       examples: {
         stalled: 'Who stalled 3 weeks?',
         pain: 'Who reported pain this week?',
         adherence: 'Who dropped training adherence?',
+        program: 'Create an AI program for this client',
       },
       roster: {
         stalled: '{{n}} stalled lift(s)',
@@ -1172,6 +1177,17 @@ const en = {
       sendToSecond: 'Send to Second inbox',
       sentToSecond: 'Draft created for Second — nothing auto-applied',
       secondDraftTitle: 'Ask Prometheus → Second',
+    },
+    second: {
+      drafting: 'Second is writing the draft…',
+      draftingHint: 'The draft will appear here. Nothing is sent to the client until you confirm.',
+      landed: 'Draft received — edit then send.',
+      failed: 'Second could not write. Retry — nothing was applied.',
+      retry: 'Retry',
+      badge: 'Second draft',
+      createProgram: 'Create an AI program',
+      createProgramHint: 'Second drafts a program + tracking. Calories stay ISSN. You confirm before anything is sent.',
+      createProgramPrompt: 'Draft a program and tracking variables for this client who finished onboarding. No calories, macros, or recipes.',
     },
     inbox: {
       title: 'Messages',
@@ -1254,7 +1270,7 @@ const en = {
     programNl: {
       placeholder: 'e.g. set incline bench to 2×6-10 RIR1 starting Monday',
       propose: 'Propose',
-      proposal: 'Before / after — confirm to apply in the editor',
+      proposal: 'Before / after — confirm to apply in the editor (not yet to the client)',
       summary: '{{lift}} → {{sets}}×{{reps}} RIR {{rir}}',
       noMatch: 'No matching exercise found in this program.',
       noParse: 'I could not map that instruction onto this program. Try: “set incline bench to 2×6-10 RIR1 starting Monday.”',

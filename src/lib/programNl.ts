@@ -1,6 +1,8 @@
 import { foldText, namesMatch } from './coachText';
 import type { AiProgramDayDraft, ProgramExerciseDraft, ProgramExercisePatch } from './types';
 
+/** Structured before/after helper. Not a copilot: Second drafts NL edits; this only applies a confirmed proposal in the editor. */
+
 export interface ProgramNlProposal {
   raw: string;
   patch: ProgramExercisePatch;

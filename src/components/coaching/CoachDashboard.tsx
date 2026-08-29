@@ -13,6 +13,7 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
+import { interventionLiveLabel } from '../../lib/coachSecond';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -167,7 +168,7 @@ export default function CoachDashboard() {
                           <p className="text-[11px] text-neutral-500 truncate">
                             {client?.full_name || client?.email || t('coaching.interventions.appWide')}
                             {' · '}
-                            {payloadSummary(item)}
+                            {interventionLiveLabel(item, t) || payloadSummary(item)}
                           </p>
                         </div>
                         <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />

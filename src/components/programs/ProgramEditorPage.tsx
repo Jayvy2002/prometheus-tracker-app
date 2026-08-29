@@ -126,6 +126,7 @@ export default function ProgramEditorPage() {
           description={description}
           durationWeeks={weeks}
           days={days}
+          programId={isNew ? null : id}
           onNameChange={setName}
           onDescriptionChange={setDescription}
           onWeeksChange={setWeeks}

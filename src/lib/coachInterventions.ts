@@ -200,6 +200,8 @@ const KINDS: CoachInterventionKind[] = [
   'workflow_improvement',
   'new_question',
   'other',
+  'ask_prometheus',
+  'program_nl_edit',
 ];
 
 export function isCoachInterventionKind(value: string): value is CoachInterventionKind {
@@ -232,6 +234,8 @@ export function mapInterventionRow(raw: Record<string, unknown>): CoachIntervent
 }
 
 export function payloadSummary(row: CoachIntervention): string {
+  if (row.payload?.drafting === true) return '';
+  if (typeof row.payload?.error === 'string' && row.payload.error) return '';
   if (row.kind === 'calorie_adjustment') {
     const cals = parseCalorieDraft(row.payload);
     if (!cals) return row.title || '';

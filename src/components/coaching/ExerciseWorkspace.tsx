@@ -9,6 +9,9 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { toast } from '../ui/Toast';
 import { LiftLineChart } from './ProgressCharts';
+import SecondDraftingCard from './SecondDraftingCard';
+import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
+import { interventionHref } from '../../lib/coachInterventions';
 
 type CopilotAction = 'maintain' | 'reduce_volume' | 'change_rep_range' | 'replace_exercise';
 
@@ -25,8 +28,11 @@ export default function ExerciseWorkspace({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const createIntervention = useCoachingStore(s => s.createIntervention);
+  const askSecond = useCoachingStore(s => s.askSecond);
+  const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const [saving, setSaving] = useState<CopilotAction | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<CopilotAction>('maintain');
 
   const sessions = lift.sessions.slice(0, 6);
   const last = sessions[0];
@@ -37,42 +43,33 @@ export default function ExerciseWorkspace({
   if (freq <= 2 && sessions.length >= 2) reasons.push(t('coaching.workspace.reasons.lowFreq'));
   if (reasons.length === 0) reasons.push(t('coaching.workspace.reasons.none'));
 
+  const live = pendingInterventions.find(r => r.id === jobId) ?? null;
+
   const propose = async (action: CopilotAction) => {
     setSaving(action);
-    const sets = action === 'reduce_volume' ? Math.max(1, 2) : undefined;
-    const result = await createIntervention({
+    setLastAction(action);
+    const result = await askSecond({
+      kind: 'program_nl_edit',
       clientId,
-      kind: 'program_adjustment',
-      title: t(`coaching.workspace.actions.${action}`),
-      rationale: t('coaching.workspace.observation', {
+      prompt: t(`coaching.workspace.actions.${action}`) + ' — ' + t('coaching.workspace.observation', {
         lift: lift.displayName,
         last: last?.bestSet ?? '—',
         n: sessions.length,
       }),
-      payload: {
-        observation: t('coaching.workspace.observation', {
-          lift: lift.displayName,
-          last: last?.bestSet ?? '—',
-          n: sessions.length,
-        }),
-        reasons,
+      screen: 'exercise_workspace',
+      context: {
         action,
-        patch: {
-          exercise: lift.displayName,
-          default_sets: sets,
-          default_reps: action === 'change_rep_range' ? 10 : undefined,
-          default_reps_min: action === 'change_rep_range' ? 6 : undefined,
-        },
+        lift: lift.displayName,
+        last: last?.bestSet ?? '—',
+        reasons,
       },
-      source: 'prometheus_local',
     });
     setSaving(null);
     if ('error' in result) {
-      toast(result.error, 'error');
+      toast(t('coaching.second.failed'), 'error');
       return;
     }
-    toast(t('coaching.workspace.draftCreated'));
-    navigate(`/clients/${clientId}/draft/${result.id}`);
+    setJobId(result.id);
   };
 
   return (
@@ -145,6 +142,18 @@ export default function ExerciseWorkspace({
           </div>
           <p className="text-[11px] text-neutral-600 mt-2">{t('coaching.workspace.proposalHint')}</p>
         </div>
+        {live && (isInterventionDrafting(live) || interventionDraftError(live)) && (
+          <SecondDraftingCard
+            row={live}
+            retrying={saving !== null}
+            onRetry={interventionDraftError(live) ? () => void propose(lastAction) : undefined}
+          />
+        )}
+        {live && isInterventionReady(live) && (
+          <Button size="sm" onClick={() => navigate(interventionHref(live))}>
+            {t('coaching.second.landed')}
+          </Button>
+        )}
         <button
           type="button"
           className="text-xs text-blue-400"

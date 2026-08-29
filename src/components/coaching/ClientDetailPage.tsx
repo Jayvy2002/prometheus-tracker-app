@@ -19,6 +19,8 @@ import { findLift, liftsForClient } from '../../lib/coachLifts';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { sparklineValues, weightChartPoints } from '../../lib/coachProgress';
+import { interventionHref } from '../../lib/coachInterventions';
+import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import {
   DEFAULT_COACH_VISIBLE_TABS,
   type CoachNudgeTemplateKey,
@@ -70,6 +72,7 @@ export default function ClientDetailPage() {
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, sendCoachMessage, coachSettings, fetchCoachSettings,
+    pendingInterventions,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment } = useProgramStore();
 
@@ -277,6 +280,23 @@ export default function ClientDetailPage() {
           <Button size="sm" variant="secondary" className="w-full mb-4" onClick={() => navigate(`/clients/${id}/setup`)}>
             {t('coaching.setupCta')}
           </Button>
+        )}
+
+        {id && pendingForClient(pendingInterventions, id) && (
+          <button
+            type="button"
+            onClick={() => navigate(interventionHref(pendingForClient(pendingInterventions, id)!))}
+            className="w-full mb-4 text-left rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2"
+          >
+            <p className="text-[11px] uppercase tracking-wider text-blue-300 flex items-center gap-1">
+              <Sparkles size={12} /> {t('coaching.second.badge')}
+            </p>
+            <p className="text-xs text-neutral-300 mt-0.5">
+              {isInterventionDrafting(pendingForClient(pendingInterventions, id)!)
+                ? t('coaching.second.drafting')
+                : t('coaching.second.landed')}
+            </p>
+          </button>
         )}
 
         <div className="flex gap-1 overflow-x-auto mb-4 -mx-4 px-4 scrollbar-hide">

@@ -60,15 +60,19 @@ function looksRoster(q: string): boolean {
   return /(qui|who|roster|clients?|tous|all)\b/.test(f) || rosterFilter(q) != null && !/\b(pourquoi|why|chez)\b/.test(f);
 }
 
+export function isRosterAsk(raw: string): boolean {
+  return parseCoachAsk(raw).type === 'roster';
+}
+
 export function parseCoachAsk(raw: string): CoachAskIntent {
   const q = raw.trim();
   if (!q) return { type: 'unknown', raw: q };
   const folded = foldText(q);
 
   const liftMatch = q.match(/(?:sur|on|du|de la|de l'|the)\s+(.{3,40})$/i);
-  const why = /(pourquoi|why|progresse pas|not progressing|stagn)/.test(folded);
+  const why = /(pourquoi|why|progresse pas|not progressing)/.test(folded);
 
-  if (looksRoster(q) && !why) {
+  if (looksRoster(q) && !/(pourquoi|why)\b/.test(folded)) {
     const filter = rosterFilter(q) ?? 'stalled';
     return { type: 'roster', filter, weeks: extractWeeks(q), raw: q };
   }

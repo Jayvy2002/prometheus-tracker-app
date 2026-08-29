@@ -1,4 +1,7 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+/**
+ * Read-only leftover: returns a pending onboarding_plan draft if Second already wrote one.
+ * Coach UI must not treat this as AI. New requests go through ask-second.
+ */
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const corsHeaders = {

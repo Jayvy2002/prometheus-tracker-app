@@ -7,6 +7,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { groupMessageThreads } from '../../lib/coachQueue';
 import { displayName } from '../../lib/coachText';
 import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
+import { interventionLiveLabel } from '../../lib/coachSecond';
 import type { CoachNudgeTemplateKey } from '../../lib/types';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -118,7 +119,7 @@ export default function CoachInboxPage() {
                       <p className="text-[11px] text-neutral-500 truncate">
                         {client?.full_name || client?.email || t('coaching.interventions.appWide')}
                         {' · '}
-                        {payloadSummary(item)}
+                        {interventionLiveLabel(item, t) || payloadSummary(item)}
                       </p>
                     </div>
                     <ChevronRight size={16} className="text-neutral-600 mt-1" />

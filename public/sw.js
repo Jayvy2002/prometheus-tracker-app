@@ -71,8 +71,7 @@ self.addEventListener('fetch', (event) => {
   // Skip Supabase API and external APIs — always network
   if (
     url.hostname.includes('supabase.co') ||
-    url.hostname.includes('openfoodfacts.org') ||
-    url.hostname.includes('openai.com')
+    url.hostname.includes('openfoodfacts.org')
   ) return;
 
   // For navigation requests (HTML pages) — network first, fallback to cache

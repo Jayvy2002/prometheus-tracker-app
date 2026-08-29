@@ -4,12 +4,21 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, Search, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { answerCoachAsk, clientsFilterHref, parseCoachAsk } from '../../lib/coachAsk';
+import { answerCoachAsk, clientsFilterHref, isRosterAsk, parseCoachAsk } from '../../lib/coachAsk';
 import { interventionHref } from '../../lib/coachInterventions';
+import { displayName } from '../../lib/coachText';
+import {
+  interventionDraftError,
+  isInterventionDrafting,
+  isInterventionReady,
+  routeCoachSecondRequest,
+} from '../../lib/coachSecond';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import SecondDraftingCard from './SecondDraftingCard';
+import { interventionLiveLabel } from '../../lib/coachSecond';
 
 const ASK_HISTORY_KEY = 'prometheus_coach_ask_history';
 
@@ -38,11 +47,12 @@ export default function AskPrometheusPage() {
   const { user } = useAuthStore();
   const {
     opsRows, priorities, rosterSignals, pendingInterventions,
-    fetchCoachOps, createIntervention, clients,
+    fetchCoachOps, askSecond, clients,
   } = useCoachingStore();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [history, setHistory] = useState<string[]>(loadHistory);
   const [sending, setSending] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     const q = searchParams.get('q') || '';
@@ -54,44 +64,75 @@ export default function AskPrometheusPage() {
     if (opsRows.length === 0) fetchCoachOps();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const answer = useMemo(() => {
+  const rosterAnswer = useMemo(() => {
     const q = query.trim();
-    if (!q) return null;
+    if (!q || !isRosterAsk(q)) return null;
     return answerCoachAsk(parseCoachAsk(q), opsRows, priorities, rosterSignals);
   }, [query, opsRows, priorities, rosterSignals]);
 
-  const run = (raw: string) => {
-    const q = raw.trim();
-    if (!q) return;
-    setQuery(q);
+  const live = pendingInterventions.find(row => row.id === activeId)
+    ?? pendingInterventions.find(row => (
+      (row.kind === 'ask_prometheus' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit')
+      && (isInterventionDrafting(row) || isInterventionReady(row) || interventionDraftError(row))
+    ))
+    ?? null;
+
+  const remember = (q: string) => {
     const next = [q, ...history.filter(h => h !== q)].slice(0, 8);
     setHistory(next);
     saveHistory(next);
   };
 
-  const sendToSecond = async () => {
-    if (!query.trim()) return;
-    setSending(true);
+  const sendToSecond = async (raw: string) => {
+    const q = raw.trim();
+    if (!q) return;
+    remember(q);
+    setQuery(q);
     const clientHint = searchParams.get('client');
-    const result = await createIntervention({
-      clientId: clientHint,
-      kind: 'other',
-      title: t('coaching.ask.secondDraftTitle'),
-      rationale: query.trim(),
-      payload: {
-        question: query.trim(),
-        local_answer: answer ? t(answer.bodyKey, answer.bodyParams) : '',
-        hook: 'second',
+    const intent = parseCoachAsk(q);
+    const matched = intent.type === 'client' || intent.type === 'client_lift'
+      ? opsRows.find(r => displayName(r.client).toLowerCase().includes(q.toLowerCase().slice(0, 12)))
+      : null;
+    const clientId = clientHint
+      || matched?.client.id
+      || (opsRows.length === 1 ? opsRows[0].client.id : null);
+    const onboarded = clientId
+      ? opsRows.find(r => r.client.id === clientId)?.client.onboarding_completed
+      : undefined;
+    const route = routeCoachSecondRequest(q, {
+      onboarded: onboarded !== false,
+      hasProgram: !!searchParams.get('program'),
+    });
+    const kind = route.kind === 'roster' || (route.kind === 'onboarding_plan' && !clientId)
+      ? 'ask_prometheus'
+      : route.kind;
+    setSending(true);
+    const result = await askSecond({
+      kind,
+      clientId,
+      programId: searchParams.get('program'),
+      prompt: q,
+      screen: 'ask_prometheus',
+      context: {
+        tab: searchParams.get('tab') || 'ask',
+        client_hint: clientHint,
       },
-      source: 'prometheus_ask_second_hook',
     });
     setSending(false);
     if ('error' in result) {
-      toast(result.error, 'error');
+      toast(t('coaching.second.failed'), 'error');
       return;
     }
-    toast(t('coaching.ask.sentToSecond'));
-    navigate(`/inbox/${result.id}`);
+    setActiveId(result.id);
+  };
+
+  const run = (raw: string) => {
+    const q = raw.trim();
+    if (!q) return;
+    setQuery(q);
+    remember(q);
+    if (isRosterAsk(q)) return;
+    void sendToSecond(q);
   };
 
   const drafts = pendingInterventions.slice(0, 8);
@@ -116,11 +157,11 @@ export default function AskPrometheusPage() {
               className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white"
             />
           </div>
-          <Button type="submit" size="sm">{t('coaching.ask.run')}</Button>
+          <Button type="submit" size="sm" loading={sending}>{t('coaching.ask.run')}</Button>
         </form>
 
         <div className="flex flex-wrap gap-2 mb-5">
-          {['coaching.ask.examples.stalled', 'coaching.ask.examples.pain', 'coaching.ask.examples.adherence'].map(key => (
+          {['coaching.ask.examples.stalled', 'coaching.ask.examples.pain', 'coaching.ask.examples.adherence', 'coaching.ask.examples.program'].map(key => (
             <button
               key={key}
               type="button"
@@ -132,13 +173,30 @@ export default function AskPrometheusPage() {
           ))}
         </div>
 
-        {answer && (
+        {live && (isInterventionDrafting(live) || interventionDraftError(live)) && (
+          <SecondDraftingCard
+            row={live}
+            retrying={sending}
+            onRetry={interventionDraftError(live) ? () => void sendToSecond(query) : undefined}
+          />
+        )}
+
+        {live && isInterventionReady(live) && (
+          <Card className="mb-5 space-y-2 border-blue-500/20" onClick={() => navigate(interventionHref(live))}>
+            <p className="text-sm font-medium text-white">{t('coaching.second.landed')}</p>
+            <p className="text-xs text-neutral-400">{live.title || t(`coaching.interventions.kinds.${live.kind}`)}</p>
+            <p className="text-[11px] text-blue-400">{t('coaching.ask.openDraft')}</p>
+          </Card>
+        )}
+
+        {rosterAnswer && (
           <Card className="mb-5 space-y-3">
-            <p className="text-sm font-medium text-white">{t(answer.titleKey, answer.titleParams)}</p>
-            <p className="text-sm text-neutral-300">{t(answer.bodyKey, answer.bodyParams)}</p>
-            {answer.hits.length > 0 && (
+            <p className="text-[11px] uppercase tracking-wider text-neutral-500">{t('coaching.ask.rosterFilter')}</p>
+            <p className="text-sm font-medium text-white">{t(rosterAnswer.titleKey, rosterAnswer.titleParams)}</p>
+            <p className="text-sm text-neutral-300">{t(rosterAnswer.bodyKey, rosterAnswer.bodyParams)}</p>
+            {rosterAnswer.hits.length > 0 && (
               <div className="space-y-1">
-                {answer.hits.map(hit => (
+                {rosterAnswer.hits.map(hit => (
                   <button
                     key={`${hit.clientId}-${hit.href}`}
                     type="button"
@@ -154,27 +212,14 @@ export default function AskPrometheusPage() {
                 ))}
               </div>
             )}
-            {answer.filter && (
+            {rosterAnswer.filter && (
               <button
                 type="button"
-                onClick={() => navigate(clientsFilterHref(answer.filter!))}
+                onClick={() => navigate(clientsFilterHref(rosterAnswer.filter!))}
                 className="text-xs text-blue-400"
               >
                 {t('coaching.ask.filterClients')}
               </button>
-            )}
-            <div>
-              <p className="text-[10px] uppercase tracking-wider text-neutral-600 mb-1">{t('coaching.ask.dataUsed')}</p>
-              <p className="text-[11px] text-neutral-500">{answer.dataUsed.join(' · ') || '—'}</p>
-            </div>
-            {answer.secondHook && (
-              <div className="rounded-xl border border-dashed border-violet-500/30 p-3">
-                <p className="text-[11px] text-violet-300 mb-1">{t('coaching.ask.secondHookTitle')}</p>
-                <p className="text-xs text-neutral-400 mb-2">{t('coaching.ask.secondHookBody')}</p>
-                <Button size="sm" variant="secondary" loading={sending} onClick={sendToSecond}>
-                  {t('coaching.ask.sendToSecond')}
-                </Button>
-              </div>
             )}
           </Card>
         )}
@@ -206,6 +251,7 @@ export default function AskPrometheusPage() {
                     <p className="text-sm text-white truncate">{item.title || t(`coaching.interventions.kinds.${item.kind}`)}</p>
                     <p className="text-[11px] text-neutral-500 truncate">
                       {client?.full_name || client?.email || t('coaching.interventions.appWide')}
+                      {interventionLiveLabel(item, t) ? ` · ${interventionLiveLabel(item, t)}` : ''}
                     </p>
                   </div>
                 </Card>
