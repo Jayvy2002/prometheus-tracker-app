@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronRight,
-  ClipboardCheck,
   Copy,
   Link2,
   Plus,
@@ -14,17 +13,11 @@ import {
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
-import type { CoachPriority, CoachPrioritySeverity } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-
-const SEVERITY_DOT: Record<CoachPrioritySeverity, string> = {
-  red: '🔴',
-  orange: '🟠',
-  yellow: '🟡',
-};
+import CoachTodayQueue from './CoachTodayQueue';
 
 function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'amber' | 'rose' | 'blue' | 'white' }) {
   const color = tone === 'amber' ? 'text-amber-300'
@@ -39,41 +32,6 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
   );
 }
 
-function PriorityRow({ item, open, onToggle, onOpen }: {
-  item: CoachPriority;
-  open: boolean;
-  onToggle: () => void;
-  onOpen: () => void;
-}) {
-  const { t } = useTranslation();
-  return (
-    <Card className="!p-0 overflow-hidden">
-      <button type="button" onClick={onToggle} className="w-full flex items-start gap-3 px-4 py-3 text-left">
-        <span className="text-base leading-6 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-white">
-            {t(item.headlineKey, item.headlineParams)}
-          </p>
-          <p className="text-[11px] text-neutral-500 truncate">{item.clientName}</p>
-        </div>
-        <ChevronRight size={16} className={`text-neutral-600 mt-1 shrink-0 transition-transform ${open ? 'rotate-90' : ''}`} />
-      </button>
-      {open && (
-        <div className="px-4 pb-3 pt-0 border-t border-neutral-800/60">
-          <p className="text-xs text-neutral-400 mt-2">{t(item.detailKey, item.detailParams)}</p>
-          <button
-            type="button"
-            onClick={onOpen}
-            className="mt-2 text-xs text-blue-400 hover:text-blue-300"
-          >
-            {t('coaching.command.openClient')}
-          </button>
-        </div>
-      )}
-    </Card>
-  );
-}
-
 export default function CoachDashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -81,11 +39,9 @@ export default function CoachDashboard() {
   const {
     opsRows, opsLoading, invites, pendingInterventions, clients,
     fetchCoachOps, fetchInvites, createInvite, commandStats: stats,
-    priorities,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -95,7 +51,6 @@ export default function CoachDashboard() {
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
   const topDrafts = pendingInterventions.slice(0, 4);
-  const visiblePriorities = useMemo(() => priorities.slice(0, 12), [priorities]);
 
   const copyUrl = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
@@ -222,36 +177,7 @@ export default function CoachDashboard() {
               </div>
             )}
 
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
-                {t('coaching.command.priorities')}
-              </p>
-              <button onClick={() => navigate('/clients')} className="text-xs text-blue-400">
-                {t('nav.clients')}
-              </button>
-            </div>
-
-            {visiblePriorities.length === 0 ? (
-              <Card className="flex items-center gap-3">
-                <ClipboardCheck size={18} className="text-emerald-400" />
-                <div>
-                  <p className="text-sm text-white">{t('coaching.command.allClearTitle')}</p>
-                  <p className="text-xs text-neutral-500">{t('coaching.command.allClearBody')}</p>
-                </div>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {visiblePriorities.map(item => (
-                  <PriorityRow
-                    key={item.id}
-                    item={item}
-                    open={expanded === item.id}
-                    onToggle={() => setExpanded(expanded === item.id ? null : item.id)}
-                    onOpen={() => navigate(item.href)}
-                  />
-                ))}
-              </div>
-            )}
+            <CoachTodayQueue />
           </>
         )}
       </div>

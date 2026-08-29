@@ -174,6 +174,7 @@ const fr = {
       water: "Tu es en dessous de 50% de ton objectif eau. Bois un verre !",
       deload: "4 semaines d'entraînement intense sans pause. Pense à réduire les charges cette semaine pour mieux récupérer.",
     },
+    coachMessageTitle: 'Message de ton coach',
   },
 
   widgets: {
@@ -1003,6 +1004,31 @@ const fr = {
       allClearTitle: 'Rien d’urgent',
       allClearBody: 'Pas de douleur, de stagnation ou de logs manquants qui demandent un appel maintenant.',
     },
+    queue: {
+      title: 'File du jour',
+      remaining: '{{count}} restante(s)',
+      relance: 'Relancer',
+      openDraft: 'Ouvrir le brouillon',
+      setup: 'Configurer',
+      openFile: 'Ouvrir la fiche',
+      skip: 'Passer',
+      nextUp: 'Ensuite : {{names}}',
+      composeTitle: 'Relance — {{name}}',
+      composeHint: 'Modifie le texte, puis envoie. Rien ne part tout seul.',
+      send: 'Envoyer',
+      sent: 'Relance envoyée',
+      emptyBody: 'Le message ne peut pas être vide.',
+      templates: {
+        missed_training: 'Salut {{name}}, je n’ai pas vu tes séances récemment. Tout va bien de ton côté ? Dis-moi si on ajuste le programme ou le timing.',
+        missed_checkins: 'Salut {{name}}, tes check-ins manquent depuis quelques jours. 60 secondes suffisent — ça m’aide à ajuster. Tu peux le faire aujourd’hui ?',
+        general_followup: 'Salut {{name}}, je fais un point rapide. Comment tu te sens cette semaine ? On ajuste si besoin.',
+      },
+      templateLabels: {
+        missed_training: 'Séances manquées',
+        missed_checkins: 'Check-ins manqués',
+        general_followup: 'Suivi',
+      },
+    },
     priority: {
       headlines: {
         new_pain: '{{name}} a signalé une douleur ({{n}}/5)',
@@ -1151,6 +1177,8 @@ const fr = {
       signals: 'Check-ins & alertes',
       empty: 'Rien en attente.',
       seeAll: 'Tout voir',
+      nudges: 'Relances envoyées',
+      nudgesEmpty: 'Aucune relance envoyée pour l’instant.',
     },
     programEditor: {
       repRange: 'Reps',

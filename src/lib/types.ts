@@ -357,6 +357,7 @@ export interface CoachClientSummary {
   target_weight_kg: number;
   weight_kg: number;
   last_visited_at: string | null;
+  last_nudged_at: string | null;
 }
 
 export interface ClientTrackingConfig {
@@ -427,6 +428,28 @@ export interface CoachPriority {
   detailParams?: Record<string, string | number>;
   href: string;
   exerciseName?: string;
+}
+
+export type CoachNudgeTemplateKey = 'missed_training' | 'missed_checkins' | 'general_followup';
+
+export type CoachQueueActionKind = 'compose' | 'open_draft' | 'open_setup' | 'open_360';
+
+export interface CoachQueueAction {
+  kind: CoachQueueActionKind;
+  ctaKey: string;
+  href?: string;
+  templateKey?: CoachNudgeTemplateKey;
+  interventionId?: string;
+}
+
+export interface CoachMessage {
+  id: string;
+  coach_id: string;
+  client_id: string;
+  body: string;
+  template_key: CoachNudgeTemplateKey;
+  created_at: string;
+  read_at: string | null;
 }
 
 export interface LiftSetSnapshot {

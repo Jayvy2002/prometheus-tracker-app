@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -41,7 +41,7 @@ export default function Dashboard() {
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, fetchToday } = useCheckinStore();
-  const { myCoach, fetchMyCoach } = useCoachingStore();
+  const { myCoach, latestCoachMessage, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
@@ -188,6 +188,25 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {latestCoachMessage && (
+          <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/25 rounded-xl px-3.5 py-2.5 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+              <MessageSquare size={14} className="text-blue-300" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium text-blue-300 mb-0.5">{t('dashboard.coachMessageTitle')}</p>
+              <p className="text-xs text-blue-100/90 whitespace-pre-wrap">{latestCoachMessage.body}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => markCoachMessageRead(latestCoachMessage.id)}
+              className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-200 transition-colors shrink-0"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Notification Reminders */}
         {(showWeightReminder || showMealReminder || showWaterReminder || showDeloadSuggestion) && (

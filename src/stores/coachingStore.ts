@@ -11,7 +11,9 @@ import type {
   CoachInterventionKind,
   CoachInterventionStatus,
   CoachInvite,
+  CoachMessage,
   CoachNote,
+  CoachNudgeTemplateKey,
   CoachPreview,
   CoachPriority,
   CoachRosterSignals,
@@ -26,6 +28,7 @@ import type {
   WorkoutSet,
 } from '../lib/types';
 import { mapInterventionRow, parseOnboardingPlanDraft, type ProgramOutlineDraft } from '../lib/coachInterventions';
+import { mapCoachMessage } from '../lib/coachQueue';
 import { useProgramStore } from './programStore';
 import { buildClientOpsRows, datePrefix, weekAgoStr } from '../lib/coachAlerts';
 import { buildClientLifts } from '../lib/coachLifts';
@@ -120,6 +123,29 @@ const EMPTY_STATS: CoachCommandStats = {
   important: 0,
 };
 
+function queueDoneKey(day = todayStr()) {
+  return `prometheus_queue_done_${day}`;
+}
+
+function loadQueueDismissed(): string[] {
+  try {
+    const raw = sessionStorage.getItem(queueDoneKey());
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((id): id is string => typeof id === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveQueueDismissed(ids: string[]) {
+  try {
+    sessionStorage.setItem(queueDoneKey(), JSON.stringify(ids));
+  } catch {
+    // private mode / quota
+  }
+}
+
 interface CoachingState {
   coachingRole: CoachingRole;
   billingRole: UserRole['role'] | null;
@@ -132,6 +158,9 @@ interface CoachingState {
   opsRows: ClientOpsRow[];
   opsLoading: boolean;
   pendingInterventions: CoachIntervention[];
+  sentMessages: CoachMessage[];
+  latestCoachMessage: CoachMessage | null;
+  queueDismissedIds: string[];
   priorities: CoachPriority[];
   rosterSignals: CoachRosterSignals;
   commandStats: CoachCommandStats;
@@ -154,6 +183,14 @@ interface CoachingState {
   ) => Promise<{ error: string | null }>;
   applyProgramOutline: (clientId: string, outline: ProgramOutlineDraft) => Promise<{ error: string | null }>;
   fetchPendingInterventions: () => Promise<void>;
+  fetchCoachMessages: () => Promise<void>;
+  sendCoachMessage: (
+    clientId: string,
+    body: string,
+    templateKey: CoachNudgeTemplateKey,
+  ) => Promise<{ error: string | null }>;
+  markCoachMessageRead: (id: string) => Promise<void>;
+  dismissQueueItem: (id: string) => void;
   fetchIntervention: (id: string) => Promise<CoachIntervention | null>;
   fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
   resolveIntervention: (
@@ -203,6 +240,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   opsRows: [],
   opsLoading: false,
   pendingInterventions: [],
+  sentMessages: [],
+  latestCoachMessage: null,
+  queueDismissedIds: loadQueueDismissed(),
   priorities: [],
   rosterSignals: EMPTY_SIGNALS,
   commandStats: EMPTY_STATS,
@@ -252,24 +292,37 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   fetchClients: async () => {
     set({ loading: true });
-    type LinkRow = { client_id: string; created_at: string; last_visited_at?: string | null };
+    type LinkRow = {
+      client_id: string;
+      created_at: string;
+      last_visited_at?: string | null;
+      last_nudged_at?: string | null;
+    };
     let links: LinkRow[] | null = null;
-    const withVisit = await supabase
+    const withNudge = await supabase
       .from('coach_client_links')
-      .select('client_id, created_at, last_visited_at')
+      .select('client_id, created_at, last_visited_at, last_nudged_at')
       .eq('status', 'active');
-    if (withVisit.error) {
-      const fallback = await supabase
+    if (withNudge.error) {
+      const withVisit = await supabase
         .from('coach_client_links')
-        .select('client_id, created_at')
+        .select('client_id, created_at, last_visited_at')
         .eq('status', 'active');
-      if (fallback.error || !fallback.data?.length) {
-        set({ clients: [], loading: false });
-        return;
+      if (withVisit.error) {
+        const fallback = await supabase
+          .from('coach_client_links')
+          .select('client_id, created_at')
+          .eq('status', 'active');
+        if (fallback.error || !fallback.data?.length) {
+          set({ clients: [], loading: false });
+          return;
+        }
+        links = fallback.data as LinkRow[];
+      } else {
+        links = (withVisit.data ?? []) as LinkRow[];
       }
-      links = fallback.data as LinkRow[];
     } else {
-      links = (withVisit.data ?? []) as LinkRow[];
+      links = (withNudge.data ?? []) as LinkRow[];
     }
     if (!links.length) {
       set({ clients: [], loading: false });
@@ -281,10 +334,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg')
       .in('id', ids);
     const linkedAt = new Map(links.map(l => [l.client_id as string, l.created_at as string]));
-    const visitedAt = new Map(links.map(l => [
-      l.client_id as string,
-      ((l as { last_visited_at?: string | null }).last_visited_at) ?? null,
-    ]));
+    const visitedAt = new Map(links.map(l => [l.client_id as string, l.last_visited_at ?? null]));
+    const nudgedAt = new Map(links.map(l => [l.client_id as string, l.last_nudged_at ?? null]));
     const clients: CoachClientSummary[] = (profiles ?? []).map(p => ({
       id: p.id as string,
       full_name: (p.full_name as string) || '',
@@ -297,6 +348,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       target_weight_kg: Number(p.target_weight_kg) || 0,
       weight_kg: Number(p.weight_kg) || 0,
       last_visited_at: visitedAt.get(p.id as string) ?? null,
+      last_nudged_at: nudgedAt.get(p.id as string) ?? null,
     }));
     set({ clients, loading: false });
   },
@@ -587,6 +639,80 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     set({ pendingInterventions: rows });
   },
 
+  fetchCoachMessages: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      set({ sentMessages: [] });
+      return;
+    }
+    const { data, error } = await supabase
+      .from('coach_messages')
+      .select('*')
+      .eq('coach_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(40);
+    if (error || !data) {
+      set({ sentMessages: [] });
+      return;
+    }
+    set({
+      sentMessages: data
+        .map(row => mapCoachMessage(row as Record<string, unknown>))
+        .filter((row): row is CoachMessage => !!row),
+    });
+  },
+
+  sendCoachMessage: async (clientId, body, templateKey) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'Not authenticated' };
+    const trimmed = body.trim();
+    if (!trimmed) return { error: 'empty' };
+    const { data, error } = await supabase
+      .from('coach_messages')
+      .insert({
+        coach_id: user.id,
+        client_id: clientId,
+        body: trimmed,
+        template_key: templateKey,
+      })
+      .select()
+      .maybeSingle();
+    if (error || !data) return { error: error?.message ?? 'Failed to send' };
+    const iso = new Date().toISOString();
+    await supabase
+      .from('coach_client_links')
+      .update({ last_nudged_at: iso, updated_at: iso })
+      .eq('client_id', clientId)
+      .eq('status', 'active');
+    const mapped = mapCoachMessage(data as Record<string, unknown>);
+    set(s => ({
+      sentMessages: mapped ? [mapped, ...s.sentMessages] : s.sentMessages,
+      clients: s.clients.map(c => (c.id === clientId ? { ...c, last_nudged_at: iso } : c)),
+      opsRows: s.opsRows.map(row => (
+        row.client.id === clientId
+          ? { ...row, client: { ...row.client, last_nudged_at: iso } }
+          : row
+      )),
+    }));
+    return { error: null };
+  },
+
+  markCoachMessageRead: async (id) => {
+    const iso = new Date().toISOString();
+    await supabase.from('coach_messages').update({ read_at: iso }).eq('id', id);
+    set(s => ({
+      latestCoachMessage: s.latestCoachMessage?.id === id ? null : s.latestCoachMessage,
+    }));
+  },
+
+  dismissQueueItem: (id) => {
+    set(s => {
+      const ids = s.queueDismissedIds.includes(id) ? s.queueDismissedIds : [...s.queueDismissedIds, id];
+      saveQueueDismissed(ids);
+      return { queueDismissedIds: ids };
+    });
+  },
+
   fetchIntervention: async (id) => {
     const { data, error } = await supabase
       .from('coach_interventions')
@@ -730,7 +856,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   fetchMyCoach: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      set({ myCoach: null });
+      set({ myCoach: null, latestCoachMessage: null });
       return;
     }
     const { data: link } = await supabase
@@ -740,7 +866,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .eq('status', 'active')
       .maybeSingle();
     if (!link) {
-      set({ myCoach: null });
+      set({ myCoach: null, latestCoachMessage: null });
       return;
     }
     const { data: profile } = await supabase
@@ -749,15 +875,24 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .eq('id', link.coach_id)
       .maybeSingle();
     if (!profile) {
-      set({ myCoach: null });
+      set({ myCoach: null, latestCoachMessage: null });
       return;
     }
+    const { data: msg } = await supabase
+      .from('coach_messages')
+      .select('*')
+      .eq('client_id', user.id)
+      .is('read_at', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
     set({
       myCoach: {
         id: profile.id as string,
         full_name: (profile.full_name as string) || '',
         avatar_url: (profile.avatar_url as string) || '',
       },
+      latestCoachMessage: msg ? mapCoachMessage(msg as Record<string, unknown>) : null,
     });
   },
 
@@ -908,6 +1043,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     opsRows: [],
     opsLoading: false,
     pendingInterventions: [],
+    sentMessages: [],
+    latestCoachMessage: null,
+    queueDismissedIds: [],
     priorities: [],
     rosterSignals: EMPTY_SIGNALS,
     commandStats: EMPTY_STATS,

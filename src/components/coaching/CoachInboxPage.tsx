@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ClipboardCheck, Sparkles } from 'lucide-react';
+import { ChevronRight, ClipboardCheck, MessageSquare, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { inboxItems } from '../../lib/coachPriorities';
@@ -13,11 +13,14 @@ export default function CoachInboxPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { fetchCoachOps, priorities, pendingInterventions, clients } = useCoachingStore();
+  const {
+    fetchCoachOps, fetchCoachMessages, priorities, pendingInterventions, clients, sentMessages,
+  } = useCoachingStore();
 
   useEffect(() => {
     if (!user) return;
     fetchCoachOps();
+    fetchCoachMessages();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const items = useMemo(() => inboxItems(priorities), [priorities]);
@@ -54,6 +57,37 @@ export default function CoachInboxPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
+          {t('coaching.inbox.nudges')}
+        </p>
+        {sentMessages.length === 0 ? (
+          <Card className="flex items-center gap-3 mb-6">
+            <MessageSquare size={18} className="text-neutral-600" />
+            <p className="text-sm text-neutral-400">{t('coaching.inbox.nudgesEmpty')}</p>
+          </Card>
+        ) : (
+          <div className="space-y-2 mb-6">
+            {sentMessages.map(msg => {
+              const client = clients.find(c => c.id === msg.client_id);
+              return (
+                <Card key={msg.id} className="flex items-start gap-3">
+                  <MessageSquare size={16} className="text-blue-400 mt-1 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white whitespace-pre-wrap">{msg.body}</p>
+                    <p className="text-[11px] text-neutral-500 mt-1 truncate">
+                      {client?.full_name || client?.email || t('coaching.unnamed')}
+                      {' · '}
+                      {t(`coaching.queue.templateLabels.${msg.template_key}`)}
+                      {' · '}
+                      {new Date(msg.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </Card>
+              );
+            })}
           </div>
         )}
 

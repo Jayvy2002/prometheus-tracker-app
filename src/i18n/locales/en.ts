@@ -174,6 +174,7 @@ const en = {
       water: "You're below 50% of your water goal. Grab a glass!",
       deload: "4 weeks of intense training without a break. Consider reducing weights this week to recover better.",
     },
+    coachMessageTitle: 'Message from your coach',
   },
 
   widgets: {
@@ -1003,6 +1004,31 @@ const en = {
       allClearTitle: 'Nothing urgent',
       allClearBody: 'No pain spikes, stalls, or missed logs that need a call right now.',
     },
+    queue: {
+      title: 'Today’s queue',
+      remaining: '{{count}} left',
+      relance: 'Nudge',
+      openDraft: 'Open draft',
+      setup: 'Set up',
+      openFile: 'Open file',
+      skip: 'Skip',
+      nextUp: 'Next: {{names}}',
+      composeTitle: 'Nudge — {{name}}',
+      composeHint: 'Edit the text, then send. Nothing goes out on its own.',
+      send: 'Send',
+      sent: 'Nudge sent',
+      emptyBody: 'The message cannot be empty.',
+      templates: {
+        missed_training: 'Hey {{name}}, I haven’t seen your sessions recently. Everything okay? Tell me if we should adjust the program or the timing.',
+        missed_checkins: 'Hey {{name}}, a few check-ins are missing. It only takes 60 seconds and it helps me adjust. Can you do today’s?',
+        general_followup: 'Hey {{name}}, just checking in. How are you feeling this week? We can tweak things if needed.',
+      },
+      templateLabels: {
+        missed_training: 'Missed training',
+        missed_checkins: 'Missed check-ins',
+        general_followup: 'Follow-up',
+      },
+    },
     priority: {
       headlines: {
         new_pain: '{{name}} reported new pain ({{n}}/5)',
@@ -1151,6 +1177,8 @@ const en = {
       signals: 'Check-ins & flags',
       empty: 'Nothing waiting.',
       seeAll: 'See all',
+      nudges: 'Sent nudges',
+      nudgesEmpty: 'No nudges sent yet.',
     },
     programEditor: {
       repRange: 'Reps',
