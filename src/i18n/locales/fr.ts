@@ -1472,6 +1472,7 @@ const fr = {
       goHome: 'Retour',
       generate: 'Lien d’invitation',
       create: 'Créer un lien',
+      cta: 'Inviter',
       maxUses: 'Utilisations max',
       usesLeft: '{{n}} utilisation(s) restante(s)',
       copied: 'Lien copié',

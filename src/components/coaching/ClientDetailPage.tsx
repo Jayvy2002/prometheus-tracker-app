@@ -608,16 +608,12 @@ export default function ClientDetailPage() {
         ) : tab === 'progress' ? (
           <div className="space-y-3">
             <ClientLiftChart
+              compact
               lifts={lifts}
               selectedName={exerciseHint}
               notes={notes}
               relanceHref={trainingRelanceHref}
-              showRelance={missedTraining}
-              onSelect={name => setTab('progress', { exercise: name })}
-              onOpenSeries={lift => {
-                setTab('training', { exercise: lift.displayName });
-                setWorkspaceOpen(true);
-              }}
+              onSelect={name => setTab('training', { exercise: name })}
             />
             <WeightChart points={weightChartPoints(weights)} />
             <NutritionChart points={nutritionDays} />
@@ -631,7 +627,9 @@ export default function ClientDetailPage() {
                 onAskSecond={() => { void handleAskCalories(); }}
               />
             )}
-            <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+            {photos.length > 0 && (
+              <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+            )}
           </div>
         ) : tab === 'checkins' ? (
           <div className="space-y-3">

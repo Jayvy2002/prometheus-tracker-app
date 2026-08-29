@@ -21,6 +21,8 @@ import WeeklyAdjustment from './WeeklyAdjustment';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { useCoachingStore } from '../../stores/coachingStore';
 
 export default function NutritionPage() {
   const { t } = useTranslation();
@@ -31,6 +33,9 @@ export default function NutritionPage() {
   const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, addLog, loading: nutritionLoading } = useNutritionStore();
   const { measurements } = useWeightStore();
   const tracking = useClientTracking();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
   const [showAdjustment, setShowAdjustment] = useState(() => {
@@ -124,9 +129,11 @@ export default function NutritionPage() {
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">{t('nutrition.title')}</h1>
         <div className="flex gap-2">
+          {!coached && (
           <button onClick={() => navigate('/recipes')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
             <ChefHat size={18} />
           </button>
+          )}
           <button onClick={() => navigate('/scanner')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
             <ScanLine size={18} />
           </button>

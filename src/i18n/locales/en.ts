@@ -1472,6 +1472,7 @@ const en = {
       goHome: 'Go home',
       generate: 'Invite link',
       create: 'Create link',
+      cta: 'Invite',
       maxUses: 'Max uses',
       usesLeft: '{{n}} use(s) left',
       copied: 'Invite link copied',

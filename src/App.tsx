@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
+import { isCoachedAthlete } from './lib/coachRole';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -54,6 +55,13 @@ function MessagesHome() {
 function CoachTrackerRedirect({ children }: { children: ReactNode }) {
   const coachingRole = useCoachingStore(s => s.coachingRole);
   if (coachingRole === 'coach') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
+function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  if (isCoachedAthlete(coachingRole, myCoach)) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -168,17 +176,17 @@ function AppRoutes() {
         <Route path="/messages/:clientId" element={<CoachOnly><CoachInboxPage /></CoachOnly>} />
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
-        <Route path="/programs" element={<ProgramsPage />} />
+        <Route path="/programs" element={<CoachedAthleteRedirect><ProgramsPage /></CoachedAthleteRedirect>} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
         <Route path="/programs/:id" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
       </Route>
       <Route path="/workout/new" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
       <Route path="/workout/:id" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
       <Route path="/routines" element={<AppLayout />}>
-        <Route index element={<CoachTrackerRedirect><RoutinesPage /></CoachTrackerRedirect>} />
+        <Route index element={<CoachTrackerRedirect><CoachedAthleteRedirect><RoutinesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
       </Route>
       <Route path="/scanner" element={<CoachTrackerRedirect><ScannerPage /></CoachTrackerRedirect>} />
-      <Route path="/recipes" element={<CoachTrackerRedirect><RecipesPage /></CoachTrackerRedirect>} />
+      <Route path="/recipes" element={<CoachTrackerRedirect><CoachedAthleteRedirect><RecipesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

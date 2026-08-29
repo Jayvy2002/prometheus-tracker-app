@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, Search, Sparkles } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { answerCoachAsk, clientsFilterHref, isRosterAsk, parseCoachAsk, resolveAskClientId } from '../../lib/coachAsk';
+import { answerCoachAsk, clientsFilterHref, isRosterAsk, parseCoachAsk, resolveAskClientId, rosterHitsForFilter } from '../../lib/coachAsk';
 import { openDraftHref } from '../../lib/coachInterventions';
 import {
   interventionDraftError,
@@ -17,7 +17,6 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import SecondDraftingCard from './SecondDraftingCard';
-import { interventionLiveLabel } from '../../lib/coachSecond';
 
 const ASK_HISTORY_KEY = 'prometheus_coach_ask_history';
 
@@ -46,7 +45,7 @@ export default function AskPrometheusPage() {
   const { user } = useAuthStore();
   const {
     opsRows, priorities, rosterSignals, pendingInterventions,
-    fetchCoachOps, askSecond, clients, runFleetRound, fleetRunning,
+    fetchCoachOps, askSecond,
   } = useCoachingStore();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [history, setHistory] = useState<string[]>(loadHistory);
@@ -133,7 +132,18 @@ export default function AskPrometheusPage() {
     void sendToSecond(q);
   };
 
-  const drafts = pendingInterventions.slice(0, 8);
+  const askChips = useMemo(() => {
+    const chips: Array<{ key: string; always?: boolean; filter?: 'stalled' | 'pain' | 'adherence' }> = [
+      { key: 'coaching.ask.examples.stalled', filter: 'stalled' },
+      { key: 'coaching.ask.examples.pain', filter: 'pain' },
+      { key: 'coaching.ask.examples.adherence', filter: 'adherence' },
+      { key: 'coaching.ask.examples.program', always: true },
+    ];
+    return chips.filter(chip => (
+      chip.always
+      || (chip.filter ? rosterHitsForFilter(chip.filter, opsRows, priorities, rosterSignals).length > 0 : false)
+    ));
+  }, [opsRows, priorities, rosterSignals]);
 
   return (
     <PageTransition>
@@ -141,29 +151,6 @@ export default function AskPrometheusPage() {
         <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1">Prometheus</p>
         <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.ask.title')}</h1>
         <p className="text-sm text-neutral-500 mb-4">{t('coaching.ask.subtitle')}</p>
-
-        <Card className="mb-5 space-y-2">
-          <p className="text-sm font-medium text-white">{t('coaching.fleet.title')}</p>
-          <p className="text-xs text-neutral-400">{t('coaching.fleet.hint')}</p>
-          <Button
-            size="sm"
-            variant="secondary"
-            loading={fleetRunning}
-            onClick={async () => {
-              const result = await runFleetRound();
-              if (result.error) {
-                toast(t('coaching.fleet.failed'), 'error');
-                return;
-              }
-              toast(t('coaching.fleet.done', {
-                flagged: result.clients_flagged ?? 0,
-                skipped: result.clients_skipped ?? 0,
-              }));
-            }}
-          >
-            {t('coaching.fleet.run')}
-          </Button>
-        </Card>
 
         <form
           onSubmit={e => { e.preventDefault(); run(query); }}
@@ -181,18 +168,20 @@ export default function AskPrometheusPage() {
           <Button type="submit" size="sm" loading={sending}>{t('coaching.ask.run')}</Button>
         </form>
 
-        <div className="flex flex-wrap gap-2 mb-5">
-          {['coaching.ask.examples.stalled', 'coaching.ask.examples.pain', 'coaching.ask.examples.adherence', 'coaching.ask.examples.program'].map(key => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => run(t(key))}
-              className="text-[11px] px-2.5 py-1 rounded-full bg-neutral-900 text-neutral-300 hover:text-white"
-            >
-              {t(key)}
-            </button>
-          ))}
-        </div>
+        {askChips.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-5">
+            {askChips.map(chip => (
+              <button
+                key={chip.key}
+                type="button"
+                onClick={() => run(t(chip.key))}
+                className="text-[11px] px-2.5 py-1 rounded-full bg-neutral-900 text-neutral-300 hover:text-white"
+              >
+                {t(chip.key)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {live && (isInterventionDrafting(live) || interventionDraftError(live)) && (
           <SecondDraftingCard
@@ -262,31 +251,6 @@ export default function AskPrometheusPage() {
                 </button>
               ))}
             </div>
-          </div>
-        )}
-
-        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('coaching.ask.drafts')}</p>
-        {drafts.length === 0 ? (
-          <p className="text-sm text-neutral-500">{t('coaching.ask.noDrafts')}</p>
-        ) : (
-          <div className="space-y-2">
-            {drafts.map(item => {
-              const client = clients.find(c => c.id === item.client_id);
-              const href = openDraftHref(item);
-              if (!href) return null;
-              return (
-                <Card key={item.id} onClick={() => navigate(href)} className="flex items-start gap-3">
-                  <Sparkles size={14} className="text-blue-400 mt-1" />
-                  <div className="min-w-0">
-                    <p className="text-sm text-white truncate">{item.title || t(`coaching.interventions.kinds.${item.kind}`)}</p>
-                    <p className="text-[11px] text-neutral-500 truncate">
-                      {client?.full_name || client?.email || t('coaching.interventions.appWide')}
-                      {interventionLiveLabel(item, t) ? ` · ${interventionLiveLabel(item, t)}` : ''}
-                    </p>
-                  </div>
-                </Card>
-              );
-            })}
           </div>
         )}
       </div>

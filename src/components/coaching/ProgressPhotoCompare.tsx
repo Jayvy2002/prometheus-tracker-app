@@ -35,19 +35,7 @@ export default function ProgressPhotoCompare({
 
   const pair = resolveComparePair(sorted, oldestId, newestId);
 
-  if (kind === 'empty') {
-    return (
-      <Card className="space-y-3">
-        <p className="text-[11px] uppercase tracking-wider text-neutral-500">{t('coaching.photos.compareTitle')}</p>
-        <p className="text-sm text-neutral-300">{t('coaching.photos.emptyCoachRelance')}</p>
-        {relanceHref ? (
-          <Button size="sm" onClick={() => navigate(relanceHref)}>
-            {t('coaching.queue.relance')}
-          </Button>
-        ) : null}
-      </Card>
-    );
-  }
+  if (kind === 'empty') return null;
 
   return (
     <Card className="space-y-3">
