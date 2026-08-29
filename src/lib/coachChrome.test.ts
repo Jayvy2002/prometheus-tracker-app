@@ -70,6 +70,7 @@ test('Coached client shell: no Programs, no coach-mode, no profile nav dump', ()
   const app = src('src/App.tsx');
   assert.match(app, /CoachedAthleteRedirect/);
   assert.match(app, /path="\/programs"/);
+  assert.doesNotMatch(app, /changeLanguage\(profile/);
 
   const side = src('src/components/layout/SideNav.tsx');
   assert.match(side, /track_workouts && !coached/);

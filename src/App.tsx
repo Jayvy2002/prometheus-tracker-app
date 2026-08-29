@@ -69,7 +69,7 @@ function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, clearProfile } = useProfileStore();
   const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (user) {
@@ -92,12 +92,6 @@ function AppRoutes() {
       useCoachingStore.getState().clear();
     }
   }, [user, initialized, fetchProfile, clearProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
-
-  useEffect(() => {
-    const lang = profile?.language?.trim() || 'fr';
-    i18n.changeLanguage(lang);
-    document.documentElement.lang = lang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
-  }, [profile?.language, i18n]);
 
   if (authLoading || !initialized) {
     return (
