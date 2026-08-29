@@ -7,9 +7,11 @@ import { useStreakStore } from './streakStore';
 
 import { functionsErrorBody, functionsHttpStatus } from '../lib/supabaseFunctions';
 import { waitForRowChange } from '../lib/realtimeWait';
-
-const ANALYZE_POLL_MS = 2_000;
-const ANALYZE_TIMEOUT_MS = 90_000;
+import {
+  FAST_VERIFY_BONUS_POLL_MS,
+  FAST_VERIFY_BONUS_TIMEOUT_MS,
+  parseAnalyzeProductResponse,
+} from '../lib/fastVerify';
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -210,33 +212,20 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       : {};
     const bodyFromError = error ? await functionsErrorBody(error) : {};
     const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
-    const errCode = typeof body.error === 'string' ? body.error : '';
-    const httpStatus = functionsHttpStatus(error);
-    const errorMessage = error instanceof Error ? error.message : '';
+    const outcome = parseAnalyzeProductResponse(body, functionsHttpStatus(error));
 
-    if (
-      errCode === 'DAILY_LIMIT_REACHED'
-      || httpStatus === 429
-      || errorMessage.includes('DAILY_LIMIT_REACHED')
-    ) {
-      return { error: 'scanner.dailyLimitReached' };
+    if (outcome.kind === 'ready') {
+      return {
+        product: outcome.product as unknown as FoodProduct,
+        confidence: outcome.confidence,
+      };
     }
-    if (errCode === 'WEBHOOK_NOT_CONFIGURED') {
-      return { error: 'scanner.webhookNotConfigured' };
-    }
-    if (errCode === 'WEBHOOK_FAILED' || httpStatus === 502) {
-      return { error: 'scanner.webhookFailed' };
-    }
-    if (error && body.status !== 'processing') {
-      console.error('[analyzeProductRequest] Edge Function error:', error, body);
-      return { error: 'scanner.aiStartError' };
-    }
-    if (body.status !== 'processing' && body.status !== 'completed') {
-      console.error('[analyzeProductRequest] Unexpected response:', body);
-      return { error: 'scanner.aiStartError' };
+    if (outcome.kind === 'error') {
+      if (error) console.error('[analyzeProductRequest] Edge Function error:', error, body);
+      return { error: outcome.key };
     }
 
-    const deadline = Date.now() + ANALYZE_TIMEOUT_MS;
+    // Bonus only: a stale 202 deploy. Primary path is 200 + product id.
     const done = await waitForRowChange<{
       status: string;
       result_product_id: string | null;
@@ -244,10 +233,9 @@ export const useNutritionStore = create<NutritionState>((set) => ({
     }>({
       table: 'product_requests',
       filter: `id=eq.${requestId}`,
-      timeoutMs: ANALYZE_TIMEOUT_MS,
-      pollMs: ANALYZE_POLL_MS,
+      timeoutMs: FAST_VERIFY_BONUS_TIMEOUT_MS,
+      pollMs: FAST_VERIFY_BONUS_POLL_MS,
       poll: async () => {
-        if (Date.now() > deadline) return null;
         const { data: row } = await supabase
           .from('product_requests')
           .select('status, result_product_id, error_message')
@@ -267,13 +255,10 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       if (product) {
         return { product: product as FoodProduct, confidence: 100 };
       }
-    } else if (done?.status === 'failed') {
-      const msg = typeof done.error_message === 'string' ? done.error_message.trim() : '';
-      if (msg === 'WEBHOOK_NOT_CONFIGURED') return { error: 'scanner.webhookNotConfigured' };
-      if (msg.startsWith('WEBHOOK_FAILED')) return { error: 'scanner.webhookFailed' };
+    }
+    if (done?.status === 'failed') {
       return { error: 'scanner.aiFailed' };
     }
-
     return { error: 'scanner.aiTimeout' };
   },
 

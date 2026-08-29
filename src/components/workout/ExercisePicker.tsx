@@ -9,6 +9,11 @@ import { useExerciseStore } from '../../stores/exerciseStore';
 import { supabase } from '../../lib/supabase';
 import { waitForRowChange } from '../../lib/realtimeWait';
 import { functionsErrorBody, functionsHttpStatus } from '../../lib/supabaseFunctions';
+import {
+  FAST_VERIFY_BONUS_POLL_MS,
+  FAST_VERIFY_BONUS_TIMEOUT_MS,
+  parseVerifyExerciseResponse,
+} from '../../lib/fastVerify';
 import type { Exercise } from '../../lib/types';
 
 const MUSCLE_LABELS: Record<string, string> = {
@@ -237,28 +242,28 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
       : {};
     const bodyFromError = fnError ? await functionsErrorBody(fnError) : {};
     const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
-    const errCode = typeof body.error === 'string' ? body.error : '';
+    const outcome = parseVerifyExerciseResponse(body, functionsHttpStatus(fnError));
 
-    if (data?.exercise) {
-      addExercise(data.exercise as Exercise);
-      setApprovedExercise(data.exercise as Exercise);
+    if (outcome.kind === 'approved') {
+      addExercise(outcome.exercise as unknown as Exercise);
+      setApprovedExercise(outcome.exercise as unknown as Exercise);
       setStatus('approved');
       return;
     }
 
-    if (fnError && body.status !== 'processing') {
-      const http = functionsHttpStatus(fnError);
-      if (errCode === 'DAILY_LIMIT_REACHED' || http === 429) {
-        setError(t('workout.exercisePicker.verifying'));
-      } else if (errCode === 'WEBHOOK_NOT_CONFIGURED') {
-        setError(t('scanner.webhookNotConfigured'));
-      } else {
-        setError(t('common.tryAgain'));
-      }
+    if (outcome.kind === 'rejected') {
+      setRejectionReason(outcome.reason || t('workout.exercisePicker.notRecognized'));
+      setStatus('rejected');
+      return;
+    }
+
+    if (outcome.kind === 'error') {
+      setError(outcome.dailyLimit ? t('workout.exercisePicker.verifying') : t('common.tryAgain'));
       setStatus('idle');
       return;
     }
 
+    // Bonus only: a stale 202 deploy. Primary path is 200 + exercise id.
     const done = await waitForRowChange<{
       status: string;
       result_exercise_id: string | null;
@@ -266,8 +271,8 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
     }>({
       table: 'exercise_requests',
       filter: `id=eq.${request.id}`,
-      timeoutMs: 90_000,
-      pollMs: 2_000,
+      timeoutMs: FAST_VERIFY_BONUS_TIMEOUT_MS,
+      pollMs: FAST_VERIFY_BONUS_POLL_MS,
       poll: async () => {
         const { data: row } = await supabase
           .from('exercise_requests')

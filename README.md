@@ -146,7 +146,8 @@ Non-secret build-time variables are committed in `.env.production` and picked up
 
 | Secret | Description |
 |---|---|
-| `GROK_BOT_WEBHOOK_URL` | Second webhook URL (coaching copy only) |
+| `OPENAI_API_KEY` | Direct OpenAI call in `analyze-product` / `verify-exercise` (not Second) |
+| `GROK_BOT_WEBHOOK_URL` | Second webhook URL (coaching copy only) — coach drafts only, never food/exercise |
 | `NOTIFY_SECRET` / `GROK_BOT_WEBHOOK_SECRET` | Shared secret for signed Second pings |
 | `XAI_API_KEY` / `GROK_API_KEY` | Optional in-app Grok key for fleet rounds (not Second). Missing key → deterministic Relancer. |
 | `FLEET_CRON_SECRET` | Optional nightly auth for `coach-fleet-round`. Falls back to `GROK_BOT_WEBHOOK_SECRET`. |
