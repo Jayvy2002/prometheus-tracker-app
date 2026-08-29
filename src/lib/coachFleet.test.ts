@@ -188,6 +188,125 @@ test('Alex new client → onboarding_plan / setup, not a stall', () => {
   assert.notEqual(card?.kind, 'calorie_adjustment');
 });
 
+test('Alex first week with a program and 0 séances → setup, not missed training', () => {
+  const alex = dossier({
+    client_id: 'alex-id',
+    full_name: 'Alex Gagnon',
+    goal: 'maintain',
+    onboarding_completed: true,
+    has_program: true,
+    setup_completed: true,
+    linked_days: 5,
+    training_frequency: 3,
+    calorie_target: 2500,
+    logged_nutrition_days: 1,
+    avg_calories: 1120,
+    last_nutrition_at: '2026-08-26',
+    workout_count: 0,
+    last_workout_at: null,
+    checkin_count: 1,
+    last_checkin_at: '2026-08-26',
+    avg_adherence_nutrition: 3,
+    weight_start_kg: 82,
+    weight_end_kg: 81.8,
+    weight_delta_kg: -0.2,
+  });
+  assert.equal(classifyFleetDossier(alex, TODAY), 'onboarding');
+  const card = buildFleetCard(alex, TODAY, 'off');
+  assert.equal(card?.kind, 'onboarding_plan');
+  assert.match(card?.title || '', /première semaine/i);
+  assert.notEqual(card?.kind, 'adherence_training');
+  assert.notEqual(card?.kind, 'calorie_adjustment');
+});
+
+test('coaching-copy 5-client calibration: Marc Relancer, Sofia Relancer, Camille/Léa silence', () => {
+  const marc = dossier({
+    client_id: '22222222-2222-4222-8222-222222222222',
+    full_name: 'Marc Bouchard',
+    goal: 'lose',
+    calorie_target: 2200,
+    logged_nutrition_days: 7,
+    avg_calories: 3107,
+    avg_adherence_nutrition: 2,
+    weight_start_kg: 95.2,
+    weight_end_kg: 95.4,
+    weight_delta_kg: 0.2,
+    weight_kg: 95.4,
+    workout_count: 2,
+    last_workout_at: '2026-08-21 22:15:00+00',
+    last_nutrition_at: '2026-08-23',
+    last_checkin_at: '2026-08-28',
+    linked_days: 36,
+    training_frequency: 3,
+  });
+  const camille = dossier({
+    client_id: '11111111-1111-4111-8111-111111111111',
+    full_name: 'Camille Tremblay',
+    goal: 'lose',
+    calorie_target: 1850,
+    logged_nutrition_days: 10,
+    avg_calories: 1790,
+    avg_adherence_nutrition: 4.5,
+    weight_start_kg: 69.5,
+    weight_end_kg: 68.2,
+    weight_delta_kg: -1.3,
+    weight_kg: 68.2,
+    workout_count: 8,
+    last_workout_at: '2026-08-28 22:15:00+00',
+    last_nutrition_at: '2026-08-28',
+    last_checkin_at: '2026-08-28',
+    linked_days: 43,
+    training_frequency: 4,
+  });
+  const sofia = dossier({
+    client_id: '33333333-3333-4333-8333-333333333333',
+    full_name: 'Sofia Nguyen',
+    goal: 'gain',
+    calorie_target: 2300,
+    logged_nutrition_days: 1,
+    avg_calories: 1710,
+    last_nutrition_at: '2026-08-16',
+    workout_count: 0,
+    last_workout_at: null,
+    checkin_count: 1,
+    last_checkin_at: '2026-08-18',
+    avg_adherence_nutrition: 4,
+    weight_start_kg: 57,
+    weight_end_kg: 57.1,
+    weight_delta_kg: 0.1,
+    linked_days: 50,
+    training_frequency: 4,
+  });
+  const lea = dossier({
+    client_id: '55555555-5555-4555-8555-555555555555',
+    full_name: 'Léa Martin',
+    goal: 'gain',
+    calorie_target: 2400,
+    logged_nutrition_days: 10,
+    avg_calories: 2360,
+    avg_adherence_nutrition: 4,
+    weight_start_kg: 59.8,
+    weight_end_kg: 60.4,
+    weight_delta_kg: 0.6,
+    weight_kg: 60.4,
+    workout_count: 8,
+    last_workout_at: '2026-08-28 22:15:00+00',
+    last_nutrition_at: '2026-08-28',
+    last_checkin_at: '2026-08-28',
+    linked_days: 36,
+    training_frequency: 5,
+  });
+  assert.equal(classifyFleetDossier(marc, TODAY), 'adherence_nutrition');
+  assert.equal(buildFleetCard(marc, TODAY, 'off')?.kind, 'adherence_nutrition');
+  assert.match(buildFleetCard(marc, TODAY, 'off')?.title || '', /2200/);
+  assert.equal(classifyFleetDossier(camille, TODAY), 'on_track');
+  assert.equal(buildFleetCard(camille, TODAY), null);
+  assert.equal(classifyFleetDossier(sofia, TODAY), 'ghost');
+  assert.equal(buildFleetCard(sofia, TODAY, 'off')?.kind, 'adherence_training');
+  assert.equal(classifyFleetDossier(lea, TODAY), 'on_track');
+  assert.equal(buildFleetCard(lea, TODAY), null);
+});
+
 test('incomplete 2000/0/0/0 is not a sendable calorie draft', () => {
   assert.equal(isCompleteCalorieDraft({ calories: 2000, protein: 0, carbs: 0, fat: 0 }), false);
   assert.equal(isCompleteCalorieDraft({ calories: 2000, protein: 160, carbs: 180, fat: 70 }), true);

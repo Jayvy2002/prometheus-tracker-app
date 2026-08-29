@@ -14,6 +14,8 @@ import type {
 export const FLEET_SOURCE = 'fleet';
 export const FLEET_WINDOW_DAYS = 14;
 export const GHOST_IDLE_DAYS = 10;
+/** Linked < 7 days and no sessions yet → setup, not missed training. */
+export const NEW_CLIENT_DAYS = 7;
 export const UNDER_EAT_RATIO = 0.85;
 /** Cut too fast: more than ~1.5% bodyweight per week. Camille ~1.05% stays quiet. */
 export const CUT_TOO_FAST_PCT_PER_WEEK = 1.5;
@@ -113,10 +115,14 @@ function missedTraining(d: CoachFleetDossier): boolean {
 
 /**
  * One flag per client. Silence (`on_track`) is correct for Camille / Léa.
- * Order is locked: setup → ghost → nutrition adherence → training → too fast → adherent stall.
+ * Order is locked: setup → first week → ghost → nutrition adherence → training → too fast → adherent stall.
  */
 export function classifyFleetDossier(d: CoachFleetDossier, today: string): CoachFleetFlag {
   if (!d.onboarding_completed || (!d.has_program && !d.setup_completed)) {
+    return 'onboarding';
+  }
+  // Alex: already onboarded with a program, J+5, 0 séances → setup, not a stall.
+  if (d.linked_days < NEW_CLIENT_DAYS && d.workout_count === 0) {
     return 'onboarding';
   }
   if (isGhostAt(d, today)) return 'ghost';
@@ -197,22 +203,29 @@ export function buildFleetCard(d: CoachFleetDossier, today: string, modelUsed: '
   const aiOff = modelUsed === 'off';
 
   if (flag === 'onboarding') {
+    const observation = !d.onboarding_completed
+      ? 'Nouveau client, onboarding incomplet.'
+      : !d.has_program
+        ? 'Onboarding fait, pas encore de programme assigné.'
+        : `Nouveau client (J+${d.linked_days}), aucune séance encore.`;
+    const cause = d.has_program
+      ? 'Première semaine — setup, pas un stall.'
+      : 'Pas un stall : il n’a pas encore de plan à suivre.';
+    const title = d.has_program
+      ? `${name} — première semaine`
+      : `${name} — configurer le plan`;
     return {
       flag,
       kind: 'onboarding_plan',
-      title: `${name} — configurer le plan`,
-      observation: d.onboarding_completed
-        ? 'Onboarding fait, pas encore de programme assigné.'
-        : 'Nouveau client, onboarding incomplet.',
-      cause: 'Pas un stall : il n’a pas encore de plan à suivre.',
+      title,
+      observation,
+      cause,
       rationale: 'Nouveau client — setup, pas une relance de stall.',
       payload: {
         source: FLEET_SOURCE,
         flag,
-        observation: d.onboarding_completed
-          ? 'Onboarding fait, pas encore de programme assigné.'
-          : 'Nouveau client, onboarding incomplet.',
-        cause: 'Pas un stall : il n’a pas encore de plan à suivre.',
+        observation,
+        cause,
         ai_off: aiOff,
         notes: `Configure le suivi et le programme de ${name}. Les calories ISSN du profil restent en place tant que tu ne les écris pas.`,
       },

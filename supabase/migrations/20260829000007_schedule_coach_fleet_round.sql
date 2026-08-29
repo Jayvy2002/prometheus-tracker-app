@@ -1,13 +1,8 @@
--- Schedule coach-fleet-round via pg_cron + pg_net + vault.
--- Coaching copy: phyuijjekxtjvipjtdfv. Do not apply to backup nebysjpqifqphvmveowe.
--- Never bake SERVICE_ROLE_KEY in git. The invoke function reads vault at runtime
--- (GROK_BOT_WEBHOOK_SECRET / FLEET_CRON_SECRET), same pattern as notify_onboarding.
---
--- 1. pg_cron + pg_net enabled (coaching copy already has both).
--- 2. Edge Function coach-fleet-round: set GROK_BOT_WEBHOOK_SECRET or FLEET_CRON_SECRET
---    to the same vault value so the nightly POST authenticates. Optional XAI_API_KEY.
---    Without a model key the job still writes deterministic Relancer cards (IA off).
--- 3. Nightly 04:00 UTC. JWT is not used here.
+-- Nightly fleet round on the coaching copy only (phyuijjekxtjvipjtdfv).
+-- Do not apply to backup nebysjpqifqphvmveowe. Secret stays in vault, never git.
+
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
 
 CREATE OR REPLACE FUNCTION public.invoke_coach_fleet_round()
 RETURNS bigint
@@ -68,13 +63,17 @@ $$;
 REVOKE ALL ON FUNCTION public.invoke_coach_fleet_round() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.invoke_coach_fleet_round() TO postgres, service_role;
 
-SELECT cron.unschedule('coach-fleet-round')
-WHERE EXISTS (
-  SELECT 1 FROM cron.job WHERE jobname = 'coach-fleet-round'
-);
-
-SELECT cron.schedule(
-  'coach-fleet-round',
-  '0 4 * * *',
-  $$SELECT public.invoke_coach_fleet_round();$$
-);
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'coach-fleet-round') THEN
+    PERFORM cron.unschedule('coach-fleet-round');
+  END IF;
+  PERFORM cron.schedule(
+    'coach-fleet-round',
+    '0 4 * * *',
+    'SELECT public.invoke_coach_fleet_round();'
+  );
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'coach-fleet-round cron not scheduled (%); enable pg_cron then re-run', SQLERRM;
+END;
+$$;

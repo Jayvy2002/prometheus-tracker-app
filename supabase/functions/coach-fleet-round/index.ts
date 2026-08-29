@@ -27,6 +27,7 @@ const corsHeaders = {
 const FLEET_SOURCE = "fleet";
 const FLEET_WINDOW_DAYS = 14;
 const GHOST_IDLE_DAYS = 10;
+const NEW_CLIENT_DAYS = 7;
 const OVEREAT_RATIO = 1.15;
 const UNDER_EAT_RATIO = 0.85;
 const MIN_NUTRITION_LOG_DAYS = 4;
@@ -260,6 +261,7 @@ function missedTraining(d: Dossier): boolean {
 
 function classify(d: Dossier, today: string): FleetFlag {
   if (!d.onboarding_completed || (!d.has_program && !d.setup_completed)) return "onboarding";
+  if (d.linked_days < NEW_CLIENT_DAYS && d.workout_count === 0) return "onboarding";
   if (isGhostAt(d, today)) return "ghost";
   const following = nutritionFollowingPlan(d);
   const off = offGoal(d);
@@ -331,14 +333,21 @@ function buildCard(d: Dossier, today: string, modelUsed: "grok" | "off"): FleetC
   const aiOff = modelUsed === "off";
 
   if (flag === "onboarding") {
-    const observation = d.onboarding_completed
-      ? "Onboarding fait, pas encore de programme assigné."
-      : "Nouveau client, onboarding incomplet.";
-    const cause = "Pas un stall : il n’a pas encore de plan à suivre.";
+    const observation = !d.onboarding_completed
+      ? "Nouveau client, onboarding incomplet."
+      : !d.has_program
+        ? "Onboarding fait, pas encore de programme assigné."
+        : `Nouveau client (J+${d.linked_days}), aucune séance encore.`;
+    const cause = d.has_program
+      ? "Première semaine — setup, pas un stall."
+      : "Pas un stall : il n’a pas encore de plan à suivre.";
+    const title = d.has_program
+      ? `${name} — première semaine`
+      : `${name} — configurer le plan`;
     return {
       flag,
       kind: "onboarding_plan",
-      title: `${name} — configurer le plan`,
+      title,
       observation,
       cause,
       rationale: "Nouveau client — setup, pas une relance de stall.",
@@ -667,7 +676,14 @@ Deno.serve(async (req: Request) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
     const token = bearerToken(authHeader);
-    const isService = token.length > 0 && token === serviceKey;
+    const webhookKey = (req.headers.get("X-Webhook-Key") ?? req.headers.get("X-Sender-Key") ?? "").trim();
+    const cronSecret = (
+      Deno.env.get("FLEET_CRON_SECRET") ??
+      Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ??
+      ""
+    ).trim();
+    const isService = (token.length > 0 && token === serviceKey)
+      || (cronSecret.length > 0 && (token === cronSecret || webhookKey === cronSecret));
 
     let coachId: string | null = null;
     if (!isService) {
