@@ -136,12 +136,12 @@ test('exercise picker: URL hint wins, then PR, then most recently logged — nev
   const fromHint = pickDefaultLift(lifts, { hint: 'Développé couché' });
   assert.equal(fromHint?.displayName, 'Développé couché');
 
-  const fromPr = pickDefaultLift(lifts);
+  const fromPr = pickDefaultLift(lifts, { today: TODAY });
   assert.equal(hasRecentPr(leaBench), true);
   assert.equal(hasRecentPr(leaRow), false);
   assert.equal(fromPr?.displayName, 'Développé couché');
 
-  const camille = pickDefaultLift([camilleSquat, camilleBench]);
+  const camille = pickDefaultLift([camilleSquat, camilleBench], { today: TODAY });
   assert.equal(camille?.displayName, 'Squat');
 });
 
@@ -149,7 +149,7 @@ test('Léa bench PR note defaults the picker to bench, not the last accessory', 
   const lifts = [leaRow, leaBench];
   const notes = [{ body: 'Léa — bench PR 55kg ce matin, on garde le plan.' }];
   assert.equal(prLiftFromNotes(lifts, notes)?.displayName, 'Développé couché');
-  assert.equal(pickDefaultLift(lifts, { notes })?.displayName, 'Développé couché');
+  assert.equal(pickDefaultLift(lifts, { notes, today: TODAY })?.displayName, 'Développé couché');
   assert.equal(
     defaultLiftForClient([...lifts, camilleSquat], 'lea-id', { notes })?.displayName,
     'Développé couché',
@@ -157,7 +157,7 @@ test('Léa bench PR note defaults the picker to bench, not the last accessory', 
 });
 
 test('Camille regular training defaults to the lift she trained most recently', () => {
-  const picked = pickDefaultLift([camilleBench, camilleSquat]);
+  const picked = pickDefaultLift([camilleBench, camilleSquat], { today: TODAY });
   assert.equal(picked?.displayName, 'Squat');
   assert.equal(liftChartKind(picked), 'curve');
   assert.equal(picked?.sessions[0]?.bestSet, '87.5kg × 5');
@@ -168,10 +168,16 @@ test('Sofia ghost: empty training, Relancer, no invented curve or numbers', () =
   assert.equal(liftChartKind(null), 'empty');
   assert.equal(weekMovedLift([], TODAY), null);
 
+  const stale = lift('sofia-id', 'Squat', [
+    session('2026-07-20', 60),
+    session('2026-08-13', 60),
+  ]);
+  assert.equal(pickDefaultLift([stale], { today: TODAY }), null);
+
   const sofia = client('sofia-id', 'Sofia Martin');
   const priorities = buildCoachPriorities(
     [ops(sofia, ['missing_workout_week'])],
-    emptySignals(),
+    emptySignals({ lifts: [stale] }),
   );
   const missed = priorities.find(p => p.kind === 'missed_workout');
   assert.ok(missed);

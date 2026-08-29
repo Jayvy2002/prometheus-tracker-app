@@ -168,7 +168,7 @@ export default function ClientDetailPage() {
     ? DEFAULT_COACH_VISIBLE_TABS.filter(tabKey => coachSettings.visible_tabs.includes(tabKey))
     : TABS;
   const workspaceLift = useMemo(
-    () => (id ? pickDefaultLift(lifts, { hint: exerciseHint, notes }) : null),
+    () => (id ? pickDefaultLift(lifts, { hint: exerciseHint, notes, today: todayStr() }) : null),
     [id, lifts, exerciseHint, notes],
   );
   const insightWorkouts = useMemo(() => {

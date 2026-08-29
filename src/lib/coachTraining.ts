@@ -27,6 +27,18 @@ export function lastSessionDate(lift: ClientLiftProgress): string {
   return lift.sessions[0]?.date ?? '';
 }
 
+/** Ghost / missed-week: no log in this window → empty + Relancer, not a stale dump. */
+export const RECENT_SESSION_DAYS = 14;
+
+export function recentLoggedLifts(
+  lifts: ClientLiftProgress[],
+  today: string,
+  days = RECENT_SESSION_DAYS,
+): ClientLiftProgress[] {
+  const start = addDaysToDateStr(today, -days);
+  return lifts.filter(l => lastSessionDate(l) >= start);
+}
+
 export function loggedExerciseOptions(lifts: ClientLiftProgress[]): ClientLiftProgress[] {
   return [...lifts].sort((a, b) => lastSessionDate(b).localeCompare(lastSessionDate(a)));
 }
@@ -40,13 +52,13 @@ export function hasRecentPr(lift: ClientLiftProgress): boolean {
 }
 
 function isBenchHint(folded: string): boolean {
-  return /\bbench\b/.test(folded)
-    || folded.includes('developpe couche')
-    || folded.includes('developpe');
+  return /\bbench\b/.test(folded) || folded.includes('developpe couche');
 }
 
 function isBenchLift(lift: ClientLiftProgress): boolean {
-  return lift.exerciseName.includes('bench') || lift.exerciseName.includes('developpe');
+  return lift.exerciseName.includes('bench')
+    || lift.exerciseName === 'developpe couche'
+    || lift.exerciseName.startsWith('developpe couche ');
 }
 
 export function liftMatchesQuery(lift: ClientLiftProgress, query: string): boolean {
@@ -92,28 +104,33 @@ export function pickDefaultLift(
     hint?: string;
     notes?: Array<{ body: string }>;
     prescribedNames?: string[];
+    today?: string;
+    recentDays?: number;
   },
 ): ClientLiftProgress | null {
-  if (lifts.length === 0) return null;
+  const pool = opts?.today
+    ? recentLoggedLifts(lifts, opts.today, opts.recentDays)
+    : lifts;
+  if (pool.length === 0) return null;
 
   const hint = opts?.hint?.trim();
   if (hint) {
-    const fromHint = matchLoggedLift(lifts, hint);
+    const fromHint = matchLoggedLift(pool, hint) ?? matchLoggedLift(lifts, hint);
     if (fromHint) return fromHint;
   }
 
-  const fromNote = prLiftFromNotes(lifts, opts?.notes ?? []);
+  const fromNote = prLiftFromNotes(pool, opts?.notes ?? []);
   if (fromNote) return fromNote;
 
-  const recentPr = loggedExerciseOptions(lifts.filter(hasRecentPr))[0];
+  const recentPr = loggedExerciseOptions(pool.filter(hasRecentPr))[0];
   if (recentPr) return recentPr;
 
   for (const name of opts?.prescribedNames ?? []) {
-    const fromPrescribed = matchLoggedLift(lifts, name);
+    const fromPrescribed = matchLoggedLift(pool, name);
     if (fromPrescribed) return fromPrescribed;
   }
 
-  return loggedExerciseOptions(lifts)[0] ?? null;
+  return loggedExerciseOptions(pool)[0] ?? null;
 }
 
 export function defaultLiftForClient(
@@ -123,6 +140,8 @@ export function defaultLiftForClient(
     hint?: string;
     notes?: Array<{ body: string }>;
     prescribedNames?: string[];
+    today?: string;
+    recentDays?: number;
   },
 ): ClientLiftProgress | null {
   return pickDefaultLift(liftsForClient(lifts, clientId), opts);

@@ -8,8 +8,9 @@ import {
   liftChartKind,
   loggedExerciseOptions,
   pickDefaultLift,
+  recentLoggedLifts,
 } from '../../lib/coachTraining';
-import { formatDate } from '../../lib/utils';
+import { formatDate, todayStr } from '../../lib/utils';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { LiftLineChart } from './ProgressCharts';
@@ -37,11 +38,18 @@ export default function ClientLiftChart({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const options = useMemo(() => loggedExerciseOptions(lifts), [lifts]);
+  const today = todayStr();
+  const recent = useMemo(() => recentLoggedLifts(lifts, today), [lifts, today]);
   const selected = useMemo(
-    () => pickDefaultLift(lifts, { hint: selectedName, notes, prescribedNames }),
-    [lifts, selectedName, notes, prescribedNames],
+    () => pickDefaultLift(lifts, { hint: selectedName, notes, prescribedNames, today }),
+    [lifts, selectedName, notes, prescribedNames, today],
   );
+  const options = useMemo(() => {
+    if (selected && !recent.some(l => l.exerciseName === selected.exerciseName)) {
+      return loggedExerciseOptions([...recent, selected]);
+    }
+    return loggedExerciseOptions(recent);
+  }, [recent, selected]);
   const kind = liftChartKind(selected);
   const points = selected ? liftChartPoints(selected) : [];
   const last = selected?.sessions[0];

@@ -190,7 +190,7 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
 
     if (row.alerts.includes('missing_workout_week') || row.alerts.includes('missing_workout_today')) {
       const weekMissed = row.alerts.includes('missing_workout_week');
-      const picked = pickDefaultLift(liftsForClient(signals.lifts, row.client.id));
+      const picked = pickDefaultLift(liftsForClient(signals.lifts, row.client.id), { today: todayStr() });
       items.push({
         ...fromAlert(
           row,
@@ -216,7 +216,7 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
     const clientLifts = liftsForClient(signals.lifts, row.client.id);
     const stalledHere = clientLifts.some(l => l.stalled);
     if (stalledHere && row.hasProgram) {
-      const focus = clientLifts.find(l => l.stalled) ?? pickDefaultLift(clientLifts);
+      const focus = clientLifts.find(l => l.stalled) ?? pickDefaultLift(clientLifts, { today: todayStr() });
       items.push({
         id: `${row.client.id}-adapt`,
         clientId: row.client.id,
