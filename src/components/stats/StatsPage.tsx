@@ -9,6 +9,8 @@ import { toLocalDateStr } from '../../lib/utils';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { showModule, showNutritionField } from '../../lib/clientTracking';
 
 type Period = 'week' | 'month' | '3months';
 type ChartTab = 'calories' | 'weight' | 'workouts';
@@ -66,6 +68,7 @@ export default function StatsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
+  const tracking = useClientTracking();
   const [period, setPeriod] = useState<Period>('week');
   const [chartTab, setChartTab] = useState<ChartTab>('calories');
   const [nutrition, setNutrition] = useState<DayNutrition[]>([]);
@@ -215,10 +218,16 @@ export default function StatsPage() {
   }, [workoutDates]);
 
   const CHART_TABS: { key: ChartTab; label: string }[] = [
-    { key: 'calories', label: t('stats.chartTabs.calories') },
-    { key: 'weight', label: t('stats.chartTabs.weight') },
-    { key: 'workouts', label: t('stats.chartTabs.workouts') },
+    ...(showNutritionField(tracking, 'calories') ? [{ key: 'calories' as const, label: t('stats.chartTabs.calories') }] : []),
+    ...(showModule(tracking, 'weight') ? [{ key: 'weight' as const, label: t('stats.chartTabs.weight') }] : []),
+    ...(showModule(tracking, 'workouts') ? [{ key: 'workouts' as const, label: t('stats.chartTabs.workouts') }] : []),
   ];
+
+  useEffect(() => {
+    if (CHART_TABS.length > 0 && !CHART_TABS.some(tab => tab.key === chartTab)) {
+      setChartTab(CHART_TABS[0].key);
+    }
+  }, [chartTab, tracking]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeChartData = chartTab === 'calories' ? calorieChartData : chartTab === 'weight' ? weightChartData : workoutByWeek;
 
@@ -226,13 +235,13 @@ export default function StatsPage() {
   function buildSummary(): string {
     if (nutrition.length === 0 && totalWorkouts === 0) return t('stats.summaryEmpty');
     const parts: string[] = [];
-    if (avgCalories > 0) {
+    if (avgCalories > 0 && showNutritionField(tracking, 'calories')) {
       const diff = Math.round(((avgCalories - calorieTarget) / calorieTarget) * 100);
       if (Math.abs(diff) <= 5) parts.push(t('stats.summaryCaloriesOnTarget'));
       else if (diff > 0) parts.push(t('stats.summaryCaloriesAbove', { pct: diff }));
       else parts.push(t('stats.summaryCaloriesBelow', { pct: Math.abs(diff) }));
     }
-    if (totalWorkouts > 0) parts.push(t('stats.summaryWorkouts', { count: totalWorkouts }));
+    if (totalWorkouts > 0 && showModule(tracking, 'workouts')) parts.push(t('stats.summaryWorkouts', { count: totalWorkouts }));
     return parts.join(' ');
   }
 
@@ -272,6 +281,7 @@ export default function StatsPage() {
 
             {/* Key metrics grid */}
             <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-2">
+              {showNutritionField(tracking, 'calories') && (
               <Card>
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center">
@@ -283,7 +293,9 @@ export default function StatsPage() {
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgCalories')}</p>
                 <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {calorieTarget}</p>
               </Card>
+              )}
 
+              {showModule(tracking, 'workouts') && (
               <Card>
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
@@ -295,7 +307,9 @@ export default function StatsPage() {
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.workouts')}</p>
                 <p className="text-[10px] text-neutral-600 mt-0.5">{uniqueWorkoutDays} {t('stats.differentDays')}</p>
               </Card>
+              )}
 
+              {showNutritionField(tracking, 'protein') && (
               <Card>
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
@@ -307,7 +321,9 @@ export default function StatsPage() {
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgProtein')}</p>
                 <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {proteinTarget}g</p>
               </Card>
+              )}
 
+              {showNutritionField(tracking, 'water') && (
               <Card>
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
@@ -319,10 +335,11 @@ export default function StatsPage() {
                 <p className="text-[11px] text-neutral-500">{t('stats.labels.avgWater')}</p>
                 <p className="text-[10px] text-neutral-600 mt-0.5">{t('common.target')}: {(waterTarget / 1000).toFixed(1)}L</p>
               </Card>
+              )}
             </div>
 
             {/* Weight change */}
-            {weightChange !== null && (
+            {showModule(tracking, 'weight') && weightChange !== null && (
               <Card className="animate-fade-in-up stagger-3">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-xl bg-emerald-500/15 flex items-center justify-center">

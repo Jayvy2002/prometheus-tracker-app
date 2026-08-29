@@ -12,6 +12,14 @@ import {
 import { parseOnboardingPlanDraft } from '../../lib/coachInterventions';
 import { editedProgramPayload } from '../../lib/coachDraftSend';
 import {
+  ALL_ON_TRACKING,
+  mergeTrackingOverlay,
+  parseCoachTrackingDefaults,
+  parseResolvedTracking,
+  seedTrackingFromDefaults,
+  type ResolvedTrackingConfig,
+} from '../../lib/clientTracking';
+import {
   interventionDraftError,
   isInterventionDrafting,
   isInterventionReady,
@@ -20,18 +28,18 @@ import {
 import type { AiProgramDayDraft, CoachIntervention, UserProfile } from '../../lib/types';
 import ProgramDraftEditor from './ProgramDraftEditor';
 import SecondDraftingCard from './SecondDraftingCard';
+import TrackingVarsEditor from './TrackingVarsEditor';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 
-const EMPTY_TRACKING = {
-  track_weight: true,
-  track_checkins: true,
-  track_nutrition: true,
-  track_workouts: true,
-  workout_focus: '',
+const EMPTY_TRACKING: ResolvedTrackingConfig = {
+  ...ALL_ON_TRACKING,
+  training: { ...ALL_ON_TRACKING.training },
+  nutrition: { ...ALL_ON_TRACKING.nutrition },
+  checkin: { ...ALL_ON_TRACKING.checkin },
 };
 
 function labelOf(options: readonly { value: string; label: string }[], value: string) {
@@ -57,7 +65,7 @@ export default function ClientSetupPage() {
     coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline,
-    pendingInterventions, askSecond,
+    pendingInterventions, askSecond, fetchCoachSettings,
   } = useCoachingStore();
   const { programs, fetchPrograms, assignProgram } = useProgramStore();
 
@@ -85,13 +93,7 @@ export default function ClientSetupPage() {
     const parsed = parseOnboardingPlanDraft(payload);
     if (!parsed) return;
     if (parsed.tracking) {
-      setTracking({
-        track_weight: !!parsed.tracking.track_weight,
-        track_checkins: !!parsed.tracking.track_checkins,
-        track_nutrition: !!parsed.tracking.track_nutrition,
-        track_workouts: !!parsed.tracking.track_workouts,
-        workout_focus: parsed.tracking.workout_focus || '',
-      });
+      setTracking(prev => mergeTrackingOverlay(prev, parsed.tracking));
     }
     if (parsed.program) {
       setDraftProgramName(parsed.program.name || '');
@@ -106,6 +108,7 @@ export default function ClientSetupPage() {
     if (!id || !user) return;
     if (!clients.length) fetchClients();
     fetchPrograms(user.id);
+    void fetchCoachSettings();
     setLoading(true);
     const draftParam = searchParams.get('draft');
     Promise.all([
@@ -115,13 +118,11 @@ export default function ClientSetupPage() {
     ]).then(([p, cfg, stored]) => {
       setProfile(p);
       if (cfg) {
-        setTracking({
-          track_weight: cfg.track_weight,
-          track_checkins: cfg.track_checkins,
-          track_nutrition: cfg.track_nutrition,
-          track_workouts: cfg.track_workouts,
-          workout_focus: cfg.workout_focus || '',
-        });
+        setTracking(parseResolvedTracking(cfg));
+      } else if (useCoachingStore.getState().coachSettings?.default_tracking) {
+        setTracking(seedTrackingFromDefaults(
+          parseCoachTrackingDefaults(useCoachingStore.getState().coachSettings?.default_tracking),
+        ));
       }
       if (p) {
         const targets = issnTargetsFromProfile(p);
@@ -358,22 +359,7 @@ export default function ClientSetupPage() {
         <Card className="mb-4 space-y-2">
           <p className="text-sm font-medium text-white">{t('coaching.setup.tracking')}</p>
           <p className="text-xs text-neutral-500">{t('coaching.setup.trackingHint')}</p>
-          {([
-            ['track_workouts', t('coaching.setup.track.workouts')],
-            ['track_checkins', t('coaching.setup.track.checkins')],
-            ['track_nutrition', t('coaching.setup.track.nutrition')],
-            ['track_weight', t('coaching.setup.track.weight')],
-          ] as const).map(([key, label]) => (
-            <label key={key} className="flex items-center gap-3 text-sm text-neutral-200">
-              <input
-                type="checkbox"
-                checked={tracking[key]}
-                onChange={e => setTracking(s => ({ ...s, [key]: e.target.checked }))}
-                className="accent-blue-500"
-              />
-              {label}
-            </label>
-          ))}
+          <TrackingVarsEditor value={tracking} onChange={setTracking} />
           <Input
             label={t('coaching.setup.workoutFocus')}
             value={tracking.workout_focus}

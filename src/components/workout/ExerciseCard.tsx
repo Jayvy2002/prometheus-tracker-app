@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { formatExercisePrescription, showTrainingField } from '../../lib/clientTracking';
 import type { WorkoutExercise, WorkoutSet, SetType } from '../../lib/types';
 import type { ExerciseSession } from '../../stores/workoutStore';
 import { SET_TYPES } from '../../lib/constants';
@@ -121,6 +123,8 @@ function SetRow({
   set,
   index,
   showRir,
+  showLoad,
+  showReps,
   suggestedWeight,
   prevSet,
   previousSet,
@@ -131,6 +135,8 @@ function SetRow({
   set: WorkoutSet;
   index: number;
   showRir: boolean;
+  showLoad: boolean;
+  showReps: boolean;
   suggestedWeight?: number | null;
   prevSet?: { weight_kg: number; reps: number; rir: number } | null;
   previousSet?: WorkoutSet | null;
@@ -197,8 +203,8 @@ function SetRow({
   }, [set.rir]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleFieldComplete = () => {
-    const hasWeight = !!localWeight;
-    const hasReps = isIsometric ? !!localDuration : !!localReps;
+    const hasWeight = !showLoad || !!localWeight;
+    const hasReps = !showReps || (isIsometric ? !!localDuration : !!localReps);
     const hasRir = !showRir || !!localRir;
     if (hasWeight && hasReps && hasRir && onSetComplete) {
       const clusterRest = isCluster ? parseInt(localClusterRest, 10) || 20 : undefined;
@@ -322,6 +328,7 @@ function SetRow({
         )}
 
         {/* Weight */}
+        {showLoad && (
         <div className="flex-1 min-w-0">
           <input
             type="number"
@@ -341,8 +348,10 @@ function SetRow({
             placeholder={weightPlaceholder}
           />
         </div>
+        )}
 
         {/* Reps or Duration */}
+        {showReps && (
         <div className="flex-1 min-w-0">
           {isIsometric ? (
             <input
@@ -374,6 +383,7 @@ function SetRow({
             />
           )}
         </div>
+        )}
 
         {/* RIR */}
         {showRir && (
@@ -530,7 +540,12 @@ export default function ExerciseCard({
   const { t } = useTranslation();
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, updateSet, currentWorkout, fetchExerciseHistory } = useWorkoutStore();
   const { user } = useAuthStore();
-  const { showRir } = usePreferencesStore();
+  const { showRir: prefRir } = usePreferencesStore();
+  const tracking = useClientTracking();
+  const showRir = prefRir && showTrainingField(tracking, 'rir');
+  const showLoad = showTrainingField(tracking, 'load');
+  const showReps = showTrainingField(tracking, 'reps') || showTrainingField(tracking, 'reps_range');
+  const showSets = showTrainingField(tracking, 'sets');
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft, clearExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
@@ -597,8 +612,8 @@ export default function ExerciseCard({
   const isPR = currentMaxWeight > 0 && maxHistoricalWeight > 0 && currentMaxWeight > maxHistoricalWeight;
 
   const completedCount = exercise.sets?.filter(s => {
-    const hasWeight = s.weight_kg > 0;
-    const hasReps = s.set_type === 'isometric' ? (s.duration_seconds ?? 0) > 0 : s.reps > 0;
+    const hasWeight = !showLoad || s.weight_kg > 0;
+    const hasReps = !showReps || (s.set_type === 'isometric' ? (s.duration_seconds ?? 0) > 0 : s.reps > 0);
     return hasWeight && hasReps;
   }).length ?? 0;
   const totalSets = exercise.sets?.length ?? 0;
@@ -620,9 +635,16 @@ export default function ExerciseCard({
           placeholder={t('workout.exerciseCard.exerciseNamePlaceholder')}
           readOnly
         />
-        {exercise.prescribed_sets ? (
+        {exercise.prescribed_sets || exercise.prescribed_reps ? (
           <span className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-            {t('workout.prescribedShort', { sets: exercise.prescribed_sets, reps: exercise.prescribed_reps ?? 0 })}
+            {formatExercisePrescription({
+              default_sets: exercise.prescribed_sets ?? 0,
+              default_reps: exercise.prescribed_reps ?? 0,
+              default_reps_min: exercise.prescribed_reps_min,
+              default_rir: exercise.prescribed_rir,
+              default_rest_seconds: exercise.prescribed_rest_seconds,
+              default_weight_kg: exercise.prescribed_weight_kg,
+            }, tracking) || t('workout.prescribedShort', { sets: exercise.prescribed_sets ?? 0, reps: exercise.prescribed_reps ?? 0 })}
             {' → '}{completedCount}
           </span>
         ) : null}
@@ -754,12 +776,14 @@ export default function ExerciseCard({
           {/* Column headers */}
           {(exercise.sets?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-[10px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
-              <div className="w-5 text-center">#</div>
+              {showSets && <div className="w-5 text-center">#</div>}
               <div className="shrink-0 w-8">{t('workout.exerciseCard.type')}</div>
-              <div className="flex-1 text-center">{t('workout.exerciseCard.weight')}</div>
-              <div className="flex-1 text-center">
-                {exercise.sets?.some(s => s.set_type === 'isometric') ? t('workout.exerciseCard.reps') + '/s' : t('workout.exerciseCard.reps')}
-              </div>
+              {showLoad && <div className="flex-1 text-center">{t('workout.exerciseCard.weight')}</div>}
+              {showReps && (
+                <div className="flex-1 text-center">
+                  {exercise.sets?.some(s => s.set_type === 'isometric') ? t('workout.exerciseCard.reps') + '/s' : t('workout.exerciseCard.reps')}
+                </div>
+              )}
               {showRir && <div className="w-12 text-center">{t('workout.exerciseCard.rir')}</div>}
               <div className="w-12"></div>
             </div>
@@ -776,6 +800,8 @@ export default function ExerciseCard({
                   set={set}
                   index={i}
                   showRir={showRir}
+                  showLoad={showLoad}
+                  showReps={showReps}
                   suggestedWeight={suggestion?.suggestedWeight}
                   prevSet={matchingPrev}
                   previousSet={previousSetInList}
@@ -801,12 +827,14 @@ export default function ExerciseCard({
             </div>
           )}
 
+          {showSets && (
           <button
             onClick={handleAddSet}
             className="mt-3 w-full py-2.5 text-xs text-neutral-400 hover:text-blue-400 font-medium flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-neutral-800 hover:border-blue-500/30 transition-all"
           >
             <Plus size={14} /> {t('workout.exerciseCard.addSet')}
           </button>
+          )}
         </div>
       )}
     </Card>

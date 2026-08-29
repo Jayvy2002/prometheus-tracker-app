@@ -5,11 +5,13 @@ import type {
   CoachSettings,
 } from './types';
 import { DEFAULT_COACH_VISIBLE_TABS } from './types';
+import { ALL_ON_TRACKING, parseCoachTrackingDefaults, serializeTrackingVars } from './clientTracking';
 
 export const EMPTY_COACH_SETTINGS: Omit<CoachSettings, 'coach_id'> = {
   visible_tabs: [...DEFAULT_COACH_VISIBLE_TABS],
   queue_mode_default: true,
   nudge_templates: {},
+  default_tracking: serializeTrackingVars(ALL_ON_TRACKING),
   updated_at: '',
 };
 
@@ -18,7 +20,12 @@ const TAB_SET = new Set<CoachClientTab>(DEFAULT_COACH_VISIBLE_TABS);
 export function parseVisibleTabs(raw: unknown): CoachClientTab[] {
   if (!Array.isArray(raw)) return [...DEFAULT_COACH_VISIBLE_TABS];
   const tabs = raw.filter((x): x is CoachClientTab => typeof x === 'string' && TAB_SET.has(x as CoachClientTab));
-  return tabs.length > 0 ? tabs : [...DEFAULT_COACH_VISIBLE_TABS];
+  if (tabs.length === 0) return [...DEFAULT_COACH_VISIBLE_TABS];
+  if (!tabs.includes('profile')) {
+    const overviewIdx = tabs.indexOf('overview');
+    tabs.splice(overviewIdx >= 0 ? overviewIdx + 1 : 0, 0, 'profile');
+  }
+  return tabs;
 }
 
 export function parseNudgeTemplates(raw: unknown): CoachNudgeTemplateSet {
@@ -43,6 +50,7 @@ export function mapCoachSettings(raw: Record<string, unknown>, fallbackId: strin
     visible_tabs: parseVisibleTabs(raw.visible_tabs),
     queue_mode_default: raw.queue_mode_default !== false,
     nudge_templates: parseNudgeTemplates(raw.nudge_templates),
+    default_tracking: serializeTrackingVars(parseCoachTrackingDefaults(raw.default_tracking)),
     updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : '',
   };
 }

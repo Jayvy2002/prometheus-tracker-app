@@ -30,6 +30,10 @@ export async function startWorkoutFromTemplate(opts: StartWorkoutOptions): Promi
       const added = await addExercise(workoutId, ex.name, ex.order_index, {
         prescribed_sets: ex.default_sets,
         prescribed_reps: ex.default_reps,
+        prescribed_reps_min: ex.default_reps_min ?? null,
+        prescribed_rir: ex.default_rir ?? null,
+        prescribed_rest_seconds: ex.default_rest_seconds ?? null,
+        prescribed_weight_kg: ex.default_weight_kg ?? null,
       });
       if (added) {
         const setCount = Math.max(0, ex.default_sets || 0);

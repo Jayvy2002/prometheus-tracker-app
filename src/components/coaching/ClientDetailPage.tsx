@@ -33,8 +33,10 @@ import { displayName } from '../../lib/coachText';
 import { liftsForClient } from '../../lib/coachLifts';
 import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
+import { ALL_ON_TRACKING, parseResolvedTracking, type ResolvedTrackingConfig } from '../../lib/clientTracking';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { weightChartPoints } from '../../lib/coachProgress';
+import ClientProfileEditor from './ClientProfileEditor';
 import {
   DEFAULT_COACH_VISIBLE_TABS,
   type CoachClientTab,
@@ -42,6 +44,7 @@ import {
   type DailyCheckin,
   type DailyNutritionPoint,
   type ProgressPhoto,
+  type UserProfile,
   type WeightMeasurement,
   type Workout,
 } from '../../lib/types';
@@ -60,7 +63,7 @@ import NutritionStallPanel from './NutritionStallPanel';
 import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
 
-const TABS: CoachClientTab[] = ['overview', 'training', 'progress', 'checkins', 'health', 'notes'];
+const TABS: CoachClientTab[] = ['overview', 'profile', 'training', 'progress', 'checkins', 'health', 'notes'];
 
 function goalLabel(goal: string): string {
   return GOALS.find(g => g.value === goal)?.label || goal || '—';
@@ -83,7 +86,7 @@ export default function ClientDetailPage() {
   const { user } = useAuthStore();
   const {
     clients, fetchClients, fetchClientWorkouts, fetchClientWorkout,
-    fetchClientWeight, fetchClientCheckins, fetchClientProfile,
+    fetchClientWeight, fetchClientCheckins, fetchClientProfile, fetchTrackingConfig,
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, coachSettings, fetchCoachSettings,
@@ -112,6 +115,13 @@ export default function ClientDetailPage() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [askingCalories, setAskingCalories] = useState(false);
+  const [clientProfile, setClientProfile] = useState<UserProfile | null>(null);
+  const [tracking, setTracking] = useState<ResolvedTrackingConfig>({
+    ...ALL_ON_TRACKING,
+    training: { ...ALL_ON_TRACKING.training },
+    nutrition: { ...ALL_ON_TRACKING.nutrition },
+    checkin: { ...ALL_ON_TRACKING.checkin },
+  });
 
   const client = clients.find(c => c.id === id);
   const ops = opsRows.find(r => r.client.id === id);
@@ -135,9 +145,13 @@ export default function ClientDetailPage() {
       fetchClientWeight(id).then(setWeights),
       fetchNotes(id),
       fetchClientProfile(id).then(async profile => {
+        setClientProfile(profile);
         const target = profile?.daily_calorie_target ?? 0;
         const days = await fetchClientNutritionRange(id, start, todayStr(), target);
         setNutritionDays(days);
+      }),
+      fetchTrackingConfig(id).then(cfg => {
+        if (cfg) setTracking(parseResolvedTracking(cfg));
       }),
       fetchClientLiftHistory(id).then(setProgressLifts),
       fetchProgressPhotos(id).then(async rows => {
@@ -665,6 +679,18 @@ export default function ClientDetailPage() {
               ))
             )}
           </div>
+        ) : tab === 'profile' ? (
+          <Card>
+            {id ? (
+              <ClientProfileEditor
+                clientId={id}
+                profile={clientProfile}
+                tracking={tracking}
+                onTrackingChange={setTracking}
+                onSaved={setClientProfile}
+              />
+            ) : null}
+          </Card>
         ) : tab === 'health' ? (
           <div className="space-y-3">
             {id && recoveryView ? (

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Dumbbell, Scale, Flame, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useClientTracking } from '../../lib/useClientTracking';
 
 interface FABAction {
   label: string;
@@ -12,13 +13,16 @@ interface FABAction {
 export default function FAB() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const tracking = useClientTracking();
   const [open, setOpen] = useState(false);
 
   const actions: FABAction[] = [
-    { label: t('nav.addWorkout'), icon: Dumbbell, onClick: () => { navigate('/workout/new'); setOpen(false); } },
-    { label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } },
-    { label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } },
+    ...(tracking.track_workouts ? [{ label: t('nav.addWorkout'), icon: Dumbbell, onClick: () => { navigate('/workout/new'); setOpen(false); } }] : []),
+    ...(tracking.track_weight ? [{ label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } }] : []),
+    ...(tracking.track_nutrition ? [{ label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } }] : []),
   ];
+
+  if (actions.length === 0) return null;
 
   return (
     <>

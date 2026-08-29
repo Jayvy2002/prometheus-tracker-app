@@ -19,6 +19,8 @@ import EditFoodModal from './EditFoodModal';
 import WaterTracker from './WaterTracker';
 import WeeklyAdjustment from './WeeklyAdjustment';
 import PageTransition from '../ui/PageTransition';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
 
 export default function NutritionPage() {
   const { t } = useTranslation();
@@ -28,6 +30,7 @@ export default function NutritionPage() {
   const { profile } = useProfileStore();
   const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, addLog, loading: nutritionLoading } = useNutritionStore();
   const { measurements } = useWeightStore();
+  const tracking = useClientTracking();
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
   const [showAdjustment, setShowAdjustment] = useState(() => {
@@ -154,22 +157,28 @@ export default function NutritionPage() {
         </button>
       </div>
 
+      {anyMacroField(tracking) && (
       <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale">
         <div className="flex items-center gap-5">
-          <ProgressRing progress={pct} size={80} strokeWidth={6} color={pct > 100 ? '#f43f5e' : '#2563eb'}>
-            <div className="text-center">
-              <div className="text-sm font-bold text-white leading-tight">{Math.round(totalCals)}</div>
-              <div className="text-[10px] text-neutral-500 leading-tight">/ {target}</div>
-              <div className="text-[9px] text-neutral-400">cal</div>
-            </div>
-          </ProgressRing>
+          {showNutritionField(tracking, 'calories') ? (
+            <ProgressRing progress={pct} size={80} strokeWidth={6} color={pct > 100 ? '#f43f5e' : '#2563eb'}>
+              <div className="text-center">
+                <div className="text-sm font-bold text-white leading-tight">{Math.round(totalCals)}</div>
+                <div className="text-[10px] text-neutral-500 leading-tight">/ {target}</div>
+                <div className="text-[9px] text-neutral-400">cal</div>
+              </div>
+            </ProgressRing>
+          ) : null}
           <MacroSummary />
         </div>
       </div>
+      )}
 
+      {showNutritionField(tracking, 'water') && (
       <div className="animate-fade-in-up stagger-2">
       <WaterTracker />
       </div>
+      )}
 
       <div className="mt-4 space-y-4">
         {nutritionLoading ? (

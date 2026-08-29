@@ -27,6 +27,7 @@ interface ProgramState {
       default_reps_min?: number | null;
       default_rir?: number | null;
       default_rest_seconds?: number;
+      default_weight_kg?: number | null;
       order_index: number;
     }>,
   ) => Promise<void>;
@@ -40,6 +41,7 @@ interface ProgramState {
       default_reps_min?: number | null;
       default_rir?: number | null;
       default_rest_seconds?: number;
+      default_weight_kg?: number | null;
       replace_with?: string;
     },
   ) => Promise<{ error: string | null }>;
@@ -55,6 +57,7 @@ interface ProgramState {
         default_reps_min?: number | null;
         default_rir?: number | null;
         default_rest_seconds?: number;
+        default_weight_kg?: number | null;
       }>;
     }>,
   ) => Promise<{ error: string | null }>;
@@ -197,6 +200,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: ex.default_reps_min ?? null,
         default_rir: ex.default_rir ?? null,
         default_rest_seconds: ex.default_rest_seconds ?? 90,
+        default_weight_kg: ex.default_weight_kg ?? null,
         order_index: ex.order_index,
       }));
       const { error } = await supabase.from('program_day_exercises').insert(rich);
@@ -238,6 +242,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: patch.default_reps_min === undefined ? current.default_reps_min : patch.default_reps_min,
         default_rir: patch.default_rir === undefined ? current.default_rir : patch.default_rir,
         default_rest_seconds: patch.default_rest_seconds ?? current.default_rest_seconds,
+        default_weight_kg: patch.default_weight_kg === undefined ? current.default_weight_kg : patch.default_weight_kg,
       };
       await get().setProgramDayExercises(day.id, exercises.map((ex, order_index) => ({
         name: ex.name,
@@ -246,6 +251,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: ex.default_reps_min,
         default_rir: ex.default_rir,
         default_rest_seconds: ex.default_rest_seconds,
+        default_weight_kg: ex.default_weight_kg,
         order_index,
       })));
       applied = true;
@@ -287,6 +293,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: ex.default_reps_min,
         default_rir: ex.default_rir,
         default_rest_seconds: ex.default_rest_seconds,
+        default_weight_kg: ex.default_weight_kg,
         order_index,
       })));
     }

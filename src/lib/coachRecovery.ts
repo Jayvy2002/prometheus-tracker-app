@@ -20,6 +20,7 @@ export const PAIN_WATCH = 3;
 
 const CLIENT_TABS: CoachClientTab[] = [
   'overview',
+  'profile',
   'training',
   'progress',
   'checkins',

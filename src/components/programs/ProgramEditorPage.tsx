@@ -49,6 +49,7 @@ export default function ProgramEditorPage() {
           default_reps_min: ex.default_reps_min,
           default_rir: ex.default_rir,
           default_rest_seconds: ex.default_rest_seconds,
+          default_weight_kg: ex.default_weight_kg,
         })),
       })));
     }).finally(() => setLoading(false));

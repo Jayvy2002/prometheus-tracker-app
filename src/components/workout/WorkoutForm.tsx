@@ -25,6 +25,8 @@ import {
   type SessionTimerState,
 } from '../../lib/sessionTimer';
 import type { Workout, WorkoutTemplateExercise } from '../../lib/types';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { showTrainingField } from '../../lib/clientTracking';
 
 interface LocationState {
   routineId?: string;
@@ -46,6 +48,8 @@ function WorkoutFormInner() {
     currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, setCurrentWorkout,
   } = useWorkoutStore();
   const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
+  const tracking = useClientTracking();
+  const restEnabled = showTrainingField(tracking, 'rest');
 
   const [showTimer, setShowTimer] = useState(false);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
@@ -85,6 +89,10 @@ function WorkoutFormInner() {
               name: ex.name as string,
               default_sets: (ex.default_sets as number) ?? 3,
               default_reps: (ex.default_reps as number) ?? 10,
+              default_reps_min: (ex.default_reps_min as number | null) ?? null,
+              default_rir: (ex.default_rir as number | null) ?? null,
+              default_rest_seconds: (ex.default_rest_seconds as number) ?? 90,
+              default_weight_kg: (ex.default_weight_kg as number | null) ?? null,
               order_index: (ex.order_index as number) ?? i,
             }));
             if (!name) {
@@ -385,6 +393,7 @@ function WorkoutFormInner() {
           className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
         />
         <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
+        {restEnabled && (
         <button
           onClick={() => setShowTimer(true)}
           className="p-2 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
@@ -392,6 +401,7 @@ function WorkoutFormInner() {
         >
           <Timer size={18} />
         </button>
+        )}
       </div>
 
       <div className="mb-4">
@@ -445,10 +455,12 @@ function WorkoutFormInner() {
         </Button>
       </div>
 
+      {restEnabled && (
       <RestTimer
         open={showTimer}
         onClose={() => setShowTimer(false)}
       />
+      )}
       <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />
     </div>
   );

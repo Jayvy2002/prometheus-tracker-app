@@ -86,6 +86,10 @@ export interface WorkoutExercise {
   superset_group_id: string | null;
   prescribed_sets?: number | null;
   prescribed_reps?: number | null;
+  prescribed_reps_min?: number | null;
+  prescribed_rir?: number | null;
+  prescribed_rest_seconds?: number | null;
+  prescribed_weight_kg?: number | null;
   sets?: WorkoutSet[];
   created_at: string;
 }
@@ -370,6 +374,9 @@ export interface ClientTrackingConfig {
   track_nutrition: boolean;
   track_workouts: boolean;
   workout_focus: string;
+  training_vars?: Record<string, boolean> | null;
+  nutrition_vars?: Record<string, boolean> | null;
+  checkin_vars?: Record<string, boolean> | null;
   setup_completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -411,6 +418,7 @@ export type CoachPriorityKind =
 
 export type CoachClientTab =
   | 'overview'
+  | 'profile'
   | 'training'
   | 'progress'
   | 'checkins'
@@ -511,6 +519,7 @@ export interface CoachMessageThread {
 
 export const DEFAULT_COACH_VISIBLE_TABS: CoachClientTab[] = [
   'overview',
+  'profile',
   'training',
   'progress',
   'checkins',
@@ -524,11 +533,27 @@ export interface CoachNudgeTemplateSet {
   general_followup?: { fr?: string; en?: string };
 }
 
+export interface CoachTrackingDefaultsJson {
+  track_weight?: boolean;
+  track_checkins?: boolean;
+  track_nutrition?: boolean;
+  track_workouts?: boolean;
+  workout_focus?: string;
+  training?: Record<string, boolean>;
+  nutrition?: Record<string, boolean>;
+  checkin?: Record<string, boolean>;
+  training_vars?: Record<string, boolean>;
+  nutrition_vars?: Record<string, boolean>;
+  checkin_vars?: Record<string, boolean>;
+  setup_completed_at?: string | null;
+}
+
 export interface CoachSettings {
   coach_id: string;
   visible_tabs: CoachClientTab[];
   queue_mode_default: boolean;
   nudge_templates: CoachNudgeTemplateSet;
+  default_tracking: CoachTrackingDefaultsJson;
   updated_at: string;
 }
 
@@ -633,6 +658,7 @@ export interface ProgramExerciseDraft {
   default_reps_min?: number | null;
   default_rir?: number | null;
   default_rest_seconds?: number;
+  default_weight_kg?: number | null;
 }
 
 export interface AiProgramDayDraft {
@@ -649,6 +675,7 @@ export interface ProgramExercisePatch {
   default_reps_min?: number | null;
   default_rir?: number | null;
   default_rest_seconds?: number;
+  default_weight_kg?: number | null;
   replace_with?: string;
 }
 
@@ -665,6 +692,9 @@ export interface AiPlanDraft {
     track_nutrition: boolean;
     track_workouts: boolean;
     workout_focus: string;
+    training_vars?: Record<string, boolean>;
+    nutrition_vars?: Record<string, boolean>;
+    checkin_vars?: Record<string, boolean>;
   };
   nutrition?: {
     calories: number;
@@ -875,6 +905,7 @@ export interface ProgramDayExercise {
   default_reps_min?: number | null;
   default_rir?: number | null;
   default_rest_seconds: number;
+  default_weight_kg?: number | null;
   order_index: number;
   created_at: string;
 }
@@ -895,6 +926,10 @@ export interface WorkoutTemplateExercise {
   name: string;
   default_sets: number;
   default_reps: number;
+  default_reps_min?: number | null;
+  default_rir?: number | null;
+  default_rest_seconds?: number;
+  default_weight_kg?: number | null;
   order_index: number;
 }
 

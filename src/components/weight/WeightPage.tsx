@@ -14,6 +14,8 @@ import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import PageTransition from '../ui/PageTransition';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { showModule } from '../../lib/clientTracking';
 
 type Period = '7d' | '30d' | '3m' | 'all';
 
@@ -40,6 +42,7 @@ export default function WeightPage() {
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { measurements, fetchMeasurements, addMeasurement, updateMeasurement, deleteMeasurement } = useWeightStore();
+  const tracking = useClientTracking();
 
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -115,6 +118,17 @@ export default function WeightPage() {
   const previous = measurements[1]?.weight_kg;
   const diff = latest && previous ? +(latest - previous).toFixed(2) : 0;
   const targetKg = profile?.target_weight_kg ?? 0;
+
+  if (!showModule(tracking, 'weight')) {
+    return (
+      <PageTransition>
+        <div className="px-4 pt-6">
+          <h1 className="text-2xl font-bold text-white mb-2">{t('weight.title')}</h1>
+          <p className="text-sm text-neutral-500">{t('weight.disabled')}</p>
+        </div>
+      </PageTransition>
+    );
+  }
 
   return (
     <PageTransition>
