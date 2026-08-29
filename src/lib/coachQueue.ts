@@ -10,7 +10,9 @@ import type {
   CoachNudgeTemplateKey,
   CoachPriority,
   CoachPriorityKind,
+  CoachPrioritySeverity,
   CoachQueueAction,
+  CoachQueueClientGroup,
 } from './types';
 
 const COMPOSE_KINDS = new Set<CoachPriorityKind>([
@@ -88,6 +90,65 @@ export function resolveQueueAction(
     href: priority.href,
     ctaKey: 'coaching.queue.openFile',
   };
+}
+
+const SEVERITY_RANK: Record<CoachPrioritySeverity, number> = { red: 0, orange: 1, yellow: 2 };
+
+export function isComposeQueueKind(kind: CoachPriorityKind): boolean {
+  return COMPOSE_KINDS.has(kind);
+}
+
+export function queueItemLabelKey(kind: CoachPriorityKind): string {
+  return `coaching.queue.items.${kind}`;
+}
+
+function worstSeverity(items: CoachPriority[]): CoachPrioritySeverity {
+  return items.reduce<CoachPrioritySeverity>((worst, item) => (
+    SEVERITY_RANK[item.severity] < SEVERITY_RANK[worst] ? item.severity : worst
+  ), items[0]?.severity ?? 'yellow');
+}
+
+/** Group already-ranked queue events by client. Order = first appearance. */
+export function groupQueueByClient(items: CoachPriority[]): CoachQueueClientGroup[] {
+  const order: string[] = [];
+  const byClient = new Map<string, CoachPriority[]>();
+  for (const item of items) {
+    const existing = byClient.get(item.clientId);
+    if (!existing) {
+      order.push(item.clientId);
+      byClient.set(item.clientId, [item]);
+    } else {
+      existing.push(item);
+    }
+  }
+  return order.map(clientId => {
+    const list = byClient.get(clientId) ?? [];
+    const first = list[0];
+    return {
+      clientId,
+      clientName: first?.clientName ?? '',
+      avatarUrl: first?.avatarUrl ?? '',
+      href: first?.href ?? `/clients/${clientId}`,
+      severity: worstSeverity(list),
+      items: list,
+    };
+  });
+}
+
+export function nextClientNames(groups: CoachQueueClientGroup[], skip = 1, take = 2): string[] {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  for (const group of groups.slice(skip)) {
+    if (seen.has(group.clientId)) continue;
+    seen.add(group.clientId);
+    names.push(group.clientName);
+    if (names.length >= take) break;
+  }
+  return names;
+}
+
+export function composeItemsInGroup(items: CoachPriority[]): CoachPriority[] {
+  return items.filter(item => isComposeQueueKind(item.kind));
 }
 
 export function visibleQueueItems(

@@ -443,6 +443,16 @@ export interface CoachQueueAction {
   interventionId?: string;
 }
 
+/** One File du jour card: a client and every remaining item for them today. */
+export interface CoachQueueClientGroup {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  href: string;
+  severity: CoachPrioritySeverity;
+  items: CoachPriority[];
+}
+
 export interface CoachMessage {
   id: string;
   coach_id: string;

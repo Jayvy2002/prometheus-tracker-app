@@ -161,6 +161,56 @@ function saveQueueDismissed(ids: string[]) {
   }
 }
 
+function omitRecordKey<T>(record: Record<string, T>, key: string): Record<string, T> {
+  if (!(key in record)) return record;
+  const next = { ...record };
+  delete next[key];
+  return next;
+}
+
+function dropUnlinkedClient(s: {
+  clients: CoachClientSummary[];
+  opsRows: ClientOpsRow[];
+  priorities: CoachPriority[];
+  pendingInterventions: CoachIntervention[];
+  sentMessages: CoachMessage[];
+  notes: CoachNote[];
+  unreadMessageCount: number;
+  rosterSignals: CoachRosterSignals;
+}, clientId: string) {
+  const clients = s.clients.filter(c => c.id !== clientId);
+  const opsRows = s.opsRows.filter(r => r.client.id !== clientId);
+  const priorities = s.priorities.filter(p => p.clientId !== clientId);
+  const pendingInterventions = s.pendingInterventions.filter(r => r.client_id !== clientId);
+  const sentMessages = s.sentMessages.filter(m => m.client_id !== clientId);
+  const notes = s.notes.filter(n => n.client_id !== clientId);
+  const removedUnread = s.sentMessages.filter(
+    m => m.client_id === clientId && m.sender_id !== m.coach_id && !m.read_at,
+  ).length;
+  const signals = s.rosterSignals;
+  return {
+    clients,
+    opsRows,
+    priorities,
+    pendingInterventions,
+    sentMessages,
+    notes,
+    unreadMessageCount: Math.max(0, s.unreadMessageCount - removedUnread),
+    rosterSignals: {
+      checkins: signals.checkins.filter(c => c.user_id !== clientId),
+      weights: signals.weights.filter(w => w.user_id !== clientId),
+      lifts: signals.lifts.filter(l => l.clientId !== clientId),
+      lastNoteAt: omitRecordKey(signals.lastNoteAt, clientId),
+      lastInterventionAt: omitRecordKey(signals.lastInterventionAt, clientId),
+      assignmentStart: omitRecordKey(signals.assignmentStart, clientId),
+      assignmentWeeks: omitRecordKey(signals.assignmentWeeks, clientId),
+      assignmentName: omitRecordKey(signals.assignmentName, clientId),
+      scheduledDays: omitRecordKey(signals.scheduledDays, clientId),
+    },
+    commandStats: commandStats(opsRows, priorities),
+  };
+}
+
 let coachRealtimeChannel: RealtimeChannel | null = null;
 let coachPollTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -226,6 +276,7 @@ interface CoachingState {
   deleteProgressPhoto: (id: string, storagePath: string) => Promise<{ error: string | null }>;
   signProgressPhotoUrls: (photos: ProgressPhoto[]) => Promise<Record<string, string>>;
   dismissQueueItem: (id: string) => void;
+  dismissQueueItems: (ids: string[]) => void;
   fetchIntervention: (id: string) => Promise<CoachIntervention | null>;
   fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
   resolveIntervention: (
@@ -269,7 +320,7 @@ interface CoachingState {
   fetchNotes: (clientId: string) => Promise<void>;
   addNote: (clientId: string, body: string, opts?: { noteDate?: string; workoutId?: string }) => Promise<{ error: string | null }>;
   deleteNote: (id: string) => Promise<void>;
-  endClientLink: (linkClientId: string) => Promise<void>;
+  endClientLink: (linkClientId: string) => Promise<{ error: string | null }>;
   clear: () => void;
 }
 
@@ -952,10 +1003,22 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   dismissQueueItem: (id) => {
+    get().dismissQueueItems([id]);
+  },
+
+  dismissQueueItems: (ids) => {
+    if (ids.length === 0) return;
     set(s => {
-      const ids = s.queueDismissedIds.includes(id) ? s.queueDismissedIds : [...s.queueDismissedIds, id];
-      saveQueueDismissed(ids);
-      return { queueDismissedIds: ids };
+      const next = [...s.queueDismissedIds];
+      const seen = new Set(next);
+      for (const id of ids) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          next.push(id);
+        }
+      }
+      saveQueueDismissed(next);
+      return { queueDismissedIds: next };
     });
   },
 
@@ -1360,12 +1423,48 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   endClientLink: async (linkClientId) => {
-    await supabase
-      .from('coach_client_links')
-      .update({ status: 'ended', updated_at: new Date().toISOString() })
-      .eq('client_id', linkClientId)
-      .eq('status', 'active');
-    set(s => ({ clients: s.clients.filter(c => c.id !== linkClientId) }));
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'not_authenticated' };
+    if (linkClientId === user.id) return { error: 'cannot_end_self' };
+
+    const { data, error: rpcError } = await supabase.rpc('end_coach_client_link', {
+      p_client_id: linkClientId,
+    });
+    const rpcMissing = !!rpcError && (
+      rpcError.code === 'PGRST202'
+      || rpcError.code === '42883'
+      || /end_coach_client_link/i.test(rpcError.message)
+    );
+
+    if (rpcError && !rpcMissing) {
+      return { error: rpcError.message };
+    }
+
+    if (!rpcError) {
+      const payload = data as { ok?: boolean; error?: string } | null;
+      if (payload && payload.ok === false) {
+        return { error: payload.error ?? 'not_linked' };
+      }
+    } else {
+      const iso = new Date().toISOString();
+      const paused = await supabase
+        .from('program_assignments')
+        .update({ status: 'paused', updated_at: iso })
+        .eq('client_id', linkClientId)
+        .eq('assigned_by', user.id)
+        .eq('status', 'active');
+      if (paused.error) return { error: paused.error.message };
+      const ended = await supabase
+        .from('coach_client_links')
+        .update({ status: 'ended', updated_at: iso })
+        .eq('coach_id', user.id)
+        .eq('client_id', linkClientId)
+        .eq('status', 'active');
+      if (ended.error) return { error: ended.error.message };
+    }
+
+    set(s => dropUnlinkedClient(s, linkClientId));
+    return { error: null };
   },
 
   clear: () => {

@@ -3,9 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClipboardCheck } from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { resolveQueueAction, visibleQueueItems } from '../../lib/coachQueue';
+import {
+  composeItemsInGroup,
+  groupQueueByClient,
+  matchingPendingIntervention,
+  nextClientNames,
+  queueItemLabelKey,
+  resolveQueueAction,
+  visibleQueueItems,
+} from '../../lib/coachQueue';
 import { todayStr } from '../../lib/utils';
-import type { CoachNudgeTemplateKey, CoachPriority, CoachPrioritySeverity } from '../../lib/types';
+import type { CoachNudgeTemplateKey, CoachPriority, CoachPrioritySeverity, CoachQueueClientGroup } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { toast } from '../ui/Toast';
@@ -22,49 +30,48 @@ export default function CoachTodayQueue() {
   const navigate = useNavigate();
   const {
     priorities, pendingInterventions, clients, queueDismissedIds,
-    dismissQueueItem, sendCoachMessage, coachSettings,
+    dismissQueueItems, sendCoachMessage, coachSettings,
   } = useCoachingStore();
-  const [composeFor, setComposeFor] = useState<CoachPriority | null>(null);
+  const [composeFor, setComposeFor] = useState<CoachQueueClientGroup | null>(null);
   const [templateKey, setTemplateKey] = useState<CoachNudgeTemplateKey>('general_followup');
   const [sending, setSending] = useState(false);
 
-  const queue = useMemo(
-    () => visibleQueueItems(priorities, queueDismissedIds, clients, todayStr()),
+  const groups = useMemo(
+    () => groupQueueByClient(visibleQueueItems(priorities, queueDismissedIds, clients, todayStr())),
     [priorities, queueDismissedIds, clients],
   );
-  const current = queue[0] ?? null;
-  const upcoming = queue.slice(1, 3);
-  const action = current ? resolveQueueAction(current, pendingInterventions) : null;
+  const current = groups[0] ?? null;
+  const upcomingNames = nextClientNames(groups);
+  const composeItems = current ? composeItemsInGroup(current.items) : [];
+  const composeAction = composeItems[0] ? resolveQueueAction(composeItems[0], pendingInterventions) : null;
+  const setupAction = current
+    ? current.items.map(item => resolveQueueAction(item, pendingInterventions)).find(a => a.kind === 'open_setup' || a.kind === 'open_draft')
+    : null;
 
-  const advance = (item: CoachPriority) => {
-    dismissQueueItem(item.id);
+  const skipClient = (group: CoachQueueClientGroup) => {
+    dismissQueueItems(group.items.map(item => item.id));
     setComposeFor(null);
   };
 
-  const handlePrimary = () => {
-    if (!current || !action) return;
-    if (action.kind === 'compose' && action.templateKey) {
-      setTemplateKey(action.templateKey);
-      setComposeFor(current);
-      return;
-    }
-    if (action.href) {
-      advance(current);
-      navigate(action.href);
-    }
+  const handleRelance = () => {
+    if (!current || !composeAction?.templateKey) return;
+    setTemplateKey(composeAction.templateKey);
+    setComposeFor(current);
   };
 
-  const handleSend = async (body: string) => {
-    if (!composeFor || !templateKey) return;
+  const handleSend = async (body: string, opts?: { templateKey?: CoachNudgeTemplateKey }) => {
+    if (!composeFor) return;
+    const key = opts?.templateKey ?? templateKey;
     setSending(true);
-    const result = await sendCoachMessage(composeFor.clientId, body, templateKey);
+    const result = await sendCoachMessage(composeFor.clientId, body, key);
     setSending(false);
     if (result.error) {
       toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
       return;
     }
     toast(t('coaching.queue.sent'));
-    advance(composeFor);
+    dismissQueueItems(composeItemsInGroup(composeFor.items).map(item => item.id));
+    setComposeFor(null);
   };
 
   if (!current) {
@@ -86,7 +93,7 @@ export default function CoachTodayQueue() {
           {t('coaching.queue.title')}
         </p>
         <div className="flex items-center gap-3">
-          <p className="text-xs text-neutral-500">{t('coaching.queue.remaining', { count: queue.length })}</p>
+          <p className="text-xs text-neutral-500">{t('coaching.queue.remaining', { count: groups.length })}</p>
           <button type="button" onClick={() => navigate('/clients')} className="text-xs text-blue-400">
             {t('nav.clients')}
           </button>
@@ -97,39 +104,60 @@ export default function CoachTodayQueue() {
         <div className="flex items-start gap-3">
           <span className="text-lg leading-6 shrink-0" aria-hidden>{SEVERITY_DOT[current.severity]}</span>
           <div className="flex-1 min-w-0">
-            {current.avatarUrl ? (
-              <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-2">
+              {current.avatarUrl ? (
                 <img src={current.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
-                <p className="text-[11px] text-neutral-400 truncate">{current.clientName}</p>
-              </div>
-            ) : (
-              <p className="text-[11px] text-neutral-400 truncate mb-1">{current.clientName}</p>
-            )}
-            <p className="text-sm font-medium text-white">{t(current.headlineKey, current.headlineParams)}</p>
-            <p className="text-xs text-neutral-400 mt-1">{t(current.detailKey, current.detailParams)}</p>
+              ) : null}
+              <p className="text-sm font-medium text-white truncate">{current.clientName}</p>
+            </div>
+            <ul className="space-y-1.5">
+              {current.items.map((item: CoachPriority) => {
+                const draft = matchingPendingIntervention(item, pendingInterventions);
+                return (
+                  <li key={item.id}>
+                    <button
+                      type="button"
+                      onClick={() => navigate(item.href)}
+                      className="w-full text-left flex items-start gap-2 rounded-lg px-1 py-0.5 hover:bg-neutral-800/60"
+                    >
+                      <span className="text-[11px] leading-5 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
+                      <span className="text-xs text-neutral-300 min-w-0">
+                        {t(queueItemLabelKey(item.kind), item.headlineParams)}
+                        {draft ? (
+                          <span className="text-blue-400"> · {t('coaching.queue.draftBadge')}</span>
+                        ) : null}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          <Button size="sm" onClick={handlePrimary}>
-            {t(action?.ctaKey ?? 'coaching.queue.relance')}
+          {composeAction?.kind === 'compose' && (
+            <Button size="sm" onClick={handleRelance}>
+              {t('coaching.queue.relance')}
+            </Button>
+          )}
+          {!composeAction && setupAction?.href && (
+            <Button size="sm" onClick={() => navigate(setupAction.href!)}>
+              {t(setupAction.ctaKey)}
+            </Button>
+          )}
+          <Button variant="secondary" size="sm" onClick={() => navigate(`/clients/${current.clientId}`)}>
+            {t('coaching.command.openClient')}
           </Button>
-          <Button variant="secondary" size="sm" onClick={() => advance(current)}>
+          <Button variant="ghost" size="sm" onClick={() => skipClient(current)}>
             {t('coaching.queue.skip')}
           </Button>
         </div>
-        <button
-          type="button"
-          onClick={() => navigate(current.href)}
-          className="mt-3 text-xs text-blue-400 hover:text-blue-300"
-        >
-          {t('coaching.command.openClient')}
-        </button>
       </Card>
 
-      {upcoming.length > 0 && (
+      {upcomingNames.length > 0 && (
         <p className="text-[11px] text-neutral-600 mt-2 px-1">
-          {t('coaching.queue.nextUp', { names: upcoming.map(p => p.clientName).join(' · ') })}
+          {t('coaching.queue.nextUp', { names: upcomingNames.join(' · ') })}
         </p>
       )}
 

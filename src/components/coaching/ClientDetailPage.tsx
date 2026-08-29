@@ -43,6 +43,7 @@ import CheckinSummaryCard from './CheckinSummaryCard';
 import ExerciseWorkspace from './ExerciseWorkspace';
 import NudgeComposeModal from './NudgeComposeModal';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
+import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
 
 const TABS: CoachClientTab[] = ['overview', 'training', 'progress', 'checkins', 'health', 'notes'];
@@ -72,7 +73,7 @@ export default function ClientDetailPage() {
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, sendCoachMessage, coachSettings, fetchCoachSettings,
-    pendingInterventions,
+    pendingInterventions, endClientLink,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment } = useProgramStore();
 
@@ -95,6 +96,8 @@ export default function ClientDetailPage() {
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
 
   const client = clients.find(c => c.id === id);
   const ops = opsRows.find(r => r.client.id === id);
@@ -219,6 +222,25 @@ export default function ClientDetailPage() {
     }
     toast(t('coaching.queue.sent'));
     setComposeOpen(false);
+  };
+
+  const handleRemoveClient = async () => {
+    if (!id || !client) return;
+    setRemoving(true);
+    const result = await endClientLink(id);
+    setRemoving(false);
+    if (result.error) {
+      toast(
+        result.error === 'cannot_end_self'
+          ? t('coaching.removeClient.cannotSelf')
+          : t('coaching.removeClient.error'),
+        'error',
+      );
+      return;
+    }
+    toast(t('coaching.removeClient.removed', { name: displayName(client, t('coaching.unnamed')) }));
+    setRemoveOpen(false);
+    navigate('/clients');
   };
 
   const progressionLabel = kpis?.progression === 'up' ? t('coaching.kpis.up')
@@ -591,6 +613,24 @@ export default function ClientDetailPage() {
           templates={coachSettings?.nudge_templates}
           onClose={() => setComposeOpen(false)}
           onSend={handleSendMessage}
+        />
+        {client && user && client.id !== user.id && (
+          <div className="mt-8 pt-6 border-t border-neutral-800/80">
+            <button
+              type="button"
+              onClick={() => setRemoveOpen(true)}
+              className="text-xs text-neutral-600 hover:text-rose-400"
+            >
+              {t('coaching.removeClient.action')}
+            </button>
+          </div>
+        )}
+        <RemoveClientDialog
+          open={removeOpen}
+          clientName={client ? displayName(client, t('coaching.unnamed')) : ''}
+          removing={removing}
+          onClose={() => setRemoveOpen(false)}
+          onConfirm={handleRemoveClient}
         />
       </div>
     </PageTransition>

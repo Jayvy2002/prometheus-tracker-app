@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "test": "tsx --test src/lib/coachSecond.test.ts src/lib/coachAsk.test.ts"
+    "test": "tsx --test src/lib/coachSecond.test.ts src/lib/coachAsk.test.ts src/lib/coachQueue.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

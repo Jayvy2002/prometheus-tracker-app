@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Copy, Link2, Users, ChevronRight, Plus } from 'lucide-react';
+import { Copy, Link2, Users, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
+import { displayName } from '../../lib/coachText';
+import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import RemoveClientDialog from './RemoveClientDialog';
 
 export default function ClientsPage() {
   const { t } = useTranslation();
@@ -18,12 +21,15 @@ export default function ClientsPage() {
   const {
     coachingRole, clients, invites, loading, opsRows, priorities, rosterSignals,
     fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, createInvite, revokeInvite, enableCoachMode,
+    endClientLink,
   } = useCoachingStore();
   const [searchParams] = useSearchParams();
   const rosterFilter = searchParams.get('filter');
   const [creating, setCreating] = useState(false);
   const [maxUses, setMaxUses] = useState(1);
   const [copied, setCopied] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<CoachClientSummary | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -70,6 +76,24 @@ export default function ClientsPage() {
     } catch {
       toast(url, 'info');
     }
+  };
+
+  const handleRemoveClient = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    const result = await endClientLink(removeTarget.id);
+    setRemoving(false);
+    if (result.error) {
+      toast(
+        result.error === 'cannot_end_self'
+          ? t('coaching.removeClient.cannotSelf')
+          : t('coaching.removeClient.error'),
+        'error',
+      );
+      return;
+    }
+    toast(t('coaching.removeClient.removed', { name: displayName(removeTarget, t('coaching.unnamed')) }));
+    setRemoveTarget(null);
   };
 
   if (coachingRole !== 'coach') {
@@ -214,6 +238,19 @@ export default function ClientsPage() {
                 >
                   {t('coaching.setupCta')}
                 </button>
+                {user && c.id !== user.id && (
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setRemoveTarget(c);
+                    }}
+                    className="p-1.5 text-neutral-600 hover:text-rose-400 shrink-0"
+                    aria-label={t('coaching.removeClient.action')}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={e => {
@@ -231,6 +268,13 @@ export default function ClientsPage() {
           </div>
         )}
       </div>
+      <RemoveClientDialog
+        open={!!removeTarget}
+        clientName={removeTarget ? displayName(removeTarget, t('coaching.unnamed')) : ''}
+        removing={removing}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={handleRemoveClient}
+      />
     </PageTransition>
   );
 }
