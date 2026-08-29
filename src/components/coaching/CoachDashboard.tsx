@@ -2,71 +2,38 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertTriangle,
-  CheckCircle2,
   ChevronRight,
-  ClipboardCheck,
   Copy,
-  Dumbbell,
   Link2,
   Plus,
-  Scale,
+  Search,
   Sparkles,
   Users,
-  Utensils,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { isSetupAlert, needsSetup, shouldOpenSetup } from '../../lib/coachAlerts';
-import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
-import type { ClientAlertKind, ClientOpsRow } from '../../lib/types';
+import { coachingPassHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
+import { interventionLiveLabel } from '../../lib/coachSecond';
+import { checkinReviewRows } from '../../lib/coachCheckins';
+import { nutritionStallReviewRows } from '../../lib/coachNutrition';
+import { sessionReviewRows } from '../../lib/coachLastSession';
+import { todayStr } from '../../lib/utils';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import CoachTodayQueue from './CoachTodayQueue';
 
-const ALERT_ICONS: Record<ClientAlertKind, typeof AlertTriangle> = {
-  onboarding_incomplete: Users,
-  program_unassigned: ClipboardCheck,
-  missing_checkin: ClipboardCheck,
-  missing_workout_today: Dumbbell,
-  missing_workout_week: Dumbbell,
-  missing_weight: Scale,
-  missing_nutrition: Utensils,
-};
-
-function ClientAvatar({ name, avatarUrl }: { name: string; avatarUrl: string }) {
+function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'amber' | 'rose' | 'blue' | 'white' }) {
+  const color = tone === 'amber' ? 'text-amber-300'
+    : tone === 'rose' ? 'text-rose-300'
+    : tone === 'blue' ? 'text-blue-300'
+    : 'text-white';
   return (
-    <div className="w-10 h-10 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold shrink-0">
-      {avatarUrl
-        ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
-        : (name[0] || '?').toUpperCase()}
-    </div>
-  );
-}
-
-function AlertPills({ alerts }: { alerts: ClientAlertKind[] }) {
-  const { t } = useTranslation();
-  if (alerts.length === 0) return null;
-  return (
-    <div className="flex flex-wrap gap-1 mt-1.5">
-      {alerts.map(kind => {
-        const Icon = ALERT_ICONS[kind];
-        return (
-          <span
-            key={kind}
-            className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${
-              isSetupAlert(kind)
-                ? 'bg-amber-500/15 text-amber-300'
-                : 'bg-rose-500/10 text-rose-300'
-            }`}
-          >
-            <Icon size={10} />
-            {t(`coaching.alerts.${kind}`)}
-          </span>
-        );
-      })}
-    </div>
+    <Card className="!p-3 min-w-0">
+      <p className="text-[11px] text-neutral-500 uppercase tracking-wider truncate">{label}</p>
+      <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
+    </Card>
   );
 }
 
@@ -75,8 +42,9 @@ export default function CoachDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    opsRows, opsLoading, invites, pendingInterventions, clients,
-    fetchCoachOps, fetchInvites, createInvite,
+    opsRows, opsLoading, invites, pendingInterventions, clients, priorities,
+    fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings, coachSettings,
+    rosterSignals,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -85,17 +53,23 @@ export default function CoachDashboard() {
     if (!user) return;
     fetchCoachOps();
     fetchInvites();
+    fetchCoachSettings();
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const withAlerts = useMemo(() => opsRows.filter(r => r.alerts.length > 0), [opsRows]);
-  const allClear = useMemo(() => opsRows.filter(r => r.alerts.length === 0), [opsRows]);
-  const setupRows = useMemo(() => opsRows.filter(needsSetup), [opsRows]);
-  const onboardingRows = useMemo(
-    () => opsRows.filter(r => !r.client.onboarding_completed),
-    [opsRows],
-  );
-
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
+  const topDrafts = pendingInterventions.slice(0, 4);
+  const reviewRows = useMemo(
+    () => checkinReviewRows(opsRows, rosterSignals, priorities),
+    [opsRows, rosterSignals, priorities],
+  );
+  const stallRows = useMemo(
+    () => nutritionStallReviewRows(opsRows, rosterSignals, priorities, pendingInterventions, todayStr()),
+    [opsRows, rosterSignals, priorities, pendingInterventions],
+  );
+  const sessionRows = useMemo(
+    () => sessionReviewRows(opsRows, rosterSignals.lifts, todayStr()),
+    [opsRows, rosterSignals.lifts],
+  );
 
   const copyUrl = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
@@ -119,89 +93,41 @@ export default function CoachDashboard() {
     await copyUrl(result.token);
   };
 
-  const openClient = (row: ClientOpsRow) => {
-    if (shouldOpenSetup(row)) {
-      navigate(`/clients/${row.client.id}/setup`);
-      return;
-    }
-    navigate(`/clients/${row.client.id}`);
-  };
-
   return (
     <PageTransition>
-      <div className="px-4 pt-6 pb-28">
-        <div className="mb-6">
-          <p className="text-neutral-400 text-xs">
-            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-          <h1 className="text-2xl font-bold text-white">{t('coaching.ops.title')}</h1>
-          <p className="text-sm text-neutral-500 mt-1">{t('coaching.ops.subtitle')}</p>
+      <div className="px-4 pt-6 pb-28 md:px-6">
+        <div className="flex items-start justify-between gap-3 mb-6">
+          <div>
+            <p className="text-neutral-400 text-xs">
+              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+            <h1 className="text-2xl font-bold text-white">{t('coaching.command.title')}</h1>
+            <p className="text-sm text-neutral-500 mt-1">{t('coaching.command.subtitle')}</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => navigate('/prometheus')}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-300 hover:text-white"
+            >
+              <Search size={14} />
+              {t('coaching.ask.shortcut')}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/profile')}
+              className="text-[11px] text-neutral-500 hover:text-white"
+            >
+              {t('nav.profile')}
+            </button>
+          </div>
         </div>
 
         {opsLoading ? (
           <div className="space-y-2">
             {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
           </div>
-        ) : (
-          <>
-            {pendingInterventions.length > 0 && (
-              <div className="mb-6">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
-                  {t('coaching.interventions.title')}
-                </p>
-                <div className="space-y-2">
-                  {pendingInterventions.map(item => {
-                    const client = clients.find(c => c.id === item.client_id);
-                    const coachOnly = isCoachOnlyKind(item.kind);
-                    return (
-                      <Card
-                        key={item.id}
-                        onClick={() => navigate(interventionHref(item))}
-                        className="flex items-start gap-3"
-                      >
-                        <Sparkles size={16} className={`mt-1 shrink-0 ${coachOnly ? 'text-violet-400' : 'text-blue-400'}`} />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="text-sm font-medium text-white truncate">
-                              {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
-                            </p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
-                              coachOnly ? 'bg-violet-500/15 text-violet-300' : 'bg-blue-500/15 text-blue-300'
-                            }`}>
-                              {coachOnly ? t('coaching.interventions.badgeApp') : t('coaching.interventions.badgeClient')}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-neutral-500 truncate">
-                            {item.client_id ? (
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  navigate(`/clients/${item.client_id}`);
-                                }}
-                                className="text-blue-400 hover:text-blue-300"
-                              >
-                                {client?.full_name || client?.email || t('coaching.unnamed')}
-                              </button>
-                            ) : (
-                              <span>{t('coaching.interventions.appWide')}</span>
-                            )}
-                            {' · '}
-                            {t(`coaching.interventions.kinds.${item.kind}`)}
-                          </p>
-                          <p className="text-xs text-neutral-400 mt-1 line-clamp-2">
-                            {item.rationale || payloadSummary(item)}
-                          </p>
-                        </div>
-                        <ChevronRight size={16} className="text-neutral-600 mt-2 shrink-0" />
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {opsRows.length === 0 ? (
+        ) : opsRows.length === 0 ? (
           <Card className="text-center py-10">
             <Users className="mx-auto mb-3 text-neutral-600" size={32} />
             <p className="text-neutral-300 mb-1">{t('coaching.ops.emptyTitle')}</p>
@@ -224,74 +150,163 @@ export default function CoachDashboard() {
                 ))}
               </div>
             )}
-            <button
-              onClick={() => navigate('/clients')}
-              className="mt-4 text-sm text-blue-400"
-            >
-              {t('coaching.ops.manageInvites')}
-            </button>
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <Card className="!p-3">
-                <p className="text-[11px] text-neutral-500 uppercase tracking-wider">{t('coaching.ops.withAlerts')}</p>
-                <p className="text-2xl font-bold text-amber-300 mt-1">{withAlerts.length}</p>
-              </Card>
-              <Card className="!p-3">
-                <p className="text-[11px] text-neutral-500 uppercase tracking-wider">{t('coaching.ops.allClear')}</p>
-                <p className="text-2xl font-bold text-emerald-400 mt-1">{allClear.length}</p>
-              </Card>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+              <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
+              <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
+              <button type="button" className="text-left" onClick={() => document.getElementById('checkins-a-relire')?.scrollIntoView({ behavior: 'smooth' })}>
+                <StatCard label={t('coaching.command.stats.checkins')} value={stats.checkinsToReview} tone="blue" />
+              </button>
+              <StatCard label={t('coaching.command.stats.adapt')} value={stats.programsMayAdapt} tone="amber" />
+              <StatCard label={t('coaching.command.stats.important')} value={stats.important} tone="rose" />
             </div>
-            {(setupRows.length > 0 || onboardingRows.length > 0) && (
-              <p className="text-xs text-amber-300/80 mb-4">
-                {t('coaching.ops.setupSummary', {
-                  onboarding: onboardingRows.length,
-                  setup: setupRows.length,
-                })}
-              </p>
+
+            {reviewRows.length > 0 && (
+              <div id="checkins-a-relire" className="mb-6">
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
+                  {t('coaching.checkinReview.title')}
+                </p>
+                <div className="space-y-2">
+                  {reviewRows.slice(0, 6).map(row => (
+                    <Card key={row.checkin.id} onClick={() => navigate(row.href)} className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
+                        {row.avatarUrl
+                          ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          : (row.clientName[0] || '?').toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
+                        <p className="text-[11px] text-neutral-500 truncate">
+                          {row.checkin.checked_at}
+                          {' · '}
+                          {t(`coaching.checkinReview.kinds.${row.kind}`, { n: row.checkin.joint_pain ?? '—' })}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                    </Card>
+                  ))}
+                </div>
+              </div>
             )}
 
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
-                {t('coaching.ops.clients')}
-              </p>
-              <button onClick={() => navigate('/clients')} className="text-xs text-blue-400">
-                {t('coaching.invite.generate')}
-              </button>
-            </div>
-
-            <div className="space-y-2">
-              {[...opsRows]
-                .sort((a, b) => {
-                  const score = (r: ClientOpsRow) =>
-                    (!r.client.onboarding_completed ? 0 : needsSetup(r) ? 1 : r.alerts.length > 0 ? 2 : 3);
-                  return score(a) - score(b);
-                })
-                .map(row => (
-                  <Card key={row.client.id} onClick={() => openClient(row)} className="flex items-start gap-3">
-                    <ClientAvatar name={row.client.full_name || row.client.email} avatarUrl={row.client.avatar_url} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-white truncate">
-                          {row.client.full_name || row.client.email || t('coaching.unnamed')}
-                        </p>
-                        {row.alerts.length === 0 && (
-                          <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-                        )}
+            {sessionRows.length > 0 && (
+              <div id="seances-a-relire" className="mb-6">
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
+                  {t('coaching.sessionReview.title')}
+                </p>
+                <div className="space-y-2">
+                  {sessionRows.slice(0, 6).map(row => (
+                    <Card key={row.session.workoutId} onClick={() => navigate(row.href)} className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
+                        {row.avatarUrl
+                          ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          : (row.clientName[0] || '?').toUpperCase()}
                       </div>
-                      <p className="text-xs text-neutral-500 truncate">{row.client.email}</p>
-                      {row.alerts.length === 0 ? (
-                        <p className="text-[11px] text-emerald-400/80 mt-1">{t('coaching.ops.loggingOk')}</p>
-                      ) : (
-                        <AlertPills alerts={row.alerts} />
-                      )}
-                    </div>
-                    <ChevronRight size={16} className="text-neutral-600 mt-2 shrink-0" />
-                  </Card>
-                ))}
-            </div>
-          </>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
+                        <p className="text-[11px] text-neutral-500 truncate">
+                          {row.session.name || t('workout.title')}
+                          {' · '}
+                          {row.session.date}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {stallRows.length > 0 && (
+              <div id="stalls-nutrition" className="mb-6">
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
+                  {t('coaching.nutritionStall.title')}
+                </p>
+                <div className="space-y-2">
+                  {stallRows.slice(0, 6).map(row => (
+                    <Card key={row.clientId} onClick={() => navigate(row.href)} className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-amber-600/20 flex items-center justify-center text-amber-300 font-semibold text-sm shrink-0">
+                        {row.avatarUrl
+                          ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          : (row.clientName[0] || '?').toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
+                        <p className="text-[11px] text-neutral-500 truncate">
+                          {row.title || t('coaching.queue.items.nutrition_stall')}
+                          {row.avgCalories > 0 && row.calorieTarget > 0
+                            ? ` · ${row.avgCalories} / ${row.calorieTarget} kcal`
+                            : ''}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {topDrafts.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
+                    {t('coaching.interventions.title')}
+                  </p>
+                  <button onClick={() => navigate('/messages')} className="text-xs text-blue-400">
+                    {t('coaching.inbox.seeAll')}
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {topDrafts.map(item => {
+                    const client = clients.find(c => c.id === item.client_id);
+                    const coachOnly = isCoachOnlyKind(item.kind);
+                    return (
+                      <Card key={item.id} onClick={() => navigate(coachingPassHref(item))} className="flex items-start gap-3">
+                        <Sparkles size={16} className={`mt-1 shrink-0 ${coachOnly ? 'text-violet-400' : 'text-blue-400'}`} />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">
+                            {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
+                          </p>
+                          <p className="text-[11px] text-neutral-500 truncate">
+                            {client?.full_name || client?.email || t('coaching.interventions.appWide')}
+                            {' · '}
+                            {interventionLiveLabel(item, t) || payloadSummary(item)}
+                          </p>
+                        </div>
+                        <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {coachSettings?.queue_mode_default === false ? (
+              <div>
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
+                  {t('coaching.command.priorities')}
+                </p>
+                {priorities.length === 0 ? (
+                  <CoachTodayQueue />
+                ) : (
+                  <div className="space-y-2">
+                    {priorities.slice(0, 8).map(item => (
+                      <Card key={item.id} onClick={() => navigate(item.href)} className="flex items-start gap-3">
+                        <span aria-hidden>{item.severity === 'red' ? '🔴' : item.severity === 'orange' ? '🟠' : '🟡'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white">{t(item.headlineKey, item.headlineParams)}</p>
+                          <p className="text-[11px] text-neutral-500 truncate">{t(item.detailKey, item.detailParams)}</p>
+                        </div>
+                        <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <CoachTodayQueue />
             )}
           </>
         )}

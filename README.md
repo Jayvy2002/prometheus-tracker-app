@@ -73,8 +73,10 @@ public/
 supabase/
 ├── migrations/                # SQL migrations (source of truth)
 └── functions/                 # Deno Edge Functions
-    ├── analyze-product/       # AI product analysis (OpenAI)
-    ├── verify-exercise/       # AI exercise verification
+    ├── analyze-product/       # Food miss/photo → Second (kind analyze_product)
+    ├── ask-second/            # Coach copilot ping → Second (signed)
+    ├── notify-onboarding-complete/ # Onboarding ping → Second
+    ├── verify-exercise/       # Library miss → Second (kind verify_exercise)
     ├── delete-account/
     └── send-daily-reminders/  # Web Push notifications via VAPID
     # Legacy (no longer called from the client after paywall removal):
@@ -89,7 +91,7 @@ supabase/
 
 - Node.js 20+
 - A [Supabase](https://supabase.com) project
-- (Optional) OpenAI API key for AI features
+- Second (assistant-coach bot) webhook for copilot drafts — never OpenAI in-app
 
 ### 1. Clone & install
 
@@ -138,13 +140,14 @@ The repo includes `netlify.toml` with build settings and SPA redirects pre-confi
 
 Connect the GitHub repo in Netlify → it will auto-deploy on every push to `main`.
 
-Non-secret build-time variables are committed in `.env.production` and picked up by Vite automatically. Sensitive server-side secrets (Stripe, OpenAI, VAPID private key) must be set in **Supabase Dashboard → Edge Functions → Secrets**.
+Non-secret build-time variables are committed in `.env.production` and picked up by Vite automatically. Sensitive server-side secrets (Second webhook, VAPID private key) must be set in **Supabase Dashboard → Edge Functions → Secrets**.
 
 ### Required Supabase Edge Function secrets
 
 | Secret | Description |
 |---|---|
-| `OPENAI_API_KEY` | OpenAI API key (AI food/exercise analysis) |
+| `GROK_BOT_WEBHOOK_URL` | Second webhook URL (coaching copy only) |
+| `NOTIFY_SECRET` / `GROK_BOT_WEBHOOK_SECRET` | Shared secret for signed Second pings |
 | `VAPID_PUBLIC_KEY` | VAPID public key (Web Push) |
 | `VAPID_PRIVATE_KEY` | VAPID private key (Web Push) |
 | `VAPID_SUBJECT` | `mailto:you@example.com` |

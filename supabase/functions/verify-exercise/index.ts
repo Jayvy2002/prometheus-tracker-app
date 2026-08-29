@@ -1,29 +1,33 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 
+/**
+ * Enqueues exercise verification via Second (Grok Bot).
+ * Does not call OpenAI. Existing library matches still resolve locally (not AI).
+ *
+ * Same webhook env as notify-onboarding-complete / ask-second:
+ *   GROK_BOT_WEBHOOK_URL + NOTIFY_SECRET (fallback GROK_BOT_WEBHOOK_SECRET)
+ *
+ * Second must (service role):
+ *   1. INSERT exercises if approved, or skip if rejected
+ *   2. UPDATE exercise_requests SET status='approved', result_exercise_id=<id>
+ *      or status='rejected' + error_message
+ */
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, X-Client-Info, Apikey",
+    "Content-Type, Authorization, X-Client-Info, Apikey, X-Webhook-Key, X-Sender-Key",
 };
 
-interface VerifyRequest {
-  request_id: string;
-}
+const WEBHOOK_TIMEOUT_MS = 5000;
 
-interface ExerciseData {
-  name: string;
-  name_fr: string;
-  primary_muscles: string[];
-  secondary_muscles: string[];
-  category: string;
-  equipment: string;
-  instructions: string;
-  tips: string;
-  difficulty: string;
-  is_real_exercise: boolean;
-  rejection_reason: string;
+function json(status: number, body: Record<string, unknown>) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (req: Request) => {
@@ -33,57 +37,31 @@ Deno.serve(async (req: Request) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!authHeader) return json(401, { error: "Missing authorization" });
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const webhookUrl = (Deno.env.get("GROK_BOT_WEBHOOK_URL") ?? "").trim();
+    const webhookSecret = (
+      Deno.env.get("NOTIFY_SECRET") ?? Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ?? ""
+    ).trim();
 
-    if (!openaiKey) {
-      return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY not configured" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const userClient = createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
 
     const {
       data: { user },
     } = await userClient.auth.getUser();
-    if (!user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    if (!user) return json(401, { error: "Unauthorized" });
 
-    const { request_id }: VerifyRequest = await req.json();
-    if (!request_id) {
-      return new Response(
-        JSON.stringify({ error: "request_id is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+    const { request_id } = await req.json().catch(() => ({ request_id: "" }));
+    if (!request_id || typeof request_id !== "string") {
+      return json(400, { error: "request_id is required" });
     }
 
     const adminClient = createClient(supabaseUrl, serviceKey);
 
-    // Rate limiting: 20 exercise verifications per user per day
     const dayStart = new Date();
     dayStart.setUTCHours(0, 0, 0, 0);
     const { count: usageCount } = await adminClient
@@ -94,16 +72,8 @@ Deno.serve(async (req: Request) => {
       .gte("called_at", dayStart.toISOString());
 
     if ((usageCount ?? 0) >= 20) {
-      return new Response(
-        JSON.stringify({ error: "Daily limit reached. You can verify up to 20 exercises per day." }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json(429, { error: "DAILY_LIMIT_REACHED", limit: 20 });
     }
-
-    await adminClient.from("ai_usage_logs").insert({
-      user_id: user.id,
-      function_name: "verify-exercise",
-    });
 
     const { data: exReq, error: fetchErr } = await adminClient
       .from("exercise_requests")
@@ -112,25 +82,12 @@ Deno.serve(async (req: Request) => {
       .eq("user_id", user.id)
       .maybeSingle();
 
-    if (fetchErr || !exReq) {
-      return new Response(
-        JSON.stringify({ error: "Exercise request not found" }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    await adminClient
-      .from("exercise_requests")
-      .update({ status: "processing", updated_at: new Date().toISOString() })
-      .eq("id", request_id);
+    if (fetchErr || !exReq) return json(404, { error: "Exercise request not found" });
 
     const { data: existing } = await adminClient
       .from("exercises")
       .select("*")
-      .ilike("name", exReq.name.trim())
+      .ilike("name", String(exReq.name ?? "").trim())
       .maybeSingle();
 
     if (existing) {
@@ -142,218 +99,86 @@ Deno.serve(async (req: Request) => {
           updated_at: new Date().toISOString(),
         })
         .eq("id", request_id);
-
-      return new Response(JSON.stringify({ exercise: existing }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json(200, { exercise: existing, status: "approved" });
     }
 
-    const systemPrompt = `You are a fitness exercise verification assistant. Your role is to verify whether a proposed exercise is a real, legitimate exercise and provide accurate details about it.
-
-You MUST respond with ONLY a valid JSON object (no markdown, no code blocks, no extra text) with these exact fields:
-{
-  "name": "standardized English exercise name",
-  "name_fr": "French exercise name",
-  "primary_muscles": ["muscle1", "muscle2"],
-  "secondary_muscles": ["muscle1"],
-  "category": "compound|isolation|cardio|stretch|plyometric",
-  "equipment": "barbell|dumbbell|machine|cable|bodyweight|kettlebell|band|other",
-  "instructions": "Step-by-step instructions in French (3-4 sentences)",
-  "tips": "Form tips and common mistakes in French (2-3 sentences)",
-  "difficulty": "beginner|intermediate|advanced",
-  "is_real_exercise": true/false,
-  "rejection_reason": "reason in French if not a real exercise, empty string otherwise"
-}
-
-Muscle names must use these exact values: chest, upper_chest, lower_chest, front_delts, side_delts, rear_delts, traps, lats, rhomboids, lower_back, core, quadriceps, hamstrings, glutes, calves, biceps, triceps, forearms, rotator_cuff, hip_flexors, adductors, abductors, shoulders, obliques
-
-Rules:
-- VERIFY the exercise is a real, recognized fitness exercise practiced in gyms or sports
-- If the user provides a name that is close to a known exercise but misspelled, correct the name
-- If the exercise name is gibberish, offensive, or not a real exercise, set is_real_exercise to false
-- If it's a variation of a known exercise (e.g. "close grip bench press"), treat it as valid
-- Provide accurate muscle activation data based on exercise science
-- Instructions and tips must be in French
-- Be strict: only approve exercises that are genuinely practiced in fitness/sports`;
-
-    const descriptionInfo = exReq.description ? `\nUser description: "${exReq.description}"` : '';
-    const userMessage = `Exercise name: "${exReq.name}"
-User-provided muscle info: "${exReq.muscles || "not specified"}"${descriptionInfo}
-
-Verify this exercise and provide complete details.`;
-
-    const openaiRes = await fetch(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${openaiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userMessage },
-          ],
-          max_tokens: 800,
-          temperature: 0.1,
-        }),
-      }
-    );
-
-    if (!openaiRes.ok) {
-      const errBody = await openaiRes.text();
+    if (!webhookUrl || !webhookSecret) {
       await adminClient
         .from("exercise_requests")
         .update({
           status: "rejected",
-          error_message: `AI verification failed: ${openaiRes.status}`,
+          error_message: "WEBHOOK_NOT_CONFIGURED",
           updated_at: new Date().toISOString(),
         })
         .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({ error: "AI verification failed", details: errBody }),
-        {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const aiResult = await openaiRes.json();
-    const rawContent = aiResult.choices?.[0]?.message?.content ?? "";
-
-    let exerciseData: ExerciseData;
-    try {
-      const cleaned = rawContent
-        .replace(/```json\s*/g, "")
-        .replace(/```\s*/g, "")
-        .trim();
-      exerciseData = JSON.parse(cleaned);
-    } catch {
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message: `Erreur d'analyse de la reponse IA`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({ error: "Failed to parse AI response" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    if (!exerciseData.is_real_exercise) {
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message:
-            exerciseData.rejection_reason ||
-            "Cet exercice n'a pas ete reconnu comme un exercice de fitness valide.",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({
-          rejected: true,
-          reason: exerciseData.rejection_reason,
-        }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const { data: newExercise, error: insertErr } = await adminClient
-      .from("exercises")
-      .insert({
-        name: exerciseData.name,
-        name_fr: exerciseData.name_fr || "",
-        primary_muscles: exerciseData.primary_muscles || [],
-        secondary_muscles: exerciseData.secondary_muscles || [],
-        category: exerciseData.category || "compound",
-        equipment: exerciseData.equipment || "other",
-        instructions: exerciseData.instructions || "",
-        tips: exerciseData.tips || "",
-        difficulty: exerciseData.difficulty || "intermediate",
-        verified: true,
-        created_by: user.id,
-      })
-      .select()
-      .maybeSingle();
-
-    if (insertErr || !newExercise) {
-      const { data: dupExercise } = await adminClient
-        .from("exercises")
-        .select("*")
-        .ilike("name", exerciseData.name)
-        .maybeSingle();
-
-      if (dupExercise) {
-        await adminClient
-          .from("exercise_requests")
-          .update({
-            status: "approved",
-            result_exercise_id: dupExercise.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", request_id);
-
-        return new Response(JSON.stringify({ exercise: dupExercise }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message: `Erreur lors de l'enregistrement: ${insertErr?.message ?? "unknown"}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-
-      return new Response(
-        JSON.stringify({ error: "Failed to save exercise" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+      return json(503, { error: "WEBHOOK_NOT_CONFIGURED" });
     }
 
     await adminClient
       .from("exercise_requests")
-      .update({
-        status: "approved",
-        result_exercise_id: newExercise.id,
-        updated_at: new Date().toISOString(),
-      })
+      .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", request_id);
 
-    return new Response(JSON.stringify({ exercise: newExercise }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  } catch (err) {
-    return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        message: err instanceof Error ? err.message : "unknown",
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const payload = {
+      kind: "verify_exercise",
+      request_id,
+      user_id: user.id,
+      name: exReq.name,
+      muscles: exReq.muscles ?? "",
+      description: exReq.description ?? "",
+    };
+
+    const webhookHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${webhookSecret}`,
+      "X-Webhook-Key": webhookSecret,
+      "X-Sender-Key": webhookSecret,
+    };
+
+    try {
+      const webhookRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: webhookHeaders,
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(WEBHOOK_TIMEOUT_MS),
+      });
+      if (webhookRes.status >= 400) {
+        await adminClient
+          .from("exercise_requests")
+          .update({
+            status: "rejected",
+            error_message: `WEBHOOK_FAILED:${webhookRes.status}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", request_id);
+        return json(502, { error: "WEBHOOK_FAILED" });
       }
-    );
+    } catch (err) {
+      const errName = err instanceof Error ? err.name : "";
+      const aborted = errName === "TimeoutError" || errName === "AbortError";
+      if (!aborted) {
+        await adminClient
+          .from("exercise_requests")
+          .update({
+            status: "rejected",
+            error_message: "WEBHOOK_FAILED",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", request_id);
+        return json(502, { error: "WEBHOOK_FAILED" });
+      }
+    }
+
+    await adminClient.from("ai_usage_logs").insert({
+      user_id: user.id,
+      function_name: "verify-exercise",
+    });
+
+    return json(202, { status: "processing", request_id });
+  } catch (err) {
+    return json(500, {
+      error: "Internal server error",
+      message: err instanceof Error ? err.message : "unknown",
+    });
   }
 });

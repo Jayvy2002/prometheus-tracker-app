@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, Award } from 'lucide-react';
+import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, Award, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -397,6 +397,15 @@ export default function StatsPage() {
                 </div>
               </Card>
             )}
+
+            <Card onClick={() => navigate('/exercise-progress')} className="flex items-center gap-3 animate-fade-in-up">
+              <Dumbbell size={16} className="text-blue-400" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white">{t('dashboard.viewProgress')}</p>
+                <p className="text-[11px] text-neutral-500">{t('dashboard.progressDesc')}</p>
+              </div>
+              <ChevronRight size={16} className="text-neutral-600" />
+            </Card>
 
             {/* Achievements */}
             {achievements.length > 0 && (

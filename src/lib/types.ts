@@ -352,6 +352,13 @@ export interface CoachClientSummary {
   avatar_url: string;
   linked_at: string;
   onboarding_completed: boolean;
+  goal: string;
+  training_frequency: number;
+  target_weight_kg: number;
+  weight_kg: number;
+  last_visited_at: string | null;
+  last_nudged_at: string | null;
+  daily_calorie_target?: number;
 }
 
 export interface ClientTrackingConfig {
@@ -385,14 +392,264 @@ export interface ClientOpsRow {
   setupCompleted: boolean;
 }
 
+export type CoachPrioritySeverity = 'red' | 'orange' | 'yellow';
+
+export type CoachPriorityKind =
+  | 'new_pain'
+  | 'low_sleep'
+  | 'stalled_lift'
+  | 'weight_off_trajectory'
+  | 'nutrition_stall'
+  | 'dropped_adherence'
+  | 'missed_checkin'
+  | 'missed_workout'
+  | 'missed_nutrition'
+  | 'session_logged'
+  | 'program_adapt'
+  | 'onboarding_incomplete'
+  | 'program_unassigned';
+
+export type CoachClientTab =
+  | 'overview'
+  | 'training'
+  | 'progress'
+  | 'checkins'
+  | 'health'
+  | 'notes';
+
+export type CoachInboxKind = 'checkin' | 'pain' | 'adherence' | 'draft';
+
+export interface CoachPriority {
+  id: string;
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  kind: CoachPriorityKind;
+  severity: CoachPrioritySeverity;
+  headlineKey: string;
+  headlineParams?: Record<string, string | number>;
+  detailKey: string;
+  detailParams?: Record<string, string | number>;
+  href: string;
+  exerciseName?: string;
+  checkinId?: string;
+  workoutId?: string;
+}
+
+export type CheckinReviewKind = 'unread' | 'new_pain' | 'dropped_adherence' | 'missed_checkin';
+
+/** One row in Aujourd’hui → cuts who stall (calories too high). Always a Progression deep-link. */
+export interface NutritionStallRow {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  href: string;
+  relanceHref: string;
+  draftHref: string | null;
+  avgCalories: number;
+  calorieTarget: number;
+  weightDelta: string;
+  title: string;
+}
+
+export interface NutritionLogSnapshot {
+  user_id: string;
+  logged_at: string;
+  calories: number;
+}
+
+/** One row in Aujourd’hui → Check-ins à relire. Always has a submitted check-in. */
+export interface CheckinReviewRow {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  checkin: DailyCheckin;
+  href: string;
+  kind: CheckinReviewKind;
+  relanceHref: string;
+}
+
+export type CoachNudgeTemplateKey = 'missed_training' | 'missed_checkins' | 'general_followup';
+export type CoachMessageTemplateKey = CoachNudgeTemplateKey | 'reply';
+
+export type CoachQueueActionKind = 'compose' | 'open_draft' | 'open_setup' | 'open_360';
+
+export interface CoachQueueAction {
+  kind: CoachQueueActionKind;
+  ctaKey: string;
+  href?: string;
+  templateKey?: CoachNudgeTemplateKey;
+  interventionId?: string;
+}
+
+/** One File du jour card: a client and every remaining item for them today. */
+export interface CoachQueueClientGroup {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  href: string;
+  severity: CoachPrioritySeverity;
+  items: CoachPriority[];
+}
+
+export interface CoachMessage {
+  id: string;
+  coach_id: string;
+  client_id: string;
+  sender_id: string;
+  body: string;
+  template_key: CoachMessageTemplateKey;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface CoachMessageThread {
+  clientId: string;
+  lastMessage: CoachMessage | null;
+  unreadCount: number;
+}
+
+export const DEFAULT_COACH_VISIBLE_TABS: CoachClientTab[] = [
+  'overview',
+  'training',
+  'progress',
+  'checkins',
+  'health',
+  'notes',
+];
+
+export interface CoachNudgeTemplateSet {
+  missed_training?: { fr?: string; en?: string };
+  missed_checkins?: { fr?: string; en?: string };
+  general_followup?: { fr?: string; en?: string };
+}
+
+export interface CoachSettings {
+  coach_id: string;
+  visible_tabs: CoachClientTab[];
+  queue_mode_default: boolean;
+  nudge_templates: CoachNudgeTemplateSet;
+  updated_at: string;
+}
+
+export type ProgressPhotoKind = 'front' | 'side' | 'back';
+
+export interface ProgressPhoto {
+  id: string;
+  user_id: string;
+  taken_at: string;
+  kind: ProgressPhotoKind;
+  storage_path: string;
+  notes: string;
+  created_at: string;
+}
+
+export interface DailyNutritionPoint {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  target: number;
+}
+
+export interface LiftSetSnapshot {
+  weight_kg: number;
+  reps: number;
+  rir: number;
+  completed: boolean;
+  set_type?: string;
+  duration_seconds?: number | null;
+}
+
+/** One completed workout, readable as sets — not a dump of all history. */
+export interface LastSessionExercise {
+  name: string;
+  sets: LiftSetSnapshot[];
+}
+
+export interface LastSessionView {
+  workoutId: string;
+  date: string;
+  name: string;
+  exercises: LastSessionExercise[];
+}
+
+/** Aujourd’hui → séance faite (today / yesterday). Deep-link, not Relancer. */
+export interface SessionReviewRow {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  href: string;
+  relanceHref: string;
+  session: LastSessionView;
+}
+
+export interface LiftSessionSnapshot {
+  date: string;
+  workoutId: string;
+  workoutName: string;
+  maxWeight: number;
+  bestSet: string;
+  avgRir: number | null;
+  volume: number;
+  sets: LiftSetSnapshot[];
+}
+
+export interface ClientLiftProgress {
+  clientId: string;
+  exerciseName: string;
+  displayName: string;
+  sessions: LiftSessionSnapshot[];
+  stalled: boolean;
+}
+
+export interface CoachRosterSignals {
+  checkins: DailyCheckin[];
+  weights: WeightMeasurement[];
+  lifts: ClientLiftProgress[];
+  nutritionLogs: NutritionLogSnapshot[];
+  calorieTargets: Record<string, number>;
+  lastNoteAt: Record<string, string>;
+  lastInterventionAt: Record<string, string>;
+  assignmentStart: Record<string, string>;
+  assignmentWeeks: Record<string, number>;
+  assignmentName: Record<string, string>;
+  scheduledDays: Record<string, number>;
+}
+
+export interface CoachCommandStats {
+  activeClients: number;
+  needAttention: number;
+  checkinsToReview: number;
+  programsMayAdapt: number;
+  important: number;
+}
+
+export interface ProgramExerciseDraft {
+  name: string;
+  default_sets: number;
+  default_reps: number;
+  default_reps_min?: number | null;
+  default_rir?: number | null;
+  default_rest_seconds?: number;
+}
+
 export interface AiProgramDayDraft {
   weekday: number;
   name: string;
-  exercises: Array<{
-    name: string;
-    default_sets: number;
-    default_reps: number;
-  }>;
+  exercises: ProgramExerciseDraft[];
+}
+
+export interface ProgramExercisePatch {
+  exercise: string;
+  weekday?: number | null;
+  default_sets?: number;
+  default_reps?: number;
+  default_reps_min?: number | null;
+  default_rir?: number | null;
+  default_rest_seconds?: number;
+  replace_with?: string;
 }
 
 export interface AiPlanDraft {
@@ -427,7 +684,9 @@ export type CoachInterventionKind =
   | 'adherence_training'
   | 'workflow_improvement'
   | 'new_question'
-  | 'other';
+  | 'other'
+  | 'ask_prometheus'
+  | 'program_nl_edit';
 
 export type CoachInterventionStatus = 'pending' | 'sent' | 'dismissed' | 'kept';
 
@@ -473,6 +732,22 @@ export interface DailyCheckin {
   updated_at: string;
 }
 
+/** Latest recovery fields from a check-in — logged values only, no invented score. */
+export interface RecoverySnapshot {
+  checkin: DailyCheckin;
+  sleepHours: number | null;
+  sleepQuality: number | null;
+  pain: number | null;
+  soreness: number | null;
+  energy: number | null;
+  notes: string;
+  trend: {
+    sleepHours: number[];
+    pain: number[];
+    energy: number[];
+  };
+}
+
 export type DailyCheckinInput = Partial<Omit<DailyCheckin, 'id' | 'user_id' | 'created_at' | 'updated_at'>> & {
   checked_at: string;
 };
@@ -505,6 +780,8 @@ export interface ProgramDayExercise {
   name: string;
   default_sets: number;
   default_reps: number;
+  default_reps_min?: number | null;
+  default_rir?: number | null;
   default_rest_seconds: number;
   order_index: number;
   created_at: string;
@@ -527,4 +804,22 @@ export interface WorkoutTemplateExercise {
   default_sets: number;
   default_reps: number;
   order_index: number;
+}
+
+export interface CheckinSummary {
+  latest: DailyCheckin | null;
+  previous: DailyCheckin | null;
+  globalStatus: 'good' | 'watch' | 'concern' | 'unknown';
+  training: number | null;
+  recovery: number | null;
+  nutrition: number | null;
+  motivation: number | null;
+  pain: number | null;
+  deltas: {
+    training: number | null;
+    recovery: number | null;
+    nutrition: number | null;
+    motivation: number | null;
+    pain: number | null;
+  };
 }

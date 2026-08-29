@@ -18,12 +18,46 @@ export interface ExerciseSession {
   sets: PreviousSet[];
 }
 
+async function loadFullWorkout(workoutId: string): Promise<Workout | null> {
+  const { data: workout } = await supabase
+    .from('workouts')
+    .select('*')
+    .eq('id', workoutId)
+    .maybeSingle();
+  if (!workout) return null;
+
+  const { data: exercises } = await supabase
+    .from('workout_exercises')
+    .select('*')
+    .eq('workout_id', workoutId)
+    .order('order_index');
+
+  const exIds = (exercises ?? []).map(e => e.id);
+  let sets: WorkoutSet[] = [];
+  if (exIds.length > 0) {
+    const { data: setsData } = await supabase
+      .from('workout_sets')
+      .select('*')
+      .in('exercise_id', exIds)
+      .order('order_index');
+    sets = (setsData ?? []) as WorkoutSet[];
+  }
+
+  const fullExercises = (exercises ?? []).map(ex => ({
+    ...ex,
+    sets: sets.filter(s => s.exercise_id === ex.id),
+  })) as WorkoutExercise[];
+
+  return { ...workout, exercises: fullExercises } as Workout;
+}
+
 interface WorkoutState {
   workouts: Workout[];
   currentWorkout: Workout | null;
   loading: boolean;
   fetchWorkouts: (userId: string) => Promise<void>;
   fetchWorkout: (workoutId: string) => Promise<void>;
+  peekWorkout: (workoutId: string) => Promise<Workout | null>;
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
   updateWorkout: (id: string, data: Partial<Workout>) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
@@ -64,38 +98,18 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       set({ currentWorkout: cached });
     }
 
-    const { data: workout } = await supabase
-      .from('workouts')
-      .select('*')
-      .eq('id', workoutId)
-      .maybeSingle();
-    if (!workout) return;
-
-    const { data: exercises } = await supabase
-      .from('workout_exercises')
-      .select('*')
-      .eq('workout_id', workoutId)
-      .order('order_index');
-
-    const exIds = (exercises ?? []).map(e => e.id);
-    let sets: WorkoutSet[] = [];
-    if (exIds.length > 0) {
-      const { data: setsData } = await supabase
-        .from('workout_sets')
-        .select('*')
-        .in('exercise_id', exIds)
-        .order('order_index');
-      sets = (setsData ?? []) as WorkoutSet[];
-    }
-
-    const fullExercises = (exercises ?? []).map(ex => ({
-      ...ex,
-      sets: sets.filter(s => s.exercise_id === ex.id),
-    })) as WorkoutExercise[];
-
-    const fullWorkout = { ...workout, exercises: fullExercises } as Workout;
+    const fullWorkout = await loadFullWorkout(workoutId);
+    if (!fullWorkout) return;
     set({ currentWorkout: fullWorkout });
     setCacheItem(workoutCacheKey(workoutId), fullWorkout);
+  },
+
+  peekWorkout: async (workoutId) => {
+    const cached = getCacheItem<Workout>(workoutCacheKey(workoutId));
+    if (cached?.exercises?.length) return cached;
+    const full = await loadFullWorkout(workoutId);
+    if (full) setCacheItem(workoutCacheKey(workoutId), full);
+    return full;
   },
 
   createWorkout: async (workout) => {

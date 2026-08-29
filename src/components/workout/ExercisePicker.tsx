@@ -7,6 +7,8 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { supabase } from '../../lib/supabase';
+import { waitForRowChange } from '../../lib/realtimeWait';
+import { functionsErrorBody, functionsHttpStatus } from '../../lib/supabaseFunctions';
 import type { Exercise } from '../../lib/types';
 
 const MUSCLE_LABELS: Record<string, string> = {
@@ -230,11 +232,26 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
     const { data, error: fnError } = await supabase.functions.invoke('verify-exercise', {
       body: { request_id: request.id },
     });
+    const bodyFromData = (data && typeof data === 'object' && !Array.isArray(data))
+      ? data as Record<string, unknown>
+      : {};
+    const bodyFromError = fnError ? await functionsErrorBody(fnError) : {};
+    const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
+    const errCode = typeof body.error === 'string' ? body.error : '';
 
-    if (fnError) {
-      const msg = (fnError.message ?? '').toLowerCase();
-      if (msg.includes('daily limit') || msg.includes('429')) {
+    if (data?.exercise) {
+      addExercise(data.exercise as Exercise);
+      setApprovedExercise(data.exercise as Exercise);
+      setStatus('approved');
+      return;
+    }
+
+    if (fnError && body.status !== 'processing') {
+      const http = functionsHttpStatus(fnError);
+      if (errCode === 'DAILY_LIMIT_REACHED' || http === 429) {
         setError(t('workout.exercisePicker.verifying'));
+      } else if (errCode === 'WEBHOOK_NOT_CONFIGURED') {
+        setError(t('scanner.webhookNotConfigured'));
       } else {
         setError(t('common.tryAgain'));
       }
@@ -242,16 +259,43 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
       return;
     }
 
-    if (data?.rejected) {
-      setRejectionReason(data.reason || t('workout.exercisePicker.notRecognized'));
-      setStatus('rejected');
-      return;
+    const done = await waitForRowChange<{
+      status: string;
+      result_exercise_id: string | null;
+      error_message: string;
+    }>({
+      table: 'exercise_requests',
+      filter: `id=eq.${request.id}`,
+      timeoutMs: 90_000,
+      pollMs: 2_000,
+      poll: async () => {
+        const { data: row } = await supabase
+          .from('exercise_requests')
+          .select('status, result_exercise_id, error_message')
+          .eq('id', request.id)
+          .maybeSingle();
+        return row as { status: string; result_exercise_id: string | null; error_message: string } | null;
+      },
+      isDone: row => row.status === 'approved' || row.status === 'rejected',
+    });
+
+    if (done?.status === 'approved' && done.result_exercise_id) {
+      const { data: exercise } = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('id', done.result_exercise_id)
+        .maybeSingle();
+      if (exercise) {
+        addExercise(exercise as Exercise);
+        setApprovedExercise(exercise as Exercise);
+        setStatus('approved');
+        return;
+      }
     }
 
-    if (data?.exercise) {
-      addExercise(data.exercise as Exercise);
-      setApprovedExercise(data.exercise as Exercise);
-      setStatus('approved');
+    if (done?.status === 'rejected') {
+      setRejectionReason(done.error_message || t('workout.exercisePicker.notRecognized'));
+      setStatus('rejected');
       return;
     }
 

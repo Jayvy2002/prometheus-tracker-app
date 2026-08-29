@@ -4,23 +4,46 @@ import SideNav from './SideNav';
 import FAB from './FAB';
 import { ToastContainer } from '../ui/Toast';
 import { useCoachingStore } from '../../stores/coachingStore';
+import CoachCommandPalette from '../coaching/CoachCommandPalette';
+import { useEffect } from 'react';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
+  const startCoachRealtime = useCoachingStore(s => s.startCoachRealtime);
+  const stopCoachRealtime = useCoachingStore(s => s.stopCoachRealtime);
+  const startClientRealtime = useCoachingStore(s => s.startClientRealtime);
+  const stopClientRealtime = useCoachingStore(s => s.stopClientRealtime);
+  const isCoach = coachingRole === 'coach';
+
+  useEffect(() => {
+    if (isCoach) {
+      stopClientRealtime();
+      void startCoachRealtime();
+      return () => stopCoachRealtime();
+    }
+    if (coachingRole === 'client') {
+      stopCoachRealtime();
+      void startClientRealtime();
+      return () => stopClientRealtime();
+    }
+    stopCoachRealtime();
+    stopClientRealtime();
+  }, [isCoach, coachingRole, startCoachRealtime, stopCoachRealtime, startClientRealtime, stopClientRealtime]);
 
   return (
     <div className="min-h-screen bg-black text-white flex">
       <ToastContainer />
+      <CoachCommandPalette />
 
       <SideNav />
 
       <main className="flex-1 min-w-0 pb-24 md:pb-8 md:ml-64">
-        <div className="max-w-3xl mx-auto w-full">
+        <div className={`mx-auto w-full ${isCoach ? 'max-w-6xl' : 'max-w-3xl'}`}>
           <Outlet />
         </div>
       </main>
 
-      {coachingRole !== 'coach' && <FAB />}
+      {!isCoach && <FAB />}
       <BottomNav />
     </div>
   );

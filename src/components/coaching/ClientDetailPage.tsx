@@ -1,64 +1,260 @@
-import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Dumbbell, Scale, ClipboardCheck, MessageSquare, CalendarDays } from 'lucide-react';
+import {
+  ArrowLeft,
+  CalendarDays,
+  Dumbbell,
+  MessageSquare,
+  Scale,
+  Sparkles,
+} from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
-import { formatDate, formatDuration, todayStr } from '../../lib/utils';
-import type { DailyCheckin, NutritionLog, WaterLog, WeightMeasurement, Workout } from '../../lib/types';
+import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
+import { GOALS } from '../../lib/constants';
+import { interventionHref } from '../../lib/coachInterventions';
+import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
+import { flagKindForClient, focusCheckin, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
+import {
+  canAskCalorieAdjustment,
+  detectCutCalorieStall,
+  secondCaloriePrompt,
+} from '../../lib/coachNutrition';
+import { relanceThreadHref } from '../../lib/coachQueue';
+import { lastSessionFromLifts, lastSessionFromWorkout } from '../../lib/coachLastSession';
+import {
+  recoverySnapshot,
+  relanceHrefForRecovery,
+  resolveClientTab,
+} from '../../lib/coachRecovery';
+import { displayName } from '../../lib/coachText';
+import { liftsForClient } from '../../lib/coachLifts';
+import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
+import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
+import { shouldOpenSetup } from '../../lib/coachAlerts';
+import { weightChartPoints } from '../../lib/coachProgress';
+import {
+  DEFAULT_COACH_VISIBLE_TABS,
+  type CoachClientTab,
+  type ClientLiftProgress,
+  type DailyCheckin,
+  type DailyNutritionPoint,
+  type ProgressPhoto,
+  type WeightMeasurement,
+  type Workout,
+} from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import CheckinSummaryCard from './CheckinSummaryCard';
+import CheckinReviewPanel from './CheckinReviewPanel';
+import ClientLiftChart from './ClientLiftChart';
+import LastSessionReview from './LastSessionReview';
+import RecoverySnapshotPanel from './RecoverySnapshotPanel';
+import ExerciseWorkspace from './ExerciseWorkspace';
+import ProgressPhotoCompare from './ProgressPhotoCompare';
+import NutritionStallPanel from './NutritionStallPanel';
+import RemoveClientDialog from './RemoveClientDialog';
+import { NutritionChart, WeightChart } from './ProgressCharts';
 
-type Tab = 'workouts' | 'checkins' | 'nutrition' | 'weight' | 'notes';
+const TABS: CoachClientTab[] = ['overview', 'training', 'progress', 'checkins', 'health', 'notes'];
+
+function goalLabel(goal: string): string {
+  return GOALS.find(g => g.value === goal)?.label || goal || '—';
+}
+
+function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="rounded-xl bg-neutral-900/70 px-3 py-2 min-w-0">
+      <p className="text-[10px] text-neutral-500 uppercase tracking-wide truncate">{label}</p>
+      <p className={`text-sm font-medium mt-0.5 truncate ${tone || 'text-white'}`}>{value}</p>
+    </div>
+  );
+}
 
 export default function ClientDetailPage() {
   const { t } = useTranslation();
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
     clients, fetchClients, fetchClientWorkouts, fetchClientWorkout,
-    fetchClientNutrition, fetchClientWeight, fetchClientCheckins,
-    fetchNotes, addNote, notes,
+    fetchClientWeight, fetchClientCheckins, fetchClientProfile,
+    fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
+    fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
+    touchClientVisit, priorities, coachSettings, fetchCoachSettings,
+    pendingInterventions, endClientLink, askSecond,
   } = useCoachingStore();
-  const { programs, fetchPrograms, assignProgram } = useProgramStore();
+  const { fetchMyAssignment, assignment } = useProgramStore();
 
-  const [tab, setTab] = useState<Tab>('workouts');
+  const checkinId = parseCheckinQuery(searchParams.get('checkin'));
+  const tab = resolveClientTab(searchParams.get('tab'), checkinId);
+  const exerciseHint = parseExerciseQuery(searchParams.get('exercise'));
+  const workoutQuery = parseWorkoutQuery(searchParams.get('workout'));
   const [workouts, setWorkouts] = useState<Workout[]>([]);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
   const [openWorkout, setOpenWorkout] = useState<Workout | null>(null);
   const [checkins, setCheckins] = useState<DailyCheckin[]>([]);
-  const [logs, setLogs] = useState<NutritionLog[]>([]);
-  const [water, setWater] = useState<WaterLog[]>([]);
   const [weights, setWeights] = useState<WeightMeasurement[]>([]);
   const [loading, setLoading] = useState(true);
   const [noteBody, setNoteBody] = useState('');
   const [savingNote, setSavingNote] = useState(false);
-  const [assignId, setAssignId] = useState('');
-  const [assignDate, setAssignDate] = useState(todayStr());
-  const [assigning, setAssigning] = useState(false);
+  const [rawCheckins, setRawCheckins] = useState(false);
+  const [visitAnchor, setVisitAnchor] = useState<string | null | undefined>(undefined);
+  const [nutritionDays, setNutritionDays] = useState<DailyNutritionPoint[]>([]);
+  const [progressLifts, setProgressLifts] = useState<ClientLiftProgress[] | null>(null);
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [askingCalories, setAskingCalories] = useState(false);
 
   const client = clients.find(c => c.id === id);
+  const ops = opsRows.find(r => r.client.id === id);
 
   useEffect(() => {
     if (!id) return;
+    const previous = useCoachingStore.getState().opsRows.find(r => r.client.id === id)?.client.last_visited_at
+      ?? useCoachingStore.getState().clients.find(c => c.id === id)?.last_visited_at
+      ?? null;
+    setVisitAnchor(previous);
     if (!clients.length) fetchClients();
-    if (user) fetchPrograms(user.id);
+    if (!opsRows.length) fetchCoachOps();
+    touchClientVisit(id);
+    if (user) fetchMyAssignment(id);
+    fetchCoachSettings();
     setLoading(true);
+    const start = addDaysToDateStr(todayStr(), -27);
     Promise.all([
       fetchClientWorkouts(id).then(setWorkouts),
       fetchClientCheckins(id).then(setCheckins),
-      fetchClientNutrition(id, todayStr()).then(r => { setLogs(r.logs); setWater(r.water); }),
       fetchClientWeight(id).then(setWeights),
       fetchNotes(id),
+      fetchClientProfile(id).then(async profile => {
+        const target = profile?.daily_calorie_target ?? 0;
+        const days = await fetchClientNutritionRange(id, start, todayStr(), target);
+        setNutritionDays(days);
+      }),
+      fetchClientLiftHistory(id).then(setProgressLifts),
+      fetchProgressPhotos(id).then(async rows => {
+        setPhotos(rows);
+        setPhotoUrls(await signProgressPhotoUrls(rows));
+      }),
     ]).finally(() => setLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleOpenWorkout = async (workoutId: string) => {
-    const full = await fetchClientWorkout(workoutId);
-    setOpenWorkout(full);
+  const setTab = (next: CoachClientTab, extra?: Record<string, string>) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', next);
+    if (next !== 'training' && next !== 'progress') params.delete('exercise');
+    if (next !== 'training') params.delete('workout');
+    if (next !== 'checkins' && next !== 'health') params.delete('checkin');
+    if (extra) {
+      for (const [k, v] of Object.entries(extra)) {
+        if (v) params.set(k, v);
+        else params.delete(k);
+      }
+    }
+    setSearchParams(params, { replace: true });
+    setWorkspaceOpen(false);
+  };
+
+  const lifts = useMemo(() => {
+    if (progressLifts && progressLifts.length > 0) return progressLifts;
+    return id ? liftsForClient(rosterSignals.lifts, id) : [];
+  }, [progressLifts, rosterSignals.lifts, id]);
+  const visibleTabs = coachSettings?.visible_tabs?.length
+    ? DEFAULT_COACH_VISIBLE_TABS.filter(tabKey => coachSettings.visible_tabs.includes(tabKey))
+    : TABS;
+  const workspaceLift = useMemo(
+    () => (id ? pickDefaultLift(lifts, { hint: exerciseHint, notes, today: todayStr() }) : null),
+    [id, lifts, exerciseHint, notes],
+  );
+  const lastFromLifts = useMemo(
+    () => (id ? lastSessionFromLifts(lifts, id, { today: todayStr(), workoutId: workoutQuery || undefined }) : null),
+    [id, lifts, workoutQuery],
+  );
+  const focusWorkoutId = workoutQuery || lastFromLifts?.workoutId || '';
+  const sessionView = openWorkout && focusWorkoutId && openWorkout.id === focusWorkoutId
+    ? lastSessionFromWorkout(openWorkout)
+    : lastFromLifts;
+
+  useEffect(() => {
+    if (!focusWorkoutId) {
+      setOpenWorkout(null);
+      return;
+    }
+    let cancelled = false;
+    fetchClientWorkout(focusWorkoutId).then(full => {
+      if (!cancelled) setOpenWorkout(full);
+    });
+    return () => { cancelled = true; };
+  }, [focusWorkoutId, fetchClientWorkout]);
+  const insightWorkouts = useMemo(() => {
+    if (workouts.length > 0) {
+      return workouts.map(w => ({ date: w.date, completed: w.completed, name: w.name }));
+    }
+    const seen = new Set<string>();
+    const rows: Array<{ date: string; completed: boolean; name: string }> = [];
+    for (const lift of lifts) {
+      for (const session of lift.sessions) {
+        if (seen.has(session.workoutId)) continue;
+        seen.add(session.workoutId);
+        rows.push({ date: session.date, completed: true, name: session.workoutName });
+      }
+    }
+    return rows;
+  }, [workouts, lifts]);
+  const insight = useMemo(() => {
+    if (!ops) return null;
+    const snapshot = {
+      ...ops,
+      client: {
+        ...ops.client,
+        last_visited_at: visitAnchor === undefined ? ops.client.last_visited_at : visitAnchor,
+      },
+    };
+    return sinceLastVisit(snapshot, rosterSignals, insightWorkouts);
+  }, [ops, rosterSignals, insightWorkouts, visitAnchor]);
+  const checkinSummary = useMemo(() => summarizeCheckin(checkins), [checkins]);
+  const focusedCheckin = useMemo(() => focusCheckin(checkins, checkinId), [checkins, checkinId]);
+  const recoveryView = useMemo(
+    () => recoverySnapshot(checkins, { today: todayStr(), checkinId }),
+    [checkins, checkinId],
+  );
+  const kpis = useMemo(
+    () => insight ? clientKpis(insight, checkinSummary, lifts, weights) : null,
+    [insight, checkinSummary, lifts, weights],
+  );
+  const week = programWeekLabel(rosterSignals.assignmentStart[id ?? ''], rosterSignals.assignmentWeeks[id ?? '']);
+  const clientPriorities = priorities.filter(p => p.clientId === id).slice(0, 4);
+  const relanceHref = id ? relanceThreadHref(id, 'general_followup') : '';
+  const trainingRelanceHref = id ? relanceThreadHref(id, 'missed_training') : '';
+  const missedTraining = priorities.some(p => p.clientId === id && p.kind === 'missed_workout');
+  const calorieDraft = id ? pendingForClient(pendingInterventions, id, 'calorie_adjustment') : null;
+  const nutritionStall = useMemo(() => {
+    if (!id || !client) return null;
+    const stallWeights = weights.length > 0
+      ? weights
+      : rosterSignals.weights.filter(w => w.user_id === id);
+    return detectCutCalorieStall({
+      clientId: id,
+      goal: client.goal,
+      calorieTarget: rosterSignals.calorieTargets[id] ?? client.daily_calorie_target ?? 0,
+      logs: rosterSignals.nutritionLogs,
+      weights: stallWeights,
+      today: todayStr(),
+    });
+  }, [id, client, rosterSignals.calorieTargets, rosterSignals.nutritionLogs, rosterSignals.weights, weights]);
+  const showNutritionPass = !!nutritionStall || !!calorieDraft;
+  const canAskCalories = canAskCalorieAdjustment(nutritionStall) && !calorieDraft;
+
+  const handleOpenWorkout = (workoutId: string) => {
+    setTab('training', { workout: workoutId });
   };
 
   const handleNote = async () => {
@@ -77,150 +273,305 @@ export default function ClientDetailPage() {
     toast(t('coaching.noteSaved'));
   };
 
-  const handleAssign = async () => {
-    if (!id || !assignId) return;
-    setAssigning(true);
-    const { error } = await assignProgram(assignId, id, assignDate);
-    setAssigning(false);
-    if (error) {
-      toast(error, 'error');
-      return;
+  const handleAskCalories = async () => {
+    if (!id || !client || !canAskCalories) return;
+    setAskingCalories(true);
+    const delta = nutritionStall
+      ? (nutritionStall.weightDeltaKg > 0 ? `+${nutritionStall.weightDeltaKg}` : String(nutritionStall.weightDeltaKg))
+      : '—';
+    const result = await askSecond({
+      kind: 'calorie_adjustment',
+      clientId: id,
+      prompt: secondCaloriePrompt({
+        name: displayName(client),
+        avg: nutritionStall?.avgCalories ?? 0,
+        target: nutritionStall?.calorieTarget ?? 0,
+        delta,
+      }),
+      screen: 'client_progress',
+      context: {
+        avg_calories: nutritionStall?.avgCalories ?? 0,
+        calorie_target: nutritionStall?.calorieTarget ?? 0,
+        weight_delta: nutritionStall?.weightDeltaKg ?? 0,
+        goal: client.goal,
+      },
+    });
+    setAskingCalories(false);
+    if ('error' in result) {
+      toast(t('coaching.second.failed'), 'error');
     }
-    toast(t('programs.assigned'));
   };
 
-  const completedThisWeek = workouts.filter(w => {
-    if (!w.completed) return false;
-    const d = new Date(w.date);
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    monday.setHours(0, 0, 0, 0);
-    return d >= monday;
-  }).length;
+  const handleRemoveClient = async () => {
+    if (!id || !client) return;
+    setRemoving(true);
+    const result = await endClientLink(id);
+    setRemoving(false);
+    if (result.error) {
+      toast(
+        result.error === 'cannot_end_self'
+          ? t('coaching.removeClient.cannotSelf')
+          : t('coaching.removeClient.error'),
+        'error',
+      );
+      return;
+    }
+    toast(t('coaching.removeClient.removed', { name: displayName(client, t('coaching.unnamed')) }));
+    setRemoveOpen(false);
+    navigate('/clients');
+  };
+
+  const progressionLabel = kpis?.progression === 'up' ? t('coaching.kpis.up')
+    : kpis?.progression === 'down' ? t('coaching.kpis.down')
+    : kpis?.progression === 'flat' ? t('coaching.kpis.flat')
+    : t('coaching.kpis.unknown');
+
+  const timeline = useMemo(() => {
+    const items: Array<{ at: string; kind: string; label: string }> = [];
+    for (const w of (workouts.length ? workouts.filter(x => x.completed) : insightWorkouts.filter(x => x.completed)).slice(0, 12)) {
+      items.push({ at: w.date, kind: 'workout', label: w.name || t('workout.title') });
+    }
+    for (const c of checkins.slice(0, 8)) {
+      items.push({ at: c.checked_at, kind: 'checkin', label: t('nav.checkin') });
+    }
+    for (const w of weights.slice(0, 8)) {
+      items.push({ at: w.measured_at, kind: 'weight', label: `${w.weight_kg} kg` });
+    }
+    for (const n of notes.slice(0, 6)) {
+      items.push({ at: n.created_at, kind: 'note', label: n.body.slice(0, 80) });
+    }
+    return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 12);
+  }, [workouts, insightWorkouts, checkins, weights, notes, t]);
 
   return (
     <PageTransition>
-      <div className="px-4 pt-6 pb-8">
+      <div className="px-4 pt-6 pb-8 md:px-6">
         <button onClick={() => navigate('/clients')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
           <ArrowLeft size={18} /> {t('coaching.clientsTitle')}
         </button>
 
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-2">
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold">
             {client?.avatar_url
               ? <img src={client.avatar_url} alt="" className="w-full h-full object-cover" />
               : (client?.full_name?.[0] || '?').toUpperCase()}
           </div>
-          <div className="min-w-0">
-            <h1 className="text-xl font-bold text-white truncate">{client?.full_name || t('coaching.unnamed')}</h1>
-            <p className="text-xs text-neutral-500 truncate">{client?.email}</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-bold text-white truncate">{client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}</h1>
+            <p className="text-xs text-neutral-500 truncate">
+              {ops && shouldOpenSetup(ops) ? t('coaching.badgeSetup') : t('coaching.client360.active')}
+              {' · '}
+              {goalLabel(client?.goal || '')}
+              {week ? ` · ${t('programs.weekOf', { current: week.current, total: week.total })}` : ''}
+              {client?.training_frequency ? ` · ${client.training_frequency}x` : rosterSignals.scheduledDays[id ?? ''] ? ` · ${rosterSignals.scheduledDays[id ?? '']}x` : ''}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => id && navigate(`/messages/${id}`)}
+            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white"
+            aria-label={t('coaching.messages.write')}
+          >
+            <MessageSquare size={18} />
+          </button>
         </div>
 
-        <p className="text-xs text-neutral-500 mb-4">
-          {t('coaching.weekSessions', { count: completedThisWeek })}
-          {workouts.filter(w => w.completed && w.program_day_id).length > 0
-            ? ` · ${workouts.filter(w => w.completed && w.program_day_id).length} ${t('programs.assigned')}`
-            : ''}
-        </p>
-
-        {client && !client.onboarding_completed && (
-          <Card className="mb-4">
-            <p className="text-sm font-medium text-amber-200">{t('coaching.setup.waitingTitle')}</p>
-            <p className="text-xs text-neutral-400 mt-1">{t('coaching.setup.waitingBody')}</p>
-            <Button size="sm" variant="secondary" className="w-full mt-3" onClick={() => navigate(`/clients/${id}/setup`)}>
-              {t('coaching.setupCta')}
-            </Button>
-          </Card>
-        )}
-        {client?.onboarding_completed && (
+        {ops && shouldOpenSetup(ops) && (
           <Button size="sm" variant="secondary" className="w-full mb-4" onClick={() => navigate(`/clients/${id}/setup`)}>
-            {t('coaching.setup.title')}
+            {t('coaching.setupCta')}
           </Button>
         )}
 
-        {programs.length > 0 && (
-          <Card className="mb-4 space-y-2">
-            <p className="text-sm font-medium text-white">{t('programs.assignToClient')}</p>
-            <select
-              value={assignId}
-              onChange={e => setAssignId(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
-            >
-              <option value="">{t('programs.pickProgram')}</option>
-              {programs.map(p => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </select>
-            <input
-              type="date"
-              value={assignDate}
-              onChange={e => setAssignDate(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
-            />
-            <Button size="sm" onClick={handleAssign} loading={assigning} disabled={!assignId} className="w-full">
-              {t('programs.assign')}
-            </Button>
-          </Card>
+        {id && pendingForClient(pendingInterventions, id) && (
+          <button
+            type="button"
+            onClick={() => navigate(interventionHref(pendingForClient(pendingInterventions, id)!))}
+            className="w-full mb-4 text-left rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2"
+          >
+            <p className="text-[11px] uppercase tracking-wider text-blue-300 flex items-center gap-1">
+              <Sparkles size={12} /> {t('coaching.second.badge')}
+            </p>
+            <p className="text-xs text-neutral-300 mt-0.5">
+              {isInterventionDrafting(pendingForClient(pendingInterventions, id)!)
+                ? t('coaching.second.drafting')
+                : t('coaching.second.landed')}
+            </p>
+          </button>
         )}
 
         <div className="flex gap-1 overflow-x-auto mb-4 -mx-4 px-4 scrollbar-hide">
-          {(['workouts', 'checkins', 'nutrition', 'weight', 'notes'] as Tab[]).map(key => (
+          {visibleTabs.map(key => (
             <button
               key={key}
-              onClick={() => { setTab(key); setOpenWorkout(null); }}
+              onClick={() => setTab(key)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${
                 tab === key ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
               }`}
             >
-              {t(`coaching.tabs.${key}`)}
+              {t(`coaching.tabs360.${key}`)}
             </button>
           ))}
         </div>
 
         {loading ? (
           <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mt-8" />
-        ) : tab === 'workouts' ? (
-          openWorkout ? (
-            <div className="space-y-3">
-              <button onClick={() => setOpenWorkout(null)} className="text-sm text-blue-400">{t('common.back')}</button>
-              <h2 className="text-lg font-semibold text-white">{openWorkout.name}</h2>
-              <p className="text-xs text-neutral-500">
-                {formatDate(openWorkout.date)}
-                {openWorkout.duration_seconds > 0 ? ` · ${formatDuration(openWorkout.duration_seconds)}` : ''}
+        ) : tab === 'overview' ? (
+          <div className="space-y-4">
+            <Card>
+              <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1 flex items-center gap-1">
+                <Sparkles size={12} /> {t('coaching.client360.insightTitle')}
               </p>
-              {(openWorkout.exercises ?? []).map(ex => (
-                <Card key={ex.id} padding={false} className="p-3">
-                  <p className="text-sm font-medium text-white mb-1">
-                    {ex.name}
-                    {ex.prescribed_sets ? (
-                      <span className="text-neutral-500 font-normal"> · {ex.prescribed_sets}×{ex.prescribed_reps}</span>
-                    ) : null}
+              {insight ? (
+                <>
+                  <p className="text-sm text-neutral-200">
+                    {t('coaching.client360.insightBody', {
+                      workouts: insight.workoutsCompleted,
+                      weight: insight.weightDeltaKg == null
+                        ? '—'
+                        : `${insight.weightDeltaKg > 0 ? '+' : ''}${insight.weightDeltaKg} kg`,
+                      progressed: insight.progressed.join(', ') || t('coaching.client360.none'),
+                      stalled: insight.stalled.join(', ') || t('coaching.client360.none'),
+                    })}
                   </p>
-                  {(ex.sets ?? []).map((s, i) => (
-                    <p key={s.id} className="text-xs text-neutral-400">
-                      {i + 1}. {s.weight_kg}kg × {s.reps}
-                      {s.rir ? ` @ RIR ${s.rir}` : ''}
-                    </p>
-                  ))}
-                </Card>
-              ))}
-              <div className="flex gap-2">
-                <input
-                  value={noteBody}
-                  onChange={e => setNoteBody(e.target.value)}
-                  placeholder={t('coaching.noteOnWorkout')}
-                  className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+                  {insight.pain != null && insight.pain >= 3 && (
+                    <p className="text-xs text-rose-300 mt-2">{t('coaching.client360.painFlag', { n: insight.pain })}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-neutral-400">{t('coaching.client360.insightEmpty')}</p>
+              )}
+            </Card>
+
+            <Card>
+              <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+                {t('coaching.client360.sinceVisit')}
+              </p>
+              <p className="text-sm text-neutral-300">
+                {insight?.since
+                  ? t(`coaching.client360.sinceSource.${insight.source}`, { date: formatDate(insight.since) })
+                  : t('coaching.client360.sinceUnknown')}
+              </p>
+              <p className="text-xs text-neutral-500 mt-1">
+                {t('coaching.client360.sinceMeta', {
+                  workouts: insight?.workoutsCompleted ?? 0,
+                  checkins: insight?.checkins ?? 0,
+                })}
+              </p>
+            </Card>
+
+            <ClientLiftChart
+              compact
+              lifts={lifts}
+              selectedName={exerciseHint}
+              notes={notes}
+              relanceHref={trainingRelanceHref}
+              onSelect={name => setTab('training', { exercise: name })}
+            />
+
+            {kpis && (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
+                <Kpi label={t('coaching.kpis.adherence')} value={kpis.trainingAdherence == null ? '—' : `${kpis.trainingAdherence}/5`} />
+                <Kpi label={t('coaching.kpis.recovery')} value={kpis.recovery == null ? '—' : String(kpis.recovery)} />
+                <Kpi
+                  label={t('coaching.kpis.weight')}
+                  value={kpis.weightDelta == null ? '—' : `${kpis.weightDelta > 0 ? '+' : ''}${kpis.weightDelta} kg`}
                 />
-                <Button size="sm" onClick={handleNote} loading={savingNote}>{t('common.send')}</Button>
+                <Kpi
+                  label={t('coaching.kpis.pain')}
+                  value={kpis.pain == null ? '—' : `${kpis.pain}/5`}
+                  tone={(kpis.pain ?? 0) >= 3 ? 'text-rose-300' : undefined}
+                />
               </div>
+            )}
+
+            {clientPriorities.length > 0 && (
+              <div className="space-y-2">
+                {clientPriorities.map(p => (
+                  <Card key={p.id} onClick={() => navigate(p.href)} className="!py-3">
+                    <p className="text-sm text-white">{t(p.headlineKey, p.headlineParams)}</p>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">{t(p.detailKey, p.detailParams)}</p>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            <div>
+              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
+                {t('coaching.client360.timeline')}
+              </p>
+              {timeline.length === 0 ? (
+                <Card className="text-neutral-500 text-sm">{t('coaching.client360.timelineEmpty')}</Card>
+              ) : (
+                <div className="space-y-2">
+                  {timeline.map((item, i) => (
+                    <Card key={`${item.kind}-${item.at}-${i}`} className="flex items-center gap-3 !py-2.5">
+                      {item.kind === 'workout' ? <Dumbbell size={14} className="text-blue-400" />
+                        : item.kind === 'weight' ? <Scale size={14} className="text-emerald-400" />
+                        : item.kind === 'note' ? <MessageSquare size={14} className="text-neutral-400" />
+                        : <CalendarDays size={14} className="text-amber-300" />}
+                      <div className="min-w-0">
+                        <p className="text-sm text-white truncate">{item.label}</p>
+                        <p className="text-[11px] text-neutral-500">{formatDate(item.at)}</p>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
             </div>
-          ) : workouts.length === 0 ? (
-            <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.workouts')}</Card>
-          ) : (
-            <div className="space-y-2">
-              {workouts.map(w => (
+          </div>
+        ) : tab === 'training' && workspaceOpen && workspaceLift ? (
+          <ExerciseWorkspace
+            clientId={id!}
+            lift={workspaceLift}
+            onClose={() => setWorkspaceOpen(false)}
+            onAsk={q => navigate(`/prometheus?q=${encodeURIComponent(q)}&client=${id}`)}
+          />
+        ) : tab === 'training' ? (
+            <div className="space-y-3">
+              {sessionView && id ? (
+                <LastSessionReview
+                  clientId={id}
+                  client={client}
+                  session={sessionView}
+                  relanceHref={trainingRelanceHref}
+                  showRelance
+                  onExercise={name => setTab('training', { exercise: name })}
+                />
+              ) : null}
+              <ClientLiftChart
+                lifts={lifts}
+                selectedName={exerciseHint}
+                notes={notes}
+                relanceHref={trainingRelanceHref}
+                showRelance={missedTraining && !sessionView}
+                onSelect={name => setTab('training', { exercise: name })}
+                onOpenSeries={lift => {
+                  setTab('training', { exercise: lift.displayName });
+                  setWorkspaceOpen(true);
+                }}
+              />
+              {assignment?.program && (
+                <Card>
+                  <p className="text-sm text-white">{assignment.program.name}</p>
+                  <p className="text-xs text-neutral-500">
+                    {week ? t('programs.weekOf', { current: week.current, total: week.total }) : t('programs.assigned')}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs text-blue-400 mt-2"
+                    onClick={() => navigate(`/programs/${assignment.program_id}`)}
+                  >
+                    {t('coaching.client360.openProgram')}
+                  </button>
+                </Card>
+              )}
+              {workouts.filter(w => w.id !== sessionView?.workoutId).slice(0, 6).length > 0 && (
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest pt-1">
+                  {t('coaching.lastSession.older')}
+                </p>
+              )}
+              {workouts.filter(w => w.id !== sessionView?.workoutId).slice(0, 6).map(w => (
                 <Card key={w.id} onClick={() => handleOpenWorkout(w.id)} className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${w.completed ? 'bg-blue-600/20 text-blue-400' : 'bg-neutral-800 text-neutral-500'}`}>
                     <Dumbbell size={16} />
@@ -232,65 +583,103 @@ export default function ClientDetailPage() {
                 </Card>
               ))}
             </div>
-          )
+        ) : tab === 'progress' ? (
+          <div className="space-y-3">
+            <ClientLiftChart
+              lifts={lifts}
+              selectedName={exerciseHint}
+              notes={notes}
+              relanceHref={trainingRelanceHref}
+              showRelance={missedTraining}
+              onSelect={name => setTab('progress', { exercise: name })}
+              onOpenSeries={lift => {
+                setTab('training', { exercise: lift.displayName });
+                setWorkspaceOpen(true);
+              }}
+            />
+            <WeightChart points={weightChartPoints(weights)} />
+            <NutritionChart points={nutritionDays} />
+            {showNutritionPass && id && (
+              <NutritionStallPanel
+                relanceHref={relanceHref}
+                draftHref={calorieDraft ? interventionHref(calorieDraft) : null}
+                canAskSecond={canAskCalories}
+                asking={askingCalories}
+                liveDraft={calorieDraft}
+                onAskSecond={() => { void handleAskCalories(); }}
+              />
+            )}
+            <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+          </div>
         ) : tab === 'checkins' ? (
-          checkins.length === 0 ? (
-            <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.checkins')}</Card>
-          ) : (
-            <div className="space-y-2">
-              {checkins.map(c => (
+          <div className="space-y-3">
+            {id && focusedCheckin ? (
+              <CheckinReviewPanel
+                checkin={focusedCheckin}
+                previous={checkins.find(c => c.id !== focusedCheckin.id) ?? null}
+                relanceHref={relanceHrefForCheckin(id, flagKindForClient(priorities, id) ?? 'unread')}
+                savingNote={savingNote}
+                onSaveNote={async body => {
+                  const { error } = await addNote(id, body, { noteDate: focusedCheckin.checked_at });
+                  if (error) {
+                    toast(error, 'error');
+                    return;
+                  }
+                  toast(t('coaching.checkinReview.noteSaved'));
+                }}
+              />
+            ) : (
+              <CheckinSummaryCard summary={checkinSummary} onSeeAnswers={() => setRawCheckins(true)} />
+            )}
+            {checkins.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setRawCheckins(v => !v)}
+                className="text-xs text-blue-400 hover:text-blue-300"
+              >
+                {rawCheckins ? t('coaching.checkin.summaryTitle') : t('coaching.checkinReview.history')}
+              </button>
+            )}
+            {rawCheckins && (
+              checkins.length === 0 ? (
+                <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.checkins')}</Card>
+              ) : checkins.map(c => (
                 <Card key={c.id}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <ClipboardCheck size={14} className="text-blue-400" />
-                    <p className="text-sm font-medium text-white">{c.checked_at}</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-[11px] text-neutral-400">
-                    <span>{t('checkin.fields.energy_level')}: {c.energy_level ?? '—'}</span>
-                    <span>{t('checkin.fields.sleep_quality')}: {c.sleep_quality ?? '—'}</span>
-                    <span>{t('checkin.fields.stress')}: {c.stress ?? '—'}</span>
-                    <span>{t('checkin.fields.motivation')}: {c.motivation ?? '—'}</span>
-                    <span>{t('checkin.fields.fatigue')}: {c.fatigue ?? '—'}</span>
-                    <span>{t('checkin.fields.mood')}: {c.mood ?? '—'}</span>
+                  <p className="text-sm font-medium text-white mb-2">{c.checked_at}</p>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400">
+                    {([
+                      'energy_level', 'sleep_quality', 'stress', 'motivation', 'fatigue',
+                      'mood', 'muscle_soreness', 'joint_pain', 'adherence_training', 'adherence_nutrition',
+                    ] as const).map(key => (
+                      <span key={key}>{t(`checkin.fields.${key}`)}: {c[key] ?? '—'}</span>
+                    ))}
                   </div>
                   {c.notes && <p className="text-xs text-neutral-500 mt-2">{c.notes}</p>}
                 </Card>
-              ))}
-            </div>
-          )
-        ) : tab === 'nutrition' ? (
-          <Card>
-            <p className="text-xs text-neutral-500 mb-2">{t('common.today')}</p>
-            <p className="text-sm text-white mb-3">
-              {Math.round(logs.reduce((s, l) => s + l.calories, 0))} kcal ·
-              P {Math.round(logs.reduce((s, l) => s + l.protein, 0))}g ·
-              C {Math.round(logs.reduce((s, l) => s + l.carbs, 0))}g ·
-              F {Math.round(logs.reduce((s, l) => s + l.fat, 0))}g
-            </p>
-            <p className="text-xs text-neutral-500 mb-2">
-              {t('coaching.water')}: {water.reduce((s, w) => s + w.amount_ml, 0)} ml
-            </p>
-            {logs.length === 0 ? (
-              <p className="text-sm text-neutral-500">{t('coaching.empty.nutrition')}</p>
-            ) : logs.map(l => (
-              <p key={l.id} className="text-xs text-neutral-300 py-1 border-t border-neutral-800">
-                {l.name} · {Math.round(l.calories)} kcal
-              </p>
-            ))}
-          </Card>
-        ) : tab === 'weight' ? (
-          weights.length === 0 ? (
-            <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.weight')}</Card>
-          ) : (
-            <div className="space-y-2">
-              {weights.map(w => (
-                <Card key={w.id} className="flex items-center gap-3">
-                  <Scale size={16} className="text-emerald-400" />
-                  <span className="text-sm text-white font-medium">{w.weight_kg} kg</span>
-                  <span className="text-xs text-neutral-500 ml-auto">{w.measured_at.slice(0, 10)}</span>
-                </Card>
-              ))}
-            </div>
-          )
+              ))
+            )}
+          </div>
+        ) : tab === 'health' ? (
+          <div className="space-y-3">
+            {id && recoveryView ? (
+              <RecoverySnapshotPanel
+                clientId={id}
+                client={client}
+                snapshot={recoveryView}
+                relanceHref={relanceHrefForRecovery(id, true)}
+              />
+            ) : (
+              <Card className="space-y-3">
+                <p className="text-[11px] uppercase tracking-wider text-rose-300">{t('coaching.recovery.title')}</p>
+                <p className="text-sm text-neutral-300">{t('coaching.recovery.empty')}</p>
+                {id ? (
+                  <Button size="sm" onClick={() => navigate(relanceHrefForRecovery(id, false))}>
+                    {t('coaching.queue.relance')}
+                  </Button>
+                ) : null}
+              </Card>
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
             <div className="flex gap-2">
@@ -315,17 +704,24 @@ export default function ClientDetailPage() {
             ))}
           </div>
         )}
-
-        {tab !== 'notes' && tab !== 'workouts' && (
-          <button
-            type="button"
-            onClick={() => { setTab('notes'); setOpenWorkout(null); }}
-            className="mt-4 flex items-center gap-2 text-neutral-500 hover:text-blue-300"
-          >
-            <MessageSquare size={14} />
-            <span className="text-xs">{t('coaching.switchToNotes')}</span>
-          </button>
+        {client && user && client.id !== user.id && (
+          <div className="mt-8 pt-6 border-t border-neutral-800/80">
+            <button
+              type="button"
+              onClick={() => setRemoveOpen(true)}
+              className="text-xs text-neutral-600 hover:text-rose-400"
+            >
+              {t('coaching.removeClient.action')}
+            </button>
+          </div>
         )}
+        <RemoveClientDialog
+          open={removeOpen}
+          clientName={client ? displayName(client, t('coaching.unnamed')) : ''}
+          removing={removing}
+          onClose={() => setRemoveOpen(false)}
+          onConfirm={handleRemoveClient}
+        />
       </div>
     </PageTransition>
   );

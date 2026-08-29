@@ -1,4 +1,4 @@
-import type { AiPlanDraft, AiProgramDayDraft, CoachIntervention, CoachInterventionKind } from './types';
+import type { AiPlanDraft, AiProgramDayDraft, CoachIntervention, CoachInterventionKind, ProgramExercisePatch } from './types';
 
 export type { CoachIntervention, CoachInterventionKind };
 
@@ -46,10 +46,40 @@ export function parseProgramDays(value: unknown): AiProgramDayDraft[] {
           name: asString(ex.name, ''),
           default_sets: Math.max(1, Math.round(asNumber(ex.default_sets, 3))),
           default_reps: Math.max(1, Math.round(asNumber(ex.default_reps, 10))),
+          default_reps_min: ex.default_reps_min == null ? null : Math.max(1, Math.round(asNumber(ex.default_reps_min, 0))) || null,
+          default_rir: ex.default_rir == null || ex.default_rir === '' ? null : asNumber(ex.default_rir, 0),
+          default_rest_seconds: ex.default_rest_seconds == null ? 90 : Math.max(0, Math.round(asNumber(ex.default_rest_seconds, 90))),
         };
       }),
     };
   });
+}
+
+export function parseProgramPatch(payload: unknown): ProgramExercisePatch | null {
+  const root = asRecord(payload);
+  if (!root) return null;
+  const src = asRecord(root.patch) ?? root;
+  const exercise = asString(src.exercise || src.name, '');
+  if (!exercise) return null;
+  if (
+    src.default_sets == null
+    && src.default_reps == null
+    && src.default_reps_min == null
+    && src.default_rir == null
+    && src.replace_with == null
+  ) {
+    return null;
+  }
+  return {
+    exercise,
+    weekday: src.weekday == null ? null : Math.min(6, Math.max(0, Math.round(asNumber(src.weekday, 0)))),
+    default_sets: src.default_sets == null ? undefined : Math.max(1, Math.round(asNumber(src.default_sets, 3))),
+    default_reps: src.default_reps == null ? undefined : Math.max(1, Math.round(asNumber(src.default_reps, 10))),
+    default_reps_min: src.default_reps_min == null ? null : Math.max(1, Math.round(asNumber(src.default_reps_min, 0))) || null,
+    default_rir: src.default_rir == null ? null : asNumber(src.default_rir, 0),
+    default_rest_seconds: src.default_rest_seconds == null ? undefined : Math.max(0, Math.round(asNumber(src.default_rest_seconds, 90))),
+    replace_with: asString(src.replace_with, '') || undefined,
+  };
 }
 
 export function parseProgramOutline(payload: unknown): ProgramOutlineDraft | null {
@@ -114,11 +144,12 @@ export function parseCalorieDraft(payload: unknown): CalorieDraft | null {
   const root = asRecord(payload);
   if (!root) return null;
   const src = asRecord(root.nutrition) ?? root;
-  if (src.calories == null && src.protein == null && src.carbs == null && src.fat == null) {
+  const calories = src.calories ?? src.suggested_calories;
+  if (calories == null && src.protein == null && src.carbs == null && src.fat == null) {
     return null;
   }
   return {
-    calories: Math.round(asNumber(src.calories, 0)),
+    calories: Math.round(asNumber(calories, 0)),
     protein: Math.round(asNumber(src.protein, 0)),
     carbs: Math.round(asNumber(src.carbs, 0)),
     fat: Math.round(asNumber(src.fat, 0)),
@@ -161,6 +192,14 @@ export function interventionHref(row: Pick<CoachIntervention, 'kind' | 'client_i
   return `/inbox/${row.id}`;
 }
 
+/** À approuver calorie draft = coaching pass on Progression, not the editor. */
+export function coachingPassHref(row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id'>): string {
+  if (row.kind === 'calorie_adjustment' && row.client_id) {
+    return `/clients/${row.client_id}?tab=progress`;
+  }
+  return interventionHref(row);
+}
+
 const KINDS: CoachInterventionKind[] = [
   'onboarding_plan',
   'calorie_adjustment',
@@ -170,6 +209,8 @@ const KINDS: CoachInterventionKind[] = [
   'workflow_improvement',
   'new_question',
   'other',
+  'ask_prometheus',
+  'program_nl_edit',
 ];
 
 export function isCoachInterventionKind(value: string): value is CoachInterventionKind {
@@ -202,6 +243,8 @@ export function mapInterventionRow(raw: Record<string, unknown>): CoachIntervent
 }
 
 export function payloadSummary(row: CoachIntervention): string {
+  if (row.payload?.drafting === true) return '';
+  if (typeof row.payload?.error === 'string' && row.payload.error) return '';
   if (row.kind === 'calorie_adjustment') {
     const cals = parseCalorieDraft(row.payload);
     if (!cals) return row.title || '';

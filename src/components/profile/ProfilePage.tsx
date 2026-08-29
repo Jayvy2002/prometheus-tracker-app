@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe, Scale, CalendarDays, BarChart2, ChefHat, ClipboardCheck, Users, CalendarRange } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, Activity, MessageSquare, Bell, Trash2, Globe, Scale, CalendarDays, BarChart2, ChefHat, ClipboardCheck, Users, CalendarRange, Camera, SlidersHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -19,8 +19,9 @@ import PasswordForm from './PasswordForm';
 import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
+import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
 
-type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language';
+type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
 
 interface AccordionSectionProps {
   id: Section;
@@ -131,6 +132,12 @@ export default function ProfilePage() {
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
+        {coachingRole === 'coach' && (
+        <AccordionSection id="coachPrefs" icon={SlidersHorizontal} label={t('coaching.settings.title')} isOpen={openSection === 'coachPrefs'} onToggle={() => toggle('coachPrefs')} animationDelay="90ms">
+          <CoachSettingsPanel />
+        </AccordionSection>
+        )}
+
         {coachingRole !== 'coach' && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           <GoalsForm onBack={() => setOpenSection(null)} inline />
@@ -189,6 +196,8 @@ export default function ProfilePage() {
                 { to: '/clients', icon: Users, label: t('nav.clients') },
               ]
             : [
+                { to: '/messages', icon: MessageSquare, label: t('nav.messages') },
+                { to: '/photos', icon: Camera, label: t('coaching.photos.title') },
                 { to: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
                 { to: '/weight', icon: Scale, label: t('nav.weight') },
                 { to: '/calendar', icon: CalendarDays, label: t('nav.calendar') },

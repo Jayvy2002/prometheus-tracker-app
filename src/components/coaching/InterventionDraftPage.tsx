@@ -9,11 +9,28 @@ import {
   parseCalorieDraft,
   parseOnboardingPlanDraft,
   parseProgramOutline,
+  parseProgramPatch,
   parseTalkingPoints,
   parseWorkflowSuggestion,
 } from '../../lib/coachInterventions';
-import type { AiProgramDayDraft, CoachIntervention } from '../../lib/types';
+import { templateKeyForAdherence } from '../../lib/coachQueue';
+import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
+import {
+  canSendProgramToClient,
+  clientWillSeeSummary,
+  editedProgramPayload,
+  isProgramSendKind,
+  outlineBeforeAfter,
+  patchBeforeAfter,
+  type EditedProgramDraft,
+} from '../../lib/coachDraftSend';
+import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, ProgramExercisePatch } from '../../lib/types';
+import { useProgramStore } from '../../stores/programStore';
+import { formatPrescription } from '../../lib/programNl';
+import { todayStr } from '../../lib/utils';
 import ProgramDraftEditor from './ProgramDraftEditor';
+import NudgeComposeModal from './NudgeComposeModal';
+import SecondDraftingCard from './SecondDraftingCard';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -36,7 +53,9 @@ export default function InterventionDraftPage() {
   const {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
+    sendCoachMessage, coachSettings, fetchCoachSettings, pendingInterventions, askSecond,
   } = useCoachingStore();
+  const { fetchMyAssignment, assignment, applyExercisePatch } = useProgramStore();
 
   const [row, setRow] = useState<CoachIntervention | null>(null);
   const [loading, setLoading] = useState(true);
@@ -51,40 +70,62 @@ export default function InterventionDraftPage() {
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
   const [tracking, setTracking] = useState(EMPTY_TRACKING);
   const [notes, setNotes] = useState('');
+  const [patch, setPatch] = useState<ProgramExercisePatch | null>(null);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   const clientId = id || row?.client_id || null;
   const client = clients.find(c => c.id === (id || row?.client_id || ''));
 
   useEffect(() => {
+    if (clientId) fetchMyAssignment(clientId);
+  }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const hydrate = (found: CoachIntervention) => {
+    const cals = parseCalorieDraft(found.payload);
+    if (cals) {
+      setCalories(cals.calories);
+      setProtein(cals.protein);
+      setCarbs(cals.carbs);
+      setFat(cals.fat);
+    }
+    const outline = parseProgramOutline(found.payload) ?? parseOnboardingPlanDraft(found.payload)?.program;
+    if (outline) {
+      setProgramName(outline.name);
+      setProgramDesc(outline.description);
+      setProgramWeeks(outline.duration_weeks);
+      setDays(outline.days);
+    }
+    const foundPatch = parseProgramPatch(found.payload);
+    if (foundPatch) setPatch(foundPatch);
+    const tr = parseOnboardingPlanDraft(found.payload)?.tracking;
+    if (tr) setTracking(tr);
+    setNotes(
+      isCoachOnlyKind(found.kind)
+        ? parseWorkflowSuggestion(found.payload, found.rationale)
+        : parseTalkingPoints(found.payload, found.rationale),
+    );
+  };
+
+  useEffect(() => {
     if (!interventionId) return;
     if (!clients.length) fetchClients();
+    fetchCoachSettings();
+    if (id) fetchMyAssignment(id);
     setLoading(true);
     fetchIntervention(interventionId).then(found => {
       setRow(found);
-      if (!found) return;
-      const cals = parseCalorieDraft(found.payload);
-      if (cals) {
-        setCalories(cals.calories);
-        setProtein(cals.protein);
-        setCarbs(cals.carbs);
-        setFat(cals.fat);
-      }
-      const outline = parseProgramOutline(found.payload) ?? parseOnboardingPlanDraft(found.payload)?.program;
-      if (outline) {
-        setProgramName(outline.name);
-        setProgramDesc(outline.description);
-        setProgramWeeks(outline.duration_weeks);
-        setDays(outline.days);
-      }
-      const tr = parseOnboardingPlanDraft(found.payload)?.tracking;
-      if (tr) setTracking(tr);
-      setNotes(
-        isCoachOnlyKind(found.kind)
-          ? parseWorkflowSuggestion(found.payload, found.rationale)
-          : parseTalkingPoints(found.payload, found.rationale),
-      );
+      if (found && isInterventionReady(found)) hydrate(found);
     }).finally(() => setLoading(false));
   }, [interventionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const live = pendingInterventions.find(r => r.id === interventionId) ?? row;
+
+  useEffect(() => {
+    if (!live) return;
+    setRow(live);
+    if (isInterventionReady(live)) hydrate(live);
+  }, [live?.id, live?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const goBack = () => {
     if (id) navigate(`/clients/${id}`);
@@ -137,7 +178,20 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    const noteOnly = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other';
+    const noteOnly = row.kind === 'other';
+    const edited: EditedProgramDraft = {
+      programName,
+      programDesc,
+      programWeeks,
+      days,
+      patch,
+    };
+    if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnly) {
+      setSaving(false);
+      toast(t('coaching.draftSend.empty'), 'error');
+      return;
+    }
+    const sentPayload = editedProgramPayload(row.payload, edited);
 
     if (row.kind === 'calorie_adjustment') {
       const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
@@ -148,7 +202,7 @@ export default function InterventionDraftPage() {
       }
     }
 
-    if (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan') {
+    if (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') {
       if (row.kind === 'onboarding_plan') {
         const trackResult = await saveTrackingConfig(targetClientId, {
           ...tracking,
@@ -160,7 +214,37 @@ export default function InterventionDraftPage() {
           return;
         }
       }
-      if (programName.trim() && days.length > 0) {
+      if (patch) {
+        if (!assignment?.program_id) {
+          if (notes.trim()) {
+            const noteResult = await addNote(targetClientId, notes.trim());
+            if (noteResult.error) {
+              setSaving(false);
+              toast(noteResult.error, 'error');
+              return;
+            }
+          }
+          const resolved = await resolveIntervention(row.id, 'kept', {
+            ...sentPayload,
+            patch,
+            suggestion: notes.trim(),
+          });
+          setSaving(false);
+          if (resolved.error) {
+            toast(resolved.error, 'error');
+            return;
+          }
+          toast(t('coaching.workspace.patchNoProgram'), 'info');
+          navigate(`/clients/${targetClientId}`);
+          return;
+        }
+        const patched = await applyExercisePatch(assignment.program_id, patch);
+        if (patched.error) {
+          setSaving(false);
+          toast(patched.error, 'error');
+          return;
+        }
+      } else if (programName.trim() && days.length > 0) {
         const created = await applyProgramOutline(targetClientId, {
           name: programName,
           description: programDesc,
@@ -198,13 +282,46 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    const resolved = await resolveIntervention(row.id, 'sent');
+    const resolved = await resolveIntervention(row.id, 'sent', sentPayload);
     setSaving(false);
     if (resolved.error) {
       toast(resolved.error, 'error');
       return;
     }
     toast(t('coaching.interventions.sent'));
+    navigate(`/clients/${targetClientId}`);
+  };
+
+  const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
+    if (!row || !user || saving) return;
+    const targetClientId = id || row.client_id;
+    if (!targetClientId) return;
+    setSaving(true);
+    const sent = await sendCoachMessage(targetClientId, body, opts?.templateKey ?? templateKeyForAdherence(row.kind));
+    if (sent.error) {
+      setSaving(false);
+      toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
+      return;
+    }
+    if (opts?.saveNote) {
+      const noteResult = await addNote(targetClientId, notes.trim() || body, { noteDate: todayStr() });
+      if (noteResult.error) {
+        setSaving(false);
+        toast(noteResult.error, 'error');
+        return;
+      }
+    }
+    const resolved = await resolveIntervention(row.id, 'sent', {
+      ...row.payload,
+      suggestion: notes.trim(),
+    });
+    setSaving(false);
+    if (resolved.error) {
+      toast(resolved.error, 'error');
+      return;
+    }
+    toast(t('coaching.queue.sent'));
+    setComposeOpen(false);
     navigate(`/clients/${targetClientId}`);
   };
 
@@ -233,17 +350,63 @@ export default function InterventionDraftPage() {
     );
   }
 
-  const showProgram = row.kind === 'program_adjustment' || row.kind === 'onboarding_plan';
+  if (isInterventionDrafting(row) || interventionDraftError(row)) {
+    return (
+      <PageTransition>
+        <div className="px-4 pt-6 pb-28">
+          <button onClick={goBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
+            <ArrowLeft size={18} /> {t('coaching.ops.title')}
+          </button>
+          <SecondDraftingCard
+            row={row}
+            retrying={retrying}
+            onRetry={interventionDraftError(row) ? async () => {
+              if (!row.rationale && typeof row.payload.prompt !== 'string') return;
+              setRetrying(true);
+              const kind = row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus'
+                ? row.kind
+                : 'ask_prometheus';
+              await askSecond({
+                kind,
+                clientId: row.client_id,
+                programId: typeof row.payload.program_id === 'string' ? row.payload.program_id : null,
+                prompt: typeof row.payload.prompt === 'string' ? row.payload.prompt : row.rationale,
+                screen: typeof row.payload.screen === 'string' ? row.payload.screen : 'inbox',
+              });
+              setRetrying(false);
+            } : undefined}
+          />
+        </div>
+      </PageTransition>
+    );
+  }
+
+  const showProgram = (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') && !patch;
+  const showPatch = (row.kind === 'program_adjustment' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') && !!patch;
   const showCalories = row.kind === 'calorie_adjustment';
   const showTracking = row.kind === 'onboarding_plan';
   const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
-    || row.kind === 'other' || isCoachOnlyKind(row.kind);
-  const noteOnly = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training' || row.kind === 'other';
-  const primaryLabel = isCoachOnlyKind(row.kind)
-    ? t('coaching.interventions.keep')
-    : noteOnly
-      ? t('coaching.interventions.saveNote')
-      : t('coaching.interventions.send');
+    || row.kind === 'other' || row.kind === 'ask_prometheus' || isCoachOnlyKind(row.kind);
+  const isAdherenceKind = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training';
+  const noteOnly = row.kind === 'other';
+  const patchWithoutProgram = showPatch && !assignment?.program_id;
+  const edited: EditedProgramDraft = {
+    programName,
+    programDesc,
+    programWeeks,
+    days,
+    patch,
+  };
+  const patchPreview = patch ? patchBeforeAfter(assignment?.program, patch) : null;
+  const outlinePreview = showProgram ? outlineBeforeAfter(assignment?.program, edited) : null;
+  const willSee = isProgramSendKind(row.kind) ? clientWillSeeSummary(edited, assignment?.program) : '';
+  const primaryLabel = isAdherenceKind
+    ? t('coaching.queue.relance')
+    : isCoachOnlyKind(row.kind) || patchWithoutProgram
+      ? t('coaching.interventions.keep')
+      : noteOnly
+        ? t('coaching.interventions.saveNote')
+        : t('coaching.interventions.send');
 
   return (
     <PageTransition>
@@ -271,6 +434,38 @@ export default function InterventionDraftPage() {
         <p className="text-xs text-neutral-500 mb-4">
           {isCoachOnlyKind(row.kind) ? t('coaching.interventions.coachOnlyHint') : t('coaching.interventions.editHint')}
         </p>
+        {(patchPreview || outlinePreview) && (
+          <Card className="mb-4 border-blue-500/20">
+            <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-2">{t('coaching.draftSend.compare')}</p>
+            {patchPreview && (
+              <p className="text-sm text-neutral-200">
+                {patchPreview.exercise}
+                {' · '}
+                <span className="text-neutral-500">{t('coaching.draftSend.before')}</span>
+                {' '}
+                {patchPreview.before}
+                {' → '}
+                <span className="text-neutral-500">{t('coaching.draftSend.after')}</span>
+                {' '}
+                {patchPreview.after}
+              </p>
+            )}
+            {outlinePreview && (
+              <p className="text-sm text-neutral-200">
+                <span className="text-neutral-500">{t('coaching.draftSend.before')}</span>
+                {' '}
+                {outlinePreview.before}
+                {' → '}
+                <span className="text-neutral-500">{t('coaching.draftSend.after')}</span>
+                {' '}
+                {outlinePreview.after}
+              </p>
+            )}
+            {willSee ? (
+              <p className="text-[11px] text-neutral-500 mt-2">{t('coaching.draftSend.clientWillSee', { summary: willSee })}</p>
+            ) : null}
+          </Card>
+        )}
 
         {showTracking && (
           <Card className="mb-4 space-y-2">
@@ -299,6 +494,57 @@ export default function InterventionDraftPage() {
           </Card>
         )}
 
+        {showPatch && patch && (
+          <Card className="mb-4 space-y-3">
+            <p className="text-sm font-medium text-white">{t('coaching.workspace.patchTitle')}</p>
+            <p className="text-xs text-neutral-400">{patch.exercise}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                label={t('coaching.interventions.sets')}
+                type="number"
+                value={patch.default_sets ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_sets: Math.max(1, +e.target.value || 1) } : p)}
+              />
+              <Input
+                label={t('coaching.interventions.reps')}
+                type="number"
+                value={patch.default_reps ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_reps: Math.max(1, +e.target.value || 1) } : p)}
+              />
+              <Input
+                label={t('coaching.programEditor.repMin')}
+                type="number"
+                value={patch.default_reps_min ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_reps_min: e.target.value === '' ? null : +e.target.value } : p)}
+              />
+              <Input
+                label="RIR"
+                type="number"
+                value={patch.default_rir ?? ''}
+                onChange={e => setPatch(p => p ? { ...p, default_rir: e.target.value === '' ? null : +e.target.value } : p)}
+              />
+            </div>
+            <Input
+              label={t('coaching.workspace.replaceWith')}
+              value={patch.replace_with ?? ''}
+              onChange={e => setPatch(p => p ? { ...p, replace_with: e.target.value } : p)}
+            />
+            <p className="text-[11px] text-neutral-500">
+              {formatPrescription({
+                name: patch.exercise,
+                default_sets: patch.default_sets ?? 3,
+                default_reps: patch.default_reps ?? 10,
+                default_reps_min: patch.default_reps_min,
+                default_rir: patch.default_rir,
+              })}
+            </p>
+            <p className="text-[11px] text-neutral-600">{t('coaching.workspace.proposalHint')}</p>
+            {!assignment?.program_id && (
+              <p className="text-[11px] text-amber-300">{t('coaching.workspace.patchNoProgram')}</p>
+            )}
+          </Card>
+        )}
+
         {showProgram && (
           <Card className="mb-4">
             <p className="text-sm font-medium text-white mb-3">{t('coaching.setup.program')}</p>
@@ -307,6 +553,7 @@ export default function InterventionDraftPage() {
               description={programDesc}
               durationWeeks={programWeeks}
               days={days}
+              clientId={clientId}
               onNameChange={setProgramName}
               onDescriptionChange={setProgramDesc}
               onWeeksChange={setProgramWeeks}
@@ -341,12 +588,30 @@ export default function InterventionDraftPage() {
           </Card>
         )}
 
-        <Button onClick={handleSend} loading={saving} className="w-full">
+        <Button
+          onClick={() => {
+            if (isAdherenceKind) setComposeOpen(true);
+            else void handleSend();
+          }}
+          loading={saving}
+          className="w-full"
+        >
           {primaryLabel}
         </Button>
         <button onClick={handleDismiss} className="w-full mt-3 text-sm text-neutral-500 hover:text-rose-300">
           {t('coaching.interventions.dismiss')}
         </button>
+        <NudgeComposeModal
+          open={composeOpen}
+          clientName={client?.full_name || client?.email || ''}
+          templateKey={templateKeyForAdherence(row.kind)}
+          sending={saving}
+          showTemplatePicker
+          showSaveNote
+          templates={coachSettings?.nudge_templates}
+          onClose={() => setComposeOpen(false)}
+          onSend={handleRelance}
+        />
       </div>
     </PageTransition>
   );

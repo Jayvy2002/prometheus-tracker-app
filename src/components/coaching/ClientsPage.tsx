@@ -1,26 +1,41 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Copy, Link2, Users, ChevronRight, Plus } from 'lucide-react';
+import { Copy, Link2, Users, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
+import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
+import { lastMessageForClient } from '../../lib/coachQueue';
+import { liftsForClient } from '../../lib/coachLifts';
+import { sparklineValues } from '../../lib/coachProgress';
+import { weekMovedLift } from '../../lib/coachTraining';
+import { displayName } from '../../lib/coachText';
+import { todayStr } from '../../lib/utils';
+import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import Sparkline from '../ui/Sparkline';
 import { toast } from '../ui/Toast';
+import RemoveClientDialog from './RemoveClientDialog';
 
 export default function ClientsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, invites, loading, opsRows,
-    fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, createInvite, revokeInvite, enableCoachMode,
+    coachingRole, clients, invites, loading, opsRows, priorities, rosterSignals, sentMessages,
+    fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, fetchCoachMessages, createInvite, revokeInvite, enableCoachMode,
+    endClientLink,
   } = useCoachingStore();
+  const [searchParams] = useSearchParams();
+  const rosterFilter = searchParams.get('filter');
   const [creating, setCreating] = useState(false);
   const [maxUses, setMaxUses] = useState(1);
   const [copied, setCopied] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<CoachClientSummary | null>(null);
+  const [removing, setRemoving] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -28,6 +43,7 @@ export default function ClientsPage() {
       fetchClients();
       fetchInvites();
       fetchCoachOps();
+      fetchCoachMessages();
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -69,6 +85,24 @@ export default function ClientsPage() {
     }
   };
 
+  const handleRemoveClient = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    const result = await endClientLink(removeTarget.id);
+    setRemoving(false);
+    if (result.error) {
+      toast(
+        result.error === 'cannot_end_self'
+          ? t('coaching.removeClient.cannotSelf')
+          : t('coaching.removeClient.error'),
+        'error',
+      );
+      return;
+    }
+    toast(t('coaching.removeClient.removed', { name: displayName(removeTarget, t('coaching.unnamed')) }));
+    setRemoveTarget(null);
+  };
+
   if (coachingRole !== 'coach') {
     return (
       <PageTransition>
@@ -86,12 +120,31 @@ export default function ClientsPage() {
   }
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
+  const rosterKey = (rosterFilter === 'pain' || rosterFilter === 'stalled' || rosterFilter === 'adherence'
+    || rosterFilter === 'missed' || rosterFilter === 'weight' || rosterFilter === 'checkin')
+    ? rosterFilter as CoachAskFilter
+    : null;
+  const filteredIds = rosterKey
+    ? new Set(rosterHitsForFilter(rosterKey, opsRows, priorities, rosterSignals).map(h => h.clientId))
+    : null;
+  const visibleClients = filteredIds ? clients.filter(c => filteredIds.has(c.id)) : clients;
 
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">{t('coaching.clientsTitle')}</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-white">{t('coaching.clientsTitle')}</h1>
+            {rosterFilter && (
+              <p className="text-xs text-blue-300 mt-1">
+                {t('coaching.ask.filterActive', { filter: rosterFilter, n: visibleClients.length })}
+                {' · '}
+                <button type="button" className="underline" onClick={() => navigate('/clients')}>
+                  {t('coaching.ask.clearFilter')}
+                </button>
+              </p>
+            )}
+          </div>
           <Button size="sm" variant="secondary" onClick={() => navigate('/programs')}>
             {t('programs.title')}
           </Button>
@@ -148,11 +201,18 @@ export default function ClientsPage() {
             <Users className="mx-auto mb-3 text-neutral-600" size={28} />
             <p className="text-neutral-400">{t('coaching.noClients')}</p>
           </Card>
+        ) : visibleClients.length === 0 ? (
+          <Card className="text-center py-10">
+            <p className="text-neutral-400">{t('coaching.ask.roster.empty')}</p>
+          </Card>
         ) : (
           <div className="space-y-2">
-            {clients.map(c => {
+            {visibleClients.map(c => {
               const ops = opsRows.find(r => r.client.id === c.id);
               const forceSetup = ops ? shouldOpenSetup(ops) : !c.onboarding_completed;
+              const lastMessage = lastMessageForClient(sentMessages, c.id);
+              const moved = weekMovedLift(liftsForClient(rosterSignals.lifts, c.id), todayStr());
+              const movedSpark = moved ? sparklineValues(moved, 'topSet') : [];
               return (
               <Card
                 key={c.id}
@@ -176,8 +236,19 @@ export default function ClientsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-500 truncate">{c.email}</p>
+                  <p className="text-xs text-neutral-500 truncate">
+                    {lastMessage?.body || c.email}
+                  </p>
                 </div>
+                {moved && movedSpark.length >= 2 && (
+                  <div className="shrink-0 text-right max-w-[96px]">
+                    <p className="text-[10px] text-neutral-500 truncate">{moved.displayName}</p>
+                    <div className="flex items-center gap-1 justify-end">
+                      <span className="text-[10px] text-neutral-400">{moved.sessions[0]?.bestSet}</span>
+                      <Sparkline values={movedSpark} width={56} height={20} />
+                    </div>
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={e => {
@@ -188,6 +259,19 @@ export default function ClientsPage() {
                 >
                   {t('coaching.setupCta')}
                 </button>
+                {user && c.id !== user.id && (
+                  <button
+                    type="button"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setRemoveTarget(c);
+                    }}
+                    className="p-1.5 text-neutral-600 hover:text-rose-400 shrink-0"
+                    aria-label={t('coaching.removeClient.action')}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={e => {
@@ -205,6 +289,13 @@ export default function ClientsPage() {
           </div>
         )}
       </div>
+      <RemoveClientDialog
+        open={!!removeTarget}
+        clientName={removeTarget ? displayName(removeTarget, t('coaching.unnamed')) : ''}
+        removing={removing}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={handleRemoveClient}
+      />
     </PageTransition>
   );
 }

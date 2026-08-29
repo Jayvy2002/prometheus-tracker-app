@@ -97,7 +97,7 @@ export default function ProgramsPage() {
       <div className="px-4 pt-6 pb-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">{t('programs.title')}</h1>
-          <Button size="sm" onClick={() => setShowForm(true)}>
+          <Button size="sm" onClick={() => coachingRole === 'coach' ? navigate('/programs/new') : setShowForm(true)}>
             <Plus size={16} /> {t('common.new')}
           </Button>
         </div>
@@ -110,12 +110,12 @@ export default function ProgramsPage() {
           <Card className="text-center py-10">
             <CalendarRange className="mx-auto mb-3 text-neutral-600" size={28} />
             <p className="text-neutral-400 mb-4">{t('programs.empty')}</p>
-            <Button size="sm" onClick={() => setShowForm(true)}>{t('programs.createFirst')}</Button>
+            <Button size="sm" onClick={() => coachingRole === 'coach' ? navigate('/programs/new') : setShowForm(true)}>{t('programs.createFirst')}</Button>
           </Card>
         ) : (
           <div className="space-y-3">
             {programs.map(p => (
-              <Card key={p.id}>
+              <Card key={p.id} onClick={coachingRole === 'coach' ? () => navigate(`/programs/${p.id}`) : undefined}>
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white">{p.name}</p>
@@ -128,12 +128,12 @@ export default function ProgramsPage() {
                       ))}
                     </div>
                   </div>
-                  <button onClick={() => deleteProgram(p.id)} className="p-1.5 text-neutral-600 hover:text-rose-400">
+                  <button onClick={e => { e.stopPropagation(); deleteProgram(p.id); }} className="p-1.5 text-neutral-600 hover:text-rose-400">
                     <Trash2 size={14} />
                   </button>
                 </div>
                 {coachingRole === 'coach' && clients.length > 0 && (
-                  <Button size="sm" variant="secondary" className="w-full mt-3" onClick={() => { setAssigningId(p.id); setAssignClient(clients[0].id); }}>
+                  <Button size="sm" variant="secondary" className="w-full mt-3" onClick={e => { e.stopPropagation(); setAssigningId(p.id); setAssignClient(clients[0].id); }}>
                     {t('programs.assign')}
                   </Button>
                 )}

@@ -13,6 +13,8 @@ const TAB_ORDER: Record<string, number> = {
   '/checkin': 2,
   '/clients': 1,
   '/programs': 2,
+  '/messages': 3,
+  '/prometheus': 4,
   '/nutrition': 3,
   '/profile': 4,
 };
