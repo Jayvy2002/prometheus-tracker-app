@@ -7,13 +7,12 @@ import {
   Link2,
   Plus,
   Search,
-  Sparkles,
   Users,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { coachingPassHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
-import { interventionLiveLabel } from '../../lib/coachSecond';
+import { coachingPassHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
+import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import { checkinReviewRows } from '../../lib/coachCheckins';
 import { nutritionStallReviewRows } from '../../lib/coachNutrition';
 import { sessionReviewRows } from '../../lib/coachLastSession';
@@ -23,6 +22,7 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import CoachTodayQueue from './CoachTodayQueue';
+import InterventionInboxCard from './InterventionInboxCard';
 
 function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'amber' | 'rose' | 'blue' | 'white' }) {
   const color = tone === 'amber' ? 'text-amber-300'
@@ -44,10 +44,12 @@ export default function CoachDashboard() {
   const {
     opsRows, opsLoading, invites, pendingInterventions, clients, priorities,
     fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings, coachSettings,
-    rosterSignals,
+    rosterSignals, runFleetRound, fleetRunning, sendCoachMessage, resolveIntervention,
+    setClientNutritionTargets,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const [sendingId, setSendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -93,6 +95,67 @@ export default function CoachDashboard() {
     await copyUrl(result.token);
   };
 
+  const handleFleet = async () => {
+    const result = await runFleetRound();
+    if (result.error) {
+      toast(t('coaching.fleet.failed'), 'error');
+      return;
+    }
+    toast(t('coaching.fleet.done', {
+      flagged: result.clients_flagged ?? 0,
+      skipped: result.clients_skipped ?? 0,
+    }));
+  };
+
+  const handleSendCard = async (item: typeof pendingInterventions[number]) => {
+    if (!item.client_id) {
+      navigate(coachingPassHref(item));
+      return;
+    }
+    setSendingId(item.id);
+    if (isRelanceKind(item.kind)) {
+      const body = parsePreparedMessage(item.payload);
+      const sent = await sendCoachMessage(item.client_id, body, preparedTemplateKey(item.payload, item.kind));
+      if (sent.error) {
+        setSendingId(null);
+        toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
+        return;
+      }
+      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
+      setSendingId(null);
+      if (resolved.error) {
+        toast(resolved.error, 'error');
+        return;
+      }
+      toast(t('coaching.queue.sent'));
+      return;
+    }
+    if (item.kind === 'calorie_adjustment') {
+      const cals = parseCalorieDraft(item.payload);
+      if (!isCompleteCalorieDraft(cals) || !cals) {
+        setSendingId(null);
+        navigate(coachingPassHref(item));
+        return;
+      }
+      const applied = await setClientNutritionTargets(item.client_id, cals);
+      if (applied.error) {
+        setSendingId(null);
+        toast(applied.error, 'error');
+        return;
+      }
+      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
+      setSendingId(null);
+      if (resolved.error) {
+        toast(resolved.error, 'error');
+        return;
+      }
+      toast(t('coaching.interventions.sent'));
+      return;
+    }
+    setSendingId(null);
+    navigate(coachingPassHref(item));
+  };
+
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
@@ -105,6 +168,9 @@ export default function CoachDashboard() {
             <p className="text-sm text-neutral-500 mt-1">{t('coaching.command.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            <Button size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
+              {t('coaching.fleet.run')}
+            </Button>
             <button
               type="button"
               onClick={() => navigate('/prometheus')}
@@ -261,22 +327,14 @@ export default function CoachDashboard() {
                 <div className="space-y-2">
                   {topDrafts.map(item => {
                     const client = clients.find(c => c.id === item.client_id);
-                    const coachOnly = isCoachOnlyKind(item.kind);
                     return (
-                      <Card key={item.id} onClick={() => navigate(coachingPassHref(item))} className="flex items-start gap-3">
-                        <Sparkles size={16} className={`mt-1 shrink-0 ${coachOnly ? 'text-violet-400' : 'text-blue-400'}`} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">
-                            {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
-                          </p>
-                          <p className="text-[11px] text-neutral-500 truncate">
-                            {client?.full_name || client?.email || t('coaching.interventions.appWide')}
-                            {' · '}
-                            {interventionLiveLabel(item, t) || payloadSummary(item)}
-                          </p>
-                        </div>
-                        <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
-                      </Card>
+                      <InterventionInboxCard
+                        key={item.id}
+                        item={item}
+                        clientName={client?.full_name || client?.email || t('coaching.interventions.appWide')}
+                        sending={sendingId === item.id}
+                        onSend={handleSendCard}
+                      />
                     );
                   })}
                 </div>

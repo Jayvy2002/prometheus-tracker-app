@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, ChevronRight, MessageSquare, Sparkles } from 'lucide-react';
+import { ArrowLeft, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import {
@@ -12,12 +12,13 @@ import {
 } from '../../lib/coachQueue';
 import { resolveNudgeBody } from '../../lib/coachSettings';
 import { displayName } from '../../lib/coachText';
-import { coachingPassHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
-import { interventionLiveLabel } from '../../lib/coachSecond';
+import { coachingPassHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
+import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import MessageThread from './MessageThread';
+import InterventionInboxCard from './InterventionInboxCard';
 
 export default function CoachInboxPage() {
   const { t, i18n } = useTranslation();
@@ -27,9 +28,10 @@ export default function CoachInboxPage() {
   const { user } = useAuthStore();
   const {
     fetchCoachOps, fetchCoachMessages, fetchCoachSettings, pendingInterventions, clients, sentMessages,
-    sendCoachMessage, markThreadRead, coachSettings,
+    sendCoachMessage, markThreadRead, coachSettings, resolveIntervention, setClientNutritionTargets,
   } = useCoachingStore();
   const [sending, setSending] = useState(false);
+  const [sendingId, setSendingId] = useState<string | null>(null);
   const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
 
   useEffect(() => {
@@ -72,6 +74,55 @@ export default function CoachInboxPage() {
     }
     toast(t('coaching.queue.sent'));
     if (nudgeKey) navigate(`/messages/${clientId}`, { replace: true });
+  };
+
+  const handleSendCard = async (item: typeof pendingInterventions[number]) => {
+    if (!item.client_id) {
+      navigate(coachingPassHref(item));
+      return;
+    }
+    setSendingId(item.id);
+    if (isRelanceKind(item.kind)) {
+      const body = parsePreparedMessage(item.payload);
+      const sent = await sendCoachMessage(item.client_id, body, preparedTemplateKey(item.payload, item.kind));
+      if (sent.error) {
+        setSendingId(null);
+        toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
+        return;
+      }
+      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
+      setSendingId(null);
+      if (resolved.error) {
+        toast(resolved.error, 'error');
+        return;
+      }
+      toast(t('coaching.queue.sent'));
+      return;
+    }
+    if (item.kind === 'calorie_adjustment') {
+      const cals = parseCalorieDraft(item.payload);
+      if (!isCompleteCalorieDraft(cals) || !cals) {
+        setSendingId(null);
+        navigate(coachingPassHref(item));
+        return;
+      }
+      const applied = await setClientNutritionTargets(item.client_id, cals);
+      if (applied.error) {
+        setSendingId(null);
+        toast(applied.error, 'error');
+        return;
+      }
+      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
+      setSendingId(null);
+      if (resolved.error) {
+        toast(resolved.error, 'error');
+        return;
+      }
+      toast(t('coaching.interventions.sent'));
+      return;
+    }
+    setSendingId(null);
+    navigate(coachingPassHref(item));
   };
 
   if (clientId) {
@@ -125,20 +176,13 @@ export default function CoachInboxPage() {
               {pendingInterventions.map(item => {
                 const client = clients.find(c => c.id === item.client_id);
                 return (
-                  <Card key={item.id} onClick={() => navigate(coachingPassHref(item))} className="flex items-start gap-3">
-                    <Sparkles size={16} className={`mt-1 ${isCoachOnlyKind(item.kind) ? 'text-violet-400' : 'text-blue-400'}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
-                        {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
-                      </p>
-                      <p className="text-[11px] text-neutral-500 truncate">
-                        {client?.full_name || client?.email || t('coaching.interventions.appWide')}
-                        {' · '}
-                        {interventionLiveLabel(item, t) || payloadSummary(item)}
-                      </p>
-                    </div>
-                    <ChevronRight size={16} className="text-neutral-600 mt-1" />
-                  </Card>
+                  <InterventionInboxCard
+                    key={item.id}
+                    item={item}
+                    clientName={client?.full_name || client?.email || t('coaching.interventions.appWide')}
+                    sending={sendingId === item.id}
+                    onSend={handleSendCard}
+                  />
                 );
               })}
             </div>

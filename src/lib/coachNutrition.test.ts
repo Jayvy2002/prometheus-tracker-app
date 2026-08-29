@@ -122,7 +122,7 @@ test('Marc cut + calories trop élevées is a nutrition stall; Sofia ghost is no
     today: TODAY,
   });
   assert.ok(marc);
-  assert.equal(canAskCalorieAdjustment(marc), true);
+  assert.equal(canAskCalorieAdjustment(marc), false);
   assert.ok(marc.avgCalories > 2200 * 1.15);
   assert.ok(marc.weightDeltaKg >= -0.2);
 
@@ -197,7 +197,7 @@ test('Aujourd’hui stall row and File du jour item deep-link to Progression', (
     kind: 'calorie_adjustment',
     title: 'Calories trop élevées — stall cut',
     rationale: '',
-    payload: {},
+    payload: { calories: 2000, protein: 0, carbs: 0, fat: 0 },
     status: 'pending',
     source: 'second',
     created_at: '2026-08-29T00:00:00Z',
@@ -207,16 +207,33 @@ test('Aujourd’hui stall row and File du jour item deep-link to Progression', (
   assert.equal(actionWithDraft.href, '/clients/marc-id?tab=progress');
   assert.equal(actionWithDraft.kind, 'open_360');
 
+  const actionRelance = resolveQueueAction(stall!, [{
+    id: 'draft-marc',
+    coach_id: 'coach',
+    client_id: 'marc-id',
+    kind: 'adherence_nutrition',
+    title: 'Il n’applique pas les 2200',
+    rationale: '',
+    payload: { body: 'Salut Marc, tes logs sont au-dessus des 2200.', notes: 'Salut Marc, tes logs sont au-dessus des 2200.' },
+    status: 'pending',
+    source: 'fleet',
+    created_at: '2026-08-29T00:00:00Z',
+    updated_at: '2026-08-29T00:00:00Z',
+    resolved_at: null,
+  }]);
+  assert.equal(actionRelance.kind, 'open_draft');
+  assert.equal(actionRelance.href, '/clients/marc-id/draft/draft-marc');
+
   const draft: CoachIntervention = {
     id: 'draft-marc',
     coach_id: 'coach',
     client_id: 'marc-id',
-    kind: 'calorie_adjustment',
-    title: 'Calories trop élevées — stall cut',
+    kind: 'adherence_nutrition',
+    title: 'Il n’applique pas les 2200',
     rationale: 'Poids en hausse, logs trop hauts vs cible.',
-    payload: { suggested_calories: 2000, current_calories: 2200 },
+    payload: { body: 'Salut Marc' },
     status: 'pending',
-    source: 'second',
+    source: 'fleet',
     created_at: '2026-08-29T00:00:00Z',
     updated_at: '2026-08-29T00:00:00Z',
     resolved_at: null,
@@ -227,7 +244,7 @@ test('Aujourd’hui stall row and File du jour item deep-link to Progression', (
   assert.equal(rows[0]?.href, '/clients/marc-id?tab=progress');
   assert.equal(rows[0]?.relanceHref, '/messages/marc-id?nudge=general_followup');
   assert.equal(rows[0]?.draftHref, '/clients/marc-id/draft/draft-marc');
-  assert.equal(rows[0]?.title, 'Calories trop élevées — stall cut');
+  assert.equal(rows[0]?.title, 'Il n’applique pas les 2200');
 });
 
 test('File du jour weight item also deep-links to Progression, not overview', () => {

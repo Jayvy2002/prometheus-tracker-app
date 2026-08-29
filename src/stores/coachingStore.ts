@@ -246,6 +246,13 @@ interface CoachingState {
   priorities: CoachPriority[];
   rosterSignals: CoachRosterSignals;
   commandStats: CoachCommandStats;
+  fleetRunning: boolean;
+  lastFleetRound: {
+    clients_seen: number;
+    clients_flagged: number;
+    clients_skipped: number;
+    model_used: string | null;
+  } | null;
   fetchMyRole: (userId: string) => Promise<void>;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
@@ -307,6 +314,13 @@ interface CoachingState {
     screen: string;
     context?: Record<string, unknown>;
   }) => Promise<{ id: string } | { error: string }>;
+  runFleetRound: () => Promise<{
+    error: string | null;
+    clients_seen?: number;
+    clients_flagged?: number;
+    clients_skipped?: number;
+    model_used?: string | null;
+  }>;
   startCoachRealtime: () => Promise<void>;
   stopCoachRealtime: () => void;
   startClientRealtime: () => Promise<void>;
@@ -358,6 +372,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   priorities: [],
   rosterSignals: EMPTY_SIGNALS,
   commandStats: EMPTY_STATS,
+  fleetRunning: false,
+  lastFleetRound: null,
 
   fetchMyRole: async (userId) => {
     try {
@@ -1139,6 +1155,34 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     return { id: row.id };
   },
 
+  runFleetRound: async () => {
+    if (get().fleetRunning) return { error: null };
+    set({ fleetRunning: true });
+    const { data, error } = await supabase.functions.invoke('coach-fleet-round', {
+      body: { trigger: 'on_demand' },
+    });
+    const bodyFromData = (data && typeof data === 'object' && !Array.isArray(data))
+      ? data as Record<string, unknown>
+      : {};
+    const bodyFromError = error ? await functionsErrorBody(error) : {};
+    const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
+    const errCode = typeof body.error === 'string' ? body.error : '';
+    const stats = {
+      clients_seen: Number(body.clients_seen) || 0,
+      clients_flagged: Number(body.clients_flagged) || 0,
+      clients_skipped: Number(body.clients_skipped) || 0,
+      model_used: typeof body.model_used === 'string' ? body.model_used : null,
+    };
+    set({
+      fleetRunning: false,
+      lastFleetRound: stats,
+    });
+    await get().fetchPendingInterventions();
+    if (error && errCode) return { error: errCode, ...stats };
+    if (error && !body.cards) return { error: errCode || 'fleet_failed', ...stats };
+    return { error: null, ...stats };
+  },
+
   startCoachRealtime: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
@@ -1617,6 +1661,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       priorities: [],
       rosterSignals: EMPTY_SIGNALS,
       commandStats: EMPTY_STATS,
+      fleetRunning: false,
+      lastFleetRound: null,
     });
   },
 }));

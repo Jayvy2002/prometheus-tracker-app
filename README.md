@@ -148,6 +148,7 @@ Non-secret build-time variables are committed in `.env.production` and picked up
 |---|---|
 | `GROK_BOT_WEBHOOK_URL` | Second webhook URL (coaching copy only) |
 | `NOTIFY_SECRET` / `GROK_BOT_WEBHOOK_SECRET` | Shared secret for signed Second pings |
+| `XAI_API_KEY` / `GROK_API_KEY` | Optional in-app Grok key for fleet rounds (not Second). Missing key → deterministic Relancer. |
 | `VAPID_PUBLIC_KEY` | VAPID public key (Web Push) |
 | `VAPID_PRIVATE_KEY` | VAPID private key (Web Push) |
 | `VAPID_SUBJECT` | `mailto:you@example.com` |

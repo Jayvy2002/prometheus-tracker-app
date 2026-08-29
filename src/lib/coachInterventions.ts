@@ -156,6 +156,14 @@ export function parseCalorieDraft(payload: unknown): CalorieDraft | null {
   };
 }
 
+export function isCompleteCalorieDraft(draft: CalorieDraft | null | undefined): boolean {
+  if (!draft) return false;
+  if (draft.calories < 800 || draft.calories > 8000) return false;
+  if (draft.protein <= 0 || draft.carbs <= 0 || draft.fat <= 0) return false;
+  const fromMacros = draft.protein * 4 + draft.carbs * 4 + draft.fat * 9;
+  return Math.abs(fromMacros - draft.calories) <= draft.calories * 0.15;
+}
+
 export function parseTalkingPoints(payload: unknown, fallback = ''): string {
   const root = asRecord(payload);
   if (!root) return fallback;
@@ -192,9 +200,9 @@ export function interventionHref(row: Pick<CoachIntervention, 'kind' | 'client_i
   return `/inbox/${row.id}`;
 }
 
-/** À approuver calorie draft = coaching pass on Progression, not the editor. */
-export function coachingPassHref(row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id'>): string {
-  if (row.kind === 'calorie_adjustment' && row.client_id) {
+/** Incomplete 2000/0/0/0 must never open as the first screen. Complete macros → draft. */
+export function coachingPassHref(row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id' | 'payload'>): string {
+  if (row.kind === 'calorie_adjustment' && row.client_id && !isCompleteCalorieDraft(parseCalorieDraft(row.payload))) {
     return `/clients/${row.client_id}?tab=progress`;
   }
   return interventionHref(row);
@@ -245,9 +253,13 @@ export function mapInterventionRow(raw: Record<string, unknown>): CoachIntervent
 export function payloadSummary(row: CoachIntervention): string {
   if (row.payload?.drafting === true) return '';
   if (typeof row.payload?.error === 'string' && row.payload.error) return '';
+  if (typeof row.payload?.observation === 'string' && row.payload.observation.trim()) {
+    return row.payload.observation.split('\n')[0] ?? '';
+  }
   if (row.kind === 'calorie_adjustment') {
     const cals = parseCalorieDraft(row.payload);
     if (!cals) return row.title || '';
+    if (!isCompleteCalorieDraft(cals)) return row.title || '';
     return `${cals.calories} kcal · P${cals.protein} C${cals.carbs} F${cals.fat}`;
   }
   const outline = parseProgramOutline(row.payload);

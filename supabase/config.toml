@@ -9,3 +9,6 @@ verify_jwt = true
 
 [functions.ask-second]
 verify_jwt = true
+
+[functions.coach-fleet-round]
+verify_jwt = false

@@ -14,7 +14,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
 import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { GOALS } from '../../lib/constants';
-import { interventionHref } from '../../lib/coachInterventions';
+import { interventionHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import { flagKindForClient, focusCheckin, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
 import {
@@ -602,10 +602,16 @@ export default function ClientDetailPage() {
             {showNutritionPass && id && (
               <NutritionStallPanel
                 relanceHref={relanceHref}
-                draftHref={calorieDraft ? interventionHref(calorieDraft) : null}
-                canAskSecond={canAskCalories}
+                draftHref={
+                  (id && pendingForClient(pendingInterventions, id, 'adherence_nutrition'))
+                    ? interventionHref(pendingForClient(pendingInterventions, id, 'adherence_nutrition')!)
+                    : (calorieDraft && isCompleteCalorieDraft(parseCalorieDraft(calorieDraft.payload))
+                      ? interventionHref(calorieDraft)
+                      : null)
+                }
+                canAskSecond={false}
                 asking={askingCalories}
-                liveDraft={calorieDraft}
+                liveDraft={pendingForClient(pendingInterventions, id, 'adherence_nutrition') ?? calorieDraft}
                 onAskSecond={() => { void handleAskCalories(); }}
               />
             )}

@@ -1,4 +1,4 @@
-import { interventionHref } from './coachInterventions';
+import { interventionHref, isCompleteCalorieDraft, parseCalorieDraft } from './coachInterventions';
 import { datePrefix } from './coachText';
 import type {
   CoachClientSummary,
@@ -25,10 +25,13 @@ const COMPOSE_KINDS = new Set<CoachPriorityKind>([
 const INTERVENTION_KINDS_FOR_PRIORITY: Partial<Record<CoachPriorityKind, CoachInterventionKind[]>> = {
   stalled_lift: ['calorie_adjustment', 'program_adjustment', 'program_nl_edit', 'ask_prometheus'],
   program_adapt: ['program_adjustment', 'calorie_adjustment', 'program_nl_edit'],
-  weight_off_trajectory: ['calorie_adjustment'],
-  nutrition_stall: ['calorie_adjustment'],
+  weight_off_trajectory: ['adherence_nutrition', 'calorie_adjustment', 'adherence_training'],
+  nutrition_stall: ['adherence_nutrition', 'calorie_adjustment'],
   onboarding_incomplete: ['onboarding_plan'],
   program_unassigned: ['onboarding_plan', 'ask_prometheus'],
+  missed_workout: ['adherence_training'],
+  missed_nutrition: ['adherence_nutrition'],
+  dropped_adherence: ['adherence_training', 'adherence_nutrition'],
 };
 
 const PROGRESS_QUEUE_KINDS = new Set<CoachPriorityKind>([
@@ -58,6 +61,26 @@ export function resolveQueueAction(
   priority: CoachPriority,
   pending: CoachIntervention[],
 ): CoachQueueAction {
+  const match = matchingPendingIntervention(priority, pending);
+  if (match) {
+    const setup = match.kind === 'onboarding_plan';
+    const incompleteCals = match.kind === 'calorie_adjustment'
+      && !isCompleteCalorieDraft(parseCalorieDraft(match.payload));
+    if (incompleteCals) {
+      return {
+        kind: 'open_360',
+        href: priority.href,
+        ctaKey: 'coaching.queue.openFile',
+      };
+    }
+    return {
+      kind: setup ? 'open_setup' : 'open_draft',
+      href: interventionHref(match),
+      interventionId: match.id,
+      ctaKey: setup ? 'coaching.queue.setup' : 'coaching.queue.openDraft',
+    };
+  }
+
   if (PROGRESS_QUEUE_KINDS.has(priority.kind)) {
     return {
       kind: 'open_360',
@@ -79,17 +102,6 @@ export function resolveQueueAction(
       kind: 'open_360',
       href: priority.href,
       ctaKey: 'coaching.queue.openRecovery',
-    };
-  }
-
-  const match = matchingPendingIntervention(priority, pending);
-  if (match) {
-    const setup = match.kind === 'onboarding_plan';
-    return {
-      kind: setup ? 'open_setup' : 'open_draft',
-      href: interventionHref(match),
-      interventionId: match.id,
-      ctaKey: setup ? 'coaching.queue.setup' : 'coaching.queue.openDraft',
     };
   }
 
