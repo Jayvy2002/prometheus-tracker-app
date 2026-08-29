@@ -28,9 +28,11 @@ function StatusPill({ status }: { status: CheckinSummary['globalStatus'] }) {
 export default function CheckinSummaryCard({
   summary,
   onSeeAnswers,
+  hideSeeAnswers,
 }: {
   summary: CheckinSummary;
-  onSeeAnswers: () => void;
+  onSeeAnswers?: () => void;
+  hideSeeAnswers?: boolean;
 }) {
   const { t } = useTranslation();
   if (!summary.latest) {
@@ -67,9 +69,11 @@ export default function CheckinSummaryCard({
           </div>
         ))}
       </div>
-      <button type="button" onClick={onSeeAnswers} className="text-xs text-blue-400 hover:text-blue-300">
-        {t('coaching.checkin.seeAnswers')}
-      </button>
+      {!hideSeeAnswers && onSeeAnswers ? (
+        <button type="button" onClick={onSeeAnswers} className="text-xs text-blue-400 hover:text-blue-300">
+          {t('coaching.checkin.seeAnswers')}
+        </button>
+      ) : null}
     </Card>
   );
 }

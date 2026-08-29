@@ -1,4 +1,5 @@
 import { needsSetup } from './coachAlerts';
+import { checkinFocusHref, checkinReviewRows } from './coachCheckins';
 import { displayName } from './coachText';
 import { liftsForClient } from './coachLifts';
 import type {
@@ -25,6 +26,15 @@ function checkinsFor(signals: CoachRosterSignals, clientId: string): DailyChecki
   return signals.checkins
     .filter(c => c.user_id === clientId)
     .sort((a, b) => b.checked_at.localeCompare(a.checked_at));
+}
+
+function withCheckin(priority: CoachPriority, checkin: DailyCheckin | null): CoachPriority {
+  if (!checkin) return { ...priority, href: checkinFocusHref(priority.clientId) };
+  return {
+    ...priority,
+    checkinId: checkin.id,
+    href: checkinFocusHref(priority.clientId, checkin.id),
+  };
 }
 
 function weightsFor(signals: CoachRosterSignals, clientId: string): WeightMeasurement[] {
@@ -154,9 +164,9 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
 
     if (latest) {
       const pain = painPriority(row.client.id, name, row.client.avatar_url, latest, prev);
-      if (pain) items.push(pain);
+      if (pain) items.push(withCheckin(pain, latest));
       const adh = adherencePriority(row.client.id, name, row.client.avatar_url, latest, prev);
-      if (adh) items.push(adh);
+      if (adh) items.push(withCheckin(adh, latest));
     }
 
     items.push(...stallPriority(row, signals.lifts));
@@ -176,7 +186,10 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
       items.push(fromAlert(row, 'missing_workout_today', 'missed_workout', 'yellow', 'training'));
     }
     if (row.alerts.includes('missing_checkin')) {
-      items.push(fromAlert(row, 'missing_checkin', 'missed_checkin', 'yellow', 'checkins'));
+      items.push(withCheckin(
+        fromAlert(row, 'missing_checkin', 'missed_checkin', 'yellow', 'checkins'),
+        latest,
+      ));
     }
     if (row.alerts.includes('missing_nutrition')) {
       items.push(fromAlert(row, 'missing_nutrition', 'missed_nutrition', 'yellow', 'overview'));
@@ -209,12 +222,16 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
     .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.clientName.localeCompare(b.clientName));
 }
 
-export function commandStats(opsRows: ClientOpsRow[], priorities: CoachPriority[]): CoachCommandStats {
+export function commandStats(
+  opsRows: ClientOpsRow[],
+  priorities: CoachPriority[],
+  signals: CoachRosterSignals,
+): CoachCommandStats {
   const attentionIds = new Set(priorities.map(p => p.clientId));
   return {
     activeClients: opsRows.length,
     needAttention: attentionIds.size,
-    checkinsToReview: priorities.filter(p => p.kind === 'missed_checkin' || p.kind === 'new_pain' || p.kind === 'dropped_adherence').length,
+    checkinsToReview: checkinReviewRows(opsRows, signals, priorities).length,
     programsMayAdapt: priorities.filter(p => p.kind === 'stalled_lift' || p.kind === 'program_adapt' || p.kind === 'program_unassigned').length,
     important: priorities.filter(p => p.severity === 'red').length,
   };

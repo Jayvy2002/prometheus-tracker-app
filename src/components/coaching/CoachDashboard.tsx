@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -14,6 +14,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
 import { interventionLiveLabel } from '../../lib/coachSecond';
+import { checkinReviewRows } from '../../lib/coachCheckins';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -40,6 +41,7 @@ export default function CoachDashboard() {
   const {
     opsRows, opsLoading, invites, pendingInterventions, clients, priorities,
     fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings, coachSettings,
+    rosterSignals,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -53,6 +55,10 @@ export default function CoachDashboard() {
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
   const topDrafts = pendingInterventions.slice(0, 4);
+  const reviewRows = useMemo(
+    () => checkinReviewRows(opsRows, rosterSignals, priorities),
+    [opsRows, rosterSignals, priorities],
+  );
 
   const copyUrl = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
@@ -139,10 +145,40 @@ export default function CoachDashboard() {
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
               <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
               <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
-              <StatCard label={t('coaching.command.stats.checkins')} value={stats.checkinsToReview} tone="blue" />
+              <button type="button" className="text-left" onClick={() => document.getElementById('checkins-a-relire')?.scrollIntoView({ behavior: 'smooth' })}>
+                <StatCard label={t('coaching.command.stats.checkins')} value={stats.checkinsToReview} tone="blue" />
+              </button>
               <StatCard label={t('coaching.command.stats.adapt')} value={stats.programsMayAdapt} tone="amber" />
               <StatCard label={t('coaching.command.stats.important')} value={stats.important} tone="rose" />
             </div>
+
+            {reviewRows.length > 0 && (
+              <div id="checkins-a-relire" className="mb-6">
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
+                  {t('coaching.checkinReview.title')}
+                </p>
+                <div className="space-y-2">
+                  {reviewRows.slice(0, 6).map(row => (
+                    <Card key={row.checkin.id} onClick={() => navigate(row.href)} className="flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
+                        {row.avatarUrl
+                          ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
+                          : (row.clientName[0] || '?').toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
+                        <p className="text-[11px] text-neutral-500 truncate">
+                          {row.checkin.checked_at}
+                          {' · '}
+                          {t(`coaching.checkinReview.kinds.${row.kind}`, { n: row.checkin.joint_pain ?? '—' })}
+                        </p>
+                      </div>
+                      <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {topDrafts.length > 0 && (
               <div className="mb-6">

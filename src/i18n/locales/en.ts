@@ -1128,6 +1128,28 @@ const en = {
         pain: 'Pain',
       },
     },
+    checkinReview: {
+      title: 'Check-ins to review',
+      notePlaceholder: 'Private note (one line)',
+      noteSave: 'Note',
+      noteSaved: 'Note saved',
+      noteHint: 'Visible only to you. Nothing is sent to the client.',
+      clientNote: 'The client wrote:',
+      history: 'Other check-ins',
+      kinds: {
+        unread: 'Unread',
+        new_pain: 'Pain {{n}}/5',
+        dropped_adherence: 'Adherence dropped',
+        missed_checkin: 'Latest check-in to review',
+      },
+    },
+    draftSend: {
+      compare: 'Before / after',
+      before: 'Currently',
+      after: 'Proposal',
+      clientWillSee: 'The client will see: {{summary}}',
+      empty: 'Edit the proposal before sending — nothing was sent.',
+    },
     workspace: {
       title: 'Exercise workspace',
       meta: '{{n}} recent sessions · {{freq}} distinct days',

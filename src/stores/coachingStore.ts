@@ -194,6 +194,17 @@ function dropUnlinkedClient(s: {
     m => m.client_id === clientId && m.sender_id !== m.coach_id && !m.read_at,
   ).length;
   const signals = s.rosterSignals;
+  const rosterSignals: CoachRosterSignals = {
+    checkins: signals.checkins.filter(c => c.user_id !== clientId),
+    weights: signals.weights.filter(w => w.user_id !== clientId),
+    lifts: signals.lifts.filter(l => l.clientId !== clientId),
+    lastNoteAt: omitRecordKey(signals.lastNoteAt, clientId),
+    lastInterventionAt: omitRecordKey(signals.lastInterventionAt, clientId),
+    assignmentStart: omitRecordKey(signals.assignmentStart, clientId),
+    assignmentWeeks: omitRecordKey(signals.assignmentWeeks, clientId),
+    assignmentName: omitRecordKey(signals.assignmentName, clientId),
+    scheduledDays: omitRecordKey(signals.scheduledDays, clientId),
+  };
   return {
     clients,
     opsRows,
@@ -202,18 +213,8 @@ function dropUnlinkedClient(s: {
     sentMessages,
     notes,
     unreadMessageCount: Math.max(0, s.unreadMessageCount - removedUnread),
-    rosterSignals: {
-      checkins: signals.checkins.filter(c => c.user_id !== clientId),
-      weights: signals.weights.filter(w => w.user_id !== clientId),
-      lifts: signals.lifts.filter(l => l.clientId !== clientId),
-      lastNoteAt: omitRecordKey(signals.lastNoteAt, clientId),
-      lastInterventionAt: omitRecordKey(signals.lastInterventionAt, clientId),
-      assignmentStart: omitRecordKey(signals.assignmentStart, clientId),
-      assignmentWeeks: omitRecordKey(signals.assignmentWeeks, clientId),
-      assignmentName: omitRecordKey(signals.assignmentName, clientId),
-      scheduledDays: omitRecordKey(signals.scheduledDays, clientId),
-    },
-    commandStats: commandStats(opsRows, priorities),
+    rosterSignals,
+    commandStats: commandStats(opsRows, priorities, rosterSignals),
   };
 }
 
@@ -629,7 +630,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       opsLoading: false,
       rosterSignals,
       priorities,
-      commandStats: commandStats(opsRows, priorities),
+      commandStats: commandStats(opsRows, priorities, rosterSignals),
     });
   },
 

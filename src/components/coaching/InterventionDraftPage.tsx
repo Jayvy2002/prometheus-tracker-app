@@ -15,6 +15,15 @@ import {
 } from '../../lib/coachInterventions';
 import { templateKeyForAdherence } from '../../lib/coachQueue';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
+import {
+  canSendProgramToClient,
+  clientWillSeeSummary,
+  editedProgramPayload,
+  isProgramSendKind,
+  outlineBeforeAfter,
+  patchBeforeAfter,
+  type EditedProgramDraft,
+} from '../../lib/coachDraftSend';
 import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, ProgramExercisePatch } from '../../lib/types';
 import { useProgramStore } from '../../stores/programStore';
 import { formatPrescription } from '../../lib/programNl';
@@ -170,6 +179,19 @@ export default function InterventionDraftPage() {
     }
 
     const noteOnly = row.kind === 'other';
+    const edited: EditedProgramDraft = {
+      programName,
+      programDesc,
+      programWeeks,
+      days,
+      patch,
+    };
+    if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnly) {
+      setSaving(false);
+      toast(t('coaching.draftSend.empty'), 'error');
+      return;
+    }
+    const sentPayload = editedProgramPayload(row.payload, edited);
 
     if (row.kind === 'calorie_adjustment') {
       const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
@@ -203,7 +225,7 @@ export default function InterventionDraftPage() {
             }
           }
           const resolved = await resolveIntervention(row.id, 'kept', {
-            ...row.payload,
+            ...sentPayload,
             patch,
             suggestion: notes.trim(),
           });
@@ -260,7 +282,7 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    const resolved = await resolveIntervention(row.id, 'sent');
+    const resolved = await resolveIntervention(row.id, 'sent', sentPayload);
     setSaving(false);
     if (resolved.error) {
       toast(resolved.error, 'error');
@@ -360,7 +382,7 @@ export default function InterventionDraftPage() {
   }
 
   const showProgram = (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') && !patch;
-  const showPatch = (row.kind === 'program_adjustment' || row.kind === 'program_nl_edit') && !!patch;
+  const showPatch = (row.kind === 'program_adjustment' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') && !!patch;
   const showCalories = row.kind === 'calorie_adjustment';
   const showTracking = row.kind === 'onboarding_plan';
   const showNotes = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training'
@@ -368,6 +390,16 @@ export default function InterventionDraftPage() {
   const isAdherenceKind = row.kind === 'adherence_nutrition' || row.kind === 'adherence_training';
   const noteOnly = row.kind === 'other';
   const patchWithoutProgram = showPatch && !assignment?.program_id;
+  const edited: EditedProgramDraft = {
+    programName,
+    programDesc,
+    programWeeks,
+    days,
+    patch,
+  };
+  const patchPreview = patch ? patchBeforeAfter(assignment?.program, patch) : null;
+  const outlinePreview = showProgram ? outlineBeforeAfter(assignment?.program, edited) : null;
+  const willSee = isProgramSendKind(row.kind) ? clientWillSeeSummary(edited, assignment?.program) : '';
   const primaryLabel = isAdherenceKind
     ? t('coaching.queue.relance')
     : isCoachOnlyKind(row.kind) || patchWithoutProgram
@@ -402,6 +434,38 @@ export default function InterventionDraftPage() {
         <p className="text-xs text-neutral-500 mb-4">
           {isCoachOnlyKind(row.kind) ? t('coaching.interventions.coachOnlyHint') : t('coaching.interventions.editHint')}
         </p>
+        {(patchPreview || outlinePreview) && (
+          <Card className="mb-4 border-blue-500/20">
+            <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-2">{t('coaching.draftSend.compare')}</p>
+            {patchPreview && (
+              <p className="text-sm text-neutral-200">
+                {patchPreview.exercise}
+                {' · '}
+                <span className="text-neutral-500">{t('coaching.draftSend.before')}</span>
+                {' '}
+                {patchPreview.before}
+                {' → '}
+                <span className="text-neutral-500">{t('coaching.draftSend.after')}</span>
+                {' '}
+                {patchPreview.after}
+              </p>
+            )}
+            {outlinePreview && (
+              <p className="text-sm text-neutral-200">
+                <span className="text-neutral-500">{t('coaching.draftSend.before')}</span>
+                {' '}
+                {outlinePreview.before}
+                {' → '}
+                <span className="text-neutral-500">{t('coaching.draftSend.after')}</span>
+                {' '}
+                {outlinePreview.after}
+              </p>
+            )}
+            {willSee ? (
+              <p className="text-[11px] text-neutral-500 mt-2">{t('coaching.draftSend.clientWillSee', { summary: willSee })}</p>
+            ) : null}
+          </Card>
+        )}
 
         {showTracking && (
           <Card className="mb-4 space-y-2">

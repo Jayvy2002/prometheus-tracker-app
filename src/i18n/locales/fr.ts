@@ -1128,6 +1128,28 @@ const fr = {
         pain: 'Douleur',
       },
     },
+    checkinReview: {
+      title: 'Check-ins à relire',
+      notePlaceholder: 'Note privée (une ligne)',
+      noteSave: 'Noter',
+      noteSaved: 'Note enregistrée',
+      noteHint: 'Visible seulement par toi. Rien n’est envoyé au client.',
+      clientNote: 'Le client a écrit :',
+      history: 'Autres check-ins',
+      kinds: {
+        unread: 'Non relu',
+        new_pain: 'Douleur {{n}}/5',
+        dropped_adherence: 'Adhérence en baisse',
+        missed_checkin: 'Dernier check-in à relire',
+      },
+    },
+    draftSend: {
+      compare: 'Avant / après',
+      before: 'Actuellement',
+      after: 'Proposition',
+      clientWillSee: 'Le client verra : {{summary}}',
+      empty: 'Modifie la proposition avant d’envoyer — rien n’est parti.',
+    },
     workspace: {
       title: 'Workspace exercice',
       meta: '{{n}} séances récentes · {{freq}} jours distincts',

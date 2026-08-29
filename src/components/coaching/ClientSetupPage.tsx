@@ -10,6 +10,7 @@ import {
   DIET_TYPES, FOOD_ALLERGIES, GOALS, TRAINING_EXPERIENCES, TRAINING_FOCUSES,
 } from '../../lib/constants';
 import { parseOnboardingPlanDraft } from '../../lib/coachInterventions';
+import { editedProgramPayload } from '../../lib/coachDraftSend';
 import {
   interventionDraftError,
   isInterventionDrafting,
@@ -241,7 +242,13 @@ export default function ClientSetupPage() {
     }
 
     if (liveDraft) {
-      await resolveIntervention(liveDraft.id, 'sent');
+      await resolveIntervention(liveDraft.id, 'sent', editedProgramPayload(liveDraft.payload, {
+        programName: draftProgramName,
+        programDesc: draftProgramDesc,
+        programWeeks: draftProgramWeeks,
+        days: draftDays,
+        patch: null,
+      }));
     }
 
     setSaving(false);

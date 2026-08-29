@@ -141,3 +141,18 @@ test('lastMessageForClient returns the newest preview for the roster card', () =
   ], 'sofia-id');
   assert.equal(preview?.body, 'Désolée, je rattrape demain');
 });
+
+test('File du jour check-in items keep the fiche deep-link, not the client overview', () => {
+  const groups = groupQueueByClient([
+    item({
+      id: 'm-pain',
+      clientId: 'marie',
+      clientName: 'Marie Dupont',
+      kind: 'new_pain',
+      href: '/clients/marie?tab=checkins&checkin=ck-pain',
+      checkinId: 'ck-pain',
+    }),
+  ]);
+  assert.equal(groups[0]?.items[0]?.href, '/clients/marie?tab=checkins&checkin=ck-pain');
+  assert.equal(groups[0]?.items[0]?.checkinId, 'ck-pain');
+});

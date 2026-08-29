@@ -428,6 +428,20 @@ export interface CoachPriority {
   detailParams?: Record<string, string | number>;
   href: string;
   exerciseName?: string;
+  checkinId?: string;
+}
+
+export type CheckinReviewKind = 'unread' | 'new_pain' | 'dropped_adherence' | 'missed_checkin';
+
+/** One row in Aujourd’hui → Check-ins à relire. Always has a submitted check-in. */
+export interface CheckinReviewRow {
+  clientId: string;
+  clientName: string;
+  avatarUrl: string;
+  checkin: DailyCheckin;
+  href: string;
+  kind: CheckinReviewKind;
+  relanceHref: string;
 }
 
 export type CoachNudgeTemplateKey = 'missed_training' | 'missed_checkins' | 'general_followup';

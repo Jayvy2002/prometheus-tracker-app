@@ -21,6 +21,7 @@ import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { sparklineValues, weightChartPoints } from '../../lib/coachProgress';
 import { interventionHref } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
+import { flagKindForClient, focusCheckin, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
 import {
   DEFAULT_COACH_VISIBLE_TABS,
   type CoachClientTab,
@@ -39,6 +40,7 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import Sparkline from '../ui/Sparkline';
 import CheckinSummaryCard from './CheckinSummaryCard';
+import CheckinReviewPanel from './CheckinReviewPanel';
 import ExerciseWorkspace from './ExerciseWorkspace';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
 import RemoveClientDialog from './RemoveClientDialog';
@@ -75,7 +77,10 @@ export default function ClientDetailPage() {
   } = useCoachingStore();
   const { fetchMyAssignment, assignment } = useProgramStore();
 
-  const tab = (searchParams.get('tab') as CoachClientTab) || 'overview';
+  const checkinId = parseCheckinQuery(searchParams.get('checkin'));
+  const tab = (checkinId && !searchParams.get('tab')
+    ? 'checkins'
+    : (searchParams.get('tab') as CoachClientTab) || 'overview');
   const exerciseHint = searchParams.get('exercise') || '';
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [openWorkout, setOpenWorkout] = useState<Workout | null>(null);
@@ -134,6 +139,7 @@ export default function ClientDetailPage() {
     const params = new URLSearchParams(searchParams);
     params.set('tab', next);
     if (!extra?.exercise) params.delete('exercise');
+    if (next !== 'checkins') params.delete('checkin');
     if (extra) {
       for (const [k, v] of Object.entries(extra)) params.set(k, v);
     }
@@ -176,6 +182,7 @@ export default function ClientDetailPage() {
     return sinceLastVisit(snapshot, rosterSignals, insightWorkouts);
   }, [ops, rosterSignals, insightWorkouts, visitAnchor]);
   const checkinSummary = useMemo(() => summarizeCheckin(checkins), [checkins]);
+  const focusedCheckin = useMemo(() => focusCheckin(checkins, checkinId), [checkins, checkinId]);
   const kpis = useMemo(
     () => insight ? clientKpis(insight, checkinSummary, lifts, weights) : null,
     [insight, checkinSummary, lifts, weights],
@@ -516,7 +523,33 @@ export default function ClientDetailPage() {
           </div>
         ) : tab === 'checkins' ? (
           <div className="space-y-3">
-            <CheckinSummaryCard summary={checkinSummary} onSeeAnswers={() => setRawCheckins(true)} />
+            {id && focusedCheckin ? (
+              <CheckinReviewPanel
+                checkin={focusedCheckin}
+                previous={checkins.find(c => c.id !== focusedCheckin.id) ?? null}
+                relanceHref={relanceHrefForCheckin(id, flagKindForClient(priorities, id) ?? 'unread')}
+                savingNote={savingNote}
+                onSaveNote={async body => {
+                  const { error } = await addNote(id, body, { noteDate: focusedCheckin.checked_at });
+                  if (error) {
+                    toast(error, 'error');
+                    return;
+                  }
+                  toast(t('coaching.checkinReview.noteSaved'));
+                }}
+              />
+            ) : (
+              <CheckinSummaryCard summary={checkinSummary} onSeeAnswers={() => setRawCheckins(true)} />
+            )}
+            {checkins.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setRawCheckins(v => !v)}
+                className="text-xs text-blue-400 hover:text-blue-300"
+              >
+                {rawCheckins ? t('coaching.checkin.summaryTitle') : t('coaching.checkinReview.history')}
+              </button>
+            )}
             {rawCheckins && (
               checkins.length === 0 ? (
                 <Card className="text-center py-8 text-neutral-500">{t('coaching.empty.checkins')}</Card>
