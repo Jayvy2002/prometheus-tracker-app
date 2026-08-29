@@ -1030,6 +1030,7 @@ const en = {
       },
       composeTitle: 'Nudge — {{name}}',
       composeHint: 'Edit the text, then send. Nothing goes out on its own.',
+      relanceDraftHint: 'Edit the nudge, then send. Nothing sends itself.',
       send: 'Send',
       sent: 'Nudge sent',
       emptyBody: 'The message cannot be empty.',

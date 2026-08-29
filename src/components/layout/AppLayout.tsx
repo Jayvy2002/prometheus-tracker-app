@@ -11,16 +11,24 @@ export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const startCoachRealtime = useCoachingStore(s => s.startCoachRealtime);
   const stopCoachRealtime = useCoachingStore(s => s.stopCoachRealtime);
+  const startClientRealtime = useCoachingStore(s => s.startClientRealtime);
+  const stopClientRealtime = useCoachingStore(s => s.stopClientRealtime);
   const isCoach = coachingRole === 'coach';
 
   useEffect(() => {
-    if (!isCoach) {
-      stopCoachRealtime();
-      return;
+    if (isCoach) {
+      stopClientRealtime();
+      void startCoachRealtime();
+      return () => stopCoachRealtime();
     }
-    void startCoachRealtime();
-    return () => stopCoachRealtime();
-  }, [isCoach, startCoachRealtime, stopCoachRealtime]);
+    if (coachingRole === 'client') {
+      stopCoachRealtime();
+      void startClientRealtime();
+      return () => stopClientRealtime();
+    }
+    stopCoachRealtime();
+    stopClientRealtime();
+  }, [isCoach, coachingRole, startCoachRealtime, stopCoachRealtime, startClientRealtime, stopClientRealtime]);
 
   return (
     <div className="min-h-screen bg-black text-white flex">

@@ -42,9 +42,15 @@ import {
 } from '../lib/coachSecond';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { mapCoachMessage } from '../lib/coachQueue';
+import {
+  liveMessageState,
+  nutritionTargetsFromProfileRow,
+  shouldRefreshClientAssignment,
+} from '../lib/clientLive';
 import { EMPTY_COACH_SETTINGS, mapCoachSettings } from '../lib/coachSettings';
 import { aggregateNutritionByDay } from '../lib/coachProgress';
 import { useProgramStore } from './programStore';
+import { useProfileStore } from './profileStore';
 import { buildClientOpsRows, datePrefix, weekAgoStr } from '../lib/coachAlerts';
 import { buildClientLifts } from '../lib/coachLifts';
 import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
@@ -213,6 +219,7 @@ function dropUnlinkedClient(s: {
 
 let coachRealtimeChannel: RealtimeChannel | null = null;
 let coachPollTimer: ReturnType<typeof setInterval> | null = null;
+let clientRealtimeChannel: RealtimeChannel | null = null;
 
 interface CoachingState {
   coachingRole: CoachingRole;
@@ -297,6 +304,8 @@ interface CoachingState {
   }) => Promise<{ id: string } | { error: string }>;
   startCoachRealtime: () => Promise<void>;
   stopCoachRealtime: () => void;
+  startClientRealtime: () => Promise<void>;
+  stopClientRealtime: () => void;
   createIntervention: (input: {
     clientId: string | null;
     kind: CoachInterventionKind;
@@ -787,7 +796,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .eq('status', 'active');
     const mapped = mapCoachMessage(data as Record<string, unknown>);
     set(s => ({
-      sentMessages: mapped ? [mapped, ...s.sentMessages] : s.sentMessages,
+      ...liveMessageState(s.sentMessages, 'INSERT', mapped, user.id),
       clients: s.clients.map(c => (c.id === clientId ? { ...c, last_nudged_at: iso } : c)),
       opsRows: s.opsRows.map(row => (
         row.client.id === clientId
@@ -817,9 +826,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .maybeSingle();
     if (error || !data) return { error: error?.message ?? 'Failed to send' };
     const mapped = mapCoachMessage(data as Record<string, unknown>);
-    set(s => ({
-      sentMessages: mapped ? [mapped, ...s.sentMessages] : s.sentMessages,
-    }));
+    set(s => liveMessageState(s.sentMessages, 'INSERT', mapped, user.id));
     return { error: null };
   },
 
@@ -1117,10 +1124,11 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     if (get().coachingRole !== 'coach') return;
+    void get().fetchCoachMessages();
     if (!coachRealtimeChannel) {
       void get().fetchPendingInterventions();
       coachRealtimeChannel = supabase
-        .channel(`coach-interventions-${user.id}`)
+        .channel(`coach-live-${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -1142,9 +1150,29 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
             }));
           },
         )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'coach_messages',
+            filter: `coach_id=eq.${user.id}`,
+          },
+          payload => {
+            const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            const mapped = raw ? mapCoachMessage(raw) : null;
+            if (!mapped) {
+              void get().fetchCoachMessages();
+              return;
+            }
+            const event = payload.eventType === 'DELETE' ? 'DELETE' : payload.eventType;
+            set(s => liveMessageState(s.sentMessages, event, mapped, user.id));
+          },
+        )
         .subscribe(status => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             void get().fetchPendingInterventions();
+            void get().fetchCoachMessages();
           }
         });
     }
@@ -1165,6 +1193,86 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     if (coachPollTimer) {
       clearInterval(coachPollTimer);
       coachPollTimer = null;
+    }
+  },
+
+  startClientRealtime: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    if (get().coachingRole === 'coach') return;
+    void get().fetchMyCoach();
+    void get().fetchCoachMessages();
+    void useProgramStore.getState().fetchMyAssignment(user.id);
+    if (!clientRealtimeChannel) {
+      clientRealtimeChannel = supabase
+        .channel(`client-live-${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'coach_messages',
+            filter: `client_id=eq.${user.id}`,
+          },
+          payload => {
+            const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            const mapped = raw ? mapCoachMessage(raw) : null;
+            if (!mapped) {
+              void get().fetchCoachMessages();
+              return;
+            }
+            const event = payload.eventType === 'DELETE' ? 'DELETE' : payload.eventType;
+            set(s => liveMessageState(s.sentMessages, event, mapped, user.id));
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'program_assignments',
+            filter: `client_id=eq.${user.id}`,
+          },
+          payload => {
+            const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            if (!shouldRefreshClientAssignment(payload.eventType, raw, user.id) && payload.eventType !== 'DELETE') {
+              return;
+            }
+            void useProgramStore.getState().fetchMyAssignment(user.id);
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'user_profiles',
+            filter: `id=eq.${user.id}`,
+          },
+          payload => {
+            const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            const targets = nutritionTargetsFromProfileRow(raw);
+            if (targets) {
+              useProfileStore.getState().applyRemoteTargets(user.id, targets);
+              return;
+            }
+            void useProfileStore.getState().fetchProfile(user.id, { silent: true });
+          },
+        )
+        .subscribe(status => {
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+            void get().fetchCoachMessages();
+            void useProgramStore.getState().fetchMyAssignment(user.id);
+            void useProfileStore.getState().fetchProfile(user.id, { silent: true });
+          }
+        });
+    }
+  },
+
+  stopClientRealtime: () => {
+    if (clientRealtimeChannel) {
+      void supabase.removeChannel(clientRealtimeChannel);
+      clientRealtimeChannel = null;
     }
   },
 
@@ -1469,6 +1577,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   clear: () => {
     get().stopCoachRealtime();
+    get().stopClientRealtime();
     set({
       coachingRole: 'none',
       billingRole: null,

@@ -6,6 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
+import { lastMessageForClient } from '../../lib/coachQueue';
 import { displayName } from '../../lib/coachText';
 import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
@@ -19,8 +20,8 @@ export default function ClientsPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, invites, loading, opsRows, priorities, rosterSignals,
-    fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, createInvite, revokeInvite, enableCoachMode,
+    coachingRole, clients, invites, loading, opsRows, priorities, rosterSignals, sentMessages,
+    fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, fetchCoachMessages, createInvite, revokeInvite, enableCoachMode,
     endClientLink,
   } = useCoachingStore();
   const [searchParams] = useSearchParams();
@@ -37,6 +38,7 @@ export default function ClientsPage() {
       fetchClients();
       fetchInvites();
       fetchCoachOps();
+      fetchCoachMessages();
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -203,6 +205,7 @@ export default function ClientsPage() {
             {visibleClients.map(c => {
               const ops = opsRows.find(r => r.client.id === c.id);
               const forceSetup = ops ? shouldOpenSetup(ops) : !c.onboarding_completed;
+              const lastMessage = lastMessageForClient(sentMessages, c.id);
               return (
               <Card
                 key={c.id}
@@ -226,7 +229,9 @@ export default function ClientsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-500 truncate">{c.email}</p>
+                  <p className="text-xs text-neutral-500 truncate">
+                    {lastMessage?.body || c.email}
+                  </p>
                 </div>
                 <button
                   type="button"

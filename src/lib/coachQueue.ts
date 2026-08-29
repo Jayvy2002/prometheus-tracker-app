@@ -81,6 +81,7 @@ export function resolveQueueAction(
     return {
       kind: 'compose',
       templateKey,
+      href: relanceThreadHref(priority.clientId, templateKey),
       ctaKey: 'coaching.queue.relance',
     };
   }
@@ -149,6 +150,35 @@ export function nextClientNames(groups: CoachQueueClientGroup[], skip = 1, take 
 
 export function composeItemsInGroup(items: CoachPriority[]): CoachPriority[] {
   return items.filter(item => isComposeQueueKind(item.kind));
+}
+
+export const RELANCE_NUDGE_PARAM = 'nudge';
+
+const NUDGE_KEYS: CoachNudgeTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup'];
+
+/** One-tap Relancer: Messages thread for that client + editable draft. Never auto-sends. */
+export function relanceThreadHref(clientId: string, templateKey: CoachNudgeTemplateKey): string {
+  return `/messages/${clientId}?${RELANCE_NUDGE_PARAM}=${templateKey}`;
+}
+
+export function parseNudgeQuery(value: string | null | undefined): CoachNudgeTemplateKey | null {
+  if (!value) return null;
+  return NUDGE_KEYS.includes(value as CoachNudgeTemplateKey) ? value as CoachNudgeTemplateKey : null;
+}
+
+export function relanceHrefForGroup(
+  group: CoachQueueClientGroup,
+  pending: CoachIntervention[],
+): string | null {
+  for (const item of composeItemsInGroup(group.items)) {
+    const action = resolveQueueAction(item, pending);
+    if (action.kind === 'compose' && action.href) return action.href;
+  }
+  return null;
+}
+
+export function lastMessageForClient(messages: CoachMessage[], clientId: string): CoachMessage | null {
+  return messages.find(m => m.client_id === clientId) ?? null;
 }
 
 export function visibleQueueItems(

@@ -1030,6 +1030,7 @@ const fr = {
       },
       composeTitle: 'Relance — {{name}}',
       composeHint: 'Modifie le texte, puis envoie. Rien ne part tout seul.',
+      relanceDraftHint: 'Modifie la relance, puis envoie. Rien ne part tout seul.',
       send: 'Envoyer',
       sent: 'Relance envoyée',
       emptyBody: 'Le message ne peut pas être vide.',

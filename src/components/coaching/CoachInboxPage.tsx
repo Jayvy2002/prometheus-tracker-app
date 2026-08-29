@@ -1,31 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, ChevronRight, MessageSquare, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { groupMessageThreads } from '../../lib/coachQueue';
+import {
+  firstNameOf,
+  groupMessageThreads,
+  parseNudgeQuery,
+  relanceThreadHref,
+} from '../../lib/coachQueue';
+import { resolveNudgeBody } from '../../lib/coachSettings';
 import { displayName } from '../../lib/coachText';
 import { interventionHref, isCoachOnlyKind, payloadSummary } from '../../lib/coachInterventions';
 import { interventionLiveLabel } from '../../lib/coachSecond';
-import type { CoachNudgeTemplateKey } from '../../lib/types';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import MessageThread from './MessageThread';
-import NudgeComposeModal from './NudgeComposeModal';
 
 export default function CoachInboxPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { clientId } = useParams();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const {
     fetchCoachOps, fetchCoachMessages, fetchCoachSettings, pendingInterventions, clients, sentMessages,
     sendCoachMessage, markThreadRead, coachSettings,
   } = useCoachingStore();
-  const [composeFor, setComposeFor] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
 
   useEffect(() => {
     if (!user) return;
@@ -44,19 +49,29 @@ export default function CoachInboxPage() {
   );
   const activeClient = clients.find(c => c.id === clientId);
   const threadMessages = sentMessages.filter(m => m.client_id === clientId);
+  const clientName = activeClient ? displayName(activeClient, t('coaching.unnamed')) : t('coaching.unnamed');
+  const draftName = firstNameOf(clientName) || clientName;
+  const draftBody = nudgeKey
+    ? resolveNudgeBody(
+      nudgeKey,
+      draftName,
+      i18n.language,
+      coachSettings?.nudge_templates,
+      t(`coaching.queue.templates.${nudgeKey}`, { name: draftName }),
+    )
+    : undefined;
 
-  const handleSend = async (body: string, opts?: { templateKey?: CoachNudgeTemplateKey }) => {
-    const target = clientId || composeFor;
-    if (!target) return;
+  const handleSend = async (body: string) => {
+    if (!clientId) return;
     setSending(true);
-    const result = await sendCoachMessage(target, body, opts?.templateKey ?? 'general_followup');
+    const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup');
     setSending(false);
     if (result.error) {
       toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
       return;
     }
     toast(t('coaching.queue.sent'));
-    setComposeFor(null);
+    if (nudgeKey) navigate(`/messages/${clientId}`, { replace: true });
   };
 
   if (clientId) {
@@ -67,9 +82,7 @@ export default function CoachInboxPage() {
             <ArrowLeft size={18} /> {t('nav.messages')}
           </button>
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h1 className="text-lg font-semibold text-white truncate">
-              {activeClient ? displayName(activeClient, t('coaching.unnamed')) : t('coaching.unnamed')}
-            </h1>
+            <h1 className="text-lg font-semibold text-white truncate">{clientName}</h1>
             <button
               type="button"
               onClick={() => navigate(`/clients/${clientId}`)}
@@ -83,7 +96,9 @@ export default function CoachInboxPage() {
               messages={threadMessages}
               currentUserId={user?.id ?? ''}
               sending={sending}
-              onSend={body => handleSend(body, { templateKey: 'general_followup' })}
+              draftBody={draftBody}
+              draftHint={nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined}
+              onSend={handleSend}
             />
           </div>
         </div>
@@ -170,7 +185,7 @@ export default function CoachInboxPage() {
                     type="button"
                     onClick={e => {
                       e.stopPropagation();
-                      setComposeFor(thread.clientId);
+                      navigate(relanceThreadHref(thread.clientId, 'general_followup'));
                     }}
                     className="text-[11px] text-blue-400 shrink-0 mt-1"
                   >
@@ -181,17 +196,6 @@ export default function CoachInboxPage() {
             })}
           </div>
         )}
-
-        <NudgeComposeModal
-          open={!!composeFor}
-          clientName={clients.find(c => c.id === composeFor)?.full_name || clients.find(c => c.id === composeFor)?.email || ''}
-          templateKey="general_followup"
-          sending={sending}
-          showTemplatePicker
-          templates={coachSettings?.nudge_templates}
-          onClose={() => setComposeFor(null)}
-          onSend={(body, opts) => handleSend(body, { templateKey: opts?.templateKey })}
-        />
       </div>
     </PageTransition>
   );

@@ -3,7 +3,12 @@ import { test } from 'node:test';
 import {
   composeItemsInGroup,
   groupQueueByClient,
+  lastMessageForClient,
   nextClientNames,
+  parseNudgeQuery,
+  relanceHrefForGroup,
+  relanceThreadHref,
+  resolveQueueAction,
   visibleQueueItems,
 } from './coachQueue';
 import type { CoachClientSummary, CoachPriority, CoachPriorityKind } from './types';
@@ -85,4 +90,54 @@ test('visibleQueueItems still filters dismissed events before grouping', () => {
   const groups = groupQueueByClient(visible);
   assert.equal(groups.length, 1);
   assert.deepEqual(groups[0]?.items.map(i => i.id), ['a-checkin']);
+});
+
+test('Relancer on a ghost client (Sofia, no session) opens that thread with a draft — never a send', () => {
+  const sofia = item({
+    id: 'sofia-ghost',
+    clientId: 'sofia-id',
+    clientName: 'Sofia Martin',
+    kind: 'missed_workout',
+    severity: 'orange',
+  });
+  const groups = groupQueueByClient([sofia]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0]?.clientName, 'Sofia Martin');
+
+  const href = relanceHrefForGroup(groups[0]!, []);
+  assert.equal(href, '/messages/sofia-id?nudge=missed_training');
+  assert.equal(relanceThreadHref('sofia-id', 'missed_training'), href);
+
+  const action = resolveQueueAction(sofia, []);
+  assert.equal(action.kind, 'compose');
+  assert.equal(action.href, href);
+  assert.equal(action.templateKey, 'missed_training');
+  assert.equal(parseNudgeQuery('missed_training'), 'missed_training');
+  assert.equal(parseNudgeQuery('auto-send'), null);
+});
+
+test('lastMessageForClient returns the newest preview for the roster card', () => {
+  const preview = lastMessageForClient([
+    {
+      id: 'm2',
+      coach_id: 'coach',
+      client_id: 'sofia-id',
+      sender_id: 'sofia-id',
+      body: 'Désolée, je rattrape demain',
+      template_key: 'reply',
+      created_at: '2026-08-29T12:00:00Z',
+      read_at: null,
+    },
+    {
+      id: 'm1',
+      coach_id: 'coach',
+      client_id: 'other',
+      sender_id: 'coach',
+      body: 'autre fil',
+      template_key: 'general_followup',
+      created_at: '2026-08-29T13:00:00Z',
+      read_at: null,
+    },
+  ], 'sofia-id');
+  assert.equal(preview?.body, 'Désolée, je rattrape demain');
 });

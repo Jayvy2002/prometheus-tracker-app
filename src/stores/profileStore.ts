@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { applyNutritionTargets } from '../lib/clientLive';
 import type { UserProfile } from '../lib/types';
 
 interface ProfileState {
@@ -7,20 +8,24 @@ interface ProfileState {
   loading: boolean;
   fetchError: string | null;
   uploadingAvatar: boolean;
-  fetchProfile: (userId: string) => Promise<void>;
+  fetchProfile: (userId: string, opts?: { silent?: boolean }) => Promise<void>;
+  applyRemoteTargets: (
+    userId: string,
+    targets: Pick<UserProfile, 'daily_calorie_target' | 'protein_target' | 'carbs_target' | 'fat_target'>,
+  ) => void;
   updateProfile: (userId: string, data: Partial<UserProfile>) => Promise<void>;
   uploadAvatar: (userId: string, file: File) => Promise<string | null>;
   clearProfile: () => void;
 }
 
-export const useProfileStore = create<ProfileState>((set) => ({
+export const useProfileStore = create<ProfileState>((set, get) => ({
   profile: null,
   loading: true,
   fetchError: null,
   uploadingAvatar: false,
 
-  fetchProfile: async (userId) => {
-    set({ loading: true, fetchError: null });
+  fetchProfile: async (userId, opts) => {
+    if (!opts?.silent) set({ loading: true, fetchError: null });
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
@@ -32,6 +37,12 @@ export const useProfileStore = create<ProfileState>((set) => ({
       return;
     }
     set({ profile: data as UserProfile | null, loading: false, fetchError: null });
+  },
+
+  applyRemoteTargets: (userId, targets) => {
+    const current = get().profile;
+    const next = applyNutritionTargets(current, userId, targets);
+    if (next !== current) set({ profile: next });
   },
 
   updateProfile: async (userId, updates) => {

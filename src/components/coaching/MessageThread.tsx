@@ -9,17 +9,25 @@ export default function MessageThread({
   sending,
   onSend,
   emptyHint,
+  draftBody,
+  draftHint,
 }: {
   messages: CoachMessage[];
   currentUserId: string;
   sending?: boolean;
   onSend: (body: string) => void;
   emptyHint?: string;
+  draftBody?: string;
+  draftHint?: string;
 }) {
   const { t } = useTranslation();
   const [body, setBody] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const ordered = [...messages].sort((a, b) => a.created_at.localeCompare(b.created_at));
+
+  useEffect(() => {
+    if (typeof draftBody === 'string' && draftBody.length > 0) setBody(draftBody);
+  }, [draftBody]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -54,23 +62,28 @@ export default function MessageThread({
         })}
         <div ref={bottomRef} />
       </div>
-      <div className="flex gap-2 pt-2 border-t border-neutral-800">
-        <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          rows={2}
-          placeholder={t('coaching.messages.replyPlaceholder')}
-          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white resize-none"
-        />
-        <Button size="sm" onClick={submit} disabled={!body.trim()} loading={sending} className="self-end">
-          {t('common.send')}
-        </Button>
+      <div className="pt-2 border-t border-neutral-800">
+        {draftHint ? (
+          <p className="text-[11px] text-neutral-500 mb-2">{draftHint}</p>
+        ) : null}
+        <div className="flex gap-2">
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            rows={draftBody ? 4 : 2}
+            placeholder={t('coaching.messages.replyPlaceholder')}
+            className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white resize-none"
+          />
+          <Button size="sm" onClick={submit} disabled={!body.trim()} loading={sending} className="self-end">
+            {t('common.send')}
+          </Button>
+        </div>
       </div>
     </div>
   );

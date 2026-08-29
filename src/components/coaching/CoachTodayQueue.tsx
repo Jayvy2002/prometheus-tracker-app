@@ -1,23 +1,22 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ClipboardCheck } from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
 import {
-  composeItemsInGroup,
   groupQueueByClient,
+  lastMessageForClient,
   matchingPendingIntervention,
   nextClientNames,
   queueItemLabelKey,
+  relanceHrefForGroup,
   resolveQueueAction,
   visibleQueueItems,
 } from '../../lib/coachQueue';
 import { todayStr } from '../../lib/utils';
-import type { CoachNudgeTemplateKey, CoachPriority, CoachPrioritySeverity, CoachQueueClientGroup } from '../../lib/types';
+import type { CoachPriority, CoachPrioritySeverity } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import { toast } from '../ui/Toast';
-import NudgeComposeModal from './NudgeComposeModal';
 
 const SEVERITY_DOT: Record<CoachPrioritySeverity, string> = {
   red: '🔴',
@@ -29,12 +28,8 @@ export default function CoachTodayQueue() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const {
-    priorities, pendingInterventions, clients, queueDismissedIds,
-    dismissQueueItems, sendCoachMessage, coachSettings,
+    priorities, pendingInterventions, clients, queueDismissedIds, sentMessages, dismissQueueItems,
   } = useCoachingStore();
-  const [composeFor, setComposeFor] = useState<CoachQueueClientGroup | null>(null);
-  const [templateKey, setTemplateKey] = useState<CoachNudgeTemplateKey>('general_followup');
-  const [sending, setSending] = useState(false);
 
   const groups = useMemo(
     () => groupQueueByClient(visibleQueueItems(priorities, queueDismissedIds, clients, todayStr())),
@@ -42,36 +37,15 @@ export default function CoachTodayQueue() {
   );
   const current = groups[0] ?? null;
   const upcomingNames = nextClientNames(groups);
-  const composeItems = current ? composeItemsInGroup(current.items) : [];
-  const composeAction = composeItems[0] ? resolveQueueAction(composeItems[0], pendingInterventions) : null;
+  const relanceHref = current ? relanceHrefForGroup(current, pendingInterventions) : null;
   const setupAction = current
     ? current.items.map(item => resolveQueueAction(item, pendingInterventions)).find(a => a.kind === 'open_setup' || a.kind === 'open_draft')
     : null;
+  const lastMessage = current ? lastMessageForClient(sentMessages, current.clientId) : null;
 
-  const skipClient = (group: CoachQueueClientGroup) => {
-    dismissQueueItems(group.items.map(item => item.id));
-    setComposeFor(null);
-  };
-
-  const handleRelance = () => {
-    if (!current || !composeAction?.templateKey) return;
-    setTemplateKey(composeAction.templateKey);
-    setComposeFor(current);
-  };
-
-  const handleSend = async (body: string, opts?: { templateKey?: CoachNudgeTemplateKey }) => {
-    if (!composeFor) return;
-    const key = opts?.templateKey ?? templateKey;
-    setSending(true);
-    const result = await sendCoachMessage(composeFor.clientId, body, key);
-    setSending(false);
-    if (result.error) {
-      toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
-      return;
-    }
-    toast(t('coaching.queue.sent'));
-    dismissQueueItems(composeItemsInGroup(composeFor.items).map(item => item.id));
-    setComposeFor(null);
+  const skipClient = () => {
+    if (!current) return;
+    dismissQueueItems(current.items.map(item => item.id));
   };
 
   if (!current) {
@@ -132,16 +106,21 @@ export default function CoachTodayQueue() {
                 );
               })}
             </ul>
+            {lastMessage?.body ? (
+              <p className="text-[11px] text-neutral-500 truncate mt-2 px-1">
+                {lastMessage.body}
+              </p>
+            ) : null}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 mt-4">
-          {composeAction?.kind === 'compose' && (
-            <Button size="sm" onClick={handleRelance}>
+          {relanceHref && (
+            <Button size="sm" onClick={() => navigate(relanceHref)}>
               {t('coaching.queue.relance')}
             </Button>
           )}
-          {!composeAction && setupAction?.href && (
+          {!relanceHref && setupAction?.href && (
             <Button size="sm" onClick={() => navigate(setupAction.href!)}>
               {t(setupAction.ctaKey)}
             </Button>
@@ -149,7 +128,7 @@ export default function CoachTodayQueue() {
           <Button variant="secondary" size="sm" onClick={() => navigate(`/clients/${current.clientId}`)}>
             {t('coaching.command.openClient')}
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => skipClient(current)}>
+          <Button variant="ghost" size="sm" onClick={skipClient}>
             {t('coaching.queue.skip')}
           </Button>
         </div>
@@ -160,16 +139,6 @@ export default function CoachTodayQueue() {
           {t('coaching.queue.nextUp', { names: upcomingNames.join(' · ') })}
         </p>
       )}
-
-      <NudgeComposeModal
-        open={!!composeFor}
-        clientName={composeFor?.clientName ?? ''}
-        templateKey={templateKey}
-        sending={sending}
-        templates={coachSettings?.nudge_templates}
-        onClose={() => setComposeFor(null)}
-        onSend={handleSend}
-      />
     </>
   );
 }

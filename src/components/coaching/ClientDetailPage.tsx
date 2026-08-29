@@ -23,7 +23,6 @@ import { interventionHref } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import {
   DEFAULT_COACH_VISIBLE_TABS,
-  type CoachNudgeTemplateKey,
   type CoachClientTab,
   type ClientLiftProgress,
   type DailyCheckin,
@@ -41,7 +40,6 @@ import { toast } from '../ui/Toast';
 import Sparkline from '../ui/Sparkline';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import ExerciseWorkspace from './ExerciseWorkspace';
-import NudgeComposeModal from './NudgeComposeModal';
 import ProgressPhotoCompare from './ProgressPhotoCompare';
 import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
@@ -72,7 +70,7 @@ export default function ClientDetailPage() {
     fetchClientNutrition, fetchClientWeight, fetchClientCheckins, fetchClientProfile,
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
-    touchClientVisit, priorities, sendCoachMessage, coachSettings, fetchCoachSettings,
+    touchClientVisit, priorities, coachSettings, fetchCoachSettings,
     pendingInterventions, endClientLink,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment } = useProgramStore();
@@ -94,8 +92,6 @@ export default function ClientDetailPage() {
   const [progressLifts, setProgressLifts] = useState<ClientLiftProgress[] | null>(null);
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
-  const [composeOpen, setComposeOpen] = useState(false);
-  const [sendingMsg, setSendingMsg] = useState(false);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
 
@@ -208,22 +204,6 @@ export default function ClientDetailPage() {
     toast(t('coaching.noteSaved'));
   };
 
-  const handleSendMessage = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
-    if (!id) return;
-    setSendingMsg(true);
-    const result = await sendCoachMessage(id, body, opts?.templateKey ?? 'general_followup');
-    if (!result.error && opts?.saveNote) {
-      await addNote(id, body, { noteDate: todayStr() });
-    }
-    setSendingMsg(false);
-    if (result.error) {
-      toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
-      return;
-    }
-    toast(t('coaching.queue.sent'));
-    setComposeOpen(false);
-  };
-
   const handleRemoveClient = async () => {
     if (!id || !client) return;
     setRemoving(true);
@@ -290,7 +270,7 @@ export default function ClientDetailPage() {
           </div>
           <button
             type="button"
-            onClick={() => setComposeOpen(true)}
+            onClick={() => id && navigate(`/messages/${id}`)}
             className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white"
             aria-label={t('coaching.messages.write')}
           >
@@ -604,16 +584,6 @@ export default function ClientDetailPage() {
             ))}
           </div>
         )}
-        <NudgeComposeModal
-          open={composeOpen}
-          clientName={client?.full_name || client?.email || ''}
-          templateKey="general_followup"
-          sending={sendingMsg}
-          showTemplatePicker
-          templates={coachSettings?.nudge_templates}
-          onClose={() => setComposeOpen(false)}
-          onSend={handleSendMessage}
-        />
         {client && user && client.id !== user.id && (
           <div className="mt-8 pt-6 border-t border-neutral-800/80">
             <button
