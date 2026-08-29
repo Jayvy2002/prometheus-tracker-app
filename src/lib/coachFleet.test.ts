@@ -5,8 +5,10 @@ import { test } from 'node:test';
 import {
   buildFleetCard,
   classifyFleetDossier,
+  fleetEvidenceFromDossier,
   isCompleteCalorieDraft,
   isRelanceKind,
+  planFleetRoundCard,
   sanitizeLlmCard,
 } from './coachFleet';
 import { parseCalorieDraft as parseCalories } from './coachInterventions';
@@ -43,6 +45,8 @@ function dossier(partial: Partial<CoachFleetDossier> & Pick<CoachFleetDossier, '
     last_message_at: null,
     last_coach_message_at: null,
     last_keep_in_touch_at: null,
+    pending_fleet: false,
+    fleet_handled: [],
     ...partial,
   };
 }
@@ -406,6 +410,129 @@ test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   assert.match(fleet, /kind keep_in_touch/);
   assert.doesNotMatch(fleet, /Si ça va : tu ne dois pas être appelé/);
+});
+
+test('after dismiss/send, a second round of the same snapshot produces 0 new pending cards', () => {
+  const marc = dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 13,
+    avg_calories: 2850,
+    avg_adherence_nutrition: 2,
+    weight_start_kg: 94.9,
+    weight_end_kg: 95.4,
+    weight_delta_kg: 0.5,
+  });
+  const sofia = dossier({
+    client_id: 'sofia-id',
+    full_name: 'Sofia Nguyen',
+    goal: 'gain',
+    calorie_target: 2300,
+    logged_nutrition_days: 0,
+    avg_calories: 0,
+    last_nutrition_at: '2026-08-10',
+    workout_count: 0,
+    last_workout_at: '2026-08-08',
+    checkin_count: 0,
+    last_checkin_at: '2026-08-09',
+    avg_adherence_nutrition: null,
+    linked_days: 50,
+  });
+  const camille = dossier({
+    client_id: 'camille-id',
+    full_name: 'Camille Roux',
+    goal: 'lose',
+    calorie_target: 1850,
+    logged_nutrition_days: 10,
+    avg_calories: 1790,
+    avg_adherence_nutrition: 5,
+    weight_start_kg: 70.1,
+    weight_end_kg: 68.2,
+    weight_delta_kg: -1.9,
+    last_coach_message_at: '2026-08-19',
+  });
+  const first = [marc, sofia, camille].map((d) => planFleetRoundCard(d, TODAY, 'off'));
+  assert.deepEqual(first.map((p) => p.action), ['insert', 'insert', 'insert']);
+  assert.equal(first[0]?.card?.kind, 'adherence_nutrition');
+  assert.equal(first[1]?.card?.kind, 'adherence_training');
+  assert.equal(first[2]?.card?.kind, 'keep_in_touch');
+
+  const handled = [marc, sofia, camille].map((d, i) => {
+    const card = first[i]?.card;
+    assert.ok(card);
+    return dossier({
+      ...d,
+      pending_fleet: false,
+      last_keep_in_touch_at: card.kind === 'keep_in_touch' ? TODAY : d.last_keep_in_touch_at,
+      fleet_handled: [{
+        kind: card.kind,
+        flag: card.flag,
+        status: i === 0 ? 'dismissed' : 'sent',
+        handled_at: TODAY,
+        evidence: fleetEvidenceFromDossier(d),
+      }],
+    });
+  });
+  const second = handled.map((d) => planFleetRoundCard(d, TODAY, 'off'));
+  assert.equal(second.filter((p) => p.action !== 'skip').length, 0);
+  assert.ok(second.every((p) => p.card === null));
+});
+
+test('pending fleet card is refreshed in place, not duplicated', () => {
+  const marc = dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 13,
+    avg_calories: 2850,
+    avg_adherence_nutrition: 2,
+    pending_fleet: true,
+  });
+  const plan = planFleetRoundCard(marc, TODAY, 'off');
+  assert.equal(plan.action, 'upsert');
+  assert.equal(plan.card?.kind, 'adherence_nutrition');
+});
+
+test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot is not', () => {
+  const marc = dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 10,
+    avg_calories: 3100,
+    avg_adherence_nutrition: 2,
+    weight_delta_kg: 0.4,
+  });
+  const handled = [{
+    kind: 'adherence_nutrition' as const,
+    flag: 'adherence_nutrition',
+    status: 'dismissed',
+    handled_at: TODAY,
+    evidence: fleetEvidenceFromDossier(marc),
+  }];
+  assert.equal(planFleetRoundCard(dossier({ ...marc, fleet_handled: handled }), TODAY, 'off').action, 'skip');
+  const nextWeek = dossier({
+    ...marc,
+    logged_nutrition_days: 14,
+    avg_calories: 3120,
+    last_nutrition_at: '2026-08-29',
+    fleet_handled: handled,
+  });
+  assert.equal(planFleetRoundCard(nextWeek, TODAY, 'off').action, 'insert');
+});
+
+test('upsert SQL never reopens sent/dismissed fleet rows', () => {
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
+  assert.match(sql, /AND status = 'pending'/);
+  assert.match(sql, /status IN \('sent', 'dismissed', 'kept'\)/);
+  assert.match(sql, /RETURN NULL/);
+  assert.match(sql, /fleet_evidence_changed/);
+  assert.match(sql, /pending_fleet/);
+  assert.doesNotMatch(sql, /SET\s+status\s*=\s*'pending'/);
+  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  assert.match(fleet, /planWrite/);
+  assert.match(fleet, /FLEET_HANDLE_COOLDOWN_DAYS/);
 });
 
 test('incomplete 2000/0/0/0 is not a sendable calorie draft', () => {

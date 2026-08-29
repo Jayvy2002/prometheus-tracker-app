@@ -174,6 +174,8 @@ test('Marc still Relancer-first — calorie cut is not the lever', () => {
     last_message_at: null,
     last_coach_message_at: null,
     last_keep_in_touch_at: null,
+    pending_fleet: false,
+    fleet_handled: [],
   };
   assert.equal(classifyFleetDossier(marc, TODAY), 'adherence_nutrition');
   const card = buildFleetCard(marc, TODAY, 'off');

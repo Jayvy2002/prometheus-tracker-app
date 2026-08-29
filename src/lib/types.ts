@@ -747,8 +747,31 @@ export interface CoachFleetDossier {
   last_message_at: string | null;
   /** Last outbound coach_messages row (sender_id = coach). Not client replies. */
   last_coach_message_at: string | null;
-  /** Last keep_in_touch intervention (any status) — cap one per client per week. */
+  /** Last keep_in_touch send/dismiss/keep (handled_at) — one contact Relancer per week. */
   last_keep_in_touch_at: string | null;
+  /** True if a pending fleet card already exists for this client (refresh in place). */
+  pending_fleet: boolean;
+  /** Last sent/dismissed/kept fleet (or agent) cards per signal — cooldown after handle. */
+  fleet_handled: CoachFleetHandled[];
+}
+
+export interface CoachFleetEvidence {
+  avg_calories: number;
+  logged_nutrition_days: number;
+  workout_count: number;
+  checkin_count: number;
+  weight_delta_kg: number | null;
+  last_nutrition_at: string | null;
+  last_workout_at: string | null;
+  last_checkin_at: string | null;
+}
+
+export interface CoachFleetHandled {
+  kind: string;
+  flag: string;
+  status: string;
+  handled_at: string;
+  evidence: CoachFleetEvidence | null;
 }
 
 export interface CoachFleetCard {

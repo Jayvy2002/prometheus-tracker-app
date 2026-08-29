@@ -5,7 +5,9 @@ import { normalizeGoal, OVEREAT_RATIO, MIN_NUTRITION_LOG_DAYS, CUT_STALL_MIN_DEL
 import type {
   CoachFleetCard,
   CoachFleetDossier,
+  CoachFleetEvidence,
   CoachFleetFlag,
+  CoachFleetHandled,
   CoachIntervention,
   CoachInterventionKind,
   CoachNudgeTemplateKey,
@@ -22,6 +24,8 @@ export const CUT_TOO_FAST_PCT_PER_WEEK = 1.5;
 export const BULK_TOO_FAST_PCT_PER_WEEK = 0.7;
 /** On-track + no outbound coach message for this many days → keep_in_touch Relancer. */
 export const KEEP_IN_TOUCH_DAYS = 7;
+/** Same signal stays quiet this long after send/dismiss/keep, unless evidence moves. */
+export const FLEET_HANDLE_COOLDOWN_DAYS = 7;
 
 const RELANCE_KINDS = new Set<CoachInterventionKind>([
   'adherence_nutrition',
@@ -120,15 +124,116 @@ function idleDays(iso: string | null, today: string): number {
   return Math.round((b - a) / 86_400_000);
 }
 
-/** Clinical on_track + coach silent ≥7d + no keep-in-touch this week. */
+/** Clinical on_track + coach silent ≥7d + no keep-in-touch handled this week. Pending is refreshed, not skipped. */
 function shouldOfferKeepInTouch(d: CoachFleetDossier, today: string): boolean {
   if (idleDays(d.last_coach_message_at, today) < KEEP_IN_TOUCH_DAYS) return false;
+  if (d.pending_fleet) return true;
   if (idleDays(d.last_keep_in_touch_at, today) < KEEP_IN_TOUCH_DAYS) return false;
   return true;
 }
 
 function keepInTouchLooksLikeLecture(body: string): boolean {
   return /\b(kcal|calories?|macros?|stagne|descends)\b/i.test(body);
+}
+
+export function fleetSignalKey(kind: string, flag: string): string {
+  return `${kind}:${flag || kind}`;
+}
+
+export function fleetEvidenceFromDossier(d: CoachFleetDossier): CoachFleetEvidence {
+  const day = (iso: string | null) => (iso ? iso.slice(0, 10) : null);
+  return {
+    avg_calories: Math.round(d.avg_calories),
+    logged_nutrition_days: d.logged_nutrition_days,
+    workout_count: d.workout_count,
+    checkin_count: d.checkin_count,
+    weight_delta_kg: d.weight_delta_kg,
+    last_nutrition_at: day(d.last_nutrition_at),
+    last_workout_at: day(d.last_workout_at),
+    last_checkin_at: day(d.last_checkin_at),
+  };
+}
+
+export function withFleetEvidence(d: CoachFleetDossier, card: CoachFleetCard): CoachFleetCard {
+  const evidence = fleetEvidenceFromDossier(d);
+  return {
+    ...card,
+    payload: {
+      ...card.payload,
+      evidence,
+      avg_calories: evidence.avg_calories,
+      logged_nutrition_days: evidence.logged_nutrition_days,
+      workout_count: evidence.workout_count,
+    },
+  };
+}
+
+function newerDay(next: string | null, prev: string | null): boolean {
+  if (!next || !prev) return false;
+  return next.slice(0, 10) > prev.slice(0, 10);
+}
+
+/** New week of overeating, new missed block, new activity — not the same snapshot tomorrow. */
+export function fleetEvidenceChanged(
+  prev: CoachFleetEvidence | null | undefined,
+  next: CoachFleetEvidence,
+  flag: string,
+): boolean {
+  if (flag === 'keep_in_touch') return false;
+  if (!prev) return false;
+  if (Math.abs((next.avg_calories || 0) - (prev.avg_calories || 0)) >= 150) return true;
+  if ((next.logged_nutrition_days || 0) - (prev.logged_nutrition_days || 0) >= 3) return true;
+  if (Math.abs((next.workout_count || 0) - (prev.workout_count || 0)) >= 2) return true;
+  if (
+    next.weight_delta_kg != null
+    && prev.weight_delta_kg != null
+    && Math.abs(next.weight_delta_kg - prev.weight_delta_kg) >= 0.4
+  ) return true;
+  if (newerDay(next.last_nutrition_at, prev.last_nutrition_at)) return true;
+  if (newerDay(next.last_workout_at, prev.last_workout_at)) return true;
+  if (newerDay(next.last_checkin_at, prev.last_checkin_at)) return true;
+  return false;
+}
+
+export function findHandledSignal(
+  handled: CoachFleetHandled[] | null | undefined,
+  kind: string,
+  flag: string,
+): CoachFleetHandled | null {
+  const key = fleetSignalKey(kind, flag);
+  const rows = handled ?? [];
+  return rows.find(row => fleetSignalKey(row.kind, row.flag) === key) ?? null;
+}
+
+export type FleetWriteAction = 'skip' | 'upsert' | 'insert';
+
+/**
+ * Upsert-or-skip: pending → refresh in place. Handled same signal within ~7d
+ * with unchanged facts → skip (never reopen sent/dismissed). New evidence → insert.
+ */
+export function planFleetRoundCard(
+  d: CoachFleetDossier,
+  today: string,
+  modelUsed: 'openai' | 'off' = 'off',
+): { action: FleetWriteAction; card: CoachFleetCard | null } {
+  const raw = buildFleetCardInner(d, today, modelUsed);
+  if (!raw) return { action: 'skip', card: null };
+  const card = withFleetEvidence(d, raw);
+  if (d.pending_fleet) return { action: 'upsert', card };
+  const prev = findHandledSignal(d.fleet_handled, card.kind, card.flag);
+  if (prev && idleDays(prev.handled_at, today) < FLEET_HANDLE_COOLDOWN_DAYS) {
+    const next = fleetEvidenceFromDossier(d);
+    if (!fleetEvidenceChanged(prev.evidence, next, card.flag)) {
+      return { action: 'skip', card: null };
+    }
+  }
+  return { action: 'insert', card };
+}
+
+export function buildFleetCard(d: CoachFleetDossier, today: string, modelUsed: 'openai' | 'off' = 'off'): CoachFleetCard | null {
+  const card = buildFleetCardInner(d, today, modelUsed);
+  if (!card) return null;
+  return withFleetEvidence(d, card);
 }
 
 function missedTraining(d: CoachFleetDossier): boolean {
@@ -217,7 +322,7 @@ function calorieTweak(d: CoachFleetDossier, direction: 'cut_more' | 'cut_less' |
   return completeMacrosFor(calories, d.goal, d.weight_end_kg || d.weight_kg);
 }
 
-export function buildFleetCard(d: CoachFleetDossier, today: string, modelUsed: 'openai' | 'off' = 'off'): CoachFleetCard | null {
+function buildFleetCardInner(d: CoachFleetDossier, today: string, modelUsed: 'openai' | 'off' = 'off'): CoachFleetCard | null {
   const clinical = classifyFleetDossier(d, today);
   const name = firstName(d.full_name);
   const aiOff = modelUsed === 'off';
@@ -613,5 +718,46 @@ export function mapTriageRow(raw: Record<string, unknown>): CoachFleetDossier | 
     last_message_at: str(dossierRaw.last_message_at),
     last_coach_message_at: str(dossierRaw.last_coach_message_at),
     last_keep_in_touch_at: str(dossierRaw.last_keep_in_touch_at),
+    pending_fleet: dossierRaw.pending_fleet === true,
+    fleet_handled: parseFleetHandled(dossierRaw.fleet_handled),
   };
+}
+
+function parseFleetHandled(raw: unknown): CoachFleetHandled[] {
+  if (!Array.isArray(raw)) return [];
+  const rows: CoachFleetHandled[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const kind = typeof row.kind === 'string' ? row.kind : '';
+    const flag = typeof row.flag === 'string' ? row.flag : kind;
+    const handledAt = typeof row.handled_at === 'string' ? row.handled_at : '';
+    if (!kind || !handledAt) continue;
+    const evRaw = row.evidence && typeof row.evidence === 'object' && !Array.isArray(row.evidence)
+      ? row.evidence as Record<string, unknown>
+      : null;
+    const numOrNull = (v: unknown) => {
+      if (v == null || v === '') return null;
+      const n = typeof v === 'number' ? v : Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const strOrNull = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
+    rows.push({
+      kind,
+      flag,
+      status: typeof row.status === 'string' ? row.status : '',
+      handled_at: handledAt,
+      evidence: evRaw ? {
+        avg_calories: numOrNull(evRaw.avg_calories) ?? 0,
+        logged_nutrition_days: numOrNull(evRaw.logged_nutrition_days) ?? 0,
+        workout_count: numOrNull(evRaw.workout_count) ?? 0,
+        checkin_count: numOrNull(evRaw.checkin_count) ?? 0,
+        weight_delta_kg: numOrNull(evRaw.weight_delta_kg),
+        last_nutrition_at: strOrNull(evRaw.last_nutrition_at),
+        last_workout_at: strOrNull(evRaw.last_workout_at),
+        last_checkin_at: strOrNull(evRaw.last_checkin_at),
+      } : null,
+    });
+  }
+  return rows;
 }

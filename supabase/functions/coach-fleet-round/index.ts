@@ -37,6 +37,7 @@ const CUT_STALL_MIN_DELTA_KG = -0.2;
 const CUT_TOO_FAST_PCT_PER_WEEK = 1.5;
 const BULK_TOO_FAST_PCT_PER_WEEK = 0.7;
 const KEEP_IN_TOUCH_DAYS = 7;
+const FLEET_HANDLE_COOLDOWN_DAYS = 7;
 const MACRO_KCAL_TOLERANCE = 0.15;
 const LLM_TIMEOUT_MS = 20_000;
 const MAX_LLM_PER_RUN = 20;
@@ -81,6 +82,27 @@ interface Dossier {
   last_message_at: string | null;
   last_coach_message_at: string | null;
   last_keep_in_touch_at: string | null;
+  pending_fleet: boolean;
+  fleet_handled: FleetHandled[];
+}
+
+interface FleetEvidence {
+  avg_calories: number;
+  logged_nutrition_days: number;
+  workout_count: number;
+  checkin_count: number;
+  weight_delta_kg: number | null;
+  last_nutrition_at: string | null;
+  last_workout_at: string | null;
+  last_checkin_at: string | null;
+}
+
+interface FleetHandled {
+  kind: string;
+  flag: string;
+  status: string;
+  handled_at: string;
+  evidence: FleetEvidence | null;
 }
 
 interface CalorieDraft {
@@ -212,7 +234,40 @@ function mapDossier(raw: Record<string, unknown>): Dossier | null {
     last_message_at: str(dossierRaw.last_message_at),
     last_coach_message_at: str(dossierRaw.last_coach_message_at),
     last_keep_in_touch_at: str(dossierRaw.last_keep_in_touch_at),
+    pending_fleet: dossierRaw.pending_fleet === true,
+    fleet_handled: parseHandled(dossierRaw.fleet_handled),
   };
+}
+
+function parseHandled(raw: unknown): FleetHandled[] {
+  if (!Array.isArray(raw)) return [];
+  const rows: FleetHandled[] = [];
+  for (const item of raw) {
+    const row = asObject(item);
+    const kind = typeof row.kind === "string" ? row.kind : "";
+    const flag = typeof row.flag === "string" ? row.flag : kind;
+    const handledAt = typeof row.handled_at === "string" ? row.handled_at : "";
+    if (!kind || !handledAt) continue;
+    const ev = asObject(row.evidence);
+    const hasEv = row.evidence && typeof row.evidence === "object";
+    rows.push({
+      kind,
+      flag,
+      status: typeof row.status === "string" ? row.status : "",
+      handled_at: handledAt,
+      evidence: hasEv ? {
+        avg_calories: num(ev.avg_calories),
+        logged_nutrition_days: num(ev.logged_nutrition_days),
+        workout_count: num(ev.workout_count),
+        checkin_count: num(ev.checkin_count),
+        weight_delta_kg: ev.weight_delta_kg == null ? null : num(ev.weight_delta_kg),
+        last_nutrition_at: str(ev.last_nutrition_at),
+        last_workout_at: str(ev.last_workout_at),
+        last_checkin_at: str(ev.last_checkin_at),
+      } : null,
+    });
+  }
+  return rows;
 }
 
 function nutritionFollowingPlan(d: Dossier): boolean {
@@ -278,12 +333,86 @@ function idleDays(iso: string | null, today: string): number {
 
 function shouldOfferKeepInTouch(d: Dossier, today: string): boolean {
   if (idleDays(d.last_coach_message_at, today) < KEEP_IN_TOUCH_DAYS) return false;
+  if (d.pending_fleet) return true;
   if (idleDays(d.last_keep_in_touch_at, today) < KEEP_IN_TOUCH_DAYS) return false;
   return true;
 }
 
 function keepInTouchLooksLikeLecture(body: string): boolean {
   return /\b(kcal|calories?|macros?|stagne|descends)\b/i.test(body);
+}
+
+function fleetSignalKey(kind: string, flag: string): string {
+  return `${kind}:${flag || kind}`;
+}
+
+function evidenceFromDossier(d: Dossier): FleetEvidence {
+  const day = (iso: string | null) => (iso ? iso.slice(0, 10) : null);
+  return {
+    avg_calories: Math.round(d.avg_calories),
+    logged_nutrition_days: d.logged_nutrition_days,
+    workout_count: d.workout_count,
+    checkin_count: d.checkin_count,
+    weight_delta_kg: d.weight_delta_kg,
+    last_nutrition_at: day(d.last_nutrition_at),
+    last_workout_at: day(d.last_workout_at),
+    last_checkin_at: day(d.last_checkin_at),
+  };
+}
+
+function withEvidence(d: Dossier, card: FleetCard): FleetCard {
+  const evidence = evidenceFromDossier(d);
+  return {
+    ...card,
+    payload: {
+      ...card.payload,
+      evidence,
+      avg_calories: evidence.avg_calories,
+      logged_nutrition_days: evidence.logged_nutrition_days,
+      workout_count: evidence.workout_count,
+    },
+  };
+}
+
+function newerDay(next: string | null, prev: string | null): boolean {
+  if (!next || !prev) return false;
+  return next.slice(0, 10) > prev.slice(0, 10);
+}
+
+function evidenceChanged(prev: FleetEvidence | null | undefined, next: FleetEvidence, flag: string): boolean {
+  if (flag === "keep_in_touch") return false;
+  if (!prev) return false;
+  if (Math.abs((next.avg_calories || 0) - (prev.avg_calories || 0)) >= 150) return true;
+  if ((next.logged_nutrition_days || 0) - (prev.logged_nutrition_days || 0) >= 3) return true;
+  if (Math.abs((next.workout_count || 0) - (prev.workout_count || 0)) >= 2) return true;
+  if (
+    next.weight_delta_kg != null
+    && prev.weight_delta_kg != null
+    && Math.abs(next.weight_delta_kg - prev.weight_delta_kg) >= 0.4
+  ) return true;
+  if (newerDay(next.last_nutrition_at, prev.last_nutrition_at)) return true;
+  if (newerDay(next.last_workout_at, prev.last_workout_at)) return true;
+  if (newerDay(next.last_checkin_at, prev.last_checkin_at)) return true;
+  return false;
+}
+
+function planWrite(
+  d: Dossier,
+  today: string,
+  modelUsed: "openai" | "off",
+): { action: "skip" | "upsert" | "insert"; card: FleetCard | null } {
+  const raw = buildCard(d, today, modelUsed);
+  if (!raw) return { action: "skip", card: null };
+  const card = withEvidence(d, raw);
+  if (d.pending_fleet) return { action: "upsert", card };
+  const key = fleetSignalKey(card.kind, card.flag);
+  const prev = d.fleet_handled.find((row) => fleetSignalKey(row.kind, row.flag) === key) ?? null;
+  if (prev && idleDays(prev.handled_at, today) < FLEET_HANDLE_COOLDOWN_DAYS) {
+    if (!evidenceChanged(prev.evidence, evidenceFromDossier(d), card.flag)) {
+      return { action: "skip", card: null };
+    }
+  }
+  return { action: "insert", card };
 }
 
 function classify(d: Dossier, today: string): FleetFlag {
@@ -786,16 +915,16 @@ Deno.serve(async (req: Request) => {
     let flagged = 0;
     let skipped = 0;
     let llmCalls = 0;
-    const written: Array<{ client_id: string; flag: string; kind: string; title: string }> = [];
+    const written: Array<{ client_id: string; flag: string; kind: string; title: string; action: string }> = [];
 
     for (const d of dossiers) {
-      const fallback = buildCard(d, today, modelUsed);
-      if (!fallback) {
+      const plan = planWrite(d, today, modelUsed);
+      if (plan.action === "skip" || !plan.card) {
         skipped += 1;
         continue;
       }
       flagged += 1;
-      let card = fallback;
+      let card = plan.card;
       if (apiKey && llmCalls < MAX_LLM_PER_RUN) {
         llmCalls += 1;
         let lessons = lessonsByCoach.get(d.coach_id);
@@ -803,8 +932,8 @@ Deno.serve(async (req: Request) => {
           lessons = await fetchCoachLessons(admin, d.coach_id);
           lessonsByCoach.set(d.coach_id, lessons);
         }
-        const llm = await callFleetAgent(apiKey, d, fallback.flag, lessons);
-        if (llm) card = mergeLlm(llm, fallback, d);
+        const llm = await callFleetAgent(apiKey, d, card.flag, lessons);
+        if (llm) card = withEvidence(d, mergeLlm(llm, card, d));
       }
       const id = await writeCard(admin, d, card);
       if (id) {
@@ -813,6 +942,7 @@ Deno.serve(async (req: Request) => {
           flag: card.flag,
           kind: card.kind,
           title: card.title,
+          action: plan.action,
         });
       }
     }
