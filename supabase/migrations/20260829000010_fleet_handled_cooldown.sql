@@ -48,14 +48,10 @@ BEGIN
     RETURN true;
   END IF;
 
-  IF v_prev ? 'weight_delta_kg' AND v_next ? 'weight_delta_kg'
-     AND NULLIF(v_prev->>'weight_delta_kg', '') IS NOT NULL
-     AND NULLIF(v_next->>'weight_delta_kg', '') IS NOT NULL THEN
-    v_prev_delta := (v_prev->>'weight_delta_kg')::numeric;
-    v_next_delta := (v_next->>'weight_delta_kg')::numeric;
-    IF abs(v_next_delta - v_prev_delta) >= 0.4 THEN
-      RETURN true;
-    END IF;
+  v_prev_delta := NULLIF(v_prev->>'weight_delta_kg', '')::numeric;
+  v_next_delta := NULLIF(v_next->>'weight_delta_kg', '')::numeric;
+  IF v_prev_delta IS NOT NULL AND v_next_delta IS NOT NULL AND abs(v_next_delta - v_prev_delta) >= 0.4 THEN
+    RETURN true;
   END IF;
 
   IF NULLIF(left(COALESCE(v_prev->>'last_nutrition_at', ''), 10), '') IS NOT NULL
