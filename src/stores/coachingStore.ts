@@ -40,6 +40,7 @@ import {
   mergeInterventionRealtime,
   type SecondPingKind,
 } from '../lib/coachSecond';
+import { COACH_AGENT_FUNCTION, parseCoachAgentResponse } from '../lib/coachAgent';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { mapCoachMessage } from '../lib/coachQueue';
 import {
@@ -1118,7 +1119,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   askSecond: async (input) => {
-    const { data, error } = await supabase.functions.invoke('ask-second', {
+    const { data, error } = await supabase.functions.invoke(COACH_AGENT_FUNCTION, {
       body: {
         kind: input.kind,
         client_id: input.clientId ?? null,
@@ -1133,20 +1134,26 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       : {};
     const bodyFromError = error ? await functionsErrorBody(error) : {};
     const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
-    const errCode = typeof body.error === 'string' ? body.error : '';
+    const outcome = parseCoachAgentResponse(body, error ? functionsHttpStatus(error) || 502 : 200);
+    if (outcome.kind === 'error') {
+      return { error: outcome.code };
+    }
     const rawIntervention = body.intervention && typeof body.intervention === 'object'
       ? mapInterventionRow(body.intervention as Record<string, unknown>)
       : null;
-    const id = typeof body.intervention_id === 'string' ? body.intervention_id : rawIntervention?.id;
+    const id = outcome.kind === 'ready' || outcome.kind === 'poll'
+      ? (outcome.id ?? rawIntervention?.id)
+      : rawIntervention?.id;
     let row = rawIntervention;
     if (!row && id) row = await get().fetchIntervention(id);
     if (row) {
       set(s => ({
         pendingInterventions: mergeInterventionRealtime(s.pendingInterventions, 'INSERT', row),
       }));
-      void get().startCoachRealtime();
+      if (isInterventionDrafting(row)) void get().startCoachRealtime();
     }
     if (!row) {
+      const errCode = typeof body.error === 'string' ? body.error : '';
       if (functionsHttpStatus(error) === 429 || errCode === 'DAILY_LIMIT_REACHED') {
         return { error: 'DAILY_LIMIT_REACHED' };
       }

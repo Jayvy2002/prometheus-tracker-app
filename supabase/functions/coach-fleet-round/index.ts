@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.57.4";
+import { openaiJson } from "../_shared/openaiJson.ts";
+import { fetchCoachLessons, formatLessonsForPrompt } from "../_shared/coachAgent.ts";
 
 /**
  * Fleet round IN THE APP — not Second.
@@ -11,10 +13,10 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.5
  *   service_role → all coaches (pg_cron nightly)
  *
  * Model:
- *   XAI_API_KEY or GROK_API_KEY → one Grok call per flagged client
+ *   OPENAI_API_KEY → one coach-agent (OpenAI) call per flagged client
  *   missing key → IA off, deterministic Relancer / complete macros
  *
- * Never POSTs GROK_BOT_WEBHOOK_URL (that is Second, one-client copilot).
+ * Never POSTs the Grok Bot webhook.
  */
 
 const corsHeaders = {
@@ -323,7 +325,7 @@ function fmtDelta(delta: number | null): string {
   return delta > 0 ? `+${delta}` : String(delta);
 }
 
-function buildCard(d: Dossier, today: string, modelUsed: "grok" | "off"): FleetCard | null {
+function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): FleetCard | null {
   const flag = classify(d, today);
   if (flag === "on_track") return null;
   const name = firstName(d.full_name);
@@ -507,20 +509,8 @@ Règles (français, tutoiement, tu tutoyes le client dans le message) :
 - Nouveau client : onboarding_plan, pas un stall.
 - Si ça va : tu ne dois pas être appelé.
 Réponds JSON uniquement : { "kind", "title", "observation", "cause", "body", "nutrition": { "calories", "protein", "carbs", "fat" } | null }.
-ISSN reste la formule app. Tu n'écrases pas l'onboarding.`;
-
-function parseLlmJson(text: string): Record<string, unknown> | null {
-  const trimmed = text.trim();
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start < 0 || end <= start) return null;
-  try {
-    const parsed: unknown = JSON.parse(trimmed.slice(start, end + 1));
-    return asObject(parsed);
-  } catch {
-    return null;
-  }
-}
+ISSN reste la formule app. Tu n'écrases pas l'onboarding.
+Les leçons du coach (si présentes) sont des patterns stables : ton, Relancer vs cibles, split macros. Ne copie pas une erreur ponctuelle.`;
 
 function mergeLlm(raw: Record<string, unknown>, fallback: FleetCard, d: Dossier): FleetCard {
   const flag = fallback.flag;
@@ -587,11 +577,11 @@ function mergeLlm(raw: Record<string, unknown>, fallback: FleetCard, d: Dossier)
   };
 }
 
-async function callGrok(
+async function callFleetAgent(
   apiKey: string,
-  model: string,
   d: Dossier,
   flag: FleetFlag,
+  lessons: Awaited<ReturnType<typeof fetchCoachLessons>>,
 ): Promise<Record<string, unknown> | null> {
   const compact = {
     flag,
@@ -611,32 +601,17 @@ async function callGrok(
     onboarding_completed: d.onboarding_completed,
     has_program: d.has_program,
   };
-  try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+  return await openaiJson(
+    apiKey,
+    [
+      { role: "system", content: SYSTEM_PROMPT },
+      {
+        role: "user",
+        content: `${formatLessonsForPrompt(lessons)}\n\n${JSON.stringify(compact)}`,
       },
-      body: JSON.stringify({
-        model,
-        temperature: 0.2,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: JSON.stringify(compact) },
-        ],
-      }),
-      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
-    });
-    if (!res.ok) return null;
-    const body = asObject(await res.json());
-    const choices = Array.isArray(body.choices) ? body.choices : [];
-    const message = asObject(asObject(choices[0]).message);
-    const content = typeof message.content === "string" ? message.content : "";
-    return parseLlmJson(content);
-  } catch {
-    return null;
-  }
+    ],
+    { maxTokens: 700, timeoutMs: LLM_TIMEOUT_MS },
+  );
 }
 
 function bearerToken(header: string | null): string {
@@ -744,9 +719,9 @@ Deno.serve(async (req: Request) => {
       .filter((d): d is Dossier => !!d);
 
     const today = new Date().toISOString().slice(0, 10);
-    const apiKey = (Deno.env.get("XAI_API_KEY") ?? Deno.env.get("GROK_API_KEY") ?? "").trim();
-    const model = (Deno.env.get("GROK_MODEL") ?? "grok-3-mini").trim() || "grok-3-mini";
-    const modelUsed: "grok" | "off" = apiKey ? "grok" : "off";
+    const apiKey = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
+    const modelUsed: "openai" | "off" = apiKey ? "openai" : "off";
+    const lessonsByCoach = new Map<string, Awaited<ReturnType<typeof fetchCoachLessons>>>();
 
     let flagged = 0;
     let skipped = 0;
@@ -763,7 +738,12 @@ Deno.serve(async (req: Request) => {
       let card = fallback;
       if (apiKey && llmCalls < MAX_LLM_PER_RUN) {
         llmCalls += 1;
-        const llm = await callGrok(apiKey, model, d, fallback.flag);
+        let lessons = lessonsByCoach.get(d.coach_id);
+        if (!lessons) {
+          lessons = await fetchCoachLessons(admin, d.coach_id);
+          lessonsByCoach.set(d.coach_id, lessons);
+        }
+        const llm = await callFleetAgent(apiKey, d, fallback.flag, lessons);
         if (llm) card = mergeLlm(llm, fallback, d);
       }
       const id = await writeCard(admin, d, card);

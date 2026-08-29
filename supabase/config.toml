@@ -1,5 +1,5 @@
 # Per-function settings only. Do not put webhook URLs or secrets in this file.
-# GROK_BOT_WEBHOOK_URL / GROK_BOT_WEBHOOK_SECRET live in Edge Function secrets.
+# OPENAI_API_KEY lives in Edge Function secrets. GROK_BOT_WEBHOOK_SECRET is HMAC/cron only.
 
 [functions.notify-onboarding-complete]
 verify_jwt = false
@@ -11,6 +11,9 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.ask-second]
+verify_jwt = true
+
+[functions.coach-agent]
 verify_jwt = true
 
 [functions.coach-fleet-round]

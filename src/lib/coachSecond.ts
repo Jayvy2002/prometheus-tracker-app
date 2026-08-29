@@ -1,6 +1,7 @@
 import type { CoachIntervention, CoachInterventionKind } from './types';
 import { parseOnboardingPlanDraft, parseProgramOutline, parseProgramPatch, payloadSummary } from './coachInterventions';
 
+/** Route coach copilot text to an in-app agent kind (not Second). */
 export const SECOND_PING_KINDS = ['onboarding_plan', 'ask_prometheus', 'program_nl_edit', 'calorie_adjustment'] as const;
 export type SecondPingKind = (typeof SECOND_PING_KINDS)[number];
 

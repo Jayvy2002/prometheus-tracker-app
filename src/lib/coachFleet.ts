@@ -192,7 +192,7 @@ function calorieTweak(d: CoachFleetDossier, direction: 'cut_more' | 'cut_less' |
   return completeMacrosFor(calories, d.goal, d.weight_end_kg || d.weight_kg);
 }
 
-export function buildFleetCard(d: CoachFleetDossier, today: string, modelUsed: 'grok' | 'off' = 'off'): CoachFleetCard | null {
+export function buildFleetCard(d: CoachFleetDossier, today: string, modelUsed: 'openai' | 'off' = 'off'): CoachFleetCard | null {
   const flag = classifyFleetDossier(d, today);
   if (flag === 'on_track') return null;
 
@@ -425,7 +425,7 @@ export function sanitizeLlmCard(
   d: CoachFleetDossier,
   today: string,
 ): CoachFleetCard | null {
-  const fallback = buildFleetCard(d, today, 'grok');
+  const fallback = buildFleetCard(d, today, 'openai');
   if (!fallback) return null;
   const flag = fallback.flag;
   let kind = typeof raw.kind === 'string' ? raw.kind : fallback.kind;

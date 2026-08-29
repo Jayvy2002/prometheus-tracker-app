@@ -173,7 +173,7 @@ export default function ClientSetupPage() {
       rationale: t('coaching.second.createProgramPrompt'),
       payload: { drafting: true },
       status: 'pending',
-      source: 'second',
+      source: 'agent',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       resolved_at: null,

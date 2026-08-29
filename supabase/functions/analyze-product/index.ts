@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 /**
  * Synchronous food identification: food_products → Open Food Facts → OpenAI vision.
  * Writes food_products + completes product_requests in this same request.
- * Does NOT ping Second. Coach drafts stay on ask-second.
+ * Does NOT ping Second. Coach drafts stay on coach-agent.
  */
 
 const corsHeaders = {

@@ -6,7 +6,7 @@
  * These paths never ping Second (GROK_BOT_WEBHOOK_URL).
  *
  * Coach drafts (onboarding_plan, ask_prometheus, program_nl_edit) stay on
- * ask-second. Fleet rounds stay in-app.
+ * coach-agent (sync OpenAI). Fleet rounds stay in-app.
  */
 
 export const FOOD_LOOKUP_ORDER = ['food_products', 'open_food_facts', 'analyze_product'] as const;

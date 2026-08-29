@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 /**
  * Synchronous exercise verification: library first, then OpenAI.
  * Completes exercise_requests (and INSERT exercises if approved) in this same request.
- * Does NOT ping Second. Coach drafts stay on ask-second.
+ * Does NOT ping Second. Coach drafts stay on coach-agent.
  */
 
 const corsHeaders = {

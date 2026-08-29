@@ -2,8 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { handleCoachAgentHttp } from "../_shared/coachAgent.ts";
 
 /**
- * Compat alias of coach-agent. Same sync OpenAI path, same 200 + draft.
+ * Synchronous in-app coach agent. JWT required.
+ * Writes a ready coach_interventions draft in this same request (200).
  * Does NOT ping the Grok Bot webhook / Second.
+ * Env: OPENAI_API_KEY (same secret as analyze-product).
  */
 
 Deno.serve(handleCoachAgentHttp);

@@ -39,7 +39,7 @@ export function outlineFromEdited(edited: EditedProgramDraft) {
   };
 }
 
-/** Payload written on send — always the edited screen values, never the raw Second blob. */
+/** Payload written on send — always the edited screen values, never the raw agent blob. */
 export function editedProgramPayload(
   raw: Record<string, unknown>,
   edited: EditedProgramDraft,
