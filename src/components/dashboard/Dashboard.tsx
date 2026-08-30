@@ -23,9 +23,12 @@ import {
   isClientFirstRun,
   shouldShowDaysSinceReminder,
 } from '../../lib/clientHome';
+import { resolveClientGymCard } from '../../lib/clientGym';
+import type { ProgramDay } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
+import ClientGymCard from './ClientGymCard';
 
 function getWeekDates(): string[] {
   const today = new Date();
@@ -57,6 +60,7 @@ export default function Dashboard() {
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
   const [nutritionHistoryCount, setNutritionHistoryCount] = useState<number | null>(null);
+  const [assignmentReady, setAssignmentReady] = useState(false);
 
   const dismissReminder = (key: string) => {
     setDismissedReminders(prev => [...prev, key]);
@@ -74,7 +78,8 @@ export default function Dashboard() {
     fetchToday(user.id);
     fetchRecent(user.id, 14);
     fetchMyCoach();
-    fetchMyAssignment(user.id);
+    setAssignmentReady(false);
+    void fetchMyAssignment(user.id).finally(() => setAssignmentReady(true));
     void supabase
       .from('nutrition_logs')
       .select('id', { count: 'exact', head: true })
@@ -138,16 +143,24 @@ export default function Dashboard() {
 
   const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
   const alreadyTrainedToday = doneDays[todayIndex];
-  const assignedDay = assignment?.program && assignment.status === 'active'
-    ? (assignment.program.days ?? []).find(d => d.weekday === new Date().getDay() && (d.name || (d.exercises && d.exercises.length > 0)))
-    : null;
+  const hasProgram = !!assignment?.program && assignment.status === 'active';
+  const gymCard = resolveClientGymCard({
+    hasActiveProgram: hasProgram,
+    days: assignment?.program?.days,
+    workouts,
+    todayWeekday: new Date().getDay(),
+    todayDate: todayStr(),
+    assignmentId: assignment?.id ?? null,
+  });
   const programWeek = assignment?.program
     ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
     : null;
   const scheduledToday = !alreadyTrainedToday
     ? routines.find(r => r.scheduled_days?.includes(todayDow))
     : null;
-  const nextRoutine = !assignedDay ? (scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null)) : null;
+  const nextRoutine = !hasProgram && gymCard.kind === 'none'
+    ? (scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null))
+    : null;
 
   const completedWorkoutCount = workouts.filter(w => w.completed).length;
   const checkinCount = Math.max(checkins.length, todayCheckin ? 1 : 0);
@@ -155,7 +168,7 @@ export default function Dashboard() {
     .filter(w => w.completed && w.date)
     .sort((a, b) => b.date.localeCompare(a.date))[0];
   const lastCheckin = todayCheckin ?? checkins[0] ?? null;
-  const activityPending = nutritionHistoryCount === null || workoutsLoading || checkinLoading;
+  const activityPending = !!user && (nutritionHistoryCount === null || workoutsLoading || checkinLoading || !assignmentReady);
   const firstRun = !activityPending && isClientFirstRun({
     completedWorkoutCount,
     nutritionLogCount: (nutritionHistoryCount ?? 0) + logs.length,
@@ -165,8 +178,8 @@ export default function Dashboard() {
     lastCheckinAt: lastCheckin?.checked_at ?? null,
   });
   const calmHome = activityPending || firstRun;
-  const hasProgram = !!assignment?.program && assignment.status === 'active';
-  const hasNextWorkout = showModule(tracking, 'workouts') && !!(assignedDay || nextRoutine);
+  const hasGymCard = showModule(tracking, 'workouts') && gymCard.kind !== 'none';
+  const hasNextWorkout = hasGymCard || (!!nextRoutine && showModule(tracking, 'workouts'));
   const hasCoach = isCoachedAthlete(coachingRole, myCoach);
   const nextAction = clientHomeNextAction({
     firstRun,
@@ -204,6 +217,32 @@ export default function Dashboard() {
   }));
   const showDeloadSuggestion = weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
 
+  const startProgramDay = async (day: ProgramDay) => {
+    if (!user || startingRoutine || !assignment?.program) return;
+    setStartingRoutine(true);
+    try {
+      const workoutId = await startWorkoutFromTemplate({
+        userId: user.id,
+        name: day.name || assignment.program.name,
+        programAssignmentId: assignment.id,
+        programDayId: day.id,
+        exercises: (day.exercises ?? []).map(ex => ({
+          name: ex.name,
+          default_sets: ex.default_sets,
+          default_reps: ex.default_reps,
+          default_reps_min: ex.default_reps_min,
+          default_rir: ex.default_rir,
+          default_rest_seconds: ex.default_rest_seconds,
+          default_weight_kg: ex.default_weight_kg,
+          order_index: ex.order_index,
+        })),
+      });
+      if (workoutId) navigate(`/workout/${workoutId}`);
+    } finally {
+      setStartingRoutine(false);
+    }
+  };
+
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28">
@@ -233,6 +272,67 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+
+        {hasGymCard && assignment?.program && (
+          <ClientGymCard
+            card={gymCard}
+            programName={assignment.program.name}
+            programWeek={programWeek}
+            durationWeeks={assignment.program.duration_weeks}
+            starting={startingRoutine}
+            onStart={startProgramDay}
+            onContinue={workoutId => navigate(`/workout/${workoutId}`)}
+          />
+        )}
+
+        {showModule(tracking, 'workouts') && nextRoutine && (
+          <button
+            type="button"
+            disabled={startingRoutine}
+            onClick={async () => {
+              if (!user || startingRoutine) return;
+              setStartingRoutine(true);
+              try {
+                const routine = await fetchRoutineWithExercises(nextRoutine.id);
+                if (!routine) return;
+                const workoutId = await startWorkoutFromTemplate({
+                  userId: user.id,
+                  name: routine.name,
+                  routineId: nextRoutine.id,
+                  exercises: (routine.exercises ?? []).map(ex => ({
+                    name: ex.name,
+                    default_sets: ex.default_sets,
+                    default_reps: ex.default_reps,
+                    order_index: ex.order_index,
+                  })),
+                });
+                if (workoutId) navigate(`/workout/${workoutId}`);
+              } finally {
+                setStartingRoutine(false);
+              }
+            }}
+            className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4 text-left hover:border-blue-500/50 active:scale-[0.98] transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+                <Play size={18} className="text-blue-400 ml-0.5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-blue-400 font-medium">{t('dashboard.nextWorkout')}</p>
+                <p className="text-sm font-semibold text-white truncate">{nextRoutine.name}</p>
+                {nextRoutine.exercises && (
+                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                    {nextRoutine.exercises.length} {t('dashboard.exercises')}
+                  </p>
+                )}
+              </div>
+              <span className="text-xs font-semibold text-blue-300 flex items-center gap-0.5 shrink-0">
+                {t('dashboard.gym.startCta')}
+                <ChevronRight size={16} />
+              </span>
+            </div>
+          </button>
+        )}
 
         {myCoach && (hasProgram || (!calmHome && showNutritionField(tracking, 'calories'))) && (
           <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
@@ -532,98 +632,6 @@ export default function Dashboard() {
             />
           </div>
         </div>
-        )}
-
-        {showModule(tracking, 'workouts') && assignedDay && assignment?.program && !alreadyTrainedToday && (
-          <button
-            disabled={startingRoutine}
-            onClick={async () => {
-              if (!user || startingRoutine) return;
-              setStartingRoutine(true);
-              try {
-                const workoutId = await startWorkoutFromTemplate({
-                  userId: user.id,
-                  name: assignedDay.name || assignment.program!.name,
-                  programAssignmentId: assignment.id,
-                  programDayId: assignedDay.id,
-                  exercises: (assignedDay.exercises ?? []).map(ex => ({
-                    name: ex.name,
-                    default_sets: ex.default_sets,
-                    default_reps: ex.default_reps,
-                    default_reps_min: ex.default_reps_min,
-                    default_rir: ex.default_rir,
-                    default_rest_seconds: ex.default_rest_seconds,
-                    default_weight_kg: ex.default_weight_kg,
-                    order_index: ex.order_index,
-                  })),
-                });
-                if (workoutId) navigate(`/workout/${workoutId}`);
-              } finally {
-                setStartingRoutine(false);
-              }
-            }}
-            className="w-full bg-gradient-to-r from-blue-600/15 to-blue-500/5 border border-blue-500/20 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-3 text-left hover:border-blue-500/40 active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
-                <Play size={18} className="text-blue-400 ml-0.5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-blue-400 font-medium">
-                  {t('programs.weekOf', { current: programWeek, total: assignment.program.duration_weeks })}
-                </p>
-                <p className="text-sm font-semibold text-white truncate">
-                  {t('programs.todaySession', { name: assignedDay.name || assignment.program.name })}
-                </p>
-              </div>
-              <ChevronRight size={18} className="text-blue-400/60 shrink-0" />
-            </div>
-          </button>
-        )}
-
-        {showModule(tracking, 'workouts') && nextRoutine && (
-          <button
-            disabled={startingRoutine}
-            onClick={async () => {
-              if (!user || startingRoutine) return;
-              setStartingRoutine(true);
-              try {
-                const routine = await fetchRoutineWithExercises(nextRoutine.id);
-                if (!routine) return;
-                const workoutId = await startWorkoutFromTemplate({
-                  userId: user.id,
-                  name: routine.name,
-                  routineId: nextRoutine.id,
-                  exercises: (routine.exercises ?? []).map(ex => ({
-                    name: ex.name,
-                    default_sets: ex.default_sets,
-                    default_reps: ex.default_reps,
-                    order_index: ex.order_index,
-                  })),
-                });
-                if (workoutId) navigate(`/workout/${workoutId}`);
-              } finally {
-                setStartingRoutine(false);
-              }
-            }}
-            className="w-full bg-gradient-to-r from-blue-600/15 to-blue-500/5 border border-blue-500/20 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-3 text-left hover:border-blue-500/40 active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
-                <Play size={18} className="text-blue-400 ml-0.5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-blue-400 font-medium">{t('dashboard.nextWorkout')}</p>
-                <p className="text-sm font-semibold text-white truncate">{nextRoutine.name}</p>
-                {nextRoutine.exercises && (
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
-                    {nextRoutine.exercises.length} {t('dashboard.exercises')}
-                  </p>
-                )}
-              </div>
-              <ChevronRight size={18} className="text-blue-400/60 shrink-0" />
-            </div>
-          </button>
         )}
 
         {/* Streak & Weight row — hide on first-run so a weigh-in streak doesn't scold a new athlete */}

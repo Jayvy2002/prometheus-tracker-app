@@ -181,6 +181,14 @@ const en = {
       firstSession: 'First session when you are ready',
       checkin: 'Today’s check-in',
     },
+    gym: {
+      next: 'Next session: {{name}}',
+      continue: 'Resume: {{name}}',
+      done: 'Session done',
+      startCta: 'Start',
+      continueCta: 'Continue',
+      exercises: '{{n}} exercises',
+    },
   },
 
   widgets: {

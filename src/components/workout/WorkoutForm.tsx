@@ -67,6 +67,7 @@ function WorkoutFormInner() {
   const { fetchRoutineWithExercises } = useRoutineStore();
   const isNew = !id || routerLocation.pathname.endsWith('/new');
   const forceEdit = searchParams.get('edit') === '1';
+  const isProgramSession = !!currentWorkout?.program_day_id;
 
   useEffect(() => {
     if (!user) return;
@@ -222,7 +223,7 @@ function WorkoutFormInner() {
       }
     }
     setCurrentWorkout(null);
-    navigate('/workout');
+    navigate(currentWorkout?.program_day_id ? '/dashboard' : '/workout');
   };
 
   const handleAddExercise = async (name: string) => {
@@ -341,7 +342,7 @@ function WorkoutFormInner() {
         duration={summaryDuration}
         onClose={() => {
           setSummaryWorkout(null);
-          navigate('/workout');
+          navigate(summaryWorkout.program_day_id ? '/dashboard' : '/workout');
         }}
       />
     );
@@ -386,12 +387,16 @@ function WorkoutFormInner() {
         <button onClick={handleBack} className="p-2 -ml-2 text-neutral-400 hover:text-white">
           <ArrowLeft size={20} />
         </button>
+        {isProgramSession ? (
+          <p className="flex-1 text-lg font-semibold text-white truncate">{workoutName || t('workout.title')}</p>
+        ) : (
         <Input
           value={workoutName}
           onChange={e => setWorkoutName(e.target.value)}
           placeholder={t('workout.workoutName')}
           className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
         />
+        )}
         <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
         {restEnabled && (
         <button
@@ -404,6 +409,7 @@ function WorkoutFormInner() {
         )}
       </div>
 
+      {!isProgramSession && (
       <div className="mb-4">
         <p className="text-xs font-medium text-neutral-500 uppercase tracking-wider mb-1.5 px-1">{t('workout.sessionDate')}</p>
         <DateInput
@@ -411,6 +417,7 @@ function WorkoutFormInner() {
           onChange={dateStr => setWorkoutDate(dateStr)}
         />
       </div>
+      )}
 
       <div className="space-y-4">
         {(() => {
@@ -447,9 +454,11 @@ function WorkoutFormInner() {
       </div>
 
       <div className="mt-4 space-y-3">
+        {!isProgramSession && (
         <Button variant="secondary" onClick={() => setShowExercisePicker(true)} className="w-full">
           <Plus size={16} /> {t('workout.addExercise')}
         </Button>
+        )}
         <Button onClick={handleFinish} disabled={saving} className="w-full">
           <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
