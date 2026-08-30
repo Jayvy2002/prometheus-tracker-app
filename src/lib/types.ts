@@ -682,6 +682,7 @@ export type CoachInterventionKind =
   | 'program_adjustment'
   | 'adherence_nutrition'
   | 'adherence_training'
+  | 'keep_in_touch'
   | 'workflow_improvement'
   | 'new_question'
   | 'other'
@@ -703,6 +704,97 @@ export interface CoachIntervention {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+}
+
+/** SQL/RPC 14-day aggregate. Fleet rounds never pull raw logs into the LLM. */
+export type CoachFleetFlag =
+  | 'on_track'
+  | 'onboarding'
+  | 'ghost'
+  | 'adherence_nutrition'
+  | 'adherence_training'
+  | 'too_fast'
+  | 'stall_adherent'
+  | 'keep_in_touch';
+
+export interface CoachFleetDossier {
+  coach_id: string;
+  client_id: string;
+  full_name: string;
+  goal: string;
+  onboarding_completed: boolean;
+  has_program: boolean;
+  setup_completed: boolean;
+  linked_days: number;
+  training_frequency: number;
+  calorie_target: number;
+  protein_target: number;
+  carbs_target: number;
+  fat_target: number;
+  weight_kg: number;
+  logged_nutrition_days: number;
+  avg_calories: number;
+  last_nutrition_at: string | null;
+  workout_count: number;
+  last_workout_at: string | null;
+  checkin_count: number;
+  last_checkin_at: string | null;
+  avg_adherence_nutrition: number | null;
+  avg_adherence_training: number | null;
+  weight_start_kg: number | null;
+  weight_end_kg: number | null;
+  weight_delta_kg: number | null;
+  last_message_at: string | null;
+  /** Last outbound coach_messages row (sender_id = coach). Not client replies. */
+  last_coach_message_at: string | null;
+  /** Last keep_in_touch send/dismiss/keep (handled_at) — one contact Relancer per week. */
+  last_keep_in_touch_at: string | null;
+  /** True if a pending fleet card already exists for this client (refresh in place). */
+  pending_fleet: boolean;
+  /** Last sent/dismissed/kept fleet (or agent) cards per signal — cooldown after handle. */
+  fleet_handled: CoachFleetHandled[];
+}
+
+export interface CoachFleetEvidence {
+  avg_calories: number;
+  logged_nutrition_days: number;
+  workout_count: number;
+  checkin_count: number;
+  weight_delta_kg: number | null;
+  last_nutrition_at: string | null;
+  last_workout_at: string | null;
+  last_checkin_at: string | null;
+}
+
+export interface CoachFleetHandled {
+  kind: string;
+  flag: string;
+  status: string;
+  handled_at: string;
+  evidence: CoachFleetEvidence | null;
+}
+
+export interface CoachFleetCard {
+  flag: CoachFleetFlag;
+  kind: CoachInterventionKind;
+  title: string;
+  observation: string;
+  cause: string;
+  rationale: string;
+  payload: Record<string, unknown>;
+}
+
+export interface CoachAiRound {
+  id: string;
+  coach_id: string | null;
+  trigger: 'cron' | 'on_demand';
+  started_at: string;
+  finished_at: string | null;
+  clients_seen: number;
+  clients_flagged: number;
+  clients_skipped: number;
+  model_used: string | null;
+  error: string | null;
 }
 
 export interface CoachPreview {

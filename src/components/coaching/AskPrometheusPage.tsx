@@ -47,7 +47,7 @@ export default function AskPrometheusPage() {
   const { user } = useAuthStore();
   const {
     opsRows, priorities, rosterSignals, pendingInterventions,
-    fetchCoachOps, askSecond, clients,
+    fetchCoachOps, askSecond, clients, runFleetRound, fleetRunning,
   } = useCoachingStore();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [history, setHistory] = useState<string[]>(loadHistory);
@@ -143,6 +143,29 @@ export default function AskPrometheusPage() {
         <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1">Prometheus</p>
         <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.ask.title')}</h1>
         <p className="text-sm text-neutral-500 mb-4">{t('coaching.ask.subtitle')}</p>
+
+        <Card className="mb-5 space-y-2">
+          <p className="text-sm font-medium text-white">{t('coaching.fleet.title')}</p>
+          <p className="text-xs text-neutral-400">{t('coaching.fleet.hint')}</p>
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={fleetRunning}
+            onClick={async () => {
+              const result = await runFleetRound();
+              if (result.error) {
+                toast(t('coaching.fleet.failed'), 'error');
+                return;
+              }
+              toast(t('coaching.fleet.done', {
+                flagged: result.clients_flagged ?? 0,
+                skipped: result.clients_skipped ?? 0,
+              }));
+            }}
+          >
+            {t('coaching.fleet.run')}
+          </Button>
+        </Card>
 
         <form
           onSubmit={e => { e.preventDefault(); run(query); }}

@@ -12,6 +12,16 @@ import type {
   DailyCheckin,
 } from './types';
 
+/** Check-in scales in the coach UI are 1–5. Always show the denominator. */
+export const CHECKIN_SCALE = 5;
+
+export function formatCheckinScore(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—';
+  const n = Math.round(value * 10) / 10;
+  const shown = Number.isInteger(n) ? String(n) : String(n);
+  return `${shown}/${CHECKIN_SCALE}`;
+}
+
 export const CHECKIN_QUERY_PARAM = 'checkin';
 
 export const CHECKIN_REVIEW_KINDS: CoachPriorityKind[] = [

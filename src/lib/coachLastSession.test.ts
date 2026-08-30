@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
   isTodayOrYesterday,
@@ -261,6 +263,18 @@ test('Aujourd’hui séance faite deep-links to ?tab=training&workout= — misse
   const groups = groupQueueByClient(priorities.filter(p => p.kind === 'session_logged' || p.kind === 'missed_workout'));
   const camilleGroup = groups.find(g => g.clientId === 'camille-id');
   assert.equal(camilleGroup?.items[0]?.href, trainingSessionHref('camille-id', CAMILLE_LOWER));
+});
+
+test('Aujourd’hui has no Séances à relire / Cuts qui stagnent lists — sessions live in File du jour', () => {
+  const dash = readFileSync(resolve(process.cwd(), 'src/components/coaching/CoachDashboard.tsx'), 'utf8');
+  const queue = readFileSync(resolve(process.cwd(), 'src/components/coaching/CoachTodayQueue.tsx'), 'utf8');
+  assert.doesNotMatch(dash, /sessionReview\.title/);
+  assert.doesNotMatch(dash, /nutritionStall\.title/);
+  assert.doesNotMatch(dash, /seances-a-relire/);
+  assert.doesNotMatch(dash, /stalls-nutrition/);
+  assert.match(dash, /CoachTodayQueue/);
+  assert.match(queue, /session_logged/);
+  assert.match(queue, /groups\.map/);
 });
 
 test('explicit workout query opens that session even when it is not the newest', () => {

@@ -34,6 +34,11 @@ test('roster-style create-program routes to onboarding_plan', () => {
   assert.equal(route.reason, 'first_program');
 });
 
+test('colloquial “fait moi un programme” routes to onboarding_plan', () => {
+  const route = routeCoachSecondRequest('fait moi un programme pour un etudiant novice', { onboarded: true });
+  assert.equal(route.kind, 'onboarding_plan');
+});
+
 test('NL edit with a program in context routes to program_nl_edit', () => {
   const route = routeCoachSecondRequest('passe le développé incliné à 2×6-10 RIR1', { hasProgram: true });
   assert.equal(route.kind, 'program_nl_edit');

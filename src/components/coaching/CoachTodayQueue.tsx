@@ -7,7 +7,6 @@ import {
   groupQueueByClient,
   lastMessageForClient,
   matchingPendingIntervention,
-  nextClientNames,
   queueItemLabelKey,
   relanceHrefForGroup,
   resolveQueueAction,
@@ -35,22 +34,8 @@ export default function CoachTodayQueue() {
     () => groupQueueByClient(visibleQueueItems(priorities, queueDismissedIds, clients, todayStr())),
     [priorities, queueDismissedIds, clients],
   );
-  const current = groups[0] ?? null;
-  const upcomingNames = nextClientNames(groups);
-  const relanceHref = current ? relanceHrefForGroup(current, pendingInterventions) : null;
-  const sessionAction = current?.items.find(item => item.kind === 'session_logged') ?? null;
-  const recoveryAction = current?.items.find(item => item.kind === 'new_pain' || item.kind === 'low_sleep') ?? null;
-  const setupAction = current
-    ? current.items.map(item => resolveQueueAction(item, pendingInterventions)).find(a => a.kind === 'open_setup' || a.kind === 'open_draft')
-    : null;
-  const lastMessage = current ? lastMessageForClient(sentMessages, current.clientId) : null;
 
-  const skipClient = () => {
-    if (!current) return;
-    dismissQueueItems(current.items.map(item => item.id));
-  };
-
-  if (!current) {
+  if (groups.length === 0) {
     return (
       <Card className="flex items-center gap-3">
         <ClipboardCheck size={18} className="text-emerald-400" />
@@ -76,81 +61,100 @@ export default function CoachTodayQueue() {
         </div>
       </div>
 
-      <Card className="!p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-lg leading-6 shrink-0" aria-hidden>{SEVERITY_DOT[current.severity]}</span>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              {current.avatarUrl ? (
-                <img src={current.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
-              ) : null}
-              <p className="text-sm font-medium text-white truncate">{current.clientName}</p>
-            </div>
-            <ul className="space-y-1.5">
-              {current.items.map((item: CoachPriority) => {
-                const draft = matchingPendingIntervention(item, pendingInterventions);
-                return (
-                  <li key={item.id}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(item.href)}
-                      className="w-full text-left flex items-start gap-2 rounded-lg px-1 py-0.5 hover:bg-neutral-800/60"
-                    >
-                      <span className="text-[11px] leading-5 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
-                      <span className="text-xs text-neutral-300 min-w-0">
-                        {t(queueItemLabelKey(item.kind), item.headlineParams)}
-                        {draft ? (
-                          <span className="text-blue-400"> · {t('coaching.queue.draftBadge')}</span>
-                        ) : null}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            {lastMessage?.body ? (
-              <p className="text-[11px] text-neutral-500 truncate mt-2 px-1">
-                {lastMessage.body}
-              </p>
-            ) : null}
-          </div>
-        </div>
+      <div className="space-y-2">
+        {groups.map(group => {
+          const relanceHref = relanceHrefForGroup(group, pendingInterventions);
+          const sessionAction = group.items.find(item => item.kind === 'session_logged') ?? null;
+          const recoveryAction = group.items.find(item => item.kind === 'new_pain' || item.kind === 'low_sleep') ?? null;
+          const setupAction = group.items
+            .map(item => resolveQueueAction(item, pendingInterventions))
+            .find(a => a.kind === 'open_setup' || a.kind === 'open_draft');
+          const lastMessage = lastMessageForClient(sentMessages, group.clientId);
+          return (
+            <Card key={group.clientId} className="!p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-lg leading-6 shrink-0" aria-hidden>{SEVERITY_DOT[group.severity]}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    {group.avatarUrl ? (
+                      <img src={group.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+                    ) : null}
+                    <p className="text-sm font-medium text-white truncate">{group.clientName}</p>
+                  </div>
+                  <ul className="space-y-1.5">
+                    {group.items.map((item: CoachPriority) => {
+                      const draft = matchingPendingIntervention(item, pendingInterventions);
+                      return (
+                        <li key={item.id}>
+                          <button
+                            type="button"
+                            onClick={() => navigate(item.href)}
+                            className="w-full text-left flex items-start gap-2 rounded-lg px-1 py-0.5 hover:bg-neutral-800/60"
+                          >
+                            <span className="text-[11px] leading-5 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
+                            <span className="text-xs text-neutral-300 min-w-0">
+                              {t(queueItemLabelKey(item.kind), item.headlineParams)}
+                              {draft ? (
+                                <span className="text-blue-400"> · {t('coaching.queue.draftBadge')}</span>
+                              ) : null}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                  {lastMessage?.body ? (
+                    <p className="text-[11px] text-neutral-500 truncate mt-2 px-1">
+                      {lastMessage.body}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
 
-        <div className="flex flex-wrap items-center gap-2 mt-4">
-          {sessionAction?.href && (
-            <Button size="sm" onClick={() => navigate(sessionAction.href)}>
-              {t('coaching.queue.openSession')}
-            </Button>
-          )}
-          {recoveryAction?.href && (
-            <Button size="sm" variant={sessionAction ? 'secondary' : 'primary'} onClick={() => navigate(recoveryAction.href)}>
-              {t('coaching.queue.openRecovery')}
-            </Button>
-          )}
-          {relanceHref && (
-            <Button size="sm" variant={sessionAction || recoveryAction ? 'secondary' : 'primary'} onClick={() => navigate(relanceHref)}>
-              {t('coaching.queue.relance')}
-            </Button>
-          )}
-          {!relanceHref && !sessionAction && !recoveryAction && setupAction?.href && (
-            <Button size="sm" onClick={() => navigate(setupAction.href!)}>
-              {t(setupAction.ctaKey)}
-            </Button>
-          )}
-          <Button variant="secondary" size="sm" onClick={() => navigate(`/clients/${current.clientId}`)}>
-            {t('coaching.command.openClient')}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={skipClient}>
-            {t('coaching.queue.skip')}
-          </Button>
-        </div>
-      </Card>
-
-      {upcomingNames.length > 0 && (
-        <p className="text-[11px] text-neutral-600 mt-2 px-1">
-          {t('coaching.queue.nextUp', { names: upcomingNames.join(' · ') })}
-        </p>
-      )}
+              <div className="flex flex-wrap items-center gap-2 mt-4">
+                {sessionAction?.href && (
+                  <Button size="sm" onClick={() => navigate(sessionAction.href)}>
+                    {t('coaching.queue.openSession')}
+                  </Button>
+                )}
+                {recoveryAction?.href && (
+                  <Button
+                    size="sm"
+                    variant={sessionAction ? 'secondary' : 'primary'}
+                    onClick={() => navigate(recoveryAction.href)}
+                  >
+                    {t('coaching.queue.openRecovery')}
+                  </Button>
+                )}
+                {relanceHref && (
+                  <Button
+                    size="sm"
+                    variant={sessionAction || recoveryAction ? 'secondary' : 'primary'}
+                    onClick={() => navigate(relanceHref)}
+                  >
+                    {t('coaching.queue.relance')}
+                  </Button>
+                )}
+                {!relanceHref && !sessionAction && !recoveryAction && setupAction?.href && (
+                  <Button size="sm" onClick={() => navigate(setupAction.href!)}>
+                    {t(setupAction.ctaKey)}
+                  </Button>
+                )}
+                <Button variant="secondary" size="sm" onClick={() => navigate(`/clients/${group.clientId}`)}>
+                  {t('coaching.command.openClient')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => dismissQueueItems(group.items.map(item => item.id))}
+                >
+                  {t('coaching.queue.skip')}
+                </Button>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
     </>
   );
 }

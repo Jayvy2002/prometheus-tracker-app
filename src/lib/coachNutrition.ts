@@ -140,7 +140,8 @@ export function detectCutCalorieStall(input: {
 }
 
 export function canAskCalorieAdjustment(signal: NutritionStallSignal | null): boolean {
-  return signal != null && signal.loggedDays >= MIN_NUTRITION_LOG_DAYS && signal.overeatRatio >= OVEREAT_RATIO;
+  if (!signal) return false;
+  return false;
 }
 
 export function nutritionStallPriority(
@@ -182,8 +183,11 @@ function calorieDraftForClient(
   pending: CoachIntervention[],
   clientId: string,
 ): CoachIntervention | null {
-  return pending.find(row => row.client_id === clientId && row.kind === 'calorie_adjustment' && row.status === 'pending')
-    ?? null;
+  return pending.find(row =>
+    row.client_id === clientId
+    && row.status === 'pending'
+    && (row.kind === 'calorie_adjustment' || row.kind === 'adherence_nutrition')
+  ) ?? null;
 }
 
 function draftEditorHref(clientId: string, interventionId: string): string {

@@ -1,6 +1,6 @@
 /**
- * Read-only leftover: returns a pending onboarding_plan draft if Second already wrote one.
- * Coach UI must not treat this as AI. New requests go through ask-second.
+ * Read-only leftover: returns a pending onboarding_plan draft if the in-app agent already wrote one.
+ * Coach UI must not treat this as AI. New requests go through coach-agent.
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 

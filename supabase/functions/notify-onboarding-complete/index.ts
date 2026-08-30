@@ -1,16 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { corsHeaders, json, runCoachAgent } from "../_shared/coachAgent.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers":
-    "Content-Type, Authorization, X-Client-Info, Apikey, X-Webhook-Key, X-Sender-Key",
-};
-
-type OnboardingPayload = {
-  user_id?: unknown;
-  [key: string]: unknown;
-};
+/**
+ * Onboarding-complete ping from the DB trigger (HMAC).
+ * Keeps HMAC auth. Work is in-process coach-agent (OpenAI), not Second.
+ * Does NOT POST the Grok Bot webhook.
+ */
 
 function empty(status: number) {
   return new Response(null, { status, headers: corsHeaders });
@@ -33,6 +29,10 @@ function incomingSecret(req: Request): string {
   return "";
 }
 
+function asString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -42,7 +42,6 @@ Deno.serve(async (req: Request) => {
     return empty(204);
   }
 
-  // Secrets live in the dashboard, never in git.
   const expected = (Deno.env.get("NOTIFY_SECRET") ?? Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ?? "").trim();
   if (!expected) {
     return empty(204);
@@ -51,41 +50,57 @@ Deno.serve(async (req: Request) => {
     return empty(401);
   }
 
-  let payload: OnboardingPayload = {};
+  let payload: Record<string, unknown> = {};
   try {
     const parsed = await req.json();
     if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-      payload = parsed as OnboardingPayload;
+      payload = parsed as Record<string, unknown>;
     }
   } catch {
     payload = {};
   }
 
-  const webhookUrl = Deno.env.get("GROK_BOT_WEBHOOK_URL") ?? "";
-  if (!webhookUrl) {
-    return empty(204);
+  const clientId = asString(payload.user_id) || asString(payload.client_id);
+  const coachId = asString(payload.coach_id);
+  if (!clientId || !coachId) {
+    return json(200, { ok: true, skipped: "missing_ids" });
   }
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${expected}`,
-    "X-Webhook-Key": expected,
-    "X-Sender-Key": expected,
-  };
-
-  try {
-    await fetch(webhookUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(5000),
-    });
-  } catch {
-    // Swallow network errors so pg_net / the onboarding trigger stay quiet.
+  const openaiKey = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
+  if (!openaiKey) {
+    return json(200, { ok: true, skipped: "OPENAI_API_KEY" });
   }
 
-  return new Response(JSON.stringify({ ok: true }), {
-    status: 200,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const admin = createClient(supabaseUrl, serviceKey);
+  const name = asString(payload.full_name) || "ce client";
+  const prompt =
+    `Le client ${name} vient de terminer l'onboarding. Rédige un programme et les variables de suivi. ` +
+    `Pas de calories, macros ni recettes. ISSN reste la formule de l'app. Rien ne s'applique tout seul.`;
+
+  const result = await runCoachAgent(admin, openaiKey, {
+    kind: "onboarding_plan",
+    coachId,
+    clientId,
+    programId: null,
+    prompt,
+    screen: "onboarding_complete",
+    context: {
+      goal: payload.goal ?? null,
+      training_frequency: payload.training_frequency ?? null,
+      training_focus: payload.training_focus ?? null,
+      injuries_limitations: payload.injuries_limitations ?? null,
+    },
+  });
+
+  if (!result.ok) {
+    return json(200, { ok: true, skipped: result.error });
+  }
+
+  return json(200, {
+    ok: true,
+    intervention_id: result.interventionId,
+    status: "ready",
   });
 });

@@ -128,6 +128,18 @@ Les routes `/auth` et `/onboarding` sont rendues conditionnellement dans `App.ts
 
 ---
 
+## Coach fleet — architecture lock (2026-08-29)
+
+- **Pas de Grok Bots** (ni per-coach ni per-client). Second était trop lent ; ça ne scale pas.
+- Revue hebdo **in-app** : `coach-fleet-round` + cron `invoke_coach_fleet_round`.
+- `triage_coach_fleet` : SQL cheap de **tous** les clients actifs (agrégats 14 j, pas les logs bruts).
+- Propositions data-driven : si le client ne suit pas → Relancer, pas de changement de cibles. S’il suit : cut perte normale = keep, stall = petite coupe, reprise = coupe plus franche, fatigue/perf = plus de glucides ; bulk/perf en miroir. kcal+P/C/F complets. ISSN = formule de départ seulement.
+- LLM **seulement** s’il y a une proposition de plan/programme que les formules n’écrivent pas (`program_adjustment`). Relancer et kcal sont déterministes.
+- Écrit uniquement des brouillons `coach_interventions`. Jamais d’auto-apply. Jamais de ping Second.
+- Copie coaching : `phyuijjekxtjvipjtdfv`. Ne pas toucher `main` / backup `nebysjpqifqphvmveowe`.
+
+---
+
 ## Coding Conventions & Style
 
 - **TypeScript strict** — pas de `any` implicite, toujours typer les props et retours

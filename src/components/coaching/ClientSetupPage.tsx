@@ -125,10 +125,10 @@ export default function ClientSetupPage() {
       }
       if (p) {
         const targets = issnTargetsFromProfile(p);
-        setCalories(p.daily_calorie_target || targets.calories);
-        setProtein(p.protein_target || targets.protein);
-        setCarbs(p.carbs_target || targets.carbs);
-        setFat(p.fat_target || targets.fat);
+        setCalories(targets.calories);
+        setProtein(targets.protein);
+        setCarbs(targets.carbs);
+        setFat(targets.fat);
       }
       const usable = stored && stored.status === 'pending' && stored.kind === 'onboarding_plan'
         ? stored
@@ -173,7 +173,7 @@ export default function ClientSetupPage() {
       rationale: t('coaching.second.createProgramPrompt'),
       payload: { drafting: true },
       status: 'pending',
-      source: 'second',
+      source: 'agent',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       resolved_at: null,
@@ -229,7 +229,7 @@ export default function ClientSetupPage() {
       });
       if (created.error) {
         setSaving(false);
-        toast(created.error, 'error');
+        toast(t('coaching.second.failed'), 'error');
         return;
       }
     } else if (assignId) {
@@ -387,7 +387,26 @@ export default function ClientSetupPage() {
             <p className="text-sm font-medium text-white">{t('coaching.setup.targets')}</p>
             <button onClick={applyIssn} className="text-xs text-blue-400">{t('coaching.setup.useIssn')}</button>
           </div>
+          <p className="text-[11px] text-emerald-300/90">{t('coaching.setup.issnLabel')}</p>
           <p className="text-xs text-neutral-500">{t('coaching.setup.targetsHint')}</p>
+          {profile && issn && (
+            profile.daily_calorie_target > 0
+            && (
+              profile.daily_calorie_target !== issn.calories
+              || profile.protein_target !== issn.protein
+              || profile.carbs_target !== issn.carbs
+              || profile.fat_target !== issn.fat
+            )
+          ) && (
+            <p className="text-[11px] text-neutral-500">
+              {t('coaching.setup.profileTargets', {
+                calories: profile.daily_calorie_target,
+                protein: profile.protein_target,
+                carbs: profile.carbs_target,
+                fat: profile.fat_target,
+              })}
+            </p>
+          )}
           <label className="flex items-center gap-2 text-xs text-neutral-300">
             <input type="checkbox" checked={applyTargets} onChange={e => setApplyTargets(e.target.checked)} className="accent-blue-500" />
             {t('coaching.setup.applyTargets')}

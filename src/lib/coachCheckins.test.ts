@@ -5,6 +5,7 @@ import {
   checkinIdFromHref,
   checkinReviewRows,
   focusCheckin,
+  formatCheckinScore,
   isUnreadCheckin,
   parseCheckinQuery,
   relanceHrefForCheckin,
@@ -184,4 +185,11 @@ test('focusCheckin opens the requested check-in, not just the latest', () => {
   const latest = checkin({ id: 'ck-new', user_id: 'marie-id', checked_at: '2026-08-29' });
   assert.equal(focusCheckin([latest, older], 'ck-old')?.id, 'ck-old');
   assert.equal(focusCheckin([latest, older], 'missing')?.id, 'ck-new');
+});
+
+test('check-in scores always show /5', () => {
+  assert.equal(formatCheckinScore(3), '3/5');
+  assert.equal(formatCheckinScore(3.0), '3/5');
+  assert.equal(formatCheckinScore(3.3), '3.3/5');
+  assert.equal(formatCheckinScore(null), '—');
 });

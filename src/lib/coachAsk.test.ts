@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { isRosterAsk, parseCoachAsk } from './coachAsk';
 
-test('roster questions stay local filters, not Second', () => {
+test('roster questions stay local filters, not the copilot agent', () => {
   assert.equal(isRosterAsk('Qui stagne depuis 3 semaines ?'), true);
   assert.equal(parseCoachAsk('Qui a signalé une douleur cette semaine ?').type, 'roster');
 });
