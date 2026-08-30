@@ -64,6 +64,7 @@ import { buildClientOpsRows, datePrefix, weekAgoStr } from '../lib/coachAlerts';
 import { buildClientLifts } from '../lib/coachLifts';
 import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
+import { compareRosterName } from '../lib/coachRoster';
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -500,6 +501,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       last_nudged_at: nudgedAt.get(p.id as string) ?? null,
       daily_calorie_target: Number(p.daily_calorie_target) || 0,
     }));
+    clients.sort(compareRosterName);
     set({ clients, loading: false });
   },
 

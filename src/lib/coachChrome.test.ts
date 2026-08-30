@@ -42,6 +42,9 @@ test('Clients roster: invite is a dedicated flow, no Programs shortcut, Setup on
   assert.match(clients, /forceSetup &&/);
   assert.match(clients, /shouldOpenSetup/);
   assert.match(clients, /clientFileHref/);
+  assert.match(clients, /sortRosterClients/);
+  assert.match(clients, /coaching\.rosterList/);
+  assert.doesNotMatch(clients, /lastMessageForClient/);
 });
 
 test('Progress: no empty before/after spam; logged-exercise picker stays on Training', () => {

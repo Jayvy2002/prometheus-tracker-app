@@ -6,28 +6,31 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
-import { lastMessageForClient } from '../../lib/coachQueue';
-import { liftsForClient } from '../../lib/coachLifts';
-import { sparklineValues } from '../../lib/coachProgress';
-import { weekMovedLift } from '../../lib/coachTraining';
 import { displayName } from '../../lib/coachText';
 import { todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
+import { sortRosterClients, type RosterGoalStatus } from '../../lib/coachRoster';
 import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
-import Sparkline from '../ui/Sparkline';
 import { toast } from '../ui/Toast';
 import RemoveClientDialog from './RemoveClientDialog';
+
+function goalChipKey(status: RosterGoalStatus): 'coaching.rosterList.goalCut' | 'coaching.rosterList.goalBulk' | 'coaching.rosterList.goalPerf' | null {
+  if (status === 'cut') return 'coaching.rosterList.goalCut';
+  if (status === 'bulk') return 'coaching.rosterList.goalBulk';
+  if (status === 'perf') return 'coaching.rosterList.goalPerf';
+  return null;
+}
 
 export default function ClientsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, invites, loading, opsRows, priorities, rosterSignals, sentMessages,
+    coachingRole, clients, invites, loading, opsLoading, opsRows, priorities, rosterSignals,
     fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, fetchCoachMessages, createInvite, revokeInvite, enableCoachMode,
     endClientLink,
   } = useCoachingStore();
@@ -131,6 +134,12 @@ export default function ClientsPage() {
     ? new Set(rosterHitsForFilter(rosterKey, opsRows, priorities, rosterSignals).map(h => h.clientId))
     : null;
   const visibleClients = filteredIds ? clients.filter(c => filteredIds.has(c.id)) : clients;
+  const roster = sortRosterClients(visibleClients, {
+    opsRows,
+    signals: rosterSignals,
+    today: todayStr(),
+  });
+  const rosterBusy = loading || opsLoading;
 
   return (
     <PageTransition>
@@ -140,7 +149,7 @@ export default function ClientsPage() {
             <h1 className="text-2xl font-bold text-white">{t('coaching.clientsTitle')}</h1>
             {rosterFilter && (
               <p className="text-xs text-blue-300 mt-1">
-                {t('coaching.ask.filterActive', { filter: rosterFilter, n: visibleClients.length })}
+                {t('coaching.ask.filterActive', { filter: rosterFilter, n: roster.length })}
                 {' · '}
                 <button type="button" className="underline" onClick={() => navigate('/clients')}>
                   {t('coaching.ask.clearFilter')}
@@ -153,7 +162,7 @@ export default function ClientsPage() {
           </Button>
         </div>
 
-        {loading ? (
+        {rosterBusy ? (
           <div className="space-y-2">
             {[1, 2, 3].map(i => (
               <div key={i} className="h-16 rounded-2xl bg-neutral-900 animate-pulse" />
@@ -167,18 +176,29 @@ export default function ClientsPage() {
               <Plus size={14} /> {t('coaching.invite.cta')}
             </Button>
           </Card>
-        ) : visibleClients.length === 0 ? (
+        ) : roster.length === 0 ? (
           <Card className="text-center py-10">
             <p className="text-neutral-400">{t('coaching.ask.roster.empty')}</p>
           </Card>
         ) : (
           <div className="space-y-2">
-            {visibleClients.map(c => {
+            {roster.map(row => {
+              const c = row.client;
               const ops = opsRows.find(r => r.client.id === c.id);
-              const forceSetup = ops ? shouldOpenSetup(ops) : !c.onboarding_completed;
-              const lastMessage = lastMessageForClient(sentMessages, c.id);
-              const moved = weekMovedLift(liftsForClient(rosterSignals.lifts, c.id), todayStr());
-              const movedSpark = moved ? sparklineValues(moved, 'topSet') : [];
+              const forceSetup = ops ? shouldOpenSetup(ops) : row.forceSetup;
+              const goalKey = goalChipKey(row.goalStatus);
+              const goal = goalKey ? t(goalKey) : null;
+              const kcal = row.kcal.kind === 'vs_target'
+                ? t('coaching.rosterList.kcalVs', { logged: row.kcal.logged, target: row.kcal.target })
+                : row.kcal.kind === 'logged_only'
+                  ? t('coaching.rosterList.kcalLogged', { logged: row.kcal.logged })
+                  : row.kcal.kind === 'no_logs'
+                    ? t('coaching.rosterList.noKcalLogs')
+                    : null;
+              const program = row.hasProgram
+                ? row.programName
+                : t('coaching.rosterList.noProgram');
+              const meta = [goal, kcal, program].filter(Boolean) as string[];
               return (
               <Card
                 key={c.id}
@@ -202,19 +222,10 @@ export default function ClientsPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-neutral-500 truncate">
-                    {lastMessage?.body || c.email}
+                  <p className="text-xs text-neutral-400 truncate">
+                    {meta.join(' · ') || c.email}
                   </p>
                 </div>
-                {moved && movedSpark.length >= 2 && (
-                  <div className="shrink-0 text-right max-w-[96px]">
-                    <p className="text-[10px] text-neutral-500 truncate">{moved.displayName}</p>
-                    <div className="flex items-center gap-1 justify-end">
-                      <span className="text-[10px] text-neutral-400">{moved.sessions[0]?.bestSet}</span>
-                      <Sparkline values={movedSpark} width={56} height={20} />
-                    </div>
-                  </div>
-                )}
                 {forceSetup && (
                 <button
                   type="button"
