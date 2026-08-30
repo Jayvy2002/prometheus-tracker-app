@@ -109,6 +109,7 @@ const en = {
     passwordUpdated: 'Password updated',
     passwordTooShort: 'Password must be at least 6 characters.',
     passwordMismatch: 'Passwords do not match.',
+    invalidCredentials: 'Incorrect email or password.',
   },
 
   onboarding: {

@@ -72,6 +72,15 @@ export function authSnapshotEvent(event: string): AuthSnapshotEvent {
   }
 }
 
+/** Map GoTrue English errors to the in-app locale. Unknown messages pass through. */
+export function clientLoginErrorCopy(raw: string, t: (key: string) => string): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes('invalid login credentials') || lower.includes('invalid_credentials')) {
+    return t('auth.invalidCredentials');
+  }
+  return raw;
+}
+
 /** First valid submit always calls signIn — never swallowed because auth is still booting. */
 export async function submitClientLogin(opts: {
   formEmail: string;

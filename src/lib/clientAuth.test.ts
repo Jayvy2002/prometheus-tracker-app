@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
   authSnapshotEvent,
+  clientLoginErrorCopy,
   clientLoginSubmitEnabled,
   credentialsFromLoginForm,
   shouldCommitAuthSnapshot,
@@ -83,6 +84,18 @@ test('late getSession/INITIAL_SESSION null must not wipe a signed-in user', () =
   assert.equal(authSnapshotEvent('weird'), 'other');
 });
 
+test('login errors from GoTrue are shown in the app locale', () => {
+  const t = (key: string) => {
+    if (key === 'auth.invalidCredentials') return 'E-mail ou mot de passe incorrect.';
+    return key;
+  };
+  assert.equal(
+    clientLoginErrorCopy('Invalid login credentials', t),
+    'E-mail ou mot de passe incorrect.',
+  );
+  assert.equal(clientLoginErrorCopy('Network error', t), 'Network error');
+});
+
 test('first valid client login submit signs in even while auth is booting', async () => {
   const calls: Array<{ email: string; password: string }> = [];
   const result = await submitClientLogin({
@@ -148,6 +161,7 @@ test('AuthPage: client stays login-only; first submit is not gated on auth loadi
   assert.match(page, /auth\.signingInAsClient/);
   assert.match(page, /chooseRole\('client'\)/);
   assert.match(page, /chooseRole\('coach'\)/);
+  assert.match(page, /clientLoginErrorCopy/);
   assert.doesNotMatch(page, /useAuthStore\([^)]*loading/);
   assert.doesNotMatch(page, /disabled=\{!initialized/);
   assert.doesNotMatch(page, /disabled=\{authLoading/);
@@ -157,6 +171,7 @@ test('AuthPage: client stays login-only; first submit is not gated on auth loadi
   assert.match(fr, /clientNeedsInvite: 'Pas encore de compte \? Ton coach t’envoie un lien/);
   assert.match(fr, /signIn: 'Se connecter'/);
   assert.match(fr, /clientEntry: 'Connexion client'/);
+  assert.match(fr, /invalidCredentials: 'E-mail ou mot de passe incorrect\.'/);
 });
 
 test('authStore: signIn commits the session; late getSession cannot eat it', () => {

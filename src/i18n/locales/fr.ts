@@ -109,6 +109,7 @@ const fr = {
     passwordUpdated: 'Mot de passe mis à jour',
     passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères.',
     passwordMismatch: 'Les mots de passe ne correspondent pas.',
+    invalidCredentials: 'E-mail ou mot de passe incorrect.',
   },
 
   onboarding: {

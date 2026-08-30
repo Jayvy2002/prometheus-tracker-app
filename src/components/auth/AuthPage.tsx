@@ -3,7 +3,7 @@ import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Users, User } from 'luc
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { credentialsFromLoginForm } from '../../lib/clientAuth';
+import { credentialsFromLoginForm, clientLoginErrorCopy } from '../../lib/clientAuth';
 import { useAuthStore } from '../../stores/authStore';
 import {
   clearIntendedCoachingRole,
@@ -70,7 +70,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
       if (mode === 'forgot') {
         const result = await resetPasswordForEmail(nextEmail);
         if (result.error) {
-          setError(result.error);
+          setError(clientLoginErrorCopy(result.error, t));
           return;
         }
         setResetSent(true);
@@ -91,7 +91,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
         ? await signIn(nextEmail, nextPassword)
         : await signUp(nextEmail, nextPassword);
       if (result.error) {
-        setError(result.error);
+        setError(clientLoginErrorCopy(result.error, t));
         return;
       }
       if ('needsConfirmation' in result && result.needsConfirmation) {
