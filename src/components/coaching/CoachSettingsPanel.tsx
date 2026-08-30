@@ -50,6 +50,7 @@ export default function CoachSettingsPanel() {
   const toggleTab = (tab: CoachClientTab) => {
     setTabs(prev => {
       if (prev.includes(tab)) {
+        if (tab === 'overview') return prev;
         const next = prev.filter(x => x !== tab);
         return next.length === 0 ? prev : next;
       }

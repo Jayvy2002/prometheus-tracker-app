@@ -13,6 +13,7 @@ import {
   visibleQueueItems,
 } from '../../lib/coachQueue';
 import { todayStr } from '../../lib/utils';
+import { clientFileHref } from '../../lib/coachSituation';
 import type { CoachPriority, CoachPrioritySeverity } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -135,7 +136,7 @@ export default function CoachTodayQueue() {
                     {t(setupAction.ctaKey)}
                   </Button>
                 )}
-                <Button variant="secondary" size="sm" onClick={() => navigate(`/clients/${group.clientId}`)}>
+                <Button variant="secondary" size="sm" onClick={() => navigate(clientFileHref(group.clientId))}>
                   {t('coaching.command.openClient')}
                 </Button>
                 <Button

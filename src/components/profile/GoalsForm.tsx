@@ -86,8 +86,8 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
                   ? 'bg-blue-600/20 border-blue-500 text-white'
                   : 'bg-neutral-900 border-neutral-800 text-neutral-400'}`}
             >
-              <div className="font-medium">{g.label}</div>
-              <div className="text-xs text-neutral-500 mt-0.5">{g.description}</div>
+              <div className="font-medium">{t(`coaching.goalLabels.${g.value}`)}</div>
+              <div className="text-xs text-neutral-500 mt-0.5">{t(`coaching.goalLabels.${g.value}Hint`)}</div>
             </button>
           ))}
         </div>

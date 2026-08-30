@@ -162,16 +162,25 @@ export function parseDate(dateStr: string): Date {
   return parseDateStr(dateStr);
 }
 
-export function formatDate(dateStr: string): string {
-  return parseDate(dateStr).toLocaleDateString(undefined, {
+/** Product default is French; English only when the user picked it. */
+export function dateLocale(lang?: string): string {
+  return (lang ?? 'fr').toLowerCase().startsWith('en') ? 'en-US' : 'fr-FR';
+}
+
+export function formatDate(dateStr: string, lang?: string): string {
+  return parseDate(dateStr).toLocaleDateString(dateLocale(lang), {
     month: 'short', day: 'numeric', year: 'numeric',
   });
 }
 
-export function formatDateShort(dateStr: string): string {
-  return parseDate(dateStr).toLocaleDateString(undefined, {
+export function formatDateShort(dateStr: string, lang?: string): string {
+  return parseDate(dateStr).toLocaleDateString(dateLocale(lang), {
     month: 'short', day: 'numeric',
   });
+}
+
+export function formatWeekdayDate(d: Date = new Date(), lang?: string): string {
+  return d.toLocaleDateString(dateLocale(lang), { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
 export function formatDuration(seconds: number): string {

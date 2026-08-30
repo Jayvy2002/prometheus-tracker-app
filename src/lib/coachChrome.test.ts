@@ -34,13 +34,14 @@ test('Ask keeps Open draft for this question; no fleet round, no recent-drafts l
   assert.doesNotMatch(ask, /coaching\.ask\.noDrafts/);
 });
 
-test('Clients roster: invite is a dedicated flow, no Programs shortcut, Setup only if not configured', () => {
+test('Clients roster: invite is a dedicated flow, no Programs shortcut, Setup only if not configured, open file is Vue d’ensemble', () => {
   const clients = src('src/components/coaching/ClientsPage.tsx');
   assert.doesNotMatch(clients, /navigate\('\/programs'\)/);
   assert.match(clients, /inviteOpen/);
   assert.match(clients, /coaching\.invite\.cta/);
   assert.match(clients, /forceSetup &&/);
   assert.match(clients, /shouldOpenSetup/);
+  assert.match(clients, /clientFileHref/);
 });
 
 test('Progress: no empty before/after spam; logged-exercise picker stays on Training', () => {
@@ -69,7 +70,31 @@ test('Coached client shell: no Programs, no coach-mode, no profile nav dump', ()
   const app = src('src/App.tsx');
   assert.match(app, /CoachedAthleteRedirect/);
   assert.match(app, /path="\/programs"/);
+  assert.doesNotMatch(app, /changeLanguage\(profile/);
 
   const side = src('src/components/layout/SideNav.tsx');
   assert.match(side, /track_workouts && !coached/);
+});
+
+test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {
+  const side = src('src/components/layout/SideNav.tsx');
+  assert.match(side, /t\('nav\.today'\)/);
+  assert.match(side, /t\('nav\.clients'\)/);
+  assert.match(side, /t\('nav\.programs'\)/);
+  assert.match(side, /t\('nav\.messages'\)/);
+  assert.match(side, /t\('nav\.prometheus'\)/);
+
+  const bottom = src('src/components/layout/BottomNav.tsx');
+  assert.match(bottom, /t\('nav\.today'\)/);
+  assert.match(bottom, /t\('nav\.programs'\)/);
+
+  const detail = src('src/components/coaching/ClientDetailPage.tsx');
+  assert.match(detail, /params\.set\('tab', 'overview'\)/);
+  assert.match(detail, /SituationCards/);
+  assert.match(detail, /clientSituationLines/);
+  assert.match(detail, /parseVisibleTabs/);
+  assert.match(detail, /coaching\.tabs360/);
+
+  const queue = src('src/components/coaching/CoachTodayQueue.tsx');
+  assert.match(queue, /clientFileHref/);
 });

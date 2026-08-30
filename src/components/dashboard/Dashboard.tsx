@@ -13,7 +13,7 @@ import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
-import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber } from '../../lib/utils';
+import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
 import ProgressRing from '../ui/ProgressRing';
@@ -33,7 +33,7 @@ function getWeekDates(): string[] {
 const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 export default function Dashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
@@ -181,7 +181,7 @@ export default function Dashboard() {
           </button>
           <div className="flex-1">
             <p className="text-neutral-400 text-xs">
-              {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+              {formatWeekdayDate(new Date(), i18n.language)}
             </p>
             <p className="text-sm font-medium text-white leading-snug">{greeting}</p>
             {myCoach && (

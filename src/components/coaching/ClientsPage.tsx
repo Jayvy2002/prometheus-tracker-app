@@ -12,6 +12,7 @@ import { sparklineValues } from '../../lib/coachProgress';
 import { weekMovedLift } from '../../lib/coachTraining';
 import { displayName } from '../../lib/coachText';
 import { todayStr } from '../../lib/utils';
+import { clientFileHref } from '../../lib/coachSituation';
 import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -181,7 +182,7 @@ export default function ClientsPage() {
               return (
               <Card
                 key={c.id}
-                onClick={() => navigate(forceSetup ? `/clients/${c.id}/setup` : `/clients/${c.id}`)}
+                onClick={() => navigate(forceSetup ? `/clients/${c.id}/setup` : clientFileHref(c.id))}
                 className="flex items-center gap-3"
               >
                 <div className="w-10 h-10 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold shrink-0">
@@ -243,7 +244,7 @@ export default function ClientsPage() {
                   type="button"
                   onClick={e => {
                     e.stopPropagation();
-                    navigate(`/clients/${c.id}`);
+                    navigate(clientFileHref(c.id));
                   }}
                   className="text-neutral-600 hover:text-white shrink-0"
                   aria-label={t('coaching.clientsTitle')}

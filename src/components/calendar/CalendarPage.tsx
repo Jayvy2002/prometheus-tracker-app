@@ -7,7 +7,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { supabase } from '../../lib/supabase';
-import { parseDateStr, parseDate, formatWeight, toLocalDateStr } from '../../lib/utils';
+import { parseDateStr, parseDate, formatWeight, toLocalDateStr, dateLocale } from '../../lib/utils';
 import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -67,7 +67,7 @@ function dateToStr(d: Date): string {
 }
 
 export default function CalendarPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
@@ -218,8 +218,8 @@ export default function CalendarPage() {
   const weekLabel = useMemo(() => {
     if (weekOffset === 0) return t('calendar.thisWeek');
     if (weekOffset === -1) return t('calendar.lastWeek');
-    return `${weekDates[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekDates[6].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-  }, [weekDates, weekOffset, t]);
+    return `${weekDates[0].toLocaleDateString(dateLocale(i18n.language), { month: 'short', day: 'numeric' })} – ${weekDates[6].toLocaleDateString(dateLocale(i18n.language), { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }, [weekDates, weekOffset, t, i18n.language]);
 
   const monthBaseDate = useMemo(() => {
     const d = new Date();
@@ -231,8 +231,8 @@ export default function CalendarPage() {
   const monthDates = useMemo(() => getMonthDates(monthBaseDate.getFullYear(), monthBaseDate.getMonth()), [monthBaseDate]);
 
   const monthLabel = useMemo(() => {
-    return monthBaseDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  }, [monthBaseDate]);
+    return monthBaseDate.toLocaleDateString(dateLocale(i18n.language), { month: 'long', year: 'numeric' });
+  }, [monthBaseDate, i18n.language]);
 
   const today = dateToStr(new Date());
 
@@ -256,8 +256,8 @@ export default function CalendarPage() {
 
   const selectedDateLabel = useMemo(() => {
     const d = parseDateStr(selectedDate);
-    return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-  }, [selectedDate]);
+    return d.toLocaleDateString(dateLocale(i18n.language), { weekday: 'long', month: 'long', day: 'numeric' });
+  }, [selectedDate, i18n.language]);
 
   const renderDayButton = (day: DayData) => {
     const isToday = day.date === today;

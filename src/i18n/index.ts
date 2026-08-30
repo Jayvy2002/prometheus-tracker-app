@@ -15,11 +15,13 @@ i18n
       en: { translation: en },
       fr: { translation: fr },
     },
-    fallbackLng: 'en',
-    supportedLngs: ['en', 'fr'],
+    lng: 'fr',
+    fallbackLng: 'fr',
+    supportedLngs: ['fr', 'en'],
     detection: {
-      // Priority: localStorage (user's explicit choice) → navigator language
-      order: ['localStorage', 'navigator'],
+      // Explicit profile / picker only. Navigator English was mixing chrome
+      // (Today / Clients / Programs) while drafts stayed French.
+      order: ['localStorage'],
       caches: ['localStorage'],
       lookupLocalStorage: 'prometheus_language',
     },
@@ -35,8 +37,17 @@ i18n
 
 export default i18n;
 
+function applyDocumentLang(lang: string) {
+  if (typeof document === 'undefined') return;
+  document.documentElement.lang = lang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
+}
+
+i18n.on('languageChanged', applyDocumentLang);
+applyDocumentLang(i18n.language || 'fr');
+
 /** Call this when the user changes their language in the profile. */
 export function setAppLanguage(lang: string) {
   i18n.changeLanguage(lang);
   localStorage.setItem('prometheus_language', lang);
+  applyDocumentLang(lang);
 }

@@ -48,6 +48,8 @@ export function resolveClientTab(raw: string | null | undefined, checkinId?: str
   return 'overview';
 }
 
+export { clientFileHref, OVERVIEW_TAB } from './coachSituation';
+
 export function recoveryFocusHref(clientId: string, checkinId?: string | null): string {
   const params = new URLSearchParams({ tab: HEALTH_TAB });
   const id = parseCheckinId(checkinId);

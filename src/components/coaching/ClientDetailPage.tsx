@@ -13,7 +13,6 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
 import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
-import { GOALS } from '../../lib/constants';
 import { openDraftHref } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import { flagKindForClient, focusCheckin, formatCheckinScore, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
@@ -34,12 +33,18 @@ import { displayName } from '../../lib/coachText';
 import { liftsForClient } from '../../lib/coachLifts';
 import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
+import {
+  clientSituationLines,
+  hasSessionGap,
+  lastLoggedSessionDate,
+  type ClientSituationLine,
+} from '../../lib/coachSituation';
+import { parseVisibleTabs } from '../../lib/coachSettings';
 import { ALL_ON_TRACKING, parseResolvedTracking, type ResolvedTrackingConfig } from '../../lib/clientTracking';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { weightChartPoints } from '../../lib/coachProgress';
 import ClientProfileEditor from './ClientProfileEditor';
 import {
-  DEFAULT_COACH_VISIBLE_TABS,
   type CoachClientTab,
   type ClientLiftProgress,
   type DailyCheckin,
@@ -64,10 +69,41 @@ import NutritionStallPanel from './NutritionStallPanel';
 import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
 
-const TABS: CoachClientTab[] = ['overview', 'profile', 'training', 'progress', 'checkins', 'health', 'notes'];
-
-function goalLabel(goal: string): string {
-  return GOALS.find(g => g.value === goal)?.label || goal || '—';
+function SituationCards({
+  lines,
+  relanceHref,
+  setupHref,
+}: {
+  lines: ClientSituationLine[];
+  relanceHref: string;
+  setupHref?: string;
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  if (lines.length === 0) return null;
+  return (
+    <div className="space-y-2">
+      {lines.map(line => (
+        <Card key={line.id} className="space-y-3">
+          <p className="text-sm text-white">{t(line.messageKey, { days: line.days ?? 0 })}</p>
+          {(line.relance && relanceHref) || (line.id === 'no_program' && setupHref) ? (
+            <div className="flex flex-wrap gap-2">
+              {line.relance && relanceHref ? (
+                <Button size="sm" onClick={() => navigate(relanceHref)}>
+                  {t('coaching.queue.relance')}
+                </Button>
+              ) : null}
+              {line.id === 'no_program' && setupHref ? (
+                <Button size="sm" variant="secondary" onClick={() => navigate(setupHref)}>
+                  {t('coaching.setupCta')}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </Card>
+      ))}
+    </div>
+  );
 }
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
@@ -178,13 +214,18 @@ export default function ClientDetailPage() {
     setWorkspaceOpen(false);
   };
 
+  useEffect(() => {
+    if (searchParams.get('tab') || checkinId) return;
+    const params = new URLSearchParams(searchParams);
+    params.set('tab', 'overview');
+    setSearchParams(params, { replace: true });
+  }, [searchParams, checkinId, setSearchParams]);
+
   const lifts = useMemo(() => {
     if (progressLifts && progressLifts.length > 0) return progressLifts;
     return id ? liftsForClient(rosterSignals.lifts, id) : [];
   }, [progressLifts, rosterSignals.lifts, id]);
-  const visibleTabs = coachSettings?.visible_tabs?.length
-    ? DEFAULT_COACH_VISIBLE_TABS.filter(tabKey => coachSettings.visible_tabs.includes(tabKey))
-    : TABS;
+  const visibleTabs = parseVisibleTabs(coachSettings?.visible_tabs);
   const workspaceLift = useMemo(
     () => (id ? pickDefaultLift(lifts, { hint: exerciseHint, notes, today: todayStr() }) : null),
     [id, lifts, exerciseHint, notes],
@@ -249,6 +290,27 @@ export default function ClientDetailPage() {
   const clientPriorities = priorities.filter(p => p.clientId === id).slice(0, 4);
   const relanceHref = id ? relanceThreadHref(id, 'general_followup') : '';
   const trainingRelanceHref = id ? relanceThreadHref(id, 'missed_training') : '';
+  const situation = useMemo(() => clientSituationLines({
+    hasProgram: !!(ops?.hasProgram || assignment?.program),
+    lastSessionDate: lastLoggedSessionDate(insightWorkouts, lifts),
+    today: todayStr(),
+    trackWorkouts: tracking.track_workouts,
+  }), [ops?.hasProgram, assignment?.program, insightWorkouts, lifts, tracking.track_workouts]);
+  const sessionGap = hasSessionGap(situation);
+  const setupHref = id && ops && shouldOpenSetup(ops) ? `/clients/${id}/setup` : undefined;
+  const showInsight = !!insight && (
+    insight.workoutsCompleted > 0
+    || insight.progressed.length > 0
+    || insight.stalled.length > 0
+    || (insight.pain != null && insight.pain >= 3)
+  );
+  const showKpis = !!kpis && (
+    kpis.progression !== 'unknown'
+    || kpis.trainingAdherence != null
+    || kpis.recovery != null
+    || kpis.weightDelta != null
+    || kpis.pain != null
+  );
   const missedTraining = priorities.some(p => p.clientId === id && p.kind === 'missed_workout');
   const calorieDraft = id ? pendingForClient(pendingInterventions, id, 'calorie_adjustment') : null;
   const openableDraft = id
@@ -380,7 +442,9 @@ export default function ClientDetailPage() {
             <p className="text-xs text-neutral-500 truncate">
               {ops && shouldOpenSetup(ops) ? t('coaching.badgeSetup') : t('coaching.client360.active')}
               {' · '}
-              {goalLabel(client?.goal || '')}
+              {client?.goal
+                ? t(`coaching.goalLabels.${client.goal === 'gain' ? 'bulk' : client.goal === 'lose' ? 'cut' : client.goal}`, { defaultValue: client.goal })
+                : '—'}
               {week ? ` · ${t('programs.weekOf', { current: week.current, total: week.total })}` : ''}
               {client?.training_frequency ? ` · ${client.training_frequency}x` : rosterSignals.scheduledDays[id ?? ''] ? ` · ${rosterSignals.scheduledDays[id ?? '']}x` : ''}
             </p>
@@ -439,58 +503,62 @@ export default function ClientDetailPage() {
           <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mt-8" />
         ) : tab === 'overview' ? (
           <div className="space-y-4">
-            <Card>
-              <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1 flex items-center gap-1">
-                <Sparkles size={12} /> {t('coaching.client360.insightTitle')}
-              </p>
-              {insight ? (
-                <>
-                  <p className="text-sm text-neutral-200">
-                    {t('coaching.client360.insightBody', {
-                      workouts: insight.workoutsCompleted,
-                      weight: insight.weightDeltaKg == null
-                        ? '—'
-                        : `${insight.weightDeltaKg > 0 ? '+' : ''}${insight.weightDeltaKg} kg`,
-                      progressed: insight.progressed.join(', ') || t('coaching.client360.none'),
-                      stalled: insight.stalled.join(', ') || t('coaching.client360.none'),
-                    })}
-                  </p>
-                  {insight.pain != null && insight.pain >= 3 && (
-                    <p className="text-xs text-rose-300 mt-2">{t('coaching.client360.painFlag', { n: insight.pain })}</p>
-                  )}
-                </>
-              ) : (
-                <p className="text-sm text-neutral-400">{t('coaching.client360.insightEmpty')}</p>
-              )}
-            </Card>
-
-            <Card>
-              <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
-                {t('coaching.client360.sinceVisit')}
-              </p>
-              <p className="text-sm text-neutral-300">
-                {insight?.since
-                  ? t(`coaching.client360.sinceSource.${insight.source}`, { date: formatDate(insight.since) })
-                  : t('coaching.client360.sinceUnknown')}
-              </p>
-              <p className="text-xs text-neutral-500 mt-1">
-                {t('coaching.client360.sinceMeta', {
-                  workouts: insight?.workoutsCompleted ?? 0,
-                  checkins: insight?.checkins ?? 0,
-                })}
-              </p>
-            </Card>
-
-            <ClientLiftChart
-              compact
-              lifts={lifts}
-              selectedName={exerciseHint}
-              notes={notes}
+            <SituationCards
+              lines={situation}
               relanceHref={trainingRelanceHref}
-              onSelect={name => setTab('training', { exercise: name })}
+              setupHref={setupHref}
             />
 
-            {kpis && (
+            {showInsight && insight ? (
+              <Card>
+                <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1 flex items-center gap-1">
+                  <Sparkles size={12} /> {t('coaching.client360.insightTitle')}
+                </p>
+                <p className="text-sm text-neutral-200">
+                  {t('coaching.client360.insightBody', {
+                    workouts: insight.workoutsCompleted,
+                    weight: insight.weightDeltaKg == null
+                      ? '—'
+                      : `${insight.weightDeltaKg > 0 ? '+' : ''}${insight.weightDeltaKg} kg`,
+                    progressed: insight.progressed.join(', ') || t('coaching.client360.none'),
+                    stalled: insight.stalled.join(', ') || t('coaching.client360.none'),
+                  })}
+                </p>
+                {insight.pain != null && insight.pain >= 3 && (
+                  <p className="text-xs text-rose-300 mt-2">{t('coaching.client360.painFlag', { n: insight.pain })}</p>
+                )}
+              </Card>
+            ) : null}
+
+            {insight?.since ? (
+              <Card>
+                <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
+                  {t('coaching.client360.sinceVisit')}
+                </p>
+                <p className="text-sm text-neutral-300">
+                  {t(`coaching.client360.sinceSource.${insight.source}`, { date: formatDate(insight.since) })}
+                </p>
+                <p className="text-xs text-neutral-500 mt-1">
+                  {t('coaching.client360.sinceMeta', {
+                    workouts: insight.workoutsCompleted,
+                    checkins: insight.checkins,
+                  })}
+                </p>
+              </Card>
+            ) : null}
+
+            {!sessionGap && tracking.track_workouts && (
+              <ClientLiftChart
+                compact
+                lifts={lifts}
+                selectedName={exerciseHint}
+                notes={notes}
+                relanceHref={trainingRelanceHref}
+                onSelect={name => setTab('training', { exercise: name })}
+              />
+            )}
+
+            {showKpis && kpis && (
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                 <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
                 <Kpi label={t('coaching.kpis.adherence')} value={formatCheckinScore(kpis.trainingAdherence)} />
@@ -518,13 +586,11 @@ export default function ClientDetailPage() {
               </div>
             )}
 
-            <div>
-              <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
-                {t('coaching.client360.timeline')}
-              </p>
-              {timeline.length === 0 ? (
-                <Card className="text-neutral-500 text-sm">{t('coaching.client360.timelineEmpty')}</Card>
-              ) : (
+            {timeline.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
+                  {t('coaching.client360.timeline')}
+                </p>
                 <div className="space-y-2">
                   {timeline.map((item, i) => (
                     <Card key={`${item.kind}-${item.at}-${i}`} className="flex items-center gap-3 !py-2.5">
@@ -539,8 +605,8 @@ export default function ClientDetailPage() {
                     </Card>
                   ))}
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         ) : tab === 'training' && workspaceOpen && workspaceLift ? (
           <ExerciseWorkspace
@@ -551,6 +617,11 @@ export default function ClientDetailPage() {
           />
         ) : tab === 'training' ? (
             <div className="space-y-3">
+              <SituationCards
+                lines={situation}
+                relanceHref={trainingRelanceHref}
+                setupHref={setupHref}
+              />
               {sessionView && id ? (
                 <LastSessionReview
                   clientId={id}
@@ -561,18 +632,20 @@ export default function ClientDetailPage() {
                   onExercise={name => setTab('training', { exercise: name })}
                 />
               ) : null}
-              <ClientLiftChart
-                lifts={lifts}
-                selectedName={exerciseHint}
-                notes={notes}
-                relanceHref={trainingRelanceHref}
-                showRelance={missedTraining && !sessionView}
-                onSelect={name => setTab('training', { exercise: name })}
-                onOpenSeries={lift => {
-                  setTab('training', { exercise: lift.displayName });
-                  setWorkspaceOpen(true);
-                }}
-              />
+              {!sessionGap && tracking.track_workouts && (
+                <ClientLiftChart
+                  lifts={lifts}
+                  selectedName={exerciseHint}
+                  notes={notes}
+                  relanceHref={trainingRelanceHref}
+                  showRelance={missedTraining && !sessionView}
+                  onSelect={name => setTab('training', { exercise: name })}
+                  onOpenSeries={lift => {
+                    setTab('training', { exercise: lift.displayName });
+                    setWorkspaceOpen(true);
+                  }}
+                />
+              )}
               {assignment?.program && (
                 <Card>
                   <p className="text-sm text-white">{assignment.program.name}</p>
@@ -607,14 +680,16 @@ export default function ClientDetailPage() {
             </div>
         ) : tab === 'progress' ? (
           <div className="space-y-3">
-            <ClientLiftChart
-              compact
-              lifts={lifts}
-              selectedName={exerciseHint}
-              notes={notes}
-              relanceHref={trainingRelanceHref}
-              onSelect={name => setTab('training', { exercise: name })}
-            />
+            {!sessionGap && tracking.track_workouts && (
+              <ClientLiftChart
+                compact
+                lifts={lifts}
+                selectedName={exerciseHint}
+                notes={notes}
+                relanceHref={trainingRelanceHref}
+                onSelect={name => setTab('training', { exercise: name })}
+              />
+            )}
             <WeightChart points={weightChartPoints(weights)} />
             <NutritionChart points={nutritionDays} />
             {showNutritionPass && id && (
