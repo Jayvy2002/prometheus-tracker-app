@@ -4,14 +4,28 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
+  /** No :hover styles — first tap on touch must fire click, not "stick" on hover. */
+  pressOnly?: boolean;
   children: ReactNode;
 }
 
 const variants = {
-  primary: 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50',
-  secondary: 'bg-neutral-800 hover:bg-neutral-700 text-neutral-200 border border-neutral-700/80 hover:border-neutral-600',
-  ghost: 'bg-transparent hover:bg-neutral-800/80 text-neutral-300',
-  danger: 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-900/20',
+  primary: {
+    base: 'bg-blue-600 text-white shadow-lg shadow-blue-900/30',
+    hover: 'hover:bg-blue-500 hover:shadow-blue-900/50',
+  },
+  secondary: {
+    base: 'bg-neutral-800 text-neutral-200 border border-neutral-700/80',
+    hover: 'hover:bg-neutral-700 hover:border-neutral-600',
+  },
+  ghost: {
+    base: 'bg-transparent text-neutral-300',
+    hover: 'hover:bg-neutral-800/80',
+  },
+  danger: {
+    base: 'bg-rose-600 text-white shadow-lg shadow-rose-900/20',
+    hover: 'hover:bg-rose-500',
+  },
 };
 
 const sizes = {
@@ -24,23 +38,27 @@ export default function Button({
   variant = 'primary',
   size = 'md',
   loading,
+  pressOnly = false,
   children,
   className = '',
   disabled,
   ...props
 }: ButtonProps) {
+  const palette = variants[variant];
   return (
     <button
+      {...props}
       className={`inline-flex items-center justify-center gap-2 font-medium rounded-xl
-        transition-all duration-200 ease-out
-        ${variants[variant]} ${sizes[size]}
+        transition-all duration-200 ease-out touch-manipulation
+        ${palette.base} ${pressOnly ? '' : palette.hover} ${sizes[size]}
         ${disabled || loading
           ? 'opacity-50 cursor-not-allowed'
-          : 'active:scale-[0.96] hover:scale-[1.01]'
+          : pressOnly
+            ? 'active:opacity-90'
+            : 'active:scale-[0.96] hover:scale-[1.01]'
         }
         ${className}`}
       disabled={disabled || loading}
-      {...props}
     >
       {loading && (
         <svg className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24">

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Users, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { credentialsFromLoginForm } from '../../lib/clientAuth';
 import { useAuthStore } from '../../stores/authStore';
 import {
   clearIntendedCoachingRole,
@@ -27,6 +28,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
   const [loading, setLoading] = useState(false);
   const [checkEmail, setCheckEmail] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const submittingRef = useRef(false);
   const { signIn, signUp, resetPasswordForEmail } = useAuthStore();
 
   const canRegister = fromInvite || role === 'coach';
@@ -49,42 +51,55 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
     setResetSent(false);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+    const formData = new FormData(e.currentTarget);
+    const { email: nextEmail, password: nextPassword } = credentialsFromLoginForm({
+      formEmail: String(formData.get('email') ?? ''),
+      formPassword: String(formData.get('password') ?? ''),
+      stateEmail: email,
+      statePassword: password,
+    });
+    setEmail(nextEmail);
+    if (mode !== 'forgot') setPassword(nextPassword);
     setError('');
+    submittingRef.current = true;
     setLoading(true);
-    if (mode === 'forgot') {
-      const result = await resetPasswordForEmail(email);
-      setLoading(false);
+    try {
+      if (mode === 'forgot') {
+        const result = await resetPasswordForEmail(nextEmail);
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+        setResetSent(true);
+        return;
+      }
+      if (mode === 'register' && !canRegister) {
+        setError(t('auth.clientNeedsInvite'));
+        return;
+      }
+      // Only the coach picker may persist a role claim. Client accounts are
+      // created and linked exclusively via /invite/:token (accept_coach_invite).
+      if (!fromInvite && role === 'coach') {
+        setIntendedCoachingRole('coach');
+      } else {
+        clearIntendedCoachingRole();
+      }
+      const result = mode === 'login' || !canRegister
+        ? await signIn(nextEmail, nextPassword)
+        : await signUp(nextEmail, nextPassword);
       if (result.error) {
         setError(result.error);
         return;
       }
-      setResetSent(true);
-      return;
-    }
-    if (mode === 'register' && !canRegister) {
+      if ('needsConfirmation' in result && result.needsConfirmation) {
+        setCheckEmail(true);
+      }
+    } finally {
+      submittingRef.current = false;
       setLoading(false);
-      setError(t('auth.clientNeedsInvite'));
-      return;
-    }
-    // Only the coach picker may persist a role claim. Client accounts are
-    // created and linked exclusively via /invite/:token (accept_coach_invite).
-    if (!fromInvite && role === 'coach') {
-      setIntendedCoachingRole('coach');
-    } else {
-      clearIntendedCoachingRole();
-    }
-    const result = mode === 'login' || !canRegister
-      ? await signIn(email, password)
-      : await signUp(email, password);
-    setLoading(false);
-    if (result.error) {
-      setError(result.error);
-      return;
-    }
-    if ('needsConfirmation' in result && result.needsConfirmation) {
-      setCheckEmail(true);
     }
   };
 
@@ -114,7 +129,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
               <button
                 type="button"
                 onClick={() => chooseRole('coach')}
-                className="w-full text-left bg-neutral-900 border border-neutral-800 hover:border-blue-500/40 rounded-2xl p-4 transition-colors"
+                className="w-full text-left bg-neutral-900 border border-neutral-800 [@media(hover:hover)]:hover:border-blue-500/40 rounded-2xl p-4 transition-colors touch-manipulation"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-11 h-11 rounded-xl bg-blue-600/15 text-blue-400 flex items-center justify-center shrink-0">
@@ -131,7 +146,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
               <button
                 type="button"
                 onClick={() => chooseRole('client')}
-                className="w-full text-left bg-neutral-900 border border-neutral-800 hover:border-blue-500/40 rounded-2xl p-4 transition-colors"
+                className="w-full text-left bg-neutral-900 border border-neutral-800 [@media(hover:hover)]:hover:border-blue-500/40 rounded-2xl p-4 transition-colors touch-manipulation"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-11 h-11 rounded-xl bg-neutral-800 text-neutral-300 flex items-center justify-center shrink-0">
@@ -190,11 +205,13 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
                 </p>
               )}
 
-              <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in-up stagger-2">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
                   <Input
                     type="email"
+                    name="email"
+                    autoComplete="email"
                     placeholder={t('auth.emailAddress')}
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -208,6 +225,8 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
                     <Input
                       type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      autoComplete="current-password"
                       placeholder={t('auth.password')}
                       value={password}
                       onChange={e => setPassword(e.target.value)}
@@ -243,7 +262,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
                   </div>
                 )}
 
-                <Button type="submit" loading={loading} className="w-full" size="lg">
+                <Button type="submit" loading={loading} pressOnly className="w-full" size="lg">
                   {mode === 'login' ? t('auth.signIn') : mode === 'register' ? t('auth.createAccount') : t('auth.sendReset')}
                   <ArrowRight size={18} />
                 </Button>
