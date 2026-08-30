@@ -160,6 +160,7 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
   assert.match(dash, /clientHomeNextAction/);
   assert.match(dash, /daysSinceActivity/);
   assert.match(dash, /shouldShowDaysSinceReminder/);
+  assert.match(dash, /calmHome/);
   assert.doesNotMatch(dash, /\/recipes/);
   assert.doesNotMatch(dash, /navigate\('\/routines'\)/);
   assert.doesNotMatch(dash, /navigate\('\/programs\/new'\)/);

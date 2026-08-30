@@ -47,16 +47,16 @@ export default function Dashboard() {
   const { profile } = useProfileStore();
   const { logs, waterLogs, fetchLogs, fetchWaterLogs } = useNutritionStore();
   const { measurements, fetchMeasurements } = useWeightStore();
-  const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { workouts, fetchWorkouts, loading: workoutsLoading } = useWorkoutStore();
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
-  const { todayCheckin, checkins, fetchToday, fetchRecent } = useCheckinStore();
+  const { todayCheckin, checkins, fetchToday, fetchRecent, loading: checkinLoading } = useCheckinStore();
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
   const tracking = useClientTracking();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
-  const [nutritionHistoryCount, setNutritionHistoryCount] = useState(0);
+  const [nutritionHistoryCount, setNutritionHistoryCount] = useState<number | null>(null);
 
   const dismissReminder = (key: string) => {
     setDismissedReminders(prev => [...prev, key]);
@@ -155,14 +155,16 @@ export default function Dashboard() {
     .filter(w => w.completed && w.date)
     .sort((a, b) => b.date.localeCompare(a.date))[0];
   const lastCheckin = todayCheckin ?? checkins[0] ?? null;
-  const firstRun = isClientFirstRun({
+  const activityPending = nutritionHistoryCount === null || workoutsLoading || checkinLoading;
+  const firstRun = !activityPending && isClientFirstRun({
     completedWorkoutCount,
-    nutritionLogCount: nutritionHistoryCount + logs.length,
+    nutritionLogCount: (nutritionHistoryCount ?? 0) + logs.length,
     checkinCount,
     lastWorkoutAt: lastCompletedWorkout?.date ?? null,
     lastNutritionAt: logs[0]?.logged_at ?? null,
     lastCheckinAt: lastCheckin?.checked_at ?? null,
   });
+  const calmHome = activityPending || firstRun;
   const hasProgram = !!assignment?.program && assignment.status === 'active';
   const hasNextWorkout = showModule(tracking, 'workouts') && !!(assignedDay || nextRoutine);
   const hasCoach = isCoachedAthlete(coachingRole, myCoach);
@@ -180,16 +182,16 @@ export default function Dashboard() {
     ? [...measurements].sort((a, b) => b.measured_at.localeCompare(a.measured_at))[0]
     : null;
   const daysSinceWeighIn = daysSinceActivity(lastWeighIn?.measured_at);
-  const showWeightReminder = !firstRun && shouldShowDaysSinceReminder(daysSinceWeighIn);
+  const showWeightReminder = !calmHome && shouldShowDaysSinceReminder(daysSinceWeighIn);
 
   const hourNow = new Date().getHours();
   const hasLoggedLunch = logs.some(l => l.category === 'lunch');
-  const showMealReminder = !firstRun && (
+  const showMealReminder = !calmHome && (
     (hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0) ||
     (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3)
   );
 
-  const showWaterReminder = !firstRun && hourNow >= 15 && waterConsumed > 0 && waterPct < 50;
+  const showWaterReminder = !calmHome && hourNow >= 15 && waterConsumed > 0 && waterPct < 50;
 
   // Deload suggestion — if trained 4+ consecutive weeks without a break
   const fourWeeksAgo = new Date();
@@ -232,12 +234,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {myCoach && (hasProgram || (!firstRun && showNutritionField(tracking, 'calories'))) && (
+        {myCoach && (hasProgram || (!calmHome && showNutritionField(tracking, 'calories'))) && (
           <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
             {assignment?.program && (
               <p>{t('coaching.loop.program', { name: assignment.program.name })}</p>
             )}
-            {!firstRun && showNutritionField(tracking, 'calories') && (
+            {!calmHome && showNutritionField(tracking, 'calories') && (
               <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
             )}
           </div>
@@ -355,7 +357,7 @@ export default function Dashboard() {
           )
         )}
 
-        {showModule(tracking, 'checkins') && !todayCheckin && nextAction !== 'checkin' && (!firstRun || hasNextWorkout) && (
+        {showModule(tracking, 'checkins') && !todayCheckin && nextAction !== 'checkin' && (!calmHome || (firstRun && hasNextWorkout)) && (
           <button
             onClick={() => navigate('/checkin')}
             className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
@@ -368,7 +370,7 @@ export default function Dashboard() {
             <ChevronRight size={16} className="text-violet-300/70" />
           </button>
         )}
-        {!firstRun && (
+        {!calmHome && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
@@ -467,7 +469,7 @@ export default function Dashboard() {
         </div>
         )}
 
-        {showModule(tracking, 'workouts') && !firstRun && (
+        {showModule(tracking, 'workouts') && !calmHome && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -625,7 +627,7 @@ export default function Dashboard() {
         )}
 
         {/* Streak & Weight row — hide on first-run so a weigh-in streak doesn't scold a new athlete */}
-        {!firstRun && (
+        {!calmHome && (
         <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
           {/* Streak */}
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
@@ -677,7 +679,7 @@ export default function Dashboard() {
         )}
 
         {/* Quick actions */}
-        {!firstRun && (
+        {!calmHome && (
         <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
           <button
             onClick={() => navigate('/stats')}
