@@ -14,6 +14,8 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber } from '../../lib/utils';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { showModule, showNutritionField } from '../../lib/clientTracking';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 
@@ -43,6 +45,7 @@ export default function Dashboard() {
   const { todayCheckin, fetchToday } = useCheckinStore();
   const { myCoach, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
+  const tracking = useClientTracking();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
 
@@ -194,7 +197,9 @@ export default function Dashboard() {
             {assignment?.program && (
               <p>{t('coaching.loop.program', { name: assignment.program.name })}</p>
             )}
-            <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
+            {showNutritionField(tracking, 'calories') && (
+              <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
+            )}
           </div>
         )}
 
@@ -246,7 +251,7 @@ export default function Dashboard() {
                 </button>
               </div>
             )}
-            {showWeightReminder && !dismissedReminders.includes('weight') && (
+            {showModule(tracking, 'weight') && showWeightReminder && !dismissedReminders.includes('weight') && (
               <div className="flex items-center gap-3 bg-blue-500/8 border border-blue-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
                 <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
                   <Scale size={14} className="text-blue-400" />
@@ -259,7 +264,7 @@ export default function Dashboard() {
                 </button>
               </div>
             )}
-            {showMealReminder && !dismissedReminders.includes('meal') && (
+            {showNutritionField(tracking, 'calories') && showMealReminder && !dismissedReminders.includes('meal') && (
               <div className="flex items-center gap-3 bg-orange-500/8 border border-orange-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
                 <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
                   <AlertCircle size={14} className="text-orange-400" />
@@ -272,7 +277,7 @@ export default function Dashboard() {
                 </button>
               </div>
             )}
-            {showWaterReminder && !dismissedReminders.includes('water') && (
+            {showNutritionField(tracking, 'water') && showWaterReminder && !dismissedReminders.includes('water') && (
               <div className="flex items-center gap-3 bg-cyan-500/8 border border-cyan-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
                 <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
                   <Droplets size={14} className="text-cyan-400" />
@@ -288,7 +293,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!todayCheckin && (
+        {showModule(tracking, 'checkins') && !todayCheckin && (
           <button
             onClick={() => navigate('/checkin')}
             className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
@@ -315,6 +320,7 @@ export default function Dashboard() {
 
           <div className="flex items-start gap-5">
             {/* Calorie ring — larger, central */}
+            {showNutritionField(tracking, 'calories') && (
             <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1 flex-shrink-0">
               <ProgressRing
                 progress={caloriePct}
@@ -327,10 +333,11 @@ export default function Dashboard() {
               <p className="text-sm font-bold text-white mt-1">{Math.round(consumed)}</p>
               <p className="text-[10px] text-neutral-500">/ {calorieTarget} kcal</p>
             </button>
+            )}
 
             {/* Macros + Water */}
             <div className="flex-1 space-y-3 pt-1">
-              {/* Protein */}
+              {showNutritionField(tracking, 'protein') && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.protein')}</span>
@@ -343,8 +350,9 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
+              )}
 
-              {/* Carbs */}
+              {showNutritionField(tracking, 'carbs') && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.carbs')}</span>
@@ -357,8 +365,9 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
+              )}
 
-              {/* Fat */}
+              {showNutritionField(tracking, 'fat') && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.fat')}</span>
@@ -371,13 +380,14 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
+              )}
 
-              {/* Water */}
+              {showNutritionField(tracking, 'water') && (
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300 flex items-center gap-1">
                     <Droplets size={10} className="text-cyan-400" />
-                    Eau
+                    {t('coaching.water')}
                   </span>
                   <span className="text-[11px] text-neutral-400">{(waterConsumed / 1000).toFixed(1)}L / {(waterTarget / 1000).toFixed(1)}L</span>
                 </div>
@@ -388,11 +398,12 @@ export default function Dashboard() {
                   />
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Weekly Workout Goal */}
+        {showModule(tracking, 'workouts') && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -455,8 +466,9 @@ export default function Dashboard() {
             />
           </div>
         </div>
+        )}
 
-        {assignedDay && assignment?.program && !alreadyTrainedToday && (
+        {showModule(tracking, 'workouts') && assignedDay && assignment?.program && !alreadyTrainedToday && (
           <button
             disabled={startingRoutine}
             onClick={async () => {
@@ -472,6 +484,10 @@ export default function Dashboard() {
                     name: ex.name,
                     default_sets: ex.default_sets,
                     default_reps: ex.default_reps,
+                    default_reps_min: ex.default_reps_min,
+                    default_rir: ex.default_rir,
+                    default_rest_seconds: ex.default_rest_seconds,
+                    default_weight_kg: ex.default_weight_kg,
                     order_index: ex.order_index,
                   })),
                 });
@@ -499,7 +515,7 @@ export default function Dashboard() {
           </button>
         )}
 
-        {nextRoutine && (
+        {showModule(tracking, 'workouts') && nextRoutine && (
           <button
             disabled={startingRoutine}
             onClick={async () => {
@@ -566,6 +582,7 @@ export default function Dashboard() {
           </div>
 
           {/* Weight */}
+          {showModule(tracking, 'weight') && (
           <button
             onClick={() => navigate('/weight')}
             className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 transition-colors"
@@ -590,6 +607,7 @@ export default function Dashboard() {
               <p className="text-xs text-neutral-500 mt-1">{t('dashboard.noWeightYet')}</p>
             )}
           </button>
+          )}
         </div>
 
 

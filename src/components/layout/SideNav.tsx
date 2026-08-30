@@ -4,6 +4,7 @@ import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flam
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { isCoachedAthlete } from '../../lib/coachRole';
 
 export default function SideNav() {
   const { t } = useTranslation();
@@ -11,8 +12,11 @@ export default function SideNav() {
   const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
+  const tracking = useCoachingStore(s => s.myTrackingConfig);
   const isCoach = coachingRole === 'coach';
+  const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const tabs = isCoach
     ? [
@@ -23,23 +27,23 @@ export default function SideNav() {
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
       ]
     : [
-        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard') },
-        { path: '/workout', icon: Dumbbell, label: t('nav.workouts') },
-        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
-        { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
-        { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
-        { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
-        { path: '/weight', icon: Scale, label: t('nav.weight') },
-        { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
-        { path: '/stats', icon: BarChart2, label: t('nav.stats') },
-        { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
-        { path: '/profile', icon: User, label: t('nav.profile') },
-      ];
+        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), show: true },
+        { path: '/workout', icon: Dumbbell, label: t('nav.workouts'), show: tracking.track_workouts },
+        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
+        { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
+        { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: true },
+        { path: '/programs', icon: CalendarRange, label: t('nav.programs'), show: tracking.track_workouts && !coached },
+        { path: '/weight', icon: Scale, label: t('nav.weight'), show: tracking.track_weight },
+        { path: '/calendar', icon: CalendarDays, label: t('nav.calendar'), show: true },
+        { path: '/stats', icon: BarChart2, label: t('nav.stats'), show: true },
+        { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts },
+        { path: '/profile', icon: User, label: t('nav.profile'), show: true },
+      ].filter(tab => !('show' in tab) || tab.show);
 
   const quickActions = [
-    { label: t('nav.newWorkout'), icon: Dumbbell, path: '/workout/new' },
-    { label: t('nav.logWeight'), icon: Scale, path: '/weight?log=1' },
-    { label: t('nav.addMeal'), icon: Flame, path: '/nutrition?add=1' },
+    ...(tracking.track_workouts ? [{ label: t('nav.newWorkout'), icon: Dumbbell, path: '/workout/new' }] : []),
+    ...(tracking.track_weight ? [{ label: t('nav.logWeight'), icon: Scale, path: '/weight?log=1' }] : []),
+    ...(tracking.track_nutrition ? [{ label: t('nav.addMeal'), icon: Flame, path: '/nutrition?add=1' }] : []),
   ];
 
   return (

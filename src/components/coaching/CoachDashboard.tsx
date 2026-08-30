@@ -11,15 +11,12 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { coachingPassHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
-import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import { checkinReviewRows } from '../../lib/coachCheckins';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import CoachTodayQueue from './CoachTodayQueue';
-import InterventionInboxCard from './InterventionInboxCard';
 
 function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'amber' | 'rose' | 'blue' | 'white' }) {
   const color = tone === 'amber' ? 'text-amber-300'
@@ -39,14 +36,12 @@ export default function CoachDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    opsRows, opsLoading, invites, pendingInterventions, clients, priorities,
+    opsRows, opsLoading, invites, priorities, rosterSignals,
     fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings, coachSettings,
-    rosterSignals, runFleetRound, fleetRunning, sendCoachMessage, resolveIntervention,
-    setClientNutritionTargets,
+    runFleetRound, fleetRunning,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-  const [sendingId, setSendingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -56,7 +51,6 @@ export default function CoachDashboard() {
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
-  const topDrafts = pendingInterventions.slice(0, 4);
   const reviewRows = useMemo(
     () => checkinReviewRows(opsRows, rosterSignals, priorities),
     [opsRows, rosterSignals, priorities],
@@ -96,55 +90,6 @@ export default function CoachDashboard() {
     }));
   };
 
-  const handleSendCard = async (item: typeof pendingInterventions[number]) => {
-    if (!item.client_id) {
-      navigate(coachingPassHref(item));
-      return;
-    }
-    setSendingId(item.id);
-    if (isRelanceKind(item.kind)) {
-      const body = parsePreparedMessage(item.payload);
-      const sent = await sendCoachMessage(item.client_id, body, preparedTemplateKey(item.payload, item.kind));
-      if (sent.error) {
-        setSendingId(null);
-        toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
-        return;
-      }
-      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
-      setSendingId(null);
-      if (resolved.error) {
-        toast(resolved.error, 'error');
-        return;
-      }
-      toast(t('coaching.queue.sent'));
-      return;
-    }
-    if (item.kind === 'calorie_adjustment') {
-      const cals = parseCalorieDraft(item.payload);
-      if (!isCompleteCalorieDraft(cals) || !cals) {
-        setSendingId(null);
-        navigate(coachingPassHref(item));
-        return;
-      }
-      const applied = await setClientNutritionTargets(item.client_id, cals);
-      if (applied.error) {
-        setSendingId(null);
-        toast(applied.error, 'error');
-        return;
-      }
-      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
-      setSendingId(null);
-      if (resolved.error) {
-        toast(resolved.error, 'error');
-        return;
-      }
-      toast(t('coaching.interventions.sent'));
-      return;
-    }
-    setSendingId(null);
-    navigate(coachingPassHref(item));
-  };
-
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
@@ -157,7 +102,7 @@ export default function CoachDashboard() {
             <p className="text-sm text-neutral-500 mt-1">{t('coaching.command.subtitle')}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <Button size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
+            <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
               {t('coaching.fleet.run')}
             </Button>
             <button
@@ -167,13 +112,6 @@ export default function CoachDashboard() {
             >
               <Search size={14} />
               {t('coaching.ask.shortcut')}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/profile')}
-              className="text-[11px] text-neutral-500 hover:text-white"
-            >
-              {t('nav.profile')}
             </button>
           </div>
         </div>
@@ -208,12 +146,14 @@ export default function CoachDashboard() {
           </Card>
         ) : (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+            <div className={`grid grid-cols-2 gap-3 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
               <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
               <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
-              <button type="button" className="text-left" onClick={() => document.getElementById('checkins-a-relire')?.scrollIntoView({ behavior: 'smooth' })}>
-                <StatCard label={t('coaching.command.stats.checkins')} value={stats.checkinsToReview} tone="blue" />
-              </button>
+              {stats.checkinsToReview > 0 && (
+                <button type="button" className="text-left" onClick={() => document.getElementById('checkins-a-relire')?.scrollIntoView({ behavior: 'smooth' })}>
+                  <StatCard label={t('coaching.command.stats.checkins')} value={stats.checkinsToReview} tone="blue" />
+                </button>
+              )}
               <StatCard label={t('coaching.command.stats.adapt')} value={stats.programsMayAdapt} tone="amber" />
               <StatCard label={t('coaching.command.stats.important')} value={stats.important} tone="rose" />
             </div>
@@ -242,33 +182,6 @@ export default function CoachDashboard() {
                       <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
                     </Card>
                   ))}
-                </div>
-              </div>
-            )}
-
-            {topDrafts.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
-                    {t('coaching.interventions.title')}
-                  </p>
-                  <button onClick={() => navigate('/messages')} className="text-xs text-blue-400">
-                    {t('coaching.inbox.seeAll')}
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {topDrafts.map(item => {
-                    const client = clients.find(c => c.id === item.client_id);
-                    return (
-                      <InterventionInboxCard
-                        key={item.id}
-                        item={item}
-                        clientName={client?.full_name || client?.email || t('coaching.interventions.appWide')}
-                        sending={sendingId === item.id}
-                        onSend={handleSendCard}
-                      />
-                    );
-                  })}
                 </div>
               </div>
             )}

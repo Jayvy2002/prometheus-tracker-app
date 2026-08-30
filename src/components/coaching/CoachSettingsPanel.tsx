@@ -3,10 +3,26 @@ import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { DEFAULT_COACH_VISIBLE_TABS } from '../../lib/types';
 import type { CoachClientTab, CoachNudgeTemplateKey, CoachNudgeTemplateSet } from '../../lib/types';
+import {
+  ALL_ON_TRACKING,
+  parseCoachTrackingDefaults,
+  serializeTrackingVars,
+  type ResolvedTrackingConfig,
+} from '../../lib/clientTracking';
+import TrackingVarsEditor from './TrackingVarsEditor';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
 
 const TEMPLATE_KEYS: CoachNudgeTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup'];
+
+function cloneTracking(src: ResolvedTrackingConfig): ResolvedTrackingConfig {
+  return {
+    ...src,
+    training: { ...src.training },
+    nutrition: { ...src.nutrition },
+    checkin: { ...src.checkin },
+  };
+}
 
 export default function CoachSettingsPanel() {
   const { t, i18n } = useTranslation();
@@ -14,6 +30,7 @@ export default function CoachSettingsPanel() {
   const [tabs, setTabs] = useState<CoachClientTab[]>([...DEFAULT_COACH_VISIBLE_TABS]);
   const [queueMode, setQueueMode] = useState(true);
   const [templates, setTemplates] = useState<CoachNudgeTemplateSet>({});
+  const [defaults, setDefaults] = useState<ResolvedTrackingConfig>(cloneTracking(ALL_ON_TRACKING));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -25,6 +42,7 @@ export default function CoachSettingsPanel() {
     setTabs(coachSettings.visible_tabs);
     setQueueMode(coachSettings.queue_mode_default);
     setTemplates(coachSettings.nudge_templates);
+    setDefaults(cloneTracking(parseCoachTrackingDefaults(coachSettings.default_tracking)));
   }, [coachSettings]);
 
   const loc = i18n.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
@@ -45,6 +63,7 @@ export default function CoachSettingsPanel() {
       visible_tabs: tabs,
       queue_mode_default: queueMode,
       nudge_templates: templates,
+      default_tracking: serializeTrackingVars(defaults),
     });
     setSaving(false);
     if (result.error) toast(result.error, 'error');
@@ -81,6 +100,12 @@ export default function CoachSettingsPanel() {
         />
         {t('coaching.settings.queueMode')}
       </label>
+
+      <div className="rounded-xl border border-neutral-800 p-3 space-y-2">
+        <p className="text-xs font-medium text-neutral-400">{t('coaching.settings.defaultTracking')}</p>
+        <p className="text-[11px] text-neutral-500">{t('coaching.settings.defaultTrackingHint')}</p>
+        <TrackingVarsEditor value={defaults} onChange={setDefaults} />
+      </div>
 
       <div className="space-y-3">
         <p className="text-xs font-medium text-neutral-400">{t('coaching.settings.templates')}</p>

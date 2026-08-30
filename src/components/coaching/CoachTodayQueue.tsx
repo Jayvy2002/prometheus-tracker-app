@@ -53,12 +53,7 @@ export default function CoachTodayQueue() {
         <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
           {t('coaching.queue.title')}
         </p>
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-neutral-500">{t('coaching.queue.remaining', { count: groups.length })}</p>
-          <button type="button" onClick={() => navigate('/clients')} className="text-xs text-blue-400">
-            {t('nav.clients')}
-          </button>
-        </div>
+        <p className="text-xs text-neutral-500">{t('coaching.queue.remaining', { count: groups.length })}</p>
       </div>
 
       <div className="space-y-2">

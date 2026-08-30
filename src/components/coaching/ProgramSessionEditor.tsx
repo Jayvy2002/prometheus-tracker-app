@@ -2,7 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GripVertical, Plus, Sparkles } from 'lucide-react';
 import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft } from '../../lib/types';
-import { applyProgramProposal, formatPrescription, type ProgramNlProposal } from '../../lib/programNl';
+import { applyProgramProposal, type ProgramNlProposal } from '../../lib/programNl';
+import {
+  ALL_ON_TRACKING,
+  formatExercisePrescription,
+  parseCoachTrackingDefaults,
+  parseResolvedTracking,
+  repsInputMode,
+  showTrainingField,
+  type ResolvedTrackingConfig,
+} from '../../lib/clientTracking';
 import { muscleForExercise, sessionMuscleVolume, volumeWarnings, weekMuscleVolume, type MuscleVolume } from '../../lib/programVolume';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -49,6 +58,9 @@ export default function ProgramSessionEditor({
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const askSecond = useCoachingStore(s => s.askSecond);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
+  const fetchTrackingConfig = useCoachingStore(s => s.fetchTrackingConfig);
+  const fetchCoachSettings = useCoachingStore(s => s.fetchCoachSettings);
+  const [tracking, setTracking] = useState<ResolvedTrackingConfig>(ALL_ON_TRACKING);
   const [dayIndex, setDayIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [analyzed, setAnalyzed] = useState<number | null>(null);
@@ -67,6 +79,23 @@ export default function ProgramSessionEditor({
   useEffect(() => {
     void fetchExercises();
   }, [fetchExercises]);
+
+  useEffect(() => {
+    void fetchCoachSettings();
+    if (!clientId) {
+      const defaults = useCoachingStore.getState().coachSettings?.default_tracking;
+      setTracking(parseCoachTrackingDefaults(defaults));
+      return;
+    }
+    void fetchTrackingConfig(clientId).then(cfg => {
+      if (cfg) {
+        setTracking(parseResolvedTracking(cfg));
+        return;
+      }
+      const defaults = useCoachingStore.getState().coachSettings?.default_tracking;
+      setTracking(parseCoachTrackingDefaults(defaults));
+    });
+  }, [clientId, fetchTrackingConfig, fetchCoachSettings]);
 
   const volumes = useMemo(
     () => (day ? sessionMuscleVolume(day.exercises, exercisesLib) : []),
@@ -221,9 +250,9 @@ export default function ProgramSessionEditor({
           <p className="text-xs text-blue-300">{t('coaching.programNl.proposal')}</p>
           <p className="text-sm text-neutral-200">{t(proposal.summaryKey, proposal.summaryParams)}</p>
           <p className="text-[11px] text-neutral-500">
-            {proposal.before ? formatPrescription(proposal.before) : '—'}
+            {proposal.before ? formatExercisePrescription(proposal.before, tracking) : '—'}
             {' → '}
-            {formatPrescription(proposal.after)}
+            {formatExercisePrescription(proposal.after, tracking)}
           </p>
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => setProposal(null)}>{t('common.cancel')}</Button>
@@ -327,50 +356,83 @@ export default function ProgramSessionEditor({
                   ×
                 </button>
               </div>
-              <div className="grid grid-cols-4 gap-1">
-                <label className="text-[10px] text-neutral-500">
-                  {t('coaching.interventions.sets')}
-                  <input
-                    type="number"
-                    value={ex.default_sets}
-                    onChange={e => updateExercise(ei, { default_sets: Math.max(1, +e.target.value || 1) })}
-                    className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                  />
-                </label>
-                <label className="text-[10px] text-neutral-500">
-                  {t('coaching.programEditor.repRange')}
-                  <input
-                    value={ex.default_reps_min && ex.default_reps_min !== ex.default_reps
-                      ? `${ex.default_reps_min}-${ex.default_reps}`
-                      : String(ex.default_reps)}
-                    onChange={e => {
-                      const m = e.target.value.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
-                      if (!m) return;
-                      const low = Number(m[1]);
-                      const high = m[2] ? Number(m[2]) : low;
-                      updateExercise(ei, { default_reps_min: m[2] ? low : null, default_reps: high });
-                    }}
-                    className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                  />
-                </label>
-                <label className="text-[10px] text-neutral-500">
-                  RIR
-                  <input
-                    type="number"
-                    value={ex.default_rir ?? ''}
-                    onChange={e => updateExercise(ei, { default_rir: e.target.value === '' ? null : Number(e.target.value) })}
-                    className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                  />
-                </label>
-                <label className="text-[10px] text-neutral-500">
-                  {t('coaching.programEditor.rest')}
-                  <input
-                    type="number"
-                    value={ex.default_rest_seconds ?? 90}
-                    onChange={e => updateExercise(ei, { default_rest_seconds: Math.max(0, +e.target.value || 0) })}
-                    className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                  />
-                </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                {showTrainingField(tracking, 'sets') && (
+                  <label className="text-[10px] text-neutral-500">
+                    {t('coaching.interventions.sets')}
+                    <input
+                      type="number"
+                      value={ex.default_sets}
+                      onChange={e => updateExercise(ei, { default_sets: Math.max(1, +e.target.value || 1) })}
+                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                    />
+                  </label>
+                )}
+                {repsInputMode(tracking) !== 'hidden' && (
+                  <label className="text-[10px] text-neutral-500">
+                    {repsInputMode(tracking) === 'range'
+                      ? t('coaching.programEditor.repRange')
+                      : t('coaching.interventions.reps')}
+                    <input
+                      value={repsInputMode(tracking) === 'single'
+                        ? String(ex.default_reps)
+                        : (ex.default_reps_min && ex.default_reps_min !== ex.default_reps
+                          ? `${ex.default_reps_min}-${ex.default_reps}`
+                          : String(ex.default_reps))}
+                      onChange={e => {
+                        const mode = repsInputMode(tracking);
+                        if (mode === 'single') {
+                          updateExercise(ei, { default_reps: Math.max(1, +e.target.value || 1), default_reps_min: null });
+                          return;
+                        }
+                        const m = e.target.value.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
+                        if (!m) return;
+                        const low = Number(m[1]);
+                        const high = m[2] ? Number(m[2]) : low;
+                        updateExercise(ei, {
+                          default_reps_min: mode === 'range' || m[2] ? low : null,
+                          default_reps: high,
+                        });
+                      }}
+                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                    />
+                  </label>
+                )}
+                {showTrainingField(tracking, 'load') && (
+                  <label className="text-[10px] text-neutral-500">
+                    {t('coaching.tracking.train.load')}
+                    <input
+                      type="number"
+                      value={ex.default_weight_kg ?? ''}
+                      onChange={e => updateExercise(ei, {
+                        default_weight_kg: e.target.value === '' ? null : Number(e.target.value),
+                      })}
+                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                    />
+                  </label>
+                )}
+                {showTrainingField(tracking, 'rir') && (
+                  <label className="text-[10px] text-neutral-500">
+                    RIR
+                    <input
+                      type="number"
+                      value={ex.default_rir ?? ''}
+                      onChange={e => updateExercise(ei, { default_rir: e.target.value === '' ? null : Number(e.target.value) })}
+                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                    />
+                  </label>
+                )}
+                {showTrainingField(tracking, 'rest') && (
+                  <label className="text-[10px] text-neutral-500">
+                    {t('coaching.programEditor.rest')}
+                    <input
+                      type="number"
+                      value={ex.default_rest_seconds ?? 90}
+                      onChange={e => updateExercise(ei, { default_rest_seconds: Math.max(0, +e.target.value || 0) })}
+                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                    />
+                  </label>
+                )}
               </div>
               {selected === ei && (
                 <div className="flex flex-wrap gap-2">

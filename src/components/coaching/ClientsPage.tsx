@@ -15,6 +15,7 @@ import { todayStr } from '../../lib/utils';
 import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import Sparkline from '../ui/Sparkline';
 import { toast } from '../ui/Toast';
@@ -34,6 +35,7 @@ export default function ClientsPage() {
   const [creating, setCreating] = useState(false);
   const [maxUses, setMaxUses] = useState(1);
   const [copied, setCopied] = useState<string | null>(null);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [removeTarget, setRemoveTarget] = useState<CoachClientSummary | null>(null);
   const [removing, setRemoving] = useState(false);
 
@@ -145,50 +147,10 @@ export default function ClientsPage() {
               </p>
             )}
           </div>
-          <Button size="sm" variant="secondary" onClick={() => navigate('/programs')}>
-            {t('programs.title')}
+          <Button size="sm" onClick={() => setInviteOpen(true)}>
+            <Plus size={14} /> {t('coaching.invite.cta')}
           </Button>
         </div>
-
-        <Card className="mb-6">
-          <p className="text-sm font-medium text-white mb-3">{t('coaching.invite.generate')}</p>
-          <div className="flex items-center gap-2 mb-3">
-            <label className="text-xs text-neutral-500">{t('coaching.invite.maxUses')}</label>
-            <select
-              value={maxUses}
-              onChange={e => setMaxUses(Number(e.target.value))}
-              className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1 text-sm text-white"
-            >
-              {[1, 5, 10, 25].map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <Button size="sm" onClick={handleCreate} loading={creating} className="ml-auto">
-              <Plus size={14} /> {t('coaching.invite.create')}
-            </Button>
-          </div>
-          {activeInvites.length > 0 && (
-            <div className="space-y-2">
-              {activeInvites.map(inv => (
-                <div key={inv.id} className="flex items-center gap-2 bg-neutral-900 rounded-xl px-3 py-2">
-                  <Link2 size={14} className="text-blue-400 shrink-0" />
-                  <p className="text-xs text-neutral-400 flex-1 truncate">
-                    {t('coaching.invite.usesLeft', { n: inv.max_uses - inv.use_count })}
-                    {' · '}
-                    {new Date(inv.expires_at).toLocaleDateString()}
-                  </p>
-                  <button onClick={() => copyUrl(inv.token)} className="p-1.5 text-neutral-400 hover:text-white">
-                    <Copy size={14} className={copied === inv.token ? 'text-emerald-400' : ''} />
-                  </button>
-                  <button
-                    onClick={() => revokeInvite(inv.id)}
-                    className="text-[10px] text-neutral-500 hover:text-rose-400"
-                  >
-                    {t('common.delete')}
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
 
         {loading ? (
           <div className="space-y-2">
@@ -199,7 +161,10 @@ export default function ClientsPage() {
         ) : clients.length === 0 ? (
           <Card className="text-center py-10">
             <Users className="mx-auto mb-3 text-neutral-600" size={28} />
-            <p className="text-neutral-400">{t('coaching.noClients')}</p>
+            <p className="text-neutral-400 mb-4">{t('coaching.noClients')}</p>
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <Plus size={14} /> {t('coaching.invite.cta')}
+            </Button>
           </Card>
         ) : visibleClients.length === 0 ? (
           <Card className="text-center py-10">
@@ -249,6 +214,7 @@ export default function ClientsPage() {
                     </div>
                   </div>
                 )}
+                {forceSetup && (
                 <button
                   type="button"
                   onClick={e => {
@@ -259,6 +225,7 @@ export default function ClientsPage() {
                 >
                   {t('coaching.setupCta')}
                 </button>
+                )}
                 {user && c.id !== user.id && (
                   <button
                     type="button"
@@ -289,6 +256,46 @@ export default function ClientsPage() {
           </div>
         )}
       </div>
+      <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title={t('coaching.invite.generate')} size="sm">
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-neutral-500">{t('coaching.invite.maxUses')}</label>
+            <select
+              value={maxUses}
+              onChange={e => setMaxUses(Number(e.target.value))}
+              className="bg-neutral-800 border border-neutral-700 rounded-lg px-2 py-1 text-sm text-white"
+            >
+              {[1, 5, 10, 25].map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <Button size="sm" onClick={handleCreate} loading={creating} className="ml-auto">
+              <Plus size={14} /> {t('coaching.invite.create')}
+            </Button>
+          </div>
+          {activeInvites.length > 0 && (
+            <div className="space-y-2">
+              {activeInvites.map(inv => (
+                <div key={inv.id} className="flex items-center gap-2 bg-neutral-900 rounded-xl px-3 py-2">
+                  <Link2 size={14} className="text-blue-400 shrink-0" />
+                  <p className="text-xs text-neutral-400 flex-1 truncate">
+                    {t('coaching.invite.usesLeft', { n: inv.max_uses - inv.use_count })}
+                    {' · '}
+                    {new Date(inv.expires_at).toLocaleDateString()}
+                  </p>
+                  <button onClick={() => copyUrl(inv.token)} className="p-1.5 text-neutral-400 hover:text-white">
+                    <Copy size={14} className={copied === inv.token ? 'text-emerald-400' : ''} />
+                  </button>
+                  <button
+                    onClick={() => revokeInvite(inv.id)}
+                    className="text-[10px] text-neutral-500 hover:text-rose-400"
+                  >
+                    {t('common.delete')}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
       <RemoveClientDialog
         open={!!removeTarget}
         clientName={removeTarget ? displayName(removeTarget, t('coaching.unnamed')) : ''}

@@ -93,6 +93,14 @@ function weightsForClient(weights: WeightMeasurement[], clientId: string): Weigh
  * Cut stall + calories too high. Requires recent adherence logs.
  * No inventing a cut: missing target, thin/stale logs, or on-target intake → null.
  */
+/** Progress tab: cut-stall copy is only for actual cuts. Bulk/gain never uses it. */
+export function shouldShowCutStallCard(
+  goal: string | null | undefined,
+  stall: NutritionStallSignal | null,
+): boolean {
+  return normalizeGoal(goal) === 'cut' && stall != null;
+}
+
 export function detectCutCalorieStall(input: {
   clientId: string;
   goal: string;
@@ -218,6 +226,7 @@ export function nutritionStallReviewRows(
   };
 
   for (const ops of opsRows) {
+    if (normalizeGoal(ops.client.goal) !== 'cut') continue;
     const detected = detectCutCalorieStall({
       clientId: ops.client.id,
       goal: ops.client.goal,

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { showNutritionField } from '../../lib/clientTracking';
 import { useRecipeStore } from '../../stores/recipeStore';
 import { FOOD_UNITS, MEAL_CATEGORIES, UNIT_TO_GRAMS } from '../../lib/constants';
 import type { FoodProduct, FoodFavorite, Recipe } from '../../lib/types';
@@ -67,6 +69,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const { user } = useAuthStore();
   const { addLog, searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite, logs } = useNutritionStore();
   const { profile } = useProfileStore();
+  const tracking = useClientTracking();
   const { recipes, fetchRecipes } = useRecipeStore();
 
   const [tab, setTab] = useState<Tab>('search');
@@ -556,10 +559,18 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           </p>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />
-            <Input label={`${t('common.protein')} (g)`} type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="0" />
-            <Input label={`${t('common.carbs')} (g)`} type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="0" />
-            <Input label={`${t('common.fat')} (g)`} type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
+            {showNutritionField(tracking, 'calories') && (
+              <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />
+            )}
+            {showNutritionField(tracking, 'protein') && (
+              <Input label={`${t('common.protein')} (g)`} type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="0" />
+            )}
+            {showNutritionField(tracking, 'carbs') && (
+              <Input label={`${t('common.carbs')} (g)`} type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="0" />
+            )}
+            {showNutritionField(tracking, 'fat') && (
+              <Input label={`${t('common.fat')} (g)`} type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
+            )}
           </div>
 
           {+calories > 0 && +quantity > 0 && (() => {

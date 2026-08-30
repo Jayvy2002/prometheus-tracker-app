@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, CalendarRange } from 'lucide-react';
+import { Plus, Trash2, CalendarRange, Pencil } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { todayStr } from '../../lib/utils';
+import { isCoachedAthlete } from '../../lib/coachRole';
 import type { ProgramDay } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -23,7 +24,9 @@ export default function ProgramsPage() {
   const { user } = useAuthStore();
   const { programs, loading, fetchPrograms, createProgram, deleteProgram, setProgramDayFromRoutine, assignProgram } = useProgramStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
-  const { clients, fetchClients, coachingRole } = useCoachingStore();
+  const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
+  const isCoach = coachingRole === 'coach';
+  const coached = isCoachedAthlete(coachingRole, myCoach);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -39,13 +42,13 @@ export default function ProgramsPage() {
     if (!user) return;
     fetchPrograms(user.id);
     fetchRoutines(user.id);
-    if (coachingRole === 'coach') fetchClients();
-  }, [user, coachingRole]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (isCoach) fetchClients();
+  }, [user, isCoach]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const weekdayLabel = (d: number) => t(`programs.weekdays.${d}`);
 
   const handleCreate = async () => {
-    if (!user || !name.trim()) return;
+    if (!isCoach || !user || !name.trim()) return;
     setSaving(true);
     const days: Omit<ProgramDay, 'id' | 'program_id' | 'created_at'>[] = WEEKDAYS
       .filter(d => dayNames[d]?.trim() || dayRoutines[d])
@@ -97,25 +100,34 @@ export default function ProgramsPage() {
       <div className="px-4 pt-6 pb-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">{t('programs.title')}</h1>
-          <Button size="sm" onClick={() => coachingRole === 'coach' ? navigate('/programs/new') : setShowForm(true)}>
-            <Plus size={16} /> {t('common.new')}
-          </Button>
+          {isCoach && (
+            <Button type="button" size="sm" onClick={() => navigate('/programs/new')}>
+              <Plus size={16} /> {t('common.new')}
+            </Button>
+          )}
         </div>
 
         <p className="text-sm text-neutral-500 mb-4">{t('programs.subtitle')}</p>
+        {coached && (
+          <p className="text-sm text-neutral-400 mb-4">{t('programs.clientLocked')}</p>
+        )}
 
         {loading ? (
           <div className="space-y-2">{[1, 2].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}</div>
         ) : programs.length === 0 ? (
           <Card className="text-center py-10">
             <CalendarRange className="mx-auto mb-3 text-neutral-600" size={28} />
-            <p className="text-neutral-400 mb-4">{t('programs.empty')}</p>
-            <Button size="sm" onClick={() => coachingRole === 'coach' ? navigate('/programs/new') : setShowForm(true)}>{t('programs.createFirst')}</Button>
+            <p className="text-neutral-400 mb-4">{coached ? t('programs.clientLocked') : t('programs.empty')}</p>
+            {isCoach && (
+              <Button type="button" size="sm" onClick={() => navigate('/programs/new')}>{t('programs.createFirst')}</Button>
+            )}
           </Card>
         ) : (
           <div className="space-y-3">
-            {programs.map(p => (
-              <Card key={p.id} onClick={coachingRole === 'coach' ? () => navigate(`/programs/${p.id}`) : undefined}>
+            {programs.map(p => {
+              const exerciseCount = (p.days ?? []).reduce((n, d) => n + (d.exercises?.length ?? 0), 0);
+              return (
+              <Card key={p.id} onClick={isCoach ? () => navigate(`/programs/${p.id}`) : undefined}>
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white">{p.name}</p>
@@ -126,41 +138,53 @@ export default function ProgramsPage() {
                           {weekdayLabel(d.weekday)}: {d.name}
                         </span>
                       ))}
+                      {exerciseCount === 0 && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
+                          {t('programs.noExercises')}
+                        </span>
+                      )}
                     </div>
                   </div>
-                  <button onClick={e => { e.stopPropagation(); deleteProgram(p.id); }} className="p-1.5 text-neutral-600 hover:text-rose-400">
-                    <Trash2 size={14} />
-                  </button>
+                  {isCoach && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); navigate(`/programs/${p.id}`); }}
+                        className="p-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800"
+                        aria-label={t('common.edit')}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={e => { e.stopPropagation(); void deleteProgram(p.id); }}
+                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-neutral-800"
+                        aria-label={t('common.delete')}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {coachingRole === 'coach' && clients.length > 0 && (
-                  <Button size="sm" variant="secondary" className="w-full mt-3" onClick={e => { e.stopPropagation(); setAssigningId(p.id); setAssignClient(clients[0].id); }}>
+                {isCoach && clients.length > 0 && (
+                  <Button type="button" size="sm" variant="secondary" className="w-full mt-3" onClick={e => { e.stopPropagation(); setAssigningId(p.id); setAssignClient(clients[0].id); }}>
                     {t('programs.assign')}
                   </Button>
                 )}
-                {coachingRole !== 'coach' && (
-                  <Button size="sm" variant="secondary" className="w-full mt-3" onClick={() => {
-                    if (!user) return;
-                    assignProgram(p.id, user.id, todayStr()).then(r => {
-                      if (r.error) toast(r.error, 'error');
-                      else toast(t('programs.selfAssigned'));
-                    });
-                  }}>
-                    {t('programs.useMyself')}
-                  </Button>
-                )}
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
 
-        {coachingRole !== 'coach' && (
-        <button onClick={() => navigate('/routines')} className="mt-6 text-sm text-blue-400">
+        {isCoach && (
+        <button type="button" onClick={() => navigate('/routines')} className="mt-6 text-sm text-blue-400">
           {t('programs.manageRoutines')}
         </button>
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title={t('programs.newTitle')}>
+      <Modal open={isCoach && showForm} onClose={() => setShowForm(false)} title={t('programs.newTitle')}>
         <div className="space-y-4">
           <Input label={t('programs.name')} value={name} onChange={e => setName(e.target.value)} placeholder="Hypertrophy block" />
           <Input label={t('programs.description')} value={description} onChange={e => setDescription(e.target.value)} />

@@ -27,6 +27,7 @@ interface ProgramState {
       default_reps_min?: number | null;
       default_rir?: number | null;
       default_rest_seconds?: number;
+      default_weight_kg?: number | null;
       order_index: number;
     }>,
   ) => Promise<void>;
@@ -40,6 +41,7 @@ interface ProgramState {
       default_reps_min?: number | null;
       default_rir?: number | null;
       default_rest_seconds?: number;
+      default_weight_kg?: number | null;
       replace_with?: string;
     },
   ) => Promise<{ error: string | null }>;
@@ -55,6 +57,7 @@ interface ProgramState {
         default_reps_min?: number | null;
         default_rir?: number | null;
         default_rest_seconds?: number;
+        default_weight_kg?: number | null;
       }>;
     }>,
   ) => Promise<{ error: string | null }>;
@@ -72,13 +75,19 @@ async function loadDays(programId: string): Promise<ProgramDay[]> {
     .order('weekday');
   if (!days?.length) return [];
   const ids = days.map(d => d.id);
-  const { data: exercises } = await supabase
-    .from('program_day_exercises')
-    .select('*')
-    .in('program_day_id', ids)
-    .order('order_index');
+  let exercises: ProgramDayExercise[] = [];
+  try {
+    const { data } = await supabase
+      .from('program_day_exercises')
+      .select('*')
+      .in('program_day_id', ids)
+      .order('order_index');
+    exercises = (data ?? []) as ProgramDayExercise[];
+  } catch {
+    exercises = [];
+  }
   const byDay = new Map<string, ProgramDayExercise[]>();
-  for (const ex of (exercises ?? []) as ProgramDayExercise[]) {
+  for (const ex of exercises) {
     const list = byDay.get(ex.program_day_id) ?? [];
     list.push(ex);
     byDay.set(ex.program_day_id, list);
@@ -96,29 +105,49 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
 
   fetchPrograms: async (ownerId) => {
     set({ loading: true });
-    const { data } = await supabase
-      .from('programs')
-      .select('*')
-      .eq('owner_id', ownerId)
-      .order('created_at', { ascending: false });
-    const list = (data ?? []) as Program[];
-    const withDays = await Promise.all(list.map(async p => ({
-      ...p,
-      days: await loadDays(p.id),
-    })));
-    set({ programs: withDays, loading: false });
+    try {
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*')
+        .eq('owner_id', ownerId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const list = (data ?? []) as Program[];
+      const withDays = await Promise.all(list.map(async p => {
+        try {
+          return { ...p, days: await loadDays(p.id) };
+        } catch {
+          return { ...p, days: [] as ProgramDay[] };
+        }
+      }));
+      set({ programs: withDays });
+    } catch {
+      set({ programs: [] });
+    } finally {
+      set({ loading: false });
+    }
   },
 
   fetchProgram: async (programId) => {
-    const { data } = await supabase.from('programs').select('*').eq('id', programId).maybeSingle();
-    if (!data) return null;
-    const program = { ...(data as Program), days: await loadDays(programId) };
-    set(s => ({
-      programs: s.programs.some(p => p.id === programId)
-        ? s.programs.map(p => p.id === programId ? program : p)
-        : [program, ...s.programs],
-    }));
-    return program;
+    try {
+      const { data, error } = await supabase.from('programs').select('*').eq('id', programId).maybeSingle();
+      if (error || !data) return null;
+      let days: ProgramDay[] = [];
+      try {
+        days = await loadDays(programId);
+      } catch {
+        days = [];
+      }
+      const program = { ...(data as Program), days };
+      set(s => ({
+        programs: s.programs.some(p => p.id === programId)
+          ? s.programs.map(p => p.id === programId ? program : p)
+          : [program, ...s.programs],
+      }));
+      return program;
+    } catch {
+      return null;
+    }
   },
 
   createProgram: async (program, days) => {
@@ -197,6 +226,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: ex.default_reps_min ?? null,
         default_rir: ex.default_rir ?? null,
         default_rest_seconds: ex.default_rest_seconds ?? 90,
+        default_weight_kg: ex.default_weight_kg ?? null,
         order_index: ex.order_index,
       }));
       const { error } = await supabase.from('program_day_exercises').insert(rich);
@@ -238,6 +268,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: patch.default_reps_min === undefined ? current.default_reps_min : patch.default_reps_min,
         default_rir: patch.default_rir === undefined ? current.default_rir : patch.default_rir,
         default_rest_seconds: patch.default_rest_seconds ?? current.default_rest_seconds,
+        default_weight_kg: patch.default_weight_kg === undefined ? current.default_weight_kg : patch.default_weight_kg,
       };
       await get().setProgramDayExercises(day.id, exercises.map((ex, order_index) => ({
         name: ex.name,
@@ -246,6 +277,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: ex.default_reps_min,
         default_rir: ex.default_rir,
         default_rest_seconds: ex.default_rest_seconds,
+        default_weight_kg: ex.default_weight_kg,
         order_index,
       })));
       applied = true;
@@ -287,6 +319,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_reps_min: ex.default_reps_min,
         default_rir: ex.default_rir,
         default_rest_seconds: ex.default_rest_seconds,
+        default_weight_kg: ex.default_weight_kg,
         order_index,
       })));
     }

@@ -9,7 +9,9 @@ import { useRoutineStore } from '../../stores/routineStore';
 import { formatDate, formatDuration, todayStr } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { isCoachedAthlete } from '../../lib/coachRole';
 import type { Workout } from '../../lib/types';
+import { useCoachingStore } from '../../stores/coachingStore';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -23,6 +25,9 @@ export default function WorkoutPage() {
   const { user } = useAuthStore();
   const { workouts, loading, fetchWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
   const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -160,7 +165,7 @@ export default function WorkoutPage() {
         </div>
       </div>
 
-      {!routinesLoading && routines.length > 0 && (
+      {!coached && !routinesLoading && routines.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.myRoutines')}</h2>

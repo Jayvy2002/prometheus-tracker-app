@@ -8,11 +8,14 @@ import { calculateBMR, calculateTDEE, calculateCalorieTarget, calculateMacros, g
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { showNutritionField } from '../../lib/clientTracking';
 
 export default function GoalsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
+  const tracking = useClientTracking();
   const [goal, setGoal] = useState(profile?.goal ?? 'maintain');
   const storedKg = profile?.target_weight_kg ?? 0;
   const displayWeight = profile?.unit_weight === 'lbs' && storedKg ? Math.round(storedKg * 2.20462).toString() : (storedKg ? storedKg.toString() : '');
@@ -94,18 +97,22 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
           value={targetWeight}
           onChange={e => setTargetWeight(e.target.value)}
         />
+        {showNutritionField(tracking, 'water') && (
         <Input
           label={t('profile.goals.dailyWater')}
           type="number"
           value={waterTarget}
           onChange={e => setWaterTarget(e.target.value)}
         />
+        )}
+        {showNutritionField(tracking, 'steps') && (
         <Input
           label={t('profile.goals.dailySteps')}
           type="number"
           value={stepsTarget}
           onChange={e => setStepsTarget(e.target.value)}
         />
+        )}
         <Button onClick={handleSave} loading={saving} className="w-full">{t('common.saveChanges')}</Button>
       </div>
     </div>

@@ -1,19 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { todayStr } from '../../lib/utils';
+import { useClientTracking } from '../../lib/useClientTracking';
+import {
+  CHECKIN_SCALE_BY_VAR,
+  checkinHasAnyField,
+  showCheckinField,
+  visibleCheckinFields,
+  type CheckinScaleKey,
+} from '../../lib/clientTracking';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import type { DailyCheckinInput } from '../../lib/types';
-
-type ScaleKey = keyof Pick<DailyCheckinInput,
-  'hunger' | 'fatigue' | 'sleep_quality' | 'stress' | 'motivation' |
-  'muscle_soreness' | 'joint_pain' | 'energy_level' | 'mood'
->;
 
 function ScaleRow({
   label, low, high, value, onChange,
@@ -59,16 +62,29 @@ function ScaleRow({
   );
 }
 
+const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: string }> = {
+  sleep_quality: { field: 'sleep_quality', low: 'poor', high: 'excellent' },
+  energy_level: { field: 'energy_level', low: 'drained', high: 'high' },
+  mood: { field: 'mood', low: 'low', high: 'great' },
+  motivation: { field: 'motivation', low: 'none', high: 'fired' },
+  hunger: { field: 'hunger', low: 'none', high: 'ravenous' },
+  fatigue: { field: 'fatigue', low: 'fresh', high: 'exhausted' },
+  stress: { field: 'stress', low: 'calm', high: 'overwhelmed' },
+  muscle_soreness: { field: 'muscle_soreness', low: 'none', high: 'severe' },
+  joint_pain: { field: 'joint_pain', low: 'none', high: 'severe' },
+};
+
 export default function CheckInPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { todayCheckin, loading, fetchToday, upsertToday } = useCheckinStore();
-  const [step, setStep] = useState(0);
+  const tracking = useClientTracking();
+  const fields = useMemo(() => visibleCheckinFields(tracking), [tracking]);
   const [saving, setSaving] = useState(false);
   const [sleepHours, setSleepHours] = useState('');
   const [notes, setNotes] = useState('');
-  const [scales, setScales] = useState<Record<ScaleKey, number | null>>({
+  const [scales, setScales] = useState<Record<CheckinScaleKey, number | null>>({
     sleep_quality: null,
     energy_level: null,
     mood: null,
@@ -101,7 +117,7 @@ export default function CheckInPage() {
     });
   }, [todayCheckin]);
 
-  const setScale = (key: ScaleKey, value: number | null) => {
+  const setScale = (key: CheckinScaleKey, value: number | null) => {
     setScales(s => ({ ...s, [key]: value }));
   };
 
@@ -109,12 +125,29 @@ export default function CheckInPage() {
     if (!user) return;
     setSaving(true);
     const hours = sleepHours.trim() === '' ? null : Number(sleepHours);
-    const { error } = await upsertToday(user.id, {
+    const payload: DailyCheckinInput = {
       checked_at: todayStr(),
-      sleep_hours: hours != null && !Number.isNaN(hours) ? hours : null,
-      notes,
-      ...scales,
-    });
+      notes: showCheckinField(tracking, 'notes') ? notes : (todayCheckin?.notes || ''),
+      sleep_hours: showCheckinField(tracking, 'sleep_hours')
+        ? (hours != null && !Number.isNaN(hours) ? hours : null)
+        : todayCheckin?.sleep_hours ?? null,
+      hunger: scales.hunger,
+      fatigue: scales.fatigue,
+      sleep_quality: scales.sleep_quality,
+      stress: scales.stress,
+      motivation: scales.motivation,
+      muscle_soreness: scales.muscle_soreness,
+      joint_pain: scales.joint_pain,
+      energy_level: scales.energy_level,
+      mood: scales.mood,
+    };
+    for (const [varKey, col] of Object.entries(CHECKIN_SCALE_BY_VAR)) {
+      if (!col) continue;
+      if (!showCheckinField(tracking, varKey as typeof fields[number])) {
+        payload[col] = todayCheckin?.[col] ?? null;
+      }
+    }
+    const { error } = await upsertToday(user.id, payload);
     setSaving(false);
     if (error) {
       toast(error, 'error');
@@ -132,14 +165,25 @@ export default function CheckInPage() {
     );
   }
 
+  if (!checkinHasAnyField(tracking)) {
+    return (
+      <PageTransition>
+        <div className="px-4 pt-6">
+          <h1 className="text-2xl font-bold text-white mb-2">{t('checkin.title')}</h1>
+          <p className="text-sm text-neutral-500">{t('checkin.disabled')}</p>
+        </div>
+      </PageTransition>
+    );
+  }
+
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('checkin.title')}</h1>
         <p className="text-sm text-neutral-500 mb-6">{t('checkin.subtitle')}</p>
 
-        {step === 0 ? (
-          <div className="space-y-5">
+        <div className="space-y-5">
+          {showCheckinField(tracking, 'sleep_hours') && (
             <div>
               <label className="text-sm font-medium text-white block mb-1.5">{t('checkin.sleepHours')}</label>
               <input
@@ -155,21 +199,25 @@ export default function CheckInPage() {
               />
               <p className="text-[10px] text-neutral-600 mt-1">{t('checkin.optional')}</p>
             </div>
-            <ScaleRow label={t('checkin.fields.sleep_quality')} low={t('checkin.low.poor')} high={t('checkin.high.excellent')} value={scales.sleep_quality} onChange={v => setScale('sleep_quality', v)} />
-            <ScaleRow label={t('checkin.fields.energy_level')} low={t('checkin.low.drained')} high={t('checkin.high.high')} value={scales.energy_level} onChange={v => setScale('energy_level', v)} />
-            <ScaleRow label={t('checkin.fields.mood')} low={t('checkin.low.low')} high={t('checkin.high.great')} value={scales.mood} onChange={v => setScale('mood', v)} />
-            <ScaleRow label={t('checkin.fields.motivation')} low={t('checkin.low.none')} high={t('checkin.high.fired')} value={scales.motivation} onChange={v => setScale('motivation', v)} />
-            <Button onClick={() => setStep(1)} className="w-full">
-              {t('common.continue')} <ChevronRight size={16} />
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            <ScaleRow label={t('checkin.fields.hunger')} low={t('checkin.low.none')} high={t('checkin.high.ravenous')} value={scales.hunger} onChange={v => setScale('hunger', v)} />
-            <ScaleRow label={t('checkin.fields.fatigue')} low={t('checkin.low.fresh')} high={t('checkin.high.exhausted')} value={scales.fatigue} onChange={v => setScale('fatigue', v)} />
-            <ScaleRow label={t('checkin.fields.stress')} low={t('checkin.low.calm')} high={t('checkin.high.overwhelmed')} value={scales.stress} onChange={v => setScale('stress', v)} />
-            <ScaleRow label={t('checkin.fields.muscle_soreness')} low={t('checkin.low.none')} high={t('checkin.high.severe')} value={scales.muscle_soreness} onChange={v => setScale('muscle_soreness', v)} />
-            <ScaleRow label={t('checkin.fields.joint_pain')} low={t('checkin.low.none')} high={t('checkin.high.severe')} value={scales.joint_pain} onChange={v => setScale('joint_pain', v)} />
+          )}
+
+          {fields.map(key => {
+            const col = CHECKIN_SCALE_BY_VAR[key];
+            if (!col) return null;
+            const copy = SCALE_COPY[col];
+            return (
+              <ScaleRow
+                key={key}
+                label={t(`checkin.fields.${copy.field}`)}
+                low={t(`checkin.low.${copy.low}`)}
+                high={t(`checkin.high.${copy.high}`)}
+                value={scales[col]}
+                onChange={v => setScale(col, v)}
+              />
+            );
+          })}
+
+          {showCheckinField(tracking, 'notes') && (
             <div>
               <label className="text-sm font-medium text-white block mb-1.5">{t('checkin.notes')}</label>
               <textarea
@@ -180,16 +228,12 @@ export default function CheckInPage() {
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
               />
             </div>
-            <div className="flex gap-3">
-              <Button variant="secondary" onClick={() => setStep(0)}>
-                <ChevronLeft size={16} />
-              </Button>
-              <Button onClick={handleSave} loading={saving} className="flex-1">
-                <Check size={16} /> {t('checkin.save')}
-              </Button>
-            </div>
-          </div>
-        )}
+          )}
+
+          <Button onClick={handleSave} loading={saving} className="w-full">
+            <Check size={16} /> {t('checkin.save')}
+          </Button>
+        </div>
       </div>
     </PageTransition>
   );

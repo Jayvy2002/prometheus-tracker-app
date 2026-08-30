@@ -61,7 +61,14 @@ interface WorkoutState {
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
   updateWorkout: (id: string, data: Partial<Workout>) => Promise<void>;
   deleteWorkout: (id: string) => Promise<void>;
-  addExercise: (workoutId: string, name: string, orderIndex: number, extras?: { prescribed_sets?: number; prescribed_reps?: number }) => Promise<WorkoutExercise | null>;
+  addExercise: (workoutId: string, name: string, orderIndex: number, extras?: {
+    prescribed_sets?: number;
+    prescribed_reps?: number;
+    prescribed_reps_min?: number | null;
+    prescribed_rir?: number | null;
+    prescribed_rest_seconds?: number | null;
+    prescribed_weight_kg?: number | null;
+  }) => Promise<WorkoutExercise | null>;
   updateExercise: (id: string, data: Partial<WorkoutExercise>) => Promise<void>;
   deleteExercise: (id: string) => Promise<void>;
   addSet: (exerciseId: string, orderIndex: number) => Promise<WorkoutSet | null>;
@@ -177,6 +184,10 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         order_index: orderIndex,
         prescribed_sets: extras?.prescribed_sets ?? null,
         prescribed_reps: extras?.prescribed_reps ?? null,
+        prescribed_reps_min: extras?.prescribed_reps_min ?? null,
+        prescribed_rir: extras?.prescribed_rir ?? null,
+        prescribed_rest_seconds: extras?.prescribed_rest_seconds ?? null,
+        prescribed_weight_kg: extras?.prescribed_weight_kg ?? null,
       })
       .select()
       .maybeSingle();

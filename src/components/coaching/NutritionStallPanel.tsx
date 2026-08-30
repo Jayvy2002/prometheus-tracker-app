@@ -39,16 +39,25 @@ export default function NutritionStallPanel({
         <SecondDraftingCard row={liveDraft} retrying={asking} onRetry={ask} />
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={() => navigate(relanceHref)}>
+        <Button type="button" size="sm" onClick={() => navigate(relanceHref)}>
           {t('coaching.queue.relance')}
         </Button>
         {draftHref && !(liveDraft && isInterventionDrafting(liveDraft)) && (
-          <Button size="sm" variant="secondary" onClick={() => navigate(draftHref)}>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate(draftHref);
+            }}
+          >
             {t('coaching.nutritionStall.openDraft')}
           </Button>
         )}
         {canAskSecond && !draftHref && (
-          <Button size="sm" variant="secondary" loading={asking} onClick={ask}>
+          <Button type="button" size="sm" variant="secondary" loading={asking} onClick={ask}>
             {t('coaching.nutritionStall.askSecond')}
           </Button>
         )}

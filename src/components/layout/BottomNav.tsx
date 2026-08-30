@@ -9,6 +9,7 @@ export default function BottomNav() {
   const navigate = useNavigate();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
+  const tracking = useCoachingStore(s => s.myTrackingConfig);
 
   const tabs = coachingRole === 'coach'
     ? [
@@ -19,12 +20,12 @@ export default function BottomNav() {
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
       ]
     : [
-        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home') },
-        { path: '/workout', icon: Dumbbell, label: t('nav.workout') },
-        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin') },
-        { path: '/nutrition', icon: Apple, label: t('nav.nutrition') },
-        { path: '/profile', icon: User, label: t('nav.profile') },
-      ];
+        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
+        { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
+        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
+        { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
+        { path: '/profile', icon: User, label: t('nav.profile'), show: true },
+      ].filter(tab => tab.show !== false);
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 z-40 safe-area-bottom">

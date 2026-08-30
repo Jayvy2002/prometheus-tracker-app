@@ -14,13 +14,14 @@ import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
 import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { GOALS } from '../../lib/constants';
-import { interventionHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
+import { openDraftHref } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import { flagKindForClient, focusCheckin, formatCheckinScore, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
 import {
   canAskCalorieAdjustment,
   detectCutCalorieStall,
   secondCaloriePrompt,
+  shouldShowCutStallCard,
 } from '../../lib/coachNutrition';
 import { relanceThreadHref } from '../../lib/coachQueue';
 import { lastSessionFromLifts, lastSessionFromWorkout } from '../../lib/coachLastSession';
@@ -33,8 +34,10 @@ import { displayName } from '../../lib/coachText';
 import { liftsForClient } from '../../lib/coachLifts';
 import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
+import { ALL_ON_TRACKING, parseResolvedTracking, type ResolvedTrackingConfig } from '../../lib/clientTracking';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
 import { weightChartPoints } from '../../lib/coachProgress';
+import ClientProfileEditor from './ClientProfileEditor';
 import {
   DEFAULT_COACH_VISIBLE_TABS,
   type CoachClientTab,
@@ -42,6 +45,7 @@ import {
   type DailyCheckin,
   type DailyNutritionPoint,
   type ProgressPhoto,
+  type UserProfile,
   type WeightMeasurement,
   type Workout,
 } from '../../lib/types';
@@ -60,7 +64,7 @@ import NutritionStallPanel from './NutritionStallPanel';
 import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
 
-const TABS: CoachClientTab[] = ['overview', 'training', 'progress', 'checkins', 'health', 'notes'];
+const TABS: CoachClientTab[] = ['overview', 'profile', 'training', 'progress', 'checkins', 'health', 'notes'];
 
 function goalLabel(goal: string): string {
   return GOALS.find(g => g.value === goal)?.label || goal || '—';
@@ -83,7 +87,7 @@ export default function ClientDetailPage() {
   const { user } = useAuthStore();
   const {
     clients, fetchClients, fetchClientWorkouts, fetchClientWorkout,
-    fetchClientWeight, fetchClientCheckins, fetchClientProfile,
+    fetchClientWeight, fetchClientCheckins, fetchClientProfile, fetchTrackingConfig,
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, coachSettings, fetchCoachSettings,
@@ -112,6 +116,13 @@ export default function ClientDetailPage() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [askingCalories, setAskingCalories] = useState(false);
+  const [clientProfile, setClientProfile] = useState<UserProfile | null>(null);
+  const [tracking, setTracking] = useState<ResolvedTrackingConfig>({
+    ...ALL_ON_TRACKING,
+    training: { ...ALL_ON_TRACKING.training },
+    nutrition: { ...ALL_ON_TRACKING.nutrition },
+    checkin: { ...ALL_ON_TRACKING.checkin },
+  });
 
   const client = clients.find(c => c.id === id);
   const ops = opsRows.find(r => r.client.id === id);
@@ -135,9 +146,13 @@ export default function ClientDetailPage() {
       fetchClientWeight(id).then(setWeights),
       fetchNotes(id),
       fetchClientProfile(id).then(async profile => {
+        setClientProfile(profile);
         const target = profile?.daily_calorie_target ?? 0;
         const days = await fetchClientNutritionRange(id, start, todayStr(), target);
         setNutritionDays(days);
+      }),
+      fetchTrackingConfig(id).then(cfg => {
+        if (cfg) setTracking(parseResolvedTracking(cfg));
       }),
       fetchClientLiftHistory(id).then(setProgressLifts),
       fetchProgressPhotos(id).then(async rows => {
@@ -236,6 +251,10 @@ export default function ClientDetailPage() {
   const trainingRelanceHref = id ? relanceThreadHref(id, 'missed_training') : '';
   const missedTraining = priorities.some(p => p.clientId === id && p.kind === 'missed_workout');
   const calorieDraft = id ? pendingForClient(pendingInterventions, id, 'calorie_adjustment') : null;
+  const openableDraft = id
+    ? pendingInterventions.find(row => row.client_id === id && !!row.id && !isInterventionDrafting(row)) ?? null
+    : null;
+  const progressDraftHref = openDraftHref(openableDraft);
   const nutritionStall = useMemo(() => {
     if (!id || !client) return null;
     const stallWeights = weights.length > 0
@@ -250,7 +269,7 @@ export default function ClientDetailPage() {
       today: todayStr(),
     });
   }, [id, client, rosterSignals.calorieTargets, rosterSignals.nutritionLogs, rosterSignals.weights, weights]);
-  const showNutritionPass = !!nutritionStall || !!calorieDraft;
+  const showNutritionPass = shouldShowCutStallCard(client?.goal, nutritionStall);
   const canAskCalories = canAskCalorieAdjustment(nutritionStall) && !calorieDraft;
 
   const handleOpenWorkout = (workoutId: string) => {
@@ -382,10 +401,13 @@ export default function ClientDetailPage() {
           </Button>
         )}
 
-        {id && pendingForClient(pendingInterventions, id) && (
+        {id && openDraftHref(pendingForClient(pendingInterventions, id)) && (
           <button
             type="button"
-            onClick={() => navigate(interventionHref(pendingForClient(pendingInterventions, id)!))}
+            onClick={() => {
+              const href = openDraftHref(pendingForClient(pendingInterventions, id));
+              if (href) navigate(href);
+            }}
             className="w-full mb-4 text-left rounded-xl border border-blue-500/20 bg-blue-500/5 px-3 py-2"
           >
             <p className="text-[11px] uppercase tracking-wider text-blue-300 flex items-center gap-1">
@@ -586,36 +608,28 @@ export default function ClientDetailPage() {
         ) : tab === 'progress' ? (
           <div className="space-y-3">
             <ClientLiftChart
+              compact
               lifts={lifts}
               selectedName={exerciseHint}
               notes={notes}
               relanceHref={trainingRelanceHref}
-              showRelance={missedTraining}
-              onSelect={name => setTab('progress', { exercise: name })}
-              onOpenSeries={lift => {
-                setTab('training', { exercise: lift.displayName });
-                setWorkspaceOpen(true);
-              }}
+              onSelect={name => setTab('training', { exercise: name })}
             />
             <WeightChart points={weightChartPoints(weights)} />
             <NutritionChart points={nutritionDays} />
             {showNutritionPass && id && (
               <NutritionStallPanel
                 relanceHref={relanceHref}
-                draftHref={
-                  (id && pendingForClient(pendingInterventions, id, 'adherence_nutrition'))
-                    ? interventionHref(pendingForClient(pendingInterventions, id, 'adherence_nutrition')!)
-                    : (calorieDraft && isCompleteCalorieDraft(parseCalorieDraft(calorieDraft.payload))
-                      ? interventionHref(calorieDraft)
-                      : null)
-                }
+                draftHref={progressDraftHref}
                 canAskSecond={false}
                 asking={askingCalories}
                 liveDraft={pendingForClient(pendingInterventions, id, 'adherence_nutrition') ?? calorieDraft}
                 onAskSecond={() => { void handleAskCalories(); }}
               />
             )}
-            <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+            {photos.length > 0 && (
+              <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+            )}
           </div>
         ) : tab === 'checkins' ? (
           <div className="space-y-3">
@@ -665,6 +679,18 @@ export default function ClientDetailPage() {
               ))
             )}
           </div>
+        ) : tab === 'profile' ? (
+          <Card>
+            {id ? (
+              <ClientProfileEditor
+                clientId={id}
+                profile={clientProfile}
+                tracking={tracking}
+                onTrackingChange={setTracking}
+                onSaved={setClientProfile}
+              />
+            ) : null}
+          </Card>
         ) : tab === 'health' ? (
           <div className="space-y-3">
             {id && recoveryView ? (

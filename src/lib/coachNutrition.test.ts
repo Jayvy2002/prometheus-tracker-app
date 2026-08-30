@@ -5,6 +5,7 @@ import { groupQueueByClient, resolveQueueAction } from './coachQueue';
 import {
   canAskCalorieAdjustment,
   detectCutCalorieStall,
+  shouldShowCutStallCard,
   isProgressHref,
   nutritionStallFocusHref,
   nutritionStallReviewRows,
@@ -166,6 +167,37 @@ test('no adherence data does not invent a cut', () => {
   assert.equal(onTarget, null);
 });
 
+test('bulk/gain never gets a cut-stall card even with a calorie draft sitting around', () => {
+  const stall = detectCutCalorieStall({
+    clientId: 'hugo-id',
+    goal: 'gain',
+    calorieTarget: 3200,
+    logs: days('hugo-id', '2026-08-08', 9, 3600),
+    weights: [
+      weight('hugo-id', '2026-08-10', 82.0),
+      weight('hugo-id', '2026-08-28', 82.2),
+    ],
+    today: TODAY,
+  });
+  assert.equal(stall, null);
+  assert.equal(shouldShowCutStallCard('gain', stall), false);
+  assert.equal(shouldShowCutStallCard('bulk', stall), false);
+  const fakeCutStall = {
+    clientId: 'marc-id',
+    goal: 'cut' as const,
+    calorieTarget: 2200,
+    avgCalories: 2800,
+    loggedDays: 9,
+    lastLogDate: '2026-08-28',
+    weightDeltaKg: 0.4,
+    newestKg: 95.4,
+    oldestKg: 95,
+    overeatRatio: 1.27,
+  };
+  assert.equal(shouldShowCutStallCard('cut', fakeCutStall), true);
+  assert.equal(shouldShowCutStallCard('gain', fakeCutStall), false);
+});
+
 test('Aujourd’hui stall row and File du jour item deep-link to Progression', () => {
   const marc = client('marc-id', 'Marc Bouchard', 'lose', 2200);
   const sofia = client('sofia-id', 'Sofia Nguyen', 'gain', 2300);
@@ -245,6 +277,23 @@ test('Aujourd’hui stall row and File du jour item deep-link to Progression', (
   assert.equal(rows[0]?.relanceHref, '/messages/marc-id?nudge=general_followup');
   assert.equal(rows[0]?.draftHref, '/clients/marc-id/draft/draft-marc');
   assert.equal(rows[0]?.title, 'Il n’applique pas les 2200');
+
+  const hugoDraft: CoachIntervention = {
+    ...draft,
+    id: 'draft-hugo',
+    client_id: 'hugo-id',
+    kind: 'calorie_adjustment',
+    title: 'CUT STALL leftover',
+  };
+  const hugo = client('hugo-id', 'Hugo Pelletier', 'gain', 3200);
+  const withHugo = nutritionStallReviewRows(
+    [ops(marc), ops(sofia), ops(hugo)],
+    signals,
+    priorities,
+    [draft, hugoDraft],
+    TODAY,
+  );
+  assert.equal(withHugo.every(r => r.clientId !== 'hugo-id'), true);
 });
 
 test('File du jour weight item also deep-links to Progression, not overview', () => {
