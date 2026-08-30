@@ -49,7 +49,7 @@ test('Today-opened drafts go back to Aujourd’hui; 360 stays a separate link', 
   assert.doesNotMatch(page, /cause \|\| row\.rationale/);
 
   const queue = src('src/components/coaching/CoachTodayQueue.tsx');
-  assert.match(queue, /action\.kind === 'open_draft' \? action\.href : item\.href/);
+  assert.match(queue, /action\.kind === 'open_draft' && action\.href \? action\.href : item\.href/);
 });
 
 test('Ask and Demander un ajustement navigate to the editable draft, never a leftover chip', () => {

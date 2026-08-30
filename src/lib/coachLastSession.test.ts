@@ -218,6 +218,19 @@ test('Aujourd’hui séance faite deep-links to ?tab=training&workout= — misse
   const lea = client('lea-id', 'Léa Martin');
   const sofia = client('sofia-id', 'Sofia Martin');
   const lifts = [camilleSquat, camilleBench, leaBench, leaRow];
+  const logged = sessionLoggedPriority(ops(camille), lifts, TODAY);
+  assert.ok(logged);
+  assert.equal(logged?.workoutId, CAMILLE_LOWER);
+  assert.equal(logged?.href, trainingSessionHref('camille-id', CAMILLE_LOWER));
+  assert.equal(isTrainingHref(logged!.href), true);
+  assert.equal(workoutIdFromHref(logged!.href), CAMILLE_LOWER);
+  assert.equal(parseWorkoutQuery(new URLSearchParams(logged!.href.split('?')[1]).get('workout')), CAMILLE_LOWER);
+
+  const doneAction = resolveQueueAction(logged!, []);
+  assert.equal(doneAction.kind, 'open_360');
+  assert.equal(doneAction.href, logged?.href);
+  assert.equal(doneAction.ctaKey, 'coaching.queue.openSession');
+
   const priorities = buildCoachPriorities(
     [
       ops(camille),
@@ -226,19 +239,6 @@ test('Aujourd’hui séance faite deep-links to ?tab=training&workout= — misse
     ],
     emptySignals({ lifts }),
   );
-
-  const done = priorities.find(p => p.clientId === 'camille-id' && p.kind === 'session_logged');
-  assert.ok(done);
-  assert.equal(done?.workoutId, CAMILLE_LOWER);
-  assert.equal(done?.href, trainingSessionHref('camille-id', CAMILLE_LOWER));
-  assert.equal(isTrainingHref(done!.href), true);
-  assert.equal(workoutIdFromHref(done!.href), CAMILLE_LOWER);
-  assert.equal(parseWorkoutQuery(new URLSearchParams(done!.href.split('?')[1]).get('workout')), CAMILLE_LOWER);
-
-  const doneAction = resolveQueueAction(done!, []);
-  assert.equal(doneAction.kind, 'open_360');
-  assert.equal(doneAction.href, done?.href);
-  assert.equal(doneAction.ctaKey, 'coaching.queue.openSession');
 
   assert.equal(priorities.some(p => p.clientId === 'lea-id' && p.kind === 'session_logged'), false);
   const leaMissed = priorities.find(p => p.clientId === 'lea-id' && p.kind === 'missed_workout');
@@ -260,7 +260,10 @@ test('Aujourd’hui séance faite deep-links to ?tab=training&workout= — misse
   assert.deepEqual(rows.map(r => r.clientId), ['camille-id']);
   assert.equal(rows[0]?.href, trainingSessionHref('camille-id', CAMILLE_LOWER));
 
-  const groups = groupQueueByClient(priorities.filter(p => p.kind === 'session_logged' || p.kind === 'missed_workout'));
+  const groups = groupQueueByClient([
+    logged!,
+    ...priorities.filter(p => p.kind === 'missed_workout'),
+  ]);
   const camilleGroup = groups.find(g => g.clientId === 'camille-id');
   assert.equal(camilleGroup?.items[0]?.href, trainingSessionHref('camille-id', CAMILLE_LOWER));
 });
