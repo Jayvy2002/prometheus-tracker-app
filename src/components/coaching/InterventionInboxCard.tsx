@@ -32,7 +32,7 @@ export default function InterventionInboxCard({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const href = interventionHref(item);
+  const href = interventionHref(item, { from: 'messages' });
   const observation = parseFleetObservation(item.payload);
   const cause = parseFleetCause(item.payload, item.rationale);
   const message = parsePreparedMessage(item.payload);

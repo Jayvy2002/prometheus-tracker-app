@@ -79,7 +79,7 @@ export default function CoachInboxPage() {
 
   const handleSendCard = async (item: typeof pendingInterventions[number]) => {
     if (!item.client_id) {
-      navigate(coachingPassHref(item));
+      navigate(coachingPassHref(item, { from: 'messages' }));
       return;
     }
     setSendingId(item.id);
@@ -104,7 +104,7 @@ export default function CoachInboxPage() {
       const cals = parseCalorieDraft(item.payload);
       if (!isCompleteCalorieDraft(cals) || !cals) {
         setSendingId(null);
-        navigate(coachingPassHref(item));
+        navigate(coachingPassHref(item, { from: 'messages' }));
         return;
       }
       const applied = await setClientNutritionTargets(item.client_id, cals);
@@ -123,7 +123,7 @@ export default function CoachInboxPage() {
       return;
     }
     setSendingId(null);
-    navigate(coachingPassHref(item));
+    navigate(coachingPassHref(item, { from: 'messages' }));
   };
 
   if (clientId) {

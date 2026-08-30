@@ -698,10 +698,27 @@ export function parseFleetObservation(payload: unknown, fallback = ''): string {
   return typeof row.observation === 'string' && row.observation.trim() ? row.observation : fallback;
 }
 
+/** One-line coach cause — never a JSON blob, stack, or prompt/log dump. */
+export function isHumanCoachCause(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const s = value.trim();
+  if (!s || s.length > 180) return false;
+  if (s.split(/\n/).length > 2) return false;
+  if (/[{[]/.test(s) && /[}\]]/.test(s)) return false;
+  if (/\d{4}-\d{2}-\d{2}T\d{2}:/.test(s)) return false;
+  if (/^\s*(error|traceback|console\.|at \w+)/i.test(s)) return false;
+  if (/"kind"\s*:|"payload"\s*:|"drafting"\s*:/.test(s)) return false;
+  return true;
+}
+
 export function parseFleetCause(payload: unknown, fallback = ''): string {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return fallback;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return isHumanCoachCause(fallback) ? fallback.trim() : '';
+  }
   const row = payload as Record<string, unknown>;
-  return typeof row.cause === 'string' && row.cause.trim() ? row.cause : fallback;
+  if (isHumanCoachCause(row.cause)) return String(row.cause).trim();
+  if (isHumanCoachCause(fallback)) return fallback.trim();
+  return '';
 }
 
 export function parsePreparedMessage(payload: unknown, fallback = ''): string {

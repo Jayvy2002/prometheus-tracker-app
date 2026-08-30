@@ -254,7 +254,7 @@ test('Aujourd’hui stall row and File du jour item deep-link to Progression', (
     resolved_at: null,
   }]);
   assert.equal(actionRelance.kind, 'open_draft');
-  assert.equal(actionRelance.href, '/clients/marc-id/draft/draft-marc');
+  assert.equal(actionRelance.href, '/clients/marc-id/draft/draft-marc?from=today');
 
   const draft: CoachIntervention = {
     id: 'draft-marc',

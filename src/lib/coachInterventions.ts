@@ -1,4 +1,8 @@
+import { clientFileHref } from './coachSituation';
 import type { AiPlanDraft, AiProgramDayDraft, CoachIntervention, CoachInterventionKind, ProgramExercisePatch } from './types';
+
+/** Where the coach opened this draft from — drives the back link, not the 360. */
+export type DraftOpenFrom = 'today' | 'messages' | 'ask';
 
 export type { CoachIntervention, CoachInterventionKind };
 
@@ -192,28 +196,74 @@ export function isCoachOnlyKind(kind: CoachInterventionKind): boolean {
   return kind === 'workflow_improvement' || kind === 'new_question';
 }
 
-export function interventionHref(row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id'>): string {
+/** Client-file drafts only — app-workflow cards without a client stay in Messages. */
+export function isClientBoundDraft(row: Pick<CoachIntervention, 'kind' | 'client_id'>): boolean {
+  return !!row.client_id && !isCoachOnlyKind(row.kind);
+}
+
+export function parseDraftFrom(value: string | null | undefined): DraftOpenFrom | null {
+  if (value === 'today' || value === 'messages' || value === 'ask') return value;
+  return null;
+}
+
+export function withDraftFrom(href: string, from?: DraftOpenFrom | null): string {
+  if (!from) return href;
+  const join = href.includes('?') ? '&' : '?';
+  return `${href}${join}from=${from}`;
+}
+
+export function interventionHref(
+  row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id'>,
+  opts?: { from?: DraftOpenFrom | null },
+): string {
+  let href: string;
   if (row.kind === 'onboarding_plan' && row.client_id) {
-    return `/clients/${row.client_id}/setup?draft=${row.id}`;
+    href = `/clients/${row.client_id}/setup?draft=${row.id}`;
+  } else if (row.client_id) {
+    href = `/clients/${row.client_id}/draft/${row.id}`;
+  } else {
+    href = `/inbox/${row.id}`;
   }
-  if (row.client_id) return `/clients/${row.client_id}/draft/${row.id}`;
-  return `/inbox/${row.id}`;
+  return withDraftFrom(href, opts?.from);
 }
 
 /** Href to the draft editor, or null when there is nothing to open. */
 export function openDraftHref(
   row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id'> | null | undefined,
+  opts?: { from?: DraftOpenFrom | null },
 ): string | null {
   if (!row?.id) return null;
-  return interventionHref(row);
+  return interventionHref(row, opts);
+}
+
+export type DraftBackKind = DraftOpenFrom | 'client';
+
+export function draftBackTarget(input: {
+  from?: string | null;
+  clientId: string | null;
+}): { href: string; kind: DraftBackKind } {
+  const from = parseDraftFrom(input.from);
+  if (from === 'today') return { href: '/dashboard', kind: 'today' };
+  if (from === 'messages') {
+    return {
+      href: input.clientId ? `/messages/${input.clientId}` : '/messages',
+      kind: 'messages',
+    };
+  }
+  if (from === 'ask') return { href: '/prometheus', kind: 'ask' };
+  if (input.clientId) return { href: clientFileHref(input.clientId), kind: 'client' };
+  return { href: '/messages', kind: 'messages' };
 }
 
 /** Incomplete 2000/0/0/0 must never open as the first screen. Complete macros → draft. */
-export function coachingPassHref(row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id' | 'payload'>): string {
+export function coachingPassHref(
+  row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id' | 'payload'>,
+  opts?: { from?: DraftOpenFrom | null },
+): string {
   if (row.kind === 'calorie_adjustment' && row.client_id && !isCompleteCalorieDraft(parseCalorieDraft(row.payload))) {
     return `/clients/${row.client_id}?tab=progress`;
   }
-  return interventionHref(row);
+  return interventionHref(row, opts);
 }
 
 const KINDS: CoachInterventionKind[] = [

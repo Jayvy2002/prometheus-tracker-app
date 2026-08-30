@@ -314,7 +314,10 @@ export default function ClientDetailPage() {
   const missedTraining = priorities.some(p => p.clientId === id && p.kind === 'missed_workout');
   const calorieDraft = id ? pendingForClient(pendingInterventions, id, 'calorie_adjustment') : null;
   const openableDraft = id
-    ? pendingInterventions.find(row => row.client_id === id && !!row.id && !isInterventionDrafting(row)) ?? null
+    ? pendingForClient(
+      pendingInterventions.filter(row => !!row.id && !isInterventionDrafting(row)),
+      id,
+    )
     : null;
   const progressDraftHref = openDraftHref(openableDraft);
   const nutritionStall = useMemo(() => {

@@ -3,13 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
-import {
-  interventionDraftError,
-  isInterventionDrafting,
-  isInterventionReady,
-  pendingForClient,
-} from '../../lib/coachSecond';
-import { interventionHref } from '../../lib/coachInterventions';
+import { openDraftHref } from '../../lib/coachInterventions';
 import {
   canAskRecoveryAdjust,
   recoveryContextPayload,
@@ -21,7 +15,6 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Sparkline from '../ui/Sparkline';
 import { toast } from '../ui/Toast';
-import SecondDraftingCard from './SecondDraftingCard';
 
 function Metric({
   label,
@@ -63,12 +56,7 @@ export default function RecoverySnapshotPanel({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const askSecond = useCoachingStore(s => s.askSecond);
-  const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const [asking, setAsking] = useState(false);
-  const [jobId, setJobId] = useState<string | null>(null);
-
-  const live = (jobId ? pendingInterventions.find(r => r.id === jobId) : null)
-    ?? pendingForClient(pendingInterventions, clientId, 'program_nl_edit');
   const name = client ? displayName(client) : t('coaching.unnamed');
   const canAsk = canAskRecoveryAdjust(snapshot);
   const sleepLabel = snapshot.sleepHours != null
@@ -95,11 +83,16 @@ export default function RecoverySnapshotPanel({
       context: recoveryContextPayload(snapshot),
     });
     setAsking(false);
-    if ('error' in result) {
+    if ('error' in result || !result.id) {
       toast(t('coaching.second.failed'), 'error');
       return;
     }
-    setJobId(result.id);
+    const href = openDraftHref({ kind: 'program_nl_edit', client_id: clientId, id: result.id });
+    if (!href) {
+      toast(t('coaching.second.failed'), 'error');
+      return;
+    }
+    navigate(href);
   };
 
   return (
@@ -159,19 +152,6 @@ export default function RecoverySnapshotPanel({
       <p className="text-[11px] text-neutral-600">
         {canAsk ? t('coaching.recovery.askAdjustHint') : t('coaching.recovery.relanceHint')}
       </p>
-
-      {live && (isInterventionDrafting(live) || interventionDraftError(live)) && (
-        <SecondDraftingCard
-          row={live}
-          retrying={asking}
-          onRetry={interventionDraftError(live) && canAsk ? () => { void askAdjust(); } : undefined}
-        />
-      )}
-      {live && isInterventionReady(live) && (
-        <Button type="button" size="sm" onClick={() => navigate(interventionHref(live))}>
-          {t('coaching.ask.openDraft')}
-        </Button>
-      )}
     </div>
   );
 }
