@@ -16,6 +16,14 @@ import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import {
+  clientHomeNextAction,
+  daysSinceActivity,
+  isClientFirstRun,
+  shouldShowDaysSinceReminder,
+} from '../../lib/clientHome';
+import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 
@@ -42,12 +50,13 @@ export default function Dashboard() {
   const { workouts, fetchWorkouts } = useWorkoutStore();
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
-  const { todayCheckin, fetchToday } = useCheckinStore();
-  const { myCoach, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
+  const { todayCheckin, checkins, fetchToday, fetchRecent } = useCheckinStore();
+  const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
   const tracking = useClientTracking();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
+  const [nutritionHistoryCount, setNutritionHistoryCount] = useState(0);
 
   const dismissReminder = (key: string) => {
     setDismissedReminders(prev => [...prev, key]);
@@ -63,8 +72,14 @@ export default function Dashboard() {
     fetchStreak(user.id);
     fetchRoutines(user.id);
     fetchToday(user.id);
+    fetchRecent(user.id, 14);
     fetchMyCoach();
     fetchMyAssignment(user.id);
+    void supabase
+      .from('nutrition_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .then(({ count }) => setNutritionHistoryCount(count ?? 0));
   }, [user]);
 
   const firstName = profile?.full_name?.split(' ')[0] || '';
@@ -134,22 +149,47 @@ export default function Dashboard() {
     : null;
   const nextRoutine = !assignedDay ? (scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null)) : null;
 
-  // Reminders
+  const completedWorkoutCount = workouts.filter(w => w.completed).length;
+  const checkinCount = Math.max(checkins.length, todayCheckin ? 1 : 0);
+  const lastCompletedWorkout = [...workouts]
+    .filter(w => w.completed && w.date)
+    .sort((a, b) => b.date.localeCompare(a.date))[0];
+  const lastCheckin = todayCheckin ?? checkins[0] ?? null;
+  const firstRun = isClientFirstRun({
+    completedWorkoutCount,
+    nutritionLogCount: nutritionHistoryCount + logs.length,
+    checkinCount,
+    lastWorkoutAt: lastCompletedWorkout?.date ?? null,
+    lastNutritionAt: logs[0]?.logged_at ?? null,
+    lastCheckinAt: lastCheckin?.checked_at ?? null,
+  });
+  const hasProgram = !!assignment?.program && assignment.status === 'active';
+  const hasNextWorkout = showModule(tracking, 'workouts') && !!(assignedDay || nextRoutine);
+  const hasCoach = isCoachedAthlete(coachingRole, myCoach);
+  const nextAction = clientHomeNextAction({
+    firstRun,
+    hasProgram,
+    hasNextWorkout,
+    checkinsEnabled: showModule(tracking, 'checkins'),
+    todayCheckinDone: !!todayCheckin,
+    hasCoach,
+  });
+
+  // Reminders — never from null / epoch-zero (that used to render « 999 days »)
   const lastWeighIn = measurements.length > 0
     ? [...measurements].sort((a, b) => b.measured_at.localeCompare(a.measured_at))[0]
     : null;
-  const daysSinceWeighIn = lastWeighIn
-    ? Math.floor((Date.now() - new Date(lastWeighIn.measured_at).getTime()) / 86400000)
-    : 999;
-  const showWeightReminder = daysSinceWeighIn >= 3;
+  const daysSinceWeighIn = daysSinceActivity(lastWeighIn?.measured_at);
+  const showWeightReminder = !firstRun && shouldShowDaysSinceReminder(daysSinceWeighIn);
 
   const hourNow = new Date().getHours();
   const hasLoggedLunch = logs.some(l => l.category === 'lunch');
-  const showMealReminder =
+  const showMealReminder = !firstRun && (
     (hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0) ||
-    (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3);
+    (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3)
+  );
 
-  const showWaterReminder = hourNow >= 15 && waterPct < 50;
+  const showWaterReminder = !firstRun && hourNow >= 15 && waterConsumed > 0 && waterPct < 50;
 
   // Deload suggestion — if trained 4+ consecutive weeks without a break
   const fourWeeksAgo = new Date();
@@ -192,12 +232,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {myCoach && (
+        {myCoach && (hasProgram || (!firstRun && showNutritionField(tracking, 'calories'))) && (
           <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
             {assignment?.program && (
               <p>{t('coaching.loop.program', { name: assignment.program.name })}</p>
             )}
-            {showNutritionField(tracking, 'calories') && (
+            {!firstRun && showNutritionField(tracking, 'calories') && (
               <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
             )}
           </div>
@@ -257,7 +297,7 @@ export default function Dashboard() {
                   <Scale size={14} className="text-blue-400" />
                 </div>
                 <button onClick={() => navigate('/weight')} className="flex-1 text-left">
-                  <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn })}</p>
+                  <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}</p>
                 </button>
                 <button onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
                   <X size={14} />
@@ -293,7 +333,29 @@ export default function Dashboard() {
           </div>
         )}
 
-        {showModule(tracking, 'checkins') && !todayCheckin && (
+        {nextAction && (
+          nextAction === 'checkin' ? (
+            <button
+              onClick={() => navigate('/checkin')}
+              className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
+            >
+              <p className="text-sm text-neutral-200">{t('dashboard.firstRun.checkin')}</p>
+            </button>
+          ) : nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
+            <button
+              onClick={() => navigate('/workout')}
+              className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
+            >
+              <p className="text-sm text-neutral-200">{t('dashboard.firstRun.firstSession')}</p>
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4">
+              <p className="text-sm text-neutral-200">{t(`dashboard.firstRun.${nextAction}`)}</p>
+            </div>
+          )
+        )}
+
+        {showModule(tracking, 'checkins') && !todayCheckin && nextAction !== 'checkin' && (!firstRun || hasNextWorkout) && (
           <button
             onClick={() => navigate('/checkin')}
             className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
@@ -306,6 +368,7 @@ export default function Dashboard() {
             <ChevronRight size={16} className="text-violet-300/70" />
           </button>
         )}
+        {!firstRun && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
@@ -402,8 +465,9 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        )}
 
-        {showModule(tracking, 'workouts') && (
+        {showModule(tracking, 'workouts') && !firstRun && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -560,7 +624,8 @@ export default function Dashboard() {
           </button>
         )}
 
-        {/* Streak & Weight row */}
+        {/* Streak & Weight row — hide on first-run so a weigh-in streak doesn't scold a new athlete */}
+        {!firstRun && (
         <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
           {/* Streak */}
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
@@ -609,10 +674,10 @@ export default function Dashboard() {
           </button>
           )}
         </div>
-
-
+        )}
 
         {/* Quick actions */}
+        {!firstRun && (
         <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
           <button
             onClick={() => navigate('/stats')}
@@ -631,6 +696,7 @@ export default function Dashboard() {
             <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.progressDesc')}</p>
           </button>
         </div>
+        )}
       </div>
     </PageTransition>
   );

@@ -175,6 +175,11 @@ const fr = {
       deload: "4 semaines d'entraînement intense sans pause. Pense à réduire les charges cette semaine pour mieux récupérer.",
     },
     coachMessageTitle: 'Message de ton coach',
+    firstRun: {
+      waitingProgram: 'Ton coach va t’envoyer un programme',
+      firstSession: 'Première séance quand tu es prêt',
+      checkin: 'Check-in du jour',
+    },
   },
 
   widgets: {
