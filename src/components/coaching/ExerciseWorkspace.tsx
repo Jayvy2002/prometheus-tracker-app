@@ -9,9 +9,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { toast } from '../ui/Toast';
 import { LiftLineChart } from './ProgressCharts';
-import SecondDraftingCard from './SecondDraftingCard';
-import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
-import { interventionHref } from '../../lib/coachInterventions';
+import { openDraftHref } from '../../lib/coachInterventions';
 
 type CopilotAction = 'maintain' | 'reduce_volume' | 'change_rep_range' | 'replace_exercise';
 
@@ -29,10 +27,7 @@ export default function ExerciseWorkspace({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const askSecond = useCoachingStore(s => s.askSecond);
-  const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const [saving, setSaving] = useState<CopilotAction | null>(null);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [lastAction, setLastAction] = useState<CopilotAction>('maintain');
 
   const sessions = lift.sessions.slice(0, 6);
   const last = sessions[0];
@@ -43,11 +38,8 @@ export default function ExerciseWorkspace({
   if (freq <= 2 && sessions.length >= 2) reasons.push(t('coaching.workspace.reasons.lowFreq'));
   if (reasons.length === 0) reasons.push(t('coaching.workspace.reasons.none'));
 
-  const live = pendingInterventions.find(r => r.id === jobId) ?? null;
-
   const propose = async (action: CopilotAction) => {
     setSaving(action);
-    setLastAction(action);
     const result = await askSecond({
       kind: 'program_nl_edit',
       clientId,
@@ -65,11 +57,16 @@ export default function ExerciseWorkspace({
       },
     });
     setSaving(null);
-    if ('error' in result) {
+    if ('error' in result || !result.id) {
       toast(t('coaching.second.failed'), 'error');
       return;
     }
-    setJobId(result.id);
+    const href = openDraftHref({ kind: 'program_nl_edit', client_id: clientId, id: result.id });
+    if (!href) {
+      toast(t('coaching.second.failed'), 'error');
+      return;
+    }
+    navigate(href);
   };
 
   return (
@@ -142,18 +139,6 @@ export default function ExerciseWorkspace({
           </div>
           <p className="text-[11px] text-neutral-600 mt-2">{t('coaching.workspace.proposalHint')}</p>
         </div>
-        {live && (isInterventionDrafting(live) || interventionDraftError(live)) && (
-          <SecondDraftingCard
-            row={live}
-            retrying={saving !== null}
-            onRetry={interventionDraftError(live) ? () => void propose(lastAction) : undefined}
-          />
-        )}
-        {live && isInterventionReady(live) && (
-          <Button type="button" size="sm" onClick={() => navigate(interventionHref(live))}>
-            {t('coaching.ask.openDraft')}
-          </Button>
-        )}
         <button
           type="button"
           className="text-xs text-blue-400"

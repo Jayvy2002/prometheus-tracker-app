@@ -25,10 +25,13 @@ test('Today keeps File du jour; drafts live in Messages, not a third inbox', () 
   assert.match(inbox, /coaching\.inbox\.toHandle/);
 });
 
-test('Ask keeps Open draft for this question; no fleet round, no recent-drafts list, no 0-count chips', () => {
+test('Ask opens the editable draft for this question; roster chips stay local', () => {
   const ask = src('src/components/coaching/AskPrometheusPage.tsx');
-  assert.match(ask, /coaching\.ask\.openDraft/);
+  assert.match(ask, /openDraftHref/);
+  assert.match(ask, /from:\s*'ask'/);
+  assert.match(ask, /navigate\(href\)/);
   assert.match(ask, /rosterHitsForFilter/);
+  assert.doesNotMatch(ask, /coaching\.ask\.openDraft/);
   assert.doesNotMatch(ask, /coaching\.fleet\.run/);
   assert.doesNotMatch(ask, /coaching\.ask\.drafts/);
   assert.doesNotMatch(ask, /coaching\.ask\.noDrafts/);

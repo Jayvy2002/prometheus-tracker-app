@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import {
+  draftBackTarget,
   isCoachOnlyKind,
   isCompleteCalorieDraft,
   parseCalorieDraft,
@@ -14,6 +15,7 @@ import {
   parseTalkingPoints,
   parseWorkflowSuggestion,
 } from '../../lib/coachInterventions';
+import { displayName } from '../../lib/coachText';
 import { preparedTemplateKey, parseFleetCause, parseFleetObservation, parsePreparedMessage, isRelanceKind } from '../../lib/coachFleet';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import {
@@ -49,6 +51,7 @@ const EMPTY_TRACKING = {
 export default function InterventionDraftPage() {
   const { t } = useTranslation();
   const { id, interventionId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
@@ -126,10 +129,16 @@ export default function InterventionDraftPage() {
     if (isInterventionReady(live)) hydrate(live);
   }, [live?.id, live?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const goBack = () => {
-    if (id) navigate(clientFileHref(id));
-    else navigate('/dashboard');
-  };
+  const back = draftBackTarget({ from: searchParams.get('from'), clientId });
+  const backLabel = back.kind === 'today'
+    ? t('coaching.ops.title')
+    : back.kind === 'messages'
+      ? t('nav.messages')
+      : back.kind === 'ask'
+        ? t('coaching.ask.title')
+        : (client ? displayName(client) : t('coaching.command.openClient'));
+
+  const goBack = () => navigate(back.href);
 
   const handleDismiss = async () => {
     if (!row) return;
@@ -342,7 +351,7 @@ export default function InterventionDraftPage() {
       <PageTransition>
         <div className="px-4 pt-6">
           <button onClick={goBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
-            <ArrowLeft size={18} /> {t('coaching.ops.title')}
+            <ArrowLeft size={18} /> {backLabel}
           </button>
           <p className="text-sm text-neutral-400">{t('coaching.interventions.missing')}</p>
         </div>
@@ -354,9 +363,20 @@ export default function InterventionDraftPage() {
     return (
       <PageTransition>
         <div className="px-4 pt-6 pb-28">
-          <button onClick={goBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
-            <ArrowLeft size={18} /> {t('coaching.ops.title')}
-          </button>
+          <div className="flex items-center justify-between gap-2 mb-4">
+            <button onClick={goBack} className="flex items-center gap-2 text-neutral-400 hover:text-white">
+              <ArrowLeft size={18} /> {backLabel}
+            </button>
+            {clientId && back.kind !== 'client' ? (
+              <button
+                type="button"
+                onClick={() => navigate(clientFileHref(clientId))}
+                className="text-xs text-blue-400 shrink-0"
+              >
+                {t('coaching.command.openClient')}
+              </button>
+            ) : null}
+          </div>
           <SecondDraftingCard
             row={row}
             retrying={retrying}
@@ -414,9 +434,20 @@ export default function InterventionDraftPage() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28">
-        <button onClick={goBack} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
-          <ArrowLeft size={18} /> {t('coaching.ops.title')}
-        </button>
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <button onClick={goBack} className="flex items-center gap-2 text-neutral-400 hover:text-white">
+            <ArrowLeft size={18} /> {backLabel}
+          </button>
+          {clientId && back.kind !== 'client' ? (
+            <button
+              type="button"
+              onClick={() => navigate(clientFileHref(clientId))}
+              className="text-xs text-blue-400 shrink-0"
+            >
+              {t('coaching.command.openClient')}
+            </button>
+          ) : null}
+        </div>
         <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1">
           {t(`coaching.interventions.kinds.${row.kind}`)}
         </p>
@@ -428,7 +459,7 @@ export default function InterventionDraftPage() {
             ? t('coaching.interventions.appWide')
             : t('coaching.unnamed'))}
         </p>
-        {(observation || cause || row.rationale) && (
+        {(observation || cause) && (
           <Card className="mb-4 space-y-2">
             {observation ? (
               <div>
@@ -436,10 +467,10 @@ export default function InterventionDraftPage() {
                 <p className="text-sm text-neutral-200">{observation}</p>
               </div>
             ) : null}
-            {(cause || row.rationale) ? (
+            {cause ? (
               <div>
                 <p className="text-xs text-neutral-500 mb-1">{t('coaching.fleet.cause')}</p>
-                <p className="text-sm text-neutral-200">{cause || row.rationale}</p>
+                <p className="text-sm text-neutral-200">{cause}</p>
               </div>
             ) : null}
           </Card>

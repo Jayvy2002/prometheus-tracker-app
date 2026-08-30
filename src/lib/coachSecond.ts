@@ -1,5 +1,13 @@
 import type { CoachIntervention, CoachInterventionKind } from './types';
-import { parseOnboardingPlanDraft, parseProgramOutline, parseProgramPatch, payloadSummary } from './coachInterventions';
+import {
+  isCoachOnlyKind,
+  isCompleteCalorieDraft,
+  parseCalorieDraft,
+  parseOnboardingPlanDraft,
+  parseProgramOutline,
+  parseProgramPatch,
+  payloadSummary,
+} from './coachInterventions';
 
 /** Route coach copilot text to an in-app agent kind (not Second). */
 export const SECOND_PING_KINDS = ['onboarding_plan', 'ask_prometheus', 'program_nl_edit', 'calorie_adjustment'] as const;
@@ -76,10 +84,9 @@ export function isInterventionReady(row: Pick<CoachIntervention, 'status' | 'kin
   if (parseOnboardingPlanDraft(row.payload) || parseProgramOutline(row.payload) || parseProgramPatch(row.payload)) {
     return true;
   }
-  const answer = row.payload?.answer ?? row.payload?.notes ?? row.payload?.body ?? row.payload?.proposal;
-  if (typeof answer === 'string' && answer.trim()) return true;
-  if (answer && typeof answer === 'object') return true;
-  return Object.keys(row.payload ?? {}).some(key => !['drafting', 'prompt', 'screen', 'program_id', 'initiated_by', 'context', 'source', 'error'].includes(key));
+  if (isCompleteCalorieDraft(parseCalorieDraft(row.payload))) return true;
+  const answer = row.payload?.answer ?? row.payload?.notes ?? row.payload?.body ?? row.payload?.proposal ?? row.payload?.suggestion;
+  return typeof answer === 'string' && answer.trim().length > 0;
 }
 
 export function mergeInterventionRealtime(
@@ -103,7 +110,12 @@ export function pendingForClient(
   clientId: string,
   kind?: CoachInterventionKind,
 ): CoachIntervention | null {
-  return rows.find(row => row.client_id === clientId && (!kind || row.kind === kind)) ?? null;
+  return rows.find(row => (
+    !!row.client_id
+    && row.client_id === clientId
+    && !isCoachOnlyKind(row.kind)
+    && (!kind || row.kind === kind)
+  )) ?? null;
 }
 
 export function interventionLiveLabel(item: CoachIntervention, t: (key: string) => string): string {

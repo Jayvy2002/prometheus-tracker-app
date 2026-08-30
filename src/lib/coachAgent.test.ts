@@ -214,3 +214,12 @@ test('Ask free-text always lands a draft via fallbackAsk — never silent 502', 
   assert.match(shared, /Brouillon de secours/);
   assert.doesNotMatch(shared, /OPENAI_API_KEY not configured/);
 });
+
+test('program_nl_edit cause is a one-line coach sentence, never the raw prompt', () => {
+  const shared = source('supabase/functions/_shared/coachAgent.ts');
+  assert.match(shared, /"cause": string/);
+  assert.match(shared, /function isHumanCause/);
+  assert.match(shared, /function defaultNlCause/);
+  assert.doesNotMatch(shared, /rationale: input\.prompt \|\| notes \|\| cause/);
+});
+

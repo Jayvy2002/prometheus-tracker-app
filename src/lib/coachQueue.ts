@@ -75,7 +75,7 @@ export function resolveQueueAction(
     }
     return {
       kind: setup ? 'open_setup' : 'open_draft',
-      href: interventionHref(match),
+      href: interventionHref(match, { from: 'today' }),
       interventionId: match.id,
       ctaKey: setup ? 'coaching.queue.setup' : 'coaching.queue.openDraft',
     };

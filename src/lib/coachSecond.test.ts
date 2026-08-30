@@ -6,6 +6,7 @@ import {
   isInterventionReady,
   interventionDraftError,
   mergeInterventionRealtime,
+  pendingForClient,
   routeCoachSecondRequest,
 } from './coachSecond';
 import type { CoachIntervention } from './types';
@@ -90,4 +91,32 @@ test('failed webhook marks error and is not treated as a ready draft', () => {
   const failed = row({ payload: { drafting: false, error: 'WEBHOOK_FAILED' } });
   assert.equal(interventionDraftError(failed), 'WEBHOOK_FAILED');
   assert.equal(isInterventionReady(failed), false);
+});
+
+test('JSON object answers and log dumps are not a ready draft', () => {
+  const dumped = row({
+    kind: 'program_nl_edit',
+    payload: { answer: { sets: [1, 2], raw: 'log' }, cause: '{"kind":"program_nl_edit"}' },
+  });
+  assert.equal(isInterventionReady(dumped), false);
+});
+
+test('pendingForClient skips app-workflow cards even if they share a client id', () => {
+  const workflow = row({
+    id: 'wf1',
+    client_id: 'u1',
+    kind: 'workflow_improvement',
+  });
+  const orphan = row({
+    id: 'app1',
+    client_id: null,
+    kind: 'ask_prometheus',
+  });
+  const real = row({
+    id: 'nl1',
+    client_id: 'u1',
+    kind: 'program_nl_edit',
+  });
+  assert.equal(pendingForClient([workflow, orphan, real], 'u1')?.id, 'nl1');
+  assert.equal(pendingForClient([workflow, orphan], 'u1'), null);
 });

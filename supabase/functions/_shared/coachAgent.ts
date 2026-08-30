@@ -90,10 +90,12 @@ PAS de calories, macros, ni recettes. 3 à 5 jours, 4 à 6 exercices par jour, a
     return `Schéma program_nl_edit :
 {
   "title": string,
+  "cause": string,
   "notes": string,
   "patch": { "exercise": string, "weekday": number|null, "default_sets": number, "default_reps": number, "default_reps_min": number|null, "default_rir": number|null, "replace_with": string } | null,
   "program": { "name": string, "description": string, "duration_weeks": number, "days": [...] } | null
 }
+cause = UNE phrase courte pour le coach (français), jamais du JSON, des logs, ni le prompt brut.
 Si l'édition vise UN exercice, remplis patch. Si elle reconstruit le programme, remplis program.`;
   }
   if (kind === "calorie_adjustment") {
@@ -448,15 +450,34 @@ export function fallbackProgramFromProfile(
   };
 }
 
+function isHumanCause(value: unknown): boolean {
+  const s = asString(value);
+  if (!s || s.length > 180) return false;
+  if (s.split(/\n/).length > 2) return false;
+  if (/[{[]/.test(s) && /[}\]]/.test(s)) return false;
+  if (/\d{4}-\d{2}-\d{2}T\d{2}:/.test(s)) return false;
+  if (/^\s*(error|traceback|console\.|at \w+)/i.test(s)) return false;
+  if (/"kind"\s*:|"payload"\s*:|"drafting"\s*:/.test(s)) return false;
+  return true;
+}
+
+function defaultNlCause(screen: string): string {
+  if (screen === "last_session") return "Ajustement léger proposé d’après la dernière séance.";
+  if (screen === "recovery") return "Ajustement léger proposé d’après la récupération loggée.";
+  if (screen === "exercise_workspace") return "Ajustement léger proposé d’après la série.";
+  return "Ajustement de programme — brouillon à éditer, rien ne s’applique tout seul.";
+}
+
 function buildPayload(
   kind: string,
   input: CoachAgentInput,
   llm: Record<string, unknown>,
 ): { title: string; rationale: string; payload: Record<string, unknown> } {
   const title = titleFor(kind, asString(llm.title));
-  const notes = asString(llm.notes) || asString(llm.answer) || asString(llm.body) || asString(llm.cause);
+  const notes = asString(llm.notes) || asString(llm.answer) || asString(llm.body);
   const observation = asString(llm.observation);
-  const cause = asString(llm.cause);
+  let cause = isHumanCause(llm.cause) ? asString(llm.cause) : "";
+  if (!cause && kind === "program_nl_edit") cause = defaultNlCause(input.screen);
   const body = asString(llm.body) || asString(llm.answer) || notes;
   const program = sanitizeProgram(
     llm.program ?? (Array.isArray(llm.days) ? llm : null),
@@ -496,7 +517,8 @@ function buildPayload(
     payload.fat = nutrition.fat;
   }
   payload.agent_proposed = lessonSnapshot(kind, payload);
-  return { title, rationale: input.prompt || notes || cause, payload };
+  const rationale = cause || (kind === "program_nl_edit" ? defaultNlCause(input.screen) : notes);
+  return { title, rationale, payload };
 }
 
 function payloadIsReady(kind: string, payload: Record<string, unknown>): boolean {

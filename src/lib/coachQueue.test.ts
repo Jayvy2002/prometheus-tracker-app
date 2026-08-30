@@ -11,7 +11,7 @@ import {
   resolveQueueAction,
   visibleQueueItems,
 } from './coachQueue';
-import type { CoachClientSummary, CoachPriority, CoachPriorityKind } from './types';
+import type { CoachClientSummary, CoachIntervention, CoachPriority, CoachPriorityKind } from './types';
 
 function item(partial: Partial<CoachPriority> & Pick<CoachPriority, 'id' | 'clientId' | 'kind'>): CoachPriority {
   return {
@@ -155,4 +155,31 @@ test('File du jour check-in items keep the fiche deep-link, not the client overv
   ]);
   assert.equal(groups[0]?.items[0]?.href, '/clients/marie?tab=health&checkin=ck-pain');
   assert.equal(groups[0]?.items[0]?.checkinId, 'ck-pain');
+});
+
+test('File du jour draft CTA opens the editor with from=today, not the 360', () => {
+  const stalled = item({
+    id: 'stall-1',
+    clientId: 'lea',
+    clientName: 'Léa Martin',
+    kind: 'stalled_lift',
+    href: '/clients/lea?tab=training&exercise=Squat',
+  });
+  const draft: CoachIntervention = {
+    id: 'draft-nl',
+    coach_id: 'coach',
+    client_id: 'lea',
+    kind: 'program_nl_edit',
+    title: 'Édition programme — brouillon',
+    rationale: 'Ajustement léger proposé d’après la dernière séance.',
+    payload: { patch: { exercise: 'Squat', default_sets: 3, default_reps: 8 } },
+    status: 'pending',
+    source: 'agent',
+    created_at: '2026-08-29T00:00:00Z',
+    updated_at: '2026-08-29T00:00:00Z',
+    resolved_at: null,
+  };
+  const action = resolveQueueAction(stalled, [draft]);
+  assert.equal(action.kind, 'open_draft');
+  assert.equal(action.href, '/clients/lea/draft/draft-nl?from=today');
 });

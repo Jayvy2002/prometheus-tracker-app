@@ -80,11 +80,13 @@ export default function CoachTodayQueue() {
                   <ul className="space-y-1.5">
                     {group.items.map((item: CoachPriority) => {
                       const draft = matchingPendingIntervention(item, pendingInterventions);
+                      const action = resolveQueueAction(item, pendingInterventions);
+                      const href = action.kind === 'open_draft' && action.href ? action.href : item.href;
                       return (
                         <li key={item.id}>
                           <button
                             type="button"
-                            onClick={() => navigate(item.href)}
+                            onClick={() => navigate(href)}
                             className="w-full text-left flex items-start gap-2 rounded-lg px-1 py-0.5 hover:bg-neutral-800/60"
                           >
                             <span className="text-[11px] leading-5 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
