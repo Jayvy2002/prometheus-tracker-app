@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
+import { authSnapshotEvent, shouldCommitAuthSnapshot } from '../lib/clientAuth';
 
 interface AuthState {
   user: User | null;
@@ -18,6 +19,9 @@ interface AuthState {
   initialize: () => void;
 }
 
+/** Invalidates in-flight getSession / INITIAL_SESSION after sign-in or sign-out. */
+let currentGeneration = 0;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   session: null,
@@ -26,19 +30,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   passwordRecovery: false,
 
   signUp: async (email, password) => {
+    currentGeneration += 1;
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { emailRedirectTo: window.location.origin },
     });
     if (error) return { error: error.message };
+    if (data.session) {
+      set({ session: data.session, user: data.session.user, loading: false });
+    }
     if (!data.session) return { error: null, needsConfirmation: true };
     return { error: null };
   },
 
   signIn: async (email, password) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    currentGeneration += 1;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
+    if (data.session) {
+      set({ session: data.session, user: data.session.user, loading: false });
+    }
     return { error: null };
   },
 
@@ -60,6 +72,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   clearPasswordRecovery: () => set({ passwordRecovery: false }),
 
   signOut: async () => {
+    currentGeneration += 1;
     await supabase.auth.signOut();
     set({ user: null, session: null });
   },
@@ -83,6 +96,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { error: body.error ?? 'Failed to delete account' };
     }
 
+    currentGeneration += 1;
     await supabase.auth.signOut();
     set({ user: null, session: null });
     return { error: null };
@@ -92,6 +106,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // Guard against double-invocation (React StrictMode, hot-reload)
     if (get().initialized) return;
     set({ initialized: true });
+    const bootstrapGeneration = currentGeneration;
 
     // Safety net: never stay stuck on the loading screen more than 8 seconds
     const timeout = setTimeout(() => {
@@ -101,25 +116,42 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }, 8000);
 
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        clearTimeout(timeout);
-        set({ session, user: session?.user ?? null, loading: false });
-      })
-      .catch((err: unknown) => {
-        clearTimeout(timeout);
-        console.error('[Prometheus] getSession() failed:', err);
-        set({ loading: false });
-      });
-
-    supabase.auth.onAuthStateChange((event, session) => {
-      clearTimeout(timeout);
+    const applySession = (
+      event: Parameters<typeof shouldCommitAuthSnapshot>[0]['event'],
+      session: Session | null,
+    ) => {
+      if (!shouldCommitAuthSnapshot({
+        event,
+        incomingUserId: session?.user?.id ?? null,
+        currentUserId: get().user?.id ?? null,
+        bootstrapGeneration,
+        currentGeneration,
+      })) {
+        if (get().loading) set({ loading: false });
+        return;
+      }
       set({
         session,
         user: session?.user ?? null,
         loading: false,
         passwordRecovery: event === 'PASSWORD_RECOVERY' ? true : get().passwordRecovery,
       });
+    };
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        clearTimeout(timeout);
+        applySession('getSession', session);
+      })
+      .catch((err: unknown) => {
+        clearTimeout(timeout);
+        console.error('[Prometheus] getSession() failed:', err);
+        if (get().loading) set({ loading: false });
+      });
+
+    supabase.auth.onAuthStateChange((event, session) => {
+      clearTimeout(timeout);
+      applySession(authSnapshotEvent(event), session);
     });
   },
 }));

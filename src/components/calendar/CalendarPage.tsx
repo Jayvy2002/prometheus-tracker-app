@@ -8,6 +8,7 @@ import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { supabase } from '../../lib/supabase';
 import { parseDateStr, parseDate, formatWeight, toLocalDateStr, dateLocale } from '../../lib/utils';
+import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
 import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -129,7 +130,7 @@ export default function CalendarPage() {
         .maybeSingle(),
       supabase
         .from('nutrition_logs')
-        .select('calories, protein, carbs, fat')
+        .select('calories, protein, carbs, fat, quantity, unit')
         .eq('user_id', user.id)
         .eq('logged_at', selectedDate),
       supabase
@@ -145,7 +146,9 @@ export default function CalendarPage() {
           .select('id', { count: 'exact', head: true })
           .eq('workout_id', workoutRes.data.id)
           .then(({ count }) => {
-            const nutritionLogs = (nutritionRes.data ?? []) as { calories: number; protein: number; carbs: number; fat: number }[];
+            const nutritionLogs = ((nutritionRes.data ?? []) as Array<{
+              calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string;
+            }>).map(correctNutritionLogEnergy);
             const totalNutrition = nutritionLogs.length > 0 ? {
               totalCals: Math.round(nutritionLogs.reduce((s, l) => s + l.calories, 0)),
               protein: Math.round(nutritionLogs.reduce((s, l) => s + l.protein, 0)),
@@ -161,7 +164,9 @@ export default function CalendarPage() {
             setSummaryLoading(false);
           });
       } else {
-        const nutritionLogs = (nutritionRes.data ?? []) as { calories: number; protein: number; carbs: number; fat: number }[];
+        const nutritionLogs = ((nutritionRes.data ?? []) as Array<{
+          calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string;
+        }>).map(correctNutritionLogEnergy);
         const totalNutrition = nutritionLogs.length > 0 ? {
           totalCals: Math.round(nutritionLogs.reduce((s, l) => s + l.calories, 0)),
           protein: Math.round(nutritionLogs.reduce((s, l) => s + l.protein, 0)),

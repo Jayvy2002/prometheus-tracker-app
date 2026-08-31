@@ -63,7 +63,7 @@ test('Progress: no empty before/after spam; logged-exercise picker stays on Trai
   assert.match(trainingBlock, /onOpenSeries/);
 });
 
-test('Coached client shell: no Programs, no coach-mode, no profile nav dump', () => {
+test('Coached client shell: Mon programme + Photos, no coach-mode, no profile nav dump', () => {
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.doesNotMatch(profile, /\/recipes/);
   assert.doesNotMatch(profile, /\/routines/);
@@ -75,11 +75,15 @@ test('Coached client shell: no Programs, no coach-mode, no profile nav dump', ()
 
   const app = src('src/App.tsx');
   assert.match(app, /CoachedAthleteRedirect/);
+  assert.match(app, /ProgramsHome/);
   assert.match(app, /path="\/programs"/);
+  assert.doesNotMatch(app, /path="\/programs" element=\{<CoachedAthleteRedirect>/);
   assert.doesNotMatch(app, /changeLanguage\(profile/);
 
   const side = src('src/components/layout/SideNav.tsx');
-  assert.match(side, /track_workouts && !coached/);
+  assert.match(side, /nav\.myProgram/);
+  assert.match(side, /path: '\/photos'/);
+  assert.doesNotMatch(side, /track_workouts && !coached/);
 });
 
 test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {

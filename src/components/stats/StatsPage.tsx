@@ -12,6 +12,7 @@ import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
 import { averageLoggedCalories, statsCalorieSummary } from '../../lib/clientHome';
+import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
 
 type Period = 'week' | 'month' | '3months';
 type ChartTab = 'calories' | 'weight' | 'workouts';
@@ -98,15 +99,17 @@ export default function StatsPage() {
     setLoading(true);
 
     Promise.all([
-      supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
+      supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat, quantity, unit').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
       supabase.from('water_logs').select('logged_at, amount_ml').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
       supabase.from('workouts').select('date').eq('user_id', user.id).eq('completed', true).gte('date', start).lte('date', end + 'T23:59:59'),
       supabase.from('weight_measurements').select('measured_at, weight_kg').eq('user_id', user.id).gte('measured_at', start).lte('measured_at', end).order('measured_at', { ascending: true }),
-      supabase.from('nutrition_logs').select('logged_at, calories, protein').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
+      supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat, quantity, unit').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
       supabase.from('water_logs').select('logged_at, amount_ml').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
       supabase.from('workouts').select('date').eq('user_id', user.id).eq('completed', true).gte('date', prevStart).lte('date', prevEnd + 'T23:59:59'),
     ]).then(([nutRes, waterRes, wkRes, weightRes, prevNutRes, prevWaterRes, prevWkRes]) => {
-      const nutritionLogs = (nutRes.data ?? []) as { logged_at: string; calories: number; protein: number; carbs: number; fat: number }[];
+      const nutritionLogs = ((nutRes.data ?? []) as Array<{
+        logged_at: string; calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string;
+      }>).map(correctNutritionLogEnergy);
       const waterLogs = (waterRes.data ?? []) as { logged_at: string; amount_ml: number }[];
 
       const byDate: Record<string, DayNutrition> = {};
@@ -134,7 +137,13 @@ export default function StatsPage() {
       })));
 
       // Previous period
-      const prevNutLogs = (prevNutRes.data ?? []) as { logged_at: string; calories: number; protein: number }[];
+      const prevNutLogs = ((prevNutRes.data ?? []) as Array<{
+        logged_at: string; calories: number; protein: number; carbs?: number; fat?: number; quantity?: number; unit?: string;
+      }>).map(row => correctNutritionLogEnergy({
+        ...row,
+        carbs: row.carbs ?? 0,
+        fat: row.fat ?? 0,
+      }));
       const prevWaterLogs = (prevWaterRes.data ?? []) as { logged_at: string; amount_ml: number }[];
       const prevNutByDate: Record<string, { calories: number; protein: number }> = {};
       for (const log of prevNutLogs) {

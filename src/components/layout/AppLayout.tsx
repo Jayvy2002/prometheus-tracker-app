@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import BottomNav from './BottomNav';
 import SideNav from './SideNav';
 import FAB from './FAB';
@@ -14,6 +14,8 @@ export default function AppLayout() {
   const startClientRealtime = useCoachingStore(s => s.startClientRealtime);
   const stopClientRealtime = useCoachingStore(s => s.stopClientRealtime);
   const isCoach = coachingRole === 'coach';
+  const location = useLocation();
+  const hideFab = isCoach || location.pathname.startsWith('/dashboard');
 
   useEffect(() => {
     if (isCoach) {
@@ -43,7 +45,7 @@ export default function AppLayout() {
         </div>
       </main>
 
-      {!isCoach && <FAB />}
+      {!hideFab && <FAB />}
       <BottomNav />
     </div>
   );

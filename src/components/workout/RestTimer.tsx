@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal';
+import { countdownEndAt, countdownRemaining } from '../../lib/restTimer';
 
 const PRESETS = [
   { label: '30s', value: 30 },
@@ -57,34 +58,35 @@ export default function RestTimer({
   const [active, setActive] = useState(false);
   const [inputMin, setInputMin] = useState('1');
   const [inputSec, setInputSec] = useState('30');
-  const intervalRef = useRef<ReturnType<typeof setInterval>>();
+  const remainingRef = useRef(90);
   const firedRef = useRef(false);
+
+  remainingRef.current = remaining;
 
   useEffect(() => {
     if (open) {
       firedRef.current = false;
       setActive(false);
       setRemaining(duration);
+      remainingRef.current = duration;
       setInputMin(String(Math.floor(duration / 60)));
       setInputSec(String(duration % 60));
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (active && remaining > 0) {
-      firedRef.current = false;
-      intervalRef.current = setInterval(() => {
-        setRemaining(r => {
-          if (r <= 1) {
-            setActive(false);
-            return 0;
-          }
-          return r - 1;
-        });
-      }, 1000);
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [active, remaining]);
+    if (!active) return;
+    const endAt = countdownEndAt(remainingRef.current, Date.now());
+    const tick = () => {
+      const left = countdownRemaining(endAt, Date.now());
+      remainingRef.current = left;
+      setRemaining(left);
+      if (left <= 0) setActive(false);
+    };
+    tick();
+    const id = window.setInterval(tick, 200);
+    return () => window.clearInterval(id);
+  }, [active]);
 
   useEffect(() => {
     if (remaining === 0 && !firedRef.current) {
@@ -100,6 +102,7 @@ export default function RestTimer({
     const d = dur ?? duration;
     setDuration(d);
     setRemaining(d);
+    remainingRef.current = d;
     setInputMin(String(Math.floor(d / 60)));
     setInputSec(String(d % 60));
   };
@@ -113,7 +116,7 @@ export default function RestTimer({
     }
   };
 
-  const pct = (remaining / duration) * 100;
+  const pct = duration > 0 ? (remaining / duration) * 100 : 0;
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const isFinished = remaining === 0;
@@ -131,7 +134,7 @@ export default function RestTimer({
               strokeLinecap="round"
               strokeDasharray={`${2 * Math.PI * 45}`}
               strokeDashoffset={`${2 * Math.PI * 45 * (1 - pct / 100)}`}
-              className="transition-all duration-1000 ease-linear"
+              className="transition-all duration-200 ease-linear"
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">

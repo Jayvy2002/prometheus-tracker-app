@@ -12,6 +12,7 @@ import {
   FAST_VERIFY_BONUS_TIMEOUT_MS,
   parseAnalyzeProductResponse,
 } from '../lib/fastVerify';
+import { correctNutritionLogEnergy, normalizeFoodProductEnergy } from '../lib/foodEnergy';
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -64,7 +65,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       .eq('user_id', userId)
       .eq('logged_at', date)
       .order('created_at', { ascending: true });
-    set({ logs: (data ?? []) as NutritionLog[], loading: false });
+    set({ logs: ((data ?? []) as NutritionLog[]).map(correctNutritionLogEnergy), loading: false });
   },
 
   addLog: async (log) => {
@@ -74,7 +75,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       .select()
       .maybeSingle();
     if (data) {
-      const log = data as NutritionLog;
+      const log = correctNutritionLogEnergy(data as NutritionLog);
       set(s => ({ logs: [...s.logs, log] }));
       if (log.user_id && log.logged_at) {
         void useStreakStore.getState().recordActivity(log.user_id, log.logged_at);
@@ -86,7 +87,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
     const { error } = await supabase.from('nutrition_logs').update(updates).eq('id', id);
     if (error) { toast(error.message, 'error'); return; }
     set(s => ({
-      logs: s.logs.map(l => l.id === id ? { ...l, ...updates } as NutritionLog : l),
+      logs: s.logs.map(l => l.id === id ? correctNutritionLogEnergy({ ...l, ...updates } as NutritionLog) : l),
     }));
   },
 
@@ -127,7 +128,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
     // RPC avec index GIN trigram + ranking par similarité de nom uniquement
     const { data } = await supabase
       .rpc('search_food_products', { query, max_results: 20 });
-    const products = (data ?? []) as FoodProduct[];
+    const products = ((data ?? []) as FoodProduct[]).map(normalizeFoodProductEnergy);
     set({ products });
     return products;
   },
@@ -138,13 +139,20 @@ export const useNutritionStore = create<NutritionState>((set) => ({
       .select('*')
       .eq('barcode', barcode)
       .maybeSingle();
-    return data as FoodProduct | null;
+    return data ? normalizeFoodProductEnergy(data as FoodProduct) : null;
   },
 
   createProduct: async (product) => {
+    const payload = normalizeFoodProductEnergy({
+      ...product,
+      calories_per_100g: product.calories_per_100g ?? 0,
+      protein_per_100g: product.protein_per_100g ?? 0,
+      carbs_per_100g: product.carbs_per_100g ?? 0,
+      fat_per_100g: product.fat_per_100g ?? 0,
+    });
     const { data, error } = await supabase
       .from('food_products')
-      .insert(product)
+      .insert(payload)
       .select()
       .maybeSingle();
 
@@ -157,7 +165,7 @@ export const useNutritionStore = create<NutritionState>((set) => ({
         .select('*')
         .eq('barcode', String(product.barcode))
         .maybeSingle();
-      return existing as FoodProduct | null;
+      return existing ? normalizeFoodProductEnergy(existing as FoodProduct) : null;
     }
 
     return null;
@@ -170,7 +178,12 @@ export const useNutritionStore = create<NutritionState>((set) => ({
         barcode: p.barcode,
         name: p.name,
         brand: p.brand ?? null,
-        calories_per_100g: p.calories_per_100g ?? 0,
+        calories_per_100g: normalizeFoodProductEnergy({
+          calories_per_100g: p.calories_per_100g ?? 0,
+          protein_per_100g: p.protein_per_100g ?? 0,
+          carbs_per_100g: p.carbs_per_100g ?? 0,
+          fat_per_100g: p.fat_per_100g ?? 0,
+        }).calories_per_100g,
         protein_per_100g: p.protein_per_100g ?? 0,
         carbs_per_100g: p.carbs_per_100g ?? 0,
         fat_per_100g: p.fat_per_100g ?? 0,
@@ -308,15 +321,23 @@ export const useNutritionStore = create<NutritionState>((set) => ({
     if (!data) return;
     const seen = new Set<string>();
     const recent: FoodProduct[] = [];
-    for (const log of data) {
-      if (!seen.has(log.name)) {
-        seen.add(log.name);
+    for (const raw of data) {
+      const log = correctNutritionLogEnergy({
+        calories: raw.calories,
+        protein: raw.protein,
+        carbs: raw.carbs,
+        fat: raw.fat,
+        quantity: raw.quantity,
+        unit: raw.unit,
+      });
+      if (!seen.has(raw.name)) {
+        seen.add(raw.name);
         const qty = log.quantity || 100;
         const scale = 100 / qty;
         recent.push({
           id: '',
           barcode: null,
-          name: log.name,
+          name: raw.name,
           brand: null,
           calories_per_100g: Math.round(log.calories * scale),
           protein_per_100g: Math.round(log.protein * scale),
@@ -337,11 +358,22 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   fetchCaloriesForRange: async (userId, startDate, endDate) => {
     const { data } = await supabase
       .from('nutrition_logs')
-      .select('logged_at, calories')
+      .select('logged_at, calories, protein, carbs, fat, quantity, unit')
       .eq('user_id', userId)
       .gte('logged_at', startDate)
       .lte('logged_at', endDate);
-    return (data ?? []) as { logged_at: string; calories: number }[];
+    return ((data ?? []) as Array<{
+      logged_at: string;
+      calories: number;
+      protein: number;
+      carbs: number;
+      fat: number;
+      quantity: number;
+      unit: string;
+    }>).map(row => {
+      const corrected = correctNutritionLogEnergy(row);
+      return { logged_at: row.logged_at, calories: corrected.calories };
+    });
   },
 
   fetchOrCreateSteps: async (userId, date) => {

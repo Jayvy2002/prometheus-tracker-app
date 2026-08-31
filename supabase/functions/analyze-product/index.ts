@@ -87,14 +87,26 @@ async function lookupOpenFoodFacts(barcode: string): Promise<ProductData & { bar
     const n = p.nutriments ?? {};
     const name = p.product_name || p.product_name_fr || p.product_name_en;
     if (!name) return null;
+    const protein = Number(n.proteins_100g ?? n.proteins ?? 0) || 0;
+    const carbs = Number(n.carbohydrates_100g ?? n.carbohydrates ?? 0) || 0;
+    const fat = Number(n.fat_100g ?? n.fat ?? 0) || 0;
+    const kcalRaw = Number(n["energy-kcal_100g"] ?? n["energy-kcal"] ?? 0) || 0;
+    const kjRaw = Number(n["energy-kj_100g"] ?? n["energy_100g"] ?? n.energy ?? 0) || 0;
+    const atw = protein * 4 + carbs * 4 + fat * 9;
+    const kcalLooksLikeKj = kcalRaw > 900 || (atw > 20 && kcalRaw > atw * 2.5);
+    const calories = kjRaw > 0 && (kcalRaw <= 0 || kcalLooksLikeKj)
+      ? kjRaw / 4.184
+      : kcalLooksLikeKj
+        ? kcalRaw / 4.184
+        : kcalRaw;
     return {
       barcode,
       name,
       brand: p.brands || "",
-      calories_per_100g: n["energy-kcal_100g"] ?? n["energy-kcal"] ?? 0,
-      protein_per_100g: n.proteins_100g ?? n.proteins ?? 0,
-      carbs_per_100g: n.carbohydrates_100g ?? n.carbohydrates ?? 0,
-      fat_per_100g: n.fat_100g ?? n.fat ?? 0,
+      calories_per_100g: calories,
+      protein_per_100g: protein,
+      carbs_per_100g: carbs,
+      fat_per_100g: fat,
       serving_size: +(p.serving_quantity || 100) || 100,
       serving_unit: (p.serving_size ?? "").includes("ml") ? "ml" : "g",
       confidence: 90,

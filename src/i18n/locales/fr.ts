@@ -69,6 +69,8 @@ const fr = {
     checkin: 'Check-in',
     clients: 'Clients',
     programs: 'Programmes',
+    myProgram: 'Mon programme',
+    photos: 'Photos',
     recipes: 'Recettes',
     today: "Aujourd'hui",
     messages: 'Messages',
@@ -109,6 +111,7 @@ const fr = {
     passwordUpdated: 'Mot de passe mis à jour',
     passwordTooShort: 'Le mot de passe doit contenir au moins 6 caractères.',
     passwordMismatch: 'Les mots de passe ne correspondent pas.',
+    invalidCredentials: 'E-mail ou mot de passe incorrect.',
   },
 
   onboarding: {
@@ -179,6 +182,14 @@ const fr = {
       waitingProgram: 'Ton coach va t’envoyer un programme',
       firstSession: 'Première séance quand tu es prêt',
       checkin: 'Check-in du jour',
+    },
+    gym: {
+      next: 'Prochaine séance : {{name}}',
+      continue: 'Reprendre : {{name}}',
+      done: 'Séance faite',
+      startCta: 'Démarrer',
+      continueCta: 'Continuer',
+      exercises: '{{n}} exercices',
     },
   },
 
@@ -1539,6 +1550,10 @@ const fr = {
     useMyself: 'L’utiliser pour moi',
     manageRoutines: 'Gérer les routines',
     clientLocked: 'Ton coach gère tes programmes. Tu ne peux pas en créer ni en assigner.',
+    noAssignment: 'Ton coach ne t’a pas encore assigné de programme.',
+    mineTitle: 'Mon programme',
+    mineSubtitle: 'Le plan que ton coach t’a assigné. Lecture seule — il ne change que si ton coach l’écrit.',
+    todayBadge: 'Aujourd’hui',
     noExercises: 'Aucun exercice',
     weeksCount: '{{n}} semaines',
     weekOf: 'Semaine {{current}}/{{total}}',

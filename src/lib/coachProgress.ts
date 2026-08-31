@@ -1,15 +1,17 @@
 import type { ClientLiftProgress, DailyNutritionPoint, WeightMeasurement } from './types';
+import { correctLogCalories } from './foodEnergy';
 
 export function aggregateNutritionByDay(
-  logs: Array<{ logged_at: string; calories: number; protein: number; carbs: number; fat: number }>,
+  logs: Array<{ logged_at: string; calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string }>,
   target: number,
 ): DailyNutritionPoint[] {
   const byDate = new Map<string, DailyNutritionPoint>();
   for (const log of logs) {
     const d = (log.logged_at || '').slice(0, 10);
     if (!d) continue;
+    const calories = correctLogCalories(log);
     const row = byDate.get(d) ?? { date: d, calories: 0, protein: 0, carbs: 0, fat: 0, target };
-    row.calories += Number(log.calories) || 0;
+    row.calories += calories;
     row.protein += Number(log.protein) || 0;
     row.carbs += Number(log.carbs) || 0;
     row.fat += Number(log.fat) || 0;

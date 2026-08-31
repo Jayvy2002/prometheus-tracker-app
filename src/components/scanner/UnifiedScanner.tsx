@@ -9,6 +9,7 @@ import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useAuthStore } from '../../stores/authStore';
 import type { FoodProduct } from '../../lib/types';
+import { kcalPer100gFromNutriments, nutrimentNumber } from '../../lib/foodEnergy';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
@@ -114,15 +115,15 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         if (!mountedRef.current) return;
         if (data.status === 1 && data.product) {
           const p = data.product;
-          const n = (p.nutriments ?? {}) as Record<string, number>;
+          const n = (p.nutriments ?? {}) as Record<string, unknown>;
           const productData = {
             barcode: code.trim(),
             name: (p.product_name || p.product_name_fr || p.product_name_en || 'Unknown product') as string,
             brand: (p.brands as string) || null,
-            calories_per_100g: n['energy-kcal_100g'] ?? n['energy-kcal'] ?? 0,
-            protein_per_100g: n.proteins_100g ?? n.proteins ?? 0,
-            carbs_per_100g: n.carbohydrates_100g ?? n.carbohydrates ?? 0,
-            fat_per_100g: n.fat_100g ?? n.fat ?? 0,
+            calories_per_100g: kcalPer100gFromNutriments(n),
+            protein_per_100g: nutrimentNumber(n.proteins_100g ?? n.proteins),
+            carbs_per_100g: nutrimentNumber(n.carbohydrates_100g ?? n.carbohydrates),
+            fat_per_100g: nutrimentNumber(n.fat_100g ?? n.fat),
             serving_size: +(p.serving_quantity || 100),
             serving_unit: ((p.serving_size as string) ?? '').includes('ml') ? 'ml' : 'g',
             created_by: user?.id ?? null,

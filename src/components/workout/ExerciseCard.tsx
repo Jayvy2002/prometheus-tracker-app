@@ -6,6 +6,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { formatExercisePrescription, showTrainingField } from '../../lib/clientTracking';
+import { showLoggingRir } from '../../lib/clientGym';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { useCoachingStore } from '../../stores/coachingStore';
 import type { WorkoutExercise, WorkoutSet, SetType } from '../../lib/types';
 import type { ExerciseSession } from '../../stores/workoutStore';
 import { SET_TYPES } from '../../lib/constants';
@@ -125,6 +128,8 @@ function SetRow({
   showRir,
   showLoad,
   showReps,
+  showSets,
+  hevySimple,
   suggestedWeight,
   prevSet,
   previousSet,
@@ -137,6 +142,8 @@ function SetRow({
   showRir: boolean;
   showLoad: boolean;
   showReps: boolean;
+  showSets: boolean;
+  hevySimple: boolean;
   suggestedWeight?: number | null;
   prevSet?: { weight_kg: number; reps: number; rir: number } | null;
   previousSet?: WorkoutSet | null;
@@ -292,11 +299,14 @@ function SetRow({
     `}>
       <div className="flex items-center gap-1.5 p-2">
         {/* Index */}
+        {showSets && (
         <div className="w-5 text-center text-[11px] text-neutral-600 font-semibold shrink-0">
           {index + 1}
         </div>
+        )}
 
-        {/* Type chip */}
+        {/* Type chip — hidden on program sessions (Hevy-simple) */}
+        {!hevySimple && (
         <div className="relative shrink-0">
           <button
             onClick={() => setShowTypePicker(!showTypePicker)}
@@ -313,17 +323,18 @@ function SetRow({
             />
           )}
         </div>
+        )}
 
         {/* Drop % badge */}
-        {isDrop && dropPct != null && dropPct > 0 && (
+        {!hevySimple && isDrop && dropPct != null && dropPct > 0 && (
           <span className="text-[9px] font-bold text-sky-400/70 shrink-0">-{dropPct}%</span>
         )}
 
         {/* Myo activation badge */}
-        {isMyoActivation && (
+        {!hevySimple && isMyoActivation && (
           <span className="text-[9px] font-bold text-rose-400/70 shrink-0">ACT</span>
         )}
-        {isMyo && !isMyoActivation && (
+        {!hevySimple && isMyo && !isMyoActivation && (
           <span className="text-[9px] font-medium text-rose-400/50 shrink-0">mini</span>
         )}
 
@@ -542,10 +553,14 @@ export default function ExerciseCard({
   const { user } = useAuthStore();
   const { showRir: prefRir } = usePreferencesStore();
   const tracking = useClientTracking();
-  const showRir = prefRir && showTrainingField(tracking, 'rir');
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const hasCoach = isCoachedAthlete(coachingRole, myCoach);
+  const showRir = showLoggingRir(showTrainingField(tracking, 'rir'), prefRir, hasCoach);
   const showLoad = showTrainingField(tracking, 'load');
   const showReps = showTrainingField(tracking, 'reps') || showTrainingField(tracking, 'reps_range');
   const showSets = showTrainingField(tracking, 'sets');
+  const hevySimple = !!currentWorkout?.program_day_id;
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft, clearExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
@@ -660,7 +675,7 @@ export default function ExerciseCard({
           </span>
         )}
         {/* Superset link button -- only if not already in a superset */}
-        {!isInSuperset && !exercise.superset_group_id && (
+        {!hevySimple && !isInSuperset && !exercise.superset_group_id && (
           <div className="relative">
             <button
               onClick={() => setShowLinkPicker(!showLinkPicker)}
@@ -777,7 +792,7 @@ export default function ExerciseCard({
           {(exercise.sets?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-[10px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
               {showSets && <div className="w-5 text-center">#</div>}
-              <div className="shrink-0 w-8">{t('workout.exerciseCard.type')}</div>
+              {!hevySimple && <div className="shrink-0 w-8">{t('workout.exerciseCard.type')}</div>}
               {showLoad && <div className="flex-1 text-center">{t('workout.exerciseCard.weight')}</div>}
               {showReps && (
                 <div className="flex-1 text-center">
@@ -802,6 +817,8 @@ export default function ExerciseCard({
                   showRir={showRir}
                   showLoad={showLoad}
                   showReps={showReps}
+                  showSets={showSets}
+                  hevySimple={hevySimple}
                   suggestedWeight={suggestion?.suggestedWeight}
                   prevSet={matchingPrev}
                   previousSet={previousSetInList}
