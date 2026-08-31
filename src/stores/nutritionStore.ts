@@ -12,7 +12,7 @@ import {
   FAST_VERIFY_BONUS_TIMEOUT_MS,
   parseAnalyzeProductResponse,
 } from '../lib/fastVerify';
-import { correctNutritionLogEnergy, normalizeFoodProductEnergy } from '../lib/foodEnergy';
+import { correctNutritionLogEnergy, normalizeFoodProductEnergy, rescaleNutritionMacros } from '../lib/foodEnergy';
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -46,7 +46,7 @@ interface NutritionState {
   logSteps: (userId: string, steps: number, date: string) => Promise<void>;
 }
 
-export const useNutritionStore = create<NutritionState>((set) => ({
+export const useNutritionStore = create<NutritionState>((set, get) => ({
   logs: [],
   waterLogs: [],
   products: [],
@@ -84,10 +84,26 @@ export const useNutritionStore = create<NutritionState>((set) => ({
   },
 
   updateLog: async (id, updates) => {
-    const { error } = await supabase.from('nutrition_logs').update(updates).eq('id', id);
+    const existing = get().logs.find(l => l.id === id);
+    let payload = updates;
+    if (existing && (updates.quantity != null || updates.unit != null)) {
+      const scaled = rescaleNutritionMacros(existing, {
+        quantity: updates.quantity ?? existing.quantity,
+        unit: updates.unit ?? existing.unit,
+      });
+      payload = {
+        ...scaled,
+        ...updates,
+        calories: updates.calories ?? scaled.calories,
+        protein: updates.protein ?? scaled.protein,
+        carbs: updates.carbs ?? scaled.carbs,
+        fat: updates.fat ?? scaled.fat,
+      };
+    }
+    const { error } = await supabase.from('nutrition_logs').update(payload).eq('id', id);
     if (error) { toast(error.message, 'error'); return; }
     set(s => ({
-      logs: s.logs.map(l => l.id === id ? correctNutritionLogEnergy({ ...l, ...updates } as NutritionLog) : l),
+      logs: s.logs.map(l => l.id === id ? correctNutritionLogEnergy({ ...l, ...payload } as NutritionLog) : l),
     }));
   },
 

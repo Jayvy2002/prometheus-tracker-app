@@ -1,6 +1,15 @@
 import { lastVisitIso } from './coachPriorities';
 import { datePrefix } from './coachText';
 import { liftsForClient, progressedLifts, stalledLifts } from './coachLifts';
+import {
+  RECOVERY_CONCERN_ON_TEN,
+  RECOVERY_WATCH_ON_TEN,
+  PAIN_CONCERN_ON_TEN,
+  PAIN_WATCH_ON_TEN,
+  invertScoreOnTen,
+  isLegacyFiveScaleCheckin,
+  scoreOnTen,
+} from './checkinScale';
 import type {
   CheckinSummary,
   ClientLiftProgress,
@@ -35,9 +44,8 @@ function mean(values: Array<number | null | undefined>): number | null {
   return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
 }
 
-function invert(score: number | null): number | null {
-  if (score == null) return null;
-  return Math.round((6 - score) * 10) / 10;
+function invert(score: number | null, legacyFive: boolean): number | null {
+  return invertScoreOnTen(score, legacyFive);
 }
 
 export function summarizeCheckin(checkins: DailyCheckin[]): CheckinSummary {
@@ -58,21 +66,37 @@ export function summarizeCheckin(checkins: DailyCheckin[]): CheckinSummary {
     };
   }
 
-  const recovery = mean([latest.sleep_quality, invert(latest.fatigue), invert(latest.muscle_soreness), latest.energy_level]);
+  const legacy = isLegacyFiveScaleCheckin(latest);
+  const prevLegacy = previous ? isLegacyFiveScaleCheckin(previous) : false;
+  const recovery = mean([
+    scoreOnTen(latest.sleep_quality, legacy),
+    invert(latest.fatigue, legacy),
+    invert(latest.muscle_soreness, legacy),
+    scoreOnTen(latest.energy_level, legacy),
+  ]);
   const prevRecovery = previous
-    ? mean([previous.sleep_quality, invert(previous.fatigue), invert(previous.muscle_soreness), previous.energy_level])
+    ? mean([
+      scoreOnTen(previous.sleep_quality, prevLegacy),
+      invert(previous.fatigue, prevLegacy),
+      invert(previous.muscle_soreness, prevLegacy),
+      scoreOnTen(previous.energy_level, prevLegacy),
+    ])
     : null;
   const training = latest.adherence_training;
   const nutrition = latest.adherence_nutrition;
   const motivation = latest.motivation;
   const pain = latest.joint_pain;
+  const pain10 = scoreOnTen(pain, legacy);
 
   const delta = (a: number | null, b: number | null) =>
     a != null && b != null ? Math.round((a - b) * 10) / 10 : null;
 
   let globalStatus: CheckinSummary['globalStatus'] = 'good';
-  if ((pain ?? 0) >= 4 || (training ?? 5) <= 2 || (recovery ?? 5) <= 2) globalStatus = 'concern';
-  else if ((pain ?? 0) >= 3 || (training ?? 5) <= 3 || (recovery ?? 5) <= 3) globalStatus = 'watch';
+  if ((pain10 ?? 0) >= PAIN_CONCERN_ON_TEN || (training ?? 5) <= 2 || (recovery ?? 10) <= RECOVERY_CONCERN_ON_TEN) {
+    globalStatus = 'concern';
+  } else if ((pain10 ?? 0) >= PAIN_WATCH_ON_TEN || (training ?? 5) <= 3 || (recovery ?? 10) <= RECOVERY_WATCH_ON_TEN) {
+    globalStatus = 'watch';
+  }
 
   return {
     latest,

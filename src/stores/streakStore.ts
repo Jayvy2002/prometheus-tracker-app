@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
-import { addDaysToDateStr, parseDate, toLocalDateStr } from '../lib/utils';
+import { todayStr } from '../lib/utils';
+import { applyQualifyingActivity, effectiveCurrentStreak } from '../lib/streak';
 
 interface StreakData {
   current_streak: number;
@@ -28,32 +29,39 @@ export const useStreakStore = create<StreakState>((set, get) => ({
       .eq('streak_type', 'overall')
       .maybeSingle();
 
-    if (data) {
-      set({ streak: data as StreakData, loading: false });
-    } else {
+    if (!data) {
       set({ streak: { current_streak: 0, longest_streak: 0, last_activity_date: null }, loading: false });
+      return;
+    }
+
+    const stored = data as StreakData;
+    const current_streak = effectiveCurrentStreak(
+      stored.last_activity_date,
+      stored.current_streak,
+      todayStr(),
+    );
+    const streak: StreakData = {
+      current_streak,
+      longest_streak: stored.longest_streak,
+      last_activity_date: stored.last_activity_date,
+    };
+    set({ streak, loading: false });
+
+    if (current_streak !== stored.current_streak) {
+      void supabase
+        .from('user_streaks')
+        .update({ current_streak, updated_at: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('streak_type', 'overall');
     }
   },
 
   recordActivity: async (userId, date) => {
-    const current = get().streak;
-
-    const dateKey = date.includes('T') ? toLocalDateStr(parseDate(date)) : date;
-
-    // Already recorded for this date — no-op
-    if (current?.last_activity_date === dateKey) return;
-
-    const yesterdayStr = addDaysToDateStr(dateKey, -1);
-
-    const wasYesterday = current?.last_activity_date === yesterdayStr;
-    const newCurrent = wasYesterday ? (current?.current_streak ?? 0) + 1 : 1;
-    const newLongest = Math.max(newCurrent, current?.longest_streak ?? 0);
-
-    const updatedStreak: StreakData = {
-      current_streak: newCurrent,
-      longest_streak: newLongest,
-      last_activity_date: dateKey,
-    };
+    if (get().streak === null) {
+      await get().fetchStreak(userId);
+    }
+    const updatedStreak = applyQualifyingActivity(get().streak, date, todayStr());
+    if (!updatedStreak) return;
 
     const { error } = await supabase
       .from('user_streaks')
@@ -64,7 +72,6 @@ export const useStreakStore = create<StreakState>((set, get) => ({
         updated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,streak_type' });
 
-    // Only update local state if the DB write succeeded
     if (!error) {
       set({ streak: updatedStreak });
     }

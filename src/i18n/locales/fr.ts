@@ -825,7 +825,7 @@ const fr = {
 
   checkin: {
     title: 'Check-in du jour',
-    subtitle: '60 secondes. Tu peux ignorer n’importe quel champ.',
+    subtitle: '60 secondes. Chaque score va de 0 à 10. Tu peux ignorer n’importe quel champ.',
     sleepHours: 'Heures de sommeil',
     optional: 'Optionnel',
     notes: 'Notes',
@@ -834,6 +834,7 @@ const fr = {
     saved: 'Check-in enregistré',
     dashboardCta: 'Faire le check-in du jour',
     dashboardHint: 'Sommeil, énergie, stress — ton coach peut le voir.',
+    scaleHint: '0 = le plus bas · 10 = le plus haut',
     disabled: 'Ton coach n’a pas activé le check-in pour toi.',
     fields: {
       sleep_quality: 'Qualité du sommeil',
@@ -1055,7 +1056,7 @@ const fr = {
       nextUp: 'Ensuite : {{names}}',
       draftBadge: 'brouillon',
       items: {
-        new_pain: 'Douleur signalée ({{n}}/5)',
+        new_pain: 'Douleur signalée ({{n}})',
         low_sleep: 'Sommeil court / mauvaise nuit',
         stalled_lift: '{{lift}} stagne',
         weight_off_trajectory: 'Hors trajectoire de poids',
@@ -1102,7 +1103,7 @@ const fr = {
     },
     priority: {
       headlines: {
-        new_pain: '{{name}} a signalé une douleur ({{n}}/5)',
+        new_pain: '{{name}} a signalé une douleur ({{n}})',
         low_sleep: '{{name}} a loggé un sommeil court',
         stalled_lift: '{{name}} — {{lift}} stagne',
         weight_off_trajectory: '{{name}} sort de la trajectoire de poids',
@@ -1117,8 +1118,8 @@ const fr = {
         session_logged: '{{name}} a loggé {{session}}',
       },
       details: {
-        new_pain: 'Douleur articulaire {{n}}/5 (précédent {{prev}}). Ouvre Santé pour relire.',
-        low_sleep: 'Sommeil {{hours}} h · qualité {{quality}}/5. Ouvre Santé — Relance si tu dois parler.',
+        new_pain: 'Douleur articulaire {{n}} (précédent {{prev}}). Ouvre Santé pour relire.',
+        low_sleep: 'Sommeil {{hours}} h · qualité {{quality}}. Ouvre Santé — Relance si tu dois parler.',
         stalled_lift: '{{lift}} n’a pas progressé sur {{n}} séances récentes.',
         weight_off_trajectory: 'Delta {{delta}} kg vs objectif {{goal}}.',
         dropped_adherence: 'Adhérence entraînement {{from}}/5 → {{to}}/5.',
@@ -1133,7 +1134,7 @@ const fr = {
       insightBody: '{{workouts}} séance(s) depuis la dernière visite · poids {{weight}} · a progressé : {{progressed}} · stagne : {{stalled}}',
       insightEmpty: 'Pas assez de logs pour interpréter.',
       none: 'aucun',
-      painFlag: 'Douleur signalée à {{n}}/5',
+      painFlag: 'Douleur signalée à {{n}}',
       sinceVisit: 'Depuis ma dernière visite',
       sinceUnknown: 'Aucune visite coach enregistrée — logs récents.',
       sinceMeta: '{{workouts}} séance(s) · {{checkins}} check-in(s)',
@@ -1186,7 +1187,7 @@ const fr = {
       relanceHint: 'Relance ouvre le fil avec un brouillon. Rien ne part tout seul.',
       askAdjust: 'Demander un ajustement',
       askAdjustHint: 'Prometheus rédige un brouillon à partir de la douleur loggée. Tu édites, puis tu envoies. Rien ne s’applique. Ce n’est pas un avis médical.',
-      askAdjustPrompt: '{{name}} a loggé douleur {{pain}}/5 le {{date}}. Sommeil {{sleep}}. Notes : {{notes}}.\nPropose un ajustement léger du programme si besoin. N’applique rien, ne diagnostique pas — le coach édite puis envoie.',
+      askAdjustPrompt: '{{name}} a loggé douleur {{pain}} le {{date}}. Sommeil {{sleep}}. Notes : {{notes}}.\nPropose un ajustement léger du programme si besoin. N’applique rien, ne diagnostique pas — le coach édite puis envoie.',
     },
     trainingLift: {
       title: 'Évolution',
@@ -1237,7 +1238,7 @@ const fr = {
       history: 'Autres check-ins',
       kinds: {
         unread: 'Non relu',
-        new_pain: 'Douleur {{n}}/5',
+        new_pain: 'Douleur {{n}}',
         dropped_adherence: 'Adhérence en baisse',
         missed_checkin: 'Dernier check-in à relire',
       },

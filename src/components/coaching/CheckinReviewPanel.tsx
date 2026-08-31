@@ -47,7 +47,7 @@ export default function CheckinReviewPanel({
       <Card>
         <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400">
           {HIGHLIGHT_KEYS.map(key => (
-            <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(checkin[key])}</span>
+            <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(checkin[key], checkin)}</span>
           ))}
         </div>
         {checkin.notes ? (

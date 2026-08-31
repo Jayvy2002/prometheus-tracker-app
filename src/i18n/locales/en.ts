@@ -825,7 +825,7 @@ const en = {
 
   checkin: {
     title: 'Daily check-in',
-    subtitle: '60 seconds. Skip any field you do not want to log.',
+    subtitle: '60 seconds. Each score is 0 to 10. Skip any field you do not want to log.',
     sleepHours: 'Hours of sleep',
     optional: 'Optional',
     notes: 'Notes',
@@ -834,6 +834,7 @@ const en = {
     saved: 'Check-in saved',
     dashboardCta: 'Log today’s check-in',
     dashboardHint: 'Sleep, energy, stress — your coach can see this.',
+    scaleHint: '0 = lowest · 10 = highest',
     disabled: 'Your coach has not enabled check-ins for you.',
     fields: {
       sleep_quality: 'Sleep quality',
@@ -1055,7 +1056,7 @@ const en = {
       nextUp: 'Next: {{names}}',
       draftBadge: 'draft',
       items: {
-        new_pain: 'Pain reported ({{n}}/5)',
+        new_pain: 'Pain reported ({{n}})',
         low_sleep: 'Short / poor sleep',
         stalled_lift: '{{lift}} stalled',
         weight_off_trajectory: 'Off weight trajectory',
@@ -1102,7 +1103,7 @@ const en = {
     },
     priority: {
       headlines: {
-        new_pain: '{{name}} reported new pain ({{n}}/5)',
+        new_pain: '{{name}} reported new pain ({{n}})',
         low_sleep: '{{name}} logged short sleep',
         stalled_lift: '{{name}} — {{lift}} stalled',
         weight_off_trajectory: '{{name}} is off weight trajectory',
@@ -1117,8 +1118,8 @@ const en = {
         session_logged: '{{name}} logged {{session}}',
       },
       details: {
-        new_pain: 'Latest joint pain {{n}}/5 (previous {{prev}}). Open health to review.',
-        low_sleep: 'Sleep {{hours}} h · quality {{quality}}/5. Open Santé — nudge if you need to talk.',
+        new_pain: 'Latest joint pain {{n}} (previous {{prev}}). Open health to review.',
+        low_sleep: 'Sleep {{hours}} h · quality {{quality}}. Open Santé — nudge if you need to talk.',
         stalled_lift: '{{lift}} has not progressed across {{n}} recent sessions.',
         weight_off_trajectory: 'Delta {{delta}} kg vs goal {{goal}}.',
         dropped_adherence: 'Training adherence {{from}}/5 → {{to}}/5.',
@@ -1133,7 +1134,7 @@ const en = {
       insightBody: '{{workouts}} workout(s) since last visit · weight {{weight}} · progressed: {{progressed}} · stalled: {{stalled}}',
       insightEmpty: 'Not enough logs yet to interpret.',
       none: 'none',
-      painFlag: 'Pain flagged at {{n}}/5',
+      painFlag: 'Pain flagged at {{n}}',
       sinceVisit: 'Since my last visit',
       sinceUnknown: 'No previous coach visit recorded — showing recent logs.',
       sinceMeta: '{{workouts}} session(s) · {{checkins}} check-in(s)',
@@ -1186,7 +1187,7 @@ const en = {
       relanceHint: 'Nudge opens the thread with a draft. Nothing sends itself.',
       askAdjust: 'Ask for an adjustment',
       askAdjustHint: 'Prometheus drafts from the logged pain. You edit, then send. Nothing applies. This is not medical advice.',
-      askAdjustPrompt: '{{name}} logged pain {{pain}}/5 on {{date}}. Sleep {{sleep}}. Notes: {{notes}}.\nSuggest a light program tweak if needed. Apply nothing, do not diagnose — the coach edits then sends.',
+      askAdjustPrompt: '{{name}} logged pain {{pain}} on {{date}}. Sleep {{sleep}}. Notes: {{notes}}.\nSuggest a light program tweak if needed. Apply nothing, do not diagnose — the coach edits then sends.',
     },
     trainingLift: {
       title: 'Lift trend',
@@ -1237,7 +1238,7 @@ const en = {
       history: 'Other check-ins',
       kinds: {
         unread: 'Unread',
-        new_pain: 'Pain {{n}}/5',
+        new_pain: 'Pain {{n}}',
         dropped_adherence: 'Adherence dropped',
         missed_checkin: 'Latest check-in to review',
       },

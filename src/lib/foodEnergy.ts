@@ -94,6 +94,59 @@ export function gramsFromQuantity(quantity: number, unit: string, unitToGrams: R
   return quantity * factor;
 }
 
+/**
+ * Portion multiplier used when logging food.
+ * - serving: scale = number of servings
+ * - mass/volume: scale = grams (or ml) / 100, same as FoodForm
+ */
+export function nutritionPortionScale(
+  quantity: number,
+  unit: string,
+  unitToGrams: Record<string, number> = UNIT_TO_GRAMS,
+): number {
+  if (!Number.isFinite(quantity) || quantity <= 0) return 0;
+  if (unit === 'serving') return quantity;
+  const grams = gramsFromQuantity(quantity, unit, unitToGrams);
+  if (grams == null) return quantity / 100;
+  return grams / 100;
+}
+
+export interface NutritionMacros {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+/** Rescale stored kcal/P/C/F from one quantity+unit to another, from the logged portion basis. */
+export function rescaleNutritionMacros(
+  from: NutritionMacros & { quantity: number; unit: string },
+  next: { quantity: number; unit: string },
+  unitToGrams: Record<string, number> = UNIT_TO_GRAMS,
+): NutritionMacros & { quantity: number; unit: string } {
+  const fromScale = nutritionPortionScale(from.quantity, from.unit, unitToGrams);
+  const toScale = nutritionPortionScale(next.quantity, next.unit, unitToGrams);
+  if (fromScale <= 0) {
+    return {
+      quantity: next.quantity,
+      unit: next.unit,
+      calories: from.calories,
+      protein: from.protein,
+      carbs: from.carbs,
+      fat: from.fat,
+    };
+  }
+  const ratio = toScale / fromScale;
+  return {
+    quantity: next.quantity,
+    unit: next.unit,
+    calories: from.calories * ratio,
+    protein: from.protein * ratio,
+    carbs: from.carbs * ratio,
+    fat: from.fat * ratio,
+  };
+}
+
 export function correctLogCalories(log: {
   calories: number;
   protein: number;
