@@ -1,5 +1,7 @@
 # Audit & Plan d'Amélioration — Prometheus Tracker
 
+> **Superstédé le 31 août 2026.** L’audit produit courant (plateforme coach, branche `new-JV`) est [`docs/AUDIT_PRODUIT_2026-08-31.md`](docs/AUDIT_PRODUIT_2026-08-31.md). Ce fichier décrit l’ancien tracker solo (avril 2026) et n’est plus la source de vérité.
+
 > Audit réalisé le 1er avril 2026.
 > Dernière mise à jour : 2 avril 2026.
 

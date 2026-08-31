@@ -37,9 +37,9 @@ export default function CoachDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    opsRows, opsLoading, invites, priorities, rosterSignals,
-    fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings, coachSettings,
-    runFleetRound, fleetRunning,
+    opsRows, opsLoading, opsPartialError, invites, priorities, rosterSignals,
+    fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings,
+    runFleetRound, fleetRunning, coachingRoleError, fetchMyRole,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -101,6 +101,11 @@ export default function CoachDashboard() {
             </p>
             <h1 className="text-2xl font-bold text-white">{t('coaching.command.title')}</h1>
             <p className="text-sm text-neutral-500 mt-1">{t('coaching.command.subtitle')}</p>
+            {coachingRoleError ? (
+              <button type="button" className="text-xs text-amber-300 mt-2" onClick={() => user && fetchMyRole(user.id)}>
+                {t('errors.loadRole')} · {t('errors.retry')}
+              </button>
+            ) : null}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
@@ -187,31 +192,16 @@ export default function CoachDashboard() {
               </div>
             )}
 
-            {coachSettings?.queue_mode_default === false ? (
-              <div>
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
-                  {t('coaching.command.priorities')}
-                </p>
-                {priorities.length === 0 ? (
-                  <CoachTodayQueue />
-                ) : (
-                  <div className="space-y-2">
-                    {priorities.slice(0, 8).map(item => (
-                      <Card key={item.id} onClick={() => navigate(item.href)} className="flex items-start gap-3">
-                        <span aria-hidden>{item.severity === 'red' ? '🔴' : item.severity === 'orange' ? '🟠' : '🟡'}</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white">{t(item.headlineKey, item.headlineParams)}</p>
-                          <p className="text-[11px] text-neutral-500 truncate">{t(item.detailKey, item.detailParams)}</p>
-                        </div>
-                        <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <CoachTodayQueue />
-            )}
+            {opsPartialError ? (
+              <Card className="mb-4 border-amber-500/30">
+                <p className="text-sm text-amber-200">{t('errors.opsPartial')}</p>
+                <button type="button" className="text-xs text-blue-400 mt-2" onClick={() => fetchCoachOps()}>
+                  {t('errors.retry')}
+                </button>
+              </Card>
+            ) : null}
+
+            <CoachTodayQueue />
           </>
         )}
       </div>

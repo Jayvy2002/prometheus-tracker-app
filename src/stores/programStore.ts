@@ -15,7 +15,7 @@ interface ProgramState {
   fetchPrograms: (ownerId: string) => Promise<void>;
   fetchProgram: (programId: string) => Promise<Program | null>;
   createProgram: (program: Partial<Program>, days: Omit<ProgramDay, 'id' | 'program_id' | 'created_at'>[]) => Promise<string | null>;
-  updateProgram: (id: string, data: Partial<Program>) => Promise<void>;
+  updateProgram: (id: string, data: Partial<Program>) => Promise<{ error: string | null }>;
   deleteProgram: (id: string) => Promise<void>;
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<void>;
   setProgramDayExercises: (
@@ -181,10 +181,12 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   },
 
   updateProgram: async (id, updates) => {
-    await supabase.from('programs').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('programs').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) return { error: error.message };
     set(s => ({
       programs: s.programs.map(p => p.id === id ? { ...p, ...updates } : p),
     }));
+    return { error: null };
   },
 
   deleteProgram: async (id) => {
@@ -295,21 +297,22 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       const draft = days[i];
       let row = existing.find(d => d.weekday === draft.weekday && !usedIds.has(d.id));
       if (!row) {
-        const { data } = await supabase.from('program_days').insert({
+        const { data, error } = await supabase.from('program_days').insert({
           program_id: programId,
           weekday: draft.weekday,
           name: draft.name,
           routine_id: null,
           order_index: i,
         }).select().maybeSingle();
-        if (!data) continue;
+        if (error || !data) return { error: error?.message ?? 'Failed to create program day' };
         row = { ...(data as ProgramDay), exercises: [] };
       } else {
-        await supabase.from('program_days').update({
+        const { error } = await supabase.from('program_days').update({
           name: draft.name,
           weekday: draft.weekday,
           order_index: i,
         }).eq('id', row.id);
+        if (error) return { error: error.message };
       }
       usedIds.add(row.id);
       await get().setProgramDayExercises(row.id, draft.exercises.map((ex, order_index) => ({

@@ -14,10 +14,12 @@ import { fetchCoachLessons, formatLessonsForPrompt } from "../_shared/coachAgent
  *   4. Writes coach_interventions drafts only. Never auto-applies. Never pings Second.
  *
  * Auth:
- *   JWT (logged-in coach) → that coach's roster, on-demand from Aujourd'hui / Prometheus
- *   service_role / FLEET_CRON_SECRET → all coaches (pg_cron nightly)
- *   GROK_BOT_WEBHOOK_SECRET is cron HMAC only — not a Grok Bot ping.
+ *   JWT (logged-in coach) → that coach's roster, on-demand from Aujourd'hui
+ *   FLEET_CRON_SECRET (pg_cron nightly) → all coaches
  *
+ * Never authenticates with GROK_BOT_WEBHOOK_SECRET. Never POSTs GROK_BOT_WEBHOOK_URL.
+ * Never creates per-client/per-coach Grok Bots. Second is out of the product loop.
+
  * Model:
  *   OPENAI_API_KEY → optional, and only if fleetCardNeedsLlm (program_adjustment)
  *   missing key / Relancer / kcal → deterministic templates + complete macros
@@ -965,11 +967,7 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get("Authorization");
     const token = bearerToken(authHeader);
     const webhookKey = (req.headers.get("X-Webhook-Key") ?? req.headers.get("X-Sender-Key") ?? "").trim();
-    const cronSecret = (
-      Deno.env.get("FLEET_CRON_SECRET") ??
-      Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ??
-      ""
-    ).trim();
+    const cronSecret = (Deno.env.get("FLEET_CRON_SECRET") ?? "").trim();
     const isService = (token.length > 0 && token === serviceKey)
       || (cronSecret.length > 0 && (token === cronSecret || webhookKey === cronSecret));
 

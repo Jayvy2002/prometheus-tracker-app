@@ -1,15 +1,18 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { isCoachedAthlete } from '../../lib/coachRole';
 
 export default function BottomNav() {
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
   const tracking = useCoachingStore(s => s.myTrackingConfig);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const tabs = coachingRole === 'coach'
     ? [
@@ -19,13 +22,21 @@ export default function BottomNav() {
         { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
       ]
-    : [
-        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
-        { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
-        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
-        { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
-        { path: '/profile', icon: User, label: t('nav.profile'), show: true },
-      ].filter(tab => tab.show !== false);
+    : coached
+      ? [
+          { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
+          { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
+          { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: true },
+          { path: '/photos', icon: Camera, label: t('nav.photos'), show: true },
+          { path: '/profile', icon: User, label: t('nav.profile'), show: true },
+        ].filter(tab => tab.show !== false)
+      : [
+          { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
+          { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
+          { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
+          { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
+          { path: '/profile', icon: User, label: t('nav.profile'), show: true },
+        ].filter(tab => tab.show !== false);
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 z-40 safe-area-bottom">

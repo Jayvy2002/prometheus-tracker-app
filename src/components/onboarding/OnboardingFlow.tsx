@@ -18,6 +18,8 @@ import {
   calculateBMR, calculateEnhancedTDEE, calculateCalorieTarget, calculateMacros,
   calculateWaterTarget, getAge, todayStr,
 } from '../../lib/utils';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
 import Button from '../ui/Button';
 
 const TOTAL_STEPS = 8;
@@ -133,23 +135,24 @@ function ChipSelect({ options, selected, onChange }: {
 
 // --- Step 1: About You ---
 function StepPersonal({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={User} title="About You" subtitle="Let's get to know you" />
+      <StepHeader icon={User} title={t('onboarding.steps.aboutYou')} subtitle={t('onboarding.steps.aboutYouSub')} />
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1.5 block">Full Name</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1.5 block">{t('onboarding.fields.fullName')}</label>
         <input
           type="text"
           value={form.full_name}
           onChange={e => setForm({ ...form, full_name: e.target.value })}
           className="w-full bg-neutral-900/80 border border-neutral-800 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
-          placeholder="Your name"
+          placeholder={t('onboarding.fields.fullNamePlaceholder')}
         />
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Gender</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.gender')}</label>
         <div className="grid grid-cols-3 gap-2">
           {['male', 'female', 'other'].map(g => (
             <button
@@ -161,14 +164,14 @@ function StepPersonal({ form, setForm }: { form: FormData; setForm: (f: FormData
                   : 'bg-neutral-900/60 text-neutral-400 border border-neutral-800 hover:border-neutral-700'
               }`}
             >
-              {g.charAt(0).toUpperCase() + g.slice(1)}
+              {t(`onboarding.gender.${g}`)}
             </button>
           ))}
         </div>
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1.5 block">Date of Birth</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1.5 block">{t('onboarding.fields.dateOfBirth')}</label>
         <input
           type="date"
           value={form.date_of_birth}
@@ -182,13 +185,14 @@ function StepPersonal({ form, setForm }: { form: FormData; setForm: (f: FormData
 
 // --- Step 2: Your Body ---
 function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <StepHeader icon={Ruler} title="Your Body" subtitle="Current measurements and target" />
+      <StepHeader icon={Ruler} title={t('onboarding.steps.yourBody')} subtitle={t('onboarding.steps.yourBodySub')} />
 
       <div>
         <div className="flex justify-between items-baseline mb-2">
-          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">Height</label>
+          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.height')}</label>
           <span className="text-lg font-bold text-white">{form.height_cm} cm</span>
         </div>
         <input
@@ -202,7 +206,7 @@ function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData
 
       <div>
         <div className="flex justify-between items-baseline mb-2">
-          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">Current Weight</label>
+          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.currentWeight')}</label>
           <span className="text-lg font-bold text-white">{form.weight_kg} kg</span>
         </div>
         <input
@@ -216,7 +220,7 @@ function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData
 
       <div>
         <div className="flex justify-between items-baseline mb-2">
-          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">Target Weight</label>
+          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.targetWeight')}</label>
           <span className="text-lg font-bold text-white">{form.target_weight_kg} kg</span>
         </div>
         <input
@@ -237,18 +241,19 @@ function StepPhysical({ form, setForm }: { form: FormData; setForm: (f: FormData
 
 // --- Step 3: Training Background ---
 function StepTraining({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Dumbbell} title="Training Background" subtitle="Your experience and preferences" />
+      <StepHeader icon={Dumbbell} title={t('onboarding.steps.training')} subtitle={t('onboarding.steps.trainingSub')} />
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Experience Level</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.experience')}</label>
         <SelectGrid options={TRAINING_EXPERIENCES} value={form.training_experience} onChange={v => setForm({ ...form, training_experience: v })} />
       </div>
 
       <div>
         <div className="flex justify-between items-baseline mb-2">
-          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">Sessions per Week</label>
+          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.sessionsPerWeek')}</label>
           <span className="text-lg font-bold text-white">{form.training_frequency}x</span>
         </div>
         <input
@@ -265,18 +270,18 @@ function StepTraining({ form, setForm }: { form: FormData; setForm: (f: FormData
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Training Focus</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.trainingFocus')}</label>
         <SelectGrid options={TRAINING_FOCUSES} value={form.training_focus} onChange={v => setForm({ ...form, training_focus: v })} />
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1.5 block">Injuries / Limitations (optional)</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-1.5 block">{t('onboarding.fields.injuries')}</label>
         <textarea
           value={form.injuries_limitations}
           onChange={e => setForm({ ...form, injuries_limitations: e.target.value })}
           rows={2}
           className="w-full bg-neutral-900/80 border border-neutral-800 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none placeholder-neutral-600"
-          placeholder="e.g., Lower back pain, shoulder impingement..."
+          placeholder={t('onboarding.fields.injuriesPlaceholder')}
         />
       </div>
     </div>
@@ -285,18 +290,19 @@ function StepTraining({ form, setForm }: { form: FormData; setForm: (f: FormData
 
 // --- Step 4: Daily Life ---
 function StepLifestyle({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Footprints} title="Your Daily Life" subtitle="Activity, sleep, and stress patterns" />
+      <StepHeader icon={Footprints} title={t('onboarding.steps.lifestyle')} subtitle={t('onboarding.steps.lifestyleSub')} />
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Activity Level (outside training)</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.activityOutside')}</label>
         <SelectGrid options={ACTIVITY_LEVELS} value={form.activity_level} onChange={v => setForm({ ...form, activity_level: v })} />
       </div>
 
       <div>
         <div className="flex justify-between items-baseline mb-2">
-          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">Daily Steps (average)</label>
+          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.dailySteps')}</label>
           <span className="text-lg font-bold text-white">{form.daily_steps_average.toLocaleString()}</span>
         </div>
         <input
@@ -315,7 +321,7 @@ function StepLifestyle({ form, setForm }: { form: FormData; setForm: (f: FormDat
       <div>
         <div className="flex justify-between items-baseline mb-2">
           <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider flex items-center gap-1.5">
-            <Moon size={12} /> Sleep (hours/night)
+            <Moon size={12} /> {t('onboarding.fields.sleepHours')}
           </label>
           <span className="text-lg font-bold text-white">{form.sleep_hours_average}h</span>
         </div>
@@ -330,7 +336,7 @@ function StepLifestyle({ form, setForm }: { form: FormData; setForm: (f: FormDat
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <Brain size={12} /> Stress Level
+          <Brain size={12} /> {t('onboarding.fields.stress')}
         </label>
         <SelectGrid options={STRESS_LEVELS} value={form.stress_level} onChange={v => setForm({ ...form, stress_level: v })} />
       </div>
@@ -340,26 +346,27 @@ function StepLifestyle({ form, setForm }: { form: FormData; setForm: (f: FormDat
 
 // --- Step 5: Nutrition Habits ---
 function StepNutrition({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Salad} title="Nutrition Habits" subtitle="Your diet and food preferences" />
+      <StepHeader icon={Salad} title={t('onboarding.steps.nutrition')} subtitle={t('onboarding.steps.nutritionSub')} />
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Dietary Regime</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.diet')}</label>
         <SelectGrid options={DIET_TYPES} value={form.diet_type} onChange={v => setForm({ ...form, diet_type: v })} />
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Food Allergies / Intolerances</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.allergies')}</label>
         <ChipSelect options={FOOD_ALLERGIES} selected={form.food_allergies} onChange={v => setForm({ ...form, food_allergies: v })} />
         {form.food_allergies.length === 0 && (
-          <p className="text-[11px] text-neutral-600 mt-1.5">Tap to select, leave empty if none</p>
+          <p className="text-[11px] text-neutral-600 mt-1.5">{t('onboarding.fields.tapNone')}</p>
         )}
       </div>
 
       <div>
         <div className="flex justify-between items-baseline mb-2">
-          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">Meals per Day</label>
+          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.mealsPerDay')}</label>
           <span className="text-lg font-bold text-white">{form.meals_per_day}</span>
         </div>
         <input
@@ -376,7 +383,7 @@ function StepNutrition({ form, setForm }: { form: FormData; setForm: (f: FormDat
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Cooking Level</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.cooking')}</label>
         <SelectGrid options={COOKING_LEVELS} value={form.cooking_level} onChange={v => setForm({ ...form, cooking_level: v })} />
       </div>
     </div>
@@ -385,20 +392,21 @@ function StepNutrition({ form, setForm }: { form: FormData; setForm: (f: FormDat
 
 // --- Step 6: Supplements & Hydration ---
 function StepSupplements({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Droplets} title="Supplements & Hydration" subtitle="What you take and how you hydrate" />
+      <StepHeader icon={Droplets} title={t('onboarding.steps.supplements')} subtitle={t('onboarding.steps.supplementsSub')} />
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Current Supplements</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.supplements')}</label>
         <ChipSelect options={SUPPLEMENTS} selected={form.supplement_use} onChange={v => setForm({ ...form, supplement_use: v })} />
         {form.supplement_use.length === 0 && (
-          <p className="text-[11px] text-neutral-600 mt-1.5">Tap to select, leave empty if none</p>
+          <p className="text-[11px] text-neutral-600 mt-1.5">{t('onboarding.fields.tapNone')}</p>
         )}
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Hydration Habit</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.hydration')}</label>
         <SelectGrid options={HYDRATION_HABITS} value={form.hydration_habit} onChange={v => setForm({ ...form, hydration_habit: v })} />
       </div>
     </div>
@@ -407,17 +415,18 @@ function StepSupplements({ form, setForm }: { form: FormData; setForm: (f: FormD
 
 // --- Step 7: Your Goal & Motivation ---
 function StepGoalMotivation({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Target} title="Your Goal" subtitle="What drives you to train" />
+      <StepHeader icon={Target} title={t('onboarding.steps.yourGoal')} subtitle={t('onboarding.steps.yourGoalSub')} />
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Body Composition Goal</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.bodyGoal')}</label>
         <SelectGrid options={GOALS} value={form.goal} onChange={v => setForm({ ...form, goal: v })} columns={3} />
       </div>
 
       <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">Primary Motivation</label>
+        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.motivation')}</label>
         <SelectGrid options={MOTIVATIONS} value={form.motivation} onChange={v => setForm({ ...form, motivation: v })} />
       </div>
     </div>
@@ -425,7 +434,8 @@ function StepGoalMotivation({ form, setForm }: { form: FormData; setForm: (f: Fo
 }
 
 // --- Step 8: Summary ---
-function StepSummary({ form }: { form: FormData }) {
+function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
+  const { t } = useTranslation();
   const age = form.date_of_birth ? getAge(form.date_of_birth) : 25;
   const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
   const tdee = calculateEnhancedTDEE(bmr, form.activity_level, form.daily_steps_average, form.training_frequency);
@@ -435,11 +445,15 @@ function StepSummary({ form }: { form: FormData }) {
 
   return (
     <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Sparkles} title="Your Personalized Plan" subtitle="Based on everything you told us" />
+      <StepHeader icon={Sparkles} title={t('onboarding.steps.summary')} subtitle={t('onboarding.steps.summarySub')} />
 
-      {/* Calorie & Macros */}
+      {coached ? (
       <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5">
-        <h3 className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-3">Daily Targets</h3>
+        <p className="text-sm text-neutral-300">{t('onboarding.fields.coachOwnsTargets')}</p>
+      </div>
+      ) : (
+      <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5">
+        <h3 className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-3">{t('onboarding.fields.dailyTargets')}</h3>
         <div className="text-center mb-4">
           <span className="text-4xl font-bold text-white">{calorieTarget}</span>
           <span className="text-sm text-neutral-500 ml-1">kcal/day</span>
@@ -447,23 +461,24 @@ function StepSummary({ form }: { form: FormData }) {
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-3 rounded-xl bg-blue-500/10">
             <span className="text-lg font-bold text-blue-400">{macros.protein}g</span>
-            <span className="block text-[10px] text-neutral-500 mt-0.5">Protein</span>
+            <span className="block text-[10px] text-neutral-500 mt-0.5">{t('common.protein')}</span>
           </div>
           <div className="text-center p-3 rounded-xl bg-amber-500/10">
             <span className="text-lg font-bold text-amber-400">{macros.carbs}g</span>
-            <span className="block text-[10px] text-neutral-500 mt-0.5">Carbs</span>
+            <span className="block text-[10px] text-neutral-500 mt-0.5">{t('common.carbs')}</span>
           </div>
           <div className="text-center p-3 rounded-xl bg-rose-500/10">
             <span className="text-lg font-bold text-rose-400">{macros.fat}g</span>
-            <span className="block text-[10px] text-neutral-500 mt-0.5">Fats</span>
+            <span className="block text-[10px] text-neutral-500 mt-0.5">{t('common.fat')}</span>
           </div>
         </div>
       </div>
+      )}
 
       {/* Key Stats */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">BMR</span>
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.summary.bmr')}</span>
           <span className="block text-lg font-bold text-white">{Math.round(bmr)} kcal</span>
         </div>
         <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
@@ -471,11 +486,11 @@ function StepSummary({ form }: { form: FormData }) {
           <span className="block text-lg font-bold text-white">{tdee} kcal</span>
         </div>
         <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">Water Target</span>
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('profile.goals.dailyWater')}</span>
           <span className="block text-lg font-bold text-white">{(waterTarget / 1000).toFixed(1)}L</span>
         </div>
         <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">Training</span>
+          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.fields.sessionsPerWeek')}</span>
           <span className="block text-lg font-bold text-white">{form.training_frequency}x/wk</span>
         </div>
       </div>
@@ -485,11 +500,9 @@ function StepSummary({ form }: { form: FormData }) {
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
           <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
           <div>
-            <p className="text-xs font-medium text-amber-300">Recovery Notice</p>
+            <p className="text-xs font-medium text-amber-300">{t('onboarding.fields.recoveryNotice')}</p>
             <p className="text-[11px] text-neutral-400 mt-0.5">
-              {form.sleep_hours_average < 6.5 && 'Low sleep '}
-              {form.stress_level === 'high' || form.stress_level === 'very_high' ? 'and high stress ' : ''}
-              may limit your progress. We'll factor this into your recommendations.
+              {t('onboarding.fields.recoveryBody')}
             </p>
           </div>
         </div>
@@ -497,7 +510,7 @@ function StepSummary({ form }: { form: FormData }) {
 
       {/* Diet summary */}
       <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-        <span className="text-[10px] text-neutral-500 uppercase tracking-wider">Your Profile</span>
+        <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.fields.yourProfile')}</span>
         <div className="flex flex-wrap gap-1.5 mt-2">
           <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-medium">
             {DIET_TYPES.find(d => d.value === form.diet_type)?.label}
@@ -524,7 +537,9 @@ export default function OnboardingFlow() {
   const { updateProfile } = useProfileStore();
   const { addMeasurement } = useWeightStore();
   const { user } = useAuthStore();
-  const { myCoach } = useCoachingStore();
+  const myCoach = useCoachingStore(st => st.myCoach);
+  const coachingRole = useCoachingStore(st => st.coachingRole);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
 
@@ -571,8 +586,8 @@ export default function OnboardingFlow() {
     const macros = calculateMacros(calorieTarget, form.goal, form.diet_type, form.weight_kg);
     const waterTarget = calculateWaterTarget(form.weight_kg, form.daily_steps_average, form.activity_level, form.hydration_habit);
 
-    await updateProfile(user.id, {
-      full_name: form.full_name.trim() || user.email?.split('@')[0] || 'Athlete',
+    const payload = {
+      full_name: form.full_name.trim() || user.email?.split('@')[0] || t('profile.fallbackName'),
       gender: form.gender,
       date_of_birth: form.date_of_birth,
       height_cm: form.height_cm,
@@ -602,7 +617,8 @@ export default function OnboardingFlow() {
       motivation: form.motivation,
       onboarding_completed: true,
       dashboard_layout: DEFAULT_DASHBOARD_WIDGETS,
-    });
+    };
+    await updateProfile(user.id, stripSelfServeNutritionTargets(payload, coached));
 
     await addMeasurement({ user_id: user.id, weight_kg: form.weight_kg, measured_at: todayStr() });
     clearOnboardingDeferred();
@@ -624,7 +640,7 @@ export default function OnboardingFlow() {
       case 4: return <StepNutrition form={form} setForm={setForm} />;
       case 5: return <StepSupplements form={form} setForm={setForm} />;
       case 6: return <StepGoalMotivation form={form} setForm={setForm} />;
-      case 7: return <StepSummary form={form} />;
+      case 7: return <StepSummary form={form} coached={coached} />;
       default: return null;
     }
   };
@@ -655,7 +671,7 @@ export default function OnboardingFlow() {
               disabled={!canProceed()}
               className="flex-1"
             >
-              Continue <ChevronRight size={16} />
+              {t('onboarding.continue')} <ChevronRight size={16} />
             </Button>
           ) : (
             <Button
@@ -663,7 +679,7 @@ export default function OnboardingFlow() {
               disabled={saving}
               className="flex-1"
             >
-              {saving ? 'Setting up...' : 'Get Started'} <Check size={16} />
+              {saving ? t('onboarding.settingUp') : t('onboarding.getStarted')} <Check size={16} />
             </Button>
           )}
         </div>

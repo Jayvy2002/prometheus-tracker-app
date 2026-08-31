@@ -13,7 +13,7 @@ import {
 import { resolveNudgeBody } from '../../lib/coachSettings';
 import { displayName } from '../../lib/coachText';
 import { clientFileHref } from '../../lib/coachSituation';
-import { coachingPassHref, isCompleteCalorieDraft, parseCalorieDraft } from '../../lib/coachInterventions';
+import { coachingPassHref } from '../../lib/coachInterventions';
 import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -29,7 +29,7 @@ export default function CoachInboxPage() {
   const { user } = useAuthStore();
   const {
     fetchCoachOps, fetchCoachMessages, fetchCoachSettings, pendingInterventions, clients, sentMessages,
-    sendCoachMessage, markThreadRead, coachSettings, resolveIntervention, setClientNutritionTargets,
+    sendCoachMessage, markThreadRead, coachSettings, resolveIntervention,
   } = useCoachingStore();
   const [sending, setSending] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
@@ -101,25 +101,8 @@ export default function CoachInboxPage() {
       return;
     }
     if (item.kind === 'calorie_adjustment') {
-      const cals = parseCalorieDraft(item.payload);
-      if (!isCompleteCalorieDraft(cals) || !cals) {
-        setSendingId(null);
-        navigate(coachingPassHref(item, { from: 'messages' }));
-        return;
-      }
-      const applied = await setClientNutritionTargets(item.client_id, cals);
-      if (applied.error) {
-        setSendingId(null);
-        toast(applied.error, 'error');
-        return;
-      }
-      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
       setSendingId(null);
-      if (resolved.error) {
-        toast(resolved.error, 'error');
-        return;
-      }
-      toast(t('coaching.interventions.sent'));
+      navigate(coachingPassHref(item, { from: 'messages' }));
       return;
     }
     setSendingId(null);

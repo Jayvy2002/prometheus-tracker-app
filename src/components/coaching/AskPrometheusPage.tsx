@@ -39,7 +39,7 @@ export default function AskPrometheusPage() {
   const { user } = useAuthStore();
   const {
     opsRows, priorities, rosterSignals,
-    fetchCoachOps, askSecond,
+    fetchCoachOps, askCoachAgent,
   } = useCoachingStore();
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [history, setHistory] = useState<string[]>(loadHistory);
@@ -86,7 +86,7 @@ export default function AskPrometheusPage() {
       ? 'ask_prometheus'
       : route.kind;
     setSending(true);
-    const result = await askSecond({
+    const result = await askCoachAgent({
       kind,
       clientId,
       programId: searchParams.get('program'),

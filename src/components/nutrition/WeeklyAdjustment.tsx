@@ -6,6 +6,8 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { parseDateStr, toLocalDateStr } from '../../lib/utils';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { useCoachingStore } from '../../stores/coachingStore';
 import Button from '../ui/Button';
 
 const MIN_WEIGH_INS = 4;
@@ -98,19 +100,22 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
   const { measurements } = useWeightStore();
   const { fetchCaloriesForRange } = useNutritionStore();
   const [calorieAdherence, setCalorieAdherence] = useState<number | null>(null);
 
   const goal = profile?.goal ?? 'maintain';
-  const currentCalories = profile?.daily_calorie_target ?? 2000;
+  const currentCalories = profile?.daily_calorie_target ?? 0;
 
   const { avg: avgCurrent, count: countCurrent, dataPoints: dpCurrent } = getRollingAvg(measurements, 0, WINDOW_DAYS);
   const { avg: avgPrev, count: countPrev } = getRollingAvg(measurements, WINDOW_DAYS, WINDOW_DAYS);
   const totalWeighIns = countCurrent + countPrev;
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || coached) return;
     const start = getDateNDaysAgo(WINDOW_DAYS);
     const end = getDateNDaysAgo(0);
     fetchCaloriesForRange(user.id, start, end).then(rows => {
@@ -126,6 +131,7 @@ export default function WeeklyAdjustment({ onDismiss }: Props) {
     });
   }, [user?.id, currentCalories]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (coached) return null;
   if (avgCurrent === null || avgPrev === null || totalWeighIns < MIN_WEIGH_INS) return null;
 
   const weekDiff = avgCurrent - avgPrev;

@@ -12,6 +12,7 @@ export const PROGRAM_SEND_KINDS: CoachInterventionKind[] = [
   'onboarding_plan',
   'ask_prometheus',
   'program_nl_edit',
+  'program_adjustment',
 ];
 
 export function isProgramSendKind(kind: CoachInterventionKind): boolean {
@@ -138,4 +139,32 @@ export function clientWillSeeSummary(
     return preview ? `${preview.exercise} ${preview.after}` : edited.patch.exercise;
   }
   return outlineFromEdited(edited)?.name ?? '';
+}
+
+export function outlineFromProgram(program: Program): {
+  name: string;
+  description: string;
+  duration_weeks: number;
+  days: AiProgramDayDraft[];
+} {
+  return {
+    name: program.name,
+    description: program.description ?? '',
+    duration_weeks: program.duration_weeks ?? 8,
+    days: [...(program.days ?? [])]
+      .sort((a, b) => a.order_index - b.order_index)
+      .map(d => ({
+        weekday: d.weekday,
+        name: d.name,
+        exercises: (d.exercises ?? []).map(ex => ({
+          name: ex.name,
+          default_sets: ex.default_sets,
+          default_reps: ex.default_reps,
+          default_reps_min: ex.default_reps_min,
+          default_rir: ex.default_rir,
+          default_rest_seconds: ex.default_rest_seconds,
+          default_weight_kg: ex.default_weight_kg,
+        })),
+      })),
+  };
 }

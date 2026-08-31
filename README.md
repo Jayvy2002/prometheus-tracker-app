@@ -1,8 +1,12 @@
-# Prometheus Tracker
+# Prometheus — plateforme de coaching
 
-> A full-stack fitness tracking PWA — workouts, nutrition, weight, barcode scanner, AI food identification, streaks, and more.
+> Coaching boosté IA pour Jayvy (kinésiologue, Montréal). **new-JV** est le produit. Live `tracker.prometheus-fit.com` (`main`) est l’ancien tracker solo — ne pas y coller cette branche.
 
-**Live:** [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com)
+**North star :** l’agent in-app `coach-agent` prépare un brouillon → le coach édite / envoie → rien ne s’applique tout seul. Relancer avant les cibles. Pas de CRM. Pas d’éditeur calories. Pas de Premium.
+
+**Audit produit (22 findings) :** [`docs/AUDIT_PRODUIT_2026-08-31.md`](docs/AUDIT_PRODUIT_2026-08-31.md)
+
+**Live:** [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com) — ancien produit. Cette branche n’est pas `main`.
 
 ---
 
@@ -26,18 +30,15 @@
 
 ## Features
 
-- **Workout tracking** — log sessions, exercises, sets, reps, weight; view progress per exercise
-- **Nutrition journal** — log meals by day, track macros (protein, carbs, fat, calories)
-- **Barcode scanner** — detects barcodes via camera, looks up local DB then Open Food Facts
-- **AI food identification** — take up to 3 photos (front, back, nutrition label) for AI analysis
-- **Weight tracking** — log measurements, view trend chart
-- **Routines** — save and reuse workout templates
-- **Calendar** — view activity per day (workouts, nutrition entries, weight)
-- **Stats** — analytics and trends across all categories
-- **Streaks** — daily activity streak tracker
-- **Recipes** — save and reuse meal recipes
-- **PWA** — installable, offline-capable, push notifications
-- **i18n** — English and French
+Boucle coach (new-JV) :
+
+- **Aujourd’hui** — File du jour, Relancer, tournée SQL (`coach-fleet-round`)
+- **Client 360** — 6 onglets spec (Vue d’ensemble, Entraînement, Progression, Check-ins, Santé, Notes)
+- **Messages** — fil Relancer + brouillons à envoyer (rien ne s’auto-applique)
+- **Prometheus** — Ask in-app (`coach-agent`) qui écrit des brouillons
+- **Athlète coaché** — séance d’abord, modules allumés par le coach, cibles kcal envoyées par le coach
+
+Le tracker solo (workouts, nutrition, scanner) reste pour un compte **sans** coach. Un athlète lié ne s’auto-sert pas les kcal.
 
 ---
 
@@ -76,12 +77,12 @@ supabase/
     ├── analyze-product/       # Food miss/photo → OpenAI in-app
     ├── verify-exercise/       # Library miss → OpenAI in-app
     ├── coach-agent/           # Coach Ask + programme IA (OpenAI sync, drafts only)
-    ├── ask-second/            # Alias → coach-agent (never Second / never a Grok Bot)
+    ├── ask-second/            # Retired 410 — use coach-agent
     ├── coach-fleet-round/     # Weekly SQL triage of every active client + drafts
     ├── notify-onboarding-complete/ # HMAC then in-app onboarding_plan draft
     ├── delete-account/
     └── send-daily-reminders/  # Web Push notifications via VAPID
-    # Legacy (no longer called from the client after paywall removal):
+    # Quarantined (410, do not call, do not build Premium):
     # create-checkout-session, create-portal-session, stripe-webhook
 ```
 
@@ -152,7 +153,7 @@ Weekly / on-demand review is **in the app**:
 1. `triage_coach_fleet` — cheap SQL of **every** active linked client (14-day aggregates, not raw logs).
 2. Data-driven Relancer / complete kcal+P/C/F. ISSN is the starting formula only. Never auto-write cibles.
 3. LLM **only** when there is a plan/program proposal the formulas do not write.
-4. Writes `coach_interventions` drafts only. The coach accepts / edits / sends. Never auto-applies. Never pings Second.
+4. Writes `coach_interventions` drafts only. The coach accepts / edits / sends. Never auto-applies. Never POSTs GROK_BOT_WEBHOOK_URL. Do not set `GROK_BOT_WEBHOOK_URL`.
 
 Cron: `invoke_coach_fleet_round` → `coach-fleet-round`. Ask + « Créer un programme IA » go through `coach-agent` (sync OpenAI), not a bot.
 
@@ -161,14 +162,14 @@ Cron: `invoke_coach_fleet_round` → `coach-fleet-round`. Ask + « Créer un pro
 | Secret | Description |
 |---|---|
 | `OPENAI_API_KEY` | In-app OpenAI for `coach-agent`, `analyze-product`, `verify-exercise`. Fleet uses it only for `program_adjustment`. |
-| `NOTIFY_SECRET` / `GROK_BOT_WEBHOOK_SECRET` | HMAC / cron auth only — **not** a Grok Bot ping. Do not set `GROK_BOT_WEBHOOK_URL`. |
-| `FLEET_CRON_SECRET` | Preferred nightly auth for `coach-fleet-round`. Falls back to `GROK_BOT_WEBHOOK_SECRET`. |
+| `FLEET_CRON_SECRET` | Nightly auth for `coach-fleet-round`. No Grok fallback. Do not set `GROK_BOT_WEBHOOK_URL`. |
+| `NOTIFY_SECRET` | HMAC for `notify-onboarding-complete` (optional fallback `GROK_BOT_WEBHOOK_SECRET` on that function only — not a Grok Bot ping). |
 | `VAPID_PUBLIC_KEY` | VAPID public key (Web Push) |
 | `VAPID_PRIVATE_KEY` | VAPID private key (Web Push) |
 | `VAPID_SUBJECT` | `mailto:you@example.com` |
-| `SITE_URL` | `https://tracker.prometheus-fit.com` |
+| `SITE_URL` | Site origin for CORS |
 
-Stripe secrets (`STRIPE_*`) are only needed if the leftover checkout/webhook functions are still deployed.
+Stripe functions (`create-checkout-session`, `create-portal-session`, `stripe-webhook`) return **410**. Do not set `STRIPE_*`. Do not build Premium.
 
 Generate VAPID keys with:
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, ClipboardCheck, Scale } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -66,7 +66,7 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { coachingRole, myCoach, enableCoachMode, disableCoachMode } = useCoachingStore();
+  const { coachingRole, myCoach, enableCoachMode, disableCoachMode, myTrackingConfig: tracking } = useCoachingStore();
   const isCoach = coachingRole === 'coach';
   const coached = isCoachedAthlete(coachingRole, myCoach);
 
@@ -118,7 +118,7 @@ export default function ProfilePage() {
         <div className="flex items-center gap-4">
           <AvatarUpload />
           <div className="flex-1 min-w-0">
-            <p className="text-lg font-semibold text-white truncate">{profile?.full_name || 'User'}</p>
+            <p className="text-lg font-semibold text-white truncate">{profile?.full_name || t('profile.fallbackName')}</p>
             <p className="text-sm text-neutral-400 truncate">{user?.email}</p>
             <p className="text-xs text-neutral-500 mt-0.5">{t('profile.tapToChange')}</p>
             {myCoach && (
@@ -128,7 +128,35 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-
+      {coached && (
+        <Card className="mb-6 space-y-1">
+          <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest px-1 mb-2">{t('profile.hubTitle')}</p>
+          <button type="button" onClick={() => navigate('/messages')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <MessageSquare size={16} className="text-blue-400" /> {t('nav.messages')}
+          </button>
+          <button type="button" onClick={() => navigate('/photos')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Camera size={16} className="text-blue-400" /> {t('nav.photos')}
+          </button>
+          <button type="button" onClick={() => navigate('/programs')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <CalendarRange size={16} className="text-blue-400" /> {t('nav.myProgram')}
+          </button>
+          {tracking.track_checkins && (
+            <button type="button" onClick={() => navigate('/checkin')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+              <ClipboardCheck size={16} className="text-blue-400" /> {t('nav.checkin')}
+            </button>
+          )}
+          {tracking.track_nutrition && (
+            <button type="button" onClick={() => navigate('/nutrition')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+              <Apple size={16} className="text-blue-400" /> {t('nav.nutrition')}
+            </button>
+          )}
+          {tracking.track_weight && (
+            <button type="button" onClick={() => navigate('/weight')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+              <Scale size={16} className="text-blue-400" /> {t('nav.weight')}
+            </button>
+          )}
+        </Card>
+      )}
 
       <div className="space-y-2 mb-6">
         <AccordionSection id="personal" icon={User} label={t('profile.sections.personalInfo')} isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">

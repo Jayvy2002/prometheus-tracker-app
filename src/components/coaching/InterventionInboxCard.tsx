@@ -15,6 +15,7 @@ import {
   parsePreparedMessage,
 } from '../../lib/coachFleet';
 import { interventionLiveLabel } from '../../lib/coachSecond';
+import { inboxPrimaryIsSend } from '../../lib/coachStoreGuards';
 import type { CoachIntervention } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -39,8 +40,7 @@ export default function InterventionInboxCard({
   const cals = parseCalorieDraft(item.payload);
   const completeCals = isCompleteCalorieDraft(cals);
   const relance = isRelanceKind(item.kind);
-  const primaryIsSend = (relance && !!message && !!onSend)
-    || (item.kind === 'calorie_adjustment' && completeCals && !!onSend);
+  const primaryIsSend = inboxPrimaryIsSend(item.kind) && !!message && !!onSend;
 
   return (
     <Card className="space-y-2">
@@ -90,7 +90,11 @@ export default function InterventionInboxCard({
           </Button>
         ) : (
           <Button size="sm" onClick={() => navigate(href)}>
-            {item.kind === 'onboarding_plan' ? t('coaching.queue.setup') : t('coaching.interventions.edit')}
+            {item.kind === 'onboarding_plan'
+              ? t('coaching.queue.setup')
+              : item.kind === 'calorie_adjustment'
+                ? t('coaching.queue.openDraft')
+                : t('coaching.interventions.edit')}
           </Button>
         )}
         {primaryIsSend ? (

@@ -22,6 +22,7 @@ import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
+import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import { useCoachingStore } from '../../stores/coachingStore';
 
 export default function NutritionPage() {
@@ -62,8 +63,9 @@ export default function NutritionPage() {
   }, [searchParams]);
 
   const totalCals = logs.reduce((s, l) => s + l.calories, 0);
-  const target = profile?.daily_calorie_target ?? 2000;
-  const pct = Math.min(100, (totalCals / target) * 100);
+  const target = profile?.daily_calorie_target ?? 0;
+  const pct = target > 0 ? Math.min(100, (totalCals / target) * 100) : 0;
+  const showTargets = hasSentNutritionTarget(profile);
 
   const shiftDate = (days: number) => {
     setSelectedDate(addDaysToDateStr(selectedDate, days));
@@ -164,7 +166,7 @@ export default function NutritionPage() {
         </button>
       </div>
 
-      {anyMacroField(tracking) && (
+      {anyMacroField(tracking) && showTargets && (
       <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale">
         <div className="flex items-center gap-5">
           {showNutritionField(tracking, 'calories') ? (

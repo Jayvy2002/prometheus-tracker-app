@@ -57,7 +57,7 @@ export default function InterventionDraftPage() {
   const {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
-    sendCoachMessage, pendingInterventions, askSecond,
+    sendCoachMessage, pendingInterventions, askCoachAgent,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment, applyExercisePatch } = useProgramStore();
 
@@ -204,6 +204,11 @@ export default function InterventionDraftPage() {
     const sentPayload = editedProgramPayload(row.payload, edited);
 
     if (row.kind === 'calorie_adjustment') {
+      if (!isCompleteCalorieDraft({ calories, protein, carbs, fat })) {
+        setSaving(false);
+        toast(t('coaching.interventions.macrosRequired'), 'error');
+        return;
+      }
       const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
       if (result.error) {
         setSaving(false);
@@ -386,7 +391,7 @@ export default function InterventionDraftPage() {
               const kind = row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus'
                 ? row.kind
                 : 'ask_prometheus';
-              await askSecond({
+              await askCoachAgent({
                 kind,
                 clientId: row.client_id,
                 programId: typeof row.payload.program_id === 'string' ? row.payload.program_id : null,
@@ -403,7 +408,7 @@ export default function InterventionDraftPage() {
 
   const showProgram = (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') && !patch;
   const showPatch = (row.kind === 'program_adjustment' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') && !!patch;
-  const showCalories = row.kind === 'calorie_adjustment' && isCompleteCalorieDraft({ calories, protein, carbs, fat });
+  const showCalories = row.kind === 'calorie_adjustment';
   const incompleteCals = row.kind === 'calorie_adjustment' && !isCompleteCalorieDraft({ calories, protein, carbs, fat });
   const showTracking = row.kind === 'onboarding_plan';
   const isAdherenceKind = isRelanceKind(row.kind);
@@ -478,7 +483,6 @@ export default function InterventionDraftPage() {
         {incompleteCals && (
           <Card className="mb-4 border-amber-500/30">
             <p className="text-sm text-amber-200">{t('coaching.interventions.macrosRequired')}</p>
-            <p className="text-xs text-neutral-500 mt-1">{t('coaching.fleet.noCalorieEditor')}</p>
           </Card>
         )}
         <p className="text-xs text-neutral-500 mb-4">
@@ -646,6 +650,7 @@ export default function InterventionDraftPage() {
             else void handleSend();
           }}
           loading={saving}
+          disabled={incompleteCals}
           className="w-full"
         >
           {primaryLabel}

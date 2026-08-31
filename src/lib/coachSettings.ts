@@ -15,16 +15,13 @@ export const EMPTY_COACH_SETTINGS: Omit<CoachSettings, 'coach_id'> = {
   updated_at: '',
 };
 
-const TAB_SET = new Set<CoachClientTab>(DEFAULT_COACH_VISIBLE_TABS);
+const TAB_SET = new Set<CoachClientTab>([...DEFAULT_COACH_VISIBLE_TABS, 'profile']);
 
 export function parseVisibleTabs(raw: unknown): CoachClientTab[] {
   if (!Array.isArray(raw)) return [...DEFAULT_COACH_VISIBLE_TABS];
   const tabs = raw.filter((x): x is CoachClientTab => typeof x === 'string' && TAB_SET.has(x as CoachClientTab));
   if (tabs.length === 0) return [...DEFAULT_COACH_VISIBLE_TABS];
-  const withoutOverview = tabs.filter(tab => tab !== 'overview');
-  if (!withoutOverview.includes('profile')) {
-    withoutOverview.splice(0, 0, 'profile');
-  }
+  const withoutOverview = tabs.filter(tab => tab !== 'overview' && tab !== 'profile');
   return ['overview', ...withoutOverview];
 }
 

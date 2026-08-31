@@ -56,7 +56,7 @@ export default function ProgramSessionEditor({
   const { t } = useTranslation();
   const exercisesLib = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
-  const askSecond = useCoachingStore(s => s.askSecond);
+  const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const fetchTrackingConfig = useCoachingStore(s => s.fetchTrackingConfig);
   const fetchCoachSettings = useCoachingStore(s => s.fetchCoachSettings);
@@ -191,7 +191,7 @@ export default function ProgramSessionEditor({
     setNlError(null);
     setProposal(null);
     setNlSending(true);
-    const result = await askSecond({
+    const result = await askCoachAgent({
       kind: 'program_nl_edit',
       clientId: clientId ?? null,
       programId: programId ?? null,

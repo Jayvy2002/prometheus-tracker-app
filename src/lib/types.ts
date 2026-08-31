@@ -9,10 +9,10 @@ export interface UserProfile {
   activity_level: string;
   goal: string;
   target_weight_kg: number;
-  daily_calorie_target: number;
-  protein_target: number;
-  carbs_target: number;
-  fat_target: number;
+  daily_calorie_target: number | null;
+  protein_target: number | null;
+  carbs_target: number | null;
+  fat_target: number | null;
   daily_water_target_ml: number;
   daily_steps_target: number;
   unit_weight: 'kg' | 'lbs';
@@ -519,7 +519,6 @@ export interface CoachMessageThread {
 
 export const DEFAULT_COACH_VISIBLE_TABS: CoachClientTab[] = [
   'overview',
-  'profile',
   'training',
   'progress',
   'checkins',

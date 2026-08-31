@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 import { isCoachedAthlete } from './lib/coachRole';
+import TrackingGate from './components/coaching/TrackingGate';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -146,7 +147,10 @@ function AppRoutes() {
 
   const skipPersonalOnboarding =
     coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
-  const deferClientOnboarding = isOnboardingDeferred() && !!myCoach;
+  const deferClientOnboarding =
+    isCoachedAthlete(coachingRole, myCoach)
+    || coachingRole === 'client'
+    || (isOnboardingDeferred() && !!myCoach);
 
   if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
@@ -161,15 +165,15 @@ function AppRoutes() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<HomeDashboard />} />
-        <Route path="/workout" element={<CoachTrackerRedirect><WorkoutPage /></CoachTrackerRedirect>} />
-        <Route path="/nutrition" element={<CoachTrackerRedirect><NutritionPage /></CoachTrackerRedirect>} />
-        <Route path="/weight" element={<CoachTrackerRedirect><WeightPage /></CoachTrackerRedirect>} />
-        <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
+        <Route path="/workout" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/nutrition" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><NutritionPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><WeightPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/calendar" element={<CoachTrackerRedirect><CoachedAthleteRedirect><CalendarPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
-        <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
-        <Route path="/checkin" element={<CoachTrackerRedirect><CheckInPage /></CoachTrackerRedirect>} />
-        <Route path="/clients" element={<ClientsPage />} />
+        <Route path="/exercise-progress" element={<CoachTrackerRedirect><CoachedAthleteRedirect><ExerciseProgressPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
+        <Route path="/stats" element={<CoachTrackerRedirect><CoachedAthleteRedirect><StatsPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
+        <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
+        <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
         <Route path="/clients/:id" element={<CoachOnly><ClientDetailPage /></CoachOnly>} />
         <Route path="/clients/:id/setup" element={<CoachOnly><ClientSetupPage /></CoachOnly>} />
         <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
@@ -182,12 +186,12 @@ function AppRoutes() {
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
         <Route path="/programs/:id" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
       </Route>
-      <Route path="/workout/new" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
-      <Route path="/workout/:id" element={<CoachTrackerRedirect><WorkoutForm /></CoachTrackerRedirect>} />
+      <Route path="/workout/new" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
+      <Route path="/workout/:id" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/routines" element={<AppLayout />}>
         <Route index element={<CoachTrackerRedirect><CoachedAthleteRedirect><RoutinesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
       </Route>
-      <Route path="/scanner" element={<CoachTrackerRedirect><ScannerPage /></CoachTrackerRedirect>} />
+      <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/recipes" element={<CoachTrackerRedirect><CoachedAthleteRedirect><RecipesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />

@@ -1,14 +1,13 @@
 -- Schedule in-app coach-fleet-round via pg_cron + pg_net + vault.
--- Architecture lock 2026-08-29: no Grok Bots. This cron is NOT a Second ping.
+-- Architecture lock: no Grok Bots. This cron is NOT a Second ping.
+-- Auth: vault FLEET_CRON_SECRET only (no GROK_BOT_WEBHOOK_SECRET fallback).
 -- Coaching copy: phyuijjekxtjvipjtdfv. Do not apply to backup nebysjpqifqphvmveowe.
--- Never bake SERVICE_ROLE_KEY in git. The invoke function reads vault at runtime
--- (FLEET_CRON_SECRET, fallback GROK_BOT_WEBHOOK_SECRET as HMAC only).
+-- Never bake SERVICE_ROLE_KEY in git. The invoke function reads vault at runtime.
 --
 -- 1. pg_cron + pg_net enabled (coaching copy already has both).
--- 2. Edge Function coach-fleet-round: set FLEET_CRON_SECRET (or GROK_BOT_WEBHOOK_SECRET)
---    to the same vault value so the nightly POST authenticates. OPENAI_API_KEY is
---    optional and unused for Relancer / data-driven kcal.
--- 3. Nightly 04:00 UTC. JWT is not used here. Never POST GROK_BOT_WEBHOOK_URL.
+-- 2. Edge Function coach-fleet-round: set FLEET_CRON_SECRET to the same vault value.
+-- 3. Nightly 04:00 UTC. JWT is used for the in-app « Lancer la tournée » button.
+--    Never POST GROK_BOT_WEBHOOK_URL.
 
 CREATE OR REPLACE FUNCTION public.invoke_coach_fleet_round()
 RETURNS bigint
@@ -24,26 +23,14 @@ BEGIN
     SELECT ds.decrypted_secret
       INTO v_key
     FROM vault.decrypted_secrets ds
-    WHERE ds.name = ANY (ARRAY[
-      'FLEET_CRON_SECRET',
-      'GROK_BOT_WEBHOOK_SECRET',
-      'grok_bot_webhook_secret'
-    ])
-    ORDER BY array_position(
-      ARRAY[
-        'FLEET_CRON_SECRET',
-        'GROK_BOT_WEBHOOK_SECRET',
-        'grok_bot_webhook_secret'
-      ],
-      ds.name
-    )
+    WHERE ds.name = 'FLEET_CRON_SECRET'
     LIMIT 1;
   EXCEPTION WHEN OTHERS THEN
     v_key := NULL;
   END;
 
   IF v_key IS NULL OR length(v_key) = 0 THEN
-    RAISE WARNING 'coach-fleet-round: no vault secret, skip cron invoke';
+    RAISE WARNING 'coach-fleet-round: no FLEET_CRON_SECRET in vault, skip cron invoke';
     RETURN NULL;
   END IF;
 
@@ -68,6 +55,9 @@ $$;
 
 REVOKE ALL ON FUNCTION public.invoke_coach_fleet_round() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.invoke_coach_fleet_round() TO postgres, service_role;
+
+COMMENT ON FUNCTION public.invoke_coach_fleet_round() IS
+  'Nightly pg_cron invoke of in-app coach-fleet-round. Auth via vault FLEET_CRON_SECRET only.';
 
 SELECT cron.unschedule('coach-fleet-round')
 WHERE EXISTS (

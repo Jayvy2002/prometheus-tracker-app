@@ -8,7 +8,6 @@
  */
 
 export const COACH_AGENT_FUNCTION = 'coach-agent';
-export const COACH_AGENT_ALIAS_FUNCTION = 'ask-second';
 export const COACH_AGENT_VENDOR = 'openai' as const;
 export const COACH_AGENT_SOURCE = 'agent';
 export const COACH_AGENT_LESSONS_LIMIT = 8;

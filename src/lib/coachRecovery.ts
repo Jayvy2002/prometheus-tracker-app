@@ -53,6 +53,7 @@ export function parseClientTab(raw: string | null | undefined): CoachClientTab |
 
 export function resolveClientTab(raw: string | null | undefined, checkinId?: string | null): CoachClientTab {
   const parsed = parseClientTab(raw);
+  if (parsed === 'profile') return 'overview';
   if (parsed) return parsed;
   if (checkinId && !raw) return 'checkins';
   return 'overview';

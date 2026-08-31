@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import {
   DIET_TYPES, FOOD_ALLERGIES, GOALS, TRAINING_EXPERIENCES, TRAINING_FOCUSES,
 } from '../../lib/constants';
-import { issnTargetsFromProfile } from '../../lib/utils';
 import { parseClientVisiblePatch, profileToVisiblePatch } from '../../lib/coachClientProfile';
 import type { ResolvedTrackingConfig } from '../../lib/clientTracking';
 import type { UserProfile } from '../../lib/types';
@@ -28,10 +27,6 @@ export default function ClientProfileEditor({
   const { saveTrackingConfig, setClientVisibleProfile, fetchClientProfile } = useCoachingStore();
   const [goal, setGoal] = useState(profile?.goal ?? 'maintain');
   const [targetWeight, setTargetWeight] = useState(String(profile?.target_weight_kg || ''));
-  const [calories, setCalories] = useState(profile?.daily_calorie_target ?? 0);
-  const [protein, setProtein] = useState(profile?.protein_target ?? 0);
-  const [carbs, setCarbs] = useState(profile?.carbs_target ?? 0);
-  const [fat, setFat] = useState(profile?.fat_target ?? 0);
   const [water, setWater] = useState(profile?.daily_water_target_ml ?? 2500);
   const [steps, setSteps] = useState(profile?.daily_steps_target ?? 10000);
   const [experience, setExperience] = useState(profile?.training_experience ?? 'beginner');
@@ -43,16 +38,10 @@ export default function ClientProfileEditor({
   const [sleepAvg, setSleepAvg] = useState(String(profile?.sleep_hours_average ?? ''));
   const [saving, setSaving] = useState(false);
 
-  const issn = useMemo(() => (profile ? issnTargetsFromProfile({ ...profile, goal }) : null), [profile, goal]);
-
   useEffect(() => {
     if (!profile) return;
     setGoal(profile.goal || 'maintain');
     setTargetWeight(profile.target_weight_kg ? String(profile.target_weight_kg) : '');
-    setCalories(profile.daily_calorie_target ?? 0);
-    setProtein(profile.protein_target ?? 0);
-    setCarbs(profile.carbs_target ?? 0);
-    setFat(profile.fat_target ?? 0);
     setWater(profile.daily_water_target_ml ?? 2500);
     setSteps(profile.daily_steps_target ?? 10000);
     setExperience(profile.training_experience || 'beginner');
@@ -63,14 +52,6 @@ export default function ClientProfileEditor({
     setAllergies(profile.food_allergies ?? []);
     setSleepAvg(profile.sleep_hours_average != null ? String(profile.sleep_hours_average) : '');
   }, [profile]);
-
-  const applyIssn = () => {
-    if (!issn) return;
-    setCalories(issn.calories);
-    setProtein(issn.protein);
-    setCarbs(issn.carbs);
-    setFat(issn.fat);
-  };
 
   const toggleAllergy = (value: string) => {
     setAllergies(prev => prev.includes(value) ? prev.filter(x => x !== value) : [...prev, value]);
@@ -96,19 +77,9 @@ export default function ClientProfileEditor({
       injuries_limitations: injuries,
       diet_type: diet,
       food_allergies: allergies,
-      daily_calorie_target: calories,
-      protein_target: protein,
-      carbs_target: carbs,
-      fat_target: fat,
     };
     if (targetWeight !== '') raw.target_weight_kg = Number(targetWeight);
     if (sleepAvg !== '') raw.sleep_hours_average = Number(sleepAvg);
-    if (calories >= 800) {
-      raw.daily_calorie_target = calories;
-      raw.protein_target = protein;
-      raw.carbs_target = carbs;
-      raw.fat_target = fat;
-    }
     const parsed = parseClientVisiblePatch(raw);
     if (!parsed.ok) {
       setSaving(false);
@@ -259,15 +230,10 @@ export default function ClientProfileEditor({
       />
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-medium text-white">{t('coaching.setup.targets')}</p>
-          <button type="button" onClick={applyIssn} className="text-xs text-blue-400">
-            {t('coaching.setup.useIssn')}
-          </button>
-        </div>
-        <p className="text-[11px] text-emerald-300/90">{t('coaching.setup.issnLabel')}</p>
+        <p className="text-sm font-medium text-white">{t('coaching.setup.targets')}</p>
+        <p className="text-[11px] text-neutral-500">{t('coaching.fiche.targetsHint')}</p>
         {current && current.daily_calorie_target ? (
-          <p className="text-[11px] text-neutral-500">
+          <p className="text-[11px] text-neutral-300">
             {t('coaching.setup.profileTargets', {
               calories: current.daily_calorie_target,
               protein: current.protein_target,
@@ -275,14 +241,9 @@ export default function ClientProfileEditor({
               fat: current.fat_target,
             })}
           </p>
-        ) : null}
-        <p className="text-[11px] text-neutral-500">{t('coaching.fiche.targetsHint')}</p>
-        <div className="grid grid-cols-2 gap-2">
-          <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(+e.target.value || 0)} />
-          <Input label={t('common.protein')} type="number" value={protein} onChange={e => setProtein(+e.target.value || 0)} />
-          <Input label={t('common.carbs')} type="number" value={carbs} onChange={e => setCarbs(+e.target.value || 0)} />
-          <Input label={t('common.fat')} type="number" value={fat} onChange={e => setFat(+e.target.value || 0)} />
-        </div>
+        ) : (
+          <p className="text-[11px] text-neutral-500">{t('coaching.fiche.noSentTargets')}</p>
+        )}
       </div>
 
       <div className="rounded-xl border border-neutral-800 p-3">

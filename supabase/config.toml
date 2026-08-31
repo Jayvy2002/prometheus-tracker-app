@@ -1,5 +1,5 @@
 # Per-function settings only. Do not put webhook URLs or secrets in this file.
-# OPENAI_API_KEY lives in Edge Function secrets. GROK_BOT_WEBHOOK_SECRET is HMAC/cron only.
+# OPENAI_API_KEY lives in Edge Function secrets. Fleet cron uses FLEET_CRON_SECRET only.
 
 [functions.notify-onboarding-complete]
 verify_jwt = false
