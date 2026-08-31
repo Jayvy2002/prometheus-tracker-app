@@ -835,6 +835,7 @@ const en = {
     dashboardCta: 'Log today’s check-in',
     dashboardHint: 'Sleep, energy, stress — your coach can see this.',
     scaleHint: '0 = lowest · 10 = highest',
+    notSet: 'Not set',
     disabled: 'Your coach has not enabled check-ins for you.',
     fields: {
       sleep_quality: 'Sleep quality',
