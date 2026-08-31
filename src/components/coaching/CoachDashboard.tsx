@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { checkinReviewRows } from '../../lib/coachCheckins';
+import { checkinReviewRows, formatCheckinScore } from '../../lib/coachCheckins';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -177,7 +177,7 @@ export default function CoachDashboard() {
                         <p className="text-[11px] text-neutral-500 truncate">
                           {row.checkin.checked_at}
                           {' · '}
-                          {t(`coaching.checkinReview.kinds.${row.kind}`, { n: row.checkin.joint_pain ?? '—' })}
+                          {t(`coaching.checkinReview.kinds.${row.kind}`, { n: formatCheckinScore(row.checkin.joint_pain, row.checkin) })}
                         </p>
                       </div>
                       <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />

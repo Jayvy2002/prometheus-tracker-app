@@ -2,6 +2,7 @@ import { nameAppearsIn, foldText, displayName } from './coachText';
 import { findLift, liftsForClient, stalledLifts } from './coachLifts';
 import { trainingFocusHref } from './coachTraining';
 import { clientFileHref } from './coachSituation';
+import { formatCheckinScore, isLegacyFiveScaleCheckin, PAIN_WATCH_ON_TEN, scoreOnTen } from './checkinScale';
 import type {
   ClientLiftProgress,
   ClientOpsRow,
@@ -119,7 +120,8 @@ function painHits(opsRows: ClientOpsRow[], checkins: DailyCheckin[], days = 7): 
   const byClient = new Map<string, DailyCheckin[]>();
   for (const c of checkins) {
     if (Date.parse(c.checked_at) < since) continue;
-    if ((c.joint_pain ?? 0) < 3) continue;
+    const pain10 = scoreOnTen(c.joint_pain, isLegacyFiveScaleCheckin(c));
+    if (pain10 == null || pain10 < PAIN_WATCH_ON_TEN) continue;
     const list = byClient.get(c.user_id) ?? [];
     list.push(c);
     byClient.set(c.user_id, list);
@@ -130,7 +132,7 @@ function painHits(opsRows: ClientOpsRow[], checkins: DailyCheckin[], days = 7): 
       clientId: r.client.id,
       clientName: displayName(r.client),
       href: `/clients/${r.client.id}?tab=health`,
-      reason: `pain ${latest.joint_pain}/5`,
+      reason: `pain ${formatCheckinScore(latest.joint_pain, latest)}`,
     };
   });
 }

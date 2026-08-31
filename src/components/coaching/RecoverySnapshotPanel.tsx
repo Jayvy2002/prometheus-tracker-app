@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
+import { formatCheckinScore } from '../../lib/coachCheckins';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { openDraftHref } from '../../lib/coachInterventions';
 import {
@@ -61,10 +62,10 @@ export default function RecoverySnapshotPanel({
   const canAsk = canAskRecoveryAdjust(snapshot);
   const sleepLabel = snapshot.sleepHours != null
     ? t('coaching.recovery.hours', { n: snapshot.sleepHours })
-    : (snapshot.sleepQuality != null ? `${snapshot.sleepQuality}/5` : '—');
-  const painLabel = snapshot.pain != null ? `${snapshot.pain}/5` : '—';
-  const energyLabel = snapshot.energy != null ? `${snapshot.energy}/5` : '—';
-  const sorenessLabel = snapshot.soreness != null ? `${snapshot.soreness}/5` : '—';
+    : (snapshot.sleepQuality != null ? formatCheckinScore(snapshot.sleepQuality, snapshot.checkin) : '—');
+  const painLabel = formatCheckinScore(snapshot.pain, snapshot.checkin);
+  const energyLabel = formatCheckinScore(snapshot.energy, snapshot.checkin);
+  const sorenessLabel = formatCheckinScore(snapshot.soreness, snapshot.checkin);
 
   const askAdjust = async () => {
     if (!canAsk) return;
@@ -75,7 +76,7 @@ export default function RecoverySnapshotPanel({
       prompt: t('coaching.recovery.askAdjustPrompt', {
         name,
         date: formatDate(snapshot.checkin.checked_at),
-        pain: snapshot.pain ?? '—',
+        pain: snapshot.pain != null ? formatCheckinScore(snapshot.pain, snapshot.checkin) : '—',
         sleep: snapshot.sleepHours ?? snapshot.sleepQuality ?? '—',
         notes: snapshot.notes || '—',
       }),

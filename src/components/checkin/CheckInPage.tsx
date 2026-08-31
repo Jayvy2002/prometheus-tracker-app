@@ -5,6 +5,7 @@ import { Check } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { todayStr } from '../../lib/utils';
+import { clampCheckinScore, CHECKIN_SCORE_VALUES } from '../../lib/checkinScale';
 import { useClientTracking } from '../../lib/useClientTracking';
 import {
   CHECKIN_SCALE_BY_VAR,
@@ -30,7 +31,12 @@ function ScaleRow({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-white">{label}</p>
+        <p className="text-sm font-medium text-white">
+          {label}
+          {value != null && (
+            <span className="ml-2 text-blue-400 font-semibold">{value}/10</span>
+          )}
+        </p>
         <button
           type="button"
           onClick={() => onChange(null)}
@@ -39,13 +45,13 @@ function ScaleRow({
           {value == null ? '—' : '×'}
         </button>
       </div>
-      <div className="flex gap-1.5">
-        {[1, 2, 3, 4, 5].map(n => (
+      <div className="grid grid-cols-6 gap-1">
+        {CHECKIN_SCORE_VALUES.map(n => (
           <button
             key={n}
             type="button"
             onClick={() => onChange(value === n ? null : n)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all
+            className={`py-2 rounded-xl text-xs font-semibold transition-all
               ${value === n
                 ? 'bg-blue-600 text-white'
                 : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'}`}
@@ -55,8 +61,8 @@ function ScaleRow({
         ))}
       </div>
       <div className="flex justify-between text-[10px] text-neutral-600">
-        <span>{low}</span>
-        <span>{high}</span>
+        <span>0 · {low}</span>
+        <span>{high} · 10</span>
       </div>
     </div>
   );
@@ -131,15 +137,15 @@ export default function CheckInPage() {
       sleep_hours: showCheckinField(tracking, 'sleep_hours')
         ? (hours != null && !Number.isNaN(hours) ? hours : null)
         : todayCheckin?.sleep_hours ?? null,
-      hunger: scales.hunger,
-      fatigue: scales.fatigue,
-      sleep_quality: scales.sleep_quality,
-      stress: scales.stress,
-      motivation: scales.motivation,
-      muscle_soreness: scales.muscle_soreness,
-      joint_pain: scales.joint_pain,
-      energy_level: scales.energy_level,
-      mood: scales.mood,
+      hunger: clampCheckinScore(scales.hunger),
+      fatigue: clampCheckinScore(scales.fatigue),
+      sleep_quality: clampCheckinScore(scales.sleep_quality),
+      stress: clampCheckinScore(scales.stress),
+      motivation: clampCheckinScore(scales.motivation),
+      muscle_soreness: clampCheckinScore(scales.muscle_soreness),
+      joint_pain: clampCheckinScore(scales.joint_pain),
+      energy_level: clampCheckinScore(scales.energy_level),
+      mood: clampCheckinScore(scales.mood),
     };
     for (const [varKey, col] of Object.entries(CHECKIN_SCALE_BY_VAR)) {
       if (!col) continue;
@@ -180,7 +186,8 @@ export default function CheckInPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('checkin.title')}</h1>
-        <p className="text-sm text-neutral-500 mb-6">{t('checkin.subtitle')}</p>
+        <p className="text-sm text-neutral-500 mb-1">{t('checkin.subtitle')}</p>
+        <p className="text-[11px] text-neutral-600 mb-6">{t('checkin.scaleHint')}</p>
 
         <div className="space-y-5">
           {showCheckinField(tracking, 'sleep_hours') && (

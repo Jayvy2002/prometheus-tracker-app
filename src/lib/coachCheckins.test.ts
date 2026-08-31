@@ -187,9 +187,12 @@ test('focusCheckin opens the requested check-in, not just the latest', () => {
   assert.equal(focusCheckin([latest, older], 'missing')?.id, 'ck-new');
 });
 
-test('check-in scores always show /5', () => {
-  assert.equal(formatCheckinScore(3), '3/5');
-  assert.equal(formatCheckinScore(3.0), '3/5');
-  assert.equal(formatCheckinScore(3.3), '3.3/5');
+test('check-in scores: new 0–10 show /10; legacy 1–5 show the stored number', () => {
+  assert.equal(formatCheckinScore(0), '0/10');
+  assert.equal(formatCheckinScore(10), '10/10');
+  assert.equal(formatCheckinScore(7), '7/10');
+  assert.equal(formatCheckinScore(3), '3');
+  assert.equal(formatCheckinScore(3.0), '3');
+  assert.equal(formatCheckinScore(3.3), '3.3');
   assert.equal(formatCheckinScore(null), '—');
 });

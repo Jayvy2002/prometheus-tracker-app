@@ -48,7 +48,7 @@ export function firstName(full: string): string {
   return firstNameOf(full) || full.trim() || 'toi';
 }
 
-/** Check-ins are 1–5 in the coach UI, 0–100 in the original column check. */
+/** Check-in ratings are 0–10 in the client UI. Adherence columns remain 0–100 (shown /5 via this helper). */
 export function adherenceOnFive(raw: number | null | undefined): number | null {
   if (raw == null || !Number.isFinite(raw)) return null;
   if (raw <= 5) return Math.round(raw * 10) / 10;

@@ -65,7 +65,7 @@ export default function CheckinSummaryCard({
             <p className="text-[10px] text-neutral-500 uppercase tracking-wide">
               {t(`coaching.checkin.kpis.${row.key}`)}
             </p>
-            <p className="text-sm text-white mt-0.5">{formatCheckinScore(row.value)}</p>
+            <p className="text-sm text-white mt-0.5">{formatCheckinScore(row.value, summary.latest)}</p>
             <p className="text-[11px]"><Delta value={row.delta} invert={row.invert} /></p>
           </div>
         ))}

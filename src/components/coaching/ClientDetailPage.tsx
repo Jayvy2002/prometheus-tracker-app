@@ -16,6 +16,7 @@ import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { openDraftHref } from '../../lib/coachInterventions';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import { flagKindForClient, focusCheckin, formatCheckinScore, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
+import { isLegacyFiveScaleCheckin, PAIN_WATCH_ON_TEN, scoreOnTen } from '../../lib/checkinScale';
 import {
   canAskCalorieAdjustment,
   detectCutCalorieStall,
@@ -527,8 +528,8 @@ export default function ClientDetailPage() {
                     stalled: insight.stalled.join(', ') || t('coaching.client360.none'),
                   })}
                 </p>
-                {insight.pain != null && insight.pain >= 3 && (
-                  <p className="text-xs text-rose-300 mt-2">{t('coaching.client360.painFlag', { n: insight.pain })}</p>
+                {insight.pain != null && (scoreOnTen(insight.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : insight.pain <= 5) ?? 0) >= PAIN_WATCH_ON_TEN && (
+                  <p className="text-xs text-rose-300 mt-2">{t('coaching.client360.painFlag', { n: formatCheckinScore(insight.pain, checkins[0]) })}</p>
                 )}
               </Card>
             ) : null}
@@ -572,8 +573,8 @@ export default function ClientDetailPage() {
                 />
                 <Kpi
                   label={t('coaching.kpis.pain')}
-                  value={formatCheckinScore(kpis.pain)}
-                  tone={(kpis.pain ?? 0) >= 3 ? 'text-rose-300' : undefined}
+                  value={formatCheckinScore(kpis.pain, checkins[0])}
+                  tone={(scoreOnTen(kpis.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : (kpis.pain ?? 0) <= 5) ?? 0) >= PAIN_WATCH_ON_TEN ? 'text-rose-300' : undefined}
                 />
               </div>
             )}
@@ -749,7 +750,7 @@ export default function ClientDetailPage() {
                       'energy_level', 'sleep_quality', 'stress', 'motivation', 'fatigue',
                       'mood', 'muscle_soreness', 'joint_pain', 'adherence_training', 'adherence_nutrition',
                     ] as const).map(key => (
-                      <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(c[key])}</span>
+                      <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(c[key], c)}</span>
                     ))}
                   </div>
                   {c.notes && <p className="text-xs text-neutral-500 mt-2">{c.notes}</p>}

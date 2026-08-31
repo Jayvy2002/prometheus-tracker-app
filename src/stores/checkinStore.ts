@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { todayStr } from '../lib/utils';
+import { clampCheckinScore } from '../lib/checkinScale';
 import type { DailyCheckin, DailyCheckinInput } from '../lib/types';
 
 interface CheckinState {
@@ -46,18 +47,18 @@ export const useCheckinStore = create<CheckinState>((set) => ({
     const payload = {
       user_id: userId,
       checked_at: input.checked_at || todayStr(),
-      hunger: input.hunger ?? null,
-      fatigue: input.fatigue ?? null,
-      sleep_quality: input.sleep_quality ?? null,
+      hunger: clampCheckinScore(input.hunger),
+      fatigue: clampCheckinScore(input.fatigue),
+      sleep_quality: clampCheckinScore(input.sleep_quality),
       sleep_hours: input.sleep_hours ?? null,
-      stress: input.stress ?? null,
-      motivation: input.motivation ?? null,
-      muscle_soreness: input.muscle_soreness ?? null,
-      joint_pain: input.joint_pain ?? null,
+      stress: clampCheckinScore(input.stress),
+      motivation: clampCheckinScore(input.motivation),
+      muscle_soreness: clampCheckinScore(input.muscle_soreness),
+      joint_pain: clampCheckinScore(input.joint_pain),
       adherence_nutrition: input.adherence_nutrition ?? null,
       adherence_training: input.adherence_training ?? null,
-      energy_level: input.energy_level ?? null,
-      mood: input.mood ?? null,
+      energy_level: clampCheckinScore(input.energy_level),
+      mood: clampCheckinScore(input.mood),
       notes: input.notes ?? '',
       updated_at: new Date().toISOString(),
     };

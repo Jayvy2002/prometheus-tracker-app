@@ -1,3 +1,11 @@
+import {
+  LOW_SLEEP_QUALITY_ON_TEN,
+  PAIN_CONCERN_ON_TEN,
+  PAIN_WATCH_ON_TEN,
+  formatCheckinScore,
+  isLegacyFiveScaleCheckin,
+  scoreOnTen,
+} from './checkinScale';
 import { relanceThreadHref } from './coachQueue';
 import { datePrefix } from './coachText';
 import { addDaysToDateStr } from './utils';
@@ -15,7 +23,9 @@ export const CHECKIN_QUERY_PARAM = 'checkin';
 /** Ghost / stale check-ins → empty + Relancer, not leftover pain/sleep. */
 export const RECENT_RECOVERY_DAYS = 7;
 export const LOW_SLEEP_HOURS = 6;
+/** @deprecated Use LOW_SLEEP_QUALITY_ON_TEN; kept as the old 1–5 cutoff for tests. */
 export const LOW_SLEEP_QUALITY = 2;
+/** @deprecated Use PAIN_WATCH_ON_TEN; kept as the old 1–5 cutoff for tests. */
 export const PAIN_WATCH = 3;
 
 const CLIENT_TABS: CoachClientTab[] = [
@@ -81,20 +91,24 @@ export function sortedCheckins(checkins: DailyCheckin[]): DailyCheckin[] {
 }
 
 export function isPainFlag(latest: DailyCheckin, prev?: DailyCheckin | null): boolean {
-  const pain = latest.joint_pain;
-  if (pain == null) return false;
-  const jumped = prev?.joint_pain != null && pain >= PAIN_WATCH && pain > (prev.joint_pain ?? 0);
-  return pain >= PAIN_WATCH || jumped;
+  const pain10 = scoreOnTen(latest.joint_pain, isLegacyFiveScaleCheckin(latest));
+  if (pain10 == null) return false;
+  if (pain10 >= PAIN_WATCH_ON_TEN) return true;
+  if (prev?.joint_pain == null) return false;
+  const prev10 = scoreOnTen(prev.joint_pain, isLegacyFiveScaleCheckin(prev));
+  return prev10 != null && pain10 > prev10 && pain10 >= PAIN_WATCH_ON_TEN;
 }
 
 export function isLowSleep(checkin: DailyCheckin): boolean {
   if (checkin.sleep_hours != null && checkin.sleep_hours < LOW_SLEEP_HOURS) return true;
-  if (checkin.sleep_quality != null && checkin.sleep_quality <= LOW_SLEEP_QUALITY) return true;
+  const quality10 = scoreOnTen(checkin.sleep_quality, isLegacyFiveScaleCheckin(checkin));
+  if (quality10 != null && quality10 <= LOW_SLEEP_QUALITY_ON_TEN) return true;
   return false;
 }
 
 export function canAskRecoveryAdjust(snapshot: RecoverySnapshot): boolean {
-  return snapshot.pain != null && snapshot.pain >= PAIN_WATCH;
+  const pain10 = scoreOnTen(snapshot.pain, isLegacyFiveScaleCheckin(snapshot.checkin));
+  return pain10 != null && pain10 >= PAIN_WATCH_ON_TEN;
 }
 
 function numericSeries(
@@ -176,8 +190,12 @@ export function painPriority(
   if (!isRecentCheckin(latest, today)) return null;
   if (!isPainFlag(latest, prev)) return null;
   const pain = latest.joint_pain as number;
-  const jumped = prev?.joint_pain != null && pain >= PAIN_WATCH && pain > (prev.joint_pain ?? 0);
-  const red = pain >= 4 || jumped;
+  const pain10 = scoreOnTen(pain, isLegacyFiveScaleCheckin(latest)) ?? 0;
+  const prev10 = prev?.joint_pain != null
+    ? scoreOnTen(prev.joint_pain, isLegacyFiveScaleCheckin(prev))
+    : null;
+  const jumped = prev10 != null && pain10 >= PAIN_WATCH_ON_TEN && pain10 > prev10;
+  const red = pain10 >= PAIN_CONCERN_ON_TEN || jumped;
   return {
     id: `${clientId}-pain`,
     clientId,
@@ -186,9 +204,12 @@ export function painPriority(
     kind: 'new_pain',
     severity: red ? 'red' : 'orange',
     headlineKey: 'coaching.priority.headlines.new_pain',
-    headlineParams: { name, n: pain },
+    headlineParams: { name, n: formatCheckinScore(pain, latest) },
     detailKey: 'coaching.priority.details.new_pain',
-    detailParams: { n: pain, prev: prev?.joint_pain ?? '—' },
+    detailParams: {
+      n: formatCheckinScore(pain, latest),
+      prev: prev?.joint_pain != null ? formatCheckinScore(prev.joint_pain, prev) : '—',
+    },
     href: recoveryFocusHref(clientId, latest.id),
     checkinId: latest.id,
   };
@@ -218,7 +239,7 @@ export function lowSleepPriority(
     detailKey: 'coaching.priority.details.low_sleep',
     detailParams: {
       hours: hours ?? '—',
-      quality: quality ?? '—',
+      quality: quality != null ? formatCheckinScore(quality, latest) : '—',
     },
     href: recoveryFocusHref(clientId, latest.id),
     checkinId: latest.id,
