@@ -22,7 +22,6 @@ function source(rel: string): string {
 
 const AGENT_PATHS = [
   'supabase/functions/coach-agent/index.ts',
-  'supabase/functions/ask-second/index.ts',
   'supabase/functions/notify-onboarding-complete/index.ts',
   'supabase/functions/_shared/coachAgent.ts',
   'supabase/functions/_shared/openaiJson.ts',

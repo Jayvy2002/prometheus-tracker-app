@@ -14,6 +14,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { useAuthStore } from '../../stores/authStore';
 import { formatDate, todayStr, addDaysToDateStr } from '../../lib/utils';
 import { openDraftHref } from '../../lib/coachInterventions';
+import { outlineFromProgram } from '../../lib/coachDraftSend';
 import { isInterventionDrafting, pendingForClient } from '../../lib/coachSecond';
 import { flagKindForClient, focusCheckin, formatCheckinScore, parseCheckinQuery, relanceHrefForCheckin } from '../../lib/coachCheckins';
 import { isLegacyFiveScaleCheckin, PAIN_WATCH_ON_TEN, scoreOnTen } from '../../lib/checkinScale';
@@ -128,7 +129,7 @@ export default function ClientDetailPage() {
     fetchClientNutritionRange, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls,
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, coachSettings, fetchCoachSettings,
-    pendingInterventions, endClientLink, askSecond,
+    pendingInterventions, endClientLink, askCoachAgent, createIntervention,
   } = useCoachingStore();
   const { fetchMyAssignment, assignment } = useProgramStore();
 
@@ -153,6 +154,8 @@ export default function ClientDetailPage() {
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [askingCalories, setAskingCalories] = useState(false);
+  const [openingProgram, setOpeningProgram] = useState(false);
+  const [ficheOpen, setFicheOpen] = useState(false);
   const [clientProfile, setClientProfile] = useState<UserProfile | null>(null);
   const [tracking, setTracking] = useState<ResolvedTrackingConfig>({
     ...ALL_ON_TRACKING,
@@ -338,6 +341,32 @@ export default function ClientDetailPage() {
   const showNutritionPass = shouldShowCutStallCard(client?.goal, nutritionStall);
   const canAskCalories = canAskCalorieAdjustment(nutritionStall) && !calorieDraft;
 
+  const handleOpenAssignedProgram = async () => {
+    if (!id || !assignment?.program || openingProgram) return;
+    const existing = pendingInterventions.find(
+      row => row.client_id === id && row.kind === 'program_adjustment' && row.status === 'pending',
+    );
+    if (existing) {
+      navigate(`/clients/${id}/draft/${existing.id}`);
+      return;
+    }
+    setOpeningProgram(true);
+    const outline = outlineFromProgram(assignment.program);
+    const result = await createIntervention({
+      clientId: id,
+      kind: 'program_adjustment',
+      title: assignment.program.name,
+      rationale: '',
+      payload: { program: outline, name: outline.name, description: outline.description, duration_weeks: outline.duration_weeks, days: outline.days },
+    });
+    setOpeningProgram(false);
+    if ('error' in result) {
+      toast(result.error, 'error');
+      return;
+    }
+    navigate(`/clients/${id}/draft/${result.id}`);
+  };
+
   const handleOpenWorkout = (workoutId: string) => {
     setTab('training', { workout: workoutId });
   };
@@ -364,7 +393,7 @@ export default function ClientDetailPage() {
     const delta = nutritionStall
       ? (nutritionStall.weightDeltaKg > 0 ? `+${nutritionStall.weightDeltaKg}` : String(nutritionStall.weightDeltaKg))
       : '—';
-    const result = await askSecond({
+    const result = await askCoachAgent({
       kind: 'calorie_adjustment',
       clientId: id,
       prompt: secondCaloriePrompt({
@@ -611,6 +640,30 @@ export default function ClientDetailPage() {
                 </div>
               </div>
             )}
+
+            {id ? (
+              <Card>
+                <button
+                  type="button"
+                  onClick={() => setFicheOpen(v => !v)}
+                  className="w-full text-left flex items-center justify-between"
+                >
+                  <p className="text-sm font-medium text-white">{t('coaching.tabs360.profile')}</p>
+                  <span className="text-xs text-blue-400">{ficheOpen ? t('common.close') : t('common.details')}</span>
+                </button>
+                {ficheOpen && (
+                  <div className="mt-4 border-t border-neutral-800 pt-4">
+                    <ClientProfileEditor
+                      clientId={id}
+                      profile={clientProfile}
+                      tracking={tracking}
+                      onTrackingChange={setTracking}
+                      onSaved={setClientProfile}
+                    />
+                  </div>
+                )}
+              </Card>
+            ) : null}
           </div>
         ) : tab === 'training' && workspaceOpen && workspaceLift ? (
           <ExerciseWorkspace
@@ -659,7 +712,8 @@ export default function ClientDetailPage() {
                   <button
                     type="button"
                     className="text-xs text-blue-400 mt-2"
-                    onClick={() => navigate(`/programs/${assignment.program_id}`)}
+                    onClick={() => { void handleOpenAssignedProgram(); }}
+                    disabled={openingProgram}
                   >
                     {t('coaching.client360.openProgram')}
                   </button>
@@ -758,18 +812,6 @@ export default function ClientDetailPage() {
               ))
             )}
           </div>
-        ) : tab === 'profile' ? (
-          <Card>
-            {id ? (
-              <ClientProfileEditor
-                clientId={id}
-                profile={clientProfile}
-                tracking={tracking}
-                onTrackingChange={setTracking}
-                onSaved={setClientProfile}
-              />
-            ) : null}
-          </Card>
         ) : tab === 'health' ? (
           <div className="space-y-3">
             {id && recoveryView ? (

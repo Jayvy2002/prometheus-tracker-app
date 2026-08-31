@@ -1,6 +1,12 @@
-# CLAUDE.md — Prometheus Tracker App
+# CLAUDE.md — Prometheus (coaching, branche new-JV)
 
 > Relis ce fichier au début de chaque réflexion. Fais un plan avant toute modification lourde.
+>
+> **Produit :** plateforme de coaching boostée IA. Pas un CRM. Pas un éditeur calories. Pas Premium.
+> **Agent in-app :** `coach-agent` (OpenAI, brouillons seulement). Second / Grok Bots sont **hors** de la boucle produit — ne pas recâbler `GROK_BOT_WEBHOOK_URL`.
+> **Audit (source de vérité des findings) :** `docs/AUDIT_PRODUIT_2026-08-31.md`
+> **Live `main`** = ancien tracker. Ne pas merger new-JV dans main depuis un audit. Ne pas toucher live/backup DB.
+> **Pas de Stripe / Premium.** Les 3 functions billing répondent 410.
 
 ---
 
@@ -32,6 +38,7 @@ npm run build        # Build de production
 npm run preview      # Prévisualise le build de production
 npm run lint         # ESLint (config flat dans eslint.config.js)
 npm run typecheck    # Vérification TypeScript sans emit
+npm test             # Tests src/lib/*.test.ts (tsx)
 ```
 
 Variables d'environnement requises (fichier `.env` local, jamais commité) :
@@ -98,10 +105,14 @@ supabase/
 └── functions/
     ├── analyze-product/       # IA : analyse produit (images / barcode)
     ├── verify-exercise/       # IA : validation d'un exercice
+    ├── coach-agent/           # Ask + programme IA (brouillons, jamais d’auto-apply)
+    ├── coach-fleet-round/     # Tournée SQL + drafts Relancer / kcal / programme
+    ├── ask-second/            # Retiré (410) — utiliser coach-agent
+    ├── suggest-client-plan/   # Retiré (410)
     ├── delete-account/        # Suppression compte + données
     ├── send-daily-reminders/  # Web Push via VAPID
     └── create-checkout-session, create-portal-session, stripe-webhook
-                               # Legacy Stripe — plus appelées côté client (paywall retiré)
+                               # Quarantaine 410 — ne pas appeler, ne pas coder Premium
 ```
 
 ### Routes principales (React Router)
@@ -110,21 +121,16 @@ supabase/
 |---|---|---|
 | `/auth` | AuthPage | Public |
 | `/onboarding` | OnboardingFlow | Auth requis |
-| `/dashboard` | Dashboard | Auth requis |
-| `/workout` | WorkoutPage | Auth requis |
-| `/workout/new` | WorkoutForm | Auth requis |
-| `/workout/:id` | WorkoutForm | Auth requis |
-| `/nutrition` | NutritionPage | Auth requis |
-| `/scanner` | ScannerPage | Auth requis |
-| `/recipes` | RecipesPage | Auth requis |
-| `/routines` | RoutinesPage | Auth requis |
-| `/weight` | WeightPage | Auth requis |
+| `/dashboard` | Dashboard / CoachDashboard | Auth requis |
+| `/clients` | ClientsPage | CoachOnly |
+| `/clients/:id` | ClientDetailPage | CoachOnly |
+| `/messages` | CoachInbox / ClientMessages | Auth requis |
+| `/prometheus` | AskPrometheusPage | CoachOnly |
+| `/programs` | ProgramsPage / ClientProgramPage | Auth requis |
+| `/photos` | ClientPhotosPage | Client |
+| `/workout` | WorkoutPage | Auth + TrackingGate |
+| `/nutrition` | NutritionPage | Auth + TrackingGate |
 | `/profile` | ProfilePage | Auth requis |
-| `/stats` | StatsPage | Auth requis |
-| `/calendar` | CalendarPage | Auth requis |
-| `/exercise-progress` | ExerciseProgressPage | Auth requis |
-
-Les routes `/auth` et `/onboarding` sont rendues conditionnellement dans `App.tsx` (pas de path dédié). Il n'y a pas de page `/health`.
 
 ---
 
@@ -135,7 +141,7 @@ Les routes `/auth` et `/onboarding` sont rendues conditionnellement dans `App.ts
 - `triage_coach_fleet` : SQL cheap de **tous** les clients actifs (agrégats 14 j, pas les logs bruts).
 - Propositions data-driven : si le client ne suit pas → Relancer, pas de changement de cibles. S’il suit : cut perte normale = keep, stall = petite coupe, reprise = coupe plus franche, fatigue/perf = plus de glucides ; bulk/perf en miroir. kcal+P/C/F complets. ISSN = formule de départ seulement.
 - LLM **seulement** s’il y a une proposition de plan/programme que les formules n’écrivent pas (`program_adjustment`). Relancer et kcal sont déterministes.
-- Écrit uniquement des brouillons `coach_interventions`. Jamais d’auto-apply. Jamais de ping Second.
+- Écrit uniquement des brouillons `coach_interventions`. Jamais d’auto-apply. Jamais de POST `GROK_BOT_WEBHOOK_URL`. L’agent in-app s’appelle `coach-agent`, pas Second.
 - Copie coaching : `phyuijjekxtjvipjtdfv`. Ne pas toucher `main` / backup `nebysjpqifqphvmveowe`.
 
 ---
@@ -150,7 +156,7 @@ Les routes `/auth` et `/onboarding` sont rendues conditionnellement dans `App.ts
 - **Nommage** : PascalCase pour composants, camelCase pour fonctions/variables, snake_case pour les colonnes DB
 - **Organisation** : un composant par fichier, groupés par domaine métier
 - **Imports** : chemins relatifs dans `src/`, pas d'alias sauf si configuré dans Vite
-- **Pas de tests automatisés** en place actuellement — vérifier manuellement et via `typecheck`
+- **Tests** : `npm test` (tsx, `src/lib/*.test.ts`) + `npm run typecheck` + `npm run lint`. Ne pas splitter `coachingStore`.
 - **ESLint** flat config (`eslint.config.js`) avec règles react-hooks et react-refresh
 - **Edge Functions** en Deno (TypeScript) dans `supabase/functions/`
 

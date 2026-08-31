@@ -66,7 +66,7 @@ export default function ClientSetupPage() {
     coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline,
-    pendingInterventions, askSecond, fetchCoachSettings,
+    pendingInterventions, askCoachAgent, fetchCoachSettings,
   } = useCoachingStore();
   const { programs, fetchPrograms, assignProgram } = useProgramStore();
 
@@ -155,7 +155,7 @@ export default function ClientSetupPage() {
   const requestAiProgram = async () => {
     if (!id || asking) return;
     setAsking(true);
-    const result = await askSecond({
+    const result = await askCoachAgent({
       kind: 'onboarding_plan',
       clientId: id,
       prompt: t('coaching.second.createProgramPrompt'),
@@ -380,7 +380,7 @@ export default function ClientSetupPage() {
           <p className="text-[11px] text-emerald-300/90">{t('coaching.setup.issnLabel')}</p>
           <p className="text-xs text-neutral-500">{t('coaching.setup.targetsHint')}</p>
           {profile && issn && (
-            profile.daily_calorie_target > 0
+            (profile.daily_calorie_target ?? 0) > 0
             && (
               profile.daily_calorie_target !== issn.calories
               || profile.protein_target !== issn.protein

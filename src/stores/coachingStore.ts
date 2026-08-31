@@ -51,12 +51,24 @@ import {
 import { EMPTY_COACH_SETTINGS, mapCoachSettings } from '../lib/coachSettings';
 import { aggregateNutritionByDay } from '../lib/coachProgress';
 import {
+  ALL_OFF_TRACKING,
   ALL_ON_TRACKING,
   parseResolvedTracking,
   resolveViewerTracking,
   serializeTrackingVars,
   type ResolvedTrackingConfig,
 } from '../lib/clientTracking';
+import { isCoachedAthlete } from '../lib/coachRole';
+import {
+  cloneTracking,
+  nextRoleAfterFetch,
+  opsHasPartialError,
+  parseRememberedCoachingRole,
+  previousRoleForFetch,
+  viewerTrackingAfterFetch,
+} from '../lib/coachStoreGuards';
+import i18n from '../i18n';
+import { toast } from '../components/ui/Toast';
 import type { ClientVisibleProfilePatch } from '../lib/coachClientProfile';
 import { useProgramStore } from './programStore';
 import { useProfileStore } from './profileStore';
@@ -68,6 +80,27 @@ import { compareRosterName } from '../lib/coachRoster';
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
+const LAST_ROLE_KEY = 'prometheus_last_coaching_role';
+
+function lastRoleStorageKey(userId: string) {
+  return `${LAST_ROLE_KEY}:${userId}`;
+}
+
+function loadRememberedCoachingRole(userId: string): CoachingRole | null {
+  try {
+    return parseRememberedCoachingRole(localStorage.getItem(lastRoleStorageKey(userId)));
+  } catch {
+    return null;
+  }
+}
+
+function persistRememberedCoachingRole(userId: string, role: CoachingRole) {
+  try {
+    localStorage.setItem(lastRoleStorageKey(userId), role);
+  } catch {
+    // private mode / quota
+  }
+}
 
 export type IntendedCoachingRole = Extract<CoachingRole, 'coach' | 'client'>;
 
@@ -240,19 +273,23 @@ interface CoachingState {
   coachingRole: CoachingRole;
   billingRole: UserRole['role'] | null;
   roleReady: boolean;
+  coachingRoleError: string | null;
   loading: boolean;
   clients: CoachClientSummary[];
+  clientsFetchError: string | null;
   invites: CoachInvite[];
   myCoach: CoachPreview | null;
   notes: CoachNote[];
   opsRows: ClientOpsRow[];
   opsLoading: boolean;
+  opsPartialError: string | null;
   pendingInterventions: CoachIntervention[];
   sentMessages: CoachMessage[];
   latestCoachMessage: CoachMessage | null;
   unreadMessageCount: number;
   coachSettings: CoachSettings | null;
   myTrackingConfig: ResolvedTrackingConfig;
+  trackingReady: boolean;
   queueDismissedIds: string[];
   priorities: CoachPriority[];
   rosterSignals: CoachRosterSignals;
@@ -322,7 +359,7 @@ interface CoachingState {
   suggestClientPlan: (clientId: string) => Promise<
     { available: true; draft: AiPlanDraft } | { available: false; error: string }
   >;
-  askSecond: (input: {
+  askCoachAgent: (input: {
     kind: SecondPingKind;
     clientId?: string | null;
     programId?: string | null;
@@ -372,24 +409,23 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   coachingRole: 'none',
   billingRole: null,
   roleReady: false,
+  coachingRoleError: null,
   loading: false,
   clients: [],
+  clientsFetchError: null,
   invites: [],
   myCoach: null,
   notes: [],
   opsRows: [],
   opsLoading: false,
+  opsPartialError: null,
   pendingInterventions: [],
   sentMessages: [],
   latestCoachMessage: null,
   unreadMessageCount: 0,
   coachSettings: null,
-  myTrackingConfig: {
-    ...ALL_ON_TRACKING,
-    training: { ...ALL_ON_TRACKING.training },
-    nutrition: { ...ALL_ON_TRACKING.nutrition },
-    checkin: { ...ALL_ON_TRACKING.checkin },
-  },
+  myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+  trackingReady: false,
   queueDismissedIds: loadQueueDismissed(),
   priorities: [],
   rosterSignals: EMPTY_SIGNALS,
@@ -398,20 +434,45 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   lastFleetRound: null,
 
   fetchMyRole: async (userId) => {
+    const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('user_roles')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
-      const row = data as UserRole | null;
+      const outcome = nextRoleAfterFetch({
+        previous,
+        data: data as { coaching_role?: string | null } | null,
+        error: error ? { message: error.message } : null,
+      });
+      if (outcome.error) {
+        set({
+          coachingRole: outcome.role,
+          coachingRoleError: outcome.error,
+          roleReady: true,
+        });
+        toast(i18n.t('errors.loadRole'), 'error');
+        return;
+      }
+      const role = outcome.role;
+      persistRememberedCoachingRole(userId, role);
       set({
-        coachingRole: row?.coaching_role ?? 'none',
-        billingRole: row?.role ?? 'free',
+        coachingRole: role,
+        billingRole: (data as UserRole | null)?.role ?? 'free',
         roleReady: true,
+        coachingRoleError: null,
+        ...(role === 'client'
+          ? { myTrackingConfig: cloneTracking(ALL_OFF_TRACKING), trackingReady: false }
+          : { myTrackingConfig: cloneTracking(ALL_ON_TRACKING), trackingReady: true }),
       });
     } catch {
-      set({ coachingRole: 'none', billingRole: 'free', roleReady: true });
+      set({
+        coachingRole: previous,
+        coachingRoleError: 'network',
+        roleReady: true,
+      });
+      toast(i18n.t('errors.loadRole'), 'error');
     }
   },
 
@@ -463,8 +524,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
           .from('coach_client_links')
           .select('client_id, created_at')
           .eq('status', 'active');
-        if (fallback.error || !fallback.data?.length) {
-          set({ clients: [], loading: false });
+        if (fallback.error) {
+          set({ loading: false, clientsFetchError: fallback.error.message });
+          toast(i18n.t('errors.loadOps'), 'error');
+          return;
+        }
+        if (!fallback.data?.length) {
+          set({ clients: [], loading: false, clientsFetchError: null });
           return;
         }
         links = fallback.data as LinkRow[];
@@ -502,17 +568,25 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       daily_calorie_target: Number(p.daily_calorie_target) || 0,
     }));
     clients.sort(compareRosterName);
-    set({ clients, loading: false });
+    set({ clients, loading: false, clientsFetchError: null });
   },
 
   fetchCoachOps: async () => {
     set({ opsLoading: true });
     await Promise.all([get().fetchClients(), get().fetchPendingInterventions()]);
     const clients = get().clients;
+    if (get().clientsFetchError && clients.length === 0) {
+      set({
+        opsLoading: false,
+        opsPartialError: get().clientsFetchError,
+      });
+      return;
+    }
     if (clients.length === 0) {
       set({
         opsRows: [],
         opsLoading: false,
+        opsPartialError: null,
         priorities: [],
         rosterSignals: EMPTY_SIGNALS,
         commandStats: EMPTY_STATS,
@@ -551,6 +625,12 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       supabase.from('coach_notes').select('client_id, created_at').in('client_id', ids).order('created_at', { ascending: false }),
       supabase.from('coach_interventions').select('client_id, resolved_at, updated_at, status').in('client_id', ids).in('status', ['sent', 'kept']),
       supabase.from('nutrition_logs').select('user_id, logged_at, calories').in('user_id', ids).gte('logged_at', threeWeeks),
+    ]);
+
+    const partial = opsHasPartialError([
+      trackingRes, assignmentRes, checkinTodayRes, nutritionRes, weightWeekRes,
+      workoutWeekRes, checkinHistRes, weightHistRes, workoutHistRes, notesRes,
+      interventionHistRes, nutritionHistRes,
     ]);
 
     const assignments = assignmentRes.data ?? [];
@@ -685,6 +765,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     set({
       opsRows,
       opsLoading: false,
+      opsPartialError: partial,
       rosterSignals,
       priorities,
       commandStats: commandStats(opsRows, priorities, rosterSignals),
@@ -711,17 +792,23 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   fetchMyTrackingConfig: async () => {
     const { data: { user } } = await supabase.auth.getUser();
+    const isCoached = isCoachedAthlete(get().coachingRole, get().myCoach);
     if (!user) {
-      set({ myTrackingConfig: { ...ALL_ON_TRACKING, training: { ...ALL_ON_TRACKING.training }, nutrition: { ...ALL_ON_TRACKING.nutrition }, checkin: { ...ALL_ON_TRACKING.checkin } } });
+      const next = viewerTrackingAfterFetch({ isCoached: false, row: null, fetchError: false });
+      set({ myTrackingConfig: next.tracking, trackingReady: true });
       return;
     }
-    const hasCoach = !!get().myCoach;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('client_tracking_config')
       .select('*')
       .eq('client_id', user.id)
       .maybeSingle();
-    set({ myTrackingConfig: resolveViewerTracking(data, hasCoach) });
+    const next = viewerTrackingAfterFetch({
+      isCoached,
+      row: data,
+      fetchError: !!error,
+    });
+    set({ myTrackingConfig: next.tracking, trackingReady: next.ready });
   },
 
   saveTrackingConfig: async (clientId, data) => {
@@ -1175,7 +1262,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     return { available: false, error: 'ai_unavailable' };
   },
 
-  askSecond: async (input) => {
+  askCoachAgent: async (input) => {
     const { data, error } = await supabase.functions.invoke(COACH_AGENT_FUNCTION, {
       body: {
         kind: input.kind,
@@ -1398,12 +1485,12 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
           },
           payload => {
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
-            const hasCoach = !!get().myCoach;
+            const isCoached = isCoachedAthlete(get().coachingRole, get().myCoach);
             if (payload.eventType === 'DELETE' || !raw) {
-              set({ myTrackingConfig: resolveViewerTracking(null, hasCoach) });
+              set({ myTrackingConfig: resolveViewerTracking(null, isCoached), trackingReady: true });
               return;
             }
-            set({ myTrackingConfig: resolveViewerTracking(raw, hasCoach) });
+            set({ myTrackingConfig: resolveViewerTracking(raw, isCoached), trackingReady: true });
           },
         )
         .subscribe(status => {
@@ -1511,7 +1598,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         myCoach: null,
         latestCoachMessage: null,
         unreadMessageCount: 0,
-        myTrackingConfig: { ...ALL_ON_TRACKING, training: { ...ALL_ON_TRACKING.training }, nutrition: { ...ALL_ON_TRACKING.nutrition }, checkin: { ...ALL_ON_TRACKING.checkin } },
+        myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+        trackingReady: true,
       });
       return;
     }
@@ -1526,8 +1614,10 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         myCoach: null,
         latestCoachMessage: null,
         unreadMessageCount: 0,
-        myTrackingConfig: { ...ALL_ON_TRACKING, training: { ...ALL_ON_TRACKING.training }, nutrition: { ...ALL_ON_TRACKING.nutrition }, checkin: { ...ALL_ON_TRACKING.checkin } },
+        myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+        trackingReady: get().coachingRole !== 'client',
       });
+      if (get().coachingRole === 'client') await get().fetchMyTrackingConfig();
       return;
     }
     const { data: profile } = await supabase
@@ -1742,23 +1832,22 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       coachingRole: 'none',
       billingRole: null,
       roleReady: false,
+      coachingRoleError: null,
       clients: [],
+      clientsFetchError: null,
       invites: [],
       myCoach: null,
       notes: [],
       opsRows: [],
       opsLoading: false,
+      opsPartialError: null,
       pendingInterventions: [],
       sentMessages: [],
       latestCoachMessage: null,
       unreadMessageCount: 0,
       coachSettings: null,
-      myTrackingConfig: {
-        ...ALL_ON_TRACKING,
-        training: { ...ALL_ON_TRACKING.training },
-        nutrition: { ...ALL_ON_TRACKING.nutrition },
-        checkin: { ...ALL_ON_TRACKING.checkin },
-      },
+      myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+      trackingReady: false,
       queueDismissedIds: [],
       priorities: [],
       rosterSignals: EMPTY_SIGNALS,

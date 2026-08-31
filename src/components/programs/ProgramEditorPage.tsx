@@ -96,7 +96,12 @@ export default function ProgramEditorPage() {
       navigate(`/programs/${created}`, { replace: true });
       return;
     }
-    await updateProgram(id!, { name: name.trim(), description, duration_weeks: weeks });
+    const updated = await updateProgram(id!, { name: name.trim(), description, duration_weeks: weeks });
+    if (updated.error) {
+      setSaving(false);
+      toast(updated.error, 'error');
+      return;
+    }
     const synced = await useProgramStore.getState().syncProgramDays(id!, days);
     if (synced.error) {
       setSaving(false);

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
+  ALL_OFF_TRACKING,
   ALL_ON_TRACKING,
   DEFAULT_CHECKIN_VARS,
   anyMacroField,
@@ -31,6 +32,17 @@ test('missing config defaults to every variable on', () => {
   assert.equal(showCheckinField(cfg, 'mood'), true);
   assert.equal(showModule(cfg, 'weight'), true);
   assert.equal(repsInputMode(cfg), 'either');
+});
+
+test('coached viewer without a row is ALL_OFF until the coach row exists', () => {
+  const off = resolveViewerTracking(null, true);
+  assert.equal(off.track_nutrition, false);
+  assert.equal(off.track_workouts, false);
+  assert.equal(off.track_checkins, false);
+  assert.equal(off.track_weight, false);
+  assert.equal(off.track_nutrition, ALL_OFF_TRACKING.track_nutrition);
+  const solo = resolveViewerTracking(null, false);
+  assert.equal(solo.track_nutrition, true);
 });
 
 test('coach can disable a subset of training fields independently', () => {

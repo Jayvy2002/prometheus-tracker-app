@@ -26,7 +26,7 @@ export default function ExerciseWorkspace({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const askSecond = useCoachingStore(s => s.askSecond);
+  const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
   const [saving, setSaving] = useState<CopilotAction | null>(null);
 
   const sessions = lift.sessions.slice(0, 6);
@@ -40,7 +40,7 @@ export default function ExerciseWorkspace({
 
   const propose = async (action: CopilotAction) => {
     setSaving(action);
-    const result = await askSecond({
+    const result = await askCoachAgent({
       kind: 'program_nl_edit',
       clientId,
       prompt: t(`coaching.workspace.actions.${action}`) + ' — ' + t('coaching.workspace.observation', {

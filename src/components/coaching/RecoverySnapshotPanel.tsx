@@ -56,7 +56,7 @@ export default function RecoverySnapshotPanel({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const askSecond = useCoachingStore(s => s.askSecond);
+  const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
   const [asking, setAsking] = useState(false);
   const name = client ? displayName(client) : t('coaching.unnamed');
   const canAsk = canAskRecoveryAdjust(snapshot);
@@ -70,7 +70,7 @@ export default function RecoverySnapshotPanel({
   const askAdjust = async () => {
     if (!canAsk) return;
     setAsking(true);
-    const result = await askSecond({
+    const result = await askCoachAgent({
       kind: 'program_nl_edit',
       clientId,
       prompt: t('coaching.recovery.askAdjustPrompt', {

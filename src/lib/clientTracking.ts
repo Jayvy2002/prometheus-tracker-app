@@ -82,6 +82,51 @@ export const ALL_ON_TRACKING: ResolvedTrackingConfig = {
   setup_completed_at: null,
 };
 
+const OFF_TRAINING_VARS: TrainingVars = {
+  sets: false,
+  reps: false,
+  reps_range: false,
+  rir: false,
+  load: false,
+  rest: false,
+};
+
+const OFF_NUTRITION_VARS: NutritionVars = {
+  calories: false,
+  protein: false,
+  carbs: false,
+  fat: false,
+  water: false,
+  steps: false,
+};
+
+const OFF_CHECKIN_VARS: CheckinVars = {
+  sleep_hours: false,
+  sleep_quality: false,
+  energy: false,
+  mood: false,
+  motivation: false,
+  hunger: false,
+  fatigue: false,
+  stress: false,
+  soreness: false,
+  joint_pain: false,
+  notes: false,
+};
+
+/** Coached athlete before a tracking row exists — never flash the full tracker. */
+export const ALL_OFF_TRACKING: ResolvedTrackingConfig = {
+  track_workouts: false,
+  track_checkins: false,
+  track_nutrition: false,
+  track_weight: false,
+  workout_focus: '',
+  training: { ...OFF_TRAINING_VARS },
+  nutrition: { ...OFF_NUTRITION_VARS },
+  checkin: { ...OFF_CHECKIN_VARS },
+  setup_completed_at: null,
+};
+
 export type CheckinScaleKey = keyof Pick<
   DailyCheckin,
   | 'hunger'
@@ -323,7 +368,7 @@ export function formatExercisePrescription(
   return parts.join(' · ');
 }
 
-/** Solo users (no coach) always see the full tracker. */
+/** Solo users (no coach) always see the full tracker. Coached + no row = all off. */
 export function resolveViewerTracking(
   row: unknown,
   hasCoach: boolean,
@@ -334,6 +379,14 @@ export function resolveViewerTracking(
       training: { ...DEFAULT_TRAINING_VARS },
       nutrition: { ...DEFAULT_NUTRITION_VARS },
       checkin: { ...DEFAULT_CHECKIN_VARS },
+    };
+  }
+  if (row == null) {
+    return {
+      ...ALL_OFF_TRACKING,
+      training: { ...OFF_TRAINING_VARS },
+      nutrition: { ...OFF_NUTRITION_VARS },
+      checkin: { ...OFF_CHECKIN_VARS },
     };
   }
   return parseResolvedTracking(row);

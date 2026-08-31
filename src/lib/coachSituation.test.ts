@@ -45,6 +45,9 @@ test('visible tabs always keep Vue d’ensemble first even if the stored list st
   const tabs = parseVisibleTabs(['training', 'progress', 'checkins', 'health', 'notes']);
   assert.equal(tabs[0], 'overview');
   assert.ok(tabs.includes('training'));
+  assert.equal(tabs.includes('profile'), false);
+  const withFiche = parseVisibleTabs(['overview', 'profile', 'training']);
+  assert.deepEqual(withFiche, ['overview', 'training']);
 });
 
 test('Émile-like ghost: names the idle days and the missing program', () => {

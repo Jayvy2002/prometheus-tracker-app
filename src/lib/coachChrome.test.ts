@@ -63,12 +63,13 @@ test('Progress: no empty before/after spam; logged-exercise picker stays on Trai
   assert.match(trainingBlock, /onOpenSeries/);
 });
 
-test('Coached client shell: Mon programme + Photos, no coach-mode, no profile nav dump', () => {
+test('Coached client shell: hub Messages + Photos + Mon programme, no coach-mode dump', () => {
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.doesNotMatch(profile, /\/recipes/);
   assert.doesNotMatch(profile, /\/routines/);
-  assert.doesNotMatch(profile, /\/photos/);
-  assert.doesNotMatch(profile, /nav\.programs/);
+  assert.match(profile, /\/photos/);
+  assert.match(profile, /\/messages/);
+  assert.match(profile, /nav\.myProgram/);
   assert.doesNotMatch(profile, /nav\.clients/);
   assert.match(profile, /!coached && \(/);
   assert.match(profile, /coaching\.coachMode/);
@@ -79,11 +80,19 @@ test('Coached client shell: Mon programme + Photos, no coach-mode, no profile na
   assert.match(app, /path="\/programs"/);
   assert.doesNotMatch(app, /path="\/programs" element=\{<CoachedAthleteRedirect>/);
   assert.doesNotMatch(app, /changeLanguage\(profile/);
+  assert.match(app, /CoachOnly/);
+  assert.match(app, /TrackingGate module="nutrition"/);
+  assert.match(app, /path="\/clients" element=\{<CoachOnly>/);
 
   const side = src('src/components/layout/SideNav.tsx');
   assert.match(side, /nav\.myProgram/);
   assert.match(side, /path: '\/photos'/);
-  assert.doesNotMatch(side, /track_workouts && !coached/);
+  assert.match(side, /track_workouts && !coached/);
+
+  const bottom = src('src/components/layout/BottomNav.tsx');
+  assert.match(bottom, /path: '\/messages'/);
+  assert.match(bottom, /path: '\/photos'/);
+  assert.match(bottom, /path: '\/profile'/);
 });
 
 test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {

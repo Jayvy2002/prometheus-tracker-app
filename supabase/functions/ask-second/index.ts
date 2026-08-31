@@ -1,9 +1,20 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { handleCoachAgentHttp } from "../_shared/coachAgent.ts";
-
 /**
- * Compat alias of coach-agent. Same sync OpenAI path, same 200 + draft.
- * Does NOT ping the Grok Bot webhook / Second.
+ * Retired alias. Coach drafts go through `coach-agent` only.
+ * Not a Grok Bot. Do not recable abandoned webhooks.
  */
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, X-Client-Info, Apikey",
+};
 
-Deno.serve(handleCoachAgentHttp);
+Deno.serve((req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: corsHeaders });
+  }
+  return new Response(JSON.stringify({ error: "gone", use: "coach-agent" }), {
+    status: 410,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+});

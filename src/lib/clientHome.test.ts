@@ -147,6 +147,8 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
   assert.doesNotMatch(dash, /nextAction === 'checkin'/);
   assert.doesNotMatch(dash, /Navigate to="\/checkin"/);
   assert.match(dash, /showModule\(tracking, 'checkins'\) && !todayCheckin && !activityPending/);
+  assert.match(dash, /hasSentNutritionTarget/);
+  assert.doesNotMatch(dash, /\?\? 2000/);
   assert.match(dash, /!activityPending && \(/);
 
   const home = src('src/lib/clientHome.ts');

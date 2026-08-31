@@ -3,6 +3,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { useCoachingStore } from '../../stores/coachingStore';
 import { GOALS } from '../../lib/constants';
 import { calculateBMR, calculateTDEE, calculateCalorieTarget, calculateMacros, getAge } from '../../lib/utils';
 import { toast } from '../ui/Toast';
@@ -10,11 +11,16 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showNutritionField } from '../../lib/clientTracking';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
 
 export default function GoalsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
   const tracking = useClientTracking();
   const [goal, setGoal] = useState(profile?.goal ?? 'maintain');
   const storedKg = profile?.target_weight_kg ?? 0;
@@ -49,7 +55,7 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
     const rawWeight = +targetWeight || 0;
     const targetKg = profile.unit_weight === 'lbs' ? rawWeight / 2.20462 : rawWeight;
 
-    await updateProfile(user.id, {
+    const updates = stripSelfServeNutritionTargets({
       goal,
       target_weight_kg: targetKg,
       daily_water_target_ml: water,
@@ -58,7 +64,9 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
       protein_target: macros.protein,
       carbs_target: macros.carbs,
       fat_target: macros.fat,
-    });
+    }, coached);
+
+    await updateProfile(user.id, updates);
 
     setSaving(false);
     onBack();
@@ -97,6 +105,9 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
           value={targetWeight}
           onChange={e => setTargetWeight(e.target.value)}
         />
+        {coached && (
+          <p className="text-xs text-neutral-500">{t('profile.goals.coachOwnsTargets')}</p>
+        )}
         {showNutritionField(tracking, 'water') && (
         <Input
           label={t('profile.goals.dailyWater')}

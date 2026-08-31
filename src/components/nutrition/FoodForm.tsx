@@ -7,7 +7,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showNutritionField } from '../../lib/clientTracking';
 import { useRecipeStore } from '../../stores/recipeStore';
-import { FOOD_UNITS, MEAL_CATEGORIES, UNIT_TO_GRAMS } from '../../lib/constants';
+import { FOOD_UNITS, MEAL_CATEGORIES } from '../../lib/constants';
 import type { FoodProduct, FoodFavorite, Recipe } from '../../lib/types';
 import { toast } from '../ui/Toast';
 import Button from '../ui/Button';
@@ -16,9 +16,15 @@ import Select from '../ui/Select';
 import UnifiedScanner from '../scanner/UnifiedScanner';
 import RecipeForm from './RecipeForm';
 import { searchOpenFoodFacts } from '../../lib/openFoodFacts';
-import { kcalFromEnergyValue, normalizeFoodProductEnergy, normalizePer100gKcal } from '../../lib/foodEnergy';
+import { kcalFromEnergyValue, normalizeFoodProductEnergy, normalizePer100gKcal, nutritionPortionScale, rescaleNutritionMacros } from '../../lib/foodEnergy';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
+
+function fieldValue(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  const rounded = Math.round(n * 100) / 100;
+  return String(rounded);
+}
 
 interface Props {
   category: string;
@@ -62,12 +68,30 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const [favDisplayCount, setFavDisplayCount] = useState(15);
   const [recentDisplayCount, setRecentDisplayCount] = useState(15);
   const searchRef = useRef(0);
+  const basisRef = useRef({ calories: 0, protein: 0, carbs: 0, fat: 0, quantity: 100, unit: 'g' });
   const LIST_PAGE = 15;
+  const prefillSeeded = useRef(false);
 
-  // 'serving' unit: values in the form are per-serving, scale = number of servings
-  const isServingUnit = unit === 'serving';
-  const grams = isServingUnit ? 0 : (+quantity || 0) * (UNIT_TO_GRAMS[unit] ?? 1);
-  const scale = isServingUnit ? (+quantity || 1) : grams / 100;
+  const snapshotBasis = (
+    qty: number,
+    nextUnit: string,
+    cal: number,
+    pro: number,
+    carb: number,
+    f: number,
+  ) => {
+    basisRef.current = { quantity: qty, unit: nextUnit, calories: cal, protein: pro, carbs: carb, fat: f };
+  };
+
+  const applyRescale = (nextQuantity: string, nextUnit: string) => {
+    const qty = +nextQuantity;
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    const scaled = rescaleNutritionMacros(basisRef.current, { quantity: qty, unit: nextUnit });
+    setCalories(fieldValue(scaled.calories));
+    setProtein(fieldValue(scaled.protein));
+    setCarbs(fieldValue(scaled.carbs));
+    setFat(fieldValue(scaled.fat));
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -75,6 +99,28 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     fetchRecentProducts(user.id);
     fetchRecipes(user.id);
   }, [user]);
+
+  useEffect(() => {
+    if (prefillSeeded.current || !prefill) return;
+    prefillSeeded.current = true;
+    const kcal = normalizePer100gKcal(
+      prefill.calories_per_100g,
+      prefill.protein_per_100g,
+      prefill.carbs_per_100g,
+      prefill.fat_per_100g,
+    );
+    const qty = prefill.serving_size > 0 ? prefill.serving_size : 100;
+    const nextUnit = prefill.serving_unit || 'g';
+    const scale = nutritionPortionScale(qty, nextUnit);
+    snapshotBasis(
+      qty,
+      nextUnit,
+      kcal * scale,
+      prefill.protein_per_100g * scale,
+      prefill.carbs_per_100g * scale,
+      prefill.fat_per_100g * scale,
+    );
+  }, [prefill]);
 
   const handleSearch = async () => {
     const q = searchQuery.trim();
@@ -133,13 +179,21 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       product.carbs_per_100g,
       product.fat_per_100g,
     );
+    const qty = product.serving_size > 0 ? product.serving_size : 100;
+    const nextUnit = product.serving_unit || 'g';
+    const scale = nutritionPortionScale(qty, nextUnit);
+    const cal = kcal * scale;
+    const pro = product.protein_per_100g * scale;
+    const carb = product.carbs_per_100g * scale;
+    const f = product.fat_per_100g * scale;
     setName(product.name);
-    setCalories(kcal.toString());
-    setProtein(product.protein_per_100g.toString());
-    setCarbs(product.carbs_per_100g.toString());
-    setFat(product.fat_per_100g.toString());
-    setQuantity(product.serving_size.toString());
-    setUnit(product.serving_unit);
+    setCalories(fieldValue(cal));
+    setProtein(fieldValue(pro));
+    setCarbs(fieldValue(carb));
+    setFat(fieldValue(f));
+    setQuantity(qty.toString());
+    setUnit(nextUnit);
+    snapshotBasis(qty, nextUnit, cal, pro, carb, f);
     setResults([]);
     setSearchQuery('');
     setSearched(false);
@@ -166,12 +220,13 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
 
   const selectRecipe = (r: Recipe) => {
     setName(r.name);
-    setCalories((r.calories_per_serving).toString());
-    setProtein((r.protein_per_serving).toString());
-    setCarbs((r.carbs_per_serving).toString());
-    setFat((r.fat_per_serving).toString());
+    setCalories(fieldValue(r.calories_per_serving));
+    setProtein(fieldValue(r.protein_per_serving));
+    setCarbs(fieldValue(r.carbs_per_serving));
+    setFat(fieldValue(r.fat_per_serving));
     setQuantity('1');
     setUnit('serving');
+    snapshotBasis(1, 'serving', r.calories_per_serving, r.protein_per_serving, r.carbs_per_serving, r.fat_per_serving);
     setSelectedProduct(null);
     setTab('search');
   };
@@ -206,9 +261,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     const pro = +protein;
     const carb = +carbs;
     const f = +fat;
-    const cal = isServingUnit
-      ? kcalFromEnergyValue(+calories, { protein: pro, carbs: carb, fat: f })
-      : normalizePer100gKcal(+calories, pro, carb, f);
+    const cal = kcalFromEnergyValue(+calories, { protein: pro, carbs: carb, fat: f });
     if (qty <= 0) { toast(t('nutrition.foodForm.errors.quantityPositive'), 'error'); return; }
     if (cal < 0 || pro < 0 || carb < 0 || f < 0) { toast(t('nutrition.foodForm.errors.negativeNutrition'), 'error'); return; }
     if (cal > 9000) { toast(t('nutrition.foodForm.errors.caloriesTooHigh'), 'error'); return; }
@@ -216,10 +269,10 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     await addLog({
       user_id: user.id,
       name,
-      calories: cal * scale,
-      protein: pro * scale,
-      carbs: carb * scale,
-      fat: f * scale,
+      calories: cal,
+      protein: pro,
+      carbs: carb,
+      fat: f,
       category: activeCategory as 'breakfast' | 'lunch' | 'dinner' | 'snack',
       quantity: qty,
       unit,
@@ -513,18 +566,35 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <Input label={t('nutrition.foodForm.quantity')} type="number" value={quantity} onChange={e => setQuantity(e.target.value)} />
+            <Input
+              label={t('nutrition.foodForm.quantity')}
+              type="number"
+              value={quantity}
+              onChange={e => {
+                setQuantity(e.target.value);
+                applyRescale(e.target.value, unit);
+              }}
+            />
             <Select
               label={t('nutrition.foodForm.unit')}
               value={unit}
-              onChange={e => setUnit(e.target.value)}
+              onChange={e => {
+                setUnit(e.target.value);
+                applyRescale(quantity, e.target.value);
+              }}
               options={FOOD_UNITS.map(u => ({ value: u, label: u }))}
             />
           </div>
 
           {selectedProduct && selectedProduct.serving_size > 0 && (selectedProduct.serving_size !== +quantity || selectedProduct.serving_unit !== unit) && (
             <button
-              onClick={() => { setQuantity(selectedProduct.serving_size.toString()); setUnit(selectedProduct.serving_unit); }}
+              onClick={() => {
+                const qty = selectedProduct.serving_size.toString();
+                const nextUnit = selectedProduct.serving_unit;
+                setQuantity(qty);
+                setUnit(nextUnit);
+                applyRescale(qty, nextUnit);
+              }}
               className="text-xs text-blue-400 hover:text-blue-300 transition-colors -mt-1"
             >
               → 1 serving ({selectedProduct.serving_size} {selectedProduct.serving_unit})
@@ -532,29 +602,65 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
           )}
 
           <p className="text-xs text-neutral-500">
-            {isServingUnit ? t('nutrition.foodForm.nutritionalValuesPer') : t('nutrition.foodForm.nutritionalValuesPer100g')}
+            {t('nutrition.foodForm.portionFirst')}
           </p>
 
           <div className="grid grid-cols-2 gap-3">
             {showNutritionField(tracking, 'calories') && (
-              <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(e.target.value)} placeholder="0" />
+              <Input
+                label={t('common.calories')}
+                type="number"
+                value={calories}
+                onChange={e => {
+                  setCalories(e.target.value);
+                  snapshotBasis(+quantity || 0, unit, +e.target.value || 0, +protein || 0, +carbs || 0, +fat || 0);
+                }}
+                placeholder="0"
+              />
             )}
             {showNutritionField(tracking, 'protein') && (
-              <Input label={`${t('common.protein')} (g)`} type="number" value={protein} onChange={e => setProtein(e.target.value)} placeholder="0" />
+              <Input
+                label={`${t('common.protein')} (g)`}
+                type="number"
+                value={protein}
+                onChange={e => {
+                  setProtein(e.target.value);
+                  snapshotBasis(+quantity || 0, unit, +calories || 0, +e.target.value || 0, +carbs || 0, +fat || 0);
+                }}
+                placeholder="0"
+              />
             )}
             {showNutritionField(tracking, 'carbs') && (
-              <Input label={`${t('common.carbs')} (g)`} type="number" value={carbs} onChange={e => setCarbs(e.target.value)} placeholder="0" />
+              <Input
+                label={`${t('common.carbs')} (g)`}
+                type="number"
+                value={carbs}
+                onChange={e => {
+                  setCarbs(e.target.value);
+                  snapshotBasis(+quantity || 0, unit, +calories || 0, +protein || 0, +e.target.value || 0, +fat || 0);
+                }}
+                placeholder="0"
+              />
             )}
             {showNutritionField(tracking, 'fat') && (
-              <Input label={`${t('common.fat')} (g)`} type="number" value={fat} onChange={e => setFat(e.target.value)} placeholder="0" />
+              <Input
+                label={`${t('common.fat')} (g)`}
+                type="number"
+                value={fat}
+                onChange={e => {
+                  setFat(e.target.value);
+                  snapshotBasis(+quantity || 0, unit, +calories || 0, +protein || 0, +carbs || 0, +e.target.value || 0);
+                }}
+                placeholder="0"
+              />
             )}
           </div>
 
           {+calories > 0 && +quantity > 0 && (() => {
-            const itemCal = Math.round(+calories * scale);
-            const itemP = Math.round(+protein * scale);
-            const itemC = Math.round(+carbs * scale);
-            const itemF = Math.round(+fat * scale);
+            const itemCal = Math.round(+calories);
+            const itemP = Math.round(+protein);
+            const itemC = Math.round(+carbs);
+            const itemF = Math.round(+fat);
             const remainCal = (profile?.daily_calorie_target ?? 0) - logs.reduce((s, l) => s + l.calories, 0) - itemCal;
             const remainP = (profile?.protein_target ?? 0) - logs.reduce((s, l) => s + l.protein, 0) - itemP;
             const remainC = (profile?.carbs_target ?? 0) - logs.reduce((s, l) => s + l.carbs, 0) - itemC;

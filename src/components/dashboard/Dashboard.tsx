@@ -17,6 +17,7 @@ import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
+import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import {
   clientHomeNextAction,
   daysSinceActivity,
@@ -93,9 +94,10 @@ export default function Dashboard() {
   const greeting = `${t(`dashboard.${timeKey}`)}${firstName ? `, ${firstName}` : ''} !`;
 
   // Daily metrics
-  const calorieTarget = profile?.daily_calorie_target ?? 2000;
+  const calorieTarget = profile?.daily_calorie_target ?? 0;
+  const showHomeRings = showModule(tracking, 'nutrition') && hasSentNutritionTarget(profile);
   const consumed = logs.reduce((sum, l) => sum + l.calories, 0);
-  const caloriePct = Math.min(100, (consumed / calorieTarget) * 100);
+  const caloriePct = calorieTarget > 0 ? Math.min(100, (consumed / calorieTarget) * 100) : 0;
 
   const waterTarget = profile?.daily_water_target_ml ?? 2500;
   const waterConsumed = waterLogs.reduce((sum, l) => sum + l.amount_ml, 0);
@@ -282,6 +284,15 @@ export default function Dashboard() {
             onContinue={workoutId => navigate(`/workout/${workoutId}`)}
           />
         )}
+        {hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
+          <button
+            type="button"
+            onClick={() => navigate('/checkin')}
+            className="text-xs text-neutral-500 hover:text-neutral-300 mb-4 -mt-1"
+          >
+            {t('checkin.dashboardCta')}
+          </button>
+        )}
 
         {showModule(tracking, 'workouts') && nextRoutine && (
           <button
@@ -332,14 +343,14 @@ export default function Dashboard() {
           </button>
         )}
 
-        {myCoach && (hasProgram || (!activityPending && showNutritionField(tracking, 'calories'))) && (
+        {myCoach && (hasProgram || (!activityPending && showNutritionField(tracking, 'calories') && hasSentNutritionTarget(profile))) && (
           <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
             {assignment?.program && (
               <button type="button" onClick={() => navigate('/programs')} className="text-left hover:text-white transition-colors">
                 {t('coaching.loop.program', { name: assignment.program.name })}
               </button>
             )}
-            {!activityPending && showNutritionField(tracking, 'calories') && (
+            {!activityPending && showNutritionField(tracking, 'calories') && hasSentNutritionTarget(profile) && (
               <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
             )}
           </div>
@@ -448,7 +459,7 @@ export default function Dashboard() {
           </div>
         ) : null}
 
-        {showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
+        {!hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
           <button
             onClick={() => navigate('/checkin')}
             className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
@@ -461,7 +472,7 @@ export default function Dashboard() {
             <ChevronRight size={16} className="text-violet-300/70" />
           </button>
         )}
-        {!activityPending && (
+        {showHomeRings && !activityPending && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>

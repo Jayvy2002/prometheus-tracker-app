@@ -1,4 +1,4 @@
-import { interventionHref, isCompleteCalorieDraft, parseCalorieDraft } from './coachInterventions';
+import { interventionHref } from './coachInterventions';
 import { datePrefix } from './coachText';
 import type {
   CoachClientSummary,
@@ -64,15 +64,6 @@ export function resolveQueueAction(
   const match = matchingPendingIntervention(priority, pending);
   if (match) {
     const setup = match.kind === 'onboarding_plan';
-    const incompleteCals = match.kind === 'calorie_adjustment'
-      && !isCompleteCalorieDraft(parseCalorieDraft(match.payload));
-    if (incompleteCals) {
-      return {
-        kind: 'open_360',
-        href: priority.href,
-        ctaKey: 'coaching.queue.openFile',
-      };
-    }
     return {
       kind: setup ? 'open_setup' : 'open_draft',
       href: interventionHref(match, { from: 'today' }),

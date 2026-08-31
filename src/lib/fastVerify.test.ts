@@ -110,8 +110,9 @@ test('food and exercise paths never ping Second', () => {
   }
 
   const askSecond = source('supabase/functions/ask-second/index.ts');
-  assert.doesNotMatch(askSecond, /GROK_BOT_WEBHOOK_URL/, 'coach drafts no longer go through Second');
-  assert.match(askSecond, /handleCoachAgentHttp|coach-agent/);
+  assert.doesNotMatch(askSecond, /GROK_BOT_WEBHOOK_URL/, 'retired alias must not ping Second');
+  assert.match(askSecond, /status: 410/);
+  assert.doesNotMatch(askSecond, /handleCoachAgentHttp/);
 });
 
 test('client treats 200 + id as done and does not wait 90s on Second', () => {

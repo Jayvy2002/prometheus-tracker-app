@@ -29,14 +29,14 @@ export default function LastSessionReview({
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const askSecond = useCoachingStore(s => s.askSecond);
+  const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
   const [asking, setAsking] = useState(false);
   const name = client ? displayName(client) : t('coaching.unnamed');
 
   const askAdjust = async () => {
     setAsking(true);
     const lifts = sessionExerciseLines(session).join('\n') || '—';
-    const result = await askSecond({
+    const result = await askCoachAgent({
       kind: 'program_nl_edit',
       clientId,
       prompt: t('coaching.lastSession.askAdjustPrompt', {

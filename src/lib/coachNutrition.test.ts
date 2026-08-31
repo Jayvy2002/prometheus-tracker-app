@@ -231,13 +231,13 @@ test('Aujourd’hui stall row and File du jour item deep-link to Progression', (
     rationale: '',
     payload: { calories: 2000, protein: 0, carbs: 0, fat: 0 },
     status: 'pending',
-    source: 'second',
+    source: 'agent',
     created_at: '2026-08-29T00:00:00Z',
     updated_at: '2026-08-29T00:00:00Z',
     resolved_at: null,
   }]);
-  assert.equal(actionWithDraft.href, '/clients/marc-id?tab=progress');
-  assert.equal(actionWithDraft.kind, 'open_360');
+  assert.equal(actionWithDraft.href, '/clients/marc-id/draft/draft-marc?from=today');
+  assert.equal(actionWithDraft.kind, 'open_draft');
 
   const actionRelance = resolveQueueAction(stall!, [{
     id: 'draft-marc',

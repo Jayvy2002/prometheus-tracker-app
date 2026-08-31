@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Copy, Link2, Users, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -31,7 +31,7 @@ export default function ClientsPage() {
   const { user } = useAuthStore();
   const {
     coachingRole, clients, invites, loading, opsLoading, opsRows, priorities, rosterSignals,
-    fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, fetchCoachMessages, createInvite, revokeInvite, enableCoachMode,
+    fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, fetchCoachMessages, createInvite, revokeInvite,
     endClientLink,
   } = useCoachingStore();
   const [searchParams] = useSearchParams();
@@ -52,15 +52,6 @@ export default function ClientsPage() {
       fetchCoachMessages();
     });
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleEnable = async () => {
-    const { error } = await enableCoachMode();
-    if (error) {
-      toast(error, 'error');
-      return;
-    }
-    toast(t('coaching.coachModeOn'));
-  };
 
   const handleCreate = async () => {
     setCreating(true);
@@ -110,19 +101,7 @@ export default function ClientsPage() {
   };
 
   if (coachingRole !== 'coach') {
-    return (
-      <PageTransition>
-        <div className="px-4 pt-6">
-          <h1 className="text-2xl font-bold text-white mb-2">{t('coaching.clientsTitle')}</h1>
-          <Card className="text-center py-10">
-            <Users className="mx-auto mb-3 text-neutral-600" size={32} />
-            <p className="text-neutral-300 mb-2">{t('coaching.enableTitle')}</p>
-            <p className="text-sm text-neutral-500 mb-5">{t('coaching.enableBody')}</p>
-            <Button onClick={handleEnable}>{t('coaching.enableCta')}</Button>
-          </Card>
-        </div>
-      </PageTransition>
-    );
+    return <Navigate to="/dashboard" replace />;
   }
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);

@@ -28,7 +28,6 @@ export default function CoachSettingsPanel() {
   const { t, i18n } = useTranslation();
   const { coachSettings, fetchCoachSettings, saveCoachSettings } = useCoachingStore();
   const [tabs, setTabs] = useState<CoachClientTab[]>([...DEFAULT_COACH_VISIBLE_TABS]);
-  const [queueMode, setQueueMode] = useState(true);
   const [templates, setTemplates] = useState<CoachNudgeTemplateSet>({});
   const [defaults, setDefaults] = useState<ResolvedTrackingConfig>(cloneTracking(ALL_ON_TRACKING));
   const [saving, setSaving] = useState(false);
@@ -40,7 +39,6 @@ export default function CoachSettingsPanel() {
   useEffect(() => {
     if (!coachSettings) return;
     setTabs(coachSettings.visible_tabs);
-    setQueueMode(coachSettings.queue_mode_default);
     setTemplates(coachSettings.nudge_templates);
     setDefaults(cloneTracking(parseCoachTrackingDefaults(coachSettings.default_tracking)));
   }, [coachSettings]);
@@ -62,7 +60,7 @@ export default function CoachSettingsPanel() {
     setSaving(true);
     const result = await saveCoachSettings({
       visible_tabs: tabs,
-      queue_mode_default: queueMode,
+      queue_mode_default: true,
       nudge_templates: templates,
       default_tracking: serializeTrackingVars(defaults),
     });
@@ -91,16 +89,6 @@ export default function CoachSettingsPanel() {
           ))}
         </div>
       </div>
-
-      <label className="flex items-center gap-2 text-sm text-neutral-200">
-        <input
-          type="checkbox"
-          checked={queueMode}
-          onChange={e => setQueueMode(e.target.checked)}
-          className="accent-blue-500"
-        />
-        {t('coaching.settings.queueMode')}
-      </label>
 
       <div className="rounded-xl border border-neutral-800 p-3 space-y-2">
         <p className="text-xs font-medium text-neutral-400">{t('coaching.settings.defaultTracking')}</p>

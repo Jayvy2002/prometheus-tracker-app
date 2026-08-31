@@ -255,14 +255,11 @@ export function draftBackTarget(input: {
   return { href: '/messages', kind: 'messages' };
 }
 
-/** Incomplete 2000/0/0/0 must never open as the first screen. Complete macros → draft. */
+/** Always the draft editor — incomplete kcal still opens the 4 ISSN fields. */
 export function coachingPassHref(
   row: Pick<CoachIntervention, 'kind' | 'client_id' | 'id' | 'payload'>,
   opts?: { from?: DraftOpenFrom | null },
 ): string {
-  if (row.kind === 'calorie_adjustment' && row.client_id && !isCompleteCalorieDraft(parseCalorieDraft(row.payload))) {
-    return `/clients/${row.client_id}?tab=progress`;
-  }
   return interventionHref(row, opts);
 }
 
