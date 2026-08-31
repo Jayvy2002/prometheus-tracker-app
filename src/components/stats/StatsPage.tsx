@@ -11,6 +11,7 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
+import { averageLoggedCalories, statsCalorieSummary } from '../../lib/clientHome';
 
 type Period = 'week' | 'month' | '3months';
 type ChartTab = 'calories' | 'weight' | 'workouts';
@@ -159,8 +160,9 @@ export default function StatsPage() {
     }).catch(() => setLoading(false));
   }, [user, start, end, prevStart, prevEnd, unit]);
 
-  // Computed stats
-  const avgCalories = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.calories, 0) / nutrition.length) : 0;
+  // Computed stats — kcal average ignores water-only zeros so we never invent a fake deficit
+  const calorieStats = averageLoggedCalories(nutrition);
+  const avgCalories = calorieStats.avg;
   const avgProtein = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.protein, 0) / nutrition.length) : 0;
   const avgWater = nutrition.length > 0 ? Math.round(nutrition.reduce((s, d) => s + d.water_ml, 0) / nutrition.length) : 0;
   const totalWorkouts = workoutDates.length;
@@ -233,15 +235,16 @@ export default function StatsPage() {
 
   // Natural language summary
   function buildSummary(): string {
-    if (nutrition.length === 0 && totalWorkouts === 0) return t('stats.summaryEmpty');
+    if (!calorieStats.hasLogs && totalWorkouts === 0) return t('stats.summaryEmpty');
     const parts: string[] = [];
-    if (avgCalories > 0 && showNutritionField(tracking, 'calories')) {
-      const diff = Math.round(((avgCalories - calorieTarget) / calorieTarget) * 100);
-      if (Math.abs(diff) <= 5) parts.push(t('stats.summaryCaloriesOnTarget'));
-      else if (diff > 0) parts.push(t('stats.summaryCaloriesAbove', { pct: diff }));
-      else parts.push(t('stats.summaryCaloriesBelow', { pct: Math.abs(diff) }));
+    if (showNutritionField(tracking, 'calories')) {
+      const gap = statsCalorieSummary({ days: nutrition, calorieTarget });
+      if (gap?.kind === 'on_target') parts.push(t('stats.summaryCaloriesOnTarget'));
+      else if (gap?.kind === 'above') parts.push(t('stats.summaryCaloriesAbove', { pct: gap.pct }));
+      else if (gap?.kind === 'below') parts.push(t('stats.summaryCaloriesBelow', { pct: gap.pct }));
     }
     if (totalWorkouts > 0 && showModule(tracking, 'workouts')) parts.push(t('stats.summaryWorkouts', { count: totalWorkouts }));
+    if (parts.length === 0) return t('stats.summaryEmpty');
     return parts.join(' ');
   }
 
@@ -281,7 +284,7 @@ export default function StatsPage() {
 
             {/* Key metrics grid */}
             <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-2">
-              {showNutritionField(tracking, 'calories') && (
+              {showNutritionField(tracking, 'calories') && calorieStats.hasLogs && (
               <Card>
                 <div className="flex items-center gap-2 mb-1.5">
                   <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center">

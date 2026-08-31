@@ -175,6 +175,11 @@ const en = {
       deload: "4 weeks of intense training without a break. Consider reducing weights this week to recover better.",
     },
     coachMessageTitle: 'Message from your coach',
+    firstRun: {
+      waitingProgram: 'Your coach will send you a program',
+      firstSession: 'First session when you are ready',
+      checkin: 'Today’s check-in',
+    },
   },
 
   widgets: {
