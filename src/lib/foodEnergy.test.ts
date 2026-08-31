@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import {
   KJ_PER_KCAL,
   correctLogCalories,
@@ -7,6 +9,8 @@ import {
   kcalFromEnergyValue,
   kcalPer100gFromNutriments,
   normalizePer100gKcal,
+  nutritionPortionScale,
+  rescaleNutritionMacros,
 } from './foodEnergy';
 
 test('Kallo rice cakes: OFF energy-kcal_100g is kJ; use energy_100g / 4.184', () => {
@@ -65,4 +69,71 @@ test('missing kcal falls back to kJ / 4.184', () => {
     fat_100g: 2,
   });
   assert.ok(Math.abs(kcal - 100) < 0.01);
+});
+
+const chicken100g = {
+  calories: 165,
+  protein: 31,
+  carbs: 0,
+  fat: 3.6,
+  quantity: 100,
+  unit: 'g',
+};
+
+test('changing quantity rescales kcal and macros proportionally', () => {
+  const doubled = rescaleNutritionMacros(chicken100g, { quantity: 200, unit: 'g' });
+  assert.equal(doubled.calories, 330);
+  assert.equal(doubled.protein, 62);
+  assert.equal(doubled.carbs, 0);
+  assert.equal(doubled.fat, 7.2);
+
+  const half = rescaleNutritionMacros(chicken100g, { quantity: 50, unit: 'g' });
+  assert.equal(half.calories, 82.5);
+  assert.equal(half.protein, 15.5);
+});
+
+test('changing unit rescales from the same per-100g / per-serving basis', () => {
+  const kg = rescaleNutritionMacros(chicken100g, { quantity: 1, unit: 'kg' });
+  assert.equal(kg.calories, 1650);
+  assert.equal(kg.protein, 310);
+
+  const ml = rescaleNutritionMacros(chicken100g, { quantity: 100, unit: 'ml' });
+  assert.equal(ml.calories, 165);
+
+  const tbsp = rescaleNutritionMacros(chicken100g, { quantity: 2, unit: 'tbsp' });
+  assert.equal(Math.round(tbsp.calories), 50);
+
+  const twoServings = rescaleNutritionMacros(
+    { calories: 250, protein: 20, carbs: 30, fat: 5, quantity: 1, unit: 'serving' },
+    { quantity: 2, unit: 'serving' },
+  );
+  assert.equal(twoServings.calories, 500);
+  assert.equal(twoServings.protein, 40);
+});
+
+test('g → serving uses the logged portion as one serving reference when qty is 1', () => {
+  const asServing = rescaleNutritionMacros(chicken100g, { quantity: 1, unit: 'serving' });
+  assert.equal(asServing.calories, 165);
+});
+
+test('zero original quantity does not divide by zero', () => {
+  const next = rescaleNutritionMacros(
+    { calories: 100, protein: 10, carbs: 10, fat: 2, quantity: 0, unit: 'g' },
+    { quantity: 50, unit: 'g' },
+  );
+  assert.equal(next.calories, 100);
+  assert.equal(next.quantity, 50);
+});
+
+test('nutritionPortionScale matches FoodForm (serving vs grams/100)', () => {
+  assert.equal(nutritionPortionScale(2, 'serving'), 2);
+  assert.equal(nutritionPortionScale(100, 'g'), 1);
+  assert.equal(nutritionPortionScale(1, 'kg'), 10);
+});
+
+test('EditFoodModal rescales macros when quantity or unit changes and persists them', () => {
+  const modal = readFileSync(resolve(process.cwd(), 'src/components/nutrition/EditFoodModal.tsx'), 'utf8');
+  assert.match(modal, /rescaleNutritionMacros/);
+  assert.match(modal, /applyRescale/);
+  assert.match(modal, /updateLog\([\s\S]*calories/);
 });

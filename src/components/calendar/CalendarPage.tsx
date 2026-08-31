@@ -7,7 +7,8 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { supabase } from '../../lib/supabase';
-import { parseDateStr, parseDate, formatWeight, toLocalDateStr, dateLocale } from '../../lib/utils';
+import { parseDateStr, parseDate, formatWeight, toLocalDateStr, dateLocale, todayStr } from '../../lib/utils';
+import { countUnbrokenStreak } from '../../lib/streak';
 import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
 import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
@@ -193,23 +194,10 @@ export default function CalendarPage() {
   }, [measurements]);
 
   const streakCount = useMemo(() => {
-    const todayDate = dateToStr(new Date());
-    const allLogged = new Set([...workoutDateSet, ...weightDateSet, ...allNutritionDates]);
-    let startDate = todayDate;
-    if (!allLogged.has(todayDate)) {
-      const y = new Date();
-      y.setDate(y.getDate() - 1);
-      startDate = dateToStr(y);
-    }
-    if (!allLogged.has(startDate)) return 0;
-    let count = 0;
-    const cur = new Date(startDate + 'T12:00:00');
-    for (let i = 0; i < 365; i++) {
-      if (!allLogged.has(dateToStr(cur))) break;
-      count++;
-      cur.setDate(cur.getDate() - 1);
-    }
-    return count;
+    return countUnbrokenStreak(
+      [...workoutDateSet, ...weightDateSet, ...allNutritionDates],
+      todayStr(),
+    );
   }, [workoutDateSet, weightDateSet, allNutritionDates]);
 
   const weekBaseDate = useMemo(() => {
