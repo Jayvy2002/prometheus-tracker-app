@@ -92,22 +92,11 @@ test('real under-eating (580 vs 2000) is −71%, only when there are logs', () =
   assert.equal(calorieGapPct(580, 2000, false), null);
 });
 
-test('Jade next action: waiting for program, or check-in if enabled, never a command center', () => {
+test('Jade next action: waiting for program or first session — never a forced check-in', () => {
   assert.equal(clientHomeNextAction({
     firstRun: true,
     hasProgram: false,
     hasNextWorkout: false,
-    checkinsEnabled: false,
-    todayCheckinDone: false,
-    hasCoach: true,
-  }), 'waiting_program');
-
-  assert.equal(clientHomeNextAction({
-    firstRun: true,
-    hasProgram: false,
-    hasNextWorkout: false,
-    checkinsEnabled: true,
-    todayCheckinDone: false,
     hasCoach: true,
   }), 'waiting_program');
 
@@ -115,17 +104,6 @@ test('Jade next action: waiting for program, or check-in if enabled, never a com
     firstRun: true,
     hasProgram: true,
     hasNextWorkout: false,
-    checkinsEnabled: true,
-    todayCheckinDone: false,
-    hasCoach: true,
-  }), 'checkin');
-
-  assert.equal(clientHomeNextAction({
-    firstRun: true,
-    hasProgram: true,
-    hasNextWorkout: false,
-    checkinsEnabled: false,
-    todayCheckinDone: false,
     hasCoach: true,
   }), 'first_session');
 
@@ -133,8 +111,6 @@ test('Jade next action: waiting for program, or check-in if enabled, never a com
     firstRun: true,
     hasProgram: true,
     hasNextWorkout: true,
-    checkinsEnabled: true,
-    todayCheckinDone: false,
     hasCoach: true,
   }), null);
 
@@ -142,17 +118,21 @@ test('Jade next action: waiting for program, or check-in if enabled, never a com
     firstRun: true,
     hasProgram: false,
     hasNextWorkout: false,
-    checkinsEnabled: false,
-    todayCheckinDone: false,
     hasCoach: false,
   }), 'first_session');
+
+  assert.equal(clientHomeNextAction({
+    firstRun: false,
+    hasProgram: true,
+    hasNextWorkout: false,
+    hasCoach: true,
+  }), null);
 });
 
 test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', () => {
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /waitingProgram: 'Ton coach va t’envoyer un programme'/);
   assert.match(fr, /firstSession: 'Première séance quand tu es prêt'/);
-  assert.match(fr, /checkin: 'Check-in du jour'/);
 
   const dash = src('src/components/dashboard/Dashboard.tsx');
   assert.doesNotMatch(dash, /:\s*999/);
@@ -164,6 +144,13 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
   assert.doesNotMatch(dash, /\/recipes/);
   assert.doesNotMatch(dash, /navigate\('\/routines'\)/);
   assert.doesNotMatch(dash, /navigate\('\/programs\/new'\)/);
+  assert.doesNotMatch(dash, /nextAction === 'checkin'/);
+  assert.doesNotMatch(dash, /Navigate to="\/checkin"/);
+  assert.match(dash, /showModule\(tracking, 'checkins'\) && !todayCheckin && !activityPending/);
+  assert.match(dash, /!activityPending && \(/);
+
+  const home = src('src/lib/clientHome.ts');
+  assert.doesNotMatch(home, /return 'checkin'/);
 
   const stats = src('src/components/stats/StatsPage.tsx');
   assert.match(stats, /statsCalorieSummary/);

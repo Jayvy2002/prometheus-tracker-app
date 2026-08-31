@@ -8,6 +8,13 @@ export const CHECKIN_SCORE_LEGACY_MAX = 5;
 
 export const CHECKIN_SCORE_VALUES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
 
+/** Map a 0–1 track position (tap or drag) onto an integer 0–10. */
+export function scoreFromTrackRatio(ratio: number): number {
+  if (!Number.isFinite(ratio)) return CHECKIN_SCORE_MIN;
+  const clamped = Math.min(1, Math.max(0, ratio));
+  return Math.round(CHECKIN_SCORE_MIN + clamped * (CHECKIN_SCORE_MAX - CHECKIN_SCORE_MIN));
+}
+
 /** ~3/5 on the old scale. */
 export const PAIN_WATCH_ON_TEN = 6;
 /** ~4/5 on the old scale. */

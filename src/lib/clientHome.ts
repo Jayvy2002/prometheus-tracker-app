@@ -4,7 +4,7 @@ const EPOCH_MS = Date.parse('1970-01-01T00:00:00.000Z');
 const MIN_SANE_YEAR = 2015;
 const MAX_SANE_DAYS = 4000;
 
-export type ClientHomeNextActionKind = 'checkin' | 'waiting_program' | 'first_session';
+export type ClientHomeNextActionKind = 'waiting_program' | 'first_session';
 
 export interface ClientHomeActivity {
   completedWorkoutCount: number;
@@ -94,13 +94,10 @@ export function clientHomeNextAction(input: {
   firstRun: boolean;
   hasProgram: boolean;
   hasNextWorkout: boolean;
-  checkinsEnabled: boolean;
-  todayCheckinDone: boolean;
   hasCoach: boolean;
 }): ClientHomeNextActionKind | null {
   if (input.hasNextWorkout) return null;
   if (!input.firstRun) return null;
   if (input.hasCoach && !input.hasProgram) return 'waiting_program';
-  if (input.checkinsEnabled && !input.todayCheckinDone) return 'checkin';
   return 'first_session';
 }

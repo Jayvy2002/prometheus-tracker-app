@@ -12,8 +12,13 @@ import {
   invertScoreOnTen,
   isLegacyFiveScaleCheckin,
   isLegacyFiveScaleRow,
+  scoreFromTrackRatio,
   scoreOnTen,
 } from './checkinScale';
+
+function src(rel: string): string {
+  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
 
 test('0 and 10 are valid check-in scores', () => {
   assert.equal(clampCheckinScore(0), 0);
@@ -73,9 +78,25 @@ test('pain watch on ten is ~3/5 so a new 3/10 does not false-flag like old 3/5',
   assert.ok((scoreOnTen(3, true) ?? 0) >= PAIN_WATCH_ON_TEN);
 });
 
-test('client check-in form uses 0–10 inclusive', () => {
-  const page = readFileSync(resolve(process.cwd(), 'src/components/checkin/CheckInPage.tsx'), 'utf8');
-  assert.match(page, /CHECKIN_SCORE_VALUES/);
+test('track tap/drag maps 0–1 onto an integer 0–10', () => {
+  assert.equal(scoreFromTrackRatio(0), 0);
+  assert.equal(scoreFromTrackRatio(1), 10);
+  assert.equal(scoreFromTrackRatio(0.5), 5);
+  assert.equal(scoreFromTrackRatio(-0.2), 0);
+  assert.equal(scoreFromTrackRatio(1.4), 10);
+  assert.equal(scoreFromTrackRatio(0.74), 7);
+  assert.equal(scoreFromTrackRatio(Number.NaN), 0);
+});
+
+test('client check-in form uses 0–10 sliders, not a button grid', () => {
+  const page = src('src/components/checkin/CheckInPage.tsx');
+  const slider = src('src/components/checkin/ScoreSlider.tsx');
+  assert.match(page, /ScoreSlider/);
   assert.match(page, /checkin\.scaleHint/);
   assert.doesNotMatch(page, /\[1, 2, 3, 4, 5\]/);
+  assert.doesNotMatch(page, /grid-cols-6/);
+  assert.doesNotMatch(page, /CHECKIN_SCORE_VALUES\.map/);
+  assert.match(slider, /role="slider"/);
+  assert.match(slider, /scoreFromTrackRatio/);
+  assert.match(slider, /w-7 h-7/);
 });

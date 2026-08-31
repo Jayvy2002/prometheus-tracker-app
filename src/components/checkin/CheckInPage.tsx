@@ -5,7 +5,7 @@ import { Check } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { todayStr } from '../../lib/utils';
-import { clampCheckinScore, CHECKIN_SCORE_VALUES } from '../../lib/checkinScale';
+import { clampCheckinScore } from '../../lib/checkinScale';
 import { useClientTracking } from '../../lib/useClientTracking';
 import {
   CHECKIN_SCALE_BY_VAR,
@@ -18,55 +18,7 @@ import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import type { DailyCheckinInput } from '../../lib/types';
-
-function ScaleRow({
-  label, low, high, value, onChange,
-}: {
-  label: string;
-  low: string;
-  high: string;
-  value: number | null;
-  onChange: (v: number | null) => void;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-medium text-white">
-          {label}
-          {value != null && (
-            <span className="ml-2 text-blue-400 font-semibold">{value}/10</span>
-          )}
-        </p>
-        <button
-          type="button"
-          onClick={() => onChange(null)}
-          className="text-[10px] text-neutral-500 hover:text-neutral-300"
-        >
-          {value == null ? '—' : '×'}
-        </button>
-      </div>
-      <div className="grid grid-cols-6 gap-1">
-        {CHECKIN_SCORE_VALUES.map(n => (
-          <button
-            key={n}
-            type="button"
-            onClick={() => onChange(value === n ? null : n)}
-            className={`py-2 rounded-xl text-xs font-semibold transition-all
-              ${value === n
-                ? 'bg-blue-600 text-white'
-                : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'}`}
-          >
-            {n}
-          </button>
-        ))}
-      </div>
-      <div className="flex justify-between text-[10px] text-neutral-600">
-        <span>0 · {low}</span>
-        <span>{high} · 10</span>
-      </div>
-    </div>
-  );
-}
+import ScoreSlider from './ScoreSlider';
 
 const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: string }> = {
   sleep_quality: { field: 'sleep_quality', low: 'poor', high: 'excellent' },
@@ -213,12 +165,13 @@ export default function CheckInPage() {
             if (!col) return null;
             const copy = SCALE_COPY[col];
             return (
-              <ScaleRow
+              <ScoreSlider
                 key={key}
                 label={t(`checkin.fields.${copy.field}`)}
                 low={t(`checkin.low.${copy.low}`)}
                 high={t(`checkin.high.${copy.high}`)}
                 value={scales[col]}
+                unsetLabel={t('checkin.notSet')}
                 onChange={v => setScale(col, v)}
               />
             );

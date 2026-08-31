@@ -185,8 +185,6 @@ export default function Dashboard() {
     firstRun,
     hasProgram,
     hasNextWorkout,
-    checkinsEnabled: showModule(tracking, 'checkins'),
-    todayCheckinDone: !!todayCheckin,
     hasCoach,
   });
 
@@ -334,14 +332,14 @@ export default function Dashboard() {
           </button>
         )}
 
-        {myCoach && (hasProgram || (!calmHome && showNutritionField(tracking, 'calories'))) && (
+        {myCoach && (hasProgram || (!activityPending && showNutritionField(tracking, 'calories'))) && (
           <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
             {assignment?.program && (
               <button type="button" onClick={() => navigate('/programs')} className="text-left hover:text-white transition-colors">
                 {t('coaching.loop.program', { name: assignment.program.name })}
               </button>
             )}
-            {!calmHome && showNutritionField(tracking, 'calories') && (
+            {!activityPending && showNutritionField(tracking, 'calories') && (
               <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
             )}
           </div>
@@ -437,29 +435,20 @@ export default function Dashboard() {
           </div>
         )}
 
-        {nextAction && (
-          nextAction === 'checkin' ? (
-            <button
-              onClick={() => navigate('/checkin')}
-              className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
-            >
-              <p className="text-sm text-neutral-200">{t('dashboard.firstRun.checkin')}</p>
-            </button>
-          ) : nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
-            <button
-              onClick={() => navigate('/workout')}
-              className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
-            >
-              <p className="text-sm text-neutral-200">{t('dashboard.firstRun.firstSession')}</p>
-            </button>
-          ) : (
-            <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4">
-              <p className="text-sm text-neutral-200">{t(`dashboard.firstRun.${nextAction}`)}</p>
-            </div>
-          )
-        )}
+        {nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
+          <button
+            onClick={() => navigate('/workout')}
+            className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
+          >
+            <p className="text-sm text-neutral-200">{t('dashboard.firstRun.firstSession')}</p>
+          </button>
+        ) : nextAction ? (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4">
+            <p className="text-sm text-neutral-200">{t(`dashboard.firstRun.${nextAction}`)}</p>
+          </div>
+        ) : null}
 
-        {showModule(tracking, 'checkins') && !todayCheckin && nextAction !== 'checkin' && (!calmHome || (firstRun && hasNextWorkout)) && (
+        {showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
           <button
             onClick={() => navigate('/checkin')}
             className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
@@ -472,7 +461,7 @@ export default function Dashboard() {
             <ChevronRight size={16} className="text-violet-300/70" />
           </button>
         )}
-        {!calmHome && (
+        {!activityPending && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
@@ -571,7 +560,7 @@ export default function Dashboard() {
         </div>
         )}
 
-        {showModule(tracking, 'workouts') && !calmHome && (
+        {showModule(tracking, 'workouts') && !activityPending && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -636,8 +625,8 @@ export default function Dashboard() {
         </div>
         )}
 
-        {/* Streak & Weight row — hide on first-run so a weigh-in streak doesn't scold a new athlete */}
-        {!calmHome && (
+        {/* Streak & Weight row — hide while history is still loading to avoid a 0-day flash */}
+        {!activityPending && (
         <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
           {/* Streak */}
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
@@ -689,7 +678,7 @@ export default function Dashboard() {
         )}
 
         {/* Quick actions */}
-        {!calmHome && (
+        {!activityPending && (
         <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
           <button
             onClick={() => navigate('/stats')}
