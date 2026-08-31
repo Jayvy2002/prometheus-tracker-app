@@ -337,7 +337,9 @@ export default function Dashboard() {
         {myCoach && (hasProgram || (!calmHome && showNutritionField(tracking, 'calories'))) && (
           <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
             {assignment?.program && (
-              <p>{t('coaching.loop.program', { name: assignment.program.name })}</p>
+              <button type="button" onClick={() => navigate('/programs')} className="text-left hover:text-white transition-colors">
+                {t('coaching.loop.program', { name: assignment.program.name })}
+              </button>
             )}
             {!calmHome && showNutritionField(tracking, 'calories') && (
               <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>

@@ -159,6 +159,7 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.doesNotMatch(dash, /\/recipes/);
   assert.doesNotMatch(dash, /navigate\('\/routines'\)/);
   assert.doesNotMatch(dash, /navigate\('\/programs\/new'\)/);
+  assert.match(dash, /navigate\('\/programs'\)/);
 
   const gymUi = src('src/components/dashboard/ClientGymCard.tsx');
   assert.match(gymUi, /dashboard\.gym\.done/);

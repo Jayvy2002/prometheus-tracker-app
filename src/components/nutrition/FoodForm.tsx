@@ -15,6 +15,8 @@ import Input from '../ui/Input';
 import Select from '../ui/Select';
 import UnifiedScanner from '../scanner/UnifiedScanner';
 import RecipeForm from './RecipeForm';
+import { searchOpenFoodFacts } from '../../lib/openFoodFacts';
+import { kcalFromEnergyValue, normalizeFoodProductEnergy, normalizePer100gKcal } from '../../lib/foodEnergy';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
 
@@ -31,41 +33,8 @@ interface SearchResult extends FoodProduct {
   _source?: SearchSource;
 }
 
-async function searchOpenFoodFacts(query: string): Promise<SearchResult[]> {
-  try {
-    const res = await fetch(
-      `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15&fields=product_name,brands,nutriments,serving_quantity,code`
-    );
-    const data = await res.json();
-    if (!data.products) return [];
-    return data.products
-      .filter((p: Record<string, unknown>) => p.product_name)
-      .map((p: Record<string, unknown>) => {
-        const n = (p.nutriments || {}) as Record<string, number>;
-        return {
-          id: '',
-          barcode: (p.code as string) || null,
-          name: p.product_name as string,
-          brand: (p.brands as string) || null,
-          calories_per_100g: n['energy-kcal_100g'] || 0,
-          protein_per_100g: n.proteins_100g || 0,
-          carbs_per_100g: n.carbohydrates_100g || 0,
-          fat_per_100g: n.fat_100g || 0,
-          serving_size: +(p.serving_quantity || 100),
-          serving_unit: 'g',
-          created_by: null,
-          created_at: '',
-          data_source: null,
-          _source: 'openfoodfacts' as const,
-        };
-      });
-  } catch {
-    return [];
-  }
-}
-
 export default function FoodForm({ category, date, onClose, prefill }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
   const { addLog, searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts, addFavorite, removeFavorite, logs } = useNutritionStore();
   const { profile } = useProfileStore();
@@ -120,7 +89,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     if (searchRef.current !== searchId) return;
 
     if (dbResults.length > 0) {
-      setResults(dbResults.map(p => ({ ...p, _source: 'db' as const })));
+      setResults(dbResults.map(p => ({ ...normalizeFoodProductEnergy(p), _source: 'db' as const })));
       setSearched(true);
       setSearching(false);
       setSearchPhase('idle');
@@ -128,7 +97,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     }
 
     setSearchPhase('openfoodfacts');
-    const offResults = await searchOpenFoodFacts(q);
+    const offResults = await searchOpenFoodFacts(q, i18n.language);
     if (searchRef.current !== searchId) return;
 
     setResults(offResults);
@@ -158,8 +127,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
     }
 
     setSelectedProduct(product);
+    const kcal = normalizePer100gKcal(
+      product.calories_per_100g,
+      product.protein_per_100g,
+      product.carbs_per_100g,
+      product.fat_per_100g,
+    );
     setName(product.name);
-    setCalories(product.calories_per_100g.toString());
+    setCalories(kcal.toString());
     setProtein(product.protein_per_100g.toString());
     setCarbs(product.carbs_per_100g.toString());
     setFat(product.fat_per_100g.toString());
@@ -228,10 +203,12 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   const handleSave = async () => {
     if (!user || !name.trim()) return;
     const qty = +quantity;
-    const cal = +calories;
     const pro = +protein;
     const carb = +carbs;
     const f = +fat;
+    const cal = isServingUnit
+      ? kcalFromEnergyValue(+calories, { protein: pro, carbs: carb, fat: f })
+      : normalizePer100gKcal(+calories, pro, carb, f);
     if (qty <= 0) { toast(t('nutrition.foodForm.errors.quantityPositive'), 'error'); return; }
     if (cal < 0 || pro < 0 || carb < 0 || f < 0) { toast(t('nutrition.foodForm.errors.negativeNutrition'), 'error'); return; }
     if (cal > 9000) { toast(t('nutrition.foodForm.errors.caloriesTooHigh'), 'error'); return; }
