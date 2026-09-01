@@ -16,7 +16,7 @@ import {
   parseWorkflowSuggestion,
 } from '../../lib/coachInterventions';
 import { displayName } from '../../lib/coachText';
-import { preparedTemplateKey, parseFleetCause, parseFleetObservation, parsePreparedMessage, isRelanceKind } from '../../lib/coachFleet';
+import { preparedTemplateKey, isAiOffPayload, parseFleetCause, parseFleetObservation, parsePreparedMessage, isRelanceKind } from '../../lib/coachFleet';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import {
   canSendProgramToClient,
@@ -416,6 +416,7 @@ export default function InterventionDraftPage() {
     || row.kind === 'other' || row.kind === 'ask_prometheus' || isCoachOnlyKind(row.kind);
   const observation = parseFleetObservation(row.payload);
   const cause = parseFleetCause(row.payload, row.rationale);
+  const aiOff = isAiOffPayload(row.payload);
   const noteOnly = row.kind === 'other';
   const patchWithoutProgram = showPatch && !assignment?.program_id;
   const edited: EditedProgramDraft = {
@@ -455,6 +456,11 @@ export default function InterventionDraftPage() {
         </div>
         <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1">
           {t(`coaching.interventions.kinds.${row.kind}`)}
+          {aiOff ? (
+            <span className="ml-2 normal-case tracking-normal text-neutral-500">
+              {t('coaching.fleet.iaOff')}
+            </span>
+          ) : null}
         </p>
         <h1 className="text-xl font-bold text-white mb-1">
           {row.title || t(`coaching.interventions.kinds.${row.kind}`)}

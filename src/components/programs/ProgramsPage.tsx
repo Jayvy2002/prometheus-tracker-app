@@ -4,36 +4,23 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, CalendarRange, Pencil } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
-import { useRoutineStore } from '../../stores/routineStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { todayStr } from '../../lib/utils';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import type { ProgramDay } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-
-const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0]; // Mon-first for display, Sunday=0 stored
 
 export default function ProgramsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { programs, loading, fetchPrograms, createProgram, deleteProgram, setProgramDayFromRoutine, assignProgram } = useProgramStore();
-  const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
+  const { programs, loading, fetchPrograms, deleteProgram, assignProgram } = useProgramStore();
   const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
   const isCoach = coachingRole === 'coach';
   const coached = isCoachedAthlete(coachingRole, myCoach);
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [weeks, setWeeks] = useState(8);
-  const [dayNames, setDayNames] = useState<Record<number, string>>({});
-  const [dayRoutines, setDayRoutines] = useState<Record<number, string>>({});
-  const [saving, setSaving] = useState(false);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [assignClient, setAssignClient] = useState('');
   const [assignDate, setAssignDate] = useState(todayStr());
@@ -41,48 +28,10 @@ export default function ProgramsPage() {
   useEffect(() => {
     if (!user) return;
     fetchPrograms(user.id);
-    fetchRoutines(user.id);
     if (isCoach) fetchClients();
   }, [user, isCoach]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const weekdayLabel = (d: number) => t(`programs.weekdays.${d}`);
-
-  const handleCreate = async () => {
-    if (!isCoach || !user || !name.trim()) return;
-    setSaving(true);
-    const days: Omit<ProgramDay, 'id' | 'program_id' | 'created_at'>[] = WEEKDAYS
-      .filter(d => dayNames[d]?.trim() || dayRoutines[d])
-      .map((d, i) => ({
-        weekday: d,
-        name: dayNames[d]?.trim() || '',
-        routine_id: dayRoutines[d] || null,
-        order_index: i,
-      }));
-    const id = await createProgram({
-      owner_id: user.id,
-      name: name.trim(),
-      description,
-      duration_weeks: weeks,
-    }, days);
-    if (id) {
-      for (const d of days) {
-        if (!d.routine_id) continue;
-        const program = await useProgramStore.getState().fetchProgram(id);
-        const created = program?.days?.find(x => x.weekday === d.weekday);
-        const routine = await fetchRoutineWithExercises(d.routine_id);
-        if (created && routine) await setProgramDayFromRoutine(created.id, routine);
-      }
-      toast(t('programs.created'));
-      setShowForm(false);
-      setName('');
-      setDescription('');
-      setDayNames({});
-      setDayRoutines({});
-    } else {
-      toast(t('programs.createFailed'), 'error');
-    }
-    setSaving(false);
-  };
 
   const handleAssign = async () => {
     if (!assigningId || !assignClient) return;
@@ -177,49 +126,7 @@ export default function ProgramsPage() {
           </div>
         )}
 
-        {isCoach && (
-        <button type="button" onClick={() => navigate('/routines')} className="mt-6 text-sm text-blue-400">
-          {t('programs.manageRoutines')}
-        </button>
-        )}
       </div>
-
-      <Modal open={isCoach && showForm} onClose={() => setShowForm(false)} title={t('programs.newTitle')}>
-        <div className="space-y-4">
-          <Input label={t('programs.name')} value={name} onChange={e => setName(e.target.value)} placeholder="Hypertrophy block" />
-          <Input label={t('programs.description')} value={description} onChange={e => setDescription(e.target.value)} />
-          <Input label={t('programs.durationWeeks')} type="number" value={weeks} onChange={e => setWeeks(Math.max(1, Math.min(52, +e.target.value || 1)))} />
-          <div>
-            <p className="text-sm font-medium text-neutral-300 mb-2">{t('programs.days')}</p>
-            <div className="space-y-2">
-              {WEEKDAYS.map(d => (
-                <div key={d} className="grid grid-cols-[72px_1fr_1fr] gap-2 items-center">
-                  <span className="text-xs text-neutral-400">{weekdayLabel(d)}</span>
-                  <input
-                    value={dayNames[d] ?? ''}
-                    onChange={e => setDayNames(s => ({ ...s, [d]: e.target.value }))}
-                    placeholder={t('programs.dayName')}
-                    className="bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-white"
-                  />
-                  <select
-                    value={dayRoutines[d] ?? ''}
-                    onChange={e => setDayRoutines(s => ({ ...s, [d]: e.target.value }))}
-                    className="bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1.5 text-xs text-white"
-                  >
-                    <option value="">{t('programs.noRoutine')}</option>
-                    {routines.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </div>
-          <Button onClick={handleCreate} loading={saving} disabled={!name.trim()} className="w-full">
-            {t('programs.create')}
-          </Button>
-        </div>
-      </Modal>
 
       <Modal open={!!assigningId} onClose={() => setAssigningId(null)} title={t('programs.assign')}>
         <div className="space-y-3">

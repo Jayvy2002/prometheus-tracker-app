@@ -9,6 +9,7 @@ import {
   payloadSummary,
 } from '../../lib/coachInterventions';
 import {
+  isAiOffPayload,
   isRelanceKind,
   parseFleetCause,
   parseFleetObservation,
@@ -40,6 +41,7 @@ export default function InterventionInboxCard({
   const cals = parseCalorieDraft(item.payload);
   const completeCals = isCompleteCalorieDraft(cals);
   const relance = isRelanceKind(item.kind);
+  const aiOff = isAiOffPayload(item.payload);
   const primaryIsSend = inboxPrimaryIsSend(item.kind) && !!message && !!onSend;
 
   return (
@@ -49,6 +51,11 @@ export default function InterventionInboxCard({
         <div className="flex-1 min-w-0">
           <p className="text-[11px] uppercase tracking-wider text-blue-300">
             {t(`coaching.interventions.kinds.${item.kind}`)}
+            {aiOff ? (
+              <span className="ml-2 normal-case tracking-normal text-neutral-500">
+                {t('coaching.fleet.iaOff')}
+              </span>
+            ) : null}
           </p>
           <p className="text-sm font-medium text-white truncate">
             {item.title || t(`coaching.interventions.kinds.${item.kind}`)}
