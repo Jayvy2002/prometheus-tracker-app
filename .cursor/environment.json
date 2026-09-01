@@ -1,0 +1,17 @@
+{
+  "name": "Prometheus coaching (new-JV)",
+  "install": "npm install && (test -f .env || cp .env.production .env)",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "npm run dev",
+      "description": "Vite dev server on http://localhost:5173 (Prometheus coaching app)"
+    }
+  ],
+  "ports": [
+    {
+      "name": "vite",
+      "port": 5173
+    }
+  ]
+}
