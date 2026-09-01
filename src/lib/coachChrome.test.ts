@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import {
+  ALL_OFF_TRACKING,
+  ALL_ON_TRACKING,
+  COACHED_NAV_MAX,
+  coachedNavPaths,
+} from './clientTracking';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -89,9 +95,36 @@ test('Coached client shell: hub Messages + Photos + Mon programme, no coach-mode
   assert.doesNotMatch(side, /path: '\/stats'|path: '\/calendar'|path: '\/exercise-progress'/);
 
   const bottom = src('src/components/layout/BottomNav.tsx');
-  assert.match(bottom, /path: '\/messages'/);
-  assert.match(bottom, /path: '\/photos'/);
-  assert.match(bottom, /path: '\/profile'/);
+  assert.match(bottom, /coachedNavPaths\(tracking\)/);
+  assert.match(bottom, /'\/photos': \{/);
+  assert.match(bottom, /'\/profile': \{/);
+});
+
+test('La barre du bas du client coaché suit ce que le coach a activé', () => {
+  const allOn = coachedNavPaths(ALL_ON_TRACKING);
+  assert.equal(allOn.length <= COACHED_NAV_MAX, true);
+  assert.equal(allOn[0], '/dashboard');
+  assert.equal(allOn[allOn.length - 1], '/profile');
+  // Le trou signalé : nutrition activée mais aucun chemin depuis le téléphone.
+  assert.equal(allOn.includes('/nutrition'), true);
+  assert.equal(allOn.includes('/messages'), true);
+
+  const trainOnly = coachedNavPaths({ ...ALL_OFF_TRACKING, track_workouts: true });
+  assert.deepEqual(trainOnly, ['/dashboard', '/workout', '/messages', '/photos', '/profile']);
+
+  const checkinOnly = coachedNavPaths({ ...ALL_OFF_TRACKING, track_checkins: true });
+  assert.equal(checkinOnly.includes('/checkin'), true);
+  assert.equal(checkinOnly.includes('/workout'), false);
+
+  // Rien d'activé : on ne fabrique pas d'onglet vide.
+  assert.deepEqual(coachedNavPaths(ALL_OFF_TRACKING), ['/dashboard', '/messages', '/photos', '/profile']);
+});
+
+test('Le coach atteint ses réglages depuis son téléphone', () => {
+  const bottom = src('src/components/layout/BottomNav.tsx');
+  const coachBar = bottom.slice(bottom.indexOf("coachingRole === 'coach'"), bottom.indexOf(': coached'));
+  assert.match(coachBar, /path: '\/profile'/);
+  assert.match(coachBar, /nav\.prometheus/);
 });
 
 test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {

@@ -253,6 +253,26 @@ export function showModule(cfg: ResolvedTrackingConfig, module: TrackingModuleKe
   return cfg.track_weight;
 }
 
+/**
+ * Coached client bottom bar, by decreasing priority. Accueil and Messages never
+ * drop (the 1-to-1 relationship), the rest follows what the coach turned on.
+ * Photos is the filler: it stays reachable from Profil when it overflows.
+ */
+export const COACHED_NAV_POOL = ['/dashboard', '/workout', '/messages', '/nutrition', '/checkin', '/photos'] as const;
+
+export const COACHED_NAV_MAX = 5;
+
+/** `/profile` is always the last tab, so only `max - 1` slots are up for grabs. */
+export function coachedNavPaths(cfg: ResolvedTrackingConfig, max = COACHED_NAV_MAX): string[] {
+  const kept = COACHED_NAV_POOL.filter(path => {
+    if (path === '/workout') return showModule(cfg, 'workouts');
+    if (path === '/nutrition') return showModule(cfg, 'nutrition');
+    if (path === '/checkin') return showModule(cfg, 'checkins');
+    return true;
+  });
+  return [...kept.slice(0, Math.max(max - 1, 0)), '/profile'];
+}
+
 export function showTrainingField(cfg: ResolvedTrackingConfig, key: TrainingVarKey): boolean {
   return cfg.track_workouts && cfg.training[key];
 }

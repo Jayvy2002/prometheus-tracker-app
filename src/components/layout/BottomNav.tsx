@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { coachedNavPaths } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
 
 export default function BottomNav() {
@@ -14,6 +15,16 @@ export default function BottomNav() {
   const tracking = useCoachingStore(s => s.myTrackingConfig);
   const coached = isCoachedAthlete(coachingRole, myCoach);
 
+  const coachedTabs: Record<string, { icon: typeof LayoutDashboard; label: string }> = {
+    '/dashboard': { icon: LayoutDashboard, label: t('nav.home') },
+    '/workout': { icon: Dumbbell, label: t('nav.workout') },
+    '/messages': { icon: MessageSquare, label: t('nav.messages') },
+    '/nutrition': { icon: Apple, label: t('nav.nutrition') },
+    '/checkin': { icon: ClipboardCheck, label: t('nav.checkin') },
+    '/photos': { icon: Camera, label: t('nav.photos') },
+    '/profile': { icon: User, label: t('nav.profile') },
+  };
+
   const tabs = coachingRole === 'coach'
     ? [
         { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today') },
@@ -21,15 +32,10 @@ export default function BottomNav() {
         { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
         { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
+        { path: '/profile', icon: User, label: t('nav.profile') },
       ]
     : coached
-      ? [
-          { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
-          { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
-          { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: true },
-          { path: '/photos', icon: Camera, label: t('nav.photos'), show: true },
-          { path: '/profile', icon: User, label: t('nav.profile'), show: true },
-        ].filter(tab => tab.show !== false)
+      ? coachedNavPaths(tracking).map(path => ({ path, ...coachedTabs[path] }))
       : [
           { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
           { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
