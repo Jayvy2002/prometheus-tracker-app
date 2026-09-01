@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Users, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { credentialsFromLoginForm, clientLoginErrorCopy } from '../../lib/clientAuth';
+import { credentialsFromLoginForm, clientLoginErrorCopy, postLoginPath } from '../../lib/clientAuth';
 import { useAuthStore } from '../../stores/authStore';
 import {
   clearIntendedCoachingRole,
@@ -18,6 +19,7 @@ interface Props {
 
 export default function AuthPage({ inviteCoachName, fromInvite = false }: Props) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [step, setStep] = useState<'role' | 'form'>(fromInvite ? 'form' : 'role');
   const [role, setRole] = useState<IntendedCoachingRole | null>(fromInvite ? 'client' : null);
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
@@ -96,6 +98,8 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
       }
       if ('needsConfirmation' in result && result.needsConfirmation) {
         setCheckEmail(true);
+      } else {
+        navigate(postLoginPath(), { replace: true });
       }
     } finally {
       submittingRef.current = false;

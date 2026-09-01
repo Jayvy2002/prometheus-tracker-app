@@ -1,4 +1,4 @@
-import { useWorkoutStore } from '../stores/workoutStore';
+import { supabase } from './supabase';
 import { localWorkoutTimestamp } from './utils';
 import type { WorkoutTemplateExercise } from './types';
 
@@ -12,40 +12,20 @@ export interface StartWorkoutOptions {
 }
 
 export async function startWorkoutFromTemplate(opts: StartWorkoutOptions): Promise<string | null> {
-  const { createWorkout, addExercise, addSet, deleteWorkout } = useWorkoutStore.getState();
-  let workoutId: string | null = null;
   try {
-    workoutId = await createWorkout({
-      user_id: opts.userId,
-      name: opts.name,
-      date: localWorkoutTimestamp(),
-      routine_id: opts.routineId || undefined,
-      program_assignment_id: opts.programAssignmentId || undefined,
-      program_day_id: opts.programDayId || undefined,
-    });
-    if (!workoutId) return null;
-
     const sorted = [...opts.exercises].sort((a, b) => a.order_index - b.order_index);
-    for (const ex of sorted) {
-      const added = await addExercise(workoutId, ex.name, ex.order_index, {
-        prescribed_sets: ex.default_sets,
-        prescribed_reps: ex.default_reps,
-        prescribed_reps_min: ex.default_reps_min ?? null,
-        prescribed_rir: ex.default_rir ?? null,
-        prescribed_rest_seconds: ex.default_rest_seconds ?? null,
-        prescribed_weight_kg: ex.default_weight_kg ?? null,
-      });
-      if (added) {
-        const setCount = Math.max(0, ex.default_sets || 0);
-        for (let i = 0; i < setCount; i++) {
-          await addSet(added.id, i);
-        }
-      }
-    }
-    return workoutId;
+    const { data, error } = await supabase.rpc('start_workout_from_template', {
+      p_name: opts.name,
+      p_date: localWorkoutTimestamp(),
+      p_routine_id: opts.routineId || null,
+      p_program_assignment_id: opts.programAssignmentId || null,
+      p_program_day_id: opts.programDayId || null,
+      p_exercises: sorted,
+    });
+    if (error) throw error;
+    return typeof data === 'string' ? data : null;
   } catch (err) {
     console.error('startWorkoutFromTemplate failed:', err);
-    if (workoutId) await deleteWorkout(workoutId);
     return null;
   }
 }

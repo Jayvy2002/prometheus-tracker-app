@@ -1475,6 +1475,9 @@ const fr = {
       saved: 'Préférences enregistrées',
       defaultTracking: 'Variables par défaut (nouveaux clients)',
       defaultTrackingHint: 'Chaque client peut ensuite surcharger ces choix à l’onboarding ou depuis sa fiche.',
+      alertTiming: 'Horaire des alertes d’entraînement',
+      timezone: 'Fuseau horaire IANA',
+      missedWorkoutCutoff: 'Signaler une séance manquée à partir de (heure locale)',
     },
     tracking: {
       modules: 'Modules',

@@ -30,6 +30,8 @@ export default function CoachSettingsPanel() {
   const [tabs, setTabs] = useState<CoachClientTab[]>([...DEFAULT_COACH_VISIBLE_TABS]);
   const [templates, setTemplates] = useState<CoachNudgeTemplateSet>({});
   const [defaults, setDefaults] = useState<ResolvedTrackingConfig>(cloneTracking(ALL_ON_TRACKING));
+  const [timezone, setTimezone] = useState('America/Toronto');
+  const [cutoffHour, setCutoffHour] = useState(21);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -41,6 +43,8 @@ export default function CoachSettingsPanel() {
     setTabs(coachSettings.visible_tabs);
     setTemplates(coachSettings.nudge_templates);
     setDefaults(cloneTracking(parseCoachTrackingDefaults(coachSettings.default_tracking)));
+    setTimezone(coachSettings.timezone);
+    setCutoffHour(coachSettings.missed_workout_cutoff_hour);
   }, [coachSettings]);
 
   const loc = i18n.language.toLowerCase().startsWith('fr') ? 'fr' : 'en';
@@ -63,6 +67,8 @@ export default function CoachSettingsPanel() {
       queue_mode_default: true,
       nudge_templates: templates,
       default_tracking: serializeTrackingVars(defaults),
+      timezone,
+      missed_workout_cutoff_hour: cutoffHour,
     });
     setSaving(false);
     if (result.error) toast(result.error, 'error');
@@ -94,6 +100,30 @@ export default function CoachSettingsPanel() {
         <p className="text-xs font-medium text-neutral-400">{t('coaching.settings.defaultTracking')}</p>
         <p className="text-[11px] text-neutral-500">{t('coaching.settings.defaultTrackingHint')}</p>
         <TrackingVarsEditor value={defaults} onChange={setDefaults} />
+      </div>
+
+      <div className="rounded-xl border border-neutral-800 p-3 space-y-3">
+        <p className="text-xs font-medium text-neutral-400">{t('coaching.settings.alertTiming')}</p>
+        <label className="block">
+          <span className="text-[11px] text-neutral-500">{t('coaching.settings.timezone')}</span>
+          <input
+            value={timezone}
+            onChange={e => setTimezone(e.target.value)}
+            placeholder="America/Toronto"
+            className="mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+          />
+        </label>
+        <label className="block">
+          <span className="text-[11px] text-neutral-500">{t('coaching.settings.missedWorkoutCutoff')}</span>
+          <input
+            type="number"
+            min={0}
+            max={23}
+            value={cutoffHour}
+            onChange={e => setCutoffHour(Math.max(0, Math.min(23, Number(e.target.value) || 0)))}
+            className="mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+          />
+        </label>
       </div>
 
       <div className="space-y-3">

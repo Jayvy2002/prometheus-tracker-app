@@ -9,6 +9,7 @@ import {
   credentialsFromLoginForm,
   shouldCommitAuthSnapshot,
   submitClientLogin,
+  postLoginPath,
 } from './clientAuth';
 
 function src(rel: string): string {
@@ -94,6 +95,13 @@ test('login errors from GoTrue are shown in the app locale', () => {
     'E-mail ou mot de passe incorrect.',
   );
   assert.equal(clientLoginErrorCopy('Network error', t), 'Network error');
+});
+
+test('post-login route is clean unless a safe deep-link was explicit', () => {
+  assert.equal(postLoginPath(), '/dashboard');
+  assert.equal(postLoginPath('/profile'), '/profile');
+  assert.equal(postLoginPath('//evil.test'), '/dashboard');
+  assert.equal(postLoginPath('/auth'), '/dashboard');
 });
 
 test('first valid client login submit signs in even while auth is booting', async () => {

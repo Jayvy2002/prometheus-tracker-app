@@ -25,6 +25,7 @@ import {
   shouldShowDaysSinceReminder,
 } from '../../lib/clientHome';
 import { resolveClientGymCard } from '../../lib/clientGym';
+import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
 import type { ProgramDay } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
@@ -118,7 +119,10 @@ export default function Dashboard() {
   // Weekly workout goal
   const weekDates = getWeekDates();
   const todayIndex = weekDates.indexOf(todayStr());
-  const trainingTarget = profile?.training_frequency ?? 3;
+  const trainingTarget = resolveTrainingFrequency(
+    profile?.training_frequency,
+    assignment?.status === 'active' ? assignment.program?.days : null,
+  );
   const doneDays = weekDates.map(date =>
     workouts.some(w => w.completed && w.date?.startsWith(date))
   );

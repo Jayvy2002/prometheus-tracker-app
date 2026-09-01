@@ -479,7 +479,9 @@ export default function ClientDetailPage() {
                 ? t(`coaching.goalLabels.${client.goal === 'gain' ? 'bulk' : client.goal === 'lose' ? 'cut' : client.goal}`, { defaultValue: client.goal })
                 : '—'}
               {week ? ` · ${t('programs.weekOf', { current: week.current, total: week.total })}` : ''}
-              {client?.training_frequency ? ` · ${client.training_frequency}x` : rosterSignals.scheduledDays[id ?? ''] ? ` · ${rosterSignals.scheduledDays[id ?? '']}x` : ''}
+              {rosterSignals.scheduledDays[id ?? '']
+                ? ` · ${rosterSignals.scheduledDays[id ?? '']}x`
+                : client?.training_frequency ? ` · ${client.training_frequency}x` : ''}
             </p>
           </div>
           <button

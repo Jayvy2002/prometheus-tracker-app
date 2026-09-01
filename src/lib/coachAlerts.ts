@@ -21,6 +21,8 @@ export interface CoachOpsFacts {
   today: string;
   weekAgo: string;
   weekday: number;
+  localHour: number;
+  missedWorkoutCutoffHour: number;
   checkinUserIds: Set<string>;
   nutritionUserIds: Set<string>;
   weightUserIds: Set<string>;
@@ -28,6 +30,37 @@ export interface CoachOpsFacts {
   scheduledWeekdaysByClient: Map<string, Set<number>>;
   assignedClientIds: Set<string>;
   trackingByClient: Map<string, Pick<ClientTrackingConfig, 'track_weight' | 'track_checkins' | 'track_nutrition' | 'track_workouts' | 'setup_completed_at'> | ClientTrackingConfig>;
+}
+
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+};
+
+export function coachClockFacts(now: Date, timezone: string): Pick<CoachOpsFacts, 'today' | 'weekday' | 'localHour'> {
+  let formatter: Intl.DateTimeFormat;
+  try {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      weekday: 'short', hour: '2-digit', hourCycle: 'h23',
+    });
+  } catch {
+    formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'UTC',
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      weekday: 'short', hour: '2-digit', hourCycle: 'h23',
+    });
+  }
+  const parts = Object.fromEntries(formatter.formatToParts(now).map(part => [part.type, part.value]));
+  return {
+    today: `${parts.year}-${parts.month}-${parts.day}`,
+    weekday: WEEKDAY_INDEX[parts.weekday] ?? 0,
+    localHour: Number(parts.hour) || 0,
+  };
+}
+
+function weekdayRank(weekday: number): number {
+  return (weekday + 6) % 7;
 }
 
 export function weekAgoStr(today = todayStr()): string {
@@ -65,8 +98,20 @@ export function buildClientOpsRows(clients: CoachClientSummary[], facts: CoachOp
         const dates = facts.workoutDatesByUser.get(client.id) ?? [];
         const trainedToday = dates.includes(facts.today);
         if (hasProgram) {
-          if (hasScheduledTrainingToday && !trainedToday) {
+          const weekStart = addDaysToDateStr(facts.today, -weekdayRank(facts.weekday));
+          const completedThisWeek = new Set(
+            dates.filter(date => date >= weekStart && date <= facts.today),
+          ).size;
+          const scheduledBeforeToday = [...(scheduledDays ?? [])]
+            .filter(day => weekdayRank(day) < weekdayRank(facts.weekday)).length;
+          const todayIsDue = hasScheduledTrainingToday
+            && facts.localHour >= facts.missedWorkoutCutoffHour;
+          const expectedByNow = scheduledBeforeToday + (todayIsDue ? 1 : 0);
+
+          if (todayIsDue && !trainedToday && completedThisWeek < expectedByNow) {
             alerts.push('missing_workout_today');
+          } else if (completedThisWeek < scheduledBeforeToday) {
+            alerts.push('missing_workout_week');
           }
         } else if (!dates.some(d => d >= facts.weekAgo)) {
           alerts.push('missing_workout_week');

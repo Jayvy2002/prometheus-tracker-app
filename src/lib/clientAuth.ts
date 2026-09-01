@@ -81,6 +81,20 @@ export function clientLoginErrorCopy(raw: string, t: (key: string) => string): s
   return raw;
 }
 
+/** Default to the role-aware home; preserve only an explicit, safe internal deep-link. */
+export function postLoginPath(returnTo?: string | null): string {
+  if (
+    returnTo
+    && returnTo.startsWith('/')
+    && !returnTo.startsWith('//')
+    && returnTo !== '/auth'
+    && returnTo !== '/reset-password'
+  ) {
+    return returnTo;
+  }
+  return '/dashboard';
+}
+
 /** First valid submit always calls signIn — never swallowed because auth is still booting. */
 export async function submitClientLogin(opts: {
   formEmail: string;

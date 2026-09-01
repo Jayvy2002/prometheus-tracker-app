@@ -1475,6 +1475,9 @@ const en = {
       saved: 'Preferences saved',
       defaultTracking: 'Default variables (new clients)',
       defaultTrackingHint: 'Each client can override these at onboarding or from their file later.',
+      alertTiming: 'Workout alert timing',
+      timezone: 'IANA timezone',
+      missedWorkoutCutoff: 'Flag a missed workout from (local hour)',
     },
     tracking: {
       modules: 'Modules',

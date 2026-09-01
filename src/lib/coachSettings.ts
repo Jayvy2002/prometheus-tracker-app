@@ -7,11 +7,16 @@ import type {
 import { DEFAULT_COACH_VISIBLE_TABS } from './types';
 import { ALL_ON_TRACKING, parseCoachTrackingDefaults, serializeTrackingVars } from './clientTracking';
 
+export const DEFAULT_COACH_TIMEZONE = 'America/Toronto';
+export const DEFAULT_MISSED_WORKOUT_CUTOFF_HOUR = 21;
+
 export const EMPTY_COACH_SETTINGS: Omit<CoachSettings, 'coach_id'> = {
   visible_tabs: [...DEFAULT_COACH_VISIBLE_TABS],
   queue_mode_default: true,
   nudge_templates: {},
   default_tracking: serializeTrackingVars(ALL_ON_TRACKING),
+  timezone: DEFAULT_COACH_TIMEZONE,
+  missed_workout_cutoff_hour: DEFAULT_MISSED_WORKOUT_CUTOFF_HOUR,
   updated_at: '',
 };
 
@@ -42,12 +47,27 @@ export function parseNudgeTemplates(raw: unknown): CoachNudgeTemplateSet {
 }
 
 export function mapCoachSettings(raw: Record<string, unknown>, fallbackId: string): CoachSettings {
+  const rawTimezone = typeof raw.timezone === 'string' ? raw.timezone : '';
+  let timezone = DEFAULT_COACH_TIMEZONE;
+  try {
+    if (rawTimezone) {
+      new Intl.DateTimeFormat('en', { timeZone: rawTimezone }).format();
+      timezone = rawTimezone;
+    }
+  } catch {
+    timezone = DEFAULT_COACH_TIMEZONE;
+  }
+  const rawCutoff = Number(raw.missed_workout_cutoff_hour);
   return {
     coach_id: String(raw.coach_id ?? fallbackId),
     visible_tabs: parseVisibleTabs(raw.visible_tabs),
     queue_mode_default: raw.queue_mode_default !== false,
     nudge_templates: parseNudgeTemplates(raw.nudge_templates),
     default_tracking: serializeTrackingVars(parseCoachTrackingDefaults(raw.default_tracking)),
+    timezone,
+    missed_workout_cutoff_hour: Number.isFinite(rawCutoff)
+      ? Math.max(0, Math.min(23, Math.trunc(rawCutoff)))
+      : DEFAULT_MISSED_WORKOUT_CUTOFF_HOUR,
     updated_at: typeof raw.updated_at === 'string' ? raw.updated_at : '',
   };
 }

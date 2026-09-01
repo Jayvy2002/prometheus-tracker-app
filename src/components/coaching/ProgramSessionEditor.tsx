@@ -57,6 +57,7 @@ export default function ProgramSessionEditor({
   const exercisesLib = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
+  const resolveIntervention = useCoachingStore(s => s.resolveIntervention);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const fetchTrackingConfig = useCoachingStore(s => s.fetchTrackingConfig);
   const fetchCoachSettings = useCoachingStore(s => s.fetchCoachSettings);
@@ -71,6 +72,7 @@ export default function ProgramSessionEditor({
   const [proposal, setProposal] = useState<ProgramNlProposal | null>(null);
   const [nlJobId, setNlJobId] = useState<string | null>(null);
   const [nlSending, setNlSending] = useState(false);
+  const [proposalResolving, setProposalResolving] = useState(false);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
 
   const safeIndex = Math.min(dayIndex, Math.max(0, days.length - 1));
@@ -207,6 +209,42 @@ export default function ProgramSessionEditor({
     setNlJobId(result.id);
   };
 
+  const dismissProposal = async () => {
+    if (!nlRow) return;
+    setProposalResolving(true);
+    const result = await resolveIntervention(nlRow.id, 'dismissed', {
+      ...nlRow.payload,
+      editor_resolution: 'cancelled',
+    });
+    setProposalResolving(false);
+    if (result.error) {
+      setNlError(result.error);
+      return;
+    }
+    setProposal(null);
+    setNlJobId(null);
+  };
+
+  const applyProposal = async () => {
+    if (!proposal || !nlRow) return;
+    setProposalResolving(true);
+    const result = await resolveIntervention(nlRow.id, 'kept', {
+      ...nlRow.payload,
+      editor_resolution: 'applied_to_editor',
+    });
+    setProposalResolving(false);
+    if (result.error) {
+      setNlError(result.error);
+      return;
+    }
+    onDaysChange(applyProgramProposal(days, proposal));
+    setDayIndex(proposal.dayIndex);
+    setSelected(proposal.exerciseIndex);
+    setProposal(null);
+    setNl('');
+    setNlJobId(null);
+  };
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_88px] gap-2">
@@ -255,17 +293,11 @@ export default function ProgramSessionEditor({
             {formatExercisePrescription(proposal.after, tracking)}
           </p>
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setProposal(null)}>{t('common.cancel')}</Button>
+            <Button size="sm" variant="ghost" loading={proposalResolving} onClick={() => void dismissProposal()}>{t('common.cancel')}</Button>
             <Button
               size="sm"
-              onClick={() => {
-                onDaysChange(applyProgramProposal(days, proposal));
-                setDayIndex(proposal.dayIndex);
-                setSelected(proposal.exerciseIndex);
-                setProposal(null);
-                setNl('');
-                setNlJobId(null);
-              }}
+              loading={proposalResolving}
+              onClick={() => void applyProposal()}
             >
               {t('common.apply')}
             </Button>

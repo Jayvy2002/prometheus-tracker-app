@@ -553,6 +553,8 @@ export interface CoachSettings {
   queue_mode_default: boolean;
   nudge_templates: CoachNudgeTemplateSet;
   default_tracking: CoachTrackingDefaultsJson;
+  timezone: string;
+  missed_workout_cutoff_hour: number;
   updated_at: string;
 }
 

@@ -71,6 +71,15 @@ test('Ask and Demander un ajustement navigate to the editable draft, never a lef
   }
 });
 
+test('program editor resolves both accepted and cancelled AI proposals', () => {
+  const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
+  assert.match(editor, /resolveIntervention\(nlRow\.id, 'dismissed'/);
+  assert.match(editor, /resolveIntervention\(nlRow\.id, 'kept'/);
+  assert.match(editor, /editor_resolution: 'cancelled'/);
+  assert.match(editor, /editor_resolution: 'applied_to_editor'/);
+  assert.doesNotMatch(editor, /variant="ghost" onClick=\{\(\) => setProposal\(null\)\}/);
+});
+
 test('PROGRAM NL EDIT cause is a short French sentence, not a prompt or JSON dump', () => {
   const prompt = 'Léa a loggé Upper le 2026-08-28.\nSquat 80kg × 5\nPropose un ajustement.';
   assert.equal(isHumanCoachCause(prompt), false);

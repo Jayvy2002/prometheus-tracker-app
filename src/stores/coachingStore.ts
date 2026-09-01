@@ -72,7 +72,7 @@ import { toast } from '../components/ui/Toast';
 import type { ClientVisibleProfilePatch } from '../lib/coachClientProfile';
 import { useProgramStore } from './programStore';
 import { useProfileStore } from './profileStore';
-import { buildClientOpsRows, datePrefix, weekAgoStr } from '../lib/coachAlerts';
+import { buildClientOpsRows, coachClockFacts, datePrefix, weekAgoStr } from '../lib/coachAlerts';
 import { buildClientLifts } from '../lib/coachLifts';
 import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
@@ -335,7 +335,7 @@ interface CoachingState {
   markCoachMessageRead: (id: string) => Promise<void>;
   markThreadRead: (clientId: string) => Promise<void>;
   fetchCoachSettings: () => Promise<void>;
-  saveCoachSettings: (patch: Partial<Pick<CoachSettings, 'visible_tabs' | 'queue_mode_default' | 'nudge_templates' | 'default_tracking'>>) => Promise<{ error: string | null }>;
+  saveCoachSettings: (patch: Partial<Pick<CoachSettings, 'visible_tabs' | 'queue_mode_default' | 'nudge_templates' | 'default_tracking' | 'timezone' | 'missed_workout_cutoff_hour'>>) => Promise<{ error: string | null }>;
   fetchClientNutritionRange: (clientId: string, start: string, end: string, calorieTarget: number) => Promise<DailyNutritionPoint[]>;
   fetchClientLiftHistory: (clientId: string) => Promise<ClientLiftProgress[]>;
   fetchProgressPhotos: (userId: string) => Promise<ProgressPhoto[]>;
@@ -573,7 +573,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   fetchCoachOps: async () => {
     set({ opsLoading: true });
-    await Promise.all([get().fetchClients(), get().fetchPendingInterventions()]);
+    await Promise.all([get().fetchClients(), get().fetchPendingInterventions(), get().fetchCoachSettings()]);
     const clients = get().clients;
     if (get().clientsFetchError && clients.length === 0) {
       set({
@@ -594,10 +594,12 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       return;
     }
     const ids = clients.map(c => c.id);
-    const today = todayStr();
+    const settings = get().coachSettings ?? { coach_id: '', ...EMPTY_COACH_SETTINGS };
+    const clock = coachClockFacts(new Date(), settings.timezone);
+    const today = clock.today;
     const weekAgo = weekAgoStr(today);
     const threeWeeks = addDaysToDateStr(today, -20);
-    const weekday = new Date().getDay();
+    const weekday = clock.weekday;
 
     const [
       trackingRes,
@@ -730,6 +732,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       today,
       weekAgo,
       weekday,
+      localHour: clock.localHour,
+      missedWorkoutCutoffHour: settings.missed_workout_cutoff_hour,
       checkinUserIds: new Set((checkinTodayRes.data ?? []).map(r => r.user_id as string)),
       nutritionUserIds: new Set((nutritionRes.data ?? []).map(r => r.user_id as string)),
       weightUserIds: new Set((weightWeekRes.data ?? []).map(r => r.user_id as string)),
@@ -1072,6 +1076,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       queue_mode_default: patch.queue_mode_default ?? current.queue_mode_default,
       nudge_templates: patch.nudge_templates ?? current.nudge_templates,
       default_tracking: patch.default_tracking ?? current.default_tracking,
+      timezone: patch.timezone ?? current.timezone,
+      missed_workout_cutoff_hour: patch.missed_workout_cutoff_hour ?? current.missed_workout_cutoff_hour,
       updated_at: new Date().toISOString(),
     };
     const { data, error } = await supabase
