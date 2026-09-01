@@ -138,7 +138,3 @@ export function shouldOpenSetup(row: ClientOpsRow): boolean {
   if (!row.client.onboarding_completed) return true;
   return !row.setupCompleted && !row.hasProgram;
 }
-
-export function isSetupAlert(kind: ClientAlertKind): boolean {
-  return kind === 'onboarding_incomplete' || kind === 'program_unassigned';
-}

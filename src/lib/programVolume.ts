@@ -1,5 +1,5 @@
 import type { Exercise, ProgramExerciseDraft } from './types';
-import { foldText, namesMatch } from './coachText';
+import { namesMatch } from './coachText';
 
 const SESSION_VOLUME_WARN = 16;
 
@@ -50,8 +50,4 @@ export function weekMuscleVolume(
   return [...map.entries()]
     .map(([muscle, sets]) => ({ muscle, sets }))
     .sort((a, b) => b.sets - a.sets);
-}
-
-export function foldExerciseKey(name: string): string {
-  return foldText(name);
 }

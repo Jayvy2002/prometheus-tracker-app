@@ -1,6 +1,5 @@
 import { relanceThreadHref } from './coachQueue';
 import { displayName } from './coachText';
-import { addDaysToDateStr } from './utils';
 import type {
   ClientOpsRow,
   CoachIntervention,
@@ -270,8 +269,4 @@ export function secondCaloriePrompt(input: {
     + `Moyenne ${input.avg} kcal vs cible ${input.target}. `
     + 'Propose un brouillon calorie_adjustment éditable. N’écris pas les cibles ISSN. Rien ne s’applique tout seul.'
   );
-}
-
-export function recentWindowStart(today: string, days = 20): string {
-  return addDaysToDateStr(today, -days);
 }

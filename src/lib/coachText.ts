@@ -33,9 +33,3 @@ export function displayName(client: { full_name?: string | null; email?: string 
 export function datePrefix(value: string): string {
   return value.slice(0, 10);
 }
-
-export function maxIso(values: Array<string | null | undefined>): string | null {
-  const present = values.filter((v): v is string => !!v);
-  if (present.length === 0) return null;
-  return present.reduce((a, b) => (a > b ? a : b));
-}

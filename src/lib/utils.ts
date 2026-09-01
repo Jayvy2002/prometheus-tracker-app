@@ -132,18 +132,6 @@ export function kgToLbs(kg: number): number {
   return Math.round(kg * 2.20462 * 10) / 10;
 }
 
-export function lbsToKg(lbs: number): number {
-  return Math.round(lbs / 2.20462 * 10) / 10;
-}
-
-export function cmToIn(cm: number): number {
-  return Math.round(cm / 2.54 * 10) / 10;
-}
-
-export function inToCm(inches: number): number {
-  return Math.round(inches * 2.54 * 10) / 10;
-}
-
 export function formatWeight(kg: number, unit: 'kg' | 'lbs'): string {
   if (unit === 'lbs') return `${kgToLbs(kg)} lbs`;
   return `${Math.round(kg * 10) / 10} kg`;
@@ -208,10 +196,6 @@ export function addDaysToDateStr(dateStr: string, days: number): string {
   const d = parseDate(dateStr);
   d.setDate(d.getDate() + days);
   return toLocalDateStr(d);
-}
-
-export function generateId(): string {
-  return crypto.randomUUID();
 }
 
 export function clamp(val: number, min: number, max: number): number {

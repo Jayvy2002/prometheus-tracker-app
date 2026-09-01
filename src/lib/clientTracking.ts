@@ -1,4 +1,4 @@
-import type { ClientTrackingConfig, DailyCheckin, ProgramExerciseDraft } from './types';
+import type { DailyCheckin, ProgramExerciseDraft } from './types';
 
 export const TRAINING_VAR_KEYS = ['sets', 'reps', 'reps_range', 'rir', 'load', 'rest'] as const;
 export const NUTRITION_VAR_KEYS = ['calories', 'protein', 'carbs', 'fat', 'water', 'steps'] as const;
@@ -206,11 +206,6 @@ export function parseResolvedTracking(raw: unknown): ResolvedTrackingConfig {
   };
 }
 
-export function trackingFromRow(row: ClientTrackingConfig | null | undefined): ResolvedTrackingConfig {
-  if (!row) return { ...ALL_ON_TRACKING, training: { ...DEFAULT_TRAINING_VARS }, nutrition: { ...DEFAULT_NUTRITION_VARS }, checkin: { ...DEFAULT_CHECKIN_VARS } };
-  return parseResolvedTracking(row);
-}
-
 export function serializeTrackingVars(cfg: ResolvedTrackingConfig): {
   track_workouts: boolean;
   track_checkins: boolean;
@@ -288,11 +283,6 @@ export function visibleCheckinFields(cfg: ResolvedTrackingConfig): CheckinVarKey
 
 export function checkinHasAnyField(cfg: ResolvedTrackingConfig): boolean {
   return visibleCheckinFields(cfg).length > 0;
-}
-
-export function anyNutritionVar(cfg: ResolvedTrackingConfig): boolean {
-  if (!cfg.track_nutrition) return false;
-  return NUTRITION_VAR_KEYS.some(key => cfg.nutrition[key]);
 }
 
 export function anyMacroField(cfg: ResolvedTrackingConfig): boolean {

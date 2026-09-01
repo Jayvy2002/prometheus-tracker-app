@@ -40,15 +40,6 @@ export function lastLoggedSessionDate(
   return best;
 }
 
-export function lastCheckinDate(checkins: Array<{ checked_at: string }>): string | null {
-  let best: string | null = null;
-  for (const c of checkins) {
-    const d = datePrefix(c.checked_at);
-    if (!best || d > best) best = d;
-  }
-  return best;
-}
-
 export type ClientSituationId = 'no_program' | 'no_session' | 'idle_session';
 
 export interface ClientSituationLine {

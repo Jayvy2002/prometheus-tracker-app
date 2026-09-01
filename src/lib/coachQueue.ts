@@ -279,9 +279,3 @@ export function groupMessageThreads(
     return 0;
   });
 }
-
-export function templateKeyForAdherence(kind: CoachInterventionKind): CoachNudgeTemplateKey {
-  if (kind === 'adherence_training') return 'missed_training';
-  if (kind === 'adherence_nutrition') return 'missed_checkins';
-  return 'general_followup';
-}

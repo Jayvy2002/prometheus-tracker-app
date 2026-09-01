@@ -23,10 +23,6 @@ export const CHECKIN_QUERY_PARAM = 'checkin';
 /** Ghost / stale check-ins → empty + Relancer, not leftover pain/sleep. */
 export const RECENT_RECOVERY_DAYS = 7;
 export const LOW_SLEEP_HOURS = 6;
-/** @deprecated Use LOW_SLEEP_QUALITY_ON_TEN; kept as the old 1–5 cutoff for tests. */
-export const LOW_SLEEP_QUALITY = 2;
-/** @deprecated Use PAIN_WATCH_ON_TEN; kept as the old 1–5 cutoff for tests. */
-export const PAIN_WATCH = 3;
 
 const CLIENT_TABS: CoachClientTab[] = [
   'overview',

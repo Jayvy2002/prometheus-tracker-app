@@ -9,9 +9,6 @@
  * coach-agent (sync OpenAI). Fleet rounds stay in-app.
  */
 
-export const FOOD_LOOKUP_ORDER = ['food_products', 'open_food_facts', 'analyze_product'] as const;
-export const EXERCISE_LOOKUP_ORDER = ['exercises', 'verify_exercise'] as const;
-
 export const FAST_VERIFY_VENDOR = 'openai' as const;
 
 /** Bonus Realtime wait if a stale deploy still returns 202. Primary path is 200. */

@@ -12,7 +12,6 @@ import type {
   ClientLiftProgress,
   ClientOpsRow,
   CoachCommandStats,
-  CoachInboxKind,
   CoachPriority,
   CoachPriorityKind,
   CoachPrioritySeverity,
@@ -242,15 +241,6 @@ export function commandStats(
     programsMayAdapt: priorities.filter(p => p.kind === 'stalled_lift' || p.kind === 'program_adapt' || p.kind === 'program_unassigned').length,
     important: priorities.filter(p => p.severity === 'red').length,
   };
-}
-
-export function inboxItems(priorities: CoachPriority[]): Array<CoachPriority & { inboxKind: CoachInboxKind }> {
-  return priorities
-    .filter(p => p.kind === 'new_pain' || p.kind === 'dropped_adherence' || p.kind === 'missed_checkin' || p.kind === 'missed_workout')
-    .map(p => ({
-      ...p,
-      inboxKind: (p.kind === 'new_pain' ? 'pain' : p.kind === 'dropped_adherence' ? 'adherence' : 'checkin') as CoachInboxKind,
-    }));
 }
 
 export function lastVisitIso(row: ClientOpsRow, signals: CoachRosterSignals): string | null {

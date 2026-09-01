@@ -23,8 +23,6 @@ export interface ClientVisibleProfilePatch {
   sleep_hours_average?: number;
 }
 
-export type ClientVisibleProfileKey = keyof ClientVisibleProfilePatch;
-
 const GOAL_SET = new Set<string>(CLIENT_VISIBLE_GOALS);
 const EXPERIENCE_SET = new Set<string>(TRAINING_EXPERIENCES.map(x => x.value));
 const FOCUS_SET = new Set<string>(TRAINING_FOCUSES.map(x => x.value));
@@ -134,10 +132,6 @@ export function parseClientVisiblePatch(raw: unknown): PatchResult {
 
   if (Object.keys(patch).length === 0) return { ok: false, error: 'empty' };
   return { ok: true, patch };
-}
-
-export function applyClientVisiblePatch(profile: UserProfile, patch: ClientVisibleProfilePatch): UserProfile {
-  return { ...profile, ...patch };
 }
 
 export function profileToVisiblePatch(profile: UserProfile): ClientVisibleProfilePatch {

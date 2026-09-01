@@ -7,6 +7,7 @@ import {
   requestNotificationPermission,
   subscribeToPush,
   syncNotificationSettingsToDB,
+  unsubscribeFromPush,
 } from '../../lib/notifications';
 import type { NotificationSettings as NS } from '../../lib/notifications';
 
@@ -53,7 +54,15 @@ export default function NotificationSettings() {
     const updated = { ...settings, ...patch };
     setSettings(updated);
     saveNotificationSettings(updated);
-    if (user) syncNotificationSettingsToDB(user.id, updated);
+    if (user) {
+      syncNotificationSettingsToDB(user.id, updated);
+      // Tout couper doit vraiment couper : sinon l'abonnement push reste en base.
+      if (!updated.workout_enabled && !updated.nutrition_enabled) {
+        void unsubscribeFromPush(user.id);
+      } else {
+        void subscribeToPush(user.id);
+      }
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };

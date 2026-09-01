@@ -9,8 +9,6 @@ export const NUTRITION_TARGET_KEYS = [
   'fat_target',
 ] as const;
 
-export type NutritionTargetKey = typeof NUTRITION_TARGET_KEYS[number];
-
 export function hasSentNutritionTarget(
   profile: { daily_calorie_target?: number | null } | null | undefined,
 ): boolean {

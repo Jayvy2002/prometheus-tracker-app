@@ -123,4 +123,3 @@ export function interventionLiveLabel(item: CoachIntervention, t: (key: string) 
 }
 
 export const COACH_REALTIME_POLL_MS = 8_000;
-export const COACH_REALTIME_POLL_MAX_MS = 90_000;

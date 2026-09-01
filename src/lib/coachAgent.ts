@@ -9,28 +9,8 @@
 
 export const COACH_AGENT_FUNCTION = 'coach-agent';
 export const COACH_AGENT_VENDOR = 'openai' as const;
-export const COACH_AGENT_SOURCE = 'agent';
 export const COACH_AGENT_LESSONS_LIMIT = 8;
 export const AGENT_PING_KINDS = ['onboarding_plan', 'ask_prometheus', 'program_nl_edit', 'calorie_adjustment'] as const;
-export type AgentPingKind = (typeof AGENT_PING_KINDS)[number];
-
-const META_KEYS = [
-  'drafting',
-  'error',
-  'agent_proposed',
-  'initiated_by',
-  'screen',
-  'prompt',
-  'context',
-  'program_id',
-  'source',
-  'ai_off',
-  'flag',
-] as const;
-
-export function isAgentPingKind(value: string): value is AgentPingKind {
-  return (AGENT_PING_KINDS as readonly string[]).includes(value);
-}
 
 export function lessonSnapshot(kind: string, payload: Record<string, unknown> | null | undefined): Record<string, unknown> {
   const root = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
@@ -94,20 +74,6 @@ export function lessonFromEdit(input: {
     accepted: lessonSnapshot(input.kind, input.accepted),
     note: input.note?.trim() || null,
   };
-}
-
-export function stripAgentMeta(payload: Record<string, unknown>): Record<string, unknown> {
-  const next: Record<string, unknown> = { ...payload };
-  for (const key of META_KEYS) delete next[key];
-  return next;
-}
-
-export function proposedFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
-  const stored = payload.agent_proposed;
-  if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
-    return stored as Record<string, unknown>;
-  }
-  return stripAgentMeta(payload);
 }
 
 export type CoachAgentClientOutcome =

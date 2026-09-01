@@ -277,22 +277,6 @@ export interface DailySteps {
   created_at: string;
 }
 
-export type SubscriptionTier = 'free' | 'premium';
-export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'inactive';
-
-export interface Subscription {
-  id: string;
-  user_id: string;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  tier: SubscriptionTier;
-  status: SubscriptionStatus;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface ProductRequest {
   id: string;
   user_id: string;
@@ -315,15 +299,6 @@ export interface UserRole {
   user_id: string;
   role: AppRole;
   coaching_role: CoachingRole;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CoachClientLink {
-  id: string;
-  coach_id: string;
-  client_id: string;
-  status: 'active' | 'ended';
   created_at: string;
   updated_at: string;
 }
@@ -424,8 +399,6 @@ export type CoachClientTab =
   | 'checkins'
   | 'health'
   | 'notes';
-
-export type CoachInboxKind = 'checkin' | 'pain' | 'adherence' | 'draft';
 
 export interface CoachPriority {
   id: string;
@@ -737,17 +710,6 @@ export interface CoachIntervention {
   resolved_at: string | null;
 }
 
-/** SQL/RPC 14-day aggregate. Fleet rounds never pull raw logs into the LLM. */
-export type CoachFleetFlag =
-  | 'on_track'
-  | 'onboarding'
-  | 'ghost'
-  | 'adherence_nutrition'
-  | 'adherence_training'
-  | 'too_fast'
-  | 'stall_adherent'
-  | 'keep_in_touch';
-
 export interface CoachFleetDossier {
   coach_id: string;
   client_id: string;
@@ -803,29 +765,6 @@ export interface CoachFleetHandled {
   status: string;
   handled_at: string;
   evidence: CoachFleetEvidence | null;
-}
-
-export interface CoachFleetCard {
-  flag: CoachFleetFlag;
-  kind: CoachInterventionKind;
-  title: string;
-  observation: string;
-  cause: string;
-  rationale: string;
-  payload: Record<string, unknown>;
-}
-
-export interface CoachAiRound {
-  id: string;
-  coach_id: string | null;
-  trigger: 'cron' | 'on_demand';
-  started_at: string;
-  finished_at: string | null;
-  clients_seen: number;
-  clients_flagged: number;
-  clients_skipped: number;
-  model_used: string | null;
-  error: string | null;
 }
 
 export interface CoachPreview {
