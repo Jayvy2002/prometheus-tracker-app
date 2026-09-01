@@ -756,7 +756,7 @@ export default function ClientDetailPage() {
               <NutritionStallPanel
                 relanceHref={relanceHref}
                 draftHref={progressDraftHref}
-                canAskSecond={false}
+                canAskSecond={canAskCalories}
                 asking={askingCalories}
                 liveDraft={pendingForClient(pendingInterventions, id, 'adherence_nutrition') ?? calorieDraft}
                 onAskSecond={() => { void handleAskCalories(); }}

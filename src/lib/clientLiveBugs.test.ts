@@ -43,3 +43,18 @@ test('rest timer interval is wall-clock and does not re-arm on remaining', () =>
   assert.doesNotMatch(timer, /\[active, remaining\]/);
   assert.match(timer, /setInterval\(tick, 200\)/);
 });
+
+test('plus de cibles macros inventées ni de noms d’exercices en anglais', () => {
+  const macro = src('src/components/nutrition/MacroSummary.tsx');
+  assert.doesNotMatch(macro, /\?\? 150|\?\? 250|\?\? 65/);
+  assert.match(macro, /m\.target > 0/);
+
+  const picker = src('src/components/workout/ExercisePicker.tsx');
+  assert.match(picker, /ex\.name_fr \|\| ex\.name/);
+  assert.match(picker, /detail\.name_fr \|\| detail\.name/);
+  // Le nom canonique reste stocké : l'historique des charges est groupé dessus.
+  assert.match(picker, /onSelect\(exercise\.name\)/);
+
+  const summary = src('src/components/workout/WorkoutSummaryScreen.tsx');
+  assert.doesNotMatch(summary, /prCount/);
+});

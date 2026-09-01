@@ -100,7 +100,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                       <Dumbbell size={14} className="text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-neutral-200 truncate">{ex.name}</p>
+                      <p className="text-sm font-medium text-neutral-200 truncate">{ex.name_fr || ex.name}</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {ex.primary_muscles.slice(0, 2).map(m => (
                           <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
@@ -152,7 +152,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-4">
           <div className="fixed inset-0 bg-black/70" onClick={() => setDetail(null)} />
           <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10 max-h-[80vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-white mb-2">{detail.name}</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">{detail.name_fr || detail.name}</h3>
             <div className="flex flex-wrap gap-1.5 mb-3">
               {detail.primary_muscles.map(m => (
                 <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">

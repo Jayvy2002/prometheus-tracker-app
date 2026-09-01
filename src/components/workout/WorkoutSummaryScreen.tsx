@@ -10,13 +10,11 @@ interface SummaryStats {
   exerciseCount: number;
   setCount: number;
   topExercises: { name: string; volume: number; estimated1RM: number }[];
-  prCount: number;
 }
 
 function computeStats(workout: Workout, duration: number): SummaryStats {
   let totalVolume = 0;
   let setCount = 0;
-  const prCount = 0;
   const exerciseStats: { name: string; volume: number; estimated1RM: number }[] = [];
 
   for (const ex of workout.exercises ?? []) {
@@ -46,7 +44,6 @@ function computeStats(workout: Workout, duration: number): SummaryStats {
     exerciseCount: workout.exercises?.length ?? 0,
     setCount,
     topExercises: exerciseStats.slice(0, 3),
-    prCount,
   };
 }
 
