@@ -225,6 +225,14 @@ const en = {
     goBack: 'Go Back',
     prescribedVsLogged: '{{prescribed}} prescribed · {{logged}} logged',
     prescribedShort: '{{sets}}×{{reps}}',
+    overload: {
+      stalled: 'Stalled 3× → {{weight}} kg',
+      pushHarder: 'Same weight 3×. Push harder (lower RIR)',
+      keepGoing: 'Keep progressing → {{weight}} kg',
+      tryHeavier: 'Progressing → try {{weight}} kg',
+      belowLast: 'Below last session ({{weight}} kg). Aim to match it.',
+      target: '{{weight}} kg × {{reps}}',
+    },
     summary: {
       title: 'Workout Complete!',
       subtitle: 'Great session 💪',

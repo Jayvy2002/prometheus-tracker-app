@@ -189,3 +189,25 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   const layout = src('src/components/layout/AppLayout.tsx');
   assert.match(layout, /hideFab/);
 });
+
+test('les repères de surcharge parlent français, plus d’anglais en pleine séance', () => {
+  const card = src('src/components/workout/ExerciseCard.tsx');
+  for (const literal of ['Stagnant', 'Push harder', 'Keep progressing', 'Below last session', 'Aim to match it']) {
+    assert.equal(card.includes(literal), false, `chaîne anglaise en dur : ${literal}`);
+  }
+  assert.match(card, /t\(suggestion\.key, suggestion\.params\)/);
+
+  const keys = ['stalled', 'pushHarder', 'keepGoing', 'tryHeavier', 'belowLast', 'target'];
+  for (const key of keys) {
+    assert.match(card, new RegExp(`workout\\.overload\\.${key}`));
+  }
+  const fr = src('src/i18n/locales/fr.ts');
+  const en = src('src/i18n/locales/en.ts');
+  for (const locale of [fr, en]) {
+    const block = locale.slice(locale.indexOf('    overload: {'));
+    for (const key of keys) {
+      assert.match(block.slice(0, block.indexOf('},')), new RegExp(`${key}:`));
+    }
+  }
+  assert.match(fr, /pushHarder: 'Même charge 3×\. Pousse plus fort/);
+});

@@ -17,7 +17,8 @@ import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 
 interface OverloadResult {
-  text: string;
+  key: string;
+  params: Record<string, number>;
   suggestedWeight: number | null;
   confidence: 'low' | 'medium' | 'high';
 }
@@ -49,15 +50,15 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 
       if (avgRirAll <= 2) {
         const suggested = roundTo125(w0 * 1.025);
-        return { text: `Stagnant 3\u00d7 \u2192 ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
+        return { key: 'workout.overload.stalled', params: { weight: suggested }, suggestedWeight: suggested, confidence: 'high' };
       }
-      return { text: `Same weight 3\u00d7. Push harder (lower RIR)`, suggestedWeight: null, confidence: 'low' };
+      return { key: 'workout.overload.pushHarder', params: {}, suggestedWeight: null, confidence: 'low' };
     }
 
     if (w0 > w1 && w1 >= w2 && avgRirLatest <= 2) {
       const increment = w0 - w1;
       const suggested = roundTo125(w0 + increment);
-      return { text: `Keep progressing \u2192 ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
+      return { key: 'workout.overload.keepGoing', params: { weight: suggested }, suggestedWeight: suggested, confidence: 'high' };
     }
   }
 
@@ -66,20 +67,30 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 
     if (maxWeightLatest > maxWeightPrev && avgRirLatest <= 2) {
       const suggested = roundTo125(maxWeightLatest * 1.025);
-      return { text: `Progressing \u2192 try ${suggested}kg`, suggestedWeight: suggested, confidence: 'medium' };
+      return { key: 'workout.overload.tryHeavier', params: { weight: suggested }, suggestedWeight: suggested, confidence: 'medium' };
     }
 
     if (maxWeightLatest < maxWeightPrev) {
-      return { text: `Below last session (${maxWeightPrev}kg). Aim to match it.`, suggestedWeight: maxWeightPrev, confidence: 'low' };
+      return { key: 'workout.overload.belowLast', params: { weight: maxWeightPrev }, suggestedWeight: maxWeightPrev, confidence: 'low' };
     }
   }
 
   if (avgRirLatest <= 1) {
     const suggested = roundTo125(lastSet.weight_kg * 1.025);
-    return { text: `${suggested}kg \u00d7 ${lastSet.reps}`, suggestedWeight: suggested, confidence: 'medium' };
+    return {
+      key: 'workout.overload.target',
+      params: { weight: suggested, reps: lastSet.reps },
+      suggestedWeight: suggested,
+      confidence: 'medium',
+    };
   }
   if (avgRirLatest <= 2) {
-    return { text: `${lastSet.weight_kg}kg \u00d7 ${lastSet.reps + 1}`, suggestedWeight: lastSet.weight_kg, confidence: 'low' };
+    return {
+      key: 'workout.overload.target',
+      params: { weight: lastSet.weight_kg, reps: lastSet.reps + 1 },
+      suggestedWeight: lastSet.weight_kg,
+      confidence: 'low',
+    };
   }
 
   return null;
@@ -763,7 +774,7 @@ export default function ExerciseCard({
               }`}>
               <TrendingUp size={10} className={suggestion.confidence === 'high' ? 'text-blue-400' : suggestion.confidence === 'medium' ? 'text-blue-400/70' : 'text-neutral-500'} />
               <span className={`text-[11px] font-medium ${suggestion.confidence === 'high' ? 'text-blue-300' : suggestion.confidence === 'medium' ? 'text-blue-400/80' : 'text-neutral-400'}`}>
-                {suggestion.text}
+                {t(suggestion.key, suggestion.params)}
               </span>
             </div>
           )}

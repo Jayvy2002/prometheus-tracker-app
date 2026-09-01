@@ -225,6 +225,14 @@ const fr = {
     goBack: 'Retour',
     prescribedVsLogged: '{{prescribed}} prescrit · {{logged}} réalisé',
     prescribedShort: '{{sets}}×{{reps}}',
+    overload: {
+      stalled: 'Bloqué 3× → {{weight}} kg',
+      pushHarder: 'Même charge 3×. Pousse plus fort (baisse le RIR)',
+      keepGoing: 'Continue → {{weight}} kg',
+      tryHeavier: 'Tu progresses → tente {{weight}} kg',
+      belowLast: 'Sous ta dernière séance ({{weight}} kg). Vise au moins ça.',
+      target: '{{weight}} kg × {{reps}}',
+    },
     summary: {
       title: 'Séance terminée !',
       subtitle: 'Super séance 💪',
