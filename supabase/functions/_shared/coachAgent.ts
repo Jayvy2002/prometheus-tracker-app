@@ -1,5 +1,14 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.57.4";
 import { asObject, openaiJson } from "./openaiJson.ts";
+import {
+  formatLessonsForPrompt,
+  LESSON_RULE,
+  looksLikeCreateProgram,
+  type CoachLesson,
+} from "./coachAgentCore.ts";
+
+export { formatLessonsForPrompt, looksLikeCreateProgram };
+export type { CoachLesson };
 
 export const AGENT_SOURCE = "agent";
 export const AGENT_KINDS = new Set([
@@ -37,13 +46,6 @@ function bool(value: unknown, fallback = false): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-export interface CoachLesson {
-  kind: string;
-  proposed: unknown;
-  accepted: unknown;
-  note: string | null;
-}
-
 export interface CoachAgentInput {
   kind: string;
   coachId: string;
@@ -53,9 +55,6 @@ export interface CoachAgentInput {
   screen: string;
   context: Record<string, unknown>;
 }
-
-const LESSON_RULE =
-  "Les leçons ci-dessous sont des corrections de CE coach. Extraire des patterns stables (ton, tutoiement, Relancer vs changement de cibles, split macros, densité du programme). Ne copie pas une erreur ponctuelle ni un one-off.";
 
 export const SYSTEM_PROMPT = `Tu es l'agent coach in-app de Prometheus. Tu prépares UN brouillon. Rien ne s'applique tout seul. Le coach accepte ou édite, puis envoie.
 Français, tutoiement. Tu tutoyes le client dans les messages.
@@ -120,15 +119,6 @@ Si le client n'applique pas le plan : kind implicite adherence — mets "body" R
   "nutrition": { "calories": number, "protein": number, "carbs": number, "fat": number } | null
 }
 answer/notes/body = le brouillon éditable. Nutrition seulement si adhérence + hors objectif, macros complètes.`;
-}
-
-export function formatLessonsForPrompt(lessons: CoachLesson[]): string {
-  if (lessons.length === 0) return "";
-  const lines = lessons.map((row, i) => {
-    const note = row.note?.trim() ? ` note=${row.note.trim()}` : "";
-    return `${i + 1}. kind=${row.kind}${note}\n   proposé: ${JSON.stringify(row.proposed)}\n   envoyé: ${JSON.stringify(row.accepted)}`;
-  });
-  return ["Corrections récentes de CE coach :", ...lines].join("\n");
 }
 
 export async function fetchCoachLessons(
@@ -374,13 +364,6 @@ function titleFor(kind: string, llmTitle: string): string {
   if (kind === "program_nl_edit") return "Édition programme — brouillon";
   if (kind === "calorie_adjustment") return "Ajustement calories — brouillon";
   return "Ask Prometheus — brouillon";
-}
-
-const CREATE_PROGRAM_RE =
-  /(cr[eé]er?|create|g[eé]n[eè]re|draft|fais|fait[es]?|make|build|propose|r[eé]dige).{0,48}(programme|program)|(programme|program).{0,20}(ia|ai)|un programme (pour|d['’e]|ia|ai)|un program (for|ia|ai)/i;
-
-export function looksLikeCreateProgram(raw: string): boolean {
-  return CREATE_PROGRAM_RE.test(raw.trim());
 }
 
 function lift(

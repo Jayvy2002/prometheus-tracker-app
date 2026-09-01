@@ -110,20 +110,6 @@ export function proposedFromPayload(payload: Record<string, unknown>): Record<st
   return stripAgentMeta(payload);
 }
 
-export function formatLessonsForPrompt(
-  lessons: Array<{ kind: string; proposed: unknown; accepted: unknown; note?: string | null }>,
-): string {
-  if (lessons.length === 0) return '';
-  const lines = lessons.map((row, i) => {
-    const note = row.note?.trim() ? ` note=${row.note.trim()}` : '';
-    return `${i + 1}. kind=${row.kind}${note}\n   proposé: ${JSON.stringify(row.proposed)}\n   envoyé: ${JSON.stringify(row.accepted)}`;
-  });
-  return [
-    'Corrections récentes de CE coach (patterns stables seulement — ton, Relancer vs cibles, split macros, densité programme. Ne copie pas une erreur ponctuelle) :',
-    ...lines,
-  ].join('\n');
-}
-
 export type CoachAgentClientOutcome =
   | { kind: 'ready'; id: string; intervention: Record<string, unknown> }
   | { kind: 'poll'; id: string | null }

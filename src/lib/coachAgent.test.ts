@@ -7,17 +7,28 @@ import {
   COACH_AGENT_FUNCTION,
   COACH_AGENT_LESSONS_LIMIT,
   COACH_AGENT_VENDOR,
-  formatLessonsForPrompt,
   lessonFromEdit,
   lessonSnapshot,
   parseCoachAgentResponse,
   shouldRecordLesson,
 } from './coachAgent';
-import { classifyFleetDossier, buildFleetCard } from './coachFleet';
-import type { CoachFleetDossier } from './types';
+import {
+  buildFleetCard,
+  classifyFleetDossier,
+  type Dossier as CoachFleetDossier,
+} from '../../supabase/functions/_shared/fleetEngine.ts';
+import { formatLessonsForPrompt } from '../../supabase/functions/_shared/coachAgentCore.ts';
 
 function source(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+/** La tournée nocturne = le handler HTTP + le moteur partagé qu'il importe. */
+function fleetRoundSource(): string {
+  return [
+    'supabase/functions/coach-fleet-round/index.ts',
+    'supabase/functions/_shared/fleetEngine.ts',
+  ].map(source).join('\n');
 }
 
 const AGENT_PATHS = [
@@ -33,7 +44,7 @@ test('coach-agent paths never ping GROK_BOT_WEBHOOK_URL', () => {
     assert.doesNotMatch(src, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
     assert.doesNotMatch(src, /GROK_BOT_WEBHOOK_URL/);
   }
-  const fleet = source('supabase/functions/coach-fleet-round/index.ts');
+  const fleet = fleetRoundSource();
   assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /api\.x\.ai/);
   assert.match(fleet, /OPENAI_API_KEY/);
@@ -115,8 +126,9 @@ test('next agent prompt includes last 5–10 lessons for that coach', () => {
   assert.match(shared, /coach_agent_lessons/);
   assert.match(shared, /LESSONS_LIMIT/);
   assert.match(shared, /formatLessonsForPrompt/);
-  assert.match(shared, /Corrections récentes de CE coach/);
-  assert.match(shared, /Ne copie pas une erreur ponctuelle/);
+  const core = source('supabase/functions/_shared/coachAgentCore.ts');
+  assert.match(core, /Corrections récentes de CE coach/);
+  assert.match(core, /Ne copie pas une erreur ponctuelle/);
   const formatted = formatLessonsForPrompt([
     {
       kind: 'adherence_nutrition',
@@ -127,6 +139,10 @@ test('next agent prompt includes last 5–10 lessons for that coach', () => {
   ]);
   assert.match(formatted, /Relancer d’abord/);
   assert.match(formatted, /adherence_nutrition/);
+  // Une seule copie : la consigne détaillée est celle qui part chez OpenAI.
+  assert.match(formatted, /patterns stables seulement/);
+  assert.match(formatted, /Ne copie pas une erreur ponctuelle/);
+  assert.equal(source('src/lib/coachAgent.ts').includes('Corrections récentes'), false);
   const userMsg = shared.includes('formatLessonsForPrompt(lessons)');
   assert.equal(userMsg, true);
 });
@@ -140,7 +156,7 @@ test('keep_in_touch edits write the same lessons table as other Relancer cards',
   });
   assert.equal(shouldRecordLesson(proposed, accepted), true);
   assert.equal(lessonFromEdit({ kind: 'keep_in_touch', proposed, accepted }).kind, 'keep_in_touch');
-  const fleet = source('supabase/functions/coach-fleet-round/index.ts');
+  const fleet = fleetRoundSource();
   assert.match(fleet, /formatLessonsForPrompt/);
   assert.match(fleet, /keep_in_touch/);
 });

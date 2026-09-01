@@ -9,17 +9,26 @@ import {
   fleetCardNeedsLlm,
   fleetEvidenceFromDossier,
   isCompleteCalorieDraft,
-  isRelanceKind,
   planFleetRoundCard,
   proposeWeeklyNutrition,
   sanitizeLlmCard,
   WEEKLY_LARGE_KCAL,
   WEEKLY_SMALL_KCAL,
-} from './coachFleet';
+  type Dossier as CoachFleetDossier,
+} from '../../supabase/functions/_shared/fleetEngine.ts';
+import { isRelanceKind } from './coachFleet';
+import { latestFunctionBody, latestFunctionSource } from './migrationSource';
 import { parseCalorieDraft as parseCalories } from './coachInterventions';
-import type { CoachFleetDossier } from './types';
 
 const TODAY = '2026-08-29';
+
+/** La tournée nocturne = le handler HTTP + le moteur partagé qu'il importe. */
+function fleetRoundSource(): string {
+  return [
+    'supabase/functions/coach-fleet-round/index.ts',
+    'supabase/functions/_shared/fleetEngine.ts',
+  ].map(rel => readFileSync(resolve(process.cwd(), rel), 'utf8')).join('\n');
+}
 
 function dossier(partial: Partial<CoachFleetDossier> & Pick<CoachFleetDossier, 'client_id' | 'full_name'>): CoachFleetDossier {
   return {
@@ -414,7 +423,7 @@ test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
   assert.match(sql, /last_coach_message_at/);
   assert.match(sql, /sender_id = m\.coach_id/);
   assert.match(sql, /last_keep_in_touch_at/);
-  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  const fleet = fleetRoundSource();
   assert.match(fleet, /kind keep_in_touch/);
   assert.doesNotMatch(fleet, /Si ça va : tu ne dois pas être appelé/);
 });
@@ -530,21 +539,20 @@ test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot 
 });
 
 test('upsert SQL never reopens sent/dismissed fleet rows', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
+  const sql = latestFunctionSource('upsert_coach_intervention').sql;
   assert.match(sql, /AND status = 'pending'/);
   assert.match(sql, /status IN \('sent', 'dismissed', 'kept'\)/);
   assert.match(sql, /RETURN NULL/);
   assert.match(sql, /fleet_evidence_changed/);
   assert.match(sql, /pending_fleet/);
   assert.doesNotMatch(sql, /SET\s+status\s*=\s*'pending'/);
-  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  const fleet = fleetRoundSource();
   assert.match(fleet, /planWrite/);
   assert.match(fleet, /FLEET_HANDLE_COOLDOWN_DAYS/);
 });
 
 test('triage_coach_fleet qualifies handled_agg columns so PL/pgSQL does not treat client_id as OUT', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
-  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.triage_coach_fleet'));
+  const fn = latestFunctionBody('triage_coach_fleet');
   assert.match(fn, /#variable_conflict use_column/);
   const start = fn.indexOf('handled_agg AS (');
   const end = fn.indexOf('LEFT JOIN handled_agg');
@@ -716,8 +724,7 @@ test('fleetCardNeedsLlm is only for program copy — Relancer and kcal stay dete
 });
 
 test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
-  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.triage_coach_fleet'));
+  const fn = latestFunctionBody('triage_coach_fleet');
   assert.match(fn, /FROM links l\s+JOIN public\.user_profiles p ON p\.id = l\.client_id/);
   const fromLinks = fn.slice(fn.lastIndexOf('FROM links l'));
   assert.doesNotMatch(fromLinks, /WHERE EXISTS/);
@@ -728,7 +735,7 @@ test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', 
 });
 
 test('architecture lock: weekly review is in-app, not Grok Bots or Second', () => {
-  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  const fleet = fleetRoundSource();
   assert.match(fleet, /fleetCardNeedsLlm/);
   assert.match(fleet, /llm_skipped_deterministic/);
   assert.match(fleet, /DO NOT create Grok Bots/);
@@ -747,7 +754,7 @@ test('architecture lock: weekly review is in-app, not Grok Bots or Second', () =
 });
 
 test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
-  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  const fleet = fleetRoundSource();
   assert.match(fleet, /proposeWeeklyNutrition/);
   assert.match(fleet, /WEEKLY_LARGE_KCAL/);
   assert.match(fleet, /carb_support/);
