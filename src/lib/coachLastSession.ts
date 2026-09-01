@@ -1,4 +1,4 @@
-import { liftsForClient } from './coachLifts';
+import { liftsForClient, prescriptionFromRow } from './coachLifts';
 import { relanceThreadHref } from './coachQueue';
 import { displayName, datePrefix } from './coachText';
 import { RECENT_SESSION_DAYS, trainingSessionHref } from './coachTraining';
@@ -41,6 +41,53 @@ export function sessionExerciseLines(session: LastSessionView): string[] {
     .filter(Boolean);
 }
 
+function repsRange(values: number[]): string {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return min === max ? String(max) : `${min}–${max}`;
+}
+
+/** Working sets only: a warm-up is not an answer to the prescription. */
+function performedSets(sets: LiftSetSnapshot[]): LiftSetSnapshot[] {
+  return sets.filter(s => s.set_type !== 'warmup' && (s.completed || s.weight_kg > 0 || s.reps > 0));
+}
+
+/**
+ * « 4×8 @ RIR 2 » vs « 4×6 @ RIR 0 » — la question centrale du coach.
+ * Digits only, no wording: the screen wraps it in a translated sentence.
+ */
+export function prescribedVsPerformed(
+  exercise: LastSessionExercise,
+): { prescribed: string; performed: string; onTarget: boolean } | null {
+  const p = exercise.prescribed;
+  if (!p) return null;
+  const targetSets = p.sets ?? 0;
+  const targetReps = p.reps ?? 0;
+  if (targetSets <= 0 || targetReps <= 0) return null;
+
+  const targetRepsLabel = p.reps_min && p.reps_min !== targetReps
+    ? `${p.reps_min}–${targetReps}`
+    : String(targetReps);
+  const prescribed = `${targetSets}×${targetRepsLabel}`
+    + (p.rir != null ? ` @ RIR ${p.rir}` : '');
+
+  const done = performedSets(exercise.sets);
+  if (done.length === 0) return null;
+  const reps = done.map(s => s.reps).filter(r => r > 0);
+  // RIR defaults to 0 in the DB: only trust the zero when the coach asked for a RIR.
+  const rirs = done.map(s => s.rir).filter(r => Number.isFinite(r) && r >= 0);
+  const showRir = p.rir != null || rirs.some(r => r > 0);
+  const avgRir = rirs.length > 0
+    ? Math.round((rirs.reduce((a, b) => a + b, 0) / rirs.length) * 10) / 10
+    : null;
+  const performed = `${done.length}×${reps.length > 0 ? repsRange(reps) : '—'}`
+    + (showRir && avgRir != null ? ` @ RIR ${avgRir}` : '');
+
+  const lowestReps = reps.length > 0 ? Math.min(...reps) : 0;
+  const onTarget = done.length >= targetSets && lowestReps >= (p.reps_min ?? targetReps);
+  return { prescribed, performed, onTarget };
+}
+
 export function sessionContextPayload(session: LastSessionView): Record<string, unknown> {
   return {
     workout_id: session.workoutId,
@@ -48,6 +95,16 @@ export function sessionContextPayload(session: LastSessionView): Record<string, 
     name: session.name,
     exercises: session.exercises.map(ex => ({
       name: ex.name,
+      prescribed: ex.prescribed
+        ? {
+          sets: ex.prescribed.sets,
+          reps: ex.prescribed.reps,
+          reps_min: ex.prescribed.reps_min,
+          rir: ex.prescribed.rir,
+          rest_seconds: ex.prescribed.rest_seconds,
+          weight_kg: ex.prescribed.weight_kg,
+        }
+        : null,
       sets: readableSets(ex.sets).map(s => ({
         weight_kg: s.weight_kg,
         reps: s.reps,
@@ -87,7 +144,7 @@ function sessionViewForWorkoutId(
     if (!session) continue;
     date = session.date;
     name = session.workoutName || name;
-    exercises.push({ name: lift.displayName, sets: session.sets });
+    exercises.push({ name: lift.displayName, sets: session.sets, prescribed: session.prescribed ?? null });
   }
   if (!workoutId || exercises.length === 0) return null;
   return { workoutId, date, name, exercises };
@@ -137,6 +194,7 @@ export function lastSessionFromWorkout(workout: Workout): LastSessionView {
     name: workout.name || '',
     exercises: (workout.exercises ?? []).map(ex => ({
       name: ex.name,
+      prescribed: prescriptionFromRow(ex),
       sets: (ex.sets ?? []).map(s => ({
         weight_kg: s.weight_kg,
         reps: s.reps,

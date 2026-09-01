@@ -1,5 +1,5 @@
 import { datePrefix, foldText } from './coachText';
-import type { ClientLiftProgress, LiftSessionSnapshot, LiftSetSnapshot } from './types';
+import type { ClientLiftProgress, LiftPrescription, LiftSessionSnapshot, LiftSetSnapshot } from './types';
 
 export interface RawWorkoutRow {
   id: string;
@@ -13,6 +13,33 @@ export interface RawExerciseRow {
   id: string;
   workout_id: string;
   name: string;
+  prescribed_sets?: number | null;
+  prescribed_reps?: number | null;
+  prescribed_reps_min?: number | null;
+  prescribed_rir?: number | null;
+  prescribed_rest_seconds?: number | null;
+  prescribed_weight_kg?: number | null;
+}
+
+/** `null` quand la séance n'a pas été démarrée depuis un programme du coach. */
+export function prescriptionFromRow(row: {
+  prescribed_sets?: number | null;
+  prescribed_reps?: number | null;
+  prescribed_reps_min?: number | null;
+  prescribed_rir?: number | null;
+  prescribed_rest_seconds?: number | null;
+  prescribed_weight_kg?: number | null;
+}): LiftPrescription | null {
+  const p: LiftPrescription = {
+    sets: row.prescribed_sets ?? null,
+    reps: row.prescribed_reps ?? null,
+    reps_min: row.prescribed_reps_min ?? null,
+    rir: row.prescribed_rir ?? null,
+    rest_seconds: row.prescribed_rest_seconds ?? null,
+    weight_kg: row.prescribed_weight_kg ?? null,
+  };
+  const hasTarget = (p.sets ?? 0) > 0 || (p.reps ?? 0) > 0 || p.rir != null || (p.weight_kg ?? 0) > 0;
+  return hasTarget ? p : null;
 }
 
 export interface RawSetRow {
@@ -28,6 +55,7 @@ function sessionFromSets(
   workout: RawWorkoutRow,
   name: string,
   sets: LiftSetSnapshot[],
+  prescribed: LiftPrescription | null,
 ): LiftSessionSnapshot | null {
   const working = sets.filter(s => s.completed && s.weight_kg > 0);
   const pool = working.length > 0 ? working : sets.filter(s => s.weight_kg > 0);
@@ -44,6 +72,7 @@ function sessionFromSets(
     avgRir: rirs.length ? Math.round((rirs.reduce((a, b) => a + b, 0) / rirs.length) * 10) / 10 : null,
     volume: pool.reduce((s, x) => s + x.weight_kg * x.reps, 0),
     sets,
+    prescribed,
   };
 }
 
@@ -94,7 +123,7 @@ export function buildClientLifts(
   for (const ex of exercises) {
     const workout = workoutById.get(ex.workout_id);
     if (!workout) continue;
-    const session = sessionFromSets(workout, ex.name, setsByEx.get(ex.id) ?? []);
+    const session = sessionFromSets(workout, ex.name, setsByEx.get(ex.id) ?? [], prescriptionFromRow(ex));
     if (!session) continue;
     const key = `${workout.user_id}::${foldText(ex.name)}`;
     const row = grouped.get(key) ?? { displayName: ex.name, clientId: workout.user_id, sessions: [] };

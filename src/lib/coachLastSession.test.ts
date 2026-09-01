@@ -6,6 +6,7 @@ import {
   isTodayOrYesterday,
   lastSessionFromLifts,
   loggedSessionForQueue,
+  prescribedVsPerformed,
   readableSets,
   sessionContextPayload,
   sessionExerciseLines,
@@ -286,6 +287,57 @@ test('explicit workout query opens that session even when it is not the newest',
   assert.equal(older?.date, '2026-08-13');
   assert.equal(older?.exercises.length, 1);
   assert.equal(older?.exercises[0]?.sets[0]?.weight_kg, 52.5);
+});
+
+test('le coach voit l’écart prescrit / réalisé, pas seulement le réalisé', () => {
+  const prescribed = { sets: 4, reps: 8, reps_min: null, rir: 2, rest_seconds: 90, weight_kg: 60 };
+  const short = prescribedVsPerformed({
+    name: 'Développé couché',
+    prescribed,
+    sets: [
+      { weight_kg: 60, reps: 6, rir: 0, completed: true },
+      { weight_kg: 60, reps: 6, rir: 0, completed: true },
+      { weight_kg: 60, reps: 6, rir: 0, completed: true },
+      { weight_kg: 60, reps: 6, rir: 0, completed: true },
+    ],
+  });
+  assert.equal(short?.prescribed, '4×8 @ RIR 2');
+  assert.equal(short?.performed, '4×6 @ RIR 0');
+  assert.equal(short?.onTarget, false);
+
+  const held = prescribedVsPerformed({
+    name: 'Row barre',
+    prescribed: { sets: 3, reps: 10, reps_min: 8, rir: null, rest_seconds: null, weight_kg: null },
+    sets: [
+      { weight_kg: 20, reps: 12, rir: 0, completed: true, set_type: 'warmup' },
+      { weight_kg: 40, reps: 10, rir: 2, completed: true },
+      { weight_kg: 40, reps: 9, rir: 1, completed: true },
+      { weight_kg: 40, reps: 8, rir: 1, completed: true },
+    ],
+  });
+  assert.equal(held?.prescribed, '3×8–10');
+  assert.equal(held?.performed, '3×8–10 @ RIR 1.3');
+  assert.equal(held?.onTarget, true);
+
+  // Séance libre : rien de prescrit, donc aucun écart inventé.
+  assert.equal(
+    prescribedVsPerformed({ name: 'Squat', sets: [{ weight_kg: 80, reps: 5, rir: 2, completed: true }] }),
+    null,
+  );
+});
+
+test('le contexte envoyé à l’IA porte le prescrit, pas seulement le réalisé', () => {
+  const prescribed = { sets: 4, reps: 8, reps_min: null, rir: 2, rest_seconds: 90, weight_kg: 55 };
+  const view = lastSessionFromLifts(
+    [lift('lea-id', 'Développé couché', [
+      session('2026-08-27', 55, 5, { workoutId: LEA_UPPER, prescribed }),
+    ])],
+    'lea-id',
+    { today: TODAY },
+  );
+  const ctx = sessionContextPayload(view!);
+  const first = (ctx.exercises as Array<{ prescribed: unknown }>)[0];
+  assert.deepEqual(first?.prescribed, prescribed);
 });
 
 test('trainingSessionHref is ?tab=training&workout= and empty query stays empty', () => {

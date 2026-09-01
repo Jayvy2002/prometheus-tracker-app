@@ -883,6 +883,7 @@ const fr = {
       askAdjustHint: 'Prometheus rédige un brouillon à partir de cette séance. Tu édites, puis tu envoies. Rien ne s’applique tout seul.',
       relanceIfNeeded: 'Relancer (si tu dois parler)',
       older: 'Séances plus anciennes',
+      prescribedVsPerformed: 'prescrit {{prescribed}} → réalisé {{performed}}',
       askAdjustPrompt: '{{name}} a loggé {{session}} le {{date}}.\n{{lifts}}\nPropose un ajustement léger si besoin. N’applique rien — le coach édite puis envoie.',
     },
     recovery: {

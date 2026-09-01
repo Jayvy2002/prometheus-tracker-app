@@ -883,6 +883,7 @@ const en = {
       askAdjustHint: 'Prometheus drafts from this session. You edit, then send. Nothing applies on its own.',
       relanceIfNeeded: 'Nudge (if you need to talk)',
       older: 'Older sessions',
+      prescribedVsPerformed: 'prescribed {{prescribed}} → performed {{performed}}',
       askAdjustPrompt: '{{name}} logged {{session}} on {{date}}.\n{{lifts}}\nSuggest a light adjustment if needed. Apply nothing — the coach edits then sends.',
     },
     recovery: {

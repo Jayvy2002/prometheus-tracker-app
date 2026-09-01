@@ -561,10 +561,21 @@ export interface LiftSetSnapshot {
   duration_seconds?: number | null;
 }
 
+/** Ce que le coach a prescrit sur l'exercice, tel que posé par `start_workout_from_template`. */
+export interface LiftPrescription {
+  sets: number | null;
+  reps: number | null;
+  reps_min: number | null;
+  rir: number | null;
+  rest_seconds: number | null;
+  weight_kg: number | null;
+}
+
 /** One completed workout, readable as sets — not a dump of all history. */
 export interface LastSessionExercise {
   name: string;
   sets: LiftSetSnapshot[];
+  prescribed?: LiftPrescription | null;
 }
 
 export interface LastSessionView {
@@ -588,6 +599,7 @@ export interface LiftSessionSnapshot {
   date: string;
   workoutId: string;
   workoutName: string;
+  prescribed?: LiftPrescription | null;
   maxWeight: number;
   bestSet: string;
   avgRir: number | null;

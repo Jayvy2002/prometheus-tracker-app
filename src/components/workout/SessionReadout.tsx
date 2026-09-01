@@ -1,5 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import type { LastSessionView, LiftSetSnapshot } from '../../lib/types';
-import { readableSets } from '../../lib/coachLastSession';
+import { prescribedVsPerformed, readableSets } from '../../lib/coachLastSession';
 import Card from '../ui/Card';
 
 function setLabel(set: LiftSetSnapshot): string {
@@ -18,10 +19,12 @@ export default function SessionReadout({
   session: LastSessionView;
   onExercise?: (name: string) => void;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-2">
       {session.exercises.map((ex, idx) => {
         const sets = readableSets(ex.sets);
+        const gap = prescribedVsPerformed(ex);
         return (
           <Card
             key={`${ex.name}-${idx}`}
@@ -30,6 +33,14 @@ export default function SessionReadout({
             onClick={onExercise ? () => onExercise(ex.name) : undefined}
           >
             <p className="text-sm font-medium text-white mb-1">{ex.name}</p>
+            {gap && (
+              <p className={`text-[11px] mb-1 tabular-nums ${gap.onTarget ? 'text-neutral-500' : 'text-amber-400'}`}>
+                {t('coaching.lastSession.prescribedVsPerformed', {
+                  prescribed: gap.prescribed,
+                  performed: gap.performed,
+                })}
+              </p>
+            )}
             {sets.length === 0 ? (
               <p className="text-xs text-neutral-600">—</p>
             ) : sets.map((s, i) => (

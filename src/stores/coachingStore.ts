@@ -73,7 +73,7 @@ import type { ClientVisibleProfilePatch } from '../lib/coachClientProfile';
 import { useProgramStore } from './programStore';
 import { useProfileStore } from './profileStore';
 import { buildClientOpsRows, coachClockFacts, datePrefix, weekAgoStr } from '../lib/coachAlerts';
-import { buildClientLifts } from '../lib/coachLifts';
+import { buildClientLifts, type RawExerciseRow } from '../lib/coachLifts';
 import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
@@ -693,14 +693,14 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       id: string; user_id: string; date: string; name: string; completed: boolean;
     }>;
     const workoutIds = histWorkouts.map(w => w.id);
-    let exercises: Array<{ id: string; workout_id: string; name: string }> = [];
+    let exercises: RawExerciseRow[] = [];
     const sets: Array<{ exercise_id: string; weight_kg: number; reps: number; rir: number; completed: boolean; set_type?: string }> = [];
     if (workoutIds.length > 0) {
       const { data: exRows } = await supabase
         .from('workout_exercises')
-        .select('id, workout_id, name')
+        .select('id, workout_id, name, prescribed_sets, prescribed_reps, prescribed_reps_min, prescribed_rir, prescribed_rest_seconds, prescribed_weight_kg')
         .in('workout_id', workoutIds);
-      exercises = (exRows ?? []) as Array<{ id: string; workout_id: string; name: string }>;
+      exercises = (exRows ?? []) as RawExerciseRow[];
       const exIds = exercises.map(e => e.id);
       if (exIds.length > 0) {
         const chunks: string[][] = [];
@@ -1123,9 +1123,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     if (histWorkouts.length === 0) return [];
     const { data: exRows } = await supabase
       .from('workout_exercises')
-      .select('id, workout_id, name')
+      .select('id, workout_id, name, prescribed_sets, prescribed_reps, prescribed_reps_min, prescribed_rir, prescribed_rest_seconds, prescribed_weight_kg')
       .in('workout_id', histWorkouts.map(w => w.id));
-    const exercises = (exRows ?? []) as Array<{ id: string; workout_id: string; name: string }>;
+    const exercises = (exRows ?? []) as RawExerciseRow[];
     const sets: Array<{ exercise_id: string; weight_kg: number; reps: number; rir: number; completed: boolean; set_type?: string }> = [];
     const exIds = exercises.map(e => e.id);
     for (let i = 0; i < exIds.length; i += 200) {
