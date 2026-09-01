@@ -1,17 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp } from 'lucide-react';
+import { Plus, Clock, ChevronRight, Dumbbell, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { useRoutineStore } from '../../stores/routineStore';
 import { formatDate, formatDuration, todayStr } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
-import { startWorkoutFromTemplate } from '../../lib/startWorkout';
-import { isCoachedAthlete } from '../../lib/coachRole';
 import type { Workout } from '../../lib/types';
-import { useCoachingStore } from '../../stores/coachingStore';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -24,15 +20,10 @@ export default function WorkoutPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { workouts, loading, fetchWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
-  const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [startingRoutine, setStartingRoutine] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
   const [lastFull, setLastFull] = useState<Workout | null>(null);
 
@@ -41,7 +32,6 @@ export default function WorkoutPage() {
   useEffect(() => {
     if (user) {
       fetchWorkouts(user.id);
-      fetchRoutines(user.id);
     }
   }, [user]);
 
@@ -110,35 +100,6 @@ export default function WorkoutPage() {
     }
   };
 
-  const startFromRoutine = async (routineId: string) => {
-    if (!user) return;
-    setStartingRoutine(routineId);
-    try {
-      const routine = await fetchRoutineWithExercises(routineId);
-      if (!routine) return;
-      const workoutId = await startWorkoutFromTemplate({
-        userId: user.id,
-        name: routine.name,
-        routineId,
-        exercises: (routine.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          order_index: ex.order_index,
-        })),
-      });
-      if (!workoutId) {
-        toast(t('workout.startRoutineFailed'), 'error');
-        return;
-      }
-      navigate(`/workout/${workoutId}`);
-    } catch {
-      toast(t('workout.startRoutineFailed'), 'error');
-    } finally {
-      setStartingRoutine(null);
-    }
-  };
-
   const deleteTargetWorkout = workouts.find(w => w.id === deleteTarget);
 
   const filterLabels = {
@@ -152,64 +113,10 @@ export default function WorkoutPage() {
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
         <h1 className="text-2xl font-bold text-white">{t('workout.title')}</h1>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/exercise-progress')}
-            className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-          >
-            <TrendingUp size={18} />
-          </button>
-          <Button onClick={() => navigate('/workout/new')} size="sm">
-            <Plus size={16} /> {t('common.new')}
-          </Button>
-        </div>
+        <Button onClick={() => navigate('/workout/new')} size="sm">
+          <Plus size={16} /> {t('common.new')}
+        </Button>
       </div>
-
-      {!coached && !routinesLoading && routines.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.myRoutines')}</h2>
-            <button
-              onClick={() => navigate('/routines')}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              {t('common.manage')}
-            </button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {routines.map((r, i) => {
-              const exercises = r.exercises ?? [];
-              const isStarting = startingRoutine === r.id;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => !isStarting && startFromRoutine(r.id)}
-                  disabled={isStarting}
-                  className="flex-shrink-0 w-40 bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3 text-left hover:border-blue-600/40 hover:bg-neutral-800 transition-all group disabled:opacity-60 animate-fade-in-scale"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
-                      <Repeat size={14} />
-                    </div>
-                    <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
-                      {isStarting ? (
-                        <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Play size={10} fill="currentColor" />
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-white truncate">{r.name}</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    {exercises.length} {exercises.length !== 1 ? t('workout.exercises') : t('workout.exercise')}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {lastCompleted && (
         <div className="mb-6">

@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, Plus, Scale, Flame, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera } from 'lucide-react';
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,9 +35,6 @@ export default function SideNav() {
         { path: '/programs', icon: CalendarRange, label: coached ? t('nav.myProgram') : t('nav.programs'), show: tracking.track_workouts },
         { path: '/weight', icon: Scale, label: t('nav.weight'), show: tracking.track_weight },
         { path: '/photos', icon: Camera, label: t('nav.photos'), show: true },
-        { path: '/calendar', icon: CalendarDays, label: t('nav.calendar'), show: !coached },
-        { path: '/stats', icon: BarChart2, label: t('nav.stats'), show: !coached },
-        { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts && !coached },
         { path: '/profile', icon: User, label: t('nav.profile'), show: true },
       ].filter(tab => !('show' in tab) || tab.show);
 

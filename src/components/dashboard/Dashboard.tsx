@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, ChevronRight, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useStreakStore } from '../../stores/streakStore';
-import { useRoutineStore } from '../../stores/routineStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
@@ -54,7 +53,6 @@ export default function Dashboard() {
   const { measurements, fetchMeasurements } = useWeightStore();
   const { workouts, fetchWorkouts, loading: workoutsLoading } = useWorkoutStore();
   const { streak, fetchStreak } = useStreakStore();
-  const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, checkins, fetchToday, fetchRecent, loading: checkinLoading } = useCheckinStore();
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
@@ -76,7 +74,6 @@ export default function Dashboard() {
     fetchMeasurements(user.id);
     fetchWorkouts(user.id);
     fetchStreak(user.id);
-    fetchRoutines(user.id);
     fetchToday(user.id);
     fetchRecent(user.id, 14);
     fetchMyCoach();
@@ -147,8 +144,6 @@ export default function Dashboard() {
     ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
     : null;
 
-  const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
-  const alreadyTrainedToday = doneDays[todayIndex];
   const hasProgram = !!assignment?.program && assignment.status === 'active';
   const gymCard = resolveClientGymCard({
     hasActiveProgram: hasProgram,
@@ -161,13 +156,6 @@ export default function Dashboard() {
   const programWeek = assignment?.program
     ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
     : null;
-  const scheduledToday = !alreadyTrainedToday
-    ? routines.find(r => r.scheduled_days?.includes(todayDow))
-    : null;
-  const nextRoutine = !hasProgram && gymCard.kind === 'none'
-    ? (scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null))
-    : null;
-
   const completedWorkoutCount = workouts.filter(w => w.completed).length;
   const checkinCount = Math.max(checkins.length, todayCheckin ? 1 : 0);
   const lastCompletedWorkout = [...workouts]
@@ -185,7 +173,7 @@ export default function Dashboard() {
   });
   const calmHome = activityPending || firstRun;
   const hasGymCard = showModule(tracking, 'workouts') && gymCard.kind !== 'none';
-  const hasNextWorkout = hasGymCard || (!!nextRoutine && showModule(tracking, 'workouts'));
+  const hasNextWorkout = hasGymCard;
   const hasCoach = isCoachedAthlete(coachingRole, myCoach);
   const nextAction = clientHomeNextAction({
     firstRun,
@@ -295,55 +283,6 @@ export default function Dashboard() {
             className="text-xs text-neutral-500 hover:text-neutral-300 mb-4 -mt-1"
           >
             {t('checkin.dashboardCta')}
-          </button>
-        )}
-
-        {showModule(tracking, 'workouts') && nextRoutine && (
-          <button
-            type="button"
-            disabled={startingRoutine}
-            onClick={async () => {
-              if (!user || startingRoutine) return;
-              setStartingRoutine(true);
-              try {
-                const routine = await fetchRoutineWithExercises(nextRoutine.id);
-                if (!routine) return;
-                const workoutId = await startWorkoutFromTemplate({
-                  userId: user.id,
-                  name: routine.name,
-                  routineId: nextRoutine.id,
-                  exercises: (routine.exercises ?? []).map(ex => ({
-                    name: ex.name,
-                    default_sets: ex.default_sets,
-                    default_reps: ex.default_reps,
-                    order_index: ex.order_index,
-                  })),
-                });
-                if (workoutId) navigate(`/workout/${workoutId}`);
-              } finally {
-                setStartingRoutine(false);
-              }
-            }}
-            className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4 text-left hover:border-blue-500/50 active:scale-[0.98] transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
-                <Play size={18} className="text-blue-400 ml-0.5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-blue-400 font-medium">{t('dashboard.nextWorkout')}</p>
-                <p className="text-sm font-semibold text-white truncate">{nextRoutine.name}</p>
-                {nextRoutine.exercises && (
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
-                    {nextRoutine.exercises.length} {t('dashboard.exercises')}
-                  </p>
-                )}
-              </div>
-              <span className="text-xs font-semibold text-blue-300 flex items-center gap-0.5 shrink-0">
-                {t('dashboard.gym.startCta')}
-                <ChevronRight size={16} />
-              </span>
-            </div>
           </button>
         )}
 
@@ -641,9 +580,10 @@ export default function Dashboard() {
         )}
 
         {/* Streak & Weight row — hide while history is still loading to avoid a 0-day flash */}
-        {!activityPending && (
-        <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
-          {/* Streak */}
+        {!activityPending && (!hasCoach || showModule(tracking, 'weight')) && (
+        <div className={`grid ${hasCoach ? 'grid-cols-1' : 'grid-cols-2'} gap-3 mb-4 animate-fade-in-up stagger-4`}>
+          {/* Streak — gamification solo : hors sujet en coaching 1-à-1 */}
+          {!hasCoach && (
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Flame size={16} className={currentStreak > 0 ? 'text-orange-400' : 'text-neutral-600'} />
@@ -661,6 +601,7 @@ export default function Dashboard() {
               </p>
             )}
           </div>
+          )}
 
           {/* Weight */}
           {showModule(tracking, 'weight') && (
@@ -692,27 +633,6 @@ export default function Dashboard() {
         </div>
         )}
 
-        {/* Quick actions */}
-        {!activityPending && (
-        <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
-          <button
-            onClick={() => navigate('/stats')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
-          >
-            <Footprints size={18} className="text-blue-400 mb-2" />
-            <p className="text-sm font-medium text-white">{t('dashboard.viewStats')}</p>
-            <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.statsDesc')}</p>
-          </button>
-          <button
-            onClick={() => navigate('/exercise-progress')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
-          >
-            <TrendingUp size={18} className="text-emerald-400 mb-2" />
-            <p className="text-sm font-medium text-white">{t('dashboard.viewProgress')}</p>
-            <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.progressDesc')}</p>
-          </button>
-        </div>
-        )}
       </div>
     </PageTransition>
   );

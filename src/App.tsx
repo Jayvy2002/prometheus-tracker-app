@@ -15,15 +15,10 @@ import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import Dashboard from './components/dashboard/Dashboard';
 import WorkoutPage from './components/workout/WorkoutPage';
 import WorkoutForm from './components/workout/WorkoutForm';
-import ExerciseProgressPage from './components/workout/ExerciseProgressPage';
-import StatsPage from './components/stats/StatsPage';
-import RoutinesPage from './components/routines/RoutinesPage';
 import WeightPage from './components/weight/WeightPage';
 import NutritionPage from './components/nutrition/NutritionPage';
 import ScannerPage from './components/scanner/ScannerPage';
 import ProfilePage from './components/profile/ProfilePage';
-import CalendarPage from './components/calendar/CalendarPage';
-import RecipesPage from './components/nutrition/RecipesPage';
 import CheckInPage from './components/checkin/CheckInPage';
 import ClientsPage from './components/coaching/ClientsPage';
 import ClientDetailPage from './components/coaching/ClientDetailPage';
@@ -57,13 +52,6 @@ function MessagesHome() {
 function CoachTrackerRedirect({ children }: { children: ReactNode }) {
   const coachingRole = useCoachingStore(s => s.coachingRole);
   if (coachingRole === 'coach') return <Navigate to="/dashboard" replace />;
-  return <>{children}</>;
-}
-
-function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  if (isCoachedAthlete(coachingRole, myCoach)) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -117,7 +105,8 @@ function AppRoutes() {
   if (!user) {
     return (
       <Routes>
-        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
+      <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="*" element={<AuthPage />} />
       </Routes>
     );
@@ -155,7 +144,8 @@ function AppRoutes() {
   if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
       <Routes>
-        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
+      <Route path="/invite/:token" element={<InvitePage />} />
         <Route path="*" element={<OnboardingFlow />} />
       </Routes>
     );
@@ -168,10 +158,7 @@ function AppRoutes() {
         <Route path="/workout" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/nutrition" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><NutritionPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><WeightPage /></TrackingGate></CoachTrackerRedirect>} />
-        <Route path="/calendar" element={<CoachTrackerRedirect><CoachedAthleteRedirect><CalendarPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
         <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/exercise-progress" element={<CoachTrackerRedirect><CoachedAthleteRedirect><ExerciseProgressPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
-        <Route path="/stats" element={<CoachTrackerRedirect><CoachedAthleteRedirect><StatsPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
         <Route path="/clients/:id" element={<CoachOnly><ClientDetailPage /></CoachOnly>} />
@@ -188,11 +175,7 @@ function AppRoutes() {
       </Route>
       <Route path="/workout/new" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/workout/:id" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
-      <Route path="/routines" element={<AppLayout />}>
-        <Route index element={<CoachTrackerRedirect><CoachedAthleteRedirect><RoutinesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
-      </Route>
       <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
-      <Route path="/recipes" element={<CoachTrackerRedirect><CoachedAthleteRedirect><RecipesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

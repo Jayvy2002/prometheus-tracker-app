@@ -75,7 +75,6 @@ test('Coached client shell: hub Messages + Photos + Mon programme, no coach-mode
   assert.match(profile, /coaching\.coachMode/);
 
   const app = src('src/App.tsx');
-  assert.match(app, /CoachedAthleteRedirect/);
   assert.match(app, /ProgramsHome/);
   assert.match(app, /path="\/programs"/);
   assert.doesNotMatch(app, /path="\/programs" element=\{<CoachedAthleteRedirect>/);
@@ -87,7 +86,7 @@ test('Coached client shell: hub Messages + Photos + Mon programme, no coach-mode
   const side = src('src/components/layout/SideNav.tsx');
   assert.match(side, /nav\.myProgram/);
   assert.match(side, /path: '\/photos'/);
-  assert.match(side, /track_workouts && !coached/);
+  assert.doesNotMatch(side, /path: '\/stats'|path: '\/calendar'|path: '\/exercise-progress'/);
 
   const bottom = src('src/components/layout/BottomNav.tsx');
   assert.match(bottom, /path: '\/messages'/);

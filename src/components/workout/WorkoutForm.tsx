@@ -17,7 +17,6 @@ import { WorkoutDraftProvider, useDraftContext, clearFieldDrafts } from './Worko
 import WorkoutSummaryScreen from './WorkoutSummaryScreen';
 import WorkoutRecap from './WorkoutRecap';
 import SessionTimer from './SessionTimer';
-import { useRoutineStore } from '../../stores/routineStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import {
   loadSessionTimer, saveSessionTimer, clearSessionTimer,
@@ -29,7 +28,6 @@ import { useClientTracking } from '../../lib/useClientTracking';
 import { showTrainingField } from '../../lib/clientTracking';
 
 interface LocationState {
-  routineId?: string;
   programAssignmentId?: string;
   programDayId?: string;
   programName?: string;
@@ -42,7 +40,6 @@ function WorkoutFormInner() {
   const routerLocation = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = (routerLocation.state as LocationState | null) ?? {};
-  const routineId = state.routineId;
   const { user } = useAuthStore();
   const {
     currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, setCurrentWorkout,
@@ -62,9 +59,7 @@ function WorkoutFormInner() {
   const [timer, setTimer] = useState<SessionTimerState>(emptyTimer());
   const [elapsedTick, setElapsedTick] = useState(0);
   const createdRef = useRef(false);
-  const routineAppliedRef = useRef(false);
   const leavingRef = useRef(false);
-  const { fetchRoutineWithExercises } = useRoutineStore();
   const isNew = !id || routerLocation.pathname.endsWith('/new');
   const forceEdit = searchParams.get('edit') === '1';
   const isProgramSession = !!currentWorkout?.program_day_id;
@@ -77,7 +72,7 @@ function WorkoutFormInner() {
       createdRef.current = true;
 
       const seed = async () => {
-        if (routineId || state.programDayId) {
+        if (state.programDayId) {
           let exercises: WorkoutTemplateExercise[] = [];
           let name = state.programName || '';
           if (state.programDayId) {
@@ -100,22 +95,10 @@ function WorkoutFormInner() {
               const { data: day } = await supabase.from('program_days').select('name').eq('id', state.programDayId).maybeSingle();
               name = (day?.name as string) || t('workout.title');
             }
-          } else if (routineId) {
-            const routine = await fetchRoutineWithExercises(routineId);
-            if (routine) {
-              name = routine.name;
-              exercises = (routine.exercises ?? []).map(ex => ({
-                name: ex.name,
-                default_sets: ex.default_sets,
-                default_reps: ex.default_reps,
-                order_index: ex.order_index,
-              }));
-            }
           }
           const workoutId = await startWorkoutFromTemplate({
             userId: user.id,
             name,
-            routineId: routineId || null,
             programAssignmentId: state.programAssignmentId,
             programDayId: state.programDayId,
             exercises,
@@ -143,12 +126,6 @@ function WorkoutFormInner() {
       fetchWorkout(id);
     }
   }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!currentWorkout || !routineId || routineAppliedRef.current || !isNew) return;
-    // Seeding is handled in startWorkoutFromTemplate for /new + routineId.
-    routineAppliedRef.current = true;
-  }, [currentWorkout?.id, routineId, isNew]);
 
   useEffect(() => {
     if (currentWorkout) {

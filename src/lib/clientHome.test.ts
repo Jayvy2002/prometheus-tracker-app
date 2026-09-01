@@ -153,7 +153,4 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
 
   const home = src('src/lib/clientHome.ts');
   assert.doesNotMatch(home, /return 'checkin'/);
-
-  const stats = src('src/components/stats/StatsPage.tsx');
-  assert.match(stats, /statsCalorieSummary/);
 });

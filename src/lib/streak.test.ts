@@ -137,6 +137,4 @@ test('streak store decays on fetch and ignores old addLog dates', () => {
   assert.match(nutrition, /rescaleNutritionMacros/);
   const addWaterImpl = nutrition.slice(nutrition.indexOf('addWater: async'));
   assert.equal(addWaterImpl.includes('recordActivity'), false);
-  const calendar = readFileSync(resolve(process.cwd(), 'src/components/calendar/CalendarPage.tsx'), 'utf8');
-  assert.match(calendar, /countUnbrokenStreak/);
 });
