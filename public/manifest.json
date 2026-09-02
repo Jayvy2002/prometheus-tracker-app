@@ -1,7 +1,7 @@
 {
-  "name": "Prometheus Tracker",
+  "name": "Prometheus Fitness",
   "short_name": "Prometheus",
-  "description": "Suivi d'entraînement, nutrition et poids — conçu pour les athlètes sérieux.",
+  "description": "Coaching et suivi fitness : entraînement, nutrition, poids — pour les coachs et les athlètes.",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#000000",
@@ -29,29 +29,29 @@
       "sizes": "390x844",
       "type": "image/svg+xml",
       "form_factor": "narrow",
-      "label": "Dashboard Prometheus"
+      "label": "Accueil Prometheus"
     }
   ],
   "shortcuts": [
     {
-      "name": "Nouveau workout",
-      "short_name": "Workout",
-      "description": "Démarrer une nouvelle séance",
-      "url": "/workout/new",
+      "name": "Accueil",
+      "short_name": "Accueil",
+      "description": "Ouvrir l'accueil",
+      "url": "/dashboard",
       "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     },
     {
-      "name": "Ajouter un repas",
-      "short_name": "Nutrition",
-      "description": "Enregistrer un repas",
-      "url": "/nutrition?add=1",
+      "name": "Messages",
+      "short_name": "Messages",
+      "description": "Ouvrir les messages",
+      "url": "/messages",
       "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     },
     {
-      "name": "Peser",
-      "short_name": "Poids",
-      "description": "Enregistrer mon poids",
-      "url": "/weight?log=1",
+      "name": "Profil",
+      "short_name": "Profil",
+      "description": "Ouvrir mon profil",
+      "url": "/profile",
       "icons": [{ "src": "/logo.svg", "sizes": "any" }]
     }
   ]
