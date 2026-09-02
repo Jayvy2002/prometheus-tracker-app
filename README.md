@@ -93,7 +93,7 @@ supabase/
 
 - Node.js 20+
 - Un projet [Supabase](https://supabase.com)
-- Une clé OpenAI (`OPENAI_API_KEY`) pour les brouillons IA. **Ne pas créer de Grok Bots** — la revue hebdo est `coach-fleet-round`, dans l'app.
+- Une clé OpenAI (`OPENAI_API_KEY`) pour les brouillons IA. Pas de Grok Bots — la revue hebdo est `coach-fleet-round`, dans l'app.
 
 ### 1. Clone & install
 
@@ -148,7 +148,9 @@ npm test          # src/lib/*.test.ts
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
 | `SITE_URL` | Origine pour CORS |
 
-Ne pas configurer `STRIPE_*` ni `GROK_BOT_WEBHOOK_URL` : les functions Stripe répondent 410 (gratuit pendant la construction) et Second est retiré.
+Ne pas configurer `STRIPE_*` : les functions Stripe répondent 410 (gratuit pendant la construction).
+
+Architecture lock (2026-08-29) : Do **not** create Grok Bots (per coach or per client). Do not set `GROK_BOT_WEBHOOK_URL`. La revue hebdo est `coach-fleet-round` in-app ; Ask et « Créer un programme IA » passent par `coach-agent` (OpenAI sync), pas un bot.
 
 ```bash
 npx web-push generate-vapid-keys

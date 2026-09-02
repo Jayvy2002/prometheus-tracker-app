@@ -1,6 +1,7 @@
 /**
- * Quarantined 2026-08-31. Prometheus coaching is free. Do not call.
- * Do not build Premium.
+ * Quarantined 2026-08-31. Do not call.
+ * Prometheus is free while the product is being built. Billing is "not now",
+ * not "never" — see docs/VISION.md before reviving this.
  */
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
