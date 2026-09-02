@@ -13,6 +13,19 @@ export type AuthSnapshotEvent =
   | 'USER_UPDATED'
   | 'other';
 
+/** The three entry doors of the auth page. */
+export type AuthDoor = 'coach' | 'client' | 'solo';
+
+/**
+ * Coach and solo accounts are created freely. A coached client account is only
+ * created from the coach's invite link (`/invite/:token` → accept_coach_invite),
+ * so the plain "client" door is login-only.
+ */
+export function authDoorCanRegister(door: AuthDoor | null, fromInvite: boolean): boolean {
+  if (fromInvite) return true;
+  return door === 'coach' || door === 'solo';
+}
+
 /** Submit is never gated on auth bootstrap. Only an in-flight submit disables the door. */
 export function clientLoginSubmitEnabled(opts: {
   submitting: boolean;

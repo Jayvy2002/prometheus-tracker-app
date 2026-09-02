@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
+  authDoorCanRegister,
   authSnapshotEvent,
   clientLoginErrorCopy,
   clientLoginSubmitEnabled,
@@ -157,9 +158,20 @@ test('in-flight submit is not launched twice; empty creds do not call signIn', a
   assert.equal(calls, 0);
 });
 
-test('AuthPage: client stays login-only; first submit is not gated on auth loading', () => {
+test('auth doors: coach and solo register freely; coached client only via invite', () => {
+  assert.equal(authDoorCanRegister('coach', false), true);
+  assert.equal(authDoorCanRegister('solo', false), true);
+  assert.equal(authDoorCanRegister('client', false), false);
+  assert.equal(authDoorCanRegister('client', true), true);
+  assert.equal(authDoorCanRegister(null, false), false);
+});
+
+test('AuthPage: three doors; client stays login-only unless invited; first submit is not gated on auth loading', () => {
   const page = src('src/components/auth/AuthPage.tsx');
-  assert.match(page, /canRegister = fromInvite \|\| role === 'coach'/);
+  assert.match(page, /canRegister = authDoorCanRegister\(role, fromInvite\)/);
+  assert.match(page, /chooseRole\('solo'\)/);
+  assert.match(page, /auth\.soloEntry/);
+  assert.match(page, /auth\.goSolo/);
   assert.match(page, /credentialsFromLoginForm/);
   assert.match(page, /submitClientLogin|submittingRef/);
   assert.match(page, /name="email"/);
