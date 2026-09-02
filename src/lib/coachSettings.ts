@@ -12,7 +12,6 @@ export const DEFAULT_MISSED_WORKOUT_CUTOFF_HOUR = 21;
 
 export const EMPTY_COACH_SETTINGS: Omit<CoachSettings, 'coach_id'> = {
   visible_tabs: [...DEFAULT_COACH_VISIBLE_TABS],
-  queue_mode_default: true,
   nudge_templates: {},
   default_tracking: serializeTrackingVars(ALL_ON_TRACKING),
   timezone: DEFAULT_COACH_TIMEZONE,
@@ -61,7 +60,6 @@ export function mapCoachSettings(raw: Record<string, unknown>, fallbackId: strin
   return {
     coach_id: String(raw.coach_id ?? fallbackId),
     visible_tabs: parseVisibleTabs(raw.visible_tabs),
-    queue_mode_default: raw.queue_mode_default !== false,
     nudge_templates: parseNudgeTemplates(raw.nudge_templates),
     default_tracking: serializeTrackingVars(parseCoachTrackingDefaults(raw.default_tracking)),
     timezone,

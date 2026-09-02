@@ -238,70 +238,6 @@ const en = {
     },
   },
 
-  widgets: {
-    calories: {
-      target: 'Target',
-      consumed: 'Consumed',
-      remaining: 'Remaining',
-      goal: '✓ Goal!',
-      onTarget: 'On target today!',
-      over: '+{{n}} over',
-      goalMet: '✓ Goal met!',
-    },
-    macros: {
-      protein: 'Protein',
-      proteinShort: 'P',
-      carbs: 'Carbs',
-      carbsShort: 'C',
-      fat: 'Fat',
-      fatShort: 'F',
-    },
-    water: {
-      glasses: '{{glasses}}/{{target}} glasses',
-      goal: 'Goal! 💧',
-    },
-    steps: {
-      steps: 'steps',
-      ofTarget: '/ {{target}} steps',
-      percentGoal: '% of daily goal',
-      save: 'Save',
-      cancel: 'Cancel',
-    },
-    streak: {
-      day: 'day',
-      days: 'days',
-      currentStreak: 'Current streak',
-      bestStreak: 'Best streak',
-      legend: 'Legend',
-      onFire: 'On Fire!',
-      hot: 'Hot!',
-      weekComplete: '🎉 Week complete!',
-      daysToNextWeek: '{{n}} days to next week',
-      startStreak: 'Log any activity today to start a streak',
-    },
-    weeklyGoal: {
-      sessions: 'sessions',
-      goalAchieved: '🏆 Weekly goal achieved!',
-      sessionsToGo: '{{n}} session(s) to go',
-      sessionsLeft: '{{n}} session(s) left — log a workout →',
-    },
-    weight: {
-      noWeightYet: 'No weight logged yet',
-      logFirstWeighIn: 'Log your first weigh-in →',
-    },
-    workoutVolume: {
-      workoutsThisWeek: 'workouts this week',
-      noWorkoutsYet: 'No workouts logged yet',
-      startFirstWorkout: 'Start your first workout →',
-    },
-    routineTonnage: {
-      loading: 'Loading…',
-      kgTonnage: 'kg tonnage',
-      noRoutines: 'No routines yet',
-      notEnoughData: 'Not enough data yet',
-    },
-  },
-
   workout: {
     title: 'Workouts',
     myRoutines: 'My Routines',
@@ -839,12 +775,6 @@ const en = {
     aiTimeout: 'Analysis is taking too long. Try again in a moment.',
   },
 
-  health: {
-    title: 'Health Integrations',
-    comingSoon: 'Coming Soon',
-    inDevelopment: 'Health integrations are currently in development…',
-  },
-
   errors: {
     renderError: 'Rendering error',
     retry: 'Retry',
@@ -852,27 +782,6 @@ const en = {
     loadRole: 'Unable to load your role. Try again.',
     loadOps: 'Unable to load coach data. Try again.',
     opsPartial: 'Part of Today’s queue failed to load. Retry — the queue may be incomplete.',
-  },
-
-  premium: {
-    unlock: 'Unlock: {{name}}',
-    upgradeToPremium: 'Upgrade to Premium',
-    perMonth: '/ month',
-    perYear: '/ year',
-    redirecting: 'Redirecting…',
-    maybeLater: 'Maybe later',
-    notAuthenticated: 'Not authenticated',
-    redirectError: 'Redirect error. Try again.',
-    networkError: 'Network error. Try again.',
-    discount: '-33%',
-    features: {
-      unlimitedWidgets: 'Unlimited widgets (9 types)',
-      unlimitedHistory: 'Unlimited session history',
-      unlimitedRoutines: 'Unlimited routines & recipes',
-      advancedStats: 'Advanced stats (month, 3 months)',
-      weightChart: 'Full weight chart',
-      pushNotifications: 'Push reminders & notifications',
-    },
   },
 
   checkin: {

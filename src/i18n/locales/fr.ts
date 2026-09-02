@@ -238,70 +238,6 @@ const fr = {
     },
   },
 
-  widgets: {
-    calories: {
-      target: 'Objectif',
-      consumed: 'Consommé',
-      remaining: 'Restant',
-      goal: '✓ Objectif !',
-      onTarget: 'Dans les clous !',
-      over: '+{{n}} de trop',
-      goalMet: '✓ Objectif atteint !',
-    },
-    macros: {
-      protein: 'Protéines',
-      proteinShort: 'P',
-      carbs: 'Glucides',
-      carbsShort: 'G',
-      fat: 'Lipides',
-      fatShort: 'L',
-    },
-    water: {
-      glasses: '{{glasses}}/{{target}} verres',
-      goal: 'Objectif ! 💧',
-    },
-    steps: {
-      steps: 'pas',
-      ofTarget: '/ {{target}} pas',
-      percentGoal: '% de l\'objectif quotidien',
-      save: 'Enregistrer',
-      cancel: 'Annuler',
-    },
-    streak: {
-      day: 'jour',
-      days: 'jours',
-      currentStreak: 'Série actuelle',
-      bestStreak: 'Meilleure série',
-      legend: 'Légende',
-      onFire: 'En feu !',
-      hot: 'Chaud !',
-      weekComplete: '🎉 Semaine complète !',
-      daysToNextWeek: '{{n}} jours avant la prochaine semaine',
-      startStreak: "Enregistre une activité aujourd'hui pour démarrer une série",
-    },
-    weeklyGoal: {
-      sessions: 'séances',
-      goalAchieved: '🏆 Objectif hebdomadaire atteint !',
-      sessionsToGo: '{{n}} séance(s) restante(s)',
-      sessionsLeft: '{{n}} séance(s) restante(s) — enregistre un entraînement →',
-    },
-    weight: {
-      noWeightYet: 'Pas encore de poids enregistré',
-      logFirstWeighIn: 'Enregistre ta première pesée →',
-    },
-    workoutVolume: {
-      workoutsThisWeek: 'séances cette semaine',
-      noWorkoutsYet: "Pas encore d'entraînements",
-      startFirstWorkout: 'Commence ton premier entraînement →',
-    },
-    routineTonnage: {
-      loading: 'Chargement…',
-      kgTonnage: 'kg tonnage',
-      noRoutines: 'Pas encore de routines',
-      notEnoughData: 'Pas encore assez de données',
-    },
-  },
-
   workout: {
     title: 'Entraînements',
     myRoutines: 'Mes routines',
@@ -839,12 +775,6 @@ const fr = {
     aiTimeout: 'L’analyse prend trop de temps. Réessaie dans un instant.',
   },
 
-  health: {
-    title: 'Intégrations santé',
-    comingSoon: 'Bientôt disponible',
-    inDevelopment: 'Les intégrations santé sont en cours de développement…',
-  },
-
   errors: {
     renderError: 'Erreur de rendu',
     retry: 'Réessayer',
@@ -852,27 +782,6 @@ const fr = {
     loadRole: 'Impossible de charger ton rôle. Réessaie.',
     loadOps: 'Impossible de charger tes données coach. Réessaie.',
     opsPartial: 'Une partie du File du jour n’a pas chargé. Réessaie — la file peut être incomplète.',
-  },
-
-  premium: {
-    unlock: 'Débloquer : {{name}}',
-    upgradeToPremium: 'Passer à Premium',
-    perMonth: '/ mois',
-    perYear: '/ an',
-    redirecting: 'Redirection…',
-    maybeLater: 'Peut-être plus tard',
-    notAuthenticated: 'Non authentifié',
-    redirectError: 'Erreur lors de la redirection. Réessaie.',
-    networkError: 'Erreur réseau. Réessaie.',
-    discount: '-33%',
-    features: {
-      unlimitedWidgets: 'Widgets illimités (9 types)',
-      unlimitedHistory: 'Historique séances illimité',
-      unlimitedRoutines: 'Routines & recettes illimitées',
-      advancedStats: 'Stats avancées (mois, 3 mois)',
-      weightChart: 'Graphique poids complet',
-      pushNotifications: 'Rappels & notifications push',
-    },
   },
 
   checkin: {

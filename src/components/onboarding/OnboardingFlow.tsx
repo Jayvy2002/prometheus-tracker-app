@@ -12,7 +12,7 @@ import { useCoachingStore, clearOnboardingDeferred, setOnboardingDeferred } from
 import {
   ACTIVITY_LEVELS, GOALS, DIET_TYPES, FOOD_ALLERGIES, COOKING_LEVELS,
   TRAINING_EXPERIENCES, TRAINING_FOCUSES, STRESS_LEVELS, HYDRATION_HABITS,
-  SUPPLEMENTS, MOTIVATIONS, DEFAULT_DASHBOARD_WIDGETS,
+  SUPPLEMENTS, MOTIVATIONS,
 } from '../../lib/constants';
 import {
   calculateBMR, calculateEnhancedTDEE, calculateCalorieTarget, calculateMacros,
@@ -616,7 +616,6 @@ export default function OnboardingFlow() {
       supplement_use: form.supplement_use,
       motivation: form.motivation,
       onboarding_completed: true,
-      dashboard_layout: DEFAULT_DASHBOARD_WIDGETS,
     };
     await updateProfile(user.id, stripSelfServeNutritionTargets(payload, coached));
 

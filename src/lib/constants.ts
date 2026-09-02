@@ -55,14 +55,6 @@ export const UNIT_TO_GRAMS: Record<string, number> = {
   tsp: 5,
 };
 
-export const DEFAULT_DASHBOARD_WIDGETS = [
-  { id: 'w1', type: 'calories' as const, title: 'Calories Today', config: {}, size: 'medium' as const, order: 0 },
-  { id: 'w2', type: 'weight' as const, title: 'Weight Progress', config: { range: '30d' }, size: 'large' as const, order: 1 },
-  { id: 'w3', type: 'water' as const, title: 'Water Intake', config: {}, size: 'small' as const, order: 2 },
-  { id: 'w4', type: 'macros' as const, title: 'Macros Today', config: {}, size: 'medium' as const, order: 3 },
-  { id: 'w5', type: 'workout_volume' as const, title: 'Weekly Volume', config: { range: '7d' }, size: 'medium' as const, order: 4 },
-];
-
 export const DIET_TYPES = [
   { value: 'omnivore', label: 'Omnivore', description: 'No dietary restrictions' },
   { value: 'vegetarian', label: 'Vegetarian', description: 'No meat or fish' },
