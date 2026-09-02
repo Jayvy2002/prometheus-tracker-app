@@ -97,21 +97,26 @@ function ChoiceGrid({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-2">
-      {options.map(opt => (
-        <button
-          key={opt}
-          type="button"
-          onClick={() => onChange(opt)}
-          className={`p-3 rounded-xl border text-left text-sm font-medium transition-all ${
-            value === opt
-              ? 'border-blue-500 bg-blue-500/10 text-blue-200'
-              : 'border-neutral-800 bg-neutral-900/60 text-white hover:border-neutral-700'
-          }`}
-        >
-          {opt}
-        </button>
-      ))}
+    <div className="grid grid-cols-1 gap-2" role="radiogroup">
+      {options.map(opt => {
+        const selected = value === opt;
+        return (
+          <button
+            key={opt}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            onClick={() => onChange(opt)}
+            className={`p-3 rounded-xl border text-left text-sm font-semibold transition-colors duration-200 ${
+              selected
+                ? 'border-blue-400 bg-blue-600 text-white shadow-[inset_0_0_0_1px_rgba(96,165,250,0.9)]'
+                : 'border-neutral-800 bg-neutral-900 text-neutral-200 [@media(hover:hover)]:hover:border-neutral-600'
+            }`}
+          >
+            {opt}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -135,10 +140,10 @@ function ChipMulti({
           key={opt}
           type="button"
           onClick={() => toggle(opt)}
-          className={`px-3 py-2 rounded-full text-xs font-medium transition-all ${
+          className={`px-3 py-2 rounded-full text-xs font-medium transition-colors ${
             selected.includes(opt)
-              ? 'bg-blue-500/20 text-blue-200 ring-1 ring-blue-500/40'
-              : 'bg-neutral-800/80 text-neutral-400 hover:text-white'
+              ? 'bg-blue-600 text-white ring-1 ring-blue-300/80'
+              : 'bg-neutral-800/80 text-neutral-400 [@media(hover:hover)]:hover:text-white'
           }`}
         >
           {opt}
@@ -500,7 +505,7 @@ function ScreenExtras({
   );
 }
 
-export default function KinesiologyIntakeFlow() {
+export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit?: boolean }) {
   const { t } = useTranslation();
   const label = useOriginalLabel();
   const navigate = useNavigate();
@@ -546,8 +551,19 @@ export default function KinesiologyIntakeFlow() {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col">
-      <div className="flex-1 overflow-y-auto px-5 pt-8 pb-32 max-w-lg mx-auto w-full">
+    <div className="min-h-screen w-full bg-black">
+      <div className="mx-auto w-full max-w-lg px-5 pt-8 pb-32">
+        {allowExit && (
+          <div className="flex justify-end mb-3">
+            <button
+              type="button"
+              onClick={() => navigate('/dashboard')}
+              className="text-sm text-neutral-400 [@media(hover:hover)]:hover:text-white"
+            >
+              {t('intake.later')}
+            </button>
+          </div>
+        )}
         <ProgressBar step={step} />
         <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
           {t('onboarding.stepOf', { step: step + 1, total: TOTAL_INTAKE_SCREENS })}
@@ -566,8 +582,8 @@ export default function KinesiologyIntakeFlow() {
         </Card>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-neutral-900 p-4">
-        <div className="max-w-lg mx-auto flex gap-3">
+      <div className="fixed bottom-0 inset-x-0 bg-black/90 backdrop-blur-lg border-t border-neutral-900 p-4">
+        <div className="w-full max-w-lg mx-auto flex gap-3">
           {step > 0 && (
             <Button variant="secondary" onClick={() => setStep(step - 1)} className="flex-shrink-0">
               <ChevronLeft size={16} />

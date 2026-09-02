@@ -444,8 +444,10 @@ select option {
 .btn-interactive:active {
   transform: scale(0.94);
 }
-.btn-interactive:hover {
-  transform: scale(1.02);
+@media (hover: hover) {
+  .btn-interactive:hover {
+    transform: scale(1.02);
+  }
 }
 
 /* Smooth hover transitions for all cards */
@@ -454,8 +456,10 @@ select option {
               border-color 0.2s ease,
               background-color 0.2s ease;
 }
-.card-hover:hover {
-  transform: translateY(-1px);
+@media (hover: hover) {
+  .card-hover:hover {
+    transform: translateY(-1px);
+  }
 }
 .card-hover:active {
   transform: scale(0.99);

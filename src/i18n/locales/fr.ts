@@ -1669,6 +1669,8 @@ const fr = {
       dim: 'Dim',
     },
     waiting: 'Questionnaire pas encore rempli',
+    completeLater: 'Compléter le questionnaire',
+    later: 'Plus tard',
   },
 } as const;
 

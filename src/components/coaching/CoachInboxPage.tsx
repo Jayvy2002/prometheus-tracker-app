@@ -121,7 +121,7 @@ export default function CoachInboxPage() {
             <button
               type="button"
               onClick={() => navigate(clientFileHref(clientId))}
-              className="text-xs text-blue-400 shrink-0 mr-11 md:mr-0"
+              className="text-xs text-blue-400 shrink-0"
             >
               {t('coaching.command.openClient')}
             </button>
@@ -146,7 +146,7 @@ export default function CoachInboxPage() {
       <div className="px-4 pt-6 pb-28 md:px-6">
         <div className="flex items-start justify-between gap-3 mb-5">
           <div>
-            <h1 className="text-2xl font-bold text-white mb-1 pr-12 md:pr-0">{t('coaching.inbox.title')}</h1>
+            <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.inbox.title')}</h1>
             <p className="text-sm text-neutral-500">{t('coaching.inbox.subtitle')}</p>
           </div>
         </div>

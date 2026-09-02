@@ -136,7 +136,7 @@ export default function ClientsPage() {
               </p>
             )}
           </div>
-          <Button size="sm" onClick={() => setInviteOpen(true)} className="mr-11 md:mr-0">
+          <Button size="sm" onClick={() => setInviteOpen(true)}>
             <Plus size={14} /> {t('coaching.invite.cta')}
           </Button>
         </div>

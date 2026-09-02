@@ -135,8 +135,8 @@ export default function AskPrometheusPage() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
-        <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1 pr-12 md:pr-0">Prometheus</p>
-        <h1 className="text-2xl font-bold text-white mb-1 pr-12 md:pr-0">{t('coaching.ask.title')}</h1>
+        <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1">Prometheus</p>
+        <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.ask.title')}</h1>
         <p className="text-sm text-neutral-500 mb-4">{t('coaching.ask.subtitle')}</p>
 
         <form

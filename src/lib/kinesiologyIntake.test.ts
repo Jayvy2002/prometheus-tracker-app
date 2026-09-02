@@ -3,15 +3,20 @@ import { describe, it } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
+  EMPTY_INTAKE_USAGE,
   ORIGINAL_LABELS_FR,
   ORIGINAL_QUESTION_IDS,
   emptyIntake,
   formatAnswer,
+  intakeGateNeedsUsageProbe,
   intakeToProfilePatch,
   isIntakeAlreadyFilled,
   originalAnswersComplete,
   parseIntake,
+  profileShowsExistingAppUse,
   screenCanProceed,
+  shouldForceKinesiologyIntake,
+  shouldSkipKinesiologyIntake,
   TYPES_EXERCICES_OPTIONS,
 } from './kinesiologyIntake';
 
@@ -155,6 +160,126 @@ describe('kinesiologyIntake original form', () => {
     assert.equal(isIntakeAlreadyFilled({ kinesiology_intake: emptyIntake() }), false);
   });
 
+  it('linked client with history must not be forced into KinesiologyIntakeFlow', () => {
+    const hugoProfile = {
+      full_name: 'Hugo Demo',
+      onboarding_completed: true,
+      height_cm: 178,
+      weight_kg: 82,
+      kinesiology_intake_completed_at: null,
+      kinesiology_intake: emptyIntake(),
+    };
+    const hugoUsage = {
+      hasWorkout: true,
+      hasNutrition: true,
+      hasCheckIn: true,
+      hasWeight: true,
+    };
+
+    assert.equal(profileShowsExistingAppUse(hugoProfile), true);
+    assert.equal(shouldSkipKinesiologyIntake(hugoProfile, EMPTY_INTAKE_USAGE), true);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: hugoProfile,
+      usage: hugoUsage,
+      probeStatus: 'ok',
+    }), false);
+    assert.equal(intakeGateNeedsUsageProbe({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: hugoProfile,
+    }), false);
+
+    const historyOnly = {
+      full_name: '',
+      onboarding_completed: false,
+      height_cm: 0,
+      weight_kg: 0,
+      kinesiology_intake_completed_at: null,
+      kinesiology_intake: emptyIntake(),
+    };
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: historyOnly,
+      usage: { hasWorkout: true, hasNutrition: false, hasCheckIn: false, hasWeight: false },
+      probeStatus: 'ok',
+    }), false);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: historyOnly,
+      usage: { hasWorkout: false, hasNutrition: true, hasCheckIn: false, hasWeight: false },
+      probeStatus: 'ok',
+    }), false);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: historyOnly,
+      usage: { hasWorkout: false, hasNutrition: false, hasCheckIn: true, hasWeight: false },
+      probeStatus: 'ok',
+    }), false);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: historyOnly,
+      usage: { hasWorkout: false, hasNutrition: false, hasCheckIn: false, hasWeight: true },
+      probeStatus: 'ok',
+    }), false);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: { kinesiology_intake_completed_at: '2026-09-01T00:00:00.000Z' },
+      usage: EMPTY_INTAKE_USAGE,
+      probeStatus: 'ok',
+    }), false);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: historyOnly,
+      usage: EMPTY_INTAKE_USAGE,
+      probeStatus: 'failed',
+    }), false);
+  });
+
+  it('still walls a blank new invite after usage probe finds nothing', () => {
+    const freshInvite = {
+      full_name: '',
+      onboarding_completed: false,
+      height_cm: 0,
+      weight_kg: 0,
+      kinesiology_intake_completed_at: null,
+      kinesiology_intake: emptyIntake(),
+    };
+    assert.equal(intakeGateNeedsUsageProbe({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: freshInvite,
+    }), true);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: freshInvite,
+      usage: EMPTY_INTAKE_USAGE,
+      probeStatus: 'idle',
+    }), false);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: false,
+      profile: freshInvite,
+      usage: EMPTY_INTAKE_USAGE,
+      probeStatus: 'ok',
+    }), true);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: true,
+      isCoach: true,
+      profile: freshInvite,
+      usage: EMPTY_INTAKE_USAGE,
+      probeStatus: 'ok',
+    }), false);
+  });
+
   it('keeps the form exercise-type options including Autre', () => {
     assert.ok(TYPES_EXERCICES_OPTIONS.includes('Charges libres (haltères / barre)'));
     assert.ok(TYPES_EXERCICES_OPTIONS.includes('Peu importe je m\'adapte'));
@@ -190,9 +315,18 @@ describe('kinesiologyIntake wiring', () => {
   it('gates coached invite clients on this intake, not the tracker calorie onboarding', () => {
     const app = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
     assert.match(app, /KinesiologyIntakeFlow/);
-    assert.match(app, /isIntakeAlreadyFilled/);
+    assert.match(app, /shouldForceKinesiologyIntake/);
+    assert.match(app, /intakeGateNeedsUsageProbe/);
+    assert.match(app, /probeIntakeUsage/);
+    assert.doesNotMatch(app, /coachedClient && !skipPersonalOnboarding && !isIntakeAlreadyFilled/);
     const finish = readFileSync(resolve(process.cwd(), 'src/components/onboarding/KinesiologyIntakeFlow.tsx'), 'utf8');
     assert.match(finish, /intakeToProfilePatch/);
     assert.match(finish, /stripSelfServeNutritionTargets/);
+    assert.match(finish, /allowExit/);
+    assert.match(finish, /aria-checked/);
+    assert.match(finish, /bg-blue-600 text-white/);
+    assert.match(finish, /max-w-lg/);
+    assert.match(finish, /mx-auto/);
+    assert.match(app, /path="\/intake"/);
   });
 });

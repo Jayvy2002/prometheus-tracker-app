@@ -376,7 +376,7 @@ export default function InterventionDraftPage() {
               <button
                 type="button"
                 onClick={() => navigate(clientFileHref(clientId))}
-                className="text-xs text-blue-400 shrink-0 mr-11 md:mr-0"
+                className="text-xs text-blue-400 shrink-0"
               >
                 {t('coaching.command.openClient')}
               </button>
@@ -447,7 +447,7 @@ export default function InterventionDraftPage() {
             <button
               type="button"
               onClick={() => navigate(clientFileHref(clientId))}
-              className="text-xs text-blue-400 shrink-0 mr-11 md:mr-0"
+              className="text-xs text-blue-400 shrink-0"
             >
               {t('coaching.command.openClient')}
             </button>

@@ -42,10 +42,8 @@ export default function AppLayout() {
 
       <main className="flex-1 min-w-0 pb-24 md:pb-8 md:ml-64">
         {isCoach && !location.pathname.startsWith('/profile') && (
-          <div className="md:hidden sticky top-0 z-30 h-0 pointer-events-none">
-            <div className="pointer-events-auto absolute right-4 top-4">
-              <CoachProfileButton />
-            </div>
+          <div className="md:hidden sticky top-0 z-30 flex h-12 items-center justify-end px-4 bg-black/85 backdrop-blur-md border-b border-white/5">
+            <CoachProfileButton />
           </div>
         )}
         <div className={`mx-auto w-full ${isCoach ? 'max-w-6xl' : 'max-w-3xl'}`}>

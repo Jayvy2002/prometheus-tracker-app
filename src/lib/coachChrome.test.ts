@@ -20,6 +20,8 @@ test('mobile coach chrome: avatar opens /profile, no 6th bottom-nav tab', () => 
   assert.match(layout, /CoachProfileButton/);
   assert.match(layout, /md:hidden/);
   assert.match(layout, /isCoach && !location\.pathname\.startsWith\('\/profile'\)/);
+  assert.match(layout, /h-12/);
+  assert.doesNotMatch(layout, /h-0 pointer-events-none/);
   assert.match(layout, /navigate\('\/profile'\)|CoachProfileButton/);
 
   const button = src('src/components/layout/CoachProfileButton.tsx');

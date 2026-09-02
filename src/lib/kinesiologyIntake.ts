@@ -396,6 +396,98 @@ export function isIntakeAlreadyFilled(profile: {
   return originalAnswersComplete(parseIntake(profile.kinesiology_intake));
 }
 
+/** Profile fields used to decide whether the 27-question wall may block the app. */
+export type IntakeProfileSlice = {
+  kinesiology_intake_completed_at?: string | null;
+  kinesiology_intake?: unknown;
+  onboarding_completed?: boolean | null;
+  full_name?: string | null;
+  height_cm?: number | null;
+  weight_kg?: number | null;
+  date_of_birth?: string | null;
+  gender?: string | null;
+};
+
+export type IntakeUsageSignals = {
+  hasWorkout: boolean;
+  hasNutrition: boolean;
+  hasCheckIn: boolean;
+  hasWeight: boolean;
+};
+
+export const EMPTY_INTAKE_USAGE: IntakeUsageSignals = {
+  hasWorkout: false,
+  hasNutrition: false,
+  hasCheckIn: false,
+  hasWeight: false,
+};
+
+export type IntakeProbeStatus = 'idle' | 'pending' | 'ok' | 'failed';
+
+function positiveMetric(value: number | null | undefined): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function filledText(value: string | null | undefined): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/** Tracker profile already in use — not a blank new invite. */
+export function profileShowsExistingAppUse(profile: IntakeProfileSlice | null | undefined): boolean {
+  if (!profile) return false;
+  if (profile.onboarding_completed) return true;
+  if (positiveMetric(profile.height_cm) && positiveMetric(profile.weight_kg)) return true;
+  if (
+    filledText(profile.full_name)
+    && filledText(profile.gender)
+    && (positiveMetric(profile.height_cm) || positiveMetric(profile.weight_kg) || filledText(profile.date_of_birth))
+  ) {
+    return true;
+  }
+  return false;
+}
+
+export function usageShowsExistingAppUse(usage: IntakeUsageSignals | null | undefined): boolean {
+  if (!usage) return false;
+  return usage.hasWorkout || usage.hasNutrition || usage.hasCheckIn || usage.hasWeight;
+}
+
+export function shouldSkipKinesiologyIntake(
+  profile: IntakeProfileSlice | null | undefined,
+  usage?: IntakeUsageSignals | null,
+): boolean {
+  return isIntakeAlreadyFilled(profile)
+    || profileShowsExistingAppUse(profile)
+    || usageShowsExistingAppUse(usage);
+}
+
+export type IntakeGateInput = {
+  isCoachedClient: boolean;
+  isCoach: boolean;
+  profile: IntakeProfileSlice | null | undefined;
+  usage: IntakeUsageSignals | null;
+  probeStatus: IntakeProbeStatus;
+};
+
+/** Hard wall only for new invite clients with no completed intake and no app history. */
+export function shouldForceKinesiologyIntake(input: IntakeGateInput): boolean {
+  if (!input.isCoachedClient || input.isCoach) return false;
+  if (shouldSkipKinesiologyIntake(input.profile, input.usage)) return false;
+  if (input.probeStatus === 'failed') return false;
+  if (input.probeStatus !== 'ok') return false;
+  return true;
+}
+
+export function intakeGateNeedsUsageProbe(input: {
+  isCoachedClient: boolean;
+  isCoach: boolean;
+  profile: IntakeProfileSlice | null | undefined;
+}): boolean {
+  if (!input.isCoachedClient || input.isCoach) return false;
+  if (shouldSkipKinesiologyIntake(input.profile, null)) return false;
+  return true;
+}
+
 const NUTRITION_KEYS = [
   'daily_calorie_target',
   'protein_target',

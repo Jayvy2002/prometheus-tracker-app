@@ -22,7 +22,7 @@ export default function Card({ children, className = '', onClick, padding = true
         glowClass,
         padding ? '' : 'p-0',
         onClick
-          ? 'cursor-pointer hover:border-white/12 active:scale-[0.99] transition-all duration-200 card-hover'
+          ? 'cursor-pointer [@media(hover:hover)]:hover:border-white/12 active:scale-[0.99] transition-all duration-200 card-hover'
           : 'transition-colors duration-200',
         className,
       )}

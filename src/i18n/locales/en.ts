@@ -1669,6 +1669,8 @@ const en = {
       dim: 'Sun',
     },
     waiting: 'Questionnaire not filled yet',
+    completeLater: 'Complete the questionnaire',
+    later: 'Later',
   },
 } as const;
 

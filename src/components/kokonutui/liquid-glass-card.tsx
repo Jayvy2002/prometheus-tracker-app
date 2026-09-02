@@ -25,10 +25,10 @@ import { cn } from "@/lib/utils";
 
 // Constants for better maintainability
 const GLASS_SHADOW_LIGHT =
-  "shadow-[0_0_6px_rgba(0,0,0,0.03),0_2px_6px_rgba(0,0,0,0.08),inset_3px_3px_0.5px_-3px_rgba(0,0,0,0.9),inset_-3px_-3px_0.5px_-3px_rgba(0,0,0,0.85),inset_1px_1px_1px_-0.5px_rgba(0,0,0,0.6),inset_-1px_-1px_1px_-0.5px_rgba(0,0,0,0.6),inset_0_0_6px_6px_rgba(0,0,0,0.12),inset_0_0_2px_2px_rgba(0,0,0,0.06),0_0_12px_rgba(255,255,255,0.15)]";
+  "shadow-[0_0_6px_rgba(0,0,0,0.2),0_2px_8px_rgba(0,0,0,0.25),inset_1px_1px_0_rgba(255,255,255,0.04)]";
 
 const GLASS_SHADOW_DARK =
-  "dark:shadow-[0_0_8px_rgba(0,0,0,0.03),0_2px_6px_rgba(0,0,0,0.08),inset_3px_3px_0.5px_-3.5px_rgba(255,255,255,0.09),inset_-3px_-3px_0.5px_-3.5px_rgba(255,255,255,0.85),inset_1px_1px_1px_-0.5px_rgba(255,255,255,0.6),inset_-1px_-1px_1px_-0.5px_rgba(255,255,255,0.6),inset_0_0_6px_6px_rgba(255,255,255,0.12),inset_0_0_2px_2px_rgba(255,255,255,0.06),0_0_12px_rgba(0,0,0,0.15)]";
+  "dark:shadow-[0_0_8px_rgba(0,0,0,0.45),0_2px_10px_rgba(0,0,0,0.35),inset_1px_1px_0_rgba(255,255,255,0.05),inset_-1px_-1px_0_rgba(255,255,255,0.02)]";
 
 const GLASS_SHADOW = `${GLASS_SHADOW_LIGHT} ${GLASS_SHADOW_DARK}`;
 
@@ -189,7 +189,7 @@ function LiquidGlassCard({
 
       <div className="relative z-10 contents">{children}</div>
 
-      <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-gradient-to-r from-transparent via-black/5 to-transparent opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 motion-reduce:transition-none dark:via-white/5" />
+      <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-gradient-to-r from-transparent via-black/5 to-transparent opacity-0 transition-opacity duration-200 ease-out [@media(hover:hover)]:group-hover:opacity-100 motion-reduce:transition-none dark:via-white/[0.03]" />
     </Card>
   );
 }

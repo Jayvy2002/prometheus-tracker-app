@@ -17,6 +17,7 @@ import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
+import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import {
   clientHomeNextAction,
@@ -292,9 +293,18 @@ export default function Dashboard() {
           <button
             type="button"
             onClick={() => navigate('/checkin')}
-            className="text-xs text-neutral-500 hover:text-neutral-300 mb-4 -mt-1"
+            className="text-xs text-neutral-500 [@media(hover:hover)]:hover:text-neutral-300 mb-4 -mt-1"
           >
             {t('checkin.dashboardCta')}
+          </button>
+        )}
+        {hasCoach && !isIntakeAlreadyFilled(profile) && (
+          <button
+            type="button"
+            onClick={() => navigate('/intake')}
+            className="block text-xs text-neutral-500 [@media(hover:hover)]:hover:text-neutral-300 mb-4"
+          >
+            {t('intake.completeLater')}
           </button>
         )}
 

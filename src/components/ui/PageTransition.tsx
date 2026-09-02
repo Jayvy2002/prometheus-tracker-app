@@ -1,10 +1,13 @@
-import { type ReactNode, useRef, useEffect } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { motion, useReducedMotion } from 'motion/react';
 
 interface PageTransitionProps {
   children: ReactNode;
   className?: string;
 }
+
+const PAGE_EASE = [0.16, 1, 0.3, 1] as const;
 
 // Map tab routes to their index for directional sliding
 const TAB_ORDER: Record<string, number> = {
@@ -30,16 +33,12 @@ let previousTabIndex = -1;
 
 export default function PageTransition({ children, className = '' }: PageTransitionProps) {
   const location = useLocation();
-  const containerRef = useRef<HTMLDivElement>(null);
-
+  const reduceMotion = useReducedMotion();
   const currentIndex = getTabIndex(location.pathname);
 
-  // Choose animation direction based on tab position
-  let animClass = 'animate-fade-in-up';
+  let x = 0;
   if (currentIndex !== -1 && previousTabIndex !== -1) {
-    animClass = currentIndex > previousTabIndex
-      ? 'animate-fade-in-left'
-      : 'animate-fade-in-right';
+    x = currentIndex > previousTabIndex ? 16 : -16;
   }
 
   useEffect(() => {
@@ -48,13 +47,19 @@ export default function PageTransition({ children, className = '' }: PageTransit
     }
   });
 
+  if (reduceMotion) {
+    return <div className={className}>{children}</div>;
+  }
+
   return (
-    <div
-      ref={containerRef}
-      className={`${animClass} ${className}`}
-      style={{ animationDuration: '0.38s', animationTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)', animationFillMode: 'both' }}
+    <motion.div
+      key={location.pathname}
+      className={className}
+      initial={{ opacity: 0, x }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.38, ease: PAGE_EASE }}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
