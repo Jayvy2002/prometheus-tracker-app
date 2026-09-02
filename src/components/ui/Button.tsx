@@ -1,4 +1,5 @@
 import { type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { cn } from '../../lib/cn';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -11,19 +12,19 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants = {
   primary: {
-    base: 'bg-blue-600 text-white shadow-lg shadow-blue-900/30',
+    base: 'bg-blue-600 text-white shadow-lg shadow-blue-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]',
     hover: 'hover:bg-blue-500 hover:shadow-blue-900/50',
   },
   secondary: {
-    base: 'bg-neutral-800 text-neutral-200 border border-neutral-700/80',
-    hover: 'hover:bg-neutral-700 hover:border-neutral-600',
+    base: 'bg-neutral-900/80 text-neutral-200 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]',
+    hover: 'hover:bg-neutral-800 hover:border-white/15',
   },
   ghost: {
     base: 'bg-transparent text-neutral-300',
     hover: 'hover:bg-neutral-800/80',
   },
   danger: {
-    base: 'bg-rose-600 text-white shadow-lg shadow-rose-900/20',
+    base: 'bg-rose-600 text-white shadow-lg shadow-rose-900/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]',
     hover: 'hover:bg-rose-500',
   },
 };
@@ -48,16 +49,19 @@ export default function Button({
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-2 font-medium rounded-xl
-        transition-all duration-200 ease-out touch-manipulation
-        ${palette.base} ${pressOnly ? '' : palette.hover} ${sizes[size]}
-        ${disabled || loading
+      className={cn(
+        'inline-flex items-center justify-center gap-2 font-medium rounded-xl',
+        'transition-all duration-200 ease-out touch-manipulation',
+        palette.base,
+        pressOnly ? '' : palette.hover,
+        sizes[size],
+        disabled || loading
           ? 'opacity-50 cursor-not-allowed'
           : pressOnly
             ? 'active:opacity-90'
-            : 'active:scale-[0.96] hover:scale-[1.01]'
-        }
-        ${className}`}
+            : 'active:scale-[0.96] hover:scale-[1.01]',
+        className,
+      )}
       disabled={disabled || loading}
     >
       {loading && (

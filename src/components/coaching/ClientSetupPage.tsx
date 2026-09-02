@@ -35,6 +35,8 @@ import Card from '../ui/Card';
 import Input from '../ui/Input';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import KinesiologyIntakeReview from '../onboarding/KinesiologyIntakeReview';
+import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 
 const EMPTY_TRACKING: ResolvedTrackingConfig = {
   ...ALL_ON_TRACKING,
@@ -295,6 +297,12 @@ export default function ClientSetupPage() {
             <p className="text-sm font-medium text-blue-200">{t('coaching.setup.readyTitle')}</p>
             <p className="text-xs text-neutral-400 mt-1">{t('coaching.setup.readyBody')}</p>
           </Card>
+        )}
+
+        {onboarded && profile && isIntakeAlreadyFilled(profile) && (
+          <div className="mb-4">
+            <KinesiologyIntakeReview raw={profile.kinesiology_intake} />
+          </div>
         )}
 
         {onboarded && profile && (

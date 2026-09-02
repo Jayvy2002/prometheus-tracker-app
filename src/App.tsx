@@ -12,6 +12,8 @@ import AuthPage from './components/auth/AuthPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
+import KinesiologyIntakeFlow from './components/onboarding/KinesiologyIntakeFlow';
+import { isIntakeAlreadyFilled } from './lib/kinesiologyIntake';
 import Dashboard from './components/dashboard/Dashboard';
 import WorkoutPage from './components/workout/WorkoutPage';
 import WorkoutForm from './components/workout/WorkoutForm';
@@ -147,10 +149,21 @@ function AppRoutes() {
 
   const skipPersonalOnboarding =
     coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
-  const deferClientOnboarding =
+  const coachedClient =
     isCoachedAthlete(coachingRole, myCoach)
-    || coachingRole === 'client'
+    || coachingRole === 'client';
+  const deferClientOnboarding =
+    coachedClient
     || (isOnboardingDeferred() && !!myCoach);
+
+  if (coachedClient && !skipPersonalOnboarding && !isIntakeAlreadyFilled(profile)) {
+    return (
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="*" element={<KinesiologyIntakeFlow />} />
+      </Routes>
+    );
+  }
 
   if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (

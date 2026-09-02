@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
 import { toLocalDateStr } from '../../lib/utils';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
+import { AreaChart, BarChart } from '../charts/GymCharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
@@ -391,38 +391,13 @@ export default function StatsPage() {
                 </div>
 
                 <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    {chartTab === 'calories' ? (
-                      <BarChart data={calorieChartData} barSize={period === '3months' ? 4 : period === 'month' ? 8 : 16}>
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
-                          interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                        <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={32} />
-                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                        <Bar dataKey="value" fill="#2563eb" radius={[3, 3, 0, 0]} />
-                      </BarChart>
-                    ) : chartTab === 'weight' ? (
-                      <AreaChart data={weightChartData}>
-                        <defs>
-                          <linearGradient id="weightGrad" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#10b981" stopOpacity={0.3} />
-                            <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false}
-                          interval={period === '3months' ? 6 : period === 'month' ? 4 : 0} />
-                        <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
-                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                        <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#weightGrad)" dot={{ r: 3, fill: '#10b981' }} />
-                      </AreaChart>
-                    ) : (
-                      <BarChart data={workoutByWeek} barSize={24}>
-                        <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={20} allowDecimals={false} />
-                        <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                        <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    )}
-                  </ResponsiveContainer>
+                  {chartTab === 'calories' ? (
+                    <BarChart data={calorieChartData} xKey="date" yKey="value" color="var(--chart-1)" />
+                  ) : chartTab === 'weight' ? (
+                    <AreaChart data={weightChartData} xKey="date" yKey="value" color="var(--chart-2)" yPadding={1} showDots />
+                  ) : (
+                    <BarChart data={workoutByWeek} xKey="date" yKey="value" color="var(--chart-1)" allowDecimals={false} />
+                  )}
                 </div>
               </Card>
             )}

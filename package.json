@@ -9,20 +9,23 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.app.json",
-    "test": "tsx --test src/lib/trainingFrequency.test.ts src/lib/coachAlerts.test.ts src/lib/coachSecond.test.ts src/lib/coachAsk.test.ts src/lib/coachQueue.test.ts src/lib/clientLive.test.ts src/lib/coachCheckins.test.ts src/lib/coachDraftSend.test.ts src/lib/coachNutrition.test.ts src/lib/coachPhotos.test.ts src/lib/coachTraining.test.ts src/lib/coachLastSession.test.ts src/lib/coachRecovery.test.ts src/lib/coachFleet.test.ts src/lib/fastVerify.test.ts src/lib/coachAgent.test.ts src/lib/clientTracking.test.ts src/lib/coachRole.test.ts src/lib/coachChrome.test.ts src/lib/coachSituation.test.ts src/lib/coachRoster.test.ts src/lib/coachDraftNav.test.ts src/lib/clientHome.test.ts src/lib/clientAuth.test.ts src/lib/clientGym.test.ts src/lib/foodEnergy.test.ts src/lib/restTimer.test.ts src/lib/openFoodFacts.test.ts src/lib/clientLiveBugs.test.ts src/lib/streak.test.ts src/lib/checkinScale.test.ts src/lib/coachOwnedTargets.test.ts src/lib/coachStoreGuards.test.ts src/lib/coachingStore.lock.test.ts"
+    "test": "tsx --test src/lib/trainingFrequency.test.ts src/lib/coachAlerts.test.ts src/lib/coachSecond.test.ts src/lib/coachAsk.test.ts src/lib/coachQueue.test.ts src/lib/clientLive.test.ts src/lib/coachCheckins.test.ts src/lib/coachDraftSend.test.ts src/lib/coachNutrition.test.ts src/lib/coachPhotos.test.ts src/lib/coachTraining.test.ts src/lib/coachLastSession.test.ts src/lib/coachRecovery.test.ts src/lib/coachFleet.test.ts src/lib/fastVerify.test.ts src/lib/coachAgent.test.ts src/lib/clientTracking.test.ts src/lib/coachRole.test.ts src/lib/coachChrome.test.ts src/lib/coachSituation.test.ts src/lib/coachRoster.test.ts src/lib/coachDraftNav.test.ts src/lib/clientHome.test.ts src/lib/clientAuth.test.ts src/lib/clientGym.test.ts src/lib/foodEnergy.test.ts src/lib/restTimer.test.ts src/lib/openFoodFacts.test.ts src/lib/clientLiveBugs.test.ts src/lib/streak.test.ts src/lib/checkinScale.test.ts src/lib/coachOwnedTargets.test.ts src/lib/coachStoreGuards.test.ts src/lib/coachingStore.lock.test.ts src/lib/chartGeometry.test.ts src/lib/kinesiologyIntake.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "barcode-detector": "^3.1.1",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "i18next": "^26.0.3",
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.344.0",
+    "motion": "^13.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-i18next": "^17.0.2",
     "react-router-dom": "^7.13.2",
-    "recharts": "^3.8.1",
+    "tailwind-merge": "^3.6.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

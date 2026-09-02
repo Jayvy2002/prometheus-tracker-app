@@ -70,6 +70,8 @@ import ProgressPhotoCompare from './ProgressPhotoCompare';
 import NutritionStallPanel from './NutritionStallPanel';
 import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
+import KinesiologyIntakeReview from '../onboarding/KinesiologyIntakeReview';
+import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 
 function SituationCards({
   lines,
@@ -543,6 +545,14 @@ export default function ClientDetailPage() {
               relanceHref={trainingRelanceHref}
               setupHref={setupHref}
             />
+
+            {isIntakeAlreadyFilled(clientProfile) ? (
+              <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
+            ) : (
+              <Card className="border-amber-500/20">
+                <p className="text-sm text-amber-200">{t('intake.waiting')}</p>
+              </Card>
+            )}
 
             {showInsight && insight ? (
               <Card>
