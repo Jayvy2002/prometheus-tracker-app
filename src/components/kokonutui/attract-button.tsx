@@ -103,7 +103,7 @@ export default function AttractButton({
           <motion.div
             animate={particlesControl}
             className={cn(
-              "pointer-events-none absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-full",
+              "pointer-events-none absolute left-1/2 top-1/2 h-2 w-2 rounded-full",
               "bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,0.85)]",
               "transition-opacity duration-300",
               isAttracting ? "opacity-100" : "opacity-80"

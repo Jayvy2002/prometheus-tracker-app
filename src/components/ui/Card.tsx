@@ -19,7 +19,7 @@ export default function Card({ children, className = '', onClick, padding = true
       glassEffect
       onClick={onClick}
       className={cn(
-        'border-white/20 bg-card/55',
+        'border-white/30 bg-card/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]',
         glowClass,
         padding ? '' : 'p-0',
         onClick

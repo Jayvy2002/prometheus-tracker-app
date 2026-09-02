@@ -28,11 +28,11 @@ const GLASS_SHADOW_LIGHT =
   "shadow-[0_0_6px_rgba(0,0,0,0.03),0_2px_6px_rgba(0,0,0,0.08),inset_3px_3px_0.5px_-3px_rgba(0,0,0,0.9),inset_-3px_-3px_0.5px_-3px_rgba(0,0,0,0.85),inset_1px_1px_1px_-0.5px_rgba(0,0,0,0.6),inset_-1px_-1px_1px_-0.5px_rgba(0,0,0,0.6),inset_0_0_6px_6px_rgba(0,0,0,0.12),inset_0_0_2px_2px_rgba(0,0,0,0.06),0_0_12px_rgba(255,255,255,0.15)]";
 
 const GLASS_SHADOW_DARK =
-  "dark:shadow-[0_0_8px_rgba(0,0,0,0.03),0_2px_6px_rgba(0,0,0,0.08),inset_3px_3px_0.5px_-3.5px_rgba(255,255,255,0.14),inset_-3px_-3px_0.5px_-3.5px_rgba(255,255,255,0.55),inset_1px_1px_1px_-0.5px_rgba(255,255,255,0.35),inset_-1px_-1px_1px_-0.5px_rgba(255,255,255,0.28),inset_0_0_6px_6px_rgba(255,255,255,0.08),inset_0_0_2px_2px_rgba(255,255,255,0.05),0_0_12px_rgba(0,0,0,0.15)]";
+  "dark:shadow-[0_0_8px_rgba(0,0,0,0.03),0_2px_6px_rgba(0,0,0,0.08),inset_3px_3px_0.5px_-3px_rgba(255,255,255,0.9),inset_-3px_-3px_0.5px_-3px_rgba(255,255,255,0.85),inset_1px_1px_1px_-0.5px_rgba(255,255,255,0.6),inset_-1px_-1px_1px_-0.5px_rgba(255,255,255,0.6),inset_0_0_6px_6px_rgba(255,255,255,0.14),inset_0_0_2px_2px_rgba(255,255,255,0.08),0_0_16px_rgba(255,255,255,0.12)]";
 
 const GLASS_SHADOW = `${GLASS_SHADOW_LIGHT} ${GLASS_SHADOW_DARK}`;
 
-const DEFAULT_GLASS_FILTER_SCALE = 30;
+const DEFAULT_GLASS_FILTER_SCALE = 48;
 const BUTTON_GLASS_FILTER_SCALE = 70;
 
 // Shared glass filter component
@@ -136,7 +136,7 @@ function LiquidButton({
 
 // Liquid Glass Card - extends shadcn Card with glass effect
 const liquidGlassCardVariants = cva(
-  "group relative overflow-hidden bg-background/20 backdrop-blur-[2px]",
+  "group relative overflow-visible bg-background/20 backdrop-blur-[2px]",
   {
     variants: {
       glassSize: {
@@ -189,7 +189,7 @@ function LiquidGlassCard({
 
       <div className="relative z-10 contents">{children}</div>
 
-      <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-gradient-to-r from-transparent via-black/5 to-transparent opacity-55 transition-opacity duration-200 ease-out [@media(hover:hover)]:group-hover:opacity-100 motion-reduce:transition-none dark:via-white/18" />
+      <div className="pointer-events-none absolute inset-0 z-20 rounded-[inherit] bg-gradient-to-br from-white/20 via-transparent to-transparent opacity-80 motion-reduce:opacity-50" />
     </Card>
   );
 }

@@ -116,7 +116,7 @@ function StartRow({
           </p>
           <p className="text-[11px] text-neutral-500 mt-0.5 truncate">{weekLabel}</p>
         </div>
-        <Button variant="gradient" size="sm" disabled={starting} onClick={onStart} className="shrink-0">
+        <Button size="sm" disabled={starting} onClick={onStart} className="shrink-0">
           {cta}
         </Button>
       </div>

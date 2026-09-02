@@ -101,8 +101,8 @@ describe('kokonut + bklit visible wiring', () => {
     assert.match(photos, /FileUpload/);
     assert.match(photos, /kokonutui\/file-upload/);
     const gym = readFileSync(resolve(root, 'src/components/dashboard/ClientGymCard.tsx'), 'utf8');
-    assert.match(gym, /variant="gradient"/);
     assert.match(gym, /<Card/);
+    assert.match(gym, /onClick=\{onStart\}/);
   });
 
   it('keeps coach mobile avatar and existing-client intake gate', () => {

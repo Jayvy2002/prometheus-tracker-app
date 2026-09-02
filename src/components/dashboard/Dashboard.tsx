@@ -353,7 +353,7 @@ export default function Dashboard() {
                   </p>
                 )}
               </div>
-              <Button variant="gradient" size="sm" disabled={startingRoutine} className="shrink-0 pointer-events-none">
+              <Button size="sm" disabled={startingRoutine} className="shrink-0 pointer-events-none">
                 {t('dashboard.gym.startCta')}
               </Button>
             </Card>
