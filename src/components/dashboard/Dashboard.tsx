@@ -31,6 +31,9 @@ import type { ProgramDay } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 import ClientGymCard from './ClientGymCard';
 
 function getWeekDates(): string[] {
@@ -278,6 +281,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <AnimatedList>
         {hasGymCard && assignment?.program && (
           <ClientGymCard
             card={gymCard}
@@ -334,9 +338,9 @@ export default function Dashboard() {
                 setStartingRoutine(false);
               }
             }}
-            className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4 text-left hover:border-blue-500/50 active:scale-[0.98] transition-all"
+            className="w-full mb-4 text-left disabled:opacity-60"
           >
-            <div className="flex items-center gap-3">
+            <Card glow="blue" className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
                 <Play size={18} className="text-blue-400 ml-0.5" />
               </div>
@@ -349,16 +353,15 @@ export default function Dashboard() {
                   </p>
                 )}
               </div>
-              <span className="text-xs font-semibold text-blue-300 flex items-center gap-0.5 shrink-0">
+              <Button variant="gradient" size="sm" disabled={startingRoutine} className="shrink-0 pointer-events-none">
                 {t('dashboard.gym.startCta')}
-                <ChevronRight size={16} />
-              </span>
-            </div>
+              </Button>
+            </Card>
           </button>
         )}
 
         {myCoach && (hasProgram || (!activityPending && showNutritionField(tracking, 'calories') && hasSentNutritionTarget(profile))) && (
-          <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
+          <Card className="mb-4 !px-3.5 !py-2.5 text-xs text-neutral-300 space-y-0.5">
             {assignment?.program && (
               <button type="button" onClick={() => navigate('/programs')} className="text-left hover:text-white transition-colors">
                 {t('coaching.loop.program', { name: assignment.program.name })}
@@ -367,7 +370,7 @@ export default function Dashboard() {
             {!activityPending && showNutritionField(tracking, 'calories') && hasSentNutritionTarget(profile) && (
               <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
             )}
-          </div>
+          </Card>
         )}
 
         {myCoach && (latestCoachMessage || unreadMessageCount > 0) && (
@@ -487,7 +490,7 @@ export default function Dashboard() {
           </button>
         )}
         {showHomeRings && !activityPending && (
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
+        <Card className="mb-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
             <button
@@ -582,11 +585,11 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-        </div>
+        </Card>
         )}
 
         {showModule(tracking, 'workouts') && !activityPending && (
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
+        <Card className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${weekGoalMet ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
@@ -647,14 +650,14 @@ export default function Dashboard() {
               }}
             />
           </div>
-        </div>
+        </Card>
         )}
 
         {/* Streak & Weight row — hide while history is still loading to avoid a 0-day flash */}
         {!activityPending && (
-        <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           {/* Streak */}
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
+          <Card>
             <div className="flex items-center gap-2 mb-2">
               <Flame size={16} className={currentStreak > 0 ? 'text-orange-400' : 'text-neutral-600'} />
               <span className="text-xs text-neutral-500">{t('dashboard.streak')}</span>
@@ -670,14 +673,15 @@ export default function Dashboard() {
                 {t('dashboard.bestStreak')}: {longestStreak}
               </p>
             )}
-          </div>
+          </Card>
 
           {/* Weight */}
           {showModule(tracking, 'weight') && (
           <button
             onClick={() => navigate('/weight')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 transition-colors"
+            className="text-left"
           >
+            <Card>
             <div className="flex items-center gap-2 mb-2">
               <Scale size={16} className="text-emerald-400" />
               <span className="text-xs text-neutral-500">{t('dashboard.weight')}</span>
@@ -697,6 +701,7 @@ export default function Dashboard() {
             ) : (
               <p className="text-xs text-neutral-500 mt-1">{t('dashboard.noWeightYet')}</p>
             )}
+            </Card>
           </button>
           )}
         </div>
@@ -704,25 +709,30 @@ export default function Dashboard() {
 
         {/* Quick actions */}
         {!activityPending && (
-        <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
+        <div className="grid grid-cols-2 gap-3">
           <button
             onClick={() => navigate('/stats')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
+            className="text-left"
           >
+            <Card>
             <Footprints size={18} className="text-blue-400 mb-2" />
             <p className="text-sm font-medium text-white">{t('dashboard.viewStats')}</p>
             <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.statsDesc')}</p>
+            </Card>
           </button>
           <button
             onClick={() => navigate('/exercise-progress')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
+            className="text-left"
           >
+            <Card>
             <TrendingUp size={18} className="text-emerald-400 mb-2" />
             <p className="text-sm font-medium text-white">{t('dashboard.viewProgress')}</p>
             <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.progressDesc')}</p>
+            </Card>
           </button>
         </div>
         )}
+        </AnimatedList>
       </div>
     </PageTransition>
   );

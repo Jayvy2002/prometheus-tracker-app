@@ -15,6 +15,8 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
+import GymLoader from '../ui/GymLoader';
 import { toast } from '../ui/Toast';
 import RemoveClientDialog from './RemoveClientDialog';
 
@@ -142,10 +144,8 @@ export default function ClientsPage() {
         </div>
 
         {rosterBusy ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-16 rounded-2xl bg-neutral-900 animate-pulse" />
-            ))}
+          <div className="flex justify-center py-10">
+            <GymLoader size="sm" />
           </div>
         ) : clients.length === 0 ? (
           <Card className="text-center py-10">
@@ -160,7 +160,7 @@ export default function ClientsPage() {
             <p className="text-neutral-400">{t('coaching.ask.roster.empty')}</p>
           </Card>
         ) : (
-          <div className="space-y-2">
+          <AnimatedList className="space-y-2">
             {roster.map(row => {
               const c = row.client;
               const ops = opsRows.find(r => r.client.id === c.id);
@@ -244,7 +244,7 @@ export default function ClientsPage() {
               </Card>
               );
             })}
-          </div>
+          </AnimatedList>
         )}
       </div>
       <Modal open={inviteOpen} onClose={() => setInviteOpen(false)} title={t('coaching.invite.generate')} size="sm">

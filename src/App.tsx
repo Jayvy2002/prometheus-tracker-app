@@ -13,6 +13,8 @@ import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
 import KinesiologyIntakeFlow from './components/onboarding/KinesiologyIntakeFlow';
+import GymLoader from './components/ui/GymLoader';
+import Button from './components/ui/Button';
 import {
   intakeGateNeedsUsageProbe,
   shouldForceKinesiologyIntake,
@@ -152,7 +154,7 @@ function AppRoutes() {
   if (authLoading || !initialized) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <img src="/logo.svg" alt="Prometheus" className="w-10 h-10 animate-pulse" />
+        <GymLoader size="md" />
       </div>
     );
   }
@@ -173,7 +175,7 @@ function AppRoutes() {
   if (profileLoading || !roleReady) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <GymLoader size="md" />
       </div>
     );
   }
@@ -182,12 +184,9 @@ function AppRoutes() {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 gap-4">
         <p className="text-sm text-neutral-300 text-center max-w-sm">{t('errors.loadProfile')}</p>
-        <button
-          onClick={() => fetchProfile(user.id)}
-          className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-500"
-        >
+        <Button onClick={() => fetchProfile(user.id)}>
           {t('errors.retry')}
-        </button>
+        </Button>
       </div>
     );
   }
@@ -199,7 +198,7 @@ function AppRoutes() {
   if (needsIntakeProbe && (intakeProbeStatus === 'idle' || intakeProbeStatus === 'pending')) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <GymLoader size="md" />
       </div>
     );
   }

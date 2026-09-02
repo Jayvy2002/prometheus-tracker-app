@@ -15,7 +15,10 @@ import {
   type CheckinScaleKey,
 } from '../../lib/clientTracking';
 import Button from '../ui/Button';
+import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
+import GymLoader from '../ui/GymLoader';
 import { toast } from '../ui/Toast';
 import type { DailyCheckinInput } from '../../lib/types';
 import ScoreSlider from './ScoreSlider';
@@ -118,7 +121,7 @@ export default function CheckInPage() {
   if (loading && !todayCheckin) {
     return (
       <div className="px-4 pt-8 flex justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <GymLoader size="sm" />
       </div>
     );
   }
@@ -141,9 +144,9 @@ export default function CheckInPage() {
         <p className="text-sm text-neutral-500 mb-1">{t('checkin.subtitle')}</p>
         <p className="text-[11px] text-neutral-600 mb-6">{t('checkin.scaleHint')}</p>
 
-        <div className="space-y-5">
+        <AnimatedList className="space-y-5">
           {showCheckinField(tracking, 'sleep_hours') && (
-            <div>
+            <Card>
               <label className="text-sm font-medium text-white block mb-1.5">{t('checkin.sleepHours')}</label>
               <input
                 type="number"
@@ -157,7 +160,7 @@ export default function CheckInPage() {
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
               <p className="text-[10px] text-neutral-600 mt-1">{t('checkin.optional')}</p>
-            </div>
+            </Card>
           )}
 
           {fields.map(key => {
@@ -165,20 +168,21 @@ export default function CheckInPage() {
             if (!col) return null;
             const copy = SCALE_COPY[col];
             return (
-              <ScoreSlider
-                key={key}
-                label={t(`checkin.fields.${copy.field}`)}
-                low={t(`checkin.low.${copy.low}`)}
-                high={t(`checkin.high.${copy.high}`)}
-                value={scales[col]}
-                unsetLabel={t('checkin.notSet')}
-                onChange={v => setScale(col, v)}
-              />
+              <Card key={key}>
+                <ScoreSlider
+                  label={t(`checkin.fields.${copy.field}`)}
+                  low={t(`checkin.low.${copy.low}`)}
+                  high={t(`checkin.high.${copy.high}`)}
+                  value={scales[col]}
+                  unsetLabel={t('checkin.notSet')}
+                  onChange={v => setScale(col, v)}
+                />
+              </Card>
             );
           })}
 
           {showCheckinField(tracking, 'notes') && (
-            <div>
+            <Card>
               <label className="text-sm font-medium text-white block mb-1.5">{t('checkin.notes')}</label>
               <textarea
                 value={notes}
@@ -187,13 +191,13 @@ export default function CheckInPage() {
                 placeholder={t('checkin.notesPlaceholder')}
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
               />
-            </div>
+            </Card>
           )}
 
-          <Button onClick={handleSave} loading={saving} className="w-full">
+          <Button burst onClick={handleSave} loading={saving} className="w-full">
             <Check size={16} /> {t('checkin.save')}
           </Button>
-        </div>
+        </AnimatedList>
       </div>
     </PageTransition>
   );

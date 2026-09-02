@@ -12,6 +12,7 @@ const en = {
     update: 'Update',
     search: 'Search',
     loading: 'Loading…',
+    loadingHint: 'One moment',
     saving: 'Saving…',
     confirm: 'Confirm',
     dismiss: 'Dismiss',
@@ -1459,6 +1460,8 @@ const en = {
       needSecond: 'Nudge for the second photo.',
       slotEmpty: 'No photo in this slot yet.',
       notesPlaceholder: 'Optional note',
+      dropTitle: 'Drop a photo',
+      dropHint: 'or tap to choose a file',
       kinds: {
         front: 'Front',
         side: 'Side',

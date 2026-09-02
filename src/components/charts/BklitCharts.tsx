@@ -1,9 +1,12 @@
+import { useEffect, useState } from 'react';
+import { useReducedMotion } from 'motion/react';
 import { cn } from '../../lib/cn';
 import { Area } from './area';
 import { AreaChart as BklitAreaChart } from './area-chart';
 import { Bar } from './bar';
 import { BarChart as BklitBarChart } from './bar-chart';
 import { BarXAxis } from './bar-x-axis';
+import type { ChartStatus } from './chart-phase';
 import { Grid } from './grid';
 import { Line } from './line';
 import { LineChart as BklitLineChart } from './line-chart';
@@ -29,6 +32,9 @@ type GymChartProps = {
 };
 
 const MARGIN = { top: 12, right: 8, bottom: 28, left: 8 };
+const ENTER_MS = 1100;
+const LOADING_MS = 900;
+const LOADING_STROKE = 'color-mix(in oklch, var(--chart-line-primary) 75%, white)';
 
 function tooltipRows(
   yKey: string,
@@ -43,6 +49,24 @@ function tooltipRows(
   };
 }
 
+function useBklitStatus(dataLength: number): ChartStatus {
+  const reduceMotion = useReducedMotion();
+  const [status, setStatus] = useState<ChartStatus>('loading');
+
+  useEffect(() => {
+    if (reduceMotion) {
+      setStatus(dataLength > 0 ? 'ready' : 'loading');
+      return;
+    }
+    setStatus('loading');
+    if (dataLength === 0) return;
+    const id = window.setTimeout(() => setStatus('ready'), LOADING_MS);
+    return () => window.clearTimeout(id);
+  }, [dataLength, reduceMotion]);
+
+  return status;
+}
+
 export function LineChart({
   data,
   xKey = 'date',
@@ -53,6 +77,7 @@ export function LineChart({
   valueLabel,
   showDots = true,
 }: GymChartProps) {
+  const status = useBklitStatus(data.length);
   return (
     <BklitLineChart
       data={data}
@@ -60,9 +85,19 @@ export function LineChart({
       className={cn('h-full w-full min-h-[8rem]', className)}
       aspectRatio="auto"
       margin={MARGIN}
+      status={status}
+      animationDuration={ENTER_MS}
     >
-      <Grid horizontal />
-      <Line dataKey={yKey} showMarkers={showDots} stroke={color} />
+      <Grid horizontal shimmer shimmerSpeed={1.35} />
+      <Line
+        dataKey={yKey}
+        showMarkers={showDots}
+        stroke={color}
+        animate
+        loadingStyle="sweep"
+        loadingStroke={LOADING_STROKE}
+        loadingStrokeOpacity={0.85}
+      />
       <XAxis />
       <ChartTooltip rows={tooltipRows(yKey, formatValue, valueLabel)} />
     </BklitLineChart>
@@ -79,6 +114,7 @@ export function AreaChart({
   valueLabel,
   showDots = false,
 }: GymChartProps) {
+  const status = useBklitStatus(data.length);
   return (
     <BklitAreaChart
       data={data}
@@ -86,9 +122,20 @@ export function AreaChart({
       className={cn('h-full w-full min-h-[8rem]', className)}
       aspectRatio="auto"
       margin={MARGIN}
+      status={status}
+      animationDuration={ENTER_MS}
     >
-      <Grid horizontal />
-      <Area dataKey={yKey} showMarkers={showDots} fill={color} stroke={color} />
+      <Grid horizontal shimmer shimmerSpeed={1.35} />
+      <Area
+        dataKey={yKey}
+        showMarkers={showDots}
+        fill={color}
+        stroke={color}
+        animate
+        loadingStyle="sweep"
+        loadingStroke={LOADING_STROKE}
+        loadingStrokeOpacity={0.85}
+      />
       <XAxis />
       <ChartTooltip rows={tooltipRows(yKey, formatValue, valueLabel)} />
     </BklitAreaChart>
@@ -104,6 +151,7 @@ export function BarChart({
   formatValue,
   valueLabel,
 }: GymChartProps) {
+  const status = useBklitStatus(data.length);
   return (
     <BklitBarChart
       data={data}
@@ -111,8 +159,10 @@ export function BarChart({
       className={cn('h-full w-full min-h-[8rem]', className)}
       aspectRatio="auto"
       margin={MARGIN}
+      status={status}
+      animationDuration={ENTER_MS}
     >
-      <Grid horizontal />
+      <Grid horizontal shimmer shimmerSpeed={1.35} />
       <Bar dataKey={yKey} fill={color} />
       <BarXAxis />
       <ChartTooltip rows={tooltipRows(yKey, formatValue, valueLabel)} />

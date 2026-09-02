@@ -19,6 +19,10 @@ import EditFoodModal from './EditFoodModal';
 import WaterTracker from './WaterTracker';
 import WeeklyAdjustment from './WeeklyAdjustment';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
+import GymLoader from '../ui/GymLoader';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -139,13 +143,10 @@ export default function NutritionPage() {
           <button onClick={() => navigate('/scanner')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
             <ScanLine size={18} />
           </button>
-          <button
-            onClick={handleQuickAdd}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
+          <Button onClick={handleQuickAdd} size="sm">
             <Plus size={16} />
             {t('nutrition.add')}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -167,7 +168,7 @@ export default function NutritionPage() {
       </div>
 
       {anyMacroField(tracking) && showTargets && (
-      <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale">
+      <Card className="mb-4">
         <div className="flex items-center gap-5">
           {showNutritionField(tracking, 'calories') ? (
             <ProgressRing progress={pct} size={80} strokeWidth={6} color={pct > 100 ? '#f43f5e' : '#2563eb'}>
@@ -180,7 +181,7 @@ export default function NutritionPage() {
           ) : null}
           <MacroSummary />
         </div>
-      </div>
+      </Card>
       )}
 
       {showNutritionField(tracking, 'water') && (
@@ -189,26 +190,16 @@ export default function NutritionPage() {
       </div>
       )}
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-4">
         {nutritionLoading ? (
-          <>
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 animate-pulse">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="h-4 bg-neutral-800 rounded-md w-24" />
-                  <div className="h-3 bg-neutral-800/70 rounded-md w-16" />
-                </div>
-                <div className="space-y-2">
-                  <div className="h-10 bg-neutral-800/50 rounded-xl w-full" />
-                  <div className="h-10 bg-neutral-800/50 rounded-xl w-full" />
-                </div>
-              </div>
-            ))}
-          </>
+          <div className="flex justify-center py-10">
+            <GymLoader size="sm" />
+          </div>
         ) : (
-          MEAL_CATEGORIES.map((cat, i) => (
-            <div key={cat.value} className="animate-fade-in-up" style={{ animationDelay: `${(i + 3) * 60}ms` }}>
+          <AnimatedList className="space-y-4">
+            {MEAL_CATEGORIES.map(cat => (
               <MealSection
+                key={cat.value}
                 category={cat.value}
                 label={cat.label}
                 logs={logs.filter(l => l.category === cat.value)}
@@ -216,8 +207,8 @@ export default function NutritionPage() {
                 onEdit={(log) => setEditingLog(log)}
                 onReuse={() => handleReuseCategory(cat.value)}
               />
-            </div>
-          ))
+            ))}
+          </AnimatedList>
         )}
       </div>
 

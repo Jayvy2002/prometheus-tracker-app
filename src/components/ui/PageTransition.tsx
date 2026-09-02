@@ -9,7 +9,6 @@ interface PageTransitionProps {
 
 const PAGE_EASE = [0.16, 1, 0.3, 1] as const;
 
-// Map tab routes to their index for directional sliding
 const TAB_ORDER: Record<string, number> = {
   '/dashboard': 0,
   '/workout': 1,
@@ -38,7 +37,7 @@ export default function PageTransition({ children, className = '' }: PageTransit
 
   let x = 0;
   if (currentIndex !== -1 && previousTabIndex !== -1) {
-    x = currentIndex > previousTabIndex ? 16 : -16;
+    x = currentIndex > previousTabIndex ? 28 : -28;
   }
 
   useEffect(() => {
@@ -55,9 +54,9 @@ export default function PageTransition({ children, className = '' }: PageTransit
     <motion.div
       key={location.pathname}
       className={className}
-      initial={{ opacity: 0, x }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.38, ease: PAGE_EASE }}
+      initial={{ opacity: 0, y: 18, x }}
+      animate={{ opacity: 1, y: 0, x: 0 }}
+      transition={{ duration: 0.45, ease: PAGE_EASE }}
     >
       {children}
     </motion.div>

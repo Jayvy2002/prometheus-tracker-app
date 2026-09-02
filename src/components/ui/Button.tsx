@@ -1,14 +1,19 @@
 import { type ButtonHTMLAttributes, type ReactNode } from 'react';
+import AttractButton from '../kokonutui/attract-button';
+import GradientButton from '../kokonutui/gradient-button';
+import HoldButton from '../kokonutui/hold-button';
 import ParticleButton from '../kokonutui/particle-button';
 import { cn } from '../../lib/cn';
 import { Button as ShadcnButton } from './shadcn-button';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'gradient';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   /** No :hover styles — first tap on touch must fire click, not "stick" on hover. */
   pressOnly?: boolean;
+  /** Particle burst on click (confirm / submit). */
+  burst?: boolean;
   children: ReactNode;
 }
 
@@ -23,6 +28,7 @@ const variantMap = {
   secondary: 'secondary',
   ghost: 'ghost',
   danger: 'destructive',
+  gradient: 'default',
 } as const;
 
 export default function Button({
@@ -30,6 +36,7 @@ export default function Button({
   size = 'md',
   loading,
   pressOnly = false,
+  burst = false,
   children,
   className = '',
   disabled,
@@ -53,17 +60,61 @@ export default function Button({
     className,
   );
 
-  if (variant === 'primary') {
+  if (variant === 'gradient') {
+    return (
+      <GradientButton
+        {...props}
+        variant="blue"
+        disabled={disabled || loading}
+        className={cn('h-9 px-4 text-sm', classes)}
+      >
+        {content}
+      </GradientButton>
+    );
+  }
+
+  if (variant === 'danger') {
+    return (
+      <HoldButton
+        {...props}
+        variant="red"
+        holdDuration={1100}
+        disabled={disabled || loading}
+        className={cn('min-w-0', classes)}
+      >
+        {content}
+      </HoldButton>
+    );
+  }
+
+  if (variant === 'primary' && burst) {
     return (
       <ParticleButton
         {...props}
         variant="default"
         size={shadcnSize}
         disabled={disabled || loading}
-        className={cn('[&>svg:last-of-type]:hidden', classes)}
+        className={classes}
       >
         {content}
       </ParticleButton>
+    );
+  }
+
+  if (variant === 'primary') {
+    return (
+      <AttractButton
+        {...props}
+        disabled={disabled || loading}
+        className={cn(
+          size === 'sm' ? 'h-8 px-3 text-xs' : size === 'lg' ? 'h-10 px-8' : 'h-9 px-4 text-sm',
+          classes,
+        )}
+        particleCount={size === 'sm' ? 8 : 12}
+        attractRadius={size === 'sm' ? 22 : 32}
+      >
+        {content}
+      </AttractButton>
     );
   }
 

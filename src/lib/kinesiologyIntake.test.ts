@@ -326,6 +326,8 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(finish, /aria-checked/);
     assert.match(finish, /bg-blue-600 text-white/);
     assert.match(finish, /max-w-lg/);
+    assert.match(finish, /burst=\{step === EXTRA_SCREEN_INDEX\}/);
+    assert.match(finish, /AnimatePresence/);
     assert.match(finish, /mx-auto/);
     assert.match(app, /path="\/intake"/);
     const usage = readFileSync(resolve(process.cwd(), 'src/lib/kinesiologyIntakeUsage.ts'), 'utf8');

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { NutritionLog } from '../../lib/types';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { toastWithUndo } from '../ui/Toast';
+import Card from '../ui/Card';
 
 const iconMap: Record<string, React.ElementType> = {
   breakfast: Sunrise,
@@ -46,7 +47,7 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
   };
 
   return (
-    <div className="bg-neutral-900/40 border border-neutral-800/30 rounded-2xl overflow-hidden">
+    <Card padding={false} className="overflow-hidden">
       <div className="flex items-center gap-3 px-4 py-3">
         <Icon size={16} className="text-neutral-400" />
         <span className="text-sm font-medium text-white flex-1">{label}</span>
@@ -92,6 +93,6 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

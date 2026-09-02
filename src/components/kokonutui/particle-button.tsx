@@ -35,14 +35,14 @@ function SuccessParticles({
 
   return (
     <AnimatePresence>
-      {[...Array(6)].map((_, i) => (
+      {[...Array(12)].map((_, i) => (
         <motion.div
           animate={{
-            scale: [0, 1, 0],
-            x: [0, (i % 2 ? 1 : -1) * (Math.random() * 50 + 20)],
-            y: [0, -Math.random() * 50 - 20],
+            scale: [0, 1.4, 0],
+            x: [0, (i % 2 ? 1 : -1) * (Math.random() * 70 + 28)],
+            y: [0, -Math.random() * 70 - 28],
           }}
-          className="fixed h-1 w-1 rounded-full bg-black dark:bg-white"
+          className="fixed h-2.5 w-2.5 rounded-full bg-sky-300 shadow-[0_0_10px_rgba(125,211,252,0.9)]"
           initial={{
             scale: 0,
             x: 0,
@@ -51,8 +51,8 @@ function SuccessParticles({
           key={i}
           style={{ left: centerX, top: centerY }}
           transition={{
-            duration: 0.6,
-            delay: i * 0.1,
+            duration: 0.7,
+            delay: i * 0.05,
             ease: "easeOut",
           }}
         />

@@ -59,6 +59,8 @@ import {
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
+import GymLoader from '../ui/GymLoader';
 import { toast } from '../ui/Toast';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
@@ -86,7 +88,7 @@ function SituationCards({
   const navigate = useNavigate();
   if (lines.length === 0) return null;
   return (
-    <div className="space-y-2">
+    <AnimatedList className="space-y-2">
       {lines.map(line => (
         <Card key={line.id} className="space-y-3">
           <p className="text-sm text-white">{t(line.messageKey, { days: line.days ?? 0 })}</p>
@@ -106,16 +108,16 @@ function SituationCards({
           ) : null}
         </Card>
       ))}
-    </div>
+    </AnimatedList>
   );
 }
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-xl bg-neutral-900/70 px-3 py-2 min-w-0">
+    <Card className="!px-3 !py-2 min-w-0">
       <p className="text-[10px] text-neutral-500 uppercase tracking-wide truncate">{label}</p>
       <p className={`text-sm font-medium mt-0.5 truncate ${tone || 'text-white'}`}>{value}</p>
-    </div>
+    </Card>
   );
 }
 
@@ -537,7 +539,7 @@ export default function ClientDetailPage() {
         </div>
 
         {loading ? (
-          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mt-8" />
+          <GymLoader className="mx-auto mt-8" size="sm" />
         ) : tab === 'overview' ? (
           <div className="space-y-4">
             <SituationCards

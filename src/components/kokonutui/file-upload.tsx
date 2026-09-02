@@ -39,6 +39,11 @@ interface FileUploadProps {
   uploadDelay?: number;
   validateFile?: (file: File) => FileError | null;
   className?: string;
+  idleTitle?: string;
+  idleSubtitle?: string;
+  uploadCta?: string;
+  dropHint?: string;
+  cancelLabel?: string;
 }
 
 const DEFAULT_MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -247,6 +252,11 @@ export default function FileUpload({
   uploadDelay = 2000,
   validateFile = () => null,
   className,
+  idleTitle = "Drag and drop or",
+  idleSubtitle,
+  uploadCta = "Upload File",
+  dropHint = "or drag and drop your file here",
+  cancelLabel = "Cancel",
 }: FileUploadProps) {
   const [file, setFile] = useState<File | null>(initialFile);
   const [status, setStatus] = useState<FileStatus>("idle");
@@ -311,6 +321,14 @@ export default function FileUpload({
 
   const simulateUpload = useCallback(
     (uploadingFile: File) => {
+      if (uploadDelay <= 0) {
+        setProgress(0);
+        setStatus("idle");
+        setFile(null);
+        onUploadSuccess?.(uploadingFile);
+        return;
+      }
+
       let currentProgress = 0;
 
       if (uploadIntervalRef.current) {
@@ -487,15 +505,16 @@ export default function FileUpload({
 
                     <div className="mb-4 space-y-1.5 text-center">
                       <h3 className="font-semibold text-gray-900 text-lg tracking-tight dark:text-white">
-                        Drag and drop or
+                        {idleTitle}
                       </h3>
                       <p className="text-gray-500 text-xs dark:text-gray-400">
-                        {acceptedFileTypes?.length
-                          ? `${acceptedFileTypes
-                              .map((t) => t.split("/")[1])
-                              .join(", ")
-                              .toUpperCase()}`
-                          : "SVG, PNG, JPG or GIF"}{" "}
+                        {idleSubtitle
+                          ?? (acceptedFileTypes?.length
+                            ? `${acceptedFileTypes
+                                .map((t) => t.split("/")[1])
+                                .join(", ")
+                                .toUpperCase()}`
+                            : "SVG, PNG, JPG or GIF")}{" "}
                         {maxFileSize && `up to ${formatBytes(maxFileSize)}`}
                       </p>
                     </div>
@@ -505,12 +524,12 @@ export default function FileUpload({
                       onClick={triggerFileInput}
                       type="button"
                     >
-                      <span>Upload File</span>
+                      <span>{uploadCta}</span>
                       <UploadCloud className="h-4 w-4 transition-transform duration-200 group-hover:scale-110" />
                     </button>
 
                     <p className="mt-3 text-gray-500 text-xs dark:text-gray-400">
-                      or drag and drop your file here
+                      {dropHint}
                     </p>
 
                     <input
@@ -553,7 +572,7 @@ export default function FileUpload({
                       onClick={resetState}
                       type="button"
                     >
-                      Cancel
+                      {cancelLabel}
                     </button>
                   </motion.div>
                 ) : null}

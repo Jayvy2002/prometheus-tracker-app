@@ -72,13 +72,17 @@ interface HoldButtonProps
 export default function HoldButton({
   className,
   variant = "red",
-  holdDuration = 3000,
+  holdDuration = 1200,
+  children,
+  disabled,
+  onClick,
   ...props
 }: HoldButtonProps) {
   const [isHolding, setIsHolding] = useState(false);
   const controls = useAnimation();
 
   async function handleHoldStart() {
+    if (disabled) return;
     setIsHolding(true);
     controls.set({ width: "0%" });
     await controls.start({
@@ -87,6 +91,12 @@ export default function HoldButton({
         duration: holdDuration / 1000,
         ease: "linear",
       },
+    });
+    setIsHolding(current => {
+      if (current) {
+        onClick?.({} as React.MouseEvent<HTMLButtonElement>);
+      }
+      return false;
     });
   }
 
@@ -101,14 +111,17 @@ export default function HoldButton({
 
   return (
     <Button
+      {...props}
       className={cn(holdButtonVariants({ variant, className }))}
+      disabled={disabled}
+      aria-busy={isHolding}
       onMouseDown={handleHoldStart}
       onMouseLeave={handleHoldEnd}
       onMouseUp={handleHoldEnd}
       onTouchCancel={handleHoldEnd}
       onTouchEnd={handleHoldEnd}
       onTouchStart={handleHoldStart}
-      {...props}
+      type={props.type ?? "button"}
     >
       <motion.div
         animate={controls}
@@ -127,7 +140,7 @@ export default function HoldButton({
         {variant === "blue" && <XCircleIcon className="h-4 w-4" />}
         {variant === "orange" && <AlertCircleIcon className="h-4 w-4" />}
         {variant === "grey" && <BanIcon className="h-4 w-4" />}
-        {isHolding ? "Release" : "Hold me"}
+        {children}
       </span>
     </Button>
   );

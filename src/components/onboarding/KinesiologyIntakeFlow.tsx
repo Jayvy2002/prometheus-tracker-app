@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -509,6 +510,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   const { t } = useTranslation();
   const label = useOriginalLabel();
   const navigate = useNavigate();
+  const reduceMotion = useReducedMotion();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const { addMeasurement } = useWeightStore();
@@ -570,15 +572,25 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
         </p>
         <h1 className="text-2xl font-bold text-white mb-6 tracking-tight">{titles[step]}</h1>
         <Card>
-          {step === 0 && <ScreenToi intake={intake} setIntake={setIntake} label={label} />}
-          {step === 1 && <ScreenObjectif intake={intake} setIntake={setIntake} label={label} />}
-          {step === 2 && <ScreenTemps intake={intake} setIntake={setIntake} label={label} />}
-          {step === 3 && <ScreenLieu intake={intake} setIntake={setIntake} label={label} />}
-          {step === 4 && <ScreenDouleurs intake={intake} setIntake={setIntake} label={label} />}
-          {step === 5 && <ScreenMedical intake={intake} setIntake={setIntake} label={label} />}
-          {step === 6 && <ScreenPrefs intake={intake} setIntake={setIntake} label={label} />}
-          {step === 7 && <ScreenReste intake={intake} setIntake={setIntake} label={label} />}
-          {step === 8 && <ScreenExtras intake={intake} setIntake={setIntake} />}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              initial={reduceMotion ? false : { opacity: 0, y: 18 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? undefined : { opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            >
+              {step === 0 && <ScreenToi intake={intake} setIntake={setIntake} label={label} />}
+              {step === 1 && <ScreenObjectif intake={intake} setIntake={setIntake} label={label} />}
+              {step === 2 && <ScreenTemps intake={intake} setIntake={setIntake} label={label} />}
+              {step === 3 && <ScreenLieu intake={intake} setIntake={setIntake} label={label} />}
+              {step === 4 && <ScreenDouleurs intake={intake} setIntake={setIntake} label={label} />}
+              {step === 5 && <ScreenMedical intake={intake} setIntake={setIntake} label={label} />}
+              {step === 6 && <ScreenPrefs intake={intake} setIntake={setIntake} label={label} />}
+              {step === 7 && <ScreenReste intake={intake} setIntake={setIntake} label={label} />}
+              {step === 8 && <ScreenExtras intake={intake} setIntake={setIntake} />}
+            </motion.div>
+          </AnimatePresence>
         </Card>
       </div>
 
@@ -591,6 +603,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
           )}
           <Button
             onClick={goNext}
+            burst={step === EXTRA_SCREEN_INDEX}
             disabled={!screenCanProceed(intake, step) || saving}
             loading={saving && step === EXTRA_SCREEN_INDEX}
             className="flex-1"

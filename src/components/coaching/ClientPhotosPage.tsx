@@ -1,13 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Camera, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { todayStr } from '../../lib/utils';
 import type { ProgressPhoto, ProgressPhotoKind } from '../../lib/types';
-import Button from '../ui/Button';
+import FileUpload from '../kokonutui/file-upload';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
+import GymLoader from '../ui/GymLoader';
 import { toast } from '../ui/Toast';
 
 const KINDS: ProgressPhotoKind[] = ['front', 'side', 'back'];
@@ -24,7 +26,6 @@ export default function ClientPhotosPage() {
   const [takenAt, setTakenAt] = useState(todayStr());
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const reload = async (uid: string) => {
     const rows = await fetchProgressPhotos(uid);
@@ -37,10 +38,8 @@ export default function ClientPhotosPage() {
     void reload(user.id);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file || !user) return;
+  const onUpload = async (file: File) => {
+    if (!user) return;
     setUploading(true);
     const result = await uploadProgressPhoto({ file, takenAt, kind, notes });
     setUploading(false);
@@ -93,16 +92,27 @@ export default function ClientPhotosPage() {
             placeholder={t('coaching.photos.notesPlaceholder')}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
           />
-          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFile} />
-          <Button onClick={() => inputRef.current?.click()} loading={uploading} className="w-full">
-            <Camera size={16} /> {t('coaching.photos.upload')}
-          </Button>
+          {uploading ? (
+            <GymLoader size="sm" className="mx-auto" />
+          ) : (
+            <FileUpload
+              acceptedFileTypes={['image/jpeg', 'image/png', 'image/webp']}
+              maxFileSize={8 * 1024 * 1024}
+              uploadDelay={700}
+              onUploadSuccess={file => { void onUpload(file); }}
+              idleTitle={t('coaching.photos.dropTitle')}
+              dropHint={t('coaching.photos.dropHint')}
+              uploadCta={t('coaching.photos.upload')}
+              cancelLabel={t('common.cancel')}
+              className="max-w-none"
+            />
+          )}
         </Card>
 
         {photos.length === 0 ? (
           <Card className="text-sm text-neutral-500 text-center py-8">{t('coaching.photos.empty')}</Card>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <AnimatedList className="grid grid-cols-2 gap-2">
             {photos.map(photo => (
               <Card key={photo.id} padding={false} className="overflow-hidden">
                 <div className="aspect-[3/4] bg-neutral-950">
@@ -123,7 +133,7 @@ export default function ClientPhotosPage() {
                 </div>
               </Card>
             ))}
-          </div>
+          </AnimatedList>
         )}
       </div>
     </PageTransition>

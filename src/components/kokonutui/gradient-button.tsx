@@ -1,8 +1,8 @@
-import { type ButtonHTMLAttributes } from "react";
+import { type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Button } from "@/components/ui/shadcn-button";
 import { cn } from "@/lib/utils";
 
-type ColorVariant = "emerald" | "purple" | "orange";
+type ColorVariant = "emerald" | "purple" | "orange" | "blue";
 
 interface GradientColors {
   dark: {
@@ -31,6 +31,7 @@ interface GradientButtonProps
   label?: string;
   className?: string;
   variant?: ColorVariant;
+  children?: ReactNode;
 }
 
 const gradientColors: Record<ColorVariant, GradientColors> = {
@@ -94,15 +95,37 @@ const gradientColors: Record<ColorVariant, GradientColors> = {
       hover: "from-orange-300/30 via-orange-200/20 to-orange-300/30",
     },
   },
+  blue: {
+    dark: {
+      border: "from-[#3B82F6] via-[#0C1F21] to-[#1D4ED8]",
+      overlay: "from-[#2563EB]/45 via-[#0C1F21] to-[#1E40AF]/30",
+      accent: "from-[#BFDBFE]/15 via-[#0C1F21] to-[#1E3A8A]/50",
+      text: "from-[#DBEAFE] to-[#93C5FD]",
+      glow: "rgba(59,130,246,0.18)",
+      textGlow: "rgba(147,197,253,0.55)",
+      hover: "from-[#1E3A8A]/20 via-[#60A5FA]/15 to-[#1E3A8A]/20",
+    },
+    light: {
+      border: "from-blue-400 via-blue-300 to-blue-200",
+      base: "from-blue-50 via-blue-50/80 to-blue-50/90",
+      overlay: "from-blue-300/30 via-blue-200/20 to-blue-400/20",
+      accent: "from-blue-400/20 via-blue-300/10 to-blue-200/30",
+      text: "from-blue-700 to-blue-600",
+      glow: "rgba(59,130,246,0.22)",
+      hover: "from-blue-300/30 via-blue-200/20 to-blue-300/30",
+    },
+  },
 };
 
 export default function GradientButton({
   label = "Welcome",
   className,
   variant = "emerald",
+  children,
   ...props
 }: GradientButtonProps) {
   const colors = gradientColors[variant];
+  const text = children ?? label;
 
   return (
     <Button
@@ -184,7 +207,7 @@ export default function GradientButton({
             filter: `drop-shadow(0 0 12px ${colors.dark.textGlow})`,
           }}
         >
-          {label}
+          {text}
         </span>
       </div>
 

@@ -13,20 +13,22 @@ const LIST_EASE = [0.16, 1, 0.3, 1] as const;
 export default function AnimatedList({
   children,
   className = '',
-  baseDelay = 0,
-  staggerMs = 60,
+  baseDelay = 40,
+  staggerMs = 70,
 }: AnimatedListProps) {
   const reduceMotion = useReducedMotion();
 
+  const items = children.filter(child => child != null && child !== false);
+
   return (
     <div className={className}>
-      {children.map((child, i) => (
+      {items.map((child, i) => (
         <motion.div
           key={i}
-          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 14 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{
-            duration: 0.38,
+            duration: 0.42,
             ease: LIST_EASE,
             delay: (baseDelay + i * staggerMs) / 1000,
           }}

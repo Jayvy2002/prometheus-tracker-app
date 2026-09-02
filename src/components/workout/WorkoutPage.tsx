@@ -17,6 +17,8 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
+import GymLoader from '../ui/GymLoader';
 import SessionReadout from './SessionReadout';
 
 export default function WorkoutPage() {
@@ -176,8 +178,8 @@ export default function WorkoutPage() {
               {t('common.manage')}
             </button>
           </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {routines.map((r, i) => {
+          <AnimatedList className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            {routines.map(r => {
               const exercises = r.exercises ?? [];
               const isStarting = startingRoutine === r.id;
               return (
@@ -185,29 +187,30 @@ export default function WorkoutPage() {
                   key={r.id}
                   onClick={() => !isStarting && startFromRoutine(r.id)}
                   disabled={isStarting}
-                  className="flex-shrink-0 w-40 bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3 text-left hover:border-blue-600/40 hover:bg-neutral-800 transition-all group disabled:opacity-60 animate-fade-in-scale"
-                  style={{ animationDelay: `${i * 50}ms` }}
+                  className="flex-shrink-0 w-40 text-left disabled:opacity-60"
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
-                      <Repeat size={14} />
+                  <Card className="!p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
+                        <Repeat size={14} />
+                      </div>
+                      <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-400 flex items-center justify-center ml-auto">
+                        {isStarting ? (
+                          <Play size={10} className="animate-pulse" fill="currentColor" />
+                        ) : (
+                          <Play size={10} fill="currentColor" />
+                        )}
+                      </div>
                     </div>
-                    <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
-                      {isStarting ? (
-                        <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Play size={10} fill="currentColor" />
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-white truncate">{r.name}</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    {exercises.length} {exercises.length !== 1 ? t('workout.exercises') : t('workout.exercise')}
-                  </p>
+                    <p className="text-sm font-medium text-white truncate">{r.name}</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      {exercises.length} {exercises.length !== 1 ? t('workout.exercises') : t('workout.exercise')}
+                    </p>
+                  </Card>
                 </button>
               );
             })}
-          </div>
+          </AnimatedList>
         </div>
       )}
 
@@ -250,19 +253,8 @@ export default function WorkoutPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-2">
-          {[1, 2, 3, 4].map(i => (
-            <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 animate-pulse">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-neutral-800 shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-neutral-800 rounded-md w-2/3" />
-                  <div className="h-3 bg-neutral-800/70 rounded-md w-1/3" />
-                </div>
-                <div className="w-10 h-3 bg-neutral-800 rounded-md" />
-              </div>
-            </div>
-          ))}
+        <div className="flex justify-center py-10">
+          <GymLoader size="sm" />
         </div>
       ) : filtered.length === 0 ? (
         <Card className="text-center py-12">
@@ -271,10 +263,10 @@ export default function WorkoutPage() {
           <Button onClick={() => navigate('/workout/new')} size="sm">{t('workout.startFirstWorkout')}</Button>
         </Card>
       ) : (
-        <div className="space-y-2">
-          {displayed.map((w, i) => (
-            <div key={w.id} className="animate-fade-in-up" style={{ animationDelay: `${i * 50}ms` }}>
+        <AnimatedList className="space-y-2">
+          {displayed.map(w => (
             <Card
+              key={w.id}
               className="flex items-center gap-3"
             >
               <div
@@ -304,9 +296,8 @@ export default function WorkoutPage() {
                 <Trash2 size={16} />
               </button>
             </Card>
-            </div>
           ))}
-        </div>
+        </AnimatedList>
       )}
 
       {hasMore && (
@@ -329,7 +320,7 @@ export default function WorkoutPage() {
           <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1" disabled={deleting}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleDelete} className="flex-1 !bg-red-600 hover:!bg-red-700" disabled={deleting}>
+          <Button variant="danger" onClick={handleDelete} className="flex-1" disabled={deleting}>
             {deleting ? t('common.deleting') : t('common.delete')}
           </Button>
         </div>

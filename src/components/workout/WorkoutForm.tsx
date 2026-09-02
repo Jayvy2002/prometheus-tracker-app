@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
+import GymLoader from '../ui/GymLoader';
 import Input from '../ui/Input';
 import ExerciseCard from './ExerciseCard';
 import SupersetGroup from './SupersetGroup';
@@ -367,7 +368,7 @@ function WorkoutFormInner() {
   if (!currentWorkout) {
     return (
       <div className="px-4 pt-6 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+        <GymLoader size="sm" />
       </div>
     );
   }
@@ -459,7 +460,7 @@ function WorkoutFormInner() {
           <Plus size={16} /> {t('workout.addExercise')}
         </Button>
         )}
-        <Button onClick={handleFinish} disabled={saving} className="w-full">
+        <Button burst onClick={handleFinish} disabled={saving} className="w-full">
           <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
       </div>

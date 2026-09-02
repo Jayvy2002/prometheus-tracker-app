@@ -12,6 +12,7 @@ const fr = {
     update: 'Mettre à jour',
     search: 'Rechercher',
     loading: 'Chargement…',
+    loadingHint: 'Un instant',
     saving: 'Enregistrement…',
     confirm: 'Confirmer',
     dismiss: 'Ignorer',
@@ -1459,6 +1460,8 @@ const fr = {
       needSecond: 'Relance pour la 2e photo.',
       slotEmpty: 'Pas encore de photo ici.',
       notesPlaceholder: 'Note optionnelle',
+      dropTitle: 'Glisse une photo',
+      dropHint: 'ou appuie pour choisir un fichier',
       kinds: {
         front: 'Face',
         side: 'Profil',

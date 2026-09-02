@@ -16,14 +16,14 @@ export default function Card({ children, className = '', onClick, padding = true
   return (
     <LiquidGlassCard
       glassSize="sm"
-      glassEffect={false}
+      glassEffect
       onClick={onClick}
       className={cn(
-        'border-white/[0.07] bg-card/80',
+        'border-white/20 bg-card/55',
         glowClass,
         padding ? '' : 'p-0',
         onClick
-          ? 'cursor-pointer [@media(hover:hover)]:hover:border-white/12 active:scale-[0.99] transition-all duration-200 card-hover'
+          ? 'cursor-pointer [@media(hover:hover)]:hover:border-white/25 active:scale-[0.99] transition-all duration-200 card-hover'
           : 'transition-colors duration-200',
         className,
       )}

@@ -14,6 +14,7 @@ import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
+import AnimatedList from '../ui/AnimatedList';
 import PersonalInfoForm from './PersonalInfoForm';
 import GoalsForm from './GoalsForm';
 import UnitsForm from './UnitsForm';
@@ -164,7 +165,7 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      <div className="space-y-2 mb-6">
+      <AnimatedList className="space-y-2 mb-6">
         <AccordionSection id="personal" icon={User} label={t('profile.sections.personalInfo')} isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
@@ -238,7 +239,7 @@ export default function ProfilePage() {
         </Card>
         )}
 
-      </div>
+      </AnimatedList>
 
 
 
