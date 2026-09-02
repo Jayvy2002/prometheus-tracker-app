@@ -328,5 +328,8 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(finish, /max-w-lg/);
     assert.match(finish, /mx-auto/);
     assert.match(app, /path="\/intake"/);
+    const usage = readFileSync(resolve(process.cwd(), 'src/lib/kinesiologyIntakeUsage.ts'), 'utf8');
+    assert.match(usage, /PROBE_TIMEOUT_MS/);
+    assert.match(usage, /intake usage probe timeout/);
   });
 });
