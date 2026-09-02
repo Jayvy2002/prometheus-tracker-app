@@ -55,10 +55,11 @@ Prometheus est un **SaaS fitness** : une plateforme pour **tous les coachs** (ki
 | Proposition hebdo coach | `coach-fleet-round` : Relancer si non assidu, brouillon kcal complet sinon | + explication lisible du « pourquoi » | Chantier 2 |
 | Proposition hebdo solo | `WeeklyAdjustment` : suggestion simple, sans condition d'assiduité ni explication | Copilote solo (point 6) | Chantier 1 |
 | Intake | 27 q standard, mur pour les nouveaux invités coachés seulement, pas reprenable | Solo obligatoire + reprise ; builder par coach | Chantiers 1 et 4 |
-| Intake → IA | `coach-agent` ne lit pas `kinesiology_intake` ; `goal` non rempli par l'intake | L'agent voit les réponses | Chantier 3 |
+| Intake → IA | `coach-agent` lit `kinesiology_intake` (compacté : jours dispo → weekdays, drapeaux listés) ; `extras.objectifType` → `goal` ; filet déterministe honore séances / jours | L'agent voit les réponses | ✔ |
+| Drapeaux médicaux | Badge roster + fiche 360 + Setup ; carte listant les questions PAR-Q à « Oui » | Visibles avant d'envoyer un programme | ✔ (gate d'accusé de réception : plus tard) |
 | Programme IA solo | Aucun | Proposé depuis l'intake, refusable | Chantier 1 |
 | Billing | Stripe ×3 en 410 | Gratuit pendant la construction | ✔ |
-| Télémétrie d'usage | Aucune | Événements produit | Chantier 5 |
+| Télémétrie d'usage | `product_events` + `track()` : écrans, compte créé, intake, invitations, brouillons résolus (kind / status / édité), messages, tracking, cibles, tournée, Ask, programme assigné, séance, check-in | Lecture : SQL / service role ; écran plus tard | ✔ démarré |
 | Changer de coach | Aucun | Plus tard | — |
 
 ---
@@ -67,9 +68,9 @@ Prometheus est un **SaaS fitness** : une plateforme pour **tous les coachs** (ki
 
 1. **Copilote solo** — intake obligatoire à l'inscription avec reprise ; programme proposé par l'IA depuis les réponses (accepter / refuser / faire le sien) ; proposition hebdo kcal/macros avec explication et condition d'assiduité.
 2. **Modèle macros coaché** — calcul automatique au setup, le coach ajuste, la tournée explique ses propositions. Le trigger coach-only reste.
-3. **Intake dans la boucle coach** — `kinesiology_intake` dans le contexte de `coach-agent` et du trigger `notify_onboarding_complete` ; mapper l'objectif principal vers `goal` ; badge drapeaux médicaux sur la fiche et le roster ; carte review du Setup basée sur l'intake.
+3. ~~**Intake dans la boucle coach**~~ — livré : l'agent lit l'intake, `objectifType` → `goal`, badges et carte drapeaux médicaux, review du Setup basée sur l'intake. Reste : `joursDispo` pré-rempli dans l'éditeur manuel de programme (l'agent le fait déjà), accusé de réception d'un drapeau avant Envoyer.
 4. **Builder de questionnaire par coach** — 27 questions = template éditable ; les invités remplissent le questionnaire de leur coach.
-5. **Télémétrie d'usage** — quels écrans, quels modules, quelles propositions acceptées / modifiées / refusées.
+5. ~~**Télémétrie d'usage**~~ — livré (table + `track()` sur les boucles principales). Reste : écran de lecture pour le coach / l'admin, événements de la proposition hebdo solo quand elle existera.
 6. **Recherche et changement de coach in-app.**
 
 ---

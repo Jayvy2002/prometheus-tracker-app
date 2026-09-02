@@ -88,7 +88,8 @@ src/
 ├── lib/
 │   ├── types.ts               # Tous les types (source de vérité)
 │   ├── utils.ts               # BMR, TDEE, macros ISSN, dates, unités
-│   ├── kinesiologyIntake.ts   # 27 questions (labels FR = source de vérité), gate du mur, patch profil
+│   ├── kinesiologyIntake.ts   # 27 questions (labels FR = source de vérité), gate du mur, patch profil, drapeaux médicaux
+│   ├── telemetry.ts / telemetryClient.ts   # Télémétrie produit (pur + track())
 │   ├── clientTracking.ts      # Modules / variables allumés par le coach
 │   ├── coachRole.ts           # isCoachedAthlete
 │   ├── coach*.ts              # Logique coach pure (fleet, queue, priorities, alerts, interventions…)
@@ -152,6 +153,7 @@ supabase/
 - **Nommage :** PascalCase composants, camelCase fonctions, snake_case colonnes DB.
 - **i18n :** tout texte visible passe par `t()`, FR tutoiement, parité fr/en.
 - **Logique pure dans `src/lib/`**, testée avec node:test ; les composants restent minces.
+- **Télémétrie :** toute nouvelle boucle produit appelle `track()` (`src/lib/telemetryClient.ts`), fire-and-forget. Le nom de l'événement s'ajoute d'abord à `ProductEventName` dans `types.ts`. `props` = ids, kinds, booléens, compteurs — jamais de nom, d'e-mail ni de texte libre. Table `public.product_events`, insert-only depuis l'app.
 - **Edge Functions** en Deno dans `supabase/functions/`.
 
 ---
