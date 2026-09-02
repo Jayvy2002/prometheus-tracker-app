@@ -103,6 +103,18 @@ export const TYPES_EXERCICES_OPTIONS = [
   'Autre',
 ] as const;
 
+/**
+ * Structured goal next to the free-text « objectif principal ». Values match GOALS in
+ * constants.ts so the answer maps straight to user_profiles.goal (ISSN calc + agent).
+ */
+export const EXTRA_OBJECTIF_OPTIONS = [
+  { value: 'cut', labelFr: 'Perdre du gras', labelEn: 'Lose fat' },
+  { value: 'maintain', labelFr: 'Maintien / santé', labelEn: 'Maintain / health' },
+  { value: 'bulk', labelFr: 'Prendre du muscle', labelEn: 'Build muscle' },
+] as const;
+
+export type IntakeObjectifType = typeof EXTRA_OBJECTIF_OPTIONS[number]['value'];
+
 export const EXTRA_OCCUPATION_OPTIONS = [
   { value: 'sitting', labelFr: 'Surtout assis', labelEn: 'Mostly sitting' },
   { value: 'standing', labelFr: 'Surtout sur pieds', labelEn: 'Mostly on your feet' },
@@ -126,6 +138,7 @@ export const EXTRA_MEDS_OPTIONS = ['Oui', 'Non', 'Je ne sais pas'] as const;
 export const WEEKDAYS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'] as const;
 
 export interface IntakeExtras {
+  objectifType: string;
   poidsViseKg: string;
   occupation: string;
   dateCible: string;
@@ -182,6 +195,7 @@ export const EXTRA_SCREEN_INDEX = 8;
 
 export function emptyIntakeExtras(): IntakeExtras {
   return {
+    objectifType: '',
     poidsViseKg: '',
     occupation: '',
     dateCible: '',
@@ -285,6 +299,7 @@ export function parseIntake(raw: unknown): KinesiologyIntake {
     quelqueChoseImportant: asString(row.quelqueChoseImportant),
     extras: {
       ...emptyIntakeExtras(),
+      objectifType: asString(extrasRaw.objectifType),
       poidsViseKg: asString(extrasRaw.poidsViseKg),
       occupation: asString(extrasRaw.occupation),
       dateCible: asString(extrasRaw.dateCible),
@@ -313,10 +328,28 @@ function positiveNumber(value: string, min: number, max: number): boolean {
   return Number.isFinite(n) && n >= min && n <= max;
 }
 
+/** PAR-Q-style screening questions. A « Oui » on any of them is a medical flag for the coach. */
+export const MEDICAL_FLAG_IDS = [
+  'cardiaqueHtaPoitrine',
+  'etourdissementsEquilibre',
+  'medecinLimiteExercices',
+] as const satisfies readonly OriginalQuestionId[];
+
+export function medicalFlagIds(intake: KinesiologyIntake): OriginalQuestionId[] {
+  return MEDICAL_FLAG_IDS.filter(id => intake[id] === 'Oui');
+}
+
 export function medicalYesFlags(intake: KinesiologyIntake): boolean {
-  return intake.cardiaqueHtaPoitrine === 'Oui'
-    || intake.etourdissementsEquilibre === 'Oui'
-    || intake.medecinLimiteExercices === 'Oui';
+  return medicalFlagIds(intake).length > 0;
+}
+
+/** For roster rows / 360 headers that only hold the raw jsonb. */
+export function profileHasMedicalFlags(raw: unknown): boolean {
+  return medicalYesFlags(parseIntake(raw));
+}
+
+export function isIntakeObjectifType(value: string): value is IntakeObjectifType {
+  return EXTRA_OBJECTIF_OPTIONS.some(o => o.value === value);
 }
 
 export function originalAnswersComplete(intake: KinesiologyIntake): boolean {
@@ -355,7 +388,9 @@ export function screenCanProceed(intake: KinesiologyIntake, screen: number): boo
         && positiveNumber(intake.tailleCm, 100, 250)
         && positiveNumber(intake.poidsApproxKg, 30, 300);
     case 1:
-      return filled(intake.objectifPrincipal) && filled(intake.depuisCombienDeTemps);
+      return filled(intake.objectifPrincipal)
+        && isIntakeObjectifType(intake.extras.objectifType)
+        && filled(intake.depuisCombienDeTemps);
     case 2:
       return filled(intake.niveauActuel) && filled(intake.foisParSemaine)
         && (intake.programmeStructure === 'Oui' || intake.programmeStructure === 'Non')
@@ -532,6 +567,7 @@ export function intakeToProfilePatch(intake: KinesiologyIntake, completedAt: str
   if (target != null && Number.isFinite(target) && target >= 30 && target <= 300) {
     patch.target_weight_kg = target;
   }
+  if (isIntakeObjectifType(extras.objectifType)) patch.goal = extras.objectifType;
   if (activity) patch.activity_level = activity;
   if (sleep != null) patch.sleep_hours_average = sleep;
 

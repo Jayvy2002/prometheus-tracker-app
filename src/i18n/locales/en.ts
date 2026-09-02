@@ -1556,6 +1556,7 @@ const en = {
       extras: 'Extras',
     },
     extras: {
+      objectifType: 'Goal type',
       poidsVise: 'Target weight (kg)',
       occupation: 'Occupation',
       dateCible: 'Target date',

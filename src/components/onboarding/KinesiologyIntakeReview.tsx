@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import {
   EXTRA_CARDIO_OPTIONS,
+  EXTRA_OBJECTIF_OPTIONS,
   EXTRA_OCCUPATION_OPTIONS,
   EXTRA_SLEEP_OPTIONS,
   ORIGINAL_LABELS_EN,
@@ -36,11 +37,13 @@ function Row({ label, value }: { label: string; value: string }) {
 
 function extrasDisplay(intake: KinesiologyIntake, t: (key: string) => string, en: boolean) {
   const extras = intake.extras;
+  const objectif = EXTRA_OBJECTIF_OPTIONS.find(o => o.value === extras.objectifType);
   const occ = EXTRA_OCCUPATION_OPTIONS.find(o => o.value === extras.occupation);
   const sleep = EXTRA_SLEEP_OPTIONS.find(o => o.value === extras.sommeil);
   const cardio = EXTRA_CARDIO_OPTIONS.find(o => o.value === extras.cardio);
   const days = extras.joursDispo.map(d => t(`intake.weekdays.${d}`)).join(', ');
   return [
+    { label: t('intake.extras.objectifType'), value: objectif ? (en ? objectif.labelEn : objectif.labelFr) : '' },
     { label: t('intake.extras.poidsVise'), value: extras.poidsViseKg },
     { label: t('intake.extras.occupation'), value: occ ? (en ? occ.labelEn : occ.labelFr) : '' },
     { label: t('intake.extras.dateCible'), value: extras.dateCible },

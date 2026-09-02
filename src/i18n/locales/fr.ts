@@ -1556,6 +1556,7 @@ const fr = {
       extras: 'Compléments',
     },
     extras: {
+      objectifType: 'Type d’objectif',
       poidsVise: 'Poids visé (kg)',
       occupation: 'Occupation',
       dateCible: 'Date cible',

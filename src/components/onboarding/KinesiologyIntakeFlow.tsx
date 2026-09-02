@@ -14,6 +14,7 @@ import {
   EQUIPEMENT_OPTIONS,
   EXTRA_CARDIO_OPTIONS,
   EXTRA_MEDS_OPTIONS,
+  EXTRA_OBJECTIF_OPTIONS,
   EXTRA_OCCUPATION_OPTIONS,
   EXTRA_SCREEN_INDEX,
   EXTRA_SLEEP_OPTIONS,
@@ -186,11 +187,26 @@ function ScreenObjectif({
   setIntake: (next: KinesiologyIntake) => void;
   label: (id: OriginalQuestionId) => string;
 }) {
+  const { t, i18n } = useTranslation();
+  const en = i18n.language.toLowerCase().startsWith('en');
   return (
     <div className="space-y-4">
       <div>
         <FieldLabel>{label('objectifPrincipal')}</FieldLabel>
         <TextArea value={intake.objectifPrincipal} onChange={objectifPrincipal => setIntake({ ...intake, objectifPrincipal })} />
+      </div>
+      <div>
+        <FieldLabel>{t('intake.extras.objectifType')}</FieldLabel>
+        <ChoiceGrid
+          options={EXTRA_OBJECTIF_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
+          value={
+            EXTRA_OBJECTIF_OPTIONS.find(o => o.value === intake.extras.objectifType)?.[en ? 'labelEn' : 'labelFr'] ?? ''
+          }
+          onChange={picked => {
+            const found = EXTRA_OBJECTIF_OPTIONS.find(o => o.labelFr === picked || o.labelEn === picked);
+            setIntake({ ...intake, extras: { ...intake.extras, objectifType: found?.value ?? '' } });
+          }}
+        />
       </div>
       <div>
         <FieldLabel>{label('depuisCombienDeTemps')}</FieldLabel>
