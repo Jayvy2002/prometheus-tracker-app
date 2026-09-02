@@ -851,6 +851,11 @@ const fr = {
     setupCta: 'Configurer',
     badgeOnboarding: 'Questionnaire',
     badgeSetup: 'À configurer',
+    badgeMedical: 'Drapeau médical',
+    medicalFlags: {
+      title: 'Drapeaux médicaux (questionnaire d’accueil)',
+      hint: 'Réponses « Oui » aux questions de dépistage — à vérifier avant d’envoyer un programme.',
+    },
     enableTitle: 'Mode coach désactivé',
     enableBody: 'Active-le pour inviter des athlètes, assigner des programmes et lire leurs logs.',
     enableCta: 'Activer le mode coach',

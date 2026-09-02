@@ -851,6 +851,11 @@ const en = {
     setupCta: 'Setup',
     badgeOnboarding: 'Onboarding',
     badgeSetup: 'Setup',
+    badgeMedical: 'Medical flag',
+    medicalFlags: {
+      title: 'Medical flags (intake questionnaire)',
+      hint: '“Yes” answers on the screening questions — check before sending a program.',
+    },
     enableTitle: 'Coach mode is off',
     enableBody: 'Turn this on to invite athletes, assign programs, and review their logs.',
     enableCta: 'Enable coach mode',

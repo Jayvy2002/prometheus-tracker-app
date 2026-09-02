@@ -71,7 +71,36 @@ import NutritionStallPanel from './NutritionStallPanel';
 import RemoveClientDialog from './RemoveClientDialog';
 import { NutritionChart, WeightChart } from './ProgressCharts';
 import KinesiologyIntakeReview from '../onboarding/KinesiologyIntakeReview';
-import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
+import {
+  ORIGINAL_LABELS_EN,
+  ORIGINAL_LABELS_FR,
+  isIntakeAlreadyFilled,
+  medicalFlagIds,
+  parseIntake,
+} from '../../lib/kinesiologyIntake';
+
+function MedicalFlagsCard({ raw }: { raw: unknown }) {
+  const { t, i18n } = useTranslation();
+  const intake = parseIntake(raw);
+  const flags = medicalFlagIds(intake);
+  if (flags.length === 0) return null;
+  const en = i18n.language.toLowerCase().startsWith('en');
+  const labels = en ? ORIGINAL_LABELS_EN : ORIGINAL_LABELS_FR;
+  return (
+    <Card className="border-rose-500/30 bg-rose-500/5">
+      <p className="text-sm font-medium text-rose-200">{t('coaching.medicalFlags.title')}</p>
+      <p className="text-xs text-neutral-400 mt-0.5 mb-2">{t('coaching.medicalFlags.hint')}</p>
+      <ul className="space-y-1">
+        {flags.map(id => (
+          <li key={id} className="text-xs text-rose-100/90">• {labels[id]}</li>
+        ))}
+      </ul>
+      {intake.conditionMedicalePrecise.trim() && (
+        <p className="text-xs text-neutral-200 mt-2 whitespace-pre-wrap">{intake.conditionMedicalePrecise}</p>
+      )}
+    </Card>
+  );
+}
 
 function SituationCards({
   lines,
@@ -473,7 +502,14 @@ export default function ClientDetailPage() {
               : (client?.full_name?.[0] || '?').toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold text-white truncate">{client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}</h1>
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-xl font-bold text-white truncate">{client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}</h1>
+              {medicalFlagIds(parseIntake(clientProfile?.kinesiology_intake)).length > 0 && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
+                  {t('coaching.badgeMedical')}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-neutral-500 truncate">
               {ops && shouldOpenSetup(ops) ? t('coaching.badgeSetup') : t('coaching.client360.active')}
               {' · '}
@@ -547,7 +583,10 @@ export default function ClientDetailPage() {
             />
 
             {isIntakeAlreadyFilled(clientProfile) ? (
-              <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
+              <>
+                <MedicalFlagsCard raw={clientProfile?.kinesiology_intake} />
+                <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
+              </>
             ) : (
               <Card className="border-amber-500/20">
                 <p className="text-sm text-amber-200">{t('intake.waiting')}</p>

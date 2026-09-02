@@ -57,6 +57,7 @@ import {
   type ResolvedTrackingConfig,
 } from '../lib/clientTracking';
 import { isCoachedAthlete } from '../lib/coachRole';
+import { profileHasMedicalFlags } from '../lib/kinesiologyIntake';
 import {
   cloneTracking,
   nextRoleAfterFetch,
@@ -539,7 +540,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const ids = links.map(l => l.client_id as string);
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg, daily_calorie_target')
+      .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg, daily_calorie_target, kinesiology_intake')
       .in('id', ids);
     const linkedAt = new Map(links.map(l => [l.client_id as string, l.created_at as string]));
     const visitedAt = new Map(links.map(l => [l.client_id as string, l.last_visited_at ?? null]));
@@ -558,6 +559,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       last_visited_at: visitedAt.get(p.id as string) ?? null,
       last_nudged_at: nudgedAt.get(p.id as string) ?? null,
       daily_calorie_target: Number(p.daily_calorie_target) || 0,
+      medical_flags: profileHasMedicalFlags(p.kinesiology_intake),
     }));
     clients.sort(compareRosterName);
     set({ clients, loading: false, clientsFetchError: null });
