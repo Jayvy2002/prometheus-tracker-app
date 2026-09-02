@@ -1,12 +1,11 @@
-# CLAUDE.md — Prometheus (coaching, branche new-JV)
+# CLAUDE.md — Prometheus (branche new-JV)
 
 > Relis ce fichier au début de chaque réflexion. Fais un plan avant toute modification lourde.
 >
-> **Produit :** plateforme de coaching boostée IA. Pas un CRM. Pas un éditeur calories. Pas Premium.
-> **Agent in-app :** `coach-agent` (OpenAI, brouillons seulement). Second / Grok Bots sont **hors** de la boucle produit — ne pas recâbler `GROK_BOT_WEBHOOK_URL`.
-> **Audit (source de vérité des findings) :** `docs/AUDIT_PRODUIT_2026-08-31.md`
-> **Live `main`** = ancien tracker. Ne pas merger new-JV dans main depuis un audit. Ne pas toucher live/backup DB.
-> **Pas de Stripe / Premium.** Les 3 functions billing répondent 410.
+> **Produit :** SaaS fitness pour **tous les coachs** et pour les **athlètes solo**. Trois rôles officiels : Coach / Client coaché / Solo. Vision complète et chantiers : `docs/VISION.md` (source de vérité produit — lis-le avant de toucher au produit).
+> **Copilote IA :** `coach-agent` (OpenAI, brouillons seulement). L'IA prépare, l'humain décide, rien ne s'auto-applique. Second / Grok Bots sont hors de la boucle — ne pas recâbler `GROK_BOT_WEBHOOK_URL`.
+> **Billing :** gratuit pendant la construction. Les 3 functions Stripe répondent 410. Ce n'est pas « jamais de Premium », c'est « pas maintenant ».
+> **`main`** (live `tracker.prometheus-fit.com`) = ancien code. new-JV est le produit. Ne pas toucher la base live ni la backup.
 
 ---
 
@@ -20,8 +19,9 @@
 | State Management | Zustand | 5.0 |
 | Styling | Tailwind CSS | 3.4 |
 | Build | Vite | 5.4 |
-| Backend / DB | Supabase (PostgreSQL + Auth + Storage) | 2.57 |
+| Backend / DB | Supabase (PostgreSQL + Auth + Storage + Realtime) | 2.57 |
 | Edge Functions | Deno (Supabase Functions) | — |
+| i18n | i18next (fr par défaut, en) | 26 |
 | Charts | Recharts | 3.8 |
 | Icons | Lucide React | 0.344 |
 | Dates | date-fns | 4.1 |
@@ -33,142 +33,135 @@
 ## Build / Run / Test Commands
 
 ```bash
-npm run dev          # Démarre le serveur de développement Vite
+npm run dev          # Serveur de développement Vite
 npm run build        # Build de production
-npm run preview      # Prévisualise le build de production
-npm run lint         # ESLint (config flat dans eslint.config.js)
-npm run typecheck    # Vérification TypeScript sans emit
-npm test             # Tests src/lib/*.test.ts (tsx)
+npm run preview      # Prévisualise le build
+npm run lint         # ESLint (flat config, eslint.config.js)
+npm run typecheck    # tsc --noEmit
+npm test             # Tests src/lib/*.test.ts (node:test via tsx) — liste explicite dans package.json
 ```
+
+Avant de considérer une tâche finie : `npm test` + `npm run typecheck` + `npm run lint` verts. Beaucoup de tests lisent la **source** des composants (verrous produit) : si tu changes un comportement produit, mets le test à jour dans le même commit, ne le contourne pas.
 
 Variables d'environnement requises (fichier `.env` local, jamais commité) :
 ```
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
+VITE_VAPID_PUBLIC_KEY=...   # optionnel, push
 ```
 
 ---
 
-## Architecture (dossiers clés + leur rôle)
+## Architecture
 
 ```
 src/
-├── App.tsx                    # Racine React + toutes les routes (React Router)
-├── main.tsx                   # Point d'entrée, montage React
-├── index.css                  # Styles globaux Tailwind
+├── App.tsx                    # Routes + gardes de rôle (CoachOnly, CoachTrackerRedirect,
+│                              #   CoachedAthleteRedirect, TrackingGate) + murs onboarding / intake
+├── main.tsx                   # Point d'entrée
 │
-├── components/                # Composants React organisés par domaine
-│   ├── layout/                # AppLayout, BottomNav, SideNav, FAB, FullPageLayout
-│   ├── ui/                    # Composants génériques : Button, Input, Card, Modal, Toast…
-│   ├── auth/                  # AuthPage (login / signup)
-│   ├── onboarding/            # OnboardingFlow (setup initial)
-│   ├── dashboard/             # Dashboard (vue unique, plus de widgets)
-│   ├── workout/               # WorkoutPage, WorkoutForm, ExercisePicker, RestTimer…
-│   ├── nutrition/             # NutritionPage, FoodForm, RecipesPage, WaterTracker…
-│   ├── scanner/               # ScannerPage (BarcodeDetection API + UnifiedScanner)
-│   ├── weight/                # WeightPage
-│   ├── routines/              # RoutinesPage, RoutineForm
-│   ├── profile/               # ProfilePage, GoalsForm, UnitsForm, AvatarUpload…
-│   ├── stats/                 # StatsPage (analytics)
-│   ├── calendar/              # CalendarPage
+├── components/
+│   ├── layout/                # AppLayout, BottomNav, SideNav, FAB, CoachProfileButton
+│   ├── ui/                    # Button, Input, Card, Modal, Toast, ScoreSlider…
+│   ├── auth/                  # AuthPage (3 portes : coach / client invité / solo), ResetPasswordPage
+│   ├── onboarding/            # OnboardingFlow (tracker, calcul macros), KinesiologyIntakeFlow + Review (27 q)
+│   ├── coaching/              # Côté coach : CoachDashboard, CoachTodayQueue, ClientsPage, ClientDetailPage (360),
+│   │                          #   ClientSetupPage, InterventionDraftPage, CoachInboxPage, AskPrometheusPage,
+│   │                          #   ProgramSessionEditor, CoachSettingsPanel, TrackingGate, InvitePage…
+│   │                          #   Côté client : ClientMessagesPage, ClientPhotosPage
+│   ├── programs/              # ProgramsPage / ProgramEditorPage (coach), ClientProgramPage (coaché)
+│   ├── dashboard/             # Dashboard (accueil client / solo) + ClientGymCard
+│   ├── checkin/               # CheckInPage (0–10)
+│   ├── workout/               # WorkoutPage, WorkoutForm, ExerciseCard, RestTimer, SessionTimer…
+│   ├── nutrition/             # NutritionPage, FoodForm, RecipesPage, WaterTracker, WeeklyAdjustment…
+│   ├── scanner/               # ScannerPage + UnifiedScanner (barcode + photo IA)
+│   ├── weight/ routines/ stats/ calendar/ profile/
 │   └── ErrorBoundary.tsx
 │
-├── stores/                    # Zustand stores (un fichier par domaine)
-│   ├── authStore.ts           # Auth : login, signup, logout, session
-│   ├── profileStore.ts        # Profil utilisateur + préférences
-│   ├── workoutStore.ts        # Séances, exercices, sets
-│   ├── exerciseStore.ts       # Bibliothèque d'exercices
-│   ├── nutritionStore.ts      # Journal alimentaire, macros
-│   ├── recipeStore.ts         # Recettes sauvegardées
-│   ├── routineStore.ts        # Templates de routines
-│   ├── weightStore.ts         # Mesures de poids
-│   ├── streakStore.ts         # Suivi des streaks
-│   └── preferencesStore.ts    # Préférences locales (ex. affichage RIR)
-│
-├── i18n/                      # i18next — locales en / fr
+├── stores/                    # Zustand, un fichier par domaine
+│   ├── coachingStore.ts       # Rôle, invites, roster, ops, interventions, messages, realtime, tracking config
+│   ├── programStore.ts        # Programmes, jours, exercices, assignations
+│   ├── checkinStore.ts        # Check-ins quotidiens
+│   ├── authStore / profileStore / workoutStore / nutritionStore / weightStore
+│   ├── routineStore / recipeStore / streakStore / exerciseStore / preferencesStore
 │
 ├── lib/
-│   ├── supabase.ts            # Client Supabase (lit VITE_SUPABASE_URL/ANON_KEY)
-│   ├── types.ts               # Tous les types/interfaces TypeScript (source de vérité)
-│   ├── utils.ts               # BMR, TDEE, macros, dates locales, conversions unités
-│   ├── constants.ts           # Constantes de l'app (niveaux d'activité, objectifs…)
-│   ├── barcodeScanner.ts      # Intégration BarcodeDetection API
-│   ├── notifications.ts       # Notifications push
-│   └── offlineCache.ts        # Cache offline LocalStorage
+│   ├── types.ts               # Tous les types (source de vérité)
+│   ├── utils.ts               # BMR, TDEE, macros ISSN, dates, unités
+│   ├── kinesiologyIntake.ts   # 27 questions (labels FR = source de vérité), gate du mur, patch profil
+│   ├── clientTracking.ts      # Modules / variables allumés par le coach
+│   ├── coachRole.ts           # isCoachedAthlete
+│   ├── coach*.ts              # Logique coach pure (fleet, queue, priorities, alerts, interventions…)
+│   ├── client*.ts             # Logique client pure (home, gym card, live, auth)
+│   ├── supabase.ts / supabaseFunctions.ts / realtimeWait.ts
+│   └── *.test.ts              # Tests node:test
 │
-public/
-├── manifest.json              # Config PWA
-└── sw.js                      # Service Worker (cache offline)
+├── i18n/locales/{fr,en}.ts    # Parité de clés obligatoire
 │
 supabase/
-├── migrations/                # Migrations SQL Supabase (source de vérité DB)
+├── migrations/                # Source de vérité DB (immutables une fois appliquées)
+├── cron/                      # schedule_coach_fleet_round.sql, schedule_daily_reminders.sql
 └── functions/
-    ├── analyze-product/       # IA : analyse produit (images / barcode)
-    ├── verify-exercise/       # IA : validation d'un exercice
-    ├── coach-agent/           # Ask + programme IA (brouillons, jamais d’auto-apply)
-    ├── coach-fleet-round/     # Tournée SQL + drafts Relancer / kcal / programme
-    ├── ask-second/            # Retiré (410) — utiliser coach-agent
-    ├── suggest-client-plan/   # Retiré (410)
-    ├── delete-account/        # Suppression compte + données
-    ├── send-daily-reminders/  # Web Push via VAPID
-    └── create-checkout-session, create-portal-session, stripe-webhook
-                               # Quarantaine 410 — ne pas appeler, ne pas coder Premium
+    ├── coach-agent/           # Ask + brouillons IA (sync OpenAI, écrit coach_interventions pending)
+    ├── coach-fleet-round/     # Tournée SQL de tous les clients liés + brouillons Relancer / kcal
+    ├── notify-onboarding-complete/  # Trigger DB → brouillon onboarding_plan
+    ├── analyze-product/ verify-exercise/   # IA nutrition / exercices
+    ├── send-daily-reminders/  # Web Push VAPID
+    ├── delete-account/
+    ├── ask-second/ suggest-client-plan/    # Retirés — 410
+    └── create-checkout-session/ create-portal-session/ stripe-webhook/  # Quarantaine — 410
 ```
 
-### Routes principales (React Router)
+### Routes principales
 
-| Route | Composant | Accès |
+| Route | Composant | Qui |
 |---|---|---|
-| `/auth` | AuthPage | Public |
-| `/onboarding` | OnboardingFlow | Auth requis |
-| `/dashboard` | Dashboard / CoachDashboard | Auth requis |
-| `/clients` | ClientsPage | CoachOnly |
-| `/clients/:id` | ClientDetailPage | CoachOnly |
-| `/messages` | CoachInbox / ClientMessages | Auth requis |
+| `*` (déconnecté) | AuthPage | Public |
+| `/invite/:token` | InvitePage | Public |
+| `/intake` | KinesiologyIntakeFlow | Client coaché (mur pour les nouveaux invités) |
+| `/dashboard` | CoachDashboard / Dashboard | Tous |
+| `/clients`, `/clients/:id`, `/clients/:id/setup`, `/clients/:id/draft/:id`, `/inbox/:id` | Console coach | CoachOnly |
 | `/prometheus` | AskPrometheusPage | CoachOnly |
-| `/programs` | ProgramsPage / ClientProgramPage | Auth requis |
-| `/photos` | ClientPhotosPage | Client |
-| `/workout` | WorkoutPage | Auth + TrackingGate |
-| `/nutrition` | NutritionPage | Auth + TrackingGate |
-| `/profile` | ProfilePage | Auth requis |
+| `/programs` | ProgramsPage (coach) / ClientProgramPage (coaché) / → `/workout` (solo) | Selon rôle |
+| `/messages` | CoachInboxPage / ClientMessagesPage | Coach / athlète |
+| `/photos` | ClientPhotosPage | Athlète |
+| `/workout*`, `/nutrition`, `/scanner`, `/weight`, `/checkin` | Tracker | Athlète, TrackingGate si coaché |
+| `/stats`, `/calendar`, `/recipes`, `/routines`, `/exercise-progress` | Tracker | Solo seulement |
+| `/profile` | ProfilePage | Tous |
 
 ---
 
-## Coach fleet — architecture lock (2026-08-29)
+## Verrous produit (ne pas casser)
 
-- **Pas de Grok Bots** (ni per-coach ni per-client). Second était trop lent ; ça ne scale pas.
-- Revue hebdo **in-app** : `coach-fleet-round` + cron `invoke_coach_fleet_round`.
-- `triage_coach_fleet` : SQL cheap de **tous** les clients actifs (agrégats 14 j, pas les logs bruts).
-- Propositions data-driven : si le client ne suit pas → Relancer, pas de changement de cibles. S’il suit : cut perte normale = keep, stall = petite coupe, reprise = coupe plus franche, fatigue/perf = plus de glucides ; bulk/perf en miroir. kcal+P/C/F complets. ISSN = formule de départ seulement.
-- LLM **seulement** s’il y a une proposition de plan/programme que les formules n’écrivent pas (`program_adjustment`). Relancer et kcal sont déterministes.
-- Écrit uniquement des brouillons `coach_interventions`. Jamais d’auto-apply. Jamais de POST `GROK_BOT_WEBHOOK_URL`. L’agent in-app s’appelle `coach-agent`, pas Second.
-- Copie coaching : `phyuijjekxtjvipjtdfv`. Ne pas toucher `main` / backup `nebysjpqifqphvmveowe`.
-
----
-
-## Coding Conventions & Style
-
-- **TypeScript strict** — pas de `any` implicite, toujours typer les props et retours
-- **Types centralisés** — tout dans `src/lib/types.ts`, jamais de types inline dupliqués
-- **Composants fonctionnels** uniquement, avec hooks React
-- **State global** via Zustand uniquement (pas de Context API pour l'état partagé)
-- **Tailwind CSS** pour le style — pas de CSS modules ni styled-components
-- **Nommage** : PascalCase pour composants, camelCase pour fonctions/variables, snake_case pour les colonnes DB
-- **Organisation** : un composant par fichier, groupés par domaine métier
-- **Imports** : chemins relatifs dans `src/`, pas d'alias sauf si configuré dans Vite
-- **Tests** : `npm test` (tsx, `src/lib/*.test.ts`) + `npm run typecheck` + `npm run lint`. Ne pas splitter `coachingStore`.
-- **ESLint** flat config (`eslint.config.js`) avec règles react-hooks et react-refresh
-- **Edge Functions** en Deno (TypeScript) dans `supabase/functions/`
+- **L'IA prépare, l'humain décide.** `coach-agent` et `coach-fleet-round` écrivent uniquement des `coach_interventions` `pending`. Apply = action UI du coach (Envoyer). Idem pour le futur copilote solo : proposition → accepter / refuser.
+- **Pas de Grok Bots, pas de Second.** Un seul invoke IA côté coach : `COACH_AGENT_FUNCTION = 'coach-agent'`.
+- **Fleet :** triage SQL cheap (`triage_coach_fleet`, agrégats 14 j), Relancer si non assidu, kcal+P/C/F complets sinon, LLM seulement pour `program_adjustment`.
+- **Rôle client uniquement via `accept_coach_invite`.** Coach et solo s'inscrivent librement.
+- **Macros d'un coaché : écriture coach-only** (RPC `coach_set_client_nutrition_targets` + trigger). Le calcul automatique au setup est un chantier ouvert (voir VISION), le verrou d'écriture reste.
+- **Tracking coaché : tout OFF jusqu'au setup du coach** (`ALL_OFF_TRACKING`, `TrackingGate`).
+- **Ne pas splitter `coachingStore`** dans un PR de cleanup.
 
 ---
 
-## Règles de sécurité
+## Conventions
 
-- **JAMAIS commiter `.env`** ni aucun fichier contenant des clés API, tokens ou secrets
-- Les variables d'environnement Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) restent dans `.env` local uniquement
-- **RLS activé** sur toutes les tables Supabase — ne jamais désactiver sans raison explicite
-- Les Edge Functions utilisent le service role key côté serveur uniquement — ne jamais l'exposer côté client
-- Toute modification de politique RLS doit passer par une migration SQL versionnée dans `supabase/migrations/`
-- Les images uploadées (avatars, produits) passent par les buckets Supabase Storage avec policies RLS
-- Avant toute commande bash risquée (drop, delete, reset) : évaluer l'impact d'abord, confirmer avec l'utilisateur
-- Ne jamais commiter sans instruction explicite de l'utilisateur
+- **TypeScript strict**, types centralisés dans `src/lib/types.ts`.
+- **Composants fonctionnels**, un par fichier, groupés par domaine.
+- **Zustand** pour l'état partagé, pas de Context.
+- **Tailwind** uniquement. Pas de restyle non demandé, pas de nouvelle lib UI.
+- **Nommage :** PascalCase composants, camelCase fonctions, snake_case colonnes DB.
+- **i18n :** tout texte visible passe par `t()`, FR tutoiement, parité fr/en.
+- **Logique pure dans `src/lib/`**, testée avec node:test ; les composants restent minces.
+- **Edge Functions** en Deno dans `supabase/functions/`.
+
+---
+
+## Sécurité
+
+- **JAMAIS commiter `.env`** ni clés, tokens, secrets.
+- **RLS activé** sur toutes les tables — ne jamais désactiver.
+- Service role key côté edge uniquement.
+- Toute politique RLS / RPC passe par une migration versionnée. Les migrations appliquées sont immuables : on en ajoute, on ne réécrit pas.
+- Buckets Storage (`avatars`, `product-images`, `progress-photos`) avec policies.
+- Avant toute commande destructive (drop, delete, reset) : évaluer l'impact, confirmer avec l'utilisateur.
+- Ne jamais commiter sans instruction explicite de l'utilisateur.
