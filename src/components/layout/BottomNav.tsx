@@ -39,7 +39,7 @@ export default function BottomNav() {
         ].filter(tab => tab.show !== false);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950/90 backdrop-blur-md border-t border-white/5 z-40 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 z-40 safe-area-bottom">
       <div className="flex items-center max-w-lg mx-auto px-1 py-1">
         {tabs.map((tab) => {
           const active = location.pathname.startsWith(tab.path);

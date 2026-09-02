@@ -2,7 +2,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useProfileStore } from '../../stores/profileStore';
 import { profileInitials } from '../../lib/coachChrome';
-import { cn } from '../../lib/cn';
 
 type CoachProfileButtonProps = {
   className?: string;
@@ -22,12 +21,9 @@ export default function CoachProfileButton({ className = '' }: CoachProfileButto
       type="button"
       onClick={() => navigate('/profile')}
       aria-label={t('nav.profile')}
-      className={cn(
-        'h-9 w-9 shrink-0 overflow-hidden rounded-full border border-white/10 bg-neutral-900',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black',
-        active ? 'ring-2 ring-blue-500/70' : '',
-        className,
-      )}
+      className={`h-9 w-9 shrink-0 overflow-hidden rounded-full border border-neutral-800 bg-neutral-900
+        focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500
+        ${active ? 'ring-2 ring-blue-500' : ''} ${className}`}
     >
       {avatarUrl ? (
         <img src={avatarUrl} alt="" className="h-full w-full object-cover" />

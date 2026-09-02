@@ -59,8 +59,6 @@ import {
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
-import AnimatedList from '../ui/AnimatedList';
-import GymLoader from '../ui/GymLoader';
 import { toast } from '../ui/Toast';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
@@ -88,7 +86,7 @@ function SituationCards({
   const navigate = useNavigate();
   if (lines.length === 0) return null;
   return (
-    <AnimatedList className="space-y-2">
+    <div className="space-y-2">
       {lines.map(line => (
         <Card key={line.id} className="space-y-3">
           <p className="text-sm text-white">{t(line.messageKey, { days: line.days ?? 0 })}</p>
@@ -108,16 +106,16 @@ function SituationCards({
           ) : null}
         </Card>
       ))}
-    </AnimatedList>
+    </div>
   );
 }
 
 function Kpi({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <Card className="!px-3 !py-2 min-w-0">
+    <div className="rounded-xl bg-neutral-900/70 px-3 py-2 min-w-0">
       <p className="text-[10px] text-neutral-500 uppercase tracking-wide truncate">{label}</p>
       <p className={`text-sm font-medium mt-0.5 truncate ${tone || 'text-white'}`}>{value}</p>
-    </Card>
+    </div>
   );
 }
 
@@ -491,7 +489,7 @@ export default function ClientDetailPage() {
           <button
             type="button"
             onClick={() => id && navigate(`/messages/${id}`)}
-            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 [@media(hover:hover)]:hover:text-white"
+            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white"
             aria-label={t('coaching.messages.write')}
           >
             <MessageSquare size={18} />
@@ -539,7 +537,7 @@ export default function ClientDetailPage() {
         </div>
 
         {loading ? (
-          <GymLoader className="mx-auto mt-8" size="sm" />
+          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mt-8" />
         ) : tab === 'overview' ? (
           <div className="space-y-4">
             <SituationCards

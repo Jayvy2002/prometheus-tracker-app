@@ -9,7 +9,6 @@ import type { AiProgramDayDraft } from '../../lib/types';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
-import GymLoader from '../ui/GymLoader';
 import { toast } from '../ui/Toast';
 
 export default function ProgramEditorPage() {
@@ -118,7 +117,7 @@ export default function ProgramEditorPage() {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <GymLoader size="sm" />
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
     );
   }

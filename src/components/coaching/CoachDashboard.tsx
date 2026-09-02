@@ -15,8 +15,6 @@ import { checkinReviewRows, formatCheckinScore } from '../../lib/coachCheckins';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
-import AnimatedList from '../ui/AnimatedList';
-import GymLoader from '../ui/GymLoader';
 import { toast } from '../ui/Toast';
 import CoachTodayQueue from './CoachTodayQueue';
 import { formatWeekdayDate } from '../../lib/utils';
@@ -125,8 +123,8 @@ export default function CoachDashboard() {
         </div>
 
         {opsLoading ? (
-          <div className="flex justify-center py-10">
-            <GymLoader size="sm" />
+          <div className="space-y-2">
+            {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
           </div>
         ) : opsRows.length === 0 ? (
           <Card className="text-center py-10">
@@ -154,7 +152,7 @@ export default function CoachDashboard() {
           </Card>
         ) : (
           <>
-            <AnimatedList className={`grid grid-cols-2 gap-3 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
+            <div className={`grid grid-cols-2 gap-3 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
               <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
               <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
               {stats.checkinsToReview > 0 && (
@@ -164,14 +162,14 @@ export default function CoachDashboard() {
               )}
               <StatCard label={t('coaching.command.stats.adapt')} value={stats.programsMayAdapt} tone="amber" />
               <StatCard label={t('coaching.command.stats.important')} value={stats.important} tone="rose" />
-            </AnimatedList>
+            </div>
 
             {reviewRows.length > 0 && (
               <div id="checkins-a-relire" className="mb-6">
                 <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
                   {t('coaching.checkinReview.title')}
                 </p>
-                <AnimatedList className="space-y-2">
+                <div className="space-y-2">
                   {reviewRows.slice(0, 6).map(row => (
                     <Card key={row.checkin.id} onClick={() => navigate(row.href)} className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
@@ -190,7 +188,7 @@ export default function CoachDashboard() {
                       <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
                     </Card>
                   ))}
-                </AnimatedList>
+                </div>
               </div>
             )}
 

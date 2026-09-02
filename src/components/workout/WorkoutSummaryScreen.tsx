@@ -3,8 +3,6 @@ import { CheckCircle, Zap, Dumbbell, Clock, BarChart2, MessageCircle } from 'luc
 import { useTranslation } from 'react-i18next';
 import { formatDuration } from '../../lib/utils';
 import type { Workout } from '../../lib/types';
-import Button from '../ui/Button';
-import Card from '../ui/Card';
 
 interface SummaryStats {
   duration: number;
@@ -231,10 +229,10 @@ export default function WorkoutSummaryScreen({
               </div>
               <div className="space-y-2">
                 {tips.map((tip, i) => (
-                  <Card key={i} className="flex items-start gap-2.5 !px-4 !py-3">
+                  <div key={i} className="flex items-start gap-2.5 bg-neutral-900/60 border border-neutral-800/40 rounded-xl px-4 py-3">
                     <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
                     <p className="text-sm text-neutral-300 leading-relaxed">{tip}</p>
-                  </Card>
+                  </div>
                 ))}
               </div>
             </div>
@@ -244,9 +242,13 @@ export default function WorkoutSummaryScreen({
         <div className="flex-1" />
 
         {/* CTA */}
-        <Button burst onClick={handleClose} size="lg" className="w-full">
+        <button
+          onClick={handleClose}
+          className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base transition-colors animate-fade-in-up shadow-lg shadow-blue-900/30"
+          style={{ animationDelay: '240ms' }}
+        >
           {t('workout.summary.backToWorkouts')}
-        </Button>
+        </button>
       </div>
     </div>
   );

@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr } from '../../lib/utils';
-import { LineChart } from '../charts/BklitCharts';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 
@@ -125,7 +125,7 @@ export default function ExerciseProgressPage() {
 
   if (selectedExercise && detail) {
     const chartData = detail.entries.slice(-20).map(e => ({
-      date: e.date,
+      date: new Date(e.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
       '1RM': e.estimated1RM,
       volume: e.totalVolume,
     }));
@@ -171,13 +171,14 @@ export default function ExerciseProgressPage() {
             <Card className="mb-4 animate-fade-in-up stagger-2">
               <h3 className="text-xs font-medium text-neutral-400 mb-3">{t('progress.progressionChart')}</h3>
               <div className="h-40">
-                <LineChart
-                  data={chartData}
-                  xKey="date"
-                  yKey="1RM"
-                  yPadding={5}
-                  formatValue={value => `${value} kg`}
-                />
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={chartData}>
+                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} />
+                    <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
+                    <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
+                    <Line type="monotone" dataKey="1RM" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: '#2563eb' }} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </Card>
           )}

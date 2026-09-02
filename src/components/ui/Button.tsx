@@ -1,51 +1,65 @@
 import { type ButtonHTMLAttributes, type ReactNode } from 'react';
-import AttractButton from '../kokonutui/attract-button';
-import GradientButton from '../kokonutui/gradient-button';
-import HoldButton from '../kokonutui/hold-button';
-import ParticleButton from '../kokonutui/particle-button';
-import { cn } from '../../lib/cn';
-import { Button as ShadcnButton } from './shadcn-button';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'gradient';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   loading?: boolean;
   /** No :hover styles — first tap on touch must fire click, not "stick" on hover. */
   pressOnly?: boolean;
-  /** Particle burst on click (confirm / submit). */
-  burst?: boolean;
   children: ReactNode;
 }
 
-const sizeMap = {
-  sm: 'sm',
-  md: 'default',
-  lg: 'lg',
-} as const;
+const variants = {
+  primary: {
+    base: 'bg-blue-600 text-white shadow-lg shadow-blue-900/30',
+    hover: 'hover:bg-blue-500 hover:shadow-blue-900/50',
+  },
+  secondary: {
+    base: 'bg-neutral-800 text-neutral-200 border border-neutral-700/80',
+    hover: 'hover:bg-neutral-700 hover:border-neutral-600',
+  },
+  ghost: {
+    base: 'bg-transparent text-neutral-300',
+    hover: 'hover:bg-neutral-800/80',
+  },
+  danger: {
+    base: 'bg-rose-600 text-white shadow-lg shadow-rose-900/20',
+    hover: 'hover:bg-rose-500',
+  },
+};
 
-const variantMap = {
-  primary: 'default',
-  secondary: 'secondary',
-  ghost: 'ghost',
-  danger: 'destructive',
-  gradient: 'default',
-} as const;
+const sizes = {
+  sm: 'px-3 py-1.5 text-sm',
+  md: 'px-4 py-2.5 text-sm',
+  lg: 'px-6 py-3.5 text-base',
+};
 
 export default function Button({
   variant = 'primary',
   size = 'md',
   loading,
   pressOnly = false,
-  burst = false,
   children,
   className = '',
   disabled,
   ...props
 }: ButtonProps) {
-  const shadcnVariant = variantMap[variant];
-  const shadcnSize = sizeMap[size];
-  const content = (
-    <>
+  const palette = variants[variant];
+  return (
+    <button
+      {...props}
+      className={`inline-flex items-center justify-center gap-2 font-medium rounded-xl
+        transition-all duration-200 ease-out touch-manipulation
+        ${palette.base} ${pressOnly ? '' : palette.hover} ${sizes[size]}
+        ${disabled || loading
+          ? 'opacity-50 cursor-not-allowed'
+          : pressOnly
+            ? 'active:opacity-90'
+            : 'active:scale-[0.96] hover:scale-[1.01]'
+        }
+        ${className}`}
+      disabled={disabled || loading}
+    >
       {loading && (
         <svg className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -53,80 +67,6 @@ export default function Button({
         </svg>
       )}
       {children}
-    </>
-  );
-  const classes = cn(
-    pressOnly ? 'hover:scale-100' : '',
-    className,
-  );
-
-  if (variant === 'gradient') {
-    return (
-      <GradientButton
-        {...props}
-        variant="blue"
-        disabled={disabled || loading}
-        className={cn('h-9 px-4 text-sm', classes)}
-      >
-        {content}
-      </GradientButton>
-    );
-  }
-
-  if (variant === 'danger') {
-    return (
-      <HoldButton
-        {...props}
-        variant="red"
-        holdDuration={1100}
-        disabled={disabled || loading}
-        className={cn('min-w-0', classes)}
-      >
-        {content}
-      </HoldButton>
-    );
-  }
-
-  if (variant === 'primary' && burst) {
-    return (
-      <ParticleButton
-        {...props}
-        variant="default"
-        size={shadcnSize}
-        disabled={disabled || loading}
-        className={classes}
-      >
-        {content}
-      </ParticleButton>
-    );
-  }
-
-  if (variant === 'primary') {
-    return (
-      <AttractButton
-        {...props}
-        disabled={disabled || loading}
-        className={cn(
-          size === 'sm' ? 'h-8 px-3 text-xs' : size === 'lg' ? 'h-10 px-8' : 'h-9 px-4 text-sm',
-          classes,
-        )}
-        particleCount={size === 'sm' ? 8 : 12}
-        attractRadius={size === 'sm' ? 22 : 32}
-      >
-        {content}
-      </AttractButton>
-    );
-  }
-
-  return (
-    <ShadcnButton
-      {...props}
-      variant={shadcnVariant}
-      size={shadcnSize}
-      disabled={disabled || loading}
-      className={classes}
-    >
-      {content}
-    </ShadcnButton>
+    </button>
   );
 }

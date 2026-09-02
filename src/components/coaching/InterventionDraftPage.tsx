@@ -36,7 +36,6 @@ import ProgramDraftEditor from './ProgramDraftEditor';
 import SecondDraftingCard from './SecondDraftingCard';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import GymLoader from '../ui/GymLoader';
 import Input from '../ui/Input';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
@@ -347,7 +346,7 @@ export default function InterventionDraftPage() {
   if (loading) {
     return (
       <div className="min-h-[50vh] flex items-center justify-center">
-        <GymLoader size="sm" />
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
       </div>
     );
   }

@@ -42,7 +42,7 @@ export default function AppLayout() {
 
       <main className="flex-1 min-w-0 pb-24 md:pb-8 md:ml-64">
         {isCoach && !location.pathname.startsWith('/profile') && (
-          <div className="md:hidden sticky top-0 z-30 flex h-12 items-center justify-end px-4 bg-black/85 backdrop-blur-md border-b border-white/5">
+          <div className="md:hidden sticky top-0 z-30 flex h-12 items-center justify-end px-4 bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800">
             <CoachProfileButton />
           </div>
         )}

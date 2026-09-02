@@ -1,6 +1,4 @@
 import { type ReactNode } from 'react';
-import { LiquidGlassCard } from '../kokonutui/liquid-glass-card';
-import { cn } from '../../lib/cn';
 
 interface CardProps {
   children: ReactNode;
@@ -14,21 +12,17 @@ export default function Card({ children, className = '', onClick, padding = true
   const glowClass = glow ? `glow-${glow}` : '';
 
   return (
-    <LiquidGlassCard
-      glassSize="sm"
-      glassEffect
+    <div
       onClick={onClick}
-      className={cn(
-        'border-white/30 bg-card/40 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]',
-        glowClass,
-        padding ? '' : 'p-0',
-        onClick
-          ? 'cursor-pointer [@media(hover:hover)]:hover:border-white/25 active:scale-[0.99] transition-all duration-200 card-hover'
-          : 'transition-colors duration-200',
-        className,
-      )}
+      className={`bg-neutral-900/60 backdrop-blur-sm border border-neutral-800/50 rounded-2xl ${glowClass}
+        ${padding ? 'p-4' : ''}
+        ${onClick
+          ? 'cursor-pointer hover:bg-neutral-900/80 hover:border-neutral-700/70 active:scale-[0.99] transition-all duration-200 card-hover'
+          : 'transition-colors duration-200'
+        }
+        ${className}`}
     >
       {children}
-    </LiquidGlassCard>
+    </div>
   );
 }

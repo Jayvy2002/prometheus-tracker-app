@@ -17,7 +17,6 @@ import { clientFileHref } from '../../lib/coachSituation';
 import type { CoachPriority, CoachPrioritySeverity } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import AnimatedList from '../ui/AnimatedList';
 
 const SEVERITY_DOT: Record<CoachPrioritySeverity, string> = {
   red: '🔴',
@@ -58,7 +57,7 @@ export default function CoachTodayQueue() {
         <p className="text-xs text-neutral-500">{t('coaching.queue.remaining', { count: groups.length })}</p>
       </div>
 
-      <AnimatedList className="space-y-2">
+      <div className="space-y-2">
         {groups.map(group => {
           const relanceHref = relanceHrefForGroup(group, pendingInterventions);
           const sessionAction = group.items.find(item => item.kind === 'session_logged') ?? null;
@@ -153,7 +152,7 @@ export default function CoachTodayQueue() {
             </Card>
           );
         })}
-      </AnimatedList>
+      </div>
     </>
   );
 }

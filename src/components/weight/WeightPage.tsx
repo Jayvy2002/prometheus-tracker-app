@@ -6,8 +6,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 
-import { formatWeight, formatDate, parseDateStr, todayStr } from '../../lib/utils';
-import { LineChart } from '../charts/BklitCharts';
+import { formatWeight, formatDate, formatDateShort, parseDateStr, todayStr } from '../../lib/utils';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -110,7 +110,7 @@ export default function WeightPage() {
   const filtered = filterByPeriod(sortedAsc, period);
 
   const chartData = filtered.map((m: { weight_kg: number; measured_at: string }) => ({
-    date: m.measured_at,
+    date: formatDateShort(m.measured_at),
     weight: unit === 'lbs' ? +(m.weight_kg * 2.20462).toFixed(1) : +m.weight_kg.toFixed(1),
   }));
 
@@ -177,15 +177,25 @@ export default function WeightPage() {
             </div>
           </div>
           <div className="h-44">
-            <LineChart
-              data={chartData}
-              xKey="date"
-              yKey="weight"
-              yPadding={1}
-              referenceY={targetKg > 0 ? (unit === 'lbs' ? +(targetKg * 2.20462).toFixed(1) : +targetKg.toFixed(1)) : undefined}
-              referenceLabel={targetKg > 0 ? 'Goal' : undefined}
-              formatValue={value => `${value} ${unit}`}
-            />
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#737373' }} axisLine={false} tickLine={false} />
+                <YAxis domain={['dataMin - 1', 'dataMax + 1']} tick={{ fontSize: 10, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
+                <Tooltip
+                  contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 12 }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
+                {targetKg > 0 && (
+                  <ReferenceLine
+                    y={unit === 'lbs' ? +(targetKg * 2.20462).toFixed(1) : +targetKg.toFixed(1)}
+                    stroke="#f59e0b"
+                    strokeDasharray="4 4"
+                    label={{ value: 'Goal', fill: '#f59e0b', fontSize: 10 }}
+                  />
+                )}
+                <Line type="monotone" dataKey="weight" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: '#2563eb' }} />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </Card>
       )}

@@ -7,7 +7,6 @@ import {
   setPendingInviteToken,
 } from '../../stores/coachingStore';
 import Button from '../ui/Button';
-import GymLoader from '../ui/GymLoader';
 import AuthPage from '../auth/AuthPage';
 import { toast } from '../ui/Toast';
 
@@ -60,7 +59,7 @@ export default function InvitePage() {
       <div className="w-full max-w-sm text-center">
         <img src="/logo.svg" alt="" className="w-12 h-12 mx-auto mb-4" />
         {valid === null ? (
-          <GymLoader className="mx-auto" size="sm" />
+          <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto" />
         ) : valid ? (
           <>
             <h1 className="text-xl font-bold text-white mb-2">{t('coaching.invite.title')}</h1>

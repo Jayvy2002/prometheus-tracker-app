@@ -1,9 +1,7 @@
-import { Check, Dumbbell, Play } from 'lucide-react';
+import { Check, ChevronRight, Dumbbell, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ClientGymCard as GymCard } from '../../lib/clientGym';
 import type { ProgramDay } from '../../lib/types';
-import Button from '../ui/Button';
-import Card from '../ui/Card';
 
 interface Props {
   card: GymCard;
@@ -34,7 +32,7 @@ export default function ClientGymCard({
   if (card.kind === 'done_next') {
     return (
       <div className="mb-4 space-y-2">
-        <Card className="flex items-center gap-3 !border-emerald-500/25" glow="green">
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
           <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
             <Check size={18} className="text-emerald-400" />
           </div>
@@ -46,7 +44,7 @@ export default function ClientGymCard({
               </p>
             )}
           </div>
-        </Card>
+        </div>
         {card.nextDay && (
           <StartRow
             day={card.nextDay}
@@ -103,7 +101,12 @@ function StartRow({
   const { t } = useTranslation();
   const count = day.exercises?.length ?? 0;
   return (
-    <Card className="mb-4" glow="blue">
+    <button
+      type="button"
+      disabled={starting}
+      onClick={onStart}
+      className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4 text-left hover:border-blue-500/50 active:scale-[0.98] transition-all disabled:opacity-60"
+    >
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
           <Play size={18} className="text-blue-400 ml-0.5" />
@@ -116,9 +119,10 @@ function StartRow({
           </p>
           <p className="text-[11px] text-neutral-500 mt-0.5 truncate">{weekLabel}</p>
         </div>
-        <Button size="sm" disabled={starting} onClick={onStart} className="shrink-0">
+        <span className="text-xs font-semibold text-blue-300 flex items-center gap-0.5 shrink-0">
           {cta}
-        </Button>
+          <ChevronRight size={16} />
+        </span>
       </div>
       {count > 0 && (
         <p className="mt-2 text-[11px] text-neutral-400 flex items-center gap-1.5">
@@ -127,6 +131,6 @@ function StartRow({
           {count > 3 ? '…' : ''}
         </p>
       )}
-    </Card>
+    </button>
   );
 }

@@ -326,12 +326,32 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(finish, /aria-checked/);
     assert.match(finish, /bg-blue-600 text-white/);
     assert.match(finish, /max-w-lg/);
-    assert.match(finish, /burst=\{step === EXTRA_SCREEN_INDEX\}/);
-    assert.match(finish, /AnimatePresence/);
     assert.match(finish, /mx-auto/);
+    assert.doesNotMatch(finish, /from 'motion\/react'/);
+    assert.doesNotMatch(finish, /AnimatePresence/);
+    assert.doesNotMatch(finish, /burst=/);
     assert.match(app, /path="\/intake"/);
+    assert.match(app, /animate-spin w-8 h-8 border-2 border-blue-500/);
+    assert.doesNotMatch(app, /GymLoader/);
     const usage = readFileSync(resolve(process.cwd(), 'src/lib/kinesiologyIntakeUsage.ts'), 'utf8');
     assert.match(usage, /PROBE_TIMEOUT_MS/);
     assert.match(usage, /intake usage probe timeout/);
+
+    const dashboard = readFileSync(resolve(process.cwd(), 'src/components/dashboard/Dashboard.tsx'), 'utf8');
+    assert.match(dashboard, /isIntakeAlreadyFilled/);
+    assert.match(dashboard, /navigate\('\/intake'\)/);
+    assert.match(dashboard, /intake\.completeLater/);
+
+    const profile = readFileSync(resolve(process.cwd(), 'src/components/profile/ProfilePage.tsx'), 'utf8');
+    assert.match(profile, /isIntakeAlreadyFilled/);
+    assert.match(profile, /navigate\('\/intake'\)/);
+
+    const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
+    assert.match(detail, /KinesiologyIntakeReview/);
+    assert.match(detail, /intake\.waiting/);
+
+    const setup = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientSetupPage.tsx'), 'utf8');
+    assert.match(setup, /KinesiologyIntakeReview/);
+    assert.match(setup, /isIntakeAlreadyFilled/);
   });
 });
