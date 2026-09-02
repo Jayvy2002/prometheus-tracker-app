@@ -13,6 +13,7 @@ import {
 } from '../../lib/clientAuth';
 import { useAuthStore } from '../../stores/authStore';
 import { clearIntendedCoachingRole, setIntendedCoachingRole } from '../../stores/coachingStore';
+import { track } from '../../lib/telemetryClient';
 
 interface Props {
   inviteCoachName?: string | null;
@@ -98,6 +99,9 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
       if (result.error) {
         setError(clientLoginErrorCopy(result.error, t));
         return;
+      }
+      if (mode === 'register') {
+        track('account_created', { door: role ?? 'client', from_invite: fromInvite });
       }
       if ('needsConfirmation' in result && result.needsConfirmation) {
         setCheckEmail(true);

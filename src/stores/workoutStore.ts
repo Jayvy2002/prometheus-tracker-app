@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
 import { parseDate, toLocalDateStr } from '../lib/utils';
+import { track } from '../lib/telemetryClient';
 import { useStreakStore } from './streakStore';
 
 interface PreviousSet {
@@ -156,6 +157,11 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       const workout = get().currentWorkout?.id === id
         ? { ...get().currentWorkout, ...updates }
         : get().workouts.find(w => w.id === id);
+      track('workout_completed', {
+        from_program: !!workout?.program_day_id,
+        from_routine: !!workout?.routine_id,
+        duration_seconds: workout?.duration_seconds ?? null,
+      });
       if (workout?.user_id && workout.date) {
         void useStreakStore.getState().recordActivity(
           workout.user_id,

@@ -7,6 +7,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { clearOnboardingDeferred } from '../../stores/coachingStore';
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
+import { track } from '../../lib/telemetryClient';
 import { todayStr } from '../../lib/utils';
 import type { UserProfile } from '../../lib/types';
 import {
@@ -554,6 +555,13 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
     if (Number.isFinite(kg) && kg > 0) {
       await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: todayStr() });
     }
+    track('intake_completed', {
+      medical_flags: medicalYesFlags(intake),
+      objectif_type: intake.extras.objectifType || null,
+      pain: intake.douleursLimitations === 'Oui',
+      injuries: intake.blessuresChirurgies === 'Oui',
+      revisit: allowExit,
+    });
     clearOnboardingDeferred();
     navigate('/dashboard');
   };

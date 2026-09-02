@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { track } from '../lib/telemetryClient';
 import type {
   Program,
   ProgramAssignment,
@@ -371,6 +372,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       status: 'active',
     });
     if (error) return { error: error.message };
+    track('program_assigned', { self: clientId === user.id });
     if (clientId === user.id) await get().fetchMyAssignment(clientId);
     return { error: null };
   },

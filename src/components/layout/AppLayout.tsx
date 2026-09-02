@@ -6,6 +6,7 @@ import FAB from './FAB';
 import { ToastContainer } from '../ui/Toast';
 import { useCoachingStore } from '../../stores/coachingStore';
 import CoachCommandPalette from '../coaching/CoachCommandPalette';
+import { trackScreen } from '../../lib/telemetryClient';
 import { useEffect } from 'react';
 
 export default function AppLayout() {
@@ -17,6 +18,10 @@ export default function AppLayout() {
   const isCoach = coachingRole === 'coach';
   const location = useLocation();
   const hideFab = isCoach || location.pathname.startsWith('/dashboard');
+
+  useEffect(() => {
+    trackScreen(location.pathname);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (isCoach) {

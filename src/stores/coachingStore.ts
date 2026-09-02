@@ -58,6 +58,7 @@ import {
 } from '../lib/clientTracking';
 import { isCoachedAthlete } from '../lib/coachRole';
 import { profileHasMedicalFlags } from '../lib/kinesiologyIntake';
+import { track } from '../lib/telemetryClient';
 import {
   cloneTracking,
   nextRoleAfterFetch,
@@ -836,6 +837,12 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .from('client_tracking_config')
       .upsert(payload, { onConflict: 'coach_id,client_id' });
     if (error) return { error: error.message };
+    track('tracking_config_saved', {
+      track_workouts: payload.track_workouts,
+      track_nutrition: payload.track_nutrition,
+      track_checkins: payload.track_checkins,
+      track_weight: payload.track_weight,
+    });
     return { error: null };
   },
 
@@ -848,6 +855,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       p_fat: Math.round(targets.fat),
     });
     if (error) return { error: error.message };
+    track('nutrition_targets_set', { calories: Math.round(targets.calories) });
     return { error: null };
   },
 
@@ -965,6 +973,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .select()
       .maybeSingle();
     if (error || !data) return { error: error?.message ?? 'Failed to send' };
+    track('coach_message_sent', { template_key: templateKey });
     const iso = new Date().toISOString();
     await supabase
       .from('coach_client_links')
@@ -1002,6 +1011,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .select()
       .maybeSingle();
     if (error || !data) return { error: error?.message ?? 'Failed to send' };
+    track('client_reply_sent');
     const mapped = mapCoachMessage(data as Record<string, unknown>);
     set(s => liveMessageState(s.sentMessages, 'INSERT', mapped, user.id));
     return { error: null };
@@ -1248,6 +1258,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .eq('id', id)
       .eq('status', 'pending');
     if (error) return { error: error.message };
+    const resolved = get().pendingInterventions.find(row => row.id === id);
+    track('intervention_resolved', {
+      kind: resolved?.kind ?? null,
+      source: resolved?.source ?? null,
+      status,
+      edited: !!payload,
+    });
     set(s => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
     }));
@@ -1282,6 +1299,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       : rawIntervention?.id;
     let row = rawIntervention;
     if (!row && id) row = await get().fetchIntervention(id);
+    track('agent_asked', { kind: input.kind, screen: input.screen, landed: !!row });
     if (row) {
       set(s => ({
         pendingInterventions: mergeInterventionRealtime(s.pendingInterventions, 'INSERT', row),
@@ -1319,6 +1337,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     set({
       fleetRunning: false,
       lastFleetRound: stats,
+    });
+    track('fleet_round_run', {
+      trigger: 'on_demand',
+      seen: stats.clients_seen,
+      flagged: stats.clients_flagged,
+      skipped: stats.clients_skipped,
+      failed: !!error,
     });
     await get().fetchPendingInterventions();
     if (error && errCode) return { error: errCode, ...stats };
@@ -1574,6 +1599,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .select()
       .maybeSingle();
     if (error || !data) return { error: error?.message ?? 'Failed to create invite' };
+    track('invite_created', { days, max_uses: maxUses });
     set(s => ({ invites: [data as CoachInvite, ...s.invites] }));
     return { token };
   },
@@ -1655,6 +1681,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     await get().fetchMyCoach();
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await get().fetchMyRole(user.id);
+    track('invite_accepted');
     return { ok: true, coach_name: result.coach_name };
   },
 
