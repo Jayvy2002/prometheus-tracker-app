@@ -161,11 +161,16 @@ export default function GradientButton({
       />
 
       <div
-        className={cn(
-          "absolute inset-[2px] rounded-lg",
-          `shadow-[inset_0_0_10px_${colors.light.glow}]`,
-          `dark:shadow-[inset_0_0_10px_${colors.dark.glow}]`
-        )}
+        className="absolute inset-[2px] rounded-lg"
+        style={{
+          boxShadow: `inset 0 0 10px ${colors.light.glow}`,
+        }}
+      />
+      <div
+        className="absolute inset-[2px] rounded-lg hidden dark:block"
+        style={{
+          boxShadow: `inset 0 0 10px ${colors.dark.glow}`,
+        }}
       />
 
       <div className="relative flex items-center justify-center gap-2">
@@ -174,8 +179,10 @@ export default function GradientButton({
             "bg-gradient-to-b bg-clip-text font-light text-lg text-transparent tracking-tighter",
             colors.light.text,
             colors.dark.text,
-            `dark:drop-shadow-[0_0_12px_${colors.dark.textGlow}]`
           )}
+          style={{
+            filter: `drop-shadow(0 0 12px ${colors.dark.textGlow})`,
+          }}
         >
           {label}
         </span>
