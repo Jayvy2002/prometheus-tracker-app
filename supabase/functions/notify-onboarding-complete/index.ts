@@ -76,7 +76,8 @@ Deno.serve(async (req: Request) => {
   const admin = createClient(supabaseUrl, serviceKey);
   const name = asString(payload.full_name) || "ce client";
   const prompt =
-    `Le client ${name} vient de terminer l'onboarding. Rédige un programme et les variables de suivi. ` +
+    `Le client ${name} vient de terminer son questionnaire d'accueil. Rédige un programme et les variables de suivi ` +
+    `à partir de "intake" (lieu, équipement, jours disponibles, séances réalistes, durée, niveau, préférences, douleurs, drapeaux médicaux). ` +
     `Pas de calories, macros ni recettes. ISSN reste la formule de l'app. Rien ne s'applique tout seul.`;
 
   const result = await runCoachAgent(admin, openaiKey, {

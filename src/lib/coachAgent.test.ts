@@ -199,6 +199,22 @@ test('notify-onboarding-complete keeps HMAC and runs the in-app agent', () => {
   assert.doesNotMatch(src, /fetch\(webhookUrl/);
 });
 
+test('coach-agent reads the kinesiology intake and honours its days / equipment / medical flags', () => {
+  const shared = source('supabase/functions/_shared/coachAgent.ts');
+  assert.match(shared, /kinesiology_intake"?,?\s*[")]/);
+  assert.match(shared, /export function compactIntake/);
+  assert.match(shared, /available_weekdays/);
+  assert.match(shared, /medical_flags/);
+  assert.match(shared, /intake,\s*\n\s*dossier_14d/);
+  assert.match(shared, /Si "intake" est présent/);
+  assert.match(shared, /fallbackProgramFromProfile\(profile, input\.prompt, intake\)/);
+  const cardiacIdx = shared.indexOf('"cardiaqueHtaPoitrine"');
+  assert.ok(cardiacIdx > 0);
+  const notify = source('supabase/functions/notify-onboarding-complete/index.ts');
+  assert.match(notify, /questionnaire d'accueil/);
+  assert.match(notify, /drapeaux médicaux/);
+});
+
 test('onboarding_plan uses a deterministic fallback instead of 502 empty draft', () => {
   const shared = source('supabase/functions/_shared/coachAgent.ts');
   assert.match(shared, /fallbackProgramFromProfile/);
