@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AreaChart, BarChart, LineChart } from '../charts/GymCharts';
+import { AreaChart, BarChart, LineChart } from '../charts/BklitCharts';
 import Card from '../ui/Card';
 import type { DailyNutritionPoint } from '../../lib/types';
 

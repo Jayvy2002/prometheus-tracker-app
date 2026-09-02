@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
 import { toLocalDateStr } from '../../lib/utils';
-import { AreaChart, BarChart } from '../charts/GymCharts';
+import { AreaChart, BarChart } from '../charts/BklitCharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
@@ -201,13 +201,13 @@ export default function StatsPage() {
 
   // Chart data
   const calorieChartData = nutrition.map(d => ({
-    date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    date: d.date,
     value: Math.round(d.calories),
     target: calorieTarget,
   }));
 
   const weightChartData = weights.map(w => ({
-    date: new Date(w.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    date: w.date,
     value: w.weight,
   }));
 
@@ -223,7 +223,7 @@ export default function StatsPage() {
     return Object.entries(weeks)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({
-        date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        date,
         value: count,
       }));
   }, [workoutDates]);

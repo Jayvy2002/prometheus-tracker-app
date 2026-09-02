@@ -35,6 +35,7 @@ import {
   type OriginalQuestionId,
 } from '../../lib/kinesiologyIntake';
 import Button from '../ui/Button';
+import Card from '../ui/Card';
 import Input from '../ui/Input';
 
 function useOriginalLabel() {
@@ -552,15 +553,17 @@ export default function KinesiologyIntakeFlow() {
           {t('onboarding.stepOf', { step: step + 1, total: TOTAL_INTAKE_SCREENS })}
         </p>
         <h1 className="text-2xl font-bold text-white mb-6 tracking-tight">{titles[step]}</h1>
-        {step === 0 && <ScreenToi intake={intake} setIntake={setIntake} label={label} />}
-        {step === 1 && <ScreenObjectif intake={intake} setIntake={setIntake} label={label} />}
-        {step === 2 && <ScreenTemps intake={intake} setIntake={setIntake} label={label} />}
-        {step === 3 && <ScreenLieu intake={intake} setIntake={setIntake} label={label} />}
-        {step === 4 && <ScreenDouleurs intake={intake} setIntake={setIntake} label={label} />}
-        {step === 5 && <ScreenMedical intake={intake} setIntake={setIntake} label={label} />}
-        {step === 6 && <ScreenPrefs intake={intake} setIntake={setIntake} label={label} />}
-        {step === 7 && <ScreenReste intake={intake} setIntake={setIntake} label={label} />}
-        {step === 8 && <ScreenExtras intake={intake} setIntake={setIntake} />}
+        <Card>
+          {step === 0 && <ScreenToi intake={intake} setIntake={setIntake} label={label} />}
+          {step === 1 && <ScreenObjectif intake={intake} setIntake={setIntake} label={label} />}
+          {step === 2 && <ScreenTemps intake={intake} setIntake={setIntake} label={label} />}
+          {step === 3 && <ScreenLieu intake={intake} setIntake={setIntake} label={label} />}
+          {step === 4 && <ScreenDouleurs intake={intake} setIntake={setIntake} label={label} />}
+          {step === 5 && <ScreenMedical intake={intake} setIntake={setIntake} label={label} />}
+          {step === 6 && <ScreenPrefs intake={intake} setIntake={setIntake} label={label} />}
+          {step === 7 && <ScreenReste intake={intake} setIntake={setIntake} label={label} />}
+          {step === 8 && <ScreenExtras intake={intake} setIntake={setIntake} />}
+        </Card>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 backdrop-blur-lg border-t border-neutral-900 p-4">

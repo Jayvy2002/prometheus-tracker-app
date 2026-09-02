@@ -6,8 +6,8 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 
-import { formatWeight, formatDate, formatDateShort, parseDateStr, todayStr } from '../../lib/utils';
-import { LineChart } from '../charts/GymCharts';
+import { formatWeight, formatDate, parseDateStr, todayStr } from '../../lib/utils';
+import { LineChart } from '../charts/BklitCharts';
 import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -110,7 +110,7 @@ export default function WeightPage() {
   const filtered = filterByPeriod(sortedAsc, period);
 
   const chartData = filtered.map((m: { weight_kg: number; measured_at: string }) => ({
-    date: formatDateShort(m.measured_at),
+    date: m.measured_at,
     weight: unit === 'lbs' ? +(m.weight_kg * 2.20462).toFixed(1) : +m.weight_kg.toFixed(1),
   }));
 

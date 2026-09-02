@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr } from '../../lib/utils';
-import { LineChart } from '../charts/GymCharts';
+import { LineChart } from '../charts/BklitCharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 
@@ -125,7 +125,7 @@ export default function ExerciseProgressPage() {
 
   if (selectedExercise && detail) {
     const chartData = detail.entries.slice(-20).map(e => ({
-      date: new Date(e.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      date: e.date,
       '1RM': e.estimated1RM,
       volume: e.totalVolume,
     }));

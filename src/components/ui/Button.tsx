@@ -1,5 +1,7 @@
 import { type ButtonHTMLAttributes, type ReactNode } from 'react';
+import ParticleButton from '../kokonutui/particle-button';
 import { cn } from '../../lib/cn';
+import { Button as ShadcnButton } from './shadcn-button';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -10,30 +12,18 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
-const variants = {
-  primary: {
-    base: 'bg-blue-600 text-white shadow-lg shadow-blue-900/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]',
-    hover: 'hover:bg-blue-500 hover:shadow-blue-900/50',
-  },
-  secondary: {
-    base: 'bg-neutral-900/80 text-neutral-200 border border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]',
-    hover: 'hover:bg-neutral-800 hover:border-white/15',
-  },
-  ghost: {
-    base: 'bg-transparent text-neutral-300',
-    hover: 'hover:bg-neutral-800/80',
-  },
-  danger: {
-    base: 'bg-rose-600 text-white shadow-lg shadow-rose-900/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.16)]',
-    hover: 'hover:bg-rose-500',
-  },
-};
+const sizeMap = {
+  sm: 'sm',
+  md: 'default',
+  lg: 'lg',
+} as const;
 
-const sizes = {
-  sm: 'px-3 py-1.5 text-sm',
-  md: 'px-4 py-2.5 text-sm',
-  lg: 'px-6 py-3.5 text-base',
-};
+const variantMap = {
+  primary: 'default',
+  secondary: 'secondary',
+  ghost: 'ghost',
+  danger: 'destructive',
+} as const;
 
 export default function Button({
   variant = 'primary',
@@ -45,25 +35,10 @@ export default function Button({
   disabled,
   ...props
 }: ButtonProps) {
-  const palette = variants[variant];
-  return (
-    <button
-      {...props}
-      className={cn(
-        'inline-flex items-center justify-center gap-2 font-medium rounded-xl',
-        'transition-all duration-200 ease-out touch-manipulation',
-        palette.base,
-        pressOnly ? '' : palette.hover,
-        sizes[size],
-        disabled || loading
-          ? 'opacity-50 cursor-not-allowed'
-          : pressOnly
-            ? 'active:opacity-90'
-            : 'active:scale-[0.96] hover:scale-[1.01]',
-        className,
-      )}
-      disabled={disabled || loading}
-    >
+  const shadcnVariant = variantMap[variant];
+  const shadcnSize = sizeMap[size];
+  const content = (
+    <>
       {loading && (
         <svg className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
@@ -71,6 +46,36 @@ export default function Button({
         </svg>
       )}
       {children}
-    </button>
+    </>
+  );
+  const classes = cn(
+    pressOnly ? 'hover:scale-100' : '',
+    className,
+  );
+
+  if (variant === 'primary') {
+    return (
+      <ParticleButton
+        {...props}
+        variant="default"
+        size={shadcnSize}
+        disabled={disabled || loading}
+        className={cn('[&>svg:last-of-type]:hidden', classes)}
+      >
+        {content}
+      </ParticleButton>
+    );
+  }
+
+  return (
+    <ShadcnButton
+      {...props}
+      variant={shadcnVariant}
+      size={shadcnSize}
+      disabled={disabled || loading}
+      className={classes}
+    >
+      {content}
+    </ShadcnButton>
   );
 }

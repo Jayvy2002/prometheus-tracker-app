@@ -1,6 +1,8 @@
 import { ACTIVITY_LEVELS, GOALS } from './constants';
 import type { UserProfile } from './types';
 
+export { cn } from './cn';
+
 export function calculateBMR(weightKg: number, heightCm: number, age: number, gender: string): number {
   if (gender === 'female') {
     return 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
