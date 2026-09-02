@@ -489,7 +489,7 @@ export default function ClientDetailPage() {
           <button
             type="button"
             onClick={() => id && navigate(`/messages/${id}`)}
-            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white"
+            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white mr-11 md:mr-0"
             aria-label={t('coaching.messages.write')}
           >
             <MessageSquare size={18} />

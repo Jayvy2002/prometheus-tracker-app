@@ -101,7 +101,7 @@ export default function ProgramsPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-white">{t('programs.title')}</h1>
           {isCoach && (
-            <Button type="button" size="sm" onClick={() => navigate('/programs/new')}>
+            <Button type="button" size="sm" onClick={() => navigate('/programs/new')} className="mr-11 md:mr-0">
               <Plus size={16} /> {t('common.new')}
             </Button>
           )}

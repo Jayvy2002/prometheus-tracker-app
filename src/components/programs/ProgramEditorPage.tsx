@@ -128,7 +128,7 @@ export default function ProgramEditorPage() {
         <button onClick={() => navigate('/programs')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
           <ArrowLeft size={18} /> {t('programs.title')}
         </button>
-        <h1 className="text-xl font-bold text-white mb-4">
+        <h1 className="text-xl font-bold text-white mb-4 pr-12 md:pr-0">
           {isNew ? t('programs.newTitle') : name || t('programs.title')}
         </h1>
         <ProgramSessionEditor

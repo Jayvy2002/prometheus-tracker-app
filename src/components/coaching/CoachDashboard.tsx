@@ -107,7 +107,7 @@ export default function CoachDashboard() {
               </button>
             ) : null}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 mr-11 md:mr-0">
             <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
               {t('coaching.fleet.run')}
             </Button>

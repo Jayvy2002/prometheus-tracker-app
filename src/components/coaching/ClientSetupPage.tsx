@@ -281,7 +281,7 @@ export default function ClientSetupPage() {
           <ArrowLeft size={18} /> {t('coaching.ops.title')}
         </button>
 
-        <h1 className="text-xl font-bold text-white mb-1">{t('coaching.setup.title')}</h1>
+        <h1 className="text-xl font-bold text-white mb-1 pr-12 md:pr-0">{t('coaching.setup.title')}</h1>
         <p className="text-sm text-neutral-400 mb-5">
           {client?.full_name || profile?.full_name || t('coaching.unnamed')}
           {client?.email ? ` · ${client.email}` : ''}
