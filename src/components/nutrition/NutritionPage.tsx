@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
-import { useWeightStore } from '../../stores/weightStore';
 import { todayStr, addDaysToDateStr } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 import { toast } from '../ui/Toast';
@@ -17,7 +16,6 @@ import MealSection from './MealSection';
 import FoodForm from './FoodForm';
 import EditFoodModal from './EditFoodModal';
 import WaterTracker from './WaterTracker';
-import WeeklyAdjustment from './WeeklyAdjustment';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
@@ -32,19 +30,12 @@ export default function NutritionPage() {
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
   const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, addLog, loading: nutritionLoading } = useNutritionStore();
-  const { measurements } = useWeightStore();
   const tracking = useClientTracking();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const coached = isCoachedAthlete(coachingRole, myCoach);
   const [showAdd, setShowAdd] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
-  const [showAdjustment, setShowAdjustment] = useState(() => {
-    const dismissed = localStorage.getItem('weeklyAdjustmentDismissed');
-    if (!dismissed) return true;
-    const dismissedAt = parseInt(dismissed, 10);
-    return Date.now() - dismissedAt > 7 * 24 * 60 * 60 * 1000;
-  });
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
 
   useEffect(() => {
@@ -75,8 +66,6 @@ export default function NutritionPage() {
   const dateLabel = isToday ? t('common.today') : new Date(selectedDate + 'T12:00:00').toLocaleDateString(undefined, {
     weekday: 'short', month: 'short', day: 'numeric',
   });
-
-  const hasEnoughData = measurements.length >= 7;
 
   const getTimeBasedCategory = () => {
     const hour = new Date().getHours();
@@ -148,13 +137,6 @@ export default function NutritionPage() {
           </button>
         </div>
       </div>
-
-      {isToday && showAdjustment && hasEnoughData && (
-        <WeeklyAdjustment onDismiss={() => {
-          localStorage.setItem('weeklyAdjustmentDismissed', String(Date.now()));
-          setShowAdjustment(false);
-        }} />
-      )}
 
       <div className="flex items-center justify-between mb-6">
         <button onClick={() => shiftDate(-1)} className="p-2 text-neutral-400 hover:text-white">

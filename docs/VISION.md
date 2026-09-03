@@ -53,7 +53,7 @@ Prometheus est un **SaaS fitness** : une plateforme pour **tous les coachs** (ki
 | Macros coaché | Mises à NULL à l'onboarding / intake, écriture coach-only (trigger `protect_coach_nutrition_targets`), anneaux masqués jusqu'à Envoyé | Calcul auto au setup, **puis** coach-only | Chantier 2 |
 | Macros solo | Calculées à la fin de l'intake (Mifflin-St Jeor + activité + objectif, protéines ISSN), éditables dans `GoalsForm` | Idem | ✔ |
 | Proposition hebdo coach | `coach-fleet-round` : Relancer si non assidu, brouillon kcal complet sinon | + explication lisible du « pourquoi » | Chantier 2 |
-| Proposition hebdo solo | `WeeklyAdjustment` : suggestion simple, sans condition d'assiduité ni explication | Copilote solo (point 6) | Chantier 1 |
+| Proposition hebdo solo | `SoloWeeklyReview` sur l'accueil : mêmes règles que la tournée coach (`proposeWeeklyNutrition`) sur ses 14 jours ; assiduité d'abord (jours loggés + moyenne dans la cible) sinon relance sans toucher aux chiffres ; sinon nouvelle cible **+ le pourquoi** ; Appliquer / Garder ; une décision par semaine (`solo_weekly_reviews`) | Idem | ✔ |
 | Intake | 27 q standard ; mur pour tout nouveau compte (invité coaché **et** solo) ; brouillon sauvegardé à chaque écran, reprise là où on s'est arrêté ; le solo finit sur « Tes cibles » (kcal / macros / eau calculés depuis ses réponses) | Builder par coach | ✔ ; chantier 4 |
 | Intake → IA | `coach-agent` lit `kinesiology_intake` (compacté : jours dispo → weekdays, drapeaux listés) ; `extras.objectifType` → `goal` ; filet déterministe honore séances / jours | L'agent voit les réponses | ✔ |
 | Drapeaux médicaux | Badge roster + fiche 360 + Setup ; carte listant les questions PAR-Q à « Oui » | Visibles avant d'envoyer un programme | ✔ (gate d'accusé de réception : plus tard) |
@@ -66,7 +66,7 @@ Prometheus est un **SaaS fitness** : une plateforme pour **tous les coachs** (ki
 
 ## Chantiers (ordre proposé)
 
-1. **Copilote solo** — ~~lot A : intake obligatoire à l'inscription avec reprise, cibles calculées~~ (livré) ; lot B : proposition hebdo kcal/macros avec explication et condition d'assiduité (remplace `WeeklyAdjustment`) ; lot C : programme proposé par l'IA depuis les réponses (accepter / refuser / faire le sien).
+1. **Copilote solo** — ~~lot A : intake obligatoire à l'inscription avec reprise, cibles calculées~~ (livré) ; ~~lot B : proposition hebdo kcal/macros avec explication et condition d'assiduité~~ (livré, `WeeklyAdjustment` retiré) ; lot C : programme proposé par l'IA depuis les réponses (accepter / refuser / faire le sien).
 2. **Modèle macros coaché** — calcul automatique au setup, le coach ajuste, la tournée explique ses propositions. Le trigger coach-only reste.
 3. ~~**Intake dans la boucle coach**~~ — livré : l'agent lit l'intake, `objectifType` → `goal`, badges et carte drapeaux médicaux, review du Setup basée sur l'intake. Reste : `joursDispo` pré-rempli dans l'éditeur manuel de programme (l'agent le fait déjà), accusé de réception d'un drapeau avant Envoyer.
 4. **Builder de questionnaire par coach** — 27 questions = template éditable ; les invités remplissent le questionnaire de leur coach.
