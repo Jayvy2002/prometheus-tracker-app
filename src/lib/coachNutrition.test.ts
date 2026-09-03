@@ -210,7 +210,7 @@ test('Aujourd’hui stall row and File du jour item deep-link to Progression', (
       weight('sofia-id', '2026-08-19', 57.1),
     ],
   });
-  const priorities = buildCoachPriorities([ops(marc), ops(sofia)], signals);
+  const priorities = buildCoachPriorities([ops(marc), ops(sofia)], signals, TODAY);
   const stall = priorities.find(p => p.kind === 'nutrition_stall');
   assert.ok(stall);
   assert.equal(stall?.clientId, 'marc-id');
@@ -307,7 +307,7 @@ test('File du jour weight item also deep-links to Progression, not overview', ()
       weight('lea-id', '2026-08-28', 60.4),
     ],
   });
-  const priorities = buildCoachPriorities([ops(lea)], signals);
+  const priorities = buildCoachPriorities([ops(lea)], signals, TODAY);
   const weightItem = priorities.find(p => p.kind === 'weight_off_trajectory');
   assert.ok(weightItem);
   assert.equal(weightItem?.href, '/clients/lea-id?tab=progress');
