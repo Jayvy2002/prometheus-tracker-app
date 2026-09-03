@@ -298,7 +298,7 @@ export default function Dashboard() {
             {t('checkin.dashboardCta')}
           </button>
         )}
-        {hasCoach && !isIntakeAlreadyFilled(profile) && (
+        {!isIntakeAlreadyFilled(profile) && (
           <button
             type="button"
             onClick={() => navigate('/intake')}

@@ -9,6 +9,7 @@ import {
   emptyIntake,
   formatAnswer,
   intakeGateNeedsUsageProbe,
+  intakeResumeScreen,
   intakeToProfilePatch,
   isIntakeAlreadyFilled,
   medicalFlagIds,
@@ -19,6 +20,8 @@ import {
   screenCanProceed,
   shouldForceKinesiologyIntake,
   shouldSkipKinesiologyIntake,
+  soloTargetsFromIntake,
+  soloTargetsToProfilePatch,
   TYPES_EXERCICES_OPTIONS,
 } from './kinesiologyIntake';
 
@@ -190,11 +193,92 @@ describe('kinesiologyIntake original form', () => {
     assert.equal(screenCanProceed(heart, 5), true);
   });
 
-  it('skips when already completed', () => {
+  it('only completed_at counts — a fully answered draft is still a draft (resume must not lift the wall)', () => {
     assert.equal(isIntakeAlreadyFilled(null), false);
     assert.equal(isIntakeAlreadyFilled({ kinesiology_intake_completed_at: '2026-09-01' }), true);
-    assert.equal(isIntakeAlreadyFilled({ kinesiology_intake: completeOriginal() }), true);
+    assert.equal(isIntakeAlreadyFilled({ kinesiology_intake: completeOriginal() }), false);
     assert.equal(isIntakeAlreadyFilled({ kinesiology_intake: emptyIntake() }), false);
+  });
+
+  it('resumes a saved draft on the first screen that cannot proceed', () => {
+    assert.equal(intakeResumeScreen(emptyIntake()), 0);
+    const midway = completeOriginal({ lieu: '', equipement: [] });
+    assert.equal(intakeResumeScreen(midway), 3);
+    const onlyPrefsMissing = completeOriginal({ typesExercices: [] });
+    assert.equal(intakeResumeScreen(onlyPrefsMissing), 6);
+    assert.equal(intakeResumeScreen(completeOriginal()), 7);
+    const startedExtras = completeOriginal({
+      extras: { ...emptyIntake().extras, objectifType: 'cut', sommeil: '7_8' },
+    });
+    assert.equal(intakeResumeScreen(startedExtras), 8);
+  });
+
+  it('solo targets: Mifflin-St Jeor + activity + goal, ISSN protein, never for a coached client', () => {
+    const solo = completeOriginal({
+      extras: { ...emptyIntake().extras, objectifType: 'cut', occupation: 'sitting' },
+    });
+    const targets = soloTargetsFromIntake(solo);
+    assert.ok(targets);
+    // 62 kg, 165 cm, 34 y, F → BMR 1320 ; sedentary ×1.2 → TDEE 1584 ; cut −500 → 1084
+    assert.equal(targets.bmr, 1320);
+    assert.equal(targets.tdee, 1584);
+    assert.equal(targets.calories, 1084);
+    assert.equal(targets.goal, 'cut');
+    assert.equal(targets.activity_level, 'sedentary');
+    assert.ok(targets.protein > 0 && targets.carbs > 0 && targets.fat > 0);
+    assert.ok(Math.abs(targets.protein * 4 + targets.carbs * 4 + targets.fat * 9 - targets.calories) <= targets.calories * 0.15);
+    assert.ok(targets.water_ml >= 1500);
+
+    const patch = soloTargetsToProfilePatch(targets);
+    assert.equal(patch.daily_calorie_target, 1084);
+    assert.equal(patch.goal, 'cut');
+    assert.equal(patch.activity_level, 'sedentary');
+    assert.equal(patch.daily_water_target_ml, targets.water_ml);
+
+    const bulkPhysical = soloTargetsFromIntake(completeOriginal({
+      sexeGenre: 'H',
+      seancesRealistes: '5',
+      extras: { ...emptyIntake().extras, objectifType: 'bulk', occupation: 'physical' },
+    }));
+    assert.ok(bulkPhysical && bulkPhysical.calories > targets.calories);
+    assert.equal(bulkPhysical.activity_level, 'active');
+
+    const other = soloTargetsFromIntake(completeOriginal({ sexeGenre: 'Autre' }));
+    assert.ok(other && other.bmr > 1320 && other.bmr < 1320 + 166);
+
+    assert.equal(soloTargetsFromIntake(completeOriginal({ tailleCm: '' })), null);
+    assert.equal(soloTargetsFromIntake(completeOriginal({ age: '5' })), null);
+  });
+
+  it('solo: the intake is the onboarding — walled even when the usage probe failed', () => {
+    const freshSolo = {
+      full_name: '',
+      onboarding_completed: false,
+      height_cm: 0,
+      weight_kg: 0,
+      kinesiology_intake_completed_at: null,
+      kinesiology_intake: emptyIntake(),
+    };
+    assert.equal(intakeGateNeedsUsageProbe({ isCoachedClient: false, isCoach: false, profile: freshSolo }), true);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: false, isCoach: false, profile: freshSolo, usage: EMPTY_INTAKE_USAGE, probeStatus: 'ok',
+    }), true);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: false, isCoach: false, profile: freshSolo, usage: null, probeStatus: 'failed',
+    }), true);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: false, isCoach: false, profile: freshSolo, usage: null, probeStatus: 'pending',
+    }), false);
+    // Legacy solo who went through the tracker onboarding: never walled.
+    assert.equal(intakeGateNeedsUsageProbe({
+      isCoachedClient: false, isCoach: false, profile: { ...freshSolo, onboarding_completed: true },
+    }), false);
+    assert.equal(shouldForceKinesiologyIntake({
+      isCoachedClient: false, isCoach: false, profile: freshSolo,
+      usage: { hasWorkout: true, hasNutrition: false, hasCheckIn: false, hasWeight: false }, probeStatus: 'ok',
+    }), false);
+    // Coach: never.
+    assert.equal(intakeGateNeedsUsageProbe({ isCoachedClient: false, isCoach: true, profile: freshSolo }), false);
   });
 
   it('linked client with history must not be forced into KinesiologyIntakeFlow', () => {
@@ -358,8 +442,15 @@ describe('kinesiologyIntake wiring', () => {
     assert.doesNotMatch(app, /coachedClient && !skipPersonalOnboarding && !isIntakeAlreadyFilled/);
     const finish = readFileSync(resolve(process.cwd(), 'src/components/onboarding/KinesiologyIntakeFlow.tsx'), 'utf8');
     assert.match(finish, /intakeToProfilePatch/);
-    assert.match(finish, /stripSelfServeNutritionTargets/);
+    assert.match(finish, /stripSelfServeNutritionTargets\(patch, coached\)/);
     assert.match(finish, /allowExit/);
+    // Resume + solo targets (docs/VISION.md point 9): draft saved on every Continuer,
+    // targets screen only for a solo first run, never for a coached client.
+    assert.match(finish, /intakeResumeScreen\(/);
+    assert.match(finish, /persistDraft\(\)/);
+    assert.match(finish, /showTargets = !coached && coachingRole !== 'coach' && !profile\?\.onboarding_completed/);
+    assert.match(finish, /soloTargetsToProfilePatch\(targets\)/);
+    assert.match(finish, /TARGETS_SCREEN_INDEX && <ScreenTargets/);
     assert.match(finish, /aria-checked/);
     assert.match(finish, /bg-blue-600 text-white/);
     assert.match(finish, /max-w-lg/);

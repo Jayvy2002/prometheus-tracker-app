@@ -1559,7 +1559,17 @@ const en = {
       prefs: 'Preferences',
       rest: 'Anything else',
       extras: 'Extras',
+      targets: 'Your targets',
     },
+    targets: {
+      title: 'Computed from your answers',
+      basis: 'Goal: {{goal}} · estimated expenditure {{tdee}} kcal/day (Mifflin-St Jeor + activity + sessions). Protein per ISSN.',
+      calories: 'Calories per day',
+      water: 'Water: about {{liters}} L per day',
+      hint: 'You can adjust them in Profile → Goals. Every week your copilot will suggest keeping or changing them — nothing changes without your say.',
+      unavailable: 'A value is missing (height, weight or age) to compute your targets. Go back to the “You” screen.',
+    },
+    finishSolo: 'Finish',
     extras: {
       objectifType: 'Goal type',
       poidsVise: 'Target weight (kg)',

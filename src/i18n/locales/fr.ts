@@ -1559,7 +1559,17 @@ const fr = {
       prefs: 'Préférences',
       rest: 'Le reste',
       extras: 'Compléments',
+      targets: 'Tes cibles',
     },
+    targets: {
+      title: 'Calculées à partir de tes réponses',
+      basis: 'Objectif : {{goal}} · dépense estimée {{tdee}} kcal/jour (Mifflin-St Jeor + activité + séances). Protéines selon l’ISSN.',
+      calories: 'Calories par jour',
+      water: 'Eau : environ {{liters}} L par jour',
+      hint: 'Tu pourras les ajuster dans Profil → Objectifs. Chaque semaine, ton copilote te proposera de les garder ou de les modifier — rien ne change sans ton accord.',
+      unavailable: 'Il manque une valeur (taille, poids ou âge) pour calculer tes cibles. Reviens à l’écran « Toi ».',
+    },
+    finishSolo: 'Terminer',
     extras: {
       objectifType: 'Type d’objectif',
       poidsVise: 'Poids visé (kg)',

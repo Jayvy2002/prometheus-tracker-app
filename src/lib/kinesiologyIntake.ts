@@ -1,5 +1,13 @@
 /** Original Google Form questionnaire. Labels here are the source of truth. */
 
+import {
+  calculateBMR,
+  calculateCalorieTarget,
+  calculateEnhancedTDEE,
+  calculateMacros,
+  calculateWaterTarget,
+} from './utils';
+
 export const INTAKE_VERSION = 1 as const;
 
 export const ORIGINAL_LABELS_FR = {
@@ -192,6 +200,8 @@ export interface KinesiologyIntake {
 
 export const TOTAL_INTAKE_SCREENS = 9;
 export const EXTRA_SCREEN_INDEX = 8;
+/** Solo only: shown after the extras, computes kcal / macros from the answers. */
+export const TARGETS_SCREEN_INDEX = 9;
 
 export function emptyIntakeExtras(): IntakeExtras {
   return {
@@ -422,13 +432,109 @@ export function screenCanProceed(intake: KinesiologyIntake, screen: number): boo
   }
 }
 
+/**
+ * Only `kinesiology_intake_completed_at` counts. Answers are saved screen by screen so the
+ * client can resume; a jsonb with every original answer filled is still a draft until submit.
+ */
 export function isIntakeAlreadyFilled(profile: {
   kinesiology_intake_completed_at?: string | null;
   kinesiology_intake?: unknown;
 } | null | undefined): boolean {
-  if (!profile) return false;
-  if (profile.kinesiology_intake_completed_at) return true;
-  return originalAnswersComplete(parseIntake(profile.kinesiology_intake));
+  return !!profile?.kinesiology_intake_completed_at;
+}
+
+/** objectifType is answered on the goal screen (1), not on the extras screen — it does not count here. */
+function extrasHaveAnyAnswer(extras: IntakeExtras): boolean {
+  return Object.entries(extras).some(([key, value]) => (
+    key !== 'objectifType'
+    && (Array.isArray(value) ? value.length > 0 : value.trim().length > 0)
+  ));
+}
+
+/**
+ * Where a saved draft resumes: the first screen that cannot proceed yet, otherwise the free-text
+ * screen (or the extras screen if the client had already started answering the extras).
+ */
+export function intakeResumeScreen(intake: KinesiologyIntake): number {
+  for (let screen = 0; screen < 7; screen++) {
+    if (!screenCanProceed(intake, screen)) return screen;
+  }
+  return extrasHaveAnyAnswer(intake.extras) ? EXTRA_SCREEN_INDEX : 7;
+}
+
+export interface SoloIntakeTargets {
+  bmr: number;
+  tdee: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  water_ml: number;
+  goal: IntakeObjectifType;
+  activity_level: string;
+}
+
+function intakeActivityLevel(occupation: string): string {
+  if (occupation === 'sitting') return 'sedentary';
+  if (occupation === 'standing') return 'light';
+  if (occupation === 'physical') return 'active';
+  return 'moderate';
+}
+
+/**
+ * Solo copilot, first step: the same Mifflin-St Jeor + activity + goal + ISSN protein formula
+ * as the tracker onboarding, fed by the intake answers. Coached clients never get this — their
+ * coach decides (docs/VISION.md, point 5).
+ */
+export function soloTargetsFromIntake(intake: KinesiologyIntake): SoloIntakeTargets | null {
+  const weight = Number(intake.poidsApproxKg);
+  const height = Number(intake.tailleCm);
+  const age = Number(intake.age);
+  if (!positiveNumber(intake.poidsApproxKg, 30, 300)) return null;
+  if (!positiveNumber(intake.tailleCm, 100, 250)) return null;
+  if (!positiveNumber(intake.age, 10, 99)) return null;
+
+  const goal: IntakeObjectifType = isIntakeObjectifType(intake.extras.objectifType)
+    ? intake.extras.objectifType
+    : 'maintain';
+  const activity = intakeActivityLevel(intake.extras.occupation);
+  const sessions = positiveNumber(intake.seancesRealistes, 1, 14) ? Number(intake.seancesRealistes) : 3;
+
+  // Mifflin-St Jeor only has two formulas; « Autre » takes the midpoint.
+  const bmr = intake.sexeGenre === 'F'
+    ? calculateBMR(weight, height, age, 'female')
+    : intake.sexeGenre === 'H'
+      ? calculateBMR(weight, height, age, 'male')
+      : Math.round((calculateBMR(weight, height, age, 'female') + calculateBMR(weight, height, age, 'male')) / 2);
+  // Steps are unknown at intake time: 5000 is the neutral value of the NEAT bonus.
+  const tdee = calculateEnhancedTDEE(bmr, activity, 5000, sessions);
+  const calories = calculateCalorieTarget(tdee, goal);
+  const macros = calculateMacros(calories, goal, 'omnivore', weight);
+  const water = calculateWaterTarget(weight, 5000, activity, 'average');
+
+  return {
+    bmr: Math.round(bmr),
+    tdee,
+    calories,
+    protein: macros.protein,
+    carbs: macros.carbs,
+    fat: macros.fat,
+    water_ml: water,
+    goal,
+    activity_level: activity,
+  };
+}
+
+export function soloTargetsToProfilePatch(targets: SoloIntakeTargets): Record<string, unknown> {
+  return {
+    daily_calorie_target: targets.calories,
+    protein_target: targets.protein,
+    carbs_target: targets.carbs,
+    fat_target: targets.fat,
+    daily_water_target_ml: targets.water_ml,
+    activity_level: targets.activity_level,
+    goal: targets.goal,
+  };
 }
 
 /** Profile fields used to decide whether the 27-question wall may block the app. */
@@ -504,13 +610,19 @@ export type IntakeGateInput = {
   probeStatus: IntakeProbeStatus;
 };
 
-/** Hard wall only for new invite clients with no completed intake and no app history. */
+/**
+ * Hard wall for a new account with no completed intake and no app history.
+ * - Coached invite: only when the usage probe answered (fail-open — never block a client
+ *   whose history could not be read).
+ * - Solo: also when the probe failed — the alternative would be the tracker onboarding wall
+ *   anyway, and the intake IS the solo onboarding (docs/VISION.md, point 9).
+ * - Coach: never.
+ */
 export function shouldForceKinesiologyIntake(input: IntakeGateInput): boolean {
-  if (!input.isCoachedClient || input.isCoach) return false;
+  if (input.isCoach) return false;
   if (shouldSkipKinesiologyIntake(input.profile, input.usage)) return false;
-  if (input.probeStatus === 'failed') return false;
-  if (input.probeStatus !== 'ok') return false;
-  return true;
+  if (input.isCoachedClient) return input.probeStatus === 'ok';
+  return input.probeStatus === 'ok' || input.probeStatus === 'failed';
 }
 
 export function intakeGateNeedsUsageProbe(input: {
@@ -518,7 +630,7 @@ export function intakeGateNeedsUsageProbe(input: {
   isCoach: boolean;
   profile: IntakeProfileSlice | null | undefined;
 }): boolean {
-  if (!input.isCoachedClient || input.isCoach) return false;
+  if (input.isCoach) return false;
   if (shouldSkipKinesiologyIntake(input.profile, null)) return false;
   return true;
 }

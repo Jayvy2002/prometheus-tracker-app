@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Droplets, Flame } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
-import { clearOnboardingDeferred } from '../../stores/coachingStore';
+import { clearOnboardingDeferred, useCoachingStore } from '../../stores/coachingStore';
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
+import { isCoachedAthlete } from '../../lib/coachRole';
 import { track } from '../../lib/telemetryClient';
 import { todayStr } from '../../lib/utils';
 import type { UserProfile } from '../../lib/types';
@@ -26,15 +27,20 @@ import {
   ORIGINAL_LABELS_FR,
   OUI_NON,
   SEXE_OPTIONS,
+  TARGETS_SCREEN_INDEX,
   TOTAL_INTAKE_SCREENS,
   TYPES_EXERCICES_OPTIONS,
   WEEKDAYS,
+  intakeResumeScreen,
   intakeToProfilePatch,
   medicalYesFlags,
   parseIntake,
   screenCanProceed,
+  soloTargetsFromIntake,
+  soloTargetsToProfilePatch,
   type KinesiologyIntake,
   type OriginalQuestionId,
+  type SoloIntakeTargets,
 } from '../../lib/kinesiologyIntake';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -46,10 +52,10 @@ function useOriginalLabel() {
   return (id: OriginalQuestionId) => (en ? ORIGINAL_LABELS_EN[id] : ORIGINAL_LABELS_FR[id]);
 }
 
-function ProgressBar({ step }: { step: number }) {
+function ProgressBar({ step, total }: { step: number; total: number }) {
   return (
     <div className="flex gap-1.5 mb-6">
-      {Array.from({ length: TOTAL_INTAKE_SCREENS }).map((_, i) => (
+      {Array.from({ length: total }).map((_, i) => (
         <div
           key={i}
           className={`h-1 flex-1 rounded-full transition-all duration-500 ${
@@ -522,6 +528,72 @@ function ScreenExtras({
   );
 }
 
+function TargetTile({
+  label,
+  value,
+  unit,
+  tone,
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-xl bg-neutral-900 border border-neutral-800 p-3">
+      <p className="text-[11px] text-neutral-500">{label}</p>
+      <p className={`text-lg font-bold mt-0.5 ${tone}`}>
+        {value}
+        <span className="text-xs font-medium text-neutral-500 ml-1">{unit}</span>
+      </p>
+    </div>
+  );
+}
+
+function ScreenTargets({ targets }: { targets: SoloIntakeTargets | null }) {
+  const { t, i18n } = useTranslation();
+  const en = i18n.language.toLowerCase().startsWith('en');
+  if (!targets) {
+    return <p className="text-sm text-amber-200">{t('intake.targets.unavailable')}</p>;
+  }
+  const goal = EXTRA_OBJECTIF_OPTIONS.find(o => o.value === targets.goal);
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3">
+        <p className="text-sm font-medium text-blue-200">{t('intake.targets.title')}</p>
+        <p className="text-xs text-neutral-400 mt-1">
+          {t('intake.targets.basis', {
+            goal: goal ? (en ? goal.labelEn : goal.labelFr) : '—',
+            tdee: targets.tdee,
+          })}
+        </p>
+      </div>
+      <div className="flex items-center gap-3 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+        <div className="w-11 h-11 rounded-xl bg-orange-500/15 flex items-center justify-center shrink-0">
+          <Flame size={20} className="text-orange-400" />
+        </div>
+        <div>
+          <p className="text-[11px] text-neutral-500">{t('intake.targets.calories')}</p>
+          <p className="text-2xl font-bold text-white">
+            {targets.calories}
+            <span className="text-sm font-medium text-neutral-500 ml-1">kcal</span>
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <TargetTile label={t('common.protein')} value={targets.protein} unit="g" tone="text-sky-300" />
+        <TargetTile label={t('common.carbs')} value={targets.carbs} unit="g" tone="text-amber-300" />
+        <TargetTile label={t('common.fat')} value={targets.fat} unit="g" tone="text-rose-300" />
+      </div>
+      <div className="flex items-center gap-2 text-xs text-neutral-400">
+        <Droplets size={14} className="text-cyan-400" />
+        {t('intake.targets.water', { liters: (targets.water_ml / 1000).toFixed(1) })}
+      </div>
+      <p className="text-xs text-neutral-500">{t('intake.targets.hint')}</p>
+    </div>
+  );
+}
+
 export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit?: boolean }) {
   const { t } = useTranslation();
   const label = useOriginalLabel();
@@ -529,9 +601,19 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const { addMeasurement } = useWeightStore();
-  const [step, setStep] = useState(0);
-  const [saving, setSaving] = useState(false);
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
+  // Solo first run: the intake IS the onboarding, so it ends on computed targets.
+  // A coached client never sees them (the coach decides); a solo revisiting keeps the targets he tuned.
+  const showTargets = !coached && coachingRole !== 'coach' && !profile?.onboarding_completed;
+  const totalScreens = showTargets ? TOTAL_INTAKE_SCREENS + 1 : TOTAL_INTAKE_SCREENS;
+  const lastScreen = showTargets ? TARGETS_SCREEN_INDEX : EXTRA_SCREEN_INDEX;
+
   const [intake, setIntake] = useState<KinesiologyIntake>(() => parseIntake(profile?.kinesiology_intake));
+  const [step, setStep] = useState(() => intakeResumeScreen(parseIntake(profile?.kinesiology_intake)));
+  const [saving, setSaving] = useState(false);
+  const targets = useMemo(() => (showTargets ? soloTargetsFromIntake(intake) : null), [showTargets, intake]);
 
   const titles = [
     t('intake.screens.you'),
@@ -543,13 +625,22 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
     t('intake.screens.prefs'),
     t('intake.screens.rest'),
     t('intake.screens.extras'),
+    t('intake.screens.targets'),
   ];
+
+  /** Draft saved on every « Continuer » so closing the app resumes where the client stopped. */
+  const persistDraft = () => {
+    if (!user) return;
+    void updateProfile(user.id, { kinesiology_intake: { ...intake } });
+  };
 
   const finish = async () => {
     if (!user || saving) return;
     setSaving(true);
     const completedAt = new Date().toISOString();
-    const patch = stripSelfServeNutritionTargets(intakeToProfilePatch(intake, completedAt), true);
+    let patch = intakeToProfilePatch(intake, completedAt);
+    if (showTargets && targets) patch = { ...patch, ...soloTargetsToProfilePatch(targets) };
+    patch = stripSelfServeNutritionTargets(patch, coached);
     await updateProfile(user.id, patch as Partial<UserProfile>);
     const kg = Number(intake.poidsApproxKg);
     if (Number.isFinite(kg) && kg > 0) {
@@ -561,17 +652,19 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
       pain: intake.douleursLimitations === 'Oui',
       injuries: intake.blessuresChirurgies === 'Oui',
       revisit: allowExit,
+      targets_computed: !!(showTargets && targets),
     });
     clearOnboardingDeferred();
     navigate('/dashboard');
   };
 
   const goNext = () => {
-    if (step === EXTRA_SCREEN_INDEX) {
+    if (step === lastScreen) {
       void finish();
       return;
     }
-    setStep(s => Math.min(EXTRA_SCREEN_INDEX, s + 1));
+    persistDraft();
+    setStep(s => Math.min(lastScreen, s + 1));
   };
 
   return (
@@ -588,9 +681,9 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
             </button>
           </div>
         )}
-        <ProgressBar step={step} />
+        <ProgressBar step={step} total={totalScreens} />
         <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
-          {t('onboarding.stepOf', { step: step + 1, total: TOTAL_INTAKE_SCREENS })}
+          {t('onboarding.stepOf', { step: step + 1, total: totalScreens })}
         </p>
         <h1 className="text-2xl font-bold text-white mb-6 tracking-tight">{titles[step]}</h1>
         <Card>
@@ -603,6 +696,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
           {step === 6 && <ScreenPrefs intake={intake} setIntake={setIntake} label={label} />}
           {step === 7 && <ScreenReste intake={intake} setIntake={setIntake} label={label} />}
           {step === 8 && <ScreenExtras intake={intake} setIntake={setIntake} />}
+          {step === TARGETS_SCREEN_INDEX && <ScreenTargets targets={targets} />}
         </Card>
       </div>
 
@@ -615,12 +709,14 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
           )}
           <Button
             onClick={goNext}
-            disabled={!screenCanProceed(intake, step) || saving}
-            loading={saving && step === EXTRA_SCREEN_INDEX}
+            disabled={(step <= EXTRA_SCREEN_INDEX && !screenCanProceed(intake, step)) || saving}
+            loading={saving && step === lastScreen}
             className="flex-1"
           >
-            {step === EXTRA_SCREEN_INDEX ? t('intake.submit') : t('onboarding.continue')}
-            {step !== EXTRA_SCREEN_INDEX && <ChevronRight size={16} />}
+            {step === lastScreen
+              ? (coached ? t('intake.submit') : t('intake.finishSolo'))
+              : t('onboarding.continue')}
+            {step !== lastScreen && <ChevronRight size={16} />}
           </Button>
         </div>
       </div>
