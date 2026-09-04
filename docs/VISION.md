@@ -7,15 +7,43 @@
 
 ---
 
-## En une phrase
+## North star
 
-Prometheus est un **SaaS fitness** : une plateforme pour **tous les coachs** (kinésiologie, musculation, crossfit, nutrition, etc.) **et** pour les **athlètes solo**, avec un copilote IA qui **prépare** et un humain qui **décide**.
+> **Prometheus est un moteur de coaching intelligent pour l'entraînement de force et de physique — musculation, bodybuilding, powerlifting — en anglais et en français.**
+> **Il comprend l'athlète, construit son plan, observe ce qui se passe et propose comment le faire évoluer.**
+> **En solo, l'athlète valide les décisions. Avec un coach, Prometheus prépare les décisions et le coach les valide.**
+
+EN : *Prometheus is an AI-powered coaching engine for strength and physique training. It helps bodybuilding, powerlifting and strength coaches manage individualized training and nutrition at scale — and gives solo lifters the same engine for self-coaching.*
+
+(Validée le 4 septembre 2026. Remplace « SaaS fitness pour tous les coachs ».)
+
+### Les trois briques du moteur
+
+1. **Comprendre l'athlète** — intake, profil, historique complet (séances, nutrition, poids, check-ins, messages).
+2. **Construire et faire évoluer le plan** — programme et cibles générés puis **vivants** : « je me suis blessé au genou », « je veux prioriser mes bras », « je passe à 4 séances » → avant → après → pourquoi → accepter / modifier / refuser. Pas une génération one-shot.
+3. **Décider** — la tournée (coach) et le bilan hebdo (solo) : détecter ce qui change, proposer, expliquer.
+
+**Un seul cerveau, deux niveaux d'autorité.** Le solo décide pour lui ; le coach décide pour ses clients. Le coach a toujours tout ce que le solo a, plus lui-même. On ne rend jamais le solo volontairement moins bon pour protéger les coachs : **Solo automatise, Coach augmente l'humain** — ce ne sont pas les mêmes clients.
+
+### Segment
+
+Musculation / bodybuilding / powerlifting, **EN + FR**. Autres disciplines plus tard. Le danger n'est pas la cannibalisation, c'est la **dispersion**. La formation de kinésiologue de Jayvy nourrit la qualité du moteur (PAR-Q, douleurs, blessures, mouvements à éviter) mais ne définit pas le marché.
+
+### Modèle (cible, pas maintenant)
+
+| Utilisateur | Qui paie |
+|---|---|
+| Solo | abonnement Prometheus |
+| Coach | abonnement selon le nombre de clients |
+| Client d'un coach | inclus avec son coach |
+
+Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devient coaché, **son historique le suit** — c'est un argument de vente, pas un détail technique. Le solo est aussi le canal d'acquisition des coachs (B2C → B2B2C).
 
 ---
 
 ## Les 10 points
 
-1. **SaaS pour tous les coachs et pour les solos.** Pas un outil personnel. Jayvy est le premier coach utilisateur, pas le seul.
+1. **Un moteur pour les coachs de force / physique et pour les solos** (voir North star et Segment). Pas un outil personnel. Jayvy est le premier coach utilisateur, pas le seul.
 2. **Trois rôles officiels, tous supportés : Coach / Client coaché / Solo.** Aucun n'est « legacy ».
 3. **Un solo crée son compte librement**, sans coach. Le solo est un produit complet : workouts, nutrition, scanner, poids, stats, recettes, streaks, calendrier.
 4. **Un solo peut ajouter un coach via le lien de ce coach.** Le coach voit tout l'historique. Un client dont le lien est coupé redevient solo, historique intact. Un client = un coach actif à la fois (recherche / changement de coach in-app = plus tard).
@@ -64,14 +92,31 @@ Prometheus est un **SaaS fitness** : une plateforme pour **tous les coachs** (ki
 
 ---
 
+## Phase actuelle : consolidation (septembre 2026)
+
+Avant de nouveaux chantiers, **finir correctement ce qui existe**, en trois axes :
+
+- **A. Boucle solo** : inscription → intake → cibles → programme IA → entraînement / nutrition / poids → analyse → adaptation (programme **et** nutrition) → accepter / modifier / refuser → nouveau cycle. Doit être bonne, pas juste présente.
+- **B. Boucle coach** : intake du client → analyse → proposition au coach → il modifie / valide → le client exécute → données + check-ins + performances → détection → nouvelles propositions. Même cerveau, autorité différente.
+- **C. Audit exhaustif de l'existant** : UI réelle + parcours réels + code + base + vision, pour les trois rôles. Cartographier ce qui existe, ce qui est visible, ce qui est accessible mais introuvable, ce qui marche à moitié, les doublons, les vieux flows, les impasses, les données collectées jamais utilisées, les actions possibles en base mais pas en UI. Livrable : la matrice Fonction × Solo / Client / Coach × État × Problème × Cible. **Les PR suivantes se décident après.**
+
+Constats déjà établis par l'audit base (4 sept., projet `phyuijjekxtjvipjtdfv`) :
+- La base est à la migration `prometheus_p0_flow_fixes` (1er sept.) : **`kinesiology_intake`, `product_events`, `solo_weekly_reviews` ne sont pas appliquées**. Les PR #43 → #47 ne tournent nulle part encore.
+- Dérive : la base a deux migrations absentes du repo (`coach_fleet_triage_and_marc_seed`, `fix_triage_client_id_ambiguous`) et `notify_onboarding_signed_ping` appliquée deux fois.
+- **La tournée nocturne est muette depuis le 1er septembre** : le cron tourne, mais `FLEET_CRON_SECRET` n'existe pas dans le vault (seul `GROK_BOT_WEBHOOK_SECRET` y est), donc `invoke_coach_fleet_round()` sort en WARNING sans appeler la fonction. Dernière tournée enregistrée : 31 août.
+- Usage réel : 1 coach, 5 clients liés (seedés, 0 invitation), 19 séances complétées, 47 jours de nutrition, 8 check-ins, 10 brouillons dont **0 envoyé**, 0 message coach, 0 photo, 0 note. Le produit n'a pas encore été utilisé avec de vrais clients.
+
+---
+
 ## Chantiers (ordre proposé)
 
-1. **Copilote solo** — ~~lot A : intake obligatoire à l'inscription avec reprise, cibles calculées~~ (livré) ; ~~lot B : proposition hebdo kcal/macros avec explication et condition d'assiduité~~ (livré, `WeeklyAdjustment` retiré) ; lot C : programme proposé par l'IA depuis les réponses (accepter / refuser / faire le sien).
+1. **Copilote solo** — ~~lot A : intake obligatoire à l'inscription avec reprise, cibles calculées~~ (livré) ; ~~lot B : proposition hebdo kcal/macros avec explication et condition d'assiduité~~ (livré, `WeeklyAdjustment` retiré) ; **lot C : programme vivant** — ouvrir le moteur existant (`coach-agent` `onboarding_plan` / `program_nl_edit`, `coach_interventions`, assignation) au cas « je suis mon propre coach » (JWT + RLS self-coach), vue de proposition solo avant / après / pourquoi, garde-fous existants (volume `programVolume.ts`, équipement et drapeaux de l'intake, filet déterministe). Pas un générateur à côté : le même moteur.
 2. **Modèle macros coaché** — calcul automatique au setup, le coach ajuste, la tournée explique ses propositions. Le trigger coach-only reste.
 3. ~~**Intake dans la boucle coach**~~ — livré : l'agent lit l'intake, `objectifType` → `goal`, badges et carte drapeaux médicaux, review du Setup basée sur l'intake. Reste : `joursDispo` pré-rempli dans l'éditeur manuel de programme (l'agent le fait déjà), accusé de réception d'un drapeau avant Envoyer.
 4. **Builder de questionnaire par coach** — 27 questions = template éditable ; les invités remplissent le questionnaire de leur coach.
-5. ~~**Télémétrie d'usage**~~ — livré (table + `track()` sur les boucles principales). Reste : écran de lecture pour le coach / l'admin, événements de la proposition hebdo solo quand elle existera.
-6. **Recherche et changement de coach in-app.**
+5. ~~**Télémétrie d'usage**~~ — livré (table + `track()` sur les boucles principales). Reste : écran de lecture pour le coach / l'admin.
+6. **Bilingue EN + FR pour de vrai** — les valeurs de choix de l'intake sont en français en dur (`Oui/Non`, niveaux, équipement…) ; `constants.ts` affiche des libellés anglais (`GOALS`, `DIET_TYPES`…) dans des écrans français ; **le prompt système de `coach-agent` impose « Français, tutoiement »** — un coach ou un solo anglophone reçoit des brouillons en français.
+7. **Recherche et changement de coach in-app.**
 
 ---
 
@@ -90,7 +135,9 @@ Prometheus est un **SaaS fitness** : une plateforme pour **tous les coachs** (ki
 
 | Faux | Vrai |
 |---|---|
-| « Prometheus est pour Jayvy », « un seul coach », « head coach », « toi = premier user » | SaaS pour tous les coachs ; Jayvy est le premier utilisateur |
+| « Prometheus est pour Jayvy », « un seul coach », « head coach », « toi = premier user » | Moteur pour les coachs de force / physique et les solos ; Jayvy est le premier utilisateur |
+| « Pour tous les coachs, toutes disciplines », « francophone / Québec d'abord », « app de kinésiologue » | Musculation / bodybuilding / powerlifting, EN + FR ; la kinésiologie est dans la qualité du moteur, pas dans le marché |
+| « Le générateur de programme est une hypothèse à valider », « version déterministe minimale » | Le programme vivant est une des trois briques ; on ouvre le moteur existant, on ne construit pas un générateur à côté |
 | « Solo = legacy / fossile », « supprimer recettes / stats / calendrier / streaks » | Le solo est un produit complet à soigner |
 | « Pas de Premium, jamais », « ne pas coder Premium » | Gratuit pendant la construction ; billing non décidé |
 | « Compte client uniquement par invitation » | Client **coaché** par invitation ; **solo** libre |
