@@ -207,7 +207,7 @@ test('coach-agent reads the kinesiology intake and honours its days / equipment 
   assert.match(shared, /medical_flags/);
   assert.match(shared, /intake,\s*\n\s*dossier_14d/);
   assert.match(shared, /Si "intake" est présent/);
-  assert.match(shared, /fallbackProgramFromProfile\(profile, input\.prompt, intake\)/);
+  assert.match(shared, /fallbackProgramFromProfile\(profile, input\.prompt, intake, input\.locale\)/);
   const cardiacIdx = shared.indexOf('"cardiaqueHtaPoitrine"');
   assert.ok(cardiacIdx > 0);
   const notify = source('supabase/functions/notify-onboarding-complete/index.ts');
@@ -238,3 +238,22 @@ test('program_nl_edit cause is a one-line coach sentence, never the raw prompt',
   assert.doesNotMatch(shared, /rationale: input\.prompt \|\| notes \|\| cause/);
 });
 
+
+test('coach-agent writes in the language of the coach who asked (FR default, EN on request)', () => {
+  const shared = source('supabase/functions/_shared/coachAgent.ts');
+  // The request carries the UI language; the system prompt swaps its language line.
+  assert.match(shared, /export function parseLocale/);
+  assert.match(shared, /const locale = parseLocale\(body\.locale\)/);
+  assert.match(shared, /export function systemPrompt\(locale: AgentLocale\)/);
+  assert.match(shared, /systemPrompt\(input\.locale\)/);
+  assert.match(shared, /OUTPUT LANGUAGE: ENGLISH/);
+  assert.match(shared, /FRANÇAIS, tutoiement/);
+  // No French left hard-coded outside the L dictionary for the coach-facing fallbacks.
+  assert.doesNotMatch(shared, /return "Programme IA — brouillon"/);
+  assert.doesNotMatch(shared, /notes: "Brouillon déterministe/);
+  const store = source('src/stores/coachingStore.ts');
+  assert.match(store, /locale: i18n\.language,/);
+  // The onboarding ping has no UI → explicit FR until the coach's language is stored server-side.
+  const notify = source('supabase/functions/notify-onboarding-complete/index.ts');
+  assert.match(notify, /locale: "fr"/);
+});

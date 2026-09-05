@@ -37,6 +37,7 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import KinesiologyIntakeReview from '../onboarding/KinesiologyIntakeReview';
 import { isIntakeAlreadyFilled, medicalYesFlags, parseIntake } from '../../lib/kinesiologyIntake';
+import { optionLabel } from '../../lib/optionLabels';
 
 const EMPTY_TRACKING: ResolvedTrackingConfig = {
   ...ALL_ON_TRACKING,
@@ -323,10 +324,10 @@ export default function ClientSetupPage() {
             <ReviewRow label={t('coaching.setup.fields.focus')} value={labelOf(TRAINING_FOCUSES, profile.training_focus)} />
             <ReviewRow label={t('coaching.setup.fields.frequency')} value={`${profile.training_frequency}x`} />
             <ReviewRow label={t('coaching.setup.fields.injuries')} value={profile.injuries_limitations || t('coaching.setup.none')} />
-            <ReviewRow label={t('coaching.setup.fields.diet')} value={labelOf(DIET_TYPES, profile.diet_type)} />
+            <ReviewRow label={t('coaching.setup.fields.diet')} value={optionLabel(t, 'diet', profile.diet_type, labelOf(DIET_TYPES, profile.diet_type))} />
             <ReviewRow
               label={t('coaching.setup.fields.allergies')}
-              value={(profile.food_allergies ?? []).map(a => labelOf(FOOD_ALLERGIES, a)).join(', ') || t('coaching.setup.none')}
+              value={(profile.food_allergies ?? []).map(a => optionLabel(t, 'allergies', a, labelOf(FOOD_ALLERGIES, a))).join(', ') || t('coaching.setup.none')}
             />
             <ReviewRow label={t('coaching.setup.fields.weight')} value={`${profile.weight_kg} → ${profile.target_weight_kg} kg`} />
             <ReviewRow label={t('coaching.setup.fields.sleep')} value={`${profile.sleep_hours_average} h`} />

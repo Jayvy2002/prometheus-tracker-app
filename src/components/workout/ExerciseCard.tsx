@@ -15,6 +15,7 @@ import { SET_TYPES } from '../../lib/constants';
 import Card from '../ui/Card';
 import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
+import { optionLabel } from '../../lib/optionLabels';
 
 interface OverloadResult {
   text: string;
@@ -88,6 +89,7 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 // --- Set Type Picker ---
 
 function SetTypePicker({ currentType, onChange, onClose }: { currentType: string; onChange: (type: SetType) => void; onClose: () => void }) {
+  const { t: tr } = useTranslation();
   const pickerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,7 +114,7 @@ function SetTypePicker({ currentType, onChange, onClose }: { currentType: string
               }`}
           >
             <span className={`w-2 h-2 rounded-full ${t.color.replace('text-', 'bg-')}`} />
-            {t.label}
+            {optionLabel(tr, 'setTypes', t.value, t.label)}
           </button>
         ))}
       </div>

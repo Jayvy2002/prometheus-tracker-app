@@ -52,13 +52,62 @@ export interface CoachAgentInput {
   prompt: string;
   screen: string;
   context: Record<string, unknown>;
+  /** Language of everything the coach / client will read. Follows the caller's UI language. */
+  locale: AgentLocale;
 }
+
+export type AgentLocale = "fr" | "en";
+
+export function parseLocale(raw: unknown): AgentLocale {
+  return asString(raw).toLowerCase().startsWith("en") ? "en" : "fr";
+}
+
+const OUTPUT_LANGUAGE: Record<AgentLocale, string> = {
+  fr: "Langue de sortie : FRANÇAIS, tutoiement. Tu tutoyes le client dans les messages.",
+  en: "OUTPUT LANGUAGE: ENGLISH for everything the coach or the client will read (title, notes, cause, observation, body, program / day names, descriptions). Informal, direct tone with the client.",
+};
+
+const L = {
+  fr: {
+    titleOnboarding: "Programme IA — brouillon",
+    titleNl: "Édition programme — brouillon",
+    titleKcal: "Ajustement calories — brouillon",
+    titleAsk: "Ask Prometheus — brouillon",
+    fallbackNotes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",
+    programDescription: "Brouillon déterministe 3–5 jours / 4–6 exercices. Tu édites, puis tu envoies. Pas de calories.",
+    noviceBase: (who: string) => `Base novice — ${who}`,
+    programDays: (n: number, who: string) => `Programme ${n}j — ${who}`,
+    nlLastSession: "Ajustement léger proposé d’après la dernière séance.",
+    nlRecovery: "Ajustement léger proposé d’après la récupération loggée.",
+    nlExercise: "Ajustement léger proposé d’après la série.",
+    nlDefault: "Ajustement de programme — brouillon à éditer, rien ne s’applique tout seul.",
+    askIncomplete: "L'agent n'a pas pu rédiger un texte complet. Tu édites, puis tu envoies. Rien ne s'applique tout seul.",
+  },
+  en: {
+    titleOnboarding: "AI program — draft",
+    titleNl: "Program edit — draft",
+    titleKcal: "Calorie adjustment — draft",
+    titleAsk: "Ask Prometheus — draft",
+    fallbackNotes: "Deterministic draft (safety net). You edit, then you send. No calories.",
+    programDescription: "Deterministic draft, 3–5 days / 4–6 exercises. You edit, then you send. No calories.",
+    noviceBase: (who: string) => `Novice base — ${who}`,
+    programDays: (n: number, who: string) => `${n}-day program — ${who}`,
+    nlLastSession: "Light adjustment proposed from the last session.",
+    nlRecovery: "Light adjustment proposed from the logged recovery.",
+    nlExercise: "Light adjustment proposed from the set.",
+    nlDefault: "Program adjustment — draft to edit, nothing applies on its own.",
+    askIncomplete: "The agent could not write a complete text. You edit, then you send. Nothing applies on its own.",
+  },
+} as const;
 
 const LESSON_RULE =
   "Les leçons ci-dessous sont des corrections de CE coach. Extraire des patterns stables (ton, tutoiement, Relancer vs changement de cibles, split macros, densité du programme). Ne copie pas une erreur ponctuelle ni un one-off.";
 
+const LANGUAGE_LINE = "__OUTPUT_LANGUAGE__";
+
+/** FR by default; `systemPrompt(locale)` swaps the language line. */
 export const SYSTEM_PROMPT = `Tu es l'agent coach in-app de Prometheus. Tu prépares UN brouillon. Rien ne s'applique tout seul. Le coach accepte ou édite, puis envoie.
-Français, tutoiement. Tu tutoyes le client dans les messages.
+${LANGUAGE_LINE}
 Si "intake" est présent (questionnaire d'accueil rempli par le client), c'est TA source principale pour le programme : respecte lieu, equipement, extras.available_weekdays (0=dimanche … 6=samedi), seancesRealistes, dureeIdeale, niveauActuel, typesExercices, exercicesDetestes, mouvementAEviter, descriptionBlessures. Ne prescris jamais un exercice qui exige un équipement absent de la liste ni un mouvement à éviter.
 intake.medical_flags non vide (condition cardiaque / HTA / douleurs thoraciques, étourdissements, restriction médicale) → programme conservateur, intensité modérée, et une note explicite au coach dans "notes" pour qu'il vérifie avant d'envoyer.
 ISSN reste la formule de l'app — tu n'écrases pas les calories d'onboarding. « Revenir à l'ISSN » = cette formule, pas un seed.
@@ -71,6 +120,10 @@ Nouveau client : onboarding_plan / première semaine, pas un stall.
 Pas de CRM. Pas d'auto-apply.
 ${LESSON_RULE}
 Réponds JSON uniquement, sans markdown.`;
+
+export function systemPrompt(locale: AgentLocale): string {
+  return SYSTEM_PROMPT.replace(LANGUAGE_LINE, OUTPUT_LANGUAGE[locale]);
+}
 
 function kindSchema(kind: string): string {
   if (kind === "onboarding_plan") {
@@ -98,7 +151,7 @@ Si intake est présent : nombre de jours = intake.seancesRealistes (borné 2–6
   "patch": { "exercise": string, "weekday": number|null, "default_sets": number, "default_reps": number, "default_reps_min": number|null, "default_rir": number|null, "replace_with": string } | null,
   "program": { "name": string, "description": string, "duration_weeks": number, "days": [...] } | null
 }
-cause = UNE phrase courte pour le coach (français), jamais du JSON, des logs, ni le prompt brut.
+cause = UNE phrase courte pour le coach (dans la langue de sortie), jamais du JSON, des logs, ni le prompt brut.
 Si l'édition vise UN exercice, remplis patch. Si elle reconstruit le programme, remplis program.`;
   }
   if (kind === "calorie_adjustment") {
@@ -439,12 +492,13 @@ async function fetchCompactProgram(
   };
 }
 
-function titleFor(kind: string, llmTitle: string): string {
+function titleFor(kind: string, llmTitle: string, locale: AgentLocale): string {
   if (llmTitle) return llmTitle;
-  if (kind === "onboarding_plan") return "Programme IA — brouillon";
-  if (kind === "program_nl_edit") return "Édition programme — brouillon";
-  if (kind === "calorie_adjustment") return "Ajustement calories — brouillon";
-  return "Ask Prometheus — brouillon";
+  const l = L[locale];
+  if (kind === "onboarding_plan") return l.titleOnboarding;
+  if (kind === "program_nl_edit") return l.titleNl;
+  if (kind === "calorie_adjustment") return l.titleKcal;
+  return l.titleAsk;
 }
 
 const CREATE_PROGRAM_RE =
@@ -482,6 +536,7 @@ export function fallbackProgramFromProfile(
   profile: Record<string, unknown> | null,
   prompt: string,
   intake: Record<string, unknown> | null = null,
+  locale: AgentLocale = "fr",
 ): Record<string, unknown> {
   const intakeSessions = intakeSessionCount(intake);
   const freq = intakeSessions ?? Math.round(num(profile?.training_frequency, 3));
@@ -519,9 +574,10 @@ export function fallbackProgramFromProfile(
     exercises: day.exercises,
   }));
   const who = asString(profile?.full_name) || "client";
+  const l = L[locale];
   return {
-    name: novice ? `Base novice — ${who}` : `Programme ${dayCount}j — ${who}`,
-    description: "Brouillon déterministe 3–5 jours / 4–6 exercices. Tu édites, puis tu envoies. Pas de calories.",
+    name: novice ? l.noviceBase(who) : l.programDays(dayCount, who),
+    description: l.programDescription,
     duration_weeks: 8,
     days,
   };
@@ -538,11 +594,12 @@ function isHumanCause(value: unknown): boolean {
   return true;
 }
 
-function defaultNlCause(screen: string): string {
-  if (screen === "last_session") return "Ajustement léger proposé d’après la dernière séance.";
-  if (screen === "recovery") return "Ajustement léger proposé d’après la récupération loggée.";
-  if (screen === "exercise_workspace") return "Ajustement léger proposé d’après la série.";
-  return "Ajustement de programme — brouillon à éditer, rien ne s’applique tout seul.";
+function defaultNlCause(screen: string, locale: AgentLocale): string {
+  const l = L[locale];
+  if (screen === "last_session") return l.nlLastSession;
+  if (screen === "recovery") return l.nlRecovery;
+  if (screen === "exercise_workspace") return l.nlExercise;
+  return l.nlDefault;
 }
 
 function buildPayload(
@@ -550,11 +607,11 @@ function buildPayload(
   input: CoachAgentInput,
   llm: Record<string, unknown>,
 ): { title: string; rationale: string; payload: Record<string, unknown> } {
-  const title = titleFor(kind, asString(llm.title));
+  const title = titleFor(kind, asString(llm.title), input.locale);
   const notes = asString(llm.notes) || asString(llm.answer) || asString(llm.body);
   const observation = asString(llm.observation);
   let cause = isHumanCause(llm.cause) ? asString(llm.cause) : "";
-  if (!cause && kind === "program_nl_edit") cause = defaultNlCause(input.screen);
+  if (!cause && kind === "program_nl_edit") cause = defaultNlCause(input.screen, input.locale);
   const body = asString(llm.body) || asString(llm.answer) || notes;
   const program = sanitizeProgram(
     llm.program ?? (Array.isArray(llm.days) ? llm : null),
@@ -594,7 +651,7 @@ function buildPayload(
     payload.fat = nutrition.fat;
   }
   payload.agent_proposed = lessonSnapshot(kind, payload);
-  const rationale = cause || (kind === "program_nl_edit" ? defaultNlCause(input.screen) : notes);
+  const rationale = cause || (kind === "program_nl_edit" ? defaultNlCause(input.screen, input.locale) : notes);
   return { title, rationale, payload };
 }
 
@@ -621,7 +678,7 @@ function fallbackAsk(
   const who = asString(profile?.full_name) || "ce client";
   const text =
     `Brouillon de secours pour ${who} (« ${input.prompt} »). `
-    + "L'agent n'a pas pu rédiger un texte complet. Tu édites, puis tu envoies. Rien ne s'applique tout seul.";
+    + L[input.locale].askIncomplete;
   return buildPayload("ask_prometheus", input, {
     title: `Ask — ${who}`,
     answer: text,
@@ -670,7 +727,7 @@ export async function runCoachAgent(
     ? await openaiJson(
       openaiKey,
       [
-        { role: "system", content: `${SYSTEM_PROMPT}\n${kindSchema(kind)}` },
+        { role: "system", content: `${systemPrompt(input.locale)}\n${kindSchema(kind)}` },
         { role: "user", content: `${formatLessonsForPrompt(lessons)}\n\nDossier + demande:\n${JSON.stringify(userPayload)}` },
       ],
       wantsProgram
@@ -682,10 +739,10 @@ export async function runCoachAgent(
   let built = llm ? buildPayload(kind, input, llm) : null;
   if (!built || !payloadIsReady(kind, built.payload)) {
     if (wantsProgram) {
-      const program = fallbackProgramFromProfile(profile, input.prompt, intake);
+      const program = fallbackProgramFromProfile(profile, input.prompt, intake, input.locale);
       built = buildPayload(kind, input, {
-        title: "Programme IA — brouillon",
-        notes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",
+        title: titleFor(kind, "", input.locale),
+        notes: L[input.locale].fallbackNotes,
         program,
         tracking: {
           track_weight: true,
@@ -702,10 +759,10 @@ export async function runCoachAgent(
 
   if (!payloadIsReady(kind, built.payload)) {
     if (kind === "onboarding_plan" || kind === "program_nl_edit") {
-      const program = fallbackProgramFromProfile(profile, input.prompt, intake);
+      const program = fallbackProgramFromProfile(profile, input.prompt, intake, input.locale);
       built = buildPayload(kind, input, {
-        title: titleFor(kind, ""),
-        notes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",
+        title: titleFor(kind, "", input.locale),
+        notes: L[input.locale].fallbackNotes,
         program,
       });
     } else {
@@ -783,6 +840,7 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
     const programId = asString(body.program_id) || null;
     const screen = asString(body.screen) || "unknown";
     const context = asObject(body.context);
+    const locale = parseLocale(body.locale);
     if (kind === "onboarding_plan" && !clientId) {
       return json(400, { error: "client_id_required" });
     }
@@ -808,6 +866,7 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
       prompt,
       screen,
       context,
+      locale,
     });
 
     await admin.from("ai_usage_logs").insert({

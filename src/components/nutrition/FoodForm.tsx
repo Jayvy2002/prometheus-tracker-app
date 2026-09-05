@@ -17,6 +17,7 @@ import UnifiedScanner from '../scanner/UnifiedScanner';
 import RecipeForm from './RecipeForm';
 import { searchOpenFoodFacts } from '../../lib/openFoodFacts';
 import { kcalFromEnergyValue, normalizeFoodProductEnergy, normalizePer100gKcal, nutritionPortionScale, rescaleNutritionMacros } from '../../lib/foodEnergy';
+import { optionLabel } from '../../lib/optionLabels';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
 
@@ -538,7 +539,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                       : 'bg-neutral-900 text-neutral-400 hover:bg-neutral-800 border border-neutral-800'
                   }`}
                 >
-                  {c.label}
+                  {optionLabel(t, 'meals', c.value, c.label)}
                 </button>
               ))}
             </div>
@@ -552,7 +553,7 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                   <p className="px-3 py-2 rounded-xl bg-neutral-900/60 border border-neutral-800/50 text-white text-sm truncate">{name}</p>
                 </div>
               ) : (
-                <Input label={t('nutrition.foodForm.foodName')} value={name} onChange={e => setName(e.target.value)} placeholder="Chicken breast" />
+                <Input label={t('nutrition.foodForm.foodName')} value={name} onChange={e => setName(e.target.value)} placeholder={t('options.placeholders.foodName')} />
               )}
             </div>
             {selectedProduct?.id && (

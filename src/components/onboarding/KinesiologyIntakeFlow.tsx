@@ -21,6 +21,7 @@ import {
   EXTRA_SCREEN_INDEX,
   EXTRA_SLEEP_OPTIONS,
   FOIS_PAR_SEMAINE_OPTIONS,
+  intakeOptionLabel,
   LIEU_OPTIONS,
   NIVEAU_OPTIONS,
   ORIGINAL_LABELS_EN,
@@ -95,6 +96,13 @@ function TextArea({
   );
 }
 
+/** Stored values stay canonical (FR); only the label shown follows the viewer's language. */
+function useIntakeLabel(): (value: string) => string {
+  const { i18n } = useTranslation();
+  const en = i18n.language.toLowerCase().startsWith('en');
+  return (value: string) => intakeOptionLabel(value, en);
+}
+
 function ChoiceGrid({
   options,
   value,
@@ -104,6 +112,7 @@ function ChoiceGrid({
   value: string;
   onChange: (value: string) => void;
 }) {
+  const label = useIntakeLabel();
   return (
     <div className="grid grid-cols-1 gap-2" role="radiogroup">
       {options.map(opt => {
@@ -121,7 +130,7 @@ function ChoiceGrid({
                 : 'border-neutral-800 bg-neutral-900 text-neutral-200 [@media(hover:hover)]:hover:border-neutral-600'
             }`}
           >
-            {opt}
+            {label(opt)}
           </button>
         );
       })}
@@ -138,6 +147,7 @@ function ChipMulti({
   selected: string[];
   onChange: (value: string[]) => void;
 }) {
+  const label = useIntakeLabel();
   const toggle = (opt: string) => {
     onChange(selected.includes(opt) ? selected.filter(v => v !== opt) : [...selected, opt]);
   };
@@ -154,7 +164,7 @@ function ChipMulti({
               : 'bg-neutral-800/80 text-neutral-400 [@media(hover:hover)]:hover:text-white'
           }`}
         >
-          {opt}
+          {label(opt)}
         </button>
       ))}
     </div>

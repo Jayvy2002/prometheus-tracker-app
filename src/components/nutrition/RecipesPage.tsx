@@ -94,7 +94,7 @@ export default function RecipesPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search recipes..."
+            placeholder={t('recipes.searchPlaceholder')}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
           />
         </div>
