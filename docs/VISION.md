@@ -131,7 +131,7 @@ Constats déjà établis par l'audit base (4 sept., projet `phyuijjekxtjvipjtdfv
 - **Tracking d'un coaché piloté par `client_tracking_config`** : la ligne est créée à l'invitation avec les défauts du coach (tout ON s'il n'a rien réglé), le setup l'affine. Tout OFF uniquement quand la ligne n'existe pas encore (décision (a) du 4 sept.).
 - **Un client = un coach actif** (`coach_client_links.status = 'active'`).
 - **RLS sur toutes les tables**, RPC `SECURITY DEFINER` étroits pour les écritures coach.
-- **new-JV est le produit.** `main` (live `tracker.prometheus-fit.com`) est l'ancien code. Ne pas toucher la base live ni la backup pour tester.
+- **new-JV est le produit et la prod.** Netlify la déploie sur `tracker.prometheus-fit.com` à chaque merge ; le projet Supabase « coaching » est la base de prod — une PR avec migration l'applique avant le merge. `main` est l'ancien tracker solo, abandonné. Pas de test destructif sur la base de prod.
 
 ---
 
