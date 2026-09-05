@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, ClipboardCheck, Scale } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, ClipboardCheck, Scale, ClipboardList } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { isCoachedAthlete } from '../../lib/coachRole';
+import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
 
@@ -153,6 +154,11 @@ export default function ProfilePage() {
           {tracking.track_weight && (
             <button type="button" onClick={() => navigate('/weight')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
               <Scale size={16} className="text-blue-400" /> {t('nav.weight')}
+            </button>
+          )}
+          {!isIntakeAlreadyFilled(profile) && (
+            <button type="button" onClick={() => navigate('/intake')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+              <ClipboardList size={16} className="text-blue-400" /> {t('intake.completeLater')}
             </button>
           )}
         </Card>

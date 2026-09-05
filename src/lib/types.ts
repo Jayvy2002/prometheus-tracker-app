@@ -37,6 +37,8 @@ export interface UserProfile {
   hydration_habit: string;
   supplement_use: string[];
   motivation: string;
+  kinesiology_intake?: Record<string, unknown> | null;
+  kinesiology_intake_completed_at?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
@@ -12,6 +12,14 @@ import AuthPage from './components/auth/AuthPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
 import OnboardingFlow from './components/onboarding/OnboardingFlow';
+import KinesiologyIntakeFlow from './components/onboarding/KinesiologyIntakeFlow';
+import {
+  intakeGateNeedsUsageProbe,
+  shouldForceKinesiologyIntake,
+  type IntakeProbeStatus,
+  type IntakeUsageSignals,
+} from './lib/kinesiologyIntake';
+import { probeIntakeUsage } from './lib/kinesiologyIntakeUsage';
 import Dashboard from './components/dashboard/Dashboard';
 import WorkoutPage from './components/workout/WorkoutPage';
 import WorkoutForm from './components/workout/WorkoutForm';
@@ -79,6 +87,19 @@ function AppRoutes() {
   const { profile, loading: profileLoading, fetchError, fetchProfile, clearProfile } = useProfileStore();
   const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
   const { t } = useTranslation();
+  const [intakeUsage, setIntakeUsage] = useState<IntakeUsageSignals | null>(null);
+  const [intakeProbeStatus, setIntakeProbeStatus] = useState<IntakeProbeStatus>('idle');
+
+  const skipPersonalOnboarding =
+    coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
+  const coachedClient =
+    isCoachedAthlete(coachingRole, myCoach)
+    || coachingRole === 'client';
+  const needsIntakeProbe = !profileLoading && roleReady && intakeGateNeedsUsageProbe({
+    isCoachedClient: coachedClient,
+    isCoach: skipPersonalOnboarding,
+    profile,
+  });
 
   useEffect(() => {
     if (user) {
@@ -101,6 +122,32 @@ function AppRoutes() {
       useCoachingStore.getState().clear();
     }
   }, [user, initialized, fetchProfile, clearProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
+
+  useEffect(() => {
+    if (!user || !needsIntakeProbe) {
+      setIntakeUsage(null);
+      setIntakeProbeStatus('idle');
+      return;
+    }
+    let cancelled = false;
+    setIntakeProbeStatus('pending');
+    void probeIntakeUsage(user.id)
+      .then(signals => {
+        if (!cancelled) {
+          setIntakeUsage(signals);
+          setIntakeProbeStatus('ok');
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIntakeUsage(null);
+          setIntakeProbeStatus('failed');
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, needsIntakeProbe]);
 
   if (authLoading || !initialized) {
     return (
@@ -145,12 +192,32 @@ function AppRoutes() {
     );
   }
 
-  const skipPersonalOnboarding =
-    coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
   const deferClientOnboarding =
-    isCoachedAthlete(coachingRole, myCoach)
-    || coachingRole === 'client'
+    coachedClient
     || (isOnboardingDeferred() && !!myCoach);
+
+  if (needsIntakeProbe && (intakeProbeStatus === 'idle' || intakeProbeStatus === 'pending')) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (shouldForceKinesiologyIntake({
+    isCoachedClient: coachedClient,
+    isCoach: skipPersonalOnboarding,
+    profile,
+    usage: intakeUsage,
+    probeStatus: intakeProbeStatus,
+  })) {
+    return (
+      <Routes>
+        <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="*" element={<KinesiologyIntakeFlow />} />
+      </Routes>
+    );
+  }
 
   if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
@@ -193,6 +260,7 @@ function AppRoutes() {
       </Route>
       <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/recipes" element={<CoachTrackerRedirect><CoachedAthleteRedirect><RecipesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
+      <Route path="/intake" element={<KinesiologyIntakeFlow allowExit />} />
       <Route path="/invite/:token" element={<InvitePage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -2,10 +2,48 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { profileInitials } from './coachChrome';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
+
+test('profile initials use first letters, fallback when empty', () => {
+  assert.equal(profileInitials('Jayvy Coach'), 'JC');
+  assert.equal(profileInitials('Jayvy'), 'J');
+  assert.equal(profileInitials('  '), '?');
+  assert.equal(profileInitials(null), '?');
+});
+
+test('mobile coach chrome: avatar opens /profile, no 6th bottom-nav tab', () => {
+  const layout = src('src/components/layout/AppLayout.tsx');
+  assert.match(layout, /CoachProfileButton/);
+  assert.match(layout, /md:hidden/);
+  assert.match(layout, /isCoach && !location\.pathname\.startsWith\('\/profile'\)/);
+  assert.match(layout, /h-12/);
+  assert.doesNotMatch(layout, /h-0 pointer-events-none/);
+  assert.match(layout, /navigate\('\/profile'\)|CoachProfileButton/);
+
+  const button = src('src/components/layout/CoachProfileButton.tsx');
+  assert.match(button, /navigate\('\/profile'\)/);
+  assert.match(button, /profileInitials/);
+  assert.match(button, /rounded-full/);
+  assert.match(button, /avatar_url/);
+
+  const bottom = src('src/components/layout/BottomNav.tsx');
+  const coachTabs = bottom.slice(
+    bottom.indexOf("coachingRole === 'coach'"),
+    bottom.indexOf(': coached'),
+  );
+  assert.match(coachTabs, /path: '\/dashboard'/);
+  assert.match(coachTabs, /path: '\/clients'/);
+  assert.match(coachTabs, /path: '\/prometheus'/);
+  assert.doesNotMatch(coachTabs, /path: '\/profile'/);
+
+  const side = src('src/components/layout/SideNav.tsx');
+  assert.match(side, /navigate\('\/profile'\)/);
+  assert.match(side, /hidden md:flex/);
+});
 
 test('Today keeps File du jour; drafts live in Messages, not a third inbox', () => {
   const dash = src('src/components/coaching/CoachDashboard.tsx');
