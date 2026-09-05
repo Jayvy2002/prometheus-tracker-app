@@ -598,7 +598,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   const { t } = useTranslation();
   const label = useOriginalLabel();
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, signOut } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
   const { addMeasurement } = useWeightStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -670,8 +670,8 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   return (
     <div className="min-h-screen w-full bg-black">
       <div className="mx-auto w-full max-w-lg px-5 pt-8 pb-32">
-        {allowExit && (
-          <div className="flex justify-end mb-3">
+        <div className="flex justify-end mb-3">
+          {allowExit ? (
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
@@ -679,8 +679,17 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
             >
               {t('intake.later')}
             </button>
-          </div>
-        )}
+          ) : (
+            // The wall has no other way out: someone on the wrong account must be able to leave.
+            <button
+              type="button"
+              onClick={() => void signOut()}
+              className="text-sm text-neutral-500 [@media(hover:hover)]:hover:text-white"
+            >
+              {t('profile.signOut')}
+            </button>
+          )}
+        </div>
         <ProgressBar step={step} total={totalScreens} />
         <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
           {t('onboarding.stepOf', { step: step + 1, total: totalScreens })}

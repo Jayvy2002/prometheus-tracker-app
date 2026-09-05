@@ -606,7 +606,8 @@ export default function Dashboard() {
         </div>
         )}
 
-        {showModule(tracking, 'workouts') && !activityPending && (
+        {/* No weekly target yet (coached athlete waiting for his program) → no « 0/0 » card. */}
+        {showModule(tracking, 'workouts') && !activityPending && trainingTarget > 0 && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

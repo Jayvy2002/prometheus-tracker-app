@@ -1490,6 +1490,7 @@ const fr = {
       copied: 'Lien copié',
       accepted: 'Tu es maintenant coaché par {{name}}',
       authBanner: '{{name}} t’invite. Connecte-toi ou crée un compte pour accepter.',
+      authBannerNoName: 'Ton coach t’invite sur Prometheus. Connecte-toi ou crée un compte pour accepter.',
       errors: {
         invalid: 'Cette invitation n’est pas valide.',
         expired: 'Cette invitation a expiré.',
