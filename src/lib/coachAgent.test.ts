@@ -36,8 +36,7 @@ test('coach-agent paths never ping GROK_BOT_WEBHOOK_URL', () => {
   const fleet = source('supabase/functions/coach-fleet-round/index.ts');
   assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /api\.x\.ai/);
-  assert.match(fleet, /OPENAI_API_KEY/);
-  assert.match(fleet, /fleetCardNeedsLlm/);
+  assert.doesNotMatch(fleet, /OPENAI_API_KEY|openaiJson/);
   const readme = source('README.md');
   assert.doesNotMatch(readme, /GROK_BOT_WEBHOOK_URL \| Second webhook/);
   assert.match(readme, /Do not set `GROK_BOT_WEBHOOK_URL`/);
@@ -140,9 +139,9 @@ test('keep_in_touch edits write the same lessons table as other Relancer cards',
   });
   assert.equal(shouldRecordLesson(proposed, accepted), true);
   assert.equal(lessonFromEdit({ kind: 'keep_in_touch', proposed, accepted }).kind, 'keep_in_touch');
-  const fleet = source('supabase/functions/coach-fleet-round/index.ts');
-  assert.match(fleet, /formatLessonsForPrompt/);
-  assert.match(fleet, /keep_in_touch/);
+  // Lessons feed coach-agent (the only LLM caller); the fleet still emits keep_in_touch cards.
+  assert.match(source('supabase/functions/_shared/coachAgent.ts'), /formatLessonsForPrompt/);
+  assert.match(source('supabase/functions/coach-fleet-round/index.ts'), /kind: "keep_in_touch"/);
 });
 
 test('Marc still Relancer-first — calorie cut is not the lever', () => {
@@ -181,7 +180,7 @@ test('Marc still Relancer-first — calorie cut is not the lever', () => {
     fleet_handled: [],
   };
   assert.equal(classifyFleetDossier(marc, TODAY), 'adherence_nutrition');
-  const card = buildFleetCard(marc, TODAY, 'off');
+  const card = buildFleetCard(marc, TODAY);
   assert.ok(card);
   assert.equal(card?.kind, 'adherence_nutrition');
   assert.equal(card?.payload.calories, undefined);

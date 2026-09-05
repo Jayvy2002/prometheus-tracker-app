@@ -138,7 +138,7 @@ supabase/
 
 - **L'IA prépare, l'humain décide.** `coach-agent` et `coach-fleet-round` écrivent uniquement des `coach_interventions` `pending`. Apply = action UI du coach (Envoyer). Copilote solo : `SoloWeeklyReview` propose, la seule écriture vers les cibles est `soloCopilotStore.decide('accepted')` — le tap du solo.
 - **Pas de Grok Bots, pas de Second.** Un seul invoke IA côté coach : `COACH_AGENT_FUNCTION = 'coach-agent'`.
-- **Fleet :** triage SQL cheap (`triage_coach_fleet`, agrégats 14 j), Relancer si non assidu, kcal+P/C/F complets sinon, LLM seulement pour `program_adjustment`.
+- **Fleet :** triage SQL cheap (`triage_coach_fleet`, agrégats 14 j), Relancer si non assidu, kcal+P/C/F complets sinon. 100 % déterministe, pas d'appel LLM. Les textes FR/EN sont dans `supabase/functions/_shared/fleetCopy.ts`, partagés avec le miroir `src/lib/coachFleet.ts` ; la langue vient de `user_profiles.language` du coach.
 - **Rôle client uniquement via `accept_coach_invite`.** Coach et solo s'inscrivent librement.
 - **Macros d'un coaché : écriture coach-only** (RPC `coach_set_client_nutrition_targets` + trigger). Le calcul automatique au setup est un chantier ouvert (voir VISION), le verrou d'écriture reste.
 - **Tracking coaché piloté par `client_tracking_config`** : ligne créée à l'invitation avec les défauts du coach, affinée au setup ; `ALL_OFF_TRACKING` seulement sans ligne ; `TrackingGate` sur les routes.

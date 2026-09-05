@@ -3,16 +3,17 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
+  FLEET_COPY,
+} from '../../supabase/functions/_shared/fleetCopy.ts';
+import {
   buildFleetCard,
   classifyFleetDossier,
   completeMacrosFor,
-  fleetCardNeedsLlm,
   fleetEvidenceFromDossier,
   isCompleteCalorieDraft,
   isRelanceKind,
   planFleetRoundCard,
   proposeWeeklyNutrition,
-  sanitizeLlmCard,
   WEEKLY_LARGE_KCAL,
   WEEKLY_SMALL_KCAL,
 } from './coachFleet';
@@ -71,13 +72,13 @@ test('Marc — off-goal and not following nutrition → Relancer, never a calori
     weight_kg: 95.4,
   });
   assert.equal(classifyFleetDossier(marc, TODAY), 'adherence_nutrition');
-  const card = buildFleetCard(marc, TODAY, 'off');
+  const card = buildFleetCard(marc, TODAY);
   assert.ok(card);
   assert.equal(card?.kind, 'adherence_nutrition');
   assert.match(card?.title || '', /2200/);
   assert.equal(card?.payload.calories, undefined);
   assert.ok(typeof card?.payload.body === 'string' && String(card.payload.body).length > 20);
-  assert.equal(card?.payload.ai_off, true);
+  assert.equal(card?.payload.ai_off, undefined);
   const calories = parseCalories(card?.payload);
   assert.equal(isCompleteCalorieDraft(calories), false);
   assert.doesNotMatch(JSON.stringify(card?.payload), /descends à 2000|macros 0/i);
@@ -98,7 +99,7 @@ test('adherent + stall → calorie_adjustment with complete macros (never 2000/0
     workout_count: 8,
   });
   assert.equal(classifyFleetDossier(row, TODAY), 'stall_adherent');
-  const card = buildFleetCard(row, TODAY, 'off');
+  const card = buildFleetCard(row, TODAY);
   assert.ok(card);
   assert.equal(card?.kind, 'calorie_adjustment');
   const cals = parseCalories(card?.payload);
@@ -149,7 +150,7 @@ test('Camille on-track + silent 10d → keep_in_touch, not stall, not calories',
     last_coach_message_at: '2026-08-19',
   });
   assert.equal(classifyFleetDossier(camille, TODAY), 'on_track');
-  const card = buildFleetCard(camille, TODAY, 'off');
+  const card = buildFleetCard(camille, TODAY);
   assert.ok(card);
   assert.equal(card?.kind, 'keep_in_touch');
   assert.equal(card?.flag, 'keep_in_touch');
@@ -225,7 +226,7 @@ test('Sofia ghost → Relancer, not nutrition, not fake recovery numbers', () =>
     linked_days: 50,
   });
   assert.equal(classifyFleetDossier(sofia, TODAY), 'ghost');
-  const card = buildFleetCard(sofia, TODAY, 'off');
+  const card = buildFleetCard(sofia, TODAY);
   assert.ok(card);
   assert.equal(card?.kind, 'adherence_training');
   assert.equal(card?.flag, 'ghost');
@@ -255,7 +256,7 @@ test('Alex new client → onboarding_plan / setup, not a stall', () => {
     weight_end_kg: null,
   });
   assert.equal(classifyFleetDossier(alex, TODAY), 'onboarding');
-  const card = buildFleetCard(alex, TODAY, 'off');
+  const card = buildFleetCard(alex, TODAY);
   assert.equal(card?.kind, 'onboarding_plan');
   assert.notEqual(card?.kind, 'calorie_adjustment');
 });
@@ -284,7 +285,7 @@ test('Alex first week with a program and 0 séances → setup, not missed traini
     weight_delta_kg: -0.2,
   });
   assert.equal(classifyFleetDossier(alex, TODAY), 'onboarding');
-  const card = buildFleetCard(alex, TODAY, 'off');
+  const card = buildFleetCard(alex, TODAY);
   assert.equal(card?.kind, 'onboarding_plan');
   assert.match(card?.title || '', /première semaine/i);
   assert.notEqual(card?.kind, 'adherence_training');
@@ -369,19 +370,19 @@ test('coaching-copy 5-client calibration: Marc Relancer, Sofia ghost, Camille/L�
     training_frequency: 5,
   });
   assert.equal(classifyFleetDossier(marc, TODAY), 'adherence_nutrition');
-  assert.equal(buildFleetCard(marc, TODAY, 'off')?.kind, 'adherence_nutrition');
-  assert.match(buildFleetCard(marc, TODAY, 'off')?.title || '', /2200/);
-  assert.notEqual(buildFleetCard(marc, TODAY, 'off')?.kind, 'keep_in_touch');
+  assert.equal(buildFleetCard(marc, TODAY)?.kind, 'adherence_nutrition');
+  assert.match(buildFleetCard(marc, TODAY)?.title || '', /2200/);
+  assert.notEqual(buildFleetCard(marc, TODAY)?.kind, 'keep_in_touch');
   assert.equal(classifyFleetDossier(camille, TODAY), 'on_track');
-  assert.equal(buildFleetCard(camille, TODAY, 'off')?.kind, 'keep_in_touch');
+  assert.equal(buildFleetCard(camille, TODAY)?.kind, 'keep_in_touch');
   assert.equal(classifyFleetDossier(sofia, TODAY), 'ghost');
-  assert.equal(buildFleetCard(sofia, TODAY, 'off')?.kind, 'adherence_training');
-  assert.notEqual(buildFleetCard(sofia, TODAY, 'off')?.kind, 'keep_in_touch');
+  assert.equal(buildFleetCard(sofia, TODAY)?.kind, 'adherence_training');
+  assert.notEqual(buildFleetCard(sofia, TODAY)?.kind, 'keep_in_touch');
   assert.equal(classifyFleetDossier(lea, TODAY), 'on_track');
-  assert.equal(buildFleetCard(lea, TODAY, 'off')?.kind, 'keep_in_touch');
+  assert.equal(buildFleetCard(lea, TODAY)?.kind, 'keep_in_touch');
 });
 
-test('LLM cannot turn keep_in_touch into a calorie or adherence card', () => {
+test('the round writes every draft in the coach language — EN coach gets EN copy, FR stays default', () => {
   const camille = dossier({
     client_id: 'camille-id',
     full_name: 'Camille Roux',
@@ -395,17 +396,51 @@ test('LLM cannot turn keep_in_touch into a calorie or adherence card', () => {
     weight_delta_kg: -1.9,
     last_coach_message_at: null,
   });
-  const sanitized = sanitizeLlmCard({
-    kind: 'calorie_adjustment',
-    title: 'Coupe les calories',
-    body: 'Salut Camille, descends à 1700 kcal, tu stagnes.',
-    nutrition: { calories: 1700, protein: 140, carbs: 150, fat: 50 },
-  }, camille, TODAY);
-  assert.ok(sanitized);
-  assert.equal(sanitized?.kind, 'keep_in_touch');
-  assert.equal(sanitized?.flag, 'keep_in_touch');
-  assert.doesNotMatch(String(sanitized?.payload.body), /kcal|stagne|descends/i);
-  assert.equal(sanitized?.payload.calories, undefined);
+  const fr = buildFleetCard(camille, TODAY);
+  const en = buildFleetCard(camille, TODAY, 'en');
+  assert.equal(fr?.kind, 'keep_in_touch');
+  assert.equal(en?.kind, 'keep_in_touch');
+  assert.equal(fr?.title, 'Prendre des nouvelles de Camille');
+  assert.equal(en?.title, 'Check in with Camille');
+  assert.match(String(fr?.payload.body), /^Salut Camille/);
+  assert.match(String(en?.payload.body), /^Hey Camille/);
+  assert.doesNotMatch(String(en?.payload.body), /kcal|calories|stall/i);
+
+  const marc = dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 13,
+    avg_calories: 2850,
+    avg_adherence_nutrition: 2,
+    weight_delta_kg: 0.5,
+  });
+  const marcEn = buildFleetCard(marc, TODAY, 'en');
+  assert.equal(marcEn?.kind, 'adherence_nutrition');
+  assert.equal(marcEn?.title, 'Not hitting the 2200');
+  assert.match(String(marcEn?.payload.body), /^Hey Marc, your logs are clearly above the 2200 kcal/);
+  assert.match(marcEn?.observation || '', /^Target 2200 kcal/);
+  assert.equal(marcEn?.payload.template_key, 'missed_checkins');
+  // Same rules, same numbers — only the words change.
+  const marcFr = buildFleetCard(marc, TODAY, 'fr');
+  assert.equal(marcFr?.kind, marcEn?.kind);
+  assert.equal(marcFr?.flag, marcEn?.flag);
+  assert.equal(marcFr?.payload.current_calories, marcEn?.payload.current_calories);
+});
+
+test('fleet copy: FR and EN dictionaries expose the same keys and the edge reads user_profiles.language', () => {
+  const keysOf = (obj: unknown, prefix = ''): string[] => {
+    if (!obj || typeof obj !== 'object') return [prefix];
+    return Object.entries(obj as Record<string, unknown>).flatMap(([k, v]) =>
+      typeof v === 'function' ? [`${prefix}${k}`] : keysOf(v, `${prefix}${k}.`));
+  };
+  assert.deepEqual(keysOf(FLEET_COPY.en).sort(), keysOf(FLEET_COPY.fr).sort());
+  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  assert.match(fleet, /from "\.\.\/_shared\/fleetCopy\.ts"/);
+  assert.match(fleet, /fetchCoachLocales/);
+  assert.match(fleet, /select\("id, language"\)/);
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905000001_user_language.sql'), 'utf8');
+  assert.match(sql, /ADD COLUMN IF NOT EXISTS language/);
 });
 
 test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
@@ -415,7 +450,7 @@ test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
   assert.match(sql, /sender_id = m\.coach_id/);
   assert.match(sql, /last_keep_in_touch_at/);
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
-  assert.match(fleet, /kind keep_in_touch/);
+  assert.match(fleet, /kind: "keep_in_touch"/);
   assert.doesNotMatch(fleet, /Si ça va : tu ne dois pas être appelé/);
 });
 
@@ -459,7 +494,7 @@ test('after dismiss/send, a second round of the same snapshot produces 0 new pen
     weight_delta_kg: -1.9,
     last_coach_message_at: '2026-08-19',
   });
-  const first = [marc, sofia, camille].map((d) => planFleetRoundCard(d, TODAY, 'off'));
+  const first = [marc, sofia, camille].map((d) => planFleetRoundCard(d, TODAY));
   assert.deepEqual(first.map((p) => p.action), ['insert', 'insert', 'insert']);
   assert.equal(first[0]?.card?.kind, 'adherence_nutrition');
   assert.equal(first[1]?.card?.kind, 'adherence_training');
@@ -481,7 +516,7 @@ test('after dismiss/send, a second round of the same snapshot produces 0 new pen
       }],
     });
   });
-  const second = handled.map((d) => planFleetRoundCard(d, TODAY, 'off'));
+  const second = handled.map((d) => planFleetRoundCard(d, TODAY));
   assert.equal(second.filter((p) => p.action !== 'skip').length, 0);
   assert.ok(second.every((p) => p.card === null));
 });
@@ -496,7 +531,7 @@ test('pending fleet card is refreshed in place, not duplicated', () => {
     avg_adherence_nutrition: 2,
     pending_fleet: true,
   });
-  const plan = planFleetRoundCard(marc, TODAY, 'off');
+  const plan = planFleetRoundCard(marc, TODAY);
   assert.equal(plan.action, 'upsert');
   assert.equal(plan.card?.kind, 'adherence_nutrition');
 });
@@ -518,7 +553,7 @@ test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot 
     handled_at: TODAY,
     evidence: fleetEvidenceFromDossier(marc),
   }];
-  assert.equal(planFleetRoundCard(dossier({ ...marc, fleet_handled: handled }), TODAY, 'off').action, 'skip');
+  assert.equal(planFleetRoundCard(dossier({ ...marc, fleet_handled: handled }), TODAY).action, 'skip');
   const nextWeek = dossier({
     ...marc,
     logged_nutrition_days: 14,
@@ -526,7 +561,7 @@ test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot 
     last_nutrition_at: '2026-08-29',
     fleet_handled: handled,
   });
-  assert.equal(planFleetRoundCard(nextWeek, TODAY, 'off').action, 'insert');
+  assert.equal(planFleetRoundCard(nextWeek, TODAY).action, 'insert');
 });
 
 test('upsert SQL never reopens sent/dismissed fleet rows', () => {
@@ -585,7 +620,7 @@ test('cut stall (flat) → small reduction, not a generic −150', () => {
   assert.equal(proposal.reason, 'cut_stall');
   assert.equal(proposal.draft?.calories, 2200 - WEEKLY_SMALL_KCAL);
   assert.equal(isCompleteCalorieDraft(proposal.draft), true);
-  const card = buildFleetCard(row, TODAY, 'off');
+  const card = buildFleetCard(row, TODAY);
   assert.equal(card?.kind, 'calorie_adjustment');
   assert.equal(card?.payload.reason, 'cut_stall');
   assert.equal(card?.payload.calories, 2100);
@@ -631,7 +666,7 @@ test('fatigue on a followed cut → more carbs, same calories, not another cut',
   assert.ok((proposal.draft?.carbs ?? 0) > 200);
   assert.ok((proposal.draft?.fat ?? 0) < 70);
   assert.equal(isCompleteCalorieDraft(proposal.draft), true);
-  const card = buildFleetCard(row, TODAY, 'off');
+  const card = buildFleetCard(row, TODAY);
   assert.equal(card?.kind, 'calorie_adjustment');
   assert.equal(card?.payload.reason, 'carb_support');
   assert.equal(card?.payload.calories, 2200);
@@ -695,13 +730,10 @@ test('normal cut loss → keep, no calorie_adjustment (keep-in-touch only if sil
   assert.equal(buildFleetCard(camille, TODAY), null);
 });
 
-test('fleetCardNeedsLlm is only for program copy — Relancer and kcal stay deterministic', () => {
-  assert.equal(fleetCardNeedsLlm('program_adjustment'), true);
-  assert.equal(fleetCardNeedsLlm('calorie_adjustment'), false);
-  assert.equal(fleetCardNeedsLlm('adherence_nutrition'), false);
-  assert.equal(fleetCardNeedsLlm('adherence_training'), false);
-  assert.equal(fleetCardNeedsLlm('keep_in_touch'), false);
-  assert.equal(fleetCardNeedsLlm('onboarding_plan'), false);
+test('the round is 100 % deterministic — no LLM call, no OpenAI key, no ai_off flag', () => {
+  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  assert.doesNotMatch(fleet, /openaiJson|OPENAI_API_KEY|fleetCardNeedsLlm|SYSTEM_PROMPT|fetchCoachLessons/);
+  assert.match(fleet, /MODEL_USED = "deterministic"/);
   const marc = buildFleetCard(dossier({
     client_id: 'marc-id',
     full_name: 'Marc Bouchard',
@@ -710,9 +742,11 @@ test('fleetCardNeedsLlm is only for program copy — Relancer and kcal stay dete
     avg_calories: 2850,
     avg_adherence_nutrition: 2,
     weight_delta_kg: 0.5,
-  }), TODAY, 'off');
+  }), TODAY);
   assert.ok(marc);
-  assert.equal(fleetCardNeedsLlm(marc!.kind), false);
+  assert.equal(marc?.payload.ai_off, undefined);
+  const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
+  assert.doesNotMatch(readme, /program_adjustment` seulement/);
 });
 
 test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', () => {
@@ -729,13 +763,11 @@ test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', 
 
 test('architecture lock: weekly review is in-app, not Grok Bots or Second', () => {
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
-  assert.match(fleet, /fleetCardNeedsLlm/);
-  assert.match(fleet, /llm_skipped_deterministic/);
   assert.match(fleet, /DO NOT create Grok Bots/);
   assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /XAI_API_KEY|GROK_API_KEY|api\.x\.ai/);
-  const llmGate = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
-  assert.match(llmGate, /fleetCardNeedsLlm\(card\.kind\) && apiKey/);
+  const loop = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
+  assert.match(loop, /planWrite\(d, today, localeByCoach\.get\(d\.coach_id\) \?\? "fr"\)/);
   const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
   assert.match(readme, /Do \*\*not\*\* create Grok Bots/);
   assert.doesNotMatch(readme, /XAI_API_KEY/);
