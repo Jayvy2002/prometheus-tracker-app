@@ -137,7 +137,12 @@ function fromAlert(
   };
 }
 
-export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRosterSignals): CoachPriority[] {
+/** `today` is injectable so fixtures with fixed dates stay green regardless of the wall clock. */
+export function buildCoachPriorities(
+  opsRows: ClientOpsRow[],
+  signals: CoachRosterSignals,
+  today: string = todayStr(),
+): CoachPriority[] {
   const items: CoachPriority[] = [];
 
   for (const row of opsRows) {
@@ -147,9 +152,9 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
     const prev = checkins[1] ?? null;
 
     if (latest) {
-      const pain = painPriority(row.client.id, name, row.client.avatar_url, latest, prev, todayStr());
+      const pain = painPriority(row.client.id, name, row.client.avatar_url, latest, prev, today);
       if (pain) items.push(pain);
-      const sleep = lowSleepPriority(row.client.id, name, row.client.avatar_url, latest, todayStr());
+      const sleep = lowSleepPriority(row.client.id, name, row.client.avatar_url, latest, today);
       if (sleep) items.push(sleep);
       const adh = adherencePriority(row.client.id, name, row.client.avatar_url, latest, prev);
       if (adh) items.push(withCheckin(adh, latest));
@@ -157,7 +162,7 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
 
     items.push(...stallPriority(row, signals.lifts));
 
-    const nutrition = nutritionStallPriority(row, signals, todayStr());
+    const nutrition = nutritionStallPriority(row, signals, today);
     if (nutrition) {
       items.push(nutrition);
     } else {
@@ -171,12 +176,12 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
       items.push(fromAlert(row, 'program_unassigned', 'program_unassigned', 'orange', 'overview'));
     }
 
-    const logged = sessionLoggedPriority(row, signals.lifts, todayStr());
+    const logged = sessionLoggedPriority(row, signals.lifts, today);
     if (logged) items.push(logged);
 
     if (row.alerts.includes('missing_workout_week') || row.alerts.includes('missing_workout_today')) {
       const weekMissed = row.alerts.includes('missing_workout_week');
-      const picked = pickDefaultLift(liftsForClient(signals.lifts, row.client.id), { today: todayStr() });
+      const picked = pickDefaultLift(liftsForClient(signals.lifts, row.client.id), { today });
       items.push({
         ...fromAlert(
           row,
@@ -202,7 +207,7 @@ export function buildCoachPriorities(opsRows: ClientOpsRow[], signals: CoachRost
     const clientLifts = liftsForClient(signals.lifts, row.client.id);
     const stalledHere = clientLifts.some(l => l.stalled);
     if (stalledHere && row.hasProgram) {
-      const focus = clientLifts.find(l => l.stalled) ?? pickDefaultLift(clientLifts, { today: todayStr() });
+      const focus = clientLifts.find(l => l.stalled) ?? pickDefaultLift(clientLifts, { today });
       items.push({
         id: `${row.client.id}-adapt`,
         clientId: row.client.id,

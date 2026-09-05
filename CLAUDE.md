@@ -64,7 +64,7 @@ src/
 │   ├── layout/                # AppLayout, BottomNav, SideNav, FAB, CoachProfileButton
 │   ├── ui/                    # Button, Input, Card, Modal, Toast, ScoreSlider…
 │   ├── auth/                  # AuthPage (3 portes : coach / client invité / solo), ResetPasswordPage
-│   ├── onboarding/            # OnboardingFlow (tracker, calcul macros), KinesiologyIntakeFlow + Review (27 q)
+│   ├── onboarding/            # KinesiologyIntakeFlow + Review (27 q, reprise, cibles solo) ; OnboardingFlow = legacy tracker
 │   ├── coaching/              # Côté coach : CoachDashboard, CoachTodayQueue, ClientsPage, ClientDetailPage (360),
 │   │                          #   ClientSetupPage, InterventionDraftPage, CoachInboxPage, AskPrometheusPage,
 │   │                          #   ProgramSessionEditor, CoachSettingsPanel, TrackingGate, InvitePage…
@@ -119,7 +119,7 @@ supabase/
 |---|---|---|
 | `*` (déconnecté) | AuthPage | Public |
 | `/invite/:token` | InvitePage | Public |
-| `/intake` | KinesiologyIntakeFlow | Client coaché (mur pour les nouveaux invités) |
+| `/intake` | KinesiologyIntakeFlow | Athlète — mur pour tout nouveau compte (solo ou invité), reprenable ; le solo finit sur ses cibles |
 | `/dashboard` | CoachDashboard / Dashboard | Tous |
 | `/clients`, `/clients/:id`, `/clients/:id/setup`, `/clients/:id/draft/:id`, `/inbox/:id` | Console coach | CoachOnly |
 | `/prometheus` | AskPrometheusPage | CoachOnly |
