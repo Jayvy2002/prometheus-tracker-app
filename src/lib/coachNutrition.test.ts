@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildCoachPriorities } from './coachPriorities';
+import { buildCoachPriorities, commandStats } from './coachPriorities';
 import { groupQueueByClient, resolveQueueAction } from './coachQueue';
 import {
   canAskCalorieAdjustment,
@@ -14,6 +14,7 @@ import type {
   ClientOpsRow,
   CoachClientSummary,
   CoachIntervention,
+  CoachPriority,
   CoachRosterSignals,
   DailyCheckin,
   NutritionLogSnapshot,
@@ -312,4 +313,17 @@ test('File du jour weight item also deep-links to Progression, not overview', ()
   assert.ok(weightItem);
   assert.equal(weightItem?.href, '/clients/lea-id?tab=progress');
   assert.equal(isProgressHref(weightItem?.href ?? ''), true);
+});
+
+test('needAttention counts clients with a red or orange item — yellow is context, not a call to act', () => {
+  const base = { avatarUrl: '', headlineKey: '', detailKey: '', href: '' };
+  const priorities: CoachPriority[] = [
+    { ...base, id: 'a', clientId: 'marc', clientName: 'Marc', kind: 'stalled_lift', severity: 'orange' },
+    { ...base, id: 'b', clientId: 'marc', clientName: 'Marc', kind: 'session_logged', severity: 'yellow' },
+    { ...base, id: 'c', clientId: 'sofia', clientName: 'Sofia', kind: 'session_logged', severity: 'yellow' },
+    { ...base, id: 'd', clientId: 'lea', clientName: 'Léa', kind: 'new_pain', severity: 'red' },
+  ];
+  const stats = commandStats([], priorities, emptySignals());
+  assert.equal(stats.needAttention, 2);
+  assert.equal(stats.important, 1);
 });

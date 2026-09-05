@@ -2,10 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   composeItemsInGroup,
+  draftQueueItems,
   groupQueueByClient,
   lastMessageForClient,
   nextClientNames,
   parseNudgeQuery,
+  queueItemLabelKey,
   relanceHrefForGroup,
   relanceThreadHref,
   resolveQueueAction,
@@ -182,4 +184,65 @@ test('File du jour draft CTA opens the editor with from=today, not the 360', () 
   const action = resolveQueueAction(stalled, [draft]);
   assert.equal(action.kind, 'open_draft');
   assert.equal(action.href, '/clients/lea/draft/draft-nl?from=today');
+});
+
+function pendingDraft(partial: Partial<CoachIntervention> & Pick<CoachIntervention, 'id' | 'client_id' | 'kind'>): CoachIntervention {
+  return {
+    coach_id: 'coach',
+    title: null,
+    rationale: 'Tournée : 9 jours sans nouvelle.',
+    payload: {},
+    status: 'pending',
+    source: 'fleet',
+    created_at: '2026-08-29T00:00:00Z',
+    updated_at: '2026-08-29T00:00:00Z',
+    resolved_at: null,
+    ...partial,
+  };
+}
+
+function client(id: string, name: string): CoachClientSummary {
+  return { id, full_name: name, email: `${id}@x.io`, avatar_url: null } as unknown as CoachClientSummary;
+}
+
+test('one list: a fleet draft with no local priority becomes a File du jour item for that client', () => {
+  const clients = [client('sofia', 'Sofia'), client('lea', 'Léa Martin')];
+  const stalled = item({ id: 'stall-1', clientId: 'lea', clientName: 'Léa Martin', kind: 'stalled_lift' });
+  const pending = [
+    pendingDraft({ id: 'kit-1', client_id: 'sofia', kind: 'keep_in_touch', title: 'Sofia — reprendre contact' }),
+    pendingDraft({ id: 'kcal-1', client_id: 'lea', kind: 'calorie_adjustment' }),
+  ];
+  const drafts = draftQueueItems(pending, [stalled], clients);
+
+  // Léa's kcal draft is already the badge on her stalled_lift → no duplicate row.
+  assert.deepEqual(drafts.map(d => d.interventionId), ['kit-1']);
+  const sofia = drafts[0];
+  assert.equal(sofia.kind, 'draft_pending');
+  assert.equal(sofia.clientId, 'sofia');
+  assert.equal(sofia.severity, 'yellow');
+  assert.equal(sofia.href, '/clients/sofia/draft/kit-1?from=today');
+  assert.equal(queueItemLabelKey(sofia), 'coaching.queue.items.draft_pending');
+  assert.equal(sofia.headlineParams?.title, 'Sofia — reprendre contact');
+
+  // Untitled draft → falls back to the kind label; kcal/onboarding rank orange.
+  const untitled = draftQueueItems([pendingDraft({ id: 'kcal-2', client_id: 'sofia', kind: 'calorie_adjustment' })], [], clients)[0];
+  assert.equal(queueItemLabelKey(untitled), 'coaching.interventions.kinds.calorie_adjustment');
+  assert.equal(untitled.severity, 'orange');
+
+  // The synthetic item resolves to its own draft, grouped with the rest of the client's items.
+  const action = resolveQueueAction(sofia, pending);
+  assert.equal(action.kind, 'open_draft');
+  assert.equal(action.interventionId, 'kit-1');
+  const groups = groupQueueByClient([stalled, ...drafts]);
+  assert.deepEqual(groups.map(g => g.clientId), ['lea', 'sofia']);
+});
+
+test('drafts for unknown clients or non-pending rows never enter the queue', () => {
+  const clients = [client('sofia', 'Sofia')];
+  const rows = [
+    pendingDraft({ id: 'gone', client_id: 'ghost', kind: 'keep_in_touch' }),
+    pendingDraft({ id: 'sent', client_id: 'sofia', kind: 'keep_in_touch', status: 'sent' }),
+    pendingDraft({ id: 'coach-only', client_id: null, kind: 'new_question' }),
+  ];
+  assert.deepEqual(draftQueueItems(rows, [], clients), []);
 });

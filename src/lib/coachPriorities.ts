@@ -1,5 +1,6 @@
 import { needsSetup } from './coachAlerts';
 import { checkinFocusHref, checkinReviewRows } from './coachCheckins';
+import { adherenceOnFive } from './coachFleet';
 import { nutritionStallFocusHref, nutritionStallPriority, normalizeGoal } from './coachNutrition';
 import { displayName } from './coachText';
 import { liftsForClient } from './coachLifts';
@@ -49,9 +50,11 @@ function weightsFor(signals: CoachRosterSignals, clientId: string): WeightMeasur
 }
 
 function adherencePriority(clientId: string, name: string, avatar: string, latest: DailyCheckin, prev: DailyCheckin | null): CoachPriority | null {
-  const now = latest.adherence_training;
-  if (now == null || prev?.adherence_training == null) return null;
-  const drop = prev.adherence_training - now;
+  // Stored as % (or legacy 0–5) → compare on the fleet's /5 scale.
+  const now = adherenceOnFive(latest.adherence_training);
+  const before = adherenceOnFive(prev?.adherence_training);
+  if (now == null || before == null) return null;
+  const drop = before - now;
   if (drop < 2) return null;
   return {
     id: `${clientId}-adherence`,
@@ -63,7 +66,7 @@ function adherencePriority(clientId: string, name: string, avatar: string, lates
     headlineKey: 'coaching.priority.headlines.dropped_adherence',
     headlineParams: { name },
     detailKey: 'coaching.priority.details.dropped_adherence',
-    detailParams: { from: prev.adherence_training, to: now },
+    detailParams: { from: before, to: now },
     href: hrefFor(clientId, 'checkins'),
   };
 }
@@ -239,7 +242,8 @@ export function commandStats(
   priorities: CoachPriority[],
   signals: CoachRosterSignals,
 ): CoachCommandStats {
-  const attentionIds = new Set(priorities.map(p => p.clientId));
+  // "Who needs me today": red or orange only — yellow is context, not a call to act.
+  const attentionIds = new Set(priorities.filter(p => p.severity !== 'yellow').map(p => p.clientId));
   return {
     activeClients: opsRows.length,
     needAttention: attentionIds.size,
