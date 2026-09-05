@@ -153,12 +153,14 @@ export default function WorkoutPage() {
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
         <h1 className="text-2xl font-bold text-white">{t('workout.title')}</h1>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/exercise-progress')}
-            className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-          >
-            <TrendingUp size={18} />
-          </button>
+          {!coached && (
+            <button
+              onClick={() => navigate('/exercise-progress')}
+              className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
+            >
+              <TrendingUp size={18} />
+            </button>
+          )}
           <Button onClick={() => navigate('/workout/new')} size="sm">
             <Plus size={16} /> {t('common.new')}
           </Button>

@@ -1,6 +1,7 @@
 /**
  * Quarantined 2026-08-31. Do not mutate user_roles from Stripe.
- * Coaching product is free. Do not build Premium.
+ * Prometheus is free while the product is being built. Billing is "not now",
+ * not "never" — see docs/VISION.md before reviving this.
  */
 Deno.serve(() =>
   new Response(JSON.stringify({ error: "gone", reason: "billing_quarantined" }), {

@@ -21,8 +21,6 @@ export interface UserProfile {
   avatar_url: string;
   language?: string;
   onboarding_completed: boolean;
-  dashboard_layout: DashboardWidget[];
-  health_integrations: Record<string, HealthIntegration>;
   diet_type: string;
   food_allergies: string[];
   meals_per_day: number;
@@ -42,25 +40,6 @@ export interface UserProfile {
   created_at: string;
   updated_at: string;
 }
-
-export interface HealthIntegration {
-  connected: boolean;
-  last_synced: string | null;
-  provider: string;
-}
-
-export interface DashboardWidget {
-  id: string;
-  type: WidgetType;
-  title: string;
-  config: Record<string, unknown>;
-  size: 'small' | 'medium' | 'large';
-  order: number;
-  row?: number;
-  col?: number;
-}
-
-export type WidgetType = 'weight' | 'calories' | 'macros' | 'water' | 'workout_volume' | 'exercise_progress' | 'steps' | 'streak' | 'weekly_goal';
 
 export interface Workout {
   id: string;
@@ -277,22 +256,6 @@ export interface DailySteps {
   steps: number;
   logged_at: string;
   created_at: string;
-}
-
-export type SubscriptionTier = 'free' | 'premium';
-export type SubscriptionStatus = 'active' | 'trialing' | 'past_due' | 'canceled' | 'inactive';
-
-export interface Subscription {
-  id: string;
-  user_id: string;
-  stripe_customer_id: string | null;
-  stripe_subscription_id: string | null;
-  tier: SubscriptionTier;
-  status: SubscriptionStatus;
-  current_period_end: string | null;
-  cancel_at_period_end: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ProductRequest {
@@ -552,7 +515,6 @@ export interface CoachTrackingDefaultsJson {
 export interface CoachSettings {
   coach_id: string;
   visible_tabs: CoachClientTab[];
-  queue_mode_default: boolean;
   nudge_templates: CoachNudgeTemplateSet;
   default_tracking: CoachTrackingDefaultsJson;
   timezone: string;

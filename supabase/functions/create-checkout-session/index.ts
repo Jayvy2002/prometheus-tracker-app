@@ -1,6 +1,7 @@
 /**
- * Quarantined 2026-08-31. Prometheus coaching is free. Do not call.
- * Do not build Premium. Billing stays off until Jayvy is no longer the only coach.
+ * Quarantined 2026-08-31. Do not call.
+ * Prometheus is free while the product is being built. Billing is "not now",
+ * not "never" — see docs/VISION.md before reviving this.
  */
 function corsHeaders(req: Request) {
   const siteUrl = Deno.env.get("SITE_URL");

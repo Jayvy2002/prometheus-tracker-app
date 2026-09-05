@@ -702,8 +702,8 @@ export default function Dashboard() {
         </div>
         )}
 
-        {/* Quick actions */}
-        {!activityPending && (
+        {/* Quick actions — /stats and /exercise-progress are solo-only routes (CoachedAthleteRedirect) */}
+        {!activityPending && !hasCoach && (
         <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
           <button
             onClick={() => navigate('/stats')}

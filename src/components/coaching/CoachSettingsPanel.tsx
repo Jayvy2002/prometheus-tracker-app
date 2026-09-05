@@ -64,7 +64,6 @@ export default function CoachSettingsPanel() {
     setSaving(true);
     const result = await saveCoachSettings({
       visible_tabs: tabs,
-      queue_mode_default: true,
       nudge_templates: templates,
       default_tracking: serializeTrackingVars(defaults),
       timezone,

@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type {
-  AiPlanDraft,
   ClientOpsRow,
   ClientTrackingConfig,
   CoachingRole,
@@ -25,14 +24,13 @@ import type {
   ProgressPhoto,
   ProgressPhotoKind,
   UserProfile,
-  UserRole,
   WaterLog,
   WeightMeasurement,
   Workout,
   WorkoutExercise,
   WorkoutSet,
 } from '../lib/types';
-import { mapInterventionRow, parseOnboardingPlanDraft, type ProgramOutlineDraft } from '../lib/coachInterventions';
+import { mapInterventionRow, type ProgramOutlineDraft } from '../lib/coachInterventions';
 import { functionsErrorBody, functionsHttpStatus } from '../lib/supabaseFunctions';
 import {
   COACH_REALTIME_POLL_MS,
@@ -271,7 +269,6 @@ let clientRealtimeChannel: RealtimeChannel | null = null;
 
 interface CoachingState {
   coachingRole: CoachingRole;
-  billingRole: UserRole['role'] | null;
   roleReady: boolean;
   coachingRoleError: string | null;
   loading: boolean;
@@ -335,7 +332,7 @@ interface CoachingState {
   markCoachMessageRead: (id: string) => Promise<void>;
   markThreadRead: (clientId: string) => Promise<void>;
   fetchCoachSettings: () => Promise<void>;
-  saveCoachSettings: (patch: Partial<Pick<CoachSettings, 'visible_tabs' | 'queue_mode_default' | 'nudge_templates' | 'default_tracking' | 'timezone' | 'missed_workout_cutoff_hour'>>) => Promise<{ error: string | null }>;
+  saveCoachSettings: (patch: Partial<Pick<CoachSettings, 'visible_tabs' | 'nudge_templates' | 'default_tracking' | 'timezone' | 'missed_workout_cutoff_hour'>>) => Promise<{ error: string | null }>;
   fetchClientNutritionRange: (clientId: string, start: string, end: string, calorieTarget: number) => Promise<DailyNutritionPoint[]>;
   fetchClientLiftHistory: (clientId: string) => Promise<ClientLiftProgress[]>;
   fetchProgressPhotos: (userId: string) => Promise<ProgressPhoto[]>;
@@ -356,9 +353,6 @@ interface CoachingState {
     status: Extract<CoachInterventionStatus, 'sent' | 'dismissed' | 'kept'>,
     payload?: Record<string, unknown>,
   ) => Promise<{ error: string | null }>;
-  suggestClientPlan: (clientId: string) => Promise<
-    { available: true; draft: AiPlanDraft } | { available: false; error: string }
-  >;
   askCoachAgent: (input: {
     kind: SecondPingKind;
     clientId?: string | null;
@@ -407,7 +401,6 @@ interface CoachingState {
 
 export const useCoachingStore = create<CoachingState>((set, get) => ({
   coachingRole: 'none',
-  billingRole: null,
   roleReady: false,
   coachingRoleError: null,
   loading: false,
@@ -459,7 +452,6 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       persistRememberedCoachingRole(userId, role);
       set({
         coachingRole: role,
-        billingRole: (data as UserRole | null)?.role ?? 'free',
         roleReady: true,
         coachingRoleError: null,
         ...(role === 'client'
@@ -1073,7 +1065,6 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const payload = {
       coach_id: user.id,
       visible_tabs: patch.visible_tabs ?? current.visible_tabs,
-      queue_mode_default: patch.queue_mode_default ?? current.queue_mode_default,
       nudge_templates: patch.nudge_templates ?? current.nudge_templates,
       default_tracking: patch.default_tracking ?? current.default_tracking,
       timezone: patch.timezone ?? current.timezone,
@@ -1259,13 +1250,6 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
     }));
     return { error: null };
-  },
-
-  suggestClientPlan: async (clientId) => {
-    const stored = await get().fetchOnboardingPlanDraft(clientId);
-    const parsed = stored ? parseOnboardingPlanDraft(stored.payload) : null;
-    if (parsed) return { available: true, draft: parsed };
-    return { available: false, error: 'ai_unavailable' };
   },
 
   askCoachAgent: async (input) => {
@@ -1836,7 +1820,6 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     get().stopClientRealtime();
     set({
       coachingRole: 'none',
-      billingRole: null,
       roleReady: false,
       coachingRoleError: null,
       clients: [],
