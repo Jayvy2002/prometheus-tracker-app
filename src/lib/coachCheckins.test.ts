@@ -18,6 +18,10 @@ import type {
   DailyCheckin,
 } from './types';
 
+// Fixtures are dated 2026-08-28/29; the recency windows (7 d) must be judged from that day, not from
+// the machine clock, or these tests turn red on their own once the fixtures age past the window.
+const TODAY = '2026-08-29';
+
 function checkin(partial: Partial<DailyCheckin> & Pick<DailyCheckin, 'id' | 'user_id'>): DailyCheckin {
   return {
     checked_at: '2026-08-28',
@@ -110,6 +114,7 @@ test('File du jour pain/adherence items deep-link to Santé for pain, Check-ins 
   const priorities = buildCoachPriorities(
     [ops(marie)],
     signals([latest, prev]),
+    TODAY,
   );
   const pain = priorities.find(p => p.kind === 'new_pain');
   assert.ok(pain);
@@ -130,7 +135,7 @@ test('CHECK-INS À RELIRE lists the latest unread check-in; Relancer is the #21 
   const rows = checkinReviewRows(
     [ops(marie)],
     signals([latest]),
-    buildCoachPriorities([ops(marie)], signals([latest, checkin({ id: 'ck-old', user_id: 'marie-id', joint_pain: 1 })])),
+    buildCoachPriorities([ops(marie)], signals([latest, checkin({ id: 'ck-old', user_id: 'marie-id', joint_pain: 1 })]), TODAY),
   );
   assert.equal(rows.length, 1);
   assert.equal(rows[0]?.checkin.id, 'ck-unread');
@@ -158,7 +163,7 @@ test('missed check-in without any submitted check-in is not a review row', () =>
   const rows = checkinReviewRows(
     [ops(sofia, ['missing_checkin'])],
     signals([]),
-    buildCoachPriorities([ops(sofia, ['missing_checkin'])], signals([])),
+    buildCoachPriorities([ops(sofia, ['missing_checkin'])], signals([]), TODAY),
   );
   assert.equal(rows.length, 0);
 });
@@ -175,7 +180,7 @@ test('a pain check-in already visited is not in CHECK-INS À RELIRE', () => {
   const rows = checkinReviewRows(
     [ops(marie)],
     signals([latest]),
-    buildCoachPriorities([ops(marie)], signals([latest, checkin({ id: 'ck-old', user_id: 'marie-id', joint_pain: 1 })])),
+    buildCoachPriorities([ops(marie)], signals([latest, checkin({ id: 'ck-old', user_id: 'marie-id', joint_pain: 1 })]), TODAY),
   );
   assert.equal(rows.length, 0);
 });
