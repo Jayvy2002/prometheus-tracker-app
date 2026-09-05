@@ -18,7 +18,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import { parseProgramPatch } from '../../lib/coachInterventions';
 import ExercisePicker from '../workout/ExercisePicker';
-import SecondDraftingCard from './SecondDraftingCard';
+import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -276,7 +276,7 @@ export default function ProgramSessionEditor({
       </form>
       {nlError && <p className="text-[11px] text-amber-300 -mt-1">{nlError}</p>}
       {nlRow && (isInterventionDrafting(nlRow) || interventionDraftError(nlRow)) && (
-        <SecondDraftingCard
+        <AgentDraftingCard
           row={nlRow}
           retrying={nlSending}
           onRetry={interventionDraftError(nlRow) ? () => void requestNl() : undefined}

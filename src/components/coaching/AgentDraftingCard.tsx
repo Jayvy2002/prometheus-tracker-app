@@ -5,7 +5,7 @@ import { interventionDraftError } from '../../lib/coachSecond';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 
-export default function SecondDraftingCard({
+export default function AgentDraftingCard({
   row,
   onRetry,
   retrying,

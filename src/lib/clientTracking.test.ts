@@ -90,12 +90,23 @@ test('a coach who only wants sleep + humeur hides the rest of the check-in', () 
       stress: false,
       soreness: false,
       joint_pain: false,
+      adherence_training: false,
+      adherence_nutrition: false,
       notes: false,
     },
   });
   assert.deepEqual(visibleCheckinFields(cfg), ['sleep_hours', 'sleep_quality', 'mood']);
   assert.equal(showCheckinField(cfg, 'joint_pain'), false);
   assert.equal(checkinHasAnyField(cfg), true);
+});
+
+test('configs saved before adherence existed show the two adherence sliders by default', () => {
+  // The fleet and the 360 read adherence_*; a legacy config must not starve them.
+  const cfg = parseResolvedTracking({
+    track_checkins: true,
+    checkin_vars: { sleep_hours: true, sleep_quality: false, energy: false, mood: false, motivation: false, hunger: false, fatigue: false, stress: false, soreness: false, joint_pain: false, notes: false },
+  });
+  assert.deepEqual(visibleCheckinFields(cfg), ['sleep_hours', 'adherence_training', 'adherence_nutrition']);
 });
 
 test('disabling check-ins hides the whole form even if flags are on', () => {

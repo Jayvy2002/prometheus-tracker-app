@@ -385,7 +385,9 @@ export type CoachPriorityKind =
   | 'session_logged'
   | 'program_adapt'
   | 'onboarding_incomplete'
-  | 'program_unassigned';
+  | 'program_unassigned'
+  /** A fleet/agent draft waiting for the coach, with no matching local priority. */
+  | 'draft_pending';
 
 export type CoachClientTab =
   | 'overview'
@@ -413,6 +415,7 @@ export interface CoachPriority {
   exerciseName?: string;
   checkinId?: string;
   workoutId?: string;
+  interventionId?: string;
 }
 
 export type CheckinReviewKind = 'unread' | 'new_pain' | 'dropped_adherence' | 'missed_checkin';

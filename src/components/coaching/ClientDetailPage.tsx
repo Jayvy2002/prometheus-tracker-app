@@ -387,7 +387,7 @@ export default function ClientDetailPage() {
       clientId: id,
       kind: 'program_adjustment',
       title: assignment.program.name,
-      rationale: '',
+      rationale: t('coaching.interventions.openedFromFileRationale'),
       payload: { program: outline, name: outline.name, description: outline.description, duration_weeks: outline.duration_weeks, days: outline.days },
     });
     setOpeningProgram(false);
@@ -805,10 +805,10 @@ export default function ClientDetailPage() {
               <NutritionStallPanel
                 relanceHref={relanceHref}
                 draftHref={progressDraftHref}
-                canAskSecond={false}
+                canAskAgent={false}
                 asking={askingCalories}
                 liveDraft={pendingForClient(pendingInterventions, id, 'adherence_nutrition') ?? calorieDraft}
-                onAskSecond={() => { void handleAskCalories(); }}
+                onAskAgent={() => { void handleAskCalories(); }}
               />
             )}
             {photos.length > 0 && (

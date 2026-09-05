@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ClipboardCheck } from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
 import {
+  draftQueueItems,
   groupQueueByClient,
   lastMessageForClient,
   matchingPendingIntervention,
@@ -31,10 +32,12 @@ export default function CoachTodayQueue() {
     priorities, pendingInterventions, clients, queueDismissedIds, sentMessages, dismissQueueItems,
   } = useCoachingStore();
 
-  const groups = useMemo(
-    () => groupQueueByClient(visibleQueueItems(priorities, queueDismissedIds, clients, todayStr())),
-    [priorities, queueDismissedIds, clients],
-  );
+  const groups = useMemo(() => {
+    const dismissed = new Set(queueDismissedIds);
+    const local = visibleQueueItems(priorities, queueDismissedIds, clients, todayStr());
+    const drafts = draftQueueItems(pendingInterventions, priorities, clients).filter(item => !dismissed.has(item.id));
+    return groupQueueByClient([...local, ...drafts]);
+  }, [priorities, pendingInterventions, queueDismissedIds, clients]);
 
   if (groups.length === 0) {
     return (
@@ -91,8 +94,8 @@ export default function CoachTodayQueue() {
                           >
                             <span className="text-[11px] leading-5 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
                             <span className="text-xs text-neutral-300 min-w-0">
-                              {t(queueItemLabelKey(item.kind), item.headlineParams)}
-                              {draft ? (
+                              {t(queueItemLabelKey(item), item.headlineParams)}
+                              {draft && item.kind !== 'draft_pending' ? (
                                 <span className="text-blue-400"> · {t('coaching.queue.draftBadge')}</span>
                               ) : null}
                             </span>

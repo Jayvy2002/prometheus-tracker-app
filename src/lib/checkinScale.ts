@@ -95,3 +95,16 @@ export function formatCheckinScore(
   if (row && !isLegacyFiveScaleCheckin(row)) return `${shown}/${CHECKIN_SCORE_MAX}`;
   return shown;
 }
+
+/** Adherence is stored as a percentage (0–100) — the fleet and the 360 read it that way. */
+export function adherencePercentFromScore(score: number | null | undefined): number | null {
+  const n = clampCheckinScore(score);
+  return n == null ? null : n * (100 / CHECKIN_SCORE_MAX);
+}
+
+export function adherenceScoreFromPercent(percent: number | null | undefined): number | null {
+  if (percent == null || !Number.isFinite(percent)) return null;
+  // Legacy rows may hold a 0–5 rating instead of a percentage.
+  const pct = percent <= 5 ? percent * 20 : percent;
+  return clampCheckinScore(pct / (100 / CHECKIN_SCORE_MAX));
+}

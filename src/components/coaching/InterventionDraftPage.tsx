@@ -33,7 +33,7 @@ import { formatPrescription } from '../../lib/programNl';
 import { todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
 import ProgramDraftEditor from './ProgramDraftEditor';
-import SecondDraftingCard from './SecondDraftingCard';
+import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
@@ -382,7 +382,7 @@ export default function InterventionDraftPage() {
               </button>
             ) : null}
           </div>
-          <SecondDraftingCard
+          <AgentDraftingCard
             row={row}
             retrying={retrying}
             onRetry={interventionDraftError(row) ? async () => {

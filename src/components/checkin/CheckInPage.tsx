@@ -19,6 +19,7 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import type { DailyCheckinInput } from '../../lib/types';
 import ScoreSlider from './ScoreSlider';
+import { adherencePercentFromScore, adherenceScoreFromPercent } from '../../lib/checkinScale';
 
 const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: string }> = {
   sleep_quality: { field: 'sleep_quality', low: 'poor', high: 'excellent' },
@@ -30,6 +31,8 @@ const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: st
   stress: { field: 'stress', low: 'calm', high: 'overwhelmed' },
   muscle_soreness: { field: 'muscle_soreness', low: 'none', high: 'severe' },
   joint_pain: { field: 'joint_pain', low: 'none', high: 'severe' },
+  adherence_training: { field: 'adherence_training', low: 'none', high: 'perfect' },
+  adherence_nutrition: { field: 'adherence_nutrition', low: 'none', high: 'perfect' },
 };
 
 export default function CheckInPage() {
@@ -52,6 +55,8 @@ export default function CheckInPage() {
     stress: null,
     muscle_soreness: null,
     joint_pain: null,
+    adherence_training: null,
+    adherence_nutrition: null,
   });
 
   useEffect(() => {
@@ -72,6 +77,8 @@ export default function CheckInPage() {
       stress: todayCheckin.stress,
       muscle_soreness: todayCheckin.muscle_soreness,
       joint_pain: todayCheckin.joint_pain,
+      adherence_training: adherenceScoreFromPercent(todayCheckin.adherence_training),
+      adherence_nutrition: adherenceScoreFromPercent(todayCheckin.adherence_nutrition),
     });
   }, [todayCheckin]);
 
@@ -98,6 +105,8 @@ export default function CheckInPage() {
       joint_pain: clampCheckinScore(scales.joint_pain),
       energy_level: clampCheckinScore(scales.energy_level),
       mood: clampCheckinScore(scales.mood),
+      adherence_training: adherencePercentFromScore(scales.adherence_training),
+      adherence_nutrition: adherencePercentFromScore(scales.adherence_nutrition),
     };
     for (const [varKey, col] of Object.entries(CHECKIN_SCALE_BY_VAR)) {
       if (!col) continue;

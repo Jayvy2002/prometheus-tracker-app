@@ -52,6 +52,9 @@ export function matchingPendingIntervention(
   priority: CoachPriority,
   pending: CoachIntervention[],
 ): CoachIntervention | null {
+  if (priority.kind === 'draft_pending') {
+    return pending.find(row => row.id === priority.interventionId) ?? null;
+  }
   const kinds = INTERVENTION_KINDS_FOR_PRIORITY[priority.kind];
   if (!kinds?.length) return null;
   return pending.find(row => row.client_id === priority.clientId && kinds.includes(row.kind)) ?? null;
@@ -132,8 +135,8 @@ export function isComposeQueueKind(kind: CoachPriorityKind): boolean {
   return COMPOSE_KINDS.has(kind);
 }
 
-export function queueItemLabelKey(kind: CoachPriorityKind): string {
-  return `coaching.queue.items.${kind}`;
+export function queueItemLabelKey(item: Pick<CoachPriority, 'kind' | 'headlineKey'>): string {
+  return item.kind === 'draft_pending' ? item.headlineKey : `coaching.queue.items.${item.kind}`;
 }
 
 function worstSeverity(items: CoachPriority[]): CoachPrioritySeverity {
@@ -231,6 +234,56 @@ export function visibleQueueItems(
     if (nudgedToday.has(item.clientId) && COMPOSE_KINDS.has(item.kind)) return false;
     return true;
   });
+}
+
+const DRAFT_QUEUE_SEVERITY: Partial<Record<CoachInterventionKind, CoachPrioritySeverity>> = {
+  onboarding_plan: 'orange',
+  calorie_adjustment: 'orange',
+};
+
+export function draftQueueItemId(interventionId: string): string {
+  return `draft:${interventionId}`;
+}
+
+/**
+ * Fleet/agent drafts that no local priority already points at, as queue items —
+ * so the File du jour is the single "who needs me today" list, not two lists.
+ * Drafts already matched by a priority stay a badge on that priority.
+ */
+export function draftQueueItems(
+  pending: CoachIntervention[],
+  priorities: CoachPriority[],
+  clients: CoachClientSummary[],
+): CoachPriority[] {
+  const byClient = new Map(clients.map(c => [c.id, c] as const));
+  const covered = new Set(
+    priorities
+      .map(p => matchingPendingIntervention(p, pending)?.id ?? null)
+      .filter((id): id is string => Boolean(id)),
+  );
+  return pending
+    .filter(row =>
+      row.client_id
+      && row.status === 'pending'
+      && !covered.has(row.id)
+      && byClient.has(row.client_id))
+    .map(row => {
+      const client = byClient.get(row.client_id!)!;
+      const title = row.title?.trim() ?? '';
+      return {
+        id: draftQueueItemId(row.id),
+        clientId: client.id,
+        clientName: client.full_name || client.email || '',
+        avatarUrl: client.avatar_url ?? '',
+        kind: 'draft_pending' as const,
+        severity: DRAFT_QUEUE_SEVERITY[row.kind] ?? 'yellow',
+        headlineKey: title ? 'coaching.queue.items.draft_pending' : `coaching.interventions.kinds.${row.kind}`,
+        headlineParams: { title },
+        detailKey: '',
+        href: interventionHref(row, { from: 'today' }),
+        interventionId: row.id,
+      };
+    });
 }
 
 export function mapCoachMessage(raw: Record<string, unknown>): CoachMessage | null {

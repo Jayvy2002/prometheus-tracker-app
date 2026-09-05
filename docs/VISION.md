@@ -106,8 +106,8 @@ Avant de nouveaux chantiers, **finir correctement ce qui existe**, en trois axes
 
 Constats déjà établis par l'audit base (4 sept., projet `phyuijjekxtjvipjtdfv`) :
 - La base est à la migration `prometheus_p0_flow_fixes` (1er sept.) : **`kinesiology_intake`, `product_events`, `solo_weekly_reviews` ne sont pas appliquées**. Les PR #43 → #47 ne tournent nulle part encore.
-- Dérive : la base a deux migrations absentes du repo (`coach_fleet_triage_and_marc_seed`, `fix_triage_client_id_ambiguous`) et `notify_onboarding_signed_ping` appliquée deux fois.
-- **La tournée nocturne est muette depuis le 1er septembre** : le cron tourne, mais `FLEET_CRON_SECRET` n'existe pas dans le vault (seul `GROK_BOT_WEBHOOK_SECRET` y est), donc `invoke_coach_fleet_round()` sort en WARNING sans appeler la fonction. Dernière tournée enregistrée : 31 août.
+- Les migrations en base portent d'autres numéros que le repo (ré-horodatées le 24 août) ; les deux « absentes » (`coach_fleet_triage_and_marc_seed`, `fix_triage_client_id_ambiguous`) sont des versions de `triage_coach_fleet` couvertes par les migrations du repo — pas une dérive de schéma. Les migrations #43 → #49 ont été appliquées le 5 sept. (idempotentes : `db push` peut les rejouer).
+- ~~**La tournée nocturne est muette depuis le 1er septembre**~~ — corrigé le 5 sept. : `FLEET_CRON_SECRET` créé dans le vault + secrets Edge, tournée `cron` enregistrée à 02:19 (5 clients, déterministe).
 - Usage réel : 1 coach, 5 clients liés (seedés, 0 invitation), 19 séances complétées, 47 jours de nutrition, 8 check-ins, 10 brouillons dont **0 envoyé**, 0 message coach, 0 photo, 0 note. Le produit n'a pas encore été utilisé avec de vrais clients.
 
 ---
