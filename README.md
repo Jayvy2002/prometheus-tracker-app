@@ -5,7 +5,7 @@
 **Vision produit, rôles, chantiers :** [`docs/VISION.md`](docs/VISION.md) — à lire avant de toucher au produit.
 **Règles pour les agents / devs :** [`CLAUDE.md`](CLAUDE.md).
 
-`new-JV` est le produit. `main` (live [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com)) est l'ancien code.
+`new-JV` est le produit **et la prod** : Netlify la déploie automatiquement sur [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com) à chaque merge. `main` est l'ancien tracker solo, abandonné. Un merge sur `new-JV` = un déploiement live.
 
 ---
 
@@ -135,6 +135,8 @@ npm test          # src/lib/*.test.ts
 ---
 
 ## Deployment (Netlify)
+
+**Prod = `new-JV`.** Chaque merge sur `new-JV` déclenche un build Netlify et remplace le live `tracker.prometheus-fit.com` ; les PR ont un deploy-preview. La base Supabase associée (projet « coaching ») est la base de prod : ses migrations sont appliquées à la main (`supabase db push` ou MCP), pas par Netlify — une PR qui ajoute une migration doit l'appliquer **avant** le merge.
 
 `netlify.toml` contient build + redirects SPA. Les variables non secrètes sont dans `.env.production`. Les secrets serveur vont dans **Supabase Dashboard → Edge Functions → Secrets**.
 
