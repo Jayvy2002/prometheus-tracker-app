@@ -45,6 +45,18 @@ Deno.serve(async (req: Request) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
+    const prefix = user.id;
+    for (const bucket of ["avatars", "product-images", "progress-photos"]) {
+      const { data: entries } = await adminClient.storage.from(bucket).list(prefix, { limit: 1000 });
+      const paths = (entries ?? [])
+        .map((entry) => entry.name)
+        .filter(Boolean)
+        .map((name) => `${prefix}/${name}`);
+      if (paths.length > 0) {
+        await adminClient.storage.from(bucket).remove(paths);
+      }
+    }
+
     const { error: deleteError } =
       await adminClient.auth.admin.deleteUser(user.id);
 

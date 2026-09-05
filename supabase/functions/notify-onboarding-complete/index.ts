@@ -44,10 +44,10 @@ Deno.serve(async (req: Request) => {
 
   const expected = (Deno.env.get("NOTIFY_SECRET") ?? Deno.env.get("GROK_BOT_WEBHOOK_SECRET") ?? "").trim();
   if (!expected) {
-    return empty(204);
+    return json(500, { error: "NOTIFY_SECRET missing" });
   }
   if (!secretsEqual(incomingSecret(req), expected)) {
-    return empty(401);
+    return json(401, { error: "unauthorized" });
   }
 
   let payload: Record<string, unknown> = {};

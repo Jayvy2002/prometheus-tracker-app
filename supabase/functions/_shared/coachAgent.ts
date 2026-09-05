@@ -327,7 +327,10 @@ async function fetchDossier(
   clientId: string | null,
 ): Promise<Record<string, unknown> | null> {
   if (!clientId) return null;
-  const { data } = await admin.rpc("triage_coach_fleet", { p_coach_id: coachId });
+  const { data } = await admin.rpc("triage_coach_fleet", {
+    p_coach_id: coachId,
+    p_client_id: clientId,
+  });
   const rows = Array.isArray(data) ? data : [];
   for (const row of rows) {
     const r = asObject(row);
@@ -843,6 +846,15 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
     const locale = parseLocale(body.locale);
     if (kind === "onboarding_plan" && !clientId) {
       return json(400, { error: "client_id_required" });
+    }
+
+    if (clientId) {
+      const { data: linked } = await userClient.rpc("is_coach_of", { p_client_id: clientId });
+      if (!linked) return json(403, { error: "not_your_client" });
+    }
+    if (programId) {
+      const { data: program } = await userClient.from("programs").select("id").eq("id", programId).maybeSingle();
+      if (!program) return json(404, { error: "program_not_found" });
     }
 
     const admin = createClient(supabaseUrl, serviceKey);

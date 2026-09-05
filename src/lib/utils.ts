@@ -13,9 +13,50 @@ export function calculateTDEE(bmr: number, activityLevel: string): number {
   return Math.round(bmr * (level?.multiplier ?? 1.55));
 }
 
-export function calculateCalorieTarget(tdee: number, goal: string): number {
+const ACTIVITY_RANK = ['sedentary', 'light', 'moderate', 'active', 'very_active'] as const;
+type ActivityRank = (typeof ACTIVITY_RANK)[number];
+
+function asActivityRank(value: string | null | undefined): ActivityRank | null {
+  return ACTIVITY_RANK.includes(value as ActivityRank) ? (value as ActivityRank) : null;
+}
+
+/** Harris-Benedict band from weekly sessions (occupation is a bump on top, not a replacement). */
+export function activityLevelFromSessions(sessions: number): ActivityRank {
+  if (!Number.isFinite(sessions) || sessions <= 0) return 'sedentary';
+  if (sessions <= 2) return 'light';
+  if (sessions <= 4) return 'moderate';
+  if (sessions <= 6) return 'active';
+  return 'very_active';
+}
+
+export function higherActivityLevel(a: string, b: string): ActivityRank {
+  const ia = ACTIVITY_RANK.indexOf(asActivityRank(a) ?? 'moderate');
+  const ib = ACTIVITY_RANK.indexOf(asActivityRank(b) ?? 'moderate');
+  return ACTIVITY_RANK[Math.max(ia, ib)];
+}
+
+/**
+ * Training days set the Harris-Benedict band. A physical job bumps one level.
+ * Sitting / standing never *replace* the training band (that underfed desk athletes ~900 kcal).
+ */
+export function activityLevelFromTrainingAndOccupation(
+  sessions: number,
+  occupation?: string | null,
+): ActivityRank {
+  let level = activityLevelFromSessions(sessions);
+  if (occupation === 'physical') {
+    const i = ACTIVITY_RANK.indexOf(level);
+    level = ACTIVITY_RANK[Math.min(ACTIVITY_RANK.length - 1, i + 1)];
+  }
+  return level;
+}
+
+/** Goal modifier on TDEE, never below BMR when BMR is known. */
+export function calculateCalorieTarget(tdee: number, goal: string, bmr = 0): number {
   const g = GOALS.find(g => g.value === goal);
-  return Math.round(tdee + (g?.modifier ?? 0));
+  const raw = Math.round(tdee + (g?.modifier ?? 0));
+  const floor = bmr > 0 ? Math.round(bmr) : 0;
+  return Math.max(floor, raw);
 }
 
 /**
@@ -82,15 +123,14 @@ export function calculateEnhancedTDEE(
   dailyStepsAverage: number,
   trainingFrequency: number,
 ): number {
-  const level = ACTIVITY_LEVELS.find(l => l.value === activityLevel);
+  const effective = higherActivityLevel(activityLevel, activityLevelFromSessions(trainingFrequency));
+  const level = ACTIVITY_LEVELS.find(l => l.value === effective);
   const baseMultiplier = level?.multiplier ?? 1.55;
 
   const stepsAbove5k = Math.max(0, dailyStepsAverage - 5000);
   const neatBonus = stepsAbove5k * 0.04;
 
-  const trainingBonus = trainingFrequency > 4 ? 50 : 0;
-
-  return Math.round(bmr * baseMultiplier + neatBonus + trainingBonus);
+  return Math.round(bmr * baseMultiplier + neatBonus);
 }
 
 export function calculateWaterTarget(
@@ -239,7 +279,7 @@ export function issnTargetsFromProfile(profile: Pick<
     profile.daily_steps_average,
     profile.training_frequency,
   );
-  const calories = calculateCalorieTarget(tdee, profile.goal);
+  const calories = calculateCalorieTarget(tdee, profile.goal, bmr);
   const macros = calculateMacros(calories, profile.goal, profile.diet_type, profile.weight_kg);
   const water = calculateWaterTarget(
     profile.weight_kg,

@@ -56,6 +56,14 @@ test('coached tracking default is off until fetch; invite seeds the row', () => 
   assert.match(sql, /setup_completed_at IS NOT NULL/);
 });
 
+test('resolveIntervention only touches pending rows and reports already_resolved', () => {
+  const store = src('src/stores/coachingStore.ts');
+  const fn = store.slice(store.indexOf('resolveIntervention: async'), store.indexOf('askCoachAgent: async'));
+  assert.match(fn, /\.eq\('status', 'pending'\)/);
+  assert.match(fn, /\.select\('id'\)/);
+  assert.match(fn, /already_resolved/);
+});
+
 test('single coach-agent invoke — no ask-second alias, no suggest-client-plan', () => {
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /COACH_AGENT_FUNCTION/);

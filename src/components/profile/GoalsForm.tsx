@@ -49,8 +49,8 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
     const age = profile.date_of_birth ? getAge(profile.date_of_birth) : 25;
     const bmr = calculateBMR(profile.weight_kg, profile.height_cm, age, profile.gender);
     const tdee = calculateTDEE(bmr, profile.activity_level);
-    const calories = calculateCalorieTarget(tdee, goal);
-    const macros = calculateMacros(calories, goal, profile.diet_type, profile.weight_kg);
+    const calorieTarget = calculateCalorieTarget(tdee, goal, bmr);
+    const macros = calculateMacros(calorieTarget, goal, profile.diet_type, profile.weight_kg);
 
     const rawWeight = +targetWeight || 0;
     const targetKg = profile.unit_weight === 'lbs' ? rawWeight / 2.20462 : rawWeight;
@@ -60,7 +60,7 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
       target_weight_kg: targetKg,
       daily_water_target_ml: water,
       daily_steps_target: steps,
-      daily_calorie_target: calories,
+      daily_calorie_target: calorieTarget,
       protein_target: macros.protein,
       carbs_target: macros.carbs,
       fat_target: macros.fat,

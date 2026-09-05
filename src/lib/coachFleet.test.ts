@@ -437,8 +437,10 @@ test('fleet copy: FR and EN dictionaries expose the same keys and the edge reads
   assert.deepEqual(keysOf(FLEET_COPY.en).sort(), keysOf(FLEET_COPY.fr).sort());
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   assert.match(fleet, /from "\.\.\/_shared\/fleetCopy\.ts"/);
-  assert.match(fleet, /fetchCoachLocales/);
+  assert.match(fleet, /fetchCoachContext/);
   assert.match(fleet, /select\("id, language"\)/);
+  assert.match(fleet, /coach_settings/);
+  assert.match(fleet, /todayInTimeZone/);
   const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905000001_user_language.sql'), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS language/);
 });
@@ -597,7 +599,7 @@ function latestTriageCoachFleetSql(): { file: string; fn: string } {
 
 test('the latest triage_coach_fleet definition emits every dossier key the edge parses', () => {
   const { file, fn } = latestTriageCoachFleetSql();
-  assert.equal(file, '20260905000002_triage_coach_fleet_restore_cooldown.sql');
+  assert.equal(file, '20260906000001_audit_hardening.sql');
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   const iface = fleet.slice(fleet.indexOf('interface Dossier {'), fleet.indexOf('interface FleetEvidence'));
   const keys = [...iface.matchAll(/^\s+([a-z_]+):/gm)].map((m) => m[1]);
@@ -613,6 +615,8 @@ test('the latest triage_coach_fleet definition emits every dossier key the edge 
   assert.match(fn, /'fleet_handled', COALESCE\(h\.fleet_handled, '\[\]'::jsonb\)/);
   assert.match(fn, /WHERE m\.sender_id = m\.coach_id/);
   assert.match(fn, /WHERE ci\.kind = 'keep_in_touch'/);
+  assert.match(fn, /p_client_id uuid DEFAULT NULL/);
+  assert.match(fn, /p_client_id IS NULL OR ccl\.client_id = p_client_id/);
 });
 
 test('triage_coach_fleet qualifies handled_agg columns so PL/pgSQL does not treat client_id as OUT', () => {
@@ -803,7 +807,7 @@ test('architecture lock: weekly review is in-app, not Grok Bots or Second', () =
   assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /XAI_API_KEY|GROK_API_KEY|api\.x\.ai/);
   const loop = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
-  assert.match(loop, /planWrite\(d, today, localeByCoach\.get\(d\.coach_id\) \?\? "fr"\)/);
+  assert.match(loop, /planWrite\(d, today, ctx\?\.locale \?\? "fr"\)/);
   const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
   assert.match(readme, /Do \*\*not\*\* create Grok Bots/);
   assert.doesNotMatch(readme, /XAI_API_KEY/);

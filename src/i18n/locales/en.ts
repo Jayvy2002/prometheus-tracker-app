@@ -758,6 +758,8 @@ const en = {
     loadRole: 'Unable to load your role. Try again.',
     loadOps: 'Unable to load coach data. Try again.',
     opsPartial: 'Part of Today’s queue failed to load. Retry — the queue may be incomplete.',
+    saveFailed: 'Could not save. Check your connection and try again.',
+    alreadyResolved: 'This card has already been handled.',
   },
 
   soloReview: {

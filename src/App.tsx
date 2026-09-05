@@ -1,9 +1,10 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
+import { resetSessionStores } from './lib/resetStores';
 import { isCoachedAthlete } from './lib/coachRole';
 import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
@@ -87,11 +88,13 @@ function ProgramsHome() {
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
-  const { profile, loading: profileLoading, fetchError, fetchProfile, clearProfile } = useProfileStore();
+  const { profile, loading: profileLoading, fetchError, fetchProfile, updateProfile } = useProfileStore();
   const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
   const { t } = useTranslation();
   const [intakeUsage, setIntakeUsage] = useState<IntakeUsageSignals | null>(null);
   const [intakeProbeStatus, setIntakeProbeStatus] = useState<IntakeProbeStatus>('idle');
+  const userId = user?.id ?? null;
+  const timezoneWriteFor = useRef<string | null>(null);
 
   const skipPersonalOnboarding =
     coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
@@ -105,8 +108,9 @@ function AppRoutes() {
   });
 
   useEffect(() => {
-    if (user) {
-      fetchProfile(user.id);
+    if (userId) {
+      const existing = useProfileStore.getState().profile;
+      fetchProfile(userId, { silent: existing?.id === userId });
       void (async () => {
         try {
           const token = getPendingInviteToken();
@@ -116,15 +120,14 @@ function AppRoutes() {
             await applyIntendedCoachingRole();
           }
         } finally {
-          await fetchMyRole(user.id);
+          await fetchMyRole(userId);
           await fetchMyCoach();
         }
       })();
     } else if (initialized) {
-      clearProfile();
-      useCoachingStore.getState().clear();
+      resetSessionStores();
     }
-  }, [user, initialized, fetchProfile, clearProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
+  }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
 
   // The account's language wins over this device's default (Profil → Langue is written to user_profiles).
   const profileLanguage = profile?.language;
@@ -135,14 +138,23 @@ function AppRoutes() {
   }, [profileLanguage]);
 
   useEffect(() => {
-    if (!user || !needsIntakeProbe) {
+    if (!userId || !profile || profile.timezone) return;
+    if (timezoneWriteFor.current === userId) return;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!tz) return;
+    timezoneWriteFor.current = userId;
+    void updateProfile(userId, { timezone: tz });
+  }, [userId, profile, updateProfile]);
+
+  useEffect(() => {
+    if (!userId || !needsIntakeProbe) {
       setIntakeUsage(null);
       setIntakeProbeStatus('idle');
       return;
     }
     let cancelled = false;
     setIntakeProbeStatus('pending');
-    void probeIntakeUsage(user.id)
+    void probeIntakeUsage(userId)
       .then(signals => {
         if (!cancelled) {
           setIntakeUsage(signals);
@@ -158,7 +170,7 @@ function AppRoutes() {
     return () => {
       cancelled = true;
     };
-  }, [user, needsIntakeProbe]);
+  }, [userId, needsIntakeProbe]);
 
   if (authLoading || !initialized) {
     return (

@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.57.4";
 import { FLEET_COPY, fleetLocale, type FleetCopy, type FleetGoalKey, type FleetLocale } from "../_shared/fleetCopy.ts";
+import { todayInTimeZone } from "../_shared/clock.ts";
 
 /**
  * Architecture lock 2026-08-29 (Jayvy): DO NOT create Grok Bots.
@@ -762,19 +763,39 @@ function bearerToken(header: string | null): string {
   return header.replace(/^Bearer\s+/i, "").trim();
 }
 
-/** Coach language from `user_profiles.language` (FR when unset). One query for the whole round. */
-async function fetchCoachLocales(admin: SupabaseClient, coachIds: string[]): Promise<Map<string, FleetLocale>> {
-  const out = new Map<string, FleetLocale>();
+interface CoachCtx {
+  locale: FleetLocale;
+  timezone: string;
+}
+
+const DEFAULT_FLEET_TIMEZONE = "America/Toronto";
+
+/** Coach language + timezone. One query each for the whole round. */
+async function fetchCoachContext(admin: SupabaseClient, coachIds: string[]): Promise<Map<string, CoachCtx>> {
+  const out = new Map<string, CoachCtx>();
   const ids = [...new Set(coachIds.filter(Boolean))];
   if (ids.length === 0) return out;
-  const { data, error } = await admin.from("user_profiles").select("id, language").in("id", ids);
-  if (error) {
-    console.error("fetch coach locales", error.message);
-    return out;
-  }
-  for (const row of data ?? []) {
+  const [{ data: profiles, error: pErr }, { data: settings, error: sErr }] = await Promise.all([
+    admin.from("user_profiles").select("id, language").in("id", ids),
+    admin.from("coach_settings").select("coach_id, timezone").in("coach_id", ids),
+  ]);
+  if (pErr) console.error("fetch coach locales", pErr.message);
+  if (sErr) console.error("fetch coach timezones", sErr.message);
+  const tzByCoach = new Map<string, string>();
+  for (const row of settings ?? []) {
     const r = asObject(row);
-    if (typeof r.id === "string") out.set(r.id, fleetLocale(r.language));
+    if (typeof r.coach_id === "string" && typeof r.timezone === "string" && r.timezone.trim()) {
+      tzByCoach.set(r.coach_id, r.timezone.trim());
+    }
+  }
+  for (const id of ids) {
+    out.set(id, { locale: "fr", timezone: tzByCoach.get(id) ?? DEFAULT_FLEET_TIMEZONE });
+  }
+  for (const row of profiles ?? []) {
+    const r = asObject(row);
+    if (typeof r.id !== "string") continue;
+    const prev = out.get(r.id) ?? { locale: "fr" as FleetLocale, timezone: DEFAULT_FLEET_TIMEZONE };
+    out.set(r.id, { locale: fleetLocale(r.language), timezone: prev.timezone });
   }
   return out;
 }
@@ -874,15 +895,17 @@ Deno.serve(async (req: Request) => {
       .map((row) => mapDossier(asObject(row)))
       .filter((d): d is Dossier => !!d);
 
-    const today = new Date().toISOString().slice(0, 10);
-    const localeByCoach = await fetchCoachLocales(admin, dossiers.map((d) => d.coach_id));
+    const now = new Date();
+    const ctxByCoach = await fetchCoachContext(admin, dossiers.map((d) => d.coach_id));
 
     let flagged = 0;
     let skipped = 0;
     const written: Array<{ client_id: string; flag: string; kind: string; title: string; action: string }> = [];
 
     for (const d of dossiers) {
-      const plan = planWrite(d, today, localeByCoach.get(d.coach_id) ?? "fr");
+      const ctx = ctxByCoach.get(d.coach_id);
+      const today = todayInTimeZone(now, ctx?.timezone ?? DEFAULT_FLEET_TIMEZONE);
+      const plan = planWrite(d, today, ctx?.locale ?? "fr");
       if (plan.action === "skip" || !plan.card) {
         skipped += 1;
         continue;

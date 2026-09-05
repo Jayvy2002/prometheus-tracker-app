@@ -15,7 +15,7 @@ test('sent target is a finished kcal floor, not the schema default 2000', () => 
   assert.equal(hasSentNutritionTarget({ daily_calorie_target: 2200 }), true);
 });
 
-test('coached athletes cannot self-serve the four nutrition columns', () => {
+test('coached athletes cannot self-serve nutrition, water, or steps targets', () => {
   const updates = stripSelfServeNutritionTargets({
     goal: 'cut',
     target_weight_kg: 70,
@@ -23,6 +23,8 @@ test('coached athletes cannot self-serve the four nutrition columns', () => {
     protein_target: 150,
     carbs_target: 250,
     fat_target: 65,
+    daily_water_target_ml: 3000,
+    daily_steps_target: 12000,
   }, true);
   assert.equal(updates.goal, 'cut');
   assert.equal(updates.target_weight_kg, 70);
@@ -30,6 +32,8 @@ test('coached athletes cannot self-serve the four nutrition columns', () => {
   assert.equal('protein_target' in updates, false);
   assert.equal('carbs_target' in updates, false);
   assert.equal('fat_target' in updates, false);
+  assert.equal('daily_water_target_ml' in updates, false);
+  assert.equal('daily_steps_target' in updates, false);
 });
 
 test('solo tracker still writes kcal from GoalsForm / onboarding', () => {

@@ -55,6 +55,7 @@ import {
   type UserProfile,
   type WeightMeasurement,
   type Workout,
+  type ProgramAssignment,
 } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -162,7 +163,7 @@ export default function ClientDetailPage() {
     touchClientVisit, priorities, coachSettings, fetchCoachSettings,
     pendingInterventions, endClientLink, askCoachAgent, createIntervention,
   } = useCoachingStore();
-  const { fetchMyAssignment, assignment } = useProgramStore();
+  const { fetchMyAssignment } = useProgramStore();
 
   const checkinId = parseCheckinQuery(searchParams.get('checkin'));
   const tab = resolveClientTab(searchParams.get('tab'), checkinId);
@@ -188,6 +189,7 @@ export default function ClientDetailPage() {
   const [openingProgram, setOpeningProgram] = useState(false);
   const [ficheOpen, setFicheOpen] = useState(false);
   const [clientProfile, setClientProfile] = useState<UserProfile | null>(null);
+  const [boundAssignment, setBoundAssignment] = useState<ProgramAssignment | null>(null);
   const [tracking, setTracking] = useState<ResolvedTrackingConfig>({
     ...ALL_ON_TRACKING,
     training: { ...ALL_ON_TRACKING.training },
@@ -200,6 +202,7 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     if (!id) return;
+    let cancelled = false;
     const previous = useCoachingStore.getState().opsRows.find(r => r.client.id === id)?.client.last_visited_at
       ?? useCoachingStore.getState().clients.find(c => c.id === id)?.last_visited_at
       ?? null;
@@ -207,30 +210,52 @@ export default function ClientDetailPage() {
     if (!clients.length) fetchClients();
     if (!opsRows.length) fetchCoachOps();
     touchClientVisit(id);
-    if (user) fetchMyAssignment(id);
     fetchCoachSettings();
     setLoading(true);
+    setBoundAssignment(null);
+    setWorkouts([]);
+    setCheckins([]);
+    setWeights([]);
+    setNutritionDays([]);
+    setProgressLifts(null);
+    setPhotos([]);
+    setPhotoUrls({});
+    setClientProfile(null);
     const start = addDaysToDateStr(todayStr(), -27);
-    Promise.all([
-      fetchClientWorkouts(id).then(setWorkouts),
-      fetchClientCheckins(id).then(setCheckins),
-      fetchClientWeight(id).then(setWeights),
-      fetchNotes(id),
-      fetchClientProfile(id).then(async profile => {
-        setClientProfile(profile);
+    const loadId = id;
+    void Promise.all([
+      user ? fetchMyAssignment(loadId) : Promise.resolve(null),
+      fetchClientWorkouts(loadId),
+      fetchClientCheckins(loadId),
+      fetchClientWeight(loadId),
+      fetchNotes(loadId),
+      fetchClientProfile(loadId).then(async profile => {
         const target = profile?.daily_calorie_target ?? 0;
-        const days = await fetchClientNutritionRange(id, start, todayStr(), target);
-        setNutritionDays(days);
+        const days = await fetchClientNutritionRange(loadId, start, todayStr(), target);
+        return { profile, days };
       }),
-      fetchTrackingConfig(id).then(cfg => {
-        if (cfg) setTracking(parseResolvedTracking(cfg));
-      }),
-      fetchClientLiftHistory(id).then(setProgressLifts),
-      fetchProgressPhotos(id).then(async rows => {
-        setPhotos(rows);
-        setPhotoUrls(await signProgressPhotoUrls(rows));
-      }),
-    ]).finally(() => setLoading(false));
+      fetchTrackingConfig(loadId),
+      fetchClientLiftHistory(loadId),
+      fetchProgressPhotos(loadId).then(async rows => ({
+        rows,
+        urls: await signProgressPhotoUrls(rows),
+      })),
+    ]).then(([assignmentRow, wos, cis, wts, , nutrition, cfg, lifts, photoPack]) => {
+      if (cancelled) return;
+      setBoundAssignment(assignmentRow);
+      setWorkouts(wos);
+      setCheckins(cis);
+      setWeights(wts);
+      setClientProfile(nutrition.profile);
+      setNutritionDays(nutrition.days);
+      if (cfg) setTracking(parseResolvedTracking(cfg));
+      setProgressLifts(lifts);
+      setPhotos(photoPack.rows);
+      setPhotoUrls(photoPack.urls);
+    }).finally(() => {
+      if (!cancelled) setLoading(false);
+    });
+    return () => { cancelled = true; };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setTab = (next: CoachClientTab, extra?: Record<string, string>) => {
@@ -326,11 +351,11 @@ export default function ClientDetailPage() {
   const relanceHref = id ? relanceThreadHref(id, 'general_followup') : '';
   const trainingRelanceHref = id ? relanceThreadHref(id, 'missed_training') : '';
   const situation = useMemo(() => clientSituationLines({
-    hasProgram: !!(ops?.hasProgram || assignment?.program),
+    hasProgram: !!(ops?.hasProgram || boundAssignment?.program),
     lastSessionDate: lastLoggedSessionDate(insightWorkouts, lifts),
     today: todayStr(),
     trackWorkouts: tracking.track_workouts,
-  }), [ops?.hasProgram, assignment?.program, insightWorkouts, lifts, tracking.track_workouts]);
+  }), [ops?.hasProgram, boundAssignment?.program, insightWorkouts, lifts, tracking.track_workouts]);
   const sessionGap = hasSessionGap(situation);
   const setupHref = id && ops && shouldOpenSetup(ops) ? `/clients/${id}/setup` : undefined;
   const showInsight = !!insight && (
@@ -373,7 +398,7 @@ export default function ClientDetailPage() {
   const canAskCalories = canAskCalorieAdjustment(nutritionStall) && !calorieDraft;
 
   const handleOpenAssignedProgram = async () => {
-    if (!id || !assignment?.program || openingProgram) return;
+    if (!id || !boundAssignment?.program || openingProgram) return;
     const existing = pendingInterventions.find(
       row => row.client_id === id && row.kind === 'program_adjustment' && row.status === 'pending',
     );
@@ -382,11 +407,12 @@ export default function ClientDetailPage() {
       return;
     }
     setOpeningProgram(true);
-    const outline = outlineFromProgram(assignment.program);
+    const outline = outlineFromProgram(boundAssignment.program);
+
     const result = await createIntervention({
       clientId: id,
       kind: 'program_adjustment',
-      title: assignment.program.name,
+      title: boundAssignment.program.name,
       rationale: t('coaching.interventions.openedFromFileRationale'),
       payload: { program: outline, name: outline.name, description: outline.description, duration_weeks: outline.duration_weeks, days: outline.days },
     });
@@ -754,9 +780,9 @@ export default function ClientDetailPage() {
                   }}
                 />
               )}
-              {assignment?.program && (
+              {boundAssignment?.program && (
                 <Card>
-                  <p className="text-sm text-white">{assignment.program.name}</p>
+                  <p className="text-sm text-white">{boundAssignment.program.name}</p>
                   <p className="text-xs text-neutral-500">
                     {week ? t('programs.weekOf', { current: week.current, total: week.total }) : t('programs.assigned')}
                   </p>

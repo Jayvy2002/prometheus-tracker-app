@@ -13,6 +13,7 @@ interface RoutineState {
   addRoutineExercise: (routineId: string, exercise: Partial<RoutineExercise>) => Promise<RoutineExercise | null>;
   updateRoutineExercise: (id: string, data: Partial<RoutineExercise>) => Promise<void>;
   deleteRoutineExercise: (id: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const useRoutineStore = create<RoutineState>((set) => ({
@@ -95,4 +96,6 @@ export const useRoutineStore = create<RoutineState>((set) => ({
   deleteRoutineExercise: async (id) => {
     await supabase.from('routine_exercises').delete().eq('id', id);
   },
+
+  reset: () => set({ routines: [], loading: false }),
 }));

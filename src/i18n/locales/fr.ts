@@ -758,6 +758,8 @@ const fr = {
     loadRole: 'Impossible de charger ton rôle. Réessaie.',
     loadOps: 'Impossible de charger tes données coach. Réessaie.',
     opsPartial: 'Une partie du File du jour n’a pas chargé. Réessaie — la file peut être incomplète.',
+    saveFailed: 'Enregistrement impossible. Vérifie ta connexion et réessaie.',
+    alreadyResolved: 'Cette carte a déjà été traitée.',
   },
 
   soloReview: {

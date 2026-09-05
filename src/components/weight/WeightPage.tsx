@@ -81,7 +81,8 @@ export default function WeightPage() {
       toast(t('weight.toasts.updated'));
       setEditId(null);
     } else {
-      await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: date });
+      const result = await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: date });
+      if (result.error) return;
       toast(t('weight.toasts.saved'));
     }
     setWeight('');

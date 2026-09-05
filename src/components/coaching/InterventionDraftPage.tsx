@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
@@ -25,7 +25,7 @@ import {
   patchBeforeAfter,
   type EditedProgramDraft,
 } from '../../lib/coachDraftSend';
-import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, ProgramExercisePatch } from '../../lib/types';
+import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, ProgramAssignment, ProgramExercisePatch } from '../../lib/types';
 import { useProgramStore } from '../../stores/programStore';
 import { formatPrescription } from '../../lib/programNl';
 import { todayStr } from '../../lib/utils';
@@ -57,11 +57,17 @@ export default function InterventionDraftPage() {
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
     sendCoachMessage, pendingInterventions, askCoachAgent,
   } = useCoachingStore();
-  const { fetchMyAssignment, assignment, applyExercisePatch } = useProgramStore();
+  const { fetchMyAssignment, applyExercisePatch } = useProgramStore();
 
   const [row, setRow] = useState<CoachIntervention | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const endSave = () => {
+    savingRef.current = false;
+    setSaving(false);
+  };
+  const [boundAssignment, setBoundAssignment] = useState<ProgramAssignment | null>(null);
   const [calories, setCalories] = useState(0);
   const [protein, setProtein] = useState(0);
   const [carbs, setCarbs] = useState(0);
@@ -79,7 +85,15 @@ export default function InterventionDraftPage() {
   const client = clients.find(c => c.id === (id || row?.client_id || ''));
 
   useEffect(() => {
-    if (clientId) fetchMyAssignment(clientId);
+    if (!clientId) {
+      setBoundAssignment(null);
+      return;
+    }
+    let cancelled = false;
+    fetchMyAssignment(clientId).then(found => {
+      if (!cancelled) setBoundAssignment(found);
+    });
+    return () => { cancelled = true; };
   }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hydrate = (found: CoachIntervention) => {
@@ -107,7 +121,6 @@ export default function InterventionDraftPage() {
   useEffect(() => {
     if (!interventionId) return;
     if (!clients.length) fetchClients();
-    if (id) fetchMyAssignment(id);
     setLoading(true);
     fetchIntervention(interventionId).then(found => {
       setRow(found);
@@ -146,9 +159,13 @@ export default function InterventionDraftPage() {
   };
 
   const handleSend = async () => {
-    if (!row || !user || saving) return;
+    if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
     if (!targetClientId) return;
+    if (row.status !== 'pending') {
+      toast(t('errors.alreadyResolved'), 'error');
+      return;
+    }
     if (row.kind === 'calorie_adjustment') {
       if (!isCompleteCalorieDraft({ calories, protein, carbs, fat })) {
         toast(t('coaching.interventions.macrosRequired'), 'error');
@@ -156,8 +173,7 @@ export default function InterventionDraftPage() {
       }
     }
     setSaving(true);
-
-    const noteOnly = row.kind === 'other';
+    savingRef.current = true;
     const edited: EditedProgramDraft = {
       programName,
       programDesc,
@@ -166,7 +182,7 @@ export default function InterventionDraftPage() {
       patch,
     };
     if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnly) {
-      setSaving(false);
+      endSave();
       toast(t('coaching.draftSend.empty'), 'error');
       return;
     }
@@ -174,13 +190,13 @@ export default function InterventionDraftPage() {
 
     if (row.kind === 'calorie_adjustment') {
       if (!isCompleteCalorieDraft({ calories, protein, carbs, fat })) {
-        setSaving(false);
+        endSave();
         toast(t('coaching.interventions.macrosRequired'), 'error');
         return;
       }
       const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
       if (result.error) {
-        setSaving(false);
+        endSave();
         toast(result.error, 'error');
         return;
       }
@@ -193,17 +209,17 @@ export default function InterventionDraftPage() {
           setup_completed_at: new Date().toISOString(),
         });
         if (trackResult.error) {
-          setSaving(false);
+          endSave();
           toast(trackResult.error, 'error');
           return;
         }
       }
       if (patch) {
-        if (!assignment?.program_id) {
+        if (!boundAssignment?.program_id) {
           if (notes.trim()) {
             const noteResult = await addNote(targetClientId, notes.trim());
             if (noteResult.error) {
-              setSaving(false);
+              endSave();
               toast(noteResult.error, 'error');
               return;
             }
@@ -213,18 +229,18 @@ export default function InterventionDraftPage() {
             patch,
             suggestion: notes.trim(),
           });
-          setSaving(false);
+          endSave();
           if (resolved.error) {
-            toast(resolved.error, 'error');
+            toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
             return;
           }
           toast(t('coaching.workspace.patchNoProgram'), 'info');
           navigate(clientFileHref(targetClientId));
           return;
         }
-        const patched = await applyExercisePatch(assignment.program_id, patch);
+        const patched = await applyExercisePatch(boundAssignment.program_id, patch);
         if (patched.error) {
-          setSaving(false);
+          endSave();
           toast(patched.error, 'error');
           return;
         }
@@ -236,7 +252,7 @@ export default function InterventionDraftPage() {
           days,
         });
         if (created.error) {
-          setSaving(false);
+          endSave();
           toast(t('coaching.second.failed'), 'error');
           return;
         }
@@ -247,7 +263,7 @@ export default function InterventionDraftPage() {
       if (notes.trim()) {
         const noteResult = await addNote(targetClientId, notes.trim());
         if (noteResult.error) {
-          setSaving(false);
+          endSave();
           toast(noteResult.error, 'error');
           return;
         }
@@ -256,9 +272,9 @@ export default function InterventionDraftPage() {
         ...row.payload,
         suggestion: notes.trim(),
       });
-      setSaving(false);
+      endSave();
       if (resolved.error) {
-        toast(resolved.error, 'error');
+        toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
         return;
       }
       toast(t('coaching.interventions.savedNote'));
@@ -267,9 +283,9 @@ export default function InterventionDraftPage() {
     }
 
     const resolved = await resolveIntervention(row.id, 'sent', sentPayload);
-    setSaving(false);
+    endSave();
     if (resolved.error) {
-      toast(resolved.error, 'error');
+      toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
       return;
     }
     toast(t('coaching.interventions.sent'));
@@ -277,20 +293,25 @@ export default function InterventionDraftPage() {
   };
 
   const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
-    if (!row || !user || saving) return;
+    if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
     if (!targetClientId) return;
+    if (row.status !== 'pending') {
+      toast(t('errors.alreadyResolved'), 'error');
+      return;
+    }
     setSaving(true);
+    savingRef.current = true;
     const sent = await sendCoachMessage(targetClientId, body, opts?.templateKey ?? preparedTemplateKey(row.payload, row.kind));
     if (sent.error) {
-      setSaving(false);
+      endSave();
       toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
       return;
     }
     if (opts?.saveNote) {
       const noteResult = await addNote(targetClientId, notes.trim() || body, { noteDate: todayStr() });
       if (noteResult.error) {
-        setSaving(false);
+        endSave();
         toast(noteResult.error, 'error');
         return;
       }
@@ -299,9 +320,9 @@ export default function InterventionDraftPage() {
       ...row.payload,
       suggestion: notes.trim(),
     });
-    setSaving(false);
+    endSave();
     if (resolved.error) {
-      toast(resolved.error, 'error');
+      toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
       return;
     }
     toast(t('coaching.queue.sent'));
@@ -385,7 +406,7 @@ export default function InterventionDraftPage() {
   const observation = parseFleetObservation(row.payload);
   const cause = parseFleetCause(row.payload, row.rationale);
   const noteOnly = row.kind === 'other';
-  const patchWithoutProgram = showPatch && !assignment?.program_id;
+  const patchWithoutProgram = showPatch && !boundAssignment?.program_id;
   const edited: EditedProgramDraft = {
     programName,
     programDesc,
@@ -393,9 +414,9 @@ export default function InterventionDraftPage() {
     days,
     patch,
   };
-  const patchPreview = patch ? patchBeforeAfter(assignment?.program, patch) : null;
-  const outlinePreview = showProgram ? outlineBeforeAfter(assignment?.program, edited) : null;
-  const willSee = isProgramSendKind(row.kind) ? clientWillSeeSummary(edited, assignment?.program) : '';
+  const patchPreview = patch ? patchBeforeAfter(boundAssignment?.program, patch) : null;
+  const outlinePreview = showProgram ? outlineBeforeAfter(boundAssignment?.program, edited) : null;
+  const willSee = isProgramSendKind(row.kind) ? clientWillSeeSummary(edited, boundAssignment?.program) : '';
   const primaryLabel = isAdherenceKind
     ? t('coaching.queue.relance')
     : patchWithoutProgram
@@ -559,7 +580,7 @@ export default function InterventionDraftPage() {
               })}
             </p>
             <p className="text-[11px] text-neutral-600">{t('coaching.workspace.proposalHint')}</p>
-            {!assignment?.program_id && (
+            {!boundAssignment?.program_id && (
               <p className="text-[11px] text-amber-300">{t('coaching.workspace.patchNoProgram')}</p>
             )}
           </Card>

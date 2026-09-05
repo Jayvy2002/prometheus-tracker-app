@@ -2,6 +2,7 @@
 
 import {
   calculateBMR,
+  activityLevelFromTrainingAndOccupation,
   calculateCalorieTarget,
   calculateEnhancedTDEE,
   calculateMacros,
@@ -528,11 +529,8 @@ export interface SoloIntakeTargets {
   activity_level: string;
 }
 
-function intakeActivityLevel(occupation: string): string {
-  if (occupation === 'sitting') return 'sedentary';
-  if (occupation === 'standing') return 'light';
-  if (occupation === 'physical') return 'active';
-  return 'moderate';
+function intakeActivityLevel(sessions: number, occupation: string): string {
+  return activityLevelFromTrainingAndOccupation(sessions, occupation);
 }
 
 /**
@@ -551,8 +549,8 @@ export function soloTargetsFromIntake(intake: KinesiologyIntake): SoloIntakeTarg
   const goal: IntakeObjectifType = isIntakeObjectifType(intake.extras.objectifType)
     ? intake.extras.objectifType
     : 'maintain';
-  const activity = intakeActivityLevel(intake.extras.occupation);
-  const sessions = positiveNumber(intake.seancesRealistes, 1, 14) ? Number(intake.seancesRealistes) : 3;
+  const sessions = positiveNumber(intake.seancesRealistes, 0, 14) ? Number(intake.seancesRealistes) : 3;
+  const activity = intakeActivityLevel(sessions, intake.extras.occupation);
 
   // Mifflin-St Jeor only has two formulas; « Autre » takes the midpoint.
   const bmr = intake.sexeGenre === 'F'
@@ -562,7 +560,7 @@ export function soloTargetsFromIntake(intake: KinesiologyIntake): SoloIntakeTarg
       : Math.round((calculateBMR(weight, height, age, 'female') + calculateBMR(weight, height, age, 'male')) / 2);
   // Steps are unknown at intake time: 5000 is the neutral value of the NEAT bonus.
   const tdee = calculateEnhancedTDEE(bmr, activity, 5000, sessions);
-  const calories = calculateCalorieTarget(tdee, goal);
+  const calories = calculateCalorieTarget(tdee, goal, bmr);
   const macros = calculateMacros(calories, goal, 'omnivore', weight);
   const water = calculateWaterTarget(weight, 5000, activity, 'average');
 
@@ -709,10 +707,12 @@ export function intakeToProfilePatch(intake: KinesiologyIntake, completedAt: str
 
   const extras = intake.extras;
   const target = extras.poidsViseKg.trim() ? Number(extras.poidsViseKg) : null;
-  const activity = extras.occupation === 'sitting' ? 'sedentary'
-    : extras.occupation === 'standing' ? 'light'
-    : extras.occupation === 'physical' ? 'active'
-    : null;
+  const activity = Number.isFinite(sessions)
+    ? activityLevelFromTrainingAndOccupation(sessions, extras.occupation || undefined)
+    : extras.occupation === 'sitting' ? 'sedentary'
+      : extras.occupation === 'standing' ? 'light'
+      : extras.occupation === 'physical' ? 'active'
+      : null;
   const sleep = extras.sommeil === 'under_6' ? 5.5
     : extras.sommeil === '6_7' ? 6.5
     : extras.sommeil === '7_8' ? 7.5

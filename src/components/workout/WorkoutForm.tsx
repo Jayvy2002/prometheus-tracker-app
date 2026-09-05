@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
+import { toast } from '../ui/Toast';
 import Input from '../ui/Input';
 import ExerciseCard from './ExerciseCard';
 import SupersetGroup from './SupersetGroup';
@@ -282,30 +283,47 @@ function WorkoutFormInner() {
         }
       });
 
-      await Promise.all([...setUpdates, ...exerciseUpdates]);
+      const results = await Promise.all([...setUpdates, ...exerciseUpdates]) as Array<{ error: { message: string } | null }>;
+      const writeFailed = results.find(r => r?.error)?.error;
+      if (writeFailed) {
+        toast(writeFailed.message, 'error');
+        return;
+      }
 
       const workoutUpdates: Record<string, unknown> = {};
       if (workoutName !== currentWorkout.name) workoutUpdates.name = workoutName;
       if (workoutDate && workoutDate !== currentWorkout.date) workoutUpdates.date = workoutDate;
       if (Object.keys(workoutUpdates).length > 0) {
-        await supabase.from('workouts').update(workoutUpdates).eq('id', currentWorkout.id);
+        const { error } = await supabase.from('workouts').update(workoutUpdates).eq('id', currentWorkout.id);
+        if (error) {
+          toast(error.message, 'error');
+          return;
+        }
       }
 
       const exerciseIds = (currentWorkout.exercises ?? []).map(e => e.id);
       if (exerciseIds.length > 0) {
-        await supabase
+        const { error } = await supabase
           .from('workout_sets')
           .update({ completed: true })
           .in('exercise_id', exerciseIds)
           .neq('set_type', 'warmup');
+        if (error) {
+          toast(error.message, 'error');
+          return;
+        }
       }
 
       const paused = pauseTimer(timer);
       const finalDuration = Math.max(1, Math.floor(currentElapsedMs(paused) / 1000));
-      await updateWorkout(currentWorkout.id, {
+      const finished = await updateWorkout(currentWorkout.id, {
         completed: true,
         duration_seconds: finalDuration,
       });
+      if (finished.error) {
+        toast(finished.error, 'error');
+        return;
+      }
       clearSessionTimer(currentWorkout.id);
       clearFieldDrafts(currentWorkout.id);
 

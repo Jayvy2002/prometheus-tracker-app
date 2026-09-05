@@ -1,4 +1,4 @@
-/** Coach-owned kcal/macros: an athlete never self-serves these four columns. */
+/** Coach-owned kcal/macros/water/steps: an athlete never self-serves these columns. */
 
 export const MIN_SENT_CALORIE_TARGET = 800;
 
@@ -7,6 +7,12 @@ export const NUTRITION_TARGET_KEYS = [
   'protein_target',
   'carbs_target',
   'fat_target',
+] as const;
+
+export const COACH_LOCKED_PROFILE_KEYS = [
+  ...NUTRITION_TARGET_KEYS,
+  'daily_water_target_ml',
+  'daily_steps_target',
 ] as const;
 
 export type NutritionTargetKey = typeof NUTRITION_TARGET_KEYS[number];
@@ -24,7 +30,7 @@ export function stripSelfServeNutritionTargets<T extends Record<string, unknown>
 ): T {
   if (!isCoached) return updates;
   const next = { ...updates };
-  for (const key of NUTRITION_TARGET_KEYS) {
+  for (const key of COACH_LOCKED_PROFILE_KEYS) {
     delete next[key];
   }
   return next;

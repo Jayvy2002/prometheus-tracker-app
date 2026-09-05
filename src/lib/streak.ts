@@ -64,6 +64,8 @@ export function applyQualifyingActivity(
 
   const last = activityDateKey(current?.last_activity_date ?? null);
   if (last === dateKey) return null;
+  // A backfilled "yesterday" must not rewind a streak that already counted today.
+  if (last && dateKey < last) return null;
 
   const stored = current?.current_streak ?? 0;
   const dayBeforeActivity = addDaysToDateStr(dateKey, -1);

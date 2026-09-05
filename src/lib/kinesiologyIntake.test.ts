@@ -228,20 +228,21 @@ describe('kinesiologyIntake original form', () => {
     });
     const targets = soloTargetsFromIntake(solo);
     assert.ok(targets);
-    // 62 kg, 165 cm, 34 y, F → BMR 1320 ; sedentary ×1.2 → TDEE 1584 ; cut −500 → 1084
+    // 62 kg, 165 cm, 34 y, F → BMR 1320 ; 3 séances = moderate ×1.55 → TDEE 2046 ; cut −500 → 1546
+    // Sitting does not replace the training band (that used to underfeed desk athletes at 1084).
     assert.equal(targets.bmr, 1320);
-    assert.equal(targets.tdee, 1584);
-    assert.equal(targets.calories, 1084);
+    assert.equal(targets.tdee, 2046);
+    assert.equal(targets.calories, 1546);
     assert.equal(targets.goal, 'cut');
-    assert.equal(targets.activity_level, 'sedentary');
+    assert.equal(targets.activity_level, 'moderate');
     assert.ok(targets.protein > 0 && targets.carbs > 0 && targets.fat > 0);
     assert.ok(Math.abs(targets.protein * 4 + targets.carbs * 4 + targets.fat * 9 - targets.calories) <= targets.calories * 0.15);
     assert.ok(targets.water_ml >= 1500);
 
     const patch = soloTargetsToProfilePatch(targets);
-    assert.equal(patch.daily_calorie_target, 1084);
+    assert.equal(patch.daily_calorie_target, 1546);
     assert.equal(patch.goal, 'cut');
-    assert.equal(patch.activity_level, 'sedentary');
+    assert.equal(patch.activity_level, 'moderate');
     assert.equal(patch.daily_water_target_ml, targets.water_ml);
 
     const bulkPhysical = soloTargetsFromIntake(completeOriginal({
@@ -250,7 +251,16 @@ describe('kinesiologyIntake original form', () => {
       extras: { ...emptyIntake().extras, objectifType: 'bulk', occupation: 'physical' },
     }));
     assert.ok(bulkPhysical && bulkPhysical.calories > targets.calories);
-    assert.equal(bulkPhysical.activity_level, 'active');
+    assert.equal(bulkPhysical.activity_level, 'very_active');
+
+    const deskZero = soloTargetsFromIntake(completeOriginal({
+      seancesRealistes: '0',
+      extras: { ...emptyIntake().extras, objectifType: 'cut', occupation: 'sitting' },
+    }));
+    assert.ok(deskZero);
+    assert.equal(deskZero.activity_level, 'sedentary');
+    assert.equal(deskZero.tdee, 1584);
+    assert.equal(deskZero.calories, 1320);
 
     const other = soloTargetsFromIntake(completeOriginal({ sexeGenre: 'Autre' }));
     assert.ok(other && other.bmr > 1320 && other.bmr < 1320 + 166);
@@ -453,6 +463,7 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(finish, /intakeToProfilePatch/);
     assert.match(finish, /stripSelfServeNutritionTargets\(patch, coached\)/);
     assert.match(finish, /allowExit/);
+    assert.match(finish, /WallSignOut/);
     // Resume + solo targets (docs/VISION.md point 9): draft saved on every Continuer,
     // targets screen only for a solo first run, never for a coached client.
     assert.match(finish, /intakeResumeScreen\(/);

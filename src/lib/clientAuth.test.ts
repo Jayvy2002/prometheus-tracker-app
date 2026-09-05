@@ -201,6 +201,7 @@ test('authStore: signIn commits the session; late getSession cannot eat it', () 
   assert.match(store, /signInWithPassword/);
   assert.match(store, /data\.session/);
   assert.match(store, /currentGeneration \+= 1/);
+  assert.match(store, /session\.user\.id === get\(\)\.user\?\.id/);
 });
 
 test('PR 34 first-run empty states stay in place', () => {

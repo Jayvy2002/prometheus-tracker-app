@@ -130,6 +130,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (get().loading) set({ loading: false });
         return;
       }
+      // TOKEN_REFRESHED / SIGNED_IN on tab focus recreate the user object. Keep the
+      // existing reference so App's `user.id` effect does not remount the tree.
+      if (session?.user?.id && session.user.id === get().user?.id) {
+        set({
+          session,
+          loading: false,
+          passwordRecovery: event === 'PASSWORD_RECOVERY' ? true : get().passwordRecovery,
+        });
+        return;
+      }
       set({
         session,
         user: session?.user ?? null,
