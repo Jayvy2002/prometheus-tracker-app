@@ -178,6 +178,7 @@ test('Sofia ghost: empty training, Relancer, no invented curve or numbers', () =
   const priorities = buildCoachPriorities(
     [ops(sofia, ['missing_workout_week'])],
     emptySignals({ lifts: [stale] }),
+    TODAY,
   );
   const missed = priorities.find(p => p.kind === 'missed_workout');
   assert.ok(missed);
@@ -201,6 +202,7 @@ test('Aujourd’hui missed-session and File du jour training item deep-link to E
       ops(lea, ['missing_workout_week']),
     ],
     emptySignals({ lifts: [camilleSquat, camilleBench, leaBench, leaRow] }),
+    TODAY,
   );
 
   const camilleMissed = priorities.find(p => p.clientId === 'camille-id' && p.kind === 'missed_workout');
@@ -234,6 +236,7 @@ test('stalled lift and program adapt keep the same Entraînement deep-link with 
   const priorities = buildCoachPriorities(
     [ops(camille)],
     emptySignals({ lifts: [stalled] }),
+    TODAY,
   );
   const stall = priorities.find(p => p.kind === 'stalled_lift');
   assert.equal(stall?.href, trainingFocusHref('camille-id', 'Squat'));

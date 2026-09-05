@@ -177,6 +177,7 @@ test('empty recovery: Sofia stale / Alex none — Relancer, no invented sleep or
   const priorities = buildCoachPriorities(
     [ops(alex, ['missing_checkin'])],
     emptySignals(),
+    TODAY,
   );
   assert.equal(priorities.some(p => p.kind === 'new_pain' || p.kind === 'low_sleep'), false);
   const missed = priorities.find(p => p.kind === 'missed_checkin');
@@ -215,6 +216,7 @@ test('Aujourd’hui douleur deep-links to ?tab=health — Relancer stays thread+
   const priorities = buildCoachPriorities(
     [ops(marie), ops(sofia, ['missing_checkin'])],
     emptySignals({ checkins: [latest, prev, stale] }),
+    TODAY,
   );
 
   const pain = priorities.find(p => p.clientId === 'marie-id' && p.kind === 'new_pain');
@@ -262,6 +264,7 @@ test('low sleep in a recent check-in appears; missing sleep is not invented', ()
   const priorities = buildCoachPriorities(
     [ops(camille)],
     emptySignals({ checkins: [short] }),
+    TODAY,
   );
   const sleep = priorities.find(p => p.kind === 'low_sleep');
   assert.ok(sleep);
@@ -314,6 +317,7 @@ test('File du jour pain items use the Santé deep-link', () => {
   const priorities = buildCoachPriorities(
     [ops(marie)],
     emptySignals({ checkins: [latest, prev] }),
+    TODAY,
   );
   const groups = groupQueueByClient(priorities.filter(p => p.kind === 'new_pain'));
   assert.equal(groups[0]?.items[0]?.href, recoveryFocusHref('marie-id', 'ck-pain'));

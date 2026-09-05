@@ -204,6 +204,7 @@ test('empty last session: Sofia stale / Alex none — Relancer, no invented sess
   const priorities = buildCoachPriorities(
     [ops(alex, ['missing_workout_week'])],
     emptySignals(),
+    TODAY,
   );
   assert.equal(priorities.some(p => p.kind === 'session_logged'), false);
   const missed = priorities.find(p => p.kind === 'missed_workout');
@@ -238,6 +239,7 @@ test('Aujourd’hui séance faite deep-links to ?tab=training&workout= — misse
       ops(sofia, ['missing_workout_week']),
     ],
     emptySignals({ lifts }),
+    TODAY,
   );
 
   assert.equal(priorities.some(p => p.clientId === 'lea-id' && p.kind === 'session_logged'), false);
