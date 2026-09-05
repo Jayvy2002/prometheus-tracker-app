@@ -1281,6 +1281,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         prompt: input.prompt,
         screen: input.screen,
         context: input.context ?? {},
+        locale: i18n.language,
       },
     });
     const bodyFromData = (data && typeof data === 'object' && !Array.isArray(data))

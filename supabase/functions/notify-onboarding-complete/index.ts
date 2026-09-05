@@ -87,6 +87,8 @@ Deno.serve(async (req: Request) => {
     programId: null,
     prompt,
     screen: "onboarding_complete",
+    // The coach's UI language is not stored server-side yet → French default.
+    locale: "fr",
     context: {
       goal: payload.goal ?? null,
       training_frequency: payload.training_frequency ?? null,
