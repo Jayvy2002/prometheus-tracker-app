@@ -5,6 +5,7 @@ import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 import { isCoachedAthlete } from './lib/coachRole';
+import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
 
 import AppLayout from './components/layout/AppLayout';
@@ -124,6 +125,14 @@ function AppRoutes() {
       useCoachingStore.getState().clear();
     }
   }, [user, initialized, fetchProfile, clearProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
+
+  // The account's language wins over this device's default (Profil → Langue is written to user_profiles).
+  const profileLanguage = profile?.language;
+  useEffect(() => {
+    if (!profileLanguage) return;
+    const wanted = profileLanguage.toLowerCase().startsWith('en') ? 'en' : 'fr';
+    if (!i18n.language.toLowerCase().startsWith(wanted)) setAppLanguage(wanted);
+  }, [profileLanguage]);
 
   useEffect(() => {
     if (!user || !needsIntakeProbe) {
