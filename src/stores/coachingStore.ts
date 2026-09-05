@@ -58,6 +58,7 @@ import {
 } from '../lib/clientTracking';
 import { isCoachedAthlete } from '../lib/coachRole';
 import { profileHasMedicalFlags } from '../lib/kinesiologyIntake';
+import { profileLinkEndedChanged } from '../lib/soloTransition';
 import { track } from '../lib/telemetryClient';
 import {
   cloneTracking,
@@ -1484,6 +1485,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
           },
           payload => {
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            // The coach ended the link: role went back to 'none' server-side — reload role, coach
+            // and profile so the athlete lands on the solo home without a reload (VISION point 4).
+            if (profileLinkEndedChanged(useProfileStore.getState().profile, raw)) {
+              void useProfileStore.getState().fetchProfile(user.id, { silent: true });
+              void get().fetchMyRole(user.id).then(() => get().fetchMyCoach());
+              return;
+            }
             const targets = nutritionTargetsFromProfileRow(raw);
             if (targets) {
               useProfileStore.getState().applyRemoteTargets(user.id, targets);

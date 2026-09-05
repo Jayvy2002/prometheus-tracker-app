@@ -22,6 +22,7 @@ import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
 import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
+import SoloHub from './SoloHub';
 
 type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
 
@@ -163,6 +164,8 @@ export default function ProfilePage() {
           )}
         </Card>
       )}
+
+      {!coached && !isCoach && <SoloHub />}
 
       <div className="space-y-2 mb-6">
         <AccordionSection id="personal" icon={User} label={t('profile.sections.personalInfo')} isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">

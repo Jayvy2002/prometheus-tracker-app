@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare, Camera } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -21,6 +21,7 @@ import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import {
   clientHomeNextAction,
+  clientHomeNextActionKey,
   daysSinceActivity,
   isClientFirstRun,
   shouldShowDaysSinceReminder,
@@ -33,6 +34,7 @@ import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 import ClientGymCard from './ClientGymCard';
 import SoloWeeklyReview from './SoloWeeklyReview';
+import LinkEndedBanner from './LinkEndedBanner';
 
 function getWeekDates(): string[] {
   const today = new Date();
@@ -163,10 +165,12 @@ export default function Dashboard() {
   const programWeek = assignment?.program
     ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
     : null;
+  const hasCoach = isCoachedAthlete(coachingRole, myCoach);
   const scheduledToday = !alreadyTrainedToday
     ? routines.find(r => r.scheduled_days?.includes(todayDow))
     : null;
-  const nextRoutine = !hasProgram && gymCard.kind === 'none'
+  // Personal routines are the solo's templates; a coached athlete waits for his coach's program.
+  const nextRoutine = !hasCoach && !hasProgram && gymCard.kind === 'none'
     ? (scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null))
     : null;
 
@@ -188,7 +192,6 @@ export default function Dashboard() {
   const calmHome = activityPending || firstRun;
   const hasGymCard = showModule(tracking, 'workouts') && gymCard.kind !== 'none';
   const hasNextWorkout = hasGymCard || (!!nextRoutine && showModule(tracking, 'workouts'));
-  const hasCoach = isCoachedAthlete(coachingRole, myCoach);
   const nextAction = clientHomeNextAction({
     firstRun,
     hasProgram,
@@ -205,12 +208,13 @@ export default function Dashboard() {
 
   const hourNow = new Date().getHours();
   const hasLoggedLunch = logs.some(l => l.category === 'lunch');
-  const showMealReminder = !calmHome && (
+  // Meal / water nudges and the deload tip are self-coaching: a coached athlete's coach decides.
+  const showMealReminder = !hasCoach && !calmHome && (
     (hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0) ||
     (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3)
   );
 
-  const showWaterReminder = !calmHome && hourNow >= 15 && waterConsumed > 0 && waterPct < 50;
+  const showWaterReminder = !hasCoach && !calmHome && hourNow >= 15 && waterConsumed > 0 && waterPct < 50;
 
   // Deload suggestion — if trained 4+ consecutive weeks without a break
   const fourWeeksAgo = new Date();
@@ -221,7 +225,7 @@ export default function Dashboard() {
     const startOfYear = new Date(d.getFullYear(), 0, 1);
     return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
   }));
-  const showDeloadSuggestion = weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
+  const showDeloadSuggestion = !hasCoach && weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
 
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;
@@ -279,6 +283,8 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <LinkEndedBanner />
+
         {hasGymCard && assignment?.program && (
           <ClientGymCard
             card={gymCard}
@@ -297,6 +303,17 @@ export default function Dashboard() {
             className="text-xs text-neutral-500 hover:text-neutral-300 mb-4 -mt-1"
           >
             {t('checkin.dashboardCta')}
+          </button>
+        )}
+        {hasCoach && !activityPending && (
+          <button
+            type="button"
+            onClick={() => navigate('/photos')}
+            className="w-full flex items-center gap-3 rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-left hover:border-neutral-700 transition-colors"
+          >
+            <Camera size={16} className="text-blue-400 shrink-0" />
+            <span className="text-sm text-neutral-200 flex-1">{t('dashboard.photosCard')}</span>
+            <ChevronRight size={16} className="text-neutral-600" />
           </button>
         )}
         {!isIntakeAlreadyFilled(profile) && (
@@ -473,7 +490,7 @@ export default function Dashboard() {
           </button>
         ) : nextAction ? (
           <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4">
-            <p className="text-sm text-neutral-200">{t(`dashboard.firstRun.${nextAction}`)}</p>
+            <p className="text-sm text-neutral-200">{t(clientHomeNextActionKey(nextAction))}</p>
           </div>
         ) : null}
 
@@ -654,10 +671,11 @@ export default function Dashboard() {
         </div>
         )}
 
-        {/* Streak & Weight row — hide while history is still loading to avoid a 0-day flash */}
+        {/* Streak & Weight row — hide while history is still loading to avoid a 0-day flash.
+            The streak is solo gamification; a coached athlete's accountability is his coach. */}
         {!activityPending && (
         <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
-          {/* Streak */}
+          {!hasCoach && (
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Flame size={16} className={currentStreak > 0 ? 'text-orange-400' : 'text-neutral-600'} />
@@ -675,6 +693,7 @@ export default function Dashboard() {
               </p>
             )}
           </div>
+          )}
 
           {/* Weight */}
           {showModule(tracking, 'weight') && (

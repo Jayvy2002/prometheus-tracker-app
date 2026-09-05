@@ -127,10 +127,17 @@ test('Coached client shell: hub Messages + Photos + Mon programme, no coach-mode
   assert.match(side, /path: '\/photos'/);
   assert.match(side, /track_workouts && !coached/);
 
+  // Coached bottom bar (décision du 4 sept.): five tabs, daily things first — Home / Séance /
+  // Check-in / Messages / Profil. Photos moved to the home card + Profile hub.
   const bottom = src('src/components/layout/BottomNav.tsx');
-  assert.match(bottom, /path: '\/messages'/);
-  assert.match(bottom, /path: '\/photos'/);
-  assert.match(bottom, /path: '\/profile'/);
+  const coachedTabs = bottom.slice(bottom.indexOf(': coached'), bottom.indexOf(': ['));
+  assert.match(coachedTabs, /path: '\/messages'/);
+  assert.match(coachedTabs, /path: '\/checkin'/);
+  assert.match(coachedTabs, /path: '\/profile'/);
+  assert.doesNotMatch(coachedTabs, /path: '\/photos'/);
+  assert.match(profile, /\/photos/);
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  assert.match(dash, /hasCoach && !activityPending && \(\s*<button[^]*?navigate\('\/photos'\)/);
 });
 
 test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {

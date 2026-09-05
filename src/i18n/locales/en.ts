@@ -232,6 +232,13 @@ const en = {
       firstSession: 'First session when you are ready',
       checkin: 'Today’s check-in',
     },
+    photosCard: 'Progress photos',
+    linkEnded: {
+      title: 'Your coach has ended your collaboration',
+      body: 'You continue solo: your whole history is here (sessions, nutrition, weight, check-ins, photos), your targets stay as they were, and your program is paused. Your copilot takes over every week.',
+      trial: 'Solo trial: {{days}} day(s) left.',
+      trialOver: 'Your solo trial has ended.',
+    },
     gym: {
       next: 'Next session: {{name}}',
       continue: 'Resume: {{name}}',
@@ -457,6 +464,7 @@ const en = {
     tapToChange: 'Tap photo to change',
     fallbackName: 'You',
     hubTitle: 'Coaching',
+    soloHubTitle: 'Explore',
     signOut: 'Sign Out',
     deleteAccount: 'Delete my account',
     adminAccess: 'Full access to all features',
@@ -1052,7 +1060,7 @@ const en = {
     removeClient: {
       action: 'Remove from roster',
       title: 'Remove {{name}}?',
-      body: 'This removes the client from your roster. Their personal account stays — you only end the coach link. Messages and logs remain on their side, but they disappear from Clients, Today, and Messages.',
+      body: 'This removes the client from your roster. They go back to solo with their whole history: targets stay as you set them, their program is paused, and they will be told you ended the link. They disappear from Clients, Today, and Messages.',
       hardUndo: 'This is hard to undo. They will need a new invite to come back.',
       typeName: 'Type “{{name}}” to confirm',
       confirmCta: 'Remove {{name}}',

@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -23,11 +23,13 @@ export default function BottomNav() {
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
       ]
     : coached
+      // Five tabs, daily things first: the check-in is daily, photos are weekly → Photos lives on the
+      // home card and in the Profile hub (docs/VISION.md, décision du 4 sept.).
       ? [
           { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
           { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
+          { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
           { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: true },
-          { path: '/photos', icon: Camera, label: t('nav.photos'), show: true },
           { path: '/profile', icon: User, label: t('nav.profile'), show: true },
         ].filter(tab => tab.show !== false)
       : [
