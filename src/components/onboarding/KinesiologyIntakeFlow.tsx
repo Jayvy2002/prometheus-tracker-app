@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Droplets, Flame } from 'lucide-react';
+import WallSignOut from '../auth/WallSignOut';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -680,7 +681,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   return (
     <div className="min-h-screen w-full bg-black">
       <div className="mx-auto w-full max-w-lg px-5 pt-8 pb-32">
-        {allowExit && (
+        {allowExit ? (
           <div className="flex justify-end mb-3">
             <button
               type="button"
@@ -689,6 +690,10 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
             >
               {t('intake.later')}
             </button>
+          </div>
+        ) : (
+          <div className="flex justify-end mb-3">
+            <WallSignOut />
           </div>
         )}
         <ProgressBar step={step} total={totalScreens} />

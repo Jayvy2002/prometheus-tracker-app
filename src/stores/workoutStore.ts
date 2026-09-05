@@ -60,7 +60,8 @@ interface WorkoutState {
   fetchWorkout: (workoutId: string) => Promise<void>;
   peekWorkout: (workoutId: string) => Promise<Workout | null>;
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
-  updateWorkout: (id: string, data: Partial<Workout>) => Promise<void>;
+  updateWorkout: (id: string, data: Partial<Workout>) => Promise<{ error: string | null }>;
+  reset: () => void;
   deleteWorkout: (id: string) => Promise<void>;
   addExercise: (workoutId: string, name: string, orderIndex: number, extras?: {
     prescribed_sets?: number;
@@ -143,7 +144,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       .from('workouts')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', id);
-    if (error) { console.error('updateWorkout failed:', error.message); return; }
+    if (error) { console.error('updateWorkout failed:', error.message); return { error: error.message }; }
     const current = get().currentWorkout;
     if (current?.id === id) {
       const updated = { ...current, ...updates };
@@ -169,6 +170,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         );
       }
     }
+    return { error: null };
   },
 
   deleteWorkout: async (id) => {
@@ -507,4 +509,6 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
     return results;
   },
+
+  reset: () => set({ workouts: [], currentWorkout: null, loading: false }),
 }));

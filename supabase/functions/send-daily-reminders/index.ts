@@ -34,6 +34,7 @@
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { hhmmInTimeZone, todayInTimeZone } from '../_shared/clock.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -227,6 +228,16 @@ async function sendPush(
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
+  const auth = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+  const serviceKey = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '').trim();
+  const cronSecret = (Deno.env.get('REMINDERS_CRON_SECRET') ?? '').trim();
+  if (!auth || (auth !== serviceKey && !(cronSecret && auth === cronSecret))) {
+    return new Response(JSON.stringify({ error: 'unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
   const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
   const vapidSubject = Deno.env.get('VAPID_SUBJECT') ?? 'mailto:admin@prometheus.app';
@@ -243,35 +254,37 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  // Current UTC time as "HH:MM"
+  // Current instant; each profile's timezone decides whether its HH:MM matches.
   const now = new Date();
-  const currentTime = `${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
 
-  // Find users with a reminder configured at this exact minute
-  const { data: workoutUsers } = await admin
+  const { data: reminderRows } = await admin
     .from('user_profiles')
-    .select('id')
-    .eq('notification_workout_enabled', true)
-    .eq('notification_workout_time', currentTime);
+    .select('id, timezone, notification_workout_enabled, notification_workout_time, notification_nutrition_enabled, notification_nutrition_time')
+    .or('notification_workout_enabled.eq.true,notification_nutrition_enabled.eq.true');
 
-  const { data: nutritionUsers } = await admin
-    .from('user_profiles')
-    .select('id')
-    .eq('notification_nutrition_enabled', true)
-    .eq('notification_nutrition_time', currentTime);
+  const workoutUsers = (reminderRows ?? []).filter((row) => {
+    const r = row as { id: string; timezone: string | null; notification_workout_enabled: boolean; notification_workout_time: string | null };
+    if (!r.notification_workout_enabled || !r.notification_workout_time) return false;
+    return hhmmInTimeZone(now, r.timezone) === r.notification_workout_time;
+  }).map((row) => ({ id: (row as { id: string }).id, timezone: (row as { timezone: string | null }).timezone }));
 
-  const today = now.toISOString().split('T')[0];
+  const nutritionUsers = (reminderRows ?? []).filter((row) => {
+    const r = row as { id: string; timezone: string | null; notification_nutrition_enabled: boolean; notification_nutrition_time: string | null };
+    if (!r.notification_nutrition_enabled || !r.notification_nutrition_time) return false;
+    return hhmmInTimeZone(now, r.timezone) === r.notification_nutrition_time;
+  }).map((row) => ({ id: (row as { id: string }).id, timezone: (row as { timezone: string | null }).timezone }));
 
   let sent = 0;
   const staleEndpoints: string[] = [];
 
   const processUsers = async (
-    users: { id: string }[] | null,
+    users: { id: string; timezone: string | null }[] | null,
     type: 'workout' | 'nutrition',
   ) => {
     if (!users?.length) return;
 
-    for (const { id: userId } of users) {
+    for (const { id: userId, timezone } of users) {
+      const today = todayInTimeZone(now, timezone);
       // Skip if user already logged the activity today
       if (type === 'workout') {
         const { count } = await admin.from('workouts').select('id', { count: 'exact', head: true })

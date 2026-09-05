@@ -50,6 +50,8 @@ test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {
   assert.match(shared, /status:\s*"ready"/);
   assert.match(shared, /upsert_coach_intervention/);
   assert.match(shared, /p_source:\s*AGENT_SOURCE/);
+  assert.match(shared, /is_coach_of/);
+  assert.match(shared, /not_your_client/);
   assert.doesNotMatch(shared, /status:\s*202/);
   const openai = source('supabase/functions/_shared/openaiJson.ts');
   assert.match(openai, /api\.openai\.com/);
@@ -194,6 +196,7 @@ test('notify-onboarding-complete keeps HMAC and runs the in-app agent', () => {
   assert.match(src, /GROK_BOT_WEBHOOK_SECRET|NOTIFY_SECRET/);
   assert.match(src, /runCoachAgent/);
   assert.match(src, /onboarding_plan/);
+  assert.match(src, /NOTIFY_SECRET missing/);
   assert.doesNotMatch(src, /GROK_BOT_WEBHOOK_URL/);
   assert.doesNotMatch(src, /fetch\(webhookUrl/);
 });

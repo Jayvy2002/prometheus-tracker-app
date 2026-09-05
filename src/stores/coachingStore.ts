@@ -78,6 +78,7 @@ import { buildClientLifts } from '../lib/coachLifts';
 import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
+import { fetchAllRows } from '../lib/postgrestPage';
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -106,15 +107,21 @@ function persistRememberedCoachingRole(userId: string, role: CoachingRole) {
 export type IntendedCoachingRole = Extract<CoachingRole, 'coach' | 'client'>;
 
 export function setPendingInviteToken(token: string) {
-  sessionStorage.setItem(PENDING_INVITE_KEY, token);
+  try { localStorage.setItem(PENDING_INVITE_KEY, token); } catch { /* private mode */ }
+  try { sessionStorage.setItem(PENDING_INVITE_KEY, token); } catch { /* private mode */ }
 }
 
 export function getPendingInviteToken(): string | null {
-  return sessionStorage.getItem(PENDING_INVITE_KEY);
+  try {
+    return localStorage.getItem(PENDING_INVITE_KEY) || sessionStorage.getItem(PENDING_INVITE_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function clearPendingInviteToken() {
-  sessionStorage.removeItem(PENDING_INVITE_KEY);
+  try { localStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
 }
 
 export function setIntendedCoachingRole(role: IntendedCoachingRole) {
@@ -617,12 +624,12 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       supabase.from('nutrition_logs').select('user_id').in('user_id', ids).eq('logged_at', today),
       supabase.from('weight_measurements').select('user_id').in('user_id', ids).gte('measured_at', weekAgo),
       supabase.from('workouts').select('user_id, date, completed').in('user_id', ids).eq('completed', true).gte('date', `${weekAgo}T00:00:00`),
-      supabase.from('daily_checkins').select('*').in('user_id', ids).gte('checked_at', threeWeeks).order('checked_at', { ascending: false }),
-      supabase.from('weight_measurements').select('*').in('user_id', ids).gte('measured_at', threeWeeks).order('measured_at', { ascending: false }),
-      supabase.from('workouts').select('id, user_id, date, name, completed').in('user_id', ids).eq('completed', true).gte('date', `${threeWeeks}T00:00:00`).order('date', { ascending: false }).limit(400),
-      supabase.from('coach_notes').select('client_id, created_at').in('client_id', ids).order('created_at', { ascending: false }),
-      supabase.from('coach_interventions').select('client_id, resolved_at, updated_at, status').in('client_id', ids).in('status', ['sent', 'kept']),
-      supabase.from('nutrition_logs').select('user_id, logged_at, calories').in('user_id', ids).gte('logged_at', threeWeeks),
+      fetchAllRows(() => supabase.from('daily_checkins').select('*').in('user_id', ids).gte('checked_at', threeWeeks).order('checked_at', { ascending: false })),
+      fetchAllRows(() => supabase.from('weight_measurements').select('*').in('user_id', ids).gte('measured_at', threeWeeks).order('measured_at', { ascending: false })),
+      fetchAllRows(() => supabase.from('workouts').select('id, user_id, date, name, completed').in('user_id', ids).eq('completed', true).gte('date', `${threeWeeks}T00:00:00`).order('date', { ascending: false })),
+      fetchAllRows(() => supabase.from('coach_notes').select('client_id, created_at').in('client_id', ids).order('created_at', { ascending: false })),
+      fetchAllRows(() => supabase.from('coach_interventions').select('client_id, resolved_at, updated_at, status').in('client_id', ids).in('status', ['sent', 'kept'])),
+      fetchAllRows(() => supabase.from('nutrition_logs').select('user_id, logged_at, calories').in('user_id', ids).gte('logged_at', threeWeeks)),
     ]);
 
     const partial = opsHasPartialError([
@@ -1253,12 +1260,15 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       updated_at: new Date().toISOString(),
     };
     if (payload) updates.payload = payload;
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('coach_interventions')
       .update(updates)
       .eq('id', id)
-      .eq('status', 'pending');
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle();
     if (error) return { error: error.message };
+    if (!data) return { error: 'already_resolved' };
     const resolved = get().pendingInterventions.find(row => row.id === id);
     track('intervention_resolved', {
       kind: resolved?.kind ?? null,

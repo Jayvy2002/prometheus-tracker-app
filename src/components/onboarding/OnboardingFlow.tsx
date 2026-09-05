@@ -8,6 +8,7 @@ import {
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useAuthStore } from '../../stores/authStore';
+import WallSignOut from '../auth/WallSignOut';
 import { useCoachingStore, clearOnboardingDeferred, setOnboardingDeferred } from '../../stores/coachingStore';
 import {
   ACTIVITY_LEVELS, GOALS, DIET_TYPES, FOOD_ALLERGIES, COOKING_LEVELS,
@@ -439,7 +440,7 @@ function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
   const age = form.date_of_birth ? getAge(form.date_of_birth) : 25;
   const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
   const tdee = calculateEnhancedTDEE(bmr, form.activity_level, form.daily_steps_average, form.training_frequency);
-  const calorieTarget = calculateCalorieTarget(tdee, form.goal);
+  const calorieTarget = calculateCalorieTarget(tdee, form.goal, bmr);
   const macros = calculateMacros(calorieTarget, form.goal, form.diet_type, form.weight_kg);
   const waterTarget = calculateWaterTarget(form.weight_kg, form.daily_steps_average, form.activity_level, form.hydration_habit);
 
@@ -582,7 +583,7 @@ export default function OnboardingFlow() {
     const age = form.date_of_birth ? getAge(form.date_of_birth) : 25;
     const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
     const tdee = calculateEnhancedTDEE(bmr, form.activity_level, form.daily_steps_average, form.training_frequency);
-    const calorieTarget = calculateCalorieTarget(tdee, form.goal);
+    const calorieTarget = calculateCalorieTarget(tdee, form.goal, bmr);
     const macros = calculateMacros(calorieTarget, form.goal, form.diet_type, form.weight_kg);
     const waterTarget = calculateWaterTarget(form.weight_kg, form.daily_steps_average, form.activity_level, form.hydration_habit);
 
@@ -647,6 +648,9 @@ export default function OnboardingFlow() {
   return (
     <div className="min-h-screen bg-black flex flex-col">
       <div className="flex-1 overflow-y-auto px-5 pt-8 pb-32 max-w-lg mx-auto w-full">
+        <div className="flex justify-end mb-3">
+          <WallSignOut />
+        </div>
         <ProgressBar step={step} />
         {renderStep()}
       </div>

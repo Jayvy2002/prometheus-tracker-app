@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import type { NutritionLog, WaterLog, FoodProduct, ProductRequest, FoodFavorite, DailySteps } from '../lib/types';
 import { todayStr } from '../lib/utils';
 import { toast } from '../components/ui/Toast';
+import i18n from '../i18n';
 import { useStreakStore } from './streakStore';
 
 import { functionsErrorBody, functionsHttpStatus } from '../lib/supabaseFunctions';
@@ -24,11 +25,11 @@ interface NutritionState {
   selectedDate: string;
   setSelectedDate: (date: string) => void;
   fetchLogs: (userId: string, date: string) => Promise<void>;
-  addLog: (log: Partial<NutritionLog>) => Promise<void>;
+  addLog: (log: Partial<NutritionLog>) => Promise<{ error: string | null }>;
   updateLog: (id: string, data: Partial<NutritionLog>) => Promise<void>;
   deleteLog: (id: string) => Promise<void>;
   fetchWaterLogs: (userId: string, date: string) => Promise<void>;
-  addWater: (data: Partial<WaterLog>) => Promise<void>;
+  addWater: (data: Partial<WaterLog>) => Promise<{ error: string | null }>;
   deleteWater: (id: string) => Promise<void>;
   searchProducts: (query: string) => Promise<FoodProduct[]>;
   findByBarcode: (barcode: string) => Promise<FoodProduct | null>;
@@ -44,6 +45,7 @@ interface NutritionState {
   fetchCaloriesForRange: (userId: string, startDate: string, endDate: string) => Promise<{ logged_at: string; calories: number }[]>;
   fetchOrCreateSteps: (userId: string, date: string) => Promise<DailySteps | null>;
   logSteps: (userId: string, steps: number, date: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const useNutritionStore = create<NutritionState>((set, get) => ({
@@ -69,18 +71,22 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   addLog: async (log) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('nutrition_logs')
       .insert(log)
       .select()
       .maybeSingle();
-    if (data) {
-      const log = correctNutritionLogEnergy(data as NutritionLog);
-      set(s => ({ logs: [...s.logs, log] }));
-      if (log.user_id && log.logged_at) {
-        void useStreakStore.getState().recordActivity(log.user_id, log.logged_at);
-      }
+    if (error || !data) {
+      const message = error?.message || i18n.t('errors.saveFailed');
+      toast(message, 'error');
+      return { error: message };
     }
+    const saved = correctNutritionLogEnergy(data as NutritionLog);
+    set(s => ({ logs: [...s.logs, saved] }));
+    if (saved.user_id && saved.logged_at) {
+      void useStreakStore.getState().recordActivity(saved.user_id, saved.logged_at);
+    }
+    return { error: null };
   },
 
   updateLog: async (id, updates) => {
@@ -124,14 +130,18 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   addWater: async (waterLog) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('water_logs')
       .insert(waterLog)
       .select()
       .maybeSingle();
-    if (data) {
-      set(s => ({ waterLogs: [...s.waterLogs, data as WaterLog] }));
+    if (error || !data) {
+      const message = error?.message || i18n.t('errors.saveFailed');
+      toast(message, 'error');
+      return { error: message };
     }
+    set(s => ({ waterLogs: [...s.waterLogs, data as WaterLog] }));
+    return { error: null };
   },
 
   deleteWater: async (id) => {
@@ -407,4 +417,14 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
       .from('daily_steps')
       .upsert({ user_id: userId, steps, logged_at: date }, { onConflict: 'user_id,logged_at' });
   },
+
+  reset: () => set({
+    logs: [],
+    waterLogs: [],
+    products: [],
+    recentProducts: [],
+    favorites: [],
+    loading: false,
+    selectedDate: todayStr(),
+  }),
 }));

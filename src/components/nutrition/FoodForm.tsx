@@ -278,10 +278,12 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       quantity: qty,
       unit,
       logged_at: date,
+    }).then(result => {
+      if (result.error) return;
+      toast(t('nutrition.foodForm.saved'));
+      onClose();
     });
-    toast(t('nutrition.foodForm.saved'));
     setSaving(false);
-    onClose();
   };
 
   // UnifiedScanner as full-screen modal overlay

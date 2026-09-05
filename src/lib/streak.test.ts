@@ -86,6 +86,18 @@ test('same-day activity is a no-op', () => {
   );
 });
 
+test('a yesterday log does not rewind a streak that already counted today', () => {
+  const yesterday = '2026-08-30';
+  assert.equal(
+    applyQualifyingActivity(
+      { current_streak: 4, longest_streak: 4, last_activity_date: TODAY },
+      yesterday,
+      TODAY,
+    ),
+    null,
+  );
+});
+
 test('editing old history does not rewind or revive a multi-day streak', () => {
   assert.equal(
     applyQualifyingActivity(

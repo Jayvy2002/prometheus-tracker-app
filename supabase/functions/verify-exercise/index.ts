@@ -170,22 +170,36 @@ User-provided muscle info: "${exReq.muscles || "not specified"}"${descriptionInf
 
 Verify this exercise and provide complete details.`;
 
-    const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userMessage },
-        ],
-        max_tokens: 800,
-        temperature: 0.1,
-      }),
-    });
+    let openaiRes: Response;
+    try {
+      openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${openaiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userMessage },
+          ],
+          max_tokens: 800,
+          temperature: 0.1,
+        }),
+        signal: AbortSignal.timeout(20_000),
+      });
+    } catch {
+      await adminClient
+        .from("exercise_requests")
+        .update({
+          status: "rejected",
+          error_message: "OpenAI timeout",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", request_id);
+      return json(504, { error: "AI timeout" });
+    }
 
     await adminClient.from("ai_usage_logs").insert({
       user_id: user.id,

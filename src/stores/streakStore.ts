@@ -14,6 +14,7 @@ interface StreakState {
   loading: boolean;
   fetchStreak: (userId: string) => Promise<void>;
   recordActivity: (userId: string, date: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const useStreakStore = create<StreakState>((set, get) => ({
@@ -76,4 +77,6 @@ export const useStreakStore = create<StreakState>((set, get) => ({
       set({ streak: updatedStreak });
     }
   },
+
+  reset: () => set({ streak: null, loading: false }),
 }));

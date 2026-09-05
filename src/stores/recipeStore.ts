@@ -14,6 +14,7 @@ interface RecipeState {
   deleteIngredient: (recipeId: string, id: string) => Promise<void>;
   fetchRecipeWithIngredients: (id: string) => Promise<Recipe | null>;
   recomputeMacros: (recipeId: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const useRecipeStore = create<RecipeState>((set, get) => ({
@@ -145,4 +146,6 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       recipes: s.recipes.map(r => r.id === recipeId ? { ...r, ...updates } : r),
     }));
   },
+
+  reset: () => set({ recipes: [], loading: false }),
 }));

@@ -62,7 +62,7 @@ interface ProgramState {
       }>;
     }>,
   ) => Promise<{ error: string | null }>;
-  fetchMyAssignment: (clientId: string) => Promise<void>;
+  fetchMyAssignment: (clientId: string) => Promise<ProgramAssignment | null>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   pauseAssignment: (id: string) => Promise<void>;
   clear: () => void;
@@ -335,23 +335,37 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   },
 
   fetchMyAssignment: async (clientId) => {
-    const { data } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: active } = await supabase
       .from('program_assignments')
       .select('*')
       .eq('client_id', clientId)
       .eq('status', 'active')
       .maybeSingle();
-    if (!data) {
-      set({ assignment: null });
-      return;
+    let row = active;
+    // After unlink the assignment is paused; the athlete must still read it.
+    if (!row && user?.id === clientId) {
+      const { data: paused } = await supabase
+        .from('program_assignments')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('status', 'paused')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      row = paused;
     }
-    const program = await get().fetchProgram(data.program_id as string);
-    set({
-      assignment: {
-        ...(data as ProgramAssignment),
-        program: program ?? undefined,
-      },
-    });
+    if (!row) {
+      set({ assignment: null });
+      return null;
+    }
+    const program = await get().fetchProgram(row.program_id as string);
+    const assignment = {
+      ...(row as ProgramAssignment),
+      program: program ?? undefined,
+    };
+    set({ assignment });
+    return assignment;
   },
 
   assignProgram: async (programId, clientId, startDate) => {

@@ -4,14 +4,17 @@ import type { WeightMeasurement } from '../lib/types';
 import { useProfileStore } from './profileStore';
 import { useStreakStore } from './streakStore';
 import { parseDate, toLocalDateStr } from '../lib/utils';
+import { toast } from '../components/ui/Toast';
+import i18n from '../i18n';
 
 interface WeightState {
   measurements: WeightMeasurement[];
   loading: boolean;
   fetchMeasurements: (userId: string) => Promise<void>;
-  addMeasurement: (data: Partial<WeightMeasurement>) => Promise<void>;
+  addMeasurement: (data: Partial<WeightMeasurement>) => Promise<{ error: string | null }>;
   updateMeasurement: (id: string, data: Partial<WeightMeasurement>) => Promise<void>;
   deleteMeasurement: (id: string) => Promise<void>;
+  reset: () => void;
 }
 
 export const useWeightStore = create<WeightState>((set) => ({
@@ -29,26 +32,29 @@ export const useWeightStore = create<WeightState>((set) => ({
   },
 
   addMeasurement: async (measurement) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('weight_measurements')
       .insert(measurement)
       .select()
       .maybeSingle();
-    if (data) {
-      const newMeasurement = data as WeightMeasurement;
-      set(s => ({ measurements: [newMeasurement, ...s.measurements] }));
-
-      // Keep user_profiles.weight_kg in sync with the latest measurement
-      if (newMeasurement.user_id && newMeasurement.weight_kg != null) {
-        await useProfileStore.getState().updateProfile(newMeasurement.user_id, {
-          weight_kg: newMeasurement.weight_kg,
-        });
-        void useStreakStore.getState().recordActivity(
-          newMeasurement.user_id,
-          toLocalDateStr(parseDate(newMeasurement.measured_at)),
-        );
-      }
+    if (error || !data) {
+      const message = error?.message || i18n.t('errors.saveFailed');
+      toast(message, 'error');
+      return { error: message };
     }
+    const newMeasurement = data as WeightMeasurement;
+    set(s => ({ measurements: [newMeasurement, ...s.measurements] }));
+
+    if (newMeasurement.user_id && newMeasurement.weight_kg != null) {
+      await useProfileStore.getState().updateProfile(newMeasurement.user_id, {
+        weight_kg: newMeasurement.weight_kg,
+      });
+      void useStreakStore.getState().recordActivity(
+        newMeasurement.user_id,
+        toLocalDateStr(parseDate(newMeasurement.measured_at)),
+      );
+    }
+    return { error: null };
   },
 
   updateMeasurement: async (id, updates) => {
@@ -64,4 +70,6 @@ export const useWeightStore = create<WeightState>((set) => ({
     if (error) { console.error('deleteMeasurement failed:', error.message); return; }
     set(s => ({ measurements: s.measurements.filter(m => m.id !== id) }));
   },
+
+  reset: () => set({ measurements: [], loading: false }),
 }));

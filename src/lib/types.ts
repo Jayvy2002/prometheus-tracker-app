@@ -20,6 +20,8 @@ export interface UserProfile {
   unit_height: 'cm' | 'in';
   avatar_url: string;
   language?: string;
+  /** IANA zone (e.g. America/Toronto). Written from the device on first profile load. */
+  timezone?: string | null;
   onboarding_completed: boolean;
   diet_type: string;
   food_allergies: string[];
