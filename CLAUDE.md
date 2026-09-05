@@ -2,7 +2,7 @@
 
 > Relis ce fichier au début de chaque réflexion. Fais un plan avant toute modification lourde.
 >
-> **Produit :** SaaS fitness pour **tous les coachs** et pour les **athlètes solo**. Trois rôles officiels : Coach / Client coaché / Solo. Vision complète et chantiers : `docs/VISION.md` (source de vérité produit — lis-le avant de toucher au produit).
+> **Produit :** moteur de coaching intelligent pour l'entraînement de **force et de physique** (musculation, bodybuilding, powerlifting), **EN + FR**. Il comprend l'athlète, construit son plan, observe et propose comment le faire évoluer. **En solo, l'athlète valide ; avec un coach, Prometheus prépare et le coach valide.** Trois rôles : Coach / Client coaché / Solo. Vision complète, phase actuelle (consolidation) et chantiers : `docs/VISION.md` — lis-le avant de toucher au produit.
 > **Copilote IA :** `coach-agent` (OpenAI, brouillons seulement). L'IA prépare, l'humain décide, rien ne s'auto-applique. Second / Grok Bots sont hors de la boucle — ne pas recâbler `GROK_BOT_WEBHOOK_URL`.
 > **Billing :** gratuit pendant la construction. Les 3 functions Stripe répondent 410. Ce n'est pas « jamais de Premium », c'est « pas maintenant ».
 > **`main`** (live `tracker.prometheus-fit.com`) = ancien code. new-JV est le produit. Ne pas toucher la base live ni la backup.
