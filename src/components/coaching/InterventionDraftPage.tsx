@@ -6,14 +6,12 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import {
   draftBackTarget,
-  isCoachOnlyKind,
   isCompleteCalorieDraft,
   parseCalorieDraft,
   parseOnboardingPlanDraft,
   parseProgramOutline,
   parseProgramPatch,
   parseTalkingPoints,
-  parseWorkflowSuggestion,
 } from '../../lib/coachInterventions';
 import { displayName } from '../../lib/coachText';
 import { preparedTemplateKey, parseFleetCause, parseFleetObservation, parsePreparedMessage, isRelanceKind } from '../../lib/coachFleet';
@@ -103,11 +101,7 @@ export default function InterventionDraftPage() {
     if (foundPatch) setPatch(foundPatch);
     const tr = parseOnboardingPlanDraft(found.payload)?.tracking;
     if (tr) setTracking(tr);
-    setNotes(
-      isCoachOnlyKind(found.kind)
-        ? parseWorkflowSuggestion(found.payload, found.rationale)
-        : parsePreparedMessage(found.payload, parseTalkingPoints(found.payload, found.rationale)),
-    );
+    setNotes(parsePreparedMessage(found.payload, parseTalkingPoints(found.payload, found.rationale)));
   };
 
   useEffect(() => {
@@ -154,7 +148,7 @@ export default function InterventionDraftPage() {
   const handleSend = async () => {
     if (!row || !user || saving) return;
     const targetClientId = id || row.client_id;
-    if (!isCoachOnlyKind(row.kind) && !targetClientId) return;
+    if (!targetClientId) return;
     if (row.kind === 'calorie_adjustment') {
       if (!isCompleteCalorieDraft({ calories, protein, carbs, fat })) {
         toast(t('coaching.interventions.macrosRequired'), 'error');
@@ -162,31 +156,6 @@ export default function InterventionDraftPage() {
       }
     }
     setSaving(true);
-
-    if (isCoachOnlyKind(row.kind)) {
-      const suggestion = notes.trim();
-      const resolved = await resolveIntervention(row.id, 'kept', {
-        ...row.payload,
-        suggestion,
-      });
-      if (resolved.error) {
-        setSaving(false);
-        toast(resolved.error, 'error');
-        return;
-      }
-      if (targetClientId && suggestion) {
-        await addNote(targetClientId, suggestion);
-      }
-      setSaving(false);
-      toast(t('coaching.interventions.kept'));
-      navigate(targetClientId ? clientFileHref(targetClientId) : '/dashboard');
-      return;
-    }
-
-    if (!targetClientId) {
-      setSaving(false);
-      return;
-    }
 
     const noteOnly = row.kind === 'other';
     const edited: EditedProgramDraft = {
@@ -412,8 +381,7 @@ export default function InterventionDraftPage() {
   const incompleteCals = row.kind === 'calorie_adjustment' && !isCompleteCalorieDraft({ calories, protein, carbs, fat });
   const showTracking = row.kind === 'onboarding_plan';
   const isAdherenceKind = isRelanceKind(row.kind);
-  const showNotes = isAdherenceKind
-    || row.kind === 'other' || row.kind === 'ask_prometheus' || isCoachOnlyKind(row.kind);
+  const showNotes = isAdherenceKind || row.kind === 'other' || row.kind === 'ask_prometheus';
   const observation = parseFleetObservation(row.payload);
   const cause = parseFleetCause(row.payload, row.rationale);
   const noteOnly = row.kind === 'other';
@@ -430,7 +398,7 @@ export default function InterventionDraftPage() {
   const willSee = isProgramSendKind(row.kind) ? clientWillSeeSummary(edited, assignment?.program) : '';
   const primaryLabel = isAdherenceKind
     ? t('coaching.queue.relance')
-    : isCoachOnlyKind(row.kind) || patchWithoutProgram
+    : patchWithoutProgram
       ? t('coaching.interventions.keep')
       : noteOnly
         ? t('coaching.interventions.saveNote')
@@ -460,9 +428,7 @@ export default function InterventionDraftPage() {
           {row.title || t(`coaching.interventions.kinds.${row.kind}`)}
         </h1>
         <p className="text-sm text-neutral-400 mb-4">
-          {client?.full_name || client?.email || (isCoachOnlyKind(row.kind) && !clientId
-            ? t('coaching.interventions.appWide')
-            : t('coaching.unnamed'))}
+          {client?.full_name || client?.email || t('coaching.unnamed')}
         </p>
         {(observation || cause) && (
           <Card className="mb-4 space-y-2">
@@ -486,7 +452,7 @@ export default function InterventionDraftPage() {
           </Card>
         )}
         <p className="text-xs text-neutral-500 mb-4">
-          {isCoachOnlyKind(row.kind) ? t('coaching.interventions.coachOnlyHint') : t('coaching.interventions.editHint')}
+          {t('coaching.interventions.editHint')}
         </p>
         {(patchPreview || outlinePreview) && (
           <Card className="mb-4 border-blue-500/20">
@@ -631,9 +597,7 @@ export default function InterventionDraftPage() {
         {showNotes && (
           <Card className="mb-4">
             <p className="text-sm font-medium text-white mb-2">
-              {isCoachOnlyKind(row.kind) ? t('coaching.interventions.suggestion') : isAdherenceKind
-                ? t('coaching.fleet.preparedMessage')
-                : t('coaching.interventions.notes')}
+              {isAdherenceKind ? t('coaching.fleet.preparedMessage') : t('coaching.interventions.notes')}
             </p>
             <textarea
               value={notes}

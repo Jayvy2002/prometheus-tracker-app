@@ -1,6 +1,5 @@
 import type { CoachIntervention, CoachInterventionKind } from './types';
 import {
-  isCoachOnlyKind,
   isCompleteCalorieDraft,
   parseCalorieDraft,
   parseOnboardingPlanDraft,
@@ -113,7 +112,6 @@ export function pendingForClient(
   return rows.find(row => (
     !!row.client_id
     && row.client_id === clientId
-    && !isCoachOnlyKind(row.kind)
     && (!kind || row.kind === kind)
   )) ?? null;
 }

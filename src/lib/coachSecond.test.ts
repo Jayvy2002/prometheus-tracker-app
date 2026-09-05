@@ -101,12 +101,7 @@ test('JSON object answers and log dumps are not a ready draft', () => {
   assert.equal(isInterventionReady(dumped), false);
 });
 
-test('pendingForClient skips app-workflow cards even if they share a client id', () => {
-  const workflow = row({
-    id: 'wf1',
-    client_id: 'u1',
-    kind: 'workflow_improvement',
-  });
+test('pendingForClient skips app-wide cards without a client', () => {
   const orphan = row({
     id: 'app1',
     client_id: null,
@@ -117,6 +112,6 @@ test('pendingForClient skips app-workflow cards even if they share a client id',
     client_id: 'u1',
     kind: 'program_nl_edit',
   });
-  assert.equal(pendingForClient([workflow, orphan, real], 'u1')?.id, 'nl1');
-  assert.equal(pendingForClient([workflow, orphan], 'u1'), null);
+  assert.equal(pendingForClient([orphan, real], 'u1')?.id, 'nl1');
+  assert.equal(pendingForClient([orphan], 'u1'), null);
 });

@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, Sparkles } from 'lucide-react';
 import {
   isCompleteCalorieDraft,
-  isCoachOnlyKind,
   interventionHref,
   parseCalorieDraft,
   payloadSummary,
@@ -45,7 +44,7 @@ export default function InterventionInboxCard({
   return (
     <Card className="space-y-2">
       <button type="button" onClick={() => navigate(href)} className="w-full text-left flex items-start gap-3">
-        <Sparkles size={16} className={`mt-1 shrink-0 ${isCoachOnlyKind(item.kind) ? 'text-violet-400' : 'text-blue-400'}`} />
+        <Sparkles size={16} className="mt-1 shrink-0 text-blue-400" />
         <div className="flex-1 min-w-0">
           <p className="text-[11px] uppercase tracking-wider text-blue-300">
             {t(`coaching.interventions.kinds.${item.kind}`)}
