@@ -145,6 +145,60 @@ export const EXTRA_CARDIO_OPTIONS = [
 export const EXTRA_MEDS_OPTIONS = ['Oui', 'Non', 'Je ne sais pas'] as const;
 export const WEEKDAYS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'] as const;
 
+/**
+ * The French strings above are the *stored* values (the Google Form legacy — the database,
+ * the coach agent and the medical-flag checks all compare against them). The UI shows them
+ * through `intakeOptionLabel`, which maps to English when the viewer's language is English.
+ */
+const INTAKE_OPTION_LABELS_EN: Record<string, string> = {
+  F: 'F',
+  H: 'M',
+  Autre: 'Other',
+  Oui: 'Yes',
+  Non: 'No',
+  'Je ne sais pas': "I don't know",
+  'Débutant (moins de 6-12 mois réguliers)': 'Beginner (less than 6–12 months of consistent training)',
+  Intermédiaire: 'Intermediate',
+  Avancé: 'Advanced',
+  '30 mins': '30 min',
+  '45-60 mins': '45–60 min',
+  '60-75 mins': '60–75 min',
+  '90+ mins': '90+ min',
+  Domicile: 'Home',
+  Salle: 'Gym',
+  Mixte: 'Both',
+  Extérieur: 'Outdoors',
+  'Haltères libres': 'Dumbbells',
+  Barre: 'Barbell',
+  Rack: 'Rack',
+  Banc: 'Bench',
+  Machines: 'Machines',
+  Câbles: 'Cables',
+  'Bandes élastiques': 'Resistance bands',
+  Kettlebells: 'Kettlebells',
+  'Barre de traction': 'Pull-up bar',
+  'Vélo intérieur': 'Indoor bike',
+  Tapis: 'Treadmill',
+  Rameur: 'Rower',
+  'Appareil à squat': 'Squat machine',
+  'Poids du corps seulement': 'Bodyweight only',
+  'Charges libres (haltères / barre)': 'Free weights (dumbbells / barbell)',
+  'Poids du corps': 'Bodyweight',
+  'Unilatéral / Stabilité': 'Unilateral / stability',
+  'Circuits / Plus dynamique': 'Circuits / more dynamic',
+  "Peu importe je m'adapte": "Doesn't matter, I adapt",
+};
+
+export function intakeOptionLabel(value: string, en: boolean): string {
+  if (!en) return value;
+  return INTAKE_OPTION_LABELS_EN[value] ?? value;
+}
+
+/** Test hook: is this stored value covered by the English dictionary? */
+export function hasIntakeOptionLabelEn(value: string): boolean {
+  return Object.prototype.hasOwnProperty.call(INTAKE_OPTION_LABELS_EN, value);
+}
+
 export interface IntakeExtras {
   objectifType: string;
   poidsViseKg: string;
@@ -689,27 +743,29 @@ export function intakeToProfilePatch(intake: KinesiologyIntake, completedAt: str
   return patch;
 }
 
-export function formatAnswer(intake: KinesiologyIntake, id: OriginalQuestionId): string {
+const CHOICE_QUESTION_IDS: ReadonlySet<OriginalQuestionId> = new Set<OriginalQuestionId>([
+  'sexeGenre', 'niveauActuel', 'foisParSemaine', 'programmeStructure', 'dureeIdeale', 'lieu',
+  'douleursLimitations', 'blessuresChirurgies', 'cardiaqueHtaPoitrine', 'etourdissementsEquilibre',
+  'medecinLimiteExercices',
+]);
+
+function formatMulti(items: readonly string[], extra: string, en: boolean): string {
+  const other = intakeOptionLabel('Autre', en);
+  return items
+    .map(v => (v === 'Autre' && extra ? `${other}${en ? ': ' : ' : '}${extra}` : intakeOptionLabel(v, en)))
+    .join(', ');
+}
+
+export function formatAnswer(intake: KinesiologyIntake, id: OriginalQuestionId, en = false): string {
   switch (id) {
-    case 'equipement': {
-      const extra = intake.equipementAutre.trim();
-      const items = [...intake.equipement];
-      if (items.includes('Autre') && extra) {
-        return items.map(v => v === 'Autre' ? `Autre : ${extra}` : v).join(', ');
-      }
-      return items.join(', ');
-    }
-    case 'typesExercices': {
-      const extra = intake.typesExercicesAutre.trim();
-      const items = [...intake.typesExercices];
-      if (items.includes('Autre') && extra) {
-        return items.map(v => v === 'Autre' ? `Autre : ${extra}` : v).join(', ');
-      }
-      return items.join(', ');
-    }
+    case 'equipement':
+      return formatMulti(intake.equipement, intake.equipementAutre.trim(), en);
+    case 'typesExercices':
+      return formatMulti(intake.typesExercices, intake.typesExercicesAutre.trim(), en);
     default: {
       const value = intake[id];
-      return typeof value === 'string' ? value : '';
+      if (typeof value !== 'string') return '';
+      return CHOICE_QUESTION_IDS.has(id) ? intakeOptionLabel(value, en) : value;
     }
   }
 }

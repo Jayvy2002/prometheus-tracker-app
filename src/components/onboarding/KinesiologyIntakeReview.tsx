@@ -8,6 +8,7 @@ import {
   ORIGINAL_LABELS_FR,
   ORIGINAL_QUESTION_IDS,
   formatAnswer,
+  intakeOptionLabel,
   parseIntake,
   type KinesiologyIntake,
   type OriginalQuestionId,
@@ -52,11 +53,11 @@ function extrasDisplay(intake: KinesiologyIntake, t: (key: string) => string, en
     { label: t('intake.extras.douleurOu'), value: extras.douleurOu },
     { label: t('intake.extras.douleurIntensite'), value: extras.douleurIntensite },
     { label: t('intake.extras.douleurDepuis'), value: extras.douleurDepuis },
-    { label: t('intake.extras.physioEnCours'), value: extras.physioEnCours },
+    { label: t('intake.extras.physioEnCours'), value: intakeOptionLabel(extras.physioEnCours, en) },
     { label: t('intake.extras.blessureAnnee'), value: extras.blessureAnnee },
     { label: t('intake.extras.blessureSuivi'), value: extras.blessureSuivi },
-    { label: t('intake.extras.medicamentsEffort'), value: extras.medicamentsEffort },
-    { label: t('intake.extras.grossesse'), value: extras.grossessePostpartumTraitement },
+    { label: t('intake.extras.medicamentsEffort'), value: intakeOptionLabel(extras.medicamentsEffort, en) },
+    { label: t('intake.extras.grossesse'), value: intakeOptionLabel(extras.grossessePostpartumTraitement, en) },
     { label: t('intake.extras.sommeil'), value: sleep ? (en ? sleep.labelEn : sleep.labelFr) : '' },
     { label: t('intake.extras.cardio'), value: cardio ? (en ? cardio.labelEn : cardio.labelFr) : '' },
   ];
@@ -77,7 +78,7 @@ export default function KinesiologyIntakeReview({
       <Card>
         <p className="text-sm font-medium text-white mb-2">{t('intake.reviewOriginal')}</p>
         {ORIGINAL_QUESTION_IDS.map(id => (
-          <Row key={id} label={originalLabel(id, en)} value={formatAnswer(intake, id)} />
+          <Row key={id} label={originalLabel(id, en)} value={formatAnswer(intake, id, en)} />
         ))}
       </Card>
       <Card>

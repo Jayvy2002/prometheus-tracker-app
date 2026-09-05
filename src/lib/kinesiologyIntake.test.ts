@@ -23,6 +23,15 @@ import {
   soloTargetsFromIntake,
   soloTargetsToProfilePatch,
   TYPES_EXERCICES_OPTIONS,
+  DUREE_OPTIONS,
+  EQUIPEMENT_OPTIONS,
+  EXTRA_MEDS_OPTIONS,
+  LIEU_OPTIONS,
+  NIVEAU_OPTIONS,
+  OUI_NON,
+  SEXE_OPTIONS,
+  hasIntakeOptionLabelEn,
+  intakeOptionLabel,
 } from './kinesiologyIntake';
 
 const EXPECTED_FR: Record<string, string> = {
@@ -481,5 +490,35 @@ describe('kinesiologyIntake wiring', () => {
     const setup = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientSetupPage.tsx'), 'utf8');
     assert.match(setup, /KinesiologyIntakeReview/);
     assert.match(setup, /isIntakeAlreadyFilled/);
+  });
+});
+
+describe('bilingual intake labels', () => {
+  it('shows English labels for the canonical French stored values, and never changes what is stored', () => {
+    assert.equal(intakeOptionLabel('Oui', true), 'Yes');
+    assert.equal(intakeOptionLabel('Oui', false), 'Oui');
+    assert.equal(intakeOptionLabel('Poids du corps seulement', true), 'Bodyweight only');
+    assert.equal(intakeOptionLabel('Débutant (moins de 6-12 mois réguliers)', true), 'Beginner (less than 6–12 months of consistent training)');
+    // Unknown / free text passes through untouched.
+    assert.equal(intakeOptionLabel('Natation', true), 'Natation');
+    // Every choice option has an English label.
+    for (const v of [...OUI_NON, ...NIVEAU_OPTIONS, ...DUREE_OPTIONS, ...LIEU_OPTIONS, ...EQUIPEMENT_OPTIONS, ...TYPES_EXERCICES_OPTIONS, ...EXTRA_MEDS_OPTIONS, ...SEXE_OPTIONS]) {
+      if (/^[0-9]/.test(v)) continue;
+      assert.ok(hasIntakeOptionLabelEn(v), `missing EN label for ${v}`);
+    }
+  });
+
+  it('formatAnswer follows the viewer language while the intake stays in French', () => {
+    const intake = parseIntake(completeOriginal({
+      equipement: ['Barre', 'Autre'],
+      equipementAutre: 'TRX',
+      lieu: 'Salle',
+      douleursLimitations: 'Non',
+    }));
+    assert.equal(formatAnswer(intake, 'equipement', true), 'Barbell, Other: TRX');
+    assert.equal(formatAnswer(intake, 'equipement'), 'Barre, Autre : TRX');
+    assert.equal(formatAnswer(intake, 'lieu', true), 'Gym');
+    assert.equal(formatAnswer(intake, 'douleursLimitations', true), 'No');
+    assert.equal(intake.lieu, 'Salle');
   });
 });
