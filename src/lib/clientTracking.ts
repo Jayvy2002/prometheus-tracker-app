@@ -13,6 +13,8 @@ export const CHECKIN_VAR_KEYS = [
   'stress',
   'soreness',
   'joint_pain',
+  'adherence_training',
+  'adherence_nutrition',
   'notes',
 ] as const;
 
@@ -67,6 +69,8 @@ export const DEFAULT_CHECKIN_VARS: CheckinVars = {
   stress: true,
   soreness: true,
   joint_pain: true,
+  adherence_training: true,
+  adherence_nutrition: true,
   notes: true,
 };
 
@@ -111,6 +115,8 @@ const OFF_CHECKIN_VARS: CheckinVars = {
   stress: false,
   soreness: false,
   joint_pain: false,
+  adherence_training: false,
+  adherence_nutrition: false,
   notes: false,
 };
 
@@ -138,6 +144,8 @@ export type CheckinScaleKey = keyof Pick<
   | 'joint_pain'
   | 'energy_level'
   | 'mood'
+  | 'adherence_training'
+  | 'adherence_nutrition'
 >;
 
 export const CHECKIN_SCALE_BY_VAR: Partial<Record<CheckinVarKey, CheckinScaleKey>> = {
@@ -150,6 +158,8 @@ export const CHECKIN_SCALE_BY_VAR: Partial<Record<CheckinVarKey, CheckinScaleKey
   stress: 'stress',
   soreness: 'muscle_soreness',
   joint_pain: 'joint_pain',
+  adherence_training: 'adherence_training',
+  adherence_nutrition: 'adherence_nutrition',
 };
 
 function asRecord(value: unknown): Record<string, unknown> | null {
