@@ -142,8 +142,8 @@ export default function RoutineForm({ routine, onClose }: Props) {
           )}
 
           <div className="space-y-4">
-            <Input label={t('routines.form.name')} value={name} onChange={e => setName(e.target.value)} placeholder="Push Day" />
-            <Input label={t('routines.form.description')} value={description} onChange={e => setDescription(e.target.value)} placeholder="Chest, shoulders, triceps" />
+            <Input label={t('routines.form.name')} value={name} onChange={e => setName(e.target.value)} placeholder={t('options.placeholders.routineName')} />
+            <Input label={t('routines.form.description')} value={description} onChange={e => setDescription(e.target.value)} placeholder={t('options.placeholders.routineDescription')} />
 
             {/* Day scheduler */}
             <div>

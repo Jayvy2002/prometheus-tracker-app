@@ -22,6 +22,7 @@ import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { optionLabel } from '../../lib/optionLabels';
 
 export default function NutritionPage() {
   const { t } = useTranslation();
@@ -192,7 +193,7 @@ export default function NutritionPage() {
             <div key={cat.value} className="animate-fade-in-up" style={{ animationDelay: `${(i + 3) * 60}ms` }}>
               <MealSection
                 category={cat.value}
-                label={cat.label}
+                label={optionLabel(t, 'meals', cat.value, cat.label)}
                 logs={logs.filter(l => l.category === cat.value)}
                 onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
                 onEdit={(log) => setEditingLog(log)}

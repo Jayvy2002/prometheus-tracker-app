@@ -11,6 +11,7 @@ import TrackingVarsEditor from './TrackingVarsEditor';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { toast } from '../ui/Toast';
+import { optionLabel } from '../../lib/optionLabels';
 
 interface Props {
   clientId: string;
@@ -146,7 +147,7 @@ export default function ClientProfileEditor({
             className="mt-1.5 w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-white"
           >
             {TRAINING_EXPERIENCES.map(x => (
-              <option key={x.value} value={x.value}>{x.label}</option>
+              <option key={x.value} value={x.value}>{optionLabel(t, 'trainingExperience', x.value, x.label)}</option>
             ))}
           </select>
         </label>
@@ -158,7 +159,7 @@ export default function ClientProfileEditor({
             className="mt-1.5 w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-white"
           >
             {TRAINING_FOCUSES.map(x => (
-              <option key={x.value} value={x.value}>{x.label}</option>
+              <option key={x.value} value={x.value}>{optionLabel(t, 'trainingFocus', x.value, x.label)}</option>
             ))}
           </select>
         </label>
@@ -182,7 +183,7 @@ export default function ClientProfileEditor({
           className="mt-1.5 w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2.5 text-sm text-white"
         >
           {DIET_TYPES.map(x => (
-            <option key={x.value} value={x.value}>{x.label}</option>
+            <option key={x.value} value={x.value}>{optionLabel(t, 'diet', x.value, x.label)}</option>
           ))}
         </select>
       </label>
@@ -201,7 +202,7 @@ export default function ClientProfileEditor({
                   : 'border-neutral-800 text-neutral-400'
               }`}
             >
-              {a.label}
+              {optionLabel(t, 'allergies', a.value, a.label)}
             </button>
           ))}
         </div>

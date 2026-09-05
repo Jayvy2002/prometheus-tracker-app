@@ -186,7 +186,7 @@ export default function ProgramsPage() {
 
       <Modal open={isCoach && showForm} onClose={() => setShowForm(false)} title={t('programs.newTitle')}>
         <div className="space-y-4">
-          <Input label={t('programs.name')} value={name} onChange={e => setName(e.target.value)} placeholder="Hypertrophy block" />
+          <Input label={t('programs.name')} value={name} onChange={e => setName(e.target.value)} placeholder={t('options.placeholders.programName')} />
           <Input label={t('programs.description')} value={description} onChange={e => setDescription(e.target.value)} />
           <Input label={t('programs.durationWeeks')} type="number" value={weeks} onChange={e => setWeeks(Math.max(1, Math.min(52, +e.target.value || 1)))} />
           <div>

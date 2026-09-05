@@ -421,7 +421,7 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
             <Input
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="Ex: Seated Cable Row"
+              placeholder={t('options.placeholders.exerciseName')}
               disabled={status === 'submitting'}
             />
           </div>
@@ -430,7 +430,7 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
             <Input
               value={muscles}
               onChange={e => setMuscles(e.target.value)}
-              placeholder="Ex: back, biceps"
+              placeholder={t('options.placeholders.exerciseMuscles')}
               disabled={status === 'submitting'}
             />
           </div>
@@ -439,7 +439,7 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Describe the movement, position, equipment…"
+              placeholder={t('options.placeholders.exerciseDescription')}
               rows={3}
               disabled={status === 'submitting'}
               className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed resize-none"

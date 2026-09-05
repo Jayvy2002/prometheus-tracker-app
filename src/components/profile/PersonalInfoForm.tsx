@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { optionLabel } from '../../lib/optionLabels';
 
 export default function PersonalInfoForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { t } = useTranslation();
@@ -48,10 +49,10 @@ export default function PersonalInfoForm({ onBack, inline }: { onBack: () => voi
               <button
                 key={g}
                 onClick={() => setGender(g)}
-                className={`py-2.5 rounded-xl text-sm capitalize transition-all
+                className={`py-2.5 rounded-xl text-sm transition-all
                   ${gender === g ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 border border-neutral-800'}`}
               >
-                {g}
+                {optionLabel(t, 'genders', g)}
               </button>
             ))}
           </div>
