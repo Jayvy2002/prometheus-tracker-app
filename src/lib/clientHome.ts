@@ -90,6 +90,10 @@ export function isClientFirstRun(activity: ClientHomeActivity): boolean {
   return last.length === 0;
 }
 
+/**
+ * A coached athlete without a program is waiting for his coach whatever his history
+ * (an ex-solo who just joined a coach too). first_session stays a first-run nudge.
+ */
 export function clientHomeNextAction(input: {
   firstRun: boolean;
   hasProgram: boolean;
@@ -97,7 +101,12 @@ export function clientHomeNextAction(input: {
   hasCoach: boolean;
 }): ClientHomeNextActionKind | null {
   if (input.hasNextWorkout) return null;
-  if (!input.firstRun) return null;
   if (input.hasCoach && !input.hasProgram) return 'waiting_program';
+  if (!input.firstRun) return null;
   return 'first_session';
+}
+
+/** i18n key for a next-action kind (keys are camelCase in the locales). */
+export function clientHomeNextActionKey(kind: ClientHomeNextActionKind): string {
+  return kind === 'waiting_program' ? 'dashboard.firstRun.waitingProgram' : 'dashboard.firstRun.firstSession';
 }

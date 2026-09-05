@@ -46,7 +46,7 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 1. **Un moteur pour les coachs de force / physique et pour les solos** (voir North star et Segment). Pas un outil personnel. Jayvy est le premier coach utilisateur, pas le seul.
 2. **Trois rôles officiels, tous supportés : Coach / Client coaché / Solo.** Aucun n'est « legacy ».
 3. **Un solo crée son compte librement**, sans coach. Le solo est un produit complet : workouts, nutrition, scanner, poids, stats, recettes, streaks, calendrier.
-4. **Un solo peut ajouter un coach via le lien de ce coach.** Le coach voit tout l'historique. Un client dont le lien est coupé redevient solo, historique intact. Un client = un coach actif à la fois (recherche / changement de coach in-app = plus tard).
+4. **Un solo peut ajouter un coach via le lien de ce coach.** Le coach voit tout l'historique. **Un client dont le coach coupe le lien redevient solo, historique intact** : rôle → solo, modules tous rouverts, cibles conservées (il peut à nouveau les régler), programme mis en pause ; il voit un message « ton coach a mis fin à votre collaboration » et démarre une **période d'essai solo de 30 jours** (`solo_trial_ends_at`). Après l'essai, le compte sera bloqué sauf abonnement — **le blocage arrive avec le chantier billing**, pas avant (on n'enferme personne sans porte de sortie). Un client = un coach actif à la fois (recherche / changement de coach in-app = plus tard).
 5. **Macros : calcul automatique pour tout le monde** à l'onboarding (BMR/TDEE/ISSN). Client coaché → **le coach décide** ; s'il veut changer quelque chose il en parle à son coach ou passe solo. Solo → il ajuste lui-même.
 6. **Proposition hebdomadaire « garder / modifier ».** Un algorithme ou l'IA recalcule les objectifs kcal/macros **et explique pourquoi** (poids qui n'évolue pas dans le bon sens, trop vite, trop lentement). Condition : le client est **assidu** et sa **moyenne kcal/jour de la semaine respecte la cible** — sinon on relance, on ne touche pas aux chiffres. La proposition va **au coach** si coaché, **au client** si solo. Rien ne s'auto-applique.
 7. **Le solo a un copilote.** Le client coaché n'en a pas : son coach en a un.
@@ -61,8 +61,9 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | | Coach | Client coaché | Solo |
 |---|---|---|---|
 | Entrée | Inscription libre (porte « coach ») | Lien d'invitation du coach (`/invite/:token`) | Inscription libre (porte « solo ») |
-| Écran d'accueil | Command Center + File du jour | Séance du jour, messages, photos | Tracker complet |
-| Modules visibles | — | Ceux que le coach allume (`client_tracking_config`) | Tous |
+| Écran d'accueil | Command Center + File du jour | Séance du jour, attente programme, check-in, photos, messages du coach — **pas** de streak, rappels repas/eau, deload ni routines perso | Tracker complet + bilan hebdo du copilote |
+| Barre mobile | Aujourd'hui · Clients · Programmes · Messages · Prometheus | Accueil · Séance · Check-in · Messages · Profil (photos = carte accueil + hub Profil) | Accueil · Séance · Check-in · Nutrition · Profil (+ hub « Explorer » : stats, progression, calendrier, poids, recettes, routines, photos) |
+| Modules visibles | — | Ceux que le coach allume (`client_tracking_config`) : **défauts du coach dès l'invitation** (tout ON s'il n'a rien réglé), affinés au setup | Tous |
 | Kcal / macros | Décide pour ses clients | Calculées puis pilotées par le coach, lecture seule | Calculées, ajustables par lui |
 | Proposition hebdo | Reçoit les brouillons de la tournée | Aucune (son coach les reçoit) | Reçoit celle de son copilote |
 | Questionnaire | Bâtit le sien (template 27 q) | Celui de son coach | Les 27 questions, obligatoire |
@@ -78,6 +79,9 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Inscription solo | Rouverte : porte « solo » dans `AuthPage` (`authDoorCanRegister`) | Libre | ✔ |
 | Client par invitation | `accept_coach_invite` seul chemin vers le rôle `client` | Idem | ✔ |
 | Solo → coach | Un compte existant accepte une invite ; historique visible via `is_coach_of` ; tracking seedé avec les défauts du coach | Idem | ✔ |
+| Coach → solo (fin de lien) | `end_coach_client_link` : rôle `none`, tracking config retirée, programme en pause, cibles conservées, `coach_link_ended_at` + essai 30 j ; le client repasse solo en direct (realtime `user_profiles`) et voit la bannière | Idem + blocage post-essai avec le billing | ✔ (mur : chantier billing) |
+| Accueil coaché | Séance, attente programme (aussi pour un ex-solo), check-in, carte Photos, messages ; plus de streak / deload / rappels / routines | Idem | ✔ |
+| Nav mobile | Coaché : Accueil · Séance · Check-in · Messages · Profil. Solo : hub « Explorer » dans Profil (stats, progression, calendrier, poids, recettes, routines, photos) ; Messages caché sans coach | Idem | ✔ |
 | Macros coaché | Mises à NULL à l'onboarding / intake, écriture coach-only (trigger `protect_coach_nutrition_targets`), anneaux masqués jusqu'à Envoyé | Calcul auto au setup, **puis** coach-only | Chantier 2 |
 | Macros solo | Calculées à la fin de l'intake (Mifflin-St Jeor + activité + objectif, protéines ISSN), éditables dans `GoalsForm` | Idem | ✔ |
 | Proposition hebdo coach | `coach-fleet-round` : Relancer si non assidu, brouillon kcal complet sinon | + explication lisible du « pourquoi » | Chantier 2 |
@@ -124,7 +128,7 @@ Constats déjà établis par l'audit base (4 sept., projet `phyuijjekxtjvipjtdfv
 
 - **L'IA prépare, l'humain décide.** Coach : brouillons `coach_interventions` en `pending`, Envoyer est la seule écriture. Solo : proposition → accepter / refuser. Jamais d'auto-apply.
 - **Un seul agent in-app : `coach-agent` (OpenAI).** Pas de Grok Bots, pas de webhook « Second ». `ask-second` et `suggest-client-plan` répondent 410 exprès.
-- **Tracking d'un coaché piloté par `client_tracking_config`**, tout OFF par défaut jusqu'au setup du coach.
+- **Tracking d'un coaché piloté par `client_tracking_config`** : la ligne est créée à l'invitation avec les défauts du coach (tout ON s'il n'a rien réglé), le setup l'affine. Tout OFF uniquement quand la ligne n'existe pas encore (décision (a) du 4 sept.).
 - **Un client = un coach actif** (`coach_client_links.status = 'active'`).
 - **RLS sur toutes les tables**, RPC `SECURITY DEFINER` étroits pour les écritures coach.
 - **new-JV est le produit.** `main` (live `tracker.prometheus-fit.com`) est l'ancien code. Ne pas toucher la base live ni la backup pour tester.

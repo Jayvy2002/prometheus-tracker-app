@@ -232,6 +232,13 @@ const fr = {
       firstSession: 'Première séance quand tu es prêt',
       checkin: 'Check-in du jour',
     },
+    photosCard: 'Photos de progression',
+    linkEnded: {
+      title: 'Ton coach a mis fin à votre collaboration',
+      body: 'Tu continues en solo : tout ton historique est là (séances, nutrition, poids, check-ins, photos), tes cibles restent celles que tu avais, et ton programme est mis en pause. Ton copilote prend le relais chaque semaine.',
+      trial: 'Période d’essai solo : {{days}} jour(s) restant(s).',
+      trialOver: 'Ta période d’essai solo est terminée.',
+    },
     gym: {
       next: 'Prochaine séance : {{name}}',
       continue: 'Reprendre : {{name}}',
@@ -457,6 +464,7 @@ const fr = {
     tapToChange: 'Appuie sur la photo pour la changer',
     fallbackName: 'Toi',
     hubTitle: 'Coaching',
+    soloHubTitle: 'Explorer',
     signOut: 'Se déconnecter',
     deleteAccount: 'Supprimer mon compte',
     adminAccess: 'Accès complet à toutes les fonctionnalités',
@@ -1052,7 +1060,7 @@ const fr = {
     removeClient: {
       action: 'Retirer du roster',
       title: 'Retirer {{name}} ?',
-      body: 'Tu retires ce client de ton roster. Son compte personnel reste intact — tu coupes seulement le lien coach. Les messages et logs restent chez lui, mais il disparaît de Clients, Aujourd’hui et Messages.',
+      body: 'Tu retires ce client de ton roster. Il redevient solo avec tout son historique : ses cibles restent celles que tu avais réglées, son programme est mis en pause, et il sera prévenu que tu as mis fin au lien. Il disparaît de Clients, Aujourd’hui et Messages.',
       hardUndo: 'C’est difficile à annuler. Pour le reprendre, il devra accepter une nouvelle invitation.',
       typeName: 'Tape « {{name}} » pour confirmer',
       confirmCta: 'Retirer {{name}}',

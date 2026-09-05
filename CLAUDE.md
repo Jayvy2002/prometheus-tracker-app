@@ -141,7 +141,8 @@ supabase/
 - **Fleet :** triage SQL cheap (`triage_coach_fleet`, agrégats 14 j), Relancer si non assidu, kcal+P/C/F complets sinon, LLM seulement pour `program_adjustment`.
 - **Rôle client uniquement via `accept_coach_invite`.** Coach et solo s'inscrivent librement.
 - **Macros d'un coaché : écriture coach-only** (RPC `coach_set_client_nutrition_targets` + trigger). Le calcul automatique au setup est un chantier ouvert (voir VISION), le verrou d'écriture reste.
-- **Tracking coaché : tout OFF jusqu'au setup du coach** (`ALL_OFF_TRACKING`, `TrackingGate`).
+- **Tracking coaché piloté par `client_tracking_config`** : ligne créée à l'invitation avec les défauts du coach, affinée au setup ; `ALL_OFF_TRACKING` seulement sans ligne ; `TrackingGate` sur les routes.
+- **Fin de lien = retour solo** (`end_coach_client_link` : rôle `none`, tracking config retirée, cibles et historique conservés, programme en pause, `coach_link_ended_at` + `solo_trial_ends_at`). Le client ne doit jamais rester « coaché sans coach ».
 - **Ne pas splitter `coachingStore`** dans un PR de cleanup.
 
 ---

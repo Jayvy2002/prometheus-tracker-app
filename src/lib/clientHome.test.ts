@@ -7,6 +7,7 @@ import {
   calorieGapKind,
   calorieGapPct,
   clientHomeNextAction,
+  clientHomeNextActionKey,
   daysSinceActivity,
   isClientFirstRun,
   parseActivityTime,
@@ -127,6 +128,19 @@ test('Jade next action: waiting for program or first session — never a forced 
     hasNextWorkout: false,
     hasCoach: true,
   }), null);
+
+  // Ex-solo who just joined a coach: history, no program yet → still waiting for the coach.
+  assert.equal(clientHomeNextAction({
+    firstRun: false,
+    hasProgram: false,
+    hasNextWorkout: false,
+    hasCoach: true,
+  }), 'waiting_program');
+  assert.equal(clientHomeNextActionKey('waiting_program'), 'dashboard.firstRun.waitingProgram');
+  assert.equal(clientHomeNextActionKey('first_session'), 'dashboard.firstRun.firstSession');
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  assert.match(dash, /clientHomeNextActionKey\(nextAction\)/);
+  assert.doesNotMatch(dash, /dashboard\.firstRun\.\$\{nextAction\}/);
 });
 
 test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', () => {
