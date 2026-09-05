@@ -829,6 +829,7 @@ const en = {
       exhausted: 'Exhausted',
       overwhelmed: 'Overwhelmed',
       severe: 'Severe',
+      perfect: 'Perfect',
     },
   },
 
@@ -940,6 +941,7 @@ const en = {
     },
     interventions: {
       title: 'To approve',
+      openedFromFileRationale: 'Opened from the client file — manual program adjustment in progress.',
       badgeClient: 'Client',
       badgeApp: 'App',
       appWide: 'App workflow',
@@ -1037,6 +1039,7 @@ const en = {
         onboarding_incomplete: 'Onboarding incomplete',
         program_unassigned: 'No program yet',
         session_logged: 'Session logged — {{session}}',
+        draft_pending: 'Draft ready — {{title}}',
       },
       composeTitle: 'Nudge — {{name}}',
       composeHint: 'Edit the text, then send. Nothing goes out on its own.',
@@ -1428,6 +1431,8 @@ const en = {
         stress: 'Stress',
         soreness: 'Soreness',
         joint_pain: 'Joint pain',
+        adherence_training: 'Training adherence',
+        adherence_nutrition: 'Nutrition adherence',
         notes: 'Notes',
       },
     },

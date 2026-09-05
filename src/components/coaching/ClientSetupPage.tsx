@@ -28,7 +28,7 @@ import {
 } from '../../lib/coachSecond';
 import type { AiProgramDayDraft, CoachIntervention, UserProfile } from '../../lib/types';
 import ProgramDraftEditor from './ProgramDraftEditor';
-import SecondDraftingCard from './SecondDraftingCard';
+import AgentDraftingCard from './AgentDraftingCard';
 import TrackingVarsEditor from './TrackingVarsEditor';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -349,7 +349,7 @@ export default function ClientSetupPage() {
         )}
 
         {liveDraft && (isInterventionDrafting(liveDraft) || interventionDraftError(liveDraft)) && (
-          <SecondDraftingCard
+          <AgentDraftingCard
             row={liveDraft}
             retrying={asking}
             onRetry={interventionDraftError(liveDraft) ? () => void requestAiProgram() : undefined}

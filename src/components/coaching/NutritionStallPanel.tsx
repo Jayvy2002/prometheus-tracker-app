@@ -2,30 +2,30 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import SecondDraftingCard from './SecondDraftingCard';
+import AgentDraftingCard from './AgentDraftingCard';
 import type { CoachIntervention } from '../../lib/types';
 import { isInterventionDrafting } from '../../lib/coachSecond';
 
 export default function NutritionStallPanel({
   relanceHref,
   draftHref,
-  canAskSecond,
+  canAskAgent,
   asking,
   liveDraft,
-  onAskSecond,
+  onAskAgent,
 }: {
   relanceHref: string;
   draftHref: string | null;
-  canAskSecond: boolean;
+  canAskAgent: boolean;
   asking: boolean;
   liveDraft: CoachIntervention | null;
-  onAskSecond: () => void;
+  onAskAgent: () => void;
 }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
 
   const ask = () => {
-    onAskSecond();
+    onAskAgent();
   };
 
   return (
@@ -36,7 +36,7 @@ export default function NutritionStallPanel({
       <p className="text-sm text-white">{t('coaching.nutritionStall.body')}</p>
       <p className="text-[11px] text-neutral-500">{t('coaching.nutritionStall.hint')}</p>
       {liveDraft && isInterventionDrafting(liveDraft) && (
-        <SecondDraftingCard row={liveDraft} retrying={asking} onRetry={ask} />
+        <AgentDraftingCard row={liveDraft} retrying={asking} onRetry={ask} />
       )}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" size="sm" onClick={() => navigate(relanceHref)}>
@@ -56,9 +56,9 @@ export default function NutritionStallPanel({
             {t('coaching.nutritionStall.openDraft')}
           </Button>
         )}
-        {canAskSecond && !draftHref && (
+        {canAskAgent && !draftHref && (
           <Button type="button" size="sm" variant="secondary" loading={asking} onClick={ask}>
-            {t('coaching.nutritionStall.askSecond')}
+            {t('coaching.nutritionStall.askAgent')}
           </Button>
         )}
       </div>

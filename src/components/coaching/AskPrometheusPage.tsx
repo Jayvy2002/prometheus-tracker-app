@@ -67,7 +67,7 @@ export default function AskPrometheusPage() {
     saveHistory(next);
   };
 
-  const sendToSecond = async (raw: string) => {
+  const sendToAgent = async (raw: string) => {
     const q = raw.trim();
     if (!q) return;
     remember(q);
@@ -116,7 +116,7 @@ export default function AskPrometheusPage() {
     setQuery(q);
     remember(q);
     if (isRosterAsk(q)) return;
-    void sendToSecond(q);
+    void sendToAgent(q);
   };
 
   const askChips = useMemo(() => {
