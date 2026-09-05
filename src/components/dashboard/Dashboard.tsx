@@ -32,6 +32,7 @@ import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 import ClientGymCard from './ClientGymCard';
+import SoloWeeklyReview from './SoloWeeklyReview';
 
 function getWeekDates(): string[] {
   const today = new Date();
@@ -369,6 +370,9 @@ export default function Dashboard() {
             )}
           </div>
         )}
+
+        {/* Solo copilot: the weekly kcal / macros review. A coached client's coach receives it instead. */}
+        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
 
         {myCoach && (latestCoachMessage || unreadMessageCount > 0) && (
           <button

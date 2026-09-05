@@ -822,7 +822,8 @@ export type ProductEventName =
   | 'agent_asked'
   | 'program_assigned'
   | 'workout_completed'
-  | 'checkin_saved';
+  | 'checkin_saved'
+  | 'solo_review_decided';
 
 export type ProductEventProps = Record<string, string | number | boolean | null>;
 
@@ -831,6 +832,20 @@ export interface ProductEventInsert {
   role: ProductEventRole;
   event: ProductEventName;
   props: ProductEventProps;
+}
+
+/** public.solo_weekly_reviews — the solo copilot's weekly proposal and what the solo did with it. */
+export interface SoloWeeklyReviewRow {
+  id: string;
+  user_id: string;
+  week_start: string;
+  action: 'keep' | 'relance' | 'calorie_adjustment';
+  reason: string;
+  proposed: Record<string, number>;
+  evidence: Record<string, unknown>;
+  decision: 'accepted' | 'kept' | 'dismissed';
+  decided_at: string;
+  created_at: string;
 }
 
 export interface DailyCheckin {

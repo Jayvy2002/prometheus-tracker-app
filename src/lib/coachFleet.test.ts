@@ -760,7 +760,11 @@ test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
   const setup = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientSetupPage.tsx'), 'utf8');
   assert.match(setup, /setCalories\(targets\.calories\)/);
   assert.doesNotMatch(setup, /daily_calorie_target \|\| targets/);
-  const weekly = readFileSync(resolve(process.cwd(), 'src/components/nutrition/WeeklyAdjustment.tsx'), 'utf8');
+  // The weekly card is now the solo copilot (SoloWeeklyReview): same fleet rules, shown to solos
+  // only, and the only write to targets is the solo's explicit accept in soloCopilotStore.decide.
+  const weekly = readFileSync(resolve(process.cwd(), 'src/components/dashboard/SoloWeeklyReview.tsx'), 'utf8');
   assert.doesNotMatch(weekly, /updateProfile/);
-  assert.match(weekly, /coachDecides/);
+  assert.match(weekly, /computeSoloWeeklyReview/);
+  const solo = readFileSync(resolve(process.cwd(), 'src/lib/soloCopilot.ts'), 'utf8');
+  assert.match(solo, /proposeWeeklyNutrition\(buildSoloDossier/);
 });

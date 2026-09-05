@@ -70,7 +70,7 @@ src/
 │   │                          #   ProgramSessionEditor, CoachSettingsPanel, TrackingGate, InvitePage…
 │   │                          #   Côté client : ClientMessagesPage, ClientPhotosPage
 │   ├── programs/              # ProgramsPage / ProgramEditorPage (coach), ClientProgramPage (coaché)
-│   ├── dashboard/             # Dashboard (accueil client / solo) + ClientGymCard
+│   ├── dashboard/             # Dashboard (accueil client / solo), ClientGymCard, SoloWeeklyReview (copilote solo hebdo)
 │   ├── checkin/               # CheckInPage (0–10)
 │   ├── workout/               # WorkoutPage, WorkoutForm, ExerciseCard, RestTimer, SessionTimer…
 │   ├── nutrition/             # NutritionPage, FoodForm, RecipesPage, WaterTracker, WeeklyAdjustment…
@@ -80,6 +80,7 @@ src/
 │
 ├── stores/                    # Zustand, un fichier par domaine
 │   ├── coachingStore.ts       # Rôle, invites, roster, ops, interventions, messages, realtime, tracking config
+│   ├── soloCopilotStore.ts    # Décision hebdo du solo (solo_weekly_reviews), seule écriture copilote → cibles
 │   ├── programStore.ts        # Programmes, jours, exercices, assignations
 │   ├── checkinStore.ts        # Check-ins quotidiens
 │   ├── authStore / profileStore / workoutStore / nutritionStore / weightStore
@@ -90,6 +91,7 @@ src/
 │   ├── utils.ts               # BMR, TDEE, macros ISSN, dates, unités
 │   ├── kinesiologyIntake.ts   # 27 questions (labels FR = source de vérité), gate du mur, patch profil, drapeaux médicaux
 │   ├── telemetry.ts / telemetryClient.ts   # Télémétrie produit (pur + track())
+│   ├── soloCopilot.ts         # Bilan hebdo solo : dossier depuis ses logs → règles fleet → explication
 │   ├── clientTracking.ts      # Modules / variables allumés par le coach
 │   ├── coachRole.ts           # isCoachedAthlete
 │   ├── coach*.ts              # Logique coach pure (fleet, queue, priorities, alerts, interventions…)
@@ -134,7 +136,7 @@ supabase/
 
 ## Verrous produit (ne pas casser)
 
-- **L'IA prépare, l'humain décide.** `coach-agent` et `coach-fleet-round` écrivent uniquement des `coach_interventions` `pending`. Apply = action UI du coach (Envoyer). Idem pour le futur copilote solo : proposition → accepter / refuser.
+- **L'IA prépare, l'humain décide.** `coach-agent` et `coach-fleet-round` écrivent uniquement des `coach_interventions` `pending`. Apply = action UI du coach (Envoyer). Copilote solo : `SoloWeeklyReview` propose, la seule écriture vers les cibles est `soloCopilotStore.decide('accepted')` — le tap du solo.
 - **Pas de Grok Bots, pas de Second.** Un seul invoke IA côté coach : `COACH_AGENT_FUNCTION = 'coach-agent'`.
 - **Fleet :** triage SQL cheap (`triage_coach_fleet`, agrégats 14 j), Relancer si non assidu, kcal+P/C/F complets sinon, LLM seulement pour `program_adjustment`.
 - **Rôle client uniquement via `accept_coach_invite`.** Coach et solo s'inscrivent librement.
