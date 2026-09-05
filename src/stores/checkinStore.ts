@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { todayStr } from '../lib/utils';
 import { clampCheckinScore } from '../lib/checkinScale';
+import { track } from '../lib/telemetryClient';
 import type { DailyCheckin, DailyCheckinInput } from '../lib/types';
 
 interface CheckinState {
@@ -69,6 +70,7 @@ export const useCheckinStore = create<CheckinState>((set) => ({
       .maybeSingle();
     if (error) return { error: error.message };
     const row = data as DailyCheckin;
+    track('checkin_saved', { with_notes: !!(input.notes ?? '').trim() });
     set(s => ({
       todayCheckin: row,
       checkins: [row, ...s.checkins.filter(c => c.checked_at !== row.checked_at)],

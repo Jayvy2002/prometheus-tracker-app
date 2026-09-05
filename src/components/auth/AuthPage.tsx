@@ -13,6 +13,7 @@ import {
 } from '../../lib/clientAuth';
 import { useAuthStore } from '../../stores/authStore';
 import { clearIntendedCoachingRole, setIntendedCoachingRole } from '../../stores/coachingStore';
+import { track } from '../../lib/telemetryClient';
 
 interface Props {
   inviteCoachName?: string | null;
@@ -99,6 +100,9 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
         setError(clientLoginErrorCopy(result.error, t));
         return;
       }
+      if (mode === 'register') {
+        track('account_created', { door: role ?? 'client', from_invite: fromInvite });
+      }
       if ('needsConfirmation' in result && result.needsConfirmation) {
         setCheckEmail(true);
       } else {
@@ -115,7 +119,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-sm">
           <div className="text-center mb-10 animate-fade-in-scale">
-            <img src="/logo.svg" alt="Prometheus Tracker" className="w-16 h-16 mx-auto mb-4" />
+            <img src="/logo.svg" alt="Prometheus Fitness" className="w-16 h-16 mx-auto mb-4" />
             <h1 className="text-3xl font-bold text-white tracking-tight">Prometheus</h1>
             <p className="text-neutral-400 mt-2">{t('auth.tagline')}</p>
           </div>

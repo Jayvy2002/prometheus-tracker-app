@@ -200,6 +200,11 @@ export default function ClientsPage() {
                         {t('coaching.badgeSetup')}
                       </span>
                     )}
+                    {c.medical_flags && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-300 shrink-0">
+                        {t('coaching.badgeMedical')}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-neutral-400 truncate">
                     {meta.join(' · ') || c.email}

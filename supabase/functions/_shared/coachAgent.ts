@@ -59,6 +59,8 @@ const LESSON_RULE =
 
 export const SYSTEM_PROMPT = `Tu es l'agent coach in-app de Prometheus. Tu prépares UN brouillon. Rien ne s'applique tout seul. Le coach accepte ou édite, puis envoie.
 Français, tutoiement. Tu tutoyes le client dans les messages.
+Si "intake" est présent (questionnaire d'accueil rempli par le client), c'est TA source principale pour le programme : respecte lieu, equipement, extras.available_weekdays (0=dimanche … 6=samedi), seancesRealistes, dureeIdeale, niveauActuel, typesExercices, exercicesDetestes, mouvementAEviter, descriptionBlessures. Ne prescris jamais un exercice qui exige un équipement absent de la liste ni un mouvement à éviter.
+intake.medical_flags non vide (condition cardiaque / HTA / douleurs thoraciques, étourdissements, restriction médicale) → programme conservateur, intensité modérée, et une note explicite au coach dans "notes" pour qu'il vérifie avant d'envoyer.
 ISSN reste la formule de l'app — tu n'écrases pas les calories d'onboarding. « Revenir à l'ISSN » = cette formule, pas un seed.
 Levier : adhérence / Relancer d'abord si le client n'applique PAS le plan (logs >> cible, adhérence basse, ghost, séances manquées). JAMAIS une coupe calorie ni un nouveau programme dans ces cas. JAMAIS des macros 0. On ne change PAS les cibles s'il ne suit pas.
 Changement kcal/macros SEULEMENT s'il APPLIQUE le plan. Trajectoire réelle, pas un offset générique ±150 :
@@ -84,7 +86,8 @@ function kindSchema(kind: string): string {
   },
   "tracking": { "track_weight": boolean, "track_checkins": boolean, "track_nutrition": boolean, "track_workouts": boolean, "workout_focus": string }
 }
-PAS de calories, macros, ni recettes. 3 à 5 jours, 4 à 6 exercices par jour, adaptés au profil.`;
+PAS de calories, macros, ni recettes. 3 à 5 jours, 4 à 6 exercices par jour, adaptés au profil.
+Si intake est présent : nombre de jours = intake.seancesRealistes (borné 2–6) ; weekday de chaque jour pris dans intake.extras.available_weekdays quand la liste existe.`;
   }
   if (kind === "program_nl_edit") {
     return `Schéma program_nl_edit :
@@ -290,11 +293,79 @@ async function fetchProfile(
   const { data } = await admin
     .from("user_profiles")
     .select(
-      "id, full_name, goal, training_frequency, training_focus, training_experience, injuries_limitations, diet_type, food_allergies, weight_kg, target_weight_kg, sleep_hours_average, onboarding_completed, daily_calorie_target, protein_target, carbs_target, fat_target",
+      "id, full_name, goal, training_frequency, training_focus, training_experience, injuries_limitations, diet_type, food_allergies, weight_kg, target_weight_kg, sleep_hours_average, onboarding_completed, daily_calorie_target, protein_target, carbs_target, fat_target, kinesiology_intake",
     )
     .eq("id", clientId)
     .maybeSingle();
   return data ? asObject(data) : null;
+}
+
+const INTAKE_TEXT_MAX = 400;
+/** Same order as src/lib/kinesiologyIntake.ts WEEKDAYS; JS weekday ints (0 = dimanche). */
+const INTAKE_WEEKDAY_INDEX: Record<string, number> = {
+  dim: 0, lun: 1, mar: 2, mer: 3, jeu: 4, ven: 5, sam: 6,
+};
+/** PAR-Q-style questions — mirror of MEDICAL_FLAG_IDS in src/lib/kinesiologyIntake.ts. */
+const INTAKE_MEDICAL_FLAG_IDS = [
+  "cardiaqueHtaPoitrine",
+  "etourdissementsEquilibre",
+  "medecinLimiteExercices",
+];
+
+function compactIntakeValue(value: unknown): unknown {
+  if (typeof value === "string") {
+    const s = value.trim();
+    return s ? s.slice(0, INTAKE_TEXT_MAX) : undefined;
+  }
+  if (Array.isArray(value)) {
+    const items = value.map((v) => asString(v)).filter(Boolean);
+    return items.length ? items : undefined;
+  }
+  return undefined;
+}
+
+/**
+ * The client's intake (questionnaire d'accueil) as the LLM should see it: no empty answers,
+ * long texts trimmed, available days as weekday ints, medical flags listed explicitly.
+ * Returns null when the client never answered.
+ */
+export function compactIntake(raw: unknown): Record<string, unknown> | null {
+  const src = asObject(raw);
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(src)) {
+    if (key === "version" || key === "extras") continue;
+    const compact = compactIntakeValue(value);
+    if (compact !== undefined) out[key] = compact;
+  }
+  const extrasSrc = asObject(src.extras);
+  const extras: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(extrasSrc)) {
+    if (key === "joursDispo") continue;
+    const compact = compactIntakeValue(value);
+    if (compact !== undefined) extras[key] = compact;
+  }
+  if (Array.isArray(extrasSrc.joursDispo)) {
+    const days = extrasSrc.joursDispo
+      .map((d) => INTAKE_WEEKDAY_INDEX[asString(d).toLowerCase()])
+      .filter((d): d is number => typeof d === "number");
+    if (days.length) extras.available_weekdays = [...new Set(days)].sort((a, b) => a - b);
+  }
+  if (Object.keys(extras).length) out.extras = extras;
+  const medicalFlags = INTAKE_MEDICAL_FLAG_IDS.filter((id) => asString(src[id]) === "Oui");
+  if (Object.keys(out).length === 0) return null;
+  out.medical_flags = medicalFlags;
+  return out;
+}
+
+function intakeSessionCount(intake: Record<string, unknown> | null): number | null {
+  const n = Math.round(num(intake?.seancesRealistes, 0));
+  return n >= 1 ? Math.min(6, Math.max(2, n)) : null;
+}
+
+function intakeWeekdays(intake: Record<string, unknown> | null): number[] | null {
+  const days = asObject(intake?.extras).available_weekdays;
+  if (!Array.isArray(days) || days.length === 0) return null;
+  return days.map((d) => num(d, -1)).filter((d) => d >= 0 && d <= 6);
 }
 
 async function fetchCompactProgram(
@@ -406,15 +477,18 @@ function weekdaySpread(dayCount: number): number[] {
   return [1, 2, 3, 4, 5].slice(0, dayCount);
 }
 
-/** Deterministic 3–5 day / 4–6 lift outline. Never includes calories/macros. */
+/** Deterministic 3–5 day / 4–6 lift outline. Never includes calories/macros. Honours intake days when present. */
 export function fallbackProgramFromProfile(
   profile: Record<string, unknown> | null,
   prompt: string,
+  intake: Record<string, unknown> | null = null,
 ): Record<string, unknown> {
-  const freq = Math.round(num(profile?.training_frequency, 3));
+  const intakeSessions = intakeSessionCount(intake);
+  const freq = intakeSessions ?? Math.round(num(profile?.training_frequency, 3));
   const experience = asString(profile?.training_experience).toLowerCase();
   const focus = asString(profile?.training_focus).toLowerCase();
   const novice = experience.includes("beginner") || experience.includes("novice")
+    || asString(intake?.niveauActuel).toLowerCase().startsWith("débutant")
     || /novice|débutant|debutant|étudiant|etudiant/i.test(prompt);
   const dayCount = novice ? Math.min(4, Math.max(3, freq || 3)) : Math.min(5, Math.max(3, freq || 4));
   const strength = focus.includes("strength") || focus.includes("force");
@@ -435,7 +509,10 @@ export function fallbackProgramFromProfile(
     { name: "Full accessory", exercises: [lift("Tractions assistées", 3, 8, 2, rest), lift("Développé haltères", 3, reps, 2, rest), lift("Fentes bulgares", 3, reps, 2, rest), lift("Face pulls", 3, 12, 2, 75), lift("Planche", 3, 30, null, 60)] },
   ];
   const templates = dayCount <= 3 || novice ? fullBody : upperLower;
-  const weekdays = weekdaySpread(dayCount);
+  const preferred = intakeWeekdays(intake);
+  const weekdays = preferred && preferred.length >= dayCount
+    ? preferred.slice(0, dayCount)
+    : weekdaySpread(dayCount);
   const days = templates.slice(0, dayCount).map((day, i) => ({
     weekday: weekdays[i] ?? ((i + 1) % 7),
     name: day.name,
@@ -563,18 +640,24 @@ export async function runCoachAgent(
   if (!input.prompt) return { ok: false, error: "prompt_required" };
   if (kind === "onboarding_plan" && !input.clientId) return { ok: false, error: "client_id_required" };
 
-  const [dossier, profile, lessons, program] = await Promise.all([
+  const [dossier, rawProfile, lessons, program] = await Promise.all([
     fetchDossier(admin, input.coachId, input.clientId),
     fetchProfile(admin, input.clientId),
     fetchCoachLessons(admin, input.coachId, kind),
     fetchCompactProgram(admin, input.programId, input.clientId, input.context),
   ]);
 
+  // The raw jsonb never goes to the LLM as-is: it is compacted into `intake` below.
+  const { kinesiology_intake: rawIntake, ...profileFields } = rawProfile ?? {};
+  const profile = rawProfile ? profileFields : null;
+  const intake = compactIntake(rawIntake);
+
   const userPayload = {
     kind,
     prompt: input.prompt,
     screen: input.screen,
     client: profile,
+    intake,
     dossier_14d: dossier,
     current_program: program,
     context: input.context,
@@ -599,7 +682,7 @@ export async function runCoachAgent(
   let built = llm ? buildPayload(kind, input, llm) : null;
   if (!built || !payloadIsReady(kind, built.payload)) {
     if (wantsProgram) {
-      const program = fallbackProgramFromProfile(profile, input.prompt);
+      const program = fallbackProgramFromProfile(profile, input.prompt, intake);
       built = buildPayload(kind, input, {
         title: "Programme IA — brouillon",
         notes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",
@@ -619,7 +702,7 @@ export async function runCoachAgent(
 
   if (!payloadIsReady(kind, built.payload)) {
     if (kind === "onboarding_plan" || kind === "program_nl_edit") {
-      const program = fallbackProgramFromProfile(profile, input.prompt);
+      const program = fallbackProgramFromProfile(profile, input.prompt, intake);
       built = buildPayload(kind, input, {
         title: titleFor(kind, ""),
         notes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",

@@ -11,8 +11,10 @@ import {
   intakeGateNeedsUsageProbe,
   intakeToProfilePatch,
   isIntakeAlreadyFilled,
+  medicalFlagIds,
   originalAnswersComplete,
   parseIntake,
+  profileHasMedicalFlags,
   profileShowsExistingAppUse,
   screenCanProceed,
   shouldForceKinesiologyIntake,
@@ -77,6 +79,7 @@ function completeOriginal(partial: Record<string, unknown> = {}) {
     exercicesDetestes: '',
     prefereProgramme: 'Varie et stimulant',
     quelqueChoseImportant: '',
+    extras: { ...emptyIntake().extras, objectifType: 'cut' },
     ...partial,
   });
   return intake;
@@ -120,7 +123,7 @@ describe('kinesiologyIntake original form', () => {
 
   it('never writes kcal or macros from the form', () => {
     const patch = intakeToProfilePatch(completeOriginal({
-      extras: { ...emptyIntake().extras, poidsViseKg: '58' },
+      extras: { ...emptyIntake().extras, objectifType: 'cut', poidsViseKg: '58' },
     }), '2026-09-02T00:00:00.000Z');
     assert.equal('daily_calorie_target' in patch, false);
     assert.equal('protein_target' in patch, false);
@@ -130,6 +133,40 @@ describe('kinesiologyIntake original form', () => {
     assert.equal(patch.onboarding_completed, true);
     assert.equal(patch.full_name, 'Angélique Petit');
     assert.equal(patch.gender, 'female');
+  });
+
+  it('structured goal type maps to user_profiles.goal; free text stays free', () => {
+    const cut = intakeToProfilePatch(completeOriginal(), '2026-09-02T00:00:00.000Z');
+    assert.equal(cut.goal, 'cut');
+    const bulk = intakeToProfilePatch(completeOriginal({
+      extras: { ...emptyIntake().extras, objectifType: 'bulk' },
+    }), '2026-09-02T00:00:00.000Z');
+    assert.equal(bulk.goal, 'bulk');
+    const none = intakeToProfilePatch(completeOriginal({
+      extras: { ...emptyIntake().extras, objectifType: 'whatever' },
+    }), '2026-09-02T00:00:00.000Z');
+    assert.equal('goal' in none, false);
+    assert.equal((ORIGINAL_QUESTION_IDS as string[]).includes('objectifType'), false);
+
+    const screen = completeOriginal({ extras: { ...emptyIntake().extras, objectifType: '' } });
+    assert.equal(screenCanProceed(screen, 1), false);
+    screen.extras.objectifType = 'maintain';
+    assert.equal(screenCanProceed(screen, 1), true);
+    assert.equal(parseIntake({ extras: { objectifType: 'bulk' } }).extras.objectifType, 'bulk');
+  });
+
+  it('medical flags: any « Oui » on the PAR-Q questions is a coach flag', () => {
+    assert.deepEqual(medicalFlagIds(completeOriginal()), []);
+    assert.equal(profileHasMedicalFlags(completeOriginal()), false);
+    const flagged = completeOriginal({
+      etourdissementsEquilibre: 'Oui',
+      medecinLimiteExercices: 'Oui',
+      conditionMedicalePrecise: 'Vertiges positionnels',
+    });
+    assert.deepEqual(medicalFlagIds(flagged), ['etourdissementsEquilibre', 'medecinLimiteExercices']);
+    assert.equal(profileHasMedicalFlags(flagged), true);
+    assert.equal(profileHasMedicalFlags(null), false);
+    assert.equal(profileHasMedicalFlags({ cardiaqueHtaPoitrine: 'Oui' }), true);
   });
 
   it('requires original screens and conditional descriptions', () => {

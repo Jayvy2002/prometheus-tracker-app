@@ -36,7 +36,7 @@ import Input from '../ui/Input';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import KinesiologyIntakeReview from '../onboarding/KinesiologyIntakeReview';
-import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
+import { isIntakeAlreadyFilled, medicalYesFlags, parseIntake } from '../../lib/kinesiologyIntake';
 
 const EMPTY_TRACKING: ResolvedTrackingConfig = {
   ...ALL_ON_TRACKING,
@@ -300,12 +300,19 @@ export default function ClientSetupPage() {
         )}
 
         {onboarded && profile && isIntakeAlreadyFilled(profile) && (
-          <div className="mb-4">
+          <div className="mb-4 space-y-4">
+            {medicalYesFlags(parseIntake(profile.kinesiology_intake)) && (
+              <Card className="border-rose-500/30 bg-rose-500/5">
+                <p className="text-sm font-medium text-rose-200">{t('coaching.medicalFlags.title')}</p>
+                <p className="text-xs text-neutral-400 mt-0.5">{t('coaching.medicalFlags.hint')}</p>
+              </Card>
+            )}
             <KinesiologyIntakeReview raw={profile.kinesiology_intake} />
           </div>
         )}
 
-        {onboarded && profile && (
+        {/* Legacy tracker onboarding fields — only meaningful when the client did not go through the intake. */}
+        {onboarded && profile && !isIntakeAlreadyFilled(profile) && (
           <Card className="mb-4">
             <p className="text-sm font-medium text-white mb-2">{t('coaching.setup.review')}</p>
             <ReviewRow

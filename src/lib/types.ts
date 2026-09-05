@@ -328,6 +328,8 @@ export interface CoachClientSummary {
   last_visited_at: string | null;
   last_nudged_at: string | null;
   daily_calorie_target?: number;
+  /** Any « Oui » on the intake PAR-Q questions (see kinesiologyIntake.MEDICAL_FLAG_IDS). */
+  medical_flags?: boolean;
 }
 
 export interface ClientTrackingConfig {
@@ -796,6 +798,39 @@ export interface CoachPreview {
   id: string;
   full_name: string;
   avatar_url: string;
+}
+
+/** Viewer role recorded on a telemetry row (public.product_events.role). */
+export type ProductEventRole = 'coach' | 'client' | 'solo';
+
+/**
+ * Telemetry event names (public.product_events.event). Add here first, then call track().
+ * props must stay structural (ids, kinds, booleans, counts) — never names, emails or free text.
+ */
+export type ProductEventName =
+  | 'screen_view'
+  | 'account_created'
+  | 'intake_completed'
+  | 'invite_created'
+  | 'invite_accepted'
+  | 'intervention_resolved'
+  | 'coach_message_sent'
+  | 'client_reply_sent'
+  | 'tracking_config_saved'
+  | 'nutrition_targets_set'
+  | 'fleet_round_run'
+  | 'agent_asked'
+  | 'program_assigned'
+  | 'workout_completed'
+  | 'checkin_saved';
+
+export type ProductEventProps = Record<string, string | number | boolean | null>;
+
+export interface ProductEventInsert {
+  user_id: string;
+  role: ProductEventRole;
+  event: ProductEventName;
+  props: ProductEventProps;
 }
 
 export interface DailyCheckin {
