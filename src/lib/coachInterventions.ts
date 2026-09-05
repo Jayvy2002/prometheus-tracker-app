@@ -182,23 +182,9 @@ export function parseTalkingPoints(payload: unknown, fallback = ''): string {
   return fallback;
 }
 
-export function parseWorkflowSuggestion(payload: unknown, fallback = ''): string {
-  const root = asRecord(payload);
-  if (!root) return fallback;
-  if (typeof root.suggestion === 'string' && root.suggestion.trim()) return root.suggestion;
-  if (typeof root.question === 'string' && root.question.trim()) return root.question;
-  if (typeof root.variable === 'string' && root.variable.trim()) return root.variable;
-  if (typeof root.field === 'string' && root.field.trim()) return root.field;
-  return parseTalkingPoints(payload, fallback);
-}
-
-export function isCoachOnlyKind(kind: CoachInterventionKind): boolean {
-  return kind === 'workflow_improvement' || kind === 'new_question';
-}
-
-/** Client-file drafts only — app-workflow cards without a client stay in Messages. */
+/** Client-file drafts only — app-wide cards (Ask Prometheus without a client) stay in Messages. */
 export function isClientBoundDraft(row: Pick<CoachIntervention, 'kind' | 'client_id'>): boolean {
-  return !!row.client_id && !isCoachOnlyKind(row.kind);
+  return !!row.client_id;
 }
 
 export function parseDraftFrom(value: string | null | undefined): DraftOpenFrom | null {
@@ -270,8 +256,6 @@ const KINDS: CoachInterventionKind[] = [
   'adherence_nutrition',
   'adherence_training',
   'keep_in_touch',
-  'workflow_improvement',
-  'new_question',
   'other',
   'ask_prometheus',
   'program_nl_edit',
@@ -323,9 +307,7 @@ export function payloadSummary(row: CoachIntervention): string {
     const lifts = outline.days.reduce((n, d) => n + d.exercises.length, 0);
     return `${outline.name || '—'} · ${outline.days.length}d · ${lifts} ex`;
   }
-  const points = isCoachOnlyKind(row.kind)
-    ? parseWorkflowSuggestion(row.payload)
-    : parseTalkingPoints(row.payload);
+  const points = parseTalkingPoints(row.payload);
   if (points) return points.split('\n')[0] ?? '';
   return row.title || '';
 }

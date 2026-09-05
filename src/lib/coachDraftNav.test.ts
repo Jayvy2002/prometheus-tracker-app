@@ -109,8 +109,7 @@ test('PROGRAM NL EDIT cause is a short French sentence, not a prompt or JSON dum
   assert.doesNotMatch(agent, /rationale: input\.prompt/);
 });
 
-test('App-workflow cards without a client are not client-file drafts', () => {
-  assert.equal(isClientBoundDraft(draft({ kind: 'workflow_improvement', client_id: 'lea' })), false);
+test('App-wide cards without a client are not client-file drafts', () => {
   assert.equal(isClientBoundDraft(draft({ kind: 'ask_prometheus', client_id: null })), false);
   assert.equal(isClientBoundDraft(draft({ kind: 'program_nl_edit', client_id: 'lea' })), true);
   assert.equal(openDraftHref(draft({ client_id: null })), '/inbox/d1');

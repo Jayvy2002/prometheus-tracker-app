@@ -687,8 +687,6 @@ export type CoachInterventionKind =
   | 'adherence_nutrition'
   | 'adherence_training'
   | 'keep_in_touch'
-  | 'workflow_improvement'
-  | 'new_question'
   | 'other'
   | 'ask_prometheus'
   | 'program_nl_edit';

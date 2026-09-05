@@ -242,7 +242,7 @@ test('drafts for unknown clients or non-pending rows never enter the queue', () 
   const rows = [
     pendingDraft({ id: 'gone', client_id: 'ghost', kind: 'keep_in_touch' }),
     pendingDraft({ id: 'sent', client_id: 'sofia', kind: 'keep_in_touch', status: 'sent' }),
-    pendingDraft({ id: 'coach-only', client_id: null, kind: 'new_question' }),
+    pendingDraft({ id: 'app-wide', client_id: null, kind: 'ask_prometheus' }),
   ];
   assert.deepEqual(draftQueueItems(rows, [], clients), []);
 });

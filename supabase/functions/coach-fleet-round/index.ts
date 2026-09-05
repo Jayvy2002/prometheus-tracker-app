@@ -1,7 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.57.4";
-import { openaiJson } from "../_shared/openaiJson.ts";
-import { fetchCoachLessons, formatLessonsForPrompt } from "../_shared/coachAgent.ts";
+import { FLEET_COPY, fleetLocale, type FleetCopy, type FleetGoalKey, type FleetLocale } from "../_shared/fleetCopy.ts";
 
 /**
  * Architecture lock 2026-08-29 (Jayvy): DO NOT create Grok Bots.
@@ -10,8 +9,11 @@ import { fetchCoachLessons, formatLessonsForPrompt } from "../_shared/coachAgent
  * Weekly review IN THE APP:
  *   1. Cheap SQL (`triage_coach_fleet`) of EVERY active linked client.
  *   2. Data-driven Relancer / kcal+P/C/F (ISSN is the starting formula only).
- *   3. LLM only when there is a plan/program proposal the formulas do not write.
+ *   3. 100 % deterministic — no LLM call. Program drafts go through `coach-agent`, on demand.
  *   4. Writes coach_interventions drafts only. Never auto-applies. Never pings Second.
+ *
+ * Language: every draft is written in the coach's language (`user_profiles.language`,
+ * FR by default) via the shared `fleetCopy` dictionary — same source as the app-side mirror.
  *
  * Auth:
  *   JWT (logged-in coach) → that coach's roster, on-demand from Aujourd'hui
@@ -19,12 +21,6 @@ import { fetchCoachLessons, formatLessonsForPrompt } from "../_shared/coachAgent
  *
  * Never authenticates with GROK_BOT_WEBHOOK_SECRET. Never POSTs GROK_BOT_WEBHOOK_URL.
  * Never creates per-client/per-coach Grok Bots. Second is out of the product loop.
-
- * Model:
- *   OPENAI_API_KEY → optional, and only if fleetCardNeedsLlm (program_adjustment)
- *   missing key / Relancer / kcal → deterministic templates + complete macros
- *
- * Never POSTs GROK_BOT_WEBHOOK_URL. Never creates per-client/per-coach Grok Bots.
  */
 
 const corsHeaders = {
@@ -47,8 +43,7 @@ const BULK_TOO_FAST_PCT_PER_WEEK = 0.7;
 const KEEP_IN_TOUCH_DAYS = 7;
 const FLEET_HANDLE_COOLDOWN_DAYS = 7;
 const MACRO_KCAL_TOLERANCE = 0.15;
-const LLM_TIMEOUT_MS = 20_000;
-const MAX_LLM_PER_RUN = 20;
+const MODEL_USED = "deterministic";
 const WEEKLY_SMALL_KCAL = 100;
 const WEEKLY_LARGE_KCAL = 200;
 const WEEKLY_CARB_SHIFT_G = 35;
@@ -158,9 +153,9 @@ function str(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null;
 }
 
-function firstName(full: string): string {
+function firstName(full: string, copy: FleetCopy): string {
   const trimmed = full.trim();
-  if (!trimmed) return "toi";
+  if (!trimmed) return copy.you;
   if (trimmed.includes("@")) return trimmed.split("@")[0] ?? trimmed;
   return trimmed.split(/\s+/)[0] ?? trimmed;
 }
@@ -441,10 +436,6 @@ function shouldOfferKeepInTouch(d: Dossier, today: string): boolean {
   return true;
 }
 
-function keepInTouchLooksLikeLecture(body: string): boolean {
-  return /\b(kcal|calories?|macros?|stagne|descends)\b/i.test(body);
-}
-
 function fleetSignalKey(kind: string, flag: string): string {
   return `${kind}:${flag || kind}`;
 }
@@ -502,9 +493,9 @@ function evidenceChanged(prev: FleetEvidence | null | undefined, next: FleetEvid
 function planWrite(
   d: Dossier,
   today: string,
-  modelUsed: "openai" | "off",
+  locale: FleetLocale,
 ): { action: "skip" | "upsert" | "insert"; card: FleetCard | null } {
-  const raw = buildCard(d, today, modelUsed);
+  const raw = buildCard(d, today, locale);
   if (!raw) return { action: "skip", card: null };
   const card = withEvidence(d, raw);
   if (d.pending_fleet) return { action: "upsert", card };
@@ -540,35 +531,30 @@ function classify(d: Dossier, today: string): FleetFlag {
   return "on_track";
 }
 
-function relanceMessage(flag: FleetFlag, d: Dossier): { body: string; templateKey: string } {
-  const name = firstName(d.full_name);
+function goalKey(goal: string): FleetGoalKey {
+  const g = normalizeGoal(goal);
+  return g === "cut" || g === "bulk" ? g : "other";
+}
+
+function relanceMessage(flag: FleetFlag, d: Dossier, copy: FleetCopy): { body: string; templateKey: string } {
+  const name = firstName(d.full_name, copy);
   const target = d.calorie_target;
   if (flag === "adherence_nutrition") {
     return {
       templateKey: "missed_checkins",
-      body: target > 0
-        ? `Salut ${name}, tes logs sont clairement au-dessus des ${target} kcal qu’on a posés. On ne touche pas encore à la cible : d’abord on l’applique. Tu me dis ce qui bloque (faim, resto, week-end) et on ajuste le plan autour, pas les chiffres.`
-        : `Salut ${name}, tes logs nutrition ne suivent pas le plan. On n’invente pas une nouvelle cible — dis-moi ce qui bloque et on recale la semaine.`,
+      body: target > 0 ? copy.relance.nutritionOverTarget(name, target) : copy.relance.nutritionOffPlan(name),
     };
   }
   if (flag === "ghost") {
-    return {
-      templateKey: "general_followup",
-      body: `Salut ${name}, je ne te vois plus sur l’app depuis un moment (séances, check-ins, nutrition). Tout va bien ? Réponds-moi quand tu peux — on reprend sans te charger.`,
-    };
+    return { templateKey: "general_followup", body: copy.relance.ghost(name) };
   }
   if (flag === "too_fast") {
-    const goal = normalizeGoal(d.goal);
-    const tip = goal === "cut" ? "tu perds un peu vite" : goal === "bulk" ? "tu prends un peu vite" : "le rythme sort de la trajectoire";
     return {
       templateKey: "general_followup",
-      body: `Salut ${name}, ${tip} sur les ${FLEET_WINDOW_DAYS} derniers jours. On en parle avant de toucher aux cibles — comment tu te sens (faim, énergie, séances) ?`,
+      body: copy.relance.tooFast(name, copy.relance.tooFastTip[goalKey(d.goal)], FLEET_WINDOW_DAYS),
     };
   }
-  return {
-    templateKey: "missed_training",
-    body: `Salut ${name}, je n’ai pas vu tes séances récemment. Tout va bien de ton côté ? Dis-moi si on ajuste le programme ou le timing.`,
-  };
+  return { templateKey: "missed_training", body: copy.relance.training(name) };
 }
 
 function calorieAdjustmentCard(
@@ -576,35 +562,20 @@ function calorieAdjustmentCard(
   flag: FleetFlag,
   proposal: WeeklyNutritionProposal,
   observation: string,
-  aiOff: boolean,
+  copy: FleetCopy,
 ): FleetCard | null {
   if (proposal.action !== "calorie_adjustment" || !proposal.draft || !isCompleteCalorieDraft(proposal.draft)) {
     return null;
   }
-  const name = firstName(d.full_name);
+  const name = firstName(d.full_name, copy);
   const tweak = proposal.draft;
   const reason = proposal.reason;
-  const titles: Record<string, string> = {
-    cut_stall: `${name} stagne malgré l’adhérence`,
-    cut_gain: `${name} reprend du poids sur le cut`,
-    too_fast_cut: `${name} perd trop vite`,
-    bulk_stall: `${name} ne progresse pas malgré l’adhérence`,
-    bulk_too_fast: `${name} prend trop vite`,
-    carb_support: `${name} — plus de glucides (fatigue / perf)`,
-  };
-  const causes: Record<string, string> = {
-    cut_stall: "Cut plat et plan suivi — petite baisse, macros complètes. Rien ne s’applique tout seul.",
-    cut_gain: "Prise de poids sur un cut alors que le plan est suivi — baisse plus franche, macros complètes.",
-    too_fast_cut: "Cut trop rapide et plan suivi — on réduit un peu le déficit, macros complètes.",
-    bulk_stall: "Pas de prise alors que le plan est suivi — petite hausse, macros complètes.",
-    bulk_too_fast: "Bulk trop rapide et plan suivi — on réduit un peu le surplus, macros complètes.",
-    carb_support: "Signes de fatigue / perf en baisse — plus de glucides, pas une nouvelle coupe calorie.",
-  };
-  const cause = causes[reason] || "Proposition data-driven, macros complètes. Le coach confirme.";
+  const cause = copy.kcal.cause[reason] || copy.kcal.defaultCause;
+  const title = copy.kcal.title[reason]?.(name) ?? copy.kcal.defaultTitle(name);
   return {
     flag,
     kind: "calorie_adjustment",
-    title: titles[reason] || `${name} — ajustement nutrition`,
+    title,
     observation,
     cause,
     rationale: `${cause} ${tweak.calories} / P${tweak.protein} C${tweak.carbs} F${tweak.fat}.`,
@@ -614,7 +585,6 @@ function calorieAdjustmentCard(
       observation,
       cause,
       reason,
-      ai_off: aiOff,
       nutrition: tweak,
       calories: tweak.calories,
       protein: tweak.protein,
@@ -629,28 +599,29 @@ function fmtDelta(delta: number | null): string {
   return delta > 0 ? `+${delta}` : String(delta);
 }
 
-function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): FleetCard | null {
+function buildCard(d: Dossier, today: string, locale: FleetLocale): FleetCard | null {
+  const copy = FLEET_COPY[locale] ?? FLEET_COPY.fr;
   const clinical = classify(d, today);
-  const name = firstName(d.full_name);
-  const aiOff = modelUsed === "off";
+  const name = firstName(d.full_name, copy);
   const proposal = proposeWeeklyNutrition(d);
+  const avg = Math.round(d.avg_calories);
 
   if (clinical === "on_track") {
     if (proposal.action === "calorie_adjustment" && proposal.reason === "carb_support") {
-      const observation = `Cible ${d.calorie_target} kcal, logs ~${Math.round(d.avg_calories)}, poids ${fmtDelta(d.weight_delta_kg)} kg. Fatigue / perf.`;
-      return calorieAdjustmentCard(d, "on_track", proposal, observation, aiOff);
+      const observation = copy.kcal.carbSupportObservation(d.calorie_target, avg, fmtDelta(d.weight_delta_kg));
+      return calorieAdjustmentCard(d, "on_track", proposal, observation, copy);
     }
     if (!shouldOfferKeepInTouch(d, today)) return null;
     const silentDays = idleDays(d.last_coach_message_at, today);
     const observation = Number.isFinite(silentDays)
-      ? `Ça va côté logs. Pas de contact coach depuis ${silentDays} jours.`
-      : "Ça va côté logs. Pas de message coach dans le fil.";
-    const cause = "Garder le lien — pas un stall, pas une lecture calories.";
-    const body = `Salut ${name}, petit check de la semaine — comment tu vas ? L’entraînement passe bien, et tu as besoin de quelque chose ?`;
+      ? copy.keepInTouch.observationSilent(silentDays)
+      : copy.keepInTouch.observationNoMessage;
+    const cause = copy.keepInTouch.cause;
+    const body = copy.keepInTouch.body(name);
     return {
       flag: "keep_in_touch",
       kind: "keep_in_touch",
-      title: `Prendre des nouvelles de ${name}`,
+      title: copy.keepInTouch.title(name),
       observation,
       cause,
       rationale: cause,
@@ -662,7 +633,6 @@ function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): Flee
         body,
         notes: body,
         template_key: "general_followup",
-        ai_off: aiOff,
       },
     };
   }
@@ -674,45 +644,37 @@ function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): Flee
 
   if (flag === "onboarding") {
     const observation = !d.onboarding_completed
-      ? "Nouveau client, onboarding incomplet."
+      ? copy.onboarding.observationIncomplete
       : !d.has_program
-        ? "Onboarding fait, pas encore de programme assigné."
-        : `Nouveau client (J+${d.linked_days}), aucune séance encore.`;
-    const cause = d.has_program
-      ? "Première semaine — setup, pas un stall."
-      : "Pas un stall : il n’a pas encore de plan à suivre.";
-    const title = d.has_program
-      ? `${name} — première semaine`
-      : `${name} — configurer le plan`;
+        ? copy.onboarding.observationNoProgram
+        : copy.onboarding.observationNoSession(d.linked_days);
+    const cause = d.has_program ? copy.onboarding.causeFirstWeek : copy.onboarding.causeNoPlan;
+    const title = d.has_program ? copy.onboarding.titleFirstWeek(name) : copy.onboarding.titleSetup(name);
     return {
       flag,
       kind: "onboarding_plan",
       title,
       observation,
       cause,
-      rationale: "Nouveau client — setup, pas une relance de stall.",
+      rationale: copy.onboarding.rationale,
       payload: {
         source: FLEET_SOURCE,
         flag,
         observation,
         cause,
-        ai_off: aiOff,
-        notes: `Configure le suivi et le programme de ${name}. Les calories ISSN du profil restent en place tant que tu ne les écris pas.`,
+        notes: copy.onboarding.notes(name),
       },
     };
   }
 
   if (flag === "adherence_nutrition") {
-    const relance = relanceMessage(flag, d);
+    const relance = relanceMessage(flag, d, copy);
     const observation = d.calorie_target > 0
-      ? `Cible ${d.calorie_target} kcal, logs ~${Math.round(d.avg_calories)} (${d.logged_nutrition_days} j)${adh != null ? `, adhérence ${adh}/5` : ""}, poids ${delta} kg.`
-      : `Logs nutrition hors plan (${d.logged_nutrition_days} j), poids ${delta} kg.`;
-    const cause = d.calorie_target > 0 && ratio >= OVEREAT_RATIO
-      ? `Il n’applique pas les ${d.calorie_target} — on ne coupe pas les calories tant que le plan n’est pas suivi.`
-      : "Le plan nutrition n’est pas suivi. Relancer, pas une nouvelle cible.";
-    const title = d.calorie_target > 0
-      ? `Il n’applique pas les ${d.calorie_target}`
-      : "Il n’applique pas le plan nutrition";
+      ? copy.nutrition.observationTarget(d.calorie_target, avg, d.logged_nutrition_days, adh, delta)
+      : copy.nutrition.observationOffPlan(d.logged_nutrition_days, delta);
+    const over = d.calorie_target > 0 && ratio >= OVEREAT_RATIO;
+    const cause = over ? copy.nutrition.causeOverTarget(d.calorie_target) : copy.nutrition.causeOffPlan;
+    const title = d.calorie_target > 0 ? copy.nutrition.titleOverTarget(d.calorie_target) : copy.nutrition.titleOffPlan;
     return {
       flag,
       kind: "adherence_nutrition",
@@ -728,25 +690,22 @@ function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): Flee
         body: relance.body,
         notes: relance.body,
         template_key: relance.templateKey,
-        ai_off: aiOff,
         current_calories: d.calorie_target,
-        avg_calories: Math.round(d.avg_calories),
+        avg_calories: avg,
       },
     };
   }
 
   if (flag === "ghost" || flag === "adherence_training") {
-    const relance = relanceMessage(flag, d);
+    const relance = relanceMessage(flag, d, copy);
     const observation = flag === "ghost"
-      ? `Pas de séance, check-in ni nutrition depuis plus de ${GHOST_IDLE_DAYS} jours.`
-      : `Séances ${d.workout_count}/${expectedWorkouts(d)} sur ${FLEET_WINDOW_DAYS} jours.`;
-    const cause = flag === "ghost"
-      ? "Client ghost — Relancer, pas de nutrition inventée, pas de chiffres de récup."
-      : "Séances manquées — Relancer, pas un nouveau programme.";
+      ? copy.training.observationGhost(GHOST_IDLE_DAYS)
+      : copy.training.observationMissed(d.workout_count, expectedWorkouts(d), FLEET_WINDOW_DAYS);
+    const cause = flag === "ghost" ? copy.training.causeGhost : copy.training.causeMissed;
     return {
       flag,
       kind: "adherence_training",
-      title: flag === "ghost" ? `${name} a disparu` : `${name} ne suit pas les séances`,
+      title: flag === "ghost" ? copy.training.titleGhost(name) : copy.training.titleMissed(name),
       observation,
       cause,
       rationale: cause,
@@ -758,180 +717,66 @@ function buildCard(d: Dossier, today: string, modelUsed: "openai" | "off"): Flee
         body: relance.body,
         notes: relance.body,
         template_key: relance.templateKey,
-        ai_off: aiOff,
       },
     };
   }
 
   if (flag === "too_fast") {
     const following = nutritionFollowingPlan(d);
-    const goal = normalizeGoal(d.goal);
-    const observation = `Poids ${delta} kg sur ${FLEET_WINDOW_DAYS} j${d.calorie_target ? `, logs ~${Math.round(d.avg_calories)} vs ${d.calorie_target}` : ""}.`;
-    const cause = goal === "cut" ? "Cut trop rapide." : goal === "bulk" ? "Bulk trop rapide." : "Rythme hors trajectoire.";
-    const title = goal === "cut" ? `${name} perd trop vite` : `${name} prend trop vite`;
+    const goal = goalKey(d.goal);
+    const observation = copy.tooFast.observation(delta, FLEET_WINDOW_DAYS, d.calorie_target, avg);
+    const cause = copy.tooFast.cause[goal];
+    const title = goal === "cut" ? copy.tooFast.titleCut(name) : copy.tooFast.titleBulk(name);
     if (following) {
-      const card = calorieAdjustmentCard(d, flag, proposal, observation, aiOff);
+      const card = calorieAdjustmentCard(d, flag, proposal, observation, copy);
       if (card) return card;
     }
-    const relance = relanceMessage(flag, d);
+    const relance = relanceMessage(flag, d, copy);
+    const fullCause = `${cause} ${copy.tooFast.relanceSuffix}`;
     return {
       flag,
       kind: "adherence_nutrition",
       title,
       observation,
-      cause: `${cause} Relancer avant de toucher aux cibles.`,
-      rationale: `${cause} Relancer.`,
+      cause: fullCause,
+      rationale: `${cause} ${copy.tooFast.rationaleSuffix}`,
       payload: {
         source: FLEET_SOURCE,
         flag,
         observation,
-        cause: `${cause} Relancer avant de toucher aux cibles.`,
+        cause: fullCause,
         body: relance.body,
         notes: relance.body,
         template_key: relance.templateKey,
-        ai_off: aiOff,
       },
     };
   }
 
-  const observation = `Cible ${d.calorie_target} kcal, logs ~${Math.round(d.avg_calories)} (${d.logged_nutrition_days} j), poids ${delta} kg. Plan suivi.`;
-  const card = calorieAdjustmentCard(d, flag, proposal, observation, aiOff);
-  if (card) return card;
-  return null;
-}
-
-function fleetCardNeedsLlm(kind: string): boolean {
-  // Relancer templates + data-driven kcal are already the proposal.
-  return kind === "program_adjustment";
-}
-
-const SYSTEM_PROMPT = `Tu es l'IA de tournée coach de Prometheus. Tu n'es appelé QUE pour un ajustement de programme (program_adjustment). Relancer et kcal+macros sont déjà posés en déterministe. Rien ne s'applique tout seul.
-Règles (français, tutoiement, tu tutoyes le client dans le message) :
-- Si le client n'applique PAS la nutrition (logs >> cible, adhérence basse) : kind adherence_nutrition. Message Relancer. JAMAIS calorie_adjustment. JAMAIS « descends à 2000 » ni macros 0. On ne change PAS les cibles.
-- Séances manquées / ghost : adherence_training, Relancer. Pas de nouveau programme. Pas de chiffres de récup inventés. Ghost n'est PAS keep_in_touch (Relancer fort).
-- Changement calories/macros SEULEMENT s'il APPLIQUE le plan. Trajectoire réelle, pas un offset générique ±150 :
-  CUT : perte normale → keep ; stall plat → petite baisse (~100) ; reprise de poids → baisse plus franche (~200) ; fatigue/perf → plus de glucides, pas une coupe.
-  BULK : prise normale → keep ; pas de prise → petite hausse (~100) ; trop vite → réduire un peu le surplus (~100) ; fatigue → plus de glucides.
-  Macros COMPLÈTES : protein, carbs, fat tous > 0 et kcal ≈ P*4+C*4+F*9. ISSN = formule app (Revenir à l'ISSN), pas le tweak hebdo.
-- Nouveau client : onboarding_plan, pas un stall.
-- On-track + le coach n'a pas écrit depuis ~7 jours : kind keep_in_touch. Message léger (comment tu vas, entraînement, besoin de quelque chose). PAS un stall, PAS une lecture calories, PAS de fausse urgence. JAMAIS adherence_nutrition ni ghost.
-- On-track + le coach a déjà écrit cette semaine : tu ne dois pas être appelé.
-Réponds JSON uniquement : { "kind", "title", "observation", "cause", "body", "nutrition": { "calories", "protein", "carbs", "fat" } | null }.
-ISSN reste la formule app. Tu n'écrases pas l'onboarding.
-Les leçons du coach (si présentes) sont des patterns stables : ton, Relancer vs cibles, split macros. Ne copie pas une erreur ponctuelle.`;
-
-function mergeLlm(raw: Record<string, unknown>, fallback: FleetCard, d: Dossier): FleetCard {
-  const flag = fallback.flag;
-  let kind = typeof raw.kind === "string" ? raw.kind : fallback.kind;
-  if (flag === "adherence_nutrition" && kind === "calorie_adjustment") kind = "adherence_nutrition";
-  if (flag === "ghost" && kind !== "adherence_training") kind = "adherence_training";
-  if (flag === "keep_in_touch") kind = "keep_in_touch";
-  if (flag === "onboarding") kind = "onboarding_plan";
-  const title = typeof raw.title === "string" && raw.title.trim() ? raw.title.trim() : fallback.title;
-  const observation = typeof raw.observation === "string" && raw.observation.trim()
-    ? raw.observation.trim()
-    : fallback.observation;
-  const cause = typeof raw.cause === "string" && raw.cause.trim() ? raw.cause.trim() : fallback.cause;
-  let body = typeof raw.body === "string" && raw.body.trim()
-    ? raw.body.trim()
-    : typeof fallback.payload.body === "string" ? fallback.payload.body : "";
-  if (flag === "keep_in_touch" && keepInTouchLooksLikeLecture(body)) {
-    body = typeof fallback.payload.body === "string" ? fallback.payload.body : body;
-  }
-
-  if (kind === "calorie_adjustment" && (flag === "stall_adherent" || flag === "too_fast" || flag === "on_track")) {
-    const nested = asObject(raw.nutrition);
-    const draft: CalorieDraft = {
-      calories: Math.round(num(nested.calories ?? raw.calories, 0)),
-      protein: Math.round(num(nested.protein ?? raw.protein, 0)),
-      carbs: Math.round(num(nested.carbs ?? raw.carbs, 0)),
-      fat: Math.round(num(nested.fat ?? raw.fat, 0)),
-    };
-    const proposal = proposeWeeklyNutrition(d);
-    const safe = isCompleteCalorieDraft(draft)
-      ? draft
-      : (proposal.draft && isCompleteCalorieDraft(proposal.draft) ? proposal.draft : completeMacrosFor(d.calorie_target || 2000, d.goal, d.weight_kg));
-    return {
-      flag,
-      kind: "calorie_adjustment",
-      title,
-      observation,
-      cause,
-      rationale: cause,
-      payload: {
-        source: FLEET_SOURCE,
-        flag,
-        observation,
-        cause,
-        reason: proposal.reason,
-        ai_off: false,
-        nutrition: safe,
-        calories: safe.calories,
-        protein: safe.protein,
-        carbs: safe.carbs,
-        fat: safe.fat,
-      },
-    };
-  }
-
-  return {
-    ...fallback,
-    title,
-    observation,
-    cause,
-    rationale: cause,
-    payload: {
-      ...fallback.payload,
-      observation,
-      cause,
-      body,
-      notes: body || fallback.payload.notes,
-      ai_off: false,
-    },
-  };
-}
-
-async function callFleetAgent(
-  apiKey: string,
-  d: Dossier,
-  flag: FleetFlag,
-  lessons: Awaited<ReturnType<typeof fetchCoachLessons>>,
-): Promise<Record<string, unknown> | null> {
-  const compact = {
-    flag,
-    name: d.full_name,
-    goal: d.goal,
-    calorie_target: d.calorie_target,
-    avg_calories: d.avg_calories,
-    logged_nutrition_days: d.logged_nutrition_days,
-    adherence_nutrition: d.avg_adherence_nutrition,
-    adherence_training: d.avg_adherence_training,
-    workouts: d.workout_count,
-    expected_workouts: expectedWorkouts(d),
-    weight_delta_kg: d.weight_delta_kg,
-    last_workout_at: d.last_workout_at,
-    last_checkin_at: d.last_checkin_at,
-    last_nutrition_at: d.last_nutrition_at,
-    last_coach_message_at: d.last_coach_message_at,
-    onboarding_completed: d.onboarding_completed,
-    has_program: d.has_program,
-  };
-  return await openaiJson(
-    apiKey,
-    [
-      { role: "system", content: SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `${formatLessonsForPrompt(lessons)}\n\n${JSON.stringify(compact)}`,
-      },
-    ],
-    { maxTokens: 700, timeoutMs: LLM_TIMEOUT_MS },
-  );
+  // stall_adherent — following the plan, still off-goal. Complete macros only.
+  const observation = copy.kcal.stallObservation(d.calorie_target, avg, d.logged_nutrition_days, delta);
+  return calorieAdjustmentCard(d, flag, proposal, observation, copy);
 }
 
 function bearerToken(header: string | null): string {
   if (!header) return "";
   return header.replace(/^Bearer\s+/i, "").trim();
+}
+
+/** Coach language from `user_profiles.language` (FR when unset). One query for the whole round. */
+async function fetchCoachLocales(admin: SupabaseClient, coachIds: string[]): Promise<Map<string, FleetLocale>> {
+  const out = new Map<string, FleetLocale>();
+  const ids = [...new Set(coachIds.filter(Boolean))];
+  if (ids.length === 0) return out;
+  const { data, error } = await admin.from("user_profiles").select("id, language").in("id", ids);
+  if (error) {
+    console.error("fetch coach locales", error.message);
+    return out;
+  }
+  for (const row of data ?? []) {
+    const r = asObject(row);
+    if (typeof r.id === "string") out.set(r.id, fleetLocale(r.language));
+  }
+  return out;
 }
 
 async function writeCard(
@@ -1030,43 +875,26 @@ Deno.serve(async (req: Request) => {
       .filter((d): d is Dossier => !!d);
 
     const today = new Date().toISOString().slice(0, 10);
-    const apiKey = (Deno.env.get("OPENAI_API_KEY") ?? "").trim();
-    const modelUsed: "openai" | "off" = apiKey ? "openai" : "off";
-    const lessonsByCoach = new Map<string, Awaited<ReturnType<typeof fetchCoachLessons>>>();
+    const localeByCoach = await fetchCoachLocales(admin, dossiers.map((d) => d.coach_id));
 
     let flagged = 0;
     let skipped = 0;
-    let llmCalls = 0;
-    let llmSkippedDeterministic = 0;
     const written: Array<{ client_id: string; flag: string; kind: string; title: string; action: string }> = [];
 
     for (const d of dossiers) {
-      const plan = planWrite(d, today, modelUsed);
+      const plan = planWrite(d, today, localeByCoach.get(d.coach_id) ?? "fr");
       if (plan.action === "skip" || !plan.card) {
         skipped += 1;
         continue;
       }
       flagged += 1;
-      let card = plan.card;
-      if (fleetCardNeedsLlm(card.kind) && apiKey && llmCalls < MAX_LLM_PER_RUN) {
-        llmCalls += 1;
-        let lessons = lessonsByCoach.get(d.coach_id);
-        if (!lessons) {
-          lessons = await fetchCoachLessons(admin, d.coach_id);
-          lessonsByCoach.set(d.coach_id, lessons);
-        }
-        const llm = await callFleetAgent(apiKey, d, card.flag, lessons);
-        if (llm) card = withEvidence(d, mergeLlm(llm, card, d));
-      } else if (!fleetCardNeedsLlm(card.kind)) {
-        llmSkippedDeterministic += 1;
-      }
-      const id = await writeCard(admin, d, card);
+      const id = await writeCard(admin, d, plan.card);
       if (id) {
         written.push({
           client_id: d.client_id,
-          flag: card.flag,
-          kind: card.kind,
-          title: card.title,
+          flag: plan.card.flag,
+          kind: plan.card.kind,
+          title: plan.card.title,
           action: plan.action,
         });
       }
@@ -1078,13 +906,8 @@ Deno.serve(async (req: Request) => {
         clients_seen: dossiers.length,
         clients_flagged: flagged,
         clients_skipped: skipped,
-        model_used: modelUsed,
-        payload: {
-          cards: written,
-          llm_calls: llmCalls,
-          llm_skipped_deterministic: llmSkippedDeterministic,
-          ia_off: modelUsed === "off",
-        },
+        model_used: MODEL_USED,
+        payload: { cards: written },
       }).eq("id", roundId);
     }
 
@@ -1098,12 +921,10 @@ Deno.serve(async (req: Request) => {
     return json(200, {
       status: "ok",
       trigger,
-      model_used: modelUsed,
+      model_used: MODEL_USED,
       clients_seen: dossiers.length,
       clients_flagged: flagged,
       clients_skipped: skipped,
-      llm_calls: llmCalls,
-      llm_skipped_deterministic: llmSkippedDeterministic,
       cards: written,
       round_id: roundId ?? null,
     });

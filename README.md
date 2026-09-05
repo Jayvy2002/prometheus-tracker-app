@@ -144,7 +144,7 @@ npm test          # src/lib/*.test.ts
 
 | Secret | Description |
 |---|---|
-| `OPENAI_API_KEY` | `coach-agent`, `analyze-product`, `verify-exercise`, fleet (`program_adjustment` seulement) |
+| `OPENAI_API_KEY` | `coach-agent`, `analyze-product`, `verify-exercise` (la tournée `coach-fleet-round` est 100 % déterministe, pas de clé) |
 | `FLEET_CRON_SECRET` | Auth du cron nocturne `coach-fleet-round` |
 | `NOTIFY_SECRET` | HMAC de `notify-onboarding-complete` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
