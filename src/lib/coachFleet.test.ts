@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
@@ -577,9 +577,46 @@ test('upsert SQL never reopens sent/dismissed fleet rows', () => {
   assert.match(fleet, /FLEET_HANDLE_COOLDOWN_DAYS/);
 });
 
+/**
+ * The definition production actually runs is the LAST migration (in filename order) that
+ * re-creates triage_coach_fleet — not whichever file first introduced a key. 20260901004739
+ * re-created the function from an older copy and silently dropped four dossier keys; the
+ * tests below read the latest definition so that class of regression fails CI.
+ */
+function latestTriageCoachFleetSql(): { file: string; fn: string } {
+  const dir = resolve(process.cwd(), 'supabase/migrations');
+  const marker = 'CREATE OR REPLACE FUNCTION public.triage_coach_fleet';
+  const files = readdirSync(dir).filter((f) => f.endsWith('.sql')).sort();
+  for (let i = files.length - 1; i >= 0; i--) {
+    const sql = readFileSync(resolve(dir, files[i]), 'utf8');
+    const at = sql.indexOf(marker);
+    if (at >= 0) return { file: files[i], fn: sql.slice(at) };
+  }
+  throw new Error('no migration defines triage_coach_fleet');
+}
+
+test('the latest triage_coach_fleet definition emits every dossier key the edge parses', () => {
+  const { file, fn } = latestTriageCoachFleetSql();
+  assert.equal(file, '20260905000002_triage_coach_fleet_restore_cooldown.sql');
+  const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  const iface = fleet.slice(fleet.indexOf('interface Dossier {'), fleet.indexOf('interface FleetEvidence'));
+  const keys = [...iface.matchAll(/^\s+([a-z_]+):/gm)].map((m) => m[1]);
+  assert.ok(keys.length >= 30, `expected the Dossier interface, got ${keys.length} keys`);
+  const emitted = fn.slice(fn.indexOf('jsonb_build_object(\n      \'coach_id\''), fn.indexOf(') AS dossier'));
+  for (const key of keys) {
+    assert.match(emitted, new RegExp(`'${key}',`), `triage_coach_fleet no longer emits '${key}' (${file})`);
+  }
+  // The two things the regression and the P0 fix each brought — both must survive.
+  assert.match(fn, /program_frequency AS \(/);
+  assert.match(fn, /COALESCE\(NULLIF\(pfreq\.training_frequency, 0\), NULLIF\(p\.training_frequency, 0\), 3\)/);
+  assert.match(fn, /'pending_fleet', pend\.client_id IS NOT NULL/);
+  assert.match(fn, /'fleet_handled', COALESCE\(h\.fleet_handled, '\[\]'::jsonb\)/);
+  assert.match(fn, /WHERE m\.sender_id = m\.coach_id/);
+  assert.match(fn, /WHERE ci\.kind = 'keep_in_touch'/);
+});
+
 test('triage_coach_fleet qualifies handled_agg columns so PL/pgSQL does not treat client_id as OUT', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
-  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.triage_coach_fleet'));
+  const { fn } = latestTriageCoachFleetSql();
   assert.match(fn, /#variable_conflict use_column/);
   const start = fn.indexOf('handled_agg AS (');
   const end = fn.indexOf('LEFT JOIN handled_agg');
@@ -750,8 +787,7 @@ test('the round is 100 % deterministic — no LLM call, no OpenAI key, no ai_off
 });
 
 test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
-  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.triage_coach_fleet'));
+  const { fn } = latestTriageCoachFleetSql();
   assert.match(fn, /FROM links l\s+JOIN public\.user_profiles p ON p\.id = l\.client_id/);
   const fromLinks = fn.slice(fn.lastIndexOf('FROM links l'));
   assert.doesNotMatch(fromLinks, /WHERE EXISTS/);
