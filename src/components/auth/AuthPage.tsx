@@ -124,9 +124,11 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
             <p className="text-neutral-400 mt-2">{t('auth.tagline')}</p>
           </div>
 
-          {inviteCoachName && (
+          {fromInvite && (
             <div className="mb-5 bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm text-blue-200 text-center">
-              {t('coaching.invite.authBanner', { name: inviteCoachName })}
+              {inviteCoachName
+                ? t('coaching.invite.authBanner', { name: inviteCoachName })
+                : t('coaching.invite.authBannerNoName')}
             </div>
           )}
 

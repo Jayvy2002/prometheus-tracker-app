@@ -8,6 +8,7 @@ import { resetSessionStores } from './lib/resetStores';
 import { isCoachedAthlete } from './lib/coachRole';
 import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
+import { toast } from './components/ui/Toast';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -112,7 +113,10 @@ function AppRoutes() {
         try {
           const token = getPendingInviteToken();
           if (token) {
-            await acceptInvite(token);
+            const accepted = await acceptInvite(token);
+            if (accepted.ok) {
+              toast(i18n.t('coaching.invite.accepted', { name: accepted.coach_name || i18n.t('coaching.invite.aCoach') }));
+            }
           } else {
             await applyIntendedCoachingRole();
           }

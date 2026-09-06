@@ -1516,6 +1516,7 @@ const en = {
       copied: 'Invite link copied',
       accepted: 'You are now coached by {{name}}',
       authBanner: '{{name}} invited you. Sign in or create an account to accept.',
+      authBannerNoName: 'Your coach invited you to Prometheus. Sign in or create an account to accept.',
       errors: {
         invalid: 'This invite is not valid.',
         expired: 'This invite has expired.',

@@ -69,7 +69,7 @@ export default function ClientSetupPage() {
     coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline,
-    pendingInterventions, askCoachAgent, fetchCoachSettings,
+    pendingInterventions, askCoachAgent, fetchCoachSettings, fetchCoachOps,
   } = useCoachingStore();
   const { programs, fetchPrograms, assignProgram } = useProgramStore();
 
@@ -258,6 +258,8 @@ export default function ClientSetupPage() {
 
     setSaving(false);
     toast(t('coaching.setup.saved'));
+    // Ops rows drive the « À configurer » badge — refresh so the 360 reflects setup at once.
+    void fetchCoachOps();
     navigate(clientFileHref(id));
   };
 
