@@ -91,8 +91,8 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Intake | 27 q standard ; mur pour tout nouveau compte ; brouillon à chaque écran ; solo finit sur « Tes cibles » | Builder par coach | ✔ ; chantier B |
 | Intake → IA | `coach-agent` lit `kinesiology_intake` (compacté) ; `objectifType` → `goal` ; filet déterministe honore séances / jours ; `loop_context` (messages, notes, check-ins, photos dates+kinds) | L'agent voit les réponses **et** la boucle | ✔ (#59) |
 | Drapeaux médicaux | Badge roster + fiche 360 + Setup ; carte PAR-Q à « Oui » | Visibles avant d'envoyer + accusé | ✔ (accusé : transversal) |
-| Programme IA solo | Même moteur (`onboarding_plan` / `program_nl_edit`, JWT + RLS self-coach) ; proposition avant / après / pourquoi ; Accepter assigne, Refuser → routines | Idem | ✔ (#58, UI à merger) |
-| Check-in / pas / live | Formulaire du jour ; `logSteps` existait sans UI ; realtime messages / assignation / cibles / tracking | Historique 14 j ; journal de pas ; live jours/lifts/photos ; diffs kcal/Relancer | ✔ (#60, UI à merger) |
+| Programme IA solo | Même moteur (`onboarding_plan` / `program_nl_edit`, JWT + RLS self-coach) ; proposition avant / après / pourquoi ; Accepter assigne, Refuser → routines | Idem | ✔ (#58) |
+| Check-in / pas / live | Historique 14 j ; `StepsTracker` ; realtime `program_days` / lifts / photos ; diffs kcal/Relancer | Idem | ✔ (#60) |
 | Billing | Stripe ×3 en 410 ; `solo_trial_ends_at` posé, aucun mur | Gratuit pendant la construction | ✔ ; chantier D |
 | Télémétrie d'usage | `product_events` + `track()` sur les boucles principales ; INSERT only | Écran de lecture coach / admin | ✔ démarré |
 | Bilingue EN + FR | Intake, `constants.ts`, agent, tournée : langue du caller | Idem | ✔ (#53 / #54) |
@@ -102,7 +102,7 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 
 ## Phase actuelle : chantiers (après consolidation)
 
-La consolidation de septembre 2026 est **écrite**. `coach-agent` **v15** (`loop_context`) est en prod. #58, #59 et #60 sont mergées. Ce qui reste : merger #62 (restes invite/setup), et les vrais cycles en prod — **étape 0** de `docs/CHANTIER.md`. Ensuite les chantiers A → D, pas un nouvel audit.
+La consolidation de septembre 2026 est **dans `new-JV`**. `coach-agent` **v15** (`loop_context`) est en prod. #58–#60 et #62 sont mergées. Il reste un vrai cycle en prod (étape 0.5 de `docs/CHANTIER.md`). Ensuite les chantiers A → D, pas un nouvel audit.
 
 Les trois axes de la consolidation restent le test de chaque livraison :
 
@@ -120,7 +120,7 @@ Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
 
 | # | Quoi | État |
 |---|---|---|
-| 0 | #58+#59+#60 mergées ; #62 à merger ; `coach-agent` v15 ; HIBP = Pro+ (comptes test, rien de compromis) ; vrai cycle en prod | En cours |
+| 0 | Stack mergé (#58–#60, #62) ; `coach-agent` v15 ; HIBP = Pro+ (comptes test, rien de compromis) ; **vrai cycle en prod** | Code fait ; cycle à jouer |
 | 1 | Copilote solo (intake + hebdo + programme vivant) | ✔ code (#46, #47, #58) |
 | A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | À faire |
 | 3 | Intake dans la boucle coach | ✔ ; reste `joursDispo` éditeur + accusé drapeau (transversal) |
