@@ -64,8 +64,8 @@ const en = {
     weight: 'Weight',
     logWeight: 'Log Weight',
     addMeal: 'Add Meal',
-    addWorkout: 'Add Workout',
-    addWeight: 'Add Weight',
+    addWorkout: 'New Workout',
+    addWeight: 'Log Weight',
     checkin: 'Check-in',
     clients: 'Clients',
     programs: 'Programs',
@@ -246,7 +246,10 @@ const en = {
       startCta: 'Start',
       continueCta: 'Continue',
       exercises: '{{n}} exercises',
+      previewHint: "This doesn't start the session.",
+      editPlan: 'Edit plan',
     },
+    notLoggedYet: 'Not logged yet',
   },
 
   workout: {
@@ -821,6 +824,8 @@ const en = {
   checkin: {
     title: 'Daily check-in',
     subtitle: '60 seconds. Each score is 0 to 10. Skip any field you do not want to log.',
+    subtitleSolo: 'The essentials are enough. Everything else is optional.',
+    moreDetails: 'More details',
     sleepHours: 'Hours of sleep',
     optional: 'Optional',
     notes: 'Notes',
@@ -829,6 +834,7 @@ const en = {
     saved: 'Check-in saved',
     dashboardCta: 'Log today’s check-in',
     dashboardHint: 'Sleep, energy, stress — your coach can see this.',
+    dashboardHintSolo: 'Sleep, energy, stress — for you and your copilot.',
     scaleHint: '0 = lowest · 10 = highest',
     notSet: 'Not set',
     disabled: 'Your coach has not enabled check-ins for you.',

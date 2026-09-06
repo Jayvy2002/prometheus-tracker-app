@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp } from 'lucide-react';
+import { Plus, Clock, ChevronRight, Dumbbell, Trash2, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { formatDate, formatDuration, todayStr } from '../../lib/utils';
+import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import { trainingDays } from '../../lib/clientGym';
+import { resolveClientGymCard } from '../../lib/clientGym';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
@@ -19,6 +19,7 @@ import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import SessionReadout from './SessionReadout';
+import ClientGymCard from '../dashboard/ClientGymCard';
 
 export default function WorkoutPage() {
   const { t } = useTranslation();
@@ -34,18 +35,25 @@ export default function WorkoutPage() {
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [startingDay, setStartingDay] = useState<string | null>(null);
+  const [startingGym, setStartingGym] = useState(false);
   const [displayCount, setDisplayCount] = useState(20);
   const [lastFull, setLastFull] = useState<Workout | null>(null);
 
   const PAGE_SIZE = 20;
-  const programDays = trainingDays(assignment?.status === 'active' ? assignment.program?.days : undefined);
+  const gymCard = resolveClientGymCard({
+    hasActiveProgram: assignment?.status === 'active' && !!assignment.program,
+    days: assignment?.program?.days,
+    workouts,
+    todayWeekday: new Date().getDay(),
+    todayDate: todayStr(),
+    assignmentId: assignment?.id,
+  });
 
 
   useEffect(() => {
     if (user) {
       fetchWorkouts(user.id);
-      if (!coached) void fetchMyAssignment(user.id);
+      void fetchMyAssignment(user.id);
     }
   }, [user, coached]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -114,9 +122,9 @@ export default function WorkoutPage() {
     }
   };
 
-  const startFromProgramDay = async (day: ProgramDay) => {
+  const startProgramDay = async (day: ProgramDay) => {
     if (!user || !assignment?.program) return;
-    setStartingDay(day.id);
+    setStartingGym(true);
     try {
       const workoutId = await startWorkoutFromTemplate({
         userId: user.id,
@@ -142,7 +150,7 @@ export default function WorkoutPage() {
     } catch {
       toast(t('workout.startRoutineFailed'), 'error');
     } finally {
-      setStartingDay(null);
+      setStartingGym(false);
     }
   };
 
@@ -174,50 +182,17 @@ export default function WorkoutPage() {
         </div>
       </div>
 
-      {!coached && programDays.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('nav.myProgram')}</h2>
-            <button
-              onClick={() => navigate('/programs')}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              {t('common.manage')}
-            </button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {programDays.map((d, i) => {
-              const exercises = d.exercises ?? [];
-              const isStarting = startingDay === d.id;
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => !isStarting && void startFromProgramDay(d)}
-                  disabled={isStarting}
-                  className="flex-shrink-0 w-40 bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3 text-left hover:border-blue-600/40 hover:bg-neutral-800 transition-all group disabled:opacity-60 animate-fade-in-scale"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
-                      <Repeat size={14} />
-                    </div>
-                    <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
-                      {isStarting ? (
-                        <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Play size={10} fill="currentColor" />
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-white truncate">{d.name || t(`programs.weekdays.${d.weekday}`)}</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    {exercises.length} {exercises.length !== 1 ? t('workout.exercises') : t('workout.exercise')}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      {assignment?.program && gymCard.kind !== 'none' && (
+        <ClientGymCard
+          card={gymCard}
+          programName={assignment.program.name}
+          programWeek={programWeekNumber(assignment.start_date, assignment.program.duration_weeks)}
+          durationWeeks={assignment.program.duration_weeks}
+          starting={startingGym}
+          onStart={startProgramDay}
+          onContinue={workoutId => navigate(`/workout/${workoutId}`)}
+          onEditPlan={!coached ? () => navigate('/programs') : undefined}
+        />
       )}
 
       {lastCompleted && (

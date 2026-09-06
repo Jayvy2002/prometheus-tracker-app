@@ -10,6 +10,7 @@ import {
   soloDraftEdited,
   soloDraftWhy,
 } from './soloProgram';
+import { muscleLabel } from './muscleLabels';
 import type { CoachIntervention } from './types';
 
 function src(rel: string): string {
@@ -140,4 +141,27 @@ test('assigned program days convert to the session-editor draft', () => {
   assert.equal(draft[0].exercises[0]?.name, 'Row');
   assert.equal(programDaysToDraft([]).length, 1);
   assert.equal(programDaysToDraft([]).at(0)?.exercises.length, 0);
+});
+
+test('Entraînements is the séance du jour, not a second program editor', () => {
+  const page = src('src/components/workout/WorkoutPage.tsx');
+  assert.match(page, /ClientGymCard/);
+  assert.match(page, /startProgramDay/);
+  assert.doesNotMatch(page, /nav\.myProgram/);
+  assert.doesNotMatch(page, /workout\.myRoutines/);
+  const profile = src('src/components/profile/ProfilePage.tsx');
+  assert.match(profile, /md:hidden/);
+  assert.match(profile, /<SoloHub/);
+  const recipes = src('src/components/nutrition/RecipesPage.tsx');
+  assert.match(recipes, /nutrition\.recipes\.title/);
+  assert.match(recipes, /nutrition\.recipes\.searchPlaceholder/);
+  assert.doesNotMatch(recipes, />Recipes</);
+  const fr = src('src/i18n/locales/fr.ts');
+  assert.match(fr, /previewHint: 'Ça ne lance pas la séance\.'/);
+  assert.match(fr, /dashboardHintSolo:/);
+  assert.match(fr, /subtitleSolo:/);
+  assert.doesNotMatch(fr, /addWorkout: 'Ajouter une séance'/);
+  assert.equal(muscleLabel('chest'), 'Pectoraux');
+  assert.equal(muscleLabel('quadriceps'), 'Quadriceps');
+  assert.equal(muscleLabel('upper_chest', 'en'), 'Upper chest');
 });

@@ -19,6 +19,8 @@ import {
   showTrainingField,
   toggleGroup,
   visibleCheckinFields,
+  CHECKIN_CORE_VAR_KEYS,
+  CHECKIN_VAR_KEYS,
   NUTRITION_VAR_KEYS,
   TRAINING_VAR_KEYS,
 } from './clientTracking';
@@ -219,4 +221,11 @@ test('AI tracking overlay keeps coach variable flags unless the draft includes t
   assert.equal(merged.workout_focus, 'hypertrophy');
   assert.equal(merged.nutrition.calories, true);
   assert.equal(anyMacroField(merged), false);
+});
+
+test('solo check-in core is sleep + energy + stress, not the full slider wall', () => {
+  assert.deepEqual([...CHECKIN_CORE_VAR_KEYS], ['sleep_hours', 'sleep_quality', 'energy', 'stress']);
+  for (const key of CHECKIN_CORE_VAR_KEYS) {
+    assert.ok(CHECKIN_VAR_KEYS.includes(key));
+  }
 });

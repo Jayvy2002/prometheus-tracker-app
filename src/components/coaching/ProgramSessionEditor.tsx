@@ -13,6 +13,7 @@ import {
   type ResolvedTrackingConfig,
 } from '../../lib/clientTracking';
 import { muscleForExercise, sessionMuscleVolume, volumeWarnings, weekMuscleVolume, type MuscleVolume } from '../../lib/programVolume';
+import { muscleLabel } from '../../lib/muscleLabels';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
@@ -54,7 +55,7 @@ export default function ProgramSessionEditor({
   onNameChange, onDescriptionChange, onWeeksChange, onDaysChange,
   onAnalyze, onAsk, clientId, programId,
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const exercisesLib = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
@@ -527,12 +528,12 @@ export default function ProgramSessionEditor({
       {volumes.length > 0 && (
         <div className="text-[11px] text-neutral-400">
           <p className="mb-1">{t('coaching.programEditor.volumeSession')}</p>
-          <p>{volumes.map(v => `${v.muscle} ${v.sets}`).join(' · ')}</p>
-          {warnings.length > 0 && (
-            <p className="text-amber-300 mt-1">{t('coaching.programEditor.volumeWarn', { muscle: warnings[0].muscle, n: warnings[0].sets })}</p>
+          <p>{volumes.map(v => `${muscleLabel(v.muscle, i18n.language)} ${v.sets}`).join(' · ')}</p>
+          {warnings[0] && (
+            <p className="text-amber-300 mt-1">{t('coaching.programEditor.volumeWarn', { muscle: muscleLabel(warnings[0].muscle, i18n.language), n: warnings[0].sets })}</p>
           )}
           {weekVol.length > 0 && (
-            <p className="mt-1 text-neutral-500">{t('coaching.programEditor.volumeWeek')}: {weekVol.slice(0, 6).map(v => `${v.muscle} ${v.sets}`).join(' · ')}</p>
+            <p className="mt-1 text-neutral-500">{t('coaching.programEditor.volumeWeek')}: {weekVol.slice(0, 6).map(v => `${muscleLabel(v.muscle, i18n.language)} ${v.sets}`).join(' · ')}</p>
           )}
         </div>
       )}
@@ -571,7 +572,7 @@ function ExerciseAnalyzeCard({
   sessionVolumes: MuscleVolume[];
   weekVolumes: MuscleVolume[];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const muscle = muscleForExercise(name, library);
   if (!muscle) {
     return <p className="text-[11px] text-neutral-500">{t('coaching.programEditor.analyzeUnknown')}</p>;
@@ -580,7 +581,7 @@ function ExerciseAnalyzeCard({
   const week = weekVolumes.find(v => v.muscle === muscle)?.sets ?? 0;
   return (
     <p className="text-[11px] text-blue-200">
-      {t('coaching.programEditor.analyzeMuscle', { muscle, session, week })}
+      {t('coaching.programEditor.analyzeMuscle', { muscle: muscleLabel(muscle, i18n.language), session, week })}
     </p>
   );
 }

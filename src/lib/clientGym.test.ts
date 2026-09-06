@@ -165,6 +165,16 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(gymUi, /dashboard\.gym\.done/);
   assert.match(gymUi, /dashboard\.gym\.startCta/);
   assert.match(gymUi, /dashboard\.gym\.continueCta/);
+  assert.match(gymUi, /dashboard\.gym\.previewHint/);
+  assert.match(gymUi, /dashboard\.gym\.editPlan/);
+  assert.match(gymUi, /default_sets/);
+  assert.doesNotMatch(gymUi, /<button[\s\S]{0,80}onClick=\{onStart\}/);
+
+  const workoutPage = src('src/components/workout/WorkoutPage.tsx');
+  assert.match(workoutPage, /ClientGymCard/);
+  assert.match(workoutPage, /startProgramDay/);
+  assert.doesNotMatch(workoutPage, /nav\.myProgram/);
+  assert.doesNotMatch(workoutPage, /workout\.myRoutines/);
 
   const card = src('src/components/workout/ExerciseCard.tsx');
   assert.match(card, /showLoggingRir/);

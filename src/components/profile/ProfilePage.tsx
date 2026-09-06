@@ -165,7 +165,11 @@ export default function ProfilePage() {
         </Card>
       )}
 
-      {!coached && !isCoach && <SoloHub />}
+      {!coached && !isCoach && (
+        <div className="md:hidden">
+          <SoloHub />
+        </div>
+      )}
 
       <div className="space-y-2 mb-6">
         <AccordionSection id="personal" icon={User} label={t('profile.sections.personalInfo')} isOpen={openSection === 'personal'} onToggle={() => toggle('personal')} animationDelay="60ms">

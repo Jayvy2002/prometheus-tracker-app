@@ -93,6 +93,9 @@ test('client check-in form uses 0–10 sliders, not a button grid', () => {
   const slider = src('src/components/checkin/ScoreSlider.tsx');
   assert.match(page, /ScoreSlider/);
   assert.match(page, /checkin\.scaleHint/);
+  assert.match(page, /CHECKIN_CORE_VAR_KEYS/);
+  assert.match(page, /checkin\.subtitleSolo/);
+  assert.match(page, /checkin\.moreDetails/);
   assert.doesNotMatch(page, /\[1, 2, 3, 4, 5\]/);
   assert.doesNotMatch(page, /grid-cols-6/);
   assert.doesNotMatch(page, /CHECKIN_SCORE_VALUES\.map/);

@@ -78,13 +78,13 @@ export default function RecipesPage() {
           >
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-2xl font-bold text-white flex-1">Recipes</h1>
+          <h1 className="text-2xl font-bold text-white flex-1">{t('nutrition.recipes.title')}</h1>
           <button
             onClick={() => setShowNew(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
           >
             <Plus size={15} />
-            New
+            {t('common.new')}
           </button>
         </div>
 
@@ -94,7 +94,7 @@ export default function RecipesPage() {
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder={t('recipes.searchPlaceholder')}
+            placeholder={t('nutrition.recipes.searchPlaceholder')}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-neutral-600"
           />
         </div>
@@ -109,11 +109,11 @@ export default function RecipesPage() {
               <ChefHat size={24} className="text-neutral-600" />
             </div>
             <p className="text-neutral-400 font-medium">
-              {search ? 'No recipes match your search' : 'No recipes yet'}
+              {search ? t('nutrition.recipes.noMatch') : t('nutrition.recipes.noRecipes')}
             </p>
             {!search && (
               <p className="text-neutral-600 text-sm mt-1">
-                Create your first recipe to track meals easily
+                {t('nutrition.recipes.createFirstRecipe')}
               </p>
             )}
             {!search && (
@@ -122,7 +122,7 @@ export default function RecipesPage() {
                 className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
               >
                 <Plus size={15} />
-                Create Recipe
+                {t('nutrition.recipes.createRecipe')}
               </button>
             )}
           </div>

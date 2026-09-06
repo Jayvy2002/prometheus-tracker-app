@@ -64,8 +64,8 @@ const fr = {
     weight: 'Poids',
     logWeight: 'Peser',
     addMeal: 'Ajouter un repas',
-    addWorkout: 'Ajouter une séance',
-    addWeight: 'Ajouter un poids',
+    addWorkout: 'Nouvelle séance',
+    addWeight: 'Peser',
     checkin: 'Check-in',
     clients: 'Clients',
     programs: 'Programmes',
@@ -246,7 +246,10 @@ const fr = {
       startCta: 'Démarrer',
       continueCta: 'Continuer',
       exercises: '{{n}} exercices',
+      previewHint: 'Ça ne lance pas la séance.',
+      editPlan: 'Modifier le plan',
     },
+    notLoggedYet: 'Pas encore loggé',
   },
 
   workout: {
@@ -821,6 +824,8 @@ const fr = {
   checkin: {
     title: 'Check-in du jour',
     subtitle: '60 secondes. Chaque score va de 0 à 10. Tu peux ignorer n’importe quel champ.',
+    subtitleSolo: 'Les essentiels suffisent. Le reste est optionnel.',
+    moreDetails: 'Plus de détails',
     sleepHours: 'Heures de sommeil',
     optional: 'Optionnel',
     notes: 'Notes',
@@ -829,6 +834,7 @@ const fr = {
     saved: 'Check-in enregistré',
     dashboardCta: 'Faire le check-in du jour',
     dashboardHint: 'Sommeil, énergie, stress — ton coach peut le voir.',
+    dashboardHintSolo: 'Sommeil, énergie, stress — pour toi et ton copilote.',
     scaleHint: '0 = le plus bas · 10 = le plus haut',
     notSet: 'Non renseigné',
     disabled: 'Ton coach n’a pas activé le check-in pour toi.',

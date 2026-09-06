@@ -302,6 +302,7 @@ export default function Dashboard() {
             starting={startingRoutine}
             onStart={startProgramDay}
             onContinue={workoutId => navigate(`/workout/${workoutId}`)}
+            onEditPlan={!hasCoach ? () => navigate('/programs') : undefined}
           />
         )}
         {hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
@@ -510,7 +511,7 @@ export default function Dashboard() {
             <ClipboardCheck size={16} className="text-violet-300 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white">{t('checkin.dashboardCta')}</p>
-              <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHint')}</p>
+              <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHintSolo')}</p>
             </div>
             <ChevronRight size={16} className="text-violet-300/70" />
           </button>
@@ -540,8 +541,8 @@ export default function Dashboard() {
               >
                 <Flame size={20} className="text-orange-400" />
               </ProgressRing>
-              <p className="text-sm font-bold text-white mt-1">{Math.round(consumed)}</p>
-              <p className="text-[10px] text-neutral-500">/ {calorieTarget} kcal</p>
+              <p className="text-sm font-bold text-white mt-1">{consumed === 0 ? '—' : Math.round(consumed)}</p>
+              <p className="text-[10px] text-neutral-500">{consumed === 0 ? t('dashboard.notLoggedYet') : `/ ${calorieTarget} kcal`}</p>
             </button>
             )}
 
