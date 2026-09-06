@@ -27,8 +27,8 @@
 | PR | Quoi | Prod déjà appliquée | Reste |
 |---|---|---|---|
 | [#58](https://github.com/Jayvy2002/prometheus-tracker-app/pull/58) PR 4 — programme vivant solo | Même `coach-agent` (`onboarding_plan` / `program_nl_edit`) ouvert au cas « je suis mon propre coach ». Jamais d’auto-apply. Coaché sans copilote. | SQL `solo_self_coach` ; `notify-onboarding-complete` v13 | **Mergée** dans `new-JV` (6 sept.) |
-| [#59](https://github.com/Jayvy2002/prometheus-tracker-app/pull/59) PR 5 — le moteur consomme les données | `loop_context` (messages, notes, check-ins, photos dates+kinds) ; priorités hunger/mood/stress ; onboarding sans champs morts ; `/coach/learned` | SQL `engine_consumes_data` ; **`coach-agent` v15** (`loop_context`, JWT on, 6 sept.) | Retargetée sur `new-JV` ; CI en cours puis merger |
-| [#60](https://github.com/Jayvy2002/prometheus-tracker-app/pull/60) PR 6 — restes client/solo | Historique check-in, journal de pas, realtime `program_days` / `program_day_exercises` / `progress_photos`, diffs kcal + Relancer | SQL `client_program_photos_realtime` | Retargeter après #59 |
+| [#59](https://github.com/Jayvy2002/prometheus-tracker-app/pull/59) PR 5 — le moteur consomme les données | `loop_context` (messages, notes, check-ins, photos dates+kinds) ; priorités hunger/mood/stress ; onboarding sans champs morts ; `/coach/learned` | SQL `engine_consumes_data` ; **`coach-agent` v15** (`loop_context`, JWT on, 6 sept.) | **Mergée** dans `new-JV` (6 sept.) |
+| [#60](https://github.com/Jayvy2002/prometheus-tracker-app/pull/60) PR 6 — restes client/solo | Historique check-in, journal de pas, realtime `program_days` / `program_day_exercises` / `progress_photos`, diffs kcal + Relancer | SQL `client_program_photos_realtime` | Retargetée sur `new-JV` ; CI en cours puis merger |
 
 La CI GitHub ne tourne que sur les PRs vers `new-JV`. #59 et #60 n’ont donc pas de check tant qu’elles sont empilées.
 
@@ -52,7 +52,7 @@ La CI GitHub ne tourne que sur les PRs vers `new-JV`. #59 et #60 n’ont donc pa
 
 À faire **avant** tout nouveau chantier produit.
 
-1. **#58 mergée.** Retargeter **#59** sur `new-JV` (fait) → merger → retargeter **#60** → merger. Netlify déploie à chaque merge.
+1. **#58 et #59 mergées.** Retargeter **#60** sur `new-JV` (fait) → merger. Netlify déploie à chaque merge.
 2. **Fait (6 sept.)** — `coach-agent` **v15** en prod (`phyuijjekxtjvipjtdfv`) : source #59, `loop_context` / `compactLoopContext` / self-coach, `verify_jwt` true. `coach-fleet-round` (mapDossier étendu) reste optionnel — le SQL fleet renvoie déjà les clés, l’ancienne edge les ignore sans casser.
 3. Mini-PR restes #50 : **[#62](https://github.com/Jayvy2002/prometheus-tracker-app/pull/62)**. #42 fermée. Fermer #50 après merge de #62.
 4. **HIBP :** pas activable sur le plan Free. Comptes = test, rien de compromis. À faire au passage Pro.

@@ -102,7 +102,7 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 
 ## Phase actuelle : chantiers (après consolidation)
 
-La consolidation de septembre 2026 est **écrite**. `coach-agent` **v15** (`loop_context`) est en prod. #58 est mergée. Ce qui reste : merger #59 → #60, #62 (restes invite/setup), et les vrais cycles en prod — **étape 0** de `docs/CHANTIER.md`. Ensuite les chantiers A → D, pas un nouvel audit.
+La consolidation de septembre 2026 est **écrite**. `coach-agent` **v15** (`loop_context`) est en prod. #58 et #59 sont mergées. Ce qui reste : merger #60, #62 (restes invite/setup), et les vrais cycles en prod — **étape 0** de `docs/CHANTIER.md`. Ensuite les chantiers A → D, pas un nouvel audit.
 
 Les trois axes de la consolidation restent le test de chaque livraison :
 
@@ -120,7 +120,7 @@ Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
 
 | # | Quoi | État |
 |---|---|---|
-| 0 | #58 mergée ; #59/#60 à merger ; `coach-agent` v15 ; restes #50 = #62 ; HIBP = Pro+ (comptes test, rien de compromis) ; vrai cycle en prod | En cours |
+| 0 | #58+#59 mergées ; #60 à merger ; `coach-agent` v15 ; restes #50 = #62 ; HIBP = Pro+ (comptes test, rien de compromis) ; vrai cycle en prod | En cours |
 | 1 | Copilote solo (intake + hebdo + programme vivant) | ✔ code (#46, #47, #58) |
 | A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | À faire |
 | 3 | Intake dans la boucle coach | ✔ ; reste `joursDispo` éditeur + accusé drapeau (transversal) |
