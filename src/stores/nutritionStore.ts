@@ -43,8 +43,9 @@ interface NutritionState {
   removeFavorite: (id: string) => Promise<void>;
   fetchRecentProducts: (userId: string) => Promise<void>;
   fetchCaloriesForRange: (userId: string, startDate: string, endDate: string) => Promise<{ logged_at: string; calories: number }[]>;
+  stepsLog: DailySteps | null;
   fetchOrCreateSteps: (userId: string, date: string) => Promise<DailySteps | null>;
-  logSteps: (userId: string, steps: number, date: string) => Promise<void>;
+  logSteps: (userId: string, steps: number, date: string) => Promise<{ error: string | null }>;
   reset: () => void;
 }
 
@@ -56,6 +57,7 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   favorites: [],
   loading: false,
   selectedDate: todayStr(),
+  stepsLog: null,
 
   setSelectedDate: (date) => set({ selectedDate: date }),
 
@@ -409,13 +411,21 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
       .eq('user_id', userId)
       .eq('logged_at', date)
       .maybeSingle();
-    return (data as DailySteps | null);
+    const row = (data as DailySteps | null) ?? null;
+    set({ stepsLog: row });
+    return row;
   },
 
   logSteps: async (userId, steps, date) => {
-    await supabase
+    const n = Math.max(0, Math.min(100000, Math.round(steps)));
+    const { data, error } = await supabase
       .from('daily_steps')
-      .upsert({ user_id: userId, steps, logged_at: date }, { onConflict: 'user_id,logged_at' });
+      .upsert({ user_id: userId, steps: n, logged_at: date }, { onConflict: 'user_id,logged_at' })
+      .select()
+      .maybeSingle();
+    if (error) return { error: error.message };
+    set({ stepsLog: (data as DailySteps | null) ?? { user_id: userId, steps: n, logged_at: date, id: '', created_at: '' } });
+    return { error: null };
   },
 
   reset: () => set({
@@ -426,5 +436,6 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
     favorites: [],
     loading: false,
     selectedDate: todayStr(),
+    stepsLog: null,
   }),
 }));

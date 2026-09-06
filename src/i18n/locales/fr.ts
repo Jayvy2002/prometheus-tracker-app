@@ -434,6 +434,12 @@ const fr = {
     water: {
       title: 'Eau',
     },
+    steps: {
+      title: 'Pas',
+      save: 'Enregistrer',
+      saved: 'Pas enregistrés',
+      invalid: 'Nombre de pas invalide (0–100 000).',
+    },
   },
 
   weight: {
@@ -824,6 +830,8 @@ const fr = {
     scaleHint: '0 = le plus bas · 10 = le plus haut',
     notSet: 'Non renseigné',
     disabled: 'Ton coach n’a pas activé le check-in pour toi.',
+    historyTitle: 'Tes derniers check-ins',
+    historyEmpty: 'Aucun check-in précédent.',
     fields: {
       sleep_quality: 'Qualité du sommeil',
       energy_level: 'Énergie',
@@ -1250,6 +1258,8 @@ const fr = {
       after: 'Proposition',
       clientWillSee: 'Le client verra : {{summary}}',
       empty: 'Modifie la proposition avant d’envoyer — rien n’est parti.',
+      relanceBefore: 'Observation',
+      relanceAfter: 'Message',
     },
     nutritionStall: {
       title: 'Cuts qui stagnent',
