@@ -91,7 +91,13 @@ export function resolveQueueAction(
     };
   }
 
-  if (priority.kind === 'new_pain' || priority.kind === 'low_sleep') {
+  if (
+    priority.kind === 'new_pain'
+    || priority.kind === 'low_sleep'
+    || priority.kind === 'high_stress'
+    || priority.kind === 'low_mood'
+    || priority.kind === 'high_hunger'
+  ) {
     return {
       kind: 'open_360',
       href: priority.href,

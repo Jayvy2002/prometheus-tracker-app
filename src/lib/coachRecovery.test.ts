@@ -5,10 +5,13 @@ import { checkinReviewRows } from './coachCheckins';
 import { groupQueueByClient, relanceThreadHref, resolveQueueAction } from './coachQueue';
 import {
   canAskRecoveryAdjust,
+  highHungerPriority,
+  highStressPriority,
   isLowSleep,
   isPainFlag,
   isRecentCheckin,
   isRecoveryHref,
+  lowMoodPriority,
   lowSleepPriority,
   painPriority,
   parseClientTab,
@@ -343,4 +346,55 @@ test('explicit checkin query opens that snapshot even when it is not the newest'
   assert.equal(view?.checkin.id, 'ck-old');
   assert.equal(view?.sleepHours, 5);
   assert.equal(view?.pain, 3);
+});
+
+test('recent high stress / low mood / high hunger become recovery priorities', () => {
+  const row = checkin({
+    id: 'ck-scores',
+    user_id: 'marie-id',
+    checked_at: '2026-08-29',
+    stress: 8,
+    mood: 2,
+    hunger: 9,
+    joint_pain: 0,
+    sleep_quality: 7,
+    energy_level: 6,
+    created_at: '2026-08-29T07:00:00Z',
+  });
+  const stress = highStressPriority('marie-id', 'Marie', '', row, TODAY);
+  const mood = lowMoodPriority('marie-id', 'Marie', '', row, TODAY);
+  const hunger = highHungerPriority('marie-id', 'Marie', '', row, TODAY);
+  assert.ok(stress);
+  assert.ok(mood);
+  assert.ok(hunger);
+  assert.equal(stress?.kind, 'high_stress');
+  assert.equal(mood?.kind, 'low_mood');
+  assert.equal(hunger?.kind, 'high_hunger');
+  assert.equal(resolveQueueAction(stress!, []).ctaKey, 'coaching.queue.openRecovery');
+
+  const stale = checkin({
+    id: 'ck-old-scores',
+    user_id: 'marie-id',
+    checked_at: '2026-07-01',
+    stress: 9,
+    mood: 1,
+    hunger: 10,
+    joint_pain: 0,
+  });
+  assert.equal(highStressPriority('marie-id', 'Marie', '', stale, TODAY), null);
+
+  const view = recoverySnapshot([row], { today: TODAY });
+  assert.equal(view?.stress, 8);
+  assert.equal(view?.mood, 2);
+  assert.equal(view?.hunger, 9);
+  assert.equal(recoveryContextPayload(view!).stress, 8);
+
+  const priorities = buildCoachPriorities(
+    [ops(client('marie-id', 'Marie Dupont'))],
+    emptySignals({ checkins: [row] }),
+    TODAY,
+  );
+  assert.ok(priorities.some(p => p.kind === 'high_stress'));
+  assert.ok(priorities.some(p => p.kind === 'low_mood'));
+  assert.ok(priorities.some(p => p.kind === 'high_hunger'));
 });

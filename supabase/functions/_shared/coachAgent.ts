@@ -109,6 +109,7 @@ const LANGUAGE_LINE = "__OUTPUT_LANGUAGE__";
 export const SYSTEM_PROMPT = `Tu es l'agent coach in-app de Prometheus. Tu prépares UN brouillon. Rien ne s'applique tout seul. Le coach accepte ou édite, puis envoie.
 ${LANGUAGE_LINE}
 Si "intake" est présent (questionnaire d'accueil rempli par le client), c'est TA source principale pour le programme : respecte lieu, equipement, extras.available_weekdays (0=dimanche … 6=samedi), seancesRealistes, dureeIdeale, niveauActuel, typesExercices, exercicesDetestes, mouvementAEviter, descriptionBlessures. Ne prescris jamais un exercice qui exige un équipement absent de la liste ni un mouvement à éviter.
+Si "loop_context" est présent (messages récents, notes coach, notes de check-in, scores hunger/mood/stress, photos : dates + kinds seulement, jamais les bytes) : consomme-le. Ne l'ignore pas.
 intake.medical_flags non vide (condition cardiaque / HTA / douleurs thoraciques, étourdissements, restriction médicale) → programme conservateur, intensité modérée, et une note explicite au coach dans "notes" pour qu'il vérifie avant d'envoyer.
 ISSN reste la formule de l'app — tu n'écrases pas les calories d'onboarding. « Revenir à l'ISSN » = cette formule, pas un seed.
 Levier : adhérence / Relancer d'abord si le client n'applique PAS le plan (logs >> cible, adhérence basse, ghost, séances manquées). JAMAIS une coupe calorie ni un nouveau programme dans ces cas. JAMAIS des macros 0. On ne change PAS les cibles s'il ne suit pas.
@@ -321,6 +322,71 @@ function sanitizeNutrition(raw: unknown, fallback?: unknown): Record<string, num
   return null;
 }
 
+function avgField(rows: Record<string, unknown>[], key: string): number | null {
+  const nums = rows.map((r) => num(r[key], NaN)).filter((n) => Number.isFinite(n));
+  if (!nums.length) return null;
+  return Math.round((nums.reduce((a, b) => a + b, 0) / nums.length) * 10) / 10;
+}
+
+const LOOP_BODY_MAX = 240;
+
+function clipText(value: unknown, max = LOOP_BODY_MAX): string {
+  const s = asString(value);
+  if (!s) return "";
+  return s.length > max ? s.slice(0, max) : s;
+}
+
+export function compactLoopContext(input: {
+  messages?: Array<Record<string, unknown>>;
+  notes?: Array<Record<string, unknown>>;
+  checkins?: Array<Record<string, unknown>>;
+  photos?: Array<Record<string, unknown>>;
+}): Record<string, unknown> | null {
+  const messages = (input.messages ?? [])
+    .map((row) => {
+      const body = clipText(row.body);
+      if (!body) return null;
+      return {
+        at: asString(row.created_at) || null,
+        from_coach: asString(row.sender_id) === asString(row.coach_id) || row.from_coach === true,
+        body,
+      };
+    })
+    .filter((row): row is { at: string | null; from_coach: boolean; body: string } => !!row)
+    .slice(0, 10);
+  const notes = (input.notes ?? [])
+    .map((row) => {
+      const body = clipText(row.body, 400);
+      if (!body) return null;
+      return { date: asString(row.note_date) || asString(row.created_at) || null, body };
+    })
+    .filter((row): row is { date: string | null; body: string } => !!row)
+    .slice(0, 8);
+  const checkins = (input.checkins ?? []).slice(0, 7).map((row) => {
+    const hunger = row.hunger == null ? NaN : num(row.hunger, NaN);
+    const mood = row.mood == null ? NaN : num(row.mood, NaN);
+    const stress = row.stress == null ? NaN : num(row.stress, NaN);
+    return {
+      date: asString(row.checked_at) || null,
+      hunger: Number.isFinite(hunger) ? hunger : null,
+      mood: Number.isFinite(mood) ? mood : null,
+      stress: Number.isFinite(stress) ? stress : null,
+      notes: clipText(row.notes, 280) || null,
+    };
+  });
+  const photos = (input.photos ?? []).slice(0, 12).map((row) => ({
+    taken_at: asString(row.taken_at) || null,
+    kind: asString(row.kind) || null,
+  })).filter((row) => row.taken_at || row.kind);
+
+  const out: Record<string, unknown> = {};
+  if (messages.length) out.messages = messages;
+  if (notes.length) out.coach_notes = notes;
+  if (checkins.length) out.checkins = checkins;
+  if (photos.length) out.progress_photos = photos;
+  return Object.keys(out).length ? out : null;
+}
+
 async function fetchSelfDossier(
   admin: SupabaseClient,
   userId: string,
@@ -329,11 +395,11 @@ async function fetchSelfDossier(
   from.setUTCDate(from.getUTCDate() - 13);
   const fromDay = from.toISOString().slice(0, 10);
   const [checkins, workouts, nutrition] = await Promise.all([
-    admin.from("daily_checkins").select("checked_at, hunger, mood, stress, notes").eq("user_id", userId).gte("checked_at", fromDay),
+    admin.from("daily_checkins").select("checked_at, hunger, mood, stress, notes").eq("user_id", userId).gte("checked_at", fromDay).order("checked_at", { ascending: false }),
     admin.from("workouts").select("date, completed").eq("user_id", userId).gte("date", fromDay),
     admin.from("nutrition_logs").select("logged_at, calories").eq("user_id", userId).gte("logged_at", fromDay),
   ]);
-  const checkinRows = Array.isArray(checkins.data) ? checkins.data : [];
+  const checkinRows = (Array.isArray(checkins.data) ? checkins.data : []) as Record<string, unknown>[];
   const workoutRows = Array.isArray(workouts.data) ? workouts.data : [];
   const nutritionRows = Array.isArray(nutrition.data) ? nutrition.data : [];
   return {
@@ -341,10 +407,55 @@ async function fetchSelfDossier(
     coach_id: userId,
     self_coach: true,
     checkin_count: checkinRows.length,
-    last_checkin_at: checkinRows[0] ? asString((checkinRows[0] as Record<string, unknown>).checked_at) || null : null,
+    last_checkin_at: checkinRows[0] ? asString(checkinRows[0].checked_at) || null : null,
+    avg_hunger: avgField(checkinRows, "hunger"),
+    avg_mood: avgField(checkinRows, "mood"),
+    avg_stress: avgField(checkinRows, "stress"),
     workout_count: workoutRows.filter((w) => bool((w as Record<string, unknown>).completed, true)).length,
     logged_nutrition_days: new Set(nutritionRows.map((r) => asString((r as Record<string, unknown>).logged_at).slice(0, 10)).filter(Boolean)).size,
   };
+}
+
+async function fetchLoopContext(
+  admin: SupabaseClient,
+  coachId: string,
+  clientId: string | null,
+): Promise<Record<string, unknown> | null> {
+  if (!clientId) return null;
+  const from = new Date();
+  from.setUTCDate(from.getUTCDate() - 13);
+  const fromDay = from.toISOString().slice(0, 10);
+  const [messages, notes, checkins, photos] = await Promise.all([
+    admin.from("coach_messages")
+      .select("sender_id, coach_id, body, created_at")
+      .eq("client_id", clientId)
+      .eq("coach_id", coachId)
+      .order("created_at", { ascending: false })
+      .limit(10),
+    admin.from("coach_notes")
+      .select("note_date, body, created_at")
+      .eq("client_id", clientId)
+      .eq("coach_id", coachId)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    admin.from("daily_checkins")
+      .select("checked_at, hunger, mood, stress, notes")
+      .eq("user_id", clientId)
+      .gte("checked_at", fromDay)
+      .order("checked_at", { ascending: false })
+      .limit(7),
+    admin.from("progress_photos")
+      .select("taken_at, kind")
+      .eq("user_id", clientId)
+      .order("taken_at", { ascending: false })
+      .limit(12),
+  ]);
+  return compactLoopContext({
+    messages: Array.isArray(messages.data) ? messages.data as Record<string, unknown>[] : [],
+    notes: Array.isArray(notes.data) ? notes.data as Record<string, unknown>[] : [],
+    checkins: Array.isArray(checkins.data) ? checkins.data as Record<string, unknown>[] : [],
+    photos: Array.isArray(photos.data) ? photos.data as Record<string, unknown>[] : [],
+  });
 }
 
 async function fetchDossier(
@@ -729,11 +840,12 @@ export async function runCoachAgent(
   if (!input.prompt) return { ok: false, error: "prompt_required" };
   if (kind === "onboarding_plan" && !input.clientId) return { ok: false, error: "client_id_required" };
 
-  const [dossier, rawProfile, lessons, program] = await Promise.all([
+  const [dossier, rawProfile, lessons, program, loopContext] = await Promise.all([
     fetchDossier(admin, input.coachId, input.clientId),
     fetchProfile(admin, input.clientId),
     fetchCoachLessons(admin, input.coachId, kind),
     fetchCompactProgram(admin, input.programId, input.clientId, input.context),
+    fetchLoopContext(admin, input.coachId, input.clientId),
   ]);
 
   // The raw jsonb never goes to the LLM as-is: it is compacted into `intake` below.
@@ -748,6 +860,7 @@ export async function runCoachAgent(
     client: profile,
     intake,
     dossier_14d: dossier,
+    loop_context: loopContext,
     current_program: program,
     context: input.context,
     lessons,

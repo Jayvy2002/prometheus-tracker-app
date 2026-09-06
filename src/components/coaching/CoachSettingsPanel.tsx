@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { DEFAULT_COACH_VISIBLE_TABS } from '../../lib/types';
@@ -77,6 +78,12 @@ export default function CoachSettingsPanel() {
   return (
     <div className="space-y-4">
       <p className="text-xs text-neutral-500">{t('coaching.settings.hint')}</p>
+      <Link
+        to="/coach/learned"
+        className="block text-sm text-blue-400 hover:text-blue-300"
+      >
+        {t('coaching.learned.open')}
+      </Link>
 
       <div>
         <p className="text-xs font-medium text-neutral-400 mb-2">{t('coaching.settings.tabs')}</p>

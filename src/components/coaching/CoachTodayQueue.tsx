@@ -64,7 +64,13 @@ export default function CoachTodayQueue() {
         {groups.map(group => {
           const relanceHref = relanceHrefForGroup(group, pendingInterventions);
           const sessionAction = group.items.find(item => item.kind === 'session_logged') ?? null;
-          const recoveryAction = group.items.find(item => item.kind === 'new_pain' || item.kind === 'low_sleep') ?? null;
+          const recoveryAction = group.items.find(item => (
+            item.kind === 'new_pain'
+            || item.kind === 'low_sleep'
+            || item.kind === 'high_stress'
+            || item.kind === 'low_mood'
+            || item.kind === 'high_hunger'
+          )) ?? null;
           const setupAction = group.items
             .map(item => resolveQueueAction(item, pendingInterventions))
             .find(a => a.kind === 'open_setup' || a.kind === 'open_draft');

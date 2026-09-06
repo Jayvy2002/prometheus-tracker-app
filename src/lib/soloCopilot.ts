@@ -32,6 +32,7 @@ export interface SoloReviewInputs {
   nutritionLogs: Array<{ logged_at: string; calories: number }>;
   weights: Array<{ measured_at: string; weight_kg: number }>;
   workouts?: Array<{ date: string; completed: boolean }>;
+  checkins?: Array<{ checked_at: string }>;
 }
 
 export interface SoloReviewEvidence {
@@ -157,8 +158,14 @@ export function buildSoloDossier(inputs: SoloReviewInputs, evidence: SoloReviewE
     last_nutrition_at: null,
     workout_count: evidence.workouts,
     last_workout_at: null,
-    checkin_count: 0,
-    last_checkin_at: null,
+    checkin_count: (inputs.checkins ?? []).filter(c => inWindow(c.checked_at, evidence.windowStart, evidence.windowEnd)).length,
+    last_checkin_at: (() => {
+      const days = (inputs.checkins ?? [])
+        .filter(c => inWindow(c.checked_at, evidence.windowStart, evidence.windowEnd))
+        .map(c => c.checked_at.slice(0, 10))
+        .sort();
+      return days[days.length - 1] ?? null;
+    })(),
     avg_adherence_nutrition: null,
     avg_adherence_training: null,
     weight_start_kg: evidence.weightStart,
