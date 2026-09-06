@@ -17,6 +17,7 @@ import { useExerciseStore } from '../../stores/exerciseStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import { parseProgramPatch } from '../../lib/coachInterventions';
+import { nextProgramWeekday } from '../../lib/kinesiologyIntake';
 import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
@@ -38,6 +39,8 @@ interface Props {
   onAsk?: (query: string) => void;
   clientId?: string | null;
   programId?: string | null;
+  /** Intake joursDispo as JS weekday ints; next added day prefers these. */
+  preferredWeekdays?: number[];
 }
 
 function emptyDay(weekday: number): AiProgramDayDraft {
@@ -51,7 +54,7 @@ function emptyEx(): ProgramExerciseDraft {
 export default function ProgramSessionEditor({
   name, description, durationWeeks, days,
   onNameChange, onDescriptionChange, onWeeksChange, onDaysChange,
-  onAnalyze, onAsk, clientId, programId,
+  onAnalyze, onAsk, clientId, programId, preferredWeekdays = [],
 }: Props) {
   const { t } = useTranslation();
   const exercisesLib = useExerciseStore(s => s.exercises);
@@ -126,10 +129,7 @@ export default function ProgramSessionEditor({
     setSelected(to);
   };
 
-  const nextWeekday = () => {
-    const used = new Set(days.map(d => d.weekday));
-    return WEEKDAYS.find(d => !used.has(d)) ?? (days.length % 7);
-  };
+  const nextWeekday = () => nextProgramWeekday(days.map(d => d.weekday), preferredWeekdays);
 
   const nlRow = pendingInterventions.find(r => r.id === nlJobId) ?? null;
 

@@ -8,9 +8,17 @@ import { useProgramStore } from '../../stores/programStore';
 import { issnTargetsFromProfile, todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
 import {
+  initialSetupTargetChoice,
+  nutritionDraftsEqual,
+  profileNutritionDraft,
+  setupTargetsFromChoice,
+  type SetupTargetChoice,
+} from '../../lib/coachOwnedTargets';
+import { track } from '../../lib/telemetryClient';
+import {
   DIET_TYPES, FOOD_ALLERGIES, GOALS, TRAINING_EXPERIENCES, TRAINING_FOCUSES,
 } from '../../lib/constants';
-import { parseOnboardingPlanDraft } from '../../lib/coachInterventions';
+import { parseOnboardingPlanDraft, type CalorieDraft } from '../../lib/coachInterventions';
 import { editedProgramPayload } from '../../lib/coachDraftSend';
 import {
   ALL_ON_TRACKING,
@@ -36,7 +44,7 @@ import Input from '../ui/Input';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import KinesiologyIntakeReview from '../onboarding/KinesiologyIntakeReview';
-import { isIntakeAlreadyFilled, medicalYesFlags, parseIntake } from '../../lib/kinesiologyIntake';
+import { intakeAvailableWeekdays, isIntakeAlreadyFilled, medicalYesFlags, parseIntake } from '../../lib/kinesiologyIntake';
 import { optionLabel } from '../../lib/optionLabels';
 
 const EMPTY_TRACKING: ResolvedTrackingConfig = {
@@ -82,6 +90,8 @@ export default function ClientSetupPage() {
   const [carbs, setCarbs] = useState(0);
   const [fat, setFat] = useState(0);
   const [applyTargets, setApplyTargets] = useState(false);
+  const [targetChoice, setTargetChoice] = useState<SetupTargetChoice>('issn');
+  const [medicalAck, setMedicalAck] = useState(false);
   const [assignId, setAssignId] = useState('');
   const [draftDays, setDraftDays] = useState<AiProgramDayDraft[]>([]);
   const [draftProgramName, setDraftProgramName] = useState('');
@@ -92,6 +102,12 @@ export default function ClientSetupPage() {
 
   const client = clients.find(c => c.id === id);
   const issn = useMemo(() => (profile ? issnTargetsFromProfile(profile) : null), [profile]);
+  const existingTargets = useMemo(() => profileNutritionDraft(profile), [profile]);
+  const preferredWeekdays = useMemo(
+    () => (profile ? intakeAvailableWeekdays(profile.kinesiology_intake) : []),
+    [profile],
+  );
+  const needsMedicalAck = !!(profile && medicalYesFlags(parseIntake(profile.kinesiology_intake)));
 
   const fillProgramAndTracking = (payload: Record<string, unknown>) => {
     const parsed = parseOnboardingPlanDraft(payload);
@@ -129,11 +145,15 @@ export default function ClientSetupPage() {
         ));
       }
       if (p) {
-        const targets = issnTargetsFromProfile(p);
-        setCalories(targets.calories);
-        setProtein(targets.protein);
-        setCarbs(targets.carbs);
-        setFat(targets.fat);
+        const issnNow = issnTargetsFromProfile(p);
+        const choice = initialSetupTargetChoice(p);
+        const picked = setupTargetsFromChoice(choice, p, issnNow);
+        setTargetChoice(choice);
+        setCalories(picked.calories);
+        setProtein(picked.protein);
+        setCarbs(picked.carbs);
+        setFat(picked.fat);
+        setApplyTargets(false);
       }
       const usable = stored && stored.status === 'pending' && stored.kind === 'onboarding_plan'
         ? stored
@@ -187,10 +207,33 @@ export default function ClientSetupPage() {
 
   const applyIssn = () => {
     if (!issn) return;
+    setTargetChoice('issn');
     setCalories(issn.calories);
     setProtein(issn.protein);
     setCarbs(issn.carbs);
     setFat(issn.fat);
+    if (existingTargets) setApplyTargets(true);
+  };
+
+  const writeMacroFields = (next: CalorieDraft) => {
+    setCalories(next.calories);
+    setProtein(next.protein);
+    setCarbs(next.carbs);
+    setFat(next.fat);
+    if (existingTargets && !nutritionDraftsEqual(next, existingTargets)) {
+      setApplyTargets(true);
+    }
+  };
+
+  const chooseTargets = (choice: SetupTargetChoice) => {
+    if (!issn) return;
+    const picked = setupTargetsFromChoice(choice, profile, issn);
+    setTargetChoice(choice);
+    setCalories(picked.calories);
+    setProtein(picked.protein);
+    setCarbs(picked.carbs);
+    setFat(picked.fat);
+    setApplyTargets(choice === 'issn' && !!existingTargets);
   };
 
   const discardDraft = () => {
@@ -200,6 +243,10 @@ export default function ClientSetupPage() {
 
   const handleConfirm = async () => {
     if (!id || !user || saving) return;
+    if (needsMedicalAck && !medicalAck) {
+      toast(t('coaching.setup.medicalAckRequired'), 'error');
+      return;
+    }
     setSaving(true);
     const trackResult = await saveTrackingConfig(id, {
       ...tracking,
@@ -257,6 +304,12 @@ export default function ClientSetupPage() {
     }
 
     setSaving(false);
+    track('setup_targets_choice', {
+      choice: targetChoice,
+      wrote: applyTargets,
+      had_existing: !!existingTargets,
+      medical_ack: needsMedicalAck ? medicalAck : null,
+    });
     toast(t('coaching.setup.saved'));
     // Ops rows drive the « À configurer » badge — refresh so the 360 reflects setup at once.
     void fetchCoachOps();
@@ -302,14 +355,15 @@ export default function ClientSetupPage() {
           </Card>
         )}
 
+        {needsMedicalAck && (
+          <Card className="mb-4 border-rose-500/30 bg-rose-500/5">
+            <p className="text-sm font-medium text-rose-200">{t('coaching.medicalFlags.title')}</p>
+            <p className="text-xs text-neutral-400 mt-0.5">{t('coaching.medicalFlags.hint')}</p>
+          </Card>
+        )}
+
         {onboarded && profile && isIntakeAlreadyFilled(profile) && (
-          <div className="mb-4 space-y-4">
-            {medicalYesFlags(parseIntake(profile.kinesiology_intake)) && (
-              <Card className="border-rose-500/30 bg-rose-500/5">
-                <p className="text-sm font-medium text-rose-200">{t('coaching.medicalFlags.title')}</p>
-                <p className="text-xs text-neutral-400 mt-0.5">{t('coaching.medicalFlags.hint')}</p>
-              </Card>
-            )}
+          <div className="mb-4">
             <KinesiologyIntakeReview raw={profile.kinesiology_intake} />
           </div>
         )}
@@ -393,37 +447,62 @@ export default function ClientSetupPage() {
         <Card className="mb-4 space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-white">{t('coaching.setup.targets')}</p>
-            <button onClick={applyIssn} className="text-xs text-blue-400">{t('coaching.setup.useIssn')}</button>
+            <button type="button" onClick={applyIssn} className="text-xs text-blue-400">{t('coaching.setup.useIssn')}</button>
           </div>
-          <p className="text-[11px] text-emerald-300/90">{t('coaching.setup.issnLabel')}</p>
-          <p className="text-xs text-neutral-500">{t('coaching.setup.targetsHint')}</p>
-          {profile && issn && (
-            (profile.daily_calorie_target ?? 0) > 0
-            && (
-              profile.daily_calorie_target !== issn.calories
-              || profile.protein_target !== issn.protein
-              || profile.carbs_target !== issn.carbs
-              || profile.fat_target !== issn.fat
-            )
-          ) && (
-            <p className="text-[11px] text-neutral-500">
-              {t('coaching.setup.profileTargets', {
-                calories: profile.daily_calorie_target,
-                protein: profile.protein_target,
-                carbs: profile.carbs_target,
-                fat: profile.fat_target,
-              })}
-            </p>
+          {existingTargets ? (
+            <>
+              <p className="text-[11px] text-neutral-400">
+                {t('coaching.setup.currentTargets', {
+                  calories: existingTargets.calories,
+                  protein: existingTargets.protein,
+                  carbs: existingTargets.carbs,
+                  fat: existingTargets.fat,
+                })}
+              </p>
+              <fieldset className="space-y-2">
+                <label className="flex items-start gap-2 text-xs text-neutral-200">
+                  <input
+                    type="radio"
+                    name="setup-target-choice"
+                    checked={targetChoice === 'keep'}
+                    onChange={() => chooseTargets('keep')}
+                    className="mt-0.5 accent-blue-500"
+                  />
+                  <span>
+                    <span className="font-medium">{t('coaching.setup.keepTargets')}</span>
+                    <span className="block text-neutral-500 mt-0.5">{t('coaching.setup.keepHint')}</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-xs text-neutral-200">
+                  <input
+                    type="radio"
+                    name="setup-target-choice"
+                    checked={targetChoice === 'issn'}
+                    onChange={() => chooseTargets('issn')}
+                    className="mt-0.5 accent-blue-500"
+                  />
+                  <span>
+                    <span className="font-medium">{t('coaching.setup.overwriteIssn')}</span>
+                    <span className="block text-neutral-500 mt-0.5">{t('coaching.setup.issnHint')}</span>
+                  </span>
+                </label>
+              </fieldset>
+            </>
+          ) : (
+            <>
+              <p className="text-[11px] text-emerald-300/90">{t('coaching.setup.issnLabel')}</p>
+              <p className="text-xs text-neutral-500">{t('coaching.setup.targetsHint')}</p>
+            </>
           )}
           <label className="flex items-center gap-2 text-xs text-neutral-300">
             <input type="checkbox" checked={applyTargets} onChange={e => setApplyTargets(e.target.checked)} className="accent-blue-500" />
             {t('coaching.setup.applyTargets')}
           </label>
           <div className="grid grid-cols-2 gap-2">
-            <Input label={t('common.calories')} type="number" value={calories} onChange={e => setCalories(+e.target.value || 0)} />
-            <Input label={t('common.protein')} type="number" value={protein} onChange={e => setProtein(+e.target.value || 0)} />
-            <Input label={t('common.carbs')} type="number" value={carbs} onChange={e => setCarbs(+e.target.value || 0)} />
-            <Input label={t('common.fat')} type="number" value={fat} onChange={e => setFat(+e.target.value || 0)} />
+            <Input label={t('common.calories')} type="number" value={calories} onChange={e => writeMacroFields({ calories: +e.target.value || 0, protein, carbs, fat })} />
+            <Input label={t('common.protein')} type="number" value={protein} onChange={e => writeMacroFields({ calories, protein: +e.target.value || 0, carbs, fat })} />
+            <Input label={t('common.carbs')} type="number" value={carbs} onChange={e => writeMacroFields({ calories, protein, carbs: +e.target.value || 0, fat })} />
+            <Input label={t('common.fat')} type="number" value={fat} onChange={e => writeMacroFields({ calories, protein, carbs, fat: +e.target.value || 0 })} />
           </div>
         </Card>
 
@@ -448,6 +527,7 @@ export default function ClientSetupPage() {
                 durationWeeks={draftProgramWeeks}
                 days={draftDays}
                 clientId={id}
+                preferredWeekdays={preferredWeekdays}
                 onNameChange={setDraftProgramName}
                 onDescriptionChange={setDraftProgramDesc}
                 onWeeksChange={setDraftProgramWeeks}
@@ -460,6 +540,17 @@ export default function ClientSetupPage() {
           )}
         </Card>
 
+        {needsMedicalAck && (
+          <label className="flex items-start gap-2 text-xs text-rose-200 mb-3">
+            <input
+              type="checkbox"
+              checked={medicalAck}
+              onChange={e => setMedicalAck(e.target.checked)}
+              className="mt-0.5 accent-rose-500"
+            />
+            {t('coaching.setup.medicalAck')}
+          </label>
+        )}
         <Button onClick={handleConfirm} loading={saving} className="w-full">
           {t('coaching.interventions.send')}
         </Button>
