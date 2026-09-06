@@ -1,0 +1,103 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { test } from 'node:test';
+import { isSoloAthlete } from './coachRole';
+import {
+  isSoloProgramKind,
+  pendingSoloProgramDraft,
+  soloDraftEdited,
+  soloDraftWhy,
+} from './soloProgram';
+import type { CoachIntervention } from './types';
+
+function src(rel: string): string {
+  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+function row(partial: Partial<CoachIntervention>): CoachIntervention {
+  return {
+    id: 'i1',
+    coach_id: 'solo',
+    client_id: 'solo',
+    kind: 'onboarding_plan',
+    title: 'Base novice',
+    rationale: 'Jours dispo lun/mer/ven',
+    payload: {
+      notes: '3 jours, haltères',
+      program: {
+        name: 'Base 3j',
+        description: '',
+        duration_weeks: 8,
+        days: [{ weekday: 1, name: 'A', exercises: [{ name: 'Squat', default_sets: 3, default_reps: 8, default_reps_min: null, default_rir: 2, default_rest_seconds: 120 }] }],
+      },
+    },
+    status: 'pending',
+    source: 'agent',
+    created_at: '2026-09-06T00:00:00Z',
+    updated_at: '2026-09-06T00:00:00Z',
+    resolved_at: null,
+    ...partial,
+  };
+}
+
+test('solo athlete is role none with no coach; coached and coaches are out', () => {
+  assert.equal(isSoloAthlete('none', null), true);
+  assert.equal(isSoloAthlete('none', { id: 'c1' }), false);
+  assert.equal(isSoloAthlete('client', null), false);
+  assert.equal(isSoloAthlete('coach', null), false);
+});
+
+test('pending self-coach draft is the solo looking at their own onboarding_plan / nl edit', () => {
+  assert.equal(isSoloProgramKind('onboarding_plan'), true);
+  assert.equal(isSoloProgramKind('program_nl_edit'), true);
+  assert.equal(isSoloProgramKind('calorie_adjustment'), false);
+  const hit = pendingSoloProgramDraft([row({}), row({ id: 'other', client_id: 'else' })], 'solo');
+  assert.equal(hit?.id, 'i1');
+  assert.equal(pendingSoloProgramDraft([row({})], 'else'), null);
+  assert.equal(pendingSoloProgramDraft([row({ status: 'sent' })], 'solo'), null);
+});
+
+test('why + edited outline come from the agent payload, not a second generator', () => {
+  const draft = row({});
+  assert.match(soloDraftWhy(draft), /3 jours/);
+  const edited = soloDraftEdited(draft);
+  assert.equal(edited.programName, 'Base 3j');
+  assert.equal(edited.days.length, 1);
+  assert.equal(edited.patch, null);
+});
+
+test('JWT self-coach is an explicit case before is_coach_of; coached stays 403', () => {
+  const http = src('supabase/functions/_shared/coachAgent.ts');
+  assert.match(http, /coachingRole === "client"/);
+  assert.match(http, /selfCoach/);
+  assert.match(http, /kind !== "onboarding_plan" && kind !== "program_nl_edit"/);
+  assert.match(http, /is_coach_of/);
+  assert.match(http, /not_your_client/);
+  const upsert = src('supabase/migrations/20260906000002_solo_self_coach.sql');
+  assert.match(upsert, /CREATE OR REPLACE FUNCTION public\.is_self_coach/);
+  assert.match(upsert, /Coached athletes cannot self-coach/);
+  assert.match(upsert, /coach_id = \(select auth\.uid\(\)\)/);
+  assert.match(upsert, /client_id = \(select auth\.uid\(\)\)/);
+  assert.doesNotMatch(upsert, /is_coach_of\(auth\.uid\(\)\)/);
+  assert.match(upsert, /v_coach_id := NEW\.id/);
+});
+
+test('solo home and /programs show the proposal; refuse is not auto-apply', () => {
+  const app = src('src/App.tsx');
+  assert.match(app, /function ProgramsHome/);
+  assert.doesNotMatch(app, /Navigate to="\/workout"/);
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  assert.match(dash, /SoloProgramProposal/);
+  const page = src('src/components/programs/ClientProgramPage.tsx');
+  assert.match(page, /SoloProgramProposal/);
+  assert.match(page, /program_nl_edit/);
+  assert.doesNotMatch(page, /\/programs\/new/);
+  assert.doesNotMatch(page, /createProgram/);
+  const card = src('src/components/dashboard/SoloProgramProposal.tsx');
+  assert.match(card, /resolveIntervention\(row\.id, 'sent'/);
+  assert.match(card, /resolveIntervention\(row\.id, 'dismissed'/);
+  assert.match(card, /navigate\('\/routines'\)/);
+  assert.match(card, /solo_program_accepted/);
+  assert.match(card, /applyProgramOutline\(user\.id/);
+});

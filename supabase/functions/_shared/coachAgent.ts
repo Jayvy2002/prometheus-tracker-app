@@ -321,12 +321,41 @@ function sanitizeNutrition(raw: unknown, fallback?: unknown): Record<string, num
   return null;
 }
 
+async function fetchSelfDossier(
+  admin: SupabaseClient,
+  userId: string,
+): Promise<Record<string, unknown>> {
+  const from = new Date();
+  from.setUTCDate(from.getUTCDate() - 13);
+  const fromDay = from.toISOString().slice(0, 10);
+  const [checkins, workouts, nutrition] = await Promise.all([
+    admin.from("daily_checkins").select("checked_at, hunger, mood, stress, notes").eq("user_id", userId).gte("checked_at", fromDay),
+    admin.from("workouts").select("date, completed").eq("user_id", userId).gte("date", fromDay),
+    admin.from("nutrition_logs").select("logged_at, calories").eq("user_id", userId).gte("logged_at", fromDay),
+  ]);
+  const checkinRows = Array.isArray(checkins.data) ? checkins.data : [];
+  const workoutRows = Array.isArray(workouts.data) ? workouts.data : [];
+  const nutritionRows = Array.isArray(nutrition.data) ? nutrition.data : [];
+  return {
+    client_id: userId,
+    coach_id: userId,
+    self_coach: true,
+    checkin_count: checkinRows.length,
+    last_checkin_at: checkinRows[0] ? asString((checkinRows[0] as Record<string, unknown>).checked_at) || null : null,
+    workout_count: workoutRows.filter((w) => bool((w as Record<string, unknown>).completed, true)).length,
+    logged_nutrition_days: new Set(nutritionRows.map((r) => asString((r as Record<string, unknown>).logged_at).slice(0, 10)).filter(Boolean)).size,
+  };
+}
+
 async function fetchDossier(
   admin: SupabaseClient,
   coachId: string,
   clientId: string | null,
 ): Promise<Record<string, unknown> | null> {
   if (!clientId) return null;
+  if (coachId === clientId) {
+    return fetchSelfDossier(admin, clientId);
+  }
   const { data } = await admin.rpc("triage_coach_fleet", {
     p_coach_id: coachId,
     p_client_id: clientId,
@@ -830,7 +859,14 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
       .select("coaching_role")
       .eq("user_id", user.id)
       .maybeSingle();
-    if (roleRow?.coaching_role !== "coach") {
+    const coachingRole = asString(roleRow?.coaching_role) || "none";
+    // Coached athletes have no copilot (VISION 7). Solo (role none) may call the
+    // same agent as their own coach — only on themselves, program kinds only.
+    if (coachingRole === "client") {
+      return json(403, { error: "not_coach" });
+    }
+    const selfCoach = coachingRole !== "coach";
+    if (coachingRole !== "coach" && coachingRole !== "none") {
       return json(403, { error: "not_coach" });
     }
 
@@ -847,10 +883,20 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
     if (kind === "onboarding_plan" && !clientId) {
       return json(400, { error: "client_id_required" });
     }
+    if (selfCoach) {
+      if (clientId !== user.id) return json(403, { error: "not_your_client" });
+      if (kind !== "onboarding_plan" && kind !== "program_nl_edit") {
+        return json(403, { error: "not_coach" });
+      }
+    }
 
     if (clientId) {
-      const { data: linked } = await userClient.rpc("is_coach_of", { p_client_id: clientId });
-      if (!linked) return json(403, { error: "not_your_client" });
+      if (selfCoach) {
+        if (clientId !== user.id) return json(403, { error: "not_your_client" });
+      } else {
+        const { data: linked } = await userClient.rpc("is_coach_of", { p_client_id: clientId });
+        if (!linked) return json(403, { error: "not_your_client" });
+      }
     }
     if (programId) {
       const { data: program } = await userClient.from("programs").select("id").eq("id", programId).maybeSingle();

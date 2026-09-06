@@ -1448,6 +1448,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       void get().fetchMyTrackingConfig();
     });
     void useProgramStore.getState().fetchMyAssignment(user.id);
+    void get().fetchPendingInterventions();
     if (!clientRealtimeChannel) {
       clientRealtimeChannel = supabase
         .channel(`client-live-${user.id}`)
@@ -1529,12 +1530,34 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
             set({ myTrackingConfig: resolveViewerTracking(raw, isCoached), trackingReady: true });
           },
         )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'coach_interventions',
+            filter: `client_id=eq.${user.id}`,
+          },
+          payload => {
+            const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            const mapped = raw ? mapInterventionRow(raw) : null;
+            if (!mapped) {
+              void get().fetchPendingInterventions();
+              return;
+            }
+            const event = payload.eventType === 'DELETE' ? 'DELETE' : payload.eventType;
+            set(s => ({
+              pendingInterventions: mergeInterventionRealtime(s.pendingInterventions, event, mapped),
+            }));
+          },
+        )
         .subscribe(status => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             void get().fetchCoachMessages();
             void useProgramStore.getState().fetchMyAssignment(user.id);
             void useProfileStore.getState().fetchProfile(user.id, { silent: true });
             void get().fetchMyTrackingConfig();
+            void get().fetchPendingInterventions();
           }
         });
     }

@@ -255,7 +255,7 @@ test('coach-agent writes in the language of the coach who asked (FR default, EN 
   assert.doesNotMatch(shared, /notes: "Brouillon déterministe/);
   const store = source('src/stores/coachingStore.ts');
   assert.match(store, /locale: i18n\.language,/);
-  // The onboarding ping has no UI → explicit FR until the coach's language is stored server-side.
+  // Locale follows the profile language on the ping (FR fallback in parseLocale).
   const notify = source('supabase/functions/notify-onboarding-complete/index.ts');
-  assert.match(notify, /locale: "fr"/);
+  assert.match(notify, /parseLocale\(payload\.locale\)/);
 });

@@ -1,13 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CalendarRange, Dumbbell } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
+import { isSoloAthlete } from '../../lib/coachRole';
+import { pendingSoloProgramDraft } from '../../lib/soloProgram';
 import { programWeekNumber } from '../../lib/utils';
+import { track } from '../../lib/telemetryClient';
 import type { ProgramDay, ProgramDayExercise } from '../../lib/types';
 import Card from '../ui/Card';
+import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
+import SoloProgramProposal from '../dashboard/SoloProgramProposal';
+import { toast } from '../ui/Toast';
 
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -22,13 +29,23 @@ export default function ClientProgramPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { assignment, fetchMyAssignment, loading } = useProgramStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
+  const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
+  const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
+  const solo = isSoloAthlete(coachingRole, myCoach);
+  const [nlPrompt, setNlPrompt] = useState('');
+  const [asking, setAsking] = useState(false);
 
   useEffect(() => {
     if (!user) return;
     void fetchMyAssignment(user.id);
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (solo) void fetchPendingInterventions();
+  }, [user, solo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const program = assignment?.status === 'active' ? assignment.program : undefined;
+  const pending = solo ? pendingSoloProgramDraft(pendingInterventions, user?.id) : null;
   const days = trainingDays(program?.days);
   const todayWeekday = new Date().getDay();
   const week = program
@@ -38,19 +55,47 @@ export default function ClientProgramPage() {
 
   const weekdayLabel = (d: number) => t(`programs.weekdays.${d}`);
 
+  const askPatch = async () => {
+    if (!user || !solo || asking) return;
+    const prompt = nlPrompt.trim();
+    if (!prompt) return;
+    setAsking(true);
+    const result = await askCoachAgent({
+      kind: 'program_nl_edit',
+      clientId: user.id,
+      programId: assignment?.program_id ?? null,
+      prompt,
+      screen: 'solo_program',
+    });
+    setAsking(false);
+    if ('error' in result) {
+      toast(result.error === 'DAILY_LIMIT_REACHED' ? t('soloProgram.dailyLimit') : t('soloProgram.askFailed'), 'error');
+      return;
+    }
+    track('solo_program_nl_asked', { has_program: !!assignment?.program_id });
+    setNlPrompt('');
+    toast(t('soloProgram.askQueued'));
+  };
+
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('programs.mineTitle')}</h1>
-        <p className="text-sm text-neutral-500 mb-5">{t('programs.mineSubtitle')}</p>
+        <p className="text-sm text-neutral-500 mb-5">
+          {solo ? t('programs.soloSubtitle') : t('programs.mineSubtitle')}
+        </p>
+
+        {solo && <SoloProgramProposal />}
 
         {loading && !program ? (
           <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}</div>
         ) : !program ? (
-          <Card className="text-center py-10">
-            <CalendarRange className="mx-auto mb-3 text-neutral-600" size={28} />
-            <p className="text-neutral-400">{t('programs.noAssignment')}</p>
-          </Card>
+          pending ? null : (
+            <Card className="text-center py-10">
+              <CalendarRange className="mx-auto mb-3 text-neutral-600" size={28} />
+              <p className="text-neutral-400">{solo ? t('programs.soloEmpty') : t('programs.noAssignment')}</p>
+            </Card>
+          )
         ) : (
           <div className="space-y-4">
             <Card>
@@ -103,6 +148,24 @@ export default function ClientProgramPage() {
                 );
               })}
             </div>
+
+            {solo && !pending && (
+              <Card className="space-y-2">
+                <p className="text-sm font-medium text-white">{t('soloProgram.adjustTitle')}</p>
+                <p className="text-xs text-neutral-400">{t('soloProgram.adjustHint')}</p>
+                <textarea
+                  value={nlPrompt}
+                  onChange={e => setNlPrompt(e.target.value)}
+                  rows={3}
+                  maxLength={400}
+                  placeholder={t('soloProgram.adjustPlaceholder')}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white placeholder-neutral-600"
+                />
+                <Button type="button" size="sm" loading={asking} disabled={!nlPrompt.trim()} onClick={() => void askPatch()}>
+                  {t('soloProgram.adjustCta')}
+                </Button>
+              </Card>
+            )}
           </div>
         )}
       </div>

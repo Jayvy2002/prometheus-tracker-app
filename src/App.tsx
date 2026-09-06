@@ -79,11 +79,8 @@ function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
 
 function ProgramsHome() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
   if (coachingRole === 'coach') return <ProgramsPage />;
-  if (isCoachedAthlete(coachingRole, myCoach)) return <ClientProgramPage />;
-  // Solo: the coach program library is not their surface; their templates are routines (see VISION chantier 1).
-  return <Navigate to="/workout" replace />;
+  return <ClientProgramPage />;
 }
 
 function AppRoutes() {
