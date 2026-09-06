@@ -2,11 +2,14 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   canSendProgramToClient,
+  calorieBeforeAfter,
   clientWillSeeSummary,
   editedProgramPayload,
+  formatCalorieLine,
   outlineBeforeAfter,
   outlineFromEdited,
   patchBeforeAfter,
+  relanceBeforeAfter,
   type EditedProgramDraft,
 } from './coachDraftSend';
 import type { Program, ProgramExercisePatch } from './types';
@@ -115,4 +118,25 @@ test('an empty Second payload cannot be sent as a client program in one click', 
   };
   assert.equal(canSendProgramToClient(empty), false);
   assert.equal(canSendProgramToClient(editedOutline), true);
+});
+
+test('calorie before/after uses the current ISSN targets versus the edited draft', () => {
+  assert.equal(formatCalorieLine(null), '—');
+  assert.equal(formatCalorieLine({ calories: 0 }), '—');
+  const preview = calorieBeforeAfter(
+    { calories: 2100, protein: 140, carbs: 220, fat: 65 },
+    { calories: 1900, protein: 150, carbs: 180, fat: 60 },
+  );
+  assert.equal(preview.before, '2100 kcal · P140 C220 F65');
+  assert.equal(preview.after, '1900 kcal · P150 C180 F60');
+  const kcalOnly = calorieBeforeAfter({ calories: 2100 }, { calories: 1900, protein: 150, carbs: 180, fat: 60 });
+  assert.equal(kcalOnly.before, '2100 kcal');
+});
+
+test('Relancer before/after is observation versus the prepared message', () => {
+  const preview = relanceBeforeAfter('3 séances manquées cette semaine', 'Hey, on reprend demain ?');
+  assert.equal(preview.before, '3 séances manquées cette semaine');
+  assert.equal(preview.after, 'Hey, on reprend demain ?');
+  assert.equal(relanceBeforeAfter('  ', '').before, '—');
+  assert.equal(relanceBeforeAfter('', '  ').after, '—');
 });

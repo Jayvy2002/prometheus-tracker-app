@@ -434,6 +434,12 @@ const en = {
     water: {
       title: 'Water',
     },
+    steps: {
+      title: 'Steps',
+      save: 'Save',
+      saved: 'Steps saved',
+      invalid: 'Invalid step count (0–100,000).',
+    },
   },
 
   weight: {
@@ -824,6 +830,8 @@ const en = {
     scaleHint: '0 = lowest · 10 = highest',
     notSet: 'Not set',
     disabled: 'Your coach has not enabled check-ins for you.',
+    historyTitle: 'Your recent check-ins',
+    historyEmpty: 'No previous check-ins.',
     fields: {
       sleep_quality: 'Sleep quality',
       energy_level: 'Energy',
@@ -1250,6 +1258,8 @@ const en = {
       after: 'Proposal',
       clientWillSee: 'The client will see: {{summary}}',
       empty: 'Edit the proposal before sending — nothing was sent.',
+      relanceBefore: 'Observation',
+      relanceAfter: 'Message',
     },
     nutritionStall: {
       title: 'Cuts stalling',

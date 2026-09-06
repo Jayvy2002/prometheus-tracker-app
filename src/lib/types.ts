@@ -334,6 +334,9 @@ export interface CoachClientSummary {
   last_visited_at: string | null;
   last_nudged_at: string | null;
   daily_calorie_target?: number;
+  protein_target?: number;
+  carbs_target?: number;
+  fat_target?: number;
   /** Any « Oui » on the intake PAR-Q questions (see kinesiologyIntake.MEDICAL_FLAG_IDS). */
   medical_flags?: boolean;
 }

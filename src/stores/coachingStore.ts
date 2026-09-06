@@ -45,6 +45,8 @@ import {
   liveMessageState,
   nutritionTargetsFromProfileRow,
   shouldRefreshClientAssignment,
+  shouldRefreshClientProgramContent,
+  shouldRefreshProgressPhotos,
 } from '../lib/clientLive';
 import { EMPTY_COACH_SETTINGS, mapCoachSettings } from '../lib/coachSettings';
 import { aggregateNutritionByDay } from '../lib/coachProgress';
@@ -308,6 +310,7 @@ interface CoachingState {
     clients_skipped: number;
     model_used: string | null;
   } | null;
+  progressPhotosEpoch: number;
   fetchMyRole: (userId: string) => Promise<void>;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
@@ -435,6 +438,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   commandStats: EMPTY_STATS,
   fleetRunning: false,
   lastFleetRound: null,
+  progressPhotosEpoch: 0,
 
   fetchMyRole: async (userId) => {
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
@@ -549,7 +553,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const ids = links.map(l => l.client_id as string);
     const { data: profiles } = await supabase
       .from('user_profiles')
-      .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg, daily_calorie_target, kinesiology_intake')
+      .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg, daily_calorie_target, protein_target, carbs_target, fat_target, kinesiology_intake')
       .in('id', ids);
     const linkedAt = new Map(links.map(l => [l.client_id as string, l.created_at as string]));
     const visitedAt = new Map(links.map(l => [l.client_id as string, l.last_visited_at ?? null]));
@@ -568,6 +572,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       last_visited_at: visitedAt.get(p.id as string) ?? null,
       last_nudged_at: nudgedAt.get(p.id as string) ?? null,
       daily_calorie_target: Number(p.daily_calorie_target) || 0,
+      protein_target: Number(p.protein_target) || 0,
+      carbs_target: Number(p.carbs_target) || 0,
+      fat_target: Number(p.fat_target) || 0,
       medical_flags: profileHasMedicalFlags(p.kinesiology_intake),
     }));
     clients.sort(compareRosterName);
@@ -1551,6 +1558,46 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
             }));
           },
         )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'program_days',
+          },
+          payload => {
+            if (!shouldRefreshClientProgramContent(payload.eventType)) return;
+            void useProgramStore.getState().fetchMyAssignment(user.id);
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'program_day_exercises',
+          },
+          payload => {
+            if (!shouldRefreshClientProgramContent(payload.eventType)) return;
+            void useProgramStore.getState().fetchMyAssignment(user.id);
+          },
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'progress_photos',
+            filter: `user_id=eq.${user.id}`,
+          },
+          payload => {
+            const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+            if (!shouldRefreshProgressPhotos(payload.eventType, raw, user.id) && payload.eventType !== 'DELETE') {
+              return;
+            }
+            set(s => ({ progressPhotosEpoch: s.progressPhotosEpoch + 1 }));
+          },
+        )
         .subscribe(status => {
           if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
             void get().fetchCoachMessages();
@@ -1558,6 +1605,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
             void useProfileStore.getState().fetchProfile(user.id, { silent: true });
             void get().fetchMyTrackingConfig();
             void get().fetchPendingInterventions();
+            set(s => ({ progressPhotosEpoch: s.progressPhotosEpoch + 1 }));
           }
         });
     }
@@ -1914,6 +1962,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       commandStats: EMPTY_STATS,
       fleetRunning: false,
       lastFleetRound: null,
+      progressPhotosEpoch: 0,
     });
   },
 }));

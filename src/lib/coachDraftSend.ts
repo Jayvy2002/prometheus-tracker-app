@@ -141,6 +141,49 @@ export function clientWillSeeSummary(
   return outlineFromEdited(edited)?.name ?? '';
 }
 
+export type CalorieTargetsLine = {
+  calories?: number | null;
+  protein?: number | null;
+  carbs?: number | null;
+  fat?: number | null;
+};
+
+export function formatCalorieLine(targets: CalorieTargetsLine | null | undefined): string {
+  const kcal = targets?.calories;
+  if (kcal == null || !Number.isFinite(kcal) || kcal <= 0) return '—';
+  const parts = [`${Math.round(kcal)} kcal`];
+  const protein = targets?.protein;
+  const carbs = targets?.carbs;
+  const fat = targets?.fat;
+  const macros: string[] = [];
+  if (protein != null && Number.isFinite(protein) && protein > 0) macros.push(`P${Math.round(protein)}`);
+  if (carbs != null && Number.isFinite(carbs) && carbs > 0) macros.push(`C${Math.round(carbs)}`);
+  if (fat != null && Number.isFinite(fat) && fat > 0) macros.push(`F${Math.round(fat)}`);
+  if (macros.length) parts.push(macros.join(' '));
+  return parts.join(' · ');
+}
+
+export function calorieBeforeAfter(
+  current: CalorieTargetsLine | null | undefined,
+  draft: CalorieTargetsLine,
+): { before: string; after: string } {
+  return {
+    before: formatCalorieLine(current),
+    after: formatCalorieLine(draft),
+  };
+}
+
+/** Relancer: observation (pourquoi) vs message préparé (ce que le client verra). */
+export function relanceBeforeAfter(
+  observation: string,
+  preparedMessage: string,
+): { before: string; after: string } {
+  return {
+    before: observation.trim() || '—',
+    after: preparedMessage.trim() || '—',
+  };
+}
+
 export function outlineFromProgram(program: Program): {
   name: string;
   description: string;
