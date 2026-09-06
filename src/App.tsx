@@ -48,6 +48,7 @@ import AskPrometheusPage from './components/coaching/AskPrometheusPage';
 import CoachInboxPage from './components/coaching/CoachInboxPage';
 import ClientMessagesPage from './components/coaching/ClientMessagesPage';
 import ClientPhotosPage from './components/coaching/ClientPhotosPage';
+import CoachLearnedPage from './components/coaching/CoachLearnedPage';
 
 function HomeDashboard() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -273,6 +274,7 @@ function AppRoutes() {
         <Route path="/messages/:clientId" element={<CoachOnly><CoachInboxPage /></CoachOnly>} />
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
+        <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
         <Route path="/programs/:id" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />

@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import {
   SOLO_MIN_WEIGH_INS,
   SOLO_REVIEW_WINDOW_DAYS,
+  buildSoloDossier,
   buildSoloEvidence,
   computeSoloWeeklyReview,
   soloReviewHasAnyData,
@@ -66,6 +67,17 @@ test('week start is the ISO Monday — one review per week', () => {
   assert.equal(soloReviewWeekStart('2026-08-31'), '2026-08-31'); // Monday stays
   assert.equal(soloReviewWeekStart('2026-09-06'), '2026-08-31'); // Sunday → previous Monday
   assert.equal(soloReviewWeekStart('2026-09-07'), '2026-09-07');
+});
+
+test('solo dossier counts check-ins in the 14-day window, not a hardcoded 0', () => {
+  const inWindow = { checked_at: daysBack(2) };
+  const outOfWindow = { checked_at: daysBack(30) };
+  const sample = inputs({ checkins: [inWindow, inWindow, outOfWindow] });
+  const dossier = buildSoloDossier(sample, buildSoloEvidence(sample));
+  assert.equal(dossier.checkin_count, 2);
+  assert.equal(dossier.last_checkin_at, daysBack(2));
+  assert.doesNotMatch(src('src/lib/soloCopilot.ts'), /checkin_count: 0/);
+  assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /checkins,/);
 });
 
 test('evidence aggregates the 14-day window: per-day kcal, weigh-ins start → end, sessions', () => {

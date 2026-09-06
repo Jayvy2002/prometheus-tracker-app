@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  User, Ruler, Dumbbell, Footprints, Salad, Droplets, Target, Sparkles,
-  ChevronRight, ChevronLeft, Check, AlertTriangle, Moon, Brain
+  User, Ruler, Dumbbell, Footprints, Salad, Target, Sparkles,
+  ChevronRight, ChevronLeft, Check, AlertTriangle, Moon
 } from 'lucide-react';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -11,9 +11,8 @@ import { useAuthStore } from '../../stores/authStore';
 import WallSignOut from '../auth/WallSignOut';
 import { useCoachingStore, clearOnboardingDeferred, setOnboardingDeferred } from '../../stores/coachingStore';
 import {
-  ACTIVITY_LEVELS, GOALS, DIET_TYPES, FOOD_ALLERGIES, COOKING_LEVELS,
-  TRAINING_EXPERIENCES, TRAINING_FOCUSES, STRESS_LEVELS, HYDRATION_HABITS,
-  SUPPLEMENTS, MOTIVATIONS,
+  ACTIVITY_LEVELS, GOALS, DIET_TYPES, FOOD_ALLERGIES,
+  TRAINING_EXPERIENCES, TRAINING_FOCUSES, HYDRATION_HABITS,
 } from '../../lib/constants';
 import {
   calculateBMR, calculateEnhancedTDEE, calculateCalorieTarget, calculateMacros,
@@ -23,7 +22,7 @@ import { isCoachedAthlete } from '../../lib/coachRole';
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
 import Button from '../ui/Button';
 
-const TOTAL_STEPS = 8;
+const TOTAL_STEPS = 7;
 
 interface FormData {
   full_name: string;
@@ -36,18 +35,13 @@ interface FormData {
   goal: string;
   daily_steps_average: number;
   sleep_hours_average: number;
-  stress_level: string;
   training_experience: string;
   training_frequency: number;
   training_focus: string;
   injuries_limitations: string;
   diet_type: string;
   food_allergies: string[];
-  meals_per_day: number;
-  cooking_level: string;
   hydration_habit: string;
-  supplement_use: string[];
-  motivation: string;
 }
 
 function ProgressBar({ step }: { step: number }) {
@@ -334,13 +328,6 @@ function StepLifestyle({ form, setForm }: { form: FormData; setForm: (f: FormDat
           className="w-full accent-blue-500"
         />
       </div>
-
-      <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 flex items-center gap-1.5">
-          <Brain size={12} /> {t('onboarding.fields.stress')}
-        </label>
-        <SelectGrid options={STRESS_LEVELS} value={form.stress_level} onChange={v => setForm({ ...form, stress_level: v })} />
-      </div>
     </div>
   );
 }
@@ -366,47 +353,6 @@ function StepNutrition({ form, setForm }: { form: FormData; setForm: (f: FormDat
       </div>
 
       <div>
-        <div className="flex justify-between items-baseline mb-2">
-          <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider">{t('onboarding.fields.mealsPerDay')}</label>
-          <span className="text-lg font-bold text-white">{form.meals_per_day}</span>
-        </div>
-        <input
-          type="range"
-          min={2} max={6} step={1}
-          value={form.meals_per_day}
-          onChange={e => setForm({ ...form, meals_per_day: +e.target.value })}
-          className="w-full accent-blue-500"
-        />
-        <div className="flex justify-between mt-1 text-[10px] text-neutral-600">
-          <span>2</span>
-          <span>6</span>
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.cooking')}</label>
-        <SelectGrid options={COOKING_LEVELS} value={form.cooking_level} onChange={v => setForm({ ...form, cooking_level: v })} />
-      </div>
-    </div>
-  );
-}
-
-// --- Step 6: Supplements & Hydration ---
-function StepSupplements({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Droplets} title={t('onboarding.steps.supplements')} subtitle={t('onboarding.steps.supplementsSub')} />
-
-      <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.supplements')}</label>
-        <ChipSelect options={SUPPLEMENTS} selected={form.supplement_use} onChange={v => setForm({ ...form, supplement_use: v })} />
-        {form.supplement_use.length === 0 && (
-          <p className="text-[11px] text-neutral-600 mt-1.5">{t('onboarding.fields.tapNone')}</p>
-        )}
-      </div>
-
-      <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.hydration')}</label>
         <SelectGrid options={HYDRATION_HABITS} value={form.hydration_habit} onChange={v => setForm({ ...form, hydration_habit: v })} />
       </div>
@@ -414,7 +360,7 @@ function StepSupplements({ form, setForm }: { form: FormData; setForm: (f: FormD
   );
 }
 
-// --- Step 7: Your Goal & Motivation ---
+// --- Step 6: Your Goal ---
 function StepGoalMotivation({ form, setForm }: { form: FormData; setForm: (f: FormData) => void }) {
   const { t } = useTranslation();
   return (
@@ -424,11 +370,6 @@ function StepGoalMotivation({ form, setForm }: { form: FormData; setForm: (f: Fo
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.bodyGoal')}</label>
         <SelectGrid options={GOALS} value={form.goal} onChange={v => setForm({ ...form, goal: v })} columns={3} />
-      </div>
-
-      <div>
-        <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.motivation')}</label>
-        <SelectGrid options={MOTIVATIONS} value={form.motivation} onChange={v => setForm({ ...form, motivation: v })} />
       </div>
     </div>
   );
@@ -497,7 +438,7 @@ function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
       </div>
 
       {/* Recovery note */}
-      {(form.stress_level === 'high' || form.stress_level === 'very_high' || form.sleep_hours_average < 6.5) && (
+      {(form.sleep_hours_average < 6.5) && (
         <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
           <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
           <div>
@@ -521,9 +462,6 @@ function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
           </span>
           <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-medium">
             {TRAINING_EXPERIENCES.find(e => e.value === form.training_experience)?.label}
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 text-[10px] font-medium">
-            {MOTIVATIONS.find(m => m.value === form.motivation)?.label}
           </span>
         </div>
       </div>
@@ -555,18 +493,13 @@ export default function OnboardingFlow() {
     goal: 'maintain',
     daily_steps_average: 7000,
     sleep_hours_average: 7.5,
-    stress_level: 'moderate',
     training_experience: 'beginner',
     training_frequency: 3,
     training_focus: 'hypertrophy',
     injuries_limitations: '',
     diet_type: 'omnivore',
     food_allergies: [],
-    meals_per_day: 3,
-    cooking_level: 'basic',
     hydration_habit: 'average',
-    supplement_use: [],
-    motivation: 'health',
   });
 
   const canProceed = () => {
@@ -604,18 +537,13 @@ export default function OnboardingFlow() {
       daily_steps_target: form.daily_steps_average,
       diet_type: form.diet_type,
       food_allergies: form.food_allergies,
-      meals_per_day: form.meals_per_day,
-      cooking_level: form.cooking_level,
       daily_steps_average: form.daily_steps_average,
       sleep_hours_average: form.sleep_hours_average,
       training_experience: form.training_experience,
       training_frequency: form.training_frequency,
       training_focus: form.training_focus,
       injuries_limitations: form.injuries_limitations,
-      stress_level: form.stress_level,
       hydration_habit: form.hydration_habit,
-      supplement_use: form.supplement_use,
-      motivation: form.motivation,
       onboarding_completed: true,
     };
     await updateProfile(user.id, stripSelfServeNutritionTargets(payload, coached));
@@ -638,9 +566,8 @@ export default function OnboardingFlow() {
       case 2: return <StepTraining form={form} setForm={setForm} />;
       case 3: return <StepLifestyle form={form} setForm={setForm} />;
       case 4: return <StepNutrition form={form} setForm={setForm} />;
-      case 5: return <StepSupplements form={form} setForm={setForm} />;
-      case 6: return <StepGoalMotivation form={form} setForm={setForm} />;
-      case 7: return <StepSummary form={form} coached={coached} />;
+      case 5: return <StepGoalMotivation form={form} setForm={setForm} />;
+      case 6: return <StepSummary form={form} coached={coached} />;
       default: return null;
     }
   };

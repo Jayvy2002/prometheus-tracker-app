@@ -6,6 +6,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
+import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useSoloCopilotStore } from '../../stores/soloCopilotStore';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -35,6 +36,7 @@ export default function SoloWeeklyReview() {
   const { measurements } = useWeightStore();
   const { workouts } = useWorkoutStore();
   const { fetchCaloriesForRange } = useNutritionStore();
+  const { checkins } = useCheckinStore();
   const { decidedWeek, decidedFor, fetchDecision, decide } = useSoloCopilotStore();
   const [logs, setLogs] = useState<Array<{ logged_at: string; calories: number }> | null>(null);
   const [deciding, setDeciding] = useState<SoloReviewDecision | null>(null);
@@ -71,8 +73,9 @@ export default function SoloWeeklyReview() {
       nutritionLogs: logs,
       weights: measurements,
       workouts,
+      checkins,
     });
-  }, [solo, profile, logs, measurements, workouts, today]);
+  }, [solo, profile, logs, measurements, workouts, checkins, today]);
 
   useEffect(() => {
     if (!user || !review) return;

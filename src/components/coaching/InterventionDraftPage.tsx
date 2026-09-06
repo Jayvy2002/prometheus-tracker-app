@@ -19,10 +19,12 @@ import { interventionDraftError, isInterventionDrafting, isInterventionReady } f
 import {
   canSendProgramToClient,
   clientWillSeeSummary,
+  calorieBeforeAfter,
   editedProgramPayload,
   isProgramSendKind,
   outlineBeforeAfter,
   patchBeforeAfter,
+  relanceBeforeAfter,
   type EditedProgramDraft,
 } from '../../lib/coachDraftSend';
 import type { AiProgramDayDraft, CoachIntervention, CoachNudgeTemplateKey, ProgramAssignment, ProgramExercisePatch } from '../../lib/types';
@@ -416,6 +418,18 @@ export default function InterventionDraftPage() {
   };
   const patchPreview = patch ? patchBeforeAfter(boundAssignment?.program, patch) : null;
   const outlinePreview = showProgram ? outlineBeforeAfter(boundAssignment?.program, edited) : null;
+  const caloriePreview = showCalories
+    ? calorieBeforeAfter(
+      {
+        calories: client?.daily_calorie_target,
+        protein: client?.protein_target,
+        carbs: client?.carbs_target,
+        fat: client?.fat_target,
+      },
+      { calories, protein, carbs, fat },
+    )
+    : null;
+  const relancePreview = isAdherenceKind ? relanceBeforeAfter(observation, notes) : null;
   const willSee = isProgramSendKind(row.kind) ? clientWillSeeSummary(edited, boundAssignment?.program) : '';
   const primaryLabel = isAdherenceKind
     ? t('coaching.queue.relance')
@@ -475,7 +489,7 @@ export default function InterventionDraftPage() {
         <p className="text-xs text-neutral-500 mb-4">
           {t('coaching.interventions.editHint')}
         </p>
-        {(patchPreview || outlinePreview) && (
+        {(patchPreview || outlinePreview || caloriePreview || relancePreview) && (
           <Card className="mb-4 border-blue-500/20">
             <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-2">{t('coaching.draftSend.compare')}</p>
             {patchPreview && (
@@ -501,6 +515,31 @@ export default function InterventionDraftPage() {
                 {' '}
                 {outlinePreview.after}
               </p>
+            )}
+            {caloriePreview && (
+              <p className="text-sm text-neutral-200">
+                <span className="text-neutral-500">{t('coaching.draftSend.before')}</span>
+                {' '}
+                {caloriePreview.before}
+                {' → '}
+                <span className="text-neutral-500">{t('coaching.draftSend.after')}</span>
+                {' '}
+                {caloriePreview.after}
+              </p>
+            )}
+            {relancePreview && (
+              <div className="space-y-1 text-sm text-neutral-200">
+                <p>
+                  <span className="text-neutral-500">{t('coaching.draftSend.relanceBefore')}</span>
+                  {' '}
+                  {relancePreview.before}
+                </p>
+                <p>
+                  <span className="text-neutral-500">{t('coaching.draftSend.relanceAfter')}</span>
+                  {' '}
+                  {relancePreview.after}
+                </p>
+              </div>
             )}
             {willSee ? (
               <p className="text-[11px] text-neutral-500 mt-2">{t('coaching.draftSend.clientWillSee', { summary: willSee })}</p>

@@ -55,7 +55,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, waterLogs, fetchLogs, fetchWaterLogs } = useNutritionStore();
+  const { logs, waterLogs, stepsLog, fetchLogs, fetchWaterLogs, fetchOrCreateSteps } = useNutritionStore();
   const { measurements, fetchMeasurements } = useWeightStore();
   const { workouts, fetchWorkouts, loading: workoutsLoading } = useWorkoutStore();
   const { streak, fetchStreak } = useStreakStore();
@@ -78,6 +78,7 @@ export default function Dashboard() {
     const today = todayStr();
     fetchLogs(user.id, today);
     fetchWaterLogs(user.id, today);
+    void fetchOrCreateSteps(user.id, today);
     fetchMeasurements(user.id);
     fetchWorkouts(user.id);
     fetchStreak(user.id);
@@ -120,6 +121,10 @@ export default function Dashboard() {
   const fatTarget = profile?.fat_target ?? 70;
   const fatConsumed = logs.reduce((sum, l) => sum + (l.fat ?? 0), 0);
   const fatPct = Math.min(100, (fatConsumed / fatTarget) * 100);
+
+  const stepsTarget = profile?.daily_steps_target ?? 10000;
+  const stepsConsumed = stepsLog?.logged_at === todayStr() ? stepsLog.steps : 0;
+  const stepsPct = stepsTarget > 0 ? Math.min(100, (stepsConsumed / stepsTarget) * 100) : 0;
 
   // Weekly workout goal
   const weekDates = getWeekDates();
@@ -600,6 +605,24 @@ export default function Dashboard() {
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
                     style={{ width: `${waterPct}%`, backgroundColor: '#22d3ee' }}
+                  />
+                </div>
+              </div>
+              )}
+
+              {showNutritionField(tracking, 'steps') && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-neutral-300 flex items-center gap-1">
+                    <Footprints size={10} className="text-emerald-400" />
+                    {t('nutrition.steps.title')}
+                  </span>
+                  <span className="text-[11px] text-neutral-400">{stepsConsumed.toLocaleString()} / {stepsTarget.toLocaleString()}</span>
+                </div>
+                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${stepsPct}%`, backgroundColor: '#34d399' }}
                   />
                 </div>
               </div>

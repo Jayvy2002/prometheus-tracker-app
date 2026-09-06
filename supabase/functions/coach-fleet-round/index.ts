@@ -91,6 +91,10 @@ interface Dossier {
   last_message_at: string | null;
   last_coach_message_at: string | null;
   last_keep_in_touch_at: string | null;
+  avg_hunger: number | null;
+  avg_mood: number | null;
+  avg_stress: number | null;
+  available_weekdays: number[] | null;
   pending_fleet: boolean;
   fleet_handled: FleetHandled[];
 }
@@ -342,6 +346,14 @@ function mapDossier(raw: Record<string, unknown>): Dossier | null {
     last_message_at: str(dossierRaw.last_message_at),
     last_coach_message_at: str(dossierRaw.last_coach_message_at),
     last_keep_in_touch_at: str(dossierRaw.last_keep_in_touch_at),
+    avg_hunger: dossierRaw.avg_hunger == null ? null : num(dossierRaw.avg_hunger),
+    avg_mood: dossierRaw.avg_mood == null ? null : num(dossierRaw.avg_mood),
+    avg_stress: dossierRaw.avg_stress == null ? null : num(dossierRaw.avg_stress),
+    available_weekdays: Array.isArray(dossierRaw.available_weekdays)
+      ? dossierRaw.available_weekdays
+        .map((d) => num(d))
+        .filter((d) => d >= 0 && d <= 6)
+      : null,
     pending_fleet: dossierRaw.pending_fleet === true,
     fleet_handled: parseHandled(dossierRaw.fleet_handled),
   };

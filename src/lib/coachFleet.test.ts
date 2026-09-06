@@ -599,7 +599,7 @@ function latestTriageCoachFleetSql(): { file: string; fn: string } {
 
 test('the latest triage_coach_fleet definition emits every dossier key the edge parses', () => {
   const { file, fn } = latestTriageCoachFleetSql();
-  assert.equal(file, '20260906000001_audit_hardening.sql');
+  assert.equal(file, '20260906000003_engine_consumes_data.sql');
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   const iface = fleet.slice(fleet.indexOf('interface Dossier {'), fleet.indexOf('interface FleetEvidence'));
   const keys = [...iface.matchAll(/^\s+([a-z_]+):/gm)].map((m) => m[1]);

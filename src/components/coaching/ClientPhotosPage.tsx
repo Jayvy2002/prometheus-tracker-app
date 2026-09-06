@@ -15,6 +15,7 @@ const KINDS: ProgressPhotoKind[] = ['front', 'side', 'back'];
 export default function ClientPhotosPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
+  const progressPhotosEpoch = useCoachingStore(s => s.progressPhotosEpoch);
   const {
     fetchProgressPhotos, uploadProgressPhoto, deleteProgressPhoto, signProgressPhotoUrls,
   } = useCoachingStore();
@@ -35,7 +36,7 @@ export default function ClientPhotosPage() {
   useEffect(() => {
     if (!user) return;
     void reload(user.id);
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, progressPhotosEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

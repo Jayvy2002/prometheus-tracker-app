@@ -5,7 +5,13 @@ import { nutritionStallFocusHref, nutritionStallPriority, normalizeGoal } from '
 import { displayName } from './coachText';
 import { liftsForClient } from './coachLifts';
 import { sessionLoggedPriority } from './coachLastSession';
-import { lowSleepPriority, painPriority } from './coachRecovery';
+import {
+  highHungerPriority,
+  highStressPriority,
+  lowMoodPriority,
+  lowSleepPriority,
+  painPriority,
+} from './coachRecovery';
 import { pickDefaultLift, trainingFocusHref } from './coachTraining';
 import { todayStr } from './utils';
 import type {
@@ -159,6 +165,12 @@ export function buildCoachPriorities(
       if (pain) items.push(pain);
       const sleep = lowSleepPriority(row.client.id, name, row.client.avatar_url, latest, today);
       if (sleep) items.push(sleep);
+      const stress = highStressPriority(row.client.id, name, row.client.avatar_url, latest, today);
+      if (stress) items.push(stress);
+      const mood = lowMoodPriority(row.client.id, name, row.client.avatar_url, latest, today);
+      if (mood) items.push(mood);
+      const hunger = highHungerPriority(row.client.id, name, row.client.avatar_url, latest, today);
+      if (hunger) items.push(hunger);
       const adh = adherencePriority(row.client.id, name, row.client.avatar_url, latest, prev);
       if (adh) items.push(withCheckin(adh, latest));
     }

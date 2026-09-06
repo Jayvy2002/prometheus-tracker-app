@@ -19,6 +19,7 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import type { DailyCheckinInput } from '../../lib/types';
 import ScoreSlider from './ScoreSlider';
+import CheckinHistoryList from './CheckinHistoryList';
 import { adherencePercentFromScore, adherenceScoreFromPercent } from '../../lib/checkinScale';
 
 const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: string }> = {
@@ -39,7 +40,7 @@ export default function CheckInPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { todayCheckin, loading, fetchToday, upsertToday } = useCheckinStore();
+  const { todayCheckin, checkins, loading, fetchToday, fetchRecent, upsertToday } = useCheckinStore();
   const tracking = useClientTracking();
   const fields = useMemo(() => visibleCheckinFields(tracking), [tracking]);
   const [saving, setSaving] = useState(false);
@@ -60,7 +61,9 @@ export default function CheckInPage() {
   });
 
   useEffect(() => {
-    if (user) fetchToday(user.id);
+    if (!user) return;
+    fetchToday(user.id);
+    fetchRecent(user.id, 14);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -203,6 +206,8 @@ export default function CheckInPage() {
             <Check size={16} /> {t('checkin.save')}
           </Button>
         </div>
+
+        <CheckinHistoryList checkins={checkins} today={todayStr()} />
       </div>
     </PageTransition>
   );

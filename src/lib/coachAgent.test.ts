@@ -208,6 +208,7 @@ test('coach-agent reads the kinesiology intake and honours its days / equipment 
   assert.match(shared, /available_weekdays/);
   assert.match(shared, /medical_flags/);
   assert.match(shared, /intake,\s*\n\s*dossier_14d/);
+  assert.match(shared, /loop_context: loopContext/);
   assert.match(shared, /Si "intake" est présent/);
   assert.match(shared, /fallbackProgramFromProfile\(profile, input\.prompt, intake, input\.locale\)/);
   const cardiacIdx = shared.indexOf('"cardiaqueHtaPoitrine"');

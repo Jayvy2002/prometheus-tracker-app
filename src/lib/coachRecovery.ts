@@ -1,4 +1,7 @@
 import {
+  HIGH_HUNGER_ON_TEN,
+  HIGH_STRESS_ON_TEN,
+  LOW_MOOD_ON_TEN,
   LOW_SLEEP_QUALITY_ON_TEN,
   PAIN_CONCERN_ON_TEN,
   PAIN_WATCH_ON_TEN,
@@ -114,7 +117,7 @@ export function canAskRecoveryAdjust(snapshot: RecoverySnapshot): boolean {
 
 function numericSeries(
   rows: DailyCheckin[],
-  key: 'sleep_hours' | 'joint_pain' | 'energy_level',
+  key: 'sleep_hours' | 'joint_pain' | 'energy_level' | 'hunger' | 'mood' | 'stress',
 ): number[] {
   return rows
     .map(c => c[key])
@@ -132,11 +135,17 @@ function viewFromCheckin(checkin: DailyCheckin, trendSource: DailyCheckin[]): Re
     pain: checkin.joint_pain,
     soreness: checkin.muscle_soreness,
     energy: checkin.energy_level,
+    hunger: checkin.hunger,
+    mood: checkin.mood,
+    stress: checkin.stress,
     notes: (checkin.notes || '').trim(),
     trend: {
       sleepHours: numericSeries(chronological, 'sleep_hours'),
       pain: numericSeries(chronological, 'joint_pain'),
       energy: numericSeries(chronological, 'energy_level'),
+      hunger: numericSeries(chronological, 'hunger'),
+      mood: numericSeries(chronological, 'mood'),
+      stress: numericSeries(chronological, 'stress'),
     },
   };
 }
@@ -172,8 +181,75 @@ export function recoveryContextPayload(snapshot: RecoverySnapshot): Record<strin
     joint_pain: snapshot.pain,
     muscle_soreness: snapshot.soreness,
     energy_level: snapshot.energy,
+    hunger: snapshot.hunger,
+    mood: snapshot.mood,
+    stress: snapshot.stress,
     notes: snapshot.notes || null,
   };
+}
+
+function scorePriority(
+  kind: 'high_stress' | 'low_mood' | 'high_hunger',
+  clientId: string,
+  name: string,
+  avatar: string,
+  latest: DailyCheckin,
+  value: number,
+): CoachPriority {
+  const shown = formatCheckinScore(value, latest);
+  return {
+    id: `${clientId}-${kind}`,
+    clientId,
+    clientName: name,
+    avatarUrl: avatar,
+    kind,
+    severity: kind === 'high_hunger' ? 'yellow' : 'orange',
+    headlineKey: `coaching.priority.headlines.${kind}`,
+    headlineParams: { name, n: shown },
+    detailKey: `coaching.priority.details.${kind}`,
+    detailParams: { n: shown },
+    href: recoveryFocusHref(clientId, latest.id),
+    checkinId: latest.id,
+  };
+}
+
+export function highStressPriority(
+  clientId: string,
+  name: string,
+  avatar: string,
+  latest: DailyCheckin,
+  today: string,
+): CoachPriority | null {
+  if (!isRecentCheckin(latest, today)) return null;
+  const n = scoreOnTen(latest.stress, isLegacyFiveScaleCheckin(latest));
+  if (n == null || n < HIGH_STRESS_ON_TEN) return null;
+  return scorePriority('high_stress', clientId, name, avatar, latest, latest.stress as number);
+}
+
+export function lowMoodPriority(
+  clientId: string,
+  name: string,
+  avatar: string,
+  latest: DailyCheckin,
+  today: string,
+): CoachPriority | null {
+  if (!isRecentCheckin(latest, today)) return null;
+  const n = scoreOnTen(latest.mood, isLegacyFiveScaleCheckin(latest));
+  if (n == null || n > LOW_MOOD_ON_TEN) return null;
+  return scorePriority('low_mood', clientId, name, avatar, latest, latest.mood as number);
+}
+
+export function highHungerPriority(
+  clientId: string,
+  name: string,
+  avatar: string,
+  latest: DailyCheckin,
+  today: string,
+): CoachPriority | null {
+  if (!isRecentCheckin(latest, today)) return null;
+  const n = scoreOnTen(latest.hunger, isLegacyFiveScaleCheckin(latest));
+  if (n == null || n < HIGH_HUNGER_ON_TEN) return null;
+  return scorePriority('high_hunger', clientId, name, avatar, latest, latest.hunger as number);
 }
 
 export function relanceHrefForRecovery(clientId: string, hasSnapshot: boolean): string {

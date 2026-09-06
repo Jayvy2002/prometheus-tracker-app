@@ -6,6 +6,8 @@ import {
   mergeMessageRealtime,
   nutritionTargetsFromProfileRow,
   shouldRefreshClientAssignment,
+  shouldRefreshClientProgramContent,
+  shouldRefreshProgressPhotos,
 } from './clientLive';
 import type { CoachMessage, UserProfile } from './types';
 
@@ -80,4 +82,24 @@ test('coach-confirmed nutrition targets patch the client profile in place', () =
   const next = applyNutritionTargets(profile, 'sofia-id', targets!);
   assert.equal(next?.daily_calorie_target, 2100);
   assert.equal(applyNutritionTargets(profile, 'other', targets!), profile);
+});
+
+test('program day / lift changes always refetch the assigned program', () => {
+  assert.equal(shouldRefreshClientProgramContent('INSERT'), true);
+  assert.equal(shouldRefreshClientProgramContent('UPDATE'), true);
+  assert.equal(shouldRefreshClientProgramContent('DELETE'), true);
+  assert.equal(shouldRefreshClientProgramContent('SELECT'), false);
+});
+
+test('progress photo realtime only refreshes this athlete', () => {
+  assert.equal(
+    shouldRefreshProgressPhotos('INSERT', { user_id: 'sofia-id', kind: 'front' }, 'sofia-id'),
+    true,
+  );
+  assert.equal(
+    shouldRefreshProgressPhotos('INSERT', { user_id: 'other', kind: 'front' }, 'sofia-id'),
+    false,
+  );
+  assert.equal(shouldRefreshProgressPhotos('DELETE', { user_id: 'sofia-id' }, 'sofia-id'), true);
+  assert.equal(shouldRefreshProgressPhotos('DELETE', null, 'sofia-id'), true);
 });

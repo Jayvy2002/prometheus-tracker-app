@@ -23,6 +23,12 @@ export const PAIN_CONCERN_ON_TEN = 8;
 export const LOW_SLEEP_QUALITY_ON_TEN = 4;
 export const RECOVERY_CONCERN_ON_TEN = 4;
 export const RECOVERY_WATCH_ON_TEN = 6;
+/** Stress ≥ this (0–10) on a recent check-in → coach priority. */
+export const HIGH_STRESS_ON_TEN = 7;
+/** Mood ≤ this (0–10) on a recent check-in → coach priority. */
+export const LOW_MOOD_ON_TEN = 3;
+/** Hunger ≥ this (0–10) on a recent check-in → coach priority. */
+export const HIGH_HUNGER_ON_TEN = 8;
 
 export const CHECKIN_RATING_KEYS = [
   'hunger',

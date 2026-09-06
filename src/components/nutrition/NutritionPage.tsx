@@ -16,6 +16,7 @@ import MealSection from './MealSection';
 import FoodForm from './FoodForm';
 import EditFoodModal from './EditFoodModal';
 import WaterTracker from './WaterTracker';
+import StepsTracker from './StepsTracker';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
@@ -30,7 +31,7 @@ export default function NutritionPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, addLog, loading: nutritionLoading } = useNutritionStore();
+  const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, fetchOrCreateSteps, addLog, loading: nutritionLoading } = useNutritionStore();
   const tracking = useClientTracking();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
@@ -43,8 +44,9 @@ export default function NutritionPage() {
     if (user) {
       fetchLogs(user.id, selectedDate);
       fetchWaterLogs(user.id, selectedDate);
+      void fetchOrCreateSteps(user.id, selectedDate);
     }
-  }, [user, selectedDate]);
+  }, [user, selectedDate]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (searchParams.get('add') === '1') {
@@ -169,6 +171,12 @@ export default function NutritionPage() {
       {showNutritionField(tracking, 'water') && (
       <div className="animate-fade-in-up stagger-2">
       <WaterTracker />
+      </div>
+      )}
+
+      {showNutritionField(tracking, 'steps') && (
+      <div className="mt-3 animate-fade-in-up stagger-2">
+      <StepsTracker />
       </div>
       )}
 

@@ -80,6 +80,25 @@ export function nutritionTargetsFromProfileRow(raw: Record<string, unknown> | nu
   };
 }
 
+/** program_days / program_day_exercises have no client_id — RLS scopes the payload. */
+export function shouldRefreshClientProgramContent(event: string): boolean {
+  return event === 'INSERT' || event === 'UPDATE' || event === 'DELETE';
+}
+
+export function shouldRefreshProgressPhotos(
+  event: string,
+  row: Record<string, unknown> | null | undefined,
+  userId: string,
+): boolean {
+  if (event === 'DELETE') {
+    if (!row) return true;
+    const id = String(row.user_id ?? '');
+    return !id || id === userId;
+  }
+  if (!row) return false;
+  return String(row.user_id ?? '') === userId;
+}
+
 export function applyNutritionTargets(
   profile: UserProfile | null,
   userId: string,
