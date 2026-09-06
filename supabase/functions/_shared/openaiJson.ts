@@ -76,6 +76,11 @@ export async function openaiJson(
 ): Promise<Record<string, unknown> | null> {
   const model = resolveOpenAiModel(opts?.model);
   try {
+    console.log(JSON.stringify({
+      event: "openai_chat",
+      model,
+      max_tokens: opts?.maxTokens ?? 1600,
+    }));
     const res = await fetch(OPENAI_CHAT_URL, {
       method: "POST",
       headers: {

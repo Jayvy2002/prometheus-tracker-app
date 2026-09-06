@@ -352,7 +352,7 @@ IMPORTANT - Internet knowledge:
         body: JSON.stringify(chatCompletionsBody({
           model: resolveOpenAiModel(),
           messages,
-          maxTokens: 600,
+          maxTokens: 1600,
           temperature: 0.1,
         })),
         signal: AbortSignal.timeout(20_000),

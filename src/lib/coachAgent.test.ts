@@ -58,6 +58,8 @@ test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {
   assert.match(openai, /DEFAULT_OPENAI_MODEL = "gpt-5\.6-luna"/);
   assert.match(openai, /max_completion_tokens/);
   assert.match(openai, /usesMaxCompletionTokens/);
+  assert.match(openai, /event: "openai_chat"/);
+  assert.match(source('supabase/functions/analyze-product/index.ts'), /maxTokens:\s*1600/);
   const store = source('src/stores/coachingStore.ts');
   assert.match(store, /COACH_AGENT_FUNCTION/);
   assert.match(store, /parseCoachAgentResponse/);
