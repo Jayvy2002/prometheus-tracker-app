@@ -194,6 +194,23 @@ test('AuthPage: three doors; client stays login-only unless invited; first submi
   assert.match(fr, /invalidCredentials: 'E-mail ou mot de passe incorrect\.'/);
 });
 
+test('invite leftovers: banner without coach name, toast after login accept, ops refresh after setup', () => {
+  const page = src('src/components/auth/AuthPage.tsx');
+  assert.match(page, /fromInvite && \(/);
+  assert.match(page, /authBannerNoName/);
+  const app = src('src/App.tsx');
+  assert.match(app, /coaching\.invite\.accepted/);
+  assert.match(app, /accepted\.coach_name \|\| i18n\.t\('coaching\.invite\.aCoach'\)/);
+  const setup = src('src/components/coaching/ClientSetupPage.tsx');
+  assert.match(setup, /void fetchCoachOps\(\)/);
+  const toastSrc = src('src/components/ui/Toast.tsx');
+  assert.match(toastSrc, /setToasts\(\[\.\.\.toastQueue\]\)/);
+  const fr = src('src/i18n/locales/fr.ts');
+  assert.match(fr, /authBannerNoName: 'Ton coach t’invite sur Prometheus/);
+  const en = src('src/i18n/locales/en.ts');
+  assert.match(en, /authBannerNoName: 'Your coach invited you to Prometheus/);
+});
+
 test('authStore: signIn commits the session; late getSession cannot eat it', () => {
   const store = src('src/stores/authStore.ts');
   assert.match(store, /shouldCommitAuthSnapshot/);

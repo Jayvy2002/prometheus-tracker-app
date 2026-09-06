@@ -48,6 +48,7 @@ export function useToasts() {
 
   useEffect(() => {
     listeners.push(setToasts);
+    setToasts([...toastQueue]);
     return () => {
       listeners = listeners.filter(l => l !== setToasts);
     };
