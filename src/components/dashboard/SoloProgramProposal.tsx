@@ -220,6 +220,7 @@ export default function SoloProgramProposal() {
           days={days}
           clientId={user.id}
           programId={null}
+          presentation="athlete"
           onNameChange={setName}
           onDescriptionChange={setDescription}
           onWeeksChange={setWeeks}

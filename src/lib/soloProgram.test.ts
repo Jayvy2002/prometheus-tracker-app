@@ -95,6 +95,13 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   assert.match(page, /SoloProgramProposal/);
   assert.match(page, /ProgramSessionEditor/);
   assert.match(page, /isSoloAthlete/);
+  assert.match(page, /presentation="athlete"/);
+  assert.match(page, /programs\.soloReadFirst/);
+  const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
+  assert.match(editor, /presentation\?: 'coach' \| 'athlete'/);
+  assert.match(editor, /programs\.tapToEdit/);
+  assert.match(editor, /programs\.cycleDetails/);
+  assert.match(editor, /formatExercisePrescription/);
   assert.doesNotMatch(page, /\/programs\/new/);
   assert.doesNotMatch(page, /createProgram/);
   const card = src('src/components/dashboard/SoloProgramProposal.tsx');

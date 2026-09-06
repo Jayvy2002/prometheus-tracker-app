@@ -127,7 +127,7 @@ export default function ClientProgramPage() {
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('programs.mineTitle')}</h1>
         <p className="text-sm text-neutral-500 mb-5">
-          {solo ? t('programs.soloSubtitle') : t('programs.mineSubtitle')}
+          {solo ? t('programs.soloReadFirst') : t('programs.mineSubtitle')}
         </p>
 
         {solo && <SoloProgramProposal />}
@@ -136,22 +136,6 @@ export default function ClientProgramPage() {
           <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}</div>
         ) : showEditor ? (
           <div className="space-y-4">
-            {program && week != null && (
-              <Card>
-                <p className="text-xs text-blue-300">
-                  {t('programs.weekOf', { current: week, total: program.duration_weeks })}
-                </p>
-                <div className="flex gap-1 mt-2">
-                  {Array.from({ length: program.duration_weeks }, (_, i) => i + 1).map(n => (
-                    <span
-                      key={n}
-                      className={`h-1.5 flex-1 rounded-full ${n === week ? 'bg-blue-500' : n < week ? 'bg-blue-500/40' : 'bg-neutral-800'}`}
-                      title={`${t('programs.weekOf', { current: n, total: program.duration_weeks })}`}
-                    />
-                  ))}
-                </div>
-              </Card>
-            )}
             <ProgramSessionEditor
               name={name}
               description={description}
@@ -159,14 +143,18 @@ export default function ClientProgramPage() {
               days={days}
               clientId={user?.id}
               programId={program?.id ?? null}
+              presentation="athlete"
+              currentWeek={week}
               onNameChange={setName}
               onDescriptionChange={setDescription}
               onWeeksChange={setWeeks}
               onDaysChange={setDays}
             />
-            <Button className="w-full" onClick={() => void handleSave()} loading={saving} disabled={!name.trim()}>
-              {program ? t('common.save') : t('programs.createMine')}
-            </Button>
+            <div className="sticky bottom-20 md:bottom-4 z-10 pt-1">
+              <Button className="w-full shadow-lg shadow-black/50" onClick={() => void handleSave()} loading={saving} disabled={!name.trim()}>
+                {program ? t('programs.savePlan') : t('programs.createMine')}
+              </Button>
+            </div>
           </div>
         ) : !program ? (
           pending ? null : (

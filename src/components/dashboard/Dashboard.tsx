@@ -552,7 +552,7 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.protein')}</span>
-                  <span className="text-[11px] text-neutral-400">{Math.round(proteinConsumed)}g / {proteinTarget}g</span>
+                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(proteinConsumed)}g / ${proteinTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
@@ -567,7 +567,7 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.carbs')}</span>
-                  <span className="text-[11px] text-neutral-400">{Math.round(carbsConsumed)}g / {carbsTarget}g</span>
+                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(carbsConsumed)}g / ${carbsTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
@@ -582,7 +582,7 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.fat')}</span>
-                  <span className="text-[11px] text-neutral-400">{Math.round(fatConsumed)}g / {fatTarget}g</span>
+                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(fatConsumed)}g / ${fatTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div

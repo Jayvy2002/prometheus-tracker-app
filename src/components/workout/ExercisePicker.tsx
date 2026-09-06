@@ -17,11 +17,6 @@ import {
 import type { Exercise } from '../../lib/types';
 import { muscleLabel } from '../../lib/muscleLabels';
 
-const EQUIPMENT_LABELS: Record<string, string> = {
-  barbell: 'Barre', dumbbell: 'Halteres', machine: 'Machine', cable: 'Poulie',
-  bodyweight: 'Poids du corps', kettlebell: 'Kettlebell', band: 'Elastique', other: 'Autre',
-};
-
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -99,7 +94,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                           </span>
                         ))}
                         <span className="text-[10px] text-neutral-500">
-                          {EQUIPMENT_LABELS[ex.equipment] || ex.equipment}
+                          {t(`workout.exercisePicker.equipment.${ex.equipment}`, { defaultValue: ex.equipment })}
                         </span>
                       </div>
                     </div>
