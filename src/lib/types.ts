@@ -377,6 +377,9 @@ export type CoachPrioritySeverity = 'red' | 'orange' | 'yellow';
 export type CoachPriorityKind =
   | 'new_pain'
   | 'low_sleep'
+  | 'high_stress'
+  | 'low_mood'
+  | 'high_hunger'
   | 'stalled_lift'
   | 'weight_off_trajectory'
   | 'nutrition_stall'
@@ -753,6 +756,11 @@ export interface CoachFleetDossier {
   last_coach_message_at: string | null;
   /** Last keep_in_touch send/dismiss/keep (handled_at) — one contact Relancer per week. */
   last_keep_in_touch_at: string | null;
+  avg_hunger?: number | null;
+  avg_mood?: number | null;
+  avg_stress?: number | null;
+  /** Intake extras.joursDispo as JS weekday ints (0 = Sunday). */
+  available_weekdays?: number[] | null;
   /** True if a pending fleet card already exists for this client (refresh in place). */
   pending_fleet: boolean;
   /** Last sent/dismissed/kept fleet (or agent) cards per signal — cooldown after handle. */
@@ -799,6 +807,19 @@ export interface CoachAiRound {
   clients_skipped: number;
   model_used: string | null;
   error: string | null;
+  payload?: Record<string, unknown>;
+}
+
+/** public.coach_agent_lessons — what the coach sent vs what the agent proposed. */
+export interface CoachAgentLesson {
+  id: string;
+  coach_id: string;
+  kind: string;
+  proposed: Record<string, unknown>;
+  accepted: Record<string, unknown>;
+  note: string | null;
+  intervention_id: string | null;
+  created_at: string;
 }
 
 export interface CoachPreview {
@@ -887,11 +908,17 @@ export interface RecoverySnapshot {
   pain: number | null;
   soreness: number | null;
   energy: number | null;
+  hunger: number | null;
+  mood: number | null;
+  stress: number | null;
   notes: string;
   trend: {
     sleepHours: number[];
     pain: number[];
     energy: number[];
+    hunger: number[];
+    mood: number[];
+    stress: number[];
   };
 }
 
