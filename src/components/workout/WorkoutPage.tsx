@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { useRoutineStore } from '../../stores/routineStore';
 import { formatDate, formatDuration, todayStr } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import type { Workout } from '../../lib/types';
+import { trainingDays } from '../../lib/clientGym';
+import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { useProgramStore } from '../../stores/programStore';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -24,26 +25,29 @@ export default function WorkoutPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { workouts, loading, fetchWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
-  const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
+  const assignment = useProgramStore(s => s.assignment);
+  const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [startingRoutine, setStartingRoutine] = useState<string | null>(null);
+  const [startingDay, setStartingDay] = useState<string | null>(null);
   const [displayCount, setDisplayCount] = useState(20);
   const [lastFull, setLastFull] = useState<Workout | null>(null);
 
   const PAGE_SIZE = 20;
+  const programDays = trainingDays(assignment?.status === 'active' ? assignment.program?.days : undefined);
+
 
   useEffect(() => {
     if (user) {
       fetchWorkouts(user.id);
-      fetchRoutines(user.id);
+      if (!coached) void fetchMyAssignment(user.id);
     }
-  }, [user]);
+  }, [user, coached]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastCompleted = lastCompletedWorkout(workouts, todayStr());
   const lastCompletedId = lastCompleted?.id ?? '';
@@ -110,20 +114,23 @@ export default function WorkoutPage() {
     }
   };
 
-  const startFromRoutine = async (routineId: string) => {
-    if (!user) return;
-    setStartingRoutine(routineId);
+  const startFromProgramDay = async (day: ProgramDay) => {
+    if (!user || !assignment?.program) return;
+    setStartingDay(day.id);
     try {
-      const routine = await fetchRoutineWithExercises(routineId);
-      if (!routine) return;
       const workoutId = await startWorkoutFromTemplate({
         userId: user.id,
-        name: routine.name,
-        routineId,
-        exercises: (routine.exercises ?? []).map(ex => ({
+        name: day.name || assignment.program.name,
+        programAssignmentId: assignment.id,
+        programDayId: day.id,
+        exercises: (day.exercises ?? []).map(ex => ({
           name: ex.name,
           default_sets: ex.default_sets,
           default_reps: ex.default_reps,
+          default_reps_min: ex.default_reps_min,
+          default_rir: ex.default_rir,
+          default_rest_seconds: ex.default_rest_seconds,
+          default_weight_kg: ex.default_weight_kg,
           order_index: ex.order_index,
         })),
       });
@@ -135,7 +142,7 @@ export default function WorkoutPage() {
     } catch {
       toast(t('workout.startRoutineFailed'), 'error');
     } finally {
-      setStartingRoutine(null);
+      setStartingDay(null);
     }
   };
 
@@ -167,25 +174,25 @@ export default function WorkoutPage() {
         </div>
       </div>
 
-      {!coached && !routinesLoading && routines.length > 0 && (
+      {!coached && programDays.length > 0 && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.myRoutines')}</h2>
+            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('nav.myProgram')}</h2>
             <button
-              onClick={() => navigate('/routines')}
+              onClick={() => navigate('/programs')}
               className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
             >
               {t('common.manage')}
             </button>
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {routines.map((r, i) => {
-              const exercises = r.exercises ?? [];
-              const isStarting = startingRoutine === r.id;
+            {programDays.map((d, i) => {
+              const exercises = d.exercises ?? [];
+              const isStarting = startingDay === d.id;
               return (
                 <button
-                  key={r.id}
-                  onClick={() => !isStarting && startFromRoutine(r.id)}
+                  key={d.id}
+                  onClick={() => !isStarting && void startFromProgramDay(d)}
                   disabled={isStarting}
                   className="flex-shrink-0 w-40 bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3 text-left hover:border-blue-600/40 hover:bg-neutral-800 transition-all group disabled:opacity-60 animate-fade-in-scale"
                   style={{ animationDelay: `${i * 50}ms` }}
@@ -202,7 +209,7 @@ export default function WorkoutPage() {
                       )}
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-white truncate">{r.name}</p>
+                  <p className="text-sm font-medium text-white truncate">{d.name || t(`programs.weekdays.${d.weekday}`)}</p>
                   <p className="text-xs text-neutral-500 mt-0.5">
                     {exercises.length} {exercises.length !== 1 ? t('workout.exercises') : t('workout.exercise')}
                   </p>

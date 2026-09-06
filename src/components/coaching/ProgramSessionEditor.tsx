@@ -17,6 +17,7 @@ import { useExerciseStore } from '../../stores/exerciseStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import { parseProgramPatch } from '../../lib/coachInterventions';
+import { track } from '../../lib/telemetryClient';
 import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
@@ -207,6 +208,7 @@ export default function ProgramSessionEditor({
       return;
     }
     setNlJobId(result.id);
+    track('solo_program_nl_asked', { has_program: !!programId });
   };
 
   const dismissProposal = async () => {

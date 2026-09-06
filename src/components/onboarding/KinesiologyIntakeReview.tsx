@@ -80,10 +80,6 @@ export default function KinesiologyIntakeReview({
         {ORIGINAL_QUESTION_IDS.map(id => (
           <Row key={id} label={originalLabel(id, en)} value={formatAnswer(intake, id, en)} />
         ))}
-      </Card>
-      <Card>
-        <p className="text-sm font-medium text-amber-200 mb-1">{t('intake.extrasTitle')}</p>
-        <p className="text-xs text-neutral-500 mb-2">{t('intake.extrasHint')}</p>
         {extraRows.map(row => (
           <Row key={row.label} label={row.label} value={row.value} />
         ))}
