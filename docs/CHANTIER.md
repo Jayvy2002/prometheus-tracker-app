@@ -26,16 +26,16 @@
 
 | PR | Quoi | Prod déjà appliquée | Reste |
 |---|---|---|---|
-| [#58](https://github.com/Jayvy2002/prometheus-tracker-app/pull/58) PR 4 — programme vivant solo | Même `coach-agent` (`onboarding_plan` / `program_nl_edit`) ouvert au cas « je suis mon propre coach ». Jamais d’auto-apply. Coaché sans copilote. | SQL `solo_self_coach` ; `notify-onboarding-complete` v13 | Merger dans `new-JV` (CI verte) |
-| [#59](https://github.com/Jayvy2002/prometheus-tracker-app/pull/59) PR 5 — le moteur consomme les données | `loop_context` (messages, notes, check-ins, photos dates+kinds) ; priorités hunger/mood/stress ; onboarding sans champs morts ; `/coach/learned` | SQL `engine_consumes_data` ; **`coach-agent` v15** (`loop_context`, JWT on, 6 sept.) | Retargeter après #58 ; `coach-fleet-round` (mapDossier étendu, optionnel) |
-| [#60](https://github.com/Jayvy2002/prometheus-tracker-app/pull/60) PR 6 — restes client/solo | Historique check-in, journal de pas, realtime `program_days` / `program_day_exercises` / `progress_photos`, diffs kcal + Relancer | SQL `client_program_photos_realtime` | Retargeter après #58+#59 |
+| [#58](https://github.com/Jayvy2002/prometheus-tracker-app/pull/58) PR 4 — programme vivant solo | Même `coach-agent` (`onboarding_plan` / `program_nl_edit`) ouvert au cas « je suis mon propre coach ». Jamais d’auto-apply. Coaché sans copilote. | SQL `solo_self_coach` ; `notify-onboarding-complete` v13 | **Mergée** dans `new-JV` (6 sept.) |
+| [#59](https://github.com/Jayvy2002/prometheus-tracker-app/pull/59) PR 5 — le moteur consomme les données | `loop_context` (messages, notes, check-ins, photos dates+kinds) ; priorités hunger/mood/stress ; onboarding sans champs morts ; `/coach/learned` | SQL `engine_consumes_data` ; **`coach-agent` v15** (`loop_context`, JWT on, 6 sept.) | Retargetée sur `new-JV` ; CI en cours puis merger |
+| [#60](https://github.com/Jayvy2002/prometheus-tracker-app/pull/60) PR 6 — restes client/solo | Historique check-in, journal de pas, realtime `program_days` / `program_day_exercises` / `progress_photos`, diffs kcal + Relancer | SQL `client_program_photos_realtime` | Retargeter après #59 |
 
 La CI GitHub ne tourne que sur les PRs vers `new-JV`. #59 et #60 n’ont donc pas de check tant qu’elles sont empilées.
 
 ### Drafts orphelins
 
-- [#50](https://github.com/Jayvy2002/prometheus-tracker-app/pull/50) — 22 commits derrière. Deux trous déjà bouchés par #57 (`WallSignOut` ; plus de carte « 0/0 »). Restes : bannière d’invitation sans nom, toast « tu es coaché par… », refresh ops après Setup. Reprendre en mini-PR, puis fermer.
-- [#42](https://github.com/Jayvy2002/prometheus-tracker-app/pull/42) — 54 commits derrière, antérieur à la vision (« vide le tracker solo »). **Fermer.**
+- [#50](https://github.com/Jayvy2002/prometheus-tracker-app/pull/50) — 22 commits derrière. Deux trous déjà bouchés par #57. Les 3 restes sont dans [#62](https://github.com/Jayvy2002/prometheus-tracker-app/pull/62). Fermer #50 après merge de #62.
+- [#42](https://github.com/Jayvy2002/prometheus-tracker-app/pull/42) — **fermée** (6 sept.) : « vider le tracker solo » est contraire à la vision.
 
 ### Prod (`phyuijjekxtjvipjtdfv`, snapshot 6 sept.)
 
@@ -43,7 +43,8 @@ La CI GitHub ne tourne que sur les PRs vers `new-JV`. #59 et #60 n’ont donc pa
 - 9 comptes, 2 coachs, 5 coachés, 2 solos, 5 liens actifs.
 - 14 brouillons dont **1 envoyé**, 0 message, 0 photo, 0 note, 1 intake complet, 140 `product_events`, 0 bilan solo, 0 intervention self-coach.
 - Tournée `cron` `0 4 * * *` active. Dernière : 6 sept. 04:00 UTC, 5 vus / 5 cartes / `deterministic` / 0 erreur.
-- Advisors : **0 erreur**. Warnings connus (protection mots de passe compromis off ; `SECURITY DEFINER` exposés = par design ; `pg_trgm`/`pg_net` dans `public` ; 3 triggers `updated_at` sans `search_path` ; 18 paires de policies SELECT permissives ; 7 `auth.uid()` par ligne). Rien de bloquant à 9 utilisateurs.
+- Advisors : **0 erreur**. Warnings connus (`SECURITY DEFINER` exposés = par design ; `pg_trgm`/`pg_net` dans `public` ; 3 triggers `updated_at` sans `search_path` ; 18 paires de policies SELECT permissives ; 7 `auth.uid()` par ligne). Rien de bloquant à 9 utilisateurs.
+- **HIBP / leaked passwords :** warning Auth toujours là. Org **Free** (`Prometheus fitness`) — la protection HaveIBeenPwned est **Pro+**, pas activable aujourd’hui. **Rien n’est compromis** : tous les comptes présents sont des comptes de test. À cocher au passage Pro : [Auth → Email](https://supabase.com/dashboard/project/phyuijjekxtjvipjtdfv/auth/providers?provider=Email).
 
 ---
 
@@ -51,10 +52,10 @@ La CI GitHub ne tourne que sur les PRs vers `new-JV`. #59 et #60 n’ont donc pa
 
 À faire **avant** tout nouveau chantier produit.
 
-1. Merger **#58** → retargeter **#59** sur `new-JV` → merger → retargeter **#60** → merger. Netlify déploie à chaque merge.
+1. **#58 mergée.** Retargeter **#59** sur `new-JV` (fait) → merger → retargeter **#60** → merger. Netlify déploie à chaque merge.
 2. **Fait (6 sept.)** — `coach-agent` **v15** en prod (`phyuijjekxtjvipjtdfv`) : source #59, `loop_context` / `compactLoopContext` / self-coach, `verify_jwt` true. `coach-fleet-round` (mapDossier étendu) reste optionnel — le SQL fleet renvoie déjà les clés, l’ancienne edge les ignore sans casser.
-3. Mini-PR « restes #50 » (bannière invite sans nom, toast accepté, `fetchCoachOps` après Setup). Fermer #50 et #42.
-4. Dashboard Supabase Auth : activer la protection des mots de passe compromis (HaveIBeenPwned).
+3. Mini-PR restes #50 : **[#62](https://github.com/Jayvy2002/prometheus-tracker-app/pull/62)**. #42 fermée. Fermer #50 après merge de #62.
+4. **HIBP :** pas activable sur le plan Free. Comptes = test, rien de compromis. À faire au passage Pro.
 5. **Un vrai cycle en prod**, Jayvy aux commandes : solo → intake → programme proposé → accepter → séance ; coach → tournée → Envoyer un brouillon → le client le voit. Le « 1 envoyé » doit monter avant de bâtir plus haut.
 
 ---
