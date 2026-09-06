@@ -4,6 +4,8 @@
 **Remplace :** `docs/AUDIT_PRODUIT_2026-08-31.md` et `AUDIT_AMELIORATIONS.md` (supprimés). Leurs « north stars » — un seul coach, solo = legacy, jamais de Premium — étaient fausses. Ne pas les réintroduire.
 
 > Tout agent ou dev qui lit ce repo part d'ici. Si le code contredit ce fichier, c'est le code qui est en retard (voir « Aujourd'hui vs cible »), pas la vision.
+>
+> **Ordre de construction et état des PR :** `docs/CHANTIER.md`. Si les deux se contredisent, c’est ce fichier qui gagne, et `CHANTIER.md` doit être corrigé.
 
 ---
 
@@ -67,8 +69,8 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Kcal / macros | Décide pour ses clients | Calculées puis pilotées par le coach, lecture seule | Calculées, ajustables par lui |
 | Proposition hebdo | Reçoit les brouillons de la tournée | Aucune (son coach les reçoit) | Reçoit celle de son copilote |
 | Questionnaire | Bâtit le sien (template 27 q) | Celui de son coach | Les 27 questions, obligatoire |
-| Copilote IA | Oui (`coach-agent`, fleet) | Non | Oui (à construire) |
-| Programme | Bibliothèque + assignation | Assigné par le coach | Ses routines ; programme IA proposé (à construire) |
+| Copilote IA | Oui (`coach-agent`, fleet) | Non | Oui — bilan hebdo + self-coach (`onboarding_plan` / `program_nl_edit` sur soi) |
+| Programme | Bibliothèque + assignation | Assigné par le coach | Routines + programme IA proposé (même moteur, refusable) |
 
 ---
 
@@ -82,45 +84,51 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Coach → solo (fin de lien) | `end_coach_client_link` : rôle `none`, tracking config retirée, programme en pause, cibles conservées, `coach_link_ended_at` + essai 30 j ; le client repasse solo en direct (realtime `user_profiles`) et voit la bannière | Idem + blocage post-essai avec le billing | ✔ (mur : chantier billing) |
 | Accueil coaché | Séance, attente programme (aussi pour un ex-solo), check-in, carte Photos, messages ; plus de streak / deload / rappels / routines | Idem | ✔ |
 | Nav mobile | Coaché : Accueil · Séance · Check-in · Messages · Profil. Solo : hub « Explorer » dans Profil (stats, progression, calendrier, poids, recettes, routines, photos) ; Messages caché sans coach | Idem | ✔ |
-| Macros coaché | Mises à NULL à l'onboarding / intake, écriture coach-only (trigger `protect_coach_nutrition_targets`), anneaux masqués jusqu'à Envoyé | Calcul auto au setup, **puis** coach-only | Chantier 2 |
+| Macros coaché | Setup pré-remplit ISSN (`issnTargetsFromProfile`) ; écriture coach-only (`protect_coach_nutrition_targets`) ; anneaux masqués jusqu'à Envoyé | Calcul auto, **puis** coach-only ; ex-solo : garder ou écraser explicitement | Chantier A (`docs/CHANTIER.md`) |
 | Macros solo | Calculées à la fin de l'intake (Mifflin-St Jeor + activité + objectif, protéines ISSN), éditables dans `GoalsForm` | Idem | ✔ |
-| Proposition hebdo coach | `coach-fleet-round` : Relancer si non assidu, brouillon kcal complet sinon ; 100 % déterministe ; écrit dans la langue du coach (FR/EN) | + explication lisible du « pourquoi » | Chantier 2 |
-| Proposition hebdo solo | `SoloWeeklyReview` sur l'accueil : mêmes règles que la tournée coach (`proposeWeeklyNutrition`) sur ses 14 jours ; assiduité d'abord (jours loggés + moyenne dans la cible) sinon relance sans toucher aux chiffres ; sinon nouvelle cible **+ le pourquoi** ; Appliquer / Garder ; une décision par semaine (`solo_weekly_reviews`) | Idem | ✔ |
-| Intake | 27 q standard ; mur pour tout nouveau compte (invité coaché **et** solo) ; brouillon sauvegardé à chaque écran, reprise là où on s'est arrêté ; le solo finit sur « Tes cibles » (kcal / macros / eau calculés depuis ses réponses) | Builder par coach | ✔ ; chantier 4 |
-| Intake → IA | `coach-agent` lit `kinesiology_intake` (compacté : jours dispo → weekdays, drapeaux listés) ; `extras.objectifType` → `goal` ; filet déterministe honore séances / jours | L'agent voit les réponses | ✔ |
-| Drapeaux médicaux | Badge roster + fiche 360 + Setup ; carte listant les questions PAR-Q à « Oui » | Visibles avant d'envoyer un programme | ✔ (gate d'accusé de réception : plus tard) |
-| Programme IA solo | Aucun | Proposé depuis l'intake, refusable | Chantier 1 |
-| Billing | Stripe ×3 en 410 | Gratuit pendant la construction | ✔ |
-| Télémétrie d'usage | `product_events` + `track()` : écrans, compte créé, intake, invitations, brouillons résolus (kind / status / édité), messages, tracking, cibles, tournée, Ask, programme assigné, séance, check-in | Lecture : SQL / service role ; écran plus tard | ✔ démarré |
-| Changer de coach | Aucun | Plus tard | — |
+| Proposition hebdo coach | `coach-fleet-round` : Relancer si non assidu, brouillon kcal complet sinon ; 100 % déterministe ; FR/EN du coach ; observations chiffrées | + phrase d'explication partagée avec le solo | Chantier A |
+| Proposition hebdo solo | `SoloWeeklyReview` : mêmes règles que la tournée (`proposeWeeklyNutrition`) sur 14 j ; assiduité d'abord sinon relance ; sinon nouvelle cible **+ le pourquoi** ; Appliquer / Garder ; une décision / semaine | Idem | ✔ |
+| Intake | 27 q standard ; mur pour tout nouveau compte ; brouillon à chaque écran ; solo finit sur « Tes cibles » | Builder par coach | ✔ ; chantier B |
+| Intake → IA | `coach-agent` lit `kinesiology_intake` (compacté) ; `objectifType` → `goal` ; filet déterministe honore séances / jours ; `loop_context` (messages, notes, check-ins, photos dates+kinds) | L'agent voit les réponses **et** la boucle | ✔ (#59) |
+| Drapeaux médicaux | Badge roster + fiche 360 + Setup ; carte PAR-Q à « Oui » | Visibles avant d'envoyer + accusé | ✔ (accusé : transversal) |
+| Programme IA solo | Même moteur (`onboarding_plan` / `program_nl_edit`, JWT + RLS self-coach) ; proposition avant / après / pourquoi ; Accepter assigne, Refuser → routines | Idem | ✔ (#58, UI à merger) |
+| Check-in / pas / live | Formulaire du jour ; `logSteps` existait sans UI ; realtime messages / assignation / cibles / tracking | Historique 14 j ; journal de pas ; live jours/lifts/photos ; diffs kcal/Relancer | ✔ (#60, UI à merger) |
+| Billing | Stripe ×3 en 410 ; `solo_trial_ends_at` posé, aucun mur | Gratuit pendant la construction | ✔ ; chantier D |
+| Télémétrie d'usage | `product_events` + `track()` sur les boucles principales ; INSERT only | Écran de lecture coach / admin | ✔ démarré |
+| Bilingue EN + FR | Intake, `constants.ts`, agent, tournée : langue du caller | Idem | ✔ (#53 / #54) |
+| Changer de coach | Invitation seulement ; le client ne peut pas partir seul | Annuaire + départ + changement | Chantier C |
 
 ---
 
-## Phase actuelle : consolidation (septembre 2026)
+## Phase actuelle : chantiers (après consolidation)
 
-Avant de nouveaux chantiers, **finir correctement ce qui existe**, en trois axes :
+La consolidation de septembre 2026 est **écrite**. `coach-agent` **v15** (`loop_context`) est en prod. Ce qui reste : merger #58 → #59 → #60, restes #50, et les vrais cycles en prod — **étape 0** de `docs/CHANTIER.md`. Ensuite les chantiers A → D, pas un nouvel audit.
 
-- **A. Boucle solo** : inscription → intake → cibles → programme IA → entraînement / nutrition / poids → analyse → adaptation (programme **et** nutrition) → accepter / modifier / refuser → nouveau cycle. Doit être bonne, pas juste présente.
-- **B. Boucle coach** : intake du client → analyse → proposition au coach → il modifie / valide → le client exécute → données + check-ins + performances → détection → nouvelles propositions. Même cerveau, autorité différente.
-- **C. Audit exhaustif de l'existant** : UI réelle + parcours réels + code + base + vision, pour les trois rôles. Cartographier ce qui existe, ce qui est visible, ce qui est accessible mais introuvable, ce qui marche à moitié, les doublons, les vieux flows, les impasses, les données collectées jamais utilisées, les actions possibles en base mais pas en UI. Livrable : la matrice Fonction × Solo / Client / Coach × État × Problème × Cible. **Les PR suivantes se décident après.**
+Les trois axes de la consolidation restent le test de chaque livraison :
 
-Constats déjà établis par l'audit base (4 sept., projet `phyuijjekxtjvipjtdfv`) :
-- La base est à la migration `prometheus_p0_flow_fixes` (1er sept.) : **`kinesiology_intake`, `product_events`, `solo_weekly_reviews` ne sont pas appliquées**. Les PR #43 → #47 ne tournent nulle part encore.
-- Les migrations en base portent d'autres numéros que le repo (ré-horodatées le 24 août) ; les deux « absentes » (`coach_fleet_triage_and_marc_seed`, `fix_triage_client_id_ambiguous`) sont des versions de `triage_coach_fleet` couvertes par les migrations du repo — pas une dérive de schéma. Les migrations #43 → #49 ont été appliquées le 5 sept. (idempotentes : `db push` peut les rejouer).
-- ~~**La tournée nocturne est muette depuis le 1er septembre**~~ — corrigé le 5 sept. : `FLEET_CRON_SECRET` créé dans le vault + secrets Edge, tournée `cron` enregistrée à 02:19 (5 clients, déterministe).
-- Usage réel : 1 coach, 5 clients liés (seedés, 0 invitation), 19 séances complétées, 47 jours de nutrition, 8 check-ins, 10 brouillons dont **0 envoyé**, 0 message coach, 0 photo, 0 note. Le produit n'a pas encore été utilisé avec de vrais clients.
+- **Boucle solo** : inscription → intake → cibles → programme IA → entraînement / nutrition / poids → analyse → adaptation → accepter / modifier / refuser.
+- **Boucle coach** : intake du client → analyse → proposition → le coach valide → le client exécute → détection → nouvelles propositions. Même cerveau, autorité différente.
+- **Rien ne s'auto-applique.**
+
+Snapshot prod (6 sept., projet `phyuijjekxtjvipjtdfv`) : 9 comptes, 2 coachs, 5 coachés, 2 solos ; tournée cron 04:00 UTC déterministe ; 14 brouillons dont **1 envoyé** ; 0 message, 0 photo. `coach-agent` **v15** (`loop_context`). Le produit n'a pas encore vécu un vrai cycle coach → client. Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client sont appliquées. Les numéros de migration en base diffèrent du repo (ré-horodatées le 24 août) — pas une dérive de schéma.
 
 ---
 
-## Chantiers (ordre proposé)
+## Chantiers
 
-1. **Copilote solo** — ~~lot A : intake obligatoire à l'inscription avec reprise, cibles calculées~~ (livré) ; ~~lot B : proposition hebdo kcal/macros avec explication et condition d'assiduité~~ (livré, `WeeklyAdjustment` retiré) ; **lot C : programme vivant** — ouvrir le moteur existant (`coach-agent` `onboarding_plan` / `program_nl_edit`, `coach_interventions`, assignation) au cas « je suis mon propre coach » (JWT + RLS self-coach), vue de proposition solo avant / après / pourquoi, garde-fous existants (volume `programVolume.ts`, équipement et drapeaux de l'intake, filet déterministe). Pas un générateur à côté : le même moteur.
-2. **Modèle macros coaché** — calcul automatique au setup, le coach ajuste, la tournée explique ses propositions. Le trigger coach-only reste.
-3. ~~**Intake dans la boucle coach**~~ — livré : l'agent lit l'intake, `objectifType` → `goal`, badges et carte drapeaux médicaux, review du Setup basée sur l'intake. Reste : `joursDispo` pré-rempli dans l'éditeur manuel de programme (l'agent le fait déjà), accusé de réception d'un drapeau avant Envoyer.
-4. **Builder de questionnaire par coach** — 27 questions = template éditable ; les invités remplissent le questionnaire de leur coach.
-5. ~~**Télémétrie d'usage**~~ — livré (table + `track()` sur les boucles principales). Reste : écran de lecture pour le coach / l'admin.
-6. **Bilingue EN + FR pour de vrai** — les valeurs de choix de l'intake sont en français en dur (`Oui/Non`, niveaux, équipement…) ; `constants.ts` affiche des libellés anglais (`GOALS`, `DIET_TYPES`…) dans des écrans français ; **le prompt système de `coach-agent` impose « Français, tutoiement »** — un coach ou un solo anglophone reçoit des brouillons en français.
-7. **Recherche et changement de coach in-app.**
+Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
+
+| # | Quoi | État |
+|---|---|---|
+| 0 | Merger #58 → #59 → #60 ; `coach-agent` `loop_context` (v15, fait) ; mini-PR restes #50 ; vrai cycle en prod | En cours |
+| 1 | Copilote solo (intake + hebdo + programme vivant) | ✔ code (#46, #47, #58) |
+| A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | À faire |
+| 3 | Intake dans la boucle coach | ✔ ; reste `joursDispo` éditeur + accusé drapeau (transversal) |
+| B | Builder de questionnaire par coach | À faire |
+| 5 | Télémétrie d'usage | ✔ table + `track()` ; écran lecture = transversal |
+| 6 | Bilingue EN + FR | ✔ (#53 / #54) |
+| C | Recherche et changement de coach | À faire |
+| D | Billing Stripe + mur post-essai | À faire — décisions de prix d'abord |
 
 ---
 
