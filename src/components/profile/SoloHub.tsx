@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart2, CalendarDays, Camera, ChefHat, Dumbbell, Scale, TrendingUp } from 'lucide-react';
+import { BarChart2, CalendarDays, CalendarRange, Camera, ChefHat, Dumbbell, Scale, TrendingUp } from 'lucide-react';
 import Card from '../ui/Card';
 
 /**
@@ -11,6 +11,7 @@ export default function SoloHub() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const links = [
+    { path: '/programs', icon: CalendarRange, label: t('nav.myProgram') },
     { path: '/stats', icon: BarChart2, label: t('nav.stats') },
     { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress') },
     { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },

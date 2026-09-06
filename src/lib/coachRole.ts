@@ -7,3 +7,11 @@ export function isCoachedAthlete(
 ): boolean {
   return role === 'client' || (!!myCoach && role !== 'coach');
 }
+
+/** Solo athlete: own copilot, no live coach. Coaches and coached athletes are out. */
+export function isSoloAthlete(
+  role: CoachingRole,
+  myCoach: { id?: string } | null | undefined,
+): boolean {
+  return role === 'none' && !myCoach;
+}

@@ -32,7 +32,7 @@ export default function SideNav() {
         { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
         { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
         { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: coached },
-        { path: '/programs', icon: CalendarRange, label: t('nav.myProgram'), show: coached && tracking.track_workouts },
+        { path: '/programs', icon: CalendarRange, label: t('nav.myProgram'), show: tracking.track_workouts },
         { path: '/weight', icon: Scale, label: t('nav.weight'), show: tracking.track_weight },
         { path: '/photos', icon: Camera, label: t('nav.photos'), show: true },
         { path: '/calendar', icon: CalendarDays, label: t('nav.calendar'), show: !coached },

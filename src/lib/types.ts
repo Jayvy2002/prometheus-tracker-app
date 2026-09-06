@@ -830,7 +830,10 @@ export type ProductEventName =
   | 'program_assigned'
   | 'workout_completed'
   | 'checkin_saved'
-  | 'solo_review_decided';
+  | 'solo_review_decided'
+  | 'solo_program_accepted'
+  | 'solo_program_dismissed'
+  | 'solo_program_nl_asked';
 
 export type ProductEventProps = Record<string, string | number | boolean | null>;
 

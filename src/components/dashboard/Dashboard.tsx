@@ -34,6 +34,7 @@ import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 import ClientGymCard from './ClientGymCard';
 import SoloWeeklyReview from './SoloWeeklyReview';
+import SoloProgramProposal from './SoloProgramProposal';
 import LinkEndedBanner from './LinkEndedBanner';
 
 function getWeekDates(): string[] {
@@ -284,6 +285,8 @@ export default function Dashboard() {
         </div>
 
         <LinkEndedBanner />
+
+        <SoloProgramProposal />
 
         {hasGymCard && assignment?.program && (
           <ClientGymCard

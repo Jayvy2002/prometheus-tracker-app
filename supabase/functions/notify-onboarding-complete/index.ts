@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { corsHeaders, json, runCoachAgent } from "../_shared/coachAgent.ts";
+import { corsHeaders, json, parseLocale, runCoachAgent } from "../_shared/coachAgent.ts";
 
 /**
  * Onboarding-complete ping from the DB trigger (HMAC).
@@ -61,7 +61,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const clientId = asString(payload.user_id) || asString(payload.client_id);
-  const coachId = asString(payload.coach_id);
+  const coachId = asString(payload.coach_id) || clientId;
   if (!clientId || !coachId) {
     return json(200, { ok: true, skipped: "missing_ids" });
   }
@@ -87,8 +87,7 @@ Deno.serve(async (req: Request) => {
     programId: null,
     prompt,
     screen: "onboarding_complete",
-    // The coach's UI language is not stored server-side yet → French default.
-    locale: "fr",
+    locale: parseLocale(payload.locale),
     context: {
       goal: payload.goal ?? null,
       training_frequency: payload.training_frequency ?? null,

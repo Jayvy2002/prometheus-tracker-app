@@ -29,13 +29,9 @@ export default function AppLayout() {
       void startCoachRealtime();
       return () => stopCoachRealtime();
     }
-    if (coachingRole === 'client') {
-      stopCoachRealtime();
-      void startClientRealtime();
-      return () => stopClientRealtime();
-    }
     stopCoachRealtime();
-    stopClientRealtime();
+    void startClientRealtime();
+    return () => stopClientRealtime();
   }, [isCoach, coachingRole, startCoachRealtime, stopCoachRealtime, startClientRealtime, stopClientRealtime]);
 
   return (
