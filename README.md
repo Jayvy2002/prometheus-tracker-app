@@ -145,7 +145,7 @@ npm test          # src/lib/*.test.ts
 | Secret | Description |
 |---|---|
 | `OPENAI_API_KEY` | `coach-agent`, `analyze-product`, `verify-exercise` (la tournée `coach-fleet-round` est 100 % déterministe, pas de clé) |
-| `OPENAI_MODEL` | Optionnel. Défaut code : `gpt-5.6-luna`. Si ce secret est encore à `gpt-4o-mini`, il gagne — le retirer ou le passer à `gpt-5.6-luna`. |
+| `OPENAI_MODEL` | Optionnel. Sans ce secret, le code appelle `gpt-5.6-luna`. Ne le poser que pour forcer un autre modèle — s’il vaut encore `gpt-4o-mini`, il gagne. Prod 7 sept. : logs `openai_chat` = `gpt-5.6-luna`. |
 | `FLEET_CRON_SECRET` | Auth du cron nocturne `coach-fleet-round` |
 | `NOTIFY_SECRET` | HMAC de `notify-onboarding-complete` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
