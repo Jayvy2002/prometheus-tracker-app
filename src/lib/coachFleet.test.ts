@@ -111,6 +111,10 @@ test('adherent + stall → calorie_adjustment with complete macros (never 2000/0
   assert.notEqual(cals?.protein, 0);
   assert.equal(cals?.calories, 2000);
   assert.equal(card?.payload.reason, 'cut_gain');
+  const why = card?.payload.why as { from?: number; to?: number; avg?: number } | undefined;
+  assert.equal(why?.from, 2200);
+  assert.equal(why?.to, 2000);
+  assert.equal(why?.avg, 2180);
 });
 
 test('Camille cut on-track + coach wrote this week → no extra card', () => {
@@ -823,6 +827,8 @@ test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
   assert.match(fleet, /proposeWeeklyNutrition/);
   assert.match(fleet, /WEEKLY_LARGE_KCAL/);
   assert.match(fleet, /carb_support/);
+  assert.match(fleet, /why:\s*\{/);
+  assert.match(fleet, /loggedDays:/);
   assert.doesNotMatch(fleet, /direction === "down" \? -150/);
   const src = readFileSync(resolve(process.cwd(), 'src/lib/coachFleet.ts'), 'utf8');
   assert.doesNotMatch(src, /cut_more' \|\| direction === 'bulk_less' \? -150/);
@@ -830,8 +836,17 @@ test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
   const nina = completeMacrosFor(2000, 'lose', 80);
   assert.equal(isCompleteCalorieDraft(nina), true);
   const setup = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientSetupPage.tsx'), 'utf8');
-  assert.match(setup, /setCalories\(targets\.calories\)/);
+  assert.match(setup, /setupTargetsFromChoice/);
+  assert.match(setup, /initialSetupTargetChoice/);
+  assert.match(setup, /targetChoice/);
   assert.doesNotMatch(setup, /daily_calorie_target \|\| targets/);
+  assert.doesNotMatch(setup, /daily_calorie_target \|\| issn/);
+  assert.match(setup, /needsMedicalAck && !medicalAck/);
+  assert.ok(
+    setup.indexOf('if (needsMedicalAck && !medicalAck)') < setup.indexOf('await saveTrackingConfig'),
+    'medical ack must block before any setup write',
+  );
+  assert.match(setup, /track\('setup_targets_choice'/);
   // The weekly card is now the solo copilot (SoloWeeklyReview): same fleet rules, shown to solos
   // only, and the only write to targets is the solo's explicit accept in soloCopilotStore.decide.
   const weekly = readFileSync(resolve(process.cwd(), 'src/components/dashboard/SoloWeeklyReview.tsx'), 'utf8');

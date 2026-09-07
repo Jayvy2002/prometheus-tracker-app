@@ -55,6 +55,11 @@ test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {
   assert.doesNotMatch(shared, /status:\s*202/);
   const openai = source('supabase/functions/_shared/openaiJson.ts');
   assert.match(openai, /api\.openai\.com/);
+  assert.match(openai, /DEFAULT_OPENAI_MODEL = "gpt-5\.6-luna"/);
+  assert.match(openai, /max_completion_tokens/);
+  assert.match(openai, /usesMaxCompletionTokens/);
+  assert.match(openai, /event: "openai_chat"/);
+  assert.match(source('supabase/functions/analyze-product/index.ts'), /maxTokens:\s*1600/);
   const store = source('src/stores/coachingStore.ts');
   assert.match(store, /COACH_AGENT_FUNCTION/);
   assert.match(store, /parseCoachAgentResponse/);
@@ -221,7 +226,7 @@ test('coach-agent reads the kinesiology intake and honours its days / equipment 
 test('onboarding_plan uses a deterministic fallback instead of 502 empty draft', () => {
   const shared = source('supabase/functions/_shared/coachAgent.ts');
   assert.match(shared, /fallbackProgramFromProfile/);
-  assert.match(shared, /timeoutMs:\s*45_000/);
+  assert.match(shared, /timeoutMs:\s*60_000/);
   assert.match(shared, /wantsProgram/);
   assert.match(shared, /PAS de calories/);
 });

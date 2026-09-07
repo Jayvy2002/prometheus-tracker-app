@@ -469,6 +469,8 @@ function calorieAdjustmentCard(
   const reason = proposal.reason;
   const cause = copy.kcal.cause[reason] || copy.kcal.defaultCause;
   const title = copy.kcal.title[reason]?.(name) ?? copy.kcal.defaultTitle(name);
+  const ratio = overeatRatio(d.avg_calories, d.calorie_target);
+  const pctWeek = weeklyWeightPct(d.weight_delta_kg, d.weight_start_kg ?? d.weight_kg);
   return {
     flag,
     kind: 'calorie_adjustment',
@@ -482,6 +484,17 @@ function calorieAdjustmentCard(
       observation,
       cause,
       reason,
+      why: {
+        from: Math.round(d.calorie_target),
+        to: tweak.calories,
+        delta: fmtDelta(d.weight_delta_kg),
+        pct: ratio > 0 ? Math.round(ratio * 100) : 0,
+        pctWeek: pctWeek == null ? '—' : Math.abs(Math.round(pctWeek * 10) / 10),
+        avg: Math.round(d.avg_calories),
+        loggedDays: d.logged_nutrition_days,
+        window: FLEET_WINDOW_DAYS,
+        carbs: tweak.carbs,
+      },
       nutrition: tweak,
       calories: tweak.calories,
       protein: tweak.protein,

@@ -6,6 +6,7 @@ import {
   weeklyWeightPct,
   type WeeklyNutritionProposal,
 } from './coachFleet';
+import { weeklyNutritionWhyKey } from './weeklyNutritionWhy';
 import { MIN_NUTRITION_LOG_DAYS, OVEREAT_RATIO } from './coachNutrition';
 import { addDaysToDateStr } from './utils';
 import type { CoachFleetDossier } from './types';
@@ -215,8 +216,7 @@ export function soloReviewMessageKey(review: SoloWeeklyReview): string {
   if (review.status === 'insufficient') return 'soloReview.insufficient';
   const { proposal } = review;
   if (proposal.action === 'relance') return `soloReview.relance.${review.relanceDetail ?? 'few_logs'}`;
-  if (proposal.action === 'keep') return 'soloReview.keep';
-  return `soloReview.adjust.${proposal.reason}`;
+  return weeklyNutritionWhyKey(proposal.reason, 'self') ?? 'soloReview.keep';
 }
 
 /** Has any signal at all? Below this the card stays silent instead of nagging an empty account. */
