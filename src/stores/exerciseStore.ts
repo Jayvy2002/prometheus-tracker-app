@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { rankExercises } from '../lib/pickerSearch';
 import type { Exercise, ExerciseRequest } from '../lib/types';
 
 interface ExerciseState {
@@ -7,7 +8,7 @@ interface ExerciseState {
   loading: boolean;
   fetched: boolean;
   fetchExercises: () => Promise<void>;
-  searchExercises: (query: string) => Exercise[];
+  searchExercises: (query: string, lang?: string) => Exercise[];
   submitExercise: (userId: string, name: string, muscles: string, description: string) => Promise<ExerciseRequest | null>;
   addExercise: (exercise: Exercise) => void;
 }
@@ -27,16 +28,7 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
     set({ exercises: (data ?? []) as Exercise[], loading: false, fetched: true });
   },
 
-  searchExercises: (query: string) => {
-    const q = query.toLowerCase().trim();
-    if (!q) return get().exercises;
-    return get().exercises.filter(e =>
-      e.name.toLowerCase().includes(q) ||
-      e.name_fr.toLowerCase().includes(q) ||
-      e.primary_muscles.some(m => m.toLowerCase().includes(q)) ||
-      e.equipment.toLowerCase().includes(q)
-    );
-  },
+  searchExercises: (query, lang = 'fr') => rankExercises(get().exercises, query, lang),
 
   submitExercise: async (userId, name, muscles, description) => {
     const { data } = await supabase

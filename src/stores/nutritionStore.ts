@@ -155,7 +155,7 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   searchProducts: async (query) => {
     // RPC avec index GIN trigram + ranking par similarité de nom uniquement
     const { data } = await supabase
-      .rpc('search_food_products', { query, max_results: 20 });
+      .rpc('search_food_products', { query, max_results: 30 });
     const products = ((data ?? []) as FoodProduct[]).map(normalizeFoodProductEnergy);
     set({ products });
     return products;

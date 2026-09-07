@@ -38,8 +38,10 @@ test('cgi search must not send fields= (503 on poulet / riz)', () => {
 test('FoodForm and IngredientPicker use the shared OFF search', () => {
   const food = src('src/components/nutrition/FoodForm.tsx');
   const ing = src('src/components/nutrition/IngredientPicker.tsx');
-  assert.match(food, /searchOpenFoodFacts/);
-  assert.match(ing, /searchOpenFoodFacts/);
+  const hook = src('src/lib/useFoodCatalogSearch.ts');
+  assert.match(food, /useFoodCatalogSearch/);
+  assert.match(ing, /useFoodCatalogSearch/);
+  assert.match(hook, /searchOpenFoodFacts/);
   assert.doesNotMatch(food, /cgi\/search\.pl/);
   assert.doesNotMatch(ing, /cgi\/search\.pl/);
 });
