@@ -111,6 +111,9 @@ test('exercise search folds accents, ranks names over equipment, and matches nic
   const rdl = rankExercises(library, 'rdl', 'en');
   assert.equal(rdl[0].name, 'Romanian Deadlift');
 
+  const typo = rankExercises(library, 'develope', 'fr');
+  assert.equal(typo[0].name, 'Barbell Bench Press');
+
   const pecs = rankExercises(library, 'pectoraux', 'fr');
   assert.equal(pecs[0].name, 'Barbell Bench Press');
 

@@ -40,6 +40,36 @@ const EXERCISE_ALIASES: Array<{ canon: string; aliases: string[] }> = [
   { canon: 'rdl', aliases: ['romanian deadlift'] },
 ];
 
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (!a || !b) return 99;
+  if (Math.abs(a.length - b.length) > 2) return 99;
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = row[j];
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + cost);
+      prev = tmp;
+    }
+  }
+  return row[b.length];
+}
+
+function fuzzyWordScore(query: string, hay: string): number {
+  if (query.length < 4) return 0;
+  let best = 0;
+  for (const word of hay.split(/\s+/)) {
+    if (word.length < 4) continue;
+    const d = levenshtein(query, word);
+    if (d <= 1) best = Math.max(best, 68);
+    else if (d === 2 && query.length >= 6) best = Math.max(best, 56);
+  }
+  return best;
+}
+
 export function scoreAgainstQuery(query: string, fields: TextField[]): number {
   const q = foldText(query);
   if (!q) return 0;
@@ -50,13 +80,14 @@ export function scoreAgainstQuery(query: string, fields: TextField[]): number {
     if (!hay) continue;
     let s = 0;
     if (hay === q) s = 100;
-    else if (hay.startsWith(q) || q.startsWith(hay) && hay.length >= 3) s = 88;
+    else if (hay.startsWith(q) || (q.startsWith(hay) && hay.length >= 3)) s = 88;
     else if (hay.includes(` ${q} `) || hay.startsWith(`${q} `) || hay.endsWith(` ${q}`)) s = 80;
     else if (hay.includes(q)) s = 72;
     else {
       const hits = tokens.filter(tok => tok.length >= 2 && hay.includes(tok));
       if (hits.length === tokens.length && tokens.length > 0) s = 64;
       else if (hits.length > 0) s = Math.round(48 * (hits.length / tokens.length));
+      s = Math.max(s, fuzzyWordScore(q, hay));
     }
     best = Math.max(best, s * field.weight);
   }

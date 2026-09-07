@@ -33,6 +33,7 @@ test('cgi search must not send fields= (503 on poulet / riz)', () => {
   assert.doesNotMatch(off, /cgi\/search\.pl[^`\n]*fields=/);
   assert.match(off, /product_name_fr/);
   assert.match(off, /fr\.openfoodfacts\.org/);
+  assert.equal([...off.matchAll(/api\/v2\/search/g)].length, 2);
 });
 
 test('FoodForm and IngredientPicker use the shared OFF search', () => {
