@@ -2,7 +2,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
   hasSentNutritionTarget,
+  initialSetupTargetChoice,
   MIN_SENT_CALORIE_TARGET,
+  nutritionDraftsEqual,
+  profileNutritionDraft,
+  setupTargetsFromChoice,
   stripSelfServeNutritionTargets,
 } from './coachOwnedTargets';
 
@@ -43,4 +47,28 @@ test('solo tracker still writes kcal from GoalsForm / onboarding', () => {
   }, false);
   assert.equal(updates.daily_calorie_target, 2400);
   assert.equal(updates.protein_target, 160);
+});
+
+test('setup keep vs ISSN: existing ≥ 800 stays, below that floor is ISSN', () => {
+  const issn = { calories: 1800, protein: 140, carbs: 160, fat: 55 };
+  const existing = {
+    daily_calorie_target: 2200,
+    protein_target: 160,
+    carbs_target: 200,
+    fat_target: 70,
+  };
+  assert.deepEqual(profileNutritionDraft(existing), {
+    calories: 2200, protein: 160, carbs: 200, fat: 70,
+  });
+  assert.equal(initialSetupTargetChoice(existing), 'keep');
+  assert.equal(initialSetupTargetChoice({ daily_calorie_target: 0 }), 'issn');
+  assert.equal(initialSetupTargetChoice({ daily_calorie_target: MIN_SENT_CALORIE_TARGET - 1 }), 'issn');
+  assert.equal(profileNutritionDraft({ daily_calorie_target: MIN_SENT_CALORIE_TARGET - 1 }), null);
+  assert.deepEqual(setupTargetsFromChoice('keep', existing, issn), {
+    calories: 2200, protein: 160, carbs: 200, fat: 70,
+  });
+  assert.deepEqual(setupTargetsFromChoice('issn', existing, issn), issn);
+  assert.deepEqual(setupTargetsFromChoice('keep', { daily_calorie_target: 0 }, issn), issn);
+  assert.equal(nutritionDraftsEqual(issn, issn), true);
+  assert.equal(nutritionDraftsEqual(issn, { ...issn, calories: 1801 }), false);
 });

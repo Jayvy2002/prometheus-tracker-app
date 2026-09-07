@@ -15,6 +15,7 @@ import {
 } from '../../lib/coachInterventions';
 import { displayName } from '../../lib/coachText';
 import { preparedTemplateKey, parseFleetCause, parseFleetObservation, parsePreparedMessage, isRelanceKind } from '../../lib/coachFleet';
+import { parseWeeklyWhyParams, parseWeeklyWhyReason, weeklyNutritionWhyKey } from '../../lib/weeklyNutritionWhy';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import {
   canSendProgramToClient,
@@ -407,6 +408,12 @@ export default function InterventionDraftPage() {
   const showNotes = isAdherenceKind || row.kind === 'other' || row.kind === 'ask_prometheus';
   const observation = parseFleetObservation(row.payload);
   const cause = parseFleetCause(row.payload, row.rationale);
+  const whyParams = showCalories ? parseWeeklyWhyParams(row.payload) : null;
+  const whyKey = showCalories && whyParams
+    ? weeklyNutritionWhyKey(parseWeeklyWhyReason(row.payload), 'coach')
+    : null;
+  const whyText = whyKey && whyParams ? String(t(whyKey, { ...whyParams })) : '';
+  const showCause = Boolean(cause) && !whyText;
   const noteOnly = row.kind === 'other';
   const patchWithoutProgram = showPatch && !boundAssignment?.program_id;
   const edited: EditedProgramDraft = {
@@ -465,7 +472,7 @@ export default function InterventionDraftPage() {
         <p className="text-sm text-neutral-400 mb-4">
           {client?.full_name || client?.email || t('coaching.unnamed')}
         </p>
-        {(observation || cause) && (
+        {(observation || whyText || showCause) && (
           <Card className="mb-4 space-y-2">
             {observation ? (
               <div>
@@ -473,7 +480,13 @@ export default function InterventionDraftPage() {
                 <p className="text-sm text-neutral-200">{observation}</p>
               </div>
             ) : null}
-            {cause ? (
+            {whyText ? (
+              <div>
+                <p className="text-xs text-neutral-500 mb-1">{t('coaching.fleet.why')}</p>
+                <p className="text-sm text-neutral-200">{whyText}</p>
+              </div>
+            ) : null}
+            {showCause ? (
               <div>
                 <p className="text-xs text-neutral-500 mb-1">{t('coaching.fleet.cause')}</p>
                 <p className="text-sm text-neutral-200">{cause}</p>

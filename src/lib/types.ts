@@ -857,7 +857,8 @@ export type ProductEventName =
   | 'solo_review_decided'
   | 'solo_program_accepted'
   | 'solo_program_dismissed'
-  | 'solo_program_nl_asked';
+  | 'solo_program_nl_asked'
+  | 'setup_targets_choice';
 
 export type ProductEventProps = Record<string, string | number | boolean | null>;
 

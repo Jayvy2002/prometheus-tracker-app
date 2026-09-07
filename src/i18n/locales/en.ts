@@ -793,6 +793,20 @@ const en = {
     applied: 'Targets updated: {{n}} kcal.',
   },
 
+  weeklyWhy: {
+    coach: {
+      keep: 'Trajectory looks right: {{delta}} kg over {{window}} days, average {{avg}} kcal ({{pct}}% of target). Keeping {{from}} kcal.',
+      adjust: {
+        cut_stall: 'Weight is flat ({{delta}} kg over {{window}} days) while the plan is followed ({{pct}}%). Proposal: {{from}} → {{to}} kcal.',
+        cut_gain: 'Weight is going up ({{delta}} kg over {{window}} days) despite an on-target average ({{pct}}%). Proposal: {{from}} → {{to}} kcal.',
+        too_fast_cut: 'Losing too fast ({{pctWeek}}% of bodyweight per week). To protect muscle and energy: {{from}} → {{to}} kcal.',
+        bulk_stall: 'Weight isn’t moving up ({{delta}} kg over {{window}} days) while the plan is followed ({{pct}}%). Proposal: {{from}} → {{to}} kcal.',
+        bulk_too_fast: 'Gaining too fast ({{pctWeek}}% of bodyweight per week) — part of it is likely fat. Proposal: {{from}} → {{to}} kcal.',
+        carb_support: 'Signs of training fatigue: keeping {{from}} kcal and shifting {{carbs}} g toward carbs.',
+      },
+    },
+  },
+
   soloProgram: {
     title: 'Program proposal',
     nothingAuto: 'Nothing applies on its own. You accept, adjust later, or refuse.',
@@ -964,6 +978,13 @@ const en = {
       useIssn: 'Reset to ISSN',
       applyTargets: 'Write these targets to the client profile',
       profileTargets: 'Current profile: {{calories}} kcal · P{{protein}} C{{carbs}} F{{fat}}',
+      currentTargets: 'Already on the profile: {{calories}} kcal · P{{protein}} C{{carbs}} F{{fat}}',
+      keepTargets: 'Keep current targets',
+      overwriteIssn: 'Overwrite with the app ISSN formula',
+      keepHint: 'Nothing is written. The client keeps these numbers.',
+      issnHint: 'The box below will be checked: these numbers replace the profile.',
+      medicalAck: 'I have read the medical flags. I am building the program accordingly — this is not medical advice.',
+      medicalAckRequired: 'Acknowledge the medical flags before sending.',
       program: 'Training program',
       programHint: 'Assign an existing program or build a new one here (name, days, lifts). Programs page also stays available.',
       newOrPick: 'Build new / pick later',
@@ -1364,6 +1385,7 @@ const en = {
       failed: 'The round could not run. Retry — nothing was applied.',
       observation: 'Observation',
       cause: 'Cause',
+      why: 'Why',
       preparedMessage: 'Prepared message',
       noCalorieEditor: 'Incomplete macros: fill the 4 ISSN fields (kcal + P/C/F) before sending. No free calorie editor.',
       iaOff: 'AI off — deterministic nudge',

@@ -793,6 +793,20 @@ const fr = {
     applied: 'Cibles mises à jour : {{n}} kcal.',
   },
 
+  weeklyWhy: {
+    coach: {
+      keep: 'Trajectoire correcte : {{delta}} kg sur {{window}} jours, moyenne {{avg}} kcal ({{pct}} % de la cible). On garde {{from}} kcal.',
+      adjust: {
+        cut_stall: 'Le poids stagne ({{delta}} kg sur {{window}} jours) alors que le plan est suivi ({{pct}} %). Proposition : {{from}} → {{to}} kcal.',
+        cut_gain: 'Le poids remonte ({{delta}} kg sur {{window}} jours) malgré une moyenne dans la cible ({{pct}} %). Proposition : {{from}} → {{to}} kcal.',
+        too_fast_cut: 'Perte trop rapide ({{pctWeek}} % du poids par semaine). Pour protéger muscle et énergie : {{from}} → {{to}} kcal.',
+        bulk_stall: 'Le poids ne monte pas ({{delta}} kg sur {{window}} jours) alors que le plan est suivi ({{pct}} %). Proposition : {{from}} → {{to}} kcal.',
+        bulk_too_fast: 'Prise trop rapide ({{pctWeek}} % du poids par semaine) — une part est probablement du gras. Proposition : {{from}} → {{to}} kcal.',
+        carb_support: 'Signes de fatigue à l’entraînement : on garde {{from}} kcal et on déplace {{carbs}} g vers les glucides.',
+      },
+    },
+  },
+
   soloProgram: {
     title: 'Proposition de programme',
     nothingAuto: 'Rien ne s’applique tout seul. Tu acceptes, tu modifies plus tard, ou tu refuses.',
@@ -964,6 +978,13 @@ const fr = {
       useIssn: 'Revenir à l’ISSN',
       applyTargets: 'Écrire ces cibles sur le profil client',
       profileTargets: 'Profil actuel : {{calories}} kcal · P{{protein}} C{{carbs}} F{{fat}}',
+      currentTargets: 'Déjà sur le profil : {{calories}} kcal · P{{protein}} C{{carbs}} F{{fat}}',
+      keepTargets: 'Garder ses cibles actuelles',
+      overwriteIssn: 'Écraser avec l’ISSN de l’app',
+      keepHint: 'Rien n’est écrit. Le client garde ces chiffres.',
+      issnHint: 'La case ci-dessous sera cochée : ces chiffres remplacent le profil.',
+      medicalAck: 'J’ai lu les drapeaux médicaux. Je construis le programme en conséquence — ce n’est pas un avis médical.',
+      medicalAckRequired: 'Coche l’accusé des drapeaux médicaux avant d’envoyer.',
       program: 'Programme d’entraînement',
       programHint: 'Assigne un programme existant ou construis-en un ici (nom, jours, exercices). La page Programmes reste accessible.',
       newOrPick: 'Créer / plus tard',
@@ -1364,6 +1385,7 @@ const fr = {
       failed: 'La tournée n’a pas pu tourner. Réessaie — rien n’a été appliqué.',
       observation: 'Observation',
       cause: 'Cause',
+      why: 'Pourquoi',
       preparedMessage: 'Message préparé',
       noCalorieEditor: 'Macros incomplètes : complète les 4 champs ISSN (kcal + P/C/F) avant d’envoyer. Pas d’éditeur calories libre.',
       iaOff: 'IA off — Relancer déterministe',

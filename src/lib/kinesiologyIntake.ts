@@ -146,6 +146,29 @@ export const EXTRA_CARDIO_OPTIONS = [
 export const EXTRA_MEDS_OPTIONS = ['Oui', 'Non', 'Je ne sais pas'] as const;
 export const WEEKDAYS = ['lun', 'mar', 'mer', 'jeu', 'ven', 'sam', 'dim'] as const;
 
+/** JS getDay() ints (0 = Sunday). Same mapping as coach-agent compactIntake. */
+export const INTAKE_WEEKDAY_TO_JS: Record<(typeof WEEKDAYS)[number], number> = {
+  dim: 0, lun: 1, mar: 2, mer: 3, jeu: 4, ven: 5, sam: 6,
+};
+
+/** Monday-first order used by the program editor. */
+export const PROGRAM_WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
+
+export function intakeAvailableWeekdays(raw: unknown): number[] {
+  const days = parseIntake(raw).extras.joursDispo
+    .map(code => INTAKE_WEEKDAY_TO_JS[code as (typeof WEEKDAYS)[number]])
+    .filter((n): n is number => typeof n === 'number');
+  return [...new Set(days)];
+}
+
+export function nextProgramWeekday(used: number[], preferred: number[] = []): number {
+  const taken = new Set(used);
+  const pool = preferred.length > 0 ? preferred : [...PROGRAM_WEEKDAY_ORDER];
+  const fromPool = pool.find(d => !taken.has(d));
+  if (fromPool != null) return fromPool;
+  return PROGRAM_WEEKDAY_ORDER.find(d => !taken.has(d)) ?? (used.length % 7);
+}
+
 /**
  * The French strings above are the *stored* values (the Google Form legacy — the database,
  * the coach agent and the medical-flag checks all compare against them). The UI shows them

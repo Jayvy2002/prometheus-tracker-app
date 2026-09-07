@@ -32,6 +32,9 @@ import {
   SEXE_OPTIONS,
   hasIntakeOptionLabelEn,
   intakeOptionLabel,
+  intakeAvailableWeekdays,
+  nextProgramWeekday,
+  INTAKE_WEEKDAY_TO_JS,
 } from './kinesiologyIntake';
 
 const EXPECTED_FR: Record<string, string> = {
@@ -531,5 +534,27 @@ describe('bilingual intake labels', () => {
     assert.equal(formatAnswer(intake, 'lieu', true), 'Gym');
     assert.equal(formatAnswer(intake, 'douleursLimitations', true), 'No');
     assert.equal(intake.lieu, 'Salle');
+  });
+});
+
+describe('intake joursDispo → program weekdays', () => {
+  it('maps lun/dim to JS getDay ints and prefers those days when adding a session', () => {
+    assert.equal(INTAKE_WEEKDAY_TO_JS.lun, 1);
+    assert.equal(INTAKE_WEEKDAY_TO_JS.dim, 0);
+    assert.deepEqual(intakeAvailableWeekdays({ extras: { joursDispo: ['lun', 'mer', 'ven'] } }), [1, 3, 5]);
+    assert.deepEqual(intakeAvailableWeekdays({ extras: { joursDispo: ['dim', 'lun'] } }), [0, 1]);
+    assert.deepEqual(intakeAvailableWeekdays({ extras: { joursDispo: [] } }), []);
+    assert.equal(nextProgramWeekday([], [3, 5]), 3);
+    assert.equal(nextProgramWeekday([3], [3, 5]), 5);
+    assert.equal(nextProgramWeekday([3, 5], [3, 5]), 1);
+    assert.equal(nextProgramWeekday([], []), 1);
+  });
+
+  it('Setup passes preferredWeekdays into the program editor', () => {
+    const setup = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientSetupPage.tsx'), 'utf8');
+    assert.match(setup, /preferredWeekdays=\{preferredWeekdays\}/);
+    assert.match(setup, /intakeAvailableWeekdays/);
+    const editor = readFileSync(resolve(process.cwd(), 'src/components/coaching/ProgramSessionEditor.tsx'), 'utf8');
+    assert.match(editor, /nextProgramWeekday\(days\.map\(d => d\.weekday\), preferredWeekdays\)/);
   });
 });
