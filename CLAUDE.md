@@ -2,7 +2,7 @@
 
 > Relis ce fichier au début de chaque réflexion. Fais un plan avant toute modification lourde.
 >
-> **Produit :** moteur de coaching intelligent pour l'entraînement de **force et de physique** (musculation, bodybuilding, powerlifting), **EN + FR**. Il comprend l'athlète, construit son plan, observe et propose comment le faire évoluer. **En solo, l'athlète valide ; avec un coach, Prometheus prépare et le coach valide.** Trois rôles : Coach / Client coaché / Solo. Vision complète, phase actuelle (consolidation) et chantiers : `docs/VISION.md` — lis-le avant de toucher au produit.
+> **Produit :** moteur de coaching intelligent pour l'entraînement de **force et de physique** (musculation, bodybuilding, powerlifting), **EN + FR**. Il comprend l'athlète, construit son plan, observe et propose comment le faire évoluer. **En solo, l'athlète valide ; avec un coach, Prometheus prépare et le coach valide.** Trois rôles : Coach / Client coaché / Solo. Vision : `docs/VISION.md`. Ordre de construction : `docs/CHANTIER.md`. Lis les deux avant de toucher au produit.
 > **Copilote IA :** `coach-agent` (OpenAI, brouillons seulement). L'IA prépare, l'humain décide, rien ne s'auto-applique. Second / Grok Bots sont hors de la boucle — ne pas recâbler `GROK_BOT_WEBHOOK_URL`.
 > **Billing :** gratuit pendant la construction. Les 3 functions Stripe répondent 410. Ce n'est pas « jamais de Premium », c'est « pas maintenant ».
 > **`new-JV` = le produit et la prod.** Netlify la déploie sur `tracker.prometheus-fit.com` à chaque merge ; le projet Supabase « coaching » est la base de prod (migrations appliquées à la main avant le merge). `main` = ancien tracker solo, abandonné. Pas de test destructif sur la base de prod.
