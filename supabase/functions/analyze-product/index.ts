@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { chatCompletionsBody, resolveOpenAiModel } from "../_shared/openaiJson.ts";
 
 /**
  * Synchronous food identification: food_products → Open Food Facts → OpenAI vision.
@@ -348,12 +349,12 @@ IMPORTANT - Internet knowledge:
           Authorization: `Bearer ${openaiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "gpt-4o",
+        body: JSON.stringify(chatCompletionsBody({
+          model: resolveOpenAiModel(),
           messages,
-          max_tokens: 600,
+          maxTokens: 1600,
           temperature: 0.1,
-        }),
+        })),
         signal: AbortSignal.timeout(20_000),
       });
     } catch {

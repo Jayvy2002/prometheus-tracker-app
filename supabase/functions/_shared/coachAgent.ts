@@ -876,8 +876,8 @@ export async function runCoachAgent(
         { role: "user", content: `${formatLessonsForPrompt(lessons)}\n\nDossier + demande:\n${JSON.stringify(userPayload)}` },
       ],
       wantsProgram
-        ? { maxTokens: 3500, timeoutMs: 45_000 }
-        : { maxTokens: 1400 },
+        ? { maxTokens: 8000, timeoutMs: 60_000 }
+        : { maxTokens: 2000 },
     )
     : null;
 

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { chatCompletionsBody, resolveOpenAiModel } from "../_shared/openaiJson.ts";
 
 /**
  * Synchronous exercise verification: library first, then OpenAI.
@@ -178,15 +179,15 @@ Verify this exercise and provide complete details.`;
           Authorization: `Bearer ${openaiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          model: "gpt-4o-mini",
+        body: JSON.stringify(chatCompletionsBody({
+          model: resolveOpenAiModel(),
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userMessage },
           ],
-          max_tokens: 800,
+          maxTokens: 800,
           temperature: 0.1,
-        }),
+        })),
         signal: AbortSignal.timeout(20_000),
       });
     } catch {
