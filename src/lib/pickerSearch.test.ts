@@ -143,7 +143,7 @@ test('FoodForm and IngredientPicker search as you type and never skip Open Food 
   assert.doesNotMatch(hook, /if \(dbResults\.length > 0\)/);
   assert.match(src('src/stores/exerciseStore.ts'), /rankExercises/);
   assert.match(src('src/components/workout/ExercisePicker.tsx'), /displayExerciseName/);
-  assert.match(src('src/components/workout/ExercisePicker.tsx'), /isExactExerciseMatch/);
+  assert.match(src('src/components/workout/ExercisePicker.tsx'), /hasStrongMatch/);
   assert.match(sql, /word_similarity/);
   assert.match(sql, /REVOKE ALL ON FUNCTION public.search_food_products/);
 });

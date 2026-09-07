@@ -16,7 +16,7 @@ import {
 } from '../../lib/fastVerify';
 import type { Exercise } from '../../lib/types';
 import { muscleLabel } from '../../lib/muscleLabels';
-import { displayExerciseName, isExactExerciseMatch } from '../../lib/pickerSearch';
+import { displayExerciseName, exerciseSearchFields, isExactExerciseMatch, scoreAgainstQuery } from '../../lib/pickerSearch';
 
 interface Props {
   open: boolean;
@@ -37,6 +37,9 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
 
   const filtered = search.trim() ? searchExercises(search, i18n.language) : exercises;
   const hasExactMatch = exercises.some(e => isExactExerciseMatch(search, e));
+  const topHit = filtered[0];
+  const hasStrongMatch = !!search.trim() && !!topHit
+    && scoreAgainstQuery(search, exerciseSearchFields(topHit, i18n.language)) >= 72;
 
   const handleSelect = (exercise: Exercise) => {
     onSelect(exercise.name);
@@ -120,7 +123,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
               })}
             </div>
 
-            {search.trim() && !hasExactMatch && (
+            {search.trim() && !hasExactMatch && !hasStrongMatch && (
               <div className="border-t border-neutral-800 pt-4">
                 <button
                   onClick={() => setShowNewForm(true)}
