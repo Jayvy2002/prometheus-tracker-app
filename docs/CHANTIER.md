@@ -7,7 +7,7 @@
 
 ---
 
-## État au 6 septembre 2026
+## État au 7 septembre 2026
 
 ### Mergé dans `new-JV` (prod Netlify → `tracker.prometheus-fit.com`)
 
@@ -25,40 +25,42 @@
 | #59 | `loop_context` ; `/coach/learned` |
 | #60 | Historique check-in, pas, realtime, diffs kcal/Relancer |
 | #62 | Restes invite/setup (bannière sans nom, toast, ops Setup) |
+| #64 | Copilote OpenAI sur **`gpt-5.6-luna`** (`DEFAULT_OPENAI_MODEL`, `max_completion_tokens`) |
+| #65 | **Chantier A** : Setup garder vs ISSN ; `weeklyNutritionWhy` ; `payload.why` ; `joursDispo` éditeur ; accusé PAR-Q |
 
 ### Drafts orphelins
 
 - [#50](https://github.com/Jayvy2002/prometheus-tracker-app/pull/50) — **fermée** (6 sept.) : restes dans #62.
 - [#42](https://github.com/Jayvy2002/prometheus-tracker-app/pull/42) — **fermée** (6 sept.) : « vider le tracker solo » est contraire à la vision.
 
-### Prod (`phyuijjekxtjvipjtdfv`, snapshot 6 sept.)
+### Prod (`phyuijjekxtjvipjtdfv`, snapshot 7 sept.)
 
-- `coach-agent` **v15** : source #59 (`loop_context`, self-coach), JWT requis.
-- 9 comptes, 2 coachs, 5 coachés, 2 solos, 5 liens actifs.
-- 14 brouillons dont **1 envoyé**, 0 message, 0 photo, 0 note, 1 intake complet, 140 `product_events`, 0 bilan solo, 0 intervention self-coach.
-- Tournée `cron` `0 4 * * *` active. Dernière : 6 sept. 04:00 UTC, 5 vus / 5 cartes / `deterministic` / 0 erreur.
-- Advisors : **0 erreur**. Warnings connus (`SECURITY DEFINER` exposés = par design ; `pg_trgm`/`pg_net` dans `public` ; 3 triggers `updated_at` sans `search_path` ; 18 paires de policies SELECT permissives ; 7 `auth.uid()` par ligne). Rien de bloquant à 9 utilisateurs.
+- Edges : `coach-agent` **v22** (JWT, Luna) ; `notify-onboarding-complete` **v20** ; `analyze-product` **v13** ; `verify-exercise` **v11** ; `coach-fleet-round` **v25** (déterministe, `payload.why`).
+- **Modèle OpenAI :** le code défaut est `gpt-5.6-luna` (`resolveOpenAiModel` : override → secret `OPENAI_MODEL` → défaut). Un secret `OPENAI_MODEL` n’est pas nécessaire — la clé `OPENAI_API_KEY` suffit. Logs Edge 7 sept. : `openai_chat` → `model: gpt-5.6-luna` (0 appel `gpt-4o-mini` sur 24 h). Si un jour les logs montrent autre chose, c’est qu’un secret `OPENAI_MODEL` a été posé.
+- Cycle réel joué (7 sept.) : solo intake → programme IA → accepter → séance ; coach invite → Setup ISSN → tournée → Envoyer → le client voit les kcal + le message.
+- Tournée `cron` `0 4 * * *` active, 100 % déterministe.
+- Advisors : **0 erreur**. Warnings connus (`SECURITY DEFINER` exposés = par design ; `pg_trgm`/`pg_net` dans `public` ; 3 triggers `updated_at` sans `search_path` ; 18 paires de policies SELECT permissives ; 7 `auth.uid()` par ligne).
 - **HIBP / leaked passwords :** warning Auth toujours là. Org **Free** (`Prometheus fitness`) — la protection HaveIBeenPwned est **Pro+**, pas activable aujourd’hui. **Rien n’est compromis** : tous les comptes présents sont des comptes de test. À cocher au passage Pro : [Auth → Email](https://supabase.com/dashboard/project/phyuijjekxtjvipjtdfv/auth/providers?provider=Email).
 
 ---
 
 ## Étape 0 — Fermer la consolidation
 
-À faire **avant** tout nouveau chantier produit.
+**Faite.** Plus rien à attendre ici avant B.
 
-1. **Fait** — #58, #59, #60, #62 mergées. Netlify déploie à chaque merge.
-2. **Fait (6 sept.)** — `coach-agent` **v15** en prod (`phyuijjekxtjvipjtdfv`) : source #59, `loop_context` / `compactLoopContext` / self-coach, `verify_jwt` true. `coach-fleet-round` (mapDossier étendu) reste optionnel — le SQL fleet renvoie déjà les clés, l’ancienne edge les ignore sans casser.
+1. **Fait** — #58, #59, #60, #62, #64, #65 mergées. Netlify déploie à chaque merge.
+2. **Fait** — `coach-agent` **v22** en prod (`phyuijjekxtjvipjtdfv`) : `loop_context` / self-coach / Luna, `verify_jwt` true. `coach-fleet-round` **v25** (déterministe, `payload.why`).
 3. **Fait** — restes #50 dans #62. #50 et #42 fermées.
 4. **HIBP :** pas activable sur le plan Free. Comptes = test, rien de compromis. À faire au passage Pro.
-5. **À toi** — un vrai cycle en prod : solo → intake → programme proposé → accepter → séance ; coach → tournée → Envoyer un brouillon → le client le voit. Le « 1 envoyé » doit monter avant de bâtir plus haut.
+5. **Fait (7 sept.)** — cycle prod : solo → intake → programme proposé → accepter → séance ; coach → tournée → Envoyer → le client voit.
 
 ---
 
 ## Ordre des chantiers
 
-**0 → A → transversal → B → C → D.**
+**0 et A faits → B → C → D.** Le transversal restant (écran télémétrie, perf RLS, lazy) se glisse entre deux.
 
-A est petit et ferme la table VISION. B et C rendent l’acquisition de coachs possible. D attend une décision de prix et des utilisateurs réels — « gratuit tant que le produit n’est pas parfait » reste vrai.
+B et C rendent l’acquisition de coachs possible. D attend une décision de prix et des utilisateurs réels — « gratuit tant que le produit n’est pas parfait » reste vrai.
 
 Hors scope de ces chantiers : changer le north star, un second agent, désactiver le RLS, auto-apply.
 
@@ -66,27 +68,27 @@ Hors scope de ces chantiers : changer le north star, un second agent, désactive
 
 ## Chantier A — Macros coaché (VISION point 5 + 8)
 
-**Petit.** Le Setup **pré-remplit déjà** les 4 champs ISSN (`issnTargetsFromProfile`) et le trigger `protect_coach_nutrition_targets` tient.
+**Fait — #65** (mergé 7 sept.). Trigger `protect_coach_nutrition_targets` inchangé. Jamais d’auto-apply.
 
 ### A1 — Garder ou écraser (point 8)
 
-Au Setup d’un **ex-solo**, montrer clairement « ses cibles actuelles » vs « ISSN » et laisser le coach **garder** ou **écraser**. Aujourd’hui la comparaison n’apparaît que si le profil a des cibles > 0, sans dire d’où elles viennent.
+Setup d’un profil qui a déjà des cibles (≥ 800 kcal) : radios **Garder** (défaut, aucune écriture) vs **Écraser ISSN**. Nouveau coaché (macros vides) : ISSN prérempli, case d’écriture décochée. Éditer les chiffres après « Garder » coche la case.
 
 ### A2 — Le « pourquoi »
 
-Le solo l’a (`soloCopilot.ts`, clé i18n). La tournée coach a des observations chiffrées (`fleetCopy.kcal`) mais pas de phrase d’explication partagée. Une seule fonction d’explication, utilisée par le copilote solo **et** la carte avant / après du brouillon kcal (PR 6).
+`weeklyNutritionWhyKey(reason, 'self' | 'coach')` : le solo garde `soloReview.*` (tutoiement), le coach lit `weeklyWhy.coach.*`. Les cartes `calorie_adjustment` portent `payload.why` (from / to / delta / …). Vieilles cartes sans `why` : fallback `cause`. Fleet **v25** en prod écrit `why`.
 
 ### Tests
 
-`coachOwnedTargets`, lock de copy fleet. Jamais d’auto-apply. Le trigger coach-only reste.
+`weeklyNutritionWhy`, `coachOwnedTargets`, lock de copy fleet.
 
 ---
 
 ## Transversal — à glisser entre deux chantiers
 
-- `joursDispo` pré-rempli dans l’éditeur manuel de programme ; accusé de réception d’un drapeau médical avant Envoyer (reste du chantier 3 VISION).
+- **Fait (#65)** — `joursDispo` pré-rempli dans l’éditeur manuel de programme ; accusé de réception d’un drapeau médical avant Envoyer Setup.
 - Écran de lecture télémétrie coach/admin. `product_events` n’a aujourd’hui qu’une policy INSERT.
-- Migration perf (plus tard, pas urgent à 9 users) : `auth_rls_initplan` ×7 en `(select auth.uid())` ; fusion des paires de policies SELECT permissives.
+- Migration perf (plus tard, pas urgent) : `auth_rls_initplan` ×7 en `(select auth.uid())` ; fusion des paires de policies SELECT permissives.
 - Bundle JS ~1,6 MB : `React.lazy` par route.
 
 ---

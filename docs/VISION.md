@@ -84,13 +84,13 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Coach → solo (fin de lien) | `end_coach_client_link` : rôle `none`, tracking config retirée, programme en pause, cibles conservées, `coach_link_ended_at` + essai 30 j ; le client repasse solo en direct (realtime `user_profiles`) et voit la bannière | Idem + blocage post-essai avec le billing | ✔ (mur : chantier billing) |
 | Accueil coaché | Séance, attente programme (aussi pour un ex-solo), check-in, carte Photos, messages ; plus de streak / deload / rappels / routines | Idem | ✔ |
 | Nav mobile | Coaché : Accueil · Séance · Check-in · Messages · Profil. Solo : hub « Explorer » dans Profil (stats, progression, calendrier, poids, recettes, routines, photos) ; Messages caché sans coach | Idem | ✔ |
-| Macros coaché | Setup pré-remplit ISSN (`issnTargetsFromProfile`) ; écriture coach-only (`protect_coach_nutrition_targets`) ; anneaux masqués jusqu'à Envoyé | Calcul auto, **puis** coach-only ; ex-solo : garder ou écraser explicitement | Chantier A (`docs/CHANTIER.md`) |
+| Macros coaché | Setup pré-remplit ISSN ; ex-solo : radios Garder vs Écraser ISSN ; écriture coach-only (`protect_coach_nutrition_targets`) ; anneaux masqués jusqu'à Envoyé | Calcul auto, **puis** coach-only ; ex-solo : garder ou écraser explicitement | ✔ (#65) |
 | Macros solo | Calculées à la fin de l'intake (Mifflin-St Jeor + activité + objectif, protéines ISSN), éditables dans `GoalsForm` | Idem | ✔ |
-| Proposition hebdo coach | `coach-fleet-round` : Relancer si non assidu, brouillon kcal complet sinon ; 100 % déterministe ; FR/EN du coach ; observations chiffrées | + phrase d'explication partagée avec le solo | Chantier A |
+| Proposition hebdo coach | `coach-fleet-round` : Relancer si non assidu, brouillon kcal complet sinon ; 100 % déterministe ; FR/EN du coach ; `payload.why` via `weeklyNutritionWhyKey` (même mapping que le solo) | + phrase d'explication partagée avec le solo | ✔ (#65) |
 | Proposition hebdo solo | `SoloWeeklyReview` : mêmes règles que la tournée (`proposeWeeklyNutrition`) sur 14 j ; assiduité d'abord sinon relance ; sinon nouvelle cible **+ le pourquoi** ; Appliquer / Garder ; une décision / semaine | Idem | ✔ |
 | Intake | 27 q standard ; mur pour tout nouveau compte ; brouillon à chaque écran ; solo finit sur « Tes cibles » | Builder par coach | ✔ ; chantier B |
 | Intake → IA | `coach-agent` lit `kinesiology_intake` (compacté) ; `objectifType` → `goal` ; filet déterministe honore séances / jours ; `loop_context` (messages, notes, check-ins, photos dates+kinds) | L'agent voit les réponses **et** la boucle | ✔ (#59) |
-| Drapeaux médicaux | Badge roster + fiche 360 + Setup ; carte PAR-Q à « Oui » | Visibles avant d'envoyer + accusé | ✔ (accusé : transversal) |
+| Drapeaux médicaux | Badge roster + fiche 360 + Setup ; carte PAR-Q à « Oui » ; accusé avant Envoyer Setup | Visibles avant d'envoyer + accusé | ✔ (#65) |
 | Programme IA solo | Même moteur (`onboarding_plan` / `program_nl_edit`, JWT + RLS self-coach) ; proposition avant / après / pourquoi ; Accepter assigne, Refuser → routines | Idem | ✔ (#58) |
 | Check-in / pas / live | Historique 14 j ; `StepsTracker` ; realtime `program_days` / lifts / photos ; diffs kcal/Relancer | Idem | ✔ (#60) |
 | Billing | Stripe ×3 en 410 ; `solo_trial_ends_at` posé, aucun mur | Gratuit pendant la construction | ✔ ; chantier D |
@@ -102,7 +102,7 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 
 ## Phase actuelle : chantiers (après consolidation)
 
-La consolidation de septembre 2026 est **dans `new-JV`**. `coach-agent` **v15** (`loop_context`) est en prod. #58–#60 et #62 sont mergées. Il reste un vrai cycle en prod (étape 0.5 de `docs/CHANTIER.md`). Ensuite les chantiers A → D, pas un nouvel audit.
+La consolidation de septembre 2026 est **dans `new-JV`**. `coach-agent` **v22** (Luna + `loop_context`) et `coach-fleet-round` **v25** sont en prod. #58–#60, #62, #64, #65 mergées. L’étape 0 (cycle prod) et le chantier A sont **faits**. Ensuite B → C → D, pas un nouvel audit.
 
 Les trois axes de la consolidation restent le test de chaque livraison :
 
@@ -110,7 +110,7 @@ Les trois axes de la consolidation restent le test de chaque livraison :
 - **Boucle coach** : intake du client → analyse → proposition → le coach valide → le client exécute → détection → nouvelles propositions. Même cerveau, autorité différente.
 - **Rien ne s'auto-applique.**
 
-Snapshot prod (6 sept., projet `phyuijjekxtjvipjtdfv`) : 9 comptes, 2 coachs, 5 coachés, 2 solos ; tournée cron 04:00 UTC déterministe ; 14 brouillons dont **1 envoyé** ; 0 message, 0 photo. `coach-agent` **v15** (`loop_context`). Le produit n'a pas encore vécu un vrai cycle coach → client. Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client sont appliquées. Les numéros de migration en base diffèrent du repo (ré-horodatées le 24 août) — pas une dérive de schéma.
+Snapshot prod (7 sept., projet `phyuijjekxtjvipjtdfv`) : cycle solo + coach joué ; tournée cron 04:00 UTC déterministe ; `coach-agent` **v22** (`loop_context`, `gpt-5.6-luna` — logs `openai_chat`) ; fleet **v25** (`payload.why`). Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client sont appliquées. Les numéros de migration en base diffèrent du repo (ré-horodatées le 24 août) — pas une dérive de schéma.
 
 ---
 
@@ -120,10 +120,10 @@ Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
 
 | # | Quoi | État |
 |---|---|---|
-| 0 | Stack mergé (#58–#60, #62) ; `coach-agent` v15 ; HIBP = Pro+ (comptes test, rien de compromis) ; **vrai cycle en prod** | Code fait ; cycle à jouer |
+| 0 | Stack mergé (#58–#60, #62, #64, #65) ; `coach-agent` v22 / Luna ; HIBP = Pro+ (comptes test, rien de compromis) ; **cycle prod joué** | ✔ (7 sept.) |
 | 1 | Copilote solo (intake + hebdo + programme vivant) | ✔ code (#46, #47, #58) |
-| A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | À faire |
-| 3 | Intake dans la boucle coach | ✔ ; reste `joursDispo` éditeur + accusé drapeau (transversal) |
+| A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | ✔ (#65) |
+| 3 | Intake dans la boucle coach | ✔ ; `joursDispo` éditeur + accusé drapeau (#65) |
 | B | Builder de questionnaire par coach | À faire |
 | 5 | Télémétrie d'usage | ✔ table + `track()` ; écran lecture = transversal |
 | 6 | Bilingue EN + FR | ✔ (#53 / #54) |
