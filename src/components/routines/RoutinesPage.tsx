@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Plus, Repeat, ChevronRight, Trash2, Play, ArrowLeft, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useRoutineStore } from '../../stores/routineStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { isSoloAthlete } from '../../lib/coachRole';
 import { formatDate } from '../../lib/utils';
 
 import Card from '../ui/Card';
@@ -19,6 +21,8 @@ export default function RoutinesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
   const { routines, loading, fetchRoutines, deleteRoutine, fetchRoutineWithExercises } = useRoutineStore();
   const { workouts, fetchWorkouts } = useWorkoutStore();
 
@@ -32,6 +36,10 @@ export default function RoutinesPage() {
     fetchRoutines(user.id);
     if (workouts.length === 0) fetchWorkouts(user.id);
   }, [user]);
+
+  if (isSoloAthlete(coachingRole, myCoach)) {
+    return <Navigate to="/programs" replace />;
+  }
 
   const getRoutineStats = (routineId: string) => {
     const used = workouts.filter(w => w.routine_id === routineId && w.completed);

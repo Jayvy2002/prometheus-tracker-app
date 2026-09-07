@@ -6,6 +6,7 @@ import {
   EMPTY_INTAKE_USAGE,
   ORIGINAL_LABELS_FR,
   ORIGINAL_QUESTION_IDS,
+  deriveFoisParSemaine,
   emptyIntake,
   formatAnswer,
   intakeGateNeedsUsageProbe,
@@ -15,6 +16,7 @@ import {
   medicalFlagIds,
   originalAnswersComplete,
   parseIntake,
+  prepareIntakeForSave,
   profileHasMedicalFlags,
   profileShowsExistingAppUse,
   screenCanProceed,
@@ -191,8 +193,23 @@ describe('kinesiologyIntake original form', () => {
 
     const ready = completeOriginal();
     assert.equal(screenCanProceed(ready, 0), true);
-    assert.equal(screenCanProceed(ready, 7), true);
+    assert.equal(screenCanProceed(ready, 7), false);
     assert.equal(originalAnswersComplete(ready), true);
+
+    assert.equal(screenCanProceed(completeOriginal({
+      objectifPrincipal: '',
+      depuisCombienDeTemps: '',
+      foisParSemaine: '',
+      programmeStructure: '',
+      prefereProgramme: '',
+    }), 1), true);
+    assert.equal(originalAnswersComplete(completeOriginal({
+      objectifPrincipal: '',
+      depuisCombienDeTemps: '',
+      foisParSemaine: '',
+      programmeStructure: '',
+      prefereProgramme: '',
+    })), true);
 
     const pain = completeOriginal({ douleursLimitations: 'Oui', mouvementAEviter: '' });
     assert.equal(screenCanProceed(pain, 4), false);
@@ -203,6 +220,28 @@ describe('kinesiologyIntake original form', () => {
     assert.equal(screenCanProceed(heart, 5), false);
     heart.conditionMedicalePrecise = 'HTA suivie';
     assert.equal(screenCanProceed(heart, 5), true);
+  });
+
+  it('derives foisParSemaine and fills objectifPrincipal on save, without a extras dump screen', () => {
+    assert.equal(deriveFoisParSemaine('1'), '1-2');
+    assert.equal(deriveFoisParSemaine('3'), '3-4');
+    assert.equal(deriveFoisParSemaine('5'), '5-6');
+    assert.equal(deriveFoisParSemaine('7'), '7+');
+    const prepared = prepareIntakeForSave(completeOriginal({
+      objectifPrincipal: '',
+      foisParSemaine: '',
+      seancesRealistes: '3',
+    }));
+    assert.equal(prepared.foisParSemaine, '3-4');
+    assert.equal(prepared.objectifPrincipal, 'Perdre du gras');
+    const patch = intakeToProfilePatch(completeOriginal({
+      objectifPrincipal: '',
+      foisParSemaine: '',
+      seancesRealistes: '5',
+    }), '2026-09-06T00:00:00.000Z');
+    const stored = patch.kinesiology_intake as ReturnType<typeof emptyIntake>;
+    assert.equal(stored.foisParSemaine, '5-6');
+    assert.equal(stored.objectifPrincipal, 'Perdre du gras');
   });
 
   it('only completed_at counts — a fully answered draft is still a draft (resume must not lift the wall)', () => {
@@ -218,11 +257,11 @@ describe('kinesiologyIntake original form', () => {
     assert.equal(intakeResumeScreen(midway), 3);
     const onlyPrefsMissing = completeOriginal({ typesExercices: [] });
     assert.equal(intakeResumeScreen(onlyPrefsMissing), 6);
-    assert.equal(intakeResumeScreen(completeOriginal()), 7);
+    assert.equal(intakeResumeScreen(completeOriginal()), 6);
     const startedExtras = completeOriginal({
       extras: { ...emptyIntake().extras, objectifType: 'cut', sommeil: '7_8' },
     });
-    assert.equal(intakeResumeScreen(startedExtras), 8);
+    assert.equal(intakeResumeScreen(startedExtras), 6);
   });
 
   it('solo targets: Mifflin-St Jeor + activity + goal, ISSN protein, never for a coached client', () => {
@@ -453,6 +492,12 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(flow, /prefereProgramme/);
     assert.match(flow, /<TextArea value=\{intake\.objectifPrincipal\}/);
     assert.match(flow, /<TextArea value=\{intake\.prefereProgramme\}/);
+    assert.doesNotMatch(flow, /extrasTitle/);
+    assert.doesNotMatch(flow, /extrasHint/);
+    assert.doesNotMatch(flow, /ScreenExtras/);
+    assert.doesNotMatch(flow, /ScreenReste/);
+    assert.match(flow, /deriveFoisParSemaine/);
+    assert.match(flow, /prepareIntakeForSave/);
   });
 
   it('gates coached invite clients on this intake, not the tracker calorie onboarding', () => {

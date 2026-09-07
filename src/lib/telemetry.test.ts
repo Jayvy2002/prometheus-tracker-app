@@ -81,7 +81,7 @@ test('track() is wired on the loops that matter (coach, client, solo)', () => {
   assert.match(src('src/components/auth/AuthPage.tsx'), /track\('account_created'/);
   assert.match(src('src/components/dashboard/SoloProgramProposal.tsx'), /track\('solo_program_accepted'/);
   assert.match(src('src/components/dashboard/SoloProgramProposal.tsx'), /track\('solo_program_dismissed'/);
-  assert.match(src('src/components/programs/ClientProgramPage.tsx'), /track\('solo_program_nl_asked'/);
+  assert.match(src('src/components/coaching/ProgramSessionEditor.tsx'), /track\('solo_program_nl_asked'/);
   assert.match(src('src/components/coaching/ClientSetupPage.tsx'), /track\('setup_targets_choice'/);
   assert.match(src('src/lib/types.ts'), /'setup_targets_choice'/);
   const client = src('src/lib/telemetryClient.ts');

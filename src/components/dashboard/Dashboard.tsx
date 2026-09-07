@@ -302,6 +302,7 @@ export default function Dashboard() {
             starting={startingRoutine}
             onStart={startProgramDay}
             onContinue={workoutId => navigate(`/workout/${workoutId}`)}
+            onEditPlan={!hasCoach ? () => navigate('/programs') : undefined}
           />
         )}
         {hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
@@ -510,7 +511,7 @@ export default function Dashboard() {
             <ClipboardCheck size={16} className="text-violet-300 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white">{t('checkin.dashboardCta')}</p>
-              <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHint')}</p>
+              <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHintSolo')}</p>
             </div>
             <ChevronRight size={16} className="text-violet-300/70" />
           </button>
@@ -540,8 +541,8 @@ export default function Dashboard() {
               >
                 <Flame size={20} className="text-orange-400" />
               </ProgressRing>
-              <p className="text-sm font-bold text-white mt-1">{Math.round(consumed)}</p>
-              <p className="text-[10px] text-neutral-500">/ {calorieTarget} kcal</p>
+              <p className="text-sm font-bold text-white mt-1">{consumed === 0 ? '—' : Math.round(consumed)}</p>
+              <p className="text-[10px] text-neutral-500">{consumed === 0 ? t('dashboard.notLoggedYet') : `/ ${calorieTarget} kcal`}</p>
             </button>
             )}
 
@@ -551,7 +552,7 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.protein')}</span>
-                  <span className="text-[11px] text-neutral-400">{Math.round(proteinConsumed)}g / {proteinTarget}g</span>
+                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(proteinConsumed)}g / ${proteinTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
@@ -566,7 +567,7 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.carbs')}</span>
-                  <span className="text-[11px] text-neutral-400">{Math.round(carbsConsumed)}g / {carbsTarget}g</span>
+                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(carbsConsumed)}g / ${carbsTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
@@ -581,7 +582,7 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.fat')}</span>
-                  <span className="text-[11px] text-neutral-400">{Math.round(fatConsumed)}g / {fatTarget}g</span>
+                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(fatConsumed)}g / ${fatTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div

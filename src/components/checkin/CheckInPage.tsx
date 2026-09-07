@@ -1,18 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Check } from 'lucide-react';
+import { Check, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
+import { useCoachingStore } from '../../stores/coachingStore';
 import { todayStr } from '../../lib/utils';
 import { clampCheckinScore } from '../../lib/checkinScale';
+import { isSoloAthlete } from '../../lib/coachRole';
 import { useClientTracking } from '../../lib/useClientTracking';
 import {
+  CHECKIN_CORE_VAR_KEYS,
   CHECKIN_SCALE_BY_VAR,
   checkinHasAnyField,
   showCheckinField,
   visibleCheckinFields,
   type CheckinScaleKey,
+  type CheckinVarKey,
 } from '../../lib/clientTracking';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
@@ -42,8 +46,20 @@ export default function CheckInPage() {
   const { user } = useAuthStore();
   const { todayCheckin, checkins, loading, fetchToday, fetchRecent, upsertToday } = useCheckinStore();
   const tracking = useClientTracking();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
   const fields = useMemo(() => visibleCheckinFields(tracking), [tracking]);
+  const coreVars = useMemo(
+    () => CHECKIN_CORE_VAR_KEYS.filter(key => showCheckinField(tracking, key)),
+    [tracking],
+  );
+  const extraVars = useMemo(
+    () => fields.filter(key => !CHECKIN_CORE_VAR_KEYS.includes(key) && key !== 'notes'),
+    [fields],
+  );
   const [saving, setSaving] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [sleepHours, setSleepHours] = useState('');
   const [notes, setNotes] = useState('');
   const [scales, setScales] = useState<Record<CheckinScaleKey, number | null>>({
@@ -146,15 +162,38 @@ export default function CheckInPage() {
     );
   }
 
+  const extraHasAnswers = extraVars.some(key => {
+    const col = CHECKIN_SCALE_BY_VAR[key];
+    return col != null && scales[col] != null;
+  }) || (showCheckinField(tracking, 'notes') && notes.trim().length > 0);
+  const showExtras = !solo || moreOpen || extraHasAnswers;
+
+  const renderSlider = (key: CheckinVarKey) => {
+    const col = CHECKIN_SCALE_BY_VAR[key];
+    if (!col) return null;
+    const copy = SCALE_COPY[col];
+    return (
+      <ScoreSlider
+        key={key}
+        label={t(`checkin.fields.${copy.field}`)}
+        low={t(`checkin.low.${copy.low}`)}
+        high={t(`checkin.high.${copy.high}`)}
+        value={scales[col]}
+        unsetLabel={t('checkin.notSet')}
+        onChange={v => setScale(col, v)}
+      />
+    );
+  };
+
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('checkin.title')}</h1>
-        <p className="text-sm text-neutral-500 mb-1">{t('checkin.subtitle')}</p>
+        <p className="text-sm text-neutral-500 mb-1">{solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')}</p>
         <p className="text-[11px] text-neutral-600 mb-6">{t('checkin.scaleHint')}</p>
 
         <div className="space-y-5">
-          {showCheckinField(tracking, 'sleep_hours') && (
+          {coreVars.includes('sleep_hours') && (
             <div>
               <label className="text-sm font-medium text-white block mb-1.5">{t('checkin.sleepHours')}</label>
               <input
@@ -168,37 +207,40 @@ export default function CheckInPage() {
                 placeholder="7.5"
                 className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
               />
-              <p className="text-[10px] text-neutral-600 mt-1">{t('checkin.optional')}</p>
             </div>
           )}
 
-          {fields.map(key => {
-            const col = CHECKIN_SCALE_BY_VAR[key];
-            if (!col) return null;
-            const copy = SCALE_COPY[col];
-            return (
-              <ScoreSlider
-                key={key}
-                label={t(`checkin.fields.${copy.field}`)}
-                low={t(`checkin.low.${copy.low}`)}
-                high={t(`checkin.high.${copy.high}`)}
-                value={scales[col]}
-                unsetLabel={t('checkin.notSet')}
-                onChange={v => setScale(col, v)}
-              />
-            );
-          })}
+          {coreVars.filter(key => key !== 'sleep_hours').map(renderSlider)}
 
-          {showCheckinField(tracking, 'notes') && (
-            <div>
-              <label className="text-sm font-medium text-white block mb-1.5">{t('checkin.notes')}</label>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                rows={3}
-                placeholder={t('checkin.notesPlaceholder')}
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
-              />
+          {solo && extraVars.length + (showCheckinField(tracking, 'notes') ? 1 : 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => setMoreOpen(o => !o)}
+              className="flex items-center gap-2 text-sm text-blue-300"
+            >
+              <ChevronDown size={16} className={showExtras ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              {t('checkin.moreDetails')}
+            </button>
+          )}
+
+          {showExtras && (
+            <div className="space-y-5">
+              {extraVars.map(renderSlider)}
+              {showCheckinField(tracking, 'notes') && (
+                <div>
+                  <label className="text-sm font-medium text-white block mb-1.5">
+                    {t('checkin.notes')}
+                    <span className="text-neutral-500 font-normal"> · {t('checkin.optional')}</span>
+                  </label>
+                  <textarea
+                    value={notes}
+                    onChange={e => setNotes(e.target.value)}
+                    rows={3}
+                    placeholder={t('checkin.notesPlaceholder')}
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 resize-none"
+                  />
+                </div>
+              )}
             </div>
           )}
 

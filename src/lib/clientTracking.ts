@@ -22,6 +22,14 @@ export type TrainingVarKey = typeof TRAINING_VAR_KEYS[number];
 export type NutritionVarKey = typeof NUTRITION_VAR_KEYS[number];
 export type CheckinVarKey = typeof CHECKIN_VAR_KEYS[number];
 
+/** Solo daily check-in: these stay on screen; everything else is behind « more details ». */
+export const CHECKIN_CORE_VAR_KEYS: readonly CheckinVarKey[] = [
+  'sleep_hours',
+  'sleep_quality',
+  'energy',
+  'stress',
+];
+
 export type TrainingVars = Record<TrainingVarKey, boolean>;
 export type NutritionVars = Record<NutritionVarKey, boolean>;
 export type CheckinVars = Record<CheckinVarKey, boolean>;

@@ -6,9 +6,11 @@ import { isSoloAthlete } from './coachRole';
 import {
   isSoloProgramKind,
   pendingSoloProgramDraft,
+  programDaysToDraft,
   soloDraftEdited,
   soloDraftWhy,
 } from './soloProgram';
+import { muscleLabel } from './muscleLabels';
 import type { CoachIntervention } from './types';
 
 function src(rel: string): string {
@@ -91,13 +93,82 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   assert.match(dash, /SoloProgramProposal/);
   const page = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(page, /SoloProgramProposal/);
-  assert.match(page, /program_nl_edit/);
+  assert.match(page, /ProgramSessionEditor/);
+  assert.match(page, /isSoloAthlete/);
+  assert.match(page, /presentation="athlete"/);
+  assert.match(page, /programs\.soloReadFirst/);
+  const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
+  assert.match(editor, /presentation\?: 'coach' \| 'athlete'/);
+  assert.match(editor, /programs\.tapToEdit/);
+  assert.match(editor, /programs\.cycleDetails/);
+  assert.match(editor, /formatExercisePrescription/);
   assert.doesNotMatch(page, /\/programs\/new/);
   assert.doesNotMatch(page, /createProgram/);
   const card = src('src/components/dashboard/SoloProgramProposal.tsx');
   assert.match(card, /resolveIntervention\(row\.id, 'sent'/);
   assert.match(card, /resolveIntervention\(row\.id, 'dismissed'/);
-  assert.match(card, /navigate\('\/routines'\)/);
+  assert.match(card, /navigate\('\/programs'\)/);
+  assert.doesNotMatch(card, /navigate\('\/routines'\)/);
   assert.match(card, /solo_program_accepted/);
   assert.match(card, /applyProgramOutline\(user\.id/);
+  assert.match(card, /ProgramSessionEditor/);
+  const hub = src('src/components/profile/SoloHub.tsx');
+  assert.doesNotMatch(hub, /\/routines/);
+  const routines = src('src/components/routines/RoutinesPage.tsx');
+  assert.match(routines, /Navigate to="\/programs"/);
+});
+
+test('assigned program days convert to the session-editor draft', () => {
+  const draft = programDaysToDraft([
+    {
+      id: 'd1',
+      program_id: 'p',
+      weekday: 3,
+      name: 'Pull',
+      routine_id: null,
+      order_index: 1,
+      created_at: '',
+      exercises: [{
+        id: 'e1',
+        program_day_id: 'd1',
+        name: 'Row',
+        default_sets: 4,
+        default_reps: 8,
+        default_reps_min: 6,
+        default_rir: 2,
+        default_rest_seconds: 90,
+        default_weight_kg: null,
+        order_index: 0,
+        created_at: '',
+      }],
+    },
+  ]);
+  assert.equal(draft.length, 1);
+  assert.equal(draft[0].weekday, 3);
+  assert.equal(draft[0].exercises[0]?.name, 'Row');
+  assert.equal(programDaysToDraft([]).length, 1);
+  assert.equal(programDaysToDraft([]).at(0)?.exercises.length, 0);
+});
+
+test('Entraînements is the séance du jour, not a second program editor', () => {
+  const page = src('src/components/workout/WorkoutPage.tsx');
+  assert.match(page, /ClientGymCard/);
+  assert.match(page, /startProgramDay/);
+  assert.doesNotMatch(page, /nav\.myProgram/);
+  assert.doesNotMatch(page, /workout\.myRoutines/);
+  const profile = src('src/components/profile/ProfilePage.tsx');
+  assert.match(profile, /md:hidden/);
+  assert.match(profile, /<SoloHub/);
+  const recipes = src('src/components/nutrition/RecipesPage.tsx');
+  assert.match(recipes, /nutrition\.recipes\.title/);
+  assert.match(recipes, /nutrition\.recipes\.searchPlaceholder/);
+  assert.doesNotMatch(recipes, />Recipes</);
+  const fr = src('src/i18n/locales/fr.ts');
+  assert.match(fr, /previewHint: 'Ça ne lance pas la séance\.'/);
+  assert.match(fr, /dashboardHintSolo:/);
+  assert.match(fr, /subtitleSolo:/);
+  assert.doesNotMatch(fr, /addWorkout: 'Ajouter une séance'/);
+  assert.equal(muscleLabel('chest'), 'Pectoraux');
+  assert.equal(muscleLabel('quadriceps'), 'Quadriceps');
+  assert.equal(muscleLabel('upper_chest', 'en'), 'Upper chest');
 });

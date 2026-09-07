@@ -1,49 +1,61 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, ChevronRight, Dumbbell, Trash2, Repeat, Play, TrendingUp } from 'lucide-react';
+import { Plus, Clock, ChevronRight, Dumbbell, Trash2, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { useRoutineStore } from '../../stores/routineStore';
-import { formatDate, formatDuration, todayStr } from '../../lib/utils';
+import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import type { Workout } from '../../lib/types';
+import { resolveClientGymCard } from '../../lib/clientGym';
+import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { useProgramStore } from '../../stores/programStore';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
 import SessionReadout from './SessionReadout';
+import ClientGymCard from '../dashboard/ClientGymCard';
 
 export default function WorkoutPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { workouts, loading, fetchWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
-  const { routines, loading: routinesLoading, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
+  const assignment = useProgramStore(s => s.assignment);
+  const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [startingRoutine, setStartingRoutine] = useState<string | null>(null);
+  const [startingGym, setStartingGym] = useState(false);
   const [displayCount, setDisplayCount] = useState(20);
   const [lastFull, setLastFull] = useState<Workout | null>(null);
 
   const PAGE_SIZE = 20;
+  const gymCard = resolveClientGymCard({
+    hasActiveProgram: assignment?.status === 'active' && !!assignment.program,
+    days: assignment?.program?.days,
+    workouts,
+    todayWeekday: new Date().getDay(),
+    todayDate: todayStr(),
+    assignmentId: assignment?.id,
+  });
+
 
   useEffect(() => {
     if (user) {
       fetchWorkouts(user.id);
-      fetchRoutines(user.id);
+      void fetchMyAssignment(user.id);
     }
-  }, [user]);
+  }, [user, coached]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const lastCompleted = lastCompletedWorkout(workouts, todayStr());
   const lastCompletedId = lastCompleted?.id ?? '';
@@ -110,20 +122,23 @@ export default function WorkoutPage() {
     }
   };
 
-  const startFromRoutine = async (routineId: string) => {
-    if (!user) return;
-    setStartingRoutine(routineId);
+  const startProgramDay = async (day: ProgramDay) => {
+    if (!user || !assignment?.program) return;
+    setStartingGym(true);
     try {
-      const routine = await fetchRoutineWithExercises(routineId);
-      if (!routine) return;
       const workoutId = await startWorkoutFromTemplate({
         userId: user.id,
-        name: routine.name,
-        routineId,
-        exercises: (routine.exercises ?? []).map(ex => ({
+        name: day.name || assignment.program.name,
+        programAssignmentId: assignment.id,
+        programDayId: day.id,
+        exercises: (day.exercises ?? []).map(ex => ({
           name: ex.name,
           default_sets: ex.default_sets,
           default_reps: ex.default_reps,
+          default_reps_min: ex.default_reps_min,
+          default_rir: ex.default_rir,
+          default_rest_seconds: ex.default_rest_seconds,
+          default_weight_kg: ex.default_weight_kg,
           order_index: ex.order_index,
         })),
       });
@@ -135,7 +150,7 @@ export default function WorkoutPage() {
     } catch {
       toast(t('workout.startRoutineFailed'), 'error');
     } finally {
-      setStartingRoutine(null);
+      setStartingGym(false);
     }
   };
 
@@ -167,50 +182,17 @@ export default function WorkoutPage() {
         </div>
       </div>
 
-      {!coached && !routinesLoading && routines.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.myRoutines')}</h2>
-            <button
-              onClick={() => navigate('/routines')}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
-            >
-              {t('common.manage')}
-            </button>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
-            {routines.map((r, i) => {
-              const exercises = r.exercises ?? [];
-              const isStarting = startingRoutine === r.id;
-              return (
-                <button
-                  key={r.id}
-                  onClick={() => !isStarting && startFromRoutine(r.id)}
-                  disabled={isStarting}
-                  className="flex-shrink-0 w-40 bg-neutral-900/60 border border-neutral-800/50 rounded-xl p-3 text-left hover:border-blue-600/40 hover:bg-neutral-800 transition-all group disabled:opacity-60 animate-fade-in-scale"
-                  style={{ animationDelay: `${i * 50}ms` }}
-                >
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 flex items-center justify-center">
-                      <Repeat size={14} />
-                    </div>
-                    <div className="w-6 h-6 rounded-full bg-blue-600/10 text-blue-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-auto">
-                      {isStarting ? (
-                        <div className="w-3 h-3 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        <Play size={10} fill="currentColor" />
-                      )}
-                    </div>
-                  </div>
-                  <p className="text-sm font-medium text-white truncate">{r.name}</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">
-                    {exercises.length} {exercises.length !== 1 ? t('workout.exercises') : t('workout.exercise')}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      {assignment?.program && gymCard.kind !== 'none' && (
+        <ClientGymCard
+          card={gymCard}
+          programName={assignment.program.name}
+          programWeek={programWeekNumber(assignment.start_date, assignment.program.duration_weeks)}
+          durationWeeks={assignment.program.duration_weeks}
+          starting={startingGym}
+          onStart={startProgramDay}
+          onContinue={workoutId => navigate(`/workout/${workoutId}`)}
+          onEditPlan={!coached ? () => navigate('/programs') : undefined}
+        />
       )}
 
       {lastCompleted && (

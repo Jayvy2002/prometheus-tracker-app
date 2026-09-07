@@ -7,11 +7,13 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-test('client Mon programme is read-only assigned plan, not a wizard', () => {
+test('client Mon programme is the assigned plan; coached stays read-only, solo edits like a routine', () => {
   const page = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(page, /programs\.mineTitle/);
   assert.match(page, /fetchMyAssignment/);
   assert.match(page, /programs\.todayBadge/);
+  assert.match(page, /ProgramSessionEditor/);
+  assert.match(page, /isSoloAthlete/);
   assert.doesNotMatch(page, /\/programs\/new/);
   assert.doesNotMatch(page, /createProgram/);
   assert.doesNotMatch(page, /navigate\('\/routines'\)/);

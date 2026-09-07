@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart2, CalendarDays, CalendarRange, Camera, ChefHat, Dumbbell, Scale, TrendingUp } from 'lucide-react';
+import { BarChart2, CalendarDays, CalendarRange, Camera, ChefHat, Scale, TrendingUp } from 'lucide-react';
 import Card from '../ui/Card';
 
 /**
@@ -17,7 +17,6 @@ export default function SoloHub() {
     { path: '/calendar', icon: CalendarDays, label: t('nav.calendar') },
     { path: '/weight', icon: Scale, label: t('nav.weight') },
     { path: '/recipes', icon: ChefHat, label: t('nav.recipes') },
-    { path: '/routines', icon: Dumbbell, label: t('workout.myRoutines') },
     { path: '/photos', icon: Camera, label: t('nav.photos') },
   ];
   return (

@@ -276,10 +276,10 @@ export interface KinesiologyIntake {
   extras: IntakeExtras;
 }
 
-export const TOTAL_INTAKE_SCREENS = 9;
-export const EXTRA_SCREEN_INDEX = 8;
-/** Solo only: shown after the extras, computes kcal / macros from the answers. */
-export const TARGETS_SCREEN_INDEX = 9;
+/** Content screens 0–6 (extras live on those screens). Solo then sees computed targets. */
+export const TOTAL_INTAKE_SCREENS = 7;
+/** Solo only: shown after the last content screen, computes kcal / macros from the answers. */
+export const TARGETS_SCREEN_INDEX = 7;
 
 export function emptyIntakeExtras(): IntakeExtras {
   return {
@@ -440,15 +440,42 @@ export function isIntakeObjectifType(value: string): value is IntakeObjectifType
   return EXTRA_OBJECTIF_OPTIONS.some(o => o.value === value);
 }
 
+/**
+ * Maps realistic weekly sessions onto the original « fois par semaine » bands so the 27-question
+ * jsonb stays populated without asking the same thing twice.
+ */
+export function deriveFoisParSemaine(seancesRealistes: string): string {
+  const n = Number(seancesRealistes);
+  if (!Number.isFinite(n) || n < 1) return '';
+  if (n <= 2) return '1-2';
+  if (n <= 4) return '3-4';
+  if (n <= 6) return '5-6';
+  return '7+';
+}
+
+/** Fill derived / default original fields before persist. Stored values stay French. */
+export function prepareIntakeForSave(intake: KinesiologyIntake): KinesiologyIntake {
+  const derived = deriveFoisParSemaine(intake.seancesRealistes);
+  let objectifPrincipal = intake.objectifPrincipal;
+  if (!filled(objectifPrincipal) && isIntakeObjectifType(intake.extras.objectifType)) {
+    const opt = EXTRA_OBJECTIF_OPTIONS.find(o => o.value === intake.extras.objectifType);
+    if (opt) objectifPrincipal = opt.labelFr;
+  }
+  return {
+    ...intake,
+    objectifPrincipal,
+    foisParSemaine: derived || intake.foisParSemaine,
+  };
+}
+
 export function originalAnswersComplete(intake: KinesiologyIntake): boolean {
   if (!filled(intake.nom) || !filled(intake.prenom)) return false;
   if (!positiveNumber(intake.age, 10, 99)) return false;
   if (!filled(intake.sexeGenre)) return false;
   if (!positiveNumber(intake.tailleCm, 100, 250)) return false;
   if (!positiveNumber(intake.poidsApproxKg, 30, 300)) return false;
-  if (!filled(intake.objectifPrincipal) || !filled(intake.depuisCombienDeTemps)) return false;
-  if (!filled(intake.niveauActuel) || !filled(intake.foisParSemaine)) return false;
-  if (intake.programmeStructure !== 'Oui' && intake.programmeStructure !== 'Non') return false;
+  if (!isIntakeObjectifType(intake.extras.objectifType)) return false;
+  if (!filled(intake.niveauActuel)) return false;
   if (!positiveNumber(intake.seancesRealistes, 1, 14)) return false;
   if (!filled(intake.dureeIdeale) || !filled(intake.lieu)) return false;
   if (intake.equipement.length === 0) return false;
@@ -463,7 +490,6 @@ export function originalAnswersComplete(intake: KinesiologyIntake): boolean {
   if (medicalYesFlags(intake) && !filled(intake.conditionMedicalePrecise)) return false;
   if (intake.typesExercices.length === 0) return false;
   if (intake.typesExercices.includes('Autre') && !filled(intake.typesExercicesAutre)) return false;
-  if (!filled(intake.prefereProgramme)) return false;
   return true;
 }
 
@@ -476,12 +502,9 @@ export function screenCanProceed(intake: KinesiologyIntake, screen: number): boo
         && positiveNumber(intake.tailleCm, 100, 250)
         && positiveNumber(intake.poidsApproxKg, 30, 300);
     case 1:
-      return filled(intake.objectifPrincipal)
-        && isIntakeObjectifType(intake.extras.objectifType)
-        && filled(intake.depuisCombienDeTemps);
+      return isIntakeObjectifType(intake.extras.objectifType);
     case 2:
-      return filled(intake.niveauActuel) && filled(intake.foisParSemaine)
-        && (intake.programmeStructure === 'Oui' || intake.programmeStructure === 'Non')
+      return filled(intake.niveauActuel)
         && positiveNumber(intake.seancesRealistes, 1, 14)
         && filled(intake.dureeIdeale);
     case 3:
@@ -499,12 +522,7 @@ export function screenCanProceed(intake: KinesiologyIntake, screen: number): boo
         && (!medicalYesFlags(intake) || filled(intake.conditionMedicalePrecise));
     case 6:
       return intake.typesExercices.length > 0
-        && (!intake.typesExercices.includes('Autre') || filled(intake.typesExercicesAutre))
-        && filled(intake.prefereProgramme);
-    case 7:
-      return true;
-    case 8:
-      return true;
+        && (!intake.typesExercices.includes('Autre') || filled(intake.typesExercicesAutre));
     default:
       return false;
   }
@@ -521,23 +539,15 @@ export function isIntakeAlreadyFilled(profile: {
   return !!profile?.kinesiology_intake_completed_at;
 }
 
-/** objectifType is answered on the goal screen (1), not on the extras screen — it does not count here. */
-function extrasHaveAnyAnswer(extras: IntakeExtras): boolean {
-  return Object.entries(extras).some(([key, value]) => (
-    key !== 'objectifType'
-    && (Array.isArray(value) ? value.length > 0 : value.trim().length > 0)
-  ));
-}
-
 /**
- * Where a saved draft resumes: the first screen that cannot proceed yet, otherwise the free-text
- * screen (or the extras screen if the client had already started answering the extras).
+ * Where a saved draft resumes: the first content screen that cannot proceed yet, otherwise the
+ * last content screen (prefs — optional free text lives there).
  */
 export function intakeResumeScreen(intake: KinesiologyIntake): number {
-  for (let screen = 0; screen < 7; screen++) {
+  for (let screen = 0; screen < TOTAL_INTAKE_SCREENS; screen++) {
     if (!screenCanProceed(intake, screen)) return screen;
   }
-  return extrasHaveAnyAnswer(intake.extras) ? EXTRA_SCREEN_INDEX : 7;
+  return TOTAL_INTAKE_SCREENS - 1;
 }
 
 export interface SoloIntakeTargets {
@@ -717,7 +727,8 @@ const NUTRITION_KEYS = [
   'fat_target',
 ] as const;
 
-export function intakeToProfilePatch(intake: KinesiologyIntake, completedAt: string): Record<string, unknown> {
+export function intakeToProfilePatch(raw: KinesiologyIntake, completedAt: string): Record<string, unknown> {
+  const intake = prepareIntakeForSave(raw);
   const height = Number(intake.tailleCm);
   const weight = Number(intake.poidsApproxKg);
   const sessions = Number(intake.seancesRealistes);

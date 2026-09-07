@@ -9,7 +9,32 @@ import {
   parseProgramPatch,
   parseTalkingPoints,
 } from './coachInterventions';
-import type { CoachIntervention, Program } from './types';
+import type { AiProgramDayDraft, CoachIntervention, Program, ProgramDay } from './types';
+
+export function emptyProgramDraftDay(weekday = 1): AiProgramDayDraft {
+  return { weekday, name: '', exercises: [] };
+}
+
+/** Assigned program days → the same draft shape the session editor / copilot outline use. */
+export function programDaysToDraft(days: ProgramDay[] | undefined | null): AiProgramDayDraft[] {
+  const sorted = [...(days ?? [])].sort((a, b) => a.order_index - b.order_index);
+  if (sorted.length === 0) return [emptyProgramDraftDay()];
+  return sorted.map(d => ({
+    weekday: d.weekday,
+    name: d.name,
+    exercises: [...(d.exercises ?? [])]
+      .sort((a, b) => a.order_index - b.order_index)
+      .map(ex => ({
+        name: ex.name,
+        default_sets: ex.default_sets,
+        default_reps: ex.default_reps,
+        default_reps_min: ex.default_reps_min,
+        default_rir: ex.default_rir,
+        default_rest_seconds: ex.default_rest_seconds,
+        default_weight_kg: ex.default_weight_kg,
+      })),
+  }));
+}
 
 export const SOLO_PROGRAM_KINDS = ['onboarding_plan', 'program_nl_edit'] as const;
 

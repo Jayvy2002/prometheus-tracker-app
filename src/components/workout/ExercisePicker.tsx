@@ -15,21 +15,7 @@ import {
   parseVerifyExerciseResponse,
 } from '../../lib/fastVerify';
 import type { Exercise } from '../../lib/types';
-
-const MUSCLE_LABELS: Record<string, string> = {
-  chest: 'Pectoraux', upper_chest: 'Haut pec', lower_chest: 'Bas pec',
-  front_delts: 'Epaules avant', side_delts: 'Epaules lat.', rear_delts: 'Epaules arr.',
-  traps: 'Trapezes', lats: 'Dorsaux', rhomboids: 'Rhomboides', lower_back: 'Lombaires',
-  core: 'Abdos', quadriceps: 'Quadriceps', hamstrings: 'Ischio-jambiers', glutes: 'Fessiers',
-  calves: 'Mollets', biceps: 'Biceps', triceps: 'Triceps', forearms: 'Avant-bras',
-  rotator_cuff: 'Coiffe rot.', hip_flexors: 'Flechisseurs', adductors: 'Adducteurs',
-  abductors: 'Abducteurs', shoulders: 'Epaules', obliques: 'Obliques',
-};
-
-const EQUIPMENT_LABELS: Record<string, string> = {
-  barbell: 'Barre', dumbbell: 'Halteres', machine: 'Machine', cable: 'Poulie',
-  bodyweight: 'Poids du corps', kettlebell: 'Kettlebell', band: 'Elastique', other: 'Autre',
-};
+import { muscleLabel } from '../../lib/muscleLabels';
 
 interface Props {
   open: boolean;
@@ -38,7 +24,7 @@ interface Props {
 }
 
 export default function ExercisePicker({ open, onClose, onSelect }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { exercises, loading, fetchExercises, searchExercises } = useExerciseStore();
   const [search, setSearch] = useState('');
   const [showNewForm, setShowNewForm] = useState(false);
@@ -104,11 +90,11 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {ex.primary_muscles.slice(0, 2).map(m => (
                           <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                            {MUSCLE_LABELS[m] || m}
+                            {muscleLabel(m, i18n.language)}
                           </span>
                         ))}
                         <span className="text-[10px] text-neutral-500">
-                          {EQUIPMENT_LABELS[ex.equipment] || ex.equipment}
+                          {t(`workout.exercisePicker.equipment.${ex.equipment}`, { defaultValue: ex.equipment })}
                         </span>
                       </div>
                     </div>
@@ -156,7 +142,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
             <div className="flex flex-wrap gap-1.5 mb-3">
               {detail.primary_muscles.map(m => (
                 <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                  {MUSCLE_LABELS[m] || m}
+                  {muscleLabel(m, i18n.language)}
                 </span>
               ))}
             </div>
@@ -203,7 +189,7 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
   onClose: () => void;
   onSelect: (name: string) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { submitExercise, addExercise } = useExerciseStore();
   const [name, setName] = useState(initialName);
   const [muscles, setMuscles] = useState('');
@@ -348,7 +334,7 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
               <div className="flex flex-wrap justify-center gap-1.5 mb-5">
                 {approvedExercise.primary_muscles.slice(0, 3).map(m => (
                   <span key={m} className="text-xs text-blue-400/80 bg-blue-500/10 px-2 py-1 rounded-lg">
-                    {MUSCLE_LABELS[m] || m}
+                    {muscleLabel(m, i18n.language)}
                   </span>
                 ))}
               </div>

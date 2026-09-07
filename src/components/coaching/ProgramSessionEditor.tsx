@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { GripVertical, Plus, Sparkles } from 'lucide-react';
+import { ChevronDown, GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react';
 import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft } from '../../lib/types';
 import { applyProgramProposal, type ProgramNlProposal } from '../../lib/programNl';
 import {
@@ -13,11 +13,13 @@ import {
   type ResolvedTrackingConfig,
 } from '../../lib/clientTracking';
 import { muscleForExercise, sessionMuscleVolume, volumeWarnings, weekMuscleVolume, type MuscleVolume } from '../../lib/programVolume';
+import { muscleLabel } from '../../lib/muscleLabels';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
 import { parseProgramPatch } from '../../lib/coachInterventions';
 import { nextProgramWeekday } from '../../lib/kinesiologyIntake';
+import { track } from '../../lib/telemetryClient';
 import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
@@ -39,6 +41,8 @@ interface Props {
   onAsk?: (query: string) => void;
   clientId?: string | null;
   programId?: string | null;
+  presentation?: 'coach' | 'athlete';
+  currentWeek?: number | null;
   /** Intake joursDispo as JS weekday ints; next added day prefers these. */
   preferredWeekdays?: number[];
 }
@@ -54,9 +58,13 @@ function emptyEx(): ProgramExerciseDraft {
 export default function ProgramSessionEditor({
   name, description, durationWeeks, days,
   onNameChange, onDescriptionChange, onWeeksChange, onDaysChange,
-  onAnalyze, onAsk, clientId, programId, preferredWeekdays = [],
+  onAnalyze, onAsk, clientId, programId,
+  presentation = 'coach',
+  currentWeek = null,
+  preferredWeekdays = [],
 }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const athlete = presentation === 'athlete';
   const exercisesLib = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
@@ -80,6 +88,15 @@ export default function ProgramSessionEditor({
 
   const safeIndex = Math.min(dayIndex, Math.max(0, days.length - 1));
   const day = days[safeIndex];
+  const todayWeekday = new Date().getDay();
+  const trainingCount = days.filter(d => d.exercises.some(ex => ex.name.trim())).length;
+  const weekdayKey = days.map(d => d.weekday).join(',');
+
+  useEffect(() => {
+    if (!athlete || days.length === 0) return;
+    const idx = days.findIndex(d => d.weekday === todayWeekday);
+    if (idx >= 0) setDayIndex(idx);
+  }, [athlete, weekdayKey, todayWeekday]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     void fetchExercises();
@@ -207,6 +224,7 @@ export default function ProgramSessionEditor({
       return;
     }
     setNlJobId(result.id);
+    track('solo_program_nl_asked', { has_program: !!programId });
   };
 
   const dismissProposal = async () => {
@@ -247,33 +265,102 @@ export default function ProgramSessionEditor({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_88px] gap-2">
-        <Input label={t('programs.name')} value={name} onChange={e => onNameChange(e.target.value)} />
-        <Input
-          label={t('programs.durationWeeks')}
-          type="number"
-          value={durationWeeks}
-          onChange={e => onWeeksChange(Math.max(1, Math.min(52, +e.target.value || 8)))}
-        />
-      </div>
-      <Input
-        label={t('programs.description')}
-        value={description}
-        onChange={e => onDescriptionChange(e.target.value)}
-      />
+      {athlete ? (
+        <div className="rounded-2xl border border-blue-500/25 bg-gradient-to-br from-blue-600/20 via-blue-500/5 to-transparent p-4">
+          {currentWeek != null && (
+            <p className="text-[11px] font-medium uppercase tracking-widest text-blue-300">
+              {t('programs.weekOf', { current: currentWeek, total: durationWeeks })}
+            </p>
+          )}
+          <h2 className="text-xl font-bold text-white mt-0.5 truncate">{name.trim() || t('programs.mineTitle')}</h2>
+          <p className="text-xs text-neutral-400 mt-1">
+            {t('programs.splitLabel', { n: trainingCount })}
+            {days.length > 0 ? ` · ${days.map(d => t(`programs.weekdays.${d.weekday}`)).join(' · ')}` : ''}
+          </p>
+          {currentWeek != null && durationWeeks > 0 && (
+            <div className="flex gap-1 mt-3">
+              {Array.from({ length: durationWeeks }, (_, i) => i + 1).map(n => (
+                <span
+                  key={n}
+                  className={`h-1.5 flex-1 rounded-full ${n === currentWeek ? 'bg-blue-500' : n < currentWeek ? 'bg-blue-500/40' : 'bg-white/10'}`}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_88px] gap-2">
+          <Input label={t('programs.name')} value={name} onChange={e => onNameChange(e.target.value)} />
+          <Input
+            label={t('programs.durationWeeks')}
+            type="number"
+            value={durationWeeks}
+            onChange={e => onWeeksChange(Math.max(1, Math.min(52, +e.target.value || 8)))}
+          />
+        </div>
+      )}
 
-      <form
-        onSubmit={e => { e.preventDefault(); void requestNl(); }}
-        className="flex gap-2"
-      >
-        <input
-          value={nl}
-          onChange={e => { setNl(e.target.value); setNlError(null); }}
-          placeholder={t('coaching.programNl.placeholder')}
-          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
+      {athlete ? (
+        <details className="group rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3 py-2">
+          <summary className="flex items-center justify-between cursor-pointer list-none text-sm text-neutral-300">
+            {t('programs.cycleDetails')}
+            <ChevronDown size={16} className="text-neutral-500 group-open:rotate-180 transition-transform" />
+          </summary>
+          <div className="mt-3 space-y-2 pb-1">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_88px] gap-2">
+              <Input label={t('programs.name')} value={name} onChange={e => onNameChange(e.target.value)} />
+              <Input
+                label={t('programs.durationWeeks')}
+                type="number"
+                value={durationWeeks}
+                onChange={e => onWeeksChange(Math.max(1, Math.min(52, +e.target.value || 8)))}
+              />
+            </div>
+            <Input
+              label={t('programs.description')}
+              value={description}
+              onChange={e => onDescriptionChange(e.target.value)}
+            />
+          </div>
+        </details>
+      ) : (
+        <Input
+          label={t('programs.description')}
+          value={description}
+          onChange={e => onDescriptionChange(e.target.value)}
         />
-        <Button type="submit" size="sm" variant="secondary" loading={nlSending}>{t('coaching.programNl.propose')}</Button>
-      </form>
+      )}
+
+      {athlete ? (
+        <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3">
+          <p className="text-[11px] font-medium text-blue-300 flex items-center gap-1.5">
+            <Sparkles size={12} /> {t('programs.askCopilot')}
+          </p>
+          <p className="text-[11px] text-neutral-500 mt-0.5 mb-2">{t('programs.askCopilotHint')}</p>
+          <form onSubmit={e => { e.preventDefault(); void requestNl(); }} className="flex gap-2">
+            <input
+              value={nl}
+              onChange={e => { setNl(e.target.value); setNlError(null); }}
+              placeholder={t('programs.askCopilotPlaceholder')}
+              className="flex-1 bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
+            />
+            <Button type="submit" size="sm" variant="secondary" loading={nlSending}>{t('coaching.programNl.propose')}</Button>
+          </form>
+        </div>
+      ) : (
+        <form
+          onSubmit={e => { e.preventDefault(); void requestNl(); }}
+          className="flex gap-2"
+        >
+          <input
+            value={nl}
+            onChange={e => { setNl(e.target.value); setNlError(null); }}
+            placeholder={t('coaching.programNl.placeholder')}
+            className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-xs text-white"
+          />
+          <Button type="submit" size="sm" variant="secondary" loading={nlSending}>{t('coaching.programNl.propose')}</Button>
+        </form>
+      )}
       {nlError && <p className="text-[11px] text-amber-300 -mt-1">{nlError}</p>}
       {nlRow && (isInterventionDrafting(nlRow) || interventionDraftError(nlRow)) && (
         <AgentDraftingCard
@@ -305,33 +392,63 @@ export default function ProgramSessionEditor({
         </Card>
       )}
 
-      <div className="flex gap-1 overflow-x-auto scrollbar-hide">
-        {days.map((d, i) => (
-          <button
-            key={`day-tab-${i}`}
-            type="button"
-            onClick={() => { setDayIndex(i); setSelected(null); setAnalyzed(null); }}
-            className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap ${
-              i === safeIndex ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
-            }`}
-          >
-            {t(`programs.weekdays.${d.weekday}`)}{d.name ? ` · ${d.name}` : ''}
-          </button>
-        ))}
+      <div className={`flex gap-1.5 overflow-x-auto scrollbar-hide ${athlete ? 'pb-0.5' : ''}`}>
+        {days.map((d, i) => {
+          const count = d.exercises.filter(ex => ex.name.trim()).length;
+          const isToday = d.weekday === todayWeekday;
+          const active = i === safeIndex;
+          if (athlete) {
+            return (
+              <button
+                key={`day-tab-${i}`}
+                type="button"
+                onClick={() => { setDayIndex(i); setSelected(null); setAnalyzed(null); }}
+                className={`min-w-[4.75rem] shrink-0 rounded-2xl border px-2.5 py-2.5 text-left transition-colors ${
+                  active
+                    ? 'border-blue-500 bg-blue-500/15'
+                    : isToday
+                      ? 'border-blue-500/35 bg-neutral-900'
+                      : 'border-neutral-800 bg-neutral-900/70'
+                }`}
+              >
+                <p className={`text-[10px] font-semibold uppercase tracking-wider ${active || isToday ? 'text-blue-300' : 'text-neutral-500'}`}>
+                  {t(`programs.weekdays.${d.weekday}`)}
+                  {isToday ? ` · ${t('programs.todayBadge')}` : ''}
+                </p>
+                <p className="text-xs font-semibold text-white truncate mt-0.5">{d.name.trim() || t('programs.sessionFallback')}</p>
+                <p className="text-[10px] text-neutral-500 mt-0.5">{t('programs.sessionLifts', { n: count })}</p>
+              </button>
+            );
+          }
+          return (
+            <button
+              key={`day-tab-${i}`}
+              type="button"
+              onClick={() => { setDayIndex(i); setSelected(null); setAnalyzed(null); }}
+              className={`px-3 py-1.5 rounded-lg text-xs whitespace-nowrap ${
+                active ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
+              }`}
+            >
+              {t(`programs.weekdays.${d.weekday}`)}{d.name ? ` · ${d.name}` : ''}
+            </button>
+          );
+        })}
         <button
           type="button"
           onClick={() => {
             onDaysChange([...days, emptyDay(nextWeekday())]);
             setDayIndex(days.length);
           }}
-          className="px-3 py-1.5 rounded-lg text-xs text-blue-400 bg-neutral-900"
+          className={`shrink-0 text-xs text-blue-400 bg-neutral-900 ${
+            athlete ? 'min-w-[4.75rem] rounded-2xl border border-dashed border-neutral-700 px-2.5 py-2.5' : 'px-3 py-1.5 rounded-lg'
+          }`}
         >
           + {t('coaching.interventions.addDay')}
         </button>
       </div>
 
       {day && (
-        <div className="rounded-xl border border-neutral-800 p-3 space-y-2">
+        <div className={`space-y-3 ${athlete ? 'rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3' : 'rounded-xl border border-neutral-800 p-3 space-y-2'}`}>
           <div className="flex items-center gap-2">
             <select
               value={day.weekday}
@@ -346,7 +463,9 @@ export default function ProgramSessionEditor({
               value={day.name}
               onChange={e => updateDay(safeIndex, { name: e.target.value })}
               placeholder={t('coaching.interventions.sessionName')}
-              className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+              className={athlete
+                ? 'flex-1 bg-transparent outline-none text-white text-base font-semibold'
+                : 'flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white'}
             />
             <button
               type="button"
@@ -354,159 +473,191 @@ export default function ProgramSessionEditor({
                 onDaysChange(days.filter((_, i) => i !== safeIndex));
                 setDayIndex(0);
               }}
-              className="text-[11px] text-neutral-500 hover:text-rose-300"
+              className="text-neutral-500 hover:text-rose-300 p-1"
+              aria-label={t('common.delete')}
             >
-              {t('common.delete')}
+              {athlete ? <Trash2 size={14} /> : <span className="text-[11px]">{t('common.delete')}</span>}
             </button>
           </div>
+          {athlete && (
+            <p className="text-[11px] text-neutral-500">{t('programs.tapToEdit')}</p>
+          )}
 
-          {day.exercises.map((ex, ei) => (
-            <div
-              key={`ex-${safeIndex}-${ei}`}
-              draggable
-              onDragStart={() => setDragFrom(ei)}
-              onDragOver={e => e.preventDefault()}
-              onDrop={() => { if (dragFrom != null) reorder(dragFrom, ei); setDragFrom(null); }}
-              onClick={() => setSelected(ei)}
-              className={`rounded-xl border px-2 py-2 space-y-2 ${
-                selected === ei ? 'border-blue-500/50 bg-blue-500/5' : 'border-neutral-800'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <GripVertical size={14} className="text-neutral-600 shrink-0 cursor-grab" />
-                <input
-                  value={ex.name}
-                  onChange={e => updateExercise(ei, { name: e.target.value })}
-                  placeholder={t('coaching.interventions.liftName')}
-                  className="flex-1 bg-transparent text-sm text-white outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => updateDay(safeIndex, { exercises: day.exercises.filter((_, j) => j !== ei) })}
-                  className="text-neutral-600 hover:text-rose-300 text-xs"
-                >
-                  ×
-                </button>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
-                {showTrainingField(tracking, 'sets') && (
-                  <label className="text-[10px] text-neutral-500">
-                    {t('coaching.interventions.sets')}
-                    <input
-                      type="number"
-                      value={ex.default_sets}
-                      onChange={e => updateExercise(ei, { default_sets: Math.max(1, +e.target.value || 1) })}
-                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                    />
-                  </label>
-                )}
-                {repsInputMode(tracking) !== 'hidden' && (
-                  <label className="text-[10px] text-neutral-500">
-                    {repsInputMode(tracking) === 'range'
-                      ? t('coaching.programEditor.repRange')
-                      : t('coaching.interventions.reps')}
-                    <input
-                      value={repsInputMode(tracking) === 'single'
-                        ? String(ex.default_reps)
-                        : (ex.default_reps_min && ex.default_reps_min !== ex.default_reps
-                          ? `${ex.default_reps_min}-${ex.default_reps}`
-                          : String(ex.default_reps))}
-                      onChange={e => {
-                        const mode = repsInputMode(tracking);
-                        if (mode === 'single') {
-                          updateExercise(ei, { default_reps: Math.max(1, +e.target.value || 1), default_reps_min: null });
-                          return;
-                        }
-                        const m = e.target.value.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
-                        if (!m) return;
-                        const low = Number(m[1]);
-                        const high = m[2] ? Number(m[2]) : low;
-                        updateExercise(ei, {
-                          default_reps_min: mode === 'range' || m[2] ? low : null,
-                          default_reps: high,
-                        });
-                      }}
-                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                    />
-                  </label>
-                )}
-                {showTrainingField(tracking, 'load') && (
-                  <label className="text-[10px] text-neutral-500">
-                    {t('coaching.tracking.train.load')}
-                    <input
-                      type="number"
-                      value={ex.default_weight_kg ?? ''}
-                      onChange={e => updateExercise(ei, {
-                        default_weight_kg: e.target.value === '' ? null : Number(e.target.value),
-                      })}
-                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                    />
-                  </label>
-                )}
-                {showTrainingField(tracking, 'rir') && (
-                  <label className="text-[10px] text-neutral-500">
-                    RIR
-                    <input
-                      type="number"
-                      value={ex.default_rir ?? ''}
-                      onChange={e => updateExercise(ei, { default_rir: e.target.value === '' ? null : Number(e.target.value) })}
-                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                    />
-                  </label>
-                )}
-                {showTrainingField(tracking, 'rest') && (
-                  <label className="text-[10px] text-neutral-500">
-                    {t('coaching.programEditor.rest')}
-                    <input
-                      type="number"
-                      value={ex.default_rest_seconds ?? 90}
-                      onChange={e => updateExercise(ei, { default_rest_seconds: Math.max(0, +e.target.value || 0) })}
-                      className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
-                    />
-                  </label>
-                )}
-              </div>
-              {selected === ei && (
-                <div className="flex flex-wrap gap-2">
+          {day.exercises.map((ex, ei) => {
+            const open = selected === ei;
+            const compact = athlete && !open;
+            return (
+              <div
+                key={`ex-${safeIndex}-${ei}`}
+                draggable
+                onDragStart={() => setDragFrom(ei)}
+                onDragOver={e => e.preventDefault()}
+                onDrop={() => { if (dragFrom != null) reorder(dragFrom, ei); setDragFrom(null); }}
+                className={`rounded-xl border ${
+                  open ? 'border-blue-500/50 bg-blue-500/5' : 'border-neutral-800'
+                } ${compact ? '' : 'px-2 py-2 space-y-2'}`}
+              >
+                {compact ? (
                   <button
                     type="button"
-                    className="text-[11px] text-neutral-300"
-                    onClick={() => { setPickerMode('replace'); setPickerOpen(true); }}
+                    onClick={() => setSelected(ei)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
                   >
-                    {t('coaching.programEditor.modify')}
+                    <span className="w-6 h-6 rounded-lg bg-neutral-800 text-[11px] text-neutral-400 flex items-center justify-center shrink-0">{ei + 1}</span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-sm font-medium text-white truncate">{ex.name || t('coaching.interventions.liftName')}</span>
+                      <span className="text-[11px] text-neutral-500">{formatExercisePrescription(ex, tracking)}</span>
+                    </span>
+                    <GripVertical size={14} className="text-neutral-700 shrink-0" />
                   </button>
-                  <button
-                    type="button"
-                    className="text-[11px] text-blue-400"
-                    onClick={() => {
-                      void fetchExercises();
-                      setAnalyzed(ei);
-                      onAnalyze?.(ex.name);
-                    }}
-                  >
-                    {t('coaching.programEditor.analyze')}
-                  </button>
-                  {onAsk && ex.name && (
-                    <button
-                      type="button"
-                      className="text-[11px] text-blue-400"
-                      onClick={() => onAsk(t('coaching.ask.liftPrompt', { lift: ex.name }))}
-                    >
-                      {t('coaching.programEditor.ask')}
-                    </button>
-                  )}
-                </div>
-              )}
-              {analyzed === ei && (
-                <ExerciseAnalyzeCard
-                  name={ex.name}
-                  library={exercisesLib}
-                  sessionVolumes={volumes}
-                  weekVolumes={weekVol}
-                />
-              )}
-            </div>
-          ))}
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <GripVertical size={14} className="text-neutral-600 shrink-0 cursor-grab" />
+                      <input
+                        value={ex.name}
+                        onChange={e => updateExercise(ei, { name: e.target.value })}
+                        placeholder={t('coaching.interventions.liftName')}
+                        className="flex-1 bg-transparent text-sm text-white outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateDay(safeIndex, { exercises: day.exercises.filter((_, j) => j !== ei) });
+                          setSelected(null);
+                        }}
+                        className="text-neutral-600 hover:text-rose-300 text-xs"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                      {showTrainingField(tracking, 'sets') && (
+                        <label className="text-[10px] text-neutral-500">
+                          {t('coaching.interventions.sets')}
+                          <input
+                            type="number"
+                            value={ex.default_sets}
+                            onChange={e => updateExercise(ei, { default_sets: Math.max(1, +e.target.value || 1) })}
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                      {repsInputMode(tracking) !== 'hidden' && (
+                        <label className="text-[10px] text-neutral-500">
+                          {repsInputMode(tracking) === 'range'
+                            ? t('coaching.programEditor.repRange')
+                            : t('coaching.interventions.reps')}
+                          <input
+                            value={repsInputMode(tracking) === 'single'
+                              ? String(ex.default_reps)
+                              : (ex.default_reps_min && ex.default_reps_min !== ex.default_reps
+                                ? `${ex.default_reps_min}-${ex.default_reps}`
+                                : String(ex.default_reps))}
+                            onChange={e => {
+                              const mode = repsInputMode(tracking);
+                              if (mode === 'single') {
+                                updateExercise(ei, { default_reps: Math.max(1, +e.target.value || 1), default_reps_min: null });
+                                return;
+                              }
+                              const m = e.target.value.match(/(\d+)(?:\s*[-–]\s*(\d+))?/);
+                              if (!m) return;
+                              const low = Number(m[1]);
+                              const high = m[2] ? Number(m[2]) : low;
+                              updateExercise(ei, {
+                                default_reps_min: mode === 'range' || m[2] ? low : null,
+                                default_reps: high,
+                              });
+                            }}
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                      {showTrainingField(tracking, 'load') && (!athlete || open) && (
+                        <label className="text-[10px] text-neutral-500">
+                          {t('coaching.tracking.train.load')}
+                          <input
+                            type="number"
+                            value={ex.default_weight_kg ?? ''}
+                            placeholder={athlete ? '—' : undefined}
+                            onChange={e => updateExercise(ei, {
+                              default_weight_kg: e.target.value === '' ? null : Number(e.target.value),
+                            })}
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                      {showTrainingField(tracking, 'rir') && (
+                        <label className="text-[10px] text-neutral-500">
+                          RIR
+                          <input
+                            type="number"
+                            value={ex.default_rir ?? ''}
+                            placeholder={athlete ? '—' : undefined}
+                            onChange={e => updateExercise(ei, { default_rir: e.target.value === '' ? null : Number(e.target.value) })}
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                      {showTrainingField(tracking, 'rest') && (
+                        <label className="text-[10px] text-neutral-500">
+                          {t('coaching.programEditor.rest')}
+                          <input
+                            type="number"
+                            value={ex.default_rest_seconds ?? 90}
+                            onChange={e => updateExercise(ei, { default_rest_seconds: Math.max(0, +e.target.value || 0) })}
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {athlete && (
+                        <button type="button" className="text-[11px] text-neutral-500" onClick={() => setSelected(null)}>
+                          {t('common.close')}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="text-[11px] text-neutral-300"
+                        onClick={() => { setSelected(ei); setPickerMode('replace'); setPickerOpen(true); }}
+                      >
+                        {t('coaching.programEditor.modify')}
+                      </button>
+                      <button
+                        type="button"
+                        className="text-[11px] text-blue-400"
+                        onClick={() => {
+                          void fetchExercises();
+                          setAnalyzed(ei);
+                          onAnalyze?.(ex.name);
+                        }}
+                      >
+                        {t('coaching.programEditor.analyze')}
+                      </button>
+                      {onAsk && ex.name && (
+                        <button
+                          type="button"
+                          className="text-[11px] text-blue-400"
+                          onClick={() => onAsk(t('coaching.ask.liftPrompt', { lift: ex.name }))}
+                        >
+                          {t('coaching.programEditor.ask')}
+                        </button>
+                      )}
+                    </div>
+                    {analyzed === ei && (
+                      <ExerciseAnalyzeCard
+                        name={ex.name}
+                        library={exercisesLib}
+                        sessionVolumes={volumes}
+                        weekVolumes={weekVol}
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
 
           <button
             type="button"
@@ -523,20 +674,43 @@ export default function ProgramSessionEditor({
       )}
 
       {volumes.length > 0 && (
-        <div className="text-[11px] text-neutral-400">
-          <p className="mb-1">{t('coaching.programEditor.volumeSession')}</p>
-          <p>{volumes.map(v => `${v.muscle} ${v.sets}`).join(' · ')}</p>
-          {warnings.length > 0 && (
-            <p className="text-amber-300 mt-1">{t('coaching.programEditor.volumeWarn', { muscle: warnings[0].muscle, n: warnings[0].sets })}</p>
-          )}
-          {weekVol.length > 0 && (
-            <p className="mt-1 text-neutral-500">{t('coaching.programEditor.volumeWeek')}: {weekVol.slice(0, 6).map(v => `${v.muscle} ${v.sets}`).join(' · ')}</p>
-          )}
-        </div>
+        athlete ? (
+          <div className="space-y-2">
+            <p className="text-[11px] font-medium text-neutral-400">{t('programs.volumeThisSession')}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {volumes.map(v => (
+                <span key={v.muscle} className="text-[11px] px-2 py-1 rounded-lg bg-neutral-900 border border-neutral-800 text-neutral-300">
+                  {muscleLabel(v.muscle, i18n.language)} <span className="text-white font-medium">{v.sets}</span>
+                </span>
+              ))}
+            </div>
+            {warnings[0] && (
+              <p className="text-[11px] text-amber-300">{t('coaching.programEditor.volumeWarn', { muscle: muscleLabel(warnings[0].muscle, i18n.language), n: warnings[0].sets })}</p>
+            )}
+            {weekVol.length > 0 && (
+              <p className="text-[11px] text-neutral-500">
+                {t('coaching.programEditor.volumeWeek')}
+                {' · '}
+                {weekVol.slice(0, 6).map(v => `${muscleLabel(v.muscle, i18n.language)} ${v.sets}`).join(' · ')}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="text-[11px] text-neutral-400">
+            <p className="mb-1">{t('coaching.programEditor.volumeSession')}</p>
+            <p>{volumes.map(v => `${muscleLabel(v.muscle, i18n.language)} ${v.sets}`).join(' · ')}</p>
+            {warnings[0] && (
+              <p className="text-amber-300 mt-1">{t('coaching.programEditor.volumeWarn', { muscle: muscleLabel(warnings[0].muscle, i18n.language), n: warnings[0].sets })}</p>
+            )}
+            {weekVol.length > 0 && (
+              <p className="mt-1 text-neutral-500">{t('coaching.programEditor.volumeWeek')}: {weekVol.slice(0, 6).map(v => `${muscleLabel(v.muscle, i18n.language)} ${v.sets}`).join(' · ')}</p>
+            )}
+          </div>
+        )
       )}
 
       <p className="text-[11px] text-neutral-600 flex items-center gap-1">
-        <Sparkles size={11} /> {t('coaching.programEditor.noAuto')}
+        <Sparkles size={11} /> {athlete ? t('programs.noSilentApply') : t('coaching.programEditor.noAuto')}
       </p>
 
       <ExercisePicker
@@ -569,7 +743,7 @@ function ExerciseAnalyzeCard({
   sessionVolumes: MuscleVolume[];
   weekVolumes: MuscleVolume[];
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const muscle = muscleForExercise(name, library);
   if (!muscle) {
     return <p className="text-[11px] text-neutral-500">{t('coaching.programEditor.analyzeUnknown')}</p>;
@@ -578,7 +752,7 @@ function ExerciseAnalyzeCard({
   const week = weekVolumes.find(v => v.muscle === muscle)?.sets ?? 0;
   return (
     <p className="text-[11px] text-blue-200">
-      {t('coaching.programEditor.analyzeMuscle', { muscle, session, week })}
+      {t('coaching.programEditor.analyzeMuscle', { muscle: muscleLabel(muscle, i18n.language), session, week })}
     </p>
   );
 }

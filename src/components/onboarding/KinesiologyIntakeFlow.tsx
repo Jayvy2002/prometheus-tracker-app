@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Droplets, Flame } from 'lucide-react';
@@ -19,10 +19,7 @@ import {
   EXTRA_MEDS_OPTIONS,
   EXTRA_OBJECTIF_OPTIONS,
   EXTRA_OCCUPATION_OPTIONS,
-  EXTRA_SCREEN_INDEX,
   EXTRA_SLEEP_OPTIONS,
-  FOIS_PAR_SEMAINE_OPTIONS,
-  intakeOptionLabel,
   LIEU_OPTIONS,
   NIVEAU_OPTIONS,
   ORIGINAL_LABELS_EN,
@@ -33,10 +30,13 @@ import {
   TOTAL_INTAKE_SCREENS,
   TYPES_EXERCICES_OPTIONS,
   WEEKDAYS,
+  deriveFoisParSemaine,
+  intakeOptionLabel,
   intakeResumeScreen,
   intakeToProfilePatch,
   medicalYesFlags,
   parseIntake,
+  prepareIntakeForSave,
   screenCanProceed,
   soloTargetsFromIntake,
   soloTargetsToProfilePatch,
@@ -69,10 +69,12 @@ function ProgressBar({ step, total }: { step: number; total: number }) {
   );
 }
 
-function FieldLabel({ children }: { children: string }) {
+function FieldLabel({ children, optional }: { children: ReactNode; optional?: boolean }) {
+  const { t } = useTranslation();
   return (
     <label className="block text-sm font-medium text-neutral-200 mb-1.5 leading-snug">
       {children}
+      {optional ? <span className="text-neutral-500 font-normal"> · {t('intake.optional')}</span> : null}
     </label>
   );
 }
@@ -181,6 +183,8 @@ function ScreenToi({
   setIntake: (next: KinesiologyIntake) => void;
   label: (id: OriginalQuestionId) => string;
 }) {
+  const { t, i18n } = useTranslation();
+  const en = i18n.language.toLowerCase().startsWith('en');
   return (
     <div className="space-y-4">
       <Input label={label('nom')} type="text" value={intake.nom} onChange={e => setIntake({ ...intake, nom: e.target.value })} autoComplete="family-name" />
@@ -192,6 +196,28 @@ function ScreenToi({
       </div>
       <Input label={label('tailleCm')} type="number" inputMode="decimal" value={intake.tailleCm} onChange={e => setIntake({ ...intake, tailleCm: e.target.value })} />
       <Input label={label('poidsApproxKg')} type="number" inputMode="decimal" value={intake.poidsApproxKg} onChange={e => setIntake({ ...intake, poidsApproxKg: e.target.value })} />
+      <div>
+        <FieldLabel optional>{t('intake.extras.occupation')}</FieldLabel>
+        <ChoiceGrid
+          options={EXTRA_OCCUPATION_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
+          value={EXTRA_OCCUPATION_OPTIONS.find(o => o.value === intake.extras.occupation)?.[en ? 'labelEn' : 'labelFr'] ?? ''}
+          onChange={picked => {
+            const found = EXTRA_OCCUPATION_OPTIONS.find(o => o.labelFr === picked || o.labelEn === picked);
+            setIntake({ ...intake, extras: { ...intake.extras, occupation: found?.value ?? '' } });
+          }}
+        />
+      </div>
+      <div>
+        <FieldLabel optional>{t('intake.extras.sommeil')}</FieldLabel>
+        <ChoiceGrid
+          options={EXTRA_SLEEP_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
+          value={EXTRA_SLEEP_OPTIONS.find(o => o.value === intake.extras.sommeil)?.[en ? 'labelEn' : 'labelFr'] ?? ''}
+          onChange={picked => {
+            const found = EXTRA_SLEEP_OPTIONS.find(o => o.labelFr === picked || o.labelEn === picked);
+            setIntake({ ...intake, extras: { ...intake.extras, sommeil: found?.value ?? '' } });
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -210,10 +236,6 @@ function ScreenObjectif({
   return (
     <div className="space-y-4">
       <div>
-        <FieldLabel>{label('objectifPrincipal')}</FieldLabel>
-        <TextArea value={intake.objectifPrincipal} onChange={objectifPrincipal => setIntake({ ...intake, objectifPrincipal })} />
-      </div>
-      <div>
         <FieldLabel>{t('intake.extras.objectifType')}</FieldLabel>
         <ChoiceGrid
           options={EXTRA_OBJECTIF_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
@@ -227,7 +249,28 @@ function ScreenObjectif({
         />
       </div>
       <div>
-        <FieldLabel>{label('depuisCombienDeTemps')}</FieldLabel>
+        <FieldLabel optional>{label('objectifPrincipal')}</FieldLabel>
+        <TextArea value={intake.objectifPrincipal} onChange={objectifPrincipal => setIntake({ ...intake, objectifPrincipal })} />
+      </div>
+      <div>
+        <FieldLabel optional>{t('intake.extras.pourquoiMaintenant')}</FieldLabel>
+        <TextArea value={intake.extras.pourquoiMaintenant} onChange={pourquoiMaintenant => setIntake({ ...intake, extras: { ...intake.extras, pourquoiMaintenant } })} />
+      </div>
+      <Input
+        label={`${t('intake.extras.poidsVise')} · ${t('intake.optional')}`}
+        type="number"
+        inputMode="decimal"
+        value={intake.extras.poidsViseKg}
+        onChange={e => setIntake({ ...intake, extras: { ...intake.extras, poidsViseKg: e.target.value } })}
+      />
+      <Input
+        label={`${t('intake.extras.dateCible')} · ${t('intake.optional')}`}
+        type="date"
+        value={intake.extras.dateCible}
+        onChange={e => setIntake({ ...intake, extras: { ...intake.extras, dateCible: e.target.value } })}
+      />
+      <div>
+        <FieldLabel optional>{label('depuisCombienDeTemps')}</FieldLabel>
         <TextArea value={intake.depuisCombienDeTemps} onChange={depuisCombienDeTemps => setIntake({ ...intake, depuisCombienDeTemps })} />
       </div>
     </div>
@@ -243,30 +286,45 @@ function ScreenTemps({
   setIntake: (next: KinesiologyIntake) => void;
   label: (id: OriginalQuestionId) => string;
 }) {
+  const { t } = useTranslation();
   return (
     <div className="space-y-5">
       <div>
         <FieldLabel>{label('niveauActuel')}</FieldLabel>
         <ChoiceGrid options={NIVEAU_OPTIONS} value={intake.niveauActuel} onChange={niveauActuel => setIntake({ ...intake, niveauActuel })} />
       </div>
-      <div>
-        <FieldLabel>{label('foisParSemaine')}</FieldLabel>
-        <ChoiceGrid options={FOIS_PAR_SEMAINE_OPTIONS} value={intake.foisParSemaine} onChange={foisParSemaine => setIntake({ ...intake, foisParSemaine })} />
-      </div>
-      <div>
-        <FieldLabel>{label('programmeStructure')}</FieldLabel>
-        <ChoiceGrid options={OUI_NON} value={intake.programmeStructure} onChange={programmeStructure => setIntake({ ...intake, programmeStructure })} />
-      </div>
       <Input
         label={label('seancesRealistes')}
         type="number"
         inputMode="numeric"
         value={intake.seancesRealistes}
-        onChange={e => setIntake({ ...intake, seancesRealistes: e.target.value })}
+        onChange={e => {
+          const seancesRealistes = e.target.value;
+          setIntake({
+            ...intake,
+            seancesRealistes,
+            foisParSemaine: deriveFoisParSemaine(seancesRealistes),
+          });
+        }}
       />
+      <div>
+        <FieldLabel optional>{t('intake.extras.joursDispo')}</FieldLabel>
+        <ChipMulti
+          options={WEEKDAYS.map(d => t(`intake.weekdays.${d}`))}
+          selected={intake.extras.joursDispo.map(d => t(`intake.weekdays.${d}`))}
+          onChange={labels => {
+            const next = WEEKDAYS.filter(d => labels.includes(t(`intake.weekdays.${d}`)));
+            setIntake({ ...intake, extras: { ...intake.extras, joursDispo: [...next] } });
+          }}
+        />
+      </div>
       <div>
         <FieldLabel>{label('dureeIdeale')}</FieldLabel>
         <ChoiceGrid options={DUREE_OPTIONS} value={intake.dureeIdeale} onChange={dureeIdeale => setIntake({ ...intake, dureeIdeale })} />
+      </div>
+      <div>
+        <FieldLabel optional>{label('programmeStructure')}</FieldLabel>
+        <ChoiceGrid options={OUI_NON} value={intake.programmeStructure} onChange={programmeStructure => setIntake({ ...intake, programmeStructure })} />
       </div>
     </div>
   );
@@ -281,6 +339,8 @@ function ScreenLieu({
   setIntake: (next: KinesiologyIntake) => void;
   label: (id: OriginalQuestionId) => string;
 }) {
+  const { t, i18n } = useTranslation();
+  const en = i18n.language.toLowerCase().startsWith('en');
   return (
     <div className="space-y-5">
       <div>
@@ -298,6 +358,17 @@ function ScreenLieu({
           onChange={e => setIntake({ ...intake, equipementAutre: e.target.value })}
         />
       )}
+      <div>
+        <FieldLabel optional>{t('intake.extras.cardio')}</FieldLabel>
+        <ChoiceGrid
+          options={EXTRA_CARDIO_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
+          value={EXTRA_CARDIO_OPTIONS.find(o => o.value === intake.extras.cardio)?.[en ? 'labelEn' : 'labelFr'] ?? ''}
+          onChange={picked => {
+            const found = EXTRA_CARDIO_OPTIONS.find(o => o.labelFr === picked || o.labelEn === picked);
+            setIntake({ ...intake, extras: { ...intake.extras, cardio: found?.value ?? '' } });
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -311,6 +382,10 @@ function ScreenDouleurs({
   setIntake: (next: KinesiologyIntake) => void;
   label: (id: OriginalQuestionId) => string;
 }) {
+  const { t } = useTranslation();
+  const extras = intake.extras;
+  const patch = (next: Partial<KinesiologyIntake['extras']>) =>
+    setIntake({ ...intake, extras: { ...extras, ...next } });
   return (
     <div className="space-y-5">
       <div>
@@ -318,10 +393,26 @@ function ScreenDouleurs({
         <ChoiceGrid options={OUI_NON} value={intake.douleursLimitations} onChange={douleursLimitations => setIntake({ ...intake, douleursLimitations })} />
       </div>
       {intake.douleursLimitations === 'Oui' && (
-        <div>
-          <FieldLabel>{label('mouvementAEviter')}</FieldLabel>
-          <TextArea value={intake.mouvementAEviter} onChange={mouvementAEviter => setIntake({ ...intake, mouvementAEviter })} />
-        </div>
+        <>
+          <div>
+            <FieldLabel>{label('mouvementAEviter')}</FieldLabel>
+            <TextArea value={intake.mouvementAEviter} onChange={mouvementAEviter => setIntake({ ...intake, mouvementAEviter })} />
+          </div>
+          <Input label={`${t('intake.extras.douleurOu')} · ${t('intake.optional')}`} value={extras.douleurOu} onChange={e => patch({ douleurOu: e.target.value })} />
+          <Input
+            label={`${t('intake.extras.douleurIntensite')} · ${t('intake.optional')}`}
+            type="number"
+            min={0}
+            max={10}
+            value={extras.douleurIntensite}
+            onChange={e => patch({ douleurIntensite: e.target.value })}
+          />
+          <Input label={`${t('intake.extras.douleurDepuis')} · ${t('intake.optional')}`} value={extras.douleurDepuis} onChange={e => patch({ douleurDepuis: e.target.value })} />
+          <div>
+            <FieldLabel optional>{t('intake.extras.physioEnCours')}</FieldLabel>
+            <ChoiceGrid options={OUI_NON} value={extras.physioEnCours} onChange={physioEnCours => patch({ physioEnCours })} />
+          </div>
+        </>
       )}
     </div>
   );
@@ -336,6 +427,10 @@ function ScreenMedical({
   setIntake: (next: KinesiologyIntake) => void;
   label: (id: OriginalQuestionId) => string;
 }) {
+  const { t } = useTranslation();
+  const extras = intake.extras;
+  const patch = (next: Partial<KinesiologyIntake['extras']>) =>
+    setIntake({ ...intake, extras: { ...extras, ...next } });
   return (
     <div className="space-y-5">
       <div>
@@ -343,10 +438,14 @@ function ScreenMedical({
         <ChoiceGrid options={OUI_NON} value={intake.blessuresChirurgies} onChange={blessuresChirurgies => setIntake({ ...intake, blessuresChirurgies })} />
       </div>
       {intake.blessuresChirurgies === 'Oui' && (
-        <div>
-          <FieldLabel>{label('descriptionBlessures')}</FieldLabel>
-          <TextArea value={intake.descriptionBlessures} onChange={descriptionBlessures => setIntake({ ...intake, descriptionBlessures })} />
-        </div>
+        <>
+          <div>
+            <FieldLabel>{label('descriptionBlessures')}</FieldLabel>
+            <TextArea value={intake.descriptionBlessures} onChange={descriptionBlessures => setIntake({ ...intake, descriptionBlessures })} />
+          </div>
+          <Input label={`${t('intake.extras.blessureAnnee')} · ${t('intake.optional')}`} value={extras.blessureAnnee} onChange={e => patch({ blessureAnnee: e.target.value })} />
+          <Input label={`${t('intake.extras.blessureSuivi')} · ${t('intake.optional')}`} value={extras.blessureSuivi} onChange={e => patch({ blessureSuivi: e.target.value })} />
+        </>
       )}
       <div>
         <FieldLabel>{label('cardiaqueHtaPoitrine')}</FieldLabel>
@@ -366,6 +465,14 @@ function ScreenMedical({
           <TextArea value={intake.conditionMedicalePrecise} onChange={conditionMedicalePrecise => setIntake({ ...intake, conditionMedicalePrecise })} />
         </div>
       )}
+      <div>
+        <FieldLabel optional>{t('intake.extras.medicamentsEffort')}</FieldLabel>
+        <ChoiceGrid options={EXTRA_MEDS_OPTIONS} value={extras.medicamentsEffort} onChange={medicamentsEffort => patch({ medicamentsEffort })} />
+      </div>
+      <div>
+        <FieldLabel optional>{t('intake.extras.grossesse')}</FieldLabel>
+        <ChoiceGrid options={OUI_NON} value={extras.grossessePostpartumTraitement} onChange={grossessePostpartumTraitement => patch({ grossessePostpartumTraitement })} />
+      </div>
     </div>
   );
 }
@@ -393,147 +500,16 @@ function ScreenPrefs({
         />
       )}
       <div>
-        <FieldLabel>{label('exercicesDetestes')}</FieldLabel>
+        <FieldLabel optional>{label('exercicesDetestes')}</FieldLabel>
         <TextArea value={intake.exercicesDetestes} onChange={exercicesDetestes => setIntake({ ...intake, exercicesDetestes })} />
       </div>
       <div>
-        <FieldLabel>{label('prefereProgramme')}</FieldLabel>
+        <FieldLabel optional>{label('prefereProgramme')}</FieldLabel>
         <TextArea value={intake.prefereProgramme} onChange={prefereProgramme => setIntake({ ...intake, prefereProgramme })} />
       </div>
-    </div>
-  );
-}
-
-function ScreenReste({
-  intake,
-  setIntake,
-  label,
-}: {
-  intake: KinesiologyIntake;
-  setIntake: (next: KinesiologyIntake) => void;
-  label: (id: OriginalQuestionId) => string;
-}) {
-  return (
-    <div className="space-y-4">
-      <FieldLabel>{label('quelqueChoseImportant')}</FieldLabel>
-      <TextArea value={intake.quelqueChoseImportant} onChange={quelqueChoseImportant => setIntake({ ...intake, quelqueChoseImportant })} />
-    </div>
-  );
-}
-
-function ScreenExtras({
-  intake,
-  setIntake,
-}: {
-  intake: KinesiologyIntake;
-  setIntake: (next: KinesiologyIntake) => void;
-}) {
-  const { t, i18n } = useTranslation();
-  const en = i18n.language.toLowerCase().startsWith('en');
-  const extras = intake.extras;
-  const patch = (next: Partial<KinesiologyIntake['extras']>) =>
-    setIntake({ ...intake, extras: { ...extras, ...next } });
-
-  return (
-    <div className="space-y-5">
-      <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-3">
-        <p className="text-sm font-medium text-amber-200">{t('intake.extrasTitle')}</p>
-        <p className="text-xs text-neutral-400 mt-1">{t('intake.extrasHint')}</p>
-      </div>
-      <Input
-        label={t('intake.extras.poidsVise')}
-        type="number"
-        inputMode="decimal"
-        value={extras.poidsViseKg}
-        onChange={e => patch({ poidsViseKg: e.target.value })}
-      />
       <div>
-        <FieldLabel>{t('intake.extras.occupation')}</FieldLabel>
-        <ChoiceGrid
-          options={EXTRA_OCCUPATION_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
-          value={
-            EXTRA_OCCUPATION_OPTIONS.find(o => o.value === extras.occupation)?.[en ? 'labelEn' : 'labelFr'] ?? ''
-          }
-          onChange={label => {
-            const found = EXTRA_OCCUPATION_OPTIONS.find(o => o.labelFr === label || o.labelEn === label);
-            patch({ occupation: found?.value ?? '' });
-          }}
-        />
-      </div>
-      <Input
-        label={t('intake.extras.dateCible')}
-        type="date"
-        value={extras.dateCible}
-        onChange={e => patch({ dateCible: e.target.value })}
-      />
-      <div>
-        <FieldLabel>{t('intake.extras.pourquoiMaintenant')}</FieldLabel>
-        <TextArea value={extras.pourquoiMaintenant} onChange={pourquoiMaintenant => patch({ pourquoiMaintenant })} />
-      </div>
-      <div>
-        <FieldLabel>{t('intake.extras.joursDispo')}</FieldLabel>
-        <ChipMulti
-          options={WEEKDAYS.map(d => t(`intake.weekdays.${d}`))}
-          selected={extras.joursDispo.map(d => t(`intake.weekdays.${d}`))}
-          onChange={labels => {
-            const next = WEEKDAYS.filter(d => labels.includes(t(`intake.weekdays.${d}`)));
-            patch({ joursDispo: [...next] });
-          }}
-        />
-      </div>
-      {intake.douleursLimitations === 'Oui' && (
-        <>
-          <Input label={t('intake.extras.douleurOu')} value={extras.douleurOu} onChange={e => patch({ douleurOu: e.target.value })} />
-          <Input
-            label={t('intake.extras.douleurIntensite')}
-            type="number"
-            min={0}
-            max={10}
-            value={extras.douleurIntensite}
-            onChange={e => patch({ douleurIntensite: e.target.value })}
-          />
-          <Input label={t('intake.extras.douleurDepuis')} value={extras.douleurDepuis} onChange={e => patch({ douleurDepuis: e.target.value })} />
-          <div>
-            <FieldLabel>{t('intake.extras.physioEnCours')}</FieldLabel>
-            <ChoiceGrid options={OUI_NON} value={extras.physioEnCours} onChange={physioEnCours => patch({ physioEnCours })} />
-          </div>
-        </>
-      )}
-      {intake.blessuresChirurgies === 'Oui' && (
-        <>
-          <Input label={t('intake.extras.blessureAnnee')} value={extras.blessureAnnee} onChange={e => patch({ blessureAnnee: e.target.value })} />
-          <Input label={t('intake.extras.blessureSuivi')} value={extras.blessureSuivi} onChange={e => patch({ blessureSuivi: e.target.value })} />
-        </>
-      )}
-      <div>
-        <FieldLabel>{t('intake.extras.medicamentsEffort')}</FieldLabel>
-        <ChoiceGrid options={EXTRA_MEDS_OPTIONS} value={extras.medicamentsEffort} onChange={medicamentsEffort => patch({ medicamentsEffort })} />
-      </div>
-      <div>
-        <FieldLabel>{t('intake.extras.grossesse')}</FieldLabel>
-        <ChoiceGrid options={OUI_NON} value={extras.grossessePostpartumTraitement} onChange={grossessePostpartumTraitement => patch({ grossessePostpartumTraitement })} />
-      </div>
-      <div>
-        <FieldLabel>{t('intake.extras.sommeil')}</FieldLabel>
-        <ChoiceGrid
-          options={EXTRA_SLEEP_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
-          value={EXTRA_SLEEP_OPTIONS.find(o => o.value === extras.sommeil)?.[en ? 'labelEn' : 'labelFr'] ?? ''}
-          onChange={label => {
-            const found = EXTRA_SLEEP_OPTIONS.find(o => o.labelFr === label || o.labelEn === label);
-            patch({ sommeil: found?.value ?? '' });
-          }}
-        />
-      </div>
-      <div>
-        <FieldLabel>{t('intake.extras.cardio')}</FieldLabel>
-        <ChoiceGrid
-          options={EXTRA_CARDIO_OPTIONS.map(o => (en ? o.labelEn : o.labelFr))}
-          value={EXTRA_CARDIO_OPTIONS.find(o => o.value === extras.cardio)?.[en ? 'labelEn' : 'labelFr'] ?? ''}
-          onChange={label => {
-            const found = EXTRA_CARDIO_OPTIONS.find(o => o.labelFr === label || o.labelEn === label);
-            patch({ cardio: found?.value ?? '' });
-          }}
-        />
+        <FieldLabel optional>{label('quelqueChoseImportant')}</FieldLabel>
+        <TextArea value={intake.quelqueChoseImportant} onChange={quelqueChoseImportant => setIntake({ ...intake, quelqueChoseImportant })} />
       </div>
     </div>
   );
@@ -619,7 +595,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   // A coached client never sees them (the coach decides); a solo revisiting keeps the targets he tuned.
   const showTargets = !coached && coachingRole !== 'coach' && !profile?.onboarding_completed;
   const totalScreens = showTargets ? TOTAL_INTAKE_SCREENS + 1 : TOTAL_INTAKE_SCREENS;
-  const lastScreen = showTargets ? TARGETS_SCREEN_INDEX : EXTRA_SCREEN_INDEX;
+  const lastScreen = showTargets ? TARGETS_SCREEN_INDEX : TOTAL_INTAKE_SCREENS - 1;
 
   const [intake, setIntake] = useState<KinesiologyIntake>(() => parseIntake(profile?.kinesiology_intake));
   const [step, setStep] = useState(() => intakeResumeScreen(parseIntake(profile?.kinesiology_intake)));
@@ -634,15 +610,13 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
     t('intake.screens.pain'),
     t('intake.screens.medical'),
     t('intake.screens.prefs'),
-    t('intake.screens.rest'),
-    t('intake.screens.extras'),
     t('intake.screens.targets'),
   ];
 
   /** Draft saved on every « Continuer » so closing the app resumes where the client stopped. */
   const persistDraft = () => {
     if (!user) return;
-    void updateProfile(user.id, { kinesiology_intake: { ...intake } });
+    void updateProfile(user.id, { kinesiology_intake: { ...prepareIntakeForSave(intake) } });
   };
 
   const finish = async () => {
@@ -709,8 +683,6 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
           {step === 4 && <ScreenDouleurs intake={intake} setIntake={setIntake} label={label} />}
           {step === 5 && <ScreenMedical intake={intake} setIntake={setIntake} label={label} />}
           {step === 6 && <ScreenPrefs intake={intake} setIntake={setIntake} label={label} />}
-          {step === 7 && <ScreenReste intake={intake} setIntake={setIntake} label={label} />}
-          {step === 8 && <ScreenExtras intake={intake} setIntake={setIntake} />}
           {step === TARGETS_SCREEN_INDEX && <ScreenTargets targets={targets} />}
         </Card>
       </div>
@@ -724,7 +696,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
           )}
           <Button
             onClick={goNext}
-            disabled={(step <= EXTRA_SCREEN_INDEX && !screenCanProceed(intake, step)) || saving}
+            disabled={(step < TOTAL_INTAKE_SCREENS && !screenCanProceed(intake, step)) || saving}
             loading={saving && step === lastScreen}
             className="flex-1"
           >

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Sparkles } from 'lucide-react';
+import { Dumbbell, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { isSoloAthlete } from '../../lib/coachRole';
+import { outlineFromEdited, type EditedProgramDraft } from '../../lib/coachDraftSend';
 import {
   pendingSoloProgramDraft,
   soloDraftCompare,
@@ -14,12 +15,14 @@ import {
 } from '../../lib/soloProgram';
 import { isInterventionDrafting } from '../../lib/coachSecond';
 import { track } from '../../lib/telemetryClient';
+import type { AiProgramDayDraft } from '../../lib/types';
+import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
 
 /**
- * Solo copilot — program proposal: same coach-agent draft as a coach sees,
- * with accept / refuse. Never auto-applied. Hidden for coached athletes and coaches.
+ * Solo copilot — program proposal: same coach-agent draft as a coach sees.
+ * Preview + free edit before accept. Never auto-applied.
  */
 export default function SoloProgramProposal() {
   const { t } = useTranslation();
@@ -32,8 +35,14 @@ export default function SoloProgramProposal() {
   const applyProgramOutline = useCoachingStore(s => s.applyProgramOutline);
   const resolveIntervention = useCoachingStore(s => s.resolveIntervention);
   const assignment = useProgramStore(s => s.assignment);
+  const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const applyExercisePatch = useProgramStore(s => s.applyExercisePatch);
   const [busy, setBusy] = useState<'accept' | 'refuse' | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [weeks, setWeeks] = useState(8);
+  const [days, setDays] = useState<AiProgramDayDraft[]>([]);
 
   const solo = isSoloAthlete(coachingRole, myCoach);
 
@@ -42,8 +51,22 @@ export default function SoloProgramProposal() {
     void fetchPendingInterventions();
   }, [user?.id, solo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const row = user && solo ? pendingSoloProgramDraft(pendingInterventions, user.id) : null;
+
+  useEffect(() => {
+    if (!row) {
+      setEditing(false);
+      return;
+    }
+    const edited = soloDraftEdited(row);
+    setName(edited.programName);
+    setDescription(edited.programDesc);
+    setWeeks(edited.programWeeks);
+    setDays(edited.days);
+    setEditing(false);
+  }, [row?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!user || !solo) return null;
-  const row = pendingSoloProgramDraft(pendingInterventions, user.id);
   if (!row) return null;
   if (isInterventionDrafting(row)) {
     return (
@@ -54,48 +77,62 @@ export default function SoloProgramProposal() {
     );
   }
 
-  const edited = soloDraftEdited(row);
+  const seed = soloDraftEdited(row);
   const why = soloDraftWhy(row);
   const compare = soloDraftCompare(row, assignment?.program);
   const deciding = busy !== null;
+  const localEdited: EditedProgramDraft = {
+    programName: name,
+    programDesc: description,
+    programWeeks: weeks,
+    days,
+    patch: seed.patch,
+  };
+  const outline = outlineFromEdited({ ...localEdited, patch: null });
+  const hasOutline = !!outline;
+  const isPatch = !!seed.patch;
 
   const onAccept = async () => {
     if (deciding) return;
     setBusy('accept');
-    if (edited.patch) {
+    if (isPatch && seed.patch) {
       const programId = assignment?.program_id;
       if (!programId) {
         setBusy(null);
         toast(t('soloProgram.patchNoProgram'), 'info');
         return;
       }
-      const patched = await applyExercisePatch(programId, edited.patch);
+      const patched = await applyExercisePatch(programId, seed.patch);
       if (patched.error) {
         setBusy(null);
         toast(patched.error, 'error');
         return;
       }
-    } else if (edited.programName.trim() && edited.days.length > 0) {
-      const created = await applyProgramOutline(user.id, {
-        name: edited.programName,
-        description: edited.programDesc,
-        duration_weeks: edited.programWeeks,
-        days: edited.days,
-      });
+    } else if (outline) {
+      const created = await applyProgramOutline(user.id, outline);
       if (created.error) {
         setBusy(null);
         toast(created.error, 'error');
         return;
       }
     }
-    const resolved = await resolveIntervention(row.id, 'sent', row.payload);
+    const resolved = await resolveIntervention(row.id, 'sent', {
+      ...row.payload,
+      program: outline ?? row.payload.program,
+      name: outline?.name ?? row.payload.name,
+      description: outline?.description ?? row.payload.description,
+      duration_weeks: outline?.duration_weeks ?? row.payload.duration_weeks,
+      days: outline?.days ?? row.payload.days,
+    });
     setBusy(null);
     if (resolved.error) {
       toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
       return;
     }
-    track('solo_program_accepted', { kind: row.kind, edited: false });
+    track('solo_program_accepted', { kind: row.kind, edited: editing });
     toast(t('soloProgram.accepted'));
+    await fetchMyAssignment(user.id);
+    navigate('/programs');
   };
 
   const onRefuse = async () => {
@@ -109,7 +146,7 @@ export default function SoloProgramProposal() {
     }
     track('solo_program_dismissed', { kind: row.kind });
     toast(t('soloProgram.refused'));
-    navigate('/routines');
+    navigate('/programs');
   };
 
   return (
@@ -144,16 +181,64 @@ export default function SoloProgramProposal() {
           </p>
         </div>
       ) : null}
-      {edited.programName && edited.days.length > 0 && !edited.patch ? (
-        <p className="text-xs text-neutral-400">
-          {edited.programName}
-          {' · '}
-          {t('programs.weeksCount', { n: edited.programWeeks })}
-          {' · '}
-          {edited.days.map(d => d.name || t(`programs.weekdays.${d.weekday}`)).join(' · ')}
-        </p>
+      {hasOutline && !editing ? (
+        <div className="space-y-2">
+          <p className="text-xs text-neutral-400">
+            {name || outline!.name}
+            {' · '}
+            {t('programs.weeksCount', { n: weeks })}
+          </p>
+          {days.map((d, i) => (
+            <div key={`${d.weekday}-${i}`} className="rounded-xl bg-neutral-950/60 border border-neutral-800/80 px-3 py-2">
+              <p className="text-sm font-medium text-white">
+                {d.name || t(`programs.weekdays.${d.weekday}`)}
+              </p>
+              {d.exercises.length === 0 ? (
+                <p className="text-[11px] text-neutral-500 mt-1">{t('programs.noExercises')}</p>
+              ) : (
+                <ul className="mt-1 space-y-0.5">
+                  {d.exercises.map((ex, j) => (
+                    <li key={`${ex.name}-${j}`} className="flex items-start gap-1.5 text-[11px] text-neutral-300">
+                      <Dumbbell size={10} className="text-blue-400/70 mt-0.5 shrink-0" />
+                      <span>
+                        <span className="text-white">{ex.name}</span>
+                        <span className="text-neutral-500"> · {ex.default_sets}×{ex.default_reps}</span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
       ) : null}
-      <div className="flex gap-2">
+      {hasOutline && editing ? (
+        <ProgramSessionEditor
+          name={name}
+          description={description}
+          durationWeeks={weeks}
+          days={days}
+          clientId={user.id}
+          programId={null}
+          presentation="athlete"
+          onNameChange={setName}
+          onDescriptionChange={setDescription}
+          onWeeksChange={setWeeks}
+          onDaysChange={setDays}
+        />
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {hasOutline && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={deciding}
+            onClick={() => setEditing(e => !e)}
+          >
+            {editing ? t('soloProgram.hideEditor') : t('soloProgram.edit')}
+          </Button>
+        )}
         <Button type="button" size="sm" loading={busy === 'accept'} disabled={deciding} onClick={() => void onAccept()}>
           {t('soloProgram.accept')}
         </Button>

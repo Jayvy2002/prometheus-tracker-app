@@ -6,13 +6,14 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
 import { isSoloAthlete } from '../../lib/coachRole';
-import { pendingSoloProgramDraft } from '../../lib/soloProgram';
+import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
 import { programWeekNumber } from '../../lib/utils';
-import { track } from '../../lib/telemetryClient';
-import type { ProgramDay, ProgramDayExercise } from '../../lib/types';
+import { outlineFromEdited } from '../../lib/coachDraftSend';
+import type { AiProgramDayDraft, ProgramDay, ProgramDayExercise } from '../../lib/types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
+import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import SoloProgramProposal from '../dashboard/SoloProgramProposal';
 import { toast } from '../ui/Toast';
 
@@ -28,15 +29,19 @@ function repsLabel(ex: ProgramDayExercise): string {
 export default function ClientProgramPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { assignment, fetchMyAssignment, loading } = useProgramStore();
+  const { assignment, fetchMyAssignment, loading, updateProgram, syncProgramDays } = useProgramStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
-  const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
+  const applyProgramOutline = useCoachingStore(s => s.applyProgramOutline);
   const solo = isSoloAthlete(coachingRole, myCoach);
-  const [nlPrompt, setNlPrompt] = useState('');
-  const [asking, setAsking] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [weeks, setWeeks] = useState(8);
+  const [days, setDays] = useState<AiProgramDayDraft[]>([emptyProgramDraftDay()]);
 
   useEffect(() => {
     if (!user) return;
@@ -46,35 +51,75 @@ export default function ClientProgramPage() {
 
   const program = assignment?.status === 'active' ? assignment.program : undefined;
   const pending = solo ? pendingSoloProgramDraft(pendingInterventions, user?.id) : null;
-  const days = trainingDays(program?.days);
+  const training = trainingDays(program?.days);
   const todayWeekday = new Date().getDay();
   const week = program
     ? programWeekNumber(assignment!.start_date, program.duration_weeks)
     : null;
-  const todayDay = days.find(d => d.weekday === todayWeekday) ?? null;
+  const todayDay = training.find(d => d.weekday === todayWeekday) ?? null;
+  const showEditor = solo && (!!program || creating);
+
+  useEffect(() => {
+    if (!program) return;
+    setCreating(false);
+    setName(program.name);
+    setDescription(program.description ?? '');
+    setWeeks(program.duration_weeks);
+    setDays(programDaysToDraft(program.days));
+  }, [program?.id, program?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const weekdayLabel = (d: number) => t(`programs.weekdays.${d}`);
 
-  const askPatch = async () => {
-    if (!user || !solo || asking) return;
-    const prompt = nlPrompt.trim();
-    if (!prompt) return;
-    setAsking(true);
-    const result = await askCoachAgent({
-      kind: 'program_nl_edit',
-      clientId: user.id,
-      programId: assignment?.program_id ?? null,
-      prompt,
-      screen: 'solo_program',
+  const startBlank = () => {
+    setCreating(true);
+    setName(t('programs.mineTitle'));
+    setDescription('');
+    setWeeks(8);
+    setDays([emptyProgramDraftDay()]);
+  };
+
+  const handleSave = async () => {
+    if (!user || saving) return;
+    const outline = outlineFromEdited({
+      programName: name,
+      programDesc: description,
+      programWeeks: weeks,
+      days,
+      patch: null,
     });
-    setAsking(false);
-    if ('error' in result) {
-      toast(result.error === 'DAILY_LIMIT_REACHED' ? t('soloProgram.dailyLimit') : t('soloProgram.askFailed'), 'error');
+    if (!outline) {
+      toast(t('programs.needDayAndLift'), 'info');
       return;
     }
-    track('solo_program_nl_asked', { has_program: !!assignment?.program_id });
-    setNlPrompt('');
-    toast(t('soloProgram.askQueued'));
+    setSaving(true);
+    if (!program) {
+      const created = await applyProgramOutline(user.id, outline);
+      setSaving(false);
+      if (created.error) {
+        toast(created.error, 'error');
+        return;
+      }
+      toast(t('programs.selfAssigned'));
+      return;
+    }
+    const updated = await updateProgram(program.id, {
+      name: outline.name,
+      description: outline.description,
+      duration_weeks: outline.duration_weeks,
+    });
+    if (updated.error) {
+      setSaving(false);
+      toast(updated.error, 'error');
+      return;
+    }
+    const synced = await syncProgramDays(program.id, outline.days);
+    setSaving(false);
+    if (synced.error) {
+      toast(synced.error, 'error');
+      return;
+    }
+    await fetchMyAssignment(user.id);
+    toast(t('common.saveChanges'));
   };
 
   return (
@@ -82,18 +127,43 @@ export default function ClientProgramPage() {
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('programs.mineTitle')}</h1>
         <p className="text-sm text-neutral-500 mb-5">
-          {solo ? t('programs.soloSubtitle') : t('programs.mineSubtitle')}
+          {solo ? t('programs.soloReadFirst') : t('programs.mineSubtitle')}
         </p>
 
         {solo && <SoloProgramProposal />}
 
-        {loading && !program ? (
+        {loading && !program && !creating ? (
           <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}</div>
+        ) : showEditor ? (
+          <div className="space-y-4">
+            <ProgramSessionEditor
+              name={name}
+              description={description}
+              durationWeeks={weeks}
+              days={days}
+              clientId={user?.id}
+              programId={program?.id ?? null}
+              presentation="athlete"
+              currentWeek={week}
+              onNameChange={setName}
+              onDescriptionChange={setDescription}
+              onWeeksChange={setWeeks}
+              onDaysChange={setDays}
+            />
+            <div className="sticky bottom-20 md:bottom-4 z-10 pt-1">
+              <Button className="w-full shadow-lg shadow-black/50" onClick={() => void handleSave()} loading={saving} disabled={!name.trim()}>
+                {program ? t('programs.savePlan') : t('programs.createMine')}
+              </Button>
+            </div>
+          </div>
         ) : !program ? (
           pending ? null : (
             <Card className="text-center py-10">
               <CalendarRange className="mx-auto mb-3 text-neutral-600" size={28} />
-              <p className="text-neutral-400">{solo ? t('programs.soloEmpty') : t('programs.noAssignment')}</p>
+              <p className="text-neutral-400 mb-4">{solo ? t('programs.soloEmpty') : t('programs.noAssignment')}</p>
+              {solo && (
+                <Button type="button" size="sm" onClick={startBlank}>{t('programs.createMine')}</Button>
+              )}
             </Card>
           )
         ) : (
@@ -148,24 +218,6 @@ export default function ClientProgramPage() {
                 );
               })}
             </div>
-
-            {solo && !pending && (
-              <Card className="space-y-2">
-                <p className="text-sm font-medium text-white">{t('soloProgram.adjustTitle')}</p>
-                <p className="text-xs text-neutral-400">{t('soloProgram.adjustHint')}</p>
-                <textarea
-                  value={nlPrompt}
-                  onChange={e => setNlPrompt(e.target.value)}
-                  rows={3}
-                  maxLength={400}
-                  placeholder={t('soloProgram.adjustPlaceholder')}
-                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white placeholder-neutral-600"
-                />
-                <Button type="button" size="sm" loading={asking} disabled={!nlPrompt.trim()} onClick={() => void askPatch()}>
-                  {t('soloProgram.adjustCta')}
-                </Button>
-              </Card>
-            )}
           </div>
         )}
       </div>
