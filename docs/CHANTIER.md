@@ -52,7 +52,7 @@
    supabase functions deploy coach-fleet-round --project-ref phyuijjekxtjvipjtdfv --no-verify-jwt
    supabase functions deploy coach-agent --project-ref phyuijjekxtjvipjtdfv
    ```
-   Live actuel : `coach-fleet-round` **v31** (`verify_jwt` false), `coach-agent` **v24** (`verify_jwt` true). Sans secret, le job CI `deploy-edges` est **skipped** (pas SUCCESS). Avec secret, il déploie vraiment via CLI.
+   Live actuel : `coach-fleet-round` **v31** (`verify_jwt` false), `coach-agent` **v24** (`verify_jwt` true). Sans secret, le job CI `deploy-edges` **échoue** (preuve obligatoire, pas SUCCESS). Avec secret, il déploie vraiment via CLI.
 2. **Rappels cron** : poser le secret `REMINDERS_CRON_SECRET` (valeur transmise hors git) dans Vault **et** dans les secrets de `send-daily-reminders`, vérifier les secrets VAPID, puis jouer `supabase/cron/schedule_daily_reminders.sql`.
 3. **Protection de branche** : protéger `new-JV` (reviews + CI verte requises) — non faisable via API ici.
 4. **Matrice RLS** : job CI `rls-matrix` (`supabase start` + `scripts/run-rls-matrix.mjs`). Rejouer aussi sur une branche staging après chaque changement de policy / RPC DEFINER.

@@ -30,8 +30,8 @@ Vérifs :
 
 - `npm run verify:migrations` — Git versions = lock (98).
 - Replay CI : `supabase start` PG17 puis `npm run verify:local-migrations` (98/98).
-- Si le secret GitHub `SUPABASE_ACCESS_TOKEN` est posé : étape CI **Prod migration list + db push --dry-run** exécute `scripts/prod-migration-sync.sh` (sortie CLI réelle). Sinon GitHub **skip** l’étape (gris) — jamais un `exit 0` déguisé en SUCCESS.
-- Job `deploy-edges` : skippé tout entier sans ce secret (pas un succès de déploiement).
+- Si le secret GitHub `SUPABASE_ACCESS_TOKEN` est posé : étape CI **Prod migration list + db push --dry-run** exécute `scripts/prod-migration-sync.sh` (sortie CLI réelle). Sinon l’étape est **skipped** via `steps.token.outputs.present` (gris) — jamais un `exit 0` déguisé en SUCCESS. Ne pas mettre `secrets.*` dans un `if:` GitHub (ça invalide le workflow).
+- Job `deploy-edges` (cette PR) : s’exécute vraiment ; `scripts/deploy-audit-edges.sh` **échoue** sans token (preuve de déploiement obligatoire, pas un succès fantôme).
 
 ## Repair validé (plage audit)
 

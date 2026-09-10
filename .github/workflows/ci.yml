@@ -29,17 +29,26 @@ jobs:
       - run: npm test
       - run: npm run verify:migrations
       - run: npm run verify:edges
+      - name: Detect Management API token
+        id: token
+        run: |
+          if [ -n "${SUPABASE_ACCESS_TOKEN}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=CLI prod::SUPABASE_ACCESS_TOKEN absent — migration list / dry-run skipped (not a successful proof)."
+          fi
       - uses: supabase/setup-cli@v1
-        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+        if: steps.token.outputs.present == 'true'
         with:
           version: 2.117.0
       - name: Prod migration list + db push --dry-run
-        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+        if: steps.token.outputs.present == 'true'
         run: |
           chmod +x scripts/prod-migration-sync.sh
           bash scripts/prod-migration-sync.sh
       - name: Upload prod CLI proof
-        if: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' && always() }}
+        if: always() && steps.token.outputs.present == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: prod-cli-proof
@@ -102,7 +111,7 @@ jobs:
   deploy-edges:
     name: deploy-edges (CLI)
     needs: verify
-    if: ${{ github.event_name == 'pull_request' && github.head_ref == 'cursor/audit-securisation-425e' && secrets.SUPABASE_ACCESS_TOKEN != '' }}
+    if: github.event_name == 'pull_request' && github.head_ref == 'cursor/audit-securisation-425e'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

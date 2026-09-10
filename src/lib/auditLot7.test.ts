@@ -66,10 +66,12 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /verify-local-migrations/);
   assert.match(ci, /deploy-audit-edges/);
   assert.match(ci, /2\.117\.0/);
-  assert.match(ci, /if: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN != '' \}\}/);
-  assert.match(
+  assert.match(ci, /steps\.token\.outputs\.present == 'true'/);
+  assert.match(ci, /github\.head_ref == 'cursor\/audit-securisation-425e'/);
+  assert.doesNotMatch(
     ci,
-    /github\.head_ref == 'cursor\/audit-securisation-425e' && secrets\.SUPABASE_ACCESS_TOKEN != ''/,
+    /if:.*secrets\.SUPABASE_ACCESS_TOKEN/,
+    'secrets in if: break the workflow file; skip via step outputs instead',
   );
   assert.doesNotMatch(
     ci,
