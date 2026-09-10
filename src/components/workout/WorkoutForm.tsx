@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import FullPageLayout from '../layout/FullPageLayout';
-import { ArrowLeft, Plus, Check, Timer } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Timer, CloudOff, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -29,6 +29,7 @@ import {
 import type { Workout, WorkoutTemplateExercise } from '../../lib/types';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showTrainingField } from '../../lib/clientTracking';
+import { useOnline } from '../../lib/useOnline';
 
 interface LocationState {
   routineId?: string;
@@ -48,7 +49,9 @@ function WorkoutFormInner() {
   const { user } = useAuthStore();
   const {
     currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, setCurrentWorkout,
+    pendingOps, syncOfflineQueue,
   } = useWorkoutStore();
+  const online = useOnline();
   const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
   const tracking = useClientTracking();
   const restEnabled = showTrainingField(tracking, 'rest');
@@ -427,6 +430,31 @@ function WorkoutFormInner() {
         </button>
         )}
       </div>
+
+      {(!online || pendingOps > 0) && (
+        <div
+          className="mb-4 flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2"
+          role="status"
+        >
+          {!online ? <CloudOff size={14} className="text-amber-400 shrink-0" /> : null}
+          <p className="text-xs text-amber-200/90 flex-1">
+            {!online
+              ? pendingOps > 0
+                ? `${t('workout.syncOffline')} ${t('workout.syncPending', { n: pendingOps })}`
+                : t('workout.syncOffline')
+              : t('workout.syncPending', { n: pendingOps })}
+          </p>
+          {online && pendingOps > 0 && (
+            <button
+              type="button"
+              onClick={() => void syncOfflineQueue()}
+              className="flex items-center gap-1 text-xs text-amber-300 hover:text-amber-100 shrink-0"
+            >
+              <RefreshCw size={12} /> {t('workout.syncRetry')}
+            </button>
+          )}
+        </div>
+      )}
 
       {!isProgramSession && (
       <div className="mb-4">

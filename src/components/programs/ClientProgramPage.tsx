@@ -29,7 +29,7 @@ function repsLabel(ex: ProgramDayExercise): string {
 export default function ClientProgramPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { assignment, fetchMyAssignment, loading, updateProgram, syncProgramDays } = useProgramStore();
+  const { assignment, fetchMyAssignment, fetchPausedAssignments, loading, updateProgram, syncProgramDays } = useProgramStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
@@ -38,6 +38,8 @@ export default function ClientProgramPage() {
   const solo = isSoloAthlete(coachingRole, myCoach);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [archives, setArchives] = useState<Awaited<ReturnType<typeof fetchPausedAssignments>>>([]);
+  const [archivesOpen, setArchivesOpen] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [weeks, setWeeks] = useState(8);
@@ -46,6 +48,7 @@ export default function ClientProgramPage() {
   useEffect(() => {
     if (!user) return;
     void fetchMyAssignment(user.id);
+    void fetchPausedAssignments(user.id).then(setArchives);
     if (solo) void fetchPendingInterventions();
   }, [user, solo]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -218,6 +221,37 @@ export default function ClientProgramPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {archives.filter(a => a.id !== assignment?.id).length > 0 && (
+          <div className="mt-8">
+            <button
+              type="button"
+              onClick={() => setArchivesOpen(o => !o)}
+              className="text-sm font-medium text-neutral-300 hover:text-white"
+            >
+              {t('programs.archivesTitle')} ({archives.filter(a => a.id !== assignment?.id).length})
+            </button>
+            <p className="text-[11px] text-neutral-600 mt-0.5 mb-2">{t('programs.archivesReadOnly')}</p>
+            {archivesOpen && (
+              <div className="space-y-2">
+                {archives.filter(a => a.id !== assignment?.id).map(a => (
+                  <Card key={a.id}>
+                    <p className="text-sm font-medium text-white">{a.program?.name || t('programs.assigned')}</p>
+                    <p className="text-[11px] text-neutral-500 mt-0.5">
+                      {(a.program?.days ?? []).filter(isProgramTrainingDay).length} j · {a.program?.duration_weeks} sem.
+                    </p>
+                    {(a.program?.days ?? []).filter(isProgramTrainingDay).map(d => (
+                      <div key={d.id} className="mt-2">
+                        <p className="text-xs text-neutral-400">{weekdayLabel(d.weekday)}{d.name ? ` · ${d.name}` : ''}</p>
+                        <ExerciseList exercises={d.exercises ?? []} emptyLabel={t('programs.noExercises')} />
+                      </div>
+                    ))}
+                  </Card>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

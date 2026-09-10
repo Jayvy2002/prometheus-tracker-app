@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
+import { useWorkoutStore } from './stores/workoutStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 import { resetSessionStores } from './lib/resetStores';
 import { getSessionOwner } from './lib/sessionScope';
@@ -128,12 +129,26 @@ function AppRoutes() {
           await fetchMyCoach();
         }
       })();
+      // D07 : au login, reprend la file offline du compte (rejeu idempotent).
+      useWorkoutStore.getState().refreshPendingOps();
+      void useWorkoutStore.getState().syncOfflineQueue();
     } else if (initialized) {
       // Q01 : détache le push du compte qui part avant de purger le scope.
       void detachPushOnLogout(getSessionOwner());
       resetSessionStores();
     }
   }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
+
+  // D07 : au retour du réseau, rejoue la file offline du compte courant.
+  useEffect(() => {
+    if (!userId) return;
+    const onOnline = () => {
+      useWorkoutStore.getState().refreshPendingOps();
+      void useWorkoutStore.getState().syncOfflineQueue();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [userId]);
 
   // The account's language wins over this device's default (Profil → Langue is written to user_profiles).
   const profileLanguage = profile?.language;

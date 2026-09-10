@@ -1,28 +1,25 @@
--- Schedule send-daily-reminders via pg_cron + pg_net.
--- This cannot be applied from the repo: it needs the project URL and the
--- service_role key, which must never be committed.
+-- Schedule send-daily-reminders via pg_cron + pg_net + vault (Q01).
+-- Same pattern as coach-fleet-round: the secret lives in vault, never in git.
 --
--- 1. Dashboard → Database → Extensions: enable `pg_cron` and `pg_net`.
--- 2. Dashboard → Edge Functions → send-daily-reminders: set secrets
---    VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
--- 3. Paste this in the SQL editor after replacing the two placeholders.
+-- One-time setup (Supabase Dashboard):
+-- 1. Edge Functions → send-daily-reminders → Secrets: set REMINDERS_CRON_SECRET
+--    to the generated value (given separately, never committed).
+-- 2. Database → Vault (or SQL below): store the SAME value as REMINDERS_CRON_SECRET.
+-- 3. Run the cron.schedule block below (every minute — the edge only sends
+--    when a user's HH:MM matches in their own timezone, and skips logged days).
+-- 4. VAPID keys must also be set on the edge (VAPID_PUBLIC_KEY/PRIVATE_KEY/SUBJECT).
 
-select cron.unschedule('send-daily-reminders')
-where exists (
-  select 1 from cron.job where jobname = 'send-daily-reminders'
+-- 2. Vault (run once):
+-- SELECT vault.create_secret('<GENERATED>', 'REMINDERS_CRON_SECRET');
+
+-- 3. Schedule (every minute; per-minute HH:MM match + tag dedup inside the edge):
+SELECT cron.unschedule('send-daily-reminders')
+WHERE EXISTS (
+  SELECT 1 FROM cron.job WHERE jobname = 'send-daily-reminders'
 );
 
-select cron.schedule(
+SELECT cron.schedule(
   'send-daily-reminders',
   '* * * * *',
-  $$
-  select net.http_post(
-    url := 'https://PROJECT_REF.supabase.co/functions/v1/send-daily-reminders',
-    headers := jsonb_build_object(
-      'Content-Type', 'application/json',
-      'Authorization', 'Bearer SERVICE_ROLE_KEY'
-    ),
-    body := '{}'::jsonb
-  );
-  $$
+  $$SELECT public.invoke_send_daily_reminders();$$
 );

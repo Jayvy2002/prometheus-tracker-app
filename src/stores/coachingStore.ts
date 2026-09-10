@@ -21,6 +21,7 @@ import type {
   DailyCheckin,
   DailyNutritionPoint,
   NutritionLog,
+  ProgramAssignment,
   ProgressPhoto,
   ProgressPhotoKind,
   UserProfile,
@@ -278,6 +279,8 @@ function dropUnlinkedClient(s: {
 let coachRealtimeChannel: RealtimeChannel | null = null;
 let coachPollTimer: ReturnType<typeof setInterval> | null = null;
 let clientRealtimeChannel: RealtimeChannel | null = null;
+/** C01 : un canal par fiche 360 ouverte (observations du client affiché). */
+const dossierChannels = new Map<string, RealtimeChannel>();
 
 interface CoachingState {
   coachingRole: CoachingRole;
@@ -407,6 +410,16 @@ interface CoachingState {
   stopCoachRealtime: () => void;
   startClientRealtime: () => Promise<void>;
   stopClientRealtime: () => void;
+  /**
+   * C01 : observe les tables d'observation d'UN client (fiche 360 ouverte).
+   * Le Realtime ne fait qu'invalider — l'appelant recharge depuis le serveur.
+   * Retourne la fonction de désabonnement.
+   */
+  subscribeClientDossier: (clientId: string, onInvalidate: () => void) => () => void;
+  /** C04 : attributions (actives + en pause) d'un client suivi. */
+  fetchClientAssignments: (clientId: string) => Promise<Array<ProgramAssignment & { programs?: { name: string } | null }>>;
+  /** C04 : adopte (fork) un programme assigné au client dans la bibliothèque coach. */
+  adoptClientProgram: (programId: string, clientId: string) => Promise<{ programId: string } | { error: string }>;
   createIntervention: (input: {
     clientId: string | null;
     kind: CoachInterventionKind;
@@ -1757,6 +1770,62 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     }
   },
 
+  subscribeClientDossier: (clientId, onInvalidate) => {
+    const existing = dossierChannels.get(clientId);
+    if (existing) void supabase.removeChannel(existing);
+    // C01 : RLS restreint déjà aux suivis du coach ; on filtre par client côté réception.
+    const tables = [
+      'workouts', 'workout_exercises', 'workout_sets',
+      'nutrition_logs', 'water_logs', 'weight_measurements',
+      'daily_checkins', 'daily_steps',
+    ];
+    let channel = supabase.channel(`client-dossier-${clientId}`);
+    const userOf = (row: Record<string, unknown> | undefined): string | null => {
+      if (!row) return null;
+      const direct = row.user_id;
+      if (typeof direct === 'string') return direct;
+      return null;
+    };
+    for (const table of tables) {
+      channel = channel.on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table },
+        payload => {
+          const row = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
+          if (userOf(row) === clientId) onInvalidate();
+          // workout_exercises/sets ne portent pas user_id : toute écriture invalide.
+          if ((table === 'workout_exercises' || table === 'workout_sets') && !userOf(row)) onInvalidate();
+        },
+      );
+    }
+    const subscribed = channel.subscribe();
+    dossierChannels.set(clientId, subscribed);
+    return () => {
+      void supabase.removeChannel(subscribed);
+      if (dossierChannels.get(clientId) === subscribed) dossierChannels.delete(clientId);
+    };
+  },
+
+  fetchClientAssignments: async (clientId) => {
+    const { data } = await supabase
+      .from('program_assignments')
+      .select('*, programs(name)')
+      .eq('client_id', clientId)
+      .order('updated_at', { ascending: false });
+    return ((data ?? []) as Array<ProgramAssignment & { programs?: { name: string } | null }>)
+      .filter(a => a.status === 'active' || a.status === 'paused');
+  },
+
+  adoptClientProgram: async (programId, clientId) => {
+    const { data, error } = await supabase.rpc('adopt_client_program', {
+      p_program_id: programId,
+      p_client_id: clientId,
+    });
+    if (error || !data) return { error: error?.message ?? 'Adoption impossible' };
+    track('program_adopted', {});
+    return { programId: data as string };
+  },
+
   createIntervention: async (input) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
@@ -2074,6 +2143,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   clear: () => {
     get().stopCoachRealtime();
     get().stopClientRealtime();
+    for (const channel of dossierChannels.values()) void supabase.removeChannel(channel);
+    dossierChannels.clear();
     set({
       coachingRole: 'none',
       roleReady: false,

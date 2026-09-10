@@ -75,6 +75,8 @@ interface ProgramState {
     }>,
   ) => Promise<{ error: string | null }>;
   fetchMyAssignment: (clientId: string) => Promise<ProgramAssignment | null>;
+  /** C04 : attributions en pause avec programme (archives consultables). */
+  fetchPausedAssignments: (clientId: string) => Promise<ProgramAssignment[]>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   pauseAssignment: (id: string) => Promise<void>;
   clear: () => void;
@@ -415,6 +417,23 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     };
     set({ assignment });
     return assignment;
+  },
+
+  fetchPausedAssignments: async (clientId) => {
+    const { data } = await supabase
+      .from('program_assignments')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('status', 'paused')
+      .order('updated_at', { ascending: false })
+      .limit(10);
+    const rows = (data ?? []) as ProgramAssignment[];
+    const out: ProgramAssignment[] = [];
+    for (const row of rows) {
+      const program = await get().fetchProgram(row.program_id as string);
+      out.push({ ...row, program: program ?? undefined });
+    }
+    return out;
   },
 
   assignProgram: async (programId, clientId, startDate) => {

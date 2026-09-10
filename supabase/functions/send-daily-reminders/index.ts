@@ -34,7 +34,42 @@
  */
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { hhmmInTimeZone, todayInTimeZone } from '../_shared/clock.ts';
+
+/** Inlined from _shared/clock.ts so this function deploys as one file. */
+function todayInTimeZone(now: Date, timeZone: string | null | undefined): string {
+  const tz = (timeZone ?? '').trim() || 'UTC';
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(now);
+    const p = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${p.year}-${p.month}-${p.day}`;
+  } catch {
+    return now.toISOString().slice(0, 10);
+  }
+}
+
+/** Inlined from _shared/clock.ts so this function deploys as one file. */
+function hhmmInTimeZone(now: Date, timeZone: string | null | undefined): string {
+  const tz = (timeZone ?? '').trim() || 'UTC';
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: tz,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now);
+    const p = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${p.hour}:${p.minute}`;
+  } catch {
+    const h = String(now.getUTCHours()).padStart(2, '0');
+    const m = String(now.getUTCMinutes()).padStart(2, '0');
+    return `${h}:${m}`;
+  }
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -259,31 +294,59 @@ Deno.serve(async (req) => {
 
   const { data: reminderRows } = await admin
     .from('user_profiles')
-    .select('id, timezone, notification_workout_enabled, notification_workout_time, notification_nutrition_enabled, notification_nutrition_time')
+    .select('id, language, timezone, notification_workout_enabled, notification_workout_time, notification_nutrition_enabled, notification_nutrition_time')
     .or('notification_workout_enabled.eq.true,notification_nutrition_enabled.eq.true');
 
-  const workoutUsers = (reminderRows ?? []).filter((row) => {
-    const r = row as { id: string; timezone: string | null; notification_workout_enabled: boolean; notification_workout_time: string | null };
-    if (!r.notification_workout_enabled || !r.notification_workout_time) return false;
-    return hhmmInTimeZone(now, r.timezone) === r.notification_workout_time;
-  }).map((row) => ({ id: (row as { id: string }).id, timezone: (row as { timezone: string | null }).timezone }));
+  type ReminderRow = {
+    id: string;
+    language: string | null;
+    timezone: string | null;
+    notification_workout_enabled: boolean;
+    notification_workout_time: string | null;
+    notification_nutrition_enabled: boolean;
+    notification_nutrition_time: string | null;
+  };
+  const rows = ((reminderRows ?? []) as ReminderRow[]).filter(r => r.id);
 
-  const nutritionUsers = (reminderRows ?? []).filter((row) => {
-    const r = row as { id: string; timezone: string | null; notification_nutrition_enabled: boolean; notification_nutrition_time: string | null };
+  // Q01/I04 : pas de rappel pour un module que le coach a éteint.
+  const trackingByClient = new Map<string, { track_workouts: boolean; track_nutrition: boolean }>();
+  if (rows.length > 0) {
+    const { data: cfgs } = await admin
+      .from('client_tracking_config')
+      .select('client_id, track_workouts, track_nutrition')
+      .in('client_id', rows.map(r => r.id));
+    for (const c of (cfgs ?? []) as Array<{ client_id: string; track_workouts: boolean; track_nutrition: boolean }>) {
+      trackingByClient.set(c.client_id, { track_workouts: c.track_workouts !== false, track_nutrition: c.track_nutrition !== false });
+    }
+  }
+  const moduleOn = (userId: string, mod: 'track_workouts' | 'track_nutrition'): boolean => {
+    const cfg = trackingByClient.get(userId);
+    if (!cfg) return true;
+    return cfg[mod] !== false;
+  };
+
+  const workoutUsers = rows.filter((r) => {
+    if (!r.notification_workout_enabled || !r.notification_workout_time) return false;
+    if (!moduleOn(r.id, 'track_workouts')) return false;
+    return hhmmInTimeZone(now, r.timezone) === r.notification_workout_time;
+  }).map((r) => ({ id: r.id, timezone: r.timezone, language: r.language }));
+
+  const nutritionUsers = rows.filter((r) => {
     if (!r.notification_nutrition_enabled || !r.notification_nutrition_time) return false;
+    if (!moduleOn(r.id, 'track_nutrition')) return false;
     return hhmmInTimeZone(now, r.timezone) === r.notification_nutrition_time;
-  }).map((row) => ({ id: (row as { id: string }).id, timezone: (row as { timezone: string | null }).timezone }));
+  }).map((r) => ({ id: r.id, timezone: r.timezone, language: r.language }));
 
   let sent = 0;
   const staleEndpoints: string[] = [];
 
   const processUsers = async (
-    users: { id: string; timezone: string | null }[] | null,
+    users: { id: string; timezone: string | null; language: string | null }[] | null,
     type: 'workout' | 'nutrition',
   ) => {
     if (!users?.length) return;
 
-    for (const { id: userId, timezone } of users) {
+    for (const { id: userId, timezone, language } of users) {
       const today = todayInTimeZone(now, timezone);
       // Skip if user already logged the activity today
       if (type === 'workout') {
@@ -304,9 +367,14 @@ Deno.serve(async (req) => {
 
       if (!subs?.length) continue;
 
+      const fr = (language ?? 'fr').toLowerCase().startsWith('fr');
       const payload = type === 'workout'
-        ? { title: 'Prometheus 💪', body: "You haven't logged a workout today. Go crush it!", tag: 'workout-reminder', url: '/workout' }
-        : { title: 'Prometheus 🥗', body: "Don't forget to track your nutrition today.", tag: 'nutrition-reminder', url: '/nutrition' };
+        ? fr
+          ? { title: 'Prometheus 💪', body: "Tu n'as pas encore loggé ta séance aujourd'hui. Go !", tag: 'workout-reminder', url: '/workout' }
+          : { title: 'Prometheus 💪', body: "You haven't logged a workout today. Go crush it!", tag: 'workout-reminder', url: '/workout' }
+        : fr
+          ? { title: 'Prometheus 🥗', body: "N'oublie pas de logger tes repas aujourd'hui.", tag: 'nutrition-reminder', url: '/nutrition' }
+          : { title: 'Prometheus 🥗', body: "Don't forget to track your nutrition today.", tag: 'nutrition-reminder', url: '/nutrition' };
 
       for (const sub of subs) {
         try {

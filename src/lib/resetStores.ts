@@ -33,6 +33,8 @@ export function resetSessionStores(): void {
   useCheckinStore.getState().clear();
   useSoloCopilotStore.getState().clear();
   // Purge locale du compte qui part, puis libération du scope.
+  // NOTE : la file offline (D07) n'est PAS purgée — namespacée par compte,
+  // elle attend le retour de A (aucune perte) sans jamais fuiter vers B.
   if (owner) {
     clearCachesForOwner(owner);
     clearFieldDraftsForOwner();

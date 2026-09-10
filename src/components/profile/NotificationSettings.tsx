@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,9 +12,13 @@ import type { NotificationSettings as NS } from '../../lib/notifications';
 
 import { useAuthStore } from '../../stores/authStore';
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+function Toggle({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
   return (
     <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       onClick={onChange}
       className={`relative w-10 h-5 rounded-full transition-colors shrink-0 ${checked ? 'bg-blue-600' : 'bg-neutral-700'}`}
     >
@@ -27,23 +31,51 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void 
 
 export default function NotificationSettings() {
   const { t } = useTranslation();
-  const supported = 'Notification' in window;
+  const supported = 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 
   const { user } = useAuthStore();
   const [permission, setPermission] = useState<NotificationPermission>(
-    supported ? Notification.permission : 'denied',
+    'Notification' in window ? Notification.permission : 'denied',
   );
-  const [settings, setSettings] = useState<NS>(getNotificationSettings());
+  const [settings, setSettings] = useState<NS>(() => getNotificationSettings());
   const [requesting, setRequesting] = useState(false);
   const [saved, setSaved] = useState(false);
+  /** Q01 : abonnement serveur réel — la permission seule ne prouve rien. */
+  const [subscribed, setSubscribed] = useState<boolean | null>(null);
+  const [opError, setOpError] = useState<string | null>(null);
 
+  // Recharge les préférences du compte (elles sont namespacées par compte).
+  useEffect(() => {
+    setSettings(getNotificationSettings());
+    setSubscribed(null);
+    setOpError(null);
+  }, [user?.id]);
 
+  // État de l'abonnement push de CET appareil.
+  useEffect(() => {
+    if (!user || permission !== 'granted') return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const registration = await navigator.serviceWorker.ready;
+        const sub = await registration.pushManager.getSubscription();
+        if (!cancelled) setSubscribed(!!sub);
+      } catch {
+        if (!cancelled) setSubscribed(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, permission]);
 
   const handleRequest = async () => {
     setRequesting(true);
+    setOpError(null);
     const granted = await requestNotificationPermission();
     if (granted && user) {
-      await subscribeToPush(user.id);
+      // Q01 : le booléen de subscribeToPush décide de l'affichage, pas la permission.
+      const ok = await subscribeToPush(user.id);
+      setSubscribed(ok);
+      if (!ok) setOpError(t('profile.notifications.subscribeFailed'));
     }
     setPermission(granted ? 'granted' : 'denied');
     setRequesting(false);
@@ -53,9 +85,21 @@ export default function NotificationSettings() {
     const updated = { ...settings, ...patch };
     setSettings(updated);
     saveNotificationSettings(updated);
-    if (user) syncNotificationSettingsToDB(user.id, updated);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setOpError(null);
+    if (user) {
+      void syncNotificationSettingsToDB(user.id, updated).then(result => {
+        if (result.error) {
+          setOpError(t('profile.notifications.saveFailed'));
+          setSaved(false);
+          return;
+        }
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      });
+    } else {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    }
   };
 
   if (!supported) {
@@ -88,6 +132,7 @@ export default function NotificationSettings() {
           <Bell size={15} />
           {requesting ? t('profile.notifications.requesting') : t('profile.notifications.enable')}
         </button>
+        {opError && <p className="text-xs text-red-400" role="alert">{opError}</p>}
       </div>
     );
   }
@@ -96,8 +141,20 @@ export default function NotificationSettings() {
     <div className="space-y-5">
       <div className="flex items-center gap-2 text-emerald-400 text-xs font-medium">
         <Check size={13} />
-        {t('profile.notifications.enabled')}
+        {subscribed === false
+          ? t('profile.notifications.serverPending')
+          : t('profile.notifications.enabled')}
       </div>
+      {subscribed === false && (
+        <button
+          type="button"
+          onClick={handleRequest}
+          disabled={requesting}
+          className="text-xs text-blue-400 hover:text-white disabled:opacity-60"
+        >
+          {requesting ? t('profile.notifications.requesting') : t('profile.notifications.enable')}
+        </button>
+      )}
 
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -108,6 +165,7 @@ export default function NotificationSettings() {
           <Toggle
             checked={settings.workout_enabled}
             onChange={() => update({ workout_enabled: !settings.workout_enabled })}
+            label={t('profile.notifications.workoutReminder')}
           />
         </div>
         {settings.workout_enabled && (
@@ -132,6 +190,7 @@ export default function NotificationSettings() {
           <Toggle
             checked={settings.nutrition_enabled}
             onChange={() => update({ nutrition_enabled: !settings.nutrition_enabled })}
+            label={t('profile.notifications.nutritionReminder')}
           />
         </div>
         {settings.nutrition_enabled && (
@@ -152,6 +211,7 @@ export default function NotificationSettings() {
           <Check size={11} /> {t('profile.notifications.saved')}
         </p>
       )}
+      {opError && <p className="text-xs text-red-400" role="alert">{opError}</p>}
 
       <p className="text-[11px] text-neutral-600 leading-relaxed">
         {t('profile.notifications.backgroundNote')}
