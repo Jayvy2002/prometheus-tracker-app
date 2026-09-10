@@ -651,6 +651,9 @@ export interface AiProgramDayDraft {
 
 export interface ProgramExercisePatch {
   exercise: string;
+  /** I02 : résolution exacte — prioritaire sur le nom dès qu'elle est renseignée. */
+  exercise_id?: string | null;
+  program_day_id?: string | null;
   weekday?: number | null;
   default_sets?: number;
   default_reps?: number;

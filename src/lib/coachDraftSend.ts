@@ -1,5 +1,5 @@
-import { namesMatch } from './coachText';
 import { formatPrescription } from './programNl';
+import { resolvePatchTargets, type PatchTarget } from './programPatch';
 import type {
   AiProgramDayDraft,
   CoachInterventionKind,
@@ -65,23 +65,56 @@ export function findCurrentExercise(
   program: Program | null | undefined,
   patch: ProgramExercisePatch | null,
 ): ProgramExerciseDraft | null {
-  if (!program || !patch?.exercise) return null;
-  const days = program.days ?? [];
-  const pool = patch.weekday == null ? days : days.filter(d => d.weekday === patch.weekday);
-  const search = pool.length ? pool : days;
-  for (const day of search) {
-    const ex = (day.exercises ?? []).find(e => namesMatch(e.name, patch.exercise));
-    if (!ex) continue;
-    return {
-      name: ex.name,
-      default_sets: ex.default_sets,
-      default_reps: ex.default_reps,
-      default_reps_min: ex.default_reps_min,
-      default_rir: ex.default_rir,
-      default_rest_seconds: ex.default_rest_seconds,
+  // I02 : l'aperçu utilise le MÊME résolveur que l'application.
+  const resolution = resolvePatchTargets(program, patch);
+  if (resolution.status !== 'ok') return null;
+  const ex = resolution.targets[0].exercise;
+  return {
+    name: ex.name,
+    default_sets: ex.default_sets,
+    default_reps: ex.default_reps,
+    default_reps_min: ex.default_reps_min,
+    default_rir: ex.default_rir,
+    default_rest_seconds: ex.default_rest_seconds,
+  };
+}
+
+export interface PatchPreviewTarget {
+  target: PatchTarget;
+  before: string;
+  after: string;
+  afterName: string;
+}
+
+/**
+ * I02 : TOUTES les cibles du patch, pas seulement la première — l'action
+ * affichée est exactement l'action appliquée (ou l'ambiguïté est déclarée).
+ */
+export function patchPreviewTargets(
+  program: Program | null | undefined,
+  patch: ProgramExercisePatch | null,
+): { status: 'ok' | 'ambiguous' | 'not_found'; previews: PatchPreviewTarget[] } {
+  if (!patch?.exercise) return { status: 'not_found', previews: [] };
+  const resolution = resolvePatchTargets(program, patch);
+  if (resolution.status === 'not_found') return { status: 'not_found', previews: [] };
+  const previews = resolution.targets.map(target => {
+    const current: ProgramExerciseDraft = {
+      name: target.exercise.name,
+      default_sets: target.exercise.default_sets,
+      default_reps: target.exercise.default_reps,
+      default_reps_min: target.exercise.default_reps_min,
+      default_rir: target.exercise.default_rir,
+      default_rest_seconds: target.exercise.default_rest_seconds,
     };
-  }
-  return null;
+    const after = draftFromPatch(current, patch);
+    return {
+      target,
+      before: formatPrescription(current),
+      after: formatPrescription(after),
+      afterName: after.name,
+    };
+  });
+  return { status: resolution.status, previews };
 }
 
 function draftFromPatch(

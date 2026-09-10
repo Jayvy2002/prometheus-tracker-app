@@ -1342,6 +1342,10 @@ const fr = {
       patchTitle: 'Ajustement proposé (à éditer avant envoi)',
       patchNoProgram: 'Aucun programme n’est assigné à ce client. La proposition a été conservée comme note au lieu d’être appliquée.',
       replaceWith: 'Remplacer par (optionnel)',
+      patchAmbiguous: '« {{name}} » existe sur plusieurs jours — choisis le jour visé :',
+      patchNotFound: 'Exercice introuvable dans le programme actuel.',
+      patchStale: 'Le programme a changé depuis l’aperçu — recharge avant d’envoyer.',
+      patchForked: 'Programme partagé : un clone adapté a été créé pour ce client.',
     },
     ask: {
       title: 'Demander à Prometheus',

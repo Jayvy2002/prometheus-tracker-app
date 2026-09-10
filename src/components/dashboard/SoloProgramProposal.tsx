@@ -119,9 +119,15 @@ export default function SoloProgramProposal() {
         toast(t('soloProgram.patchNoProgram'), 'info');
         return;
       }
-      const patched = await applyExercisePatch(programId, seed.patch);
+      const patched = await applyExercisePatch(programId, seed.patch, {
+        expectedUpdatedAt: assignment?.program?.updated_at ?? null,
+      });
       if (patched.error) {
-        await fail(patched.error);
+        await fail(patched.error === 'stale'
+          ? t('coaching.workspace.patchStale')
+          : patched.error.startsWith('ambiguous:')
+            ? t('coaching.workspace.patchAmbiguous', { name: seed.patch.exercise })
+            : patched.error);
         return;
       }
     } else if (outline) {

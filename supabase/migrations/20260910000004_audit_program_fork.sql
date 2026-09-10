@@ -1,0 +1,71 @@
+-- Audit lot 4 (I02) : un programme de bibliothèque partagé ne doit pas être
+-- modifié "pour tout le monde" quand le coach vise UN athlète.
+-- fork_program clone jours + exercices en une transaction ; l'appelant patche
+-- le clone puis le réassigne. Le modèle d'origine reste intact.
+
+CREATE OR REPLACE FUNCTION public.fork_program(
+  p_program_id uuid,
+  p_name text DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_src public.programs%ROWTYPE;
+  v_new_id uuid;
+  v_day record;
+  v_new_day_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+  SELECT * INTO v_src FROM public.programs WHERE id = p_program_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Program not found';
+  END IF;
+  IF v_src.owner_id <> v_uid THEN
+    RAISE EXCEPTION 'Not program owner';
+  END IF;
+
+  INSERT INTO public.programs (owner_id, name, description, duration_weeks)
+  VALUES (
+    v_uid,
+    COALESCE(NULLIF(btrim(p_name), ''), v_src.name || ' (adapté)'),
+    COALESCE(v_src.description, ''),
+    v_src.duration_weeks
+  )
+  RETURNING id INTO v_new_id;
+
+  FOR v_day IN
+    SELECT * FROM public.program_days
+    WHERE program_id = p_program_id
+    ORDER BY order_index
+  LOOP
+    INSERT INTO public.program_days (program_id, weekday, name, routine_id, order_index)
+    VALUES (v_new_id, v_day.weekday, v_day.name, v_day.routine_id, v_day.order_index)
+    RETURNING id INTO v_new_day_id;
+
+    INSERT INTO public.program_day_exercises (
+      program_day_id, name, default_sets, default_reps, default_reps_min,
+      default_rir, default_rest_seconds, default_weight_kg, order_index
+    )
+    SELECT
+      v_new_day_id, name, default_sets, default_reps, default_reps_min,
+      default_rir, default_rest_seconds, default_weight_kg, order_index
+    FROM public.program_day_exercises
+    WHERE program_day_id = v_day.id
+    ORDER BY order_index;
+  END LOOP;
+
+  RETURN v_new_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.fork_program(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.fork_program(uuid, text) TO authenticated;
+
+COMMENT ON FUNCTION public.fork_program(uuid, text) IS
+  'I02 : clone un programme (jours + exercices) en une transaction. Le modèle partagé reste intact.';

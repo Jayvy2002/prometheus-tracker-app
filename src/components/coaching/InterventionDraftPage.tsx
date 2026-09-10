@@ -25,6 +25,7 @@ import {
   isProgramSendKind,
   outlineBeforeAfter,
   patchBeforeAfter,
+  patchPreviewTargets,
   relanceBeforeAfter,
   type EditedProgramDraft,
 } from '../../lib/coachDraftSend';
@@ -165,6 +166,15 @@ export default function InterventionDraftPage() {
   const claimErrorLabel = (code: string) =>
     code === 'already_claimed' ? t('errors.alreadyClaimed') : t('errors.alreadyResolved');
 
+  const patchErrorLabel = (code: string) => {
+    if (code === 'stale') return t('coaching.workspace.patchStale');
+    if (code.startsWith('ambiguous:')) {
+      return t('coaching.workspace.patchAmbiguous', { name: patch?.exercise ?? '' });
+    }
+    if (code === 'Exercise not found in program') return t('coaching.workspace.patchNotFound');
+    return code;
+  };
+
   const handleSend = async () => {
     if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
@@ -255,10 +265,17 @@ export default function InterventionDraftPage() {
           navigate(clientFileHref(targetClientId));
           return;
         }
-        const patched = await applyExercisePatch(boundAssignment.program_id, patch);
+        const patched = await applyExercisePatch(boundAssignment.program_id, patch, {
+          forClientId: targetClientId,
+          expectedUpdatedAt: boundAssignment.program?.updated_at ?? null,
+        });
         if (patched.error) {
-          await fail(patched.error);
+          await fail(patchErrorLabel(patched.error));
           return;
+        }
+        if (patched.forked) {
+          toast(t('coaching.workspace.patchForked'), 'info');
+          await fetchMyAssignment(targetClientId);
         }
       } else if (programName.trim() && days.length > 0) {
         const created = await applyProgramOutline(targetClientId, {
@@ -446,6 +463,8 @@ export default function InterventionDraftPage() {
     patch,
   };
   const patchPreview = patch ? patchBeforeAfter(boundAssignment?.program, patch) : null;
+  // I02 : toutes les cibles — en cas d'ambiguïté le coach choisit le jour exact.
+  const patchTargets = patch ? patchPreviewTargets(boundAssignment?.program, patch) : null;
   const outlinePreview = showProgram ? outlineBeforeAfter(boundAssignment?.program, edited) : null;
   const caloriePreview = showCalories
     ? calorieBeforeAfter(
@@ -539,6 +558,38 @@ export default function InterventionDraftPage() {
                 {' '}
                 {patchPreview.after}
               </p>
+            )}
+            {patchTargets?.status === 'not_found' && (
+              <p className="text-sm text-amber-300">{t('coaching.workspace.patchNotFound')}</p>
+            )}
+            {patchTargets?.status === 'ambiguous' && (
+              <div className="space-y-2">
+                <p className="text-sm text-amber-300">
+                  {t('coaching.workspace.patchAmbiguous', { name: patch?.exercise ?? '' })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {patchTargets.previews.map(p => (
+                    <button
+                      key={p.target.exerciseId}
+                      type="button"
+                      onClick={() => setPatch(prev => prev ? {
+                        ...prev,
+                        program_day_id: p.target.dayId,
+                        exercise_id: p.target.exerciseId,
+                      } : prev)}
+                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                        patch?.program_day_id === p.target.dayId
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-blue-500'
+                      }`}
+                    >
+                      {p.target.dayName || t(`programs.weekdays.${p.target.dayWeekday}`)}
+                      {' · '}
+                      {p.before} → {p.after}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             {outlinePreview && (
               <p className="text-sm text-neutral-200">

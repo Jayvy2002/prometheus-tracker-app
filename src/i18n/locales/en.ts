@@ -1342,6 +1342,10 @@ const en = {
       patchTitle: 'Proposed tweak (edit before send)',
       patchNoProgram: 'No program is assigned to this client. The proposal was saved as a note instead of being applied.',
       replaceWith: 'Replace with (optional)',
+      patchAmbiguous: '“{{name}}” exists on several days — pick the target day:',
+      patchNotFound: 'Exercise not found in the current program.',
+      patchStale: 'The program changed since the preview — reload before sending.',
+      patchForked: 'Shared program: an adapted clone was created for this client.',
     },
     ask: {
       title: 'Ask Prometheus',
