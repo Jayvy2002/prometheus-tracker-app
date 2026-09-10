@@ -90,6 +90,8 @@ src/
 │   ├── types.ts               # Tous les types (source de vérité)
 │   ├── utils.ts               # BMR, TDEE, macros ISSN, dates, unités
 │   ├── kinesiologyIntake.ts   # 27 questions (labels FR = source de vérité), gate du mur, patch profil, drapeaux médicaux
+│   ├── pickerSearch.ts        # Moteur partagé ranking aliments/exercices (accents, tokens, Levenshtein, alias FR/EN)
+│   ├── useFoodCatalogSearch.ts # Recherche as-you-type parallèle (DB locale + Open Food Facts dédoublonnés)
 │   ├── telemetry.ts / telemetryClient.ts   # Télémétrie produit (pur + track())
 │   ├── soloCopilot.ts         # Bilan hebdo solo : dossier depuis ses logs → règles fleet → explication
 │   ├── clientTracking.ts      # Modules / variables allumés par le coach
@@ -97,7 +99,7 @@ src/
 │   ├── coach*.ts              # Logique coach pure (fleet, queue, priorities, alerts, interventions…)
 │   ├── client*.ts             # Logique client pure (home, gym card, live, auth)
 │   ├── supabase.ts / supabaseFunctions.ts / realtimeWait.ts
-│   └── *.test.ts              # Tests node:test
+│   └── *.test.ts              # Tests node:test (pickerSearch.test.ts, coachFleet.test.ts, etc.)
 │
 ├── i18n/locales/{fr,en}.ts    # Parité de clés obligatoire
 │
@@ -136,10 +138,12 @@ supabase/
 
 ## Verrous produit (ne pas casser)
 
+- **Ordre des chantiers (ne pas s'éparpiller) :** Étape 0 (consolidation prod) = Faite. Chantier A (macros coaché) = Fait (#65). Recherche as-you-type aliments & exercices = Fait (#67). **La prochaine priorité absolue est le Chantier B : Builder de questionnaire par coach** (`docs/CHANTIER.md`). Ne pas réouvrir d'audit produit ni inventer d'autres chantiers sans instruction.
 - **L'IA prépare, l'humain décide.** `coach-agent` et `coach-fleet-round` écrivent uniquement des `coach_interventions` `pending`. Apply = action UI du coach (Envoyer). Copilote solo : `SoloWeeklyReview` propose, la seule écriture vers les cibles est `soloCopilotStore.decide('accepted')` — le tap du solo.
 - **Pas de Grok Bots, pas de Second.** Un seul invoke IA côté coach : `COACH_AGENT_FUNCTION = 'coach-agent'`.
 - **Fleet :** triage SQL cheap (`triage_coach_fleet`, agrégats 14 j), Relancer si non assidu, kcal+P/C/F complets sinon. 100 % déterministe, pas d'appel LLM. Les textes FR/EN sont dans `supabase/functions/_shared/fleetCopy.ts`, partagés avec le miroir `src/lib/coachFleet.ts` ; la langue vient de `user_profiles.language` du coach.
 - **Rôle client uniquement via `accept_coach_invite`.** Coach et solo s'inscrivent librement.
+- **Recherche aliments & exercices :** `pickerSearch.ts` centralise le scoring (accents, préfixe, tokens, Levenshtein, alias FR/EN comme `bp`, `rdl`, `sdt`, muscles traduits). Pour la nourriture, DB locale et Open Food Facts sont toujours appelés en parallèle (ne jamais rebloquer OFF sur hit DB). Côté exercices, le nom canonique anglais reste en base, l'affichage se fait selon la langue (`name_fr`).
 - **Macros d'un coaché : écriture coach-only** (RPC `coach_set_client_nutrition_targets` + trigger). Le calcul automatique au setup est un chantier ouvert (voir VISION), le verrou d'écriture reste.
 - **Tracking coaché piloté par `client_tracking_config`** : ligne créée à l'invitation avec les défauts du coach, affinée au setup ; `ALL_OFF_TRACKING` seulement sans ligne ; `TrackingGate` sur les routes.
 - **Fin de lien = retour solo** (`end_coach_client_link` : rôle `none`, tracking config retirée, cibles et historique conservés, programme en pause, `coach_link_ended_at` + `solo_trial_ends_at`). Le client ne doit jamais rester « coaché sans coach ».

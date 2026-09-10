@@ -56,8 +56,8 @@ Gratuit pendant la construction. Stripe est en quarantaine (410).
 - Questionnaire d'accueil (27 questions, template des coachs)
 
 **Solo**
-- Workouts (sets avancés, superset, minuteur), nutrition (journal, scanner barcode + IA, recettes, eau), poids, stats, calendrier, routines, streaks
-- Calcul kcal / macros à l'onboarding, ajustables ; copilote hebdo en construction
+- Workouts (sets avancés, superset, minuteur), nutrition (journal, recherche as-you-type DB + Open Food Facts, scanner barcode + IA, recettes, eau), poids, stats, calendrier, routines, streaks
+- Calcul kcal / macros à l'onboarding, ajustables ; copilote hebdo (`SoloWeeklyReview` : adaptation kcal + explications) et programme vivant IA (self-coach)
 
 ---
 
@@ -73,13 +73,13 @@ src/
 │   ├── programs/              # Programmes coach / Mon programme
 │   ├── dashboard/ checkin/ workout/ nutrition/ scanner/ weight/ routines/ stats/ calendar/ profile/ layout/ ui/
 ├── stores/                    # Zustand (coachingStore, programStore, checkinStore, workout, nutrition…)
-├── lib/                       # Types, utils, logique pure (coach*.ts, client*.ts, kinesiologyIntake.ts) + tests
+├── lib/                       # Types, utils, logique pure (coach*.ts, client*.ts, pickerSearch.ts, kinesiologyIntake.ts) + tests
 ├── i18n/locales/{fr,en}.ts
 public/                        # sw.js, manifest.json
 supabase/
 ├── migrations/                # Source de vérité DB
 ├── cron/                      # Fleet nocturne, rappels push
-└── functions/                 # coach-agent, coach-fleet-round, notify-onboarding-complete,
+└── functions/                 # coach-agent (OpenAI gpt-5.6-luna), coach-fleet-round, notify-onboarding-complete,
                                # analyze-product, verify-exercise, send-daily-reminders, delete-account
                                # 410 : ask-second, suggest-client-plan, create-checkout-session,
                                #       create-portal-session, stripe-webhook
