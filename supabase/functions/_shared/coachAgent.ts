@@ -512,6 +512,17 @@ const INTAKE_MEDICAL_FLAG_IDS = [
   "medecinLimiteExercices",
 ];
 
+/** E02 — mirror of STANDARD_INTAKE_IDS. Anything else is a custom answer, never a known field. */
+const KNOWN_INTAKE_IDS = new Set([
+  "nom", "prenom", "age", "sexeGenre", "tailleCm", "poidsApproxKg",
+  "objectifPrincipal", "depuisCombienDeTemps", "niveauActuel", "foisParSemaine",
+  "programmeStructure", "seancesRealistes", "dureeIdeale", "lieu", "equipement",
+  "equipementAutre", "douleursLimitations", "mouvementAEviter", "blessuresChirurgies",
+  "descriptionBlessures", "cardiaqueHtaPoitrine", "etourdissementsEquilibre",
+  "medecinLimiteExercices", "conditionMedicalePrecise", "typesExercices",
+  "typesExercicesAutre", "exercicesDetestes", "prefereProgramme", "quelqueChoseImportant",
+]);
+
 function compactIntakeValue(value: unknown): unknown {
   if (typeof value === "string") {
     const s = value.trim();
@@ -528,14 +539,22 @@ function compactIntakeValue(value: unknown): unknown {
  * The client's intake (questionnaire d'accueil) as the LLM should see it: no empty answers,
  * long texts trimmed, available days as weekday ints, medical flags listed explicitly.
  * Returns null when the client never answered.
+ *
+ * E02 contract: only KNOWN semantic ids are forwarded as-is. Unknown top-level
+ * keys (future custom questions from the coach builder) land in `custom` with
+ * their raw label+answer — the engine never guesses their meaning. The filled
+ * contract version rides along so old dossiers stay interpretable.
  */
 export function compactIntake(raw: unknown): Record<string, unknown> | null {
   const src = asObject(raw);
   const out: Record<string, unknown> = {};
+  const custom: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(src)) {
     if (key === "version" || key === "extras") continue;
     const compact = compactIntakeValue(value);
-    if (compact !== undefined) out[key] = compact;
+    if (compact === undefined) continue;
+    if (KNOWN_INTAKE_IDS.has(key)) out[key] = compact;
+    else custom[key] = compact;
   }
   const extrasSrc = asObject(src.extras);
   const extras: Record<string, unknown> = {};
@@ -551,9 +570,16 @@ export function compactIntake(raw: unknown): Record<string, unknown> | null {
     if (days.length) extras.available_weekdays = [...new Set(days)].sort((a, b) => a - b);
   }
   if (Object.keys(extras).length) out.extras = extras;
+  if (Object.keys(custom).length) {
+    out.custom = {
+      note: "Réponses hors contrat standard (questionnaire personnalisé) : ne pas interpréter comme des ids connus.",
+      answers: custom,
+    };
+  }
   const medicalFlags = INTAKE_MEDICAL_FLAG_IDS.filter((id) => asString(src[id]) === "Oui");
   if (Object.keys(out).length === 0) return null;
   out.medical_flags = medicalFlags;
+  out.contract_version = num(src.version, 1);
   return out;
 }
 

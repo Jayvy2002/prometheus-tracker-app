@@ -7,7 +7,7 @@
 
 ---
 
-## État au 10 septembre 2026
+## État au 10 septembre 2026 (soir — audit 30 constats, PR #68 en cours)
 
 ### Mergé / Livré dans `new-JV` (prod Netlify → `tracker.prometheus-fit.com`)
 
@@ -29,19 +29,45 @@
 | #65 | **Chantier A** : Setup garder vs ISSN ; `weeklyNutritionWhy` ; `payload.why` ; `joursDispo` éditeur ; accusé PAR-Q |
 | #66 | Docs : Chantier A fait, Luna en prod, cycle 0 joué |
 | #67 | **Recherche aliments & exercices** : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage), ranking multicritère (`pickerSearch.ts`), repli mondial OFF, alias FR/EN d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907000001_food_search_rank.sql` (pg_trgm) appliquée en prod |
+| #68 (cette PR) | **Audit 10 sept. — 30 constats corrigés en 7 lots** (S01–S05, D01–D07, I01–I05, C01–C04, Q01–Q07, E01–E02 fondations). Détail ci-dessous. |
+
+### PR #68 — lots d'audit (branche `cursor/audit-securisation-425e` → `new-JV`)
+
+| Lot | Contenu | Migrations prod |
+|---|---|---|
+| 1 (P0) | S01 `batch-verify-exercises` → 410 ; S02 attributions via `assign_program_secure` ; S03 `get_my_coach_card` ; S04 exercices `created_by`+`verified=false` ; S05 caches/brouillons/minuteurs par compte | `20260910000001_audit_p0_access` ✅ |
+| 2 | D01 RPC programmes atomiques ; D02 claim/finalize décisions ; D03 erreurs visibles + intake séquencé ; I05 snapshot serveur + leçons gérables ; C02 messagerie idempotente + pagination | `20260910000002_audit_decision_atomicity` ✅ |
+| 3 | D04 contrat portions unique ; D05 `created_by` cache food ; D06 OFF explicite (cgi plein texte, budget, timeout) ; I03 fenêtre 14 j + cibles effectives datées + durées réelles ; I04 signaux déclarés + modules suivis + profils protégés | `20260910000003_audit_engine_proof` ✅ |
+| 4 | I01 fallback exact (jours/équipement/interdits) + validation modèle + NL-edit sans fallback destructeur ; I02 patch par ID + aperçu partagé + fork + version | `20260910000004_audit_program_fork` ✅ |
+| 5 | D07 file offline séances (ids stables, rejeu idempotent) ; C01 fiche 360 temps réel + fraîcheur ; C03 `close_coach_account` + `delete-account` v7 ; C04 archives + adoption ; Q01 rappels (statuts réels, modules, langue) | `20260910000005_audit_continuity`, `20260910000006_audit_reminders_invoke` ✅ |
+| 6 | Q02 fichiers (validation, limites buckets, liens renouvelés) ; Q03 unités/langue ; Q04 modale + switches ; Q05 lazy routes (820 kB vs 1619), programmes 1 requête, pagination séances ; Q06 CI edges + manifest + matrice RLS ; Q07 télémétrie minimisée + `docs/TELEMETRY.md` | `20260910000007_audit_hardening` ✅ |
+| 7 | E01 révisions immuables + snapshots ; E02 version intake + ids sémantiques + `custom` non interprété ; durcissement (revoke trigger, index FK, initplan) | `20260910000008_audit_program_revisions`, `20260910000009_audit_revision_snapshots` ✅ |
+
+### ⚠️ Étapes ops REQUISES après merge (ne pas oublier)
+
+1. **Edges à redéployer en CLI** (le déploiement API échoue sur ces fonctions à cause d'un chemin import-map stale côté plateforme — bug constaté, versions actuelles intactes) :
+   ```bash
+   supabase functions deploy coach-fleet-round --no-verify-jwt   # v26 : règles I03/I04 (sinon v25 + triage v2 = OK déterministe)
+   supabase functions deploy coach-agent                          # leçons désactivées + contraintes I01/I02
+   ```
+   Déjà déployés via API : `batch-verify-exercises` v6 (410), `delete-account` v7, `send-daily-reminders` v9.
+2. **Rappels cron** : poser le secret `REMINDERS_CRON_SECRET` (valeur transmise hors git) dans Vault **et** dans les secrets de `send-daily-reminders`, vérifier les secrets VAPID, puis jouer `supabase/cron/schedule_daily_reminders.sql`.
+3. **Protection de branche** : protéger `new-JV` (reviews + CI verte requises) — non faisable via API ici.
+4. **Matrice RLS** : jouer `supabase/tests/rls_matrix.sql` sur staging à chaque changement de policies.
 
 ### Drafts orphelins
 
 - [#50](https://github.com/Jayvy2002/prometheus-tracker-app/pull/50) — **fermée** (6 sept.) : restes dans #62.
 - [#42](https://github.com/Jayvy2002/prometheus-tracker-app/pull/42) — **fermée** (6 sept.) : « vider le tracker solo » est contraire à la vision.
 
-### Prod (`phyuijjekxtjvipjtdfv`, snapshot 7 sept.)
+### Prod (`phyuijjekxtjvipjtdfv`, snapshot 10 sept. soir)
 
-- Edges : `coach-agent` **v22** (JWT, Luna) ; `notify-onboarding-complete` **v20** ; `analyze-product` **v13** ; `verify-exercise` **v11** ; `coach-fleet-round` **v25** (déterministe, `payload.why`).
+- Edges : `coach-agent` **v22** (v23 en attente : CLI) ; `notify-onboarding-complete` **v20** ; `analyze-product` **v13** ; `verify-exercise` **v11** ; `coach-fleet-round` **v25** (v26 en attente : CLI — v25 + triage v2 reste déterministe et correct) ; `delete-account` **v7** (transition coach) ; `send-daily-reminders` **v9** (modules + langue) ; `batch-verify-exercises` **v6** (410, trou S01 fermé).
 - **Modèle OpenAI :** le code défaut est `gpt-5.6-luna` (`resolveOpenAiModel` : override → secret `OPENAI_MODEL` → défaut). Un secret `OPENAI_MODEL` n’est pas nécessaire — la clé `OPENAI_API_KEY` suffit. Logs Edge 7 sept. : `openai_chat` → `model: gpt-5.6-luna` (0 appel `gpt-4o-mini` sur 24 h). Si un jour les logs montrent autre chose, c’est qu’un secret `OPENAI_MODEL` a été posé.
 - Cycle réel joué (7 sept.) : solo intake → programme IA → accepter → séance ; coach invite → Setup ISSN → tournée → Envoyer → le client voit les kcal + le message.
-- Tournée `cron` `0 4 * * *` active, 100 % déterministe.
-- Advisors : **0 erreur**. Warnings connus (`SECURITY DEFINER` exposés = par design ; `pg_trgm`/`pg_net` dans `public` ; 3 triggers `updated_at` sans `search_path` ; 18 paires de policies SELECT permissives ; 7 `auth.uid()` par ligne).
+- Tournée `cron` `0 4 * * *` active, 100 % déterministe. Cron rappels : fonction `invoke_send_daily_reminders` en place, schedule à jouer après pose du secret (voir étapes ops).
+- Tests : **402/402** (`npm test`), `typecheck` + `lint` verts, `verify:edges` (13/13 bundlent), build 820 kB initiaux (246 kB gzip) contre 1619 kB avant lazy.
+- Advisors : **0 erreur**. Index FK ajoutés (12), initplan corrigés (7), trigger historique revoké. Restent (acceptés, documentés) : `SECURITY DEFINER` exposés = par design (RPC étroites vérifiées) ; `pg_trgm`/`pg_net` dans `public` (posture Supabase par défaut — déplacement risqué sans staging) ; paires de policies SELECT permissives (OR correct, fusion reportée après tests RLS) ; index « inutilisés » (base quasi vide, signal non significatif) ; `ai_usage_logs` sans policy cliente (journal serveur, refus voulu).
 - **HIBP / leaked passwords :** warning Auth toujours là. Org **Free** (`Prometheus fitness`) — la protection HaveIBeenPwned est **Pro+**, pas activable aujourd’hui. **Rien n’est compromis** : tous les comptes présents sont des comptes de test. À cocher au passage Pro : [Auth → Email](https://supabase.com/dashboard/project/phyuijjekxtjvipjtdfv/auth/providers?provider=Email).
 
 ---
@@ -60,7 +86,7 @@
 
 ## Ordre des chantiers
 
-**0 et A faits → B → C → D.** Le transversal restant (écran télémétrie, perf RLS, lazy) se glisse entre deux.
+**0, A et audit (#68) faits → B → C → D.** Le transversal restant (écran télémétrie, fusion des policies permissives, finitions E01) se glisse entre deux.
 
 B et C rendent l’acquisition de coachs possible. D attend une décision de prix et des utilisateurs réels — « gratuit tant que le produit n’est pas parfait » reste vrai.
 
@@ -90,9 +116,9 @@ Setup d’un profil qui a déjà des cibles (≥ 800 kcal) : radios **Garder** (
 
 - **Fait (#65)** — `joursDispo` pré-rempli dans l’éditeur manuel de programme ; accusé de réception d’un drapeau médical avant Envoyer Setup.
 - **Fait (#67)** — Recherche aliments & exercices unifiée : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage mutuel), scoring multicritère (`pickerSearch.ts`), aliases d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907000001_food_search_rank.sql` (`pg_trgm`) appliquée en prod.
+- **Fait (#68)** — Audit 30 constats : accès P0, atomicité, preuves datées, file offline, continuité coach, fichiers, a11y de base, lazy routes (820 kB initiaux), CI edges, télémétrie minimisée (`docs/TELEMETRY.md`), révisions programmes, contrat questionnaire E02.
 - Écran de lecture télémétrie coach/admin. `product_events` n’a aujourd’hui qu’une policy INSERT.
-- Migration perf (plus tard, pas urgent) : `auth_rls_initplan` ×7 en `(select auth.uid())` ; fusion des paires de policies SELECT permissives.
-- Bundle JS ~1,6 MB : `React.lazy` par route.
+- Plus tard : fusion des paires de policies SELECT permissives (OR correct, micro-perf) après tests RLS (`supabase/tests/rls_matrix.sql`) ; déplacement `pg_trgm`/`pg_net` hors `public` avec staging ; formats de prescription (`reps` vs durée) ; historique visuel des révisions ; file offline au-delà des séances.
 
 ---
 
@@ -106,7 +132,7 @@ Table `coach_questionnaires (coach_id, name, version, questions jsonb, is_defaul
 
 Schéma d’une question : `id`, `type` (`single` | `multi` | `text` | `number` | `yes_no` | `weekdays`), `label_fr`, `label_en`, `options`, `required`, `medical_flag`, `maps_to`.
 
-Le template = les 27, exporté depuis `kinesiologyIntake.ts`. Les **ids standards ne changent pas** : `compactIntake`, `medicalFlagIds`, `soloTargetsFromIntake`, `available_weekdays` continuent de marcher via `maps_to`.
+Le template = les 27, exporté depuis `kinesiologyIntake.ts`. Les **ids standards ne changent pas** : `compactIntake`, `medicalFlagIds`, `soloTargetsFromIntake`, `available_weekdays` continuent de marcher via `maps_to`. Socle déjà livré (#68, E02) : `INTAKE_VERSION`, `STANDARD_INTAKE_IDS`, `INTAKE_SEMANTIC_MAP` (+ extras), version préservée par `parseIntake`, `compactIntake` avec `contract_version` et bac `custom` non interprété (miroir `KNOWN_INTAKE_IDS` côté agent).
 
 `coach_invites.questionnaire_id` nullable → défaut du coach.
 

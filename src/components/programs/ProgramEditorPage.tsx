@@ -17,13 +17,14 @@ export default function ProgramEditorPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
-  const { fetchProgram, updateProgram, setProgramDayExercises, createProgram } = useProgramStore();
+  const { fetchProgram, updateProgram, setProgramDayExercises, createProgram, fetchProgramRevisionInfo } = useProgramStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [weeks, setWeeks] = useState(8);
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
+  const [revision, setRevision] = useState<{ revision_no: number; created_at: string } | null>(null);
   const isNew = !id || id === 'new';
 
   useEffect(() => {
@@ -56,6 +57,9 @@ export default function ProgramEditorPage() {
           default_weight_kg: ex.default_weight_kg,
         })),
       })) : [emptyDay]);
+      if (id && !isNew) {
+        void fetchProgramRevisionInfo(id).then(setRevision);
+      }
     }).finally(() => setLoading(false));
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -133,9 +137,18 @@ export default function ProgramEditorPage() {
         <button onClick={() => navigate('/programs')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
           <ArrowLeft size={18} /> {t('programs.title')}
         </button>
-        <h1 className="text-xl font-bold text-white mb-4">
+        <h1 className="text-xl font-bold text-white mb-1">
           {isNew ? t('programs.newTitle') : name || t('programs.title')}
         </h1>
+        {!isNew && revision && (
+          <p className="text-[11px] text-neutral-600 mb-4">
+            {t('programs.revisionBadge', {
+              n: revision.revision_no,
+              date: new Date(revision.created_at).toLocaleDateString(),
+            })}
+          </p>
+        )}
+        {!isNew && !revision && <div className="mb-4" />}
         <ProgramSessionEditor
           name={name}
           description={description}

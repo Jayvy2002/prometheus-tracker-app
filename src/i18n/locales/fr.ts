@@ -1666,6 +1666,7 @@ const fr = {
     create: 'Créer le programme',
     created: 'Programme créé',
     createFailed: 'Impossible de créer le programme',
+    revisionBadge: 'Révision {{n}} · {{date}} — les versions précédentes sont conservées',
     assign: 'Assigner',
     assignToClient: 'Assigner un programme',
     pickProgram: 'Choisir un programme',

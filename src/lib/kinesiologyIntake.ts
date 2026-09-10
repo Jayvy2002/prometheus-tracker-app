@@ -11,6 +11,59 @@ import {
 
 export const INTAKE_VERSION = 1 as const;
 
+/**
+ * E02 — contrat de données du questionnaire, stable pour le builder par coach.
+ * Ces ids alimentent le moteur (compactIntake, cibles solo, jours dispo,
+ * drapeaux médicaux) : ils ne se renomment pas, on les versionne.
+ * Toute question custom d'un coach porte `maps_to` vers l'un de ces ids
+ * sémantiques, ou reste non mappée (le moteur ne la devine jamais).
+ */
+export const STANDARD_INTAKE_IDS = [
+  'nom', 'prenom', 'age', 'sexeGenre', 'tailleCm', 'poidsApproxKg',
+  'objectifPrincipal', 'depuisCombienDeTemps', 'niveauActuel', 'foisParSemaine',
+  'programmeStructure', 'seancesRealistes', 'dureeIdeale', 'lieu', 'equipement',
+  'equipementAutre', 'douleursLimitations', 'mouvementAEviter', 'blessuresChirurgies',
+  'descriptionBlessures', 'cardiaqueHtaPoitrine', 'etourdissementsEquilibre',
+  'medecinLimiteExercices', 'conditionMedicalePrecise', 'typesExercices',
+  'typesExercicesAutre', 'exercicesDetestes', 'prefereProgramme', 'quelqueChoseImportant',
+] as const;
+
+export type StandardIntakeId = typeof STANDARD_INTAKE_IDS[number];
+
+export interface IntakeSemanticMapping {
+  maps_to: string;
+  type: 'text' | 'number' | 'single' | 'multi' | 'weekdays' | 'flag';
+  unit?: string;
+}
+
+/** Champs consommés par le moteur : mapping sémantique versionné avec l'intake. */
+export const INTAKE_SEMANTIC_MAP: Record<string, IntakeSemanticMapping> = {
+  seancesRealistes: { maps_to: 'sessions_per_week', type: 'number' },
+  niveauActuel: { maps_to: 'experience_level', type: 'text' },
+  dureeIdeale: { maps_to: 'session_duration', type: 'text' },
+  lieu: { maps_to: 'training_location', type: 'single' },
+  equipement: { maps_to: 'available_equipment', type: 'multi' },
+  mouvementAEviter: { maps_to: 'movements_to_avoid', type: 'text' },
+  exercicesDetestes: { maps_to: 'disliked_exercises', type: 'text' },
+  descriptionBlessures: { maps_to: 'injury_description', type: 'text' },
+  douleursLimitations: { maps_to: 'has_pain', type: 'flag' },
+  blessuresChirurgies: { maps_to: 'has_injury_history', type: 'flag' },
+  cardiaqueHtaPoitrine: { maps_to: 'medical_flag_cardio', type: 'flag' },
+  etourdissementsEquilibre: { maps_to: 'medical_flag_dizziness', type: 'flag' },
+  medecinLimiteExercices: { maps_to: 'medical_flag_restriction', type: 'flag' },
+  conditionMedicalePrecise: { maps_to: 'medical_details', type: 'text' },
+  typesExercices: { maps_to: 'preferred_modalities', type: 'multi' },
+  poidsApproxKg: { maps_to: 'weight_kg', type: 'number', unit: 'kg' },
+  tailleCm: { maps_to: 'height_cm', type: 'number', unit: 'cm' },
+  age: { maps_to: 'age_years', type: 'number', unit: 'years' },
+};
+
+export const INTAKE_EXTRAS_SEMANTIC_MAP: Record<string, IntakeSemanticMapping> = {
+  objectifType: { maps_to: 'goal_type', type: 'single' },
+  poidsViseKg: { maps_to: 'target_weight_kg', type: 'number', unit: 'kg' },
+  joursDispo: { maps_to: 'available_weekdays', type: 'weekdays' },
+};
+
 export const ORIGINAL_LABELS_FR = {
   nom: 'Nom',
   prenom: 'Prénom',
@@ -243,7 +296,8 @@ export interface IntakeExtras {
 }
 
 export interface KinesiologyIntake {
-  version: typeof INTAKE_VERSION;
+  /** E02 : version du contrat rempli (les réponses restent attachées à leur version). */
+  version: number;
   nom: string;
   prenom: string;
   age: string;
@@ -404,6 +458,8 @@ export function parseIntake(raw: unknown): KinesiologyIntake {
       sommeil: asString(extrasRaw.sommeil),
       cardio: asString(extrasRaw.cardio),
     },
+    // E02 : les réponses historiques gardent leur version ; défaut = contrat courant.
+    version: typeof row.version === 'number' && Number.isFinite(row.version) ? row.version : INTAKE_VERSION,
   };
 }
 

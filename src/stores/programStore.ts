@@ -77,6 +77,8 @@ interface ProgramState {
   fetchMyAssignment: (clientId: string) => Promise<ProgramAssignment | null>;
   /** C04 : attributions en pause avec programme (archives consultables). */
   fetchPausedAssignments: (clientId: string) => Promise<ProgramAssignment[]>;
+  /** E01 : dernière révision (numéro + date) — le passé ne se réécrit pas. */
+  fetchProgramRevisionInfo: (programId: string) => Promise<{ revision_no: number; created_at: string; count: number } | null>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   pauseAssignment: (id: string) => Promise<void>;
   clear: () => void;
@@ -187,6 +189,10 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         .eq('program_id', programId)
         .eq('weekday', day.weekday);
     }
+    if (days.some(d => d.routine_id)) {
+      // E01 : les liens de routine modifient les jours — on fige une révision.
+      await supabase.rpc('snapshot_program_revision', { p_program_id: programId });
+    }
     const full = await get().fetchProgram(programId);
     if (full) set(s => ({ programs: [full, ...s.programs] }));
     return programId;
@@ -225,7 +231,11 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     }).eq('id', dayId);
     if (error) return { error: error.message };
     const programId = get().programs.find(p => p.days?.some(d => d.id === dayId))?.id;
-    if (programId) await get().fetchProgram(programId);
+    if (programId) {
+      // E01 : le lien de routine change le jour — on fige une révision.
+      await supabase.rpc('snapshot_program_revision', { p_program_id: programId });
+      await get().fetchProgram(programId);
+    }
     return { error: null };
   },
 
@@ -410,6 +420,19 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       out.push({ ...row, program: program ?? undefined });
     }
     return out;
+  },
+
+  fetchProgramRevisionInfo: async (programId) => {
+    const { data, error } = await supabase
+      .from('program_revisions')
+      .select('revision_no, created_at')
+      .eq('program_id', programId)
+      .order('revision_no', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { revision_no: number; created_at: string };
+    return { revision_no: row.revision_no, created_at: row.created_at, count: row.revision_no };
   },
 
   assignProgram: async (programId, clientId, startDate) => {

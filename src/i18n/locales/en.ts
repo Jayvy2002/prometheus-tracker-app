@@ -1666,6 +1666,7 @@ const en = {
     create: 'Create program',
     created: 'Program created',
     createFailed: 'Could not create program',
+    revisionBadge: 'Revision {{n}} · {{date}} — previous versions are kept',
     assign: 'Assign',
     assignToClient: 'Assign a program',
     pickProgram: 'Choose a program',
