@@ -10,12 +10,31 @@ const lock = JSON.parse(readFileSync(resolve(process.cwd(), 'supabase/schema_mig
 const lockVersions = lock.applied.map((row) => row.version);
 const text = readFileSync(process.argv[2] || '/dev/stdin', 'utf8');
 
-const rows = [];
-for (const line of text.split('\n')) {
-  const m = line.match(/^\s*(\d{14}|)\s*\|\s*(\d{14}|)\s*\|/);
-  if (!m) continue;
-  rows.push({ local: m[1], remote: m[2] });
+function parseRows(raw) {
+  const jsonStart = raw.indexOf('{');
+  if (jsonStart >= 0) {
+    try {
+      const parsed = JSON.parse(raw.slice(jsonStart));
+      if (Array.isArray(parsed?.migrations)) {
+        return parsed.migrations.map((row) => ({
+          local: String(row.local || ''),
+          remote: String(row.remote || ''),
+        }));
+      }
+    } catch {
+      // table format below
+    }
+  }
+  const rows = [];
+  for (const line of raw.split('\n')) {
+    const m = line.match(/^\s*`?(\d{14}|)`?\s*\|\s*`?(\d{14}|)`?/);
+    if (!m) continue;
+    rows.push({ local: m[1], remote: m[2] });
+  }
+  return rows;
 }
+
+const rows = parseRows(text);
 
 if (!rows.length) {
   console.error('aucune ligne version parsée dans migration list');

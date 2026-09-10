@@ -66,4 +66,14 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /verify-local-migrations/);
   assert.match(ci, /deploy-audit-edges/);
   assert.match(ci, /2\.117\.0/);
+  assert.match(ci, /if: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN != '' \}\}/);
+  assert.match(
+    ci,
+    /github\.head_ref == 'cursor\/audit-securisation-425e' && secrets\.SUPABASE_ACCESS_TOKEN != ''/,
+  );
+  assert.doesNotMatch(
+    ci,
+    /SUPABASE_ACCESS_TOKEN absent[\s\S]{0,240}exit 0/,
+    'missing Management API token must skip or fail, never exit 0 as SUCCESS',
+  );
 });

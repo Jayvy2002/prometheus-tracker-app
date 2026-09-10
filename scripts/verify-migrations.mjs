@@ -65,7 +65,7 @@ console.log(`migrations Git: ${files.length} fichiers`);
 console.log(`lock prod: ${lockVersions.length} versions — timestamps identiques`);
 
 if (!process.env.SUPABASE_ACCESS_TOKEN) {
-  console.log('SUPABASE_ACCESS_TOKEN absent — comparaison live sautée (Git vs lock exigés)');
+  console.log('[skipped] live schema_migrations (SUPABASE_ACCESS_TOKEN absent) — Git vs lock toujours exigés');
 } else {
   try {
     const raw = execFileSync(

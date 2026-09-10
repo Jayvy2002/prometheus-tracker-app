@@ -137,7 +137,7 @@ if (process.env.SUPABASE_ACCESS_TOKEN) {
     fail(`inventaire live injoignable: ${err instanceof Error ? err.message : err}`);
   }
 } else {
-  console.log('SUPABASE_ACCESS_TOKEN absent — comparaison live sautée (lock + manifeste + dirs + JWT toujours exigés)');
+  console.log('[skipped] live functions inventory (SUPABASE_ACCESS_TOKEN absent) — lock + manifeste + dirs + JWT toujours exigés');
 }
 
 let failedBundle = 0;

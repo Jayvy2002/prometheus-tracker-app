@@ -19,11 +19,11 @@ fi
 
 mkdir -p /tmp/prometheus-mig
 echo "=== supabase migration list --project-ref ${REF} ==="
-"${SUPABASE[@]}" migration list --project-ref "$REF" | tee /tmp/prometheus-mig/migration-list.txt
+"${SUPABASE[@]}" --agent no migration list --project-ref "$REF" | tee /tmp/prometheus-mig/migration-list.txt
 node scripts/assert-migration-list.mjs /tmp/prometheus-mig/migration-list.txt
 
 echo "=== supabase db push --dry-run --project-ref ${REF} ==="
-"${SUPABASE[@]}" db push --dry-run --project-ref "$REF" | tee /tmp/prometheus-mig/db-push-dry-run.txt
+"${SUPABASE[@]}" --agent no db push --dry-run --project-ref "$REF" | tee /tmp/prometheus-mig/db-push-dry-run.txt
 node scripts/assert-db-push-dry-run.mjs /tmp/prometheus-mig/db-push-dry-run.txt
 
 echo "prod-migration-sync OK"
