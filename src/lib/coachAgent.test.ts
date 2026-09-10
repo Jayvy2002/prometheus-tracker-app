@@ -27,19 +27,18 @@ const AGENT_PATHS = [
   'supabase/functions/_shared/openaiJson.ts',
 ];
 
-test('coach-agent paths never ping GROK_BOT_WEBHOOK_URL', () => {
+test('coach-agent paths stay on the synchronous in-app OpenAI path', () => {
   for (const rel of AGENT_PATHS) {
     const src = source(rel);
-    assert.doesNotMatch(src, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
-    assert.doesNotMatch(src, /GROK_BOT_WEBHOOK_URL/);
+    assert.doesNotMatch(src, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
   }
   const fleet = source('supabase/functions/coach-fleet-round/index.ts');
-  assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
+  assert.doesNotMatch(fleet, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /api\.x\.ai/);
   assert.doesNotMatch(fleet, /OPENAI_API_KEY|openaiJson/);
   const readme = source('README.md');
-  assert.doesNotMatch(readme, /GROK_BOT_WEBHOOK_URL \| Second webhook/);
-  assert.match(readme, /Do not set `GROK_BOT_WEBHOOK_URL`/);
+  assert.match(readme, /L’IA prépare ; l’humain décide/);
+  assert.match(readme, /Copilote `coach-agent` et analyse déterministe `coach-fleet-round`/);
 });
 
 test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {
@@ -65,7 +64,7 @@ test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {
   assert.match(store, /parseCoachAgentResponse/);
 });
 
-test('client treats 200 + intervention as done (no 90s Second poll)', () => {
+test('client treats 200 + intervention as done without polling', () => {
   const ready = parseCoachAgentResponse(
     {
       status: 'ready',
@@ -198,11 +197,10 @@ test('Marc still Relancer-first — calorie cut is not the lever', () => {
 
 test('notify-onboarding-complete keeps HMAC and runs the in-app agent', () => {
   const src = source('supabase/functions/notify-onboarding-complete/index.ts');
-  assert.match(src, /GROK_BOT_WEBHOOK_SECRET|NOTIFY_SECRET/);
+  assert.match(src, /NOTIFY_SECRET/);
   assert.match(src, /runCoachAgent/);
   assert.match(src, /onboarding_plan/);
   assert.match(src, /NOTIFY_SECRET missing/);
-  assert.doesNotMatch(src, /GROK_BOT_WEBHOOK_URL/);
   assert.doesNotMatch(src, /fetch\(webhookUrl/);
 });
 

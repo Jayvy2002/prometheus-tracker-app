@@ -1,20 +1,87 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-10T14:55:00Z",
-  "comment": "Inventaire déployé (Management API). verify:edges compare slug + verify_jwt au manifeste, et les versions live vs lock si SUPABASE_ACCESS_TOKEN. Versions fleet=31 / agent=24 : dernier déploiement connu (import_map deno.json). Preuve CLI : npm run deploy:audit-edges (secret Management API requis).",
+  "captured_at": "2026-09-10T22:12:03Z",
+  "comment": "Inventaire live vérifié après déploiement Supabase Management API. coach-fleet-round v32 et coach-agent v26 sont ACTIVE ; JWT conforme, import map conservée et CORS agent vérifié. La PR #69 prépare un futur déploiement CLI manuel.",
   "functions": [
-    { "slug": "analyze-product", "status": "ACTIVE", "verify_jwt": true, "version": 14 },
-    { "slug": "ask-second", "status": "ACTIVE", "verify_jwt": true, "version": 7 },
-    { "slug": "batch-verify-exercises", "status": "ACTIVE", "verify_jwt": true, "version": 7 },
-    { "slug": "coach-agent", "status": "ACTIVE", "verify_jwt": true, "version": 24 },
-    { "slug": "coach-fleet-round", "status": "ACTIVE", "verify_jwt": false, "version": 31 },
-    { "slug": "create-checkout-session", "status": "ACTIVE", "verify_jwt": true, "version": 6 },
-    { "slug": "create-portal-session", "status": "ACTIVE", "verify_jwt": true, "version": 6 },
-    { "slug": "delete-account", "status": "ACTIVE", "verify_jwt": false, "version": 8 },
-    { "slug": "notify-onboarding-complete", "status": "ACTIVE", "verify_jwt": false, "version": 21 },
-    { "slug": "send-daily-reminders", "status": "ACTIVE", "verify_jwt": false, "version": 10 },
-    { "slug": "stripe-webhook", "status": "ACTIVE", "verify_jwt": false, "version": 6 },
-    { "slug": "suggest-client-plan", "status": "ACTIVE", "verify_jwt": true, "version": 8 },
-    { "slug": "verify-exercise", "status": "ACTIVE", "verify_jwt": false, "version": 12 }
+    {
+      "slug": "analyze-product",
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "version": 14
+    },
+    {
+      "slug": "ask-second",
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "version": 7
+    },
+    {
+      "slug": "batch-verify-exercises",
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "version": 7
+    },
+    {
+      "slug": "coach-agent",
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "version": 26,
+      "ezbr_sha256": "5a8ee074df72b2858a12ad99befb74ee650cccdc0491047ce53f51ba22748cd3"
+    },
+    {
+      "slug": "coach-fleet-round",
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "version": 32,
+      "ezbr_sha256": "b902f8524779cc2c6232e3846c223368b9a55c76f3eb266ea08f79d1c054fe2e"
+    },
+    {
+      "slug": "create-checkout-session",
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "version": 6
+    },
+    {
+      "slug": "create-portal-session",
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "version": 6
+    },
+    {
+      "slug": "delete-account",
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "version": 8
+    },
+    {
+      "slug": "notify-onboarding-complete",
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "version": 21
+    },
+    {
+      "slug": "send-daily-reminders",
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "version": 10
+    },
+    {
+      "slug": "stripe-webhook",
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "version": 6
+    },
+    {
+      "slug": "suggest-client-plan",
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "version": 8
+    },
+    {
+      "slug": "verify-exercise",
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "version": 12
+    }
   ]
 }

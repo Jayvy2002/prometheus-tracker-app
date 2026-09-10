@@ -1,184 +1,136 @@
-# CLAUDE.md — Prometheus (branche new-JV)
+# CLAUDE.md — Prometheus
 
-> Relis ce fichier au début de chaque réflexion. Fais un plan avant toute modification lourde.
->
-> **Produit :** moteur de coaching intelligent pour l'entraînement de **force et de physique** (musculation, bodybuilding, powerlifting), **EN + FR**. Il comprend l'athlète, construit son plan, observe et propose comment le faire évoluer. **En solo, l'athlète valide ; avec un coach, Prometheus prépare et le coach valide.** Trois rôles : Coach / Client coaché / Solo. Vision : `docs/VISION.md`. Ordre de construction : `docs/CHANTIER.md`. Lis les deux avant de toucher au produit.
-> **Copilote IA :** `coach-agent` (OpenAI, brouillons seulement). L'IA prépare, l'humain décide, rien ne s'auto-applique. Second / Grok Bots sont hors de la boucle — ne pas recâbler `GROK_BOT_WEBHOOK_URL`.
-> **Billing :** gratuit pendant la construction. Les 3 functions Stripe répondent 410. Ce n'est pas « jamais de Premium », c'est « pas maintenant ».
-> **`new-JV` = le produit et la prod.** Netlify la déploie sur `tracker.prometheus-fit.com` à chaque merge ; le projet Supabase « coaching » est la base de prod (migrations appliquées à la main avant le merge). `main` = ancien tracker solo, abandonné. Pas de test destructif sur la base de prod.
+> À lire au début de chaque tâche. Ce fichier contient les règles de travail actuelles.
+> Pour les décisions produit, lire `docs/VISION.md`. Pour l’ordre des travaux, lire `docs/CHANTIER.md`.
 
----
+## Produit
 
-## Tech Stack & Versions
+Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, disponible en français et en anglais.
 
-| Couche | Technologie | Version |
-|---|---|---|
-| Language | TypeScript | 5.5 |
-| Framework UI | React | 18.3 |
-| Routeur | React Router | 7.13 |
-| State Management | Zustand | 5.0 |
-| Styling | Tailwind CSS | 3.4 |
-| Build | Vite | 5.4 |
-| Backend / DB | Supabase (PostgreSQL + Auth + Storage + Realtime) | 2.57 |
-| Edge Functions | Deno (Supabase Functions) | — |
-| i18n | i18next (fr par défaut, en) | 26 |
-| Charts | Recharts | 3.8 |
-| Icons | Lucide React | 0.344 |
-| Dates | date-fns | 4.1 |
-| Barcode | barcode-detector | 3.1 |
-| PWA | Service Worker manuel (`public/sw.js`) | — |
+Trois rôles sont officiels :
 
----
+- **Coach** : gère ses clients, leurs programmes, leur suivi et les propositions préparées par Prometheus.
+- **Client coaché** : suit le programme et les modules autorisés par son coach.
+- **Solo** : utilise le tracker complet et valide lui-même les propositions du copilote.
 
-## Build / Run / Test Commands
+Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition n’est jamais appliquée automatiquement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
+
+## Sources de vérité
+
+| Sujet | Source |
+|---|---|
+| Vision et rôles | `docs/VISION.md` |
+| Priorités et fonctionnalités à construire | `docs/CHANTIER.md` |
+| Schéma et ordre des migrations | `supabase/migrations/` + `supabase/schema_migrations.lock.json` |
+| État des Edge Functions | `supabase/functions.deployed.lock.json` |
+| Télémétrie autorisée | `docs/TELEMETRY.md` |
+| Types applicatifs | `src/lib/types.ts` |
+| Configuration JWT des fonctions | `supabase/config.toml` |
+
+En cas de contradiction, corriger le document périmé dans le même changement.
+
+## État de production vérifié — 10 septembre 2026
+
+- Branche de production : `new-JV`. Un merge déclenche le déploiement Netlify.
+- URL : `tracker.prometheus-fit.com`.
+- Projet Supabase : `phyuijjekxtjvipjtdfv`.
+- Audit de fiabilité et de sécurité #68 : mergé ; CI et matrice RLS vertes.
+- Migrations : Git, lock et production alignés sur 98 versions ; dernière version `20260910160000`.
+- `coach-fleet-round` : v32, `ACTIVE`, `verify_jwt=false` avec authentification cron interne.
+- `coach-agent` : v26, `ACTIVE`, `verify_jwt=true` ; preflight CORS vérifié à 200.
+- Rappels : job `send-daily-reminders` actif chaque minute ; secret Vault présent ; exécutions contrôlées réussies.
+- La PR #69 est un workflow CLI manuel optionnel et reste en draft.
+
+Ne pas recopier ces numéros ailleurs : mettre à jour `supabase/functions.deployed.lock.json` lors d’un nouveau déploiement.
+
+## Commandes de vérification
 
 ```bash
-npm run dev          # Serveur de développement Vite
-npm run build        # Build de production
-npm run preview      # Prévisualise le build
-npm run lint         # ESLint (flat config, eslint.config.js)
-npm run typecheck    # tsc --noEmit
-npm test             # Tests src/lib/*.test.ts (node:test via tsx) — liste explicite dans package.json
+npm test
+npm run typecheck
+npm run lint
+npm run build
+npm run verify:edges
+npm run verify:migrations
 ```
 
-Avant de considérer une tâche finie : `npm test` + `npm run typecheck` + `npm run lint` verts. Beaucoup de tests lisent la **source** des composants (verrous produit) : si tu changes un comportement produit, mets le test à jour dans le même commit, ne le contourne pas.
+Pour un changement RLS ou RPC sensible, exécuter aussi :
 
-Variables d'environnement requises (fichier `.env` local, jamais commité) :
-```
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_ANON_KEY=...
-VITE_VAPID_PUBLIC_KEY=...   # optionnel, push
+```bash
+npm run test:rls
 ```
 
----
+Les tests peuvent verrouiller la source de composants et les contrats produit. Si un comportement change volontairement, mettre à jour son test dans le même commit ; ne pas contourner le verrou.
 
-## Architecture
+## Architecture utile
 
-```
+```text
 src/
-├── App.tsx                    # Routes + gardes de rôle (CoachOnly, CoachTrackerRedirect,
-│                              #   CoachedAthleteRedirect, TrackingGate) + murs onboarding / intake
-├── main.tsx                   # Point d'entrée
-│
+├── App.tsx                         Routes et gardes de rôle
 ├── components/
-│   ├── layout/                # AppLayout, BottomNav, SideNav, FAB, CoachProfileButton
-│   ├── ui/                    # Button, Input, Card, Modal, Toast, ScoreSlider…
-│   ├── auth/                  # AuthPage (3 portes : coach / client invité / solo), ResetPasswordPage
-│   ├── onboarding/            # KinesiologyIntakeFlow + Review (27 q, reprise, cibles solo) ; OnboardingFlow = legacy tracker
-│   ├── coaching/              # Côté coach : CoachDashboard, CoachTodayQueue, ClientsPage, ClientDetailPage (360),
-│   │                          #   ClientSetupPage, InterventionDraftPage, CoachInboxPage, AskPrometheusPage,
-│   │                          #   ProgramSessionEditor, CoachSettingsPanel, TrackingGate, InvitePage…
-│   │                          #   Côté client : ClientMessagesPage, ClientPhotosPage
-│   ├── programs/              # ProgramsPage / ProgramEditorPage (coach), ClientProgramPage (coaché)
-│   ├── dashboard/             # Dashboard (accueil client / solo), ClientGymCard, SoloWeeklyReview (copilote solo hebdo)
-│   ├── checkin/               # CheckInPage (0–10)
-│   ├── workout/               # WorkoutPage, WorkoutForm, ExerciseCard, RestTimer, SessionTimer…
-│   ├── nutrition/             # NutritionPage, FoodForm, RecipesPage, WaterTracker, WeeklyAdjustment…
-│   ├── scanner/               # ScannerPage + UnifiedScanner (barcode + photo IA)
-│   ├── weight/ routines/ stats/ calendar/ profile/
-│   └── ErrorBoundary.tsx
-│
-├── stores/                    # Zustand, un fichier par domaine
-│   ├── coachingStore.ts       # Rôle, invites, roster, ops, interventions, messages, realtime, tracking config
-│   ├── soloCopilotStore.ts    # Décision hebdo du solo (solo_weekly_reviews), seule écriture copilote → cibles
-│   ├── programStore.ts        # Programmes, jours, exercices, assignations
-│   ├── checkinStore.ts        # Check-ins quotidiens
-│   ├── authStore / profileStore / workoutStore / nutritionStore / weightStore
-│   ├── routineStore / recipeStore / streakStore / exerciseStore / preferencesStore
-│
-├── lib/
-│   ├── types.ts               # Tous les types (source de vérité)
-│   ├── utils.ts               # BMR, TDEE, macros ISSN, dates, unités
-│   ├── kinesiologyIntake.ts   # 27 questions (labels FR = source de vérité), gate du mur, patch profil, drapeaux médicaux (+ STANDARD_INTAKE_IDS / INTAKE_SEMANTIC_MAP, contrat E02)
-│   ├── pickerSearch.ts        # Moteur partagé ranking aliments/exercices (accents, tokens, Levenshtein, alias FR/EN)
-│   ├── useFoodCatalogSearch.ts # Locale instantanée + OFF explicite (budget, timeout, annulation)
-│   ├── foodEnergy.ts          # Contrat portions (productLogDraft : base masse vs portion)
-│   ├── sessionScope.ts / offlineQueue.ts / fieldDraftKeys.ts  # Isolation par compte + file offline
-│   ├── programPatch.ts        # Résolveur unique de patch (aperçu = application)
-│   ├── telemetry.ts / telemetryClient.ts   # Télémétrie produit (pur + track(), contrat docs/TELEMETRY.md)
-│   ├── soloCopilot.ts         # Bilan hebdo solo : dossier depuis ses logs → règles fleet → explication
-│   ├── clientTracking.ts      # Modules / variables allumés par le coach
-│   ├── coachRole.ts           # isCoachedAthlete
-│   ├── coach*.ts              # Logique coach pure (fleet, queue, priorities, alerts, interventions…)
-│   ├── client*.ts             # Logique client pure (home, gym card, live, auth)
-│   ├── supabase.ts / supabaseFunctions.ts / realtimeWait.ts
-│   └── *.test.ts              # Tests node:test (pickerSearch.test.ts, coachFleet.test.ts, etc.)
-│
-├── i18n/locales/{fr,en}.ts    # Parité de clés obligatoire
-│
+│   ├── coaching/                   Console coach, fiche client 360, messages
+│   ├── programs/                   Programmes coach et client
+│   ├── dashboard/                  Accueil client/solo et revue hebdomadaire
+│   ├── onboarding/                 Questionnaire standard et reprise
+│   └── workout|nutrition|checkin/  Tracker athlète
+├── stores/                         État Zustand par domaine
+├── lib/                            Logique pure, contrats, helpers et tests
+└── i18n/locales/{fr,en}.ts         Textes visibles
+
 supabase/
-├── migrations/                # Source de vérité DB (immutables une fois appliquées)
-├── cron/                      # schedule_coach_fleet_round.sql, schedule_daily_reminders.sql
+├── migrations/                     Historique DB immuable
+├── cron/                           Planification des tâches
 └── functions/
-    ├── coach-agent/           # Ask + brouillons IA (sync OpenAI, écrit coach_interventions pending)
-    ├── coach-fleet-round/     # Tournée SQL de tous les clients liés + brouillons Relancer / kcal
-    ├── notify-onboarding-complete/  # Trigger DB → brouillon onboarding_plan
-    ├── analyze-product/ verify-exercise/   # IA nutrition / exercices
-    ├── send-daily-reminders/  # Web Push VAPID
-    ├── delete-account/
-    ├── ask-second/ suggest-client-plan/    # Retirés — 410
-    └── create-checkout-session/ create-portal-session/ stripe-webhook/  # Quarantaine — 410
+    ├── coach-agent/                Copilote IA synchrone
+    ├── coach-fleet-round/          Analyse déterministe du roster
+    ├── notify-onboarding-complete/ Déclencheur de proposition initiale
+    ├── send-daily-reminders/       Notifications Web Push
+    └── autres fonctions métier
 ```
 
-### Routes principales
+## Invariants produit
 
-| Route | Composant | Qui |
-|---|---|---|
-| `*` (déconnecté) | AuthPage | Public |
-| `/invite/:token` | InvitePage | Public |
-| `/intake` | KinesiologyIntakeFlow | Athlète — mur pour tout nouveau compte (solo ou invité), reprenable ; le solo finit sur ses cibles |
-| `/dashboard` | CoachDashboard / Dashboard | Tous |
-| `/clients`, `/clients/:id`, `/clients/:id/setup`, `/clients/:id/draft/:id`, `/inbox/:id` | Console coach | CoachOnly |
-| `/prometheus` | AskPrometheusPage | CoachOnly |
-| `/programs` | ProgramsPage (coach) / ClientProgramPage (coaché) / → `/workout` (solo) | Selon rôle |
-| `/messages` | CoachInboxPage / ClientMessagesPage | Coach / athlète |
-| `/photos` | ClientPhotosPage | Athlète |
-| `/workout*`, `/nutrition`, `/scanner`, `/weight`, `/checkin` | Tracker | Athlète, TrackingGate si coaché |
-| `/stats`, `/calendar`, `/recipes`, `/routines`, `/exercise-progress` | Tracker | Solo seulement |
-| `/profile` | ProfilePage | Tous |
+- **Propositions uniquement.** `coach-agent` et `coach-fleet-round` préparent des brouillons. L’application explicite du coach ou du solo est obligatoire.
+- **Isolation coach-client.** Un coach ne voit et ne modifie que ses clients actifs. Toute écriture privilégiée vérifie la cible avant les effets.
+- **Un client, un coach actif maximum.**
+- **Fin de coaching = retour solo.** Historique et cibles conservés, programme mis en pause, tracking coach retiré.
+- **Programmes atomiques et versionnés.** Utiliser les RPC de sauvegarde/création/fork/adoption. Un échec ne laisse pas de programme partiel.
+- **Interventions idempotentes.** Claim → effets → finalize ; un rejeu ne duplique ni message ni note.
+- **Données honnêtes.** Une réussite affichée correspond à une écriture persistée. Les erreurs et les actions à réessayer restent visibles.
+- **Hors ligne.** La file de séances survit au changement de compte et rejoue sans doublon ; les éléments en échec durable vont en dead-letter.
+- **Tracking coaché.** `client_tracking_config` décide quels modules sont actifs. Un module désactivé ne génère ni rappel ni jugement.
+- **Nutrition.** Les cibles d’un coaché sont coach-only ; l’historique est daté. Les portions passent par le contrat `productLogDraft`.
+- **Analyse hebdomadaire.** Fenêtre cohérente de 14 jours, cibles effectives datées, signaux déclarés et profils protégés.
+- **Questionnaire.** `STANDARD_INTAKE_IDS`, `INTAKE_SEMANTIC_MAP` et `INTAKE_VERSION` forment le contrat stable. Les champs inconnus vont dans `custom`.
+- **Bilingue.** Tout texte visible passe par l’i18n, avec parité FR/EN.
+- **Télémétrie minimale.** Aucun nom, e-mail, texte libre, réponse d’intake, note, message ou signal médical dans `product_events`.
 
----
+## Sécurité et base de données
 
-## Verrous produit (ne pas casser)
-
-- **Ordre des chantiers (ne pas s'éparpiller) :** Étape 0 = Faite. Chantier A = Fait (#65). Recherche = Fait (#67). **Audit 30 constats = Fait (#68).** **La prochaine priorité absolue est le Chantier B : Builder de questionnaire par coach** (`docs/CHANTIER.md`). Ne pas réouvrir d'audit produit ni inventer d'autres chantiers sans instruction.
-- **L'IA prépare, l'humain décide.** `coach-agent` et `coach-fleet-round` écrivent uniquement des `coach_interventions` `pending`. Apply = claim → effets → finalize (une seule validation gagne, `release` en cas d'échec). Copilote solo : `SoloWeeklyReview` propose, la seule écriture vers les cibles est `soloCopilotStore.decide('accepted')` — le tap du solo.
-- **Pas de Grok Bots, pas de Second.** Un seul invoke IA côté coach : `COACH_AGENT_FUNCTION = 'coach-agent'`.
-- **Fleet :** triage SQL (`triage_coach_fleet`, 14 j : today-13..today, comme le solo), cibles effectives datées, signaux déclarés, modules suivis, profils protégés → revue qualifiée. 100 % déterministe, pas d'appel LLM. Miroir strict `src/lib/coachFleet.ts` ↔ edge — toute règle change des DEUX côtés + `fleetCopy.ts` pour les textes.
-- **Rôle client uniquement via `accept_coach_invite`.** Coach et solo s'inscrivent librement.
-- **Recherche aliments :** locale instantanée (frappe) + Open Food Facts EXPLICITE uniquement (bouton/Entrée, cgi plein texte, budget 10/min, timeout) — la doc OFF interdit le as-you-type distant. `pickerSearch.ts` centralise le scoring. Exercices : alias FR/EN, nom canonique anglais en base, affichage localisé.
-- **Portions :** contrat unique `productLogDraft` (base masse vs portion) — recherche, récents, favoris, recettes, préremplissage passent par lui. Les colonnes per-100g d'un produit « portion » portent la valeur PAR portion.
-- **Programmes :** sauvegardes via RPC atomiques (`save/sync/create/fork/adopt`), patch par ID (`resolvePatchTargets`, aperçu = application), fork si modèle partagé, version vérifiée (`expectedUpdatedAt`), révisions immuables (`program_revisions`).
-- **Macros d'un coaché : écriture coach-only** (RPC `coach_set_client_nutrition_targets` + trigger). Historique daté (`nutrition_target_history`, trigger infaillible).
-- **Tracking coaché piloté par `client_tracking_config`** : ligne créée à l'invitation avec les défauts du coach, affinée au setup ; `ALL_OFF_TRACKING` seulement sans ligne ; `TrackingGate` sur les routes. Module éteint = ni reproche, ni rappel, ni jugement.
-- **Fin de lien = retour solo** (`transition_client_to_solo` partagée : rôle `none`, tracking retirée, cibles et historique conservés, programme en pause, `coach_link_ended_at` + `solo_trial_ends_at`). Suppression compte coach = `close_coach_account` d'abord (fork vers athlètes). Le client ne doit jamais rester « coaché sans coach ».
-- **Caches locaux namespacés par compte** (`sessionScope.ts`) ; purge au logout sauf file offline (reprise au retour). `fetchWorkout` valide l'identité et efface sur refus serveur.
-- **Questionnaire :** `STANDARD_INTAKE_IDS` + `INTAKE_SEMANTIC_MAP` + `INTAKE_VERSION` = contrat stable pour le chantier B. `compactIntake` : inconnus → bac `custom` non interprété.
-- **Télémétrie :** contrat dans `docs/TELEMETRY.md` (rattachée au compte, zéro signal santé). Nouvel événement = entrée doc + `ProductEventName` dans le même commit.
-- **Ne pas splitter `coachingStore`** dans un PR de cleanup.
-
----
+- RLS activé sur toutes les tables exposées.
+- Une policy UPDATE doit contrôler à la fois l’accès à la ligne et les nouvelles valeurs.
+- Les RPC `SECURITY DEFINER` restent étroites, vérifient `auth.uid()` et ont des droits `EXECUTE` explicites.
+- La clé `service_role` et les secrets serveur ne vont jamais dans le client ni dans Git.
+- Les migrations déjà appliquées sont immuables. Ajouter une nouvelle migration, ne jamais réécrire l’historique.
+- Avant toute action destructive sur la production : identifier précisément la cible et demander confirmation.
+- Aucun test destructif sur la base de production.
 
 ## Conventions
 
-- **TypeScript strict**, types centralisés dans `src/lib/types.ts`.
-- **Composants fonctionnels**, un par fichier, groupés par domaine.
-- **Zustand** pour l'état partagé, pas de Context.
-- **Tailwind** uniquement. Pas de restyle non demandé, pas de nouvelle lib UI.
-- **Nommage :** PascalCase composants, camelCase fonctions, snake_case colonnes DB.
-- **i18n :** tout texte visible passe par `t()`, FR tutoiement, parité fr/en.
-- **Logique pure dans `src/lib/`**, testée avec node:test ; les composants restent minces.
-- **Télémétrie :** toute nouvelle boucle produit appelle `track()` (`src/lib/telemetryClient.ts`), fire-and-forget. Le nom de l'événement s'ajoute d'abord à `ProductEventName` dans `types.ts`. `props` = ids, kinds, booléens, compteurs — jamais de nom, d'e-mail ni de texte libre. Table `public.product_events`, insert-only depuis l'app.
-- **Edge Functions** en Deno dans `supabase/functions/`.
+- TypeScript strict ; types partagés dans `src/lib/types.ts`.
+- Composants fonctionnels, logique testable dans `src/lib/`.
+- Zustand pour l’état partagé.
+- Tailwind pour le style ; pas de nouvelle bibliothèque UI sans besoin démontré.
+- PascalCase pour les composants, camelCase pour les fonctions, snake_case pour PostgreSQL.
+- Ne pas découper `coachingStore` dans un simple nettoyage.
+- Ne jamais commiter un fichier `.env`, un token ou un secret.
 
----
+## Priorité actuelle
 
-## Sécurité
+Le socle, l’audit et les rappels sont terminés. L’ordre produit actuel est :
 
-- **JAMAIS commiter `.env`** ni clés, tokens, secrets.
-- **RLS activé** sur toutes les tables — ne jamais désactiver.
-- Service role key côté edge uniquement.
-- Toute politique RLS / RPC passe par une migration versionnée. Les migrations appliquées sont immuables : on en ajoute, on ne réécrit pas.
-- Buckets Storage (`avatars`, `product-images`, `progress-photos`) avec policies.
-- Avant toute commande destructive (drop, delete, reset) : évaluer l'impact, confirmer avec l'utilisateur.
-- Ne jamais commiter sans instruction explicite de l'utilisateur.
+1. Builder de questionnaire par coach.
+2. Recherche, départ et changement de coach.
+3. Billing, après décision sur les prix et les règles d’essai.
+
+Ne pas lancer un nouveau chantier transversal sans instruction ou sans démontrer qu’il bloque cette séquence.
