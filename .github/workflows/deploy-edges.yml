@@ -1,0 +1,33 @@
+name: Deploy edges (Production)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-edges-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: deploy-edges (CLI)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: phyuijjekxtjvipjtdfv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Deploy coach-fleet-round + coach-agent via CLI
+        run: |
+          chmod +x scripts/deploy-audit-edges.sh
+          bash scripts/deploy-audit-edges.sh

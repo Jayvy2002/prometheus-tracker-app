@@ -64,14 +64,9 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /rls-matrix/);
   assert.match(ci, /run-rls-matrix/);
   assert.match(ci, /verify-local-migrations/);
-  assert.match(ci, /deploy-audit-edges/);
   assert.match(ci, /2\.117\.0/);
   assert.match(ci, /steps\.token\.outputs\.present == 'true'/);
-  assert.ok(
-    [...ci.matchAll(/steps\.token\.outputs\.present == 'true'/g)].length >= 2,
-    'prod CLI proof and deploy-edges must both gate on token output, not secrets-in-if',
-  );
-  assert.match(ci, /github\.head_ref == 'cursor\/audit-securisation-425e'/);
+  assert.doesNotMatch(ci, /name: deploy-edges/);
   assert.doesNotMatch(
     ci,
     /if:.*secrets\.SUPABASE_ACCESS_TOKEN/,
@@ -81,5 +76,21 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
     ci,
     /SUPABASE_ACCESS_TOKEN absent[\s\S]{0,240}exit 0/,
     'missing Management API token must skip or fail, never exit 0 as SUCCESS',
+  );
+  const deploy = src('.github/workflows/deploy-edges.yml');
+  assert.match(deploy, /workflow_dispatch/);
+  assert.match(deploy, /environment: production/);
+  assert.match(deploy, /deploy-audit-edges/);
+  assert.match(deploy, /2\.117\.0/);
+  assert.doesNotMatch(deploy, /pull_request/);
+  assert.doesNotMatch(
+    deploy,
+    /if:.*secrets\.SUPABASE_ACCESS_TOKEN/,
+    'secrets in if: break the workflow file',
+  );
+  assert.doesNotMatch(
+    deploy,
+    /SUPABASE_ACCESS_TOKEN absent[\s\S]{0,240}exit 0/,
+    'dedicated Production deploy must fail without token, never skip as SUCCESS',
   );
 });

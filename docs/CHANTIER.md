@@ -45,14 +45,14 @@
 
 ### ⚠️ Étapes ops REQUISES après merge (ne pas oublier)
 
-1. **Edges à redéployer en CLI** si le secret GitHub `SUPABASE_ACCESS_TOKEN` (Management API) est posé :
+1. **Edges à redéployer en CLI** (Management API) :
    ```bash
    npm run deploy:audit-edges
    # équivalent :
    supabase functions deploy coach-fleet-round --project-ref phyuijjekxtjvipjtdfv --no-verify-jwt
    supabase functions deploy coach-agent --project-ref phyuijjekxtjvipjtdfv
    ```
-   Live actuel : `coach-fleet-round` **v31** (`verify_jwt` false), `coach-agent` **v24** (`verify_jwt` true). Sans secret, l’étape CLI `Deploy … via CLI` est **skipped** (gris, pas SUCCESS). Avec secret, elle déploie vraiment via CLI.
+   Live actuel : `coach-fleet-round` **v31** (`verify_jwt` false), `coach-agent` **v24** (`verify_jwt` true). En CI : Actions → **Deploy edges (Production)** (`workflow_dispatch` + environment `production`). Pas de deploy automatique depuis une PR.
 2. **Rappels cron** : poser le secret `REMINDERS_CRON_SECRET` (valeur transmise hors git) dans Vault **et** dans les secrets de `send-daily-reminders`, vérifier les secrets VAPID, puis jouer `supabase/cron/schedule_daily_reminders.sql`.
 3. **Protection de branche** : protéger `new-JV` (reviews + CI verte requises) — non faisable via API ici.
 4. **Matrice RLS** : job CI `rls-matrix` (`supabase start` + `scripts/run-rls-matrix.mjs`). Rejouer aussi sur une branche staging après chaque changement de policy / RPC DEFINER.

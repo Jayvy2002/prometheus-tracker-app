@@ -31,7 +31,7 @@ Vérifs :
 - `npm run verify:migrations` — Git versions = lock (98).
 - Replay CI : `supabase start` PG17 puis `npm run verify:local-migrations` (98/98).
 - Si le secret GitHub `SUPABASE_ACCESS_TOKEN` est posé : étape CI **Prod migration list + db push --dry-run** exécute `scripts/prod-migration-sync.sh` (sortie CLI réelle). Sinon l’étape est **skipped** via `steps.token.outputs.present` (gris) — jamais un `exit 0` déguisé en SUCCESS. Ne pas mettre `secrets.*` dans un `if:` GitHub (ça invalide le workflow).
-- Job `deploy-edges` (cette PR) : l’étape **Deploy … via CLI** n’est exécutée que si le token est présent (`steps.token.outputs.present`). Sinon elle est **skipped** (gris) — pas un succès de déploiement. Le script `deploy-audit-edges.sh` échoue encore si on l’invoque sans token.
+- Déploiement des Edge Functions : workflow manuel `.github/workflows/deploy-edges.yml` (`workflow_dispatch` + environment GitHub `production`). Le script `deploy-audit-edges.sh` **échoue** sans token. Pas de déploiement automatique depuis une PR.
 
 ## Repair validé (plage audit)
 

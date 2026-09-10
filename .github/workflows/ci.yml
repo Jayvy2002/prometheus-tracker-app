@@ -107,37 +107,3 @@ jobs:
           name: rls-matrix-results
           path: artifacts/rls-matrix-results.txt
           if-no-files-found: ignore
-
-  deploy-edges:
-    name: deploy-edges (CLI)
-    needs: verify
-    if: github.event_name == 'pull_request' && github.head_ref == 'cursor/audit-securisation-425e'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_PROJECT_REF: phyuijjekxtjvipjtdfv
-    steps:
-      - uses: actions/checkout@v4
-      - name: Detect Management API token
-        id: token
-        run: |
-          if [ -n "${SUPABASE_ACCESS_TOKEN}" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-            echo "::notice title=CLI deploy::SUPABASE_ACCESS_TOKEN absent — functions deploy skipped (not a successful deploy)."
-          fi
-      - uses: actions/setup-node@v4
-        if: steps.token.outputs.present == 'true'
-        with:
-          node-version: 22
-      - uses: supabase/setup-cli@v1
-        if: steps.token.outputs.present == 'true'
-        with:
-          version: 2.117.0
-      - name: Deploy coach-fleet-round + coach-agent via CLI
-        if: steps.token.outputs.present == 'true'
-        run: |
-          chmod +x scripts/deploy-audit-edges.sh
-          bash scripts/deploy-audit-edges.sh
