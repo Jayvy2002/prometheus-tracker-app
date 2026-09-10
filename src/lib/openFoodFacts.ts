@@ -83,6 +83,15 @@ export async function searchOpenFoodFacts(query: string, lang = 'fr'): Promise<O
   let raw = productsFromPayload(v2);
 
   if (raw.length === 0) {
+    const unscoped = await fetchJson(
+      `https://world.openfoodfacts.org/api/v2/search`
+        + `?search_terms=${encoded}&page_size=15`
+        + `&fields=code,product_name,product_name_fr,product_name_en,brands,nutriments,serving_quantity`,
+    );
+    raw = productsFromPayload(unscoped);
+  }
+
+  if (raw.length === 0) {
     const cgi = await fetchJson(
       `https://${host}/cgi/search.pl?search_terms=${encoded}&search_simple=1&action=process&json=1&page_size=15`,
     );

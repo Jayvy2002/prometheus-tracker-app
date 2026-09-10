@@ -96,6 +96,7 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Billing | Stripe ×3 en 410 ; `solo_trial_ends_at` posé, aucun mur | Gratuit pendant la construction | ✔ ; chantier D |
 | Télémétrie d'usage | `product_events` + `track()` sur les boucles principales ; INSERT only | Écran de lecture coach / admin | ✔ démarré |
 | Bilingue EN + FR | Intake, `constants.ts`, agent, tournée : langue du caller | Idem | ✔ (#53 / #54) |
+| Recherche aliments & exercices | As-you-type (280 ms), DB + Open Food Facts en parallèle, ranking multicritère (`pickerSearch.ts`), aliases d'exercices FR/EN (`bp`, `rdl`, `sdt`), RPC `search_food_products` trigramme en prod | Idem | ✔ (#67) |
 | Changer de coach | Invitation seulement ; le client ne peut pas partir seul | Annuaire + départ + changement | Chantier C |
 
 ---
@@ -110,7 +111,7 @@ Les trois axes de la consolidation restent le test de chaque livraison :
 - **Boucle coach** : intake du client → analyse → proposition → le coach valide → le client exécute → détection → nouvelles propositions. Même cerveau, autorité différente.
 - **Rien ne s'auto-applique.**
 
-Snapshot prod (7 sept., projet `phyuijjekxtjvipjtdfv`) : cycle solo + coach joué ; tournée cron 04:00 UTC déterministe ; `coach-agent` **v22** (`loop_context`, `gpt-5.6-luna` — logs `openai_chat`) ; fleet **v25** (`payload.why`). Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client sont appliquées. Les numéros de migration en base diffèrent du repo (ré-horodatées le 24 août) — pas une dérive de schéma.
+Snapshot prod (sept. 2026, projet `phyuijjekxtjvipjtdfv`) : cycle solo + coach joué ; tournée cron 04:00 UTC déterministe ; `coach-agent` **v22** (`loop_context`, `gpt-5.6-luna` — logs `openai_chat`) ; fleet **v25** (`payload.why`). Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client ainsi que la migration `20260907000001_food_search_rank.sql` (recherche trigramme) sont appliquées. Les numéros de migration en base diffèrent du repo (ré-horodatées le 24 août) — pas une dérive de schéma.
 
 ---
 

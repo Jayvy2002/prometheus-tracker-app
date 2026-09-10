@@ -7,9 +7,9 @@
 
 ---
 
-## État au 7 septembre 2026
+## État au 10 septembre 2026
 
-### Mergé dans `new-JV` (prod Netlify → `tracker.prometheus-fit.com`)
+### Mergé / Livré dans `new-JV` (prod Netlify → `tracker.prometheus-fit.com`)
 
 | PR | Quoi |
 |---|---|
@@ -27,6 +27,8 @@
 | #62 | Restes invite/setup (bannière sans nom, toast, ops Setup) |
 | #64 | Copilote OpenAI sur **`gpt-5.6-luna`** (`DEFAULT_OPENAI_MODEL`, `max_completion_tokens`) |
 | #65 | **Chantier A** : Setup garder vs ISSN ; `weeklyNutritionWhy` ; `payload.why` ; `joursDispo` éditeur ; accusé PAR-Q |
+| #66 | Docs : Chantier A fait, Luna en prod, cycle 0 joué |
+| #67 | **Recherche aliments & exercices** : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage), ranking multicritère (`pickerSearch.ts`), repli mondial OFF, alias FR/EN d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907000001_food_search_rank.sql` (pg_trgm) appliquée en prod |
 
 ### Drafts orphelins
 
@@ -87,6 +89,7 @@ Setup d’un profil qui a déjà des cibles (≥ 800 kcal) : radios **Garder** (
 ## Transversal — à glisser entre deux chantiers
 
 - **Fait (#65)** — `joursDispo` pré-rempli dans l’éditeur manuel de programme ; accusé de réception d’un drapeau médical avant Envoyer Setup.
+- **Fait (#67)** — Recherche aliments & exercices unifiée : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage mutuel), scoring multicritère (`pickerSearch.ts`), aliases d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907000001_food_search_rank.sql` (`pg_trgm`) appliquée en prod.
 - Écran de lecture télémétrie coach/admin. `product_events` n’a aujourd’hui qu’une policy INSERT.
 - Migration perf (plus tard, pas urgent) : `auth_rls_initplan` ×7 en `(select auth.uid())` ; fusion des paires de policies SELECT permissives.
 - Bundle JS ~1,6 MB : `React.lazy` par route.

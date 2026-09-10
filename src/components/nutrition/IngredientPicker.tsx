@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Sparkles, Star, Clock, ScanLine, Globe, Database, Loader2, ArrowLeft } from 'lucide-react';
+import { Search, Sparkles, Star, Clock, ScanLine, Loader2, ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
 import { FOOD_UNITS, UNIT_TO_GRAMS } from '../../lib/constants';
@@ -9,8 +9,9 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Select from '../ui/Select';
 import UnifiedScanner from '../scanner/UnifiedScanner';
-import { searchOpenFoodFacts } from '../../lib/openFoodFacts';
-import { kcalFromEnergyValue, normalizeFoodProductEnergy, normalizePer100gKcal } from '../../lib/foodEnergy';
+import FoodSearchHits from './FoodSearchHits';
+import { useFoodCatalogSearch } from '../../lib/useFoodCatalogSearch';
+import { kcalFromEnergyValue, normalizePer100gKcal } from '../../lib/foodEnergy';
 
 type Tab = 'search' | 'recent' | 'favorites';
 
@@ -29,18 +30,13 @@ interface Props {
   onClose: () => void;
 }
 
-type SearchSource = 'db' | 'openfoodfacts';
-
-interface SearchResult extends FoodProduct {
-  _source?: SearchSource;
-}
-
 export default function IngredientPicker({ onAdd, onClose }: Props) {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
-  const { searchProducts, createProduct, batchSaveProducts, favorites, recentProducts, fetchFavorites, fetchRecentProducts } = useNutritionStore();
+  const { createProduct, favorites, recentProducts, fetchFavorites, fetchRecentProducts } = useNutritionStore();
 
   const [tab, setTab] = useState<Tab>('search');
+  const catalog = useFoodCatalogSearch(tab === 'search', i18n.language);
   const [name, setName] = useState('');
   const [calories, setCalories] = useState('');
   const [protein, setProtein] = useState('');
@@ -48,14 +44,8 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
   const [fat, setFat] = useState('');
   const [quantity, setQuantity] = useState('100');
   const [unit, setUnit] = useState('g');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [searched, setSearched] = useState(false);
-  const [searching, setSearching] = useState(false);
-  const [searchPhase, setSearchPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
   const [showScanner, setShowScanner] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<FoodProduct | null>(null);
-  const searchRef = useRef(0);
 
   const isServingUnit = unit === 'serving';
   const grams = isServingUnit ? 0 : (+quantity || 0) * (UNIT_TO_GRAMS[unit] ?? 1);
@@ -67,38 +57,9 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
     fetchRecentProducts(user.id);
   }, [user]);
 
-  const handleSearch = async () => {
-    const q = searchQuery.trim();
-    if (!q) return;
-    const searchId = ++searchRef.current;
-    setSearching(true);
-    setSearched(false);
-    setResults([]);
+  const handleSearch = () => catalog.searchNow();
 
-    setSearchPhase('db');
-    const dbResults = await searchProducts(q);
-    if (searchRef.current !== searchId) return;
-
-    if (dbResults.length > 0) {
-      setResults(dbResults.map(p => ({ ...normalizeFoodProductEnergy(p), _source: 'db' as const })));
-      setSearched(true);
-      setSearching(false);
-      setSearchPhase('idle');
-      return;
-    }
-
-    setSearchPhase('openfoodfacts');
-    const offResults = await searchOpenFoodFacts(q, i18n.language);
-    if (searchRef.current !== searchId) return;
-
-    setResults(offResults);
-    setSearched(true);
-    setSearching(false);
-    setSearchPhase('idle');
-    if (offResults.length > 0) batchSaveProducts(offResults);
-  };
-
-  const selectProduct = async (p: SearchResult) => {
+  const selectProduct = async (p: FoodProduct & { _source?: string }) => {
     let product: FoodProduct = p;
 
     if (p._source === 'openfoodfacts' && !p.id) {
@@ -130,9 +91,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
     setFat(product.fat_per_100g.toString());
     setQuantity(product.serving_size.toString());
     setUnit(product.serving_unit);
-    setResults([]);
-    setSearchQuery('');
-    setSearched(false);
+    catalog.resetSearch();
   };
 
   const selectFavorite = (f: FoodFavorite) => {
@@ -235,59 +194,29 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
                 <Input
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
+                  value={catalog.query}
+                  onChange={e => catalog.setQuery(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                   placeholder={t('nutrition.foodForm.searchPlaceholder')}
                   className="pl-10"
                 />
               </div>
-              <Button onClick={handleSearch} variant="secondary" loading={searching}>{t('common.search')}</Button>
+              <Button onClick={handleSearch} variant="secondary" loading={catalog.searching}>{t('common.search')}</Button>
             </div>
 
-            {searching && (
+            {catalog.searching && catalog.results.length === 0 && (
               <div className="mt-3 flex items-center justify-center gap-2 py-4 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in">
                 <Loader2 size={16} className="text-blue-400 animate-spin" />
-                <span className="text-sm text-neutral-400">
-                  {searchPhase === 'db' ? t('nutrition.foodForm.searchingLocal') : t('nutrition.foodForm.searchingOpenFoodFacts')}
-                </span>
+                <span className="text-sm text-neutral-400">{t('nutrition.foodForm.searchingCatalog')}</span>
               </div>
             )}
 
-            {!searching && results.length > 0 && (
+            {catalog.results.length > 0 && (
               <div className="mt-2 animate-fade-in-down">
-                {results[0]?._source === 'openfoodfacts' && (
-                  <div className="flex items-center gap-1.5 mb-1.5 px-1">
-                    <Globe size={11} className="text-emerald-500" />
-                    <span className="text-[10px] text-neutral-500">{t('nutrition.foodForm.resultsFromOFF')}</span>
-                  </div>
+                {catalog.phase === 'openfoodfacts' && (
+                  <p className="text-[10px] text-neutral-500 mb-1.5 px-1">{t('nutrition.foodForm.searchingOpenFoodFacts')}</p>
                 )}
-                {results[0]?._source === 'db' && (
-                  <div className="flex items-center gap-1.5 mb-1.5 px-1">
-                    <Database size={11} className="text-blue-400" />
-                    <span className="text-[10px] text-neutral-500">{t('nutrition.foodForm.resultsFromDB')}</span>
-                  </div>
-                )}
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-h-52 overflow-y-auto">
-                  {results.map((p, i) => (
-                    <button
-                      key={`${p.barcode || p.id || i}`}
-                      onClick={() => selectProduct(p)}
-                      className="w-full text-left px-3 py-2.5 text-sm text-neutral-300 hover:bg-neutral-800 transition-colors border-b border-neutral-800/50 last:border-0"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex-1">
-                          <span className="font-medium text-white">{p.name}</span>
-                          {p.brand && <span className="text-neutral-500 ml-1.5 text-xs">{p.brand}</span>}
-                        </div>
-                        <span className="text-xs text-neutral-500 whitespace-nowrap">{Math.round(p.calories_per_100g)} cal</span>
-                      </div>
-                      <div className="text-[11px] text-neutral-600 mt-0.5">
-                        P: {Math.round(p.protein_per_100g)}g | C: {Math.round(p.carbs_per_100g)}g | F: {Math.round(p.fat_per_100g)}g per 100g
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <FoodSearchHits results={catalog.results} onSelect={selectProduct} />
                 <button
                   onClick={() => setShowScanner(true)}
                   className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 text-xs text-neutral-500 hover:text-blue-400 transition-colors"
@@ -298,7 +227,7 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
               </div>
             )}
 
-            {!searching && searched && results.length === 0 && (
+            {!catalog.searching && catalog.searched && catalog.results.length === 0 && (
               <div className="mt-3 text-center py-6 bg-neutral-900/30 border border-neutral-800/30 rounded-xl animate-fade-in-up">
                 <p className="text-sm text-neutral-400 mb-1">{t('nutrition.foodForm.notFound')}</p>
                 <p className="text-xs text-neutral-600 mb-4">{t('nutrition.ingredientPicker.tryScanning')}</p>
