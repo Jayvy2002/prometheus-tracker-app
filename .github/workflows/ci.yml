@@ -119,13 +119,25 @@ jobs:
       SUPABASE_PROJECT_REF: phyuijjekxtjvipjtdfv
     steps:
       - uses: actions/checkout@v4
+      - name: Detect Management API token
+        id: token
+        run: |
+          if [ -n "${SUPABASE_ACCESS_TOKEN}" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=CLI deploy::SUPABASE_ACCESS_TOKEN absent — functions deploy skipped (not a successful deploy)."
+          fi
       - uses: actions/setup-node@v4
+        if: steps.token.outputs.present == 'true'
         with:
           node-version: 22
       - uses: supabase/setup-cli@v1
+        if: steps.token.outputs.present == 'true'
         with:
           version: 2.117.0
       - name: Deploy coach-fleet-round + coach-agent via CLI
+        if: steps.token.outputs.present == 'true'
         run: |
           chmod +x scripts/deploy-audit-edges.sh
           bash scripts/deploy-audit-edges.sh
