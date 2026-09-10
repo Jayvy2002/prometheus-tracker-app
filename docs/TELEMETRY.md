@@ -5,7 +5,7 @@
 
 ## Table
 
-`public.product_events` (`supabase/migrations/20260903000001_product_events.sql`).
+`public.product_events` (`supabase/migrations/20260905002127_product_events.sql`).
 
 | Colonne | Contenu |
 |---|---|

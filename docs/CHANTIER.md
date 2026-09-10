@@ -28,7 +28,7 @@
 | #64 | Copilote OpenAI sur **`gpt-5.6-luna`** (`DEFAULT_OPENAI_MODEL`, `max_completion_tokens`) |
 | #65 | **Chantier A** : Setup garder vs ISSN ; `weeklyNutritionWhy` ; `payload.why` ; `joursDispo` éditeur ; accusé PAR-Q |
 | #66 | Docs : Chantier A fait, Luna en prod, cycle 0 joué |
-| #67 | **Recherche aliments & exercices** : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage), ranking multicritère (`pickerSearch.ts`), repli mondial OFF, alias FR/EN d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907000001_food_search_rank.sql` (pg_trgm) appliquée en prod |
+| #67 | **Recherche aliments & exercices** : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage), ranking multicritère (`pickerSearch.ts`), repli mondial OFF, alias FR/EN d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907222909_food_search_rank.sql` (pg_trgm) appliquée en prod |
 | #68 (cette PR) | **Audit 10 sept. — 30 constats corrigés en 7 lots** (S01–S05, D01–D07, I01–I05, C01–C04, Q01–Q07, E01–E02 fondations). Détail ci-dessous. |
 
 ### PR #68 — lots d'audit (branche `cursor/audit-securisation-425e` → `new-JV`)
@@ -122,7 +122,7 @@ Setup d’un profil qui a déjà des cibles (≥ 800 kcal) : radios **Garder** (
 ## Transversal — à glisser entre deux chantiers
 
 - **Fait (#65)** — `joursDispo` pré-rempli dans l’éditeur manuel de programme ; accusé de réception d’un drapeau médical avant Envoyer Setup.
-- **Fait (#67)** — Recherche aliments & exercices unifiée : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage mutuel), scoring multicritère (`pickerSearch.ts`), aliases d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907000001_food_search_rank.sql` (`pg_trgm`) appliquée en prod.
+- **Fait (#67)** — Recherche aliments & exercices unifiée : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage mutuel), scoring multicritère (`pickerSearch.ts`), aliases d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907222909_food_search_rank.sql` (`pg_trgm`) appliquée en prod.
 - **Fait (#68)** — Audit 30 constats. E01/E02 livrés comme **fondations** : révisions programme immuables + snapshots ; contrat intake (`INTAKE_VERSION`, ids stables, bac `custom`). **Pas livré** : versionnage semaines/blocs, builder de questionnaire dynamique (chantier B).
 - Écran de lecture télémétrie coach/admin. `product_events` n’a aujourd’hui qu’une policy INSERT.
 - Plus tard : fusion des paires de policies SELECT permissives (OR correct, micro-perf) après tests RLS (`supabase/tests/rls_matrix.sql`) ; déplacement `pg_trgm`/`pg_net` hors `public` avec staging ; formats de prescription (`reps` vs durée) ; historique visuel des révisions ; file offline au-delà des séances.

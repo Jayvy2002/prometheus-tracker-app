@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 
 /**
- * Guards for 20260905000003_lock_link_message_assignment_writes.
+ * Guards for 20260905135151_lock_link_message_assignment_writes.
  *
  * Before it, `authenticated` could UPDATE every column of coach_client_links (a coach could point
  * its own link at any user and become is_coach_of them) and of coach_messages (a client could

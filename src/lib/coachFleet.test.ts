@@ -446,12 +446,12 @@ test('fleet copy: FR and EN dictionaries expose the same keys and the edge reads
   assert.match(fleet, /select\("id, language"\)/);
   assert.match(fleet, /coach_settings/);
   assert.match(fleet, /todayInTimeZone/);
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905000001_user_language.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905124022_user_language.sql'), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS language/);
 });
 
 test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000009_keep_in_touch.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829131109_keep_in_touch.sql'), 'utf8');
   assert.match(sql, /keep_in_touch/);
   assert.match(sql, /last_coach_message_at/);
   assert.match(sql, /sender_id = m\.coach_id/);
@@ -572,7 +572,7 @@ test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot 
 });
 
 test('upsert SQL never reopens sent/dismissed fleet rows', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829134034_fleet_handled_cooldown.sql'), 'utf8');
   assert.match(sql, /AND status = 'pending'/);
   assert.match(sql, /status IN \('sent', 'dismissed', 'kept'\)/);
   assert.match(sql, /RETURN NULL/);
@@ -586,7 +586,7 @@ test('upsert SQL never reopens sent/dismissed fleet rows', () => {
 
 /**
  * The definition production actually runs is the LAST migration (in filename order) that
- * re-creates triage_coach_fleet — not whichever file first introduced a key. 20260901004739
+ * re-creates triage_coach_fleet — not whichever file first introduced a key. 20260901012958
  * re-created the function from an older copy and silently dropped four dossier keys; the
  * tests below read the latest definition so that class of regression fails CI.
  */
@@ -838,7 +838,7 @@ test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', 
   const fromLinks = fn.slice(fn.lastIndexOf('FROM links l'));
   assert.doesNotMatch(fromLinks, /WHERE EXISTS/);
   assert.doesNotMatch(fromLinks, /logged_nutrition_days\s*>\s*0/);
-  const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000011_fleet_in_app_weekly_review.sql'), 'utf8');
+  const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829162959_fleet_in_app_weekly_review.sql'), 'utf8');
   assert.match(lock, /DO NOT create Grok Bots/);
   assert.match(lock, /COMMENT ON FUNCTION public\.triage_coach_fleet/);
 });

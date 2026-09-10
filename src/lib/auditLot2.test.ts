@@ -16,7 +16,7 @@ test('D01: program saves go through atomic server RPCs, no silent fallback', () 
   assert.doesNotMatch(store, /from\('program_day_exercises'\)\.insert\(/);
   const createFn = store.slice(store.indexOf('createProgram: async'));
   assert.doesNotMatch(createFn.slice(0, 900), /from\('programs'\)\s*\.insert/);
-  const mig = latestMigrationContaining('create_program_complete').sql;
+  const mig = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.create_program_complete').sql;
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.create_program_complete/);
   assert.match(mig, /Validation complète AVANT toute mutation/);
 });

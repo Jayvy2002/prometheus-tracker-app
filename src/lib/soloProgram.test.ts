@@ -76,7 +76,7 @@ test('JWT self-coach is an explicit case before is_coach_of; coached stays 403',
   assert.match(http, /kind !== "onboarding_plan" && kind !== "program_nl_edit"/);
   assert.match(http, /is_coach_of/);
   assert.match(http, /not_your_client/);
-  const upsert = src('supabase/migrations/20260906000002_solo_self_coach.sql');
+  const upsert = src('supabase/migrations/20260906023512_solo_self_coach.sql');
   assert.match(upsert, /CREATE OR REPLACE FUNCTION public\.is_self_coach/);
   assert.match(upsert, /Coached athletes cannot self-coach/);
   assert.match(upsert, /coach_id = \(select auth\.uid\(\)\)/);

@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-10T14:30:00Z",
-  "strategy": "Git filenames for the 20260910 audit range MUST equal schema_migrations.version exactly. The 10 consolidated 2026091000000x files were never recorded in production (MCP apply_migration stamps its own timestamp) and MUST NOT be replayed. Older Git versions (20260327… / 20260907…) differ from production timestamps (20260824…) — they are the same logical history under different clocks; do not repair or replay them on production. New work uses a version after 20260910064501 and is inserted into schema_migrations with that same version.",
+  "captured_at": "2026-09-10T16:00:00Z",
+  "strategy": "Every Git supabase/migrations filename timestamp MUST equal schema_migrations.version in production. Git follows production clocks (renames + dumps of prod-only versions). Do NOT migration repair / restamp production. The 10 consolidated 2026091000000x files were never recorded and MUST NOT be replayed. New work uses a version after the last lock entry and is inserted into schema_migrations with that same version (never apply_migration MCP).",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -104,6 +104,7 @@
     {"version": "20260910063403", "name": "audit_e01_fork_snapshot"},
     {"version": "20260910063433", "name": "audit_e01_adopt_snapshot"},
     {"version": "20260910064501", "name": "audit_revisions_created_by_idx"},
-    {"version": "20260910153000", "name": "audit_blockers"}
+    {"version": "20260910153000", "name": "audit_blockers"},
+    {"version": "20260910160000", "name": "apply_intervention_client_target"}
   ]
 }

@@ -29,6 +29,18 @@ jobs:
       - run: npm test
       - run: npm run verify:migrations
       - run: npm run verify:edges
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Prod migration list + db push --dry-run
+        run: |
+          chmod +x scripts/prod-migration-sync.sh scripts/deploy-audit-edges.sh
+          if [ -z "${SUPABASE_ACCESS_TOKEN}" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN absent — migration list / dry-run CLI sautés."
+            echo "Poser le secret Management API puis relancer pour la preuve horloge Git=prod."
+            exit 0
+          fi
+          bash scripts/prod-migration-sync.sh
       - run: npm run build
 
   rls-matrix:
@@ -44,10 +56,19 @@ jobs:
         run: supabase start -x studio,mailpit,realtime,logflare,vector,imgproxy,edge-runtime
       - name: Install psql
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Align local vs lock (29 audit + 20260910153000)
+      - name: Align local vs lock (toutes les versions lock)
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: node scripts/verify-local-migrations.mjs
+      - name: Local migration list (replay)
+        run: |
+          {
+            echo '## supabase migration list --local'
+            echo
+            echo '```'
+            supabase migration list --local || echo 'flag --local indisponible sur cette CLI'
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Run RLS matrix
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

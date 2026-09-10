@@ -201,7 +201,7 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   assert.doesNotMatch(nutrition, /WeeklyAdjustment/);
   assert.doesNotMatch(nutrition, /weeklyAdjustmentDismissed/);
 
-  const sql = src('supabase/migrations/20260903000002_solo_weekly_reviews.sql');
+  const sql = src('supabase/migrations/20260905002152_solo_weekly_reviews.sql');
   assert.match(sql, /UNIQUE \(user_id, week_start\)/);
   assert.match(sql, /CHECK \(action IN \('keep', 'relance', 'calorie_adjustment'\)\)/);
   assert.match(sql, /CHECK \(decision IN \('accepted', 'kept', 'dismissed'\)\)/);

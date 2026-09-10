@@ -1,3 +1,4 @@
+-- Dump aligné sur prod schema_migrations (déjà applied). Ne pas rejouer en prod.
 -- Coaching copy phyuijjekxtjvipjtdfv only.
 -- Sign onboarding pings with vault webhook secret (no secrets in git).
 -- Unsigned POSTs are rejected by notify-onboarding-complete when the secret env is set.

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Aligne Git (fichiers supabase/migrations) et le lock prod.
+ * Git (fichiers supabase/migrations) == lock prod == live schema_migrations.
+ * Un timestamp Git = une version Production. Pas d'excuse d'horloges divergentes.
  * Refuse les horodatages consolidés 2026091000000x (jamais appliqués).
  * Si SUPABASE_ACCESS_TOKEN est posé : compare aussi schema_migrations live.
  */
@@ -24,36 +25,44 @@ if (banned.length) {
   fail(`fichiers consolidés interdits (jamais appliqués en prod): ${banned.join(', ')}`);
 }
 
+const gitVersions = files.map((f) => f.slice(0, 14));
 const lockVersions = lock.applied.map((row) => row.version);
-const auditFiles = files.filter((f) => f.startsWith('20260910'));
-const auditLock = lock.applied.filter((row) => row.version >= '20260910044211' && row.version <= '20260910064501');
 
+if (gitVersions.length !== lockVersions.length) {
+  fail(`Git ${gitVersions.length} fichiers ≠ lock ${lockVersions.length} versions`);
+}
+
+const gitOnly = gitVersions.filter((v) => !lockVersions.includes(v));
+const lockOnly = lockVersions.filter((v) => !gitVersions.includes(v));
+if (gitOnly.length) fail(`Git-only (hors lock): ${gitOnly.join(', ')}`);
+if (lockOnly.length) fail(`lock-only (fichier Git manquant): ${lockOnly.join(', ')}`);
+
+for (let i = 0; i < lock.applied.length; i++) {
+  const row = lock.applied[i];
+  const file = files[i];
+  if (!file.startsWith(row.version + '_')) {
+    fail(`ordre/timestamp: lock[${i}]=${row.version} vs Git ${file}`);
+  }
+  const name = file.slice(15, -4);
+  if (name !== row.name) {
+    fail(`nom: ${file} attendu ${row.version}_${row.name}.sql`);
+  }
+}
+
+const auditLock = lock.applied.filter((row) => row.version >= '20260910044211' && row.version <= '20260910064501');
 if (auditLock.length !== 29) {
   fail(`lock audit_range attend 29 versions, got ${auditLock.length}`);
 }
 
-for (const row of auditLock) {
-  const hit = files.find((f) => f.startsWith(row.version + '_'));
-  if (!hit) fail(`lock ${row.version} (${row.name}) absent de Git`);
+if (!lockVersions.includes('20260910153000')) {
+  fail('lock prod : 20260910153000_audit_blockers manquant');
 }
-
-if (!files.some((f) => f.startsWith('20260910153000_'))) {
-  fail('migration 20260910153000_audit_blockers.sql manquante');
-}
-if (!lock.applied.some((row) => row.version === '20260910153000')) {
-  fail('lock prod : 20260910153000_audit_blockers manquant — tamponner sous ce numéro, pas un autre');
-}
-
-const extraAudit = auditFiles.filter((f) => {
-  const v = f.slice(0, 14);
-  return !lock.applied.some((row) => row.version === v);
-});
-if (extraAudit.length) {
-  fail(`fichiers audit Git hors lock: ${extraAudit.join(', ')}`);
+if (!lockVersions.includes('20260910160000')) {
+  fail('lock prod : 20260910160000_apply_intervention_client_target manquant');
 }
 
 console.log(`migrations Git: ${files.length} fichiers`);
-console.log(`lock prod: ${lockVersions.length} versions, audit 29/29 + 20260910153000`);
+console.log(`lock prod: ${lockVersions.length} versions — timestamps identiques`);
 
 if (!process.env.SUPABASE_ACCESS_TOKEN) {
   console.log('SUPABASE_ACCESS_TOKEN absent — comparaison live sautée (Git vs lock exigés)');
@@ -70,15 +79,14 @@ if (!process.env.SUPABASE_ACCESS_TOKEN) {
     );
     const live = JSON.parse(raw);
     if (!Array.isArray(live)) {
-      console.log(`migrations live: réponse non-liste (${String(raw).slice(0, 120)}) — skip (lock Git exigé)`);
-    } else {
-      const liveVersions = live.map((row) => String(row.version || row.name || '')).filter(Boolean);
-      const missingLive = lockVersions.filter((v) => !liveVersions.includes(v));
-      const extraLive = liveVersions.filter((v) => !lockVersions.includes(v));
-      if (missingLive.length) fail(`live manque vs lock: ${missingLive.join(', ')}`);
-      if (extraLive.length) fail(`live hors lock: ${extraLive.join(', ')}`);
-      console.log(`live schema_migrations OK: ${liveVersions.length} versions (${PROJECT_REF})`);
+      fail(`migrations live: réponse non-liste (${String(raw).slice(0, 200)})`);
     }
+    const liveVersions = live.map((row) => String(row.version || '')).filter(Boolean);
+    const missingLive = lockVersions.filter((v) => !liveVersions.includes(v));
+    const extraLive = liveVersions.filter((v) => !lockVersions.includes(v));
+    if (missingLive.length) fail(`live manque vs lock: ${missingLive.join(', ')}`);
+    if (extraLive.length) fail(`live hors lock: ${extraLive.join(', ')}`);
+    console.log(`live schema_migrations OK: ${liveVersions.length} versions (${PROJECT_REF})`);
   } catch (err) {
     fail(`migrations live injoignables: ${err instanceof Error ? err.message : err}`);
   }

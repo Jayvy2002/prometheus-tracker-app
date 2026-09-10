@@ -36,7 +36,7 @@ test('agent payload includes loop_context (messages, notes, check-in scores, pho
 });
 
 test('triage_coach_fleet latest definition emits hunger/mood/stress averages and available_weekdays', () => {
-  const sql = src('supabase/migrations/20260906000003_engine_consumes_data.sql');
+  const sql = src('supabase/migrations/20260906031832_engine_consumes_data.sql');
   assert.match(sql, /AVG\(c\.hunger\)/);
   assert.match(sql, /AVG\(c\.mood\)/);
   assert.match(sql, /AVG\(c\.stress\)/);
@@ -67,9 +67,9 @@ test('coach learned screen reads lessons + fleet rounds (RLS coach_id = uid)', (
   assert.match(app, /path="\/coach\/learned" element=\{<CoachOnly>/);
   const settings = src('src/components/coaching/CoachSettingsPanel.tsx');
   assert.match(settings, /to="\/coach\/learned"/);
-  const lessonsSql = src('supabase/migrations/20260829000008_coach_agent_lessons.sql');
+  const lessonsSql = src('supabase/migrations/20260829124523_coach_agent_lessons.sql');
   assert.match(lessonsSql, /USING \(coach_id = \(select auth\.uid\(\)\)\)/);
-  const roundsSql = src('supabase/migrations/20260829000006_coach_fleet_rounds.sql');
+  const roundsSql = src('supabase/migrations/20260829112641_coach_fleet_rounds.sql');
   assert.match(roundsSql, /USING \(coach_id = \(select auth\.uid\(\)\)\)/);
 });
 

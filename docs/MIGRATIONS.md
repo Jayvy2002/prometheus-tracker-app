@@ -4,23 +4,45 @@
 
 Le fichier `supabase/schema_migrations.lock.json` est le miroir de `supabase_migrations.schema_migrations` du projet prod `phyuijjekxtjvipjtdfv`.
 
+- **Un timestamp Git = une version Production.** `supabase migration list` ne compare que les timestamps : Git suit l’horloge prod (pas l’inverse).
 - **Ne jamais rejouer** une version déjà présente dans ce lock.
-- **Ne jamais** laisser Git porter un horodatage `2026091000000x` : ces 10 fichiers consolidés n’ont **jamais** été enregistrés en production. `apply_migration` (MCP) a tamponné 29 versions entre `20260910044211` et `20260910064501`. Git reprend **exactement** ces 29 versions et le SQL appliqué.
+- **Ne jamais** laisser Git porter un horodatage `2026091000000x` : ces 10 fichiers consolidés n’ont **jamais** été enregistrés en production.
 - Une nouvelle migration Git doit utiliser un `version` **strictement supérieur** à la dernière entrée du lock, puis être enregistrée **sous ce même numéro** (pas un tampon MCP différent).
+- **Aucun `migration repair` de masse** sur Production. Les fichiers Git sont renommés / dumpés pour coller aux versions déjà `applied`.
 
-## Repair validé (10 sept. 2026)
+## Alignement timestamps (10 sept. 2026)
 
-1. Dump de `schema_migrations.statements` pour les 29 versions audit.
+Les horloges Git historiques (`20260327…`, `2026082500000x`, …) ont été **renommées** vers les timestamps Production (`20260824233456…`). Ordre relatif conservé. Aucune ligne `schema_migrations` prod n’a été retampée.
+
+Versions prod **sans** fichier Git historique — dumps de `schema_migrations.statements` (déjà `applied`, ne pas rejouer) :
+
+| Version | Name |
+|---|---|
+| `20260825140950` | `notify_onboarding_signed_ping` (2ᵉ tampon du même SQL) |
+| `20260829112707` | `coach_fleet_triage_and_marc_seed` |
+| `20260829150938` | `fix_triage_client_id_ambiguous` |
+| `20260906023536` | `solo_self_coach_upsert` |
+| `20260906023554` | `solo_self_coach_notify` |
+
+`20260825140655` + `20260825140950` : deux tampons prod du même nom ; Git porte les deux fichiers.
+
+Vérifs :
+
+- `npm run verify:migrations` — Git versions = lock (98).
+- Replay CI : `supabase start` PG17 puis `npm run verify:local-migrations` (98/98).
+- Si `SUPABASE_ACCESS_TOKEN` : `scripts/prod-migration-sync.sh` → `supabase migration list` sans divergence + `db push --dry-run` sans ancienne migration.
+
+## Repair validé (plage audit)
+
+1. Dump de `schema_migrations.statements` pour les 29 versions audit (`20260910044211`–`20260910064501`).
 2. Remplacement des 10 fichiers consolidés par 29 fichiers `{version}_{name}.sql`.
-3. Aucun `supabase db push` des 10 consolidés. Aucun `migration repair` nécessaire côté prod : les 29 versions y sont déjà `applied`.
-4. Horodatages plus anciens (fichiers Git `20260327…` vs prod `20260824…`) : même histoire logique, horloges différentes. On ne les renomme pas et on ne les rejoue pas en prod. Un `db reset` local / CI applique les fichiers Git (y compris les 29 dumps) pour reconstruire un schéma équivalent.
-5. **Replay local (CI `supabase start`)** : fichiers à horloge Git (jamais tamponnés sous ces numéros en prod) :
-   - policies / `ALTER` sur des tables absentes (`calorie_adjustment_suggestions`, `profiles`, `coaching_recommendations`) → no-op `to_regclass` ;
-   - `ADD CONSTRAINT IF NOT EXISTS` (syntaxe invalide) et trigger `update_updated_at` définis trop tôt → DO + `CREATE FUNCTION`.
-   Les 29 dumps prod ne sont pas modifiés et ne sont pas rejoués en prod.
+3. Aucun `supabase db push` des 10 consolidés. Aucun `migration repair` côté prod.
 
-## Nouvelle migration
+Replay local : policies / `ALTER` sur des tables absentes → no-op `to_regclass` ; `ADD CONSTRAINT IF NOT EXISTS` (syntaxe invalide) et trigger `update_updated_at` trop tôt → DO + `CREATE FUNCTION`. Les 29 dumps prod ne sont pas rejoués en prod.
 
-`20260910153000_audit_blockers.sql` — D01 (création atomique complète), D02 (effets exactement une fois), colonnes d’idempotence. Appliquée en prod **sous cette version** (pas via `apply_migration` MCP, qui retamponnerait un autre horodatage).
+## Migrations post-audit
 
-Vérif CI : `npm run verify:migrations` (Git vs lock, refuse `2026091000000x`). Job `rls-matrix` = staging-like (`supabase start` PG17) ; org Free = pas de branche preview Supabase.
+- `20260910153000_audit_blockers.sql` — D01 / D02 / idempotence. Appliquée sous ce numéro.
+- `20260910160000_apply_intervention_client_target.sql` — `assert_client_target` : cible = `auth.uid()` OU `is_coach_of(cible)` avant tout effet (chemin `p_id` NULL inclus). Appliquée **sous cette version** (pas via `apply_migration` MCP).
+
+Vérif CI : `npm run verify:migrations`. Job `rls-matrix` = staging-like (`supabase start` PG17) ; org Free = pas de branche preview Supabase.

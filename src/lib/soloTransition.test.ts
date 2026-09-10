@@ -47,7 +47,7 @@ test('realtime: only a new coach_link_ended_at value triggers the role reload', 
 });
 
 test('end_coach_client_link hands the account back to solo and starts the trial; nothing deleted', () => {
-  const sql = src('supabase/migrations/20260903000003_end_coach_link_back_to_solo.sql');
+  const sql = src('supabase/migrations/20260905002213_end_coach_link_back_to_solo.sql');
   assert.match(sql, /SET coaching_role = 'none'/);
   assert.match(sql, /DELETE FROM public\.client_tracking_config/);
   assert.match(sql, /coach_link_ended_at = now\(\)/);

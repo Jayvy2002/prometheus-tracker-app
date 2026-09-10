@@ -54,7 +54,7 @@ test('props stay structural and short; no row without a user', () => {
 });
 
 test('telemetry table is insert-only for the app and cascades on account deletion', () => {
-  const sql = src('supabase/migrations/20260903000001_product_events.sql');
+  const sql = src('supabase/migrations/20260905002127_product_events.sql');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.product_events/);
   assert.match(sql, /ON DELETE CASCADE/);
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/);

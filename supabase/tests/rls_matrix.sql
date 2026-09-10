@@ -134,6 +134,8 @@ DECLARE
 BEGIN
   DELETE FROM public.coach_interventions WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
   DELETE FROM public.coach_notes WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  DELETE FROM public.coach_messages WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  DELETE FROM public.client_tracking_config WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
   DELETE FROM public.mutation_idempotency WHERE user_id = ANY (v_ids);
   IF to_regclass('public.program_revisions') IS NOT NULL THEN
     DELETE FROM public.program_revisions WHERE created_by = ANY (v_ids)
@@ -413,6 +415,7 @@ BEGIN
      AND pg_temp.fn_exec('snapshot_program_revision')
      AND pg_temp.fn_exec('adopt_client_program')
      AND NOT pg_temp.fn_exec('_apply_intervention_effects')
+     AND NOT pg_temp.fn_exec('assert_client_target')
      AND NOT pg_temp.fn_exec('transition_client_to_solo')
      AND NOT pg_temp.fn_exec('close_coach_account')
      AND NOT pg_temp.fn_exec('handle_new_user')
@@ -421,7 +424,7 @@ BEGIN
     PERFORM pg_temp.record('DEFINER_GRANTS', true, 'surface RPCs granted ; helpers revoked');
   ELSE
     PERFORM pg_temp.record('DEFINER_GRANTS', false, format(
-      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s card=%s save=%s sync=%s snap=%s adopt=%s helper=%s trans=%s close=%s handle=%s fleet=%s',
+      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s card=%s save=%s sync=%s snap=%s adopt=%s helper=%s assert=%s trans=%s close=%s handle=%s fleet=%s',
       pg_temp.fn_exec('create_program_complete'),
       pg_temp.fn_exec('apply_intervention'),
       pg_temp.fn_exec('claim_intervention'),
@@ -434,6 +437,7 @@ BEGIN
       pg_temp.fn_exec('snapshot_program_revision'),
       pg_temp.fn_exec('adopt_client_program'),
       pg_temp.fn_exec('_apply_intervention_effects'),
+      pg_temp.fn_exec('assert_client_target'),
       pg_temp.fn_exec('transition_client_to_solo'),
       pg_temp.fn_exec('close_coach_account'),
       pg_temp.fn_exec('handle_new_user'),
@@ -524,6 +528,75 @@ BEGIN
   END;
   RESET ROLE; PERFORM pg_temp.clear_user();
   PERFORM pg_temp.record('RPC_APPLY_CROSS', v_ok, CASE WHEN v_ok THEN 'rejected' ELSE 'A1 applied A intervention' END);
+END $$;
+
+-- B ne peut pas apply_intervention(p_id NULL) sur A1 (pas de lien actif).
+-- Après rejet : aucun message, note, tracking, mutation_idempotency.
+DO $$
+DECLARE
+  v_b uuid := '00000000-0000-0000-0000-0000000000b1';
+  v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
+  v_ok boolean := true;
+  v_err text := '';
+  n_msg int; n_note int; n_trk int; n_idm int;
+  n_msg2 int; n_note2 int; n_trk2 int; n_idm2 int;
+BEGIN
+  SELECT count(*) INTO n_msg FROM public.coach_messages WHERE coach_id = v_b AND client_id = v_a1;
+  SELECT count(*) INTO n_note FROM public.coach_notes WHERE coach_id = v_b AND client_id = v_a1;
+  SELECT count(*) INTO n_trk FROM public.client_tracking_config WHERE coach_id = v_b AND client_id = v_a1;
+  SELECT count(*) INTO n_idm FROM public.mutation_idempotency WHERE user_id = v_b AND idempotency_key = 'idem-null-cross-b-a1';
+
+  PERFORM pg_temp.as_user(v_b);
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    PERFORM public.apply_intervention(
+      NULL,
+      'idem-null-cross-b-a1',
+      'claim-null-cross',
+      'sent',
+      '{}'::jsonb,
+      jsonb_build_object(
+        'assign_client_id', v_a1,
+        'message', jsonb_build_object('body', 'cross-null-msg'),
+        'note', jsonb_build_object('body', 'cross-null-note', 'note_date', CURRENT_DATE),
+        'tracking', jsonb_build_object(
+          'track_weight', true,
+          'track_checkins', true,
+          'track_nutrition', true,
+          'track_workouts', true,
+          'workout_focus', 'hack'
+        )
+      ),
+      'client-msg-null-cross'
+    );
+    v_ok := false;
+  EXCEPTION WHEN OTHERS THEN
+    v_err := SQLERRM;
+  END;
+  RESET ROLE; PERFORM pg_temp.clear_user();
+
+  SELECT count(*) INTO n_msg2 FROM public.coach_messages WHERE coach_id = v_b AND client_id = v_a1;
+  SELECT count(*) INTO n_note2 FROM public.coach_notes WHERE coach_id = v_b AND client_id = v_a1;
+  SELECT count(*) INTO n_trk2 FROM public.client_tracking_config WHERE coach_id = v_b AND client_id = v_a1;
+  SELECT count(*) INTO n_idm2 FROM public.mutation_idempotency WHERE user_id = v_b AND idempotency_key = 'idem-null-cross-b-a1';
+
+  IF v_ok
+     AND v_err ILIKE '%Not authorized%'
+     AND n_msg2 = n_msg
+     AND n_note2 = n_note
+     AND n_trk2 = n_trk
+     AND n_idm2 = n_idm
+     AND n_idm2 = 0
+  THEN
+    PERFORM pg_temp.record('RPC_APPLY_NULL_CROSS', true, 'rejected; no message/note/tracking/idempotency');
+  ELSE
+    PERFORM pg_temp.record(
+      'RPC_APPLY_NULL_CROSS',
+      false,
+      format('ok=%s err=%s msg %s→%s note %s→%s trk %s→%s idm %s→%s',
+        v_ok, v_err, n_msg, n_msg2, n_note, n_note2, n_trk, n_trk2, n_idm, n_idm2)
+    );
+  END IF;
 END $$;
 
 -- A1 ne crée pas un programme assigné à B1.

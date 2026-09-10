@@ -50,7 +50,7 @@ test('coached tracking default is off until fetch; invite seeds the row', () => 
   assert.match(store, /role === 'client'/);
   const tracking = src('src/lib/clientTracking.ts');
   assert.match(tracking, /Coached \+ no row = all off/);
-  const sql = src('supabase/migrations/20260831000002_audit_coach_owned_targets.sql');
+  const sql = src('supabase/migrations/20260831235414_audit_coach_owned_targets.sql');
   assert.match(sql, /INSERT INTO client_tracking_config/);
   assert.match(sql, /accept_coach_invite/);
   assert.match(sql, /setup_completed_at IS NOT NULL/);

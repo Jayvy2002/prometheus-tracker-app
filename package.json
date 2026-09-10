@@ -13,6 +13,7 @@
     "verify:edges": "node scripts/verify-edges.mjs",
     "verify:migrations": "node scripts/verify-migrations.mjs",
     "verify:local-migrations": "node scripts/verify-local-migrations.mjs",
+    "verify:prod-history": "bash scripts/prod-migration-sync.sh",
     "test:rls": "node scripts/run-rls-matrix.mjs",
     "deploy:audit-edges": "bash scripts/deploy-audit-edges.sh"
   },

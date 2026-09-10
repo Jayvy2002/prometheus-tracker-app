@@ -82,7 +82,7 @@ test('client realtime refetches assigned program content and bumps photo epoch',
 });
 
 test('realtime migration publishes program days, lifts, and progress photos', () => {
-  const sql = src('supabase/migrations/20260906000004_client_program_photos_realtime.sql');
+  const sql = src('supabase/migrations/20260906033031_client_program_photos_realtime.sql');
   assert.match(sql, /ALTER TABLE public\.program_days REPLICA IDENTITY FULL/);
   assert.match(sql, /ALTER TABLE public\.program_day_exercises REPLICA IDENTITY FULL/);
   assert.match(sql, /ALTER TABLE public\.progress_photos REPLICA IDENTITY FULL/);

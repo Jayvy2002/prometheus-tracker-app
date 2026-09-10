@@ -132,7 +132,7 @@ test('Q07: telemetry is account-linked, documented and free of health signals', 
   assert.doesNotMatch(intake, /pain: intake\.douleursLimitations/);
   const setup = src('src/components/coaching/ClientSetupPage.tsx');
   assert.doesNotMatch(setup, /medical_ack:/);
-  const sql = src('supabase/migrations/20260903000001_product_events.sql');
+  const sql = src('supabase/migrations/20260905002127_product_events.sql');
   assert.match(sql, /REFERENCES auth\.users\(id\) ON DELETE CASCADE/);
   assert.match(sql, /GRANT INSERT ON public\.product_events TO authenticated/);
 });
