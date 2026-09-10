@@ -10,13 +10,18 @@ import { routeCoachSecondRequest } from '../../lib/coachSecond';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import { scopedKey } from '../../lib/sessionScope';
 import { toast } from '../ui/Toast';
 
-const ASK_HISTORY_KEY = 'prometheus_coach_ask_history';
+const ASK_HISTORY_PREFIX = 'prometheus_coach_ask_history';
+
+function askHistoryKey(): string {
+  return scopedKey(ASK_HISTORY_PREFIX, 'items');
+}
 
 function loadHistory(): string[] {
   try {
-    const raw = localStorage.getItem(ASK_HISTORY_KEY);
+    const raw = localStorage.getItem(askHistoryKey());
     const parsed = raw ? JSON.parse(raw) as unknown : [];
     return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string').slice(0, 8) : [];
   } catch {
@@ -26,7 +31,7 @@ function loadHistory(): string[] {
 
 function saveHistory(items: string[]) {
   try {
-    localStorage.setItem(ASK_HISTORY_KEY, JSON.stringify(items.slice(0, 8)));
+    localStorage.setItem(askHistoryKey(), JSON.stringify(items.slice(0, 8)));
   } catch {
     // ignore
   }

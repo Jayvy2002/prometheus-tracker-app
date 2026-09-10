@@ -2,8 +2,19 @@
 -- Architecture lock 2026-08-29: no Grok Bots / no Second ping.
 -- Do not apply to backup nebysjpqifqphvmveowe. Secret stays in vault, never git.
 
-CREATE EXTENSION IF NOT EXISTS pg_cron;
-CREATE EXTENSION IF NOT EXISTS pg_net;
+-- Replay local / CI : pg_cron / pg_net peuvent manquer. Ne pas faire échouer le reset.
+DO $$
+BEGIN
+  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_cron';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_cron unavailable (%); fleet cron skipped', SQLERRM;
+END $$;
+DO $$
+BEGIN
+  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_net';
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'pg_net unavailable (%); fleet invoke no-op', SQLERRM;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.invoke_coach_fleet_round()
 RETURNS bigint

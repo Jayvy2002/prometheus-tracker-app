@@ -1,4 +1,5 @@
 import type { ClientTrackingConfig, DailyCheckin, ProgramExerciseDraft } from './types';
+import { formatWeight } from './utils';
 
 export const TRAINING_VAR_KEYS = ['sets', 'reps', 'reps_range', 'rir', 'load', 'rest'] as const;
 export const NUTRITION_VAR_KEYS = ['calories', 'protein', 'carbs', 'fat', 'water', 'steps'] as const;
@@ -361,6 +362,7 @@ export function formatExercisePrescription(
     default_rest_seconds?: number | null;
   },
   cfg?: ResolvedTrackingConfig | null,
+  unit: 'kg' | 'lbs' = 'kg',
 ): string {
   const tracking = cfg ?? ALL_ON_TRACKING;
   const parts: string[] = [];
@@ -375,7 +377,7 @@ export function formatExercisePrescription(
   else if (setsOn) parts.push(`${ex.default_sets} séries`);
   else if (repsText) parts.push(repsText);
   if (showTrainingField(tracking, 'load') && ex.default_weight_kg != null && ex.default_weight_kg > 0) {
-    parts.push(`${ex.default_weight_kg} kg`);
+    parts.push(formatWeight(ex.default_weight_kg, unit));
   }
   if (showTrainingField(tracking, 'rir') && ex.default_rir != null) {
     parts.push(`RIR ${ex.default_rir}`);

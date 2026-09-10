@@ -216,6 +216,12 @@ export default function IngredientPicker({ onAdd, onClose }: Props) {
                 {catalog.phase === 'openfoodfacts' && (
                   <p className="text-[10px] text-neutral-500 mb-1.5 px-1">{t('nutrition.foodForm.searchingOpenFoodFacts')}</p>
                 )}
+                {catalog.offStatus === 'rate_limited' && (
+                  <p className="text-[10px] text-amber-400/80 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offRateLimited')}</p>
+                )}
+                {catalog.offStatus === 'error' && (
+                  <p className="text-[10px] text-neutral-500 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offError')}</p>
+                )}
                 <FoodSearchHits results={catalog.results} onSelect={selectProduct} />
                 <button
                   onClick={() => setShowScanner(true)}

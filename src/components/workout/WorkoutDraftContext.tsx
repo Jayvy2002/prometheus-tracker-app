@@ -1,5 +1,6 @@
 import { createContext, useContext, useRef, useCallback, useEffect } from 'react';
 import type { SetType } from '../../lib/types';
+import { fieldDraftKey } from '../../lib/fieldDraftKeys';
 import { useWorkoutStore } from '../../stores/workoutStore';
 
 interface SetDraft {
@@ -48,7 +49,7 @@ export function useDraftContext() {
 }
 
 function storageKey(workoutId: string) {
-  return `prometheus_field_draft_${workoutId}`;
+  return fieldDraftKey(workoutId);
 }
 
 function loadPersisted(workoutId: string): PersistedDrafts {
@@ -66,14 +67,6 @@ function savePersisted(workoutId: string, drafts: PersistedDrafts) {
     localStorage.setItem(storageKey(workoutId), JSON.stringify(drafts));
   } catch {
     // quota
-  }
-}
-
-export function clearFieldDrafts(workoutId: string) {
-  try {
-    localStorage.removeItem(storageKey(workoutId));
-  } catch {
-    // ignore
   }
 }
 

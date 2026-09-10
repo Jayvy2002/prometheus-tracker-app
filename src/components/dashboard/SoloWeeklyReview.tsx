@@ -9,7 +9,10 @@ import { useNutritionStore } from '../../stores/nutritionStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useSoloCopilotStore } from '../../stores/soloCopilotStore';
+import { supabase } from '../../lib/supabase';
 import { isCoachedAthlete } from '../../lib/coachRole';
+import { profileHasMedicalFlags } from '../../lib/kinesiologyIntake';
+import { getAge } from '../../lib/utils';
 import {
   SOLO_REVIEW_WINDOW_DAYS,
   computeSoloWeeklyReview,
@@ -39,20 +42,38 @@ export default function SoloWeeklyReview() {
   const { checkins } = useCheckinStore();
   const { decidedWeek, decidedFor, fetchDecision, decide } = useSoloCopilotStore();
   const [logs, setLogs] = useState<Array<{ logged_at: string; calories: number }> | null>(null);
+  const [targetHistory, setTargetHistory] = useState<Array<{ effective_from: string; calories: number }>>([]);
   const [deciding, setDeciding] = useState<SoloReviewDecision | null>(null);
 
   const solo = !coached && coachingRole !== 'coach';
   const today = todayStr();
+  // I03 : 14 dates incluses comme la fleet (today-13..today).
+  const windowStart = addDaysToDateStr(today, -(SOLO_REVIEW_WINDOW_DAYS - 1));
 
   useEffect(() => {
     if (!user || !solo) return;
     let cancelled = false;
-    void fetchCaloriesForRange(user.id, addDaysToDateStr(today, -SOLO_REVIEW_WINDOW_DAYS), today)
+    void fetchCaloriesForRange(user.id, windowStart, today)
       .then(rows => {
         if (!cancelled) setLogs(rows.map(r => ({ logged_at: r.logged_at, calories: r.calories })));
       })
       .catch(() => {
         if (!cancelled) setLogs([]);
+      });
+    // I03 : historique daté des cibles — chaque jour jugé contre sa cible.
+    void supabase
+      .from('nutrition_target_history')
+      .select('effective_from, calories')
+      .eq('user_id', user.id)
+      .lte('effective_from', today)
+      .order('effective_from', { ascending: false })
+      .limit(30)
+      .then(({ data }) => {
+        if (!cancelled && data) {
+          setTargetHistory((data as Array<{ effective_from: string; calories: number }>)
+            .filter(r => Number.isFinite(Number(r.calories)))
+            .map(r => ({ effective_from: r.effective_from.slice(0, 10), calories: Number(r.calories) })));
+        }
       });
     return () => {
       cancelled = true;
@@ -74,8 +95,12 @@ export default function SoloWeeklyReview() {
       weights: measurements,
       workouts,
       checkins,
+      targetHistory,
+      // I04 : accompagnement général pour ces profils, jamais d'objectif auto.
+      isMinor: !!profile.date_of_birth && getAge(profile.date_of_birth) < 18,
+      hasMedicalFlags: profileHasMedicalFlags(profile.kinesiology_intake),
     });
-  }, [solo, profile, logs, measurements, workouts, checkins, today]);
+  }, [solo, profile, logs, measurements, workouts, checkins, targetHistory, today]);
 
   useEffect(() => {
     if (!user || !review) return;

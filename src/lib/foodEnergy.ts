@@ -87,6 +87,82 @@ export function normalizePer100gKcal(
   return kcalFromEnergyValue(calories, { protein, carbs, fat, grams: 100 });
 }
 
+/**
+ * D04 : la règle absolue « >900 = kJ » ne vaut que pour une base 100 g.
+ * Pour une base portion (serving), seule la cohérence Atwater est testée —
+ * une pizza à 1200 kcal la portion n'est pas des kilojoules.
+ */
+export function normalizePerServingKcal(
+  calories: number,
+  protein: number,
+  carbs: number,
+  fat: number,
+): number {
+  return kcalFromEnergyValue(calories, { protein, carbs, fat });
+}
+
+/** True when the reference quantity is a countable portion, not a mass/volume. */
+export function isServingBasis(unit: string | null | undefined): boolean {
+  if (!unit) return false;
+  return unit === 'serving' || UNIT_TO_GRAMS[unit] == null;
+}
+
+export interface ProductLogDraft {
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  quantity: number;
+  unit: string;
+}
+
+/**
+ * D04 : contrat unique produit → brouillon de saisie, utilisé par la recherche,
+ * les récents, les favoris, les recettes et le préremplissage.
+ *
+ * - base masse/volume : les colonnes sont pour 100 g, mise à l'échelle par grams/100 ;
+ * - base portion : les colonnes sont pour 1 portion, mise à l'échelle par servings.
+ * La provenance (quantité de référence + unité) est conservée telle quelle :
+ * un aller-retour journal → récents → saisie préserve valeurs ET portion.
+ */
+export function productLogDraft(product: {
+  name: string;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
+  serving_size: number;
+  serving_unit: string;
+}): ProductLogDraft {
+  const servingLike = isServingBasis(product.serving_unit);
+  const kcal = servingLike
+    ? normalizePerServingKcal(
+      product.calories_per_100g,
+      product.protein_per_100g,
+      product.carbs_per_100g,
+      product.fat_per_100g,
+    )
+    : normalizePer100gKcal(
+      product.calories_per_100g,
+      product.protein_per_100g,
+      product.carbs_per_100g,
+      product.fat_per_100g,
+    );
+  const qty = product.serving_size > 0 ? product.serving_size : (servingLike ? 1 : 100);
+  const unit = product.serving_unit || 'g';
+  const scale = servingLike ? qty : nutritionPortionScale(qty, unit);
+  return {
+    name: product.name,
+    calories: kcal * scale,
+    protein: product.protein_per_100g * scale,
+    carbs: product.carbs_per_100g * scale,
+    fat: product.fat_per_100g * scale,
+    quantity: qty,
+    unit,
+  };
+}
+
 export function gramsFromQuantity(quantity: number, unit: string, unitToGrams: Record<string, number>): number | null {
   if (!unit || unit === 'serving') return null;
   const factor = unitToGrams[unit];
@@ -182,13 +258,22 @@ export function normalizeFoodProductEnergy<T extends {
   protein_per_100g: number;
   carbs_per_100g: number;
   fat_per_100g: number;
+  serving_unit?: string;
 }>(product: T): T {
-  const calories_per_100g = normalizePer100gKcal(
-    product.calories_per_100g,
-    product.protein_per_100g,
-    product.carbs_per_100g,
-    product.fat_per_100g,
-  );
+  // D04 : la règle >900=kJ ne s'applique qu'en base 100 g (voir normalizePerServingKcal).
+  const calories_per_100g = isServingBasis(product.serving_unit)
+    ? normalizePerServingKcal(
+      product.calories_per_100g,
+      product.protein_per_100g,
+      product.carbs_per_100g,
+      product.fat_per_100g,
+    )
+    : normalizePer100gKcal(
+      product.calories_per_100g,
+      product.protein_per_100g,
+      product.carbs_per_100g,
+      product.fat_per_100g,
+    );
   if (calories_per_100g === product.calories_per_100g) return product;
   return { ...product, calories_per_100g };
 }

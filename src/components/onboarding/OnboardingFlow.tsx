@@ -21,6 +21,7 @@ import {
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
 import Button from '../ui/Button';
+import { toast } from '../ui/Toast';
 
 const TOTAL_STEPS = 7;
 
@@ -546,7 +547,12 @@ export default function OnboardingFlow() {
       hydration_habit: form.hydration_habit,
       onboarding_completed: true,
     };
-    await updateProfile(user.id, stripSelfServeNutritionTargets(payload, coached));
+    const saved = await updateProfile(user.id, stripSelfServeNutritionTargets(payload, coached));
+    if (saved.error) {
+      setSaving(false);
+      toast(saved.error, 'error');
+      return;
+    }
 
     await addMeasurement({ user_id: user.id, weight_kg: form.weight_kg, measured_at: todayStr() });
     clearOnboardingDeferred();

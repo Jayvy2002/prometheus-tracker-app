@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
 import Button from '../ui/Button';
+import { toast } from '../ui/Toast';
 
 export default function UnitsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { t } = useTranslation();
@@ -19,12 +20,16 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    await updateProfile(user.id, {
+    const result = await updateProfile(user.id, {
       unit_weight: unitWeight as 'kg' | 'lbs',
       unit_distance: unitDistance as 'km' | 'mi',
       unit_height: unitHeight as 'cm' | 'in',
     });
     setSaving(false);
+    if (result.error) {
+      toast(result.error, 'error');
+      return;
+    }
     onBack();
   };
 
@@ -71,6 +76,10 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
               <p className="text-[11px] text-neutral-600 mt-0.5">{t('profile.units.rirDescription')}</p>
             </div>
             <button
+              type="button"
+              role="switch"
+              aria-checked={showRir}
+              aria-label={t('profile.units.showRir')}
               onClick={() => setShowRir(!showRir)}
               className={`relative w-11 h-6 rounded-full transition-colors ${showRir ? 'bg-blue-600' : 'bg-neutral-700'}`}
             >

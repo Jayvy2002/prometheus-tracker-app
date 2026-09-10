@@ -76,7 +76,7 @@ test('JWT self-coach is an explicit case before is_coach_of; coached stays 403',
   assert.match(http, /kind !== "onboarding_plan" && kind !== "program_nl_edit"/);
   assert.match(http, /is_coach_of/);
   assert.match(http, /not_your_client/);
-  const upsert = src('supabase/migrations/20260906000002_solo_self_coach.sql');
+  const upsert = src('supabase/migrations/20260906023512_solo_self_coach.sql');
   assert.match(upsert, /CREATE OR REPLACE FUNCTION public\.is_self_coach/);
   assert.match(upsert, /Coached athletes cannot self-coach/);
   assert.match(upsert, /coach_id = \(select auth\.uid\(\)\)/);
@@ -105,12 +105,14 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   assert.doesNotMatch(page, /\/programs\/new/);
   assert.doesNotMatch(page, /createProgram/);
   const card = src('src/components/dashboard/SoloProgramProposal.tsx');
-  assert.match(card, /resolveIntervention\(row\.id, 'sent'/);
+  assert.match(card, /applyIntervention\(row\.id, 'sent'/);
+  assert.doesNotMatch(card, /claimIntervention\(row\.id\)/);
+  assert.doesNotMatch(card, /finalizeIntervention\(row\.id, claimKey, 'sent'/);
   assert.match(card, /resolveIntervention\(row\.id, 'dismissed'/);
   assert.match(card, /navigate\('\/programs'\)/);
   assert.doesNotMatch(card, /navigate\('\/routines'\)/);
   assert.match(card, /solo_program_accepted/);
-  assert.match(card, /applyProgramOutline\(user\.id/);
+  assert.match(card, /effects\.program/);
   assert.match(card, /ProgramSessionEditor/);
   const hub = src('src/components/profile/SoloHub.tsx');
   assert.doesNotMatch(hub, /\/routines/);

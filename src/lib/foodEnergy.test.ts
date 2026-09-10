@@ -8,8 +8,10 @@ import {
   energyLooksLikeKj,
   kcalFromEnergyValue,
   kcalPer100gFromNutriments,
+  normalizeFoodProductEnergy,
   normalizePer100gKcal,
   nutritionPortionScale,
+  productLogDraft,
   rescaleNutritionMacros,
 } from './foodEnergy';
 
@@ -136,4 +138,60 @@ test('EditFoodModal rescales macros when quantity or unit changes and persists t
   assert.match(modal, /rescaleNutritionMacros/);
   assert.match(modal, /applyRescale/);
   assert.match(modal, /updateLog\([\s\S]*calories/);
+});
+
+test('D04: productLogDraft — mass basis scales per-100g by grams/100', () => {
+  const draft = productLogDraft({
+    name: 'Poulet',
+    calories_per_100g: 110, protein_per_100g: 23, carbs_per_100g: 0, fat_per_100g: 2,
+    serving_size: 150, serving_unit: 'g',
+  });
+  assert.equal(draft.quantity, 150);
+  assert.equal(draft.unit, 'g');
+  assert.equal(draft.calories, 165);
+  assert.equal(draft.protein, 34.5);
+});
+
+test('D04: productLogDraft — serving basis keeps per-serving values, no x100', () => {
+  const draft = productLogDraft({
+    name: 'Recette',
+    calories_per_100g: 500, protein_per_100g: 30, carbs_per_100g: 40, fat_per_100g: 20,
+    serving_size: 1, serving_unit: 'serving',
+  });
+  assert.equal(draft.calories, 500);
+  assert.equal(draft.quantity, 1);
+  assert.equal(draft.unit, 'serving');
+  const two = productLogDraft({
+    name: 'Recette',
+    calories_per_100g: 500, protein_per_100g: 30, carbs_per_100g: 40, fat_per_100g: 20,
+    serving_size: 2, serving_unit: 'serving',
+  });
+  assert.equal(two.calories, 1000);
+});
+
+test('D04: a 1200 kcal serving is not mistaken for kilojoules', () => {
+  const draft = productLogDraft({
+    name: 'Pizza',
+    calories_per_100g: 1200, protein_per_100g: 50, carbs_per_100g: 130, fat_per_100g: 45,
+    serving_size: 1, serving_unit: 'serving',
+  });
+  assert.equal(draft.calories, 1200);
+  const p = normalizeFoodProductEnergy({
+    calories_per_100g: 1200, protein_per_100g: 50, carbs_per_100g: 130, fat_per_100g: 45,
+    serving_unit: 'serving',
+  });
+  assert.equal(p.calories_per_100g, 1200);
+  // ...while a true per-100g kJ figure still converts.
+  const kj = normalizeFoodProductEnergy({
+    calories_per_100g: 1900, protein_per_100g: 7, carbs_per_100g: 85, fat_per_100g: 3,
+    serving_unit: 'g',
+  });
+  assert.ok(kj.calories_per_100g < 900);
+});
+
+test('D04: FoodForm prefill and selection share the productLogDraft contract', () => {
+  const form = readFileSync(resolve(process.cwd(), 'src/components/nutrition/FoodForm.tsx'), 'utf8');
+  assert.match(form, /productLogDraft\(prefill\)/);
+  assert.match(form, /productLogDraft\(product\)/);
+  assert.doesNotMatch(form, /prefill\?\.calories_per_100g\?\.toString/);
 });

@@ -201,10 +201,63 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   assert.doesNotMatch(nutrition, /WeeklyAdjustment/);
   assert.doesNotMatch(nutrition, /weeklyAdjustmentDismissed/);
 
-  const sql = src('supabase/migrations/20260903000002_solo_weekly_reviews.sql');
+  const sql = src('supabase/migrations/20260905002152_solo_weekly_reviews.sql');
   assert.match(sql, /UNIQUE \(user_id, week_start\)/);
   assert.match(sql, /CHECK \(action IN \('keep', 'relance', 'calorie_adjustment'\)\)/);
   assert.match(sql, /CHECK \(decision IN \('accepted', 'kept', 'dismissed'\)\)/);
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
   assert.match(sql, /is_coach_of\(user_id\)/);
+});
+
+test('I03: solo window is the same 14 dates as the fleet (today-13..today)', () => {
+  const ev = buildSoloEvidence(inputs());
+  assert.equal(ev.windowEnd, TODAY);
+  assert.equal(ev.windowStart, daysBack(13));
+  const spanDays = Math.round((Date.parse(`${ev.windowEnd}T00:00:00Z`) - Date.parse(`${ev.windowStart}T00:00:00Z`)) / 86_400_000) + 1;
+  assert.equal(spanDays, 14);
+});
+
+test('I03: pace uses the real span; same-day weigh-ins give no trend', () => {
+  const wide = buildSoloEvidence(inputs({ weights: [{ measured_at: daysBack(13), weight_kg: 80 }, { measured_at: daysBack(0), weight_kg: 79 }] }));
+  const narrow = buildSoloEvidence(inputs({ weights: [{ measured_at: daysBack(1), weight_kg: 80 }, { measured_at: daysBack(0), weight_kg: 79 }] }));
+  assert.equal(wide.deltaKg, -1);
+  assert.equal(narrow.deltaKg, -1);
+  assert.ok(Math.abs(narrow.pctPerWeek ?? 0) > Math.abs(wide.pctPerWeek ?? 0) * 5);
+  const sameDay = buildSoloEvidence(inputs({ weights: [{ measured_at: `${TODAY}T08:00:00`, weight_kg: 80 }, { measured_at: `${TODAY}T20:00:00`, weight_kg: 79.5 }] }));
+  assert.equal(sameDay.weightSpanDays, 0);
+  assert.equal(sameDay.pctPerWeek, null);
+});
+
+test('I03: days are judged against the target that governed them', () => {
+  const history = [
+    { effective_from: daysBack(13), calories: 2000 },
+    { effective_from: TODAY, calories: 2600 },
+  ];
+  const ev = buildSoloEvidence(inputs({ calorieTarget: 2600, targetHistory: history }));
+  // 13 days at 2000 + today at 2600 → ~2043, not 2600.
+  assert.ok(ev.targetAvg > 1900 && ev.targetAvg < 2200);
+  assert.ok(ev.ratio > 0.9 && ev.ratio < 1.1);
+  assert.equal(ev.followingPlan, true);
+});
+
+test('I04: minor or medical flags → guarded accompaniment, never an adjustment', () => {
+  const minor = computeSoloWeeklyReview(inputs({ weights: weights(80, 80), isMinor: true }));
+  assert.equal(minor.proposal.action, 'keep');
+  assert.equal(minor.proposal.guarded, true);
+  assert.equal(soloReviewMessageKey(minor), 'soloReview.guarded');
+  const flagged = computeSoloWeeklyReview(inputs({ weights: weights(80, 80), hasMedicalFlags: true }));
+  assert.equal(flagged.proposal.guarded, true);
+});
+
+test('I04: solo dossier carries real check-in signals, not nulls', () => {
+  const sample = inputs({
+    checkins: [
+      { checked_at: daysBack(1), adherence_nutrition: 80, adherence_training: 70, fatigue: 8, sleep_quality: 6, muscle_soreness: 4, energy_level: 5, hunger: 5, stress: 4, motivation: 6, joint_pain: 2, mood: 6 },
+      { checked_at: daysBack(2), adherence_nutrition: 90, adherence_training: 80, fatigue: 6, sleep_quality: 7, muscle_soreness: 3, energy_level: 6, hunger: 4, stress: 3, motivation: 7, joint_pain: 1, mood: 7 },
+    ],
+  });
+  const dossier = buildSoloDossier(sample, buildSoloEvidence(sample));
+  assert.equal(dossier.avg_adherence_nutrition, 85);
+  assert.equal(dossier.avg_fatigue, 7);
+  assert.deepEqual(dossier.tracking, { nutrition: true, workouts: true, weight: true, checkins: true });
 });

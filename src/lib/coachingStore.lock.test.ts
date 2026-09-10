@@ -39,7 +39,7 @@ test('send Relancer writes coach_messages; kcal send stays on the draft page', (
   assert.match(inbox, /coaching\.queue\.openDraft/);
   const draft = src('src/components/coaching/InterventionDraftPage.tsx');
   assert.match(draft, /showCalories = row\.kind === 'calorie_adjustment'/);
-  assert.match(draft, /setClientNutritionTargets/);
+  assert.match(draft, /effects\.calories/);
   assert.match(draft, /incompleteCals/);
 });
 
@@ -50,7 +50,7 @@ test('coached tracking default is off until fetch; invite seeds the row', () => 
   assert.match(store, /role === 'client'/);
   const tracking = src('src/lib/clientTracking.ts');
   assert.match(tracking, /Coached \+ no row = all off/);
-  const sql = src('supabase/migrations/20260831000002_audit_coach_owned_targets.sql');
+  const sql = src('supabase/migrations/20260831235414_audit_coach_owned_targets.sql');
   assert.match(sql, /INSERT INTO client_tracking_config/);
   assert.match(sql, /accept_coach_invite/);
   assert.match(sql, /setup_completed_at IS NOT NULL/);

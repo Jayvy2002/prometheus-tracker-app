@@ -73,7 +73,7 @@ export default function CalendarPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { workouts, fetchWorkouts } = useWorkoutStore();
+  const { workouts, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts } = useWorkoutStore();
   const { measurements, fetchMeasurements } = useWeightStore();
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
 
@@ -101,6 +101,16 @@ export default function CalendarPage() {
     fetchWorkouts(user.id);
     fetchMeasurements(user.id);
   }, [user]);
+
+  // Q05 : en naviguant vers le passé, charge les pages plus anciennes.
+  useEffect(() => {
+    if (!user || workoutsExhausted || workouts.length === 0) return;
+    const oldest = workouts.reduce((a, b) => (a.date < b.date ? a : b)).date.slice(0, 10);
+    const firstVisible = viewMode === 'month'
+      ? dateToStr(monthDates[0]?.date ?? new Date())
+      : dateToStr(weekDates[0] ?? new Date());
+    if (firstVisible < oldest) void fetchOlderWorkouts(user.id);
+  }, [user, viewMode, monthOffset, weekOffset, workouts, workoutsExhausted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user) return;

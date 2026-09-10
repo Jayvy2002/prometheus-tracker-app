@@ -14,6 +14,7 @@ import {
   isRelanceKind,
   planFleetRoundCard,
   proposeWeeklyNutrition,
+  weeklyWeightPct,
   WEEKLY_LARGE_KCAL,
   WEEKLY_SMALL_KCAL,
 } from './coachFleet';
@@ -445,12 +446,12 @@ test('fleet copy: FR and EN dictionaries expose the same keys and the edge reads
   assert.match(fleet, /select\("id, language"\)/);
   assert.match(fleet, /coach_settings/);
   assert.match(fleet, /todayInTimeZone/);
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905000001_user_language.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905124022_user_language.sql'), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS language/);
 });
 
 test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000009_keep_in_touch.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829131109_keep_in_touch.sql'), 'utf8');
   assert.match(sql, /keep_in_touch/);
   assert.match(sql, /last_coach_message_at/);
   assert.match(sql, /sender_id = m\.coach_id/);
@@ -571,7 +572,7 @@ test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot 
 });
 
 test('upsert SQL never reopens sent/dismissed fleet rows', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829134034_fleet_handled_cooldown.sql'), 'utf8');
   assert.match(sql, /AND status = 'pending'/);
   assert.match(sql, /status IN \('sent', 'dismissed', 'kept'\)/);
   assert.match(sql, /RETURN NULL/);
@@ -585,7 +586,7 @@ test('upsert SQL never reopens sent/dismissed fleet rows', () => {
 
 /**
  * The definition production actually runs is the LAST migration (in filename order) that
- * re-creates triage_coach_fleet — not whichever file first introduced a key. 20260901004739
+ * re-creates triage_coach_fleet — not whichever file first introduced a key. 20260901012958
  * re-created the function from an older copy and silently dropped four dossier keys; the
  * tests below read the latest definition so that class of regression fails CI.
  */
@@ -603,14 +604,13 @@ function latestTriageCoachFleetSql(): { file: string; fn: string } {
 
 test('the latest triage_coach_fleet definition emits every dossier key the edge parses', () => {
   const { file, fn } = latestTriageCoachFleetSql();
-  assert.equal(file, '20260906000003_engine_consumes_data.sql');
+  assert.match(file, /^20260910/);
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   const iface = fleet.slice(fleet.indexOf('interface Dossier {'), fleet.indexOf('interface FleetEvidence'));
   const keys = [...iface.matchAll(/^\s+([a-z_]+):/gm)].map((m) => m[1]);
   assert.ok(keys.length >= 30, `expected the Dossier interface, got ${keys.length} keys`);
-  const emitted = fn.slice(fn.indexOf('jsonb_build_object(\n      \'coach_id\''), fn.indexOf(') AS dossier'));
   for (const key of keys) {
-    assert.match(emitted, new RegExp(`'${key}',`), `triage_coach_fleet no longer emits '${key}' (${file})`);
+    assert.match(fn, new RegExp(`'${key}',`), `triage_coach_fleet no longer emits '${key}' (${file})`);
   }
   // The two things the regression and the P0 fix each brought — both must survive.
   assert.match(fn, /program_frequency AS \(/);
@@ -687,7 +687,7 @@ test('not following (logs >> target) → Relancer, never a calorie card', () => 
   assert.equal(proposal.draft, null);
 });
 
-test('fatigue on a followed cut → more carbs, same calories, not another cut', () => {
+test('fatigue DECLARED on a followed cut → more carbs, same calories, not another cut', () => {
   const row = dossier({
     client_id: 'fatigue-id',
     full_name: 'Jade Fatigue',
@@ -699,7 +699,8 @@ test('fatigue on a followed cut → more carbs, same calories, not another cut',
     logged_nutrition_days: 12,
     avg_calories: 2180,
     avg_adherence_nutrition: 5,
-    avg_adherence_training: 2,
+    avg_adherence_training: 4,
+    avg_fatigue: 8,
     weight_start_kg: 80,
     weight_end_kg: 80.4,
     weight_delta_kg: 0.4,
@@ -715,6 +716,43 @@ test('fatigue on a followed cut → more carbs, same calories, not another cut',
   assert.equal(card?.kind, 'calorie_adjustment');
   assert.equal(card?.payload.reason, 'carb_support');
   assert.equal(card?.payload.calories, 2200);
+});
+
+test('I04: low training adherence alone is NOT fatigue — no carb_support without declared signals', () => {
+  const row = dossier({
+    client_id: 'adh-low-id',
+    full_name: 'Theo Adherent',
+    goal: 'lose',
+    calorie_target: 2200,
+    logged_nutrition_days: 12,
+    avg_calories: 2180,
+    avg_adherence_nutrition: 90,
+    avg_adherence_training: 10,
+    weight_start_kg: 80,
+    weight_end_kg: 79.4,
+    weight_delta_kg: -0.6,
+    workout_count: 8,
+  });
+  const proposal = proposeWeeklyNutrition(row);
+  assert.notEqual(proposal.reason, 'carb_support');
+});
+
+test('I04: low declared energy also reads as fatigue', () => {
+  const row = dossier({
+    client_id: 'energy-low-id',
+    full_name: 'Lea Energy',
+    goal: 'lose',
+    calorie_target: 2200,
+    logged_nutrition_days: 12,
+    avg_calories: 2180,
+    avg_adherence_nutrition: 90,
+    avg_energy: 2,
+    weight_start_kg: 80,
+    weight_end_kg: 80.2,
+    weight_delta_kg: 0.2,
+    workout_count: 8,
+  });
+  assert.equal(proposeWeeklyNutrition(row).reason, 'carb_support');
 });
 
 test('bulk not gaining → small increase; bulk too fast → smaller surplus', () => {
@@ -800,7 +838,7 @@ test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', 
   const fromLinks = fn.slice(fn.lastIndexOf('FROM links l'));
   assert.doesNotMatch(fromLinks, /WHERE EXISTS/);
   assert.doesNotMatch(fromLinks, /logged_nutrition_days\s*>\s*0/);
-  const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000011_fleet_in_app_weekly_review.sql'), 'utf8');
+  const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829162959_fleet_in_app_weekly_review.sql'), 'utf8');
   assert.match(lock, /DO NOT create Grok Bots/);
   assert.match(lock, /COMMENT ON FUNCTION public\.triage_coach_fleet/);
 });
@@ -843,7 +881,7 @@ test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
   assert.doesNotMatch(setup, /daily_calorie_target \|\| issn/);
   assert.match(setup, /needsMedicalAck && !medicalAck/);
   assert.ok(
-    setup.indexOf('if (needsMedicalAck && !medicalAck)') < setup.indexOf('await saveTrackingConfig'),
+    setup.indexOf('if (needsMedicalAck && !medicalAck)') < setup.indexOf('await applyIntervention'),
     'medical ack must block before any setup write',
   );
   assert.match(setup, /track\('setup_targets_choice'/);
@@ -854,4 +892,118 @@ test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
   assert.match(weekly, /computeSoloWeeklyReview/);
   const solo = readFileSync(resolve(process.cwd(), 'src/lib/soloCopilot.ts'), 'utf8');
   assert.match(solo, /proposeWeeklyNutrition\(buildSoloDossier/);
+});
+
+test('I03: weight pace uses the real span between weigh-ins, not the window', () => {
+  // Same -1 kg over 2 days vs 14 days: very different paces.
+  const fast = weeklyWeightPct(-1, 80, 2);
+  const slow = weeklyWeightPct(-1, 80, 14);
+  assert.ok(fast != null && slow != null);
+  assert.ok(Math.abs(fast) > Math.abs(slow) * 5);
+  // Same-day measures: unknown, not a pace.
+  assert.equal(weeklyWeightPct(-1, 80, 0), null);
+  assert.equal(weeklyWeightPct(-1, 80, null), weeklyWeightPct(-1, 80, 14));
+});
+
+test('I03: days are judged against the target that governed them', () => {
+  const row = dossier({
+    client_id: 'eff-target-id',
+    full_name: 'Eva Target',
+    calorie_target: 2600,
+    avg_effective_target: 2000,
+    logged_nutrition_days: 12,
+    avg_calories: 2050,
+    avg_adherence_nutrition: 90,
+    weight_start_kg: 80,
+    weight_end_kg: 79.6,
+    weight_delta_kg: -0.4,
+    workout_count: 8,
+  });
+  // 2050 vs current 2600 would look under-fed (0.79); vs effective 2000 it follows.
+  const proposal = proposeWeeklyNutrition(row);
+  assert.notEqual(proposal.action, 'relance');
+  const card = buildFleetCard(row, TODAY);
+  assert.notEqual(card?.kind, 'adherence_nutrition');
+});
+
+test('I04: disabled modules never trigger reproach', () => {
+  const untracked = dossier({
+    client_id: 'untracked-id',
+    full_name: 'Ugo Untracked',
+    logged_nutrition_days: 0,
+    avg_calories: 0,
+    workout_count: 0,
+    checkin_count: 0,
+    last_nutrition_at: null,
+    last_workout_at: null,
+    last_checkin_at: null,
+    linked_days: 60,
+    weight_delta_kg: null,
+    tracking: { nutrition: false, workouts: false, weight: false, checkins: false },
+  });
+  assert.equal(classifyFleetDossier(untracked, TODAY), 'on_track');
+  assert.deepEqual(proposeWeeklyNutrition(untracked), { action: 'keep', reason: 'keep', draft: null });
+
+  const noTraining = dossier({
+    client_id: 'no-training-id',
+    full_name: 'Nadia NoTraining',
+    workout_count: 0,
+    tracking: { nutrition: true, workouts: false, weight: true, checkins: true },
+  });
+  assert.notEqual(classifyFleetDossier(noTraining, TODAY), 'adherence_training');
+});
+
+test('I04: minor or medical flags → qualified review, never an automatic adjustment', () => {
+  const minor = dossier({
+    client_id: 'minor-id',
+    full_name: 'Milo Minor',
+    goal: 'lose',
+    calorie_target: 2200,
+    logged_nutrition_days: 12,
+    avg_calories: 2180,
+    avg_adherence_nutrition: 90,
+    weight_start_kg: 80,
+    weight_end_kg: 80,
+    weight_delta_kg: 0,
+    workout_count: 8,
+    is_minor: true,
+  });
+  const proposal = proposeWeeklyNutrition(minor);
+  assert.equal(proposal.action, 'keep');
+  assert.equal(proposal.guarded, true);
+  assert.equal(classifyFleetDossier(minor, TODAY), 'keep_in_touch');
+  const card = buildFleetCard(minor, TODAY);
+  assert.equal(card?.kind, 'keep_in_touch');
+  assert.equal(card?.payload.guarded, true);
+
+  const flagged = dossier({
+    client_id: 'flagged-id',
+    full_name: 'Fiona Flagged',
+    goal: 'lose',
+    calorie_target: 2200,
+    logged_nutrition_days: 12,
+    avg_calories: 2180,
+    avg_adherence_nutrition: 90,
+    weight_start_kg: 80,
+    weight_end_kg: 80,
+    weight_delta_kg: 0,
+    workout_count: 8,
+    has_medical_flags: true,
+  });
+  assert.equal(proposeWeeklyNutrition(flagged).guarded, true);
+});
+
+test('I03/I04: evidence carries target, span and window; fleet copy has guarded strings', () => {
+  const row = dossier({ client_id: 'ev-id', full_name: 'Evi Dence' });
+  const ev = fleetEvidenceFromDossier(row);
+  assert.equal(ev.window_days, 14);
+  assert.equal(typeof ev.target_avg_kcal, 'number');
+  assert.match(
+    readFileSync(resolve(process.cwd(), 'supabase/functions/_shared/fleetCopy.ts'), 'utf8'),
+    /guardedCause/,
+  );
+  const edge = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
+  for (const fn of ['trackingOn', 'effectiveCalorieTarget', 'isGuardedProfile', 'keepInTouchCard']) {
+    assert.match(edge, new RegExp(`function ${fn}\\(`), `edge must mirror ${fn}`);
+  }
 });

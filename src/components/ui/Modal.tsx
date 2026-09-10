@@ -1,5 +1,6 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -16,7 +17,14 @@ const sizeMap = {
   lg: 'max-w-2xl',
 };
 
+const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
 export default function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
+  const { t } = useTranslation();
+  const titleId = useId();
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<Element | null>(null);
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -28,9 +36,39 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    // Q04 : mémorise le focus, piège le Tab dans le dialogue, restaure à la fermeture.
+    previousFocus.current = document.activeElement;
+    const panel = panelRef.current;
+    const first = panel?.querySelector<HTMLElement>(FOCUSABLE);
+    (first ?? panel)?.focus({ preventScroll: true });
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab' || !panel) return;
+      const items = [...panel.querySelectorAll<HTMLElement>(FOCUSABLE)]
+        .filter(el => el.offsetParent !== null || el === document.activeElement);
+      if (items.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const firstItem = items[0];
+      const lastItem = items[items.length - 1];
+      if (e.shiftKey && document.activeElement === firstItem) {
+        e.preventDefault();
+        lastItem.focus();
+      } else if (!e.shiftKey && document.activeElement === lastItem) {
+        e.preventDefault();
+        firstItem.focus();
+      }
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      const prev = previousFocus.current;
+      if (prev instanceof HTMLElement) prev.focus({ preventScroll: true });
+    };
   }, [open, onClose]);
 
   if (!open) return null;
@@ -44,12 +82,21 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
       />
 
       {/* Modal panel */}
-      <div className={`relative bg-neutral-950 border border-neutral-800/80 rounded-2xl w-full ${sizeMap[size]} max-h-[88vh] overflow-hidden flex flex-col z-10 animate-modal-content shadow-2xl`}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
+        tabIndex={-1}
+        className={`relative bg-neutral-950 border border-neutral-800/80 rounded-2xl w-full ${sizeMap[size]} max-h-[88vh] overflow-hidden flex flex-col z-10 animate-modal-content shadow-2xl focus:outline-none`}
+      >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/60 flex-shrink-0">
-          {title && <h3 className="text-base font-semibold text-white">{title}</h3>}
+          {title && <h3 id={titleId} className="text-base font-semibold text-white">{title}</h3>}
           <button
+            type="button"
             onClick={onClose}
+            aria-label={t('common.close')}
             className="ml-auto p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all duration-150 active:scale-90"
           >
             <X size={18} />

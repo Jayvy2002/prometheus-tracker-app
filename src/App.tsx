@@ -1,10 +1,13 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
+import { useWorkoutStore } from './stores/workoutStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 import { resetSessionStores } from './lib/resetStores';
+import { getSessionOwner } from './lib/sessionScope';
+import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
 import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
@@ -14,8 +17,10 @@ import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
-import OnboardingFlow from './components/onboarding/OnboardingFlow';
-import KinesiologyIntakeFlow from './components/onboarding/KinesiologyIntakeFlow';
+// Q05 : routes en lazy — le bundle initial ne porte que l'auth + le shell.
+// Scanner (barcode-detector) et stats (recharts) partent dans leurs propres chunks.
+const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'));
+const KinesiologyIntakeFlow = lazy(() => import('./components/onboarding/KinesiologyIntakeFlow'));
 import {
   intakeGateNeedsUsageProbe,
   shouldForceKinesiologyIntake,
@@ -24,31 +29,39 @@ import {
 } from './lib/kinesiologyIntake';
 import { probeIntakeUsage } from './lib/kinesiologyIntakeUsage';
 import Dashboard from './components/dashboard/Dashboard';
-import WorkoutPage from './components/workout/WorkoutPage';
-import WorkoutForm from './components/workout/WorkoutForm';
-import ExerciseProgressPage from './components/workout/ExerciseProgressPage';
-import StatsPage from './components/stats/StatsPage';
-import RoutinesPage from './components/routines/RoutinesPage';
-import WeightPage from './components/weight/WeightPage';
-import NutritionPage from './components/nutrition/NutritionPage';
-import ScannerPage from './components/scanner/ScannerPage';
-import ProfilePage from './components/profile/ProfilePage';
-import CalendarPage from './components/calendar/CalendarPage';
-import RecipesPage from './components/nutrition/RecipesPage';
-import CheckInPage from './components/checkin/CheckInPage';
-import ClientsPage from './components/coaching/ClientsPage';
-import ClientDetailPage from './components/coaching/ClientDetailPage';
-import ClientSetupPage from './components/coaching/ClientSetupPage';
-import InterventionDraftPage from './components/coaching/InterventionDraftPage';
-import CoachDashboard from './components/coaching/CoachDashboard';
-import ProgramsPage from './components/programs/ProgramsPage';
-import ProgramEditorPage from './components/programs/ProgramEditorPage';
-import ClientProgramPage from './components/programs/ClientProgramPage';
-import AskPrometheusPage from './components/coaching/AskPrometheusPage';
-import CoachInboxPage from './components/coaching/CoachInboxPage';
-import ClientMessagesPage from './components/coaching/ClientMessagesPage';
-import ClientPhotosPage from './components/coaching/ClientPhotosPage';
-import CoachLearnedPage from './components/coaching/CoachLearnedPage';
+const WorkoutPage = lazy(() => import('./components/workout/WorkoutPage'));
+const WorkoutForm = lazy(() => import('./components/workout/WorkoutForm'));
+const ExerciseProgressPage = lazy(() => import('./components/workout/ExerciseProgressPage'));
+const StatsPage = lazy(() => import('./components/stats/StatsPage'));
+const RoutinesPage = lazy(() => import('./components/routines/RoutinesPage'));
+const WeightPage = lazy(() => import('./components/weight/WeightPage'));
+const NutritionPage = lazy(() => import('./components/nutrition/NutritionPage'));
+const ScannerPage = lazy(() => import('./components/scanner/ScannerPage'));
+const ProfilePage = lazy(() => import('./components/profile/ProfilePage'));
+const CalendarPage = lazy(() => import('./components/calendar/CalendarPage'));
+const RecipesPage = lazy(() => import('./components/nutrition/RecipesPage'));
+const CheckInPage = lazy(() => import('./components/checkin/CheckInPage'));
+const ClientsPage = lazy(() => import('./components/coaching/ClientsPage'));
+const ClientDetailPage = lazy(() => import('./components/coaching/ClientDetailPage'));
+const ClientSetupPage = lazy(() => import('./components/coaching/ClientSetupPage'));
+const InterventionDraftPage = lazy(() => import('./components/coaching/InterventionDraftPage'));
+const CoachDashboard = lazy(() => import('./components/coaching/CoachDashboard'));
+const ProgramsPage = lazy(() => import('./components/programs/ProgramsPage'));
+const ProgramEditorPage = lazy(() => import('./components/programs/ProgramEditorPage'));
+const ClientProgramPage = lazy(() => import('./components/programs/ClientProgramPage'));
+const AskPrometheusPage = lazy(() => import('./components/coaching/AskPrometheusPage'));
+const CoachInboxPage = lazy(() => import('./components/coaching/CoachInboxPage'));
+const ClientMessagesPage = lazy(() => import('./components/coaching/ClientMessagesPage'));
+const ClientPhotosPage = lazy(() => import('./components/coaching/ClientPhotosPage'));
+const CoachLearnedPage = lazy(() => import('./components/coaching/CoachLearnedPage'));
+
+function RouteFallback() {
+  return (
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
+    </div>
+  );
+}
 
 function HomeDashboard() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -117,6 +130,14 @@ function AppRoutes() {
             const accepted = await acceptInvite(token);
             if (accepted.ok) {
               toast(i18n.t('coaching.invite.accepted', { name: accepted.coach_name || i18n.t('coaching.invite.aCoach') }));
+            } else {
+              const err = accepted.error ?? 'invalid';
+              const key = err === 'expired' ? 'expired'
+                : err === 'used' ? 'used'
+                : err === 'already_coached' ? 'alreadyCoached'
+                : err === 'self' ? 'self'
+                : 'invalid';
+              toast(i18n.t(`coaching.invite.errors.${key}`), 'error');
             }
           } else {
             await applyIntendedCoachingRole();
@@ -126,10 +147,26 @@ function AppRoutes() {
           await fetchMyCoach();
         }
       })();
+      // D07 : au login, reprend la file offline du compte (rejeu idempotent).
+      useWorkoutStore.getState().refreshPendingOps();
+      void useWorkoutStore.getState().syncOfflineQueue();
     } else if (initialized) {
+      // Q01 : détache le push du compte qui part avant de purger le scope.
+      void detachPushOnLogout(getSessionOwner());
       resetSessionStores();
     }
   }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
+
+  // D07 : au retour du réseau, rejoue la file offline du compte courant.
+  useEffect(() => {
+    if (!userId) return;
+    const onOnline = () => {
+      useWorkoutStore.getState().refreshPendingOps();
+      void useWorkoutStore.getState().syncOfflineQueue();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [userId]);
 
   // The account's language wins over this device's default (Profil → Langue is written to user_profiles).
   const profileLanguage = profile?.language;
@@ -145,7 +182,13 @@ function AppRoutes() {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (!tz) return;
     timezoneWriteFor.current = userId;
-    void updateProfile(userId, { timezone: tz });
+    // D03 : écriture d'ambiance — tracée, réessayée au prochain profil si elle échoue.
+    void updateProfile(userId, { timezone: tz }).then(result => {
+      if (result.error) {
+        console.warn('[Prometheus] timezone write failed:', result.error);
+        timezoneWriteFor.current = null;
+      }
+    });
   }, [userId, profile, updateProfile]);
 
   useEffect(() => {
@@ -237,23 +280,28 @@ function AppRoutes() {
     probeStatus: intakeProbeStatus,
   })) {
     return (
-      <Routes>
-        <Route path="/invite/:token" element={<InvitePage />} />
-        <Route path="*" element={<KinesiologyIntakeFlow />} />
-      </Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="*" element={<KinesiologyIntakeFlow />} />
+        </Routes>
+      </Suspense>
     );
   }
 
   if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
-      <Routes>
-        <Route path="/invite/:token" element={<InvitePage />} />
-        <Route path="*" element={<OnboardingFlow />} />
-      </Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="*" element={<OnboardingFlow />} />
+        </Routes>
+      </Suspense>
     );
   }
 
   return (
+    <Suspense fallback={<RouteFallback />}>
     <Routes>
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<HomeDashboard />} />
@@ -291,6 +339,7 @@ function AppRoutes() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
+    </Suspense>
   );
 }
 

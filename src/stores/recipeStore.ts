@@ -1,17 +1,18 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Recipe, RecipeIngredient } from '../lib/types';
+import { toast } from '../components/ui/Toast';
 
 interface RecipeState {
   recipes: Recipe[];
   loading: boolean;
   fetchRecipes: (userId: string) => Promise<void>;
   createRecipe: (recipe: Partial<Recipe>) => Promise<Recipe | null>;
-  updateRecipe: (id: string, data: Partial<Recipe>) => Promise<void>;
-  deleteRecipe: (id: string) => Promise<void>;
+  updateRecipe: (id: string, data: Partial<Recipe>) => Promise<{ error: string | null }>;
+  deleteRecipe: (id: string) => Promise<{ error: string | null }>;
   addIngredient: (recipeId: string, ingredient: Partial<RecipeIngredient>) => Promise<RecipeIngredient | null>;
-  updateIngredient: (id: string, data: Partial<RecipeIngredient>) => Promise<void>;
-  deleteIngredient: (recipeId: string, id: string) => Promise<void>;
+  updateIngredient: (id: string, data: Partial<RecipeIngredient>) => Promise<{ error: string | null }>;
+  deleteIngredient: (recipeId: string, id: string) => Promise<{ error: string | null }>;
   fetchRecipeWithIngredients: (id: string) => Promise<Recipe | null>;
   recomputeMacros: (recipeId: string) => Promise<void>;
   reset: () => void;
@@ -45,16 +46,27 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     return null;
   },
 
+  // D03 : le store ne bouge qu'après succès serveur ; l'erreur remonte à l'appelant.
   updateRecipe: async (id, updates) => {
-    await supabase.from('recipes').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    const { error } = await supabase.from('recipes').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id);
+    if (error) {
+      toast(error.message, 'error');
+      return { error: error.message };
+    }
     set(s => ({
       recipes: s.recipes.map(r => r.id === id ? { ...r, ...updates } : r),
     }));
+    return { error: null };
   },
 
   deleteRecipe: async (id) => {
-    await supabase.from('recipes').delete().eq('id', id);
+    const { error } = await supabase.from('recipes').delete().eq('id', id);
+    if (error) {
+      toast(error.message, 'error');
+      return { error: error.message };
+    }
     set(s => ({ recipes: s.recipes.filter(r => r.id !== id) }));
+    return { error: null };
   },
 
   addIngredient: async (recipeId, ingredient) => {
@@ -78,7 +90,11 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
   },
 
   updateIngredient: async (id, updates) => {
-    await supabase.from('recipe_ingredients').update(updates).eq('id', id);
+    const { error } = await supabase.from('recipe_ingredients').update(updates).eq('id', id);
+    if (error) {
+      toast(error.message, 'error');
+      return { error: error.message };
+    }
     set(s => ({
       recipes: s.recipes.map(r => ({
         ...r,
@@ -87,10 +103,15 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
     }));
     const recipe = get().recipes.find(r => r.ingredients?.some(i => i.id === id));
     if (recipe) await get().recomputeMacros(recipe.id);
+    return { error: null };
   },
 
   deleteIngredient: async (recipeId, id) => {
-    await supabase.from('recipe_ingredients').delete().eq('id', id);
+    const { error } = await supabase.from('recipe_ingredients').delete().eq('id', id);
+    if (error) {
+      toast(error.message, 'error');
+      return { error: error.message };
+    }
     set(s => ({
       recipes: s.recipes.map(r =>
         r.id === recipeId
@@ -99,6 +120,7 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       ),
     }));
     await get().recomputeMacros(recipeId);
+    return { error: null };
   },
 
   fetchRecipeWithIngredients: async (id) => {
@@ -141,7 +163,11 @@ export const useRecipeStore = create<RecipeState>((set, get) => ({
       carbs_per_serving: Math.round(totals.carbs / servings),
       fat_per_serving: Math.round(totals.fat / servings),
     };
-    await supabase.from('recipes').update(updates).eq('id', recipeId);
+    const { error } = await supabase.from('recipes').update(updates).eq('id', recipeId);
+    if (error) {
+      console.warn('[recipes] recompute failed:', error.message);
+      return;
+    }
     set(s => ({
       recipes: s.recipes.map(r => r.id === recipeId ? { ...r, ...updates } : r),
     }));

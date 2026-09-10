@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { scopedKey } from './sessionScope';
 
 export interface NotificationSettings {
   workout_enabled: boolean;
@@ -7,11 +8,16 @@ export interface NotificationSettings {
   nutrition_time: string;
 }
 
-const STORAGE_KEY = 'prometheus_notification_settings';
+const STORAGE_PREFIX = 'prometheus_notification_settings';
+
+function storageKey(): string {
+  // Q01/S05 : préférences par compte, pas par navigateur.
+  return scopedKey(STORAGE_PREFIX, 'prefs');
+}
 
 export function getNotificationSettings(): NotificationSettings {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey());
     if (stored) return JSON.parse(stored);
   } catch {
     // ignore
@@ -25,7 +31,7 @@ export function getNotificationSettings(): NotificationSettings {
 }
 
 export function saveNotificationSettings(settings: NotificationSettings): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  localStorage.setItem(storageKey(), JSON.stringify(settings));
 }
 
 export async function requestNotificationPermission(): Promise<boolean> {
@@ -58,8 +64,8 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
     const registration = await navigator.serviceWorker.ready;
     const existing = await registration.pushManager.getSubscription();
     if (existing) {
-      await storePushSubscription(userId, existing);
-      return true;
+      const stored = await storePushSubscription(userId, existing);
+      return stored.error === null;
     }
 
     const subscription = await registration.pushManager.subscribe({
@@ -67,17 +73,17 @@ export async function subscribeToPush(userId: string): Promise<boolean> {
       applicationServerKey: urlBase64ToUint8Array(vapidKey),
     });
 
-    await storePushSubscription(userId, subscription);
-    return true;
+    const stored = await storePushSubscription(userId, subscription);
+    return stored.error === null;
   } catch (err) {
     console.error('[Push] subscribe failed:', err);
     return false;
   }
 }
 
-async function storePushSubscription(userId: string, sub: PushSubscription): Promise<void> {
+async function storePushSubscription(userId: string, sub: PushSubscription): Promise<{ error: string | null }> {
   const json = sub.toJSON();
-  await supabase.from('push_subscriptions').upsert(
+  const { error } = await supabase.from('push_subscriptions').upsert(
     {
       user_id: userId,
       endpoint: sub.endpoint,
@@ -87,6 +93,7 @@ async function storePushSubscription(userId: string, sub: PushSubscription): Pro
     },
     { onConflict: 'user_id,endpoint' },
   );
+  return { error: error?.message ?? null };
 }
 
 export async function unsubscribeFromPush(userId: string): Promise<void> {
@@ -103,11 +110,23 @@ export async function unsubscribeFromPush(userId: string): Promise<void> {
   }
 }
 
-export async function syncNotificationSettingsToDB(userId: string, settings: NotificationSettings): Promise<void> {
-  await supabase.from('user_profiles').update({
+export async function syncNotificationSettingsToDB(userId: string, settings: NotificationSettings): Promise<{ error: string | null }> {
+  const { error } = await supabase.from('user_profiles').update({
     notification_workout_enabled: settings.workout_enabled,
     notification_workout_time: settings.workout_time,
     notification_nutrition_enabled: settings.nutrition_enabled,
     notification_nutrition_time: settings.nutrition_time,
   }).eq('id', userId);
+  if (error) return { error: error.message };
+  return { error: null };
+}
+
+/** Q01 : au logout, retire l'abonnement push du compte (pas de rappels de A chez B). */
+export async function detachPushOnLogout(userId: string | null): Promise<void> {
+  if (!userId) return;
+  try {
+    await unsubscribeFromPush(userId);
+  } catch {
+    // best effort — le navigateur peut être hors ligne
+  }
 }

@@ -96,14 +96,15 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Billing | Stripe ×3 en 410 ; `solo_trial_ends_at` posé, aucun mur | Gratuit pendant la construction | ✔ ; chantier D |
 | Télémétrie d'usage | `product_events` + `track()` sur les boucles principales ; INSERT only | Écran de lecture coach / admin | ✔ démarré |
 | Bilingue EN + FR | Intake, `constants.ts`, agent, tournée : langue du caller | Idem | ✔ (#53 / #54) |
-| Recherche aliments & exercices | As-you-type (280 ms), DB + Open Food Facts en parallèle, ranking multicritère (`pickerSearch.ts`), aliases d'exercices FR/EN (`bp`, `rdl`, `sdt`), RPC `search_food_products` trigramme en prod | Idem | ✔ (#67) |
+| Recherche aliments & exercices | Locale instantanée + OFF explicite (cgi plein texte, budget, timeout) ; ranking multicritère ; aliases FR/EN ; portions exactes aller-retour | Idem | ✔ (#68) |
 | Changer de coach | Invitation seulement ; le client ne peut pas partir seul | Annuaire + départ + changement | Chantier C |
+| Fiabilité (audit 10 sept.) | Accès P0 fermés ; création programme atomique (`create_program_complete`) ; effets d'intervention exactement une fois (`apply_intervention` + clés persistées) ; preuves datées solo = coach ; file offline séances (dead-letter, mapping temp→réel) ; 360 temps réel ; suppression coach = workflow ; archives + adoption ; unités/langue ; a11y de base ; lazy routes ; télémétrie minimisée (`docs/TELEMETRY.md`) ; **E01/E02 = fondations** (révisions immuables + contrat intake versionné — pas le versionnage semaines/blocs ni le builder questionnaire) | Idem | ✔ (#68) |
 
 ---
 
 ## Phase actuelle : chantiers (après consolidation)
 
-La consolidation de septembre 2026 est **dans `new-JV`**. `coach-agent` **v22** (Luna + `loop_context`) et `coach-fleet-round` **v25** sont en prod. #58–#60, #62, #64, #65 mergées. L’étape 0 (cycle prod) et le chantier A sont **faits**. Ensuite B → C → D, pas un nouvel audit.
+La consolidation de septembre 2026 est **dans `new-JV`**, suivie de l'audit de fiabilisation (#68). L’étape 0 (cycle prod), le chantier A et l'audit sont **faits**. Ensuite B → C → D, pas un nouvel audit.
 
 Les trois axes de la consolidation restent le test de chaque livraison :
 
@@ -111,7 +112,7 @@ Les trois axes de la consolidation restent le test de chaque livraison :
 - **Boucle coach** : intake du client → analyse → proposition → le coach valide → le client exécute → détection → nouvelles propositions. Même cerveau, autorité différente.
 - **Rien ne s'auto-applique.**
 
-Snapshot prod (sept. 2026, projet `phyuijjekxtjvipjtdfv`) : cycle solo + coach joué ; tournée cron 04:00 UTC déterministe ; `coach-agent` **v22** (`loop_context`, `gpt-5.6-luna` — logs `openai_chat`) ; fleet **v25** (`payload.why`). Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client ainsi que la migration `20260907000001_food_search_rank.sql` (recherche trigramme) sont appliquées. Les numéros de migration en base diffèrent du repo (ré-horodatées le 24 août) — pas une dérive de schéma.
+Snapshot prod (sept. 2026, projet `phyuijjekxtjvipjtdfv`) : cycle solo + coach joué ; tournée cron 04:00 UTC déterministe ; `coach-agent` **v22** (`loop_context`, `gpt-5.6-luna` — logs `openai_chat`) ; fleet **v25** (`payload.why`). Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client ainsi que la migration `20260907222909_food_search_rank.sql` (recherche trigramme) sont appliquées. Les timestamps Git des fichiers `supabase/migrations` correspondent aux versions Production.
 
 ---
 
@@ -125,9 +126,10 @@ Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
 | 1 | Copilote solo (intake + hebdo + programme vivant) | ✔ code (#46, #47, #58) |
 | A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | ✔ (#65) |
 | 3 | Intake dans la boucle coach | ✔ ; `joursDispo` éditeur + accusé drapeau (#65) |
-| B | Builder de questionnaire par coach | À faire |
-| 5 | Télémétrie d'usage | ✔ table + `track()` ; écran lecture = transversal |
-| 6 | Bilingue EN + FR | ✔ (#53 / #54) |
+| audit | 30 constats (P0→P3) : accès, atomicité, preuves, continuité, fichiers, a11y, perf, CI, télémétrie ; E01/E02 fondations (révisions + contrat intake) | ✔ (#68 — edges fleet/agent à redéployer en CLI, cron rappels à planifier) |
+| B | Builder de questionnaire par coach (socle E02 livré : ids stables, version, `custom` — pas encore le builder ni le versionnage semaines/blocs) | À faire |
+| 5 | Télémétrie d'usage | ✔ table + `track()` + `docs/TELEMETRY.md` ; écran lecture = transversal |
+| 6 | Bilingue EN + FR | ✔ (#53 / #54, étendu #68) |
 | C | Recherche et changement de coach | À faire |
 | D | Billing Stripe + mur post-essai | À faire — décisions de prix d'abord |
 
@@ -135,12 +137,13 @@ Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
 
 ## Invariants (toujours vrais, quel que soit le chantier)
 
-- **L'IA prépare, l'humain décide.** Coach : brouillons `coach_interventions` en `pending`, Envoyer est la seule écriture. Solo : proposition → accepter / refuser. Jamais d'auto-apply.
-- **Un seul agent in-app : `coach-agent` (OpenAI).** Pas de Grok Bots, pas de webhook « Second ». `ask-second` et `suggest-client-plan` répondent 410 exprès.
-- **Tracking d'un coaché piloté par `client_tracking_config`** : la ligne est créée à l'invitation avec les défauts du coach (tout ON s'il n'a rien réglé), le setup l'affine. Tout OFF uniquement quand la ligne n'existe pas encore (décision (a) du 4 sept.).
+- **L'IA prépare, l'humain décide.** Coach : brouillons `coach_interventions` en `pending`, Envoyer est la seule écriture (claim → effets → finalize, une seule validation gagne). Solo : proposition → accepter / refuser. Jamais d'auto-apply.
+- **Un seul agent in-app : `coach-agent` (OpenAI).** Pas de Grok Bots, pas de webhook « Second ». `ask-second`, `suggest-client-plan` et `batch-verify-exercises` répondent 410 exprès.
+- **Tracking d'un coaché piloté par `client_tracking_config`** : la ligne est créée à l'invitation avec les défauts du coach (tout ON s'il n'a rien réglé), le setup l'affine. Tout OFF uniquement quand la ligne n'existe pas encore (décision (a) du 4 sept.). Un module éteint ne déclenche ni reproche ni rappel.
 - **Un client = un coach actif** (`coach_client_links.status = 'active'`).
-- **RLS sur toutes les tables**, RPC `SECURITY DEFINER` étroits pour les écritures coach.
+- **RLS sur toutes les tables**, RPC `SECURITY DEFINER` étroits pour les écritures coach. Toute permission se prouve par `supabase/tests/rls_matrix.sql` sur staging.
 - **new-JV est le produit et la prod.** Netlify la déploie sur `tracker.prometheus-fit.com` à chaque merge ; le projet Supabase « coaching » est la base de prod — une PR avec migration l'applique avant le merge. `main` est l'ancien tracker solo, abandonné. Pas de test destructif sur la base de prod.
+- **Données : « enregistré » = persisté.** Erreurs visibles, sauvegardes atomiques, files offline rejouées sans doublon, programmes versionnés (le passé ne se réécrit pas).
 
 ---
 

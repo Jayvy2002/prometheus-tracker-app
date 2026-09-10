@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 
 /**
- * Guards for 20260905000003_lock_link_message_assignment_writes.
+ * Guards for 20260905135151_lock_link_message_assignment_writes.
  *
  * Before it, `authenticated` could UPDATE every column of coach_client_links (a coach could point
  * its own link at any user and become is_coach_of them) and of coach_messages (a client could
@@ -100,8 +100,12 @@ test('program_assignments: only the assigner mutates; the coached client can rea
   assert.equal(del.length, 1);
   assert.match(del[0], /USING\s*\(\s*assigned_by\s*=\s*\(select auth\.uid\(\)\)\s*\)/i);
   const sel = bodies.filter((p) => /FOR SELECT/i.test(p));
-  assert.equal(sel.length, 1);
-  assert.match(sel[0], /client_id\s*=\s*\(select auth\.uid\(\)\)/i, 'client must still read its own assignment');
+  // C04 adds a second SELECT policy (coach reads active clients' history) — read-only.
+  assert.equal(sel.length, 2);
+  assert.ok(sel.some((p) => /client_id\s*=\s*\(select auth\.uid\(\)\)/i.test(p)), 'client must still read its own assignment');
+  const history = sel.find((p) => /Coaches read client assignment history/i.test(p));
+  assert.ok(history, 'coach history read policy missing');
+  assert.match(history as string, /is_coach_of\(client_id\)/i);
   const upd = bodies.filter((p) => /FOR UPDATE/i.test(p));
   assert.equal(upd.length, 1);
   assert.match(upd[0], /USING\s*\(\s*assigned_by\s*=\s*\(select auth\.uid\(\)\)\s*\)/i);

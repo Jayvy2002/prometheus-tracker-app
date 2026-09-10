@@ -6,6 +6,7 @@ import { supabase } from '../../lib/supabase';
 import type { CoachAgentLesson, CoachAiRound } from '../../lib/types';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import { toast } from '../ui/Toast';
 
 function asRecord(value: unknown): Record<string, unknown> {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -48,7 +49,7 @@ export default function CoachLearnedPage() {
       const [lessonRes, roundRes] = await Promise.all([
         supabase
           .from('coach_agent_lessons')
-          .select('id, coach_id, kind, proposed, accepted, note, intervention_id, created_at')
+          .select('id, coach_id, kind, proposed, accepted, note, intervention_id, disabled, created_at')
           .order('created_at', { ascending: false })
           .limit(40),
         supabase
@@ -67,6 +68,29 @@ export default function CoachLearnedPage() {
       cancelled = true;
     };
   }, []);
+
+  // I05 : leçons corrigeables (suppression) et désactivables (ignorées par l'agent).
+  const toggleLesson = async (row: CoachAgentLesson) => {
+    const next = !row.disabled;
+    const { error } = await supabase
+      .from('coach_agent_lessons')
+      .update({ disabled: next })
+      .eq('id', row.id);
+    if (error) {
+      toast(error.message, 'error');
+      return;
+    }
+    setLessons(prev => prev.map(l => (l.id === row.id ? { ...l, disabled: next } : l)));
+  };
+
+  const deleteLesson = async (row: CoachAgentLesson) => {
+    const { error } = await supabase.from('coach_agent_lessons').delete().eq('id', row.id);
+    if (error) {
+      toast(error.message, 'error');
+      return;
+    }
+    setLessons(prev => prev.filter(l => l.id !== row.id));
+  };
 
   return (
     <PageTransition>
@@ -94,7 +118,7 @@ export default function CoachLearnedPage() {
               ) : (
                 <div className="space-y-2">
                   {lessons.map(row => (
-                    <Card key={row.id} className="space-y-1.5">
+                    <Card key={row.id} className={`space-y-1.5 ${row.disabled ? 'opacity-60' : ''}`}>
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-medium text-blue-300">{row.kind}</p>
                         <p className="text-[10px] text-neutral-600">{formatWhen(row.created_at, loc)}</p>
@@ -108,6 +132,25 @@ export default function CoachLearnedPage() {
                       {row.note?.trim() ? (
                         <p className="text-xs text-amber-200/90">{row.note.trim()}</p>
                       ) : null}
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => void toggleLesson(row)}
+                          className="text-[11px] text-neutral-400 [@media(hover:hover)]:hover:text-white"
+                        >
+                          {row.disabled ? t('coaching.learned.enable') : t('coaching.learned.disable')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void deleteLesson(row)}
+                          className="text-[11px] text-neutral-500 [@media(hover:hover)]:hover:text-red-400"
+                        >
+                          {t('coaching.learned.delete')}
+                        </button>
+                        {row.disabled ? (
+                          <span className="text-[10px] text-neutral-600">{t('coaching.learned.disabledHint')}</span>
+                        ) : null}
+                      </div>
                     </Card>
                   ))}
                 </div>

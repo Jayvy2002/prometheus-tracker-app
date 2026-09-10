@@ -25,6 +25,7 @@ import {
   isProgramSendKind,
   outlineBeforeAfter,
   patchBeforeAfter,
+  patchPreviewTargets,
   relanceBeforeAfter,
   type EditedProgramDraft,
 } from '../../lib/coachDraftSend';
@@ -57,10 +58,10 @@ export default function InterventionDraftPage() {
   const { user } = useAuthStore();
   const {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
-    saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
-    sendCoachMessage, pendingInterventions, askCoachAgent,
+    applyIntervention,
+    pendingInterventions, askCoachAgent,
   } = useCoachingStore();
-  const { fetchMyAssignment, applyExercisePatch } = useProgramStore();
+  const { fetchMyAssignment } = useProgramStore();
 
   const [row, setRow] = useState<CoachIntervention | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,6 +162,9 @@ export default function InterventionDraftPage() {
     navigate('/dashboard');
   };
 
+  const claimErrorLabel = (code: string) =>
+    code === 'already_claimed' ? t('errors.alreadyClaimed') : t('errors.alreadyResolved');
+
   const handleSend = async () => {
     if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
@@ -175,8 +179,6 @@ export default function InterventionDraftPage() {
         return;
       }
     }
-    setSaving(true);
-    savingRef.current = true;
     const edited: EditedProgramDraft = {
       programName,
       programDesc,
@@ -184,12 +186,17 @@ export default function InterventionDraftPage() {
       days,
       patch,
     };
-    if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnly) {
-      endSave();
+    const noteOnlySend = row.kind === 'other';
+    if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnlySend) {
       toast(t('coaching.draftSend.empty'), 'error');
       return;
     }
+    setSaving(true);
+    savingRef.current = true;
     const sentPayload = editedProgramPayload(row.payload, edited);
+    const effects: import('../../lib/interventionEffects').InterventionEffects = {
+      assign_client_id: targetClientId,
+    };
 
     if (row.kind === 'calorie_adjustment') {
       if (!isCompleteCalorieDraft({ calories, protein, carbs, fat })) {
@@ -197,87 +204,60 @@ export default function InterventionDraftPage() {
         toast(t('coaching.interventions.macrosRequired'), 'error');
         return;
       }
-      const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
-      if (result.error) {
-        endSave();
-        toast(result.error, 'error');
-        return;
-      }
+      effects.calories = { calories, protein, carbs, fat };
     }
 
     if (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') {
       if (row.kind === 'onboarding_plan') {
-        const trackResult = await saveTrackingConfig(targetClientId, {
+        effects.tracking = {
           ...tracking,
           setup_completed_at: new Date().toISOString(),
-        });
-        if (trackResult.error) {
-          endSave();
-          toast(trackResult.error, 'error');
-          return;
-        }
+        };
       }
       if (patch) {
         if (!boundAssignment?.program_id) {
-          if (notes.trim()) {
-            const noteResult = await addNote(targetClientId, notes.trim());
-            if (noteResult.error) {
-              endSave();
-              toast(noteResult.error, 'error');
-              return;
-            }
-          }
-          const resolved = await resolveIntervention(row.id, 'kept', {
+          if (notes.trim()) effects.note = { body: notes.trim() };
+          const resolved = await applyIntervention(row.id, 'kept', {
             ...sentPayload,
             patch,
             suggestion: notes.trim(),
-          });
+          }, effects);
           endSave();
           if (resolved.error) {
-            toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+            toast(claimErrorLabel(resolved.error), 'error');
             return;
           }
           toast(t('coaching.workspace.patchNoProgram'), 'info');
           navigate(clientFileHref(targetClientId));
           return;
         }
-        const patched = await applyExercisePatch(boundAssignment.program_id, patch);
-        if (patched.error) {
-          endSave();
-          toast(patched.error, 'error');
-          return;
-        }
+        effects.patch = {
+          ...patch,
+          program_id: boundAssignment.program_id,
+          fork_if_shared: true,
+          for_client_id: targetClientId,
+        };
       } else if (programName.trim() && days.length > 0) {
-        const created = await applyProgramOutline(targetClientId, {
+        effects.program = {
           name: programName,
           description: programDesc,
           duration_weeks: programWeeks,
           days,
-        });
-        if (created.error) {
-          endSave();
-          toast(t('coaching.second.failed'), 'error');
-          return;
-        }
+          assign_client_id: targetClientId,
+          start_date: todayStr(),
+        };
       }
     }
 
-    if (noteOnly) {
-      if (notes.trim()) {
-        const noteResult = await addNote(targetClientId, notes.trim());
-        if (noteResult.error) {
-          endSave();
-          toast(noteResult.error, 'error');
-          return;
-        }
-      }
-      const resolved = await resolveIntervention(row.id, 'kept', {
+    if (noteOnlySend) {
+      if (notes.trim()) effects.note = { body: notes.trim() };
+      const resolved = await applyIntervention(row.id, 'kept', {
         ...row.payload,
         suggestion: notes.trim(),
-      });
+      }, effects);
       endSave();
       if (resolved.error) {
-        toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+        toast(claimErrorLabel(resolved.error), 'error');
         return;
       }
       toast(t('coaching.interventions.savedNote'));
@@ -285,17 +265,21 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    const resolved = await resolveIntervention(row.id, 'sent', sentPayload);
+    const resolved = await applyIntervention(row.id, 'sent', sentPayload, effects);
     endSave();
     if (resolved.error) {
-      toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+      toast(claimErrorLabel(resolved.error), 'error');
       return;
+    }
+    if (effects.patch?.fork_if_shared) {
+      toast(t('coaching.workspace.patchForked'), 'info');
+      await fetchMyAssignment(targetClientId);
     }
     toast(t('coaching.interventions.sent'));
     navigate(clientFileHref(targetClientId));
   };
 
-  const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
+  const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey?: CoachNudgeTemplateKey }) => {
     if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
     if (!targetClientId) return;
@@ -305,27 +289,23 @@ export default function InterventionDraftPage() {
     }
     setSaving(true);
     savingRef.current = true;
-    const sent = await sendCoachMessage(targetClientId, body, opts?.templateKey ?? preparedTemplateKey(row.payload, row.kind));
-    if (sent.error) {
-      endSave();
-      toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
-      return;
-    }
+    const effects: import('../../lib/interventionEffects').InterventionEffects = {
+      assign_client_id: targetClientId,
+      message: {
+        body,
+        template_key: opts?.templateKey ?? preparedTemplateKey(row.payload, row.kind),
+      },
+    };
     if (opts?.saveNote) {
-      const noteResult = await addNote(targetClientId, notes.trim() || body, { noteDate: todayStr() });
-      if (noteResult.error) {
-        endSave();
-        toast(noteResult.error, 'error');
-        return;
-      }
+      effects.note = { body: notes.trim() || body, note_date: todayStr() };
     }
-    const resolved = await resolveIntervention(row.id, 'sent', {
+    const resolved = await applyIntervention(row.id, 'sent', {
       ...row.payload,
       suggestion: notes.trim(),
-    });
+    }, effects);
     endSave();
     if (resolved.error) {
-      toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+      toast(resolved.error === 'empty' ? t('coaching.queue.emptyBody') : claimErrorLabel(resolved.error), 'error');
       return;
     }
     toast(t('coaching.queue.sent'));
@@ -424,6 +404,8 @@ export default function InterventionDraftPage() {
     patch,
   };
   const patchPreview = patch ? patchBeforeAfter(boundAssignment?.program, patch) : null;
+  // I02 : toutes les cibles — en cas d'ambiguïté le coach choisit le jour exact.
+  const patchTargets = patch ? patchPreviewTargets(boundAssignment?.program, patch) : null;
   const outlinePreview = showProgram ? outlineBeforeAfter(boundAssignment?.program, edited) : null;
   const caloriePreview = showCalories
     ? calorieBeforeAfter(
@@ -517,6 +499,38 @@ export default function InterventionDraftPage() {
                 {' '}
                 {patchPreview.after}
               </p>
+            )}
+            {patchTargets?.status === 'not_found' && (
+              <p className="text-sm text-amber-300">{t('coaching.workspace.patchNotFound')}</p>
+            )}
+            {patchTargets?.status === 'ambiguous' && (
+              <div className="space-y-2">
+                <p className="text-sm text-amber-300">
+                  {t('coaching.workspace.patchAmbiguous', { name: patch?.exercise ?? '' })}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {patchTargets.previews.map(p => (
+                    <button
+                      key={p.target.exerciseId}
+                      type="button"
+                      onClick={() => setPatch(prev => prev ? {
+                        ...prev,
+                        program_day_id: p.target.dayId,
+                        exercise_id: p.target.exerciseId,
+                      } : prev)}
+                      className={`px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                        patch?.program_day_id === p.target.dayId
+                          ? 'bg-blue-600 border-blue-500 text-white'
+                          : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-blue-500'
+                      }`}
+                    >
+                      {p.target.dayName || t(`programs.weekdays.${p.target.dayWeekday}`)}
+                      {' · '}
+                      {p.before} → {p.after}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             {outlinePreview && (
               <p className="text-sm text-neutral-200">

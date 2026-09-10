@@ -13,7 +13,7 @@ interface ProfileState {
     userId: string,
     targets: Pick<UserProfile, 'daily_calorie_target' | 'protein_target' | 'carbs_target' | 'fat_target'>,
   ) => void;
-  updateProfile: (userId: string, data: Partial<UserProfile>) => Promise<void>;
+  updateProfile: (userId: string, data: Partial<UserProfile>) => Promise<{ error: string | null }>;
   uploadAvatar: (userId: string, file: File) => Promise<string | null>;
   clearProfile: () => void;
 }
@@ -46,13 +46,17 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   updateProfile: async (userId, updates) => {
-    const { data } = await supabase
+    // D03 : contrat de résultat — un refus RLS / réseau ne ressemble plus à un succès.
+    const { data, error } = await supabase
       .from('user_profiles')
       .update({ ...updates, updated_at: new Date().toISOString() })
       .eq('id', userId)
       .select()
       .maybeSingle();
-    if (data) set({ profile: data as UserProfile });
+    if (error) return { error: error.message };
+    if (!data) return { error: 'Profil introuvable ou non autorisé.' };
+    set({ profile: data as UserProfile });
+    return { error: null };
   },
 
   uploadAvatar: async (userId, file) => {

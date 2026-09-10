@@ -56,7 +56,7 @@ Gratuit pendant la construction. Stripe est en quarantaine (410).
 - Questionnaire d'accueil (27 questions, template des coachs)
 
 **Solo**
-- Workouts (sets avancés, superset, minuteur), nutrition (journal, recherche as-you-type DB + Open Food Facts, scanner barcode + IA, recettes, eau), poids, stats, calendrier, routines, streaks
+- Workouts (sets avancés, superset, minuteur, file hors ligne avec rejeu sans doublon), nutrition (journal, recherche locale instantanée + Open Food Facts explicite, scanner barcode + IA, recettes, eau), poids, stats, calendrier, routines, streaks
 - Calcul kcal / macros à l'onboarding, ajustables ; copilote hebdo (`SoloWeeklyReview` : adaptation kcal + explications) et programme vivant IA (self-coach)
 
 ---
@@ -129,7 +129,8 @@ npm run build     # dist/
 npm run preview
 npm run typecheck
 npm run lint
-npm test          # src/lib/*.test.ts
+npm test          # src/lib/*.test.ts (402 tests)
+npm run verify:edges  # les 13 edges bundlent (esbuild, _shared inclus)
 ```
 
 ---
@@ -146,10 +147,19 @@ npm test          # src/lib/*.test.ts
 |---|---|
 | `OPENAI_API_KEY` | `coach-agent`, `analyze-product`, `verify-exercise` (la tournée `coach-fleet-round` est 100 % déterministe, pas de clé) |
 | `OPENAI_MODEL` | Optionnel. Sans ce secret, le code appelle `gpt-5.6-luna`. Ne le poser que pour forcer un autre modèle — s’il vaut encore `gpt-4o-mini`, il gagne. Prod 7 sept. : logs `openai_chat` = `gpt-5.6-luna`. |
-| `FLEET_CRON_SECRET` | Auth du cron nocturne `coach-fleet-round` |
+| `FLEET_CRON_SECRET` | Auth du cron nocturne `coach-fleet-round` (vault + secret edge, même valeur) |
+| `REMINDERS_CRON_SECRET` | Auth du cron `send-daily-reminders` (vault + secret edge, même valeur) |
 | `NOTIFY_SECRET` | HMAC de `notify-onboarding-complete` |
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
 | `SITE_URL` | Origine pour CORS |
+
+Déployer les edges en CLI depuis la racine (résout `_shared/`, à privilégier sur l'API —
+celle-ci échoue sur les fonctions à import-map existante) :
+
+```bash
+supabase functions deploy coach-fleet-round --no-verify-jwt
+supabase functions deploy coach-agent
+```
 
 Ne pas configurer `STRIPE_*` : les functions Stripe répondent 410 (gratuit pendant la construction).
 

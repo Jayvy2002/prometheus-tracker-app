@@ -38,6 +38,28 @@ export default function ClientPhotosPage() {
     void reload(user.id);
   }, [user, progressPhotosEpoch]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Q02 : les URLs signées expirent après 1 h — renouvelées au retour
+  // et toutes les 30 min pour un écran laissé ouvert.
+  useEffect(() => {
+    if (!user) return;
+    const refresh = () => {
+      void (async () => {
+        const rows = await fetchProgressPhotos(user.id);
+        setPhotos(rows);
+        setUrls(await signProgressPhotoUrls(rows));
+      })();
+    };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const timer = setInterval(refresh, 30 * 60 * 1000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(timer);
+    };
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -46,7 +68,14 @@ export default function ClientPhotosPage() {
     const result = await uploadProgressPhoto({ file, takenAt, kind, notes });
     setUploading(false);
     if ('error' in result) {
-      toast(result.error, 'error');
+      const code = result.error;
+      toast(
+        code === 'too_large' ? t('coaching.photos.tooLarge')
+        : code === 'heic_unsupported' ? t('coaching.photos.heicUnsupported')
+        : code === 'unsupported_type' ? t('coaching.photos.unsupportedType')
+        : code,
+        'error',
+      );
       return;
     }
     setNotes('');

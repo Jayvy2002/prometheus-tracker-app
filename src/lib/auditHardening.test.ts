@@ -110,7 +110,7 @@ test('intake and onboarding walls offer sign-out; invite token survives a tab', 
 });
 
 test('paused assignment stays readable after unlink; notes stay coach-only', () => {
-  const sql = src('supabase/migrations/20260906000001_audit_hardening.sql');
+  const sql = src('supabase/migrations/20260905212745_audit_hardening.sql');
   assert.match(sql, /DROP POLICY IF EXISTS "Clients can read notes about them"/);
   assert.match(sql, /pa\.status IN \('active', 'paused'\)/);
   assert.match(sql, /NEW\.daily_water_target_ml := OLD\.daily_water_target_ml/);

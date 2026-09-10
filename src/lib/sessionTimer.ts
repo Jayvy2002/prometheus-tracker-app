@@ -1,4 +1,24 @@
-const PREFIX = 'prometheus_session_timer_';
+import { scopedKey, getSessionOwner } from './sessionScope';
+
+const PREFIX = 'prometheus_session_timer';
+
+function timerKey(workoutId: string): string {
+  return scopedKey(PREFIX, workoutId);
+}
+
+/** Supprime les minuteurs du compte courant (logout / changement de compte). */
+export function clearSessionTimersForOwner(): void {
+  const owner = getSessionOwner() ?? 'anon';
+  const prefix = `${PREFIX}_${owner}_`;
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) doomed.push(k);
+    }
+    doomed.forEach(k => localStorage.removeItem(k));
+  } catch { /* ignore */ }
+}
 
 export interface SessionTimerState {
   startedAt: number | null;
@@ -12,7 +32,7 @@ export function emptyTimer(): SessionTimerState {
 
 export function loadSessionTimer(workoutId: string): SessionTimerState {
   try {
-    const raw = localStorage.getItem(PREFIX + workoutId);
+    const raw = localStorage.getItem(timerKey(workoutId));
     if (!raw) return emptyTimer();
     const parsed = JSON.parse(raw) as SessionTimerState;
     if (typeof parsed.elapsedMs !== 'number') return emptyTimer();
@@ -28,7 +48,7 @@ export function loadSessionTimer(workoutId: string): SessionTimerState {
 
 export function saveSessionTimer(workoutId: string, state: SessionTimerState) {
   try {
-    localStorage.setItem(PREFIX + workoutId, JSON.stringify(state));
+    localStorage.setItem(timerKey(workoutId), JSON.stringify(state));
   } catch {
     // ignore quota
   }
@@ -36,7 +56,7 @@ export function saveSessionTimer(workoutId: string, state: SessionTimerState) {
 
 export function clearSessionTimer(workoutId: string) {
   try {
-    localStorage.removeItem(PREFIX + workoutId);
+    localStorage.removeItem(timerKey(workoutId));
   } catch {
     // ignore
   }

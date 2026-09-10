@@ -651,6 +651,9 @@ export interface AiProgramDayDraft {
 
 export interface ProgramExercisePatch {
   exercise: string;
+  /** I02 : résolution exacte — prioritaire sur le nom dès qu'elle est renseignée. */
+  exercise_id?: string | null;
+  program_day_id?: string | null;
   weekday?: number | null;
   default_sets?: number;
   default_reps?: number;
@@ -714,6 +717,8 @@ export interface CoachIntervention {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  /** I05 : valeurs réellement persistées au moment du finalize (snapshot serveur). */
+  applied_values?: Record<string, unknown> | null;
 }
 
 /** SQL/RPC 14-day aggregate. Fleet rounds never pull raw logs into the LLM. */
@@ -754,6 +759,31 @@ export interface CoachFleetDossier {
   weight_start_kg: number | null;
   weight_end_kg: number | null;
   weight_delta_kg: number | null;
+  /** I03 : dates réelles des pesées extrêmes (ISO) — le rythme se calcule sur la durée vraie. */
+  weight_start_at?: string | null;
+  weight_end_at?: string | null;
+  /** I03 : jours réels entre les deux pesées ; null = tendance inconnue. */
+  weight_span_days?: number | null;
+  /** I03 : moyenne des cibles journalières effectives sur la fenêtre (historique daté). 0/absent = repli sur calorie_target. */
+  avg_effective_target?: number;
+  /** I04 : signaux de récupération DÉCLARÉS (0–10), jamais déduits de l'adhérence. */
+  avg_fatigue?: number | null;
+  avg_sleep_quality?: number | null;
+  avg_soreness?: number | null;
+  avg_energy?: number | null;
+  /**
+   * I04 : modules réellement suivis. Absent = tout suivi (solo).
+   * Un module désactivé ne déclenche ni reproche ni jugement.
+   */
+  tracking?: {
+    nutrition: boolean;
+    workouts: boolean;
+    weight: boolean;
+    checkins: boolean;
+  };
+  /** I04 : mineur ou drapeaux médicaux → accompagnement général, jamais d'objectif auto. */
+  is_minor?: boolean;
+  has_medical_flags?: boolean;
   last_message_at: string | null;
   /** Last outbound coach_messages row (sender_id = coach). Not client replies. */
   last_coach_message_at: string | null;
@@ -779,6 +809,10 @@ export interface CoachFleetEvidence {
   last_nutrition_at: string | null;
   last_workout_at: string | null;
   last_checkin_at: string | null;
+  /** I03 : cible moyenne effective jugée + durée réelle des pesées + fenêtre. */
+  target_avg_kcal?: number;
+  weight_span_days?: number | null;
+  window_days?: number;
 }
 
 export interface CoachFleetHandled {
@@ -822,6 +856,8 @@ export interface CoachAgentLesson {
   accepted: Record<string, unknown>;
   note: string | null;
   intervention_id: string | null;
+  /** I05 : true = ignorée par coach-agent (désactivée par le coach). */
+  disabled?: boolean;
   created_at: string;
 }
 
@@ -852,6 +888,7 @@ export type ProductEventName =
   | 'fleet_round_run'
   | 'agent_asked'
   | 'program_assigned'
+  | 'program_adopted'
   | 'workout_completed'
   | 'checkin_saved'
   | 'solo_review_decided'

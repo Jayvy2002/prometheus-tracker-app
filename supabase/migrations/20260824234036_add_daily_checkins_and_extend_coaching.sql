@@ -76,24 +76,28 @@ DROP POLICY IF EXISTS "delete_own_checkins" ON daily_checkins;
 CREATE POLICY "delete_own_checkins" ON daily_checkins FOR DELETE
   TO authenticated USING (auth.uid() = user_id);
 
--- Extend coaching_recommendations with additional tracking columns
+-- Extend coaching_recommendations with additional tracking columns.
+-- Table absente de cette histoire Git et de la prod actuelle : no-op au replay.
 DO $$ BEGIN
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'coaching_recommendations' AND column_name = 'week_start') THEN
+  IF to_regclass('public.coaching_recommendations') IS NULL THEN
+    RETURN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'coaching_recommendations' AND column_name = 'week_start') THEN
     ALTER TABLE coaching_recommendations ADD COLUMN week_start date;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'coaching_recommendations' AND column_name = 'week_end') THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'coaching_recommendations' AND column_name = 'week_end') THEN
     ALTER TABLE coaching_recommendations ADD COLUMN week_end date;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'coaching_recommendations' AND column_name = 'priority') THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'coaching_recommendations' AND column_name = 'priority') THEN
     ALTER TABLE coaching_recommendations ADD COLUMN priority text DEFAULT 'medium';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'coaching_recommendations' AND column_name = 'category') THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'coaching_recommendations' AND column_name = 'category') THEN
     ALTER TABLE coaching_recommendations ADD COLUMN category text DEFAULT 'lifestyle';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'coaching_recommendations' AND column_name = 'metrics_snapshot') THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'coaching_recommendations' AND column_name = 'metrics_snapshot') THEN
     ALTER TABLE coaching_recommendations ADD COLUMN metrics_snapshot jsonb DEFAULT '{}';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'coaching_recommendations' AND column_name = 'status') THEN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'coaching_recommendations' AND column_name = 'status') THEN
     ALTER TABLE coaching_recommendations ADD COLUMN status text DEFAULT 'pending';
   END IF;
 END $$;

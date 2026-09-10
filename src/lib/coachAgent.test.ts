@@ -107,7 +107,7 @@ test('edit-then-send writes a lesson; identical send does not', () => {
 
   assert.equal(shouldRecordLesson(accepted, accepted), false);
 
-  const sql = source('supabase/migrations/20260829000008_coach_agent_lessons.sql');
+  const sql = source('supabase/migrations/20260829124523_coach_agent_lessons.sql');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.coach_agent_lessons/);
   assert.match(sql, /record_coach_agent_lesson_from_send/);
   assert.match(sql, /USING \(coach_id = \(select auth\.uid\(\)\)\)/);

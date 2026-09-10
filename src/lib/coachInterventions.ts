@@ -76,6 +76,8 @@ export function parseProgramPatch(payload: unknown): ProgramExercisePatch | null
   }
   return {
     exercise,
+    exercise_id: asString(src.exercise_id, '') || null,
+    program_day_id: asString(src.program_day_id, '') || null,
     weekday: src.weekday == null ? null : Math.min(6, Math.max(0, Math.round(asNumber(src.weekday, 0)))),
     default_sets: src.default_sets == null ? undefined : Math.max(1, Math.round(asNumber(src.default_sets, 3))),
     default_reps: src.default_reps == null ? undefined : Math.max(1, Math.round(asNumber(src.default_reps, 10))),

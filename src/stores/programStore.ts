@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { track } from '../lib/telemetryClient';
+import { resolvePatchTargets } from '../lib/programPatch';
+import { todayStr } from '../lib/utils';
 import type {
   Program,
   ProgramAssignment,
@@ -15,10 +17,25 @@ interface ProgramState {
   loading: boolean;
   fetchPrograms: (ownerId: string) => Promise<void>;
   fetchProgram: (programId: string) => Promise<Program | null>;
-  createProgram: (program: Partial<Program>, days: Omit<ProgramDay, 'id' | 'program_id' | 'created_at'>[]) => Promise<string | null>;
+  createProgram: (
+    program: Partial<Program>,
+    days: Array<Omit<ProgramDay, 'id' | 'program_id' | 'created_at' | 'exercises'> & {
+      exercises?: Array<{
+        name: string;
+        default_sets: number;
+        default_reps: number;
+        default_reps_min?: number | null;
+        default_rir?: number | null;
+        default_rest_seconds?: number;
+        default_weight_kg?: number | null;
+        order_index?: number;
+      }>;
+    }>,
+    opts?: { assignClientId?: string; startDate?: string },
+  ) => Promise<string | null>;
   updateProgram: (id: string, data: Partial<Program>) => Promise<{ error: string | null }>;
   deleteProgram: (id: string) => Promise<void>;
-  setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<void>;
+  setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<{ error: string | null }>;
   setProgramDayExercises: (
     dayId: string,
     exercises: Array<{
@@ -31,11 +48,13 @@ interface ProgramState {
       default_weight_kg?: number | null;
       order_index: number;
     }>,
-  ) => Promise<void>;
+  ) => Promise<{ error: string | null }>;
   applyExercisePatch: (
     programId: string,
     patch: {
       exercise: string;
+      exercise_id?: string | null;
+      program_day_id?: string | null;
       weekday?: number | null;
       default_sets?: number;
       default_reps?: number;
@@ -45,7 +64,15 @@ interface ProgramState {
       default_weight_kg?: number | null;
       replace_with?: string;
     },
-  ) => Promise<{ error: string | null }>;
+    opts?: {
+      /** I02 : patch "pour cet athlète uniquement" — fork si le modèle est partagé. */
+      forClientId?: string;
+      /** I02 : updated_at vu par l'aperçu — refuse si le programme a bougé. */
+      expectedUpdatedAt?: string | null;
+      /** Nom du clone lors d'un fork (défaut : "… (adapté)"). */
+      forkName?: string;
+    },
+  ) => Promise<{ error: string | null; programId?: string; forked?: boolean }>;
   syncProgramDays: (
     programId: string,
     days: Array<{
@@ -63,40 +90,29 @@ interface ProgramState {
     }>,
   ) => Promise<{ error: string | null }>;
   fetchMyAssignment: (clientId: string) => Promise<ProgramAssignment | null>;
+  /** C04 : attributions en pause avec programme (archives consultables). */
+  fetchPausedAssignments: (clientId: string) => Promise<ProgramAssignment[]>;
+  /** E01 : dernière révision (numéro + date) — le passé ne se réécrit pas. */
+  fetchProgramRevisionInfo: (programId: string) => Promise<{ revision_no: number; created_at: string; count: number } | null>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   pauseAssignment: (id: string) => Promise<void>;
   clear: () => void;
 }
 
-async function loadDays(programId: string): Promise<ProgramDay[]> {
-  const { data: days } = await supabase
-    .from('program_days')
-    .select('*')
-    .eq('program_id', programId)
-    .order('weekday');
-  if (!days?.length) return [];
-  const ids = days.map(d => d.id);
-  let exercises: ProgramDayExercise[] = [];
-  try {
-    const { data } = await supabase
-      .from('program_day_exercises')
-      .select('*')
-      .in('program_day_id', ids)
-      .order('order_index');
-    exercises = (data ?? []) as ProgramDayExercise[];
-  } catch {
-    exercises = [];
-  }
-  const byDay = new Map<string, ProgramDayExercise[]>();
-  for (const ex of exercises) {
-    const list = byDay.get(ex.program_day_id) ?? [];
-    list.push(ex);
-    byDay.set(ex.program_day_id, list);
-  }
-  return (days as ProgramDay[]).map(d => ({
-    ...d,
-    exercises: byDay.get(d.id) ?? [],
-  }));
+type ProgramRow = Omit<Program, 'days'> & {
+  program_days: Array<Omit<ProgramDay, 'exercises'> & { program_day_exercises: ProgramDayExercise[] }>;
+};
+
+function mapProgramWithDays(row: ProgramRow): Program {
+  const days = [...(row.program_days ?? [])]
+    .sort((a, b) => a.order_index - b.order_index || a.weekday - b.weekday)
+    .map(d => ({
+      ...d,
+      exercises: [...(d.program_day_exercises ?? [])].sort((a, b) => a.order_index - b.order_index),
+    }));
+  const { program_days: _omit, ...program } = row;
+  void _omit;
+  return { ...(program as Program), days };
 }
 
 export const useProgramStore = create<ProgramState>((set, get) => ({
@@ -107,21 +123,14 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   fetchPrograms: async (ownerId) => {
     set({ loading: true });
     try {
+      // Q05 : programmes + jours + exercices en UNE requête (plus de N+1).
       const { data, error } = await supabase
         .from('programs')
-        .select('*')
+        .select('*, program_days(*, program_day_exercises(*))')
         .eq('owner_id', ownerId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      const list = (data ?? []) as Program[];
-      const withDays = await Promise.all(list.map(async p => {
-        try {
-          return { ...p, days: await loadDays(p.id) };
-        } catch {
-          return { ...p, days: [] as ProgramDay[] };
-        }
-      }));
-      set({ programs: withDays });
+      set({ programs: ((data ?? []) as ProgramRow[]).map(mapProgramWithDays) });
     } catch {
       set({ programs: [] });
     } finally {
@@ -131,15 +140,13 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
 
   fetchProgram: async (programId) => {
     try {
-      const { data, error } = await supabase.from('programs').select('*').eq('id', programId).maybeSingle();
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*, program_days(*, program_day_exercises(*))')
+        .eq('id', programId)
+        .maybeSingle();
       if (error || !data) return null;
-      let days: ProgramDay[] = [];
-      try {
-        days = await loadDays(programId);
-      } catch {
-        days = [];
-      }
-      const program = { ...(data as Program), days };
+      const program = mapProgramWithDays(data as ProgramRow);
       set(s => ({
         programs: s.programs.some(p => p.id === programId)
           ? s.programs.map(p => p.id === programId ? program : p)
@@ -151,34 +158,40 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     }
   },
 
-  createProgram: async (program, days) => {
-    const { data, error } = await supabase
-      .from('programs')
-      .insert(program)
-      .select()
-      .maybeSingle();
+  createProgram: async (program, days, opts) => {
+    // D01 : toujours la RPC unique (coquille vide, jours, exercices, assignation).
+    const { data, error } = await supabase.rpc('create_program_complete', {
+      p_name: program.name ?? '',
+      p_description: program.description ?? '',
+      p_duration_weeks: program.duration_weeks ?? 8,
+      p_days: days.map((day, order_index) => ({
+        weekday: day.weekday,
+        name: day.name,
+        order_index: day.order_index ?? order_index,
+        routine_id: day.routine_id ?? null,
+        exercises: (day.exercises ?? []).map((ex, i) => ({
+          name: ex.name,
+          default_sets: ex.default_sets,
+          default_reps: ex.default_reps,
+          default_reps_min: ex.default_reps_min ?? null,
+          default_rir: ex.default_rir ?? null,
+          default_rest_seconds: ex.default_rest_seconds ?? 90,
+          default_weight_kg: ex.default_weight_kg ?? null,
+          order_index: ex.order_index ?? i,
+        })),
+      })),
+      p_assign_client_id: opts?.assignClientId ?? null,
+      p_start_date: opts?.startDate ?? null,
+    });
     if (error || !data) {
       console.error('createProgram failed:', error?.message);
       return null;
     }
-    const createdDays: ProgramDay[] = [];
-    for (const day of days) {
-      const { data: d } = await supabase
-        .from('program_days')
-        .insert({
-          program_id: data.id,
-          weekday: day.weekday,
-          name: day.name,
-          routine_id: day.routine_id,
-          order_index: day.order_index,
-        })
-        .select()
-        .maybeSingle();
-      if (d) createdDays.push({ ...(d as ProgramDay), exercises: [] });
-    }
-    const full = { ...data, days: createdDays } as Program;
-    set(s => ({ programs: [full, ...s.programs] }));
-    return data.id as string;
+    const programId = data as string;
+    const full = await get().fetchProgram(programId);
+    if (full) set(s => ({ programs: [full, ...s.programs.filter(p => p.id !== programId)] }));
+    if (opts?.assignClientId) await get().fetchMyAssignment(opts.assignClientId);
+    return programId;
   },
 
   updateProgram: async (id, updates) => {
@@ -196,33 +209,38 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   },
 
   setProgramDayFromRoutine: async (dayId, routine) => {
-    await supabase.from('program_day_exercises').delete().eq('program_day_id', dayId);
-    const exercises = routine.exercises ?? [];
-    if (exercises.length > 0) {
-      await supabase.from('program_day_exercises').insert(
-        exercises.map(ex => ({
-          program_day_id: dayId,
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_rest_seconds: ex.default_rest_seconds,
-          order_index: ex.order_index,
-        })),
-      );
-    }
-    await supabase.from('program_days').update({
+    // D01 : via la RPC atomique (plus de delete-then-insert non vérifié).
+    const result = await get().setProgramDayExercises(
+      dayId,
+      (routine.exercises ?? []).map(ex => ({
+        name: ex.name,
+        default_sets: ex.default_sets,
+        default_reps: ex.default_reps,
+        default_rest_seconds: ex.default_rest_seconds,
+        order_index: ex.order_index,
+      })),
+    );
+    if (result.error) return result;
+    const { error } = await supabase.from('program_days').update({
       name: routine.name,
       routine_id: routine.id,
     }).eq('id', dayId);
+    if (error) return { error: error.message };
     const programId = get().programs.find(p => p.days?.some(d => d.id === dayId))?.id;
-    if (programId) await get().fetchProgram(programId);
+    if (programId) {
+      // E01 : le lien de routine change le jour — on fige une révision.
+      await supabase.rpc('snapshot_program_revision', { p_program_id: programId });
+      await get().fetchProgram(programId);
+    }
+    return { error: null };
   },
 
   setProgramDayExercises: async (dayId, exercises) => {
-    await supabase.from('program_day_exercises').delete().eq('program_day_id', dayId);
-    if (exercises.length > 0) {
-      const rich = exercises.map(ex => ({
-        program_day_id: dayId,
+    // D01 : validation + remplacement atomiques côté serveur. Fini le fallback
+    // qui dégradait silencieusement les prescriptions (compat schéma au déploiement).
+    const { error } = await supabase.rpc('save_program_day_exercises', {
+      p_day_id: dayId,
+      p_exercises: exercises.map(ex => ({
         name: ex.name,
         default_sets: ex.default_sets,
         default_reps: ex.default_reps,
@@ -231,37 +249,39 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_rest_seconds: ex.default_rest_seconds ?? 90,
         default_weight_kg: ex.default_weight_kg ?? null,
         order_index: ex.order_index,
-      }));
-      const { error } = await supabase.from('program_day_exercises').insert(rich);
-      if (error) {
-        await supabase.from('program_day_exercises').insert(
-          exercises.map(ex => ({
-            program_day_id: dayId,
-            name: ex.name,
-            default_sets: ex.default_sets,
-            default_reps: ex.default_reps,
-            default_rest_seconds: ex.default_rest_seconds ?? 90,
-            order_index: ex.order_index,
-          })),
-        );
-      }
-    }
+      })),
+    });
+    if (error) return { error: error.message };
     const programId = get().programs.find(p => p.days?.some(d => d.id === dayId))?.id;
     if (programId) await get().fetchProgram(programId);
+    return { error: null };
   },
 
-  applyExercisePatch: async (programId, patch) => {
-    const program = await get().fetchProgram(programId);
-    if (!program) return { error: 'Program not found' };
-    const days = program.days ?? [];
-    const targetDays = patch.weekday == null ? days : days.filter(d => d.weekday === patch.weekday);
-    let applied = false;
-    for (const day of targetDays) {
+  applyExercisePatch: async (programId, patch, opts) => {
+    // I02 : UNE cible exacte (même résolveur que l'aperçu), version vérifiée,
+    // fork si le modèle est partagé — jamais de retouche silencieuse multi-jours
+    // ou multi-athlètes.
+    const applyOn = async (targetProgramId: string): Promise<{ error: string | null }> => {
+      const program = await get().fetchProgram(targetProgramId);
+      if (!program) return { error: 'Program not found' };
+      if (opts?.expectedUpdatedAt && program.updated_at !== opts.expectedUpdatedAt) {
+        return { error: 'stale' };
+      }
+      const resolution = resolvePatchTargets(program, patch);
+      if (resolution.status === 'not_found') return { error: 'Exercise not found in program' };
+      if (resolution.status === 'ambiguous') {
+        const where = resolution.targets
+          .map(t => t.dayName || `jour ${t.dayWeekday}`)
+          .filter((v, i, a) => a.indexOf(v) === i)
+          .join(', ');
+        return { error: `ambiguous: ${where}` };
+      }
+      const target = resolution.targets[0];
+      const day = (program.days ?? []).find(d => d.id === target.dayId);
+      if (!day) return { error: 'Exercise not found in program' };
       const exercises = [...(day.exercises ?? [])];
-      const idx = exercises.findIndex(ex => ex.name.toLowerCase() === patch.exercise.toLowerCase()
-        || ex.name.toLowerCase().includes(patch.exercise.toLowerCase())
-        || patch.exercise.toLowerCase().includes(ex.name.toLowerCase()));
-      if (idx < 0) continue;
+      const idx = exercises.findIndex(ex => ex.id === target.exerciseId);
+      if (idx < 0) return { error: 'Exercise not found in program' };
       const current = exercises[idx];
       exercises[idx] = {
         ...current,
@@ -273,7 +293,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_rest_seconds: patch.default_rest_seconds ?? current.default_rest_seconds,
         default_weight_kg: patch.default_weight_kg === undefined ? current.default_weight_kg : patch.default_weight_kg,
       };
-      await get().setProgramDayExercises(day.id, exercises.map((ex, order_index) => ({
+      const saved = await get().setProgramDayExercises(day.id, exercises.map((ex, order_index) => ({
         name: ex.name,
         default_sets: ex.default_sets,
         default_reps: ex.default_reps,
@@ -283,53 +303,66 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         default_weight_kg: ex.default_weight_kg,
         order_index,
       })));
-      applied = true;
-      if (patch.weekday != null) break;
+      if (saved.error) return { error: saved.error };
+      return { error: null };
+    };
+
+    // Modèle partagé + patch pour UN athlète → clone, patch du clone, réassigne.
+    if (opts?.forClientId) {
+      const { data: shared } = await supabase
+        .from('program_assignments')
+        .select('id')
+        .eq('program_id', programId)
+        .eq('status', 'active')
+        .neq('client_id', opts.forClientId)
+        .limit(1);
+      if (shared && shared.length > 0) {
+        const { data: forkId, error: forkError } = await supabase.rpc('fork_program', {
+          p_program_id: programId,
+          p_name: opts.forkName ?? null,
+        });
+        if (forkError || !forkId) return { error: forkError?.message ?? 'Failed to fork program' };
+        // Le clone est identique : on résout par nom + weekday (les IDs ont changé).
+        const forkPatch = { ...patch, exercise_id: null, program_day_id: null };
+        const program = await get().fetchProgram(programId);
+        const original = program ? resolvePatchTargets(program, patch) : null;
+        const scopedPatch = original?.status === 'ok'
+          ? { ...forkPatch, weekday: original.targets[0].dayWeekday }
+          : forkPatch;
+        const patched = await get().applyExercisePatch(forkId as string, scopedPatch);
+        if (patched.error) return { error: patched.error, programId: forkId as string, forked: true };
+        const assigned = await get().assignProgram(forkId as string, opts.forClientId, todayStr());
+        if (assigned.error) return { error: assigned.error, programId: forkId as string, forked: true };
+        return { error: null, programId: forkId as string, forked: true };
+      }
     }
-    return applied ? { error: null } : { error: 'Exercise not found in program' };
+
+    const result = await applyOn(programId);
+    if (result.error) return result;
+    return { error: null, programId };
   },
 
   syncProgramDays: async (programId, days) => {
-    const program = await get().fetchProgram(programId);
-    if (!program) return { error: 'Program not found' };
-    const existing = [...(program.days ?? [])];
-    const usedIds = new Set<string>();
-    for (let i = 0; i < days.length; i++) {
-      const draft = days[i];
-      let row = existing.find(d => d.weekday === draft.weekday && !usedIds.has(d.id));
-      if (!row) {
-        const { data, error } = await supabase.from('program_days').insert({
-          program_id: programId,
-          weekday: draft.weekday,
-          name: draft.name,
-          routine_id: null,
-          order_index: i,
-        }).select().maybeSingle();
-        if (error || !data) return { error: error?.message ?? 'Failed to create program day' };
-        row = { ...(data as ProgramDay), exercises: [] };
-      } else {
-        const { error } = await supabase.from('program_days').update({
-          name: draft.name,
-          weekday: draft.weekday,
-          order_index: i,
-        }).eq('id', row.id);
-        if (error) return { error: error.message };
-      }
-      usedIds.add(row.id);
-      await get().setProgramDayExercises(row.id, draft.exercises.map((ex, order_index) => ({
-        name: ex.name,
-        default_sets: ex.default_sets,
-        default_reps: ex.default_reps,
-        default_reps_min: ex.default_reps_min,
-        default_rir: ex.default_rir,
-        default_rest_seconds: ex.default_rest_seconds,
-        default_weight_kg: ex.default_weight_kg,
-        order_index,
-      })));
-    }
-    for (const extra of existing.filter(d => !usedIds.has(d.id))) {
-      await supabase.from('program_days').delete().eq('id', extra.id);
-    }
+    // D01 : réconciliation jours + exercices en une seule transaction serveur.
+    const { error } = await supabase.rpc('sync_program_days', {
+      p_program_id: programId,
+      p_days: days.map((draft, i) => ({
+        weekday: draft.weekday,
+        name: draft.name,
+        order_index: i,
+        exercises: draft.exercises.map((ex, order_index) => ({
+          name: ex.name,
+          default_sets: ex.default_sets,
+          default_reps: ex.default_reps,
+          default_reps_min: ex.default_reps_min ?? null,
+          default_rir: ex.default_rir ?? null,
+          default_rest_seconds: ex.default_rest_seconds ?? 90,
+          default_weight_kg: ex.default_weight_kg ?? null,
+          order_index,
+        })),
+      })),
+    });
+    if (error) return { error: error.message };
     await get().fetchProgram(programId);
     return { error: null };
   },
@@ -368,22 +401,47 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     return assignment;
   },
 
+  fetchPausedAssignments: async (clientId) => {
+    const { data } = await supabase
+      .from('program_assignments')
+      .select('*')
+      .eq('client_id', clientId)
+      .eq('status', 'paused')
+      .order('updated_at', { ascending: false })
+      .limit(10);
+    const rows = (data ?? []) as ProgramAssignment[];
+    const out: ProgramAssignment[] = [];
+    for (const row of rows) {
+      const program = await get().fetchProgram(row.program_id as string);
+      out.push({ ...row, program: program ?? undefined });
+    }
+    return out;
+  },
+
+  fetchProgramRevisionInfo: async (programId) => {
+    const { data, error } = await supabase
+      .from('program_revisions')
+      .select('revision_no, created_at')
+      .eq('program_id', programId)
+      .order('revision_no', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = data as { revision_no: number; created_at: string };
+    return { revision_no: row.revision_no, created_at: row.created_at, count: row.revision_no };
+  },
+
   assignProgram: async (programId, clientId, startDate) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
-    await supabase
-      .from('program_assignments')
-      .update({ status: 'paused', updated_at: new Date().toISOString() })
-      .eq('client_id', clientId)
-      .eq('status', 'active');
-
-    const { error } = await supabase.from('program_assignments').insert({
-      program_id: programId,
-      client_id: clientId,
-      assigned_by: user.id,
-      start_date: startDate,
-      status: 'active',
+    // S02/D01 : attribution atomique serveur — propriété du programme,
+    // autorité (soi ou client actif), interdiction d'auto-assignation coachée
+    // et pause de l'ancien actif dans la même transaction.
+    const { error } = await supabase.rpc('assign_program_secure', {
+      p_program_id: programId,
+      p_client_id: clientId,
+      p_start_date: startDate,
     });
     if (error) return { error: error.message };
     track('program_assigned', { self: clientId === user.id });

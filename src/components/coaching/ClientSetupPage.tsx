@@ -76,10 +76,10 @@ export default function ClientSetupPage() {
   const {
     coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
-    saveTrackingConfig, setClientNutritionTargets, applyProgramOutline,
+    applyIntervention,
     pendingInterventions, askCoachAgent, fetchCoachSettings, fetchCoachOps,
   } = useCoachingStore();
-  const { programs, fetchPrograms, assignProgram } = useProgramStore();
+  const { programs, fetchPrograms } = useProgramStore();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -247,68 +247,62 @@ export default function ClientSetupPage() {
       toast(t('coaching.setup.medicalAckRequired'), 'error');
       return;
     }
-    setSaving(true);
-    const trackResult = await saveTrackingConfig(id, {
-      ...tracking,
-      setup_completed_at: new Date().toISOString(),
-    });
-    if (trackResult.error) {
-      setSaving(false);
-      toast(trackResult.error, 'error');
+    if (applyTargets && calories <= 0) {
+      toast(t('coaching.interventions.caloriesRequired'), 'error');
       return;
     }
-
+    setSaving(true);
+    const effects: import('../../lib/interventionEffects').InterventionEffects = {
+      assign_client_id: id,
+    };
     if (applyTargets) {
-      if (calories <= 0) {
-        setSaving(false);
-        toast(t('coaching.interventions.caloriesRequired'), 'error');
-        return;
-      }
-      const targetResult = await setClientNutritionTargets(id, { calories, protein, carbs, fat });
-      if (targetResult.error) {
-        setSaving(false);
-        toast(targetResult.error, 'error');
-        return;
-      }
+      effects.calories = { calories, protein, carbs, fat };
     }
-
     if (draftProgramName.trim() && draftDays.length > 0 && !assignId) {
-      const created = await applyProgramOutline(id, {
+      effects.program = {
         name: draftProgramName,
         description: draftProgramDesc,
         duration_weeks: draftProgramWeeks,
         days: draftDays,
-      });
-      if (created.error) {
-        setSaving(false);
-        toast(t('coaching.second.failed'), 'error');
-        return;
-      }
+        assign_client_id: id,
+        start_date: todayStr(),
+      };
     } else if (assignId) {
-      const assigned = await assignProgram(assignId, id, todayStr());
-      if (assigned.error) {
-        setSaving(false);
-        toast(assigned.error, 'error');
-        return;
-      }
+      effects.assign_program_id = assignId;
+      effects.start_date = todayStr();
     }
-
-    if (liveDraft) {
-      await resolveIntervention(liveDraft.id, 'sent', editedProgramPayload(liveDraft.payload, {
-        programName: draftProgramName,
-        programDesc: draftProgramDesc,
-        programWeeks: draftProgramWeeks,
-        days: draftDays,
-        patch: null,
-      }));
+    effects.tracking = {
+      ...tracking,
+      setup_completed_at: new Date().toISOString(),
+    };
+    const resolved = await applyIntervention(
+      liveDraft?.id ?? null,
+      'sent',
+      liveDraft
+        ? editedProgramPayload(liveDraft.payload, {
+          programName: draftProgramName,
+          programDesc: draftProgramDesc,
+          programWeeks: draftProgramWeeks,
+          days: draftDays,
+          patch: null,
+        })
+        : undefined,
+      effects,
+    );
+    if (resolved.error) {
+      setSaving(false);
+      toast(resolved.error === 'already_claimed' || resolved.error === 'already_resolved'
+        ? t(resolved.error === 'already_claimed' ? 'errors.alreadyClaimed' : 'errors.alreadyResolved')
+        : resolved.error, 'error');
+      return;
     }
 
     setSaving(false);
+    // Q07 : pas de signal médical dans l'analytics (l'accusé reste un fait de dossier).
     track('setup_targets_choice', {
       choice: targetChoice,
       wrote: applyTargets,
       had_existing: !!existingTargets,
-      medical_ack: needsMedicalAck ? medicalAck : null,
     });
     toast(t('coaching.setup.saved'));
     // Ops rows drive the « À configurer » badge — refresh so the 360 reflects setup at once.

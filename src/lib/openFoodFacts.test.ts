@@ -27,13 +27,21 @@ test('French product_name_fr is used when product_name is empty', () => {
   assert.equal(hit?.calories_per_100g, 105);
 });
 
-test('cgi search must not send fields= (503 on poulet / riz)', () => {
+test('D06: full-text goes through cgi/search.pl (v2 is structured search), never as-you-type', () => {
   const off = src('src/lib/openFoodFacts.ts');
   assert.match(off, /cgi\/search\.pl/);
   assert.doesNotMatch(off, /cgi\/search\.pl[^`\n]*fields=/);
+  assert.doesNotMatch(off, /openfoodfacts\.org\/api\/v2/);
   assert.match(off, /product_name_fr/);
   assert.match(off, /fr\.openfoodfacts\.org/);
-  assert.equal([...off.matchAll(/api\/v2\/search/g)].length, 2);
+  assert.match(off, /OFF_SEARCH_TIMEOUT_MS/);
+  assert.match(off, /consumeOffBudget/);
+  assert.match(off, /country/);
+  const hook = src('src/lib/useFoodCatalogSearch.ts');
+  // OFF only on explicit searchNow — the debounced effect stays local.
+  assert.match(hook, /searchOpenFoodFacts\(q, \{ lang, country/);
+  assert.match(hook, /Explicite \(bouton\/Entrée\)/);
+  assert.match(hook, /offStatus/);
 });
 
 test('FoodForm and IngredientPicker use the shared OFF search', () => {
@@ -45,4 +53,25 @@ test('FoodForm and IngredientPicker use the shared OFF search', () => {
   assert.match(hook, /searchOpenFoodFacts/);
   assert.doesNotMatch(food, /cgi\/search\.pl/);
   assert.doesNotMatch(ing, /cgi\/search\.pl/);
+});
+
+test('D06: shared budget caps OFF at 10 calls per rolling minute', async () => {
+  const { consumeOffBudget, resetOffBudgetForTests } = await import('./openFoodFacts');
+  resetOffBudgetForTests();
+  for (let i = 0; i < 10; i++) assert.equal(consumeOffBudget(1_000_000 + i * 1000), true);
+  assert.equal(consumeOffBudget(1_000_000 + 11 * 1000), false);
+  assert.equal(consumeOffBudget(1_000_000 + 61 * 1000), true);
+  resetOffBudgetForTests();
+});
+
+test('D06: aborted or timed-out OFF search throws a typed error, never hangs', async () => {
+  const { OffSearchError, searchOpenFoodFacts, resetOffBudgetForTests } = await import('./openFoodFacts');
+  resetOffBudgetForTests();
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(
+    searchOpenFoodFacts('poulet', { signal: controller.signal }),
+    (err: unknown) => err instanceof OffSearchError && err.kind === 'aborted',
+  );
+  resetOffBudgetForTests();
 });

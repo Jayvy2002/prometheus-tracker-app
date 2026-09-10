@@ -25,7 +25,7 @@ export default function WorkoutPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { workouts, loading, fetchWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
+  const { workouts, loading, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const assignment = useProgramStore(s => s.assignment);
@@ -79,7 +79,19 @@ export default function WorkoutPage() {
   });
 
   const displayed = filtered.slice(0, displayCount);
-  const hasMore = filtered.length > displayCount;
+  const hasMoreLocal = filtered.length > displayCount;
+  const canFetchOlder = !hasMoreLocal && !workoutsExhausted && filtered.length > 0;
+
+  const handleShowMore = () => {
+    if (hasMoreLocal) {
+      setDisplayCount(c => c + PAGE_SIZE);
+      return;
+    }
+    // Q05 : l'historique continue sur le serveur — on charge la page suivante.
+    if (user && canFetchOlder) {
+      void fetchOlderWorkouts(user.id).then(() => setDisplayCount(c => c + PAGE_SIZE));
+    }
+  };
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -293,13 +305,16 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      {hasMore && (
+      {(hasMoreLocal || canFetchOlder) && (
         <div className="mt-3 flex justify-center">
           <button
-            onClick={() => setDisplayCount(c => c + PAGE_SIZE)}
-            className="px-5 py-2 rounded-xl bg-neutral-900 border border-neutral-800/50 text-sm text-neutral-400 hover:text-white hover:border-neutral-700 transition-all"
+            onClick={handleShowMore}
+            disabled={loading}
+            className="px-5 py-2 rounded-xl bg-neutral-900 border border-neutral-800/50 text-sm text-neutral-400 hover:text-white hover:border-neutral-700 transition-all disabled:opacity-50"
           >
-            {t('workout.loadMore', { count: filtered.length - displayCount })}
+            {hasMoreLocal
+              ? t('workout.loadMore', { count: filtered.length - displayCount })
+              : t('workout.loadOlder')}
           </button>
         </div>
       )}

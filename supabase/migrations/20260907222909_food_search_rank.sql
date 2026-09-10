@@ -1,5 +1,5 @@
 -- Ranked food search: trigram + word_similarity, brand prefix, escaped wildcards.
--- Authenticated only (same contract as 20260404000001 / 20260905000003).
+-- Authenticated only (same contract as 20260824233846 / 20260905135151).
 
 CREATE OR REPLACE FUNCTION public.search_food_products(query text, max_results int DEFAULT 20)
 RETURNS SETOF food_products

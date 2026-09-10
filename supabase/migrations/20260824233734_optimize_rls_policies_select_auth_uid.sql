@@ -374,19 +374,27 @@ CREATE POLICY "Users can delete own steps" ON daily_steps
 
 -- ============================================================
 -- calorie_adjustment_suggestions
+-- Table absente de cette histoire Git (et de la prod actuelle).
+-- Replay local / CI : no-op. Ne pas créer la table : elle n'existe pas en prod.
 -- ============================================================
-DROP POLICY IF EXISTS "Users can read own calorie suggestions" ON calorie_adjustment_suggestions;
-CREATE POLICY "Users can read own calorie suggestions" ON calorie_adjustment_suggestions
-  FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
+DO $$
+BEGIN
+  IF to_regclass('public.calorie_adjustment_suggestions') IS NULL THEN
+    RETURN;
+  END IF;
+  DROP POLICY IF EXISTS "Users can read own calorie suggestions" ON calorie_adjustment_suggestions;
+  CREATE POLICY "Users can read own calorie suggestions" ON calorie_adjustment_suggestions
+    FOR SELECT TO authenticated USING ((select auth.uid()) = user_id);
 
-DROP POLICY IF EXISTS "Users can insert own calorie suggestions" ON calorie_adjustment_suggestions;
-CREATE POLICY "Users can insert own calorie suggestions" ON calorie_adjustment_suggestions
-  FOR INSERT TO authenticated WITH CHECK ((select auth.uid()) = user_id);
+  DROP POLICY IF EXISTS "Users can insert own calorie suggestions" ON calorie_adjustment_suggestions;
+  CREATE POLICY "Users can insert own calorie suggestions" ON calorie_adjustment_suggestions
+    FOR INSERT TO authenticated WITH CHECK ((select auth.uid()) = user_id);
 
-DROP POLICY IF EXISTS "Users can update own calorie suggestions" ON calorie_adjustment_suggestions;
-CREATE POLICY "Users can update own calorie suggestions" ON calorie_adjustment_suggestions
-  FOR UPDATE TO authenticated
-  USING ((select auth.uid()) = user_id) WITH CHECK ((select auth.uid()) = user_id);
+  DROP POLICY IF EXISTS "Users can update own calorie suggestions" ON calorie_adjustment_suggestions;
+  CREATE POLICY "Users can update own calorie suggestions" ON calorie_adjustment_suggestions
+    FOR UPDATE TO authenticated
+    USING ((select auth.uid()) = user_id) WITH CHECK ((select auth.uid()) = user_id);
+END $$;
 
 -- ============================================================
 -- user_streaks

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -162,6 +162,7 @@ export default function ClientDetailPage() {
     fetchNotes, addNote, notes, opsRows, rosterSignals, fetchCoachOps,
     touchClientVisit, priorities, coachSettings, fetchCoachSettings,
     pendingInterventions, endClientLink, askCoachAgent, createIntervention,
+    subscribeClientDossier, fetchClientAssignments, adoptClientProgram,
   } = useCoachingStore();
   const { fetchMyAssignment } = useProgramStore();
 
@@ -190,6 +191,14 @@ export default function ClientDetailPage() {
   const [ficheOpen, setFicheOpen] = useState(false);
   const [clientProfile, setClientProfile] = useState<UserProfile | null>(null);
   const [boundAssignment, setBoundAssignment] = useState<ProgramAssignment | null>(null);
+  /** C01 : fraîcheur du dossier + échec distingué d'une absence de données. */
+  const [dossierFetchedAt, setDossierFetchedAt] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const loadSeq = useRef(0);
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** C04 : historique des attributions (actives + en pause) + adoption. */
+  const [assignmentHistory, setAssignmentHistory] = useState<Array<ProgramAssignment & { programs?: { name: string } | null }>>([]);
+  const [adoptingId, setAdoptingId] = useState<string | null>(null);
   const [tracking, setTracking] = useState<ResolvedTrackingConfig>({
     ...ALL_ON_TRACKING,
     training: { ...ALL_ON_TRACKING.training },
@@ -200,30 +209,12 @@ export default function ClientDetailPage() {
   const client = clients.find(c => c.id === id);
   const ops = opsRows.find(r => r.client.id === id);
 
-  useEffect(() => {
-    if (!id) return;
-    let cancelled = false;
-    const previous = useCoachingStore.getState().opsRows.find(r => r.client.id === id)?.client.last_visited_at
-      ?? useCoachingStore.getState().clients.find(c => c.id === id)?.last_visited_at
-      ?? null;
-    setVisitAnchor(previous);
-    if (!clients.length) fetchClients();
-    if (!opsRows.length) fetchCoachOps();
-    touchClientVisit(id);
-    fetchCoachSettings();
-    setLoading(true);
-    setBoundAssignment(null);
-    setWorkouts([]);
-    setCheckins([]);
-    setWeights([]);
-    setNutritionDays([]);
-    setProgressLifts(null);
-    setPhotos([]);
-    setPhotoUrls({});
-    setClientProfile(null);
+  const loadDossier = useCallback(async (loadId: string, opts?: { silent?: boolean }) => {
+    const seq = ++loadSeq.current;
+    if (!opts?.silent) setLoading(true);
+    setLoadError(false);
     const start = addDaysToDateStr(todayStr(), -27);
-    const loadId = id;
-    void Promise.all([
+    const settled = await Promise.allSettled([
       user ? fetchMyAssignment(loadId) : Promise.resolve(null),
       fetchClientWorkouts(loadId),
       fetchClientCheckins(loadId),
@@ -240,22 +231,80 @@ export default function ClientDetailPage() {
         rows,
         urls: await signProgressPhotoUrls(rows),
       })),
-    ]).then(([assignmentRow, wos, cis, wts, , nutrition, cfg, lifts, photoPack]) => {
+      fetchClientAssignments(loadId),
+    ]);
+    if (seq !== loadSeq.current) return;
+    const value = <T,>(i: number, fallback: T): T => {
+      const s = settled[i];
+      return s.status === 'fulfilled' ? (s.value as T) : fallback;
+    };
+    setBoundAssignment(value(0, null));
+    setWorkouts(value(1, []));
+    setCheckins(value(2, []));
+    setWeights(value(3, []));
+    const nutrition = value<{ profile: UserProfile | null; days: DailyNutritionPoint[] }>(5, { profile: null, days: [] });
+    setClientProfile(nutrition.profile);
+    setNutritionDays(nutrition.days);
+    const cfg = value(6, null);
+    if (cfg) setTracking(parseResolvedTracking(cfg));
+    setProgressLifts(value(7, null));
+    const photoPack = value<{ rows: ProgressPhoto[]; urls: Record<string, string> }>(8, { rows: [], urls: {} });
+    setPhotos(photoPack.rows);
+    setPhotoUrls(photoPack.urls);
+    setAssignmentHistory(value(9, []));
+    if (settled.some(s => s.status === 'rejected')) setLoadError(true);
+    setDossierFetchedAt(new Date().toISOString());
+    if (!opts?.silent) setLoading(false);
+  }, [user, fetchMyAssignment, fetchClientWorkouts, fetchClientCheckins, fetchClientWeight, fetchNotes, fetchClientProfile, fetchClientNutritionRange, fetchTrackingConfig, fetchClientLiftHistory, fetchProgressPhotos, signProgressPhotoUrls, fetchClientAssignments]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const previous = useCoachingStore.getState().opsRows.find(r => r.client.id === id)?.client.last_visited_at
+      ?? useCoachingStore.getState().clients.find(c => c.id === id)?.last_visited_at
+      ?? null;
+    setVisitAnchor(previous);
+    if (!clients.length) fetchClients();
+    if (!opsRows.length) fetchCoachOps();
+    touchClientVisit(id);
+    fetchCoachSettings();
+    setLoading(true);
+    setLoadError(false);
+    setDossierFetchedAt(null);
+    setBoundAssignment(null);
+    setWorkouts([]);
+    setCheckins([]);
+    setWeights([]);
+    setNutritionDays([]);
+    setProgressLifts(null);
+    setPhotos([]);
+    setPhotoUrls({});
+    setClientProfile(null);
+    setAssignmentHistory([]);
+    void loadDossier(id);
+    // C01 : le Realtime invalide (relecture serveur), jamais l'unique voie.
+    const unsubscribe = subscribeClientDossier(id, () => {
       if (cancelled) return;
-      setBoundAssignment(assignmentRow);
-      setWorkouts(wos);
-      setCheckins(cis);
-      setWeights(wts);
-      setClientProfile(nutrition.profile);
-      setNutritionDays(nutrition.days);
-      if (cfg) setTracking(parseResolvedTracking(cfg));
-      setProgressLifts(lifts);
-      setPhotos(photoPack.rows);
-      setPhotoUrls(photoPack.urls);
-    }).finally(() => {
-      if (!cancelled) setLoading(false);
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      reloadTimer.current = setTimeout(() => {
+        if (!cancelled) void loadDossier(id, { silent: true });
+      }, 1500);
     });
-    return () => { cancelled = true; };
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && !cancelled) void loadDossier(id, { silent: true });
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    const onOnline = () => {
+      if (!cancelled) void loadDossier(id, { silent: true });
+    };
+    window.addEventListener('online', onOnline);
+    return () => {
+      cancelled = true;
+      if (reloadTimer.current) clearTimeout(reloadTimer.current);
+      unsubscribe();
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('online', onOnline);
+    };
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setTab = (next: CoachClientTab, extra?: Record<string, string>) => {
@@ -558,6 +607,26 @@ export default function ClientDetailPage() {
           </button>
         </div>
 
+        {dossierFetchedAt && (
+          <p className="text-[11px] text-neutral-600 mb-3" role="status">
+            {t('coaching.client360.updatedAt', {
+              time: new Date(dossierFetchedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            })}
+          </p>
+        )}
+        {loadError && (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2 flex items-center gap-2">
+            <p className="text-xs text-amber-200 flex-1">{t('coaching.client360.loadError')}</p>
+            <button
+              type="button"
+              onClick={() => id && void loadDossier(id)}
+              className="text-xs text-amber-300 hover:text-white shrink-0"
+            >
+              {t('coaching.client360.retry')}
+            </button>
+          </div>
+        )}
+
         {ops && shouldOpenSetup(ops) && (
           <Button size="sm" variant="secondary" className="w-full mb-4" onClick={() => navigate(`/clients/${id}/setup`)}>
             {t('coaching.setupCta')}
@@ -794,6 +863,41 @@ export default function ClientDetailPage() {
                   >
                     {t('coaching.client360.openProgram')}
                   </button>
+                </Card>
+              )}
+              {assignmentHistory.length > 0 && (
+                <Card className="space-y-2">
+                  <p className="text-[11px] uppercase tracking-wider text-neutral-500">
+                    {t('coaching.client360.historyTitle')}
+                  </p>
+                  {assignmentHistory.map(a => (
+                    <div key={a.id} className="flex items-center gap-2 py-1 border-b border-neutral-800/60 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate">
+                          {(a as { programs?: { name: string } | null }).programs?.name || t('programs.assigned')}
+                        </p>
+                        <p className="text-[11px] text-neutral-500">
+                          {a.status === 'active'
+                            ? t('coaching.client360.historyActive')
+                            : t('coaching.client360.historyPaused')}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={adoptingId === a.program_id}
+                        onClick={() => id && void (async () => {
+                          setAdoptingId(a.program_id);
+                          const result = await adoptClientProgram(a.program_id, id);
+                          setAdoptingId(null);
+                          if ('error' in result) toast(result.error, 'error');
+                          else toast(t('coaching.client360.historyAdopted'));
+                        })()}
+                        className="text-xs text-blue-400 hover:text-white shrink-0 disabled:opacity-50"
+                      >
+                        {t('coaching.client360.historyAdopt')}
+                      </button>
+                    </div>
+                  ))}
                 </Card>
               )}
               {workouts.filter(w => w.id !== sessionView?.workoutId).slice(0, 6).length > 0 && (

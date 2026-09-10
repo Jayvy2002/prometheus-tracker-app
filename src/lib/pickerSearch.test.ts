@@ -138,7 +138,7 @@ test('FoodForm and IngredientPicker search as you type and never skip Open Food 
   const food = src('src/components/nutrition/FoodForm.tsx');
   const ing = src('src/components/nutrition/IngredientPicker.tsx');
   const hook = src('src/lib/useFoodCatalogSearch.ts');
-  const sql = src('supabase/migrations/20260907000001_food_search_rank.sql');
+  const sql = src('supabase/migrations/20260907222909_food_search_rank.sql');
   assert.match(food, /useFoodCatalogSearch/);
   assert.match(ing, /useFoodCatalogSearch/);
   assert.match(hook, /searchOpenFoodFacts/);

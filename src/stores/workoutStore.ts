@@ -2,9 +2,105 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
+import { getSessionOwner, createGeneration } from '../lib/sessionScope';
+import {
+  enqueueOfflineOp,
+  peekOfflineOps,
+  peekDeadLetterOps,
+  removeOfflineOp,
+  markOfflineOpFailed,
+  moveOfflineOpToDeadLetter,
+  retryDeadLetterOp,
+  loadIdMap,
+  persistIdMap,
+  isTransportError,
+  type OfflineOp,
+  type OfflineOpType,
+} from '../lib/offlineQueue';
+import { migrateFieldDraftIds } from '../lib/fieldDraftKeys';
 import { parseDate, toLocalDateStr } from '../lib/utils';
 import { track } from '../lib/telemetryClient';
 import { useStreakStore } from './streakStore';
+
+/** S05 : invalide les réponses async après reset (logout / changement de compte). */
+const workoutGeneration = createGeneration();
+
+/** Q05 : taille de page de l'historique des séances. */
+export const WORKOUTS_PAGE_SIZE = 200;
+
+/** D07 : ids temporaires stables pour les créations hors ligne. */
+export function offlineTempId(opId: string): string {
+  return `local-${opId}`;
+}
+
+export function isOfflineTempId(id: string): boolean {
+  return id.startsWith('local-');
+}
+
+function takeQueuedOp(
+  type: OfflineOpType,
+  payload: Record<string, unknown>,
+  accountId: string | null,
+): OfflineOp | null {
+  const queued = enqueueOfflineOp(type, payload, accountId);
+  if (!queued.ok) {
+    useWorkoutStore.setState({ queueBlocked: queued.error });
+    return null;
+  }
+  useWorkoutStore.setState({ queueBlocked: null });
+  return queued.op;
+}
+
+function queueCounts(accountId: string | null): { pendingOps: number; deadOps: number } {
+  return {
+    pendingOps: peekOfflineOps(accountId).length,
+    deadOps: peekDeadLetterOps(accountId).length,
+  };
+}
+
+interface SendResult {
+  error: { message?: string; code?: string } | null;
+}
+
+/**
+ * D07 : mutation avec file hors ligne. En ligne → serveur direct ; hors ligne
+ * ou panne transport → op persistée (par compte) + application locale immédiate.
+ * Une erreur applicative (RLS/validation) ne part jamais en file.
+ */
+async function guardedMutation(
+  type: OfflineOpType,
+  payload: Record<string, unknown>,
+  applyLocal: () => void,
+  send: () => Promise<SendResult>,
+): Promise<{ error: string | null; queued: boolean }> {
+  const owner = getSessionOwner();
+  const queueIt = () => {
+    const queued = enqueueOfflineOp(type, payload, owner);
+    if (!queued.ok) {
+      useWorkoutStore.setState({ queueBlocked: queued.error });
+      return {
+        error: queued.error === 'quota' ? 'quota' : 'Request failed',
+        queued: false,
+      };
+    }
+    applyLocal();
+    useWorkoutStore.setState({
+      ...queueCounts(owner),
+      deadOps: peekDeadLetterOps(owner).length,
+    });
+    return { error: null as string | null, queued: true };
+  };
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return queueIt();
+  try {
+    const { error } = await send();
+    if (!error) return { error: null, queued: false };
+    if (isTransportError(error)) return queueIt();
+    return { error: error.message ?? 'Request failed', queued: false };
+  } catch (err) {
+    if (isTransportError(err)) return queueIt();
+    return { error: err instanceof Error ? err.message : 'Request failed', queued: false };
+  }
+}
 
 interface PreviousSet {
   weight_kg: number;
@@ -56,7 +152,20 @@ interface WorkoutState {
   workouts: Workout[];
   currentWorkout: Workout | null;
   loading: boolean;
+  /** D07 : opérations locales en attente de synchronisation (0 = à jour). */
+  pendingOps: number;
+  /** D07 : dead-letter visible et réessayable (jamais supprimée après 3 échecs). */
+  deadOps: number;
+  /** D07 : file locale saturée ou hors compte — l'UI affiche l'erreur, rien n'est jeté. */
+  queueBlocked: 'quota' | 'no_account' | null;
+  retryDeadLetter: (opId: string) => Promise<void>;
+  /** Q05 : true quand tout l'historique est chargé (pas de troncature silencieuse). */
+  workoutsExhausted: boolean;
+  syncOfflineQueue: () => Promise<void>;
+  refreshPendingOps: () => void;
   fetchWorkouts: (userId: string) => Promise<void>;
+  /** Q05 : page suivante (plus anciennes) ; no-op si l'historique est complet. */
+  fetchOlderWorkouts: (userId: string) => Promise<void>;
   fetchWorkout: (workoutId: string) => Promise<void>;
   peekWorkout: (workoutId: string) => Promise<Workout | null>;
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
@@ -85,76 +194,468 @@ interface WorkoutState {
   fetchExerciseHistory: (userId: string, exerciseName: string, currentWorkoutId: string, limit?: number) => Promise<ExerciseSession[]>;
 }
 
+let drainInFlight = false;
+
+interface ReplayResult {
+  error?: string;
+  transport?: boolean;
+  /** Id serveur d'une création (mappé depuis l'id temporaire). */
+  realId?: string;
+  /** Mappings temporaires → réels supplémentaires (séries restaurées). */
+  extraMaps?: Array<[string, string]>;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+/**
+ * D07 : rejoue UNE op sur le serveur. Les créations portent client_op_id :
+ * un retry après succès partiel retrouve la ligne (23505 → lecture).
+ */
+async function replayOfflineOp(
+  op: OfflineOp,
+  mapId: (id: string) => string,
+): Promise<ReplayResult> {
+  const p = op.payload;
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  try {
+    switch (op.type) {
+      case 'workout.create': {
+        const { data, error } = await supabase
+          .from('workouts')
+          .insert({ ...(asRecord(p.workout)), client_op_id: op.id })
+          .select()
+          .maybeSingle();
+        if (!error && data) return { realId: (data as { id: string }).id };
+        if (error?.code === '23505') {
+          const { data: existing } = await supabase
+            .from('workouts')
+            .select('id')
+            .eq('client_op_id', op.id)
+            .maybeSingle();
+          if (existing) return { realId: (existing as { id: string }).id };
+        }
+        if (error && isTransportError(error)) return { transport: true };
+        return { error: error?.message ?? 'workout.create failed' };
+      }
+      case 'workout.update': {
+        const { error } = await supabase
+          .from('workouts')
+          .update({ ...(asRecord(p.updates)), updated_at: new Date().toISOString() })
+          .eq('id', mapId(str(p.id)));
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'workout.update failed' };
+      }
+      case 'workout.delete': {
+        const { error } = await supabase
+          .from('workouts')
+          .delete()
+          .eq('id', mapId(str(p.id)));
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'workout.delete failed' };
+      }
+      case 'exercise.add': {
+        const { data, error } = await supabase
+          .from('workout_exercises')
+          .insert({ ...(asRecord(p.exercise)), workout_id: mapId(str(p.workoutId)), client_op_id: op.id })
+          .select()
+          .maybeSingle();
+        if (!error && data) return { realId: (data as { id: string }).id };
+        if (error?.code === '23505') {
+          const { data: existing } = await supabase
+            .from('workout_exercises')
+            .select('id')
+            .eq('client_op_id', op.id)
+            .maybeSingle();
+          if (existing) return { realId: (existing as { id: string }).id };
+        }
+        if (error && isTransportError(error)) return { transport: true };
+        return { error: error?.message ?? 'exercise.add failed' };
+      }
+      case 'exercise.update': {
+        const { error } = await supabase
+          .from('workout_exercises')
+          .update(asRecord(p.updates))
+          .eq('id', mapId(str(p.id)));
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'exercise.update failed' };
+      }
+      case 'exercise.delete': {
+        const { error } = await supabase
+          .from('workout_exercises')
+          .delete()
+          .eq('id', mapId(str(p.id)));
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'exercise.delete failed' };
+      }
+      case 'exercise.restore': {
+        // Restauration rejouée comme création (+ séries déterministes).
+        const row = { ...(asRecord(p.row)) };
+        delete (row as Record<string, unknown>).id;
+        row.workout_id = mapId(str(row.workout_id));
+        (row as Record<string, unknown>).client_op_id = op.id;
+        let exerciseId: string | null = null;
+        {
+          const { data, error } = await supabase.from('workout_exercises').insert(row).select().maybeSingle();
+          if (!error && data) exerciseId = (data as { id: string }).id;
+          else if (error?.code === '23505') {
+            const { data: existing } = await supabase
+              .from('workout_exercises')
+              .select('id')
+              .eq('client_op_id', op.id)
+              .maybeSingle();
+            if (existing) exerciseId = (existing as { id: string }).id;
+          } else {
+            if (error && isTransportError(error)) return { transport: true };
+            return { error: error?.message ?? 'exercise.restore failed' };
+          }
+        }
+        if (!exerciseId) return { error: 'exercise.restore failed' };
+        const sets = Array.isArray(p.sets) ? p.sets : [];
+        for (let i = 0; i < sets.length; i++) {
+          const setRow = { ...(asRecord(sets[i])) };
+          delete (setRow as Record<string, unknown>).id;
+          setRow.exercise_id = exerciseId;
+          (setRow as Record<string, unknown>).client_op_id = `${op.id}:set:${i}`;
+          const { error } = await supabase.from('workout_sets').insert(setRow);
+          if (error && error.code !== '23505') {
+            if (isTransportError(error)) return { transport: true };
+            return { error: error.message ?? 'exercise.restore sets failed' };
+          }
+        }
+        // Mappe les ids temporaires des séries pour les ops suivantes.
+        const extraMaps: Array<[string, string]> = [];
+        if (sets.length > 0) {
+          const { data: createdSets } = await supabase
+            .from('workout_sets')
+            .select('id, client_op_id')
+            .eq('exercise_id', exerciseId)
+            .like('client_op_id', `${op.id}:set:%`);
+          for (const row of (createdSets ?? []) as Array<{ id: string; client_op_id: string }>) {
+            const suffix = row.client_op_id.slice(`${op.id}:set:`.length);
+            extraMaps.push([`${offlineTempId(op.id)}:set:${suffix}`, row.id]);
+          }
+        }
+        return { realId: exerciseId, extraMaps };
+      }
+      case 'set.restore': {
+        const row = { ...(asRecord(p.row)) };
+        delete (row as Record<string, unknown>).id;
+        row.exercise_id = mapId(str(row.exercise_id));
+        (row as Record<string, unknown>).client_op_id = op.id;
+        const { data, error } = await supabase.from('workout_sets').insert(row).select().maybeSingle();
+        if (!error && data) return { realId: (data as { id: string }).id };
+        if (error?.code === '23505') {
+          const { data: existing } = await supabase
+            .from('workout_sets')
+            .select('id')
+            .eq('client_op_id', op.id)
+            .maybeSingle();
+          if (existing) return { realId: (existing as { id: string }).id };
+        }
+        if (error && isTransportError(error)) return { transport: true };
+        return { error: error?.message ?? 'set.restore failed' };
+      }
+      case 'set.add': {
+        const { data, error } = await supabase
+          .from('workout_sets')
+          .insert({ ...(asRecord(p.set)), exercise_id: mapId(str(p.exerciseId)), client_op_id: op.id })
+          .select()
+          .maybeSingle();
+        if (!error && data) return { realId: (data as { id: string }).id };
+        if (error?.code === '23505') {
+          const { data: existing } = await supabase
+            .from('workout_sets')
+            .select('id')
+            .eq('client_op_id', op.id)
+            .maybeSingle();
+          if (existing) return { realId: (existing as { id: string }).id };
+        }
+        if (error && isTransportError(error)) return { transport: true };
+        return { error: error?.message ?? 'set.add failed' };
+      }
+      case 'set.update': {
+        const { error } = await supabase
+          .from('workout_sets')
+          .update(asRecord(p.updates))
+          .eq('id', mapId(str(p.id)));
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'set.update failed' };
+      }
+      case 'set.delete': {
+        const { error } = await supabase
+          .from('workout_sets')
+          .delete()
+          .eq('id', mapId(str(p.id)));
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'set.delete failed' };
+      }
+      case 'superset.link': {
+        const ids = (Array.isArray(p.exerciseIds) ? p.exerciseIds : []).map(v => mapId(str(v)));
+        const { error } = await supabase
+          .from('workout_exercises')
+          .update({ superset_group_id: str(p.groupId) })
+          .in('id', ids);
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'superset.link failed' };
+      }
+      case 'superset.unlink': {
+        // Note : le nettoyage "dernier du groupe" est local ; le rejeu annule
+        // le seul exercice (divergence cosmétique possible, résorbée au prochain lien).
+        const { error } = await supabase
+          .from('workout_exercises')
+          .update({ superset_group_id: null })
+          .eq('id', mapId(str(p.exerciseId)));
+        if (!error) return {};
+        if (isTransportError(error)) return { transport: true };
+        return { error: error.message ?? 'superset.unlink failed' };
+      }
+      default:
+        return { error: `unknown op ${op.type}` };
+    }
+  } catch (err) {
+    if (isTransportError(err)) return { transport: true };
+    return { error: err instanceof Error ? err.message : 'replay failed' };
+  }
+}
+
 export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   workouts: [],
   currentWorkout: null,
   loading: false,
+  pendingOps: 0,
+  deadOps: 0,
+  queueBlocked: null,
+  workoutsExhausted: false,
+
+  refreshPendingOps: () => {
+    set({
+      pendingOps: peekOfflineOps().length,
+      deadOps: peekDeadLetterOps().length,
+    });
+  },
+
+  retryDeadLetter: async (opId) => {
+    retryDeadLetterOp(opId);
+    set({
+      pendingOps: peekOfflineOps().length,
+      deadOps: peekDeadLetterOps().length,
+    });
+    await get().syncOfflineQueue();
+  },
+
+  syncOfflineQueue: async () => {
+    const owner = getSessionOwner();
+    if (!owner || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;
+    if (drainInFlight) return;
+    drainInFlight = true;
+    try {
+      const idMap = loadIdMap(owner);
+      const mapId = (id: string) => idMap.get(id) ?? id;
+      let guard = 0;
+      for (;;) {
+        const ops = peekOfflineOps(owner);
+        if (ops.length === 0 || guard++ > 500) break;
+        const op = ops[0];
+        const replayed = await replayOfflineOp(op, mapId);
+        if (replayed.transport) break;
+        if (replayed.error) {
+          const current = peekOfflineOps(owner).find(o => o.id === op.id);
+          const nextAttempts = (current?.attempts ?? op.attempts) + 1;
+          if (nextAttempts >= 3) {
+            moveOfflineOpToDeadLetter(op.id, replayed.error, owner);
+          } else {
+            markOfflineOpFailed(op.id, replayed.error, owner);
+          }
+          continue;
+        }
+        if (replayed.realId) idMap.set(offlineTempId(op.id), replayed.realId);
+        for (const [temp, real] of replayed.extraMaps ?? []) idMap.set(temp, real);
+        persistIdMap(idMap, owner);
+        removeOfflineOp(op.id, owner);
+      }
+      persistIdMap(idMap, owner);
+      const remaining = peekOfflineOps(owner).length;
+      set({ pendingOps: remaining, deadOps: peekDeadLetterOps(owner).length });
+      if (remaining === 0 && idMap.size > 0) {
+        // Ids réels : les brouillons de saisie suivent, puis relecture serveur.
+        const current = get().currentWorkout;
+        if (current && isOfflineTempId(current.id) && idMap.has(current.id)) {
+          const realId = idMap.get(current.id) as string;
+          migrateFieldDraftIds(idMap, current.id, realId);
+          clearCacheItem(workoutCacheKey(current.id));
+          await get().fetchWorkouts(owner);
+          await get().fetchWorkout(realId);
+        } else {
+          migrateFieldDraftIds(idMap, current?.id ?? '', current?.id ?? '');
+          if (current) await get().fetchWorkout(current.id);
+        }
+      }
+    } finally {
+      drainInFlight = false;
+    }
+  },
 
   fetchWorkouts: async (userId) => {
+    // Q05 : première page (200) + pagination explicite — fini le plafond muet à 500.
     set({ loading: true });
     const { data } = await supabase
       .from('workouts')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false })
-      .limit(500);
-    set({ workouts: (data ?? []) as Workout[], loading: false });
+      .order('id', { ascending: false })
+      .limit(WORKOUTS_PAGE_SIZE + 1);
+    const rows = (data ?? []) as Workout[];
+    set({
+      workouts: rows.slice(0, WORKOUTS_PAGE_SIZE),
+      workoutsExhausted: rows.length <= WORKOUTS_PAGE_SIZE,
+      loading: false,
+    });
+  },
+
+  fetchOlderWorkouts: async (userId) => {
+    const current = get().workouts;
+    if (get().workoutsExhausted || current.length === 0 || get().loading) return;
+    set({ loading: true });
+    const oldest = [...current].sort((a, b) =>
+      a.date === b.date ? (a.id < b.id ? -1 : 1) : (a.date < b.date ? -1 : 1),
+    )[0];
+    const { data } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('user_id', userId)
+      .or(`date.lt.${oldest.date},and(date.eq.${oldest.date},id.lt.${oldest.id})`)
+      .order('date', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(WORKOUTS_PAGE_SIZE + 1);
+    const rows = (data ?? []) as Workout[];
+    set(s => ({
+      workouts: [...s.workouts, ...rows.slice(0, WORKOUTS_PAGE_SIZE)],
+      workoutsExhausted: rows.length <= WORKOUTS_PAGE_SIZE,
+      loading: false,
+    }));
   },
 
   fetchWorkout: async (workoutId) => {
+    const gen = workoutGeneration.capture();
+    const owner = getSessionOwner();
     const cached = getCacheItem<Workout>(workoutCacheKey(workoutId));
-    if (cached) {
+    // D07 : une séance locale (id temporaire) ne vit qu'en cache + file offline.
+    if (isOfflineTempId(workoutId)) {
+      set({ currentWorkout: cached && (!owner || (cached as Workout).user_id === owner) ? cached : null });
+      return;
+    }
+    // S05 : le cache est déjà namespacé par compte ; on valide en plus que la
+    // séance appartient bien au compte courant avant de l'afficher.
+    if (cached && owner && (cached as Workout).user_id === owner) {
       set({ currentWorkout: cached });
     }
 
     const fullWorkout = await loadFullWorkout(workoutId);
-    if (!fullWorkout) return;
+    if (workoutGeneration.isStale(gen)) return;
+    if (!fullWorkout) {
+      // Le serveur refuse ou ne connaît pas cette séance : ne jamais laisser
+      // une valeur cache (ou d'un autre compte) affichée.
+      clearCacheItem(workoutCacheKey(workoutId));
+      set(s => (s.currentWorkout?.id === workoutId ? { currentWorkout: null } : s));
+      return;
+    }
+    // Défense : le serveur n'aurait jamais dû renvoyer la séance d'un autre
+    // compte (RLS), mais on refuse de l'afficher si ça arrive.
+    if (owner && fullWorkout.user_id !== owner) {
+      clearCacheItem(workoutCacheKey(workoutId));
+      set(s => (s.currentWorkout?.id === workoutId ? { currentWorkout: null } : s));
+      return;
+    }
     set({ currentWorkout: fullWorkout });
     setCacheItem(workoutCacheKey(workoutId), fullWorkout);
   },
 
   peekWorkout: async (workoutId) => {
+    const owner = getSessionOwner();
     const cached = getCacheItem<Workout>(workoutCacheKey(workoutId));
-    if (cached?.exercises?.length) return cached;
+    if (isOfflineTempId(workoutId)) {
+      return cached && (!owner || (cached as Workout).user_id === owner) ? cached : null;
+    }
+    if (cached?.exercises?.length && (!owner || (cached as Workout).user_id === owner)) return cached;
     const full = await loadFullWorkout(workoutId);
+    if (full && owner && full.user_id !== owner) return null;
     if (full) setCacheItem(workoutCacheKey(workoutId), full);
     return full;
   },
 
   createWorkout: async (workout) => {
+    // D07 : op créée d'abord (client_op_id stable) — succès serveur = on la retire.
+    const owner = getSessionOwner();
+    const op = takeQueuedOp('workout.create', { workout: { ...workout } }, owner);
     const { data, error } = await supabase
       .from('workouts')
-      .insert(workout)
+      .insert({ ...workout, client_op_id: op?.id ?? null })
       .select()
       .maybeSingle();
-    if (error) {
+    if (!error && data) {
+      if (op) removeOfflineOp(op.id, owner);
+      const w = { ...data, exercises: [] } as Workout;
+      set(s => ({ workouts: [w, ...s.workouts], currentWorkout: w, ...queueCounts(owner) }));
+      return data.id;
+    }
+    if (error && !isTransportError(error)) {
+      if (op) removeOfflineOp(op.id, owner);
       console.error('createWorkout error:', error.message);
       return null;
     }
-    if (data) {
-      const w = { ...data, exercises: [] } as Workout;
-      set(s => ({ workouts: [w, ...s.workouts], currentWorkout: w }));
-      return data.id;
+    // Hors ligne : séance temporaire, synchronisée à la reconnexion.
+    if (op) {
+      const temp = { user_id: owner, ...workout, id: offlineTempId(op.id), exercises: [] } as unknown as Workout;
+      setCacheItem(workoutCacheKey(temp.id), temp);
+      set(s => ({
+        workouts: [temp, ...s.workouts],
+        currentWorkout: temp,
+        ...queueCounts(owner),
+      }));
+      return temp.id;
     }
+    console.error('createWorkout error:', error?.message ?? 'offline without account');
     return null;
   },
 
   updateWorkout: async (id, updates) => {
-    const { error } = await supabase
-      .from('workouts')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', id);
-    if (error) { console.error('updateWorkout failed:', error.message); return { error: error.message }; }
     const current = get().currentWorkout;
-    if (current?.id === id) {
-      const updated = { ...current, ...updates };
-      set({ currentWorkout: updated });
-      setCacheItem(workoutCacheKey(id), updated);
-    }
-    set(s => ({
-      workouts: s.workouts.map(w => w.id === id ? { ...w, ...updates } : w),
-    }));
-    if (updates.completed) {
+    const applyLocal = () => {
+      if (current?.id === id) {
+        const updated = { ...current, ...updates };
+        set({ currentWorkout: updated });
+        setCacheItem(workoutCacheKey(id), updated);
+      }
+      set(s => ({
+        workouts: s.workouts.map(w => w.id === id ? { ...w, ...updates } : w),
+      }));
+    };
+    const result = await guardedMutation(
+      'workout.update',
+      { id, updates: { ...updates } },
+      applyLocal,
+      async () => {
+        const { error } = await supabase
+          .from('workouts')
+          .update({ ...updates, updated_at: new Date().toISOString() })
+          .eq('id', id);
+        return { error };
+      },
+    );
+    if (result.error) { console.error('updateWorkout failed:', result.error); return { error: result.error }; }
+    if (!result.queued && updates.completed) {
       const workout = get().currentWorkout?.id === id
         ? { ...get().currentWorkout, ...updates }
         : get().workouts.find(w => w.id === id);
@@ -174,32 +675,43 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   deleteWorkout: async (id) => {
-    const { error } = await supabase.from('workouts').delete().eq('id', id);
-    if (error) { console.error('deleteWorkout failed:', error.message); return; }
-    clearCacheItem(workoutCacheKey(id));
-    set(s => ({
-      workouts: s.workouts.filter(w => w.id !== id),
-      currentWorkout: s.currentWorkout?.id === id ? null : s.currentWorkout,
-    }));
+    await guardedMutation(
+      'workout.delete',
+      { id },
+      () => {
+        clearCacheItem(workoutCacheKey(id));
+        set(s => ({
+          workouts: s.workouts.filter(w => w.id !== id),
+          currentWorkout: s.currentWorkout?.id === id ? null : s.currentWorkout,
+        }));
+      },
+      async () => {
+        const { error } = await supabase.from('workouts').delete().eq('id', id);
+        return { error };
+      },
+    );
   },
 
   addExercise: async (workoutId, name, orderIndex, extras) => {
-    const { data } = await supabase
+    const owner = getSessionOwner();
+    const exercise = {
+      name,
+      order_index: orderIndex,
+      prescribed_sets: extras?.prescribed_sets ?? null,
+      prescribed_reps: extras?.prescribed_reps ?? null,
+      prescribed_reps_min: extras?.prescribed_reps_min ?? null,
+      prescribed_rir: extras?.prescribed_rir ?? null,
+      prescribed_rest_seconds: extras?.prescribed_rest_seconds ?? null,
+      prescribed_weight_kg: extras?.prescribed_weight_kg ?? null,
+    };
+    const op = takeQueuedOp('exercise.add', { workoutId, exercise: { ...exercise } }, owner);
+    const { data, error } = await supabase
       .from('workout_exercises')
-      .insert({
-        workout_id: workoutId,
-        name,
-        order_index: orderIndex,
-        prescribed_sets: extras?.prescribed_sets ?? null,
-        prescribed_reps: extras?.prescribed_reps ?? null,
-        prescribed_reps_min: extras?.prescribed_reps_min ?? null,
-        prescribed_rir: extras?.prescribed_rir ?? null,
-        prescribed_rest_seconds: extras?.prescribed_rest_seconds ?? null,
-        prescribed_weight_kg: extras?.prescribed_weight_kg ?? null,
-      })
+      .insert({ workout_id: workoutId, ...exercise, client_op_id: op?.id ?? null })
       .select()
       .maybeSingle();
-    if (data) {
+    if (!error && data) {
+      if (op) removeOfflineOp(op.id, owner);
       const ex = { ...data, sets: [] } as WorkoutExercise;
       set(s => {
         if (!s.currentWorkout) return s;
@@ -208,50 +720,85 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           exercises: [...(s.currentWorkout.exercises ?? []), ex],
         };
         setCacheItem(workoutCacheKey(workoutId), updated);
-        return { currentWorkout: updated };
+        return { currentWorkout: updated, ...queueCounts(owner) };
       });
       return ex;
     }
-    return null;
-  },
-
-  updateExercise: async (id, updates) => {
-    const { error } = await supabase.from('workout_exercises').update(updates).eq('id', id);
-    if (error) { console.error('updateExercise failed:', error.message); return; }
-    set(s => {
-      if (!s.currentWorkout) return s;
-      return {
-        currentWorkout: {
-          ...s.currentWorkout,
-          exercises: s.currentWorkout.exercises?.map(e =>
-            e.id === id ? { ...e, ...updates } : e
-          ),
-        },
-      };
-    });
-  },
-
-  deleteExercise: async (id) => {
-    const { error } = await supabase.from('workout_exercises').delete().eq('id', id);
-    if (error) { console.error('deleteExercise failed:', error.message); return; }
+    if (error && !isTransportError(error)) {
+      if (op) removeOfflineOp(op.id, owner);
+      console.error('addExercise failed:', error.message);
+      return null;
+    }
+    if (!op) return null;
+    const temp = { ...exercise, id: offlineTempId(op.id), workout_id: workoutId, sets: [] } as unknown as WorkoutExercise;
     set(s => {
       if (!s.currentWorkout) return s;
       const updated = {
         ...s.currentWorkout,
-        exercises: s.currentWorkout.exercises?.filter(e => e.id !== id),
+        exercises: [...(s.currentWorkout.exercises ?? []), temp],
       };
-      setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-      return { currentWorkout: updated };
+      setCacheItem(workoutCacheKey(workoutId), updated);
+      return { currentWorkout: updated, ...queueCounts(owner) };
     });
+    return temp;
+  },
+
+  updateExercise: async (id, updates) => {
+    await guardedMutation(
+      'exercise.update',
+      { id, updates: { ...updates } },
+      () => {
+        set(s => {
+          if (!s.currentWorkout) return s;
+          return {
+            currentWorkout: {
+              ...s.currentWorkout,
+              exercises: s.currentWorkout.exercises?.map(e =>
+                e.id === id ? { ...e, ...updates } : e
+              ),
+            },
+          };
+        });
+      },
+      async () => {
+        const { error } = await supabase.from('workout_exercises').update(updates).eq('id', id);
+        return { error };
+      },
+    );
+  },
+
+  deleteExercise: async (id) => {
+    await guardedMutation(
+      'exercise.delete',
+      { id },
+      () => {
+        set(s => {
+          if (!s.currentWorkout) return s;
+          const updated = {
+            ...s.currentWorkout,
+            exercises: s.currentWorkout.exercises?.filter(e => e.id !== id),
+          };
+          setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+          return { currentWorkout: updated };
+        });
+      },
+      async () => {
+        const { error } = await supabase.from('workout_exercises').delete().eq('id', id);
+        return { error };
+      },
+    );
   },
 
   addSet: async (exerciseId, orderIndex) => {
-    const { data } = await supabase
+    const owner = getSessionOwner();
+    const op = takeQueuedOp('set.add', { exerciseId, set: { order_index: orderIndex } }, owner);
+    const { data, error } = await supabase
       .from('workout_sets')
-      .insert({ exercise_id: exerciseId, order_index: orderIndex })
+      .insert({ exercise_id: exerciseId, order_index: orderIndex, client_op_id: op?.id ?? null })
       .select()
       .maybeSingle();
-    if (data) {
+    if (!error && data) {
+      if (op) removeOfflineOp(op.id, owner);
       const newSet = data as WorkoutSet;
       set(s => {
         if (!s.currentWorkout) return s;
@@ -264,104 +811,141 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           ),
         };
         setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-        return { currentWorkout: updated };
+        return { currentWorkout: updated, ...queueCounts(owner) };
       });
       return newSet;
     }
-    return null;
+    if (error && !isTransportError(error)) {
+      if (op) removeOfflineOp(op.id, owner);
+      console.error('addSet failed:', error.message);
+      return null;
+    }
+    if (!op) return null;
+    const temp = { id: offlineTempId(op.id), exercise_id: exerciseId, order_index: orderIndex } as unknown as WorkoutSet;
+    set(s => {
+      if (!s.currentWorkout) return s;
+      const updated = {
+        ...s.currentWorkout,
+        exercises: s.currentWorkout.exercises?.map(e =>
+          e.id === exerciseId
+            ? { ...e, sets: [...(e.sets ?? []), temp] }
+            : e
+        ),
+      };
+      setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+      return { currentWorkout: updated, ...queueCounts(owner) };
+    });
+    return temp;
   },
 
   updateSet: async (id, updates) => {
-    const { error } = await supabase.from('workout_sets').update(updates).eq('id', id);
-    if (error) { console.error('updateSet failed:', error.message); return; }
-    set(s => {
-      if (!s.currentWorkout) return s;
-      const updated = {
-        ...s.currentWorkout,
-        exercises: s.currentWorkout.exercises?.map(e => ({
-          ...e,
-          sets: e.sets?.map(st => st.id === id ? { ...st, ...updates } : st),
-        })),
-      };
-      setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-      return { currentWorkout: updated };
-    });
+    await guardedMutation(
+      'set.update',
+      { id, updates: { ...updates } },
+      () => {
+        set(s => {
+          if (!s.currentWorkout) return s;
+          const updated = {
+            ...s.currentWorkout,
+            exercises: s.currentWorkout.exercises?.map(e => ({
+              ...e,
+              sets: e.sets?.map(st => st.id === id ? { ...st, ...updates } : st),
+            })),
+          };
+          setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+          return { currentWorkout: updated };
+        });
+      },
+      async () => {
+        const { error } = await supabase.from('workout_sets').update(updates).eq('id', id);
+        return { error };
+      },
+    );
   },
 
   deleteSet: async (id) => {
-    const { error } = await supabase.from('workout_sets').delete().eq('id', id);
-    if (error) { console.error('deleteSet failed:', error.message); return; }
+    await guardedMutation(
+      'set.delete',
+      { id },
+      () => {
+        set(s => {
+          if (!s.currentWorkout) return s;
+          const updated = {
+            ...s.currentWorkout,
+            exercises: s.currentWorkout.exercises?.map(e => ({
+              ...e,
+              sets: e.sets?.filter(st => st.id !== id),
+            })),
+          };
+          setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+          return { currentWorkout: updated };
+        });
+      },
+      async () => {
+        const { error } = await supabase.from('workout_sets').delete().eq('id', id);
+        return { error };
+      },
+    );
+  },
+
+  restoreSet: async (exerciseId, setData) => {
+    const owner = getSessionOwner();
+    const row = {
+      exercise_id: exerciseId,
+      set_type: setData.set_type,
+      weight_kg: setData.weight_kg,
+      reps: setData.reps,
+      rir: setData.rir,
+      completed: setData.completed,
+      order_index: setData.order_index,
+      duration_seconds: setData.duration_seconds,
+      tempo: setData.tempo,
+      cluster_rest_seconds: setData.cluster_rest_seconds,
+      cluster_reps_per_burst: setData.cluster_reps_per_burst,
+      myo_is_activation: setData.myo_is_activation,
+      drop_percentage: setData.drop_percentage,
+    };
+    const op = takeQueuedOp('set.restore', { row: { ...row } }, owner);
+    const { data, error } = await supabase
+      .from('workout_sets')
+      .insert({ ...row, client_op_id: op?.id ?? null })
+      .select()
+      .maybeSingle();
+    const restored = (!error && data ? data : null) as WorkoutSet | null;
+    if (restored) {
+      if (op) removeOfflineOp(op.id, owner);
+    } else if (error && !isTransportError(error)) {
+      if (op) removeOfflineOp(op.id, owner);
+      console.error('restoreSet failed:', error.message);
+      return;
+    }
+    if (!restored && !op) return;
+    const restoredSet = (restored ?? { ...row, id: offlineTempId((op as { id: string }).id) }) as WorkoutSet;
     set(s => {
       if (!s.currentWorkout) return s;
       const updated = {
         ...s.currentWorkout,
-        exercises: s.currentWorkout.exercises?.map(e => ({
-          ...e,
-          sets: e.sets?.filter(st => st.id !== id),
-        })),
+        exercises: s.currentWorkout.exercises?.map(e =>
+          e.id === exerciseId
+            ? { ...e, sets: [...(e.sets ?? []), restoredSet].sort((a, b) => a.order_index - b.order_index) }
+            : e
+        ),
       };
       setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-      return { currentWorkout: updated };
+      return { currentWorkout: updated, ...queueCounts(owner) };
     });
   },
 
-  restoreSet: async (exerciseId, setData) => {
-    const { data } = await supabase
-      .from('workout_sets')
-      .insert({
-        exercise_id: exerciseId,
-        set_type: setData.set_type,
-        weight_kg: setData.weight_kg,
-        reps: setData.reps,
-        rir: setData.rir,
-        completed: setData.completed,
-        order_index: setData.order_index,
-        duration_seconds: setData.duration_seconds,
-        tempo: setData.tempo,
-        cluster_rest_seconds: setData.cluster_rest_seconds,
-        cluster_reps_per_burst: setData.cluster_reps_per_burst,
-        myo_is_activation: setData.myo_is_activation,
-        drop_percentage: setData.drop_percentage,
-      })
-      .select()
-      .maybeSingle();
-    if (data) {
-      const restoredSet = data as WorkoutSet;
-      set(s => {
-        if (!s.currentWorkout) return s;
-        const updated = {
-          ...s.currentWorkout,
-          exercises: s.currentWorkout.exercises?.map(e =>
-            e.id === exerciseId
-              ? { ...e, sets: [...(e.sets ?? []), restoredSet].sort((a, b) => a.order_index - b.order_index) }
-              : e
-          ),
-        };
-        setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-        return { currentWorkout: updated };
-      });
-    }
-  },
-
   restoreExercise: async (workoutId, exerciseData) => {
-    const { data: newEx, error: exError } = await supabase
-      .from('workout_exercises')
-      .insert({
-        workout_id: workoutId,
-        name: exerciseData.name,
-        order_index: exerciseData.order_index,
-        notes: exerciseData.notes,
-        superset_group_id: exerciseData.superset_group_id,
-      })
-      .select()
-      .maybeSingle();
-    if (exError || !newEx) {
-      console.error('restoreExercise failed:', exError?.message);
-      return;
-    }
-
-    const setsToInsert = (exerciseData.sets ?? []).map(s => ({
-      exercise_id: newEx.id,
+    const owner = getSessionOwner();
+    const row = {
+      workout_id: workoutId,
+      name: exerciseData.name,
+      order_index: exerciseData.order_index,
+      notes: exerciseData.notes,
+      superset_group_id: exerciseData.superset_group_id,
+    };
+    const sets = (exerciseData.sets ?? []).map(s => ({
       set_type: s.set_type,
       weight_kg: s.weight_kg,
       reps: s.reps,
@@ -375,18 +959,36 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       myo_is_activation: s.myo_is_activation,
       drop_percentage: s.drop_percentage,
     }));
+    const op = takeQueuedOp('exercise.restore', { row: { ...row }, sets }, owner);
+    const { data: newEx, error: exError } = await supabase
+      .from('workout_exercises')
+      .insert({ ...row, client_op_id: op?.id ?? null })
+      .select()
+      .maybeSingle();
+    if ((exError && !isTransportError(exError)) || (!newEx && op && typeof navigator !== 'undefined' && navigator.onLine)) {
+      if (op) removeOfflineOp(op.id, owner);
+      console.error('restoreExercise failed:', exError?.message);
+      return;
+    }
+    const online = !!newEx && !exError;
+    if (op && online) removeOfflineOp(op.id, owner);
+    const exerciseId = online ? (newEx as WorkoutExercise).id : offlineTempId((op as { id: string }).id);
 
     let restoredSets: WorkoutSet[] = [];
-    if (setsToInsert.length > 0) {
+    if (sets.length > 0 && online) {
       const { data: setsData, error: setsError } = await supabase
         .from('workout_sets')
-        .insert(setsToInsert)
+        .insert(sets.map(s => ({ ...s, exercise_id: exerciseId })))
         .select();
       if (setsError) console.error('restoreExercise sets failed:', setsError.message);
       restoredSets = (setsData ?? []) as WorkoutSet[];
+    } else if (sets.length > 0) {
+      restoredSets = sets.map((s, i) => ({ ...s, id: `${exerciseId}:set:${i}`, exercise_id: exerciseId } as WorkoutSet));
     }
 
-    const restoredExercise = { ...newEx, sets: restoredSets } as WorkoutExercise;
+    const restoredExercise = {
+      ...row, id: exerciseId, sets: restoredSets,
+    } as WorkoutExercise;
     set(s => {
       if (!s.currentWorkout) return s;
       const updated = {
@@ -395,57 +997,75 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           .sort((a, b) => a.order_index - b.order_index),
       };
       setCacheItem(workoutCacheKey(workoutId), updated);
-      return { currentWorkout: updated };
+      return { currentWorkout: updated, ...queueCounts(owner) };
     });
   },
 
   setCurrentWorkout: (w) => set({ currentWorkout: w }),
 
   linkSuperset: async (exerciseIds) => {
+    // groupId déterministe pour l'op : le rejeu produit le même groupe.
     const groupId = crypto.randomUUID().slice(0, 8);
-    const { error } = await supabase
-      .from('workout_exercises')
-      .update({ superset_group_id: groupId })
-      .in('id', exerciseIds);
-    if (error) { console.error('linkSuperset failed:', error.message); return; }
-    set(s => {
-      if (!s.currentWorkout) return s;
-      const updated = {
-        ...s.currentWorkout,
-        exercises: s.currentWorkout.exercises?.map(e =>
-          exerciseIds.includes(e.id) ? { ...e, superset_group_id: groupId } : e
-        ),
-      };
-      setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-      return { currentWorkout: updated };
-    });
+    await guardedMutation(
+      'superset.link',
+      { exerciseIds: [...exerciseIds], groupId },
+      () => {
+        set(s => {
+          if (!s.currentWorkout) return s;
+          const updated = {
+            ...s.currentWorkout,
+            exercises: s.currentWorkout.exercises?.map(e =>
+              exerciseIds.includes(e.id) ? { ...e, superset_group_id: groupId } : e
+            ),
+          };
+          setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+          return { currentWorkout: updated };
+        });
+      },
+      async () => {
+        const { error } = await supabase
+          .from('workout_exercises')
+          .update({ superset_group_id: groupId })
+          .in('id', exerciseIds);
+        return { error };
+      },
+    );
   },
 
   unlinkSuperset: async (exerciseId) => {
-    const { error } = await supabase
-      .from('workout_exercises')
-      .update({ superset_group_id: null })
-      .eq('id', exerciseId);
-    if (error) { console.error('unlinkSuperset failed:', error.message); return; }
-    set(s => {
-      if (!s.currentWorkout) return s;
-      const exercise = s.currentWorkout.exercises?.find(e => e.id === exerciseId);
-      const groupId = exercise?.superset_group_id;
-      let exercises = s.currentWorkout.exercises?.map(e =>
-        e.id === exerciseId ? { ...e, superset_group_id: null } : e
-      );
-      if (groupId && exercises) {
-        const remaining = exercises.filter(e => e.superset_group_id === groupId);
-        if (remaining.length === 1) {
-          exercises = exercises.map(e =>
-            e.superset_group_id === groupId ? { ...e, superset_group_id: null } : e
-          );
+    const unlinkLocal = () => {
+      set(s => {
+        if (!s.currentWorkout) return s;
+        const exercise = s.currentWorkout.exercises?.find(e => e.id === exerciseId);
+        const groupId = exercise?.superset_group_id;
+        let exercises = s.currentWorkout.exercises?.map(e =>
+          e.id === exerciseId ? { ...e, superset_group_id: null } : e
+        );
+        if (groupId && exercises) {
+          const remaining = exercises.filter(e => e.superset_group_id === groupId);
+          if (remaining.length === 1) {
+            exercises = exercises.map(e =>
+              e.superset_group_id === groupId ? { ...e, superset_group_id: null } : e
+            );
+          }
         }
-      }
-      const updated = { ...s.currentWorkout, exercises };
-      setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-      return { currentWorkout: updated };
-    });
+        const updated = { ...s.currentWorkout, exercises };
+        setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
+        return { currentWorkout: updated };
+      });
+    };
+    await guardedMutation(
+      'superset.unlink',
+      { exerciseId },
+      unlinkLocal,
+      async () => {
+        const { error } = await supabase
+          .from('workout_exercises')
+          .update({ superset_group_id: null })
+          .eq('id', exerciseId);
+        return { error };
+      },
+    );
   },
 
   fetchPreviousSets: async (userId, exerciseName, currentWorkoutId) => {
@@ -510,5 +1130,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     return results;
   },
 
-  reset: () => set({ workouts: [], currentWorkout: null, loading: false }),
+  reset: () => {
+    workoutGeneration.next();
+    set({ workouts: [], currentWorkout: null, loading: false, pendingOps: 0, deadOps: 0, queueBlocked: null, workoutsExhausted: false });
+  },
 }));

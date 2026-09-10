@@ -74,7 +74,7 @@ const L = {
     titleKcal: "Ajustement calories — brouillon",
     titleAsk: "Ask Prometheus — brouillon",
     fallbackNotes: "Brouillon déterministe (filet de sécurité). Tu édites, puis tu envoies. Pas de calories.",
-    programDescription: "Brouillon déterministe 3–5 jours / 4–6 exercices. Tu édites, puis tu envoies. Pas de calories.",
+    programDescription: "Brouillon déterministe 1–6 jours selon tes disponibilités. Tu édites, puis tu envoies. Pas de calories.",
     noviceBase: (who: string) => `Base novice — ${who}`,
     programDays: (n: number, who: string) => `Programme ${n}j — ${who}`,
     nlLastSession: "Ajustement léger proposé d’après la dernière séance.",
@@ -89,7 +89,7 @@ const L = {
     titleKcal: "Calorie adjustment — draft",
     titleAsk: "Ask Prometheus — draft",
     fallbackNotes: "Deterministic draft (safety net). You edit, then you send. No calories.",
-    programDescription: "Deterministic draft, 3–5 days / 4–6 exercises. You edit, then you send. No calories.",
+    programDescription: "Deterministic draft, 1–6 days from your availability. You edit, then you send. No calories.",
     noviceBase: (who: string) => `Novice base — ${who}`,
     programDays: (n: number, who: string) => `${n}-day program — ${who}`,
     nlLastSession: "Light adjustment proposed from the last session.",
@@ -140,8 +140,8 @@ function kindSchema(kind: string): string {
   },
   "tracking": { "track_weight": boolean, "track_checkins": boolean, "track_nutrition": boolean, "track_workouts": boolean, "workout_focus": string }
 }
-PAS de calories, macros, ni recettes. 3 à 5 jours, 4 à 6 exercices par jour, adaptés au profil.
-Si intake est présent : nombre de jours = intake.seancesRealistes (borné 2–6) ; weekday de chaque jour pris dans intake.extras.available_weekdays quand la liste existe.`;
+PAS de calories, macros, ni recettes. 1 à 6 jours selon les contraintes, 4 à 6 exercices par jour, adaptés au profil.
+Si intake est présent : EXACTEMENT len(extras.available_weekdays) jours quand la liste existe (sinon intake.seancesRealistes, borné 1–6) ; weekday de chaque jour pris dans intake.extras.available_weekdays. Ne prescris que de l'équipement listé dans intake.equipement (liste vide + lieu Domicile = poids du corps uniquement). Exclus tout mouvement de intake.mouvementAEviter, intake.exercicesDetestes et intake.descriptionBlessures.`;
   }
   if (kind === "program_nl_edit") {
     return `Schéma program_nl_edit :
@@ -149,11 +149,11 @@ Si intake est présent : nombre de jours = intake.seancesRealistes (borné 2–6
   "title": string,
   "cause": string,
   "notes": string,
-  "patch": { "exercise": string, "weekday": number|null, "default_sets": number, "default_reps": number, "default_reps_min": number|null, "default_rir": number|null, "replace_with": string } | null,
+  "patch": { "exercise": string, "exercise_id": string|null, "program_day_id": string|null, "weekday": number|null, "default_sets": number, "default_reps": number, "default_reps_min": number|null, "default_rir": number|null, "replace_with": string } | null,
   "program": { "name": string, "description": string, "duration_weeks": number, "days": [...] } | null
 }
 cause = UNE phrase courte pour le coach (dans la langue de sortie), jamais du JSON, des logs, ni le prompt brut.
-Si l'édition vise UN exercice, remplis patch. Si elle reconstruit le programme, remplis program.`;
+Si l'édition vise UN exercice, remplis patch — avec exercise_id + program_day_id repris de current_program quand tu les vois, sinon weekday + nom exact. Si elle reconstruit le programme, remplis program.`;
   }
   if (kind === "calorie_adjustment") {
     return `Schéma calorie_adjustment (seulement si adhérence OK et hors objectif) :
@@ -197,6 +197,7 @@ export async function fetchCoachLessons(
     .from("coach_agent_lessons")
     .select("kind, proposed, accepted, note, created_at")
     .eq("coach_id", coachId)
+    .eq("disabled", false)
     .order("created_at", { ascending: false })
     .limit(LESSONS_LIMIT);
   const rows = Array.isArray(data) ? data : [];
@@ -276,6 +277,9 @@ function sanitizePatch(raw: unknown): Record<string, unknown> | null {
   const exercise = asString(src.exercise || src.name);
   if (!exercise) return null;
   const patch: Record<string, unknown> = { exercise };
+  // I02 : IDs exacts conservés pour la résolution (prioritaire sur le nom).
+  if (asString(src.exercise_id)) patch.exercise_id = asString(src.exercise_id);
+  if (asString(src.program_day_id)) patch.program_day_id = asString(src.program_day_id);
   if (src.weekday != null && src.weekday !== "") {
     patch.weekday = Math.min(6, Math.max(0, Math.round(num(src.weekday, 0))));
   }
@@ -508,6 +512,17 @@ const INTAKE_MEDICAL_FLAG_IDS = [
   "medecinLimiteExercices",
 ];
 
+/** E02 — mirror of STANDARD_INTAKE_IDS. Anything else is a custom answer, never a known field. */
+const KNOWN_INTAKE_IDS = new Set([
+  "nom", "prenom", "age", "sexeGenre", "tailleCm", "poidsApproxKg",
+  "objectifPrincipal", "depuisCombienDeTemps", "niveauActuel", "foisParSemaine",
+  "programmeStructure", "seancesRealistes", "dureeIdeale", "lieu", "equipement",
+  "equipementAutre", "douleursLimitations", "mouvementAEviter", "blessuresChirurgies",
+  "descriptionBlessures", "cardiaqueHtaPoitrine", "etourdissementsEquilibre",
+  "medecinLimiteExercices", "conditionMedicalePrecise", "typesExercices",
+  "typesExercicesAutre", "exercicesDetestes", "prefereProgramme", "quelqueChoseImportant",
+]);
+
 function compactIntakeValue(value: unknown): unknown {
   if (typeof value === "string") {
     const s = value.trim();
@@ -524,14 +539,22 @@ function compactIntakeValue(value: unknown): unknown {
  * The client's intake (questionnaire d'accueil) as the LLM should see it: no empty answers,
  * long texts trimmed, available days as weekday ints, medical flags listed explicitly.
  * Returns null when the client never answered.
+ *
+ * E02 contract: only KNOWN semantic ids are forwarded as-is. Unknown top-level
+ * keys (future custom questions from the coach builder) land in `custom` with
+ * their raw label+answer — the engine never guesses their meaning. The filled
+ * contract version rides along so old dossiers stay interpretable.
  */
 export function compactIntake(raw: unknown): Record<string, unknown> | null {
   const src = asObject(raw);
   const out: Record<string, unknown> = {};
+  const custom: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(src)) {
     if (key === "version" || key === "extras") continue;
     const compact = compactIntakeValue(value);
-    if (compact !== undefined) out[key] = compact;
+    if (compact === undefined) continue;
+    if (KNOWN_INTAKE_IDS.has(key)) out[key] = compact;
+    else custom[key] = compact;
   }
   const extrasSrc = asObject(src.extras);
   const extras: Record<string, unknown> = {};
@@ -547,15 +570,22 @@ export function compactIntake(raw: unknown): Record<string, unknown> | null {
     if (days.length) extras.available_weekdays = [...new Set(days)].sort((a, b) => a - b);
   }
   if (Object.keys(extras).length) out.extras = extras;
+  if (Object.keys(custom).length) {
+    out.custom = {
+      note: "Réponses hors contrat standard (questionnaire personnalisé) : ne pas interpréter comme des ids connus.",
+      answers: custom,
+    };
+  }
   const medicalFlags = INTAKE_MEDICAL_FLAG_IDS.filter((id) => asString(src[id]) === "Oui");
   if (Object.keys(out).length === 0) return null;
   out.medical_flags = medicalFlags;
+  out.contract_version = num(src.version, 1);
   return out;
 }
 
 function intakeSessionCount(intake: Record<string, unknown> | null): number | null {
   const n = Math.round(num(intake?.seancesRealistes, 0));
-  return n >= 1 ? Math.min(6, Math.max(2, n)) : null;
+  return n >= 1 ? Math.min(6, n) : null;
 }
 
 function intakeWeekdays(intake: Record<string, unknown> | null): number[] | null {
@@ -606,15 +636,17 @@ async function fetchCompactProgram(
     const d = asObject(day);
     const { data: lifts } = await admin
       .from("program_day_exercises")
-      .select("name, default_sets, default_reps, default_reps_min, default_rir, default_rest_seconds, order_index")
+      .select("id, name, default_sets, default_reps, default_reps_min, default_rir, default_rest_seconds, order_index")
       .eq("program_day_id", d.id)
       .order("order_index");
     compactDays.push({
+      id: asString(d.id),
       weekday: num(d.weekday, 0),
       name: asString(d.name),
       exercises: (Array.isArray(lifts) ? lifts : []).slice(0, 8).map((ex) => {
         const e = asObject(ex);
         return {
+          id: asString(e.id),
           name: asString(e.name),
           default_sets: num(e.default_sets, 3),
           default_reps: num(e.default_reps, 10),
@@ -668,27 +700,301 @@ function lift(
   };
 }
 
-function weekdaySpread(dayCount: number): number[] {
-  if (dayCount <= 3) return [1, 3, 5];
-  if (dayCount === 4) return [1, 2, 4, 5];
-  return [1, 2, 3, 4, 5].slice(0, dayCount);
+/** Q03 : le filet parle la langue de l'utilisateur (FR = noms ci-dessus). */
+const LIFT_EN: Record<string, string> = {
+  "Squat goblet": "Goblet squat",
+  "Développé haltères": "Dumbbell bench press",
+  "Row barre": "Barbell row",
+  "RDL haltères": "Dumbbell RDL",
+  "Planche": "Plank",
+  "Fentes marchées": "Walking lunges",
+  "Développé incliné": "Incline dumbbell press",
+  "Tirage vertical": "Lat pulldown",
+  "Presse à cuisses": "Leg press",
+  "Développé militaire": "Overhead press",
+  "Row unilatéral": "Single-arm dumbbell row",
+  "Soulevé de terre roumain": "Romanian deadlift",
+  "Gainage latéral": "Side plank",
+  "Goblet squat tempo": "Tempo goblet squat",
+  "Pompes ou développé": "Push-ups or dumbbell press",
+  "Row assis": "Seated cable row",
+  "Fentes arrière": "Reverse lunges",
+  "Curl + extension": "Curl + extension",
+  "Développé couché": "Bench press",
+  "Squat": "Back squat",
+  "RDL": "Romanian deadlift",
+  "Fentes": "Lunges",
+  "Mollets": "Calf raises",
+  "Écarté haltères": "Dumbbell fly",
+  "Curl barre": "Barbell curl",
+  "Extension triceps": "Triceps extension",
+  "Leg curl": "Leg curl",
+  "Gainage": "Plank",
+  "Tractions assistées": "Assisted pull-ups",
+  "Fentes bulgares": "Bulgarian split squats",
+  "Curl haltères": "Dumbbell curl",
+  "Élévations latérales": "Lateral raises",
+  "Crunch": "Crunch",
+  "Squat poids du corps": "Bodyweight squat",
+  "Pompes": "Push-ups",
+  "Fentes statiques": "Stationary lunges",
+  "Superman": "Superman",
+  "Pompes inclinées": "Incline push-ups",
+  "Pont fessier": "Glute bridge",
+  "Mountain climbers": "Mountain climbers",
+  "Squat sumo": "Sumo squat",
+  "Pompes serrées": "Close-grip push-ups",
+  "Dips sur chaise": "Chair dips",
+  "Squat tempo": "Tempo squat",
+  "Pompes larges": "Wide push-ups",
+  "Burpees modérés": "Modified burpees",
+  "Squat sauté léger": "Light jump squats",
+  "Core + mobilité": "Core + mobility",
+};
+
+function liftName(fr: string, locale: AgentLocale): string {
+  if (locale !== "en") return fr;
+  return LIFT_EN[fr] ?? fr;
 }
 
-/** Deterministic 3–5 day / 4–6 lift outline. Never includes calories/macros. Honours intake days when present. */
+function weekdaySpread(dayCount: number): number[] {
+  if (dayCount <= 1) return [1];
+  if (dayCount === 2) return [1, 4];
+  if (dayCount === 3) return [1, 3, 5];
+  if (dayCount === 4) return [1, 2, 4, 5];
+  return [1, 2, 3, 4, 5, 6].slice(0, Math.min(6, dayCount));
+}
+
+/**
+ * I01 — contraintes programme extraites de l'intake, appliquées de façon
+ * déterministe au fallback ET en validation de la sortie modèle.
+ */
+export interface ProgramConstraints {
+  /** Jours cochés (weekday ints) — null si non renseignés. */
+  weekdays: number[] | null;
+  /** Séances réalistes déclarées — null si non renseigné. */
+  sessions: number | null;
+  /** Nombre de jours du plan : les jours cochés gagnent sur le chiffre. */
+  dayCount: number;
+  weekdaySource: "intake_days" | "sessions" | "default";
+  /** true si séances déclarées ≠ jours cochés (clarification demandée). */
+  daysMismatch: boolean;
+  lieu: string;
+  equipment: string[];
+  bodyweightOnly: boolean;
+  /** Phrases normalisées à ne jamais prescrire (mouvements à éviter, détestés, blessures). */
+  forbiddenPhrases: string[];
+  hasPainOrInjury: boolean;
+  medicalFlags: string[];
+}
+
+const CONSTRAINT_STOPWORDS = new Set([
+  "les", "des", "une", "aux", "avec", "pour", "dans", "sur", "par", "pas", "non", "oui",
+  "et", "ou", "the", "and", "with", "for", "les", "que", "qui", "est", "sont", "the",
+]);
+
+export function foldConstraintText(s: string): string {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
+/** Split free text into normalized forbidden phrases (comma/semicolon/et/and separated). */
+export function forbiddenPhrasesFromText(...texts: string[]): string[] {
+  const phrases: string[] = [];
+  for (const text of texts) {
+    for (const chunk of text.split(/[,;]+|\s+et\s+|\s+and\s+/i)) {
+      const folded = foldConstraintText(chunk).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+      const tokens = folded.split(" ").filter((t) => t.length >= 3 && !CONSTRAINT_STOPWORDS.has(t));
+      if (tokens.length > 0) phrases.push(tokens.join(" "));
+    }
+  }
+  return [...new Set(phrases)];
+}
+
+function exerciseMatchesForbidden(foldedName: string, phrases: string[]): string | null {
+  for (const phrase of phrases) {
+    if (phrase.includes(" ")) {
+      if (foldedName.includes(phrase)) return phrase;
+    } else if (foldedName.split(/[^a-z0-9]+/).some((w) => w === phrase || (phrase.length >= 5 && w.startsWith(phrase.slice(0, 5))))) {
+      return phrase;
+    }
+  }
+  return null;
+}
+
+/** Name patterns that require gym equipment (for bodyweight-only validation). */
+const EQUIPMENT_NAME_PATTERNS = [
+  "halter", "dumbbell", "barre", "barbell", "kettlebell", "machine", "presse",
+  "cable", "poulie", "banc", "bench", "rack", "traction", "pull-up", "pullup",
+  "elastique", "band", "rameur", "velo", "tapis", "leg curl", "leg extension",
+];
+
+export function exerciseNeedsEquipment(foldedName: string): boolean {
+  return EQUIPMENT_NAME_PATTERNS.some((p) => foldedName.includes(p));
+}
+
+export function extractProgramConstraints(
+  profile: Record<string, unknown> | null,
+  intake: Record<string, unknown> | null,
+): ProgramConstraints {
+  const src = asObject(intake);
+  const sessions = intakeSessionCount(intake);
+  const weekdays = intakeWeekdays(intake);
+  const lieu = asString(src.lieu);
+  const equipment = Array.isArray(src.equipement)
+    ? (src.equipement as unknown[]).map(asString).filter(Boolean)
+    : [];
+  const equipLower = equipment.map((e) => e.toLowerCase());
+  const onlyBodyweightOpt = equipLower.some((e) => e.includes("poids du corps"));
+  const bodyweightOnly = (onlyBodyweightOpt && equipLower.length <= 1)
+    || (lieu.toLowerCase().startsWith("domicile") && equipment.length === 0);
+  const forbiddenPhrases = forbiddenPhrasesFromText(
+    asString(src.mouvementAEviter),
+    asString(src.exercicesDetestes),
+    asString(src.descriptionBlessures),
+  );
+  const hasPainOrInjury = asString(src.douleursLimitations) === "Oui"
+    || asString(src.blessuresChirurgies) === "Oui";
+  const medicalFlags = Array.isArray(src.medical_flags)
+    ? (src.medical_flags as unknown[]).map(asString).filter(Boolean)
+    : [];
+
+  let dayCount: number;
+  let weekdaySource: ProgramConstraints["weekdaySource"];
+  if (weekdays && weekdays.length > 0) {
+    dayCount = Math.min(6, weekdays.length);
+    weekdaySource = "intake_days";
+  } else if (sessions != null) {
+    dayCount = sessions;
+    weekdaySource = "sessions";
+  } else {
+    const freq = Math.round(num(profile?.training_frequency, 0));
+    dayCount = freq >= 1 ? Math.min(6, freq) : 3;
+    weekdaySource = "default";
+  }
+  return {
+    weekdays,
+    sessions,
+    dayCount,
+    weekdaySource,
+    daysMismatch: sessions != null && weekdays != null && weekdays.length > 0 && sessions !== Math.min(6, weekdays.length),
+    lieu,
+    equipment,
+    bodyweightOnly,
+    forbiddenPhrases,
+    hasPainOrInjury,
+    medicalFlags,
+  };
+}
+
+export interface ProgramValidation {
+  ok: boolean;
+  violations: string[];
+}
+
+/**
+ * I01 — validation déterministe AVANT présentation : jours, weekdays,
+ * équipement, mouvements interdits. Zéro interprétation, zéro invention.
+ */
+export function validateProgramDays(
+  days: Array<{ weekday: number; exercises: Array<{ name: string }> }>,
+  constraints: ProgramConstraints,
+): ProgramValidation {
+  const violations: string[] = [];
+  if (days.length !== constraints.dayCount) {
+    violations.push(`day_count: got ${days.length}, want ${constraints.dayCount}`);
+  }
+  const available = constraints.weekdays && constraints.weekdays.length > 0
+    ? new Set(constraints.weekdays)
+    : null;
+  for (const day of days) {
+    if (available && !available.has(day.weekday)) {
+      violations.push(`weekday:${day.weekday} not in available days`);
+    }
+    for (const ex of day.exercises) {
+      const folded = foldConstraintText(ex.name);
+      const hit = exerciseMatchesForbidden(folded, constraints.forbiddenPhrases);
+      if (hit) violations.push(`forbidden:${hit} in "${ex.name}"`);
+      if (constraints.bodyweightOnly && exerciseNeedsEquipment(folded)) {
+        violations.push(`equipment:"${ex.name}" needs gym equipment`);
+      }
+    }
+  }
+  return { ok: violations.length === 0, violations };
+}
+
+/** Spares to refill a day emptied by constraint filtering (never gym equipment). */
+const BODYWEIGHT_SPARES = [
+  "Pompes",
+  "Squat poids du corps",
+  "Fentes statiques",
+  "Planche",
+  "Gainage latéral",
+  "Dips sur chaise",
+  "Pont fessier",
+  "Superman",
+  "Mountain climbers",
+  "Crunch",
+];
+
+const STANDARD_SPARES = [
+  "Goblet squat",
+  "Row unilatéral",
+  "Développé haltères",
+  "RDL haltères",
+  "Face pulls",
+  "Planche",
+  "Fentes statiques",
+  "Pompes",
+];
+
+function filterDayExercises(
+  exercises: Array<Record<string, unknown>>,
+  constraints: ProgramConstraints,
+  spares: string[],
+  sets: number,
+  reps: number,
+  rir: number | null,
+  rest: number,
+  locale: AgentLocale = "fr",
+): Array<Record<string, unknown>> {
+  const kept = exercises.filter((ex) => {
+    const folded = foldConstraintText(asString(ex.name));
+    if (exerciseMatchesForbidden(folded, constraints.forbiddenPhrases)) return false;
+    if (constraints.bodyweightOnly && exerciseNeedsEquipment(folded)) return false;
+    return true;
+  });
+  const out = [...kept];
+  for (const spare of spares) {
+    if (out.length >= 4) break;
+    const folded = foldConstraintText(spare);
+    if (exerciseMatchesForbidden(folded, constraints.forbiddenPhrases)) continue;
+    if (constraints.bodyweightOnly && exerciseNeedsEquipment(folded)) continue;
+    if (out.some((ex) => foldConstraintText(asString(ex.name)) === folded)) continue;
+    const name = liftName(spare, locale);
+    out.push(lift(name, sets, folded.includes("planche") || folded.includes("gainage") ? 30 : reps, folded.includes("planche") || folded.includes("gainage") ? null : rir, 60));
+  }
+  return out;
+}
+
+/**
+ * I01 — filet déterministe : respecte EXACTEMENT jours cochés / séances /
+ * équipement / mouvements interdits. N'invente jamais une adaptation sûre :
+ * restrictions médicales ou conflit jours/séances → needs_coach_review +
+ * needs_clarification explicites, tranchés par l'humain avant envoi.
+ */
 export function fallbackProgramFromProfile(
   profile: Record<string, unknown> | null,
   prompt: string,
   intake: Record<string, unknown> | null = null,
   locale: AgentLocale = "fr",
 ): Record<string, unknown> {
-  const intakeSessions = intakeSessionCount(intake);
-  const freq = intakeSessions ?? Math.round(num(profile?.training_frequency, 3));
+  const constraints = extractProgramConstraints(profile, intake);
   const experience = asString(profile?.training_experience).toLowerCase();
   const focus = asString(profile?.training_focus).toLowerCase();
   const novice = experience.includes("beginner") || experience.includes("novice")
     || asString(intake?.niveauActuel).toLowerCase().startsWith("débutant")
     || /novice|débutant|debutant|étudiant|etudiant/i.test(prompt);
-  const dayCount = novice ? Math.min(4, Math.max(3, freq || 3)) : Math.min(5, Math.max(3, freq || 4));
+  const dayCount = constraints.dayCount;
   const strength = focus.includes("strength") || focus.includes("force");
   const reps = strength ? 6 : 10;
   const rest = strength ? 150 : 90;
@@ -705,24 +1011,63 @@ export function fallbackProgramFromProfile(
     { name: "Upper B", exercises: [lift("Développé incliné", 4, reps, 2, rest), lift("Row unilatéral", 3, reps, 2, rest), lift("Écarté haltères", 3, 12, 2, 75), lift("Curl barre", 3, 10, 2, 75), lift("Extension triceps", 3, 10, 2, 75)] },
     { name: "Lower B", exercises: [lift("Presse à cuisses", 4, reps, 2, rest), lift("Soulevé de terre roumain", 3, reps, 2, rest), lift("Fentes marchées", 3, reps, 2, rest), lift("Leg curl", 3, 10, 2, 75), lift("Gainage", 3, 30, null, 60)] },
     { name: "Full accessory", exercises: [lift("Tractions assistées", 3, 8, 2, rest), lift("Développé haltères", 3, reps, 2, rest), lift("Fentes bulgares", 3, reps, 2, rest), lift("Face pulls", 3, 12, 2, 75), lift("Planche", 3, 30, null, 60)] },
+    { name: "Arms + core", exercises: [lift("Curl haltères", 3, 12, 2, 75), lift("Extension triceps", 3, 12, 2, 75), lift("Élévations latérales", 3, 12, 2, 75), lift("Crunch", 3, 15, null, 60), lift("Planche", 3, 30, null, 60)] },
   ];
-  const templates = dayCount <= 3 || novice ? fullBody : upperLower;
-  const preferred = intakeWeekdays(intake);
-  const weekdays = preferred && preferred.length >= dayCount
-    ? preferred.slice(0, dayCount)
+  const bodyweightDays = [
+    { name: "Full body A", exercises: [lift("Squat poids du corps", 3, 15, 2, rest), lift("Pompes", 3, 12, 2, rest), lift("Fentes statiques", 3, 10, 2, rest), lift("Superman", 3, 12, 2, rest), lift("Planche", 3, 30, null, 60)] },
+    { name: "Full body B", exercises: [lift("Fentes marchées", 3, 10, 2, rest), lift("Pompes inclinées", 3, 12, 2, rest), lift("Pont fessier", 3, 15, 2, rest), lift("Mountain climbers", 3, 20, null, 60), lift("Gainage latéral", 3, 20, null, 60)] },
+    { name: "Full body C", exercises: [lift("Squat sumo", 3, 15, 2, rest), lift("Pompes serrées", 3, 10, 2, rest), lift("Fentes arrière", 3, 10, 2, rest), lift("Dips sur chaise", 3, 12, 2, rest), lift("Crunch", 3, 15, null, 60)] },
+    { name: "Full body D", exercises: [lift("Squat tempo", 3, 12, 2, rest), lift("Pompes larges", 3, 10, 2, rest), lift("Fentes bulgares", 3, 8, 2, rest), lift("Superman", 3, 12, 2, rest), lift("Planche", 3, 30, null, 60)] },
+    { name: "Full accessory", exercises: [lift("Burpees modérés", 3, 8, 2, rest), lift("Pompes", 3, 12, 2, rest), lift("Squat sauté léger", 3, 10, 2, rest), lift("Mountain climbers", 3, 20, null, 60), lift("Gainage", 3, 30, null, 60)] },
+    { name: "Core + mobilité", exercises: [lift("Crunch", 3, 15, null, 60), lift("Planche", 3, 30, null, 60), lift("Gainage latéral", 3, 20, null, 60), lift("Pont fessier", 3, 15, 2, rest), lift("Superman", 3, 12, 2, rest)] },
+  ];
+  const templates = constraints.bodyweightOnly
+    ? bodyweightDays
+    : (dayCount <= 3 || (novice && dayCount <= 4) ? fullBody : upperLower);
+  const weekdays = constraints.weekdays && constraints.weekdays.length > 0
+    ? [...constraints.weekdays].sort((a, b) => a - b).slice(0, dayCount)
     : weekdaySpread(dayCount);
+  const spares = constraints.bodyweightOnly ? BODYWEIGHT_SPARES : STANDARD_SPARES;
   const days = templates.slice(0, dayCount).map((day, i) => ({
     weekday: weekdays[i] ?? ((i + 1) % 7),
-    name: day.name,
-    exercises: day.exercises,
+    name: liftName(day.name, locale),
+    exercises: filterDayExercises(day.exercises, constraints, spares, 3, reps, 2, rest, locale).map((ex) => ({
+      ...ex,
+      name: liftName(asString(ex.name), locale),
+    })),
   }));
+  const shortDays = days.filter((d) => d.exercises.length < 3).length;
   const who = asString(profile?.full_name) || "client";
   const l = L[locale];
+  const notes: string[] = [];
+  if (constraints.daysMismatch) {
+    notes.push(locale === "fr"
+      ? `${constraints.sessions} séances demandées mais ${constraints.weekdays?.length} jours cochés : plan sur ${dayCount} jours, à clarifier avant envoi.`
+      : `${constraints.sessions} sessions requested but ${constraints.weekdays?.length} days checked: ${dayCount}-day plan, clarify before sending.`);
+  }
+  if (constraints.bodyweightOnly) {
+    notes.push(locale === "fr"
+      ? "Équipement indisponible : plan au poids du corps uniquement."
+      : "No equipment available: bodyweight-only plan.");
+  }
+  if (constraints.forbiddenPhrases.length > 0) {
+    notes.push(locale === "fr"
+      ? `Mouvements exclus du plan : ${constraints.forbiddenPhrases.join(", ")}.`
+      : `Movements excluded from the plan: ${constraints.forbiddenPhrases.join(", ")}.`);
+  }
+  if (shortDays > 0) {
+    notes.push(locale === "fr"
+      ? `${shortDays} jour(s) incomplet(s) après exclusion — à compléter avant envoi.`
+      : `${shortDays} day(s) left short after exclusions — complete before sending.`);
+  }
   return {
     name: novice ? l.noviceBase(who) : l.programDays(dayCount, who),
     description: l.programDescription,
     duration_weeks: 8,
     days,
+    constraints_notes: notes,
+    needs_coach_review: constraints.medicalFlags.length > 0 || constraints.hasPainOrInjury || shortDays > 0,
+    needs_clarification: constraints.daysMismatch || shortDays === days.length,
   };
 }
 
@@ -882,12 +1227,55 @@ export async function runCoachAgent(
     : null;
 
   let built = llm ? buildPayload(kind, input, llm) : null;
+  let resolution: string = llm ? "model" : "fallback_no_model";
+  let modelViolations: string[] = [];
+
+  // I01 : la sortie modèle est validée contre les contraintes AVANT présentation.
+  if (built && (kind === "onboarding_plan" || (kind === "program_nl_edit" && built.payload.program))) {
+    const program = asObject(built.payload.program);
+    const days = (Array.isArray(program.days) ? program.days : []).map((d) => {
+      const day = asObject(d);
+      return {
+        weekday: num(day.weekday, -1),
+        exercises: (Array.isArray(day.exercises) ? day.exercises : []).map((ex) => ({ name: asString(asObject(ex).name) })),
+      };
+    });
+    if (days.length > 0) {
+      const check = validateProgramDays(days, extractProgramConstraints(profile, intake));
+      if (!check.ok) {
+        built = null;
+        resolution = "fallback_after_invalid_model";
+        modelViolations = check.violations;
+      }
+    }
+  }
+  if (built && kind === "program_nl_edit" && built.payload.patch) {
+    const patch = asObject(built.payload.patch);
+    const target = `${asString(patch.exercise)} ${asString(patch.replace_with)}`;
+    const constraints = extractProgramConstraints(profile, intake);
+    const hit = exerciseMatchesForbidden(foldConstraintText(target), constraints.forbiddenPhrases);
+    if (hit) {
+      // I01 : un patch vers un mouvement interdit est rejeté, pas deviné.
+      return { ok: false, error: "program_edit_failed" };
+    }
+  }
+
   if (!built || !payloadIsReady(kind, built.payload)) {
+    if (kind === "program_nl_edit") {
+      // I01 : une petite modification qui échoue laisse le programme courant
+      // intact — jamais un plan complet de secours à la place.
+      return { ok: false, error: "program_edit_failed" };
+    }
     if (wantsProgram) {
       const program = fallbackProgramFromProfile(profile, input.prompt, intake, input.locale);
+      const invalidNote = modelViolations.length > 0
+        ? (input.locale === "fr"
+          ? ` Sortie modèle rejetée (${modelViolations.length} contrainte(s)) : ${modelViolations.slice(0, 3).join(" ; ")}.`
+          : ` Model output rejected (${modelViolations.length} constraint(s)): ${modelViolations.slice(0, 3).join("; ")}.`)
+        : "";
       built = buildPayload(kind, input, {
         title: titleFor(kind, "", input.locale),
-        notes: L[input.locale].fallbackNotes,
+        notes: L[input.locale].fallbackNotes + invalidNote,
         program,
         tracking: {
           track_weight: true,
@@ -897,19 +1285,26 @@ export async function runCoachAgent(
           workout_focus: asString(profile?.training_focus),
         },
       });
+      (built.payload as Record<string, unknown>).resolution = resolution;
+      if (modelViolations.length > 0) {
+        (built.payload as Record<string, unknown>).constraint_violations = modelViolations;
+      }
     } else {
       built = fallbackAsk(input, profile);
     }
   }
 
   if (!payloadIsReady(kind, built.payload)) {
-    if (kind === "onboarding_plan" || kind === "program_nl_edit") {
+    if (kind === "onboarding_plan") {
       const program = fallbackProgramFromProfile(profile, input.prompt, intake, input.locale);
       built = buildPayload(kind, input, {
         title: titleFor(kind, "", input.locale),
         notes: L[input.locale].fallbackNotes,
         program,
       });
+      (built.payload as Record<string, unknown>).resolution = "fallback_no_model";
+    } else if (kind === "program_nl_edit") {
+      return { ok: false, error: "program_edit_failed" };
     } else {
       built = fallbackAsk(input, profile);
     }

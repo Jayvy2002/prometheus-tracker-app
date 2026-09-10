@@ -66,9 +66,12 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
       fat_target: macros.fat,
     }, coached);
 
-    await updateProfile(user.id, updates);
-
+    const result = await updateProfile(user.id, updates);
     setSaving(false);
+    if (result.error) {
+      toast(result.error, 'error');
+      return;
+    }
     onBack();
   };
 

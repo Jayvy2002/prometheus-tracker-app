@@ -15,6 +15,7 @@ import { displayName } from '../../lib/coachText';
 import { clientFileHref } from '../../lib/coachSituation';
 import { coachingPassHref } from '../../lib/coachInterventions';
 import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
+import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
@@ -29,10 +30,13 @@ export default function CoachInboxPage() {
   const { user } = useAuthStore();
   const {
     fetchCoachOps, fetchCoachMessages, fetchCoachSettings, pendingInterventions, clients, sentMessages,
-    sendCoachMessage, markThreadRead, coachSettings, resolveIntervention,
+    sendCoachMessage, markThreadRead, coachSettings,
+    applyIntervention,
+    fetchThreadPage, threadExhausted,
   } = useCoachingStore();
   const [sending, setSending] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
 
   useEffect(() => {
@@ -65,16 +69,19 @@ export default function CoachInboxPage() {
     : undefined;
 
   const handleSend = async (body: string) => {
-    if (!clientId) return;
+    if (!clientId) return { error: 'empty' as string | null };
     setSending(true);
-    const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup');
+    const msgId = loadOrCreateMessageKey(clientId, body);
+    const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId);
     setSending(false);
     if (result.error) {
       toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
-      return;
+      return result;
     }
+    clearMessageKey(clientId);
     toast(t('coaching.queue.sent'));
     if (nudgeKey) navigate(`/messages/${clientId}`, { replace: true });
+    return { error: null };
   };
 
   const handleSendCard = async (item: typeof pendingInterventions[number]) => {
@@ -85,16 +92,16 @@ export default function CoachInboxPage() {
     setSendingId(item.id);
     if (isRelanceKind(item.kind)) {
       const body = parsePreparedMessage(item.payload);
-      const sent = await sendCoachMessage(item.client_id, body, preparedTemplateKey(item.payload, item.kind));
-      if (sent.error) {
-        setSendingId(null);
-        toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
-        return;
-      }
-      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
+      const resolved = await applyIntervention(item.id, 'sent', item.payload, {
+        assign_client_id: item.client_id,
+        message: {
+          body,
+          template_key: preparedTemplateKey(item.payload, item.kind),
+        },
+      });
       setSendingId(null);
       if (resolved.error) {
-        toast(resolved.error, 'error');
+        toast(t(resolved.error === 'already_claimed' ? 'errors.alreadyClaimed' : resolved.error === 'already_resolved' ? 'errors.alreadyResolved' : 'errors.saveFailed'), 'error');
         return;
       }
       toast(t('coaching.queue.sent'));
@@ -134,6 +141,13 @@ export default function CoachInboxPage() {
               draftBody={draftBody}
               draftHint={nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined}
               onSend={handleSend}
+              hasMore={clientId ? !threadExhausted[clientId] : false}
+              loadingMore={loadingMore}
+              onLoadMore={clientId ? () => {
+                if (loadingMore) return;
+                setLoadingMore(true);
+                void fetchThreadPage(clientId).finally(() => setLoadingMore(false));
+              } : undefined}
             />
           </div>
         </div>

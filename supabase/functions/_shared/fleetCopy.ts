@@ -42,6 +42,9 @@ export interface FleetCopy {
     cause: string;
     body: (name: string) => string;
     title: (name: string) => string;
+    /** I04 : profil protégé — revue qualifiée, pas d'ajustement auto. */
+    guardedObservation: string;
+    guardedCause: string;
   };
   onboarding: {
     observationIncomplete: string;
@@ -130,6 +133,8 @@ const fr: FleetCopy = {
     body: (name) =>
       `Salut ${name}, petit check de la semaine — comment tu vas ? L’entraînement passe bien, et tu as besoin de quelque chose ?`,
     title: (name) => `Prendre des nouvelles de ${name}`,
+    guardedObservation: "Signal chiffré, mais profil protégé : pas d’ajustement automatique.",
+    guardedCause: "Revue qualifiée — à voir ensemble, sans objectif auto de restriction.",
   },
   onboarding: {
     observationIncomplete: "Nouveau client, onboarding incomplet.",
@@ -226,6 +231,8 @@ const en: FleetCopy = {
     body: (name) =>
       `Hey ${name}, quick weekly check — how are you doing? Training going well, and do you need anything?`,
     title: (name) => `Check in with ${name}`,
+    guardedObservation: "Flagged numbers, but a protected profile: no automatic adjustment.",
+    guardedCause: "Qualified review — see it together, no automatic restriction goal.",
   },
   onboarding: {
     observationIncomplete: "New client, onboarding incomplete.",

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { setSessionOwner } from '../lib/sessionScope';
 import type { User, Session } from '@supabase/supabase-js';
 import { authSnapshotEvent, shouldCommitAuthSnapshot } from '../lib/clientAuth';
 
@@ -38,6 +39,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     if (error) return { error: error.message };
     if (data.session) {
+      setSessionOwner(data.session.user.id);
       set({ session: data.session, user: data.session.user, loading: false });
     }
     if (!data.session) return { error: null, needsConfirmation: true };
@@ -49,6 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
     if (data.session) {
+      setSessionOwner(data.session.user.id);
       set({ session: data.session, user: data.session.user, loading: false });
     }
     return { error: null };
@@ -133,6 +136,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // TOKEN_REFRESHED / SIGNED_IN on tab focus recreate the user object. Keep the
       // existing reference so App's `user.id` effect does not remount the tree.
       if (session?.user?.id && session.user.id === get().user?.id) {
+        setSessionOwner(session.user.id);
         set({
           session,
           loading: false,
@@ -140,6 +144,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         });
         return;
       }
+      if (session?.user?.id) setSessionOwner(session.user.id);
       set({
         session,
         user: session?.user ?? null,
