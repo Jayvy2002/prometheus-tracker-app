@@ -1,13 +1,13 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-10T21:47:00Z",
+  "captured_at": "2026-09-10T22:12:03Z",
   "deploy_channel": "supabase_management_api",
-  "comment": "Inventaire live après redéploiement via Supabase Management API (connexion authentifiée ChatGPT), pas une preuve CLI. Bundles identiques aux audités v31/v24 : mêmes SHA ezbr, import_map deno.json, verify_jwt inchangés. Versions live : fleet=32, agent=25. Le workflow GitHub #69 (CLI) reste optionnel et non validé.",
+  "comment": "Inventaire live après redéploiement via Supabase Management API, pas une preuve CLI. fleet=32 conserve le bundle audité. agent=26 conserve le bundle métier audité et corrige uniquement l encodage UTF-8 du wrapper Management API ; OPTIONS 200, POST sans JWT 401. import_map et verify_jwt inchangés. Le workflow GitHub #69 (CLI) reste optionnel et non validé.",
   "functions": [
     { "slug": "analyze-product", "status": "ACTIVE", "verify_jwt": true, "version": 14 },
     { "slug": "ask-second", "status": "ACTIVE", "verify_jwt": true, "version": 7 },
     { "slug": "batch-verify-exercises", "status": "ACTIVE", "verify_jwt": true, "version": 7 },
-    { "slug": "coach-agent", "status": "ACTIVE", "verify_jwt": true, "version": 25, "ezbr_sha256": "5a90a069db764b90414c37da53d2e59db9a89313380a39ec87569c65593f83b6" },
+    { "slug": "coach-agent", "status": "ACTIVE", "verify_jwt": true, "version": 26, "ezbr_sha256": "5a8ee074df72b2858a12ad99befb74ee650cccdc0491047ce53f51ba22748cd3" },
     { "slug": "coach-fleet-round", "status": "ACTIVE", "verify_jwt": false, "version": 32, "ezbr_sha256": "b902f8524779cc2c6232e3846c223368b9a55c76f3eb266ea08f79d1c054fe2e" },
     { "slug": "create-checkout-session", "status": "ACTIVE", "verify_jwt": true, "version": 6 },
     { "slug": "create-portal-session", "status": "ACTIVE", "verify_jwt": true, "version": 6 },
