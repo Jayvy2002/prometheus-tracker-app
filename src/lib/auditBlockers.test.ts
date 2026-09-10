@@ -38,3 +38,12 @@ test('D07: workout drain never drops ops after 3 failures and never slices to 20
   assert.match(store, /moveOfflineOpToDeadLetter/);
   assert.doesNotMatch(store, /removeOfflineOp\(op\.id.*nextAttempts/);
 });
+
+test('replay local: Git-clock files skip tables that never existed', () => {
+  const rls = src('supabase/migrations/20260329195723_optimize_rls_policies_select_auth_uid.sql');
+  assert.match(rls, /to_regclass\('public\.calorie_adjustment_suggestions'\)/);
+  const push = src('supabase/migrations/20260405000001_push_notifications.sql');
+  assert.match(push, /to_regclass\('public\.user_profiles'\)/);
+  const checkins = src('supabase/migrations/20260716125531_add_daily_checkins_and_extend_coaching.sql');
+  assert.match(checkins, /to_regclass\('public\.coaching_recommendations'\)/);
+});

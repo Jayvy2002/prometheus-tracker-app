@@ -75,15 +75,28 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM auth.identities WHERE user_id = p_id AND provider = 'email'
   ) THEN
-    INSERT INTO auth.identities (
-      provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
-    ) VALUES (
-      p_id::text,
-      p_id,
-      jsonb_build_object('sub', p_id::text, 'email', p_email),
-      'email',
-      now(), now(), now()
-    );
+    BEGIN
+      INSERT INTO auth.identities (
+        id, provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+      ) VALUES (
+        gen_random_uuid(),
+        p_id::text,
+        p_id,
+        jsonb_build_object('sub', p_id::text, 'email', p_email),
+        'email',
+        now(), now(), now()
+      );
+    EXCEPTION WHEN undefined_column THEN
+      INSERT INTO auth.identities (
+        provider_id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+      ) VALUES (
+        p_id::text,
+        p_id,
+        jsonb_build_object('sub', p_id::text, 'email', p_email),
+        'email',
+        now(), now(), now()
+      );
+    END;
   END IF;
 
   INSERT INTO public.user_profiles (
@@ -121,6 +134,11 @@ DECLARE
 BEGIN
   DELETE FROM public.coach_interventions WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
   DELETE FROM public.coach_notes WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  DELETE FROM public.mutation_idempotency WHERE user_id = ANY (v_ids);
+  IF to_regclass('public.program_revisions') IS NOT NULL THEN
+    DELETE FROM public.program_revisions WHERE created_by = ANY (v_ids)
+      OR program_id IN (SELECT id FROM public.programs WHERE owner_id = ANY (v_ids));
+  END IF;
   DELETE FROM public.program_assignments WHERE client_id = ANY (v_ids) OR assigned_by = ANY (v_ids);
   DELETE FROM public.program_day_exercises
     WHERE program_day_id IN (
@@ -131,6 +149,9 @@ BEGIN
   DELETE FROM public.program_days WHERE program_id IN (SELECT id FROM public.programs WHERE owner_id = ANY (v_ids));
   DELETE FROM public.programs WHERE owner_id = ANY (v_ids);
   DELETE FROM public.coach_client_links WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  DELETE FROM public.user_roles WHERE user_id = ANY (v_ids);
+  DELETE FROM public.user_profiles WHERE id = ANY (v_ids);
+  DELETE FROM auth.identities WHERE user_id = ANY (v_ids);
   DELETE FROM auth.users WHERE id = ANY (v_ids);
 
   PERFORM pg_temp.seed_user(v_coach_a, 'coach.a@rls-matrix.test', 'Coach A', 'coach');
@@ -345,20 +366,66 @@ BEGIN
   PERFORM pg_temp.record('CLIENT_ASSIGN_DEL', v_ok, CASE WHEN v_ok THEN 'delete rejected' ELSE 'coached client deleted the assignment' END);
 END $$;
 
--- RPC DEFINER : grants de surface.
+-- RPC DEFINER : grants de surface (via OID — `int` ≠ `integer` dans has_function_privilege).
+CREATE OR REPLACE FUNCTION pg_temp.fn_exec(p_name text, p_role text DEFAULT 'authenticated')
+RETURNS boolean
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_oid oid;
+BEGIN
+  SELECT p.oid INTO v_oid
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public' AND p.proname = p_name
+  ORDER BY p.oid
+  LIMIT 1;
+  IF v_oid IS NULL THEN
+    RETURN false;
+  END IF;
+  RETURN has_function_privilege(p_role, v_oid, 'EXECUTE');
+END;
+$$;
+
 DO $$
 BEGIN
-  IF has_function_privilege('authenticated', 'public.create_program_complete(text,text,int,jsonb,uuid,date)', 'EXECUTE')
-     AND has_function_privilege('authenticated', 'public.apply_intervention(uuid,text,text,text,jsonb,jsonb,text)', 'EXECUTE')
-     AND has_function_privilege('authenticated', 'public.assign_program_secure(uuid,uuid,date)', 'EXECUTE')
-     AND has_function_privilege('authenticated', 'public.fork_program(uuid,text)', 'EXECUTE')
-     AND has_function_privilege('authenticated', 'public.end_coach_client_link(uuid)', 'EXECUTE')
-     AND has_function_privilege('authenticated', 'public.get_my_coach_card()', 'EXECUTE')
-     AND NOT has_function_privilege('authenticated', 'public._apply_intervention_effects(uuid,uuid,jsonb,text,jsonb)', 'EXECUTE')
+  IF pg_temp.fn_exec('create_program_complete')
+     AND pg_temp.fn_exec('apply_intervention')
+     AND pg_temp.fn_exec('claim_intervention')
+     AND pg_temp.fn_exec('assign_program_secure')
+     AND pg_temp.fn_exec('fork_program')
+     AND pg_temp.fn_exec('end_coach_client_link')
+     AND pg_temp.fn_exec('get_my_coach_card')
+     AND pg_temp.fn_exec('save_program_day_exercises')
+     AND pg_temp.fn_exec('sync_program_days')
+     AND pg_temp.fn_exec('snapshot_program_revision')
+     AND pg_temp.fn_exec('adopt_client_program')
+     AND NOT pg_temp.fn_exec('_apply_intervention_effects')
+     AND NOT pg_temp.fn_exec('transition_client_to_solo')
+     AND NOT pg_temp.fn_exec('close_coach_account')
+     AND NOT pg_temp.fn_exec('handle_new_user')
+     AND NOT pg_temp.fn_exec('invoke_coach_fleet_round')
   THEN
-    PERFORM pg_temp.record('DEFINER_GRANTS', true, 'public RPCs granted ; helper revoked');
+    PERFORM pg_temp.record('DEFINER_GRANTS', true, 'surface RPCs granted ; helpers revoked');
   ELSE
-    PERFORM pg_temp.record('DEFINER_GRANTS', false, 'grant/revoke mismatch on DEFINER RPCs');
+    PERFORM pg_temp.record('DEFINER_GRANTS', false, format(
+      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s card=%s save=%s sync=%s snap=%s adopt=%s helper=%s trans=%s close=%s handle=%s fleet=%s',
+      pg_temp.fn_exec('create_program_complete'),
+      pg_temp.fn_exec('apply_intervention'),
+      pg_temp.fn_exec('claim_intervention'),
+      pg_temp.fn_exec('assign_program_secure'),
+      pg_temp.fn_exec('fork_program'),
+      pg_temp.fn_exec('end_coach_client_link'),
+      pg_temp.fn_exec('get_my_coach_card'),
+      pg_temp.fn_exec('save_program_day_exercises'),
+      pg_temp.fn_exec('sync_program_days'),
+      pg_temp.fn_exec('snapshot_program_revision'),
+      pg_temp.fn_exec('adopt_client_program'),
+      pg_temp.fn_exec('_apply_intervention_effects'),
+      pg_temp.fn_exec('transition_client_to_solo'),
+      pg_temp.fn_exec('close_coach_account'),
+      pg_temp.fn_exec('handle_new_user'),
+      pg_temp.fn_exec('invoke_coach_fleet_round')
+    ));
   END IF;
 END $$;
 
@@ -402,6 +469,27 @@ BEGIN
   END;
   RESET ROLE; PERFORM pg_temp.clear_user();
   PERFORM pg_temp.record('RPC_FORK_CROSS', v_ok, CASE WHEN v_ok THEN 'rejected' ELSE 'B forked P_A' END);
+END $$;
+
+-- A1 ne peut pas claim_intervention sur la carte de A.
+DO $$
+DECLARE
+  v_id uuid;
+  v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
+  v_a uuid := '00000000-0000-0000-0000-0000000000a1';
+  v_ok boolean := true;
+BEGIN
+  SELECT id INTO v_id FROM public.coach_interventions WHERE coach_id = v_a AND status = 'pending' LIMIT 1;
+  PERFORM pg_temp.as_user(v_a1);
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    PERFORM public.claim_intervention(v_id, 'claim-a1-steal-xxxxxxxx');
+    v_ok := false;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  RESET ROLE; PERFORM pg_temp.clear_user();
+  PERFORM pg_temp.record('RPC_CLAIM_CROSS', v_ok, CASE WHEN v_ok THEN 'rejected' ELSE 'A1 claimed A intervention' END);
 END $$;
 
 -- A1 ne peut pas apply_intervention sur la carte de A.

@@ -14,9 +14,10 @@ Le fichier `supabase/schema_migrations.lock.json` est le miroir de `supabase_mig
 2. Remplacement des 10 fichiers consolidés par 29 fichiers `{version}_{name}.sql`.
 3. Aucun `supabase db push` des 10 consolidés. Aucun `migration repair` nécessaire côté prod : les 29 versions y sont déjà `applied`.
 4. Horodatages plus anciens (fichiers Git `20260327…` vs prod `20260824…`) : même histoire logique, horloges différentes. On ne les renomme pas et on ne les rejoue pas en prod. Un `db reset` local / CI applique les fichiers Git (y compris les 29 dumps) pour reconstruire un schéma équivalent.
+5. **Replay local (CI `supabase start`)** : trois fichiers à horloge Git (jamais tamponnés sous ces numéros en prod) gardaient des `ALTER`/`POLICY` sur des tables qui n’existent plus (`calorie_adjustment_suggestions`, `profiles`, `coaching_recommendations`). Les statements sont conservés derrière `to_regclass` — **les 29 dumps prod ne sont pas modifiés et ne sont pas rejoués en prod**.
 
 ## Nouvelle migration
 
-`20260910153000_audit_blockers.sql` — D01 (création atomique complète), D02 (effets exactement une fois), colonnes d’idempotence. Appliquée en prod **sous cette version**.
+`20260910153000_audit_blockers.sql` — D01 (création atomique complète), D02 (effets exactement une fois), colonnes d’idempotence. Appliquée en prod **sous cette version** (pas via `apply_migration` MCP, qui retamponnerait un autre horodatage).
 
-Vérif CI : `npm run verify:migrations` (Git vs lock, refuse `2026091000000x`).
+Vérif CI : `npm run verify:migrations` (Git vs lock, refuse `2026091000000x`). Job `rls-matrix` = staging-like (`supabase start` PG17) ; org Free = pas de branche preview Supabase.

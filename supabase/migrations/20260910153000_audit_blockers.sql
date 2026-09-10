@@ -600,3 +600,6 @@ BEGIN
   RETURN jsonb_build_object('ok', true, 'claim_key', p_claim_key);
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.claim_intervention(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.claim_intervention(uuid, text) TO authenticated;

@@ -52,12 +52,16 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(matrix, /assign_program_secure/);
   assert.match(matrix, /create_program_complete/);
   assert.match(matrix, /apply_intervention/);
+  assert.match(matrix, /claim_intervention/);
   assert.match(matrix, /end_coach_client_link/);
   assert.match(matrix, /D01_ATOMIC/);
+  assert.match(matrix, /RPC_CLAIM_CROSS/);
   assert.match(matrix, /UNLINK/);
   assert.match(matrix, /STAGING/);
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /verify:edges/);
   assert.match(ci, /rls-matrix/);
   assert.match(ci, /run-rls-matrix/);
+  assert.match(ci, /verify-local-migrations/);
+  assert.match(ci, /deploy-audit-edges/);
 });

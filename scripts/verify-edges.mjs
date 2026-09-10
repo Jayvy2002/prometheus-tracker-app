@@ -121,8 +121,17 @@ if (process.env.SUPABASE_ACCESS_TOKEN) {
         if (asBool(live.verify_jwt) !== Boolean(row.verify_jwt)) {
           fail(`JWT live mismatch ${row.slug}: live=${live.verify_jwt} manifeste=${row.verify_jwt}`);
         }
+        const locked = deployed.find((d) => d.slug === row.slug);
+        if (locked && live.version != null && locked.version != null
+            && Number(live.version) !== Number(locked.version)) {
+          fail(`version mismatch ${row.slug}: live=${live.version} lock=${locked.version}`);
+        }
       }
       console.log(`inventaire live OK: ${liveList.length} slugs (${PROJECT_REF})`);
+      for (const row of ['coach-fleet-round', 'coach-agent']) {
+        const live = liveList.find((d) => d.slug === row);
+        if (live) console.log(`  ${row} live v${live.version} jwt=${live.verify_jwt}`);
+      }
     }
   } catch (err) {
     fail(`inventaire live injoignable: ${err instanceof Error ? err.message : err}`);

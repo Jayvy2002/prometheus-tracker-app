@@ -45,12 +45,14 @@
 
 ### ⚠️ Étapes ops REQUISES après merge (ne pas oublier)
 
-1. **Edges à redéployer en CLI** (le déploiement API échoue sur ces fonctions à cause d'un chemin import-map stale côté plateforme — bug constaté, versions actuelles intactes) :
+1. **Edges à redéployer en CLI** si le secret GitHub `SUPABASE_ACCESS_TOKEN` (Management API) est posé :
    ```bash
-   supabase functions deploy coach-fleet-round --no-verify-jwt   # v26 : règles I03/I04 (sinon v25 + triage v2 = OK déterministe)
-   supabase functions deploy coach-agent                          # leçons désactivées + contraintes I01/I02
+   npm run deploy:audit-edges
+   # équivalent :
+   supabase functions deploy coach-fleet-round --project-ref phyuijjekxtjvipjtdfv --no-verify-jwt
+   supabase functions deploy coach-agent --project-ref phyuijjekxtjvipjtdfv
    ```
-   Déjà déployés via API : `batch-verify-exercises` v6 (410), `delete-account` v7, `send-daily-reminders` v9.
+   Live actuel : `coach-fleet-round` **v31** (`verify_jwt` false), `coach-agent` **v24** (`verify_jwt` true). Job CI `deploy-edges` saute si le secret est vide.
 2. **Rappels cron** : poser le secret `REMINDERS_CRON_SECRET` (valeur transmise hors git) dans Vault **et** dans les secrets de `send-daily-reminders`, vérifier les secrets VAPID, puis jouer `supabase/cron/schedule_daily_reminders.sql`.
 3. **Protection de branche** : protéger `new-JV` (reviews + CI verte requises) — non faisable via API ici.
 4. **Matrice RLS** : job CI `rls-matrix` (`supabase start` + `scripts/run-rls-matrix.mjs`). Rejouer aussi sur une branche staging après chaque changement de policy / RPC DEFINER.
@@ -67,11 +69,11 @@
 
 ### Prod (`phyuijjekxtjvipjtdfv`, snapshot 10 sept. soir)
 
-- Edges : `coach-agent` **v22** (v23 en attente : CLI) ; `notify-onboarding-complete` **v20** ; `analyze-product` **v13** ; `verify-exercise` **v11** ; `coach-fleet-round` **v25** (v26 en attente : CLI — v25 + triage v2 reste déterministe et correct) ; `delete-account` **v7** (transition coach) ; `send-daily-reminders` **v9** (modules + langue) ; `batch-verify-exercises` **v6** (410, trou S01 fermé).
+- Edges : `coach-agent` **v24** ; `coach-fleet-round` **v31** ; `notify-onboarding-complete` **v21** ; `analyze-product` **v14** ; `verify-exercise` **v12** ; `delete-account` **v8** ; `send-daily-reminders` **v10** ; `batch-verify-exercises` **v7** (410).
 - **Modèle OpenAI :** le code défaut est `gpt-5.6-luna` (`resolveOpenAiModel` : override → secret `OPENAI_MODEL` → défaut). Un secret `OPENAI_MODEL` n’est pas nécessaire — la clé `OPENAI_API_KEY` suffit. Logs Edge 7 sept. : `openai_chat` → `model: gpt-5.6-luna` (0 appel `gpt-4o-mini` sur 24 h). Si un jour les logs montrent autre chose, c’est qu’un secret `OPENAI_MODEL` a été posé.
 - Cycle réel joué (7 sept.) : solo intake → programme IA → accepter → séance ; coach invite → Setup ISSN → tournée → Envoyer → le client voit les kcal + le message.
 - Tournée `cron` `0 4 * * *` active, 100 % déterministe. Cron rappels : fonction `invoke_send_daily_reminders` en place, schedule à jouer après pose du secret (voir étapes ops).
-- Tests : **402/402** (`npm test`), `typecheck` + `lint` verts, `verify:edges` (13/13 bundlent), build 820 kB initiaux (246 kB gzip) contre 1619 kB avant lazy.
+- Tests : **411/411** (`npm test`), `typecheck` + `lint` verts, `verify:edges` (manifeste + dirs + JWT + lock déployé ; live si token), `verify:migrations` (Git = lock, 29 audit + `20260910153000`), job CI `rls-matrix` (staging-like `supabase start` PG17).
 - Advisors : **0 erreur**. Index FK ajoutés (12), initplan corrigés (7), trigger historique revoké. Restent (acceptés, documentés) : `SECURITY DEFINER` exposés = par design (RPC étroites vérifiées) ; `pg_trgm`/`pg_net` dans `public` (posture Supabase par défaut — déplacement risqué sans staging) ; paires de policies SELECT permissives (OR correct, fusion reportée après tests RLS) ; index « inutilisés » (base quasi vide, signal non significatif) ; `ai_usage_logs` sans policy cliente (journal serveur, refus voulu).
 - **HIBP / leaked passwords :** warning Auth toujours là. Org **Free** (`Prometheus fitness`) — la protection HaveIBeenPwned est **Pro+**, pas activable aujourd’hui. **Rien n’est compromis** : tous les comptes présents sont des comptes de test. À cocher au passage Pro : [Auth → Email](https://supabase.com/dashboard/project/phyuijjekxtjvipjtdfv/auth/providers?provider=Email).
 
