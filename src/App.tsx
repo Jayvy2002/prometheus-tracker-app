@@ -5,6 +5,8 @@ import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 import { resetSessionStores } from './lib/resetStores';
+import { getSessionOwner } from './lib/sessionScope';
+import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
 import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
@@ -127,6 +129,8 @@ function AppRoutes() {
         }
       })();
     } else if (initialized) {
+      // Q01 : détache le push du compte qui part avant de purger le scope.
+      void detachPushOnLogout(getSessionOwner());
       resetSessionStores();
     }
   }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);

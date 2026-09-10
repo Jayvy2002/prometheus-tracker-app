@@ -171,8 +171,11 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   createProduct: async (product) => {
+    // D05 : la RLS exige created_by=auth.uid() — l'auteur est imposé ici.
+    const { data: { user } } = await supabase.auth.getUser();
     const payload = normalizeFoodProductEnergy({
       ...product,
+      created_by: product.created_by ?? user?.id ?? null,
       calories_per_100g: product.calories_per_100g ?? 0,
       protein_per_100g: product.protein_per_100g ?? 0,
       carbs_per_100g: product.carbs_per_100g ?? 0,
@@ -200,12 +203,18 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   batchSaveProducts: async (products) => {
+    // D05 : contribution utilisateur avec auteur imposé ; dédupliquée par
+    // barcode (UNIQUE). Les échecs de cache sont journalisés sans casser la saisie.
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
     const toSave = products
       .filter(p => p.barcode)
       .map(p => ({
         barcode: p.barcode,
         name: p.name,
         brand: p.brand ?? null,
+        created_by: user.id,
+        data_source: 'openfoodfacts',
         calories_per_100g: normalizeFoodProductEnergy({
           calories_per_100g: p.calories_per_100g ?? 0,
           protein_per_100g: p.protein_per_100g ?? 0,
@@ -217,11 +226,11 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
         fat_per_100g: p.fat_per_100g ?? 0,
         serving_size: p.serving_size ?? 100,
         serving_unit: p.serving_unit ?? 'g',
-        data_source: 'openfoodfacts',
       }));
     if (toSave.length === 0) return;
     // ignoreDuplicates: existing barcodes are silently skipped
-    await supabase.from('food_products').upsert(toSave, { onConflict: 'barcode', ignoreDuplicates: true });
+    const { error } = await supabase.from('food_products').upsert(toSave, { onConflict: 'barcode', ignoreDuplicates: true });
+    if (error) console.warn('[nutrition] food cache enrichment failed:', error.message);
   },
 
   uploadProductImage: async (userId, file, slot) => {

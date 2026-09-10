@@ -1,0 +1,19 @@
+{
+  "$schema": "https://prometheus-fit.com/schemas/functions-manifest.json",
+  "comment": "Inventaire attendu des Edge Functions déployées (S01/Q06). Toute fonction ACTIVE hors de cette liste est une orpheline à investiguer.",
+  "expected": [
+    { "slug": "coach-agent", "owner": "coaching", "verify_jwt": true, "status": "active" },
+    { "slug": "coach-fleet-round", "owner": "coaching", "verify_jwt": false, "status": "active", "auth": "FLEET_CRON_SECRET" },
+    { "slug": "notify-onboarding-complete", "owner": "coaching", "verify_jwt": false, "status": "active", "auth": "NOTIFY_SECRET HMAC" },
+    { "slug": "analyze-product", "owner": "nutrition", "verify_jwt": true, "status": "active" },
+    { "slug": "verify-exercise", "owner": "training", "verify_jwt": false, "status": "active", "auth": "JWT utilisateur vérifié dans le handler + rate-limit 20/j" },
+    { "slug": "send-daily-reminders", "owner": "growth", "verify_jwt": false, "status": "active", "auth": "secret serveur" },
+    { "slug": "delete-account", "owner": "core", "verify_jwt": false, "status": "active", "auth": "JWT utilisateur vérifié dans le handler" },
+    { "slug": "batch-verify-exercises", "owner": "training", "verify_jwt": true, "status": "retired-410", "replaced_by": "verify-exercise" },
+    { "slug": "ask-second", "owner": "coaching", "verify_jwt": true, "status": "retired-410" },
+    { "slug": "suggest-client-plan", "owner": "coaching", "verify_jwt": true, "status": "retired-410" },
+    { "slug": "create-checkout-session", "owner": "billing", "verify_jwt": true, "status": "retired-410" },
+    { "slug": "create-portal-session", "owner": "billing", "verify_jwt": true, "status": "retired-410" },
+    { "slug": "stripe-webhook", "owner": "billing", "verify_jwt": false, "status": "retired-410" }
+  ]
+}

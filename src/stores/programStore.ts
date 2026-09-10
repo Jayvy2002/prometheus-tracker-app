@@ -372,18 +372,13 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
 
-    await supabase
-      .from('program_assignments')
-      .update({ status: 'paused', updated_at: new Date().toISOString() })
-      .eq('client_id', clientId)
-      .eq('status', 'active');
-
-    const { error } = await supabase.from('program_assignments').insert({
-      program_id: programId,
-      client_id: clientId,
-      assigned_by: user.id,
-      start_date: startDate,
-      status: 'active',
+    // S02/D01 : attribution atomique serveur — propriété du programme,
+    // autorité (soi ou client actif), interdiction d'auto-assignation coachée
+    // et pause de l'ancien actif dans la même transaction.
+    const { error } = await supabase.rpc('assign_program_secure', {
+      p_program_id: programId,
+      p_client_id: clientId,
+      p_start_date: startDate,
     });
     if (error) return { error: error.message };
     track('program_assigned', { self: clientId === user.id });

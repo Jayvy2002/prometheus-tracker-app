@@ -2,9 +2,13 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { Workout, WorkoutExercise, WorkoutSet } from '../lib/types';
 import { setCacheItem, getCacheItem, clearCacheItem, workoutCacheKey } from '../lib/offlineCache';
+import { getSessionOwner, createGeneration } from '../lib/sessionScope';
 import { parseDate, toLocalDateStr } from '../lib/utils';
 import { track } from '../lib/telemetryClient';
 import { useStreakStore } from './streakStore';
+
+/** S05 : invalide les réponses async après reset (logout / changement de compte). */
+const workoutGeneration = createGeneration();
 
 interface PreviousSet {
   weight_kg: number;
@@ -102,21 +106,41 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   fetchWorkout: async (workoutId) => {
+    const gen = workoutGeneration.capture();
+    const owner = getSessionOwner();
     const cached = getCacheItem<Workout>(workoutCacheKey(workoutId));
-    if (cached) {
+    // S05 : le cache est déjà namespacé par compte ; on valide en plus que la
+    // séance appartient bien au compte courant avant de l'afficher.
+    if (cached && owner && (cached as Workout).user_id === owner) {
       set({ currentWorkout: cached });
     }
 
     const fullWorkout = await loadFullWorkout(workoutId);
-    if (!fullWorkout) return;
+    if (workoutGeneration.isStale(gen)) return;
+    if (!fullWorkout) {
+      // Le serveur refuse ou ne connaît pas cette séance : ne jamais laisser
+      // une valeur cache (ou d'un autre compte) affichée.
+      clearCacheItem(workoutCacheKey(workoutId));
+      set(s => (s.currentWorkout?.id === workoutId ? { currentWorkout: null } : s));
+      return;
+    }
+    // Défense : le serveur n'aurait jamais dû renvoyer la séance d'un autre
+    // compte (RLS), mais on refuse de l'afficher si ça arrive.
+    if (owner && fullWorkout.user_id !== owner) {
+      clearCacheItem(workoutCacheKey(workoutId));
+      set(s => (s.currentWorkout?.id === workoutId ? { currentWorkout: null } : s));
+      return;
+    }
     set({ currentWorkout: fullWorkout });
     setCacheItem(workoutCacheKey(workoutId), fullWorkout);
   },
 
   peekWorkout: async (workoutId) => {
+    const owner = getSessionOwner();
     const cached = getCacheItem<Workout>(workoutCacheKey(workoutId));
-    if (cached?.exercises?.length) return cached;
+    if (cached?.exercises?.length && (!owner || (cached as Workout).user_id === owner)) return cached;
     const full = await loadFullWorkout(workoutId);
+    if (full && owner && full.user_id !== owner) return null;
     if (full) setCacheItem(workoutCacheKey(workoutId), full);
     return full;
   },
@@ -510,5 +534,8 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     return results;
   },
 
-  reset: () => set({ workouts: [], currentWorkout: null, loading: false }),
+  reset: () => {
+    workoutGeneration.next();
+    set({ workouts: [], currentWorkout: null, loading: false });
+  },
 }));
