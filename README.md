@@ -153,9 +153,9 @@ npm run verify:edges  # les 13 edges bundlent (esbuild, _shared inclus)
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
 | `SITE_URL` | Origine pour CORS |
 
-Live 10 sept. 2026 (`phyuijjekxtjvipjtdfv`) : `coach-fleet-round` **v32** et `coach-agent` **v25** ont été redéployés **via Supabase Management API** (contenu identique aux bundles audités, JWT + import map conservés). Ce n’est **pas** une preuve CLI.
+Live 10 sept. 2026 (`phyuijjekxtjvipjtdfv`) : `coach-fleet-round` **v32** et `coach-agent` **v26** sont `ACTIVE`. Le redéploiement est passé par la **Supabase Management API**, pas par la CLI. `coach-agent` v26 conserve le bundle métier audité et corrige uniquement l’encodage UTF-8 de son wrapper de chargement ; JWT et import map sont inchangés.
 
-Le canal Management API enveloppe les gros bundles dans un wrapper gzip + `btoa()`. `coach-fleet-round` boot (OPTIONS 200). `coach-agent` (source Unicode FR) crash au boot (`InvalidCharacterError` Latin1) dès qu’un request atteint le worker — OPTIONS 500. Pour un prochain déploiement **exécutable** de `coach-agent`, privilégier la **CLI** depuis la racine (résout `_shared/`, pas de wrapper `btoa`) :
+Le wrapper Management API de `coach-agent` encode désormais explicitement le source décompressé en UTF-8 avant le Base64. Smoke live : OPTIONS **200** avec CORS, POST sans JWT **401**. Pour les futurs déploiements depuis Git, la **CLI** reste le canal normal depuis la racine (résolution native de `_shared/`) :
 
 ```bash
 supabase functions deploy coach-fleet-round --no-verify-jwt
