@@ -1277,6 +1277,19 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   uploadProgressPhoto: async ({ file, takenAt, kind, notes }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
+    // Q02 : validation réelle avant envoi (le accept= du input n'est qu'indicatif).
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.heic') || lower.endsWith('.heif') || file.type.toLowerCase().includes('heic') || file.type.toLowerCase().includes('heif')) {
+      return { error: 'heic_unsupported' };
+    }
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    const extOk = ['.jpg', '.jpeg', '.png', '.webp'].some(e => lower.endsWith(e));
+    if (!allowed.includes(file.type.toLowerCase()) && !extOk) {
+      return { error: 'unsupported_type' };
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return { error: 'too_large' };
+    }
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace('jpeg', 'jpg');
     const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
     const { error: uploadError } = await supabase.storage
@@ -1302,9 +1315,12 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   deleteProgressPhoto: async (id, storagePath) => {
+    // Q02 : fichier d'abord — en cas d'échec rien n'est perdu et on réessaie.
+    // (L'inverse laisserait un fichier orphelin irrécupérable.)
+    const { error: fileError } = await supabase.storage.from('progress-photos').remove([storagePath]);
+    if (fileError) return { error: fileError.message };
     const { error } = await supabase.from('progress_photos').delete().eq('id', id);
     if (error) return { error: error.message };
-    await supabase.storage.from('progress-photos').remove([storagePath]);
     return { error: null };
   },
 

@@ -656,11 +656,9 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
     if (Number.isFinite(kg) && kg > 0) {
       await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: todayStr() });
     }
+    // Q07 : analytics général rattaché au compte — aucun signal de santé ici.
+    // (drapeaux médicaux, douleurs, blessures : dossier coach uniquement, jamais d'event).
     track('intake_completed', {
-      medical_flags: medicalYesFlags(intake),
-      objectif_type: intake.extras.objectifType || null,
-      pain: intake.douleursLimitations === 'Oui',
-      injuries: intake.blessuresChirurgies === 'Oui',
       revisit: allowExit,
       targets_computed: !!(showTargets && targets),
     });

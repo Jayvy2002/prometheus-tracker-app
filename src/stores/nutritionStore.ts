@@ -235,6 +235,11 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   uploadProductImage: async (userId, file, slot) => {
+    // Q02 : mêmes règles que le bucket (le scanner affiche l'échec).
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.heic') || lower.endsWith('.heif')) return null;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes((file.type || '').toLowerCase())) return null;
+    if (file.size > 5 * 1024 * 1024) return null;
     const ext = file.name.split('.').pop() ?? 'jpg';
     const path = `${userId}/${crypto.randomUUID()}_${slot}.${ext}`;
     const { error } = await supabase.storage

@@ -76,6 +76,10 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
               <p className="text-[11px] text-neutral-600 mt-0.5">{t('profile.units.rirDescription')}</p>
             </div>
             <button
+              type="button"
+              role="switch"
+              aria-checked={showRir}
+              aria-label={t('profile.units.showRir')}
               onClick={() => setShowRir(!showRir)}
               className={`relative w-11 h-6 rounded-full transition-colors ${showRir ? 'bg-blue-600' : 'bg-neutral-700'}`}
             >

@@ -674,6 +674,63 @@ function lift(
   };
 }
 
+/** Q03 : le filet parle la langue de l'utilisateur (FR = noms ci-dessus). */
+const LIFT_EN: Record<string, string> = {
+  "Squat goblet": "Goblet squat",
+  "Développé haltères": "Dumbbell bench press",
+  "Row barre": "Barbell row",
+  "RDL haltères": "Dumbbell RDL",
+  "Planche": "Plank",
+  "Fentes marchées": "Walking lunges",
+  "Développé incliné": "Incline dumbbell press",
+  "Tirage vertical": "Lat pulldown",
+  "Presse à cuisses": "Leg press",
+  "Développé militaire": "Overhead press",
+  "Row unilatéral": "Single-arm dumbbell row",
+  "Soulevé de terre roumain": "Romanian deadlift",
+  "Gainage latéral": "Side plank",
+  "Goblet squat tempo": "Tempo goblet squat",
+  "Pompes ou développé": "Push-ups or dumbbell press",
+  "Row assis": "Seated cable row",
+  "Fentes arrière": "Reverse lunges",
+  "Curl + extension": "Curl + extension",
+  "Développé couché": "Bench press",
+  "Squat": "Back squat",
+  "RDL": "Romanian deadlift",
+  "Fentes": "Lunges",
+  "Mollets": "Calf raises",
+  "Écarté haltères": "Dumbbell fly",
+  "Curl barre": "Barbell curl",
+  "Extension triceps": "Triceps extension",
+  "Leg curl": "Leg curl",
+  "Gainage": "Plank",
+  "Tractions assistées": "Assisted pull-ups",
+  "Fentes bulgares": "Bulgarian split squats",
+  "Curl haltères": "Dumbbell curl",
+  "Élévations latérales": "Lateral raises",
+  "Crunch": "Crunch",
+  "Squat poids du corps": "Bodyweight squat",
+  "Pompes": "Push-ups",
+  "Fentes statiques": "Stationary lunges",
+  "Superman": "Superman",
+  "Pompes inclinées": "Incline push-ups",
+  "Pont fessier": "Glute bridge",
+  "Mountain climbers": "Mountain climbers",
+  "Squat sumo": "Sumo squat",
+  "Pompes serrées": "Close-grip push-ups",
+  "Dips sur chaise": "Chair dips",
+  "Squat tempo": "Tempo squat",
+  "Pompes larges": "Wide push-ups",
+  "Burpees modérés": "Modified burpees",
+  "Squat sauté léger": "Light jump squats",
+  "Core + mobilité": "Core + mobility",
+};
+
+function liftName(fr: string, locale: AgentLocale): string {
+  if (locale !== "en") return fr;
+  return LIFT_EN[fr] ?? fr;
+}
+
 function weekdaySpread(dayCount: number): number[] {
   if (dayCount <= 1) return [1];
   if (dayCount === 2) return [1, 4];
@@ -872,6 +929,7 @@ function filterDayExercises(
   reps: number,
   rir: number | null,
   rest: number,
+  locale: AgentLocale = "fr",
 ): Array<Record<string, unknown>> {
   const kept = exercises.filter((ex) => {
     const folded = foldConstraintText(asString(ex.name));
@@ -886,7 +944,8 @@ function filterDayExercises(
     if (exerciseMatchesForbidden(folded, constraints.forbiddenPhrases)) continue;
     if (constraints.bodyweightOnly && exerciseNeedsEquipment(folded)) continue;
     if (out.some((ex) => foldConstraintText(asString(ex.name)) === folded)) continue;
-    out.push(lift(spare, sets, folded.includes("planche") || folded.includes("gainage") ? 30 : reps, folded.includes("planche") || folded.includes("gainage") ? null : rir, 60));
+    const name = liftName(spare, locale);
+    out.push(lift(name, sets, folded.includes("planche") || folded.includes("gainage") ? 30 : reps, folded.includes("planche") || folded.includes("gainage") ? null : rir, 60));
   }
   return out;
 }
@@ -945,8 +1004,11 @@ export function fallbackProgramFromProfile(
   const spares = constraints.bodyweightOnly ? BODYWEIGHT_SPARES : STANDARD_SPARES;
   const days = templates.slice(0, dayCount).map((day, i) => ({
     weekday: weekdays[i] ?? ((i + 1) % 7),
-    name: day.name,
-    exercises: filterDayExercises(day.exercises, constraints, spares, 3, reps, 2, rest),
+    name: liftName(day.name, locale),
+    exercises: filterDayExercises(day.exercises, constraints, spares, 3, reps, 2, rest, locale).map((ex) => ({
+      ...ex,
+      name: liftName(asString(ex.name), locale),
+    })),
   }));
   const shortDays = days.filter((d) => d.exercises.length < 3).length;
   const who = asString(profile?.full_name) || "client";

@@ -323,11 +323,11 @@ export default function ClientSetupPage() {
     }
 
     setSaving(false);
+    // Q07 : pas de signal médical dans l'analytics (l'accusé reste un fait de dossier).
     track('setup_targets_choice', {
       choice: targetChoice,
       wrote: applyTargets,
       had_existing: !!existingTargets,
-      medical_ack: needsMedicalAck ? medicalAck : null,
     });
     toast(t('coaching.setup.saved'));
     // Ops rows drive the « À configurer » badge — refresh so the 360 reflects setup at once.

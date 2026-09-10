@@ -82,35 +82,20 @@ interface ProgramState {
   clear: () => void;
 }
 
-async function loadDays(programId: string): Promise<ProgramDay[]> {
-  const { data: days } = await supabase
-    .from('program_days')
-    .select('*')
-    .eq('program_id', programId)
-    .order('weekday');
-  if (!days?.length) return [];
-  const ids = days.map(d => d.id);
-  let exercises: ProgramDayExercise[] = [];
-  try {
-    const { data } = await supabase
-      .from('program_day_exercises')
-      .select('*')
-      .in('program_day_id', ids)
-      .order('order_index');
-    exercises = (data ?? []) as ProgramDayExercise[];
-  } catch {
-    exercises = [];
-  }
-  const byDay = new Map<string, ProgramDayExercise[]>();
-  for (const ex of exercises) {
-    const list = byDay.get(ex.program_day_id) ?? [];
-    list.push(ex);
-    byDay.set(ex.program_day_id, list);
-  }
-  return (days as ProgramDay[]).map(d => ({
-    ...d,
-    exercises: byDay.get(d.id) ?? [],
-  }));
+type ProgramRow = Omit<Program, 'days'> & {
+  program_days: Array<Omit<ProgramDay, 'exercises'> & { program_day_exercises: ProgramDayExercise[] }>;
+};
+
+function mapProgramWithDays(row: ProgramRow): Program {
+  const days = [...(row.program_days ?? [])]
+    .sort((a, b) => a.order_index - b.order_index || a.weekday - b.weekday)
+    .map(d => ({
+      ...d,
+      exercises: [...(d.program_day_exercises ?? [])].sort((a, b) => a.order_index - b.order_index),
+    }));
+  const { program_days: _omit, ...program } = row;
+  void _omit;
+  return { ...(program as Program), days };
 }
 
 export const useProgramStore = create<ProgramState>((set, get) => ({
@@ -121,21 +106,14 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   fetchPrograms: async (ownerId) => {
     set({ loading: true });
     try {
+      // Q05 : programmes + jours + exercices en UNE requête (plus de N+1).
       const { data, error } = await supabase
         .from('programs')
-        .select('*')
+        .select('*, program_days(*, program_day_exercises(*))')
         .eq('owner_id', ownerId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      const list = (data ?? []) as Program[];
-      const withDays = await Promise.all(list.map(async p => {
-        try {
-          return { ...p, days: await loadDays(p.id) };
-        } catch {
-          return { ...p, days: [] as ProgramDay[] };
-        }
-      }));
-      set({ programs: withDays });
+      set({ programs: ((data ?? []) as ProgramRow[]).map(mapProgramWithDays) });
     } catch {
       set({ programs: [] });
     } finally {
@@ -145,15 +123,13 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
 
   fetchProgram: async (programId) => {
     try {
-      const { data, error } = await supabase.from('programs').select('*').eq('id', programId).maybeSingle();
+      const { data, error } = await supabase
+        .from('programs')
+        .select('*, program_days(*, program_day_exercises(*))')
+        .eq('id', programId)
+        .maybeSingle();
       if (error || !data) return null;
-      let days: ProgramDay[] = [];
-      try {
-        days = await loadDays(programId);
-      } catch {
-        days = [];
-      }
-      const program = { ...(data as Program), days };
+      const program = mapProgramWithDays(data as ProgramRow);
       set(s => ({
         programs: s.programs.some(p => p.id === programId)
           ? s.programs.map(p => p.id === programId ? program : p)

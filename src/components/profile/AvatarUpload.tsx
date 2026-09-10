@@ -1,9 +1,12 @@
 import { useRef, useState } from 'react';
 import { Camera, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { toast } from '../ui/Toast';
 
 export default function AvatarUpload() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, uploadAvatar, uploadingAvatar } = useProfileStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,14 +23,30 @@ export default function AvatarUpload() {
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file || !user) return;
+    // Q02 : mêmes règles que le bucket (5 Mo, JPEG/PNG/WebP), message utile.
+    const lower = file.name.toLowerCase();
+    if (lower.endsWith('.heic') || lower.endsWith('.heif')) {
+      toast(t('profile.avatar.heicUnsupported'), 'error');
+      return;
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type.toLowerCase())) {
+      toast(t('profile.avatar.unsupportedType'), 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast(t('profile.avatar.tooLarge'), 'error');
+      return;
+    }
 
     const localUrl = URL.createObjectURL(file);
     setPreviewUrl(localUrl);
 
-    await uploadAvatar(user.id, file);
+    const url = await uploadAvatar(user.id, file);
     URL.revokeObjectURL(localUrl);
     setPreviewUrl(null);
+    if (!url) toast(t('profile.avatar.uploadFailed'), 'error');
   };
 
   return (
@@ -65,6 +84,7 @@ export default function AvatarUpload() {
         onChange={handleFileSelect}
         className="hidden"
       />
+      <p className="text-[10px] text-neutral-600 mt-1.5 text-center max-w-[10rem]">{t('profile.avatar.publicHint')}</p>
     </div>
   );
 }

@@ -24,4 +24,5 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: npm run verify:edges
       - run: npm run build

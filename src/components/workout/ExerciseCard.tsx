@@ -12,17 +12,31 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import type { WorkoutExercise, WorkoutSet, SetType } from '../../lib/types';
 import type { ExerciseSession } from '../../stores/workoutStore';
 import { SET_TYPES } from '../../lib/constants';
+import { formatWeight, kgToLbs, lbsToKg } from '../../lib/utils';
+import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
 import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
 
+export type OverloadSuggestionKind =
+  | 'stagnant'
+  | 'push_harder'
+  | 'keep_progressing'
+  | 'progressing'
+  | 'below_last'
+  | 'add_weight'
+  | 'add_rep';
+
 interface OverloadResult {
-  text: string;
+  kind: OverloadSuggestionKind;
+  /** Poids suggéré en kg (canonique) — l'affichage convertit selon l'unité. */
   suggestedWeight: number | null;
+  reps: number | null;
   confidence: 'low' | 'medium' | 'high';
 }
 
+/** Q03 : la suggestion est structurée — le texte est localisé au rendu, jamais codé en dur. */
 function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | null {
   const sessions = history
     .map(h => ({
@@ -50,15 +64,15 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 
       if (avgRirAll <= 2) {
         const suggested = roundTo125(w0 * 1.025);
-        return { text: `Stagnant 3\u00d7 \u2192 ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
+        return { kind: 'stagnant', suggestedWeight: suggested, reps: null, confidence: 'high' };
       }
-      return { text: `Same weight 3\u00d7. Push harder (lower RIR)`, suggestedWeight: null, confidence: 'low' };
+      return { kind: 'push_harder', suggestedWeight: null, reps: null, confidence: 'low' };
     }
 
     if (w0 > w1 && w1 >= w2 && avgRirLatest <= 2) {
       const increment = w0 - w1;
       const suggested = roundTo125(w0 + increment);
-      return { text: `Keep progressing \u2192 ${suggested}kg`, suggestedWeight: suggested, confidence: 'high' };
+      return { kind: 'keep_progressing', suggestedWeight: suggested, reps: null, confidence: 'high' };
     }
   }
 
@@ -67,24 +81,34 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
 
     if (maxWeightLatest > maxWeightPrev && avgRirLatest <= 2) {
       const suggested = roundTo125(maxWeightLatest * 1.025);
-      return { text: `Progressing \u2192 try ${suggested}kg`, suggestedWeight: suggested, confidence: 'medium' };
+      return { kind: 'progressing', suggestedWeight: suggested, reps: null, confidence: 'medium' };
     }
 
     if (maxWeightLatest < maxWeightPrev) {
-      return { text: `Below last session (${maxWeightPrev}kg). Aim to match it.`, suggestedWeight: maxWeightPrev, confidence: 'low' };
+      return { kind: 'below_last', suggestedWeight: maxWeightPrev, reps: null, confidence: 'low' };
     }
   }
 
   if (avgRirLatest <= 1) {
     const suggested = roundTo125(lastSet.weight_kg * 1.025);
-    return { text: `${suggested}kg \u00d7 ${lastSet.reps}`, suggestedWeight: suggested, confidence: 'medium' };
+    return { kind: 'add_weight', suggestedWeight: suggested, reps: lastSet.reps, confidence: 'medium' };
   }
   if (avgRirLatest <= 2) {
-    return { text: `${lastSet.weight_kg}kg \u00d7 ${lastSet.reps + 1}`, suggestedWeight: lastSet.weight_kg, confidence: 'low' };
+    return { kind: 'add_rep', suggestedWeight: lastSet.weight_kg, reps: lastSet.reps + 1, confidence: 'low' };
   }
 
   return null;
 }
+
+const SUGGESTION_KEY: Record<OverloadSuggestionKind, string> = {
+  stagnant: 'workout.exerciseCard.suggestStagnant',
+  push_harder: 'workout.exerciseCard.suggestPushHarder',
+  keep_progressing: 'workout.exerciseCard.suggestKeepProgressing',
+  progressing: 'workout.exerciseCard.suggestProgressing',
+  below_last: 'workout.exerciseCard.suggestBelowLast',
+  add_weight: 'workout.exerciseCard.suggestAddWeight',
+  add_rep: 'workout.exerciseCard.suggestAddRep',
+};
 
 // --- Set Type Picker ---
 
@@ -138,6 +162,7 @@ function SetRow({
   onDelete,
   onDuplicate,
   onSetComplete,
+  weightUnit,
 }: {
   set: WorkoutSet;
   index: number;
@@ -152,9 +177,13 @@ function SetRow({
   onDelete: () => void;
   onDuplicate: () => void;
   onSetComplete?: (setType: SetType, restOverride?: number) => void;
+  weightUnit: 'kg' | 'lbs';
 }) {
   const { initSetDraft, getSetDraft, updateSetDraft, updateSetType, clearSetDraft } = useDraftContext();
   const { updateSet } = useWorkoutStore();
+  /** Q03 : saisie/affichage dans l'unité du profil, stockage canonique en kg. */
+  const toDisplay = (kg: number) => (weightUnit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10);
+  const toStorage = (display: number) => (weightUnit === 'lbs' ? lbsToKg(display) : display);
   const [localWeight, setLocalWeight] = useState('');
   const [localReps, setLocalReps] = useState('');
   const [localRir, setLocalRir] = useState('');
@@ -172,9 +201,9 @@ function SetRow({
   const isMyo = localType === 'myo';
 
   useEffect(() => {
-    initSetDraft(set.id, set.weight_kg, set.reps, set.rir, set.set_type as SetType, set.duration_seconds, set.tempo);
+    initSetDraft(set.id, toDisplay(set.weight_kg), set.reps, set.rir, set.set_type as SetType, set.duration_seconds, set.tempo);
     const draft = getSetDraft(set.id);
-    setLocalWeight(draft.weight_kg ?? (set.weight_kg ? String(set.weight_kg) : ''));
+    setLocalWeight(draft.weight_kg ?? (set.weight_kg ? String(toDisplay(set.weight_kg)) : ''));
     setLocalReps(draft.reps ?? (set.reps ? String(set.reps) : ''));
     setLocalRir(draft.rir ?? (set.rir ? String(set.rir) : ''));
     setLocalDuration(draft.duration_seconds ?? (set.duration_seconds ? String(set.duration_seconds) : ''));
@@ -184,10 +213,17 @@ function SetRow({
     setLocalType(draft.set_type ?? set.set_type);
   }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Q03 : changement d'unité en cours de saisie — rebase l'affichage sur le kg stocké.
+  useEffect(() => {
+    const display = set.weight_kg ? String(toDisplay(set.weight_kg)) : '';
+    setLocalWeight(display);
+    updateSetDraft(set.id, 'weight_kg', display);
+  }, [weightUnit]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     const draft = getSetDraft(set.id);
     if (!draft.weight_kg || draft.weight_kg === localWeight) {
-      const newVal = set.weight_kg ? String(set.weight_kg) : '';
+      const newVal = set.weight_kg ? String(toDisplay(set.weight_kg)) : '';
       setLocalWeight(newVal);
       updateSetDraft(set.id, 'weight_kg', newVal);
     }
@@ -264,13 +300,14 @@ function SetRow({
       updates.myo_is_activation = true;
     }
     if (newType === 'drop' && previousSet) {
-      const dropWeight = Math.round(previousSet.weight_kg * 0.8 * 4) / 4;
-      const pct = previousSet.weight_kg > 0 ? Math.round((1 - dropWeight / previousSet.weight_kg) * 100) : 20;
+      const dropWeightKg = Math.round(previousSet.weight_kg * 0.8 * 4) / 4;
+      const pct = previousSet.weight_kg > 0 ? Math.round((1 - dropWeightKg / previousSet.weight_kg) * 100) : 20;
       updates.drop_percentage = pct;
       if (!localWeight) {
-        setLocalWeight(String(dropWeight));
-        updateSetDraft(set.id, 'weight_kg', String(dropWeight));
-        updates.weight_kg = dropWeight;
+        const display = String(toDisplay(dropWeightKg));
+        setLocalWeight(display);
+        updateSetDraft(set.id, 'weight_kg', display);
+        updates.weight_kg = dropWeightKg;
       }
     }
     updateSet(set.id, updates);
@@ -281,14 +318,17 @@ function SetRow({
   }, [set.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const typeInfo = SET_TYPES.find(t => t.value === localType) || SET_TYPES[1];
-  const weightPlaceholder = suggestedWeight && !localWeight ? String(suggestedWeight) : prevSet?.weight_kg ? String(prevSet.weight_kg) : '0';
+  const displaySuggested = suggestedWeight ? toDisplay(suggestedWeight) : 0;
+  const displayPrev = prevSet?.weight_kg ? toDisplay(prevSet.weight_kg) : 0;
+  const weightPlaceholder = suggestedWeight && !localWeight ? String(displaySuggested) : prevSet?.weight_kg ? String(displayPrev) : '0';
   const repsPlaceholder = prevSet?.reps ? String(prevSet.reps) : '0';
 
   const isFilled = !!localWeight && (isIsometric ? !!localDuration : !!localReps);
 
-  // Drop percentage badge
+  // Drop percentage badge (ratio — computed in display units consistently)
+  const prevDisplay = previousSet && previousSet.weight_kg > 0 ? toDisplay(previousSet.weight_kg) : 0;
   const dropPct = isDrop && previousSet && previousSet.weight_kg > 0 && localWeight
-    ? Math.round((1 - parseFloat(localWeight) / previousSet.weight_kg) * 100)
+    ? Math.round((1 - parseFloat(localWeight) / prevDisplay) * 100)
     : set.drop_percentage;
 
   // Myo activation badge
@@ -354,7 +394,7 @@ function SetRow({
             onFocus={e => e.target.select()}
             onBlur={() => {
               const w = parseFloat(localWeight);
-              updateSet(set.id, { weight_kg: isNaN(w) ? 0 : w });
+              updateSet(set.id, { weight_kg: isNaN(w) ? 0 : toStorage(w) });
             }}
             className={`w-full rounded-lg px-2 py-1.5 text-xs text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
               ${suggestedWeight && !localWeight && !set.weight_kg ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-neutral-800/80 border border-transparent'}`}
@@ -554,6 +594,9 @@ export default function ExerciseCard({
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, updateSet, currentWorkout, fetchExerciseHistory } = useWorkoutStore();
   const { user } = useAuthStore();
   const { showRir: prefRir } = usePreferencesStore();
+  const { profile } = useProfileStore();
+  /** Q03 : kg canoniques en base, affichage selon la préférence (jamais l'inverse). */
+  const weightUnit: 'kg' | 'lbs' = profile?.unit_weight === 'lbs' ? 'lbs' : 'kg';
   const tracking = useClientTracking();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
@@ -661,7 +704,7 @@ export default function ExerciseCard({
               default_rir: exercise.prescribed_rir,
               default_rest_seconds: exercise.prescribed_rest_seconds,
               default_weight_kg: exercise.prescribed_weight_kg,
-            }, tracking) || t('workout.prescribedShort', { sets: exercise.prescribed_sets ?? 0, reps: exercise.prescribed_reps ?? 0 })}
+            }, tracking, weightUnit) || t('workout.prescribedShort', { sets: exercise.prescribed_sets ?? 0, reps: exercise.prescribed_reps ?? 0 })}
             {' → '}{completedCount}
           </span>
         ) : null}
@@ -725,7 +768,7 @@ export default function ExerciseCard({
             </div>
             {prevSets.filter(s => s.set_type === 'working').map((s, i) => (
               <span key={i} className="text-[11px] text-neutral-500 bg-neutral-900/60 rounded px-1.5 py-0.5">
-                {s.weight_kg > 0 ? `${s.weight_kg}kg` : '\u2014'} \u00d7 {s.reps > 0 ? s.reps : '\u2014'}
+                {s.weight_kg > 0 ? formatWeight(s.weight_kg, weightUnit) : '\u2014'} \u00d7 {s.reps > 0 ? s.reps : '\u2014'}
                 {showRir && s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
               </span>
             ))}
@@ -747,7 +790,7 @@ export default function ExerciseCard({
                       isUp ? 'bg-emerald-500' : isDown ? 'bg-rose-500' : 'bg-neutral-600'
                     }`} />
                     {maxW > 0 && (
-                      <span className="text-[8px] text-neutral-700">{maxW}</span>
+                      <span className="text-[8px] text-neutral-700">{weightUnit === 'lbs' ? kgToLbs(maxW) : maxW}</span>
                     )}
                   </div>
                 );
@@ -765,7 +808,10 @@ export default function ExerciseCard({
               }`}>
               <TrendingUp size={10} className={suggestion.confidence === 'high' ? 'text-blue-400' : suggestion.confidence === 'medium' ? 'text-blue-400/70' : 'text-neutral-500'} />
               <span className={`text-[11px] font-medium ${suggestion.confidence === 'high' ? 'text-blue-300' : suggestion.confidence === 'medium' ? 'text-blue-400/80' : 'text-neutral-400'}`}>
-                {suggestion.text}
+                {t(SUGGESTION_KEY[suggestion.kind], {
+                  weight: suggestion.suggestedWeight != null ? formatWeight(suggestion.suggestedWeight, weightUnit) : '—',
+                  reps: suggestion.reps ?? '—',
+                })}
               </span>
             </div>
           )}
@@ -795,7 +841,7 @@ export default function ExerciseCard({
             <div className="flex items-center gap-1.5 text-[10px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
               {showSets && <div className="w-5 text-center">#</div>}
               {!hevySimple && <div className="shrink-0 w-8">{t('workout.exerciseCard.type')}</div>}
-              {showLoad && <div className="flex-1 text-center">{t('workout.exerciseCard.weight')}</div>}
+              {showLoad && <div className="flex-1 text-center">{t(weightUnit === 'lbs' ? 'workout.exerciseCard.weightLbs' : 'workout.exerciseCard.weight')}</div>}
               {showReps && (
                 <div className="flex-1 text-center">
                   {exercise.sets?.some(s => s.set_type === 'isometric') ? t('workout.exerciseCard.reps') + '/s' : t('workout.exerciseCard.reps')}
@@ -821,6 +867,7 @@ export default function ExerciseCard({
                   showReps={showReps}
                   showSets={showSets}
                   hevySimple={hevySimple}
+                  weightUnit={weightUnit}
                   suggestedWeight={suggestion?.suggestedWeight}
                   prevSet={matchingPrev}
                   previousSet={previousSetInList}

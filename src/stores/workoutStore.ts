@@ -20,6 +20,9 @@ import { useStreakStore } from './streakStore';
 /** S05 : invalide les réponses async après reset (logout / changement de compte). */
 const workoutGeneration = createGeneration();
 
+/** Q05 : taille de page de l'historique des séances. */
+export const WORKOUTS_PAGE_SIZE = 200;
+
 /** D07 : ids temporaires stables pour les créations hors ligne. */
 export function offlineTempId(opId: string): string {
   return `local-${opId}`;
@@ -115,9 +118,13 @@ interface WorkoutState {
   loading: boolean;
   /** D07 : opérations locales en attente de synchronisation (0 = à jour). */
   pendingOps: number;
+  /** Q05 : true quand tout l'historique est chargé (pas de troncature silencieuse). */
+  workoutsExhausted: boolean;
   syncOfflineQueue: () => Promise<void>;
   refreshPendingOps: () => void;
   fetchWorkouts: (userId: string) => Promise<void>;
+  /** Q05 : page suivante (plus anciennes) ; no-op si l'historique est complet. */
+  fetchOlderWorkouts: (userId: string) => Promise<void>;
   fetchWorkout: (workoutId: string) => Promise<void>;
   peekWorkout: (workoutId: string) => Promise<Workout | null>;
   createWorkout: (workout: Partial<Workout>) => Promise<string | null>;
@@ -386,6 +393,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   currentWorkout: null,
   loading: false,
   pendingOps: 0,
+  workoutsExhausted: false,
 
   refreshPendingOps: () => {
     set({ pendingOps: peekOfflineOps().length });
@@ -439,14 +447,44 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   },
 
   fetchWorkouts: async (userId) => {
+    // Q05 : première page (200) + pagination explicite — fini le plafond muet à 500.
     set({ loading: true });
     const { data } = await supabase
       .from('workouts')
       .select('*')
       .eq('user_id', userId)
       .order('date', { ascending: false })
-      .limit(500);
-    set({ workouts: (data ?? []) as Workout[], loading: false });
+      .order('id', { ascending: false })
+      .limit(WORKOUTS_PAGE_SIZE + 1);
+    const rows = (data ?? []) as Workout[];
+    set({
+      workouts: rows.slice(0, WORKOUTS_PAGE_SIZE),
+      workoutsExhausted: rows.length <= WORKOUTS_PAGE_SIZE,
+      loading: false,
+    });
+  },
+
+  fetchOlderWorkouts: async (userId) => {
+    const current = get().workouts;
+    if (get().workoutsExhausted || current.length === 0 || get().loading) return;
+    set({ loading: true });
+    const oldest = [...current].sort((a, b) =>
+      a.date === b.date ? (a.id < b.id ? -1 : 1) : (a.date < b.date ? -1 : 1),
+    )[0];
+    const { data } = await supabase
+      .from('workouts')
+      .select('*')
+      .eq('user_id', userId)
+      .or(`date.lt.${oldest.date},and(date.eq.${oldest.date},id.lt.${oldest.id})`)
+      .order('date', { ascending: false })
+      .order('id', { ascending: false })
+      .limit(WORKOUTS_PAGE_SIZE + 1);
+    const rows = (data ?? []) as Workout[];
+    set(s => ({
+      workouts: [...s.workouts, ...rows.slice(0, WORKOUTS_PAGE_SIZE)],
+      workoutsExhausted: rows.length <= WORKOUTS_PAGE_SIZE,
+      loading: false,
+    }));
   },
 
   fetchWorkout: async (workoutId) => {
@@ -1034,6 +1072,6 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   reset: () => {
     workoutGeneration.next();
-    set({ workouts: [], currentWorkout: null, loading: false, pendingOps: 0 });
+    set({ workouts: [], currentWorkout: null, loading: false, pendingOps: 0, workoutsExhausted: false });
   },
 }));
