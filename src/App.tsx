@@ -130,6 +130,14 @@ function AppRoutes() {
             const accepted = await acceptInvite(token);
             if (accepted.ok) {
               toast(i18n.t('coaching.invite.accepted', { name: accepted.coach_name || i18n.t('coaching.invite.aCoach') }));
+            } else {
+              const err = accepted.error ?? 'invalid';
+              const key = err === 'expired' ? 'expired'
+                : err === 'used' ? 'used'
+                : err === 'already_coached' ? 'alreadyCoached'
+                : err === 'self' ? 'self'
+                : 'invalid';
+              toast(i18n.t(`coaching.invite.errors.${key}`), 'error');
             }
           } else {
             await applyIntendedCoachingRole();

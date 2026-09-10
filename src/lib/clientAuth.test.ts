@@ -198,9 +198,11 @@ test('invite leftovers: banner without coach name, toast after login accept, ops
   const page = src('src/components/auth/AuthPage.tsx');
   assert.match(page, /fromInvite && \(/);
   assert.match(page, /authBannerNoName/);
+  assert.match(page, /fromInvite \? postLoginPath\(location\.pathname\)/);
   const app = src('src/App.tsx');
   assert.match(app, /coaching\.invite\.accepted/);
   assert.match(app, /accepted\.coach_name \|\| i18n\.t\('coaching\.invite\.aCoach'\)/);
+  assert.match(app, /toast\(i18n\.t\(`coaching\.invite\.errors\.\$\{key\}`\), 'error'\)/);
   const setup = src('src/components/coaching/ClientSetupPage.tsx');
   assert.match(setup, /void fetchCoachOps\(\)/);
   const toastSrc = src('src/components/ui/Toast.tsx');
