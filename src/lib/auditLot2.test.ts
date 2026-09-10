@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { latestMigrationContaining, migrationsSql } from './migrationScan';
 
 const src = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
@@ -9,34 +10,39 @@ test('D01: program saves go through atomic server RPCs, no silent fallback', () 
   const store = src('src/stores/programStore.ts');
   assert.match(store, /rpc\('save_program_day_exercises'/);
   assert.match(store, /rpc\('sync_program_days'/);
-  assert.match(store, /rpc\('create_program_with_days'/);
+  assert.match(store, /rpc\('create_program_complete'/);
   assert.match(store, /rpc\('assign_program_secure'/);
   assert.doesNotMatch(store, /from\('program_day_exercises'\)\.delete\(\)/);
   assert.doesNotMatch(store, /from\('program_day_exercises'\)\.insert\(/);
-  const mig = src('supabase/migrations/20260910000002_audit_decision_atomicity.sql');
-  assert.match(mig, /CREATE OR REPLACE FUNCTION public\.save_program_day_exercises/);
+  const createFn = store.slice(store.indexOf('createProgram: async'));
+  assert.doesNotMatch(createFn.slice(0, 900), /from\('programs'\)\s*\.insert/);
+  const mig = latestMigrationContaining('create_program_complete').sql;
+  assert.match(mig, /CREATE OR REPLACE FUNCTION public\.create_program_complete/);
   assert.match(mig, /Validation complète AVANT toute mutation/);
 });
 
-test('D02: validations with effects claim first, then finalize (or release)', () => {
+test('D02: validations with effects apply once via applyIntervention', () => {
   for (const page of [
     'src/components/coaching/InterventionDraftPage.tsx',
     'src/components/coaching/ClientSetupPage.tsx',
     'src/components/dashboard/SoloProgramProposal.tsx',
   ]) {
     const code = src(page);
-    assert.match(code, /claimIntervention\(/);
-    assert.match(code, /finalizeIntervention\(/);
-    assert.match(code, /releaseIntervention\(/);
+    assert.match(code, /applyIntervention\(/);
+    assert.doesNotMatch(code, /claimIntervention\(/);
+    assert.doesNotMatch(code, /finalizeIntervention\(/);
   }
   const store = src('src/stores/coachingStore.ts');
-  assert.match(store, /rpc\('claim_intervention'/);
-  assert.match(store, /rpc\('finalize_intervention'/);
-  // Setup marks completion only after targets + program.
+  assert.match(store, /rpc\('apply_intervention'/);
+  assert.match(store, /loadOrCreateInterventionKeys/);
+  assert.match(store, /p_client_msg_id: effects\.message \? keys\.clientMsgId : null/);
+  const keys = src('src/lib/idempotencyKeys.ts');
+  assert.match(keys, /prometheus_idempotency/);
+  assert.match(keys, /clientMsgId/);
+  // Setup marks completion only after targets + program, inside the same RPC payload.
   const setup = src('src/components/coaching/ClientSetupPage.tsx');
-  const targetsAt = setup.indexOf('setClientNutritionTargets(id,');
-  const completedAt = setup.indexOf('setup_completed_at: new Date');
-  assert.ok(targetsAt > 0 && completedAt > targetsAt, 'targets must be written before setup_completed_at');
+  assert.match(setup, /setup_completed_at: new Date/);
+  assert.match(setup, /applyIntervention\(/);
 });
 
 test('D03: profile writes return errors; intake drafts are sequenced and visible', () => {
@@ -64,7 +70,7 @@ test('C02: message drafts survive failure; threads paginate; sends are idempoten
 });
 
 test('I05: calorie decisions snapshot server values; lessons are manageable', () => {
-  const mig = src('supabase/migrations/20260910000002_audit_decision_atomicity.sql');
+  const mig = migrationsSql();
   assert.match(mig, /applied_values/);
   assert.match(mig, /ADD COLUMN IF NOT EXISTS disabled boolean/);
   const agent = src('supabase/functions/_shared/coachAgent.ts');

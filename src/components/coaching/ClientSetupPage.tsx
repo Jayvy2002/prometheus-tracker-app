@@ -76,11 +76,10 @@ export default function ClientSetupPage() {
   const {
     coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
-    claimIntervention, releaseIntervention, finalizeIntervention,
-    saveTrackingConfig, setClientNutritionTargets, applyProgramOutline,
+    applyIntervention,
     pendingInterventions, askCoachAgent, fetchCoachSettings, fetchCoachOps,
   } = useCoachingStore();
-  const { programs, fetchPrograms, assignProgram } = useProgramStore();
+  const { programs, fetchPrograms } = useProgramStore();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -253,73 +252,49 @@ export default function ClientSetupPage() {
       return;
     }
     setSaving(true);
-    // D02 : claim du brouillon AVANT tout effet (double validation impossible).
-    let claimKey: string | null = null;
-    if (liveDraft) {
-      const claimed = await claimIntervention(liveDraft.id);
-      if ('error' in claimed) {
-        setSaving(false);
-        toast(t(claimed.error === 'already_claimed' ? 'errors.alreadyClaimed' : 'errors.alreadyResolved'), 'error');
-        return;
-      }
-      claimKey = claimed.claimKey;
-    }
-    const fail = async (message: string) => {
-      if (liveDraft && claimKey) await releaseIntervention(liveDraft.id, claimKey);
-      setSaving(false);
-      toast(message, 'error');
+    const effects: import('../../lib/interventionEffects').InterventionEffects = {
+      assign_client_id: id,
     };
-
-    // D02 : cibles et programme D'ABORD — le setup n'est marqué terminé qu'après.
     if (applyTargets) {
-      const targetResult = await setClientNutritionTargets(id, { calories, protein, carbs, fat });
-      if (targetResult.error) {
-        await fail(targetResult.error);
-        return;
-      }
+      effects.calories = { calories, protein, carbs, fat };
     }
-
     if (draftProgramName.trim() && draftDays.length > 0 && !assignId) {
-      const created = await applyProgramOutline(id, {
+      effects.program = {
         name: draftProgramName,
         description: draftProgramDesc,
         duration_weeks: draftProgramWeeks,
         days: draftDays,
-      });
-      if (created.error) {
-        await fail(t('coaching.second.failed'));
-        return;
-      }
+        assign_client_id: id,
+        start_date: todayStr(),
+      };
     } else if (assignId) {
-      const assigned = await assignProgram(assignId, id, todayStr());
-      if (assigned.error) {
-        await fail(assigned.error);
-        return;
-      }
+      effects.assign_program_id = assignId;
+      effects.start_date = todayStr();
     }
-
-    const trackResult = await saveTrackingConfig(id, {
+    effects.tracking = {
       ...tracking,
       setup_completed_at: new Date().toISOString(),
-    });
-    if (trackResult.error) {
-      await fail(trackResult.error);
+    };
+    const resolved = await applyIntervention(
+      liveDraft?.id ?? null,
+      'sent',
+      liveDraft
+        ? editedProgramPayload(liveDraft.payload, {
+          programName: draftProgramName,
+          programDesc: draftProgramDesc,
+          programWeeks: draftProgramWeeks,
+          days: draftDays,
+          patch: null,
+        })
+        : undefined,
+      effects,
+    );
+    if (resolved.error) {
+      setSaving(false);
+      toast(resolved.error === 'already_claimed' || resolved.error === 'already_resolved'
+        ? t(resolved.error === 'already_claimed' ? 'errors.alreadyClaimed' : 'errors.alreadyResolved')
+        : resolved.error, 'error');
       return;
-    }
-
-    if (liveDraft && claimKey) {
-      const resolved = await finalizeIntervention(liveDraft.id, claimKey, 'sent', editedProgramPayload(liveDraft.payload, {
-        programName: draftProgramName,
-        programDesc: draftProgramDesc,
-        programWeeks: draftProgramWeeks,
-        days: draftDays,
-        patch: null,
-      }));
-      if (resolved.error) {
-        setSaving(false);
-        toast(t('errors.alreadyResolved'), 'error');
-        return;
-      }
     }
 
     setSaving(false);

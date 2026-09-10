@@ -32,14 +32,10 @@ export default function SoloProgramProposal() {
   const myCoach = useCoachingStore(s => s.myCoach);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
-  const applyProgramOutline = useCoachingStore(s => s.applyProgramOutline);
   const resolveIntervention = useCoachingStore(s => s.resolveIntervention);
-  const claimIntervention = useCoachingStore(s => s.claimIntervention);
-  const releaseIntervention = useCoachingStore(s => s.releaseIntervention);
-  const finalizeIntervention = useCoachingStore(s => s.finalizeIntervention);
+  const applyIntervention = useCoachingStore(s => s.applyIntervention);
   const assignment = useProgramStore(s => s.assignment);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
-  const applyExercisePatch = useProgramStore(s => s.applyExercisePatch);
   const [busy, setBusy] = useState<'accept' | 'refuse' | null>(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -96,58 +92,44 @@ export default function SoloProgramProposal() {
   const isPatch = !!seed.patch;
 
   const onAccept = async () => {
-    if (deciding) return;
+    if (deciding || !user) return;
     setBusy('accept');
-    // D02 : claim avant les effets, même en solo (deux onglets).
-    const claimed = await claimIntervention(row.id);
-    if ('error' in claimed) {
-      setBusy(null);
-      toast(t(claimed.error === 'already_claimed' ? 'errors.alreadyClaimed' : 'errors.alreadyResolved'), 'error');
-      return;
-    }
-    const claimKey = claimed.claimKey;
-    const fail = async (message: string) => {
-      await releaseIntervention(row.id, claimKey);
-      setBusy(null);
-      toast(message, 'error');
+    const effects: import('../../lib/interventionEffects').InterventionEffects = {
+      assign_client_id: user.id,
     };
     if (isPatch && seed.patch) {
       const programId = assignment?.program_id;
       if (!programId) {
-        await releaseIntervention(row.id, claimKey);
         setBusy(null);
         toast(t('soloProgram.patchNoProgram'), 'info');
         return;
       }
-      const patched = await applyExercisePatch(programId, seed.patch, {
-        expectedUpdatedAt: assignment?.program?.updated_at ?? null,
-      });
-      if (patched.error) {
-        await fail(patched.error === 'stale'
-          ? t('coaching.workspace.patchStale')
-          : patched.error.startsWith('ambiguous:')
-            ? t('coaching.workspace.patchAmbiguous', { name: seed.patch.exercise })
-            : patched.error);
-        return;
-      }
+      effects.patch = {
+        ...seed.patch,
+        program_id: programId,
+        fork_if_shared: false,
+      };
     } else if (outline) {
-      const created = await applyProgramOutline(user.id, outline);
-      if (created.error) {
-        await fail(created.error);
-        return;
-      }
+      effects.program = {
+        name: outline.name,
+        description: outline.description,
+        duration_weeks: outline.duration_weeks,
+        days: outline.days,
+        assign_client_id: user.id,
+        start_date: new Date().toISOString().slice(0, 10),
+      };
     }
-    const resolved = await finalizeIntervention(row.id, claimKey, 'sent', {
+    const resolved = await applyIntervention(row.id, 'sent', {
       ...row.payload,
       program: outline ?? row.payload.program,
       name: outline?.name ?? row.payload.name,
       description: outline?.description ?? row.payload.description,
       duration_weeks: outline?.duration_weeks ?? row.payload.duration_weeks,
       days: outline?.days ?? row.payload.days,
-    });
+    }, effects);
     setBusy(null);
     if (resolved.error) {
-      toast(t('errors.alreadyResolved'), 'error');
+      toast(t(resolved.error === 'already_claimed' ? 'errors.alreadyClaimed' : resolved.error === 'already_resolved' ? 'errors.alreadyResolved' : 'errors.saveFailed'), 'error');
       return;
     }
     track('solo_program_accepted', { kind: row.kind, edited: editing });

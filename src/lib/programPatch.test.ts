@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { resolvePatchTargets } from './programPatch';
 import type { Program } from './types';
+import { latestMigrationContaining } from './migrationScan';
 
 function program(): Program {
   return {
@@ -84,6 +85,6 @@ test('I02: preview and apply share resolvePatchTargets; fork + version guard the
   const agent = readFileSync(resolve(process.cwd(), 'supabase/functions/_shared/coachAgent.ts'), 'utf8');
   assert.match(agent, /patch\.exercise_id = asString\(src\.exercise_id\)/);
   assert.match(agent, /exercise_id \+ program_day_id repris/);
-  const mig = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260910000004_audit_program_fork.sql'), 'utf8');
+  const mig = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.fork_program').sql;
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.fork_program/);
 });

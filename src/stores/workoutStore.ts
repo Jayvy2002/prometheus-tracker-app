@@ -6,8 +6,13 @@ import { getSessionOwner, createGeneration } from '../lib/sessionScope';
 import {
   enqueueOfflineOp,
   peekOfflineOps,
+  peekDeadLetterOps,
   removeOfflineOp,
   markOfflineOpFailed,
+  moveOfflineOpToDeadLetter,
+  retryDeadLetterOp,
+  loadIdMap,
+  persistIdMap,
   isTransportError,
   type OfflineOp,
   type OfflineOpType,
@@ -32,6 +37,27 @@ export function isOfflineTempId(id: string): boolean {
   return id.startsWith('local-');
 }
 
+function takeQueuedOp(
+  type: OfflineOpType,
+  payload: Record<string, unknown>,
+  accountId: string | null,
+): OfflineOp | null {
+  const queued = enqueueOfflineOp(type, payload, accountId);
+  if (!queued.ok) {
+    useWorkoutStore.setState({ queueBlocked: queued.error });
+    return null;
+  }
+  useWorkoutStore.setState({ queueBlocked: null });
+  return queued.op;
+}
+
+function queueCounts(accountId: string | null): { pendingOps: number; deadOps: number } {
+  return {
+    pendingOps: peekOfflineOps(accountId).length,
+    deadOps: peekDeadLetterOps(accountId).length,
+  };
+}
+
 interface SendResult {
   error: { message?: string; code?: string } | null;
 }
@@ -49,9 +75,19 @@ async function guardedMutation(
 ): Promise<{ error: string | null; queued: boolean }> {
   const owner = getSessionOwner();
   const queueIt = () => {
-    enqueueOfflineOp(type, payload, owner);
+    const queued = enqueueOfflineOp(type, payload, owner);
+    if (!queued.ok) {
+      useWorkoutStore.setState({ queueBlocked: queued.error });
+      return {
+        error: queued.error === 'quota' ? 'quota' : 'Request failed',
+        queued: false,
+      };
+    }
     applyLocal();
-    useWorkoutStore.setState({ pendingOps: peekOfflineOps(owner).length });
+    useWorkoutStore.setState({
+      ...queueCounts(owner),
+      deadOps: peekDeadLetterOps(owner).length,
+    });
     return { error: null as string | null, queued: true };
   };
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return queueIt();
@@ -118,6 +154,11 @@ interface WorkoutState {
   loading: boolean;
   /** D07 : opérations locales en attente de synchronisation (0 = à jour). */
   pendingOps: number;
+  /** D07 : dead-letter visible et réessayable (jamais supprimée après 3 échecs). */
+  deadOps: number;
+  /** D07 : file locale saturée ou hors compte — l'UI affiche l'erreur, rien n'est jeté. */
+  queueBlocked: 'quota' | 'no_account' | null;
+  retryDeadLetter: (opId: string) => Promise<void>;
   /** Q05 : true quand tout l'historique est chargé (pas de troncature silencieuse). */
   workoutsExhausted: boolean;
   syncOfflineQueue: () => Promise<void>;
@@ -393,10 +434,24 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   currentWorkout: null,
   loading: false,
   pendingOps: 0,
+  deadOps: 0,
+  queueBlocked: null,
   workoutsExhausted: false,
 
   refreshPendingOps: () => {
-    set({ pendingOps: peekOfflineOps().length });
+    set({
+      pendingOps: peekOfflineOps().length,
+      deadOps: peekDeadLetterOps().length,
+    });
+  },
+
+  retryDeadLetter: async (opId) => {
+    retryDeadLetterOp(opId);
+    set({
+      pendingOps: peekOfflineOps().length,
+      deadOps: peekDeadLetterOps().length,
+    });
+    await get().syncOfflineQueue();
   },
 
   syncOfflineQueue: async () => {
@@ -405,7 +460,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     if (drainInFlight) return;
     drainInFlight = true;
     try {
-      const idMap = new Map<string, string>();
+      const idMap = loadIdMap(owner);
       const mapId = (id: string) => idMap.get(id) ?? id;
       let guard = 0;
       for (;;) {
@@ -415,18 +470,23 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         const replayed = await replayOfflineOp(op, mapId);
         if (replayed.transport) break;
         if (replayed.error) {
-          markOfflineOpFailed(op.id, replayed.error, owner);
-          const attempts = peekOfflineOps(owner).find(o => o.id === op.id)?.attempts ?? 0;
-          // Opération applicativement rejetée 3 fois : abandonnée (pas de poison infini).
-          if (attempts >= 3) removeOfflineOp(op.id, owner);
+          const current = peekOfflineOps(owner).find(o => o.id === op.id);
+          const nextAttempts = (current?.attempts ?? op.attempts) + 1;
+          if (nextAttempts >= 3) {
+            moveOfflineOpToDeadLetter(op.id, replayed.error, owner);
+          } else {
+            markOfflineOpFailed(op.id, replayed.error, owner);
+          }
           continue;
         }
         if (replayed.realId) idMap.set(offlineTempId(op.id), replayed.realId);
         for (const [temp, real] of replayed.extraMaps ?? []) idMap.set(temp, real);
+        persistIdMap(idMap, owner);
         removeOfflineOp(op.id, owner);
       }
+      persistIdMap(idMap, owner);
       const remaining = peekOfflineOps(owner).length;
-      set({ pendingOps: remaining });
+      set({ pendingOps: remaining, deadOps: peekDeadLetterOps(owner).length });
       if (remaining === 0 && idMap.size > 0) {
         // Ids réels : les brouillons de saisie suivent, puis relecture serveur.
         const current = get().currentWorkout;
@@ -538,7 +598,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
   createWorkout: async (workout) => {
     // D07 : op créée d'abord (client_op_id stable) — succès serveur = on la retire.
     const owner = getSessionOwner();
-    const op = enqueueOfflineOp('workout.create', { workout: { ...workout } }, owner);
+    const op = takeQueuedOp('workout.create', { workout: { ...workout } }, owner);
     const { data, error } = await supabase
       .from('workouts')
       .insert({ ...workout, client_op_id: op?.id ?? null })
@@ -547,7 +607,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
     if (!error && data) {
       if (op) removeOfflineOp(op.id, owner);
       const w = { ...data, exercises: [] } as Workout;
-      set(s => ({ workouts: [w, ...s.workouts], currentWorkout: w, pendingOps: peekOfflineOps(owner).length }));
+      set(s => ({ workouts: [w, ...s.workouts], currentWorkout: w, ...queueCounts(owner) }));
       return data.id;
     }
     if (error && !isTransportError(error)) {
@@ -562,7 +622,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       set(s => ({
         workouts: [temp, ...s.workouts],
         currentWorkout: temp,
-        pendingOps: peekOfflineOps(owner).length,
+        ...queueCounts(owner),
       }));
       return temp.id;
     }
@@ -644,7 +704,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       prescribed_rest_seconds: extras?.prescribed_rest_seconds ?? null,
       prescribed_weight_kg: extras?.prescribed_weight_kg ?? null,
     };
-    const op = enqueueOfflineOp('exercise.add', { workoutId, exercise: { ...exercise } }, owner);
+    const op = takeQueuedOp('exercise.add', { workoutId, exercise: { ...exercise } }, owner);
     const { data, error } = await supabase
       .from('workout_exercises')
       .insert({ workout_id: workoutId, ...exercise, client_op_id: op?.id ?? null })
@@ -660,7 +720,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           exercises: [...(s.currentWorkout.exercises ?? []), ex],
         };
         setCacheItem(workoutCacheKey(workoutId), updated);
-        return { currentWorkout: updated, pendingOps: peekOfflineOps(owner).length };
+        return { currentWorkout: updated, ...queueCounts(owner) };
       });
       return ex;
     }
@@ -678,7 +738,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         exercises: [...(s.currentWorkout.exercises ?? []), temp],
       };
       setCacheItem(workoutCacheKey(workoutId), updated);
-      return { currentWorkout: updated, pendingOps: peekOfflineOps(owner).length };
+      return { currentWorkout: updated, ...queueCounts(owner) };
     });
     return temp;
   },
@@ -731,7 +791,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   addSet: async (exerciseId, orderIndex) => {
     const owner = getSessionOwner();
-    const op = enqueueOfflineOp('set.add', { exerciseId, set: { order_index: orderIndex } }, owner);
+    const op = takeQueuedOp('set.add', { exerciseId, set: { order_index: orderIndex } }, owner);
     const { data, error } = await supabase
       .from('workout_sets')
       .insert({ exercise_id: exerciseId, order_index: orderIndex, client_op_id: op?.id ?? null })
@@ -751,7 +811,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           ),
         };
         setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-        return { currentWorkout: updated, pendingOps: peekOfflineOps(owner).length };
+        return { currentWorkout: updated, ...queueCounts(owner) };
       });
       return newSet;
     }
@@ -773,7 +833,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         ),
       };
       setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-      return { currentWorkout: updated, pendingOps: peekOfflineOps(owner).length };
+      return { currentWorkout: updated, ...queueCounts(owner) };
     });
     return temp;
   },
@@ -845,7 +905,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       myo_is_activation: setData.myo_is_activation,
       drop_percentage: setData.drop_percentage,
     };
-    const op = enqueueOfflineOp('set.restore', { row: { ...row } }, owner);
+    const op = takeQueuedOp('set.restore', { row: { ...row } }, owner);
     const { data, error } = await supabase
       .from('workout_sets')
       .insert({ ...row, client_op_id: op?.id ?? null })
@@ -872,7 +932,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
         ),
       };
       setCacheItem(workoutCacheKey(s.currentWorkout.id), updated);
-      return { currentWorkout: updated, pendingOps: peekOfflineOps(owner).length };
+      return { currentWorkout: updated, ...queueCounts(owner) };
     });
   },
 
@@ -899,7 +959,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       myo_is_activation: s.myo_is_activation,
       drop_percentage: s.drop_percentage,
     }));
-    const op = enqueueOfflineOp('exercise.restore', { row: { ...row }, sets }, owner);
+    const op = takeQueuedOp('exercise.restore', { row: { ...row }, sets }, owner);
     const { data: newEx, error: exError } = await supabase
       .from('workout_exercises')
       .insert({ ...row, client_op_id: op?.id ?? null })
@@ -937,7 +997,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
           .sort((a, b) => a.order_index - b.order_index),
       };
       setCacheItem(workoutCacheKey(workoutId), updated);
-      return { currentWorkout: updated, pendingOps: peekOfflineOps(owner).length };
+      return { currentWorkout: updated, ...queueCounts(owner) };
     });
   },
 
@@ -1072,6 +1132,6 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
 
   reset: () => {
     workoutGeneration.next();
-    set({ workouts: [], currentWorkout: null, loading: false, pendingOps: 0, workoutsExhausted: false });
+    set({ workouts: [], currentWorkout: null, loading: false, pendingOps: 0, deadOps: 0, queueBlocked: null, workoutsExhausted: false });
   },
 }));

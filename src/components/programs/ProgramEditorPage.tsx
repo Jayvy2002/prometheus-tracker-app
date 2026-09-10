@@ -17,7 +17,7 @@ export default function ProgramEditorPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
-  const { fetchProgram, updateProgram, setProgramDayExercises, createProgram, fetchProgramRevisionInfo } = useProgramStore();
+  const { fetchProgram, updateProgram, createProgram, fetchProgramRevisionInfo } = useProgramStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
@@ -79,26 +79,15 @@ export default function ProgramEditorPage() {
         name: d.name,
         routine_id: null,
         order_index: i,
+        exercises: days[i].exercises.map((ex, idx) => ({
+          ...ex,
+          order_index: idx,
+        })),
       })));
       if (!created) {
         setSaving(false);
         toast(t('programs.createFailed'), 'error');
         return;
-      }
-      const full = await fetchProgram(created);
-      const createdDays = [...(full?.days ?? [])].sort((a, b) => a.order_index - b.order_index);
-      for (let i = 0; i < days.length; i++) {
-        const row = createdDays[i];
-        if (!row) continue;
-        const saved = await setProgramDayExercises(row.id, days[i].exercises.map((ex, idx) => ({
-          ...ex,
-          order_index: idx,
-        })));
-        if (saved.error) {
-          setSaving(false);
-          toast(saved.error, 'error');
-          return;
-        }
       }
       setSaving(false);
       toast(t('programs.created'));

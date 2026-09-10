@@ -98,7 +98,7 @@ Un solo qui engage un coach Prometheus ne paie pas deux fois : son compte devien
 | Bilingue EN + FR | Intake, `constants.ts`, agent, tournée : langue du caller | Idem | ✔ (#53 / #54) |
 | Recherche aliments & exercices | Locale instantanée + OFF explicite (cgi plein texte, budget, timeout) ; ranking multicritère ; aliases FR/EN ; portions exactes aller-retour | Idem | ✔ (#68) |
 | Changer de coach | Invitation seulement ; le client ne peut pas partir seul | Annuaire + départ + changement | Chantier C |
-| Fiabilité (audit 10 sept.) | Accès P0 fermés ; sauvegardes atomiques ; décision unique (claim/finalize) ; preuves datées solo = coach ; file offline séances ; 360 temps réel ; suppression coach = workflow ; archives + adoption ; unités/langue ; a11y de base ; lazy routes ; télémétrie minimisée (`docs/TELEMETRY.md`) ; révisions programmes ; contrat questionnaire E02 | Idem | ✔ (#68) |
+| Fiabilité (audit 10 sept.) | Accès P0 fermés ; création programme atomique (`create_program_complete`) ; effets d'intervention exactement une fois (`apply_intervention` + clés persistées) ; preuves datées solo = coach ; file offline séances (dead-letter, mapping temp→réel) ; 360 temps réel ; suppression coach = workflow ; archives + adoption ; unités/langue ; a11y de base ; lazy routes ; télémétrie minimisée (`docs/TELEMETRY.md`) ; **E01/E02 = fondations** (révisions immuables + contrat intake versionné — pas le versionnage semaines/blocs ni le builder questionnaire) | Idem | ✔ (#68) |
 
 ---
 
@@ -126,8 +126,8 @@ Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
 | 1 | Copilote solo (intake + hebdo + programme vivant) | ✔ code (#46, #47, #58) |
 | A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | ✔ (#65) |
 | 3 | Intake dans la boucle coach | ✔ ; `joursDispo` éditeur + accusé drapeau (#65) |
-| audit | 30 constats (P0→P3) : accès, atomicité, preuves, continuité, fichiers, a11y, perf, CI, télémétrie, révisions, contrat questionnaire | ✔ (#68 — edges fleet/agent à redéployer en CLI, cron rappels à planifier) |
-| B | Builder de questionnaire par coach (socle E02 livré : ids stables, version, `custom`) | À faire |
+| audit | 30 constats (P0→P3) : accès, atomicité, preuves, continuité, fichiers, a11y, perf, CI, télémétrie ; E01/E02 fondations (révisions + contrat intake) | ✔ (#68 — edges fleet/agent à redéployer en CLI, cron rappels à planifier) |
+| B | Builder de questionnaire par coach (socle E02 livré : ids stables, version, `custom` — pas encore le builder ni le versionnage semaines/blocs) | À faire |
 | 5 | Télémétrie d'usage | ✔ table + `track()` + `docs/TELEMETRY.md` ; écran lecture = transversal |
 | 6 | Bilingue EN + FR | ✔ (#53 / #54, étendu #68) |
 | C | Recherche et changement de coach | À faire |

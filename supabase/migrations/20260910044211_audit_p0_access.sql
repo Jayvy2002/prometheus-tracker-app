@@ -1,0 +1,20 @@
+-- Audit P0 (S02/S03/S04) + durcissement search_path.
+CREATE OR REPLACE FUNCTION public.assign_program_secure(p_program_id uuid, p_client_id uuid, p_start_date date) RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ DECLARE v_uid uuid := auth.uid(); v_assignment_id uuid; BEGIN IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF; IF p_program_id IS NULL OR p_client_id IS NULL OR p_start_date IS NULL THEN RAISE EXCEPTION 'Missing assignment fields'; END IF; IF NOT EXISTS (SELECT 1 FROM public.programs p WHERE p.id = p_program_id AND p.owner_id = v_uid) THEN RAISE EXCEPTION 'Not program owner'; END IF; IF p_client_id <> v_uid AND NOT public.is_coach_of(p_client_id) THEN RAISE EXCEPTION 'Not authorized for this client'; END IF; IF p_client_id = v_uid AND EXISTS (SELECT 1 FROM public.coach_client_links WHERE client_id = v_uid AND status = 'active') THEN RAISE EXCEPTION 'Coached client cannot self-assign'; END IF; UPDATE public.program_assignments SET status = 'paused', updated_at = now() WHERE client_id = p_client_id AND status = 'active'; INSERT INTO public.program_assignments (program_id, client_id, assigned_by, start_date, status) VALUES (p_program_id, p_client_id, v_uid, p_start_date, 'active') RETURNING id INTO v_assignment_id; RETURN v_assignment_id; END; $$;
+REVOKE ALL ON FUNCTION public.assign_program_secure(uuid, uuid, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.assign_program_secure(uuid, uuid, date) TO authenticated;
+DROP POLICY IF EXISTS "Assigner inserts assignments" ON public.program_assignments;
+CREATE POLICY "Assigner inserts assignments" ON public.program_assignments FOR INSERT TO authenticated WITH CHECK (assigned_by = (select auth.uid()) AND (client_id = (select auth.uid()) OR public.is_coach_of(client_id)) AND EXISTS (SELECT 1 FROM public.programs p WHERE p.id = program_id AND p.owner_id = (select auth.uid())));
+DROP POLICY IF EXISTS "Assigner updates assignments" ON public.program_assignments;
+CREATE POLICY "Assigner updates assignments" ON public.program_assignments FOR UPDATE TO authenticated USING (assigned_by = (select auth.uid())) WITH CHECK (assigned_by = (select auth.uid()) AND (client_id = (select auth.uid()) OR public.is_coach_of(client_id)) AND EXISTS (SELECT 1 FROM public.programs p WHERE p.id = program_id AND p.owner_id = (select auth.uid())));
+CREATE OR REPLACE FUNCTION public.get_my_coach_card() RETURNS TABLE (coach_id uuid, full_name text, avatar_url text) LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ BEGIN IF auth.uid() IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF; RETURN QUERY SELECT p.id, COALESCE(p.full_name, ''), p.avatar_url FROM public.coach_client_links l JOIN public.user_profiles p ON p.id = l.coach_id WHERE l.client_id = auth.uid() AND l.status = 'active' ORDER BY l.created_at DESC LIMIT 1; END; $$;
+REVOKE ALL ON FUNCTION public.get_my_coach_card() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_my_coach_card() TO authenticated;
+DROP POLICY IF EXISTS "Clients can read their coach profile" ON public.user_profiles;
+ALTER TABLE public.exercises ALTER COLUMN verified SET DEFAULT false;
+DROP POLICY IF EXISTS "Users can insert exercises" ON public.exercises;
+CREATE POLICY "Users can insert exercises" ON public.exercises FOR INSERT TO authenticated WITH CHECK (created_by = (select auth.uid()) AND verified = false);
+REVOKE UPDATE, DELETE ON public.exercises FROM authenticated;
+GRANT SELECT, INSERT ON public.exercises TO authenticated;
+CREATE OR REPLACE FUNCTION public.handle_subscription_updated_at() RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
+CREATE OR REPLACE FUNCTION public.handle_user_roles_updated_at() RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;
+CREATE OR REPLACE FUNCTION public.update_updated_at() RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public AS $$ BEGIN NEW.updated_at = now(); RETURN NEW; END; $$;

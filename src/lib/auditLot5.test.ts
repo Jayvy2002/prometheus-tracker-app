@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { latestMigrationContaining, migrationsSql } from './migrationScan';
 
 const src = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
 test('C01: observation tables are realtime-published; the 360 reloads on change', () => {
-  const mig = src('supabase/migrations/20260910000005_audit_continuity.sql');
+  const mig = migrationsSql();
   assert.match(mig, /REPLICA IDENTITY FULL/);
   assert.match(mig, /supabase_realtime.*ADD TABLE/);
   assert.match(mig, /daily_checkins/);
@@ -24,7 +25,7 @@ test('C01: observation tables are realtime-published; the 360 reloads on change'
 });
 
 test('C03: coach deletion runs the business transition first, then paginated cleanup', () => {
-  const mig = src('supabase/migrations/20260910000005_audit_continuity.sql');
+  const mig = migrationsSql();
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.transition_client_to_solo/);
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.close_coach_account/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.close_coach_account\(uuid\) TO service_role/);
@@ -39,7 +40,7 @@ test('C03: coach deletion runs the business transition first, then paginated cle
 });
 
 test('C04: assignment history follows the athlete; adoption is explicit', () => {
-  const mig = src('supabase/migrations/20260910000005_audit_continuity.sql');
+  const mig = migrationsSql();
   assert.match(mig, /Coaches read client assignment history/);
   assert.match(mig, /Coaches read assigned programs/);
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.adopt_client_program/);
@@ -67,7 +68,7 @@ test('Q01: notification status is real; reminders respect tracking and language'
   assert.match(cron, /invoke_send_daily_reminders/);
   assert.match(cron, /REMINDERS_CRON_SECRET/);
   assert.doesNotMatch(cron, /SERVICE_ROLE_KEY/);
-  const mig = src('supabase/migrations/20260910000006_audit_reminders_invoke.sql');
+  const mig = latestMigrationContaining('invoke_send_daily_reminders').sql;
   assert.match(mig, /invoke_send_daily_reminders/);
   assert.match(mig, /vault\.decrypted_secrets/);
 });

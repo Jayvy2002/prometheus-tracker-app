@@ -15,6 +15,7 @@ import { displayName } from '../../lib/coachText';
 import { clientFileHref } from '../../lib/coachSituation';
 import { coachingPassHref } from '../../lib/coachInterventions';
 import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
+import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
@@ -30,7 +31,7 @@ export default function CoachInboxPage() {
   const {
     fetchCoachOps, fetchCoachMessages, fetchCoachSettings, pendingInterventions, clients, sentMessages,
     sendCoachMessage, markThreadRead, coachSettings,
-    claimIntervention, releaseIntervention, finalizeIntervention,
+    applyIntervention,
     fetchThreadPage, threadExhausted,
   } = useCoachingStore();
   const [sending, setSending] = useState(false);
@@ -70,13 +71,14 @@ export default function CoachInboxPage() {
   const handleSend = async (body: string) => {
     if (!clientId) return { error: 'empty' as string | null };
     setSending(true);
-    const msgId = crypto.randomUUID();
+    const msgId = loadOrCreateMessageKey(clientId, body);
     const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId);
     setSending(false);
     if (result.error) {
       toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
       return result;
     }
+    clearMessageKey(clientId);
     toast(t('coaching.queue.sent'));
     if (nudgeKey) navigate(`/messages/${clientId}`, { replace: true });
     return { error: null };
@@ -89,25 +91,17 @@ export default function CoachInboxPage() {
     }
     setSendingId(item.id);
     if (isRelanceKind(item.kind)) {
-      // D02 : claim avant l'envoi — un seul onglet envoie la relance.
-      const claimed = await claimIntervention(item.id);
-      if ('error' in claimed) {
-        setSendingId(null);
-        toast(t(claimed.error === 'already_claimed' ? 'errors.alreadyClaimed' : 'errors.alreadyResolved'), 'error');
-        return;
-      }
       const body = parsePreparedMessage(item.payload);
-      const sent = await sendCoachMessage(item.client_id, body, preparedTemplateKey(item.payload, item.kind), crypto.randomUUID());
-      if (sent.error) {
-        await releaseIntervention(item.id, claimed.claimKey);
-        setSendingId(null);
-        toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
-        return;
-      }
-      const resolved = await finalizeIntervention(item.id, claimed.claimKey, 'sent', item.payload);
+      const resolved = await applyIntervention(item.id, 'sent', item.payload, {
+        assign_client_id: item.client_id,
+        message: {
+          body,
+          template_key: preparedTemplateKey(item.payload, item.kind),
+        },
+      });
       setSendingId(null);
       if (resolved.error) {
-        toast(t('errors.alreadyResolved'), 'error');
+        toast(t(resolved.error === 'already_claimed' ? 'errors.alreadyClaimed' : resolved.error === 'already_resolved' ? 'errors.alreadyResolved' : 'errors.saveFailed'), 'error');
         return;
       }
       toast(t('coaching.queue.sent'));

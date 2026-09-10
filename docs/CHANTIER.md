@@ -35,13 +35,13 @@
 
 | Lot | Contenu | Migrations prod |
 |---|---|---|
-| 1 (P0) | S01 `batch-verify-exercises` → 410 ; S02 attributions via `assign_program_secure` ; S03 `get_my_coach_card` ; S04 exercices `created_by`+`verified=false` ; S05 caches/brouillons/minuteurs par compte | `20260910000001_audit_p0_access` ✅ |
-| 2 | D01 RPC programmes atomiques ; D02 claim/finalize décisions ; D03 erreurs visibles + intake séquencé ; I05 snapshot serveur + leçons gérables ; C02 messagerie idempotente + pagination | `20260910000002_audit_decision_atomicity` ✅ |
-| 3 | D04 contrat portions unique ; D05 `created_by` cache food ; D06 OFF explicite (cgi plein texte, budget, timeout) ; I03 fenêtre 14 j + cibles effectives datées + durées réelles ; I04 signaux déclarés + modules suivis + profils protégés | `20260910000003_audit_engine_proof` ✅ |
-| 4 | I01 fallback exact (jours/équipement/interdits) + validation modèle + NL-edit sans fallback destructeur ; I02 patch par ID + aperçu partagé + fork + version | `20260910000004_audit_program_fork` ✅ |
-| 5 | D07 file offline séances (ids stables, rejeu idempotent) ; C01 fiche 360 temps réel + fraîcheur ; C03 `close_coach_account` + `delete-account` v7 ; C04 archives + adoption ; Q01 rappels (statuts réels, modules, langue) | `20260910000005_audit_continuity`, `20260910000006_audit_reminders_invoke` ✅ |
-| 6 | Q02 fichiers (validation, limites buckets, liens renouvelés) ; Q03 unités/langue ; Q04 modale + switches ; Q05 lazy routes (820 kB vs 1619), programmes 1 requête, pagination séances ; Q06 CI edges + manifest + matrice RLS ; Q07 télémétrie minimisée + `docs/TELEMETRY.md` | `20260910000007_audit_hardening` ✅ |
-| 7 | E01 révisions immuables + snapshots ; E02 version intake + ids sémantiques + `custom` non interprété ; durcissement (revoke trigger, index FK, initplan) | `20260910000008_audit_program_revisions`, `20260910000009_audit_revision_snapshots` ✅ |
+| 1 (P0) | S01 `batch-verify-exercises` → 410 ; S02 attributions via `assign_program_secure` ; S03 `get_my_coach_card` ; S04 exercices `created_by`+`verified=false` ; S05 caches/brouillons/minuteurs par compte | `20260910044211` ✅ |
+| 2 | D01 RPC unique `create_program_complete` ; D02 `apply_intervention` (effets exactement une fois) ; D03 erreurs visibles ; I05 snapshot + leçons ; C02 messagerie idempotente | `20260910044922`–`20260910045006` + `20260910153000` ✅ |
+| 3 | D04 contrat portions ; D05 `created_by` cache food ; D06 OFF explicite ; I03 fenêtre 14 j ; I04 signaux déclarés | `20260910051141`–`20260910052800` ✅ |
+| 4 | I01 fallback exact + validation modèle ; I02 patch par ID + aperçu + fork + version | `20260910053617` ✅ |
+| 5 | D07 file offline (dead-letter, mapping persisté) ; C01 360 temps réel ; C03 `close_coach_account` ; C04 archives ; Q01 rappels | `20260910054330`–`20260910060246` ✅ |
+| 6 | Q02 fichiers ; Q03 unités/langue ; Q04 modale ; Q05 lazy routes ; Q06 CI edges (manifeste + dirs + JWT + inventaire) + matrice RLS staging ; Q07 télémétrie | `20260910061018`–`20260910061036` ✅ |
+| 7 | **E01/E02 fondations** : révisions immuables + snapshots ; contrat intake versionné. Pas le versionnage semaines/blocs ni le questionnaire dynamique (chantier B). | `20260910063138`–`20260910064501` ✅ |
 
 ### ⚠️ Étapes ops REQUISES après merge (ne pas oublier)
 
@@ -53,7 +53,12 @@
    Déjà déployés via API : `batch-verify-exercises` v6 (410), `delete-account` v7, `send-daily-reminders` v9.
 2. **Rappels cron** : poser le secret `REMINDERS_CRON_SECRET` (valeur transmise hors git) dans Vault **et** dans les secrets de `send-daily-reminders`, vérifier les secrets VAPID, puis jouer `supabase/cron/schedule_daily_reminders.sql`.
 3. **Protection de branche** : protéger `new-JV` (reviews + CI verte requises) — non faisable via API ici.
-4. **Matrice RLS** : jouer `supabase/tests/rls_matrix.sql` sur staging à chaque changement de policies.
+4. **Matrice RLS** : job CI `rls-matrix` (`supabase start` + `scripts/run-rls-matrix.mjs`). Rejouer aussi sur une branche staging après chaque changement de policy / RPC DEFINER.
+
+## E01 / E02 — fondations, pas le produit annoncé
+
+- **E01 (révisions)** : table `program_revisions`, snapshots à chaque save structurel, fork/adopt. Suffit à ne pas écraser l’historique. **Manque** le versionnage semaines/blocs (cycles, deload, bascule de phase) — hors de #68.
+- **E02 (questionnaire)** : ids sémantiques stables, `INTAKE_VERSION`, bac `custom` non interprété. **Pas** le builder coach ni le rendu dynamique par définition — c’est le chantier B.
 
 ### Drafts orphelins
 
@@ -86,7 +91,7 @@
 
 ## Ordre des chantiers
 
-**0, A et audit (#68) faits → B → C → D.** Le transversal restant (écran télémétrie, fusion des policies permissives, finitions E01) se glisse entre deux.
+**0, A et audit (#68) faits → B → C → D.** Le transversal restant (écran télémétrie, fusion des policies permissives) se glisse entre deux. E01 (semaines/blocs) et E02 (builder questionnaire) restent des **fondations** : le produit annoncé est le chantier B.
 
 B et C rendent l’acquisition de coachs possible. D attend une décision de prix et des utilisateurs réels — « gratuit tant que le produit n’est pas parfait » reste vrai.
 
@@ -116,7 +121,7 @@ Setup d’un profil qui a déjà des cibles (≥ 800 kcal) : radios **Garder** (
 
 - **Fait (#65)** — `joursDispo` pré-rempli dans l’éditeur manuel de programme ; accusé de réception d’un drapeau médical avant Envoyer Setup.
 - **Fait (#67)** — Recherche aliments & exercices unifiée : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage mutuel), scoring multicritère (`pickerSearch.ts`), aliases d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907000001_food_search_rank.sql` (`pg_trgm`) appliquée en prod.
-- **Fait (#68)** — Audit 30 constats : accès P0, atomicité, preuves datées, file offline, continuité coach, fichiers, a11y de base, lazy routes (820 kB initiaux), CI edges, télémétrie minimisée (`docs/TELEMETRY.md`), révisions programmes, contrat questionnaire E02.
+- **Fait (#68)** — Audit 30 constats. E01/E02 livrés comme **fondations** : révisions programme immuables + snapshots ; contrat intake (`INTAKE_VERSION`, ids stables, bac `custom`). **Pas livré** : versionnage semaines/blocs, builder de questionnaire dynamique (chantier B).
 - Écran de lecture télémétrie coach/admin. `product_events` n’a aujourd’hui qu’une policy INSERT.
 - Plus tard : fusion des paires de policies SELECT permissives (OR correct, micro-perf) après tests RLS (`supabase/tests/rls_matrix.sql`) ; déplacement `pg_trgm`/`pg_net` hors `public` avec staging ; formats de prescription (`reps` vs durée) ; historique visuel des révisions ; file offline au-delà des séances.
 

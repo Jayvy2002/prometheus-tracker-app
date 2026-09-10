@@ -1,0 +1,1 @@
+UPDATE storage.buckets SET file_size_limit = 5242880, allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp'] WHERE id IN ('avatars', 'product-images', 'progress-photos'); SELECT id, file_size_limit, allowed_mime_types FROM storage.buckets WHERE id IN ('avatars', 'product-images', 'progress-photos'); 

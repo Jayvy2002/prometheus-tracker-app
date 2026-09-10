@@ -8,6 +8,7 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import MessageThread from './MessageThread';
+import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 
 export default function ClientMessagesPage() {
   const { t } = useTranslation();
@@ -32,10 +33,15 @@ export default function ClientMessagesPage() {
 
   const handleSend = async (body: string) => {
     setSending(true);
-    const result = await sendClientReply(body, crypto.randomUUID());
+    if (!user) return { error: 'Not authenticated' };
+    setSending(true);
+    const msgId = loadOrCreateMessageKey(user.id, body);
+    const result = await sendClientReply(body, msgId);
     setSending(false);
     if (result.error) {
       toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
+    } else {
+      clearMessageKey(user.id);
     }
     return result;
   };

@@ -74,8 +74,10 @@ import {
 import i18n from '../i18n';
 import { toast } from '../components/ui/Toast';
 import type { ClientVisibleProfilePatch } from '../lib/coachClientProfile';
-import { useProgramStore } from './programStore';
+import { loadOrCreateInterventionKeys } from '../lib/idempotencyKeys';
+import { effectsToJson } from '../lib/interventionEffects';
 import { useProfileStore } from './profileStore';
+import { useProgramStore } from './programStore';
 import { buildClientOpsRows, coachClockFacts, datePrefix, weekAgoStr } from '../lib/coachAlerts';
 import { buildClientLifts } from '../lib/coachLifts';
 import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
@@ -378,6 +380,17 @@ interface CoachingState {
     status: Extract<CoachInterventionStatus, 'sent' | 'dismissed' | 'kept'>,
     payload?: Record<string, unknown>,
   ) => Promise<{ error: string | null }>;
+  /**
+   * D02 : une commande serveur applique les effets et fige la décision.
+   * Les clés d'idempotence (claim, idempotency, client_msg_id) survivent
+   * aux retries et au reload.
+   */
+  applyIntervention: (
+    id: string | null,
+    status: Extract<CoachInterventionStatus, 'sent' | 'dismissed' | 'kept'>,
+    payload: Record<string, unknown> | undefined,
+    effects: import('../lib/interventionEffects').InterventionEffects,
+  ) => Promise<{ error: string | null; replayed?: boolean }>;
   /**
    * D02 : claim atomique avant d'appliquer des effets. Une seule validation
    * gagne ; l'autre onglet reçoit already_resolved / already_claimed AVANT
@@ -925,8 +938,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const name = outline.name.trim();
     if (!name || outline.days.length === 0) return { error: null };
     const programs = useProgramStore.getState();
-    // D01 : création + remplissage via RPC atomiques — chaque étape est
-    // vérifiée, un échec n'attribue jamais un programme à moitié rempli.
+    // D01 : une seule RPC — programme + jours + exercices + attribution.
     const programId = await programs.createProgram({
       owner_id: user.id,
       name,
@@ -937,12 +949,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       name: d.name,
       routine_id: null,
       order_index: i,
-    })));
-    if (!programId) return { error: 'Failed to create program' };
-    const synced = await programs.syncProgramDays(programId, outline.days.map(d => ({
-      weekday: d.weekday,
-      name: d.name,
-      exercises: (d.exercises ?? []).map(ex => ({
+      exercises: (d.exercises ?? []).map((ex, order_index) => ({
         name: ex.name,
         default_sets: ex.default_sets || 3,
         default_reps: ex.default_reps || 10,
@@ -950,10 +957,11 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         default_rir: ex.default_rir ?? null,
         default_rest_seconds: ex.default_rest_seconds ?? 90,
         default_weight_kg: ex.default_weight_kg ?? null,
+        order_index,
       })),
-    })));
-    if (synced.error) return { error: synced.error };
-    return programs.assignProgram(programId, clientId, todayStr());
+    })), { assignClientId: clientId, startDate: todayStr() });
+    if (!programId) return { error: 'Failed to create program' };
+    return { error: null };
   },
 
   fetchPendingInterventions: async () => {
@@ -1416,15 +1424,47 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   claimIntervention: async (id) => {
-    const claimKey = crypto.randomUUID();
+    const keys = loadOrCreateInterventionKeys(id);
     const { data, error } = await supabase.rpc('claim_intervention', {
       p_id: id,
-      p_claim_key: claimKey,
+      p_claim_key: keys.claimKey,
     });
     if (error) return { error: error.message };
-    const outcome = data as { ok: boolean; reason?: string } | null;
+    const outcome = data as { ok: boolean; reason?: string; already_done?: boolean } | null;
     if (!outcome?.ok) return { error: outcome?.reason ?? 'already_resolved' };
-    return { claimKey };
+    return { claimKey: keys.claimKey };
+  },
+
+  applyIntervention: async (id, status, payload, effects) => {
+    const persistId = id ?? `setup:${effects.assign_client_id ?? 'self'}`;
+    const keys = loadOrCreateInterventionKeys(persistId);
+    const { data, error } = await supabase.rpc('apply_intervention', {
+      p_id: id,
+      p_idempotency_key: keys.idempotencyKey,
+      p_claim_key: keys.claimKey,
+      p_status: status,
+      p_payload: (payload ?? null) as unknown as Record<string, never> | null,
+      p_effects: effectsToJson(effects) as unknown as Record<string, never>,
+      p_client_msg_id: effects.message ? keys.clientMsgId : null,
+    });
+    if (error) return { error: error.message };
+    const outcome = data as { ok: boolean; reason?: string; replayed?: boolean } | null;
+    if (!outcome?.ok) return { error: outcome?.reason ?? 'already_resolved' };
+    if (id) {
+      const resolved = get().pendingInterventions.find(row => row.id === id);
+      if (!outcome.replayed) {
+        track('intervention_resolved', {
+          kind: resolved?.kind ?? null,
+          source: resolved?.source ?? null,
+          status,
+          edited: !!payload,
+        });
+      }
+      set(s => ({
+        pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
+      }));
+    }
+    return { error: null, replayed: !!outcome.replayed };
   },
 
   releaseIntervention: async (id, claimKey) => {

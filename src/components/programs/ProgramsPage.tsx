@@ -22,8 +22,8 @@ export default function ProgramsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { programs, loading, fetchPrograms, createProgram, deleteProgram, setProgramDayFromRoutine, assignProgram } = useProgramStore();
-  const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
+  const { programs, loading, fetchPrograms, createProgram, deleteProgram, assignProgram } = useProgramStore();
+  const { routines, fetchRoutines } = useRoutineStore();
   const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
   const isCoach = coachingRole === 'coach';
   const coached = isCoachedAthlete(coachingRole, myCoach);
@@ -65,13 +65,6 @@ export default function ProgramsPage() {
       duration_weeks: weeks,
     }, days);
     if (id) {
-      for (const d of days) {
-        if (!d.routine_id) continue;
-        const program = await useProgramStore.getState().fetchProgram(id);
-        const created = program?.days?.find(x => x.weekday === d.weekday);
-        const routine = await fetchRoutineWithExercises(d.routine_id);
-        if (created && routine) await setProgramDayFromRoutine(created.id, routine);
-      }
       toast(t('programs.created'));
       setShowForm(false);
       setName('');

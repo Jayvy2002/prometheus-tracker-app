@@ -39,7 +39,7 @@ test('send Relancer writes coach_messages; kcal send stays on the draft page', (
   assert.match(inbox, /coaching\.queue\.openDraft/);
   const draft = src('src/components/coaching/InterventionDraftPage.tsx');
   assert.match(draft, /showCalories = row\.kind === 'calorie_adjustment'/);
-  assert.match(draft, /setClientNutritionTargets/);
+  assert.match(draft, /effects\.calories/);
   assert.match(draft, /incompleteCals/);
 });
 

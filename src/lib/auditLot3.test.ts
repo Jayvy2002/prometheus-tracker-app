@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { migrationsSql } from './migrationScan';
 
 const src = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
 
@@ -14,7 +15,7 @@ test('I03: one 14-day window, real span, dated targets — solo and fleet alike'
   const fleet = src('src/lib/coachFleet.ts');
   assert.match(fleet, /effectiveCalorieTarget\(d\)/);
   assert.match(fleet, /weight_span_days \?\? FLEET_WINDOW_DAYS/);
-  const mig = src('supabase/migrations/20260910000003_audit_engine_proof.sql');
+  const mig = migrationsSql();
   assert.match(mig, /CREATE TABLE IF NOT EXISTS public\.nutrition_target_history/);
   assert.match(mig, /trg_record_target_history/);
   assert.match(mig, /CASE WHEN a\.w_id = b\.w_id THEN NULL/);

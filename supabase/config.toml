@@ -1,5 +1,37 @@
 # Per-function settings only. Do not put webhook URLs or secrets in this file.
 # OPENAI_API_KEY lives in Edge Function secrets. Fleet cron uses FLEET_CRON_SECRET only.
+# project_id local : stack CI (`supabase start`). Ne pas pointer la prod ici.
+
+project_id = "prometheus-tracker-app"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = false
+
+[inbucket]
+enabled = false
+
+[realtime]
+enabled = false
+
+[storage]
+enabled = true
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:5173"
+additional_redirect_urls = ["http://127.0.0.1:5173"]
+enable_signup = true
 
 [functions.notify-onboarding-complete]
 verify_jwt = false
@@ -20,4 +52,22 @@ verify_jwt = true
 verify_jwt = false
 
 [functions.send-daily-reminders]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false
+
+[functions.batch-verify-exercises]
+verify_jwt = true
+
+[functions.suggest-client-plan]
+verify_jwt = true
+
+[functions.create-checkout-session]
+verify_jwt = true
+
+[functions.create-portal-session]
+verify_jwt = true
+
+[functions.stripe-webhook]
 verify_jwt = false

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation, useSearchParams } from 'react-router-dom';
 import FullPageLayout from '../layout/FullPageLayout';
-import { ArrowLeft, Plus, Check, Timer, CloudOff, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Check, Timer, CloudOff, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
@@ -30,6 +30,7 @@ import type { Workout, WorkoutTemplateExercise } from '../../lib/types';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showTrainingField } from '../../lib/clientTracking';
 import { useOnline } from '../../lib/useOnline';
+import { peekDeadLetterOps } from '../../lib/offlineQueue';
 
 interface LocationState {
   routineId?: string;
@@ -49,7 +50,7 @@ function WorkoutFormInner() {
   const { user } = useAuthStore();
   const {
     currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, setCurrentWorkout,
-    pendingOps, syncOfflineQueue,
+    pendingOps, deadOps, syncOfflineQueue, retryDeadLetter,
   } = useWorkoutStore();
   const online = useOnline();
   const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
@@ -137,6 +138,9 @@ function WorkoutFormInner() {
         const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`;
         const workoutId = await createWorkout({ user_id: user.id, name: '', date: localDate });
         if (!workoutId) {
+          if (useWorkoutStore.getState().queueBlocked === 'quota') {
+            toast(t('workout.syncQuota'), 'error');
+          }
           setInitError(true);
           return;
         }
@@ -325,7 +329,7 @@ function WorkoutFormInner() {
         duration_seconds: finalDuration,
       });
       if (finished.error) {
-        toast(finished.error, 'error');
+        toast(finished.error === 'quota' ? t('workout.syncQuota') : finished.error, 'error');
         return;
       }
       clearSessionTimer(currentWorkout.id);
@@ -453,6 +457,32 @@ function WorkoutFormInner() {
               <RefreshCw size={12} /> {t('workout.syncRetry')}
             </button>
           )}
+        </div>
+      )}
+
+      {deadOps > 0 && (
+        <div
+          className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 space-y-2"
+          role="alert"
+        >
+          <p className="text-xs text-red-200/90 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-red-400 shrink-0" />
+            {t('workout.syncDeadLetter', { n: deadOps })}
+          </p>
+          {peekDeadLetterOps().map(op => (
+            <div key={op.id} className="flex items-start gap-2">
+              <p className="text-[11px] text-red-200/70 flex-1 break-all">
+                {op.type}{op.lastError ? ` — ${op.lastError}` : ''}
+              </p>
+              <button
+                type="button"
+                onClick={() => void retryDeadLetter(op.id)}
+                className="flex items-center gap-1 text-xs text-red-200 hover:text-white shrink-0"
+              >
+                <RefreshCw size={12} /> {t('workout.syncDeadRetry')}
+              </button>
+            </div>
+          ))}
         </div>
       )}
 

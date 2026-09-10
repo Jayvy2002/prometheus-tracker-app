@@ -17,7 +17,22 @@ interface ProgramState {
   loading: boolean;
   fetchPrograms: (ownerId: string) => Promise<void>;
   fetchProgram: (programId: string) => Promise<Program | null>;
-  createProgram: (program: Partial<Program>, days: Omit<ProgramDay, 'id' | 'program_id' | 'created_at'>[]) => Promise<string | null>;
+  createProgram: (
+    program: Partial<Program>,
+    days: Array<Omit<ProgramDay, 'id' | 'program_id' | 'created_at' | 'exercises'> & {
+      exercises?: Array<{
+        name: string;
+        default_sets: number;
+        default_reps: number;
+        default_reps_min?: number | null;
+        default_rir?: number | null;
+        default_rest_seconds?: number;
+        default_weight_kg?: number | null;
+        order_index?: number;
+      }>;
+    }>,
+    opts?: { assignClientId?: string; startDate?: string },
+  ) => Promise<string | null>;
   updateProgram: (id: string, data: Partial<Program>) => Promise<{ error: string | null }>;
   deleteProgram: (id: string) => Promise<void>;
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<{ error: string | null }>;
@@ -143,29 +158,9 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     }
   },
 
-  createProgram: async (program, days) => {
-    // Coquille vide (aucun jour) : une seule insertion, atomique par nature.
-    if (days.length === 0) {
-      const { data, error } = await supabase
-        .from('programs')
-        .insert({
-          owner_id: program.owner_id,
-          name: program.name,
-          description: program.description ?? '',
-          duration_weeks: program.duration_weeks ?? 8,
-        })
-        .select()
-        .maybeSingle();
-      if (error || !data) {
-        console.error('createProgram failed:', error?.message);
-        return null;
-      }
-      const shell = { ...(data as Program), days: [] as ProgramDay[] };
-      set(s => ({ programs: [shell, ...s.programs] }));
-      return (data as Program).id;
-    }
-    // D01 : programme + jours créés en une seule transaction serveur.
-    const { data, error } = await supabase.rpc('create_program_with_days', {
+  createProgram: async (program, days, opts) => {
+    // D01 : toujours la RPC unique (coquille vide, jours, exercices, assignation).
+    const { data, error } = await supabase.rpc('create_program_complete', {
       p_name: program.name ?? '',
       p_description: program.description ?? '',
       p_duration_weeks: program.duration_weeks ?? 8,
@@ -173,28 +168,29 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         weekday: day.weekday,
         name: day.name,
         order_index: day.order_index ?? order_index,
+        routine_id: day.routine_id ?? null,
+        exercises: (day.exercises ?? []).map((ex, i) => ({
+          name: ex.name,
+          default_sets: ex.default_sets,
+          default_reps: ex.default_reps,
+          default_reps_min: ex.default_reps_min ?? null,
+          default_rir: ex.default_rir ?? null,
+          default_rest_seconds: ex.default_rest_seconds ?? 90,
+          default_weight_kg: ex.default_weight_kg ?? null,
+          order_index: ex.order_index ?? i,
+        })),
       })),
+      p_assign_client_id: opts?.assignClientId ?? null,
+      p_start_date: opts?.startDate ?? null,
     });
     if (error || !data) {
       console.error('createProgram failed:', error?.message);
       return null;
     }
     const programId = data as string;
-    // Les jours créés par la RPC ne portent pas routine_id : on l'applique si besoin.
-    for (const day of days) {
-      if (!day.routine_id) continue;
-      await supabase
-        .from('program_days')
-        .update({ routine_id: day.routine_id })
-        .eq('program_id', programId)
-        .eq('weekday', day.weekday);
-    }
-    if (days.some(d => d.routine_id)) {
-      // E01 : les liens de routine modifient les jours — on fige une révision.
-      await supabase.rpc('snapshot_program_revision', { p_program_id: programId });
-    }
     const full = await get().fetchProgram(programId);
-    if (full) set(s => ({ programs: [full, ...s.programs] }));
+    if (full) set(s => ({ programs: [full, ...s.programs.filter(p => p.id !== programId)] }));
+    if (opts?.assignClientId) await get().fetchMyAssignment(opts.assignClientId);
     return programId;
   },
 

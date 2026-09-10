@@ -105,14 +105,14 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   assert.doesNotMatch(page, /\/programs\/new/);
   assert.doesNotMatch(page, /createProgram/);
   const card = src('src/components/dashboard/SoloProgramProposal.tsx');
-  assert.match(card, /claimIntervention\(row\.id\)/);
-  assert.match(card, /finalizeIntervention\(row\.id, claimKey, 'sent'/);
-  assert.match(card, /releaseIntervention\(row\.id, claimKey\)/);
+  assert.match(card, /applyIntervention\(row\.id, 'sent'/);
+  assert.doesNotMatch(card, /claimIntervention\(row\.id\)/);
+  assert.doesNotMatch(card, /finalizeIntervention\(row\.id, claimKey, 'sent'/);
   assert.match(card, /resolveIntervention\(row\.id, 'dismissed'/);
   assert.match(card, /navigate\('\/programs'\)/);
   assert.doesNotMatch(card, /navigate\('\/routines'\)/);
   assert.match(card, /solo_program_accepted/);
-  assert.match(card, /applyProgramOutline\(user\.id/);
+  assert.match(card, /effects\.program/);
   assert.match(card, /ProgramSessionEditor/);
   const hub = src('src/components/profile/SoloHub.tsx');
   assert.doesNotMatch(hub, /\/routines/);

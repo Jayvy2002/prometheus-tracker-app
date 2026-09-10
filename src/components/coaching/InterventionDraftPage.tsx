@@ -58,11 +58,10 @@ export default function InterventionDraftPage() {
   const { user } = useAuthStore();
   const {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
-    claimIntervention, releaseIntervention, finalizeIntervention,
-    saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
-    sendCoachMessage, pendingInterventions, askCoachAgent,
+    applyIntervention,
+    pendingInterventions, askCoachAgent,
   } = useCoachingStore();
-  const { fetchMyAssignment, applyExercisePatch } = useProgramStore();
+  const { fetchMyAssignment } = useProgramStore();
 
   const [row, setRow] = useState<CoachIntervention | null>(null);
   const [loading, setLoading] = useState(true);
@@ -166,15 +165,6 @@ export default function InterventionDraftPage() {
   const claimErrorLabel = (code: string) =>
     code === 'already_claimed' ? t('errors.alreadyClaimed') : t('errors.alreadyResolved');
 
-  const patchErrorLabel = (code: string) => {
-    if (code === 'stale') return t('coaching.workspace.patchStale');
-    if (code.startsWith('ambiguous:')) {
-      return t('coaching.workspace.patchAmbiguous', { name: patch?.exercise ?? '' });
-    }
-    if (code === 'Exercise not found in program') return t('coaching.workspace.patchNotFound');
-    return code;
-  };
-
   const handleSend = async () => {
     if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
@@ -196,66 +186,42 @@ export default function InterventionDraftPage() {
       days,
       patch,
     };
-    if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnly) {
+    const noteOnlySend = row.kind === 'other';
+    if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnlySend) {
       toast(t('coaching.draftSend.empty'), 'error');
       return;
     }
     setSaving(true);
     savingRef.current = true;
-    // D02 : le claim atomique gagne AVANT tout effet — deux onglets ne peuvent
-    // plus appliquer deux fois. Échec d'effet → release, la carte reste pending.
-    const claimed = await claimIntervention(row.id);
-    if ('error' in claimed) {
-      endSave();
-      toast(claimErrorLabel(claimed.error), 'error');
-      navigate(back.href);
-      return;
-    }
-    const claimKey = claimed.claimKey;
-    const fail = async (message: string) => {
-      await releaseIntervention(row.id, claimKey);
-      endSave();
-      toast(message, 'error');
-    };
     const sentPayload = editedProgramPayload(row.payload, edited);
+    const effects: import('../../lib/interventionEffects').InterventionEffects = {
+      assign_client_id: targetClientId,
+    };
 
     if (row.kind === 'calorie_adjustment') {
       if (!isCompleteCalorieDraft({ calories, protein, carbs, fat })) {
-        await fail(t('coaching.interventions.macrosRequired'));
+        endSave();
+        toast(t('coaching.interventions.macrosRequired'), 'error');
         return;
       }
-      const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
-      if (result.error) {
-        await fail(result.error);
-        return;
-      }
+      effects.calories = { calories, protein, carbs, fat };
     }
 
     if (row.kind === 'program_adjustment' || row.kind === 'onboarding_plan' || row.kind === 'program_nl_edit' || row.kind === 'ask_prometheus') {
       if (row.kind === 'onboarding_plan') {
-        const trackResult = await saveTrackingConfig(targetClientId, {
+        effects.tracking = {
           ...tracking,
           setup_completed_at: new Date().toISOString(),
-        });
-        if (trackResult.error) {
-          await fail(trackResult.error);
-          return;
-        }
+        };
       }
       if (patch) {
         if (!boundAssignment?.program_id) {
-          if (notes.trim()) {
-            const noteResult = await addNote(targetClientId, notes.trim());
-            if (noteResult.error) {
-              await fail(noteResult.error);
-              return;
-            }
-          }
-          const resolved = await finalizeIntervention(row.id, claimKey, 'kept', {
+          if (notes.trim()) effects.note = { body: notes.trim() };
+          const resolved = await applyIntervention(row.id, 'kept', {
             ...sentPayload,
             patch,
             suggestion: notes.trim(),
-          });
+          }, effects);
           endSave();
           if (resolved.error) {
             toast(claimErrorLabel(resolved.error), 'error');
@@ -265,44 +231,30 @@ export default function InterventionDraftPage() {
           navigate(clientFileHref(targetClientId));
           return;
         }
-        const patched = await applyExercisePatch(boundAssignment.program_id, patch, {
-          forClientId: targetClientId,
-          expectedUpdatedAt: boundAssignment.program?.updated_at ?? null,
-        });
-        if (patched.error) {
-          await fail(patchErrorLabel(patched.error));
-          return;
-        }
-        if (patched.forked) {
-          toast(t('coaching.workspace.patchForked'), 'info');
-          await fetchMyAssignment(targetClientId);
-        }
+        effects.patch = {
+          ...patch,
+          program_id: boundAssignment.program_id,
+          fork_if_shared: true,
+          for_client_id: targetClientId,
+        };
       } else if (programName.trim() && days.length > 0) {
-        const created = await applyProgramOutline(targetClientId, {
+        effects.program = {
           name: programName,
           description: programDesc,
           duration_weeks: programWeeks,
           days,
-        });
-        if (created.error) {
-          await fail(t('coaching.second.failed'));
-          return;
-        }
+          assign_client_id: targetClientId,
+          start_date: todayStr(),
+        };
       }
     }
 
-    if (noteOnly) {
-      if (notes.trim()) {
-        const noteResult = await addNote(targetClientId, notes.trim());
-        if (noteResult.error) {
-          await fail(noteResult.error);
-          return;
-        }
-      }
-      const resolved = await finalizeIntervention(row.id, claimKey, 'kept', {
+    if (noteOnlySend) {
+      if (notes.trim()) effects.note = { body: notes.trim() };
+      const resolved = await applyIntervention(row.id, 'kept', {
         ...row.payload,
         suggestion: notes.trim(),
-      });
+      }, effects);
       endSave();
       if (resolved.error) {
         toast(claimErrorLabel(resolved.error), 'error');
@@ -313,11 +265,15 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    const resolved = await finalizeIntervention(row.id, claimKey, 'sent', sentPayload);
+    const resolved = await applyIntervention(row.id, 'sent', sentPayload, effects);
     endSave();
     if (resolved.error) {
       toast(claimErrorLabel(resolved.error), 'error');
       return;
+    }
+    if (effects.patch?.fork_if_shared) {
+      toast(t('coaching.workspace.patchForked'), 'info');
+      await fetchMyAssignment(targetClientId);
     }
     toast(t('coaching.interventions.sent'));
     navigate(clientFileHref(targetClientId));
@@ -333,38 +289,23 @@ export default function InterventionDraftPage() {
     }
     setSaving(true);
     savingRef.current = true;
-    const claimed = await claimIntervention(row.id);
-    if ('error' in claimed) {
-      endSave();
-      toast(claimErrorLabel(claimed.error), 'error');
-      navigate(back.href);
-      return;
-    }
-    const claimKey = claimed.claimKey;
-    const fail = async (message: string) => {
-      await releaseIntervention(row.id, claimKey);
-      endSave();
-      toast(message, 'error');
+    const effects: import('../../lib/interventionEffects').InterventionEffects = {
+      assign_client_id: targetClientId,
+      message: {
+        body,
+        template_key: opts?.templateKey ?? preparedTemplateKey(row.payload, row.kind),
+      },
     };
-    const sent = await sendCoachMessage(targetClientId, body, opts?.templateKey ?? preparedTemplateKey(row.payload, row.kind));
-    if (sent.error) {
-      await fail(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error);
-      return;
-    }
     if (opts?.saveNote) {
-      const noteResult = await addNote(targetClientId, notes.trim() || body, { noteDate: todayStr() });
-      if (noteResult.error) {
-        await fail(noteResult.error);
-        return;
-      }
+      effects.note = { body: notes.trim() || body, note_date: todayStr() };
     }
-    const resolved = await finalizeIntervention(row.id, claimKey, 'sent', {
+    const resolved = await applyIntervention(row.id, 'sent', {
       ...row.payload,
       suggestion: notes.trim(),
-    });
+    }, effects);
     endSave();
     if (resolved.error) {
-      toast(claimErrorLabel(resolved.error), 'error');
+      toast(resolved.error === 'empty' ? t('coaching.queue.emptyBody') : claimErrorLabel(resolved.error), 'error');
       return;
     }
     toast(t('coaching.queue.sent'));
