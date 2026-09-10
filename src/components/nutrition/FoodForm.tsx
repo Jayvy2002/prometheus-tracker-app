@@ -17,7 +17,7 @@ import UnifiedScanner from '../scanner/UnifiedScanner';
 import RecipeForm from './RecipeForm';
 import FoodSearchHits from './FoodSearchHits';
 import { useFoodCatalogSearch } from '../../lib/useFoodCatalogSearch';
-import { kcalFromEnergyValue, normalizePer100gKcal, nutritionPortionScale, rescaleNutritionMacros } from '../../lib/foodEnergy';
+import { kcalFromEnergyValue, productLogDraft, rescaleNutritionMacros } from '../../lib/foodEnergy';
 import { optionLabel } from '../../lib/optionLabels';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
@@ -45,13 +45,14 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
 
   const [tab, setTab] = useState<Tab>('search');
   const catalog = useFoodCatalogSearch(tab === 'search', i18n.language);
+  // D04 : état initial cohérent avec le contrat produit → saisie (pas de flash per-100g).
   const [name, setName] = useState(prefill?.name ?? '');
-  const [calories, setCalories] = useState(prefill?.calories_per_100g?.toString() ?? '');
-  const [protein, setProtein] = useState(prefill?.protein_per_100g?.toString() ?? '');
-  const [carbs, setCarbs] = useState(prefill?.carbs_per_100g?.toString() ?? '');
-  const [fat, setFat] = useState(prefill?.fat_per_100g?.toString() ?? '');
-  const [quantity, setQuantity] = useState(prefill?.serving_size?.toString() ?? '100');
-  const [unit, setUnit] = useState(prefill?.serving_unit ?? 'g');
+  const [calories, setCalories] = useState(() => (prefill ? fieldValue(productLogDraft(prefill).calories) : ''));
+  const [protein, setProtein] = useState(() => (prefill ? fieldValue(productLogDraft(prefill).protein) : ''));
+  const [carbs, setCarbs] = useState(() => (prefill ? fieldValue(productLogDraft(prefill).carbs) : ''));
+  const [fat, setFat] = useState(() => (prefill ? fieldValue(productLogDraft(prefill).fat) : ''));
+  const [quantity, setQuantity] = useState(() => (prefill ? productLogDraft(prefill).quantity.toString() : '100'));
+  const [unit, setUnit] = useState(() => (prefill ? productLogDraft(prefill).unit : 'g'));
   const [saving, setSaving] = useState(false);
   const [activeCategory, setActiveCategory] = useState(category);
   const [showScanner, setShowScanner] = useState(false);
@@ -94,23 +95,17 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
   useEffect(() => {
     if (prefillSeeded.current || !prefill) return;
     prefillSeeded.current = true;
-    const kcal = normalizePer100gKcal(
-      prefill.calories_per_100g,
-      prefill.protein_per_100g,
-      prefill.carbs_per_100g,
-      prefill.fat_per_100g,
-    );
-    const qty = prefill.serving_size > 0 ? prefill.serving_size : 100;
-    const nextUnit = prefill.serving_unit || 'g';
-    const scale = nutritionPortionScale(qty, nextUnit);
-    snapshotBasis(
-      qty,
-      nextUnit,
-      kcal * scale,
-      prefill.protein_per_100g * scale,
-      prefill.carbs_per_100g * scale,
-      prefill.fat_per_100g * scale,
-    );
+    // D04 : le préremplissage suit le même contrat que la sélection —
+    // les champs montrent les valeurs DE LA PORTION, pas du 100 g.
+    const draft = productLogDraft(prefill);
+    setName(draft.name);
+    setCalories(fieldValue(draft.calories));
+    setProtein(fieldValue(draft.protein));
+    setCarbs(fieldValue(draft.carbs));
+    setFat(fieldValue(draft.fat));
+    setQuantity(draft.quantity.toString());
+    setUnit(draft.unit);
+    snapshotBasis(draft.quantity, draft.unit, draft.calories, draft.protein, draft.carbs, draft.fat);
   }, [prefill]);
 
   const handleSearch = () => catalog.searchNow();
@@ -133,28 +128,17 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
       if (saved) product = saved;
     }
 
+    // D04 : contrat unique — recherche, récents, favoris, scanner, préremplissage.
+    const draft = productLogDraft(product);
     setSelectedProduct(product);
-    const kcal = normalizePer100gKcal(
-      product.calories_per_100g,
-      product.protein_per_100g,
-      product.carbs_per_100g,
-      product.fat_per_100g,
-    );
-    const qty = product.serving_size > 0 ? product.serving_size : 100;
-    const nextUnit = product.serving_unit || 'g';
-    const scale = nutritionPortionScale(qty, nextUnit);
-    const cal = kcal * scale;
-    const pro = product.protein_per_100g * scale;
-    const carb = product.carbs_per_100g * scale;
-    const f = product.fat_per_100g * scale;
-    setName(product.name);
-    setCalories(fieldValue(cal));
-    setProtein(fieldValue(pro));
-    setCarbs(fieldValue(carb));
-    setFat(fieldValue(f));
-    setQuantity(qty.toString());
-    setUnit(nextUnit);
-    snapshotBasis(qty, nextUnit, cal, pro, carb, f);
+    setName(draft.name);
+    setCalories(fieldValue(draft.calories));
+    setProtein(fieldValue(draft.protein));
+    setCarbs(fieldValue(draft.carbs));
+    setFat(fieldValue(draft.fat));
+    setQuantity(draft.quantity.toString());
+    setUnit(draft.unit);
+    snapshotBasis(draft.quantity, draft.unit, draft.calories, draft.protein, draft.carbs, draft.fat);
     catalog.resetSearch();
   };
 
@@ -334,8 +318,18 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 {catalog.phase === 'openfoodfacts' && (
                   <p className="text-[10px] text-neutral-500 mb-1.5 px-1">{t('nutrition.foodForm.searchingOpenFoodFacts')}</p>
                 )}
+                {catalog.offStatus === 'rate_limited' && (
+                  <p className="text-[10px] text-amber-400/80 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offRateLimited')}</p>
+                )}
+                {catalog.offStatus === 'error' && (
+                  <p className="text-[10px] text-neutral-500 mb-1.5 px-1" role="status">{t('nutrition.foodForm.offError')}</p>
+                )}
                 <FoodSearchHits results={catalog.results} onSelect={selectProduct} />
               </div>
+            )}
+
+            {catalog.query.trim().length >= 2 && catalog.offStatus === 'idle' && catalog.results.length > 0 && (
+              <p className="text-[10px] text-neutral-600 mt-1.5 px-1">{t('nutrition.foodForm.offHint')}</p>
             )}
 
             {!catalog.searching && catalog.searched && catalog.results.length === 0 && (

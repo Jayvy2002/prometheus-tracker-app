@@ -756,6 +756,31 @@ export interface CoachFleetDossier {
   weight_start_kg: number | null;
   weight_end_kg: number | null;
   weight_delta_kg: number | null;
+  /** I03 : dates réelles des pesées extrêmes (ISO) — le rythme se calcule sur la durée vraie. */
+  weight_start_at?: string | null;
+  weight_end_at?: string | null;
+  /** I03 : jours réels entre les deux pesées ; null = tendance inconnue. */
+  weight_span_days?: number | null;
+  /** I03 : moyenne des cibles journalières effectives sur la fenêtre (historique daté). 0/absent = repli sur calorie_target. */
+  avg_effective_target?: number;
+  /** I04 : signaux de récupération DÉCLARÉS (0–10), jamais déduits de l'adhérence. */
+  avg_fatigue?: number | null;
+  avg_sleep_quality?: number | null;
+  avg_soreness?: number | null;
+  avg_energy?: number | null;
+  /**
+   * I04 : modules réellement suivis. Absent = tout suivi (solo).
+   * Un module désactivé ne déclenche ni reproche ni jugement.
+   */
+  tracking?: {
+    nutrition: boolean;
+    workouts: boolean;
+    weight: boolean;
+    checkins: boolean;
+  };
+  /** I04 : mineur ou drapeaux médicaux → accompagnement général, jamais d'objectif auto. */
+  is_minor?: boolean;
+  has_medical_flags?: boolean;
   last_message_at: string | null;
   /** Last outbound coach_messages row (sender_id = coach). Not client replies. */
   last_coach_message_at: string | null;
@@ -781,6 +806,10 @@ export interface CoachFleetEvidence {
   last_nutrition_at: string | null;
   last_workout_at: string | null;
   last_checkin_at: string | null;
+  /** I03 : cible moyenne effective jugée + durée réelle des pesées + fenêtre. */
+  target_avg_kcal?: number;
+  weight_span_days?: number | null;
+  window_days?: number;
 }
 
 export interface CoachFleetHandled {

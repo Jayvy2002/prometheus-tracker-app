@@ -69,11 +69,30 @@ export function overeatRatio(avgCalories: number, calorieTarget: number): number
   return avgCalories / calorieTarget;
 }
 
-export function weeklyWeightPct(deltaKg: number | null, startKg: number | null, windowDays = FLEET_WINDOW_DAYS): number | null {
-  if (deltaKg == null || startKg == null || startKg <= 0 || windowDays <= 0) return null;
-  const weeks = windowDays / 7;
+/**
+ * I03 : %/semaine sur la DURÉE RÉELLE entre les deux pesées, pas sur la fenêtre.
+ * spanDays < 1 (même jour) → null : tendance inconnue, pas une stagnation.
+ */
+export function weeklyWeightPct(
+  deltaKg: number | null,
+  startKg: number | null,
+  spanDays: number | null | undefined = FLEET_WINDOW_DAYS,
+): number | null {
+  if (deltaKg == null || startKg == null || startKg <= 0) return null;
+  const span = spanDays ?? FLEET_WINDOW_DAYS;
+  if (!Number.isFinite(span) || span < 1) return null;
+  const weeks = span / 7;
   if (weeks <= 0) return null;
   return (deltaKg / startKg) * 100 / weeks;
+}
+
+/** Durée réelle (jours complets) entre deux ISO — null si incomparable. */
+export function weightSpanDaysBetween(startIso: string | null | undefined, endIso: string | null | undefined): number | null {
+  if (!startIso || !endIso) return null;
+  const a = Date.parse(startIso);
+  const b = Date.parse(endIso);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return null;
+  return Math.floor((b - a) / 86_400_000);
 }
 
 export { isCompleteCalorieDraft };
@@ -81,8 +100,31 @@ export { isCompleteCalorieDraft };
 export const WEEKLY_SMALL_KCAL = 100;
 export const WEEKLY_LARGE_KCAL = 200;
 export const WEEKLY_CARB_SHIFT_G = 35;
+/** I04 : seuils sur signaux DÉCLARÉS 0–10 (jamais sur l'adhérence). */
+export const FATIGUE_DECLARED_MIN = 7;
+export const ENERGY_DECLARED_MAX = 3;
+/** Historique : l'adhérence ne mesure pas la fatigue (I04). Conservé pour compat. */
 export const FATIGUE_TRAINING_MAX = 2.5;
 export const CUT_GAIN_MIN_DELTA_KG = 0.3;
+
+/** I04 : un module absent du dossier = suivi (solo, vieux dossiers). */
+export function trackingOn(d: CoachFleetDossier, key: 'nutrition' | 'workouts' | 'weight' | 'checkins'): boolean {
+  const t = d.tracking;
+  if (!t) return true;
+  return t[key] !== false;
+}
+
+/** I03 : la cible jugée est la moyenne des cibles effectives datées, pas la cible du jour. */
+export function effectiveCalorieTarget(d: CoachFleetDossier): number {
+  const eff = d.avg_effective_target ?? 0;
+  if (eff > 0) return Math.round(eff);
+  return Math.round(d.calorie_target);
+}
+
+/** I04 : pas d'objectif automatique de restriction/transformation pour ces profils. */
+export function isGuardedProfile(d: CoachFleetDossier): boolean {
+  return d.is_minor === true || d.has_medical_flags === true;
+}
 
 export type WeeklyNutritionReason =
   | 'keep'
@@ -98,6 +140,8 @@ export interface WeeklyNutritionProposal {
   action: 'keep' | 'relance' | 'calorie_adjustment';
   reason: WeeklyNutritionReason;
   draft: CalorieDraft | null;
+  /** I04 : profil protégé — accompagnement général, ajustement auto refusé. */
+  guarded?: boolean;
 }
 
 export function completeMacrosFor(calories: number, goal: string, weightKg: number): CalorieDraft {
@@ -126,9 +170,16 @@ function currentOrIssnDraft(d: CoachFleetDossier): CalorieDraft {
   return completeMacrosFor(base, d.goal, d.weight_end_kg || d.weight_kg);
 }
 
+/**
+ * I04 : fatigue DÉCLARÉE uniquement (check-ins 0–10). Une faible adhérence à
+ * l'entraînement n'est PAS de la fatigue — sans signaux, on ne conclut rien.
+ */
 export function signsOfFatigue(d: CoachFleetDossier): boolean {
-  const training = adherenceOnFive(d.avg_adherence_training);
-  return training != null && training <= FATIGUE_TRAINING_MAX;
+  const fatigue = d.avg_fatigue;
+  const energy = d.avg_energy;
+  if (fatigue != null && Number.isFinite(fatigue) && fatigue >= FATIGUE_DECLARED_MIN) return true;
+  if (energy != null && Number.isFinite(energy) && energy <= ENERGY_DECLARED_MAX) return true;
+  return false;
 }
 
 export function shiftCarbsKeepCalories(draft: CalorieDraft, extraCarbs = WEEKLY_CARB_SHIFT_G): CalorieDraft {
@@ -146,6 +197,10 @@ export function shiftCarbsKeepCalories(draft: CalorieDraft, extraCarbs = WEEKLY_
 
 /** Data-driven weekly nutrition proposal. Never auto-applied — coach confirms. */
 export function proposeWeeklyNutrition(d: CoachFleetDossier): WeeklyNutritionProposal {
+  // I04 : sans suivi nutrition, aucun jugement nutrition — ni relance, ni chiffres.
+  if (!trackingOn(d, 'nutrition')) {
+    return { action: 'keep', reason: 'keep', draft: null };
+  }
   if (!nutritionFollowingPlan(d)) {
     return { action: 'relance', reason: 'not_following', draft: null };
   }
@@ -154,71 +209,64 @@ export function proposeWeeklyNutrition(d: CoachFleetDossier): WeeklyNutritionPro
   const base = d.calorie_target > 0 ? d.calorie_target : Math.round(d.avg_calories) || 2000;
   const goal = normalizeGoal(d.goal);
   const current = currentOrIssnDraft(d);
+  const span = d.weight_span_days ?? FLEET_WINDOW_DAYS;
+
+  // I04 : profil protégé — on prépare un accompagnement, pas un ajustement.
+  const guarded = isGuardedProfile(d);
+  const adjust = (reason: WeeklyNutritionReason, draft: CalorieDraft): WeeklyNutritionProposal =>
+    guarded
+      ? { action: 'keep', reason: 'keep', draft: null, guarded: true }
+      : { action: 'calorie_adjustment', reason, draft };
 
   if (signsOfFatigue(d)) {
-    return { action: 'calorie_adjustment', reason: 'carb_support', draft: shiftCarbsKeepCalories(current) };
+    return adjust('carb_support', shiftCarbsKeepCalories(current));
   }
 
   const delta = d.weight_delta_kg;
-  const pct = weeklyWeightPct(delta, d.weight_start_kg ?? d.weight_kg);
+  const pct = weeklyWeightPct(delta, d.weight_start_kg ?? d.weight_kg, span);
 
   if (goal === 'cut') {
     if (pct != null && pct <= -CUT_TOO_FAST_PCT_PER_WEEK) {
-      return {
-        action: 'calorie_adjustment',
-        reason: 'too_fast_cut',
-        draft: completeMacrosFor(clampCalories(base + WEEKLY_SMALL_KCAL), d.goal, weight),
-      };
+      return adjust('too_fast_cut', completeMacrosFor(clampCalories(base + WEEKLY_SMALL_KCAL), d.goal, weight));
     }
     if (delta != null && delta >= CUT_GAIN_MIN_DELTA_KG) {
-      return {
-        action: 'calorie_adjustment',
-        reason: 'cut_gain',
-        draft: completeMacrosFor(clampCalories(base - WEEKLY_LARGE_KCAL), d.goal, weight),
-      };
+      return adjust('cut_gain', completeMacrosFor(clampCalories(base - WEEKLY_LARGE_KCAL), d.goal, weight));
     }
     if (delta != null && delta >= CUT_STALL_MIN_DELTA_KG) {
-      return {
-        action: 'calorie_adjustment',
-        reason: 'cut_stall',
-        draft: completeMacrosFor(clampCalories(base - WEEKLY_SMALL_KCAL), d.goal, weight),
-      };
+      return adjust('cut_stall', completeMacrosFor(clampCalories(base - WEEKLY_SMALL_KCAL), d.goal, weight));
     }
-    return { action: 'keep', reason: 'keep', draft: null };
+    return guarded && delta != null
+      ? { action: 'keep', reason: 'keep', draft: null, guarded: true }
+      : { action: 'keep', reason: 'keep', draft: null };
   }
 
   if (goal === 'bulk') {
     if (pct != null && pct >= BULK_TOO_FAST_PCT_PER_WEEK) {
-      return {
-        action: 'calorie_adjustment',
-        reason: 'bulk_too_fast',
-        draft: completeMacrosFor(clampCalories(base - WEEKLY_SMALL_KCAL), d.goal, weight),
-      };
+      return adjust('bulk_too_fast', completeMacrosFor(clampCalories(base - WEEKLY_SMALL_KCAL), d.goal, weight));
     }
     if (delta != null && delta <= 0.1) {
-      return {
-        action: 'calorie_adjustment',
-        reason: 'bulk_stall',
-        draft: completeMacrosFor(clampCalories(base + WEEKLY_SMALL_KCAL), d.goal, weight),
-      };
+      return adjust('bulk_stall', completeMacrosFor(clampCalories(base + WEEKLY_SMALL_KCAL), d.goal, weight));
     }
-    return { action: 'keep', reason: 'keep', draft: null };
+    return guarded && delta != null
+      ? { action: 'keep', reason: 'keep', draft: null, guarded: true }
+      : { action: 'keep', reason: 'keep', draft: null };
   }
 
   if (delta != null && Math.abs(delta) >= 1.5) {
     const dir = delta > 0 ? -WEEKLY_SMALL_KCAL : WEEKLY_SMALL_KCAL;
-    return {
-      action: 'calorie_adjustment',
-      reason: delta > 0 ? 'cut_gain' : 'bulk_stall',
-      draft: completeMacrosFor(clampCalories(base + dir), d.goal, weight),
-    };
+    return adjust(
+      delta > 0 ? 'cut_gain' : 'bulk_stall',
+      completeMacrosFor(clampCalories(base + dir), d.goal, weight),
+    );
   }
   return { action: 'keep', reason: 'keep', draft: null };
 }
 
 function nutritionFollowingPlan(d: CoachFleetDossier): boolean {
-  if (d.calorie_target <= 0 || d.logged_nutrition_days < MIN_NUTRITION_LOG_DAYS) return false;
-  const ratio = overeatRatio(d.avg_calories, d.calorie_target);
+  // I03 : chaque jour est jugé contre la cible qui le gouvernait (moyenne effective).
+  const target = effectiveCalorieTarget(d);
+  if (target <= 0 || d.logged_nutrition_days < MIN_NUTRITION_LOG_DAYS) return false;
+  const ratio = overeatRatio(d.avg_calories, target);
   if (ratio >= OVEREAT_RATIO || ratio <= UNDER_EAT_RATIO) return false;
   const adh = adherenceOnFive(d.avg_adherence_nutrition);
   if (adh != null && adh <= 2) return false;
@@ -226,6 +274,8 @@ function nutritionFollowingPlan(d: CoachFleetDossier): boolean {
 }
 
 function offGoal(d: CoachFleetDossier): boolean {
+  // I04 : pas de jugement poids sans suivi du poids.
+  if (!trackingOn(d, 'weight')) return false;
   const goal = normalizeGoal(d.goal);
   const delta = d.weight_delta_kg;
   if (delta == null) return false;
@@ -236,8 +286,9 @@ function offGoal(d: CoachFleetDossier): boolean {
 }
 
 function tooFast(d: CoachFleetDossier): boolean {
+  if (!trackingOn(d, 'weight')) return false;
   const goal = normalizeGoal(d.goal);
-  const pct = weeklyWeightPct(d.weight_delta_kg, d.weight_start_kg ?? d.weight_kg);
+  const pct = weeklyWeightPct(d.weight_delta_kg, d.weight_start_kg ?? d.weight_kg, d.weight_span_days ?? FLEET_WINDOW_DAYS);
   if (pct == null) return false;
   if (goal === 'cut') return pct <= -CUT_TOO_FAST_PCT_PER_WEEK;
   if (goal === 'bulk') return pct >= BULK_TOO_FAST_PCT_PER_WEEK;
@@ -251,6 +302,12 @@ function expectedWorkouts(d: CoachFleetDossier): number {
 
 function isGhostAt(d: CoachFleetDossier, today: string): boolean {
   if (d.linked_days < 7) return false;
+  // I04 : le silence ne se juge que sur les modules réellement suivis.
+  const tracked: Array<string | null> = [];
+  if (trackingOn(d, 'workouts')) tracked.push(d.last_workout_at);
+  if (trackingOn(d, 'nutrition')) tracked.push(d.last_nutrition_at);
+  if (trackingOn(d, 'checkins')) tracked.push(d.last_checkin_at);
+  if (tracked.length === 0) return false;
   const stale = (iso: string | null) => {
     if (!iso) return true;
     const day = iso.slice(0, 10);
@@ -259,7 +316,7 @@ function isGhostAt(d: CoachFleetDossier, today: string): boolean {
     if (!Number.isFinite(a) || !Number.isFinite(b)) return true;
     return Math.round((b - a) / 86_400_000) > GHOST_IDLE_DAYS;
   };
-  return stale(d.last_workout_at) && stale(d.last_nutrition_at) && stale(d.last_checkin_at);
+  return tracked.every(stale);
 }
 
 /** Calendar days since an ISO timestamp. Null / unparsable → Infinity (never happened). */
@@ -295,6 +352,9 @@ export function fleetEvidenceFromDossier(d: CoachFleetDossier): CoachFleetEviden
     last_nutrition_at: day(d.last_nutrition_at),
     last_workout_at: day(d.last_workout_at),
     last_checkin_at: day(d.last_checkin_at),
+    target_avg_kcal: effectiveCalorieTarget(d),
+    weight_span_days: d.weight_span_days ?? null,
+    window_days: FLEET_WINDOW_DAYS,
   };
 }
 
@@ -326,6 +386,11 @@ export function fleetEvidenceChanged(
   if (flag === 'keep_in_touch') return false;
   if (!prev) return false;
   if (Math.abs((next.avg_calories || 0) - (prev.avg_calories || 0)) >= 150) return true;
+  // I03 : une cible qui bouge change le jugement — on réévalue.
+  if (
+    next.target_avg_kcal != null && prev.target_avg_kcal != null
+    && Math.abs(next.target_avg_kcal - prev.target_avg_kcal) >= 150
+  ) return true;
   if ((next.logged_nutrition_days || 0) - (prev.logged_nutrition_days || 0) >= 3) return true;
   if (Math.abs((next.workout_count || 0) - (prev.workout_count || 0)) >= 2) return true;
   if (
@@ -381,6 +446,8 @@ export function buildFleetCard(d: CoachFleetDossier, today: string, locale: Flee
 }
 
 function missedTraining(d: CoachFleetDossier): boolean {
+  // I04 : pas de reproche d'assiduité sur un module désactivé.
+  if (!trackingOn(d, 'workouts')) return false;
   const expected = expectedWorkouts(d);
   if (expected <= 0) return false;
   return d.workout_count <= Math.max(0, Math.floor(expected * 0.4));
@@ -404,19 +471,29 @@ export function classifyFleetDossier(d: CoachFleetDossier, today: string): Coach
   const following = nutritionFollowingPlan(d);
   const off = offGoal(d);
   const fast = tooFast(d);
+  const trackNutrition = trackingOn(d, 'nutrition');
 
-  if (!following && d.logged_nutrition_days >= MIN_NUTRITION_LOG_DAYS && (off || adherenceOnFive(d.avg_adherence_nutrition) != null && (adherenceOnFive(d.avg_adherence_nutrition) ?? 5) <= 2)) {
+  if (trackNutrition && !following && d.logged_nutrition_days >= MIN_NUTRITION_LOG_DAYS && (off || adherenceOnFive(d.avg_adherence_nutrition) != null && (adherenceOnFive(d.avg_adherence_nutrition) ?? 5) <= 2)) {
     return 'adherence_nutrition';
   }
-  if (!following && d.calorie_target > 0 && d.logged_nutrition_days >= MIN_NUTRITION_LOG_DAYS && overeatRatio(d.avg_calories, d.calorie_target) >= OVEREAT_RATIO) {
+  if (trackNutrition && !following && effectiveCalorieTarget(d) > 0 && d.logged_nutrition_days >= MIN_NUTRITION_LOG_DAYS && overeatRatio(d.avg_calories, effectiveCalorieTarget(d)) >= OVEREAT_RATIO) {
     return 'adherence_nutrition';
   }
   if (missedTraining(d) && d.workout_count + d.checkin_count + d.logged_nutrition_days > 0) {
     return 'adherence_training';
   }
-  if (fast) return 'too_fast';
-  if (following && off) return 'stall_adherent';
+  if (fast) return guardedClinical(d, 'too_fast');
+  if (following && off) return guardedClinical(d, 'stall_adherent');
   return 'on_track';
+}
+
+/**
+ * I04 : profil protégé avec signal chiffré → revue qualifiée (keep_in_touch),
+ * jamais un ajustement automatique.
+ */
+function guardedClinical(d: CoachFleetDossier, flag: CoachFleetFlag): CoachFleetFlag {
+  if (isGuardedProfile(d)) return 'keep_in_touch';
+  return flag;
 }
 
 function fmtDelta(delta: number | null): string {
@@ -435,7 +512,7 @@ function relanceMessage(
   copy: FleetCopy,
 ): { body: string; templateKey: CoachNudgeTemplateKey } {
   const name = firstName(d.full_name, copy);
-  const target = d.calorie_target;
+  const target = effectiveCalorieTarget(d);
   if (flag === 'adherence_nutrition') {
     return {
       templateKey: 'missed_checkins',
@@ -469,8 +546,8 @@ function calorieAdjustmentCard(
   const reason = proposal.reason;
   const cause = copy.kcal.cause[reason] || copy.kcal.defaultCause;
   const title = copy.kcal.title[reason]?.(name) ?? copy.kcal.defaultTitle(name);
-  const ratio = overeatRatio(d.avg_calories, d.calorie_target);
-  const pctWeek = weeklyWeightPct(d.weight_delta_kg, d.weight_start_kg ?? d.weight_kg);
+  const ratio = overeatRatio(d.avg_calories, effectiveCalorieTarget(d));
+  const pctWeek = weeklyWeightPct(d.weight_delta_kg, d.weight_start_kg ?? d.weight_kg, d.weight_span_days ?? FLEET_WINDOW_DAYS);
   return {
     flag,
     kind: 'calorie_adjustment',
@@ -504,6 +581,41 @@ function calorieAdjustmentCard(
   };
 }
 
+function keepInTouchCard(
+  d: CoachFleetDossier,
+  copy: FleetCopy,
+  name: string,
+  today: string,
+  guarded: boolean,
+): CoachFleetCard {
+  const silentDays = idleDays(d.last_coach_message_at, today);
+  const observation = guarded
+    ? copy.keepInTouch.guardedObservation
+    : Number.isFinite(silentDays)
+      ? copy.keepInTouch.observationSilent(silentDays)
+      : copy.keepInTouch.observationNoMessage;
+  const cause = guarded ? copy.keepInTouch.guardedCause : copy.keepInTouch.cause;
+  const body = copy.keepInTouch.body(name);
+  return {
+    flag: 'keep_in_touch',
+    kind: 'keep_in_touch',
+    title: copy.keepInTouch.title(name),
+    observation,
+    cause,
+    rationale: cause,
+    payload: {
+      source: FLEET_SOURCE,
+      flag: 'keep_in_touch',
+      observation,
+      cause,
+      body,
+      notes: body,
+      template_key: 'general_followup',
+      ...(guarded ? { guarded: true } : {}),
+    },
+  };
+}
+
 function buildFleetCardInner(d: CoachFleetDossier, today: string, locale: FleetLocale): CoachFleetCard | null {
   const copy = FLEET_COPY[locale] ?? FLEET_COPY.fr;
   const clinical = classifyFleetDossier(d, today);
@@ -511,39 +623,23 @@ function buildFleetCardInner(d: CoachFleetDossier, today: string, locale: FleetL
   const proposal = proposeWeeklyNutrition(d);
   const avg = Math.round(d.avg_calories);
 
+  // I04 : profil protégé avec signal → revue qualifiée, jamais d'ajustement auto.
+  if (clinical === 'keep_in_touch') {
+    return keepInTouchCard(d, copy, name, today, isGuardedProfile(d));
+  }
+
   if (clinical === 'on_track') {
     if (proposal.action === 'calorie_adjustment' && proposal.reason === 'carb_support') {
-      const observation = copy.kcal.carbSupportObservation(d.calorie_target, avg, fmtDelta(d.weight_delta_kg));
+      const observation = copy.kcal.carbSupportObservation(effectiveCalorieTarget(d), avg, fmtDelta(d.weight_delta_kg));
       return calorieAdjustmentCard(d, 'on_track', proposal, observation, copy);
     }
     if (!shouldOfferKeepInTouch(d, today)) return null;
-    const silentDays = idleDays(d.last_coach_message_at, today);
-    const observation = Number.isFinite(silentDays)
-      ? copy.keepInTouch.observationSilent(silentDays)
-      : copy.keepInTouch.observationNoMessage;
-    const cause = copy.keepInTouch.cause;
-    const body = copy.keepInTouch.body(name);
-    return {
-      flag: 'keep_in_touch',
-      kind: 'keep_in_touch',
-      title: copy.keepInTouch.title(name),
-      observation,
-      cause,
-      rationale: cause,
-      payload: {
-        source: FLEET_SOURCE,
-        flag: 'keep_in_touch',
-        observation,
-        cause,
-        body,
-        notes: body,
-        template_key: 'general_followup',
-      },
-    };
+    return keepInTouchCard(d, copy, name, today, false);
   }
 
   const flag = clinical;
-  const ratio = overeatRatio(d.avg_calories, d.calorie_target);
+  const target = effectiveCalorieTarget(d);
+  const ratio = overeatRatio(d.avg_calories, target);
   const adh = adherenceOnFive(d.avg_adherence_nutrition);
   const delta = fmtDelta(d.weight_delta_kg);
 
@@ -574,12 +670,12 @@ function buildFleetCardInner(d: CoachFleetDossier, today: string, locale: FleetL
 
   if (flag === 'adherence_nutrition') {
     const relance = relanceMessage(flag, d, copy);
-    const observation = d.calorie_target > 0
-      ? copy.nutrition.observationTarget(d.calorie_target, avg, d.logged_nutrition_days, adh, delta)
+    const observation = target > 0
+      ? copy.nutrition.observationTarget(target, avg, d.logged_nutrition_days, adh, delta)
       : copy.nutrition.observationOffPlan(d.logged_nutrition_days, delta);
-    const over = d.calorie_target > 0 && ratio >= OVEREAT_RATIO;
-    const cause = over ? copy.nutrition.causeOverTarget(d.calorie_target) : copy.nutrition.causeOffPlan;
-    const title = d.calorie_target > 0 ? copy.nutrition.titleOverTarget(d.calorie_target) : copy.nutrition.titleOffPlan;
+    const over = target > 0 && ratio >= OVEREAT_RATIO;
+    const cause = over ? copy.nutrition.causeOverTarget(target) : copy.nutrition.causeOffPlan;
+    const title = target > 0 ? copy.nutrition.titleOverTarget(target) : copy.nutrition.titleOffPlan;
     return {
       flag,
       kind: 'adherence_nutrition',
@@ -629,7 +725,7 @@ function buildFleetCardInner(d: CoachFleetDossier, today: string, locale: FleetL
   if (flag === 'too_fast') {
     const following = nutritionFollowingPlan(d);
     const goal = goalKey(d.goal);
-    const observation = copy.tooFast.observation(delta, FLEET_WINDOW_DAYS, d.calorie_target, avg);
+    const observation = copy.tooFast.observation(delta, FLEET_WINDOW_DAYS, target, avg);
     const cause = copy.tooFast.cause[goal];
     const title = goal === 'cut' ? copy.tooFast.titleCut(name) : copy.tooFast.titleBulk(name);
     if (following) {
@@ -658,7 +754,7 @@ function buildFleetCardInner(d: CoachFleetDossier, today: string, locale: FleetL
   }
 
   // stall_adherent — following the plan, still off-goal. Complete macros only.
-  const observation = copy.kcal.stallObservation(d.calorie_target, avg, d.logged_nutrition_days, delta);
+  const observation = copy.kcal.stallObservation(target, avg, d.logged_nutrition_days, delta);
   return calorieAdjustmentCard(d, flag, proposal, observation, copy);
 }
 
@@ -730,6 +826,14 @@ export function mapTriageRow(raw: Record<string, unknown>): CoachFleetDossier | 
     return Number.isFinite(n) ? n : fallback;
   };
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v : null);
+  const optNum = (v: unknown): number | null => {
+    if (v == null || v === '') return null;
+    const n = typeof v === 'number' ? v : Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  const trackingRaw = dossierRaw.tracking && typeof dossierRaw.tracking === 'object' && !Array.isArray(dossierRaw.tracking)
+    ? dossierRaw.tracking as Record<string, unknown>
+    : null;
   return {
     coach_id: coachId,
     client_id: clientId,
@@ -757,6 +861,22 @@ export function mapTriageRow(raw: Record<string, unknown>): CoachFleetDossier | 
     weight_start_kg: dossierRaw.weight_start_kg == null ? null : num(dossierRaw.weight_start_kg),
     weight_end_kg: dossierRaw.weight_end_kg == null ? null : num(dossierRaw.weight_end_kg),
     weight_delta_kg: dossierRaw.weight_delta_kg == null ? null : num(dossierRaw.weight_delta_kg),
+    weight_start_at: str(dossierRaw.weight_start_at),
+    weight_end_at: str(dossierRaw.weight_end_at),
+    weight_span_days: optNum(dossierRaw.weight_span_days),
+    avg_effective_target: num(dossierRaw.avg_effective_target),
+    avg_fatigue: optNum(dossierRaw.avg_fatigue),
+    avg_sleep_quality: optNum(dossierRaw.avg_sleep_quality),
+    avg_soreness: optNum(dossierRaw.avg_soreness),
+    avg_energy: optNum(dossierRaw.avg_energy),
+    tracking: trackingRaw ? {
+      nutrition: trackingRaw.nutrition !== false,
+      workouts: trackingRaw.workouts !== false,
+      weight: trackingRaw.weight !== false,
+      checkins: trackingRaw.checkins !== false,
+    } : undefined,
+    is_minor: dossierRaw.is_minor === true,
+    has_medical_flags: dossierRaw.has_medical_flags === true,
     last_message_at: str(dossierRaw.last_message_at),
     last_coach_message_at: str(dossierRaw.last_coach_message_at),
     last_keep_in_touch_at: str(dossierRaw.last_keep_in_touch_at),
@@ -798,6 +918,9 @@ function parseFleetHandled(raw: unknown): CoachFleetHandled[] {
         last_nutrition_at: strOrNull(evRaw.last_nutrition_at),
         last_workout_at: strOrNull(evRaw.last_workout_at),
         last_checkin_at: strOrNull(evRaw.last_checkin_at),
+        target_avg_kcal: numOrNull(evRaw.target_avg_kcal) ?? undefined,
+        weight_span_days: numOrNull(evRaw.weight_span_days),
+        window_days: numOrNull(evRaw.window_days) ?? undefined,
       } : null,
     });
   }

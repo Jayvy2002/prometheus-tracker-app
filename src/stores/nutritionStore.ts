@@ -13,7 +13,8 @@ import {
   FAST_VERIFY_BONUS_TIMEOUT_MS,
   parseAnalyzeProductResponse,
 } from '../lib/fastVerify';
-import { correctNutritionLogEnergy, normalizeFoodProductEnergy, rescaleNutritionMacros } from '../lib/foodEnergy';
+import { correctNutritionLogEnergy, normalizeFoodProductEnergy, gramsFromQuantity, rescaleNutritionMacros } from '../lib/foodEnergy';
+import { UNIT_TO_GRAMS } from '../lib/constants';
 
 interface NutritionState {
   logs: NutritionLog[];
@@ -374,19 +375,34 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
       });
       if (!seen.has(raw.name)) {
         seen.add(raw.name);
-        const qty = log.quantity || 100;
-        const scale = 100 / qty;
+        // D04 : la portion d'origine est la référence — mêmes valeurs, même portion.
+        // Base masse/volume : colonnes pour 100 g. Base portion/pièce : colonnes
+        // pour 1 unité (productLogDraft applique le même contrat à la re-saisie).
+        const qty = log.quantity > 0 ? log.quantity : 1;
+        const unit = log.unit || 'g';
+        const grams = gramsFromQuantity(qty, unit, UNIT_TO_GRAMS);
+        const r2 = (n: number) => Math.round(n * 100) / 100;
+        const per = grams != null && grams > 0
+          ? {
+            calories_per_100g: r2((log.calories * 100) / grams),
+            protein_per_100g: r2((log.protein * 100) / grams),
+            carbs_per_100g: r2((log.carbs * 100) / grams),
+            fat_per_100g: r2((log.fat * 100) / grams),
+          }
+          : {
+            calories_per_100g: r2(log.calories / qty),
+            protein_per_100g: r2(log.protein / qty),
+            carbs_per_100g: r2(log.carbs / qty),
+            fat_per_100g: r2(log.fat / qty),
+          };
         recent.push({
           id: '',
           barcode: null,
           name: raw.name,
           brand: null,
-          calories_per_100g: Math.round(log.calories * scale),
-          protein_per_100g: Math.round(log.protein * scale),
-          carbs_per_100g: Math.round(log.carbs * scale),
-          fat_per_100g: Math.round(log.fat * scale),
+          ...per,
           serving_size: qty,
-          serving_unit: log.unit || 'g',
+          serving_unit: unit,
           created_by: null,
           created_at: '',
           data_source: null,

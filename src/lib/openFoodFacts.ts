@@ -8,8 +8,45 @@ export interface OffSearchHit extends FoodProduct {
   _source: 'openfoodfacts';
 }
 
-function offHost(lang: string): string {
-  return lang.toLowerCase().startsWith('fr') ? 'fr.openfoodfacts.org' : 'world.openfoodfacts.org';
+/**
+ * D06 — contrat Open Food Facts conforme à la doc officielle
+ * (https://openfoodfacts.github.io/openfoodfacts-server/api/) :
+ * - plein texte = `/cgi/search.pl` legacy (v2 `/api/v2/search` est une
+ *   recherche structurée par facettes, pas du plein texte) ;
+ * - 10 recherches/min/IP — JAMAIS d'appel à la frappe : OFF n'est interrogé
+ *   que sur action explicite (bouton/Entrée), avec budget glissant partagé ;
+ * - timeout + annulation ; pays (cc/hôte) séparé de la langue (lc).
+ */
+
+export const OFF_SEARCH_TIMEOUT_MS = 8000;
+export const OFF_MAX_CALLS_PER_MINUTE = 10;
+
+const callTimestamps: number[] = [];
+
+/** Budget glissant partagé : false = OFF sauté, résultats locaux uniquement. */
+export function consumeOffBudget(now: number = Date.now()): boolean {
+  while (callTimestamps.length > 0 && now - callTimestamps[0] > 60_000) callTimestamps.shift();
+  if (callTimestamps.length >= OFF_MAX_CALLS_PER_MINUTE) return false;
+  callTimestamps.push(now);
+  return true;
+}
+
+export function resetOffBudgetForTests(): void {
+  callTimestamps.length = 0;
+}
+
+export type OffSearchErrorKind = 'timeout' | 'rate_limited' | 'unavailable' | 'aborted';
+
+export class OffSearchError extends Error {
+  readonly kind: OffSearchErrorKind;
+  constructor(kind: OffSearchErrorKind) {
+    super(`openfoodfacts:${kind}`);
+    this.kind = kind;
+  }
+}
+
+function offHost(country: string): string {
+  return country.toLowerCase() === 'fr' ? 'fr.openfoodfacts.org' : 'world.openfoodfacts.org';
 }
 
 function productName(p: Record<string, unknown>): string {
@@ -44,70 +81,73 @@ export function mapOffProduct(p: Record<string, unknown>): OffSearchHit | null {
   };
 }
 
-async function fetchJson(url: string): Promise<Record<string, unknown> | null> {
-  try {
-    const res = await fetch(url, { headers: { Accept: 'application/json' } });
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data || typeof data !== 'object') return null;
-    return data as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
 function productsFromPayload(data: Record<string, unknown> | null): Record<string, unknown>[] {
   const list = data?.products;
   if (!Array.isArray(list)) return [];
   return list.filter((p): p is Record<string, unknown> => !!p && typeof p === 'object');
 }
 
+export interface OffSearchOptions {
+  lang?: string;
+  /** Pays de commercialisation (cc/hôte) — indépendant de la langue d'interface. */
+  country?: string;
+  signal?: AbortSignal;
+}
+
 /**
- * Search Open Food Facts.
- * Do NOT pass `fields=` to cgi/search.pl — it 503s on common French queries
- * (poulet, riz) while English queries still return JSON.
- * v2 search supports fields; cgi without fields is the fallback.
+ * Recherche plein texte Open Food Facts — appel EXPLICITE uniquement.
+ * Jamais à la frappe (banni par la doc OFF). Lance OffSearchError en cas
+ * d'échec ; l'appelant garde les résultats locaux.
  */
-export async function searchOpenFoodFacts(query: string, lang = 'fr'): Promise<OffSearchHit[]> {
+export async function searchOpenFoodFacts(
+  query: string,
+  opts: OffSearchOptions = {},
+): Promise<OffSearchHit[]> {
   const q = query.trim();
-  if (!q) return [];
-  const encoded = encodeURIComponent(q);
-  const lc = lang.toLowerCase().startsWith('fr') ? 'fr' : 'en';
-  const host = offHost(lang);
+  if (q.length < 2) return [];
+  if (opts.signal?.aborted) throw new OffSearchError('aborted');
+  if (!consumeOffBudget()) throw new OffSearchError('rate_limited');
 
-  const v2 = await fetchJson(
-    `https://world.openfoodfacts.org/api/v2/search`
-      + `?search_terms=${encoded}&page_size=15&lc=${lc}&cc=${lc}`
-      + `&fields=code,product_name,product_name_fr,product_name_en,brands,nutriments,serving_quantity`,
-  );
-  let raw = productsFromPayload(v2);
+  const country = (opts.country ?? 'fr').toLowerCase();
+  const lang = (opts.lang ?? 'fr').toLowerCase().startsWith('fr') ? 'fr' : 'en';
+  const host = offHost(country);
+  // Pas de `fields=` sur cgi/search.pl : 503 sur des requêtes FR courantes.
+  const url = `https://${host}/cgi/search.pl`
+    + `?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1`
+    + `&page_size=20&cc=${encodeURIComponent(country)}&lc=${lang}`;
 
-  if (raw.length === 0) {
-    const unscoped = await fetchJson(
-      `https://world.openfoodfacts.org/api/v2/search`
-        + `?search_terms=${encoded}&page_size=15`
-        + `&fields=code,product_name,product_name_fr,product_name_en,brands,nutriments,serving_quantity`,
-    );
-    raw = productsFromPayload(unscoped);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), OFF_SEARCH_TIMEOUT_MS);
+  const onExternalAbort = () => controller.abort();
+  opts.signal?.addEventListener('abort', onExternalAbort, { once: true });
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (res.status === 429) throw new OffSearchError('rate_limited');
+    if (!res.ok) throw new OffSearchError('unavailable');
+    const data = await res.json().catch(() => null);
+    const raw = productsFromPayload(data && typeof data === 'object' ? data as Record<string, unknown> : null);
+    const mapped: OffSearchHit[] = [];
+    const seen = new Set<string>();
+    for (const p of raw) {
+      const hit = mapOffProduct(p);
+      if (!hit) continue;
+      const key = hit.barcode || hit.name;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      mapped.push(hit);
+      if (mapped.length >= 20) break;
+    }
+    return mapped;
+  } catch (err) {
+    if (err instanceof OffSearchError) throw err;
+    if (opts.signal?.aborted) throw new OffSearchError('aborted');
+    if (controller.signal.aborted) throw new OffSearchError('timeout');
+    throw new OffSearchError('unavailable');
+  } finally {
+    clearTimeout(timer);
+    opts.signal?.removeEventListener('abort', onExternalAbort);
   }
-
-  if (raw.length === 0) {
-    const cgi = await fetchJson(
-      `https://${host}/cgi/search.pl?search_terms=${encoded}&search_simple=1&action=process&json=1&page_size=15`,
-    );
-    raw = productsFromPayload(cgi);
-  }
-
-  const mapped: OffSearchHit[] = [];
-  const seen = new Set<string>();
-  for (const p of raw) {
-    const hit = mapOffProduct(p);
-    if (!hit) continue;
-    const key = hit.barcode || hit.name;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    mapped.push(hit);
-    if (mapped.length >= 15) break;
-  }
-  return mapped;
 }

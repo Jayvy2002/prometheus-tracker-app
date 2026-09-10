@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { searchOpenFoodFacts } from './openFoodFacts';
+import { OffSearchError, searchOpenFoodFacts } from './openFoodFacts';
+import type { FoodProduct } from './types';
 import {
   FOOD_SEARCH_DEBOUNCE_MS,
   FOOD_SEARCH_MIN_CHARS,
@@ -8,7 +9,16 @@ import {
 } from './pickerSearch';
 import { useNutritionStore } from '../stores/nutritionStore';
 
-export function useFoodCatalogSearch(active: boolean, lang: string) {
+export type OffStatus = 'idle' | 'loading' | 'ok' | 'rate_limited' | 'error';
+
+/**
+ * D06 — recherche alimentaire conforme OFF :
+ * - à la frappe (debounce) : LOCALE uniquement (récents, favoris, base Supabase) ;
+ * - Open Food Facts : UNIQUEMENT sur action explicite (bouton/Entrée → searchNow),
+ *   avec timeout, annulation et budget partagé. Un échec OFF ne casse jamais
+ *   les résultats locaux.
+ */
+export function useFoodCatalogSearch(active: boolean, lang: string, country = 'fr') {
   const searchProducts = useNutritionStore(s => s.searchProducts);
   const batchSaveProducts = useNutritionStore(s => s.batchSaveProducts);
   const recents = useNutritionStore(s => s.recentProducts);
@@ -18,89 +28,107 @@ export function useFoodCatalogSearch(active: boolean, lang: string) {
   const [results, setResults] = useState<RankedFoodHit[]>([]);
   const [searching, setSearching] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [phase, setPhase] = useState<'idle' | 'db' | 'openfoodfacts'>('idle');
-  const runId = useRef(0);
+  const [offStatus, setOffStatus] = useState<OffStatus>('idle');
+  const [offQuery, setOffQuery] = useState('');
+  const localRunId = useRef(0);
+  const offRunId = useRef(0);
+  const offAbort = useRef<AbortController | null>(null);
+  const offCache = useRef<{ query: string; hits: FoodProduct[] }>({ query: '', hits: [] });
+  const dbCache = useRef<{ query: string; hits: FoodProduct[] }>({ query: '', hits: [] });
 
-  const localHits = useCallback((q: string) => mergeRankedFoodHits({
+  const mergeAll = useCallback((q: string) => mergeRankedFoodHits({
     query: q,
-    db: [],
-    off: [],
+    db: dbCache.current.query === q ? dbCache.current.hits : [],
+    off: offCache.current.query === q ? offCache.current.hits : [],
     recents,
     favorites,
   }), [favorites, recents]);
 
-  const runSearch = useCallback(async (raw: string) => {
-    const q = raw.trim();
-    if (q.length < FOOD_SEARCH_MIN_CHARS) return;
-    const id = ++runId.current;
-    setSearching(true);
-    setSearched(false);
-    setPhase('db');
-
-    const dbPromise = searchProducts(q);
-    const offPromise = searchOpenFoodFacts(q, lang);
-
-    const dbResults = await dbPromise;
-    if (runId.current !== id) return;
-    const early = mergeRankedFoodHits({
-      query: q,
-      db: dbResults,
-      off: [],
-      recents,
-      favorites,
-    });
-    if (early.length > 0) {
-      setResults(early);
-      setSearching(false);
-    }
-    setPhase('openfoodfacts');
-
-    const offResults = await offPromise;
-    if (runId.current !== id) return;
-    setResults(mergeRankedFoodHits({
-      query: q,
-      db: dbResults,
-      off: offResults,
-      recents,
-      favorites,
-    }));
-    setSearched(true);
-    setSearching(false);
-    setPhase('idle');
-    if (offResults.length > 0) void batchSaveProducts(offResults);
-  }, [batchSaveProducts, favorites, lang, recents, searchProducts]);
-
+  // À la frappe : locale uniquement (rapide, sans budget distant).
   useEffect(() => {
     if (!active) return;
     const q = query.trim();
     if (q.length < FOOD_SEARCH_MIN_CHARS) {
-      runId.current += 1;
+      localRunId.current += 1;
       setSearching(false);
       setSearched(false);
-      setPhase('idle');
-      setResults(q ? localHits(q) : []);
+      setResults(q ? mergeRankedFoodHits({ query: q, db: [], off: [], recents, favorites }) : []);
       return;
     }
+    const id = ++localRunId.current;
+    setSearching(true);
     const timer = window.setTimeout(() => {
-      void runSearch(q);
+      void (async () => {
+        const dbResults = await searchProducts(q);
+        if (localRunId.current !== id) return;
+        dbCache.current = { query: q, hits: dbResults };
+        setResults(mergeRankedFoodHits({
+          query: q,
+          db: dbResults,
+          off: offCache.current.query === q ? offCache.current.hits : [],
+          recents,
+          favorites,
+        }));
+        setSearching(false);
+      })();
     }, FOOD_SEARCH_DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [active, localHits, query, runSearch]);
+  }, [active, query, searchProducts, recents, favorites]);
 
+  // Explicite (bouton/Entrée) : locale + OFF en parallèle, sources indépendantes.
   const searchNow = useCallback(() => {
     const q = query.trim();
     if (q.length < FOOD_SEARCH_MIN_CHARS) return;
-    void runSearch(q);
-  }, [query, runSearch]);
+    const localId = ++localRunId.current;
+    const offId = ++offRunId.current;
+    offAbort.current?.abort();
+    const aborter = new AbortController();
+    offAbort.current = aborter;
+    setSearching(true);
+    setSearched(false);
+    setOffStatus('loading');
+
+    void searchProducts(q).then(dbResults => {
+      if (localRunId.current !== localId) return;
+      dbCache.current = { query: q, hits: dbResults };
+      setResults(mergeAll(q));
+      setSearching(false);
+      setSearched(true);
+    });
+
+    void (async () => {
+      try {
+        const offResults = await searchOpenFoodFacts(q, { lang, country, signal: aborter.signal });
+        if (offRunId.current !== offId) return;
+        offCache.current = { query: q, hits: offResults };
+        setOffQuery(q);
+        setOffStatus('ok');
+        setResults(mergeAll(q));
+        if (offResults.length > 0) void batchSaveProducts(offResults);
+      } catch (err) {
+        if (offRunId.current !== offId) return;
+        if (err instanceof OffSearchError && err.kind === 'aborted') return;
+        setOffStatus(err instanceof OffSearchError && err.kind === 'rate_limited' ? 'rate_limited' : 'error');
+      }
+    })();
+  }, [query, searchProducts, batchSaveProducts, lang, country, mergeAll]);
 
   const resetSearch = useCallback(() => {
-    runId.current += 1;
+    localRunId.current += 1;
+    offRunId.current += 1;
+    offAbort.current?.abort();
+    offCache.current = { query: '', hits: [] };
+    dbCache.current = { query: '', hits: [] };
     setQuery('');
     setResults([]);
     setSearching(false);
     setSearched(false);
-    setPhase('idle');
+    setOffStatus('idle');
+    setOffQuery('');
   }, []);
+
+  // Compat d'affichage : 'openfoodfacts' pendant l'appel explicite OFF.
+  const phase = offStatus === 'loading' ? 'openfoodfacts' : searching ? 'db' : 'idle';
 
   return {
     query,
@@ -109,6 +137,8 @@ export function useFoodCatalogSearch(active: boolean, lang: string) {
     searching,
     searched,
     phase,
+    offStatus,
+    offQuery,
     searchNow,
     resetSearch,
   };
