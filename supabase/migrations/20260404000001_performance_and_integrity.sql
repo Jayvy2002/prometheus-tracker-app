@@ -71,25 +71,50 @@ CREATE INDEX IF NOT EXISTS idx_workouts_user_date
   ON workouts(user_id, date DESC);
 
 -- ─── Data integrity: CHECK constraints on nutrition_logs ──────────────────────
-ALTER TABLE nutrition_logs
-  ADD CONSTRAINT IF NOT EXISTS chk_nutrition_calories CHECK (calories >= 0),
-  ADD CONSTRAINT IF NOT EXISTS chk_nutrition_protein  CHECK (protein  >= 0),
-  ADD CONSTRAINT IF NOT EXISTS chk_nutrition_carbs    CHECK (carbs    >= 0),
-  ADD CONSTRAINT IF NOT EXISTS chk_nutrition_fat      CHECK (fat      >= 0);
+-- Replay local / CI : ADD CONSTRAINT IF NOT EXISTS n'est pas du SQL Postgres
+-- (IF est lu comme nom de contrainte). Prod a déjà ces checks sous un autre horodatage.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_nutrition_calories') THEN
+    ALTER TABLE nutrition_logs ADD CONSTRAINT chk_nutrition_calories CHECK (calories >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_nutrition_protein') THEN
+    ALTER TABLE nutrition_logs ADD CONSTRAINT chk_nutrition_protein CHECK (protein >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_nutrition_carbs') THEN
+    ALTER TABLE nutrition_logs ADD CONSTRAINT chk_nutrition_carbs CHECK (carbs >= 0);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_nutrition_fat') THEN
+    ALTER TABLE nutrition_logs ADD CONSTRAINT chk_nutrition_fat CHECK (fat >= 0);
+  END IF;
+END $$;
 
--- ─── updated_at on workout_sets ───────────────────────────────────────────────
+-- ─── updated_at on workout_sets / workout_exercises ───────────────────────────────
+-- La fonction n'est créée en prod que plus tard (dump 20260910044211).
+-- Replay local : la définir ici avant les triggers.
+CREATE OR REPLACE FUNCTION public.update_updated_at()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
 ALTER TABLE workout_sets
   ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
--- Reuse existing update_updated_at() trigger function (created in subscriptions migration)
-CREATE TRIGGER IF NOT EXISTS update_workout_sets_updated_at
+DROP TRIGGER IF EXISTS update_workout_sets_updated_at ON workout_sets;
+CREATE TRIGGER update_workout_sets_updated_at
   BEFORE UPDATE ON workout_sets
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- ─── updated_at on workout_exercises ─────────────────────────────────────────
 ALTER TABLE workout_exercises
   ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT now();
 
-CREATE TRIGGER IF NOT EXISTS update_workout_exercises_updated_at
+DROP TRIGGER IF EXISTS update_workout_exercises_updated_at ON workout_exercises;
+CREATE TRIGGER update_workout_exercises_updated_at
   BEFORE UPDATE ON workout_exercises
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();

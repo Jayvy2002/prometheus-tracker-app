@@ -46,4 +46,7 @@ test('replay local: Git-clock files skip tables that never existed', () => {
   assert.match(push, /to_regclass\('public\.user_profiles'\)/);
   const checkins = src('supabase/migrations/20260716125531_add_daily_checkins_and_extend_coaching.sql');
   assert.match(checkins, /to_regclass\('public\.coaching_recommendations'\)/);
+  const perf = src('supabase/migrations/20260404000001_performance_and_integrity.sql');
+  assert.doesNotMatch(perf, /ADD CONSTRAINT IF NOT EXISTS chk_/);
+  assert.match(perf, /CREATE OR REPLACE FUNCTION public\.update_updated_at/);
 });
