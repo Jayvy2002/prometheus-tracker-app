@@ -839,25 +839,24 @@ test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', 
   assert.doesNotMatch(fromLinks, /WHERE EXISTS/);
   assert.doesNotMatch(fromLinks, /logged_nutrition_days\s*>\s*0/);
   const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829162959_fleet_in_app_weekly_review.sql'), 'utf8');
-  assert.match(lock, /DO NOT create Grok Bots/);
   assert.match(lock, /COMMENT ON FUNCTION public\.triage_coach_fleet/);
 });
 
-test('architecture lock: weekly review is in-app, not Grok Bots or Second', () => {
+test('architecture lock: weekly review stays deterministic and in-app', () => {
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
-  assert.match(fleet, /DO NOT create Grok Bots/);
-  assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
-  assert.doesNotMatch(fleet, /XAI_API_KEY|GROK_API_KEY|api\.x\.ai/);
+  assert.match(fleet, /MODEL_USED = "deterministic"/);
+  assert.doesNotMatch(fleet, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
+  assert.doesNotMatch(fleet, /XAI_API_KEY|api\.x\.ai/);
   const loop = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
   assert.match(loop, /planWrite\(d, today, ctx\?\.locale \?\? "fr"\)/);
   const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
-  assert.match(readme, /Do \*\*not\*\* create Grok Bots/);
+  assert.match(readme, /analyse déterministe `coach-fleet-round`/);
+  assert.match(readme, /L’IA prépare ; l’humain décide/);
   assert.doesNotMatch(readme, /XAI_API_KEY/);
-  assert.doesNotMatch(readme, /ping → Second/);
-  assert.doesNotMatch(readme, /coach drafts only, never food/);
   const cron = readFileSync(resolve(process.cwd(), 'supabase/cron/schedule_coach_fleet_round.sql'), 'utf8');
-  assert.doesNotMatch(cron, /XAI_API_KEY/);
-  assert.match(cron, /no Grok Bots/);
+  assert.match(cron, /FLEET_CRON_SECRET/);
+  assert.match(cron, /invoke_coach_fleet_round/);
+  assert.doesNotMatch(cron, /XAI_API_KEY|api\.x\.ai/);
 });
 
 test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
