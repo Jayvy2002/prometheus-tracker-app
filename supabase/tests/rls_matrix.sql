@@ -177,8 +177,8 @@ BEGIN
   SELECT id, v_solo, v_solo, CURRENT_DATE, 'active'
   FROM public.programs WHERE owner_id = v_solo AND name = 'P_S rls-matrix';
 
-  INSERT INTO public.coach_notes (coach_id, client_id, body)
-  VALUES (v_coach_a, v_client_a1, 'note A private');
+  INSERT INTO public.coach_notes (coach_id, client_id, body, note_date)
+  VALUES (v_coach_a, v_client_a1, 'note A private', CURRENT_DATE);
 
   INSERT INTO public.coach_interventions (coach_id, client_id, kind, title, rationale, payload, status, source)
   VALUES (v_coach_a, v_client_a1, 'calorie_adjustment', 'rls-matrix', 'test', '{}'::jsonb, 'pending', 'agent');
