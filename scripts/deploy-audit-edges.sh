@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Redéploiement CLI des deux Edge Functions d'audit (I01–I04 / tournée).
+# Déploiement CLI optionnel des deux Edge Functions d'audit (I01–I04 / tournée).
+# Le live du 10 sept. 2026 (fleet v32 / agent v26) a été posé via Supabase
+# Management API — ce script n'est PAS la preuve de ce déploiement.
 # Usage : SUPABASE_ACCESS_TOKEN=… ./scripts/deploy-audit-edges.sh
+# Échoue sans token (jamais exit 0). Dépôt privé GitHub Free : secret repo.
 set -euo pipefail
 REF="${SUPABASE_PROJECT_REF:-phyuijjekxtjvipjtdfv}"
 if [[ -z "${SUPABASE_ACCESS_TOKEN:-}" ]]; then

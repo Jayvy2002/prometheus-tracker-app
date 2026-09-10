@@ -1,0 +1,37 @@
+name: Deploy edges (optional CLI)
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-edges-cli
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+# Dépôt privé GitHub Free : pas d'Environments, ni secrets d'environnement,
+# ni deployment protection rules. Le job lit le secret **repo**
+# SUPABASE_ACCESS_TOKEN. Un environment `production` + required reviewers
+# n'est possible qu'après un passage Pro/Team — ne pas le déclarer ici,
+# sinon le workflow n'est pas compatible avec le plan actuel.
+jobs:
+  deploy:
+    name: deploy-edges (CLI optionnel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: phyuijjekxtjvipjtdfv
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Deploy coach-fleet-round + coach-agent via CLI
+        run: |
+          chmod +x scripts/deploy-audit-edges.sh
+          bash scripts/deploy-audit-edges.sh
