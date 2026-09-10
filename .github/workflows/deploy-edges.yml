@@ -1,21 +1,25 @@
-name: Deploy edges (Production)
+name: Deploy edges (optional CLI)
 
 on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-edges-production
+  group: deploy-edges-cli
   cancel-in-progress: false
 
 permissions:
   contents: read
 
+# Dépôt privé GitHub Free : pas d'Environments, ni secrets d'environnement,
+# ni deployment protection rules. Le job lit le secret **repo**
+# SUPABASE_ACCESS_TOKEN. Un environment `production` + required reviewers
+# n'est possible qu'après un passage Pro/Team — ne pas le déclarer ici,
+# sinon le workflow n'est pas compatible avec le plan actuel.
 jobs:
   deploy:
-    name: deploy-edges (CLI)
+    name: deploy-edges (CLI optionnel)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: production
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_PROJECT_REF: phyuijjekxtjvipjtdfv

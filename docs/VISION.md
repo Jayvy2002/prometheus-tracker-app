@@ -112,7 +112,7 @@ Les trois axes de la consolidation restent le test de chaque livraison :
 - **Boucle coach** : intake du client → analyse → proposition → le coach valide → le client exécute → détection → nouvelles propositions. Même cerveau, autorité différente.
 - **Rien ne s'auto-applique.**
 
-Snapshot prod (sept. 2026, projet `phyuijjekxtjvipjtdfv`) : cycle solo + coach joué ; tournée cron 04:00 UTC déterministe ; `coach-agent` **v22** (`loop_context`, `gpt-5.6-luna` — logs `openai_chat`) ; fleet **v25** (`payload.why`). Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client ainsi que la migration `20260907222909_food_search_rank.sql` (recherche trigramme) sont appliquées. Les timestamps Git des fichiers `supabase/migrations` correspondent aux versions Production.
+Snapshot prod (10 sept. 2026, projet `phyuijjekxtjvipjtdfv`) : cycle solo + coach joué ; tournée cron 04:00 UTC déterministe ; `coach-agent` **v25** et fleet **v32** redéployés **via Supabase Management API** (SHA identiques aux bundles audités v24/v31 — **pas** une preuve CLI). Le code défaut reste `gpt-5.6-luna` / `payload.why`. Le wrapper gzip Management API de `coach-agent` crash au boot (`btoa` / Unicode) : le copilote live attend un déploiement **CLI** des sources Git (#69, optionnel, draft). Les migrations d'intake / télémétrie / copilote / self-coach / `loop_context` / realtime client ainsi que la migration `20260907222909_food_search_rank.sql` (recherche trigramme) sont appliquées. Les timestamps Git des fichiers `supabase/migrations` correspondent aux versions Production.
 
 ---
 
@@ -126,7 +126,7 @@ Détail, lots et risques : **`docs/CHANTIER.md`**. Résumé :
 | 1 | Copilote solo (intake + hebdo + programme vivant) | ✔ code (#46, #47, #58) |
 | A | Macros coaché : garder / écraser l'ex-solo ; « pourquoi » partagé | ✔ (#65) |
 | 3 | Intake dans la boucle coach | ✔ ; `joursDispo` éditeur + accusé drapeau (#65) |
-| audit | 30 constats (P0→P3) : accès, atomicité, preuves, continuité, fichiers, a11y, perf, CI, télémétrie ; E01/E02 fondations (révisions + contrat intake) | ✔ (#68 — edges fleet/agent à redéployer en CLI, cron rappels à planifier) |
+| audit | 30 constats (P0→P3) : accès, atomicité, preuves, continuité, fichiers, a11y, perf, CI, télémétrie ; E01/E02 fondations (révisions + contrat intake) | ✔ (#68 mergée ; edges v32/v25 via Management API ; copilote agent = CLI ensuite, #69 draft ; cron rappels à planifier) |
 | B | Builder de questionnaire par coach (socle E02 livré : ids stables, version, `custom` — pas encore le builder ni le versionnage semaines/blocs) | À faire |
 | 5 | Télémétrie d'usage | ✔ table + `track()` + `docs/TELEMETRY.md` ; écran lecture = transversal |
 | 6 | Bilingue EN + FR | ✔ (#53 / #54, étendu #68) |

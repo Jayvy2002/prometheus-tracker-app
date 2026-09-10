@@ -7,7 +7,7 @@
 
 ---
 
-## État au 10 septembre 2026 (soir — audit 30 constats, PR #68 en cours)
+## État au 10 septembre 2026 (soir — #68 mergée, edges live via Management API)
 
 ### Mergé / Livré dans `new-JV` (prod Netlify → `tracker.prometheus-fit.com`)
 
@@ -29,7 +29,7 @@
 | #65 | **Chantier A** : Setup garder vs ISSN ; `weeklyNutritionWhy` ; `payload.why` ; `joursDispo` éditeur ; accusé PAR-Q |
 | #66 | Docs : Chantier A fait, Luna en prod, cycle 0 joué |
 | #67 | **Recherche aliments & exercices** : recherche as-you-type (debounce 280ms), DB + Open Food Facts en parallèle (fin du blocage), ranking multicritère (`pickerSearch.ts`), repli mondial OFF, alias FR/EN d'exercices (`bp`, `rdl`, `sdt`, `fentes`, muscles traduits), migration `20260907222909_food_search_rank.sql` (pg_trgm) appliquée en prod |
-| #68 (cette PR) | **Audit 10 sept. — 30 constats corrigés en 7 lots** (S01–S05, D01–D07, I01–I05, C01–C04, Q01–Q07, E01–E02 fondations). Détail ci-dessous. |
+| #68 (mergée) | **Audit 10 sept. — 30 constats corrigés en 7 lots** (S01–S05, D01–D07, I01–I05, C01–C04, Q01–Q07, E01–E02 fondations). Détail ci-dessous. |
 
 ### PR #68 — lots d'audit (branche `cursor/audit-securisation-425e` → `new-JV`)
 
@@ -43,19 +43,16 @@
 | 6 | Q02 fichiers ; Q03 unités/langue ; Q04 modale ; Q05 lazy routes ; Q06 CI edges (manifeste + dirs + JWT + inventaire) + matrice RLS staging ; Q07 télémétrie | `20260910061018`–`20260910061036` ✅ |
 | 7 | **E01/E02 fondations** : révisions immuables + snapshots ; contrat intake versionné. Pas le versionnage semaines/blocs ni le questionnaire dynamique (chantier B). | `20260910063138`–`20260910064501` ✅ |
 
-### ⚠️ Étapes ops REQUISES après merge (ne pas oublier)
+### ⚠️ Étapes ops (après #68)
 
-1. **Edges à redéployer en CLI** (Management API) :
-   ```bash
-   npm run deploy:audit-edges
-   # équivalent :
-   supabase functions deploy coach-fleet-round --project-ref phyuijjekxtjvipjtdfv --no-verify-jwt
-   supabase functions deploy coach-agent --project-ref phyuijjekxtjvipjtdfv
-   ```
-   Live actuel : `coach-fleet-round` **v31** (`verify_jwt` false), `coach-agent` **v24** (`verify_jwt` true). En CI : Actions → **Deploy edges (Production)** (`workflow_dispatch` + environment `production`). Pas de deploy automatique depuis une PR.
+1. **Edges — redéployées via Supabase Management API** (connexion authentifiée ChatGPT, **pas** une preuve CLI, pas de `SUPABASE_ACCESS_TOKEN` transmis) :
+   - `coach-fleet-round` **v31 → v32**, `ACTIVE`, `verify_jwt=false`, `import_map` `deno.json`, SHA `b902f8524779cc2c6232e3846c223368b9a55c76f3eb266ea08f79d1c054fe2e` (identique au bundle audité).
+   - `coach-agent` **v24 → v25**, `ACTIVE`, `verify_jwt=true`, `import_map` `deno.json`, SHA `5a90a069db764b90414c37da53d2e59db9a89313380a39ec87569c65593f83b6` (identique au bundle audité).
+   - Smokes non destructifs : fleet OPTIONS **200** + POST sans JWT / JWT invalide / faux `X-Webhook-Key` → **401** `unauthorized`. `coach-agent` : POST sans JWT / JWT invalide / GET → **401** gateway (`UNAUTHORIZED_NO_AUTH_HEADER` / `UNAUTHORIZED_INVALID_JWT_FORMAT`).
+   - **Limite du canal Management API** : le bundle `coach-agent` live est un wrapper gzip + `btoa()`. Le source Unicode (FR) fait crasher le worker au boot (`InvalidCharacterError` Latin1). OPTIONS **500** `WORKER_ERROR` (preflight navigateur). Les POST authentifiés qui atteindraient le worker échoueraient de la même façon. Ce n’est **pas** un écart de SHA. Le correctif n’est pas un patch Git : déployer les sources Git **via CLI** (sans ce wrapper). PR **#69** = workflow manuel optionnel, **draft**, secret GitHub non validé — ne pas merger tant que le workflow + le secret n’ont pas été joués. Dépôt privé GitHub **Free** : pas d’Environments ; le job lit le secret **repo** `SUPABASE_ACCESS_TOKEN`.
 2. **Rappels cron** : poser le secret `REMINDERS_CRON_SECRET` (valeur transmise hors git) dans Vault **et** dans les secrets de `send-daily-reminders`, vérifier les secrets VAPID, puis jouer `supabase/cron/schedule_daily_reminders.sql`.
 3. **Protection de branche** : protéger `new-JV` (reviews + CI verte requises) — non faisable via API ici.
-4. **Matrice RLS** : job CI `rls-matrix` (`supabase start` + `scripts/run-rls-matrix.mjs`). Rejouer aussi sur une branche staging après chaque changement de policy / RPC DEFINER.
+4. **Matrice RLS** : job CI `rls-matrix` (`supabase start` + `scripts/run-rls-matrix.mjs`) **vert** post-merge #68. Rejouer aussi sur une branche staging après chaque changement de policy / RPC DEFINER.
 
 ## E01 / E02 — fondations, pas le produit annoncé
 
@@ -69,7 +66,7 @@
 
 ### Prod (`phyuijjekxtjvipjtdfv`, snapshot 10 sept. soir)
 
-- Edges : `coach-agent` **v24** ; `coach-fleet-round` **v31** ; `notify-onboarding-complete` **v21** ; `analyze-product` **v14** ; `verify-exercise` **v12** ; `delete-account` **v8** ; `send-daily-reminders` **v10** ; `batch-verify-exercises` **v7** (410).
+- Edges : `coach-agent` **v25** (SHA audité, wrapper Management API — worker crash `btoa`/Latin1, voir ops) ; `coach-fleet-round` **v32** (SHA audité, worker OK) ; `notify-onboarding-complete` **v21** ; `analyze-product` **v14** ; `verify-exercise` **v12** ; `delete-account` **v8** ; `send-daily-reminders` **v10** ; `batch-verify-exercises` **v7** (410).
 - **Modèle OpenAI :** le code défaut est `gpt-5.6-luna` (`resolveOpenAiModel` : override → secret `OPENAI_MODEL` → défaut). Un secret `OPENAI_MODEL` n’est pas nécessaire — la clé `OPENAI_API_KEY` suffit. Logs Edge 7 sept. : `openai_chat` → `model: gpt-5.6-luna` (0 appel `gpt-4o-mini` sur 24 h). Si un jour les logs montrent autre chose, c’est qu’un secret `OPENAI_MODEL` a été posé.
 - Cycle réel joué (7 sept.) : solo intake → programme IA → accepter → séance ; coach invite → Setup ISSN → tournée → Envoyer → le client voit les kcal + le message.
 - Tournée `cron` `0 4 * * *` active, 100 % déterministe. Cron rappels : fonction `invoke_send_daily_reminders` en place, schedule à jouer après pose du secret (voir étapes ops).

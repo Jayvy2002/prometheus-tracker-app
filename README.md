@@ -153,13 +153,16 @@ npm run verify:edges  # les 13 edges bundlent (esbuild, _shared inclus)
 | `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
 | `SITE_URL` | Origine pour CORS |
 
-Déployer les edges en CLI depuis la racine (résout `_shared/`, à privilégier sur l'API —
-celle-ci échoue sur les fonctions à import-map existante) :
+Live 10 sept. 2026 (`phyuijjekxtjvipjtdfv`) : `coach-fleet-round` **v32** et `coach-agent` **v25** ont été redéployés **via Supabase Management API** (contenu identique aux bundles audités, JWT + import map conservés). Ce n’est **pas** une preuve CLI.
+
+Le canal Management API enveloppe les gros bundles dans un wrapper gzip + `btoa()`. `coach-fleet-round` boot (OPTIONS 200). `coach-agent` (source Unicode FR) crash au boot (`InvalidCharacterError` Latin1) dès qu’un request atteint le worker — OPTIONS 500. Pour un prochain déploiement **exécutable** de `coach-agent`, privilégier la **CLI** depuis la racine (résout `_shared/`, pas de wrapper `btoa`) :
 
 ```bash
 supabase functions deploy coach-fleet-round --no-verify-jwt
 supabase functions deploy coach-agent
 ```
+
+Workflow GitHub optionnel : Actions → **Deploy edges (optional CLI)** (`workflow_dispatch`, PR #69 draft). Dépôt privé Free : secret **repo** `SUPABASE_ACCESS_TOKEN`, pas d’Environment GitHub. Ne pas lancer tant que le secret n’est pas validé.
 
 Ne pas configurer `STRIPE_*` : les functions Stripe répondent 410 (gratuit pendant la construction).
 

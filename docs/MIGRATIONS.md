@@ -31,7 +31,8 @@ Vérifs :
 - `npm run verify:migrations` — Git versions = lock (98).
 - Replay CI : `supabase start` PG17 puis `npm run verify:local-migrations` (98/98).
 - Si le secret GitHub `SUPABASE_ACCESS_TOKEN` est posé : étape CI **Prod migration list + db push --dry-run** exécute `scripts/prod-migration-sync.sh` (sortie CLI réelle). Sinon l’étape est **skipped** via `steps.token.outputs.present` (gris) — jamais un `exit 0` déguisé en SUCCESS. Ne pas mettre `secrets.*` dans un `if:` GitHub (ça invalide le workflow).
-- Déploiement des Edge Functions : workflow manuel `.github/workflows/deploy-edges.yml` (`workflow_dispatch` + environment GitHub `production`). Le script `deploy-audit-edges.sh` **échoue** sans token. Pas de déploiement automatique depuis une PR.
+- Déploiement **effectif** des deux edges d’audit (10 sept. soir) : **Supabase Management API** (connexion authentifiée ChatGPT). Ce n’est **pas** une preuve CLI. Live : `coach-fleet-round` v32 / `coach-agent` v25, SHA = bundles audités.
+- Workflow GitHub optionnel pour de **futurs** déploiements CLI : `.github/workflows/deploy-edges.yml` (`workflow_dispatch` seulement, PR #69 **draft**). Dépôt privé GitHub **Free** : pas d’`environment: production` (Environments indisponibles). Secret **repo** `SUPABASE_ACCESS_TOKEN`. Le script `deploy-audit-edges.sh` **échoue** sans token. Pas de déploiement automatique depuis une PR. Ne pas merger #69 tant que le workflow et le secret n’ont pas été validés.
 
 ## Repair validé (plage audit)
 

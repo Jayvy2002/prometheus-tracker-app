@@ -79,10 +79,15 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   );
   const deploy = src('.github/workflows/deploy-edges.yml');
   assert.match(deploy, /workflow_dispatch/);
-  assert.match(deploy, /environment: production/);
   assert.match(deploy, /deploy-audit-edges/);
   assert.match(deploy, /2\.117\.0/);
+  assert.match(deploy, /secrets\.SUPABASE_ACCESS_TOKEN/);
   assert.doesNotMatch(deploy, /pull_request/);
+  assert.doesNotMatch(
+    deploy,
+    /environment:\s*production/,
+    'GitHub Free private has no Environments; repo secret only',
+  );
   assert.doesNotMatch(
     deploy,
     /if:.*secrets\.SUPABASE_ACCESS_TOKEN/,
@@ -91,6 +96,6 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.doesNotMatch(
     deploy,
     /SUPABASE_ACCESS_TOKEN absent[\s\S]{0,240}exit 0/,
-    'dedicated Production deploy must fail without token, never skip as SUCCESS',
+    'optional CLI deploy must fail without token, never skip as SUCCESS',
   );
 });
