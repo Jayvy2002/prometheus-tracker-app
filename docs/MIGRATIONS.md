@@ -1,49 +1,62 @@
 # Historique des migrations
 
-## Règle
+## Source de vérité
 
-Le fichier `supabase/schema_migrations.lock.json` est le miroir de `supabase_migrations.schema_migrations` du projet prod `phyuijjekxtjvipjtdfv`.
+Le dossier `supabase/migrations/` et `supabase/schema_migrations.lock.json` doivent représenter exactement les versions enregistrées dans `supabase_migrations.schema_migrations` du projet de production `phyuijjekxtjvipjtdfv`.
 
-- **Un timestamp Git = une version Production.** `supabase migration list` ne compare que les timestamps : Git suit l’horloge prod (pas l’inverse).
-- **Ne jamais rejouer** une version déjà présente dans ce lock.
-- **Ne jamais** laisser Git porter un horodatage `2026091000000x` : ces 10 fichiers consolidés n’ont **jamais** été enregistrés en production.
-- Une nouvelle migration Git doit utiliser un `version` **strictement supérieur** à la dernière entrée du lock, puis être enregistrée **sous ce même numéro** (pas un tampon MCP différent).
-- **Aucun `migration repair` de masse** sur Production. Les fichiers Git sont renommés / dumpés pour coller aux versions déjà `applied`.
+État vérifié le 10 septembre 2026 :
 
-## Alignement timestamps (10 sept. 2026)
+- 98 versions dans Git, le lock et la production ;
+- aucune version Git-only ou prod-only ;
+- dernière version : `20260910160000_apply_intervention_client_target.sql` ;
+- replay local complet sur PostgreSQL 17 validé par la CI.
 
-Les horloges Git historiques (`20260327…`, `2026082500000x`, …) ont été **renommées** vers les timestamps Production (`20260824233456…`). Ordre relatif conservé. Aucune ligne `schema_migrations` prod n’a été retampée.
+## Règles
 
-Versions prod **sans** fichier Git historique — dumps de `schema_migrations.statements` (déjà `applied`, ne pas rejouer) :
+- Un timestamp Git correspond à une version de production.
+- Ne jamais renommer ou rejouer une migration déjà enregistrée.
+- Ne jamais modifier le contenu d’une migration appliquée ; créer une migration suivante.
+- Ne jamais utiliser un `migration repair` massif pour faire correspondre artificiellement l’historique.
+- Une nouvelle version doit être strictement supérieure à la dernière version du lock.
+- Git suit l’horloge de production lorsqu’une ancienne divergence historique doit être documentée ; la production n’est pas retamponnée.
+- Les fichiers de dump représentant des versions déjà appliquées servent au replay local et ne doivent pas être repoussés en production.
 
-| Version | Name |
-|---|---|
-| `20260825140950` | `notify_onboarding_signed_ping` (2ᵉ tampon du même SQL) |
-| `20260829112707` | `coach_fleet_triage_and_marc_seed` |
-| `20260829150938` | `fix_triage_client_id_ambiguous` |
-| `20260906023536` | `solo_self_coach_upsert` |
-| `20260906023554` | `solo_self_coach_notify` |
+Les anciennes différences de timestamps ont été consolidées. Leur détail n’est plus une action à effectuer ; le lock actuel fait foi.
 
-`20260825140655` + `20260825140950` : deux tampons prod du même nom ; Git porte les deux fichiers.
+## Vérifications
 
-Vérifs :
+```bash
+npm run verify:migrations
+npm run verify:local-migrations
+```
 
-- `npm run verify:migrations` — Git versions = lock (98).
-- Replay CI : `supabase start` PG17 puis `npm run verify:local-migrations` (98/98).
-- Si le secret GitHub `SUPABASE_ACCESS_TOKEN` est posé : étape CI **Prod migration list + db push --dry-run** exécute `scripts/prod-migration-sync.sh` (sortie CLI réelle). Sinon l’étape est **skipped** via `steps.token.outputs.present` (gris) — jamais un `exit 0` déguisé en SUCCESS. Ne pas mettre `secrets.*` dans un `if:` GitHub (ça invalide le workflow).
-- Job `deploy-edges` (cette PR) : l’étape **Deploy … via CLI** n’est exécutée que si le token est présent (`steps.token.outputs.present`). Sinon elle est **skipped** (gris) — pas un succès de déploiement. Le script `deploy-audit-edges.sh` échoue encore si on l’invoque sans token.
+Pour les changements de policies ou de RPC :
 
-## Repair validé (plage audit)
+```bash
+npm run test:rls
+```
 
-1. Dump de `schema_migrations.statements` pour les 29 versions audit (`20260910044211`–`20260910064501`).
-2. Remplacement des 10 fichiers consolidés par 29 fichiers `{version}_{name}.sql`.
-3. Aucun `supabase db push` des 10 consolidés. Aucun `migration repair` côté prod.
+Avec un `SUPABASE_ACCESS_TOKEN` disponible, `npm run verify:prod-history` compare la CLI à la production et exécute un `db push --dry-run`. Sans token, cette preuve distante doit apparaître comme ignorée, jamais comme un faux succès.
 
-Replay local : policies / `ALTER` sur des tables absentes → no-op `to_regclass` ; `ADD CONSTRAINT IF NOT EXISTS` (syntaxe invalide) et trigger `update_updated_at` trop tôt → DO + `CREATE FUNCTION`. Les 29 dumps prod ne sont pas rejoués en prod.
+## Procédure pour une nouvelle migration
 
-## Migrations post-audit
+1. Créer la migration avec la CLI Supabase afin d’obtenir son nom.
+2. Écrire un SQL idempotent lorsque cela est pertinent.
+3. Tester sur une base locale reconstruite.
+4. Exécuter les tests RLS si les permissions, vues, fonctions ou triggers changent.
+5. Vérifier les advisors sécurité et performance.
+6. Appliquer la migration en production sous exactement la même version.
+7. Mettre à jour `supabase/schema_migrations.lock.json`.
+8. Vérifier que Git, le lock et la production sont alignés avant le merge.
 
-- `20260910153000_audit_blockers.sql` — D01 / D02 / idempotence. Appliquée sous ce numéro.
-- `20260910160000_apply_intervention_client_target.sql` — `assert_client_target` : cible = `auth.uid()` OU `is_coach_of(cible)` avant tout effet (chemin `p_id` NULL inclus). Appliquée **sous cette version** (pas via `apply_migration` MCP).
+## Edge Functions
 
-Vérif CI : `npm run verify:migrations`. Job `rls-matrix` = staging-like (`supabase start` PG17) ; org Free = pas de branche preview Supabase.
+Le déploiement des Edge Functions est distinct de l’historique SQL. Leur inventaire live est conservé dans `supabase/functions.deployed.lock.json`.
+
+État vérifié :
+
+- `coach-fleet-round` v32 ;
+- `coach-agent` v26 ;
+- JWT conforme à `supabase/config.toml` ;
+- preflight CORS du copilote vérifié ;
+- workflow CLI futur suivi dans la PR #69, encore en draft.
