@@ -340,11 +340,14 @@ BEGIN
 END $$;
 
 -- Client coaché : lit son assignment, ne le supprime pas.
+-- RLS refuse un DELETE hors USING sans lever d'exception (0 ligne).
+-- On vérifie le row_count côté rôle + la persistance de la ligne hors RLS.
 DO $$
 DECLARE
   v_asg uuid;
   v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
-  v_ok boolean := true;
+  v_deleted int := 0;
+  v_still_there boolean := false;
 BEGIN
   PERFORM pg_temp.as_user(v_a1);
   SET LOCAL ROLE authenticated;
@@ -357,13 +360,23 @@ BEGIN
   END IF;
   BEGIN
     DELETE FROM public.program_assignments WHERE id = v_asg;
-    v_ok := false;
+    GET DIAGNOSTICS v_deleted = ROW_COUNT;
   EXCEPTION WHEN OTHERS THEN
-    NULL;
+    v_deleted := 0;
   END;
   RESET ROLE;
   PERFORM pg_temp.clear_user();
-  PERFORM pg_temp.record('CLIENT_ASSIGN_DEL', v_ok, CASE WHEN v_ok THEN 'delete rejected' ELSE 'coached client deleted the assignment' END);
+  SELECT EXISTS (SELECT 1 FROM public.program_assignments WHERE id = v_asg)
+    INTO v_still_there;
+  IF v_deleted = 0 AND v_still_there THEN
+    PERFORM pg_temp.record('CLIENT_ASSIGN_DEL', true, 'delete rejected (0 rows; row remains)');
+  ELSE
+    PERFORM pg_temp.record(
+      'CLIENT_ASSIGN_DEL',
+      false,
+      format('deleted=%s row_exists=%s', v_deleted, v_still_there)
+    );
+  END IF;
 END $$;
 
 -- RPC DEFINER : grants de surface (via OID — `int` ≠ `integer` dans has_function_privilege).
