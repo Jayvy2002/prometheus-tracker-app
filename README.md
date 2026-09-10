@@ -1,188 +1,146 @@
 # Prometheus
 
-> SaaS fitness : une plateforme pour **tous les coachs** (kinésiologie, musculation, crossfit, nutrition…) **et** pour les **athlètes solo**, avec un copilote IA qui prépare et un humain qui décide.
+Plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais.
 
-**Vision produit, rôles, chantiers :** [`docs/VISION.md`](docs/VISION.md) — à lire avant de toucher au produit.
-**Règles pour les agents / devs :** [`CLAUDE.md`](CLAUDE.md).
+Prometheus sert trois profils :
 
-`new-JV` est le produit **et la prod** : Netlify la déploie automatiquement sur [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com) à chaque merge. `main` est l'ancien tracker solo, abandonné. Un merge sur `new-JV` = un déploiement live.
+- **Coach** : suit ses clients et valide les propositions préparées par l’application.
+- **Client coaché** : exécute son programme et utilise les modules activés par son coach.
+- **Solo** : utilise le tracker complet et valide lui-même les propositions du copilote.
 
----
+L’IA prépare ; l’humain décide. Aucune adaptation de programme ou de nutrition ne s’applique silencieusement.
 
-## Les trois rôles
+## Documentation
 
-| | Coach | Client coaché | Solo |
-|---|---|---|---|
-| Entrée | Inscription libre | Lien d'invitation de son coach | Inscription libre |
-| Accueil | Command Center + File du jour | Séance du jour, messages, photos | Tracker complet |
-| Kcal / macros | Décide pour ses clients | Pilotées par le coach | Ajustables par lui |
-| Copilote IA | `coach-agent` + tournée `coach-fleet-round` | Non (son coach en a un) | Oui (en construction) |
+- Règles de travail pour les agents et développeurs : [`CLAUDE.md`](CLAUDE.md)
+- Vision et rôles : [`docs/VISION.md`](docs/VISION.md)
+- Priorités : [`docs/CHANTIER.md`](docs/CHANTIER.md)
+- Migrations : [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md)
+- Télémétrie : [`docs/TELEMETRY.md`](docs/TELEMETRY.md)
 
-Un solo peut ajouter un coach via le lien de ce coach ; le coach voit tout l'historique. Lien coupé → il redevient solo.
+`new-JV` est la branche de production. Un merge sur cette branche déclenche le déploiement Netlify de [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com). `main` correspond à l’ancienne application et ne doit pas recevoir les développements actuels.
 
-Gratuit pendant la construction. Stripe est en quarantaine (410).
+## Fonctionnalités principales
 
----
+### Coach
 
-## Tech Stack
+- Command Center et file des clients à traiter.
+- Invitations et fiche client 360.
+- Configuration du suivi et des cibles.
+- Création, copie, versionnage et assignation des programmes.
+- Messages et propositions d’intervention.
+- Copilote `coach-agent` et analyse déterministe `coach-fleet-round`.
 
-| Layer | Technology | Version |
-|---|---|---|
-| Language | TypeScript | 5.5 |
-| UI | React | 18.3 |
-| Router | React Router | 7.13 |
-| State | Zustand | 5.0 |
-| Styling | Tailwind CSS | 3.4 |
-| Build | Vite | 5.4 |
-| Backend | Supabase (PostgreSQL + Auth + Storage + Realtime) | 2.57 |
-| Edge Functions | Deno | — |
-| i18n | i18next (fr default, en) | 26 |
-| Charts | Recharts | 3.8 |
-| PWA | Manual Service Worker | — |
+### Client coaché
 
----
+- Séance du jour et programme assigné.
+- Check-ins, messages et photos.
+- Modules de suivi sélectionnés par le coach.
+- Cibles nutritionnelles en lecture seule.
+- Retour automatique au mode solo lorsque le coaching prend fin.
 
-## Features
+### Solo
 
-**Coach**
-- **Aujourd'hui** — Command Center, File du jour, Relancer, tournée (`coach-fleet-round`)
-- **Clients** — roster, invitations, fiche 360 (vue d'ensemble, entraînement, progression, check-ins, santé, notes), setup des variables suivies et des cibles
-- **Programmes** — bibliothèque, éditeur, assignation, brouillons IA
-- **Messages** — fil par client + brouillons à envoyer
-- **Prometheus** — Ask in-app (`coach-agent`) qui écrit des brouillons ; rien ne s'applique tout seul
+- Séances, routines, nutrition, scanner, recettes, poids, statistiques et calendrier.
+- File hors ligne durable pour les séances.
+- Questionnaire initial, cibles et proposition de programme.
+- Revue hebdomadaire et modifications de programme proposées par le copilote.
 
-**Client coaché**
-- Séance du jour en premier, modules allumés par le coach, cibles pilotées par le coach, check-ins 0–10, messages, photos de progression
-- Questionnaire d'accueil (27 questions, template des coachs)
+## Stack
 
-**Solo**
-- Workouts (sets avancés, superset, minuteur, file hors ligne avec rejeu sans doublon), nutrition (journal, recherche locale instantanée + Open Food Facts explicite, scanner barcode + IA, recettes, eau), poids, stats, calendrier, routines, streaks
-- Calcul kcal / macros à l'onboarding, ajustables ; copilote hebdo (`SoloWeeklyReview` : adaptation kcal + explications) et programme vivant IA (self-coach)
+- React 18, TypeScript 5.5, Vite 5.
+- React Router, Zustand, Tailwind CSS.
+- Supabase : PostgreSQL, Auth, Storage, Realtime et Edge Functions.
+- i18next pour le français et l’anglais.
+- PWA avec Service Worker.
 
----
+Les versions exactes des dépendances sont dans `package.json` et `package-lock.json`.
 
-## Project Structure
+## Démarrage local
 
-```
-src/
-├── App.tsx                    # Routes + gardes de rôle
-├── components/
-│   ├── auth/                  # AuthPage (coach / client invité / solo)
-│   ├── onboarding/            # OnboardingFlow (tracker), KinesiologyIntakeFlow (27 q)
-│   ├── coaching/              # Console coach + pages client (messages, photos)
-│   ├── programs/              # Programmes coach / Mon programme
-│   ├── dashboard/ checkin/ workout/ nutrition/ scanner/ weight/ routines/ stats/ calendar/ profile/ layout/ ui/
-├── stores/                    # Zustand (coachingStore, programStore, checkinStore, workout, nutrition…)
-├── lib/                       # Types, utils, logique pure (coach*.ts, client*.ts, pickerSearch.ts, kinesiologyIntake.ts) + tests
-├── i18n/locales/{fr,en}.ts
-public/                        # sw.js, manifest.json
-supabase/
-├── migrations/                # Source de vérité DB
-├── cron/                      # Fleet nocturne, rappels push
-└── functions/                 # coach-agent (OpenAI gpt-5.6-luna), coach-fleet-round, notify-onboarding-complete,
-                               # analyze-product, verify-exercise, send-daily-reminders, delete-account
-                               # 410 : ask-second, suggest-client-plan, create-checkout-session,
-                               #       create-portal-session, stripe-webhook
-```
-
----
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 20+
-- Un projet [Supabase](https://supabase.com)
-- Une clé OpenAI (`OPENAI_API_KEY`) pour les brouillons IA. Pas de Grok Bots — la revue hebdo est `coach-fleet-round`, dans l'app.
-
-### 1. Clone & install
+Prérequis : Node.js 20+ et une configuration Supabase de développement.
 
 ```bash
 git clone https://github.com/Jayvy2002/prometheus-tracker-app.git
 cd prometheus-tracker-app
+git switch new-JV
 npm install
 ```
 
-### 2. Environment variables
-
-`.env` à la racine :
+Créer un fichier `.env` local non commité :
 
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-anon-key
-VITE_VAPID_PUBLIC_KEY=your-vapid-public-key   # optionnel, push
+VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key
+VITE_VAPID_PUBLIC_KEY=your-vapid-public-key
 ```
 
-### 3. Database
+Puis :
 
 ```bash
-supabase db push
+npm run dev
 ```
 
-Ou appliquer `supabase/migrations/` dans l'ordre depuis l'éditeur SQL. Les crons de `supabase/cron/` s'appliquent à la main (la tournée fleet est aussi dans une migration).
-
-### 4. Run
+## Vérifications
 
 ```bash
-npm run dev       # http://localhost:5173
-npm run build     # dist/
-npm run preview
+npm test
 npm run typecheck
 npm run lint
-npm test          # src/lib/*.test.ts (402 tests)
-npm run verify:edges  # les 13 edges bundlent (esbuild, _shared inclus)
+npm run build
+npm run verify:edges
+npm run verify:migrations
 ```
 
----
-
-## Deployment (Netlify)
-
-**Prod = `new-JV`.** Chaque merge sur `new-JV` déclenche un build Netlify et remplace le live `tracker.prometheus-fit.com` ; les PR ont un deploy-preview. La base Supabase associée (projet « coaching ») est la base de prod : ses migrations sont appliquées à la main (`supabase db push` ou MCP), pas par Netlify — une PR qui ajoute une migration doit l'appliquer **avant** le merge.
-
-`netlify.toml` contient build + redirects SPA. Les variables non secrètes sont dans `.env.production`. Les secrets serveur vont dans **Supabase Dashboard → Edge Functions → Secrets**.
-
-### Edge Function secrets
-
-| Secret | Description |
-|---|---|
-| `OPENAI_API_KEY` | `coach-agent`, `analyze-product`, `verify-exercise` (la tournée `coach-fleet-round` est 100 % déterministe, pas de clé) |
-| `OPENAI_MODEL` | Optionnel. Sans ce secret, le code appelle `gpt-5.6-luna`. Ne le poser que pour forcer un autre modèle — s’il vaut encore `gpt-4o-mini`, il gagne. Prod 7 sept. : logs `openai_chat` = `gpt-5.6-luna`. |
-| `FLEET_CRON_SECRET` | Auth du cron nocturne `coach-fleet-round` (vault + secret edge, même valeur) |
-| `REMINDERS_CRON_SECRET` | Auth du cron `send-daily-reminders` (vault + secret edge, même valeur) |
-| `NOTIFY_SECRET` | HMAC de `notify-onboarding-complete` |
-| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Web Push |
-| `SITE_URL` | Origine pour CORS |
-
-Live 10 sept. 2026 (`phyuijjekxtjvipjtdfv`) : `coach-fleet-round` **v32** et `coach-agent` **v26** sont `ACTIVE`. Le redéploiement est passé par la **Supabase Management API**, pas par la CLI. `coach-agent` v26 conserve le bundle métier audité et corrige uniquement l’encodage UTF-8 de son wrapper de chargement ; JWT et import map sont inchangés.
-
-Le wrapper Management API de `coach-agent` encode désormais explicitement le source décompressé en UTF-8 avant le Base64. Smoke live : OPTIONS **200** avec CORS, POST sans JWT **401**. Pour les futurs déploiements depuis Git, la **CLI** reste le canal normal depuis la racine (résolution native de `_shared/`) :
+Les changements de policies RLS ou de RPC sensibles doivent aussi passer la matrice :
 
 ```bash
-supabase functions deploy coach-fleet-round --no-verify-jwt
-supabase functions deploy coach-agent
+npm run test:rls
 ```
 
-Workflow GitHub optionnel : Actions → **Deploy edges (optional CLI)** (`workflow_dispatch`, PR #69 draft). Dépôt privé Free : secret **repo** `SUPABASE_ACCESS_TOKEN`, pas d’Environment GitHub. Ne pas lancer tant que le secret n’est pas validé.
+## Déploiement
 
-Ne pas configurer `STRIPE_*` : les functions Stripe répondent 410 (gratuit pendant la construction).
+### Frontend
 
-Architecture lock (2026-08-29) : Do **not** create Grok Bots (per coach or per client). Do not set `GROK_BOT_WEBHOOK_URL`. La revue hebdo est `coach-fleet-round` in-app ; Ask et « Créer un programme IA » passent par `coach-agent` (OpenAI sync), pas un bot.
+Netlify construit automatiquement `new-JV`. Les pull requests reçoivent une preview.
+
+### Base de données
+
+Les migrations sont dans `supabase/migrations/`. Lire `docs/MIGRATIONS.md` avant toute modification. Une migration appliquée ne doit jamais être réécrite ou rejouée.
+
+### Edge Functions
+
+La configuration JWT de chaque fonction est dans `supabase/config.toml`. L’état live connu est enregistré dans `supabase/functions.deployed.lock.json`.
+
+Le canal normal de déploiement depuis Git est la CLI Supabase, à partir de la racine du dépôt, afin de résoudre correctement les dépendances partagées :
 
 ```bash
-npx web-push generate-vapid-keys
+supabase functions deploy coach-fleet-round --project-ref phyuijjekxtjvipjtdfv --no-verify-jwt
+supabase functions deploy coach-agent --project-ref phyuijjekxtjvipjtdfv
 ```
 
----
+Les secrets serveur sont configurés dans Supabase Edge Function Secrets et ne doivent jamais être ajoutés au dépôt.
 
-## Security
+### État live vérifié le 10 septembre 2026
 
-- **RLS** sur toutes les tables ; RPC `SECURITY DEFINER` étroits pour les écritures coach
-- **Service role key** côté edge uniquement
-- Schéma versionné dans `supabase/migrations/`
-- Push chiffré de bout en bout (AES-128-GCM, RFC 8188)
+- `coach-fleet-round` v32 : `ACTIVE`.
+- `coach-agent` v26 : `ACTIVE`, JWT activé, CORS opérationnel.
+- Rappels quotidiens : cron actif et exécutions réussies.
+- Base : 98 migrations alignées, dernière `20260910160000`.
 
----
+## Sécurité
 
-## License
+- RLS sur les tables exposées.
+- RPC privilégiées limitées et testées.
+- Clés serveur uniquement dans les Edge Functions.
+- Sauvegardes critiques atomiques et opérations idempotentes.
+- Fichiers utilisateurs validés.
+- Aucune donnée sensible dans la télémétrie produit.
+
+## Statut commercial
+
+Le produit est actuellement gratuit pendant sa construction. Le billing n’est pas actif ; les décisions de prix et d’essai précéderont son implémentation.
+
+## Licence
 
 Private — all rights reserved.
