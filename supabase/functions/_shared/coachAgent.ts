@@ -197,6 +197,7 @@ export async function fetchCoachLessons(
     .from("coach_agent_lessons")
     .select("kind, proposed, accepted, note, created_at")
     .eq("coach_id", coachId)
+    .eq("disabled", false)
     .order("created_at", { ascending: false })
     .limit(LESSONS_LIMIT);
   const rows = Array.isArray(data) ? data : [];

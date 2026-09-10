@@ -781,6 +781,7 @@ const en = {
     opsPartial: 'Part of Today’s queue failed to load. Retry — the queue may be incomplete.',
     saveFailed: 'Could not save. Check your connection and try again.',
     alreadyResolved: 'This card has already been handled.',
+    alreadyClaimed: 'This card is being handled in another tab.',
   },
 
   soloReview: {
@@ -1427,6 +1428,8 @@ const en = {
       new: 'New',
       threadEmpty: 'No messages yet. Write the first one.',
       replyPlaceholder: 'Write a message…',
+      loadMore: 'Load previous messages',
+      sending: 'Sending…',
       noMessagesYet: 'No messages yet',
       clientTitle: 'Messages',
       noCoach: 'No coach linked',
@@ -1492,6 +1495,10 @@ const en = {
       cron: 'Cron',
       onDemand: 'On demand',
       roundStats: '{{seen}} seen · {{flagged}} flagged · {{skipped}} skipped',
+      disable: 'Disable',
+      enable: 'Re-enable',
+      delete: 'Delete',
+      disabledHint: 'Ignored by the agent',
     },
     tracking: {
       modules: 'Modules',
@@ -1684,6 +1691,9 @@ const en = {
     },
     finishSolo: 'Finish',
     optional: 'Optional',
+    draftSaving: 'Saving…',
+    draftSaved: 'Draft saved',
+    draftError: 'Save failed — check your connection',
     extras: {
       objectifType: 'Goal type',
       poidsVise: 'Target weight (kg)',

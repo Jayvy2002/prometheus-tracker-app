@@ -46,9 +46,11 @@ export const useWeightStore = create<WeightState>((set) => ({
     set(s => ({ measurements: [newMeasurement, ...s.measurements] }));
 
     if (newMeasurement.user_id && newMeasurement.weight_kg != null) {
-      await useProfileStore.getState().updateProfile(newMeasurement.user_id, {
+      // D03 : la pesée est sauvée ; le miroir profil est best-effort mais tracé.
+      const mirrored = await useProfileStore.getState().updateProfile(newMeasurement.user_id, {
         weight_kg: newMeasurement.weight_kg,
       });
+      if (mirrored.error) console.warn('[weight] profile mirror failed:', mirrored.error);
       void useStreakStore.getState().recordActivity(
         newMeasurement.user_id,
         toLocalDateStr(parseDate(newMeasurement.measured_at)),

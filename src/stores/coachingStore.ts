@@ -296,6 +296,8 @@ interface CoachingState {
   sentMessages: CoachMessage[];
   latestCoachMessage: CoachMessage | null;
   unreadMessageCount: number;
+  /** C02 : fils épuisés (plus rien à charger) par client_id. */
+  threadExhausted: Record<string, boolean>;
   coachSettings: CoachSettings | null;
   myTrackingConfig: ResolvedTrackingConfig;
   trackingReady: boolean;
@@ -340,8 +342,15 @@ interface CoachingState {
     clientId: string,
     body: string,
     templateKey: CoachNudgeTemplateKey,
+    clientMsgId?: string,
   ) => Promise<{ error: string | null }>;
-  sendClientReply: (body: string) => Promise<{ error: string | null }>;
+  sendClientReply: (body: string, clientMsgId?: string) => Promise<{ error: string | null }>;
+  /**
+   * C02 : pagination par conversation (curseur created_at DESC). Complète
+   * sentMessages sans le tronquer ; hasMore[clientId]=false en fin de fil.
+   */
+  fetchThreadPage: (clientId: string) => Promise<void>;
+  fetchUnreadCounts: () => Promise<void>;
   markCoachMessageRead: (id: string) => Promise<void>;
   markThreadRead: (clientId: string) => Promise<void>;
   fetchCoachSettings: () => Promise<void>;
@@ -363,6 +372,19 @@ interface CoachingState {
   fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
   resolveIntervention: (
     id: string,
+    status: Extract<CoachInterventionStatus, 'sent' | 'dismissed' | 'kept'>,
+    payload?: Record<string, unknown>,
+  ) => Promise<{ error: string | null }>;
+  /**
+   * D02 : claim atomique avant d'appliquer des effets. Une seule validation
+   * gagne ; l'autre onglet reçoit already_resolved / already_claimed AVANT
+   * tout effet. Toujours suivre de finalize (succès) ou release (échec).
+   */
+  claimIntervention: (id: string) => Promise<{ claimKey: string } | { error: string }>;
+  releaseIntervention: (id: string, claimKey: string) => Promise<void>;
+  finalizeIntervention: (
+    id: string,
+    claimKey: string,
     status: Extract<CoachInterventionStatus, 'sent' | 'dismissed' | 'kept'>,
     payload?: Record<string, unknown>,
   ) => Promise<{ error: string | null }>;
@@ -429,6 +451,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   sentMessages: [],
   latestCoachMessage: null,
   unreadMessageCount: 0,
+  threadExhausted: {},
   coachSettings: null,
   myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
   trackingReady: false,
@@ -889,6 +912,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const name = outline.name.trim();
     if (!name || outline.days.length === 0) return { error: null };
     const programs = useProgramStore.getState();
+    // D01 : création + remplissage via RPC atomiques — chaque étape est
+    // vérifiée, un échec n'attribue jamais un programme à moitié rempli.
     const programId = await programs.createProgram({
       owner_id: user.id,
       name,
@@ -901,26 +926,20 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       order_index: i,
     })));
     if (!programId) return { error: 'Failed to create program' };
-    const created = await programs.fetchProgram(programId);
-    const createdDays = [...(created?.days ?? [])].sort((a, b) => a.order_index - b.order_index);
-    for (let i = 0; i < outline.days.length; i++) {
-      const draftDay = outline.days[i];
-      const row = createdDays.find(d => d.order_index === i) ?? createdDays[i];
-      if (!row) continue;
-      await programs.setProgramDayExercises(
-        row.id,
-        (draftDay.exercises ?? []).map((ex, idx) => ({
-          name: ex.name,
-          default_sets: ex.default_sets || 3,
-          default_reps: ex.default_reps || 10,
-          default_reps_min: ex.default_reps_min ?? null,
-          default_rir: ex.default_rir ?? null,
-          default_rest_seconds: ex.default_rest_seconds ?? 90,
-          default_weight_kg: ex.default_weight_kg ?? null,
-          order_index: idx,
-        })),
-      );
-    }
+    const synced = await programs.syncProgramDays(programId, outline.days.map(d => ({
+      weekday: d.weekday,
+      name: d.name,
+      exercises: (d.exercises ?? []).map(ex => ({
+        name: ex.name,
+        default_sets: ex.default_sets || 3,
+        default_reps: ex.default_reps || 10,
+        default_reps_min: ex.default_reps_min ?? null,
+        default_rir: ex.default_rir ?? null,
+        default_rest_seconds: ex.default_rest_seconds ?? 90,
+        default_weight_kg: ex.default_weight_kg ?? null,
+      })),
+    })));
+    if (synced.error) return { error: synced.error };
     return programs.assignProgram(programId, clientId, todayStr());
   },
 
@@ -969,13 +988,53 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .filter((row): row is CoachMessage => !!row);
     const unread = messages.filter(m => m.sender_id !== user.id && !m.read_at).length;
     set({ sentMessages: messages, unreadMessageCount: unread });
+    // C02 : les compteurs exacts viennent du serveur (le chargement global est borné).
+    void get().fetchUnreadCounts();
   },
 
-  sendCoachMessage: async (clientId, body, templateKey) => {
+  fetchThreadPage: async (clientId) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user || get().threadExhausted[clientId]) return;
+    const thread = get().sentMessages
+      .filter(m => m.client_id === clientId)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    const before = thread.length > 0 ? thread[0].created_at : null;
+    const { data, error } = await supabase.rpc('fetch_thread_messages', {
+      p_client_id: clientId,
+      p_before: before,
+      p_limit: 50,
+    });
+    if (error || !data) return;
+    const page = (data as Record<string, unknown>[])
+      .map(row => mapCoachMessage(row))
+      .filter((row): row is CoachMessage => !!row);
+    if (page.length === 0) {
+      set(s => ({ threadExhausted: { ...s.threadExhausted, [clientId]: true } }));
+      return;
+    }
+    set(s => {
+      const known = new Set(s.sentMessages.map(m => m.id));
+      const fresh = page.filter(m => !known.has(m.id));
+      return { sentMessages: [...s.sentMessages, ...fresh] };
+    });
+  },
+
+  fetchUnreadCounts: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase.rpc('count_unread_messages');
+    const rows = (data ?? []) as Array<{ client_id: string; unread_count: number }>;
+    const total = rows.reduce((sum, row) => sum + Number(row.unread_count ?? 0), 0);
+    set({ unreadMessageCount: total });
+  },
+
+  sendCoachMessage: async (clientId, body, templateKey, clientMsgId) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
     const trimmed = body.trim();
     if (!trimmed) return { error: 'empty' };
+    // C02 : idempotence retry — même client_msg_id = un seul message.
+    const msgId = clientMsgId ?? crypto.randomUUID();
     const { data, error } = await supabase
       .from('coach_messages')
       .insert({
@@ -984,10 +1043,28 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         sender_id: user.id,
         body: trimmed,
         template_key: templateKey,
+        client_msg_id: msgId,
       })
       .select()
       .maybeSingle();
-    if (error || !data) return { error: error?.message ?? 'Failed to send' };
+    if (error) {
+      if (error.code === '23505') {
+        // Retry après succès : le message existe déjà, on le réconcilie.
+        const { data: existing } = await supabase
+          .from('coach_messages')
+          .select()
+          .eq('sender_id', user.id)
+          .eq('client_msg_id', msgId)
+          .maybeSingle();
+        const mapped = existing ? mapCoachMessage(existing as Record<string, unknown>) : null;
+        if (mapped) {
+          set(s => liveMessageState(s.sentMessages, 'INSERT', mapped, user.id));
+          return { error: null };
+        }
+      }
+      return { error: error.message ?? 'Failed to send' };
+    }
+    if (!data) return { error: 'Failed to send' };
     track('coach_message_sent', { template_key: templateKey });
     const iso = new Date().toISOString();
     await supabase
@@ -1008,12 +1085,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     return { error: null };
   },
 
-  sendClientReply: async (body) => {
+  sendClientReply: async (body, clientMsgId) => {
     const { data: { user } } = await supabase.auth.getUser();
     const coach = get().myCoach;
     if (!user || !coach) return { error: 'Not authenticated' };
     const trimmed = body.trim();
     if (!trimmed) return { error: 'empty' };
+    const msgId = clientMsgId ?? crypto.randomUUID();
     const { data, error } = await supabase
       .from('coach_messages')
       .insert({
@@ -1022,10 +1100,27 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         sender_id: user.id,
         body: trimmed,
         template_key: 'reply',
+        client_msg_id: msgId,
       })
       .select()
       .maybeSingle();
-    if (error || !data) return { error: error?.message ?? 'Failed to send' };
+    if (error) {
+      if (error.code === '23505') {
+        const { data: existing } = await supabase
+          .from('coach_messages')
+          .select()
+          .eq('sender_id', user.id)
+          .eq('client_msg_id', msgId)
+          .maybeSingle();
+        const mapped = existing ? mapCoachMessage(existing as Record<string, unknown>) : null;
+        if (mapped) {
+          set(s => liveMessageState(s.sentMessages, 'INSERT', mapped, user.id));
+          return { error: null };
+        }
+      }
+      return { error: error.message ?? 'Failed to send' };
+    }
+    if (!data) return { error: 'Failed to send' };
     track('client_reply_sent');
     const mapped = mapCoachMessage(data as Record<string, unknown>);
     set(s => liveMessageState(s.sentMessages, 'INSERT', mapped, user.id));
@@ -1261,6 +1356,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   resolveIntervention: async (id, status, payload) => {
+    // Chemin sans effets externes (dismiss pur) : un seul UPDATE conditionnel,
+    // atomique par nature. Avec effets → claim/finalize ci-dessous.
     const updates: Record<string, unknown> = {
       status,
       resolved_at: new Date().toISOString(),
@@ -1276,6 +1373,48 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .maybeSingle();
     if (error) return { error: error.message };
     if (!data) return { error: 'already_resolved' };
+    const resolved = get().pendingInterventions.find(row => row.id === id);
+    track('intervention_resolved', {
+      kind: resolved?.kind ?? null,
+      source: resolved?.source ?? null,
+      status,
+      edited: !!payload,
+    });
+    set(s => ({
+      pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
+    }));
+    return { error: null };
+  },
+
+  claimIntervention: async (id) => {
+    const claimKey = crypto.randomUUID();
+    const { data, error } = await supabase.rpc('claim_intervention', {
+      p_id: id,
+      p_claim_key: claimKey,
+    });
+    if (error) return { error: error.message };
+    const outcome = data as { ok: boolean; reason?: string } | null;
+    if (!outcome?.ok) return { error: outcome?.reason ?? 'already_resolved' };
+    return { claimKey };
+  },
+
+  releaseIntervention: async (id, claimKey) => {
+    await supabase.rpc('release_intervention_claim', {
+      p_id: id,
+      p_claim_key: claimKey,
+    });
+  },
+
+  finalizeIntervention: async (id, claimKey, status, payload) => {
+    const { data, error } = await supabase.rpc('finalize_intervention', {
+      p_id: id,
+      p_claim_key: claimKey,
+      p_status: status,
+      p_payload: (payload ?? null) as unknown as Record<string, never> | null,
+    });
+    if (error) return { error: error.message };
+    const outcome = data as { ok: boolean; reason?: string } | null;
+    if (!outcome?.ok) return { error: outcome?.reason ?? 'already_resolved' };
     const resolved = get().pendingInterventions.find(row => row.id === id);
     track('intervention_resolved', {
       kind: resolved?.kind ?? null,
@@ -1951,6 +2090,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       sentMessages: [],
       latestCoachMessage: null,
       unreadMessageCount: 0,
+      threadExhausted: {},
       coachSettings: null,
       myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
       trackingReady: false,

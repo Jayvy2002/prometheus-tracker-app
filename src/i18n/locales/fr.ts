@@ -781,6 +781,7 @@ const fr = {
     opsPartial: 'Une partie du File du jour n’a pas chargé. Réessaie — la file peut être incomplète.',
     saveFailed: 'Enregistrement impossible. Vérifie ta connexion et réessaie.',
     alreadyResolved: 'Cette carte a déjà été traitée.',
+    alreadyClaimed: 'Cette carte est en cours de traitement dans un autre onglet.',
   },
 
   soloReview: {
@@ -1427,6 +1428,8 @@ const fr = {
       new: 'Nouveau',
       threadEmpty: 'Pas encore de messages. Écris le premier.',
       replyPlaceholder: 'Écrire un message…',
+      loadMore: 'Charger les messages précédents',
+      sending: 'Envoi…',
       noMessagesYet: 'Aucun message pour l’instant',
       clientTitle: 'Messages',
       noCoach: 'Pas de coach lié',
@@ -1492,6 +1495,10 @@ const fr = {
       cron: 'Cron',
       onDemand: 'À la demande',
       roundStats: '{{seen}} vus · {{flagged}} signalés · {{skipped}} passés',
+      disable: 'Désactiver',
+      enable: 'Réactiver',
+      delete: 'Supprimer',
+      disabledHint: 'Ignorée par l’agent',
     },
     tracking: {
       modules: 'Modules',
@@ -1684,6 +1691,9 @@ const fr = {
     },
     finishSolo: 'Terminer',
     optional: 'Optionnel',
+    draftSaving: 'Enregistrement…',
+    draftSaved: 'Brouillon enregistré',
+    draftError: 'Échec d’enregistrement — vérifie ta connexion',
     extras: {
       objectifType: 'Type d’objectif',
       poidsVise: 'Poids visé (kg)',

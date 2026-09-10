@@ -515,7 +515,9 @@ describe('kinesiologyIntake wiring', () => {
     // Resume + solo targets (docs/VISION.md point 9): draft saved on every Continuer,
     // targets screen only for a solo first run, never for a coached client.
     assert.match(finish, /intakeResumeScreen\(/);
-    assert.match(finish, /persistDraft\(\)/);
+    assert.match(finish, /persistDraft\(intake\)/);
+    assert.match(finish, /saveChain/);
+    assert.match(finish, /draftState/);
     assert.match(finish, /showTargets = !coached && coachingRole !== 'coach' && !profile\?\.onboarding_completed/);
     assert.match(finish, /soloTargetsToProfilePatch\(targets\)/);
     assert.match(finish, /TARGETS_SCREEN_INDEX && <ScreenTargets/);

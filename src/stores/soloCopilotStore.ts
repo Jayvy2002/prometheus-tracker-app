@@ -44,12 +44,14 @@ export const useSoloCopilotStore = create<SoloCopilotState>((set) => ({
     const draft = review.proposal.draft;
     if (decision === 'accepted' && draft) {
       // The only write path to the solo's targets from the copilot: his explicit tap.
-      await useProfileStore.getState().updateProfile(userId, {
+      // D03 : si les cibles n'ont pas été écrites, on n'enregistre PAS la décision.
+      const saved = await useProfileStore.getState().updateProfile(userId, {
         daily_calorie_target: draft.calories,
         protein_target: draft.protein,
         carbs_target: draft.carbs,
         fat_target: draft.fat,
       });
+      if (saved.error) return { error: saved.error };
     }
     const { error } = await supabase
       .from('solo_weekly_reviews')

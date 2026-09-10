@@ -1,8 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Droplets, Flame } from 'lucide-react';
 import WallSignOut from '../auth/WallSignOut';
+import { toast } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -600,6 +601,10 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   const [intake, setIntake] = useState<KinesiologyIntake>(() => parseIntake(profile?.kinesiology_intake));
   const [step, setStep] = useState(() => intakeResumeScreen(parseIntake(profile?.kinesiology_intake)));
   const [saving, setSaving] = useState(false);
+  /** D03 : état visible de la sauvegarde brouillon (jamais de faux succès). */
+  const [draftState, setDraftState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  /** D03 : chaîne de sauvegardes — pas de réponses hors ordre, pas d'écrasement. */
+  const saveChain = useRef<Promise<{ error: string | null }>>(Promise.resolve({ error: null }));
   const targets = useMemo(() => (showTargets ? soloTargetsFromIntake(intake) : null), [showTargets, intake]);
 
   const titles = [
@@ -613,20 +618,40 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
     t('intake.screens.targets'),
   ];
 
-  /** Draft saved on every « Continuer » so closing the app resumes where the client stopped. */
-  const persistDraft = () => {
-    if (!user) return;
-    void updateProfile(user.id, { kinesiology_intake: { ...prepareIntakeForSave(intake) } });
+  /**
+   * D03 : brouillon séquencé à chaque « Continuer ». Les sauvegardes partent
+   * dans l'ordre des clics ; un échec est affiché (pas de faux succès) et la
+   * sauvegarde suivante réessaie implicitement avec l'état complet.
+   */
+  const persistDraft = (snapshot: KinesiologyIntake): Promise<{ error: string | null }> => {
+    if (!user) return Promise.resolve({ error: null });
+    setDraftState('saving');
+    const payload = { ...prepareIntakeForSave(snapshot) };
+    saveChain.current = saveChain.current
+      .then(() => updateProfile(user.id, { kinesiology_intake: payload }))
+      .then(result => {
+        setDraftState(result.error ? 'error' : 'saved');
+        return result;
+      });
+    return saveChain.current;
   };
 
   const finish = async () => {
     if (!user || saving) return;
     setSaving(true);
+    // Vide la file des brouillons avant le patch final (ordre garanti).
+    await saveChain.current.catch(() => ({ error: null as string | null }));
     const completedAt = new Date().toISOString();
     let patch = intakeToProfilePatch(intake, completedAt);
     if (showTargets && targets) patch = { ...patch, ...soloTargetsToProfilePatch(targets) };
     patch = stripSelfServeNutritionTargets(patch, coached);
-    await updateProfile(user.id, patch as Partial<UserProfile>);
+    // D03 : la complétude n'est confirmée qu'après persistance réelle.
+    const saved = await updateProfile(user.id, patch as Partial<UserProfile>);
+    if (saved.error) {
+      setSaving(false);
+      toast(saved.error, 'error');
+      return;
+    }
     const kg = Number(intake.poidsApproxKg);
     if (Number.isFinite(kg) && kg > 0) {
       await addMeasurement({ user_id: user.id, weight_kg: kg, measured_at: todayStr() });
@@ -648,7 +673,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
       void finish();
       return;
     }
-    persistDraft();
+    void persistDraft(intake);
     setStep(s => Math.min(lastScreen, s + 1));
   };
 
@@ -671,6 +696,16 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
           </div>
         )}
         <ProgressBar step={step} total={totalScreens} />
+        {draftState !== 'idle' ? (
+          <p
+            className={`text-[11px] mb-1 ${
+              draftState === 'error' ? 'text-red-400' : draftState === 'saving' ? 'text-neutral-500' : 'text-emerald-500/80'
+            }`}
+            role={draftState === 'error' ? 'alert' : 'status'}
+          >
+            {draftState === 'saving' ? t('intake.draftSaving') : draftState === 'saved' ? t('intake.draftSaved') : t('intake.draftError')}
+          </p>
+        ) : null}
         <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">
           {t('onboarding.stepOf', { step: step + 1, total: totalScreens })}
         </p>

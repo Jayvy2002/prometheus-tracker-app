@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
+import { toast } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
 
 export default function PersonalInfoForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
@@ -20,13 +21,17 @@ export default function PersonalInfoForm({ onBack, inline }: { onBack: () => voi
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    await updateProfile(user.id, {
+    const result = await updateProfile(user.id, {
       full_name: name,
       gender,
       date_of_birth: dob || null,
       height_cm: +height,
     });
     setSaving(false);
+    if (result.error) {
+      toast(result.error, 'error');
+      return;
+    }
     onBack();
   };
 

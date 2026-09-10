@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
 import Button from '../ui/Button';
+import { toast } from '../ui/Toast';
 
 export default function UnitsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { t } = useTranslation();
@@ -19,12 +20,16 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
-    await updateProfile(user.id, {
+    const result = await updateProfile(user.id, {
       unit_weight: unitWeight as 'kg' | 'lbs',
       unit_distance: unitDistance as 'km' | 'mi',
       unit_height: unitHeight as 'cm' | 'in',
     });
     setSaving(false);
+    if (result.error) {
+      toast(result.error, 'error');
+      return;
+    }
     onBack();
   };
 

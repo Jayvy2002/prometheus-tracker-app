@@ -29,10 +29,13 @@ export default function CoachInboxPage() {
   const { user } = useAuthStore();
   const {
     fetchCoachOps, fetchCoachMessages, fetchCoachSettings, pendingInterventions, clients, sentMessages,
-    sendCoachMessage, markThreadRead, coachSettings, resolveIntervention,
+    sendCoachMessage, markThreadRead, coachSettings,
+    claimIntervention, releaseIntervention, finalizeIntervention,
+    fetchThreadPage, threadExhausted,
   } = useCoachingStore();
   const [sending, setSending] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
 
   useEffect(() => {
@@ -65,16 +68,18 @@ export default function CoachInboxPage() {
     : undefined;
 
   const handleSend = async (body: string) => {
-    if (!clientId) return;
+    if (!clientId) return { error: 'empty' as string | null };
     setSending(true);
-    const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup');
+    const msgId = crypto.randomUUID();
+    const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId);
     setSending(false);
     if (result.error) {
       toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
-      return;
+      return result;
     }
     toast(t('coaching.queue.sent'));
     if (nudgeKey) navigate(`/messages/${clientId}`, { replace: true });
+    return { error: null };
   };
 
   const handleSendCard = async (item: typeof pendingInterventions[number]) => {
@@ -84,17 +89,25 @@ export default function CoachInboxPage() {
     }
     setSendingId(item.id);
     if (isRelanceKind(item.kind)) {
+      // D02 : claim avant l'envoi — un seul onglet envoie la relance.
+      const claimed = await claimIntervention(item.id);
+      if ('error' in claimed) {
+        setSendingId(null);
+        toast(t(claimed.error === 'already_claimed' ? 'errors.alreadyClaimed' : 'errors.alreadyResolved'), 'error');
+        return;
+      }
       const body = parsePreparedMessage(item.payload);
-      const sent = await sendCoachMessage(item.client_id, body, preparedTemplateKey(item.payload, item.kind));
+      const sent = await sendCoachMessage(item.client_id, body, preparedTemplateKey(item.payload, item.kind), crypto.randomUUID());
       if (sent.error) {
+        await releaseIntervention(item.id, claimed.claimKey);
         setSendingId(null);
         toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
         return;
       }
-      const resolved = await resolveIntervention(item.id, 'sent', item.payload);
+      const resolved = await finalizeIntervention(item.id, claimed.claimKey, 'sent', item.payload);
       setSendingId(null);
       if (resolved.error) {
-        toast(resolved.error, 'error');
+        toast(t('errors.alreadyResolved'), 'error');
         return;
       }
       toast(t('coaching.queue.sent'));
@@ -134,6 +147,13 @@ export default function CoachInboxPage() {
               draftBody={draftBody}
               draftHint={nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined}
               onSend={handleSend}
+              hasMore={clientId ? !threadExhausted[clientId] : false}
+              loadingMore={loadingMore}
+              onLoadMore={clientId ? () => {
+                if (loadingMore) return;
+                setLoadingMore(true);
+                void fetchThreadPage(clientId).finally(() => setLoadingMore(false));
+              } : undefined}
             />
           </div>
         </div>

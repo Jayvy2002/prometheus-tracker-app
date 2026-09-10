@@ -15,8 +15,10 @@ export default function ClientMessagesPage() {
   const { user } = useAuthStore();
   const {
     myCoach, sentMessages, fetchMyCoach, fetchCoachMessages, sendClientReply, markThreadRead,
+    fetchThreadPage, threadExhausted,
   } = useCoachingStore();
   const [sending, setSending] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -30,11 +32,12 @@ export default function ClientMessagesPage() {
 
   const handleSend = async (body: string) => {
     setSending(true);
-    const result = await sendClientReply(body);
+    const result = await sendClientReply(body, crypto.randomUUID());
     setSending(false);
     if (result.error) {
       toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
     }
+    return result;
   };
 
   return (
@@ -63,6 +66,13 @@ export default function ClientMessagesPage() {
               currentUserId={user?.id ?? ''}
               sending={sending}
               onSend={handleSend}
+              hasMore={user ? !threadExhausted[user.id] : false}
+              loadingMore={loadingMore}
+              onLoadMore={user ? () => {
+                if (loadingMore) return;
+                setLoadingMore(true);
+                void fetchThreadPage(user.id).finally(() => setLoadingMore(false));
+              } : undefined}
             />
           </div>
         )}

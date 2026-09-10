@@ -149,7 +149,13 @@ function AppRoutes() {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (!tz) return;
     timezoneWriteFor.current = userId;
-    void updateProfile(userId, { timezone: tz });
+    // D03 : écriture d'ambiance — tracée, réessayée au prochain profil si elle échoue.
+    void updateProfile(userId, { timezone: tz }).then(result => {
+      if (result.error) {
+        console.warn('[Prometheus] timezone write failed:', result.error);
+        timezoneWriteFor.current = null;
+      }
+    });
   }, [userId, profile, updateProfile]);
 
   useEffect(() => {

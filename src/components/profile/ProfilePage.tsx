@@ -87,7 +87,8 @@ export default function ProfilePage() {
   const handleLanguageChange = async (lang: string) => {
     setAppLanguage(lang);
     if (user) {
-      await updateProfile(user.id, { language: lang });
+      const result = await updateProfile(user.id, { language: lang });
+      if (result.error) toast(result.error, 'error');
     }
   };
 

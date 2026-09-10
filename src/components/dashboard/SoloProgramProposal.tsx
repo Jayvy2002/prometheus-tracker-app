@@ -34,6 +34,9 @@ export default function SoloProgramProposal() {
   const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
   const applyProgramOutline = useCoachingStore(s => s.applyProgramOutline);
   const resolveIntervention = useCoachingStore(s => s.resolveIntervention);
+  const claimIntervention = useCoachingStore(s => s.claimIntervention);
+  const releaseIntervention = useCoachingStore(s => s.releaseIntervention);
+  const finalizeIntervention = useCoachingStore(s => s.finalizeIntervention);
   const assignment = useProgramStore(s => s.assignment);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const applyExercisePatch = useProgramStore(s => s.applyExercisePatch);
@@ -95,28 +98,40 @@ export default function SoloProgramProposal() {
   const onAccept = async () => {
     if (deciding) return;
     setBusy('accept');
+    // D02 : claim avant les effets, même en solo (deux onglets).
+    const claimed = await claimIntervention(row.id);
+    if ('error' in claimed) {
+      setBusy(null);
+      toast(t(claimed.error === 'already_claimed' ? 'errors.alreadyClaimed' : 'errors.alreadyResolved'), 'error');
+      return;
+    }
+    const claimKey = claimed.claimKey;
+    const fail = async (message: string) => {
+      await releaseIntervention(row.id, claimKey);
+      setBusy(null);
+      toast(message, 'error');
+    };
     if (isPatch && seed.patch) {
       const programId = assignment?.program_id;
       if (!programId) {
+        await releaseIntervention(row.id, claimKey);
         setBusy(null);
         toast(t('soloProgram.patchNoProgram'), 'info');
         return;
       }
       const patched = await applyExercisePatch(programId, seed.patch);
       if (patched.error) {
-        setBusy(null);
-        toast(patched.error, 'error');
+        await fail(patched.error);
         return;
       }
     } else if (outline) {
       const created = await applyProgramOutline(user.id, outline);
       if (created.error) {
-        setBusy(null);
-        toast(created.error, 'error');
+        await fail(created.error);
         return;
       }
     }
-    const resolved = await resolveIntervention(row.id, 'sent', {
+    const resolved = await finalizeIntervention(row.id, claimKey, 'sent', {
       ...row.payload,
       program: outline ?? row.payload.program,
       name: outline?.name ?? row.payload.name,
@@ -126,7 +141,7 @@ export default function SoloProgramProposal() {
     });
     setBusy(null);
     if (resolved.error) {
-      toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+      toast(t('errors.alreadyResolved'), 'error');
       return;
     }
     track('solo_program_accepted', { kind: row.kind, edited: editing });

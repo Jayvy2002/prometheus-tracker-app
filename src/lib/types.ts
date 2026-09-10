@@ -714,6 +714,8 @@ export interface CoachIntervention {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  /** I05 : valeurs réellement persistées au moment du finalize (snapshot serveur). */
+  applied_values?: Record<string, unknown> | null;
 }
 
 /** SQL/RPC 14-day aggregate. Fleet rounds never pull raw logs into the LLM. */
@@ -822,6 +824,8 @@ export interface CoachAgentLesson {
   accepted: Record<string, unknown>;
   note: string | null;
   intervention_id: string | null;
+  /** I05 : true = ignorée par coach-agent (désactivée par le coach). */
+  disabled?: boolean;
   created_at: string;
 }
 

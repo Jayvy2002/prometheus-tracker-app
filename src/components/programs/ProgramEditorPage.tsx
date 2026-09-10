@@ -86,10 +86,15 @@ export default function ProgramEditorPage() {
       for (let i = 0; i < days.length; i++) {
         const row = createdDays[i];
         if (!row) continue;
-        await setProgramDayExercises(row.id, days[i].exercises.map((ex, idx) => ({
+        const saved = await setProgramDayExercises(row.id, days[i].exercises.map((ex, idx) => ({
           ...ex,
           order_index: idx,
         })));
+        if (saved.error) {
+          setSaving(false);
+          toast(saved.error, 'error');
+          return;
+        }
       }
       setSaving(false);
       toast(t('programs.created'));

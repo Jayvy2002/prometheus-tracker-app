@@ -344,7 +344,12 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   removeFavorite: async (id) => {
-    await supabase.from('food_favorites').delete().eq('id', id);
+    // D03 : ne retire du store qu'après suppression serveur confirmée.
+    const { error } = await supabase.from('food_favorites').delete().eq('id', id);
+    if (error) {
+      toast(error.message, 'error');
+      return;
+    }
     set(s => ({ favorites: s.favorites.filter(f => f.id !== id) }));
   },
 

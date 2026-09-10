@@ -57,6 +57,7 @@ export default function InterventionDraftPage() {
   const { user } = useAuthStore();
   const {
     coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
+    claimIntervention, releaseIntervention, finalizeIntervention,
     saveTrackingConfig, setClientNutritionTargets, applyProgramOutline, addNote,
     sendCoachMessage, pendingInterventions, askCoachAgent,
   } = useCoachingStore();
@@ -161,6 +162,9 @@ export default function InterventionDraftPage() {
     navigate('/dashboard');
   };
 
+  const claimErrorLabel = (code: string) =>
+    code === 'already_claimed' ? t('errors.alreadyClaimed') : t('errors.alreadyResolved');
+
   const handleSend = async () => {
     if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
@@ -175,8 +179,6 @@ export default function InterventionDraftPage() {
         return;
       }
     }
-    setSaving(true);
-    savingRef.current = true;
     const edited: EditedProgramDraft = {
       programName,
       programDesc,
@@ -185,22 +187,36 @@ export default function InterventionDraftPage() {
       patch,
     };
     if (isProgramSendKind(row.kind) && (patch || programName.trim()) && !canSendProgramToClient(edited) && !noteOnly) {
-      endSave();
       toast(t('coaching.draftSend.empty'), 'error');
       return;
     }
+    setSaving(true);
+    savingRef.current = true;
+    // D02 : le claim atomique gagne AVANT tout effet — deux onglets ne peuvent
+    // plus appliquer deux fois. Échec d'effet → release, la carte reste pending.
+    const claimed = await claimIntervention(row.id);
+    if ('error' in claimed) {
+      endSave();
+      toast(claimErrorLabel(claimed.error), 'error');
+      navigate(back.href);
+      return;
+    }
+    const claimKey = claimed.claimKey;
+    const fail = async (message: string) => {
+      await releaseIntervention(row.id, claimKey);
+      endSave();
+      toast(message, 'error');
+    };
     const sentPayload = editedProgramPayload(row.payload, edited);
 
     if (row.kind === 'calorie_adjustment') {
       if (!isCompleteCalorieDraft({ calories, protein, carbs, fat })) {
-        endSave();
-        toast(t('coaching.interventions.macrosRequired'), 'error');
+        await fail(t('coaching.interventions.macrosRequired'));
         return;
       }
       const result = await setClientNutritionTargets(targetClientId, { calories, protein, carbs, fat });
       if (result.error) {
-        endSave();
-        toast(result.error, 'error');
+        await fail(result.error);
         return;
       }
     }
@@ -212,8 +228,7 @@ export default function InterventionDraftPage() {
           setup_completed_at: new Date().toISOString(),
         });
         if (trackResult.error) {
-          endSave();
-          toast(trackResult.error, 'error');
+          await fail(trackResult.error);
           return;
         }
       }
@@ -222,19 +237,18 @@ export default function InterventionDraftPage() {
           if (notes.trim()) {
             const noteResult = await addNote(targetClientId, notes.trim());
             if (noteResult.error) {
-              endSave();
-              toast(noteResult.error, 'error');
+              await fail(noteResult.error);
               return;
             }
           }
-          const resolved = await resolveIntervention(row.id, 'kept', {
+          const resolved = await finalizeIntervention(row.id, claimKey, 'kept', {
             ...sentPayload,
             patch,
             suggestion: notes.trim(),
           });
           endSave();
           if (resolved.error) {
-            toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+            toast(claimErrorLabel(resolved.error), 'error');
             return;
           }
           toast(t('coaching.workspace.patchNoProgram'), 'info');
@@ -243,8 +257,7 @@ export default function InterventionDraftPage() {
         }
         const patched = await applyExercisePatch(boundAssignment.program_id, patch);
         if (patched.error) {
-          endSave();
-          toast(patched.error, 'error');
+          await fail(patched.error);
           return;
         }
       } else if (programName.trim() && days.length > 0) {
@@ -255,8 +268,7 @@ export default function InterventionDraftPage() {
           days,
         });
         if (created.error) {
-          endSave();
-          toast(t('coaching.second.failed'), 'error');
+          await fail(t('coaching.second.failed'));
           return;
         }
       }
@@ -266,18 +278,17 @@ export default function InterventionDraftPage() {
       if (notes.trim()) {
         const noteResult = await addNote(targetClientId, notes.trim());
         if (noteResult.error) {
-          endSave();
-          toast(noteResult.error, 'error');
+          await fail(noteResult.error);
           return;
         }
       }
-      const resolved = await resolveIntervention(row.id, 'kept', {
+      const resolved = await finalizeIntervention(row.id, claimKey, 'kept', {
         ...row.payload,
         suggestion: notes.trim(),
       });
       endSave();
       if (resolved.error) {
-        toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+        toast(claimErrorLabel(resolved.error), 'error');
         return;
       }
       toast(t('coaching.interventions.savedNote'));
@@ -285,17 +296,17 @@ export default function InterventionDraftPage() {
       return;
     }
 
-    const resolved = await resolveIntervention(row.id, 'sent', sentPayload);
+    const resolved = await finalizeIntervention(row.id, claimKey, 'sent', sentPayload);
     endSave();
     if (resolved.error) {
-      toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+      toast(claimErrorLabel(resolved.error), 'error');
       return;
     }
     toast(t('coaching.interventions.sent'));
     navigate(clientFileHref(targetClientId));
   };
 
-  const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey: CoachNudgeTemplateKey }) => {
+  const handleRelance = async (body: string, opts?: { saveNote?: boolean; templateKey?: CoachNudgeTemplateKey }) => {
     if (!row || !user || saving || savingRef.current) return;
     const targetClientId = id || row.client_id;
     if (!targetClientId) return;
@@ -305,27 +316,38 @@ export default function InterventionDraftPage() {
     }
     setSaving(true);
     savingRef.current = true;
+    const claimed = await claimIntervention(row.id);
+    if ('error' in claimed) {
+      endSave();
+      toast(claimErrorLabel(claimed.error), 'error');
+      navigate(back.href);
+      return;
+    }
+    const claimKey = claimed.claimKey;
+    const fail = async (message: string) => {
+      await releaseIntervention(row.id, claimKey);
+      endSave();
+      toast(message, 'error');
+    };
     const sent = await sendCoachMessage(targetClientId, body, opts?.templateKey ?? preparedTemplateKey(row.payload, row.kind));
     if (sent.error) {
-      endSave();
-      toast(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error, 'error');
+      await fail(sent.error === 'empty' ? t('coaching.queue.emptyBody') : sent.error);
       return;
     }
     if (opts?.saveNote) {
       const noteResult = await addNote(targetClientId, notes.trim() || body, { noteDate: todayStr() });
       if (noteResult.error) {
-        endSave();
-        toast(noteResult.error, 'error');
+        await fail(noteResult.error);
         return;
       }
     }
-    const resolved = await resolveIntervention(row.id, 'sent', {
+    const resolved = await finalizeIntervention(row.id, claimKey, 'sent', {
       ...row.payload,
       suggestion: notes.trim(),
     });
     endSave();
     if (resolved.error) {
-      toast(resolved.error === 'already_resolved' ? t('errors.alreadyResolved') : resolved.error, 'error');
+      toast(claimErrorLabel(resolved.error), 'error');
       return;
     }
     toast(t('coaching.queue.sent'));
