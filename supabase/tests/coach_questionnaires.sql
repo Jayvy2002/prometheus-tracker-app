@@ -77,7 +77,7 @@ values('a1740000-0000-4000-8000-000000000088','a1740000-0000-4000-8000-000000000
 delete from public.coach_questionnaire_defaults;
 select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000003',true);
 select public.accept_coach_invite('questionnaire-ci-only');
-do $
+do $$
 declare r public.client_questionnaire_responses; saved public.client_questionnaire_responses;
 begin
  select * into strict r from public.client_questionnaire_responses;
@@ -105,15 +105,15 @@ begin
  exception when raise_exception then
   if SQLERRM<>'response_conflict' then raise; end if;
  end;
-end $;
+end $$;
 select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000002',true);
-do $ begin
+do $$ begin
  if exists(select 1 from public.client_questionnaire_responses) then raise exception 'cross coach responses visible'; end if;
-end $;
+end $$;
 select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000001',true);
-do $ begin
+do $$ begin
  if (select count(*) from public.client_questionnaire_responses where completed_at is not null)<>1 then raise exception 'coach missing completed response'; end if;
-end $;
+end $$;
 reset role;
 
 rollback;

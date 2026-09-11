@@ -152,6 +152,7 @@ export default function CoachSettingsPanel() {
         <p className="text-[10px] text-neutral-600">{t('coaching.settings.templateHint')}</p>
       </div>
 
+      <Link to="/coach/questionnaire" className="block text-blue-400">{t('coachQuestionnaire.title')}</Link>
       <Button size="sm" onClick={save} loading={saving}>{t('common.save')}</Button>
     </div>
   );

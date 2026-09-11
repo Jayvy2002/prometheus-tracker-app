@@ -53,6 +53,8 @@ const AskPrometheusPage = lazy(() => import('./components/coaching/AskPrometheus
 const CoachInboxPage = lazy(() => import('./components/coaching/CoachInboxPage'));
 const ClientMessagesPage = lazy(() => import('./components/coaching/ClientMessagesPage'));
 const ClientPhotosPage = lazy(() => import('./components/coaching/ClientPhotosPage'));
+const CoachQuestionnairePage = lazy(() => import('./components/coaching/CoachQuestionnairePage'));
+const ClientQuestionnairePanel = lazy(() => import('./components/onboarding/ClientQuestionnairePanel'));
 const CoachLearnedPage = lazy(() => import('./components/coaching/CoachLearnedPage'));
 
 function RouteFallback() {
@@ -322,6 +324,8 @@ function AppRoutes() {
         <Route path="/messages/:clientId" element={<CoachOnly><CoachInboxPage /></CoachOnly>} />
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
+        <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />
+        <Route path="/questionnaire" element={<div className="p-4 pb-28"><ClientQuestionnairePanel key={user.id}/></div>} />
         <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />

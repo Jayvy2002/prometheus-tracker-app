@@ -1,3 +1,4 @@
+import ClientQuestionnairePanel from '../onboarding/ClientQuestionnairePanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -681,6 +682,7 @@ export default function ClientDetailPage() {
               <>
                 <MedicalFlagsCard raw={clientProfile?.kinesiology_intake} />
                 <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
+                {id && <ClientQuestionnairePanel key={id} clientId={id}/>} 
               </>
             ) : (
               <Card className="border-amber-500/20">
