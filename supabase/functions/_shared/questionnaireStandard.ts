@@ -5,6 +5,7 @@ export interface StandardQuestion {
  required:boolean; medical:boolean;
  options?:Array<{id:string;label:{fr:string;en:string}}>;
 }
+export const STANDARD_QUESTION_ORDER = ["nom","prenom","age","sexeGenre","tailleCm","poidsApproxKg","objectifPrincipal","depuisCombienDeTemps","niveauActuel","foisParSemaine","programmeStructure","seancesRealistes","dureeIdeale","lieu","equipement","douleursLimitations","mouvementAEviter","blessuresChirurgies","descriptionBlessures","cardiaqueHtaPoitrine","etourdissementsEquilibre","medecinLimiteExercices","conditionMedicalePrecise","typesExercices","exercicesDetestes","prefereProgramme","quelqueChoseImportant"];
 export const STANDARD_QUESTIONS:Record<string,StandardQuestion> = {
   "age": {
     "id": "age",

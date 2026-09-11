@@ -1,4 +1,4 @@
-import { STANDARD_QUESTIONS } from '../../../supabase/functions/_shared/questionnaireStandard';
+import { STANDARD_QUESTIONS, STANDARD_QUESTION_ORDER } from '../../../supabase/functions/_shared/questionnaireStandard';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -29,7 +29,7 @@ export default function CoachQuestionnairePage() {
  const newDefinition=(standard=false)=>{
   if(!user)return;
   setSelected({schemaVersion:1,id:crypto.randomUUID(),coachId:user.id,version:1,
-   name:{fr:'',en:''},sections:[{id:'section_1',label:{fr:'Questions',en:'Questions'},questions:standard?structuredClone(Object.values(STANDARD_QUESTIONS)):[]}]});
+   name:{fr:'',en:''},sections:[{id:'section_1',label:{fr:'Questions',en:'Questions'},questions:standard?STANDARD_QUESTION_ORDER.map(id=>structuredClone(STANDARD_QUESTIONS[id])):[]}]});
   setError('');
  };
  const question=():QuestionnaireQuestion=>({id:'custom_'+crypto.randomUUID(),type:'text',label:{fr:'',en:''},required:false,medical:false});

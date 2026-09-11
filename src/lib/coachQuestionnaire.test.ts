@@ -106,9 +106,10 @@ test('submission rejects invalid answers and revision guards version overflow', 
 });
 
 test('standard catalogue preserves the original labels and requires explicit compatible mappings', async () => {
- const { STANDARD_QUESTIONS, mapStandardQuestionnaireAnswers }=await import('../../supabase/functions/_shared/questionnaireStandard');
+ const { STANDARD_QUESTIONS, STANDARD_QUESTION_ORDER, mapStandardQuestionnaireAnswers }=await import('../../supabase/functions/_shared/questionnaireStandard');
  const { ORIGINAL_LABELS_FR, ORIGINAL_LABELS_EN }=await import('./kinesiologyIntake');
- assert.deepEqual(Object.keys(STANDARD_QUESTIONS),Object.keys(ORIGINAL_LABELS_FR));
+ assert.deepEqual(Object.keys(STANDARD_QUESTIONS).sort(),Object.keys(ORIGINAL_LABELS_FR).sort());
+ assert.deepEqual(STANDARD_QUESTION_ORDER,Object.keys(ORIGINAL_LABELS_FR));
  for(const [id,q] of Object.entries(STANDARD_QUESTIONS)){
   assert.equal(q.label.fr,ORIGINAL_LABELS_FR[id as keyof typeof ORIGINAL_LABELS_FR]);
   assert.equal(q.label.en,ORIGINAL_LABELS_EN[id as keyof typeof ORIGINAL_LABELS_EN]);
