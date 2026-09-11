@@ -6,6 +6,7 @@ const en = {
     deleting: 'Deleting…',
     back: 'Back',
     close: 'Close',
+    undo: 'Undo',
     edit: 'Edit',
     add: 'Add',
     create: 'Create',
