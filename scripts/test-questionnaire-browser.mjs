@@ -11,7 +11,7 @@ assert.equal(new URL(url).hostname, '127.0.0.1', 'Only the local Supabase test i
 const admin = createClient(url, config.SERVICE_ROLE_KEY, { auth: { persistSession:false, autoRefreshToken:false } });
 const check = ({data,error}) => { if(error) throw error; return data; };
 async function actor(name, role) {
- const email = name+'@example.test';
+ const email = name.toLowerCase().replaceAll(' ','-')+'@example.test';
  const password = 'Only-local-test-'+crypto.randomUUID();
  const { user } = check(await admin.auth.admin.createUser({email,password,email_confirm:true}));
  check(await admin.from('user_roles').update({coaching_role:role}).eq('user_id',user.id));
@@ -60,6 +60,7 @@ try {
  await page.getByLabel('Required',{exact:true}).check();
  await page.getByRole('button',{name:'Publish this version',exact:true}).click();
  await page.getByRole('button',{name:'Use for future invitations',exact:true}).click();
+ await page.getByText(/✓/).waitFor();
  const token='browser-test-'+crypto.randomUUID();
  check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
  const accepted=check(await athlete.client.rpc('accept_coach_invite',{p_token:token}));
@@ -81,6 +82,7 @@ try {
  await clientPage.reload();
  assert.equal(await answer.inputValue(),'Messages in the morning');
  await clientPage.getByRole('button',{name:'Finish and send',exact:true}).click();
+ await clientPage.getByRole('button',{name:'Finish and send',exact:true}).waitFor({state:'hidden'});
  await clientPage.goto(origin+'/questionnaire');
  await clientPage.getByText('Answers sent',{exact:true}).waitFor();
  assert.equal(await answer.isDisabled(),true);
