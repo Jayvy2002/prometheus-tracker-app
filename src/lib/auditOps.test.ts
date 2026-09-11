@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
+import { latestMigrationContaining } from './migrationScan';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -123,7 +124,7 @@ test('Q02: uploads validated, deletions confirmed, bucket limits versioned', () 
   );
   const page = src('src/components/coaching/ClientPhotosPage.tsx');
   assert.match(page, /setInterval\(refresh, 30 \* 60 \* 1000\)/);
-  const mig = src('supabase/migrations/20260910000007_audit_hardening.sql');
+  const mig = latestMigrationContaining('file_size_limit = 5242880').sql;
   assert.match(mig, /file_size_limit = 5242880/);
   assert.match(mig, /allowed_mime_types/);
 });
@@ -145,7 +146,7 @@ test('Q07: telemetry is account-linked, documented and free of health signals', 
   assert.doesNotMatch(intake, /pain: intake\.douleursLimitations/);
   const setup = src('src/components/coaching/ClientSetupPage.tsx');
   assert.doesNotMatch(setup, /medical_ack:/);
-  const sql = src('supabase/migrations/20260903000001_product_events.sql');
+  const sql = src('supabase/migrations/20260905002127_product_events.sql');
   assert.match(sql, /REFERENCES auth\.users\(id\) ON DELETE CASCADE/);
   assert.match(sql, /GRANT INSERT ON public\.product_events TO authenticated/);
 });
