@@ -1,7 +1,10 @@
 # CLAUDE.md — Prometheus
 
-> À lire au début de chaque tâche. Ce fichier contient les règles de travail actuelles.
-> Pour les décisions produit, lire `docs/VISION.md`. Pour l’ordre des travaux, lire `docs/CHANTIER.md`.
+> **RÔLE DE CE DOCUMENT — RÈGLES OBLIGATOIRES POUR LES AGENTS ET DÉVELOPPEURS**
+>
+> À lire au début de chaque tâche. Ce fichier définit les sources de vérité, invariants, règles de sécurité et conventions de travail.
+>
+> **Instruction pour les agents :** ne pas y recopier le backlog, un état live daté ou un journal de PR. Lire `README.md` pour comprendre le projet actuel, `docs/VISION.md` pour la destination produit et `docs/CHANTIER.md` pour l’ordre complet des travaux. Ne pas modifier le rôle de ces documents.
 
 ## Produit
 
@@ -19,29 +22,25 @@ Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition
 
 | Sujet | Source |
 |---|---|
-| Vision et rôles | `docs/VISION.md` |
-| Priorités et fonctionnalités à construire | `docs/CHANTIER.md` |
+| Présentation et utilisation du projet actuel | `README.md` |
+| Destination, rôles et principes produit | `docs/VISION.md` |
+| Priorités et totalité du travail restant | `docs/CHANTIER.md` |
 | Schéma et ordre des migrations | `supabase/migrations/` + `supabase/schema_migrations.lock.json` |
 | État des Edge Functions | `supabase/functions.deployed.lock.json` |
 | Télémétrie autorisée | `docs/TELEMETRY.md` |
 | Types applicatifs | `src/lib/types.ts` |
 | Configuration JWT des fonctions | `supabase/config.toml` |
 
-En cas de contradiction, corriger le document périmé dans le même changement.
+En cas de contradiction, déterminer quelle source porte le sujet puis corriger le document périmé dans le même changement.
 
-## État de production vérifié — 10 septembre 2026
+### Hygiène documentaire
 
-- Branche de production : `new-JV`. Un merge déclenche le déploiement Netlify.
-- URL : `tracker.prometheus-fit.com`.
-- Projet Supabase : `phyuijjekxtjvipjtdfv`.
-- Audit de fiabilité et de sécurité #68 : mergé ; CI et matrice RLS vertes.
-- Migrations : Git, lock et production alignés sur 98 versions ; dernière version `20260910160000`.
-- `coach-fleet-round` : v32, `ACTIVE`, `verify_jwt=false` avec authentification cron interne.
-- `coach-agent` : v26, `ACTIVE`, `verify_jwt=true` ; preflight CORS vérifié à 200.
-- Rappels : job `send-daily-reminders` actif chaque minute ; secret Vault présent ; exécutions contrôlées réussies.
-- La PR #69 est un workflow CLI manuel optionnel et reste en draft.
-
-Ne pas recopier ces numéros ailleurs : mettre à jour `supabase/functions.deployed.lock.json` lors d’un nouveau déploiement.
+- Ne pas supprimer un chantier non terminé parce qu’il est ancien, partiellement présent ou supposé dans une réflexion.
+- Retirer un élément de `docs/CHANTIER.md` seulement avec une preuve d’implémentation et de validation, ou une décision produit explicite.
+- Une capacité utilisateur livrée peut être ajoutée au README ; ses détails d’implémentation restent dans le code et les documents spécialisés.
+- Une décision durable modifie la Vision. Une tâche, un nom de table proposé ou un ordre d’exécution modifie le Chantier.
+- Les numéros de versions live appartiennent aux fichiers lock. Les migrations appliquées appartiennent au lock et à `docs/MIGRATIONS.md`.
+- Git et les pull requests conservent l’historique : ne pas accumuler un journal des anciens agents dans les documents actifs.
 
 ## Commandes de vérification
 
@@ -142,10 +141,4 @@ Les noms de tables, RPC et routes proposés dans `docs/CHANTIER.md` sont un poin
 
 ## Priorité actuelle
 
-Le socle, l’audit et les rappels sont terminés. L’ordre produit actuel est :
-
-1. Builder de questionnaire par coach.
-2. Recherche, départ et changement de coach.
-3. Billing, après décision sur les prix et les règles d’essai.
-
-Ne pas lancer un nouveau chantier transversal sans instruction ou sans démontrer qu’il bloque cette séquence.
+Lire `docs/CHANTIER.md`, qui est l’unique source de l’ordre complet et du travail restant. Ne pas lancer un chantier transversal sans instruction ou sans démontrer qu’il soutient cet ordre ou corrige un problème bloquant.
