@@ -27,16 +27,18 @@ const AGENT_PATHS = [
   'supabase/functions/_shared/openaiJson.ts',
 ];
 
-test('coach-agent paths never ping GROK_BOT_WEBHOOK_URL', () => {
+test('coach-agent paths stay on the synchronous in-app OpenAI path', () => {
   for (const rel of AGENT_PATHS) {
     const src = source(rel);
-    assert.doesNotMatch(src, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
-    assert.doesNotMatch(src, /GROK_BOT_WEBHOOK_URL/);
+    assert.doesNotMatch(src, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
   }
   const fleet = source('supabase/functions/coach-fleet-round/index.ts');
-  assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
+  assert.doesNotMatch(fleet, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /api\.x\.ai/);
   assert.doesNotMatch(fleet, /OPENAI_API_KEY|openaiJson/);
+  const readme = source('README.md');
+  assert.match(readme, /L’IA prépare ; l’humain décide/);
+  assert.match(readme, /Copilote `coach-agent` et analyse déterministe `coach-fleet-round`/);
 });
 
 test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {
@@ -62,7 +64,7 @@ test('coach-agent is sync OpenAI and returns 200 with a written draft', () => {
   assert.match(store, /parseCoachAgentResponse/);
 });
 
-test('client treats 200 + intervention as done (no 90s Second poll)', () => {
+test('client treats 200 + intervention as done without polling', () => {
   const ready = parseCoachAgentResponse(
     {
       status: 'ready',
@@ -104,7 +106,7 @@ test('edit-then-send writes a lesson; identical send does not', () => {
 
   assert.equal(shouldRecordLesson(accepted, accepted), false);
 
-  const sql = source('supabase/migrations/20260829000008_coach_agent_lessons.sql');
+  const sql = source('supabase/migrations/20260829124523_coach_agent_lessons.sql');
   assert.match(sql, /CREATE TABLE IF NOT EXISTS public\.coach_agent_lessons/);
   assert.match(sql, /record_coach_agent_lesson_from_send/);
   assert.match(sql, /USING \(coach_id = \(select auth\.uid\(\)\)\)/);
@@ -195,11 +197,10 @@ test('Marc still Relancer-first — calorie cut is not the lever', () => {
 
 test('notify-onboarding-complete keeps HMAC and runs the in-app agent', () => {
   const src = source('supabase/functions/notify-onboarding-complete/index.ts');
-  assert.match(src, /GROK_BOT_WEBHOOK_SECRET|NOTIFY_SECRET/);
+  assert.match(src, /NOTIFY_SECRET/);
   assert.match(src, /runCoachAgent/);
   assert.match(src, /onboarding_plan/);
   assert.match(src, /NOTIFY_SECRET missing/);
-  assert.doesNotMatch(src, /GROK_BOT_WEBHOOK_URL/);
   assert.doesNotMatch(src, /fetch\(webhookUrl/);
 });
 
