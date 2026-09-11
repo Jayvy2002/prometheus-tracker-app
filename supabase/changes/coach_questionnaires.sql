@@ -45,7 +45,7 @@ begin
   if jsonb_typeof(s) is distinct from 'object' then return false; end if;
   if exists(select 1 from jsonb_object_keys(s) k where k not in ('id','label','questions')) then return false; end if;
   if jsonb_typeof(s#>'{label,fr}') is distinct from 'string' or jsonb_typeof(s#>'{label,en}') is distinct from 'string'
-  or s->>'id' in ('constructor','prototype','__proto__') or coalesce(s->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or s->>'id'=any(sids)
+  or jsonb_typeof(s->'id') is distinct from 'string' or s->>'id' in ('constructor','prototype','__proto__') or coalesce(s->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or s->>'id'=any(sids)
   or coalesce(length(btrim(s#>>'{label,fr}')),0) not between 1 and 500
   or coalesce(length(btrim(s#>>'{label,en}')),0) not between 1 and 500
   or jsonb_typeof(s->'questions') is distinct from 'array'
@@ -70,7 +70,7 @@ begin
      if jsonb_typeof(o) is distinct from 'object' then return false; end if;
      if exists(select 1 from jsonb_object_keys(o) k where k not in ('id','label')) then return false; end if;
      if jsonb_typeof(o#>'{label,fr}') is distinct from 'string' or jsonb_typeof(o#>'{label,en}') is distinct from 'string'
-     or o->>'id' in ('constructor','prototype','__proto__') or coalesce(o->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or o->>'id'=any(oids)
+     or jsonb_typeof(o->'id') is distinct from 'string' or o->>'id' in ('constructor','prototype','__proto__') or coalesce(o->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or o->>'id'=any(oids)
      or coalesce(length(btrim(o#>>'{label,fr}')),0) not between 1 and 500
      or coalesce(length(btrim(o#>>'{label,en}')),0) not between 1 and 500 then return false; end if;
      oids := array_append(oids,o->>'id');
@@ -172,8 +172,9 @@ begin
  if auth.uid() is null then raise exception 'not_authenticated'; end if;
  select * into r from public.client_questionnaire_responses where id=p_id and client_id=auth.uid() for update;
  if not found then raise exception 'response_not_found'; end if;
- if r.completed_at is not null or r.revision<>p_revision then raise exception 'response_conflict'; end if;
- if not exists(select 1 from public.coach_client_links where client_id=auth.uid() and coach_id=r.coach_id and status='active') then raise exception 'coaching_ended'; end if;
+ if r.completed_at is not null or r.revision is distinct from p_revision then raise exception 'response_conflict'; end if;
+ perform 1 from public.coach_client_links where client_id=auth.uid() and coach_id=r.coach_id and status='active' for share;
+ if not found then raise exception 'coaching_ended'; end if;
  if p_complete is null or jsonb_typeof(p_answers) is distinct from 'object' or octet_length(p_answers::text)>1048576 then raise exception 'invalid_answers'; end if;
  select definition into d from public.coach_questionnaire_versions where id=r.version_id;
  select array_agg(x->>'id') into known from jsonb_array_elements(d->'sections') s cross join lateral jsonb_array_elements(s->'questions') x;

@@ -93,6 +93,12 @@ begin
  select * into strict r from public.client_questionnaire_responses;
  if not exists(select 1 from public.coach_questionnaire_versions where id=r.version_id) then raise exception 'assigned definition unreadable'; end if;
  if r.revision<>0 then raise exception 'initial revision'; end if;
+ begin
+  perform public.save_questionnaire_response(r.id,null,'{}',false);
+  raise exception 'null revision accepted';
+ exception when raise_exception then
+  if SQLERRM<>'response_conflict' then raise; end if;
+ end;
  saved:=public.save_questionnaire_response(r.id,0,'{"custom_contact":"morning"}',false);
  if saved.revision<>1 or saved.completed_at is not null then raise exception 'draft save failed'; end if;
  begin
@@ -116,8 +122,15 @@ begin
   if SQLERRM<>'response_conflict' then raise; end if;
  end;
 end $$;
+select set_config('questionnaire.test_response_id',(select id::text from public.client_questionnaire_responses limit 1),true);
 select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000002',true);
 do $$ begin
+ begin
+  perform public.save_questionnaire_response(current_setting('questionnaire.test_response_id')::uuid,2,'{}',false);
+  raise exception 'cross-account RPC accepted';
+ exception when raise_exception then
+  if SQLERRM<>'response_not_found' then raise; end if;
+ end;
  if exists(select 1 from public.client_questionnaire_responses) then raise exception 'cross coach responses visible'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000001',true);
@@ -131,5 +144,33 @@ do $$ begin
 end $$;
 reset role;
 
+-- A new published definition must never change the previous response's labels.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000001',true);
+insert into public.coach_questionnaire_versions(coach_id,questionnaire_id,version,definition)
+select coach_id,questionnaire_id,2,jsonb_set(jsonb_set(definition,'{version}','2'),'{sections,0,questions,0,label,fr}','"Nouveau libellé"')
+from public.coach_questionnaire_versions where version=1;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000003',true);
+do $$ begin
+ if not exists(select 1 from public.client_questionnaire_responses r join public.coach_questionnaire_versions v on v.id=r.version_id
+ where v.version=1 and v.definition#>>'{sections,0,questions,0,label,fr}'='Contact' and r.answers->>'custom_contact'='morning') then
+ raise exception 'old version no longer readable'; end if;
+ if exists(select 1 from public.coach_questionnaire_versions where version=2) then raise exception 'unassigned revision leaked'; end if;
+end $$;
+reset role;
+-- Ended relationship: athlete keeps their history; former coach loses access.
+update public.coach_client_links set status='ended'
+where coach_id='a1740000-0000-4000-8000-000000000001' and client_id='a1740000-0000-4000-8000-000000000003';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000001',true);
+do $$ begin
+ if exists(select 1 from public.client_questionnaire_responses) then raise exception 'former coach retained responses'; end if;
+end $$;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000003',true);
+do $$ begin
+ if (select count(*) from public.client_questionnaire_responses)<>1 then raise exception 'athlete lost history'; end if;
+ if (select count(*) from public.coach_questionnaire_versions)<>1 then raise exception 'athlete lost definition'; end if;
+end $$;
+reset role;
 rollback;
 \echo 'questionnaire database checks: storage and invitation lifecycle passed'
