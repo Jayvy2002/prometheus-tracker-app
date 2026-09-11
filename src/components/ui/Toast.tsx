@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { CheckCircle, XCircle, AlertCircle, X, Undo2 } from 'lucide-react';
 
 export type ToastType = 'success' | 'error' | 'info';
@@ -81,6 +82,7 @@ const iconColors: Record<ToastType, string> = {
 };
 
 export function ToastContainer() {
+  const { t: translate } = useTranslation();
   const { toasts, dismiss } = useToasts();
 
   if (toasts.length === 0) return null;
@@ -92,21 +94,29 @@ export function ToastContainer() {
         return (
           <div
             key={t.id}
+            role={t.type === 'error' ? 'alert' : 'status'}
+            aria-live={t.type === 'error' ? 'assertive' : 'polite'}
             className={`max-w-sm w-full flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-xl pointer-events-auto animate-fade-in-down ${colors[t.type]}`}
           >
-            <Icon size={16} className={`shrink-0 ${iconColors[t.type]}`} />
+            <Icon aria-hidden="true" size={16} className={`shrink-0 ${iconColors[t.type]}`} />
             <span className="flex-1 text-sm text-white font-medium">{t.message}</span>
             {t.onUndo && (
               <button
+                type="button"
                 onClick={t.onUndo}
                 className="flex items-center gap-1 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors shrink-0 border border-blue-500/30 rounded-lg px-2 py-1"
               >
-                <Undo2 size={11} />
-                Undo
+                <Undo2 aria-hidden="true" size={11} />
+                {translate('common.undo')}
               </button>
             )}
-            <button onClick={() => dismiss(t.id)} className="text-neutral-500 hover:text-white transition-colors">
-              <X size={14} />
+            <button
+              type="button"
+              onClick={() => dismiss(t.id)}
+              aria-label={translate('common.close')}
+              className="text-neutral-500 hover:text-white transition-colors"
+            >
+              <X aria-hidden="true" size={14} />
             </button>
           </div>
         );
