@@ -1467,6 +1467,8 @@ const en = {
       toHandle: 'To handle',
     },
     messages: {
+      sendFailed: "Sending was not confirmed. Your text is preserved; try again.",
+      newMessages: "New messages",
       write: 'Message the client',
       new: 'New',
       threadEmpty: 'No messages yet. Write the first one.',

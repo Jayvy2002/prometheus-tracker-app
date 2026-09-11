@@ -69,19 +69,16 @@ export default function CoachInboxPage() {
     : undefined;
 
   const handleSend = async (body: string) => {
-    if (!clientId) return { error: 'empty' as string | null };
+    if (!clientId || !user) return { error: t('coaching.messages.sendFailed') };
     setSending(true);
-    const msgId = loadOrCreateMessageKey(clientId, body);
-    const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId);
-    setSending(false);
-    if (result.error) {
-      toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
+    try {
+      const msgId = loadOrCreateMessageKey(clientId, body, user.id);
+      const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId);
+      if (!result.error) clearMessageKey(clientId, user.id);
       return result;
+    } finally {
+      setSending(false);
     }
-    clearMessageKey(clientId);
-    toast(t('coaching.queue.sent'));
-    if (nudgeKey) navigate(`/messages/${clientId}`, { replace: true });
-    return { error: null };
   };
 
   const handleSendCard = async (item: typeof pendingInterventions[number]) => {
@@ -119,7 +116,7 @@ export default function CoachInboxPage() {
   if (clientId) {
     return (
       <PageTransition>
-        <div className="px-4 pt-6 pb-28 md:px-6 flex flex-col min-h-[70vh]">
+        <div className="px-4 pt-6 pb-28 md:px-6 flex flex-col h-[calc(100dvh-4rem)] min-h-[24rem]">
           <button onClick={() => navigate('/messages')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-3">
             <ArrowLeft size={18} /> {t('nav.messages')}
           </button>
@@ -133,8 +130,9 @@ export default function CoachInboxPage() {
               {t('coaching.command.openClient')}
             </button>
           </div>
-          <div className="flex-1 min-h-[50vh]">
+          <div className="flex-1 min-h-0">
             <MessageThread
+              key={`${user?.id}:${clientId}`}
               messages={threadMessages}
               currentUserId={user?.id ?? ''}
               sending={sending}
@@ -146,7 +144,7 @@ export default function CoachInboxPage() {
               onLoadMore={clientId ? () => {
                 if (loadingMore) return;
                 setLoadingMore(true);
-                void fetchThreadPage(clientId).finally(() => setLoadingMore(false));
+                void fetchThreadPage(clientId).catch(() => undefined).finally(() => setLoadingMore(false));
               } : undefined}
             />
           </div>

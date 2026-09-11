@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import type { CoachMessage } from '../../lib/types';
@@ -27,39 +27,79 @@ export default function MessageThread({
   loadingMore?: boolean;
   onLoadMore?: () => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [body, setBody] = useState('');
   const [sendError, setSendError] = useState<string | null>(null);
   const [pendingBody, setPendingBody] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const ordered = [...messages].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const busyRef = useRef(false);
+  const revisionRef = useRef(0);
+  const nearBottom = useRef(true);
+  const previous = useRef({ first: '', last: '', height: 0 });
+  const [newMessages, setNewMessages] = useState(false);
+  const changeBody = (value: string) => {
+    revisionRef.current += 1;
+    setBody(value);
+  };
+  const ordered = useMemo(() => [...messages].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [messages]);
 
   useEffect(() => {
-    if (typeof draftBody === 'string' && draftBody.length > 0) setBody(draftBody);
+    if (typeof draftBody === 'string' && draftBody.length > 0) {
+      setBody(current => current || draftBody);
+    }
   }, [draftBody]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [ordered.length, pendingBody]);
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const first = ordered[0]?.id ?? '';
+    const last = ordered[ordered.length - 1]?.id ?? '';
+    const prev = previous.current;
+    if (prev.first && first !== prev.first && last === prev.last) {
+      el.scrollTop += el.scrollHeight - prev.height;
+    } else if (!prev.last || nearBottom.current) {
+      el.scrollTop = el.scrollHeight;
+    } else if (last !== prev.last) {
+      setNewMessages(true);
+    }
+    previous.current = { first, last, height: el.scrollHeight };
+  }, [ordered, pendingBody]);
 
   const submit = async () => {
     const trimmed = body.trim();
-    if (!trimmed || sending) return;
+    if (!trimmed || sending || busyRef.current) return;
+    busyRef.current = true;
+    const revision = revisionRef.current;
     setSendError(null);
     setPendingBody(trimmed);
-    const result = await onSend(trimmed);
-    setPendingBody(null);
-    if (result.error) {
-      // C02 : le texte est conservé pour réessayer — jamais perdu sur échec.
-      setSendError(result.error);
-      return;
+    try {
+      const result = await onSend(trimmed);
+      if (result.error) {
+        // C02 : le texte est conservé pour réessayer — jamais perdu sur échec.
+        setSendError(t('coaching.messages.sendFailed'));
+        return;
+      }
+      // An acknowledgement must never erase a newer edit, even identical text.
+      if (revisionRef.current === revision) setBody('');
+    } catch {
+      setSendError(t('coaching.messages.sendFailed'));
+    } finally {
+      busyRef.current = false;
+      setPendingBody(null);
     }
-    setBody('');
   };
 
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-y-auto space-y-2 pb-3">
+      <div ref={scrollRef} role="region" aria-label={t('nav.messages')} tabIndex={0}
+        onScroll={() => {
+          const el = scrollRef.current;
+          if (!el) return;
+          nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 64;
+          if (nearBottom.current) setNewMessages(false);
+        }}
+        className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 pb-3">
         {onLoadMore && hasMore ? (
           <button
             type="button"
@@ -79,9 +119,9 @@ export default function MessageThread({
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
                 mine ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-100 border border-neutral-800'
               }`}>
-                <p className="text-sm whitespace-pre-wrap">{msg.body}</p>
-                <p className={`text-[10px] mt-1 ${mine ? 'text-blue-100/70' : 'text-neutral-500'}`}>
-                  {new Date(msg.created_at).toLocaleString()}
+                <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.body}</p>
+                <p className={`text-xs mt-1 ${mine ? 'text-blue-100' : 'text-neutral-500'}`}>
+                  {new Date(msg.created_at).toLocaleString(i18n.language)}
                 </p>
               </div>
             </div>
@@ -90,14 +130,21 @@ export default function MessageThread({
         {pendingBody ? (
           <div className="flex justify-end">
             <div className="max-w-[85%] rounded-2xl px-3 py-2 bg-blue-600/50 text-white opacity-70">
-              <p className="text-sm whitespace-pre-wrap">{pendingBody}</p>
-              <p className="text-[10px] mt-1 text-blue-100/70">{t('coaching.messages.sending')}</p>
+              <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{pendingBody}</p>
+              <p className="text-[10px] mt-1 text-blue-100">{t('coaching.messages.sending')}</p>
             </div>
           </div>
         ) : null}
-        <div ref={bottomRef} />
+        
       </div>
-      <div className="pt-2 border-t border-neutral-800">
+      {newMessages && <button type="button" className="py-2 text-sm text-blue-300"
+        onClick={() => {
+          const el = scrollRef.current;
+          if (el) el.scrollTop = el.scrollHeight;
+          nearBottom.current = true;
+          setNewMessages(false);
+        }}>{t('coaching.messages.newMessages')}</button>}
+      <div className="pt-2 border-t border-neutral-800 shrink-0">
         {draftHint ? (
           <p className="text-[11px] text-neutral-500 mb-2">{draftHint}</p>
         ) : null}
@@ -107,9 +154,10 @@ export default function MessageThread({
         <div className="flex gap-2">
           <textarea
             value={body}
-            onChange={e => setBody(e.target.value)}
+            aria-label={t('coaching.messages.replyPlaceholder')}
+            onChange={e => changeBody(e.target.value)}
             onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229 && window.matchMedia('(pointer: fine)').matches) {
                 e.preventDefault();
                 void submit();
               }
@@ -118,7 +166,7 @@ export default function MessageThread({
             placeholder={t('coaching.messages.replyPlaceholder')}
             className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white resize-none"
           />
-          <Button size="sm" onClick={() => void submit()} disabled={!body.trim()} loading={sending} className="self-end">
+          <Button size="sm" onClick={() => void submit()} disabled={!body.trim()} loading={sending || pendingBody !== null} className="self-end">
             {t('common.send')}
           </Button>
         </div>
