@@ -663,15 +663,16 @@ export function mapStandardQuestionnaireAnswers(
  const mapped:Record<string,unknown>={};
  for(const q of definition.sections.flatMap(s=>s.questions)){
   if(!q.maps_to||!Object.prototype.hasOwnProperty.call(STANDARD_QUESTIONS,q.maps_to))continue;
-  const spec=STANDARD_QUESTIONS[q.maps_to];
+  const target=q.maps_to;
+  const spec=STANDARD_QUESTIONS[target];
   if(q.type!==spec.type||!Object.prototype.hasOwnProperty.call(answers,q.id))continue;
   const value=answers[q.id];
   if(value==null||value==='')continue;
-  if(spec.type==='yes_no'&&typeof value==='boolean')mapped[q.maps_to]=value?'Oui':'Non';
-  else if(spec.type==='number'&&typeof value==='number'&&Number.isFinite(value))mapped[q.maps_to]=String(value);
-  else if(spec.type==='text'&&typeof value==='string')mapped[q.maps_to]=value;
-  else if(spec.type==='single'&&typeof value==='string'&&Object.prototype.hasOwnProperty.call(STORED_OPTIONS[q.maps_to],value))mapped[q.maps_to]=STORED_OPTIONS[q.maps_to][value];
-  else if(spec.type==='multi'&&Array.isArray(value)&&value.every(v=>typeof v==='string'&&Object.prototype.hasOwnProperty.call(STORED_OPTIONS[q.maps_to],v)))mapped[q.maps_to]=value.map(v=>STORED_OPTIONS[q.maps_to][v as string]);
+  if(spec.type==='yes_no'&&typeof value==='boolean')mapped[target]=value?'Oui':'Non';
+  else if(spec.type==='number'&&typeof value==='number'&&Number.isFinite(value))mapped[target]=String(value);
+  else if(spec.type==='text'&&typeof value==='string')mapped[target]=value;
+  else if(spec.type==='single'&&typeof value==='string'&&Object.prototype.hasOwnProperty.call(STORED_OPTIONS[target],value))mapped[target]=STORED_OPTIONS[target][value];
+  else if(spec.type==='multi'&&Array.isArray(value)&&value.every(v=>typeof v==='string'&&Object.prototype.hasOwnProperty.call(STORED_OPTIONS[target],v)))mapped[target]=value.map(v=>STORED_OPTIONS[target][v as string]);
  }
  return mapped;
 }

@@ -1209,7 +1209,7 @@ export async function runCoachAgent(
     intake,
     dossier_14d: dossier,
     loop_context: loopContext,
-    questionnaire_context: questionnaireContext,
+    questionnaire_context: questionnaireContext ? { ...questionnaireContext, standard_answers: undefined } : null,
     current_program: program,
     context: input.context,
     lessons,
