@@ -33,7 +33,9 @@ returns boolean language plpgsql immutable set search_path = '' as $$
 declare s jsonb; q jsonb; o jsonb; ids text[] := '{}'; sids text[] := '{}'; oids text[]; n int := 0;
 begin
  if jsonb_typeof(d) is distinct from 'object' then return false; end if;
- if d->>'schemaVersion' is distinct from '1'
+ if jsonb_typeof(d->'schemaVersion') is distinct from 'number' or jsonb_typeof(d->'version') is distinct from 'number'
+ or jsonb_typeof(d#>'{name,fr}') is distinct from 'string' or jsonb_typeof(d#>'{name,en}') is distinct from 'string'
+ or d->>'schemaVersion' is distinct from '1'
  or jsonb_typeof(d->'sections') is distinct from 'array'
  or jsonb_array_length(d->'sections') not between 1 and 20
  or coalesce(length(btrim(d#>>'{name,fr}')),0) not between 1 and 500
@@ -41,7 +43,9 @@ begin
  if exists(select 1 from jsonb_object_keys(d) k where k not in ('schemaVersion','id','coachId','version','name','sections')) then return false; end if;
  for s in select value from jsonb_array_elements(d->'sections') loop
   if jsonb_typeof(s) is distinct from 'object' then return false; end if;
-  if coalesce(s->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or s->>'id'=any(sids)
+  if exists(select 1 from jsonb_object_keys(s) k where k not in ('id','label','questions')) then return false; end if;
+  if jsonb_typeof(s#>'{label,fr}') is distinct from 'string' or jsonb_typeof(s#>'{label,en}') is distinct from 'string'
+  or s->>'id' in ('constructor','prototype','__proto__') or coalesce(s->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or s->>'id'=any(sids)
   or coalesce(length(btrim(s#>>'{label,fr}')),0) not between 1 and 500
   or coalesce(length(btrim(s#>>'{label,en}')),0) not between 1 and 500
   or jsonb_typeof(s->'questions') is distinct from 'array'
@@ -51,7 +55,8 @@ begin
    n := n+1;
    if n>100 or jsonb_typeof(q) is distinct from 'object' then return false; end if;
    if exists(select 1 from jsonb_object_keys(q) k where k not in ('id','label','type','required','medical','options')) then return false; end if;
-   if coalesce(q->>'id','') !~ '^custom_[a-zA-Z0-9_-]+$' or length(q->>'id')>100 or q->>'id'=any(ids)
+   if jsonb_typeof(q#>'{label,fr}') is distinct from 'string' or jsonb_typeof(q#>'{label,en}') is distinct from 'string'
+   or coalesce(q->>'id','') !~ '^custom_[a-zA-Z0-9_-]*$' or length(q->>'id')>100 or q->>'id'=any(ids)
    or coalesce(length(btrim(q#>>'{label,fr}')),0) not between 1 and 500
    or coalesce(length(btrim(q#>>'{label,en}')),0) not between 1 and 500
    or jsonb_typeof(q->'required') is distinct from 'boolean'
@@ -62,7 +67,10 @@ begin
     if jsonb_typeof(q->'options') is distinct from 'array' or jsonb_array_length(q->'options') not between 2 and 50 then return false; end if;
     oids := '{}';
     for o in select value from jsonb_array_elements(q->'options') loop
-     if coalesce(o->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or o->>'id'=any(oids)
+     if jsonb_typeof(o) is distinct from 'object' then return false; end if;
+     if exists(select 1 from jsonb_object_keys(o) k where k not in ('id','label')) then return false; end if;
+     if jsonb_typeof(o#>'{label,fr}') is distinct from 'string' or jsonb_typeof(o#>'{label,en}') is distinct from 'string'
+     or o->>'id' in ('constructor','prototype','__proto__') or coalesce(o->>'id','') !~ '^[a-zA-Z0-9][a-zA-Z0-9_-]{0,99}$' or o->>'id'=any(oids)
      or coalesce(length(btrim(o#>>'{label,fr}')),0) not between 1 and 500
      or coalesce(length(btrim(o#>>'{label,en}')),0) not between 1 and 500 then return false; end if;
      oids := array_append(oids,o->>'id');
@@ -174,7 +182,7 @@ begin
  end loop;
  for q in select x from jsonb_array_elements(d->'sections') s cross join lateral jsonb_array_elements(s->'questions') x loop
   v:=p_answers->(q->>'id');
-  if v is null or v='null' or v='""' or v='[]' then
+  if v is null or v='null' or (jsonb_typeof(v)='string' and btrim(v#>>'{}')='') or v='[]' then
    if p_complete and (q->>'required')::boolean then raise exception 'required_answer'; end if;
    continue;
   end if;

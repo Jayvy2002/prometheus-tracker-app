@@ -1,5 +1,15 @@
 \set ON_ERROR_STOP on
 begin;
+
+do $$
+declare d jsonb:='{"coachId":"a1740000-0000-4000-8000-000000000001","id":"a1740000-0000-4000-8000-000000000099","name":{"en":"Preferences","fr":"Préférences"},"schemaVersion":1,"sections":[{"id":"preferences","label":{"en":"Preferences","fr":"Préférences"},"questions":[{"id":"custom_contact","label":{"en":"Contact","fr":"Contact"},"medical":false,"required":true,"type":"text"}]}],"version":1}';
+begin
+ if not public.questionnaire_definition_valid(d) then raise exception 'valid definition rejected'; end if;
+ if public.questionnaire_definition_valid(jsonb_set(d,'{name,fr}','42')) then raise exception 'numeric label accepted'; end if;
+ if public.questionnaire_definition_valid(jsonb_set(d,'{schemaVersion}','"1"')) then raise exception 'string schema accepted'; end if;
+ if public.questionnaire_definition_valid(jsonb_set(d,'{sections,0,questions,0,maps_to}','"nom"')) then raise exception 'unchecked mapping accepted'; end if;
+ if public.questionnaire_definition_valid(jsonb_set(d,'{sections,0,questions,0,type}','"unknown"')) then raise exception 'unknown type accepted'; end if;
+end $$;
 insert into auth.users(id, email) values
  ('a1740000-0000-4000-8000-000000000001','questionnaire-a@example.test'),
  ('a1740000-0000-4000-8000-000000000002','questionnaire-b@example.test'),
