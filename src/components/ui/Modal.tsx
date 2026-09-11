@@ -17,12 +17,14 @@ const sizeMap = {
   lg: 'max-w-2xl',
 };
 
-const FOCUSABLE = 'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 export default function Modal({ open, onClose, title, children, size = 'md' }: ModalProps) {
   const { t } = useTranslation();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   const previousFocus = useRef<Element | null>(null);
 
   useEffect(() => {
@@ -43,7 +45,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
     (first ?? panel)?.focus({ preventScroll: true });
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        closeRef.current();
         return;
       }
       if (e.key !== 'Tab' || !panel) return;
@@ -55,10 +57,10 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
       }
       const firstItem = items[0];
       const lastItem = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === firstItem) {
+      if (e.shiftKey && (document.activeElement === firstItem || !items.includes(document.activeElement as HTMLElement))) {
         e.preventDefault();
         lastItem.focus();
-      } else if (!e.shiftKey && document.activeElement === lastItem) {
+      } else if (!e.shiftKey && (document.activeElement === lastItem || !items.includes(document.activeElement as HTMLElement))) {
         e.preventDefault();
         firstItem.focus();
       }
@@ -69,7 +71,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
       const prev = previousFocus.current;
       if (prev instanceof HTMLElement) prev.focus({ preventScroll: true });
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -87,6 +89,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}
+        aria-label={title ? undefined : t('common.details')}
         tabIndex={-1}
         className={`relative bg-neutral-950 border border-neutral-800/80 rounded-2xl w-full ${sizeMap[size]} max-h-[88vh] overflow-hidden flex flex-col z-10 animate-modal-content shadow-2xl focus:outline-none`}
       >
@@ -97,7 +100,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="ml-auto p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all duration-150 active:scale-90"
+            className="ml-auto min-h-11 min-w-11 flex items-center justify-center p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all duration-150 active:scale-90"
           >
             <X size={18} />
           </button>

@@ -87,6 +87,20 @@ test('Q04: dialog and switches are accessible primitives', () => {
   assert.match(notif, /aria-checked/);
   const units = src('src/components/profile/UnitsForm.tsx');
   assert.match(units, /role="switch"/);
+
+  const button = src('src/components/ui/Button.tsx');
+  assert.match(button, /aria-busy=\{loading \|\| undefined\}/);
+  assert.match(button, /aria-hidden="true" focusable="false"/);
+
+  const toast = src('src/components/ui/Toast.tsx');
+  assert.match(toast, /role=\{t\.type === 'error' \? 'alert' : 'status'\}/);
+  assert.match(toast, /aria-label=\{translate\('common\.close'\)\}/);
+  assert.match(toast, /translate\('common\.undo'\)/);
+
+  const input = src('src/components/ui/Input.tsx');
+  assert.match(input, /htmlFor=\{inputId\}/);
+  assert.match(input, /aria-describedby=\{descriptionIds\}/);
+  assert.match(input, /aria-invalid=\{error \? true : ariaInvalid\}/);
 });
 
 test('Q03: weights render in profile units; fallback speaks the user language', () => {

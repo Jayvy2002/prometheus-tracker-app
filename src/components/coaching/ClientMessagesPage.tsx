@@ -6,7 +6,6 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
-import { toast } from '../ui/Toast';
 import MessageThread from './MessageThread';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 
@@ -32,23 +31,21 @@ export default function ClientMessagesPage() {
   }, [user, myCoach, sentMessages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = async (body: string) => {
+    if (!user) return { error: t('coaching.messages.sendFailed') };
     setSending(true);
-    if (!user) return { error: 'Not authenticated' };
-    setSending(true);
-    const msgId = loadOrCreateMessageKey(user.id, body);
-    const result = await sendClientReply(body, msgId);
-    setSending(false);
-    if (result.error) {
-      toast(result.error === 'empty' ? t('coaching.queue.emptyBody') : result.error, 'error');
-    } else {
-      clearMessageKey(user.id);
+    try {
+      const msgId = loadOrCreateMessageKey(user.id, body, user.id);
+      const result = await sendClientReply(body, msgId);
+      if (!result.error) clearMessageKey(user.id, user.id);
+      return result;
+    } finally {
+      setSending(false);
     }
-    return result;
   };
 
   return (
     <PageTransition>
-      <div className="px-4 pt-6 pb-28 flex flex-col min-h-[70vh]">
+      <div className="px-4 pt-6 pb-28 flex flex-col h-[calc(100dvh-4rem)] min-h-[24rem]">
         <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.messages.clientTitle')}</h1>
         <p className="text-sm text-neutral-500 mb-4">
           {myCoach
@@ -66,9 +63,10 @@ export default function ClientMessagesPage() {
             </div>
           </Card>
         ) : (
-          <div className="flex-1 min-h-[50vh]">
+          <div className="flex-1 min-h-0">
             <MessageThread
-              messages={sentMessages}
+              key={`${user?.id}:${myCoach.id}`}
+              messages={sentMessages.filter(m => m.client_id === user?.id && m.coach_id === myCoach.id)}
               currentUserId={user?.id ?? ''}
               sending={sending}
               onSend={handleSend}
@@ -77,7 +75,7 @@ export default function ClientMessagesPage() {
               onLoadMore={user ? () => {
                 if (loadingMore) return;
                 setLoadingMore(true);
-                void fetchThreadPage(user.id).finally(() => setLoadingMore(false));
+                void fetchThreadPage(user.id).catch(() => undefined).finally(() => setLoadingMore(false));
               } : undefined}
             />
           </div>

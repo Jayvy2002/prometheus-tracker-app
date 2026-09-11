@@ -73,13 +73,16 @@ export default function RecipesPage() {
       <div className="px-4 pt-6 pb-24">
         <div className="flex items-center gap-3 mb-6">
           <button
+            type="button"
             onClick={() => navigate('/nutrition')}
+            aria-label={t('common.back')}
             className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors"
           >
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-2xl font-bold text-white flex-1">{t('nutrition.recipes.title')}</h1>
           <button
+            type="button"
             onClick={() => setShowNew(true)}
             className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl transition-colors"
           >
@@ -92,6 +95,7 @@ export default function RecipesPage() {
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" size={16} />
           <input
+            aria-label={t('common.search')}
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder={t('nutrition.recipes.searchPlaceholder')}
@@ -158,19 +162,23 @@ export default function RecipesPage() {
                         F <span className="font-medium">{recipe.fat_per_serving}g</span>
                       </span>
                       <span className="text-xs text-neutral-600 ml-auto">
-                        {recipe.servings} serving{recipe.servings !== 1 ? 's' : ''}
+                        {recipe.servings} {t(recipe.servings === 1 ? 'nutrition.recipes.serving' : 'nutrition.recipes.servings')}
                       </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
+                      type="button"
                       onClick={() => setEditing(recipe)}
+                      aria-label={`${t('common.edit')} ${recipe.name}`}
                       className="p-2 text-neutral-500 hover:text-white rounded-lg hover:bg-neutral-800 transition-colors"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
+                      type="button"
                       onClick={() => setConfirmDelete(recipe.id)}
+                      aria-label={`${t('common.delete')} ${recipe.name}`}
                       className="p-2 text-neutral-500 hover:text-rose-400 rounded-lg hover:bg-neutral-800 transition-colors"
                     >
                       <Trash2 size={14} />
@@ -186,20 +194,22 @@ export default function RecipesPage() {
       {confirmDelete && (
         <div className="fixed inset-0 z-50 bg-black/70 flex items-end justify-center p-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 w-full max-w-sm animate-fade-in-up">
-            <h3 className="text-base font-semibold text-white mb-1">Delete Recipe</h3>
-            <p className="text-sm text-neutral-400 mb-5">This action cannot be undone.</p>
+            <h3 className="text-base font-semibold text-white mb-1">{t('nutrition.recipes.deleteTitle')}</h3>
+            <p className="text-sm text-neutral-400 mb-5">{t('common.cannotBeUndone')}</p>
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setConfirmDelete(null)}
                 className="flex-1 py-2.5 rounded-xl bg-neutral-800 text-neutral-300 text-sm font-medium hover:bg-neutral-700 transition-colors"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
+                type="button"
                 onClick={() => handleDelete(confirmDelete)}
                 className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-medium transition-colors"
               >
-                Delete
+                {t('common.delete')}
               </button>
             </div>
           </div>

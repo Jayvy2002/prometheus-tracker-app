@@ -22,6 +22,22 @@ Une CI verte ne prouve pas à elle seule qu’une expérience utilisateur est te
 
 La priorité `P1/P2/P3` de la feuille de route UX classe les améliorations **à l’intérieur du chantier UX**. Sauf défaut empêchant un parcours essentiel ou corrompant son résultat, les chantiers fonctionnels 1 à 3 restent exécutés avant cette feuille de route, conformément à la décision produit.
 
+## Lots UX demandés — travail actif
+
+Ces lots sont explicitement demandés avant la reprise de l’ordre général ci-dessous. Ils ne suppriment ni ne déclarent terminés les autres chantiers.
+
+| Lot | Couverture partielle et travail restant | Conditions de fin |
+|---|---|---|
+| Accessibilité — UX62 | Les boutons Annuler/Fermer des notifications ont une cible minimale de 44 × 44 px et les textes longs peuvent se couper sans masquer ces actions. La vérification tactile en parcours reste à effectuer. Des correctifs de Button, Input, Toast et Modal sont présents sur la branche de travail : focus stable lors des saisies dans une modale, repères de focus visibles et respect du mouvement réduit. Validation navigateur encore nécessaire. Reste à vérifier et compléter les noms accessibles, le focus des modales et tiroirs, la navigation clavier, les annonces, les contrastes, le zoom, le mouvement réduit et le clavier mobile sur les parcours essentiels. | Tests automatisés pertinents et vérification navigateur clavier, lecteur d’écran, zoom et petit écran. Ne pas annoncer une accessibilité complète sur la seule base de composants corrigés. |
+| Textes restants — UX11, UX65, UX67 | Une première simplification FR/EN existe sur la branche de travail. Continuer l’inventaire des textes affichés, supprimer les répétitions et remplacer le jargon. Préserver les informations utiles sur confidentialité, limites, effets des actions et erreurs. | Parité FR/EN, libellés cohérents avec les effets réels, revue en contexte des parcours et absence de suppression d’une information nécessaire au choix. |
+| Messagerie fiable — UX29–31, UX63, UX68 | Correctifs de branche à vérifier en parcours : conservation des éditions pendant un envoi, verrou anti-double-clic, sortie de l’attente après exception, retour à la ligne mobile, protection de la composition de texte, dates localisées et défilement de l’historique. Reste à compléter l’isolation des brouillons par compte et conversation, la reprise après erreur, les doubles envois, le défilement lors du chargement de l’historique et les changements de conversation. Vérifier le temps réel, la reconnexion et les états de lecture réellement persistés. | Deux comptes de test : envoi lent puis nouvelle saisie conservée ; échec et réessai sans doublon ; changement de fil sans fuite de brouillon ; historique sans saut ; reconnexion sans message manquant ; écran mobile et saisie avec composition utilisables. |
+
+**Cadrage messagerie :** expérience de conversation intégrée inspirée de Messenger/WhatsApp, pas une connexion à ces services. Les états envoyé, distribué et lu doivent correspondre à des preuves distinctes. Pièces jointes, messages vocaux, recherche dans l’historique, réponses citées, présence et notifications sont à cadrer et prioriser après le socle fiable ; ne pas les considérer comme livrés. Aucun chiffrement de bout en bout n’est promis sans conception et validation dédiées.
+
+**Vérification des derniers correctifs :** typecheck, build et lint ciblé réussis sur la copie locale avec les fichiers concernés actualisés. Le navigateur de test a perdu sa connexion avant les scénarios ; aucun smoke interactif n’est déclaré réussi. Les brouillons ne sont pas encore durables lors d’un changement de conversation ; la reconnexion et les accusés de lecture restent à traiter.
+
+**Statut de validation :** les changements de la branche de travail ne valent pas livraison sur `new-JV`. La revue du code ne remplace pas les tests de comportement et les parcours réels. Conserver les lignes UX concernées tant que leurs critères ne sont pas vérifiés.
+
 ## Ordre général
 
 1. **Builder de questionnaire par coach.**
