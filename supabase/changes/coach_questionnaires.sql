@@ -67,8 +67,8 @@ begin
     if standard is null or q->>'maps_to'=any(mapped_ids) or q->>'type' is distinct from standard->>'type'
       or (standard->>'medical'='true' and q->>'medical' is distinct from 'true') then return false; end if;
     mapped_ids:=array_append(mapped_ids,q->>'maps_to');
-    if standard ? 'options' and (select jsonb_agg(o->'id') from jsonb_array_elements(q->'options') o)
-       is distinct from (select jsonb_agg(o->'id') from jsonb_array_elements(standard->'options') o) then return false; end if;
+    if standard ? 'options' and (select jsonb_agg(option_item.value->'id') from jsonb_array_elements(q->'options') as option_item(value))
+       is distinct from (select jsonb_agg(option_item.value->'id') from jsonb_array_elements(standard->'options') as option_item(value)) then return false; end if;
    end if;
    if jsonb_typeof(q#>'{label,fr}') is distinct from 'string' or jsonb_typeof(q#>'{label,en}') is distinct from 'string'
    or (coalesce(q->>'id','') !~ '^custom_[a-zA-Z0-9_-]*$' and (standard is null or q->>'id' is distinct from q->>'maps_to')) or length(q->>'id')>100 or q->>'id'=any(ids)
