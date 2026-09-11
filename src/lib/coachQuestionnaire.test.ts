@@ -123,6 +123,9 @@ test('standard catalogue preserves the original labels and requires explicit com
  const invalid=structuredClone(d);
  invalid.sections[0].questions.find(q=>q.id==='lieu')!.type='text';
  assert.equal(parseCoachQuestionnaire(invalid).ok,false);
+ const relabeled=structuredClone(d);
+ relabeled.sections[0].questions.find(q=>q.id==='lieu')!.options![0].label.en='Gym';
+ assert.equal(parseCoachQuestionnaire(relabeled).ok,false);
  const duplicate=structuredClone(d);
  duplicate.sections[0].questions.push({...duplicate.sections[0].questions[0],id:'custom_duplicate'});
  assert.equal(parseCoachQuestionnaire(duplicate).ok,false);

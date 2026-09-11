@@ -90,7 +90,8 @@ export function parseCoachQuestionnaire(input: unknown): Result<CoachQuestionnai
             mappedIds.add(String(q.maps_to));
             if (standard.options && (!Array.isArray(q.options)
               || q.options.length !== standard.options.length
-              || q.options.some((o,i)=>!object(o)||o.id!==standard.options![i].id))) issue(qp+'.options','invalid_standard_options');
+              || q.options.some((o,i)=>!object(o)||o.id!==standard.options![i].id
+                ||!object(o.label)||o.label.fr!==standard.options![i].label.fr||o.label.en!==standard.options![i].label.en))) issue(qp+'.options','invalid_standard_options');
           }
         }
         // Custom IDs stay namespaced; standard IDs retain their explicit mapping.

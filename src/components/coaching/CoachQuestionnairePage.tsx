@@ -9,6 +9,7 @@ import Button from '../ui/Button';
 
 export default function CoachQuestionnairePage() {
  const {user}=useAuthStore();
+ const userId=user?.id;
  const {t}=useTranslation();
  const [versions,setVersions]=useState<QuestionnaireVersion[]>([]);
  const [selected,setSelected]=useState<CoachQuestionnaire|null>(null);
@@ -18,14 +19,14 @@ export default function CoachQuestionnairePage() {
  const [preview,setPreview]=useState(false);
  useEffect(()=>{
   let active=true;
-  if(!user)return;
+  if(!userId)return;
   setBusy(true);
-  Promise.all([listQuestionnaires(user.id),getDefaultQuestionnaire(user.id)])
+  Promise.all([listQuestionnaires(userId),getDefaultQuestionnaire(userId)])
    .then(([v,d])=>{if(active){setVersions(v);setDefaultId(d);}})
    .catch(()=>{if(active)setError(t('coachQuestionnaire.loadError'));})
    .finally(()=>{if(active)setBusy(false);});
   return()=>{active=false;};
- },[user?.id,t]);
+ },[userId,t]);
  const newDefinition=(standard=false)=>{
   if(!user)return;
   setSelected({schemaVersion:1,id:crypto.randomUUID(),coachId:user.id,version:1,
@@ -91,7 +92,7 @@ export default function CoachQuestionnairePage() {
      })}>{QUESTION_TYPES.map(type=><option key={type} value={type}>{t('coachQuestionnaire.types.'+type)}</option>)}</select></label>
      {q.options?.map((option,oi)=><div key={option.id} className="flex gap-2">
       {(['fr','en'] as const).map(lang=><label key={lang}>{t('coachQuestionnaire.option')} {oi+1} ({lang.toUpperCase()})
-       <input className={input} value={option.label[lang]} onChange={e=>mutate(d=>{d.sections[si].questions[qi].options![oi].label[lang]=e.target.value;})}/>
+       <input className={input} disabled={!!q.maps_to} value={option.label[lang]} onChange={e=>mutate(d=>{d.sections[si].questions[qi].options![oi].label[lang]=e.target.value;})}/>
       </label>)}
       <button type="button" disabled={!!q.maps_to} onClick={()=>mutate(d=>{d.sections[si].questions[qi].options!.splice(oi,1);})}>{t('common.delete')}</button>
      </div>)}
