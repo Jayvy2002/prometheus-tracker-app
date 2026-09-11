@@ -56,11 +56,13 @@ Le standard de 27 questions existe déjà et son contrat est versionné. Il manq
 
 ### Découpage de mise en œuvre
 
-1. **Contrat des questions personnalisées — implémenté en branche, intégration restante.** `src/lib/coachQuestionnaire.ts` valide les définitions FR/EN, les sections ordonnées, les six types de réponse, les identifiants et les limites de taille. Il distingue brouillon et réponses complètes, prépare une nouvelle révision et un snapshot indépendant. Sept tests couvrent les principales erreurs et la conservation de l’ancienne définition. Ce module n’est pas encore appelé par un parcours utilisateur.
+1. **Contrat des questions personnalisées — implémenté en branche, intégration restante.** `src/lib/coachQuestionnaire.ts` valide les définitions FR/EN, les sections ordonnées, les six types de réponse, les identifiants et les limites de taille. Il distingue brouillon et réponses complètes, prépare une nouvelle révision et un snapshot indépendant. Sept tests couvrent les principales erreurs et la conservation de l’ancienne définition. Le rendu partagé `CoachQuestionnaireFields` gère les six types, les réponses contrôlées, les erreurs, les traductions et le mode désactivé ; trois tests de rendu supplémentaires couvrent ces cas. Ce composant n’est pas encore raccordé aux routes. Ce module n’est pas encore appelé par un parcours utilisateur.
 2. **Persistance versionnée et RLS — à construire.** Tables, accès coach/invité, publication avec contrôle de concurrence, définition figée par invitation/réponse ; preuves RLS avant usage.
 3. **Éditeur coach — à construire.** Créer, dupliquer, modifier, ordonner, prévisualiser, publier et choisir le défaut.
 4. **Raccordement athlète et fiche client — à construire.** Résoudre le questionnaire lors de l’invitation, reprendre les brouillons, conserver la définition des réponses et rendre les questions personnalisées.
 5. **Mapping standard et contexte copilote — à construire.** Garder le contrat standard existant ; définir des conversions explicites et testées. Pour l’instant seuls les identifiants `custom_` sont acceptés et aucun `maps_to` n’est autorisé dans le nouveau contrat. Ne pas remplacer le questionnaire standard par ce module incomplet.
+
+**Blocage de validation base :** aucun Docker/PostgreSQL local disponible ; les commandes CLI Supabase ont été interrompues avec « network approval was cancelled before a decision was returned ». Le schéma live a été lu uniquement. Avant toute migration de production, disposer d’un environnement de test autorisé pour le replay et la matrice RLS conformément à `docs/MIGRATIONS.md`. Aucun test de données ou changement de schéma effectué en production.
 
 Aucune migration ni modification du questionnaire actuellement utilisé n’est incluse dans ce premier bloc. Le chantier 1 reste ouvert jusqu’aux conditions de fin ci-dessous.
 

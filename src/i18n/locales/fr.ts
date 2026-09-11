@@ -1,4 +1,5 @@
 const fr = {
+  coachQuestionnaire: { choose: 'Choisir', required: 'Réponds à cette question.', invalid: 'Vérifie cette réponse.' },
   common: {
     save: 'Enregistrer',
     cancel: 'Annuler',

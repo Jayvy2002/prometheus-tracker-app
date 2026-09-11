@@ -1,4 +1,5 @@
 const en = {
+  coachQuestionnaire: { choose: 'Choose', required: 'Please answer this question.', invalid: 'Please check this answer.' },
   common: {
     save: 'Save',
     cancel: 'Cancel',
