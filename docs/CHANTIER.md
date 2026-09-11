@@ -1,6 +1,6 @@
 # Chantier — Prometheus
 
-**Mis à jour : 10 septembre 2026.**
+**Mis à jour : 11 septembre 2026.**
 
 Ce document décrit uniquement l’ordre de travail actuel. La vision produit se trouve dans `docs/VISION.md` et reste prioritaire en cas de contradiction.
 
@@ -81,6 +81,21 @@ Prévoir une page dédiée pour :
 - Tests du rendu, de la reprise, du mapping et du contexte agent.
 - Télémétrie sans contenu de réponse ni signal médical.
 
+### Plan technique de départ — non implémenté
+
+Ces noms guident l’implémentation, mais doivent être confrontés au schéma au moment du chantier :
+
+- table proposée `coach_questionnaires (coach_id, name, version, questions jsonb, is_default)` ;
+- schéma de question proposé : `id`, `type`, `label_fr`, `label_en`, `options`, `required`, `medical_flag`, `maps_to` ;
+- types de réponse initiaux : `single`, `multi`, `text`, `number`, `yes_no`, `weekdays` ;
+- référence nullable proposée `coach_invites.questionnaire_id`, avec repli vers le questionnaire par défaut du coach ;
+- route coach proposée `/coach/questionnaire` ;
+- `compactIntake` conserve les champs standards via `maps_to` et transmet les questions personnalisées comme contexte générique ;
+- la fiche 360 rend les réponses avec la définition et la version réellement utilisées ;
+- futur événement proposé : `intake_completed` avec identifiant et version du questionnaire, sans réponse utilisateur. Il devra être ajouté au contrat de télémétrie au moment de l’implémentation.
+
+Risques à traiter : stabilité des identifiants standards, taille du contexte transmis au copilote, traduction incomplète d’une question personnalisée et lecture durable des anciennes versions.
+
 ## Priorité 2 — Recherche et changement de coach
 
 ### Départ autonome
@@ -105,6 +120,18 @@ Profil opt-in avec :
 - Un seul coach actif par client.
 - Changement de coach comme parcours contrôlé : fin du lien actuel, puis nouvelle demande.
 
+### Plan technique de départ — non implémenté
+
+- RPC proposée `client_end_coach_link()` : vérification de `auth.uid()`, fin du lien actif et appel de la transition commune vers le solo ;
+- table proposée `coach_profiles` pour le nom public, la présentation, les disciplines, les langues, la zone ou le coaching à distance, la disponibilité et l’opt-in public ;
+- table proposée `coach_join_requests` pour les demandes et leurs états ;
+- routes proposées `/coach/profile` et `/coaches` ;
+- l’acceptation doit réutiliser les invariants d’`accept_coach_invite` au lieu de créer un deuxième mécanisme d’association ;
+- les profils publics sont lisibles uniquement par des utilisateurs authentifiés ; les demandes sont visibles seulement par leurs deux parties ;
+- toute RPC privilégiée garde des droits `EXECUTE` explicites et vérifie la cible avant les effets.
+
+Le champ `solo_trial_ends_at` et l’ancien parcours utilisent déjà une cible de 30 jours après la fin du coaching, mais aucun mur de paiement n’est actif. Avant le chantier Billing, confirmer explicitement si ces 30 jours deviennent la règle commerciale définitive, s’ils s’appliquent aussi aux nouveaux solos, ou s’ils doivent changer.
+
 ### Conditions de fin
 
 - Isolation RLS entre les parties.
@@ -125,6 +152,15 @@ Ne pas commencer avant les décisions produit suivantes :
 
 Le futur mur doit conserver un accès en lecture aux données et permettre d’accepter une invitation coach. Un coach qui dépasse son palier conserve ses clients existants mais ne peut plus en ajouter.
 
+### Plan technique de départ — non implémenté
+
+- étendre ou remplacer proprement `subscriptions` pour représenter le plan, la limite de clients, l’essai et l’état courant ;
+- exposer une fonction d’entitlement étroite donnant au frontend un état comme actif, en essai ou expiré, sans lui donner de privilèges supplémentaires ;
+- remplacer les réponses 410 seulement lorsque les décisions commerciales sont prises : Checkout Session, portail client et webhook Stripe signé ;
+- rendre le traitement du webhook idempotent et conserver les clés secrètes et la `service_role` uniquement côté serveur ;
+- tester le paywall, le checkout, les rejeux de webhook, l’expiration et les limites de clients ;
+- ajouter les événements de paywall/checkout à `docs/TELEMETRY.md` uniquement au moment de leur implémentation.
+
 ## Travaux transversaux autorisés
 
 À réaliser lorsqu’ils soutiennent une priorité ou corrigent un problème mesuré :
@@ -134,7 +170,8 @@ Le futur mur doit conserver un accès en lecture aux données et permettre d’a
 - cycles, semaines, blocs et changements de phase ;
 - types de prescription au-delà des répétitions ;
 - extension de la file hors ligne à d’autres écritures ;
-- optimisation des policies après preuve RLS ;
+- optimisation des policies après preuve RLS : notamment fusion éventuelle des policies SELECT permissives seulement après comparaison dans la matrice ;
+- étude du déplacement de `pg_trgm` et `pg_net` hors de `public`, uniquement sur un environnement de staging avec mesure d’impact ;
 - amélioration des performances fondée sur des mesures.
 
 ## Règles de livraison
