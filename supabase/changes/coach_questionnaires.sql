@@ -121,7 +121,7 @@ for each row execute function public.pin_invite_questionnaire();
 
 create table public.client_questionnaire_responses (
  id uuid primary key default gen_random_uuid(),
- invite_id uuid not null references public.coach_invites(id) on delete restrict,
+ invite_id uuid references public.coach_invites(id) on delete set null,
  version_id uuid not null references public.coach_questionnaire_versions(id),
  coach_id uuid not null references auth.users(id),
  client_id uuid not null references auth.users(id),
@@ -204,3 +204,9 @@ begin
 end $$;
 revoke all on function public.save_questionnaire_response(uuid,integer,jsonb,boolean) from public,anon,authenticated;
 grant execute on function public.save_questionnaire_response(uuid,integer,jsonb,boolean) to authenticated;
+
+create index questionnaire_responses_client_idx on public.client_questionnaire_responses(client_id);
+create index questionnaire_responses_version_idx on public.client_questionnaire_responses(version_id);
+create index questionnaire_responses_coach_idx on public.client_questionnaire_responses(coach_id);
+create index questionnaire_defaults_version_idx on public.coach_questionnaire_defaults(version_id);
+create index questionnaire_invites_version_idx on public.coach_invites(questionnaire_version_id);

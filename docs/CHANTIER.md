@@ -54,17 +54,23 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 
 Le standard de 27 questions existe déjà et son contrat est versionné. Il manque l’outil permettant à chaque coach de personnaliser ce questionnaire.
 
-### Découpage de mise en œuvre
+### État de l’implémentation — en branche, non livré
 
-1. **Contrat des questions personnalisées — implémenté en branche, intégration restante.** `src/lib/coachQuestionnaire.ts` valide les définitions FR/EN, les sections ordonnées, les six types de réponse, les identifiants et les limites de taille. Il distingue brouillon et réponses complètes, prépare une nouvelle révision et un snapshot indépendant. Sept tests couvrent les principales erreurs et la conservation de l’ancienne définition. Le rendu partagé `CoachQuestionnaireFields` gère les six types, les réponses contrôlées, les erreurs, les traductions et le mode désactivé ; trois tests de rendu supplémentaires couvrent ces cas. Ce composant n’est pas encore raccordé aux routes. Ce module n’est pas encore appelé par un parcours utilisateur.
-2. **Persistance versionnée et RLS — à construire.** Tables, accès coach/invité, publication avec contrôle de concurrence, définition figée par invitation/réponse ; preuves RLS avant usage.
-3. **Éditeur coach — à construire.** Créer, dupliquer, modifier, ordonner, prévisualiser, publier et choisir le défaut.
-4. **Raccordement athlète et fiche client — à construire.** Résoudre le questionnaire lors de l’invitation, reprendre les brouillons, conserver la définition des réponses et rendre les questions personnalisées.
-5. **Mapping standard et contexte copilote — à construire.** Garder le contrat standard existant ; définir des conversions explicites et testées. Pour l’instant seuls les identifiants `custom_` sont acceptés et aucun `maps_to` n’est autorisé dans le nouveau contrat. Ne pas remplacer le questionnaire standard par ce module incomplet.
+- Contrat TypeScript et formulaire FR/EN des six types : tests unitaires et de rendu présents.
+- Éditeur coach raccordé à `/coach/questionnaire` : créer, dupliquer, réviser, ajouter/supprimer/ordonner questions et sections, aperçu, publication et choix du défaut. Accès depuis les réglages coach.
+- Candidat SQL en `supabase/changes/coach_questionnaires.sql` : versions en ajout uniquement, défaut par coach, version figée par invitation, attribution à l’acceptation, brouillon avec révision attendue et réponse terminée figée.
+- Pages de réponse et lecture coach raccordées à `/questionnaire` et à la fiche client. Accès client depuis l’accueil. Les routes ne doivent pas être livrées avant la migration correspondante.
+- Tests PostgreSQL dans la base temporaire GitHub : propriété, isolation, invitation, sauvegarde, conflits et finalisation ; résultats du dernier SHA à contrôler.
 
-**Validation base via GitHub Actions :** le job `rls-matrix` fournit déjà une base Supabase temporaire. Le candidat `supabase/changes/coach_questionnaires.sql` et ses tests sont exécutés uniquement dans cette base après la matrice existante. Le premier schéma teste propriété coach, isolation, unicité de version et absence de modification/suppression par les rôles clients. Il ne valide pas encore le contenu complet des définitions ni les invitations/réponses : ne pas le déployer en production. Aucun ajout fictif au lock des migrations appliquées. La CLI générera la migration finale avant livraison, conformément à `docs/MIGRATIONS.md`.
+**Reste nécessaire pour terminer le chantier :**
 
-Aucune migration ni modification du questionnaire actuellement utilisé n’est incluse dans ce premier bloc. Le chantier 1 reste ouvert jusqu’aux conditions de fin ci-dessous.
+1. Finaliser la stricte équivalence de validation TypeScript/PostgreSQL et les tests des cas limites, du changement de coach et des refus RPC entre comptes.
+2. Le questionnaire personnalisé complète actuellement le parcours standard existant ; le remplacement contrôlé du standard, le retour au template complet et le mapping des champs standards ne sont pas encore implémentés.
+3. Transmettre les réponses personnalisées au contexte copilote avec leur définition et leur audience ; aucune conversion implicite vers un champ standard.
+4. Vérifier le parcours d’invitation jusqu’à la réponse sur navigateur, la reprise après interruption et les anciennes réponses après révision.
+5. Générer la migration finale avec la CLI, vérifier les advisors et appliquer sous sa version exacte seulement après validation ; aligner Git/lock/production conformément à `docs/MIGRATIONS.md`.
+
+Le candidat SQL reste réservé à la CI. Aucune migration appliquée en production et aucune déclaration de chantier terminé. L’absence de terminal local n’empêche plus les tests SQL : GitHub Actions est l’environnement utilisé.
 
 
 ### Données

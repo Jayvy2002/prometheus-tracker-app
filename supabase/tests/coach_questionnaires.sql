@@ -114,6 +114,11 @@ select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000001'
 do $$ begin
  if (select count(*) from public.client_questionnaire_responses where completed_at is not null)<>1 then raise exception 'coach missing completed response'; end if;
 end $$;
+delete from public.coach_invites where id='a1740000-0000-4000-8000-000000000088';
+do $$ begin
+ if (select count(*) from public.client_questionnaire_responses where completed_at is not null and invite_id is null)<>1 then
+ raise exception 'revoked invite destroyed answers'; end if;
+end $$;
 reset role;
 
 rollback;
