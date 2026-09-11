@@ -105,6 +105,14 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Questionnaire browser journey (local Supabase only)
         run: node scripts/test-questionnaire-browser.mjs
+      - name: Prepare CLI-named questionnaire migration (artifact only)
+        run: node scripts/prepare-questionnaire-migration.mjs
+      - name: Upload prepared migration
+        uses: actions/upload-artifact@v4
+        with:
+          name: questionnaire-release-candidate
+          path: artifacts/questionnaire-release/
+          if-no-files-found: error
       - name: Upload questionnaire browser proof
         if: always()
         uses: actions/upload-artifact@v4

@@ -56,21 +56,22 @@ Le standard de 27 questions existe déjà et son contrat est versionné. Il manq
 
 ### État de l’implémentation — en branche, non livré
 
-- Contrat TypeScript et formulaire FR/EN des six types : tests unitaires et de rendu présents.
-- Éditeur coach raccordé à `/coach/questionnaire` : créer, dupliquer, réviser, ajouter/supprimer/ordonner questions et sections, aperçu, publication et choix du défaut. Accès depuis les réglages coach.
-- Candidat SQL en `supabase/changes/coach_questionnaires.sql` : versions en ajout uniquement, défaut par coach, version figée par invitation, attribution à l’acceptation, brouillon avec révision attendue et réponse terminée figée.
-- Pages de réponse et lecture coach raccordées à `/questionnaire` et à la fiche client. Accès client depuis l’accueil. Les routes ne doivent pas être livrées avant la migration correspondante.
-- Tests PostgreSQL dans la base temporaire GitHub : propriété, isolation, invitation, sauvegarde, conflits et finalisation ; résultats du dernier SHA à contrôler.
+- Éditeur coach raccordé à `/coach/questionnaire` : créer, dupliquer, réviser, ajouter/supprimer/ordonner les questions et sections, aperçu, publication et choix du défaut.
+- Template des 27 questions standards, dans leur ordre d’origine, FR/EN. Les correspondances `maps_to` sont explicites, uniques et contrôlées en TypeScript et PostgreSQL ; les types et valeurs des choix standards sont protégés. Le mapping ne modifie pas les cibles du profil.
+- Version figée par invitation et attribution à l’acceptation. Le parcours invité ouvre cette version ; le standard reste le parcours des solos et des invitations sans questionnaire personnalisé.
+- Réponses : sauvegarde du brouillon sur le serveur, reprise, révision attendue obligatoire, finalisation figée et lecture coach dans la fiche client. La révocation de l’invitation conserve les réponses ; la fin du lien retire leur lecture à l’ancien coach.
+- Copilote : réponses finalisées du coach actif, définition/version d’origine, contexte personnalisé borné et mapping standard explicite. Les brouillons et les réponses d’un autre coach ne sont pas transmis.
+- Télémétrie de finalisation : identifiant/version uniquement, sans réponse ni signal médical ; contrat actualisé dans `docs/TELEMETRY.md`.
+- CI : tests de contrat, rendu, mapping et contexte ; replay PostgreSQL et matrice RLS ; scénario Chromium sur comptes fictifs et Supabase temporaire. La preuve du dernier SHA doit être verte avant livraison.
 
 **Reste nécessaire pour terminer le chantier :**
 
-1. Finaliser la stricte équivalence de validation TypeScript/PostgreSQL et les tests des cas limites, du changement de coach et des refus RPC entre comptes.
-2. Le questionnaire personnalisé complète actuellement le parcours standard existant ; le remplacement contrôlé du standard, le retour au template complet et le mapping des champs standards ne sont pas encore implémentés.
-3. Transmettre les réponses personnalisées au contexte copilote avec leur définition et leur audience ; aucune conversion implicite vers un champ standard.
-4. Vérifier le parcours d’invitation jusqu’à la réponse sur navigateur, la reprise après interruption et les anciennes réponses après révision.
-5. Générer la migration finale avec la CLI, vérifier les advisors et appliquer sous sa version exacte seulement après validation ; aligner Git/lock/production conformément à `docs/MIGRATIONS.md`.
+1. Terminer la validation du dernier SHA, notamment le scénario navigateur publication → invitation → brouillon → rechargement → nouvelle version → finalisation → lecture coach.
+2. Récupérer l’artefact `questionnaire-release-candidate` produit après succès du navigateur : migration nommée par la CLI et manifeste `applied:false`. Sa préparation ne modifie aucune base.
+3. Vérifier les advisors, appliquer la migration sous sa version exacte et aligner Git/lock/production selon `docs/MIGRATIONS.md`. Le secret CLI `SUPABASE_ACCESS_TOKEN` est absent de la CI vérifiée : le déploiement distant n’est pas réalisé.
+4. Déployer les fonctions consommatrices du module partagé modifié (`coach-agent`, `notify-onboarding-complete`), actualiser leur inventaire et vérifier le parcours sur le déploiement final avant de clore le chantier.
 
-Le candidat SQL reste réservé à la CI. Aucune migration appliquée en production et aucune déclaration de chantier terminé. L’absence de terminal local n’empêche plus les tests SQL : GitHub Actions est l’environnement utilisé.
+Le SQL reste en `supabase/changes/coach_questionnaires.sql` tant qu’il n’a pas été promu. Aucune migration de cette PR n’est appliquée en production. Ne pas merger les nouvelles routes avant leur schéma, et ne pas déclarer le chantier terminé sur la seule base de la CI.
 
 
 ### Données
