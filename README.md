@@ -25,7 +25,7 @@ Principe central : **l’IA prépare ; l’humain décide**. Une adaptation n’
 - Configuration du suivi et des cibles.
 - Création, copie, versionnage et assignation des programmes.
 - Messages, notes et propositions d’intervention.
-- Copilote coach et analyse du roster.
+- Copilote `coach-agent` et analyse déterministe `coach-fleet-round`.
 
 ### Client coaché
 
