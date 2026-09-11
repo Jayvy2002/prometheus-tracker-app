@@ -41,3 +41,15 @@ test('reassurance is concise instead of repeated on every coach action', () => {
     assert.doesNotMatch(copy, new RegExp(repeated, 'i'), `repetitive reassurance returned: ${repeated}`);
   }
 });
+
+test('reminders stay factual and recipe controls are localized', () => {
+  const fr = locale('fr');
+  const en = locale('en');
+  const recipes = readFileSync(resolve(process.cwd(), 'src/components/nutrition/RecipesPage.tsx'), 'utf8');
+
+  assert.doesNotMatch(fr, /c’est l’assiduité qui manque|probablement du gras|Monte sur la balance|Bois un verre/);
+  assert.doesNotMatch(en, /consistency is what’s missing|likely fat|Step on the scale|Grab a glass/);
+  assert.doesNotMatch(recipes, />Delete Recipe<|>This action cannot be undone\.<|>Cancel<|>Delete</);
+  assert.match(recipes, /nutrition\.recipes\.deleteTitle/);
+  assert.match(recipes, /nutrition\.recipes\.servings/);
+});
