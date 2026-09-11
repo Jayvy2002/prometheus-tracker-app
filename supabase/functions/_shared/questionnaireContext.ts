@@ -1,3 +1,4 @@
+import { mapStandardQuestionnaireAnswers } from "./questionnaireStandard.ts";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.57.4";
 
 const record = (v: unknown): Record<string, unknown> =>
@@ -18,7 +19,7 @@ export function compactQuestionnaireContext(definition: unknown, answers: unknow
     for (const raw of (Array.isArray(questions) ? questions.slice(0, 100) : [])) {
       const q = record(raw);
       const id = clipped(q.id, 100);
-      if (!id.startsWith("custom_") || !Object.prototype.hasOwnProperty.call(a, id)) continue;
+      if (q.maps_to || !id.startsWith("custom_") || !Object.prototype.hasOwnProperty.call(a, id)) continue;
       const value = a[id];
       if (value === null || value === "" || (Array.isArray(value) && value.length === 0)) continue;
       let answer: unknown;
@@ -64,5 +65,8 @@ export async function fetchQuestionnaireContext(admin: SupabaseClient, coachId: 
   const version = await admin.from("coach_questionnaire_versions").select("definition")
     .eq("id", response.data.version_id).eq("coach_id", coachId).single();
   if (version.error) throw new Error("questionnaire_context_unavailable");
-  return compactQuestionnaireContext(version.data.definition, response.data.answers);
+  return {
+    ...compactQuestionnaireContext(version.data.definition, response.data.answers),
+    standard_answers: mapStandardQuestionnaireAnswers(version.data.definition, response.data.answers),
+  };
 }

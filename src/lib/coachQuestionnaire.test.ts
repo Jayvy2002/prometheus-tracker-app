@@ -40,7 +40,7 @@ test('imports reject unknown fields, silent mappings, types and malformed option
   assert.equal(parseCoachQuestionnaire(null).ok, false);
   assert.equal(parseCoachQuestionnaire({ ...fixture(), schemaVersion: 2 }).ok, false);
   const mapped = fixture();
-  Object.assign(mapped.sections[0].questions[0], { maps_to: 'nom' });
+  Object.assign(mapped.sections[0].questions[0], { maps_to: 'unknown_field' });
   assert.equal(parseCoachQuestionnaire(mapped).ok, false);
   for (const options of [[], [{ id: 'a', label }], [{ id: 'a', label }, { id: 'a', label }]]) {
     const data = fixture('single');
@@ -103,4 +103,26 @@ test('submission rejects invalid answers and revision guards version overflow', 
   assert.equal(snapshotQuestionnaireSubmission(fixture(), {}).ok, false);
   const previous = { ...fixture(), version: Number.MAX_SAFE_INTEGER };
   assert.equal(reviseCoachQuestionnaire(previous, previous).ok, false);
+});
+
+test('standard catalogue preserves the original labels and requires explicit compatible mappings', async () => {
+ const { STANDARD_QUESTIONS, mapStandardQuestionnaireAnswers }=await import('../../supabase/functions/_shared/questionnaireStandard');
+ const { ORIGINAL_LABELS_FR, ORIGINAL_LABELS_EN }=await import('./kinesiologyIntake');
+ assert.deepEqual(Object.keys(STANDARD_QUESTIONS),Object.keys(ORIGINAL_LABELS_FR));
+ for(const [id,q] of Object.entries(STANDARD_QUESTIONS)){
+  assert.equal(q.label.fr,ORIGINAL_LABELS_FR[id as keyof typeof ORIGINAL_LABELS_FR]);
+  assert.equal(q.label.en,ORIGINAL_LABELS_EN[id as keyof typeof ORIGINAL_LABELS_EN]);
+ }
+ const d=fixture();
+ d.sections[0].questions=structuredClone(Object.values(STANDARD_QUESTIONS));
+ assert.equal(parseCoachQuestionnaire(d).ok,true);
+ const mapped=mapStandardQuestionnaireAnswers(d,{nom:'Example',programmeStructure:false,lieu:'o0',equipement:['o0'],custom_secret:'unknown'});
+ assert.deepEqual(mapped,{nom:'Example',programmeStructure:'Non',lieu:'Domicile',equipement:['Haltères libres']});
+ assert.ok(!Object.hasOwn(mapped,'custom_secret'));
+ const invalid=structuredClone(d);
+ invalid.sections[0].questions.find(q=>q.id==='lieu')!.type='text';
+ assert.equal(parseCoachQuestionnaire(invalid).ok,false);
+ const duplicate=structuredClone(d);
+ duplicate.sections[0].questions.push({...duplicate.sections[0].questions[0],id:'custom_duplicate'});
+ assert.equal(parseCoachQuestionnaire(duplicate).ok,false);
 });

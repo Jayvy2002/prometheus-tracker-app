@@ -1,7 +1,7 @@
+import { STANDARD_QUESTIONS } from '../../supabase/functions/_shared/questionnaireStandard';
 /**
  * Custom questionnaire contract. No persistence or authorization lives here.
- * Standard intake fields remain owned by kinesiologyIntake; this first slice
- * deliberately cannot reinterpret them through a custom question.
+ * Standard mappings use the versioned shared catalogue; unmapped questions remain generic.
  */
 export const QUESTIONNAIRE_SCHEMA_VERSION = 1 as const;
 export const QUESTION_TYPES = ['text', 'number', 'single', 'multi', 'yes_no', 'weekdays'] as const;
@@ -15,6 +15,7 @@ export interface QuestionnaireQuestion {
   required: boolean;
   medical: boolean;
   options?: QuestionnaireOption[];
+  maps_to?: string;
 }
 export interface QuestionnaireSection {
   id: string;
@@ -64,6 +65,7 @@ export function parseCoachQuestionnaire(input: unknown): Result<CoachQuestionnai
   } else {
     const sectionIds = new Set<string>();
     const questionIds = new Set<string>();
+    const mappedIds = new Set<string>();
     let count = 0;
     input.sections.forEach((section, s) => {
       const path = 'sections.' + s;
@@ -79,9 +81,20 @@ export function parseCoachQuestionnaire(input: unknown): Result<CoachQuestionnai
       section.questions.forEach((q, n) => {
         const qp = path + '.questions.' + n;
         if (!object(q)) { issue(qp, 'object_required'); return; }
-        if (!only(q, ['id', 'label', 'type', 'required', 'medical', 'options'])) issue(qp, 'unknown_field');
-        // Namespaced custom IDs cannot masquerade as existing standard fields.
-        if (!identifier(q.id) || !q.id.startsWith('custom_') || questionIds.has(q.id)) issue(qp + '.id', 'invalid_or_duplicate_id');
+        if (!only(q, ['id', 'label', 'type', 'required', 'medical', 'options', 'maps_to'])) issue(qp, 'unknown_field');
+        const standard = typeof q.maps_to === 'string' && Object.prototype.hasOwnProperty.call(STANDARD_QUESTIONS,q.maps_to) ? STANDARD_QUESTIONS[q.maps_to] : undefined;
+        if (q.maps_to !== undefined) {
+          if (!standard || mappedIds.has(String(q.maps_to)) || q.type !== standard.type
+            || (standard.medical && q.medical !== true)) issue(qp+'.maps_to','invalid_mapping');
+          else {
+            mappedIds.add(String(q.maps_to));
+            if (standard.options && (!Array.isArray(q.options)
+              || q.options.length !== standard.options.length
+              || q.options.some((o,i)=>!object(o)||o.id!==standard.options![i].id))) issue(qp+'.options','invalid_standard_options');
+          }
+        }
+        // Custom IDs stay namespaced; standard IDs retain their explicit mapping.
+        if (!identifier(q.id) || (!q.id.startsWith('custom_') && (!standard || q.id !== q.maps_to)) || questionIds.has(q.id)) issue(qp + '.id', 'invalid_or_duplicate_id');
         else questionIds.add(q.id);
         if (!label(q.label)) issue(qp + '.label', 'bilingual_label_required');
         if (!QUESTION_TYPES.includes(q.type as QuestionType)) issue(qp + '.type', 'unknown_type');

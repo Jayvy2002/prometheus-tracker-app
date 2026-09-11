@@ -1199,7 +1199,7 @@ export async function runCoachAgent(
   // The raw jsonb never goes to the LLM as-is: it is compacted into `intake` below.
   const { kinesiology_intake: rawIntake, ...profileFields } = rawProfile ?? {};
   const profile = rawProfile ? profileFields : null;
-  const intake = compactIntake(rawIntake);
+  const intake = compactIntake({ ...asObject(rawIntake), ...questionnaireContext?.standard_answers });
 
   const userPayload = {
     kind,
