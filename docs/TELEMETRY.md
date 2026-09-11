@@ -25,7 +25,7 @@ Aucune lecture cliente. Lecture : SQL editor / service role (admin produit).
 |---|---|---|
 | `screen_view` | `screen` | navigation réelle |
 | `account_created` | `door`, `from_invite` | acquisition (portes coach/solo/invité) |
-| `intake_completed` | `revisit`, `targets_computed` | fin de questionnaire (AUCUN contenu d'intake, AUCUN signal santé) |
+| `intake_completed` | `revisit`, `targets_computed`, `questionnaire_id`, `questionnaire_version` (ces deux derniers uniquement pour un questionnaire coach) | fin de questionnaire (AUCUN contenu d'intake, AUCUN signal santé) |
 | `invite_created` | `days`, `max_uses` | invitations coach |
 | `invite_accepted` | — | activation coaché |
 | `intervention_resolved` | `kind`, `source`, `status`, `edited` | boucle coach (propose → valide) |
