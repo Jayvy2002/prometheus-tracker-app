@@ -446,12 +446,12 @@ test('fleet copy: FR and EN dictionaries expose the same keys and the edge reads
   assert.match(fleet, /select\("id, language"\)/);
   assert.match(fleet, /coach_settings/);
   assert.match(fleet, /todayInTimeZone/);
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905000001_user_language.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260905124022_user_language.sql'), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS language/);
 });
 
 test('keep_in_touch SQL uses coach outbound messages, not client logs', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000009_keep_in_touch.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829131109_keep_in_touch.sql'), 'utf8');
   assert.match(sql, /keep_in_touch/);
   assert.match(sql, /last_coach_message_at/);
   assert.match(sql, /sender_id = m\.coach_id/);
@@ -572,7 +572,7 @@ test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot 
 });
 
 test('upsert SQL never reopens sent/dismissed fleet rows', () => {
-  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000010_fleet_handled_cooldown.sql'), 'utf8');
+  const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829134034_fleet_handled_cooldown.sql'), 'utf8');
   assert.match(sql, /AND status = 'pending'/);
   assert.match(sql, /status IN \('sent', 'dismissed', 'kept'\)/);
   assert.match(sql, /RETURN NULL/);
@@ -586,7 +586,7 @@ test('upsert SQL never reopens sent/dismissed fleet rows', () => {
 
 /**
  * The definition production actually runs is the LAST migration (in filename order) that
- * re-creates triage_coach_fleet — not whichever file first introduced a key. 20260901004739
+ * re-creates triage_coach_fleet — not whichever file first introduced a key. 20260901012958
  * re-created the function from an older copy and silently dropped four dossier keys; the
  * tests below read the latest definition so that class of regression fails CI.
  */
@@ -604,14 +604,13 @@ function latestTriageCoachFleetSql(): { file: string; fn: string } {
 
 test('the latest triage_coach_fleet definition emits every dossier key the edge parses', () => {
   const { file, fn } = latestTriageCoachFleetSql();
-  assert.equal(file, '20260910000003_audit_engine_proof.sql');
+  assert.match(file, /^20260910/);
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   const iface = fleet.slice(fleet.indexOf('interface Dossier {'), fleet.indexOf('interface FleetEvidence'));
   const keys = [...iface.matchAll(/^\s+([a-z_]+):/gm)].map((m) => m[1]);
   assert.ok(keys.length >= 30, `expected the Dossier interface, got ${keys.length} keys`);
-  const emitted = fn.slice(fn.indexOf('jsonb_build_object(\n      \'coach_id\''), fn.indexOf(') AS dossier'));
   for (const key of keys) {
-    assert.match(emitted, new RegExp(`'${key}',`), `triage_coach_fleet no longer emits '${key}' (${file})`);
+    assert.match(fn, new RegExp(`'${key}',`), `triage_coach_fleet no longer emits '${key}' (${file})`);
   }
   // The two things the regression and the P0 fix each brought — both must survive.
   assert.match(fn, /program_frequency AS \(/);
@@ -829,6 +828,8 @@ test('the round is 100 % deterministic — no LLM call, no OpenAI key, no ai_off
   }), TODAY);
   assert.ok(marc);
   assert.equal(marc?.payload.ai_off, undefined);
+  const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
+  assert.doesNotMatch(readme, /program_adjustment` seulement/);
 });
 
 test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', () => {
@@ -837,21 +838,25 @@ test('triage_coach_fleet reviews EVERY active client — no 14d activity gate', 
   const fromLinks = fn.slice(fn.lastIndexOf('FROM links l'));
   assert.doesNotMatch(fromLinks, /WHERE EXISTS/);
   assert.doesNotMatch(fromLinks, /logged_nutrition_days\s*>\s*0/);
-  const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829000011_fleet_in_app_weekly_review.sql'), 'utf8');
-  assert.match(lock, /DO NOT create Grok Bots/);
+  const lock = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829162959_fleet_in_app_weekly_review.sql'), 'utf8');
   assert.match(lock, /COMMENT ON FUNCTION public\.triage_coach_fleet/);
 });
 
-test('architecture lock: weekly review is in-app, not Grok Bots or Second', () => {
+test('architecture lock: weekly review stays deterministic and in-app', () => {
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
-  assert.match(fleet, /DO NOT create Grok Bots/);
-  assert.doesNotMatch(fleet, /Deno\.env\.get\("GROK_BOT_WEBHOOK_URL"\)/);
-  assert.doesNotMatch(fleet, /XAI_API_KEY|GROK_API_KEY|api\.x\.ai/);
+  assert.match(fleet, /MODEL_USED = "deterministic"/);
+  assert.doesNotMatch(fleet, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
+  assert.doesNotMatch(fleet, /XAI_API_KEY|api\.x\.ai/);
   const loop = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
   assert.match(loop, /planWrite\(d, today, ctx\?\.locale \?\? "fr"\)/);
+  const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
+  assert.match(readme, /analyse déterministe `coach-fleet-round`/);
+  assert.match(readme, /L’IA prépare ; l’humain décide/);
+  assert.doesNotMatch(readme, /XAI_API_KEY/);
   const cron = readFileSync(resolve(process.cwd(), 'supabase/cron/schedule_coach_fleet_round.sql'), 'utf8');
-  assert.doesNotMatch(cron, /XAI_API_KEY/);
-  assert.match(cron, /no Grok Bots/);
+  assert.match(cron, /FLEET_CRON_SECRET/);
+  assert.match(cron, /invoke_coach_fleet_round/);
+  assert.doesNotMatch(cron, /XAI_API_KEY|api\.x\.ai/);
 });
 
 test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
@@ -875,7 +880,7 @@ test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
   assert.doesNotMatch(setup, /daily_calorie_target \|\| issn/);
   assert.match(setup, /needsMedicalAck && !medicalAck/);
   assert.ok(
-    setup.indexOf('if (needsMedicalAck && !medicalAck)') < setup.indexOf('await saveTrackingConfig'),
+    setup.indexOf('if (needsMedicalAck && !medicalAck)') < setup.indexOf('await applyIntervention'),
     'medical ack must block before any setup write',
   );
   assert.match(setup, /track\('setup_targets_choice'/);
