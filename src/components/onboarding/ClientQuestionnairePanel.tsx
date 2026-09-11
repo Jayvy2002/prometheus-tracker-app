@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { getQuestionnaireVersion, listQuestionnaireResponses, saveQuestionnaireResponse, type QuestionnaireResponse } from '../../lib/coachQuestionnaireApi';
@@ -68,7 +68,7 @@ function ResponseForm({initial,readOnly,onCompleted}:{initial:QuestionnaireRespo
   </>}
  </section>;
 }
-export default function ClientQuestionnairePanel({clientId,responseId,onCompleted}:{clientId?:string;responseId?:string;onCompleted?:()=>void}) {
+export default function ClientQuestionnairePanel({clientId,responseId,onCompleted,emptyFallback}:{clientId?:string;responseId?:string;onCompleted?:()=>void;emptyFallback?:ReactNode}) {
  const {user}=useAuthStore();
  const myCoach=useCoachingStore(s=>s.myCoach);
  const {t}=useTranslation();
@@ -86,6 +86,7 @@ export default function ClientQuestionnairePanel({clientId,responseId,onComplete
    .finally(()=>{if(active)setLoading(false);});
   return()=>{active=false;};
  },[owner,user?.id,t,retry]);
+ if(!loading&&!error&&!responses.length&&emptyFallback!==undefined)return <>{emptyFallback}</>;
  return <div className="space-y-4">
   <h1 className="text-xl font-semibold">{t('coachQuestionnaire.title')}</h1>
   {loading&&<p role="status">{t('common.loading')}</p>}

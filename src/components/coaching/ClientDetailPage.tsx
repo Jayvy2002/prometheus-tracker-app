@@ -682,13 +682,15 @@ export default function ClientDetailPage() {
               <>
                 <MedicalFlagsCard raw={clientProfile?.kinesiology_intake} />
                 <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
-                {id && <ClientQuestionnairePanel key={id} clientId={id}/>} 
               </>
-            ) : (
-              <Card className="border-amber-500/20">
-                <p className="text-sm text-amber-200">{t('intake.waiting')}</p>
-              </Card>
-            )}
+            ) : null}
+            {id && <ClientQuestionnairePanel key={id} clientId={id} emptyFallback={
+              isIntakeAlreadyFilled(clientProfile) ? null : (
+                <Card className="border-amber-500/20">
+                  <p className="text-sm text-amber-200">{t('intake.waiting')}</p>
+                </Card>
+              )
+            }/>}
 
             {showInsight && insight ? (
               <Card>
