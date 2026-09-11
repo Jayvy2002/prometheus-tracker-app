@@ -6,6 +6,7 @@ const fr = {
     deleting: 'Suppression…',
     back: 'Retour',
     close: 'Fermer',
+    undo: 'Annuler',
     edit: 'Modifier',
     add: 'Ajouter',
     create: 'Créer',
