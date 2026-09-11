@@ -174,5 +174,19 @@ do $$ begin
  if (select count(*) from public.coach_questionnaire_versions)<>1 then raise exception 'athlete lost definition'; end if;
 end $$;
 reset role;
+-- Account deletion must not be blocked by the new references.
+-- Coach identity becomes a tombstone; the athlete retains their historical definition.
+delete from auth.users where id='a1740000-0000-4000-8000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000003',true);
+do $$ begin
+ if (select count(*) from public.client_questionnaire_responses where coach_id is null)<>1 then raise exception 'coach deletion destroyed athlete history'; end if;
+ if (select count(*) from public.coach_questionnaire_versions)<>1 then raise exception 'historical definition lost after coach deletion'; end if;
+end $$;
+reset role;
+delete from auth.users where id='a1740000-0000-4000-8000-000000000003';
+do $$ begin
+ if exists(select 1 from public.client_questionnaire_responses) then raise exception 'client deletion retained answers'; end if;
+end $$;
 rollback;
 \echo 'questionnaire database checks: storage and invitation lifecycle passed'

@@ -2,7 +2,7 @@
 -- Definition/answer validation and invitations must be completed before release.
 create table public.coach_questionnaire_versions (
   id uuid primary key default gen_random_uuid(),
-  coach_id uuid not null references auth.users(id),
+  coach_id uuid references auth.users(id) on delete set null,
   questionnaire_id uuid not null,
   version integer not null check (version > 0),
   definition jsonb not null check (jsonb_typeof(definition) = 'object' and octet_length(definition::text) <= 262144),
@@ -103,12 +103,12 @@ grant execute on function public.questionnaire_definition_valid(jsonb) to authen
 alter table public.coach_questionnaire_versions add constraint questionnaire_definition_contract check (
  public.questionnaire_definition_valid(definition)
  and (definition->>'id') is not distinct from questionnaire_id::text
- and (definition->>'coachId') is not distinct from coach_id::text
+ and (coach_id is null or (definition->>'coachId') is not distinct from coach_id::text)
  and (definition->>'version') is not distinct from version::text
 );
 
 create table public.coach_questionnaire_defaults (
- coach_id uuid primary key references auth.users(id),
+ coach_id uuid primary key references auth.users(id) on delete cascade,
  version_id uuid not null references public.coach_questionnaire_versions(id)
 );
 alter table public.coach_questionnaire_defaults enable row level security;
@@ -146,8 +146,8 @@ create table public.client_questionnaire_responses (
  id uuid primary key default gen_random_uuid(),
  invite_id uuid references public.coach_invites(id) on delete set null,
  version_id uuid not null references public.coach_questionnaire_versions(id),
- coach_id uuid not null references auth.users(id),
- client_id uuid not null references auth.users(id),
+ coach_id uuid references auth.users(id) on delete set null,
+ client_id uuid not null references auth.users(id) on delete cascade,
  answers jsonb not null default '{}' check(jsonb_typeof(answers)='object' and octet_length(answers::text)<=1048576),
  revision integer not null default 0,
  completed_at timestamptz,

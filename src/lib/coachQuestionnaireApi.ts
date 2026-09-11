@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { parseCoachQuestionnaire, type CoachQuestionnaire, type QuestionnaireAnswer } from './coachQuestionnaire';
 export interface QuestionnaireVersion { id: string; definition: CoachQuestionnaire }
 export interface QuestionnaireResponse {
- id: string; version_id: string; client_id: string; coach_id: string;
+ id: string; version_id: string; client_id: string; coach_id: string | null;
  answers: Record<string, QuestionnaireAnswer>; revision: number; completed_at: string | null;
 }
 function version(row: { id: string; definition: unknown }): QuestionnaireVersion {
