@@ -14,7 +14,7 @@ Prometheus sert trois profils :
 - **Client coaché** : exécute son programme et utilise les modules activés par son coach.
 - **Solo** : utilise le tracker complet et valide lui-même les propositions du copilote.
 
-Principe central : **l’IA prépare ; l’humain décide**. Une adaptation n’est jamais appliquée silencieusement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
+Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’est jamais appliquée silencieusement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
 
 ## Fonctionnalités principales
 
