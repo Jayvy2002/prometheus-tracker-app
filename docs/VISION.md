@@ -1,165 +1,147 @@
 # Vision produit — Prometheus
 
-**Source de vérité produit — mise à jour le 10 septembre 2026.**
+> **RÔLE DE CE DOCUMENT — DESTINATION PRODUIT DURABLE**
+>
+> Ce document définit ce que Prometheus veut devenir, pour qui le produit existe, quelle expérience il doit offrir et quels principes ne doivent pas être compromis.
+>
+> **Instruction pour les agents :** ne pas transformer cette vision en inventaire du code, backlog, journal de PR, état de production ou plan d’implémentation. Une fonctionnalité décrite ici peut représenter la destination finale sans être encore livrée. Tout travail restant appartient à `docs/CHANTIER.md` ; l’état et l’usage actuels du dépôt appartiennent au `README.md` et aux sources techniques.
 
-Prometheus est une plateforme de coaching intelligent pour l’entraînement de force et de physique : musculation, bodybuilding et powerlifting, en français et en anglais.
+## Promesse
+
+Prometheus est une plateforme de coaching intelligent pour la musculation, le bodybuilding et le powerlifting, disponible en français et en anglais.
 
 > Prometheus comprend l’athlète, construit son plan, observe son évolution et prépare les prochaines décisions.
 >
 > En solo, l’athlète valide. Avec un coach, Prometheus prépare et le coach valide.
 
-L’ordre de construction est dans `docs/CHANTIER.md`.
+Prometheus relie trois capacités :
 
-## Positionnement
+1. **Comprendre** : rassembler les objectifs, préférences, contraintes et informations de suivi utiles.
+2. **Construire** : produire un programme cohérent, compréhensible et modifiable.
+3. **Adapter** : repérer les changements, expliquer une proposition et laisser la personne responsable décider.
 
-Prometheus n’est pas un simple journal d’entraînement ni un générateur ponctuel de programmes. Le produit relie trois capacités :
-
-1. **Comprendre** : questionnaire, profil et historique de suivi.
-2. **Construire** : programme et cibles cohérents avec les contraintes de l’athlète.
-3. **Adapter** : détecter les changements, expliquer une proposition et laisser l’humain décider.
-
-Le marché initial est la musculation, le bodybuilding et le powerlifting. Les autres disciplines pourront être étudiées plus tard afin d’éviter de disperser le produit.
+Le produit vise d’abord les coachs et pratiquants de musculation, bodybuilding et powerlifting. Son avantage recherché est un suivi individualisé plus simple à utiliser, soutenu par l’IA et contrôlé par l’humain.
 
 ## Les trois rôles
 
 | | Coach | Client coaché | Solo |
 |---|---|---|---|
-| Entrée | Inscription libre | Invitation ou future demande acceptée | Inscription libre |
-| Accueil | Command Center et file du jour | Séance, check-in, messages et modules suivis | Tracker complet et revue hebdomadaire |
-| Programme | Crée et assigne | Exécute le programme assigné | Crée ou valide une proposition |
-| Nutrition | Décide pour ses clients | Consulte ses cibles | Ajuste ou valide ses cibles |
-| Copilote | Prépare des brouillons et priorités | Son coach reçoit les propositions | Prépare les propositions pour l’athlète |
-| Autorité finale | Coach | Coach pour le plan de coaching | Athlète |
+| Entrée | Inscription et configuration de son activité | Invitation ou demande de coaching acceptée | Inscription libre |
+| Accueil | Clients à traiter et prochaine décision utile | Prochaine action, programme, échanges et suivi convenu | Prochaine action, programme et outils personnels |
+| Programme | Construit, adapte, assigne et publie | Consulte et exécute le programme assigné | Construit ou valide une proposition |
+| Suivi | Choisit avec le client les informations utiles | Partage les informations convenues | Choisit ses propres outils |
+| Copilote | Prépare analyses, brouillons et propositions | Le coach reste responsable des décisions | Prépare des propositions pour l’athlète |
+| Autorité finale | Coach pour le service qu’il fournit | Coach pour le plan de coaching ; client pour ses saisies et choix personnels | Athlète |
 
-Un compte conserve son historique lorsqu’il passe de solo à coaché ou revient au mode solo.
+Un compte conserve son histoire personnelle lorsqu’il passe de solo à coaché, change de coach ou revient au mode solo.
+
+## Expérience recherchée
+
+### Pour le coach
+
+Prometheus doit lui permettre de suivre davantage de clients sans rendre la prise en charge impersonnelle. Il voit ce qui demande son attention, comprend pourquoi, consulte le contexte nécessaire, prend une décision et passe au client suivant sans perdre le fil.
+
+Les informations détaillées restent disponibles, mais l’interface met d’abord en avant ce qui a changé, la prochaine action et l’effet de la décision envisagée.
+
+### Pour le client coaché
+
+Prometheus doit rendre son accompagnement clair. Le client sait ce qui lui est demandé, pourquoi cette information est utile, ce que son coach a reçu et ce qui change à la suite de leurs échanges.
+
+L’application soutient la relation avec le coach. Elle ne crée pas d’obligations, de rappels ou de conclusions en dehors du suivi réellement convenu.
+
+### Pour le solo
+
+Prometheus doit être un produit complet. Le solo trouve son programme, comprend les consignes, enregistre son activité, retrouve son historique et demande une adaptation sans devoir maîtriser l’organisation interne de la plateforme.
+
+Le copilote l’aide à décider. Les fonctions avancées restent disponibles au moment utile et ne transforment pas le démarrage en configuration interminable.
 
 ## Principes produit
 
+### Chaque fonctionnalité doit rendre un service identifiable
+
+Une information n’est demandée que si elle permet une action, une décision ou une restitution utile. Ajouter des écrans, des alertes ou des indicateurs sans bénéfice observable augmente la friction et ne constitue pas une amélioration.
+
 ### L’IA prépare, l’humain décide
 
-Toute proposition présente le changement, sa justification et les actions accepter, modifier ou refuser. Aucune adaptation ne s’applique automatiquement.
+Toute proposition présente le changement, sa justification, sa cible, sa date d’effet et les actions accepter, modifier ou refuser. Elle ne s’applique jamais automatiquement.
+
+Une réponse informative, un brouillon, une modification de programme et un message sont des effets distincts. L’interface indique précisément lesquels seront exécutés.
 
 ### Le programme reste vivant
 
-Le plan peut évoluer à la suite d’un changement de disponibilité, d’objectif, de préférence ou de contrainte. Les modifications sont résolues par identifiant, prévisualisées puis enregistrées comme révision. L’historique ne doit pas être écrasé.
+Le plan évolue avec les disponibilités, objectifs, préférences et contraintes de l’athlète. Les changements sont prévisualisés et enregistrés comme révisions. L’utilisateur distingue le brouillon, la version enregistrée et la version active.
 
-### Le suivi doit être individualisé
+Une modification future ne réinterprète pas silencieusement les séances déjà réalisées.
 
-Le coach choisit les modules suivis pour chaque client. Un module désactivé ne produit ni rappel, ni reproche, ni conclusion d’adhérence.
+### Le suivi est individualisé et proportionné
 
-L’analyse hebdomadaire utilise une fenêtre cohérente, les cibles réellement applicables aux dates observées et les signaux déclarés. Un manque de suivi conduit d’abord à une relance, pas à une modification automatique des objectifs.
+Le coach et son client choisissent les modules utiles. Le solo choisit ses propres outils. Un module désactivé ne produit ni rappel, ni reproche, ni conclusion.
 
-### Les transitions de rôle sont réversibles
+Un manque de saisie ne prouve ni une difficulté ni un défaut d’engagement. L’application distingue ce qui est déclaré, ce qui est observé et ce qui manque.
 
-Un client peut avoir un seul coach actif. À la fin d’une relation :
+### Les actions et leur état restent compréhensibles
 
-- le rôle coaché prend fin ;
+L’utilisateur sait ce qui est conservé sur son appareil, enregistré, synchronisé, partagé ou encore en brouillon. Une réussite affichée correspond à une écriture réelle. Une erreur conserve le travail et propose une reprise.
+
+Les libellés envoyé, reçu, examiné, publié et actif ne sont utilisés que lorsque l’application peut prouver l’état correspondant.
+
+### Les transitions de rôle sont continues et réversibles
+
+Un client a au maximum un coach actif. À la fin d’une relation :
+
+- le lien de coaching prend fin ;
 - le suivi configuré par le coach est retiré ;
 - le programme assigné est mis en pause ;
-- les données personnelles et les cibles restent disponibles ;
-- le compte repasse en mode solo.
+- les données personnelles et l’historique permis restent disponibles ;
+- le compte revient au mode solo.
 
-Le futur parcours de changement de coach doit préserver les données de l’athlète sans transférer les notes privées de l’ancien coach.
+Un changement de coach protège les notes privées de l’ancien coach et rend explicite ce qui sera partagé avec le nouveau.
 
 ### Le bilingue est natif
 
 Les parcours, messages et propositions existent en français et en anglais. La langue de l’utilisateur détermine l’affichage et la langue des brouillons.
 
-### La confiance passe avant l’automatisation
+### La confidentialité est visible
 
-Une action réussie à l’écran doit être réellement persistée. Les erreurs sont visibles, les opérations importantes sont atomiques et les actions rejouées sont idempotentes. La mauvaise connexion ne doit pas faire perdre une séance.
+Les accès suivent la relation coach-client et les règles de la base. Pour une information sensible, l’utilisateur comprend pourquoi elle est demandée, qui la verra et ce qui se passe s’il choisit de ne pas la fournir.
 
-### La confidentialité est intégrée
+La télémétrie mesure l’utilité des parcours sans enregistrer les réponses sensibles, textes libres, messages ou photos.
 
-Les accès sont limités par la relation coach-client et par RLS. La télémétrie n’enregistre ni texte libre, ni réponse au questionnaire, ni signal médical, ni contenu de message.
+### L’accessibilité fait partie du fonctionnement
 
-## Capacités livrées
+Les parcours essentiels doivent rester utilisables sur téléphone, avec le clavier, un lecteur d’écran, du texte agrandi et un réseau contraint. Une action inaccessible est une fonctionnalité incomplète.
 
-### Socle athlète
+### L’utilité se mesure par la tâche accomplie
 
-- séances, routines, progression, statistiques et calendrier ;
-- nutrition, recherche d’aliments, scanner, recettes, eau et poids ;
-- check-ins et photos ;
-- reprise hors ligne des séances ;
-- questionnaire initial et reprise du brouillon.
-
-### Coaching
-
-- invitations et roster ;
-- fiche client 360 ;
-- configuration des modules suivis et des cibles ;
-- programmes, assignations et révisions ;
-- messages, notes et propositions d’intervention ;
-- fin de relation avec retour solo ;
-- séparation entre clients actifs et archives.
-
-### Moteur intelligent
-
-- proposition de programme initial ;
-- modifications de programme en langage naturel ;
-- revue hebdomadaire solo ;
-- analyse déterministe du roster coach ;
-- brouillons d’intervention ;
-- validation des sorties avant leur présentation ;
-- aucun plan complet simulé lorsque le modèle échoue.
-
-### Fiabilité et sécurité
-
-- isolation des comptes et des coachs ;
-- RLS testée par matrice ;
-- sauvegardes de programmes atomiques ;
-- interventions et messages idempotents ;
-- fichiers validés ;
-- temps réel sur la fiche client ;
-- chargement initial réduit ;
-- accessibilité de base ;
-- rappels quotidiens planifiés.
-
-## État actuel et écarts
-
-| Sujet | État |
-|---|---|
-| Coach, client coaché et solo | Livré |
-| Boucles programme et nutrition avec validation humaine | Livré |
-| Copilote coach et solo | Livré |
-| Recherche aliments/exercices et portions | Livré |
-| Sécurité, RLS, atomicité et reprise hors ligne | Auditée et testée |
-| Questionnaire standard versionné | Fondations livrées |
-| Builder de questionnaire par coach | À construire |
-| Départ autonome, annuaire et changement de coach | À construire |
-| Historique visuel de cycles/blocs | À construire |
-| Billing et règles d’essai | À décider puis construire |
+Le succès du produit ne se résume pas au temps passé dans l’application. Prometheus mesure si une personne parvient à comprendre, agir, reprendre après une interruption et corriger une erreur.
 
 ## Modèle commercial cible
 
-- Le solo paiera un abonnement Prometheus.
-- Le coach paiera selon une formule adaptée au nombre de clients.
-- Le client coaché sera inclus dans l’abonnement de son coach.
-- Un solo qui rejoint un coach ne doit pas payer deux fois.
+- Le solo paie un abonnement Prometheus.
+- Le coach paie selon une formule adaptée à son activité et à son nombre de clients.
+- Le client coaché est inclus dans l’abonnement de son coach.
+- Un solo qui rejoint un coach ne paie pas deux fois pour la même période.
 
-Le produit reste gratuit pendant sa construction. Les prix, paliers, essais et taxes doivent être décidés avant d’activer le billing.
+Avant tout engagement, les limites, la fréquence de facturation, la date d’effet et les conséquences d’un changement doivent être compréhensibles. L’accès aux données et la continuité des parcours restent prévisibles lorsqu’un paiement ou une formule change.
 
-## Production
-
-- Branche : `new-JV`.
-- Frontend : Netlify sur `tracker.prometheus-fit.com`.
-- Backend : Supabase `phyuijjekxtjvipjtdfv`.
-- Audit #68 mergé ; CI et matrice RLS vertes.
-- `coach-fleet-round` v32 et `coach-agent` v26 actifs.
-- Cron de rappels actif.
-- Migrations alignées sur 98 versions, dernière `20260910160000`.
-
-Les versions live détaillées sont dans `supabase/functions.deployed.lock.json`. Les priorités sont dans `docs/CHANTIER.md`.
+Les prix, paliers, essais et règles exactes sont des décisions de chantier, pas des éléments de cette vision durable.
 
 ## Invariants
 
 - Un seul coach actif par client.
 - L’IA ne s’auto-applique jamais.
-- Un client coaché ne modifie pas directement les cibles gérées par son coach.
+- Un client coaché ne modifie pas directement les éléments gérés par son coach.
 - Un coach ne peut agir que sur ses propres clients.
 - Le mode solo reste un produit complet.
-- Les données personnelles suivent l’athlète lors des transitions.
-- RLS sur les tables exposées et tests pour les écritures privilégiées.
-- FR et EN pour toute interface utilisateur.
-- Les migrations appliquées sont immuables.
+- Les données personnelles suivent l’athlète lors des transitions autorisées.
+- Les notes privées d’un coach ne sont pas transmises à un autre coach.
+- Une séance partielle reste une séance partielle ; les données prévues ne deviennent pas des réalisations.
+- Une action indique son destinataire et ses effets avant validation.
+- Une erreur ne transforme pas silencieusement un écran en état vide ou en nouveau document.
+- Les tables exposées sont protégées et les écritures privilégiées sont testées.
+- Le français et l’anglais couvrent toute l’interface.
+- Les migrations appliquées restent immuables.
 - Les erreurs importantes sont visibles et récupérables.
+- Les fonctionnalités facultatives ou sensibles ne bloquent pas les parcours essentiels.
+
+L’ordre d’implémentation, les décisions ouvertes et les critères de fin se trouvent uniquement dans `docs/CHANTIER.md`.

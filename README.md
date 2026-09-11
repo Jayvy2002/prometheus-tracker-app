@@ -1,6 +1,12 @@
 # Prometheus
 
-Plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais.
+> **RÔLE DE CE DOCUMENT — PORTE D’ENTRÉE DU DÉPÔT**
+>
+> Ce README explique ce qu’est Prometheus aujourd’hui, comment le projet est organisé et comment le lancer, le vérifier et le déployer.
+>
+> **Instruction pour les agents :** conserver ce document court, factuel et à jour. Ne pas y placer la feuille de route, des idées futures, un journal de chantier, des numéros de PR ou des versions live recopiées. La direction produit appartient à `docs/VISION.md`, tout ce qui reste à faire à `docs/CHANTIER.md`, et les états techniques détaillés à leurs fichiers de référence.
+
+Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais.
 
 Prometheus sert trois profils :
 
@@ -8,17 +14,7 @@ Prometheus sert trois profils :
 - **Client coaché** : exécute son programme et utilise les modules activés par son coach.
 - **Solo** : utilise le tracker complet et valide lui-même les propositions du copilote.
 
-L’IA prépare ; l’humain décide. Aucune adaptation de programme ou de nutrition ne s’applique silencieusement.
-
-## Documentation
-
-- Règles de travail pour les agents et développeurs : [`CLAUDE.md`](CLAUDE.md)
-- Vision et rôles : [`docs/VISION.md`](docs/VISION.md)
-- Priorités : [`docs/CHANTIER.md`](docs/CHANTIER.md)
-- Migrations : [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md)
-- Télémétrie : [`docs/TELEMETRY.md`](docs/TELEMETRY.md)
-
-`new-JV` est la branche de production. Un merge sur cette branche déclenche le déploiement Netlify de [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com). `main` correspond à l’ancienne application et ne doit pas recevoir les développements actuels.
+Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’est jamais appliquée silencieusement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
 
 ## Fonctionnalités principales
 
@@ -28,7 +24,7 @@ L’IA prépare ; l’humain décide. Aucune adaptation de programme ou de nutri
 - Invitations et fiche client 360.
 - Configuration du suivi et des cibles.
 - Création, copie, versionnage et assignation des programmes.
-- Messages et propositions d’intervention.
+- Messages, notes et propositions d’intervention.
 - Copilote `coach-agent` et analyse déterministe `coach-fleet-round`.
 
 ### Client coaché
@@ -36,20 +32,71 @@ L’IA prépare ; l’humain décide. Aucune adaptation de programme ou de nutri
 - Séance du jour et programme assigné.
 - Check-ins, messages et photos.
 - Modules de suivi sélectionnés par le coach.
-- Cibles nutritionnelles en lecture seule.
-- Retour automatique au mode solo lorsque le coaching prend fin.
+- Cibles gérées dans le cadre de la relation de coaching.
+- Continuité des données lors du retour au mode solo.
 
 ### Solo
 
-- Séances, routines, nutrition, scanner, recettes, poids, statistiques et calendrier.
-- File hors ligne durable pour les séances.
+- Séances, routines, progression, statistiques et calendrier.
+- Nutrition, recherche d’aliments, scanner et recettes.
 - Questionnaire initial, cibles et proposition de programme.
-- Revue hebdomadaire et modifications de programme proposées par le copilote.
+- Revue et modifications proposées par le copilote.
+- Reprise hors ligne des séances.
+
+## Architecture fonctionnelle
+
+Le frontend React affiche les parcours des trois rôles. Supabase fournit l’authentification, PostgreSQL, les règles d’accès, le stockage, le temps réel et les Edge Functions. Les fonctions intelligentes préparent des propositions ; leur validation et leurs effets restent explicites dans l’interface.
+
+```text
+Utilisateur
+   ↓
+Application React / PWA
+   ↓
+Supabase Auth + PostgreSQL + Storage + Realtime
+   ↓
+Edge Functions et copilote
+   ↓
+Proposition visible → validation humaine → écriture persistée
+```
+
+## Organisation du dépôt
+
+```text
+src/
+├── App.tsx                         Routes et gardes de rôle
+├── components/
+│   ├── coaching/                   Console coach, fiche client et messages
+│   ├── programs/                   Programmes coach, coaché et solo
+│   ├── dashboard/                  Accueils et revues
+│   ├── onboarding/                 Questionnaire et reprise
+│   └── workout|nutrition|checkin/  Outils de suivi
+├── stores/                         État Zustand par domaine
+├── lib/                            Logique partagée, contrats et tests
+└── i18n/locales/{fr,en}.ts         Textes visibles
+
+supabase/
+├── migrations/                     Historique de base immuable
+├── cron/                           Tâches planifiées
+└── functions/                      Edge Functions métier et IA
+```
+
+## Documentation
+
+| Besoin | Source |
+|---|---|
+| Règles obligatoires pour les agents et développeurs | [`CLAUDE.md`](CLAUDE.md) |
+| Destination, rôles et principes produit | [`docs/VISION.md`](docs/VISION.md) |
+| Ordre des travaux et tout ce qui reste à faire | [`docs/CHANTIER.md`](docs/CHANTIER.md) |
+| Procédure et historique des migrations | [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) |
+| Télémétrie autorisée | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) |
+| État déployé des Edge Functions | [`supabase/functions.deployed.lock.json`](supabase/functions.deployed.lock.json) |
+
+En cas de contradiction, `CLAUDE.md` définit les règles de travail, `docs/VISION.md` définit la décision produit et `docs/CHANTIER.md` définit ce qui reste à faire.
 
 ## Stack
 
-- React 18, TypeScript 5.5, Vite 5.
-- React Router, Zustand, Tailwind CSS.
+- React 18, TypeScript 5.5 et Vite 5.
+- React Router, Zustand et Tailwind CSS.
 - Supabase : PostgreSQL, Auth, Storage, Realtime et Edge Functions.
 - i18next pour le français et l’anglais.
 - PWA avec Service Worker.
@@ -92,7 +139,7 @@ npm run verify:edges
 npm run verify:migrations
 ```
 
-Les changements de policies RLS ou de RPC sensibles doivent aussi passer la matrice :
+Les changements de policies RLS ou de RPC sensibles doivent aussi passer :
 
 ```bash
 npm run test:rls
@@ -100,46 +147,33 @@ npm run test:rls
 
 ## Déploiement
 
-### Frontend
-
-Netlify construit automatiquement `new-JV`. Les pull requests reçoivent une preview.
+`new-JV` est la branche de production du frontend. Un merge sur cette branche déclenche le déploiement Netlify de [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com). `main` correspond à l’ancienne application et ne reçoit pas les développements actuels.
 
 ### Base de données
 
-Les migrations sont dans `supabase/migrations/`. Lire `docs/MIGRATIONS.md` avant toute modification. Une migration appliquée ne doit jamais être réécrite ou rejouée.
+Les migrations sont dans `supabase/migrations/`. Lire `docs/MIGRATIONS.md` avant toute modification. Une migration appliquée ne doit jamais être réécrite.
 
 ### Edge Functions
 
-La configuration JWT de chaque fonction est dans `supabase/config.toml`. L’état live connu est enregistré dans `supabase/functions.deployed.lock.json`.
+La configuration JWT est dans `supabase/config.toml`. L’état live connu est enregistré dans `supabase/functions.deployed.lock.json`.
 
-Le canal normal de déploiement depuis Git est la CLI Supabase, à partir de la racine du dépôt, afin de résoudre correctement les dépendances partagées :
+Le canal normal de déploiement depuis Git est la CLI Supabase depuis la racine du dépôt afin de résoudre les dépendances partagées :
 
 ```bash
 supabase functions deploy coach-fleet-round --project-ref phyuijjekxtjvipjtdfv --no-verify-jwt
 supabase functions deploy coach-agent --project-ref phyuijjekxtjvipjtdfv
 ```
 
-Les secrets serveur sont configurés dans Supabase Edge Function Secrets et ne doivent jamais être ajoutés au dépôt.
-
-### État live vérifié le 10 septembre 2026
-
-- `coach-fleet-round` v32 : `ACTIVE`.
-- `coach-agent` v26 : `ACTIVE`, JWT activé, CORS opérationnel.
-- Rappels quotidiens : cron actif et exécutions réussies.
-- Base : 98 migrations alignées, dernière `20260910160000`.
+Les secrets serveur restent dans Supabase Edge Function Secrets et ne sont jamais ajoutés au dépôt.
 
 ## Sécurité
 
 - RLS sur les tables exposées.
 - RPC privilégiées limitées et testées.
-- Clés serveur uniquement dans les Edge Functions.
+- Clés serveur uniquement côté serveur.
 - Sauvegardes critiques atomiques et opérations idempotentes.
 - Fichiers utilisateurs validés.
 - Aucune donnée sensible dans la télémétrie produit.
-
-## Statut commercial
-
-Le produit est actuellement gratuit pendant sa construction. Le billing n’est pas actif ; les décisions de prix et d’essai précéderont son implémentation.
 
 ## Licence
 
