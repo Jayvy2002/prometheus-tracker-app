@@ -71,7 +71,10 @@ try {
  await answer.fill('Messages in the morning');
  await clientPage.getByRole('button',{name:'Save draft',exact:true}).click();
  await clientPage.getByText('Draft saved',{exact:true}).waitFor();
+ const savedRows=check(await athlete.client.from('client_questionnaire_responses').select('answers'));
+ assert.deepEqual(Object.values(savedRows[0].answers),['Messages in the morning'],'Draft must be persisted before navigation');
  await clientPage.reload();
+ await clientPage.waitForFunction(()=>Array.from(document.querySelectorAll('textarea')).some(input=>input.value==='Messages in the morning'));
  assert.equal(await answer.inputValue(),'Messages in the morning');
  console.log('PASS: builder, invitation, assigned questionnaire, draft reload');
  // Publish revision two while the athlete keeps answering the first revision.
@@ -80,6 +83,7 @@ try {
  await page.getByRole('button',{name:'Publish this version',exact:true}).click();
  await page.getByText(/v2/).first().waitFor();
  await clientPage.reload();
+ await clientPage.waitForFunction(()=>Array.from(document.querySelectorAll('textarea')).some(input=>input.value==='Messages in the morning'));
  assert.equal(await answer.inputValue(),'Messages in the morning');
  await clientPage.getByRole('button',{name:'Finish and send',exact:true}).click();
  await clientPage.getByRole('button',{name:'Finish and send',exact:true}).waitFor({state:'hidden'});
