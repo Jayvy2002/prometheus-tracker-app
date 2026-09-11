@@ -94,6 +94,24 @@ jobs:
           set -euo pipefail
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_questionnaires.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_questionnaires.sql | tee /tmp/questionnaire-db-results.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install browser test dependencies
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install --with-deps chromium
+      - name: Questionnaire browser journey (local Supabase only)
+        run: node scripts/test-questionnaire-browser.mjs
+      - name: Upload questionnaire browser proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: questionnaire-browser-proof
+          path: artifacts/questionnaire/
+          if-no-files-found: warn
       - name: Upload questionnaire database proof
         if: always()
         uses: actions/upload-artifact@v4
