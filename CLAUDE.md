@@ -105,6 +105,21 @@ supabase/
 - **Bilingue.** Tout texte visible passe par l’i18n, avec parité FR/EN.
 - **Télémétrie minimale.** Aucun nom, e-mail, texte libre, réponse d’intake, note, message ou signal médical dans `product_events`.
 
+## Verrous techniques anti-régression
+
+Ces règles décrivent le comportement actuel. Les modifier exige une décision produit explicite, les tests concernés et, lorsque nécessaire, la matrice RLS.
+
+- **Tournée hebdomadaire.** `src/lib/coachFleet.ts` et `supabase/functions/coach-fleet-round/index.ts` portent la même logique ; `fleetCopy.ts` porte les textes. Une règle modifiée doit être répercutée dans les deux implémentations et leurs tests. La fenêtre est de 14 jours. L’assiduité et la qualité des données sont vérifiées avant toute proposition chiffrée ; sinon l’action attendue est une relance, pas une modification arbitraire des cibles.
+- **Recherche d’aliments.** La recherche locale répond pendant la frappe. Open Food Facts est déclenché explicitement par l’utilisateur, avec budget, annulation et délai maximal ; ne pas transformer la recherche distante en requête à chaque caractère. `pickerSearch.ts` centralise le classement partagé.
+- **Exercices.** Les alias FR/EN servent la recherche ; le nom canonique en base reste stable et l’affichage est localisé.
+- **Portions.** `productLogDraft` est le contrat commun pour recherche, récents, favoris, recettes et préremplissage. Ne pas réintroduire de conversion implicite ×100 entre valeur par portion et valeur par masse.
+- **Programmes.** Utiliser les RPC atomiques de sauvegarde, synchronisation, création, fork et adoption. Les patchs ciblent les identifiants via `resolvePatchTargets` ; l’aperçu et l’application doivent résoudre la même cible. Respecter le contrôle de version `expectedUpdatedAt` et les révisions immuables.
+- **Caches par compte.** Les données locales sont namespacées par `sessionScope.ts`. Le logout purge les caches du compte, sauf la file hors ligne qui doit pouvoir reprendre pour le même utilisateur. Toute lecture de séance valide l’identité avant d’afficher un cache.
+- **Transitions de rôle.** Un client coaché entre par une invitation ou, lorsque le chantier correspondant sera livré, par une demande explicitement acceptée. La fin du lien réutilise la transition commune vers le solo ; ne pas créer un second chemin incomplet.
+- **Télémétrie.** Tout nouvel événement exige la mise à jour simultanée de `ProductEventName`, de l’appel `track()` et de `docs/TELEMETRY.md`.
+
+Les noms de tables, RPC et routes proposés dans `docs/CHANTIER.md` sont un point de départ, pas la preuve qu’ils existent déjà. Avant d’implémenter, inspecter le schéma et le code actuels, puis créer une nouvelle migration sans modifier les migrations appliquées.
+
 ## Sécurité et base de données
 
 - RLS activé sur toutes les tables exposées.
