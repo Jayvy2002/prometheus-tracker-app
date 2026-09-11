@@ -52,7 +52,7 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 
 ## Chantier 1 — Builder de questionnaire par coach
 
-Le standard de 27 questions existe déjà et son contrat est versionné. Il manque l’outil permettant à chaque coach de personnaliser ce questionnaire.
+Le builder est implémenté en branche autour du standard versionné de 27 questions. Sa livraison et les vérifications distantes restent à terminer.
 
 ### État de l’implémentation — en branche, non livré
 
@@ -66,8 +66,8 @@ Le standard de 27 questions existe déjà et son contrat est versionné. Il manq
 
 **Reste nécessaire pour terminer le chantier :**
 
-1. Terminer la validation du dernier SHA, notamment le scénario navigateur publication → invitation → brouillon → rechargement → nouvelle version → finalisation → lecture coach.
-2. Récupérer l’artefact `questionnaire-release-candidate` produit après succès du navigateur : migration nommée par la CLI et manifeste `applied:false`. Sa préparation ne modifie aucune base.
+1. Exiger la CI verte du SHA à livrer. Le parcours Chromium publication → invitation → brouillon → rechargement → nouvelle version → finalisation → lecture coach a réussi dans le [run 34659126010](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34659126010). La matrice historique compte 21 checks ; les tests questionnaire sont exécutés séparément, sans prétendre qu’ils sont inclus dans ce compteur.
+2. Récupérer l’artefact du SHA final (pas celui d’un commit dépassé) `questionnaire-release-candidate` produit après succès du navigateur : migration nommée par la CLI et manifeste `applied:false`. Sa préparation ne modifie aucune base.
 3. Vérifier les advisors, appliquer la migration sous sa version exacte et aligner Git/lock/production selon `docs/MIGRATIONS.md`. Le secret CLI `SUPABASE_ACCESS_TOKEN` est absent de la CI vérifiée : le déploiement distant n’est pas réalisé.
 4. Déployer les fonctions consommatrices du module partagé modifié (`coach-agent`, `notify-onboarding-complete`), actualiser leur inventaire et vérifier le parcours sur le déploiement final avant de clore le chantier.
 
@@ -116,20 +116,17 @@ Prévoir une page dédiée pour :
 - Tests du rendu, de la reprise, du mapping et du contexte agent.
 - Télémétrie sans contenu de réponse ni signal médical.
 
-### Plan technique de départ — non implémenté
+### Structure du code à livrer
 
-Ces noms guident l’implémentation, mais doivent être confrontés au schéma au moment du chantier :
+- `coach_questionnaire_versions` : définitions publiées immuables ; `coach_questionnaire_defaults` : choix des futures invitations.
+- `coach_invites.questionnaire_version_id` : version figée à la création ; `client_questionnaire_responses` : brouillon/finalisation selon la révision attendue.
+- `src/lib/coachQuestionnaire.ts` : validation des définitions et réponses ; `questionnaireStandard.ts` partagé : identifiants, ordre et valeurs standards.
+- `CoachQuestionnairePage` : éditeur ; `CoachQuestionnaireFields` : rendu commun ; `ClientQuestionnairePanel` : réponse et lecture selon l’auteur et le lien.
+- `questionnaireContext.ts` partagé : vérification de la relation active, sélection des réponses finalisées et contexte borné ; `compactIntake` reçoit les correspondances standards explicites.
+- `scripts/test-questionnaire-browser.mjs` : scénario isolé de publication jusqu’à la lecture coach. Les captures utilisent uniquement des données fictives.
+- Suppression du compte client : suppression de ses réponses ; suppression du compte coach : références devenues nulles, définition historique toujours lisible par le client. Les nouvelles références ne doivent pas bloquer la suppression de compte.
 
-- table proposée `coach_questionnaires (coach_id, name, version, questions jsonb, is_default)` ;
-- schéma de question proposé : `id`, `type`, `label_fr`, `label_en`, `options`, `required`, `medical_flag`, `maps_to` ;
-- types de réponse initiaux : `single`, `multi`, `text`, `number`, `yes_no`, `weekdays` ;
-- référence nullable proposée `coach_invites.questionnaire_id`, avec repli vers le questionnaire par défaut du coach ;
-- route coach proposée `/coach/questionnaire` ;
-- `compactIntake` conserve les champs standards via `maps_to` et transmet les questions personnalisées comme contexte générique ;
-- la fiche 360 rend les réponses avec la définition et la version réellement utilisées ;
-- futur événement proposé : `intake_completed` avec identifiant et version du questionnaire, sans réponse utilisateur. Il devra être ajouté au contrat de télémétrie au moment de l’implémentation.
-
-Risques à traiter : stabilité des identifiants standards, taille du contexte transmis au copilote, traduction incomplète d’une question personnalisée et lecture durable des anciennes versions.
+Les versions historiques conservent leurs libellés. Le nom du questionnaire, les réponses et les indicateurs médicaux ne doivent jamais devenir des propriétés de télémétrie.
 
 ## Chantier 2 — Recherche, départ et changement de coach
 
