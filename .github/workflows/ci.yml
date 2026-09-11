@@ -87,6 +87,20 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
           RLS_RESULTS_PATH: /tmp/rls-matrix-results.txt
         run: node scripts/run-rls-matrix.mjs
+      - name: Test questionnaire candidate schema (isolated database only)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_questionnaires.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_questionnaires.sql | tee /tmp/questionnaire-db-results.txt
+      - name: Upload questionnaire database proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: questionnaire-db-results
+          path: /tmp/questionnaire-db-results.txt
+          if-no-files-found: warn
       - name: Publish RLS results
         if: always()
         env:
