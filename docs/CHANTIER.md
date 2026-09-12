@@ -22,21 +22,21 @@ Une CI verte ne prouve pas à elle seule qu’une expérience utilisateur est te
 
 La priorité `P1/P2/P3` de la feuille de route UX classe les améliorations **à l’intérieur du chantier UX**. Sauf défaut empêchant un parcours essentiel ou corrompant son résultat, les chantiers fonctionnels 1 à 3 restent exécutés avant cette feuille de route, conformément à la décision produit.
 
-## Lots UX demandés — travail actif
+## Lots UX — reportés après finalisation fonctionnelle
 
-Ces lots sont explicitement demandés avant la reprise de l’ordre général ci-dessous. Ils ne suppriment ni ne déclarent terminés les autres chantiers.
+Décision produit : reprendre les chantiers fonctionnels dans l’ordre général ci-dessous. Les lots UX sont reportés après finalisation fonctionnelle ; leurs tâches inachevées restent conservées ici. Les défauts bloquant une fonctionnalité restent à corriger dans le chantier concerné.
 
 | Lot | Couverture partielle et travail restant | Conditions de fin |
 |---|---|---|
-| Accessibilité — UX62 | Les boutons Annuler/Fermer des notifications ont une cible minimale de 44 × 44 px et les textes longs peuvent se couper sans masquer ces actions. La vérification tactile en parcours reste à effectuer. Des correctifs de Button, Input, Toast et Modal sont présents sur la branche de travail : focus stable lors des saisies dans une modale, repères de focus visibles et respect du mouvement réduit. Validation navigateur encore nécessaire. Reste à vérifier et compléter les noms accessibles, le focus des modales et tiroirs, la navigation clavier, les annonces, les contrastes, le zoom, le mouvement réduit et le clavier mobile sur les parcours essentiels. | Tests automatisés pertinents et vérification navigateur clavier, lecteur d’écran, zoom et petit écran. Ne pas annoncer une accessibilité complète sur la seule base de composants corrigés. |
-| Textes restants — UX11, UX65, UX67 | Une première simplification FR/EN existe sur la branche de travail. Continuer l’inventaire des textes affichés, supprimer les répétitions et remplacer le jargon. Préserver les informations utiles sur confidentialité, limites, effets des actions et erreurs. | Parité FR/EN, libellés cohérents avec les effets réels, revue en contexte des parcours et absence de suppression d’une information nécessaire au choix. |
-| Messagerie fiable — UX29–31, UX63, UX68 | Correctifs de branche à vérifier en parcours : conservation des éditions pendant un envoi, verrou anti-double-clic, sortie de l’attente après exception, retour à la ligne mobile, protection de la composition de texte, dates localisées et défilement de l’historique. Reste à compléter l’isolation des brouillons par compte et conversation, la reprise après erreur, les doubles envois, le défilement lors du chargement de l’historique et les changements de conversation. Vérifier le temps réel, la reconnexion et les états de lecture réellement persistés. | Deux comptes de test : envoi lent puis nouvelle saisie conservée ; échec et réessai sans doublon ; changement de fil sans fuite de brouillon ; historique sans saut ; reconnexion sans message manquant ; écran mobile et saisie avec composition utilisables. |
+| Accessibilité — UX62 | Les boutons Annuler/Fermer des notifications ont une cible minimale de 44 × 44 px et les textes longs peuvent se couper sans masquer ces actions. La vérification tactile en parcours reste à effectuer. Des correctifs de Button, Input, Toast et Modal sont présents dans `new-JV` : focus stable lors des saisies dans une modale, repères de focus visibles et respect du mouvement réduit. Validation navigateur encore nécessaire. Reste à vérifier et compléter les noms accessibles, le focus des modales et tiroirs, la navigation clavier, les annonces, les contrastes, le zoom, le mouvement réduit et le clavier mobile sur les parcours essentiels. | Tests automatisés pertinents et vérification navigateur clavier, lecteur d’écran, zoom et petit écran. Ne pas annoncer une accessibilité complète sur la seule base de composants corrigés. |
+| Textes restants — UX11, UX65, UX67 | Une première simplification FR/EN existe dans `new-JV`. Continuer l’inventaire des textes affichés, supprimer les répétitions et remplacer le jargon. Préserver les informations utiles sur confidentialité, limites, effets des actions et erreurs. | Parité FR/EN, libellés cohérents avec les effets réels, revue en contexte des parcours et absence de suppression d’une information nécessaire au choix. |
+| Messagerie fiable — UX29–31, UX63, UX68 | Correctifs intégrés à vérifier en parcours : conservation des éditions pendant un envoi, verrou anti-double-clic, sortie de l’attente après exception, retour à la ligne mobile, protection de la composition de texte, dates localisées et défilement de l’historique. Reste à compléter l’isolation des brouillons par compte et conversation, la reprise après erreur, les doubles envois, le défilement lors du chargement de l’historique et les changements de conversation. Vérifier le temps réel, la reconnexion et les états de lecture réellement persistés. | Deux comptes de test : envoi lent puis nouvelle saisie conservée ; échec et réessai sans doublon ; changement de fil sans fuite de brouillon ; historique sans saut ; reconnexion sans message manquant ; écran mobile et saisie avec composition utilisables. |
 
 **Cadrage messagerie :** expérience de conversation intégrée inspirée de Messenger/WhatsApp, pas une connexion à ces services. Les états envoyé, distribué et lu doivent correspondre à des preuves distinctes. Pièces jointes, messages vocaux, recherche dans l’historique, réponses citées, présence et notifications sont à cadrer et prioriser après le socle fiable ; ne pas les considérer comme livrés. Aucun chiffrement de bout en bout n’est promis sans conception et validation dédiées.
 
 **Vérification des derniers correctifs :** typecheck, build et lint ciblé réussis sur la copie locale avec les fichiers concernés actualisés. Le navigateur de test a perdu sa connexion avant les scénarios ; aucun smoke interactif n’est déclaré réussi. Les brouillons ne sont pas encore durables lors d’un changement de conversation ; la reconnexion et les accusés de lecture restent à traiter.
 
-**Statut de validation :** les changements de la branche de travail ne valent pas livraison sur `new-JV`. La revue du code ne remplace pas les tests de comportement et les parcours réels. Conserver les lignes UX concernées tant que leurs critères ne sont pas vérifiés.
+**Statut de validation :** les correctifs UX sont intégrés dans `new-JV`, avec CI et matrice RLS vertes avant merge. Les parcours interactifs restent à vérifier. La revue du code ne remplace pas les tests de comportement et les parcours réels. Conserver les lignes UX concernées tant que leurs critères ne sont pas vérifiés.
 
 ## Ordre général
 
@@ -52,7 +52,26 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 
 ## Chantier 1 — Builder de questionnaire par coach
 
-Le standard de 27 questions existe déjà et son contrat est versionné. Il manque l’outil permettant à chaque coach de personnaliser ce questionnaire.
+Le builder est implémenté en branche autour du standard versionné de 27 questions. Sa livraison et les vérifications distantes restent à terminer.
+
+### État de l’implémentation — en branche, non livré
+
+- Éditeur coach raccordé à `/coach/questionnaire` : créer, dupliquer, réviser, ajouter/supprimer/ordonner les questions et sections, aperçu, publication et choix du défaut.
+- Template des 27 questions standards, dans leur ordre d’origine, FR/EN. Les correspondances `maps_to` sont explicites, uniques et contrôlées en TypeScript et PostgreSQL ; les types et valeurs des choix standards sont protégés. Le mapping ne modifie pas les cibles du profil.
+- Version figée par invitation et attribution à l’acceptation. Le parcours invité ouvre cette version ; le standard reste le parcours des solos et des invitations sans questionnaire personnalisé.
+- Réponses : sauvegarde du brouillon sur le serveur, reprise, révision attendue obligatoire, finalisation figée et lecture coach dans la fiche client. La révocation de l’invitation conserve les réponses ; la fin du lien retire leur lecture à l’ancien coach.
+- Copilote : réponses finalisées du coach actif, définition/version d’origine, contexte personnalisé borné et mapping standard explicite. Les brouillons et les réponses d’un autre coach ne sont pas transmis.
+- Télémétrie de finalisation : identifiant/version uniquement, sans réponse ni signal médical ; contrat actualisé dans `docs/TELEMETRY.md`.
+- CI : tests de contrat, rendu, mapping et contexte ; replay PostgreSQL et matrice RLS ; scénario Chromium sur comptes fictifs et Supabase temporaire. La preuve du dernier SHA doit être verte avant livraison.
+
+**Reste nécessaire pour terminer le chantier :**
+
+1. Exiger la CI verte du SHA à livrer. Le parcours Chromium publication → invitation → brouillon → rechargement → nouvelle version → finalisation → lecture coach a réussi dans le [run 34659126010](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34659126010). La matrice historique compte 21 checks ; les tests questionnaire sont exécutés séparément, sans prétendre qu’ils sont inclus dans ce compteur.
+2. Après approbation du merge, vérifier que l’intégration Supabase applique exactement `20260911235551`, puis vérifier advisors et alignement Git/lock/production selon `docs/MIGRATIONS.md`.
+3. Vérifier que l’intégration redéploie `coach-agent` et `notify-onboarding-complete`, actualiser leur inventaire et exécuter les smokes live avant de clore le chantier.
+
+La migration est présente en Git et reste non appliquée tant que la PR n’est pas mergée. L’intégration Supabase reliée à `new-JV` devient le canal de déploiement ; ne déclarer le chantier terminé qu’après preuve live.
+
 
 ### Données
 
@@ -96,20 +115,17 @@ Prévoir une page dédiée pour :
 - Tests du rendu, de la reprise, du mapping et du contexte agent.
 - Télémétrie sans contenu de réponse ni signal médical.
 
-### Plan technique de départ — non implémenté
+### Structure du code à livrer
 
-Ces noms guident l’implémentation, mais doivent être confrontés au schéma au moment du chantier :
+- `coach_questionnaire_versions` : définitions publiées immuables ; `coach_questionnaire_defaults` : choix des futures invitations.
+- `coach_invites.questionnaire_version_id` : version figée à la création ; `client_questionnaire_responses` : brouillon/finalisation selon la révision attendue.
+- `src/lib/coachQuestionnaire.ts` : validation des définitions et réponses ; `questionnaireStandard.ts` partagé : identifiants, ordre et valeurs standards.
+- `CoachQuestionnairePage` : éditeur ; `CoachQuestionnaireFields` : rendu commun ; `ClientQuestionnairePanel` : réponse et lecture selon l’auteur et le lien.
+- `questionnaireContext.ts` partagé : vérification de la relation active, sélection des réponses finalisées et contexte borné ; `compactIntake` reçoit les correspondances standards explicites.
+- `scripts/test-questionnaire-browser.mjs` : scénario isolé de publication jusqu’à la lecture coach. Les captures utilisent uniquement des données fictives.
+- Suppression du compte client : suppression de ses réponses ; suppression du compte coach : références devenues nulles, définition historique toujours lisible par le client. Les nouvelles références ne doivent pas bloquer la suppression de compte.
 
-- table proposée `coach_questionnaires (coach_id, name, version, questions jsonb, is_default)` ;
-- schéma de question proposé : `id`, `type`, `label_fr`, `label_en`, `options`, `required`, `medical_flag`, `maps_to` ;
-- types de réponse initiaux : `single`, `multi`, `text`, `number`, `yes_no`, `weekdays` ;
-- référence nullable proposée `coach_invites.questionnaire_id`, avec repli vers le questionnaire par défaut du coach ;
-- route coach proposée `/coach/questionnaire` ;
-- `compactIntake` conserve les champs standards via `maps_to` et transmet les questions personnalisées comme contexte générique ;
-- la fiche 360 rend les réponses avec la définition et la version réellement utilisées ;
-- futur événement proposé : `intake_completed` avec identifiant et version du questionnaire, sans réponse utilisateur. Il devra être ajouté au contrat de télémétrie au moment de l’implémentation.
-
-Risques à traiter : stabilité des identifiants standards, taille du contexte transmis au copilote, traduction incomplète d’une question personnalisée et lecture durable des anciennes versions.
+Les versions historiques conservent leurs libellés. Le nom du questionnaire, les réponses et les indicateurs médicaux ne doivent jamais devenir des propriétés de télémétrie.
 
 ## Chantier 2 — Recherche, départ et changement de coach
 

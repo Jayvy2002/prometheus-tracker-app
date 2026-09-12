@@ -397,6 +397,7 @@ export default function Dashboard() {
           </div>
         )}
 
+        {hasCoach && <button type="button" onClick={() => navigate('/questionnaire')} className="w-full p-3 rounded-xl border border-neutral-800 text-left">{t('coachQuestionnaire.title')}</button>}
         {/* Solo copilot: the weekly kcal / macros review. A coached client's coach receives it instead. */}
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
 
