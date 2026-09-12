@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { createAccountRequestGuard } from './accountRequestGuard';
+import { createAccountRequestGuard, createAccountMutationGuard } from './accountRequestGuard';
 import { setSessionOwner } from './sessionScope';
 
 function src(rel: string): string {
@@ -148,4 +148,57 @@ test('role read integration guards errors, state and persistence and resets requ
   assert.match(reset, /roleRequests.invalidate\(\)/);
   const mutation = store.slice(store.indexOf('setCoachingRole: async'), store.indexOf('applyIntendedCoachingRole: async'));
   assert.match(mutation, /roleRequests.invalidate\(\)/);
+});
+
+test('role writes reject double submission and release after failure', () => {
+  setSessionOwner('A');
+  const guard = createAccountMutationGuard();
+  const op = guard.begin('A')!;
+  assert.equal(guard.pending(), true);
+  assert.equal(guard.begin('A'), null);
+  op.finish();
+  assert.equal(guard.pending(), false);
+  assert.ok(guard.begin('A'));
+  setSessionOwner(null);
+});
+
+test('late role write cannot commit or unlock a newer session operation', () => {
+  setSessionOwner('A');
+  const guard = createAccountMutationGuard();
+  const old = guard.begin('A')!;
+  guard.invalidate();
+  setSessionOwner('B');
+  const current = guard.begin('B')!;
+  assert.equal(old.isCurrent(), false);
+  old.finish();
+  assert.equal(guard.pending(), true);
+  assert.equal(current.isCurrent(), true);
+  current.finish();
+  assert.equal(guard.pending(), false);
+  setSessionOwner(null);
+});
+
+test('role write response stays stale when the same user reconnects after reset', () => {
+  setSessionOwner('A');
+  const guard = createAccountMutationGuard();
+  const old = guard.begin('A')!;
+  guard.invalidate();
+  assert.equal(old.isCurrent(), false);
+  assert.ok(guard.begin('A'));
+  setSessionOwner(null);
+});
+
+test('role write integration commits only validated server results for current session', () => {
+  const store = src('src/stores/coachingStore.ts');
+  const fn = store.slice(store.indexOf('setCoachingRole: async'), store.indexOf('applyIntendedCoachingRole: async'));
+  assert.ok(fn.indexOf('if (!operation.isCurrent())') < fn.indexOf('persistRememberedCoachingRole('));
+  assert.match(fn, /parseRememberedCoachingRole/);
+  assert.match(fn, /invalid_role_response/);
+  assert.match(fn, /finally/);
+  assert.match(fn, /operation.finish/);
+  assert.doesNotMatch(fn, /\|\| role/);
+  const reset = store.slice(store.lastIndexOf('clear: () =>'));
+  assert.match(reset, /roleMutations.invalidate/);
+  const read = store.slice(store.indexOf('fetchMyRole: async'), store.indexOf('setCoachingRole: async'));
+  assert.match(read, /roleMutations.pending/);
 });
