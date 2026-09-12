@@ -1,17 +1,18 @@
 import type { CoachingRole } from './types';
+import { resolveLegacyAccountContext } from './accountContext';
 
-/** Athlete with a coach: no coach-mode toggle, program create/assign, or coach library tools. */
+/** Compatibility helpers: preserve current gates during the capability migration. */
 export function isCoachedAthlete(
   role: CoachingRole,
   myCoach: { id?: string } | null | undefined,
 ): boolean {
-  return role === 'client' || (!!myCoach && role !== 'coach');
+  return resolveLegacyAccountContext(role, myCoach).personalCoaching === 'coached';
 }
 
-/** Solo athlete: own copilot, no live coach. Coaches and coached athletes are out. */
+/** Personal copilot remains unavailable to legacy coaches until server migration. */
 export function isSoloAthlete(
   role: CoachingRole,
   myCoach: { id?: string } | null | undefined,
 ): boolean {
-  return role === 'none' && !myCoach;
+  return resolveLegacyAccountContext(role, myCoach).personalCoaching === 'solo';
 }
