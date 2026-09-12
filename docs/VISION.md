@@ -6,27 +6,33 @@
 >
 > **Instruction pour les agents :** ne pas transformer cette vision en inventaire du code, backlog, journal de PR, état de production ou plan d’implémentation. Une fonctionnalité décrite ici peut représenter la destination finale sans être encore livrée. Tout travail restant appartient à `docs/CHANTIER.md` ; l’état et l’usage actuels du dépôt appartiennent au `README.md` et aux sources techniques.
 
+**Direction produit : marketplace de coaching avec continuité solo — 12 septembre 2026.**
+
 ## Promesse
 
-Prometheus est une plateforme de coaching intelligent pour la musculation, le bodybuilding et le powerlifting, disponible en français et en anglais.
+Prometheus veut devenir la marketplace de référence pour trouver un coach adapté et recevoir son accompagnement dans une même application, en français et en anglais, avec un espace solo complet pour pratiquer en autonomie. Le public initial reste celui de la musculation, du bodybuilding et du powerlifting.
 
-> Prometheus comprend l’athlète, construit son plan, observe son évolution et prépare les prochaines décisions.
+L’image « Uber du coaching » exprime la simplicité de la rencontre entre offre et demande. Elle ne promet ni disponibilité immédiate, ni attribution automatique, ni coachs interchangeables : la qualité d’une relation durable prime.
+
+> Trouver l’accompagnement qui convient, commencer simplement et faire évoluer sa pratique sans perdre son histoire.
 >
 > En solo, l’athlète valide. Avec un coach, Prometheus prépare et le coach valide.
 
-Prometheus relie trois capacités :
+Prometheus relie quatre capacités :
 
-1. **Comprendre** : rassembler les objectifs, préférences, contraintes et informations de suivi utiles.
-2. **Construire** : produire un programme cohérent, compréhensible et modifiable.
-3. **Adapter** : repérer les changements, expliquer une proposition et laisser la personne responsable décider.
+1. **Mettre en relation** : comprendre le service recherché, présenter des coachs compatibles et permettre un choix mutuel éclairé.
 
-Le produit vise d’abord les coachs et pratiquants de musculation, bodybuilding et powerlifting. Son avantage recherché est un suivi individualisé plus simple à utiliser, soutenu par l’IA et contrôlé par l’humain.
+2. **Comprendre** : rassembler les objectifs, préférences, contraintes et informations de suivi utiles.
+3. **Construire** : produire un programme cohérent, compréhensible et modifiable.
+4. **Adapter** : repérer les changements, expliquer une proposition et laisser la personne responsable décider.
+
+Le produit vise d’abord les coachs et pratiquants de musculation, bodybuilding et powerlifting. Son avantage recherché associe acquisition de clients pour les coachs, choix d’un accompagnement adapté pour les pratiquants et suivi individualisé simple à utiliser, soutenu par l’IA et contrôlé par l’humain.
 
 ## Les trois rôles
 
 | | Coach | Client coaché | Solo |
 |---|---|---|---|
-| Entrée | Inscription et configuration de son activité | Invitation ou demande de coaching acceptée | Inscription libre |
+| Entrée | Configuration de son activité et publication volontaire de son offre | Questionnaire de recherche, choix du coach et demande acceptée, ou invitation directe | Inscription libre, sans recherche de coach obligatoire |
 | Accueil | Clients à traiter et prochaine décision utile | Prochaine action, programme, échanges et suivi convenu | Prochaine action, programme et outils personnels |
 | Programme | Construit, adapte, assigne et publie | Consulte et exécute le programme assigné | Construit ou valide une proposition |
 | Suivi | Choisit avec le client les informations utiles | Partage les informations convenues | Choisit ses propres outils |
@@ -39,11 +45,15 @@ Un compte conserve son histoire personnelle lorsqu’il passe de solo à coaché
 
 ### Pour le coach
 
+Prometheus doit l’aider à être découvert par des clients dont les attentes correspondent à son offre, à maîtriser sa disponibilité et à accepter les demandes pertinentes. Aucune acquisition de clients ni revenu n’est garanti.
+
 Prometheus doit lui permettre de suivre davantage de clients sans rendre la prise en charge impersonnelle. Il voit ce qui demande son attention, comprend pourquoi, consulte le contexte nécessaire, prend une décision et passe au client suivant sans perdre le fil.
 
 Les informations détaillées restent disponibles, mais l’interface met d’abord en avant ce qui a changé, la prochaine action et l’effet de la décision envisagée.
 
 ### Pour le client coaché
+
+Prometheus doit aider à choisir un service clair : ce qui est inclus, les modalités de suivi, la disponibilité et le prix lorsqu’il s’applique. Le client choisit son coach ; une recommandation ne crée jamais un engagement.
 
 Prometheus doit rendre son accompagnement clair. Le client sait ce qui lui est demandé, pourquoi cette information est utile, ce que son coach a reçu et ce qui change à la suite de leurs échanges.
 
@@ -51,9 +61,45 @@ L’application soutient la relation avec le coach. Elle ne crée pas d’obliga
 
 ### Pour le solo
 
-Prometheus doit être un produit complet. Le solo trouve son programme, comprend les consignes, enregistre son activité, retrouve son historique et demande une adaptation sans devoir maîtriser l’organisation interne de la plateforme.
+Prometheus doit être un produit complet. Le solo est un choix d’autonomie, pas une récompense réservée aux experts ni une version dégradée destinée à pousser vers un coach. Un débutant peut choisir le solo et un pratiquant expérimenté peut souhaiter un accompagnement. Le solo trouve son programme, comprend les consignes, enregistre son activité, retrouve son historique et demande une adaptation sans devoir maîtriser l’organisation interne de la plateforme.
 
 Le copilote l’aide à décider. Les fonctions avancées restent disponibles au moment utile et ne transforment pas le démarrage en configuration interminable.
+
+## Rencontre et accompagnement dans un même parcours
+
+Le parcours cible relie une intention simple à un service réel : choisir l’autonomie ou chercher un coach, préciser ses attentes, comparer une sélection pertinente, envoyer une demande, obtenir une acceptation explicite puis démarrer le suivi dans Prometheus. Une invitation directe reste possible sans détour imposé par la marketplace.
+
+### Un questionnaire court pour orienter
+
+Le questionnaire de recherche sert à préciser discipline, expérience, accompagnement souhaité, langue, modalités à distance ou locales, disponibilités et budget lorsque les offres tarifées existent. Ne demander que ce qui modifie réellement les résultats. Les réponses peuvent être corrigées et reprises.
+
+Il est distinct du questionnaire de prise en charge choisi par le coach après la mise en relation. Réutiliser les réponses pertinentes avec confirmation évite de tout ressaisir ; le dossier détaillé n’est pas envoyé à tous les coachs consultés.
+
+### Une compatibilité expliquée et un choix libre
+
+La sélection distingue les exigences indispensables des préférences. Elle explique les correspondances et les informations manquantes, sans pourcentage de compatibilité arbitraire ni promesse de résultat. Les préférences peuvent être ajustées ; une exigence n’est jamais élargie silencieusement.
+
+L’utilisateur peut explorer l’annuaire et modifier ses filtres. Si aucun coach ne convient, l’app le dit, conserve ses réponses et propose une modification volontaire des critères ou la poursuite en solo. Elle ne fabrique pas de recommandation pour remplir l’écran.
+
+### Une offre lisible et une relation choisie
+
+Un profil présente le service, les spécialités déclarées, les langues, les modalités, la disponibilité et les conditions applicables. Une qualification déclarée reste distincte d’une vérification réellement effectuée. La visibilité dépend du choix du coach et de sa capacité à accueillir des clients.
+
+Le client choisit à qui adresser sa demande ; le coach accepte explicitement. Le suivi convenu, les messages, le programme et les adaptations vivent ensuite dans l’app. Les sollicitations répétées, le démarchage non consenti et les promesses de réponse fictives n’ont pas leur place.
+
+### La confiance fait partie du service
+
+Les utilisateurs doivent pouvoir signaler un profil ou un comportement problématique et obtenir une issue compréhensible. Les éventuels avis reposent sur une relation réelle et des règles de modération. Une visibilité commerciale éventuelle est identifiée et ne se fait pas passer pour une meilleure adéquation.
+
+## Contrat UX
+
+- Une action principale identifiable à chaque étape ; les détails apparaissent lorsqu’ils aident à décider.
+- Des textes courts et concrets, sans commentaires internes ni répétitions ; conserver les conséquences, destinataires et erreurs utiles.
+- Aucun questionnaire redemandé sans nécessité, aucune saisie perdue après erreur ou interruption.
+- Un choix de coach reste libre ; pas de pression artificielle, de fausse urgence ou de promesse de disponibilité.
+- Demande, acceptation, démarrage du suivi et paiement éventuel sont des états distincts.
+- La qualité UX minimale fait partie de chaque fonctionnalité : mobile, accessibilité, FR/EN, chargement, vide, erreur et reprise. Les optimisations plus larges gardent leur place dans le chantier UX.
+- La réussite se mesure à la capacité de trouver un accompagnement pertinent et de réaliser son suivi, pas au nombre d’écrans visités.
 
 ## Principes produit
 
@@ -115,16 +161,13 @@ Les parcours essentiels doivent rester utilisables sur téléphone, avec le clav
 
 Le succès du produit ne se résume pas au temps passé dans l’application. Prometheus mesure si une personne parvient à comprendre, agir, reprendre après une interruption et corriger une erreur.
 
-## Modèle commercial cible
+## Principes commerciaux
 
-- Le solo paie un abonnement Prometheus.
-- Le coach paie selon une formule adaptée à son activité et à son nombre de clients.
-- Le client coaché est inclus dans l’abonnement de son coach.
-- Un solo qui rejoint un coach ne paie pas deux fois pour la même période.
+L’accès au logiciel Prometheus et l’achat éventuel d’une prestation de coaching sont deux objets distincts. Le client doit comprendre qui fournit le service, ce qu’il achète, à qui il paie et les effets d’un départ ou d’un changement de coach.
 
-Avant tout engagement, les limites, la fréquence de facturation, la date d’effet et les conséquences d’un changement doivent être compréhensibles. L’accès aux données et la continuité des parcours restent prévisibles lorsqu’un paiement ou une formule change.
+La marketplace ne fixe pas à elle seule un modèle de commission ou de reversement. L’hypothèse antérieure — abonnement solo, abonnement coach et accès logiciel du coaché inclus — reste une piste à réévaluer, pas une décision définitive pour la nouvelle marketplace. Les arbitrages figurent dans le chantier Billing.
 
-Les prix, paliers, essais et règles exactes sont des décisions de chantier, pas des éléments de cette vision durable.
+Les prix, limites, dates d’effet et conditions doivent être visibles avant engagement. Les transitions évitent une double facturation injustifiée de l’accès logiciel et préservent un accès prévisible aux données.
 
 ## Invariants
 
