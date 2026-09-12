@@ -1,5 +1,4 @@
--- Candidate schema for isolated CI only. Not a production migration yet.
--- Definition/answer validation and invitations must be completed before release.
+-- Coach questionnaire builder: immutable definitions, invitation assignment, resumable answers and strict RLS.
 create table public.coach_questionnaire_versions (
   id uuid primary key default gen_random_uuid(),
   coach_id uuid references auth.users(id) on delete set null,

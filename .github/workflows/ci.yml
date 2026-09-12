@@ -87,13 +87,10 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
           RLS_RESULTS_PATH: /tmp/rls-matrix-results.txt
         run: node scripts/run-rls-matrix.mjs
-      - name: Test questionnaire candidate schema (isolated database only)
+      - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
-        run: |
-          set -euo pipefail
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_questionnaires.sql
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_questionnaires.sql | tee /tmp/questionnaire-db-results.txt
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_questionnaires.sql | tee /tmp/questionnaire-db-results.txt
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -105,14 +102,6 @@ jobs:
           npx playwright install --with-deps chromium
       - name: Questionnaire browser journey (local Supabase only)
         run: node scripts/test-questionnaire-browser.mjs
-      - name: Prepare CLI-named questionnaire migration (artifact only)
-        run: node scripts/prepare-questionnaire-migration.mjs
-      - name: Upload prepared migration
-        uses: actions/upload-artifact@v4
-        with:
-          name: questionnaire-release-candidate
-          path: artifacts/questionnaire-release/
-          if-no-files-found: error
       - name: Upload questionnaire browser proof
         if: always()
         uses: actions/upload-artifact@v4

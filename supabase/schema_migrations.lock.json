@@ -1,110 +1,408 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-10T16:00:00Z",
-  "strategy": "Every Git supabase/migrations filename timestamp MUST equal schema_migrations.version in production. Git follows production clocks (renames + dumps of prod-only versions). Do NOT migration repair / restamp production. The 10 consolidated 2026091000000x files were never recorded and MUST NOT be replayed. New work uses a version after the last lock entry and is inserted into schema_migrations with that same version (never apply_migration MCP).",
+  "captured_at": "2026-09-12T00:00:00Z",
+  "strategy": "Git migrations are deployed from new-JV by the Supabase GitHub integration. Every filename timestamp MUST equal schema_migrations.version in production. Never repair or restamp applied history.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
     "count": 29
   },
   "applied": [
-    {"version": "20260824233456", "name": "initial_schema"},
-    {"version": "20260824233506", "name": "add_product_requests_and_storage"},
-    {"version": "20260824233544", "name": "add_exercises_database"},
-    {"version": "20260824233551", "name": "add_avatars_storage_bucket"},
-    {"version": "20260824233554", "name": "add_description_to_exercise_requests"},
-    {"version": "20260824233601", "name": "add_unique_constraint_weight_measurements"},
-    {"version": "20260824233614", "name": "add_recipes_favorites_streaks_steps"},
-    {"version": "20260824233631", "name": "add_streaks_system"},
-    {"version": "20260824233636", "name": "add_routine_id_to_workouts"},
-    {"version": "20260824233650", "name": "add_user_feedback_table"},
-    {"version": "20260824233655", "name": "add_missing_foreign_key_indexes"},
-    {"version": "20260824233734", "name": "optimize_rls_policies_select_auth_uid"},
-    {"version": "20260824233742", "name": "fix_handle_new_user_search_path"},
-    {"version": "20260824233748", "name": "drop_unused_indexes"},
-    {"version": "20260824233753", "name": "consolidate_exercises_select_policies"},
-    {"version": "20260824233759", "name": "add_subscriptions"},
-    {"version": "20260824233846", "name": "performance_and_integrity"},
-    {"version": "20260824233855", "name": "ai_rate_limiting"},
-    {"version": "20260824233902", "name": "user_roles"},
-    {"version": "20260824233906", "name": "add_food_product_data_source"},
-    {"version": "20260824233919", "name": "push_notifications"},
-    {"version": "20260824233930", "name": "add_set_type_fields"},
-    {"version": "20260824233958", "name": "add_advanced_set_type_fields"},
-    {"version": "20260824234012", "name": "enhanced_onboarding_profile_fields"},
-    {"version": "20260824234036", "name": "add_daily_checkins_and_extend_coaching"},
-    {"version": "20260824234040", "name": "add_scheduled_days_to_routines"},
-    {"version": "20260824234045", "name": "fix_food_products_created_by_fk_cascade"},
-    {"version": "20260824234301", "name": "coaching_layer"},
-    {"version": "20260824235702", "name": "tighten_coaching_rpc_grants"},
-    {"version": "20260825003240", "name": "set_coaching_role_allow_client"},
-    {"version": "20260825025427", "name": "set_coaching_role_client_via_invite_only"},
-    {"version": "20260825124759", "name": "coach_ops_tracking_and_targets"},
-    {"version": "20260825132955", "name": "coach_interventions"},
-    {"version": "20260825140655", "name": "notify_onboarding_signed_ping"},
-    {"version": "20260825140950", "name": "notify_onboarding_signed_ping"},
-    {"version": "20260828173255", "name": "coach_last_visit_and_prescription"},
-    {"version": "20260829003344", "name": "coach_messages"},
-    {"version": "20260829005945", "name": "coach_loop_messaging_photos_settings"},
-    {"version": "20260829020901", "name": "coach_second_realtime"},
-    {"version": "20260829020933", "name": "end_coach_client_link"},
-    {"version": "20260829022906", "name": "client_live_realtime"},
-    {"version": "20260829112641", "name": "coach_fleet_rounds"},
-    {"version": "20260829112707", "name": "coach_fleet_triage_and_marc_seed"},
-    {"version": "20260829113520", "name": "schedule_coach_fleet_round"},
-    {"version": "20260829124523", "name": "coach_agent_lessons"},
-    {"version": "20260829131109", "name": "keep_in_touch"},
-    {"version": "20260829134034", "name": "fleet_handled_cooldown"},
-    {"version": "20260829150938", "name": "fix_triage_client_id_ambiguous"},
-    {"version": "20260829162959", "name": "fleet_in_app_weekly_review"},
-    {"version": "20260829192317", "name": "client_tracking_vars"},
-    {"version": "20260831143553", "name": "checkin_scores_0_to_10"},
-    {"version": "20260831235414", "name": "audit_coach_owned_targets"},
-    {"version": "20260901012958", "name": "prometheus_p0_flow_fixes"},
-    {"version": "20260905002044", "name": "kinesiology_intake"},
-    {"version": "20260905002127", "name": "product_events"},
-    {"version": "20260905002152", "name": "solo_weekly_reviews"},
-    {"version": "20260905002213", "name": "end_coach_link_back_to_solo"},
-    {"version": "20260905124022", "name": "user_language"},
-    {"version": "20260905130648", "name": "triage_coach_fleet_restore_cooldown"},
-    {"version": "20260905135151", "name": "lock_link_message_assignment_writes"},
-    {"version": "20260905212745", "name": "audit_hardening"},
-    {"version": "20260906023512", "name": "solo_self_coach"},
-    {"version": "20260906023536", "name": "solo_self_coach_upsert"},
-    {"version": "20260906023554", "name": "solo_self_coach_notify"},
-    {"version": "20260906031832", "name": "engine_consumes_data"},
-    {"version": "20260906033031", "name": "client_program_photos_realtime"},
-    {"version": "20260907222909", "name": "food_search_rank"},
-    {"version": "20260910044211", "name": "audit_p0_access"},
-    {"version": "20260910044922", "name": "audit_d01_program_rpc"},
-    {"version": "20260910044930", "name": "audit_d01_sync_create_program"},
-    {"version": "20260910044950", "name": "audit_d01_sync_fix_var"},
-    {"version": "20260910044956", "name": "audit_d02_claim_finalize"},
-    {"version": "20260910045000", "name": "audit_i05_lessons_c02_messaging"},
-    {"version": "20260910045006", "name": "audit_c02_thread_rpc"},
-    {"version": "20260910051141", "name": "audit_i03_target_history"},
-    {"version": "20260910051153", "name": "audit_i03_i04_triage_proof"},
-    {"version": "20260910051500", "name": "audit_triage_keep_agent_keys"},
-    {"version": "20260910052704", "name": "audit_triage_span_date_fix"},
-    {"version": "20260910052800", "name": "audit_target_history_guard"},
-    {"version": "20260910053617", "name": "audit_i02_fork_program"},
-    {"version": "20260910054330", "name": "audit_c01_realtime_obs"},
-    {"version": "20260910054340", "name": "audit_c03_close_coach"},
-    {"version": "20260910054346", "name": "audit_c03_close_account_rpc"},
-    {"version": "20260910054354", "name": "audit_c04_history_adopt"},
-    {"version": "20260910054403", "name": "audit_d07_client_op_id"},
-    {"version": "20260910060246", "name": "audit_q01_reminders_invoke_fn"},
-    {"version": "20260910061018", "name": "audit_revoke_trigger_idx"},
-    {"version": "20260910061028", "name": "audit_initplan_policies"},
-    {"version": "20260910061036", "name": "audit_bucket_limits"},
-    {"version": "20260910063138", "name": "audit_e01_revisions_table"},
-    {"version": "20260910063147", "name": "audit_e01_snapshot_fn"},
-    {"version": "20260910063343", "name": "audit_e01_save_snapshot"},
-    {"version": "20260910063352", "name": "audit_e01_sync_snapshot"},
-    {"version": "20260910063403", "name": "audit_e01_fork_snapshot"},
-    {"version": "20260910063433", "name": "audit_e01_adopt_snapshot"},
-    {"version": "20260910064501", "name": "audit_revisions_created_by_idx"},
-    {"version": "20260910153000", "name": "audit_blockers"},
-    {"version": "20260910160000", "name": "apply_intervention_client_target"}
+    {
+      "version": "20260824233456",
+      "name": "initial_schema"
+    },
+    {
+      "version": "20260824233506",
+      "name": "add_product_requests_and_storage"
+    },
+    {
+      "version": "20260824233544",
+      "name": "add_exercises_database"
+    },
+    {
+      "version": "20260824233551",
+      "name": "add_avatars_storage_bucket"
+    },
+    {
+      "version": "20260824233554",
+      "name": "add_description_to_exercise_requests"
+    },
+    {
+      "version": "20260824233601",
+      "name": "add_unique_constraint_weight_measurements"
+    },
+    {
+      "version": "20260824233614",
+      "name": "add_recipes_favorites_streaks_steps"
+    },
+    {
+      "version": "20260824233631",
+      "name": "add_streaks_system"
+    },
+    {
+      "version": "20260824233636",
+      "name": "add_routine_id_to_workouts"
+    },
+    {
+      "version": "20260824233650",
+      "name": "add_user_feedback_table"
+    },
+    {
+      "version": "20260824233655",
+      "name": "add_missing_foreign_key_indexes"
+    },
+    {
+      "version": "20260824233734",
+      "name": "optimize_rls_policies_select_auth_uid"
+    },
+    {
+      "version": "20260824233742",
+      "name": "fix_handle_new_user_search_path"
+    },
+    {
+      "version": "20260824233748",
+      "name": "drop_unused_indexes"
+    },
+    {
+      "version": "20260824233753",
+      "name": "consolidate_exercises_select_policies"
+    },
+    {
+      "version": "20260824233759",
+      "name": "add_subscriptions"
+    },
+    {
+      "version": "20260824233846",
+      "name": "performance_and_integrity"
+    },
+    {
+      "version": "20260824233855",
+      "name": "ai_rate_limiting"
+    },
+    {
+      "version": "20260824233902",
+      "name": "user_roles"
+    },
+    {
+      "version": "20260824233906",
+      "name": "add_food_product_data_source"
+    },
+    {
+      "version": "20260824233919",
+      "name": "push_notifications"
+    },
+    {
+      "version": "20260824233930",
+      "name": "add_set_type_fields"
+    },
+    {
+      "version": "20260824233958",
+      "name": "add_advanced_set_type_fields"
+    },
+    {
+      "version": "20260824234012",
+      "name": "enhanced_onboarding_profile_fields"
+    },
+    {
+      "version": "20260824234036",
+      "name": "add_daily_checkins_and_extend_coaching"
+    },
+    {
+      "version": "20260824234040",
+      "name": "add_scheduled_days_to_routines"
+    },
+    {
+      "version": "20260824234045",
+      "name": "fix_food_products_created_by_fk_cascade"
+    },
+    {
+      "version": "20260824234301",
+      "name": "coaching_layer"
+    },
+    {
+      "version": "20260824235702",
+      "name": "tighten_coaching_rpc_grants"
+    },
+    {
+      "version": "20260825003240",
+      "name": "set_coaching_role_allow_client"
+    },
+    {
+      "version": "20260825025427",
+      "name": "set_coaching_role_client_via_invite_only"
+    },
+    {
+      "version": "20260825124759",
+      "name": "coach_ops_tracking_and_targets"
+    },
+    {
+      "version": "20260825132955",
+      "name": "coach_interventions"
+    },
+    {
+      "version": "20260825140655",
+      "name": "notify_onboarding_signed_ping"
+    },
+    {
+      "version": "20260825140950",
+      "name": "notify_onboarding_signed_ping"
+    },
+    {
+      "version": "20260828173255",
+      "name": "coach_last_visit_and_prescription"
+    },
+    {
+      "version": "20260829003344",
+      "name": "coach_messages"
+    },
+    {
+      "version": "20260829005945",
+      "name": "coach_loop_messaging_photos_settings"
+    },
+    {
+      "version": "20260829020901",
+      "name": "coach_second_realtime"
+    },
+    {
+      "version": "20260829020933",
+      "name": "end_coach_client_link"
+    },
+    {
+      "version": "20260829022906",
+      "name": "client_live_realtime"
+    },
+    {
+      "version": "20260829112641",
+      "name": "coach_fleet_rounds"
+    },
+    {
+      "version": "20260829112707",
+      "name": "coach_fleet_triage_and_marc_seed"
+    },
+    {
+      "version": "20260829113520",
+      "name": "schedule_coach_fleet_round"
+    },
+    {
+      "version": "20260829124523",
+      "name": "coach_agent_lessons"
+    },
+    {
+      "version": "20260829131109",
+      "name": "keep_in_touch"
+    },
+    {
+      "version": "20260829134034",
+      "name": "fleet_handled_cooldown"
+    },
+    {
+      "version": "20260829150938",
+      "name": "fix_triage_client_id_ambiguous"
+    },
+    {
+      "version": "20260829162959",
+      "name": "fleet_in_app_weekly_review"
+    },
+    {
+      "version": "20260829192317",
+      "name": "client_tracking_vars"
+    },
+    {
+      "version": "20260831143553",
+      "name": "checkin_scores_0_to_10"
+    },
+    {
+      "version": "20260831235414",
+      "name": "audit_coach_owned_targets"
+    },
+    {
+      "version": "20260901012958",
+      "name": "prometheus_p0_flow_fixes"
+    },
+    {
+      "version": "20260905002044",
+      "name": "kinesiology_intake"
+    },
+    {
+      "version": "20260905002127",
+      "name": "product_events"
+    },
+    {
+      "version": "20260905002152",
+      "name": "solo_weekly_reviews"
+    },
+    {
+      "version": "20260905002213",
+      "name": "end_coach_link_back_to_solo"
+    },
+    {
+      "version": "20260905124022",
+      "name": "user_language"
+    },
+    {
+      "version": "20260905130648",
+      "name": "triage_coach_fleet_restore_cooldown"
+    },
+    {
+      "version": "20260905135151",
+      "name": "lock_link_message_assignment_writes"
+    },
+    {
+      "version": "20260905212745",
+      "name": "audit_hardening"
+    },
+    {
+      "version": "20260906023512",
+      "name": "solo_self_coach"
+    },
+    {
+      "version": "20260906023536",
+      "name": "solo_self_coach_upsert"
+    },
+    {
+      "version": "20260906023554",
+      "name": "solo_self_coach_notify"
+    },
+    {
+      "version": "20260906031832",
+      "name": "engine_consumes_data"
+    },
+    {
+      "version": "20260906033031",
+      "name": "client_program_photos_realtime"
+    },
+    {
+      "version": "20260907222909",
+      "name": "food_search_rank"
+    },
+    {
+      "version": "20260910044211",
+      "name": "audit_p0_access"
+    },
+    {
+      "version": "20260910044922",
+      "name": "audit_d01_program_rpc"
+    },
+    {
+      "version": "20260910044930",
+      "name": "audit_d01_sync_create_program"
+    },
+    {
+      "version": "20260910044950",
+      "name": "audit_d01_sync_fix_var"
+    },
+    {
+      "version": "20260910044956",
+      "name": "audit_d02_claim_finalize"
+    },
+    {
+      "version": "20260910045000",
+      "name": "audit_i05_lessons_c02_messaging"
+    },
+    {
+      "version": "20260910045006",
+      "name": "audit_c02_thread_rpc"
+    },
+    {
+      "version": "20260910051141",
+      "name": "audit_i03_target_history"
+    },
+    {
+      "version": "20260910051153",
+      "name": "audit_i03_i04_triage_proof"
+    },
+    {
+      "version": "20260910051500",
+      "name": "audit_triage_keep_agent_keys"
+    },
+    {
+      "version": "20260910052704",
+      "name": "audit_triage_span_date_fix"
+    },
+    {
+      "version": "20260910052800",
+      "name": "audit_target_history_guard"
+    },
+    {
+      "version": "20260910053617",
+      "name": "audit_i02_fork_program"
+    },
+    {
+      "version": "20260910054330",
+      "name": "audit_c01_realtime_obs"
+    },
+    {
+      "version": "20260910054340",
+      "name": "audit_c03_close_coach"
+    },
+    {
+      "version": "20260910054346",
+      "name": "audit_c03_close_account_rpc"
+    },
+    {
+      "version": "20260910054354",
+      "name": "audit_c04_history_adopt"
+    },
+    {
+      "version": "20260910054403",
+      "name": "audit_d07_client_op_id"
+    },
+    {
+      "version": "20260910060246",
+      "name": "audit_q01_reminders_invoke_fn"
+    },
+    {
+      "version": "20260910061018",
+      "name": "audit_revoke_trigger_idx"
+    },
+    {
+      "version": "20260910061028",
+      "name": "audit_initplan_policies"
+    },
+    {
+      "version": "20260910061036",
+      "name": "audit_bucket_limits"
+    },
+    {
+      "version": "20260910063138",
+      "name": "audit_e01_revisions_table"
+    },
+    {
+      "version": "20260910063147",
+      "name": "audit_e01_snapshot_fn"
+    },
+    {
+      "version": "20260910063343",
+      "name": "audit_e01_save_snapshot"
+    },
+    {
+      "version": "20260910063352",
+      "name": "audit_e01_sync_snapshot"
+    },
+    {
+      "version": "20260910063403",
+      "name": "audit_e01_fork_snapshot"
+    },
+    {
+      "version": "20260910063433",
+      "name": "audit_e01_adopt_snapshot"
+    },
+    {
+      "version": "20260910064501",
+      "name": "audit_revisions_created_by_idx"
+    },
+    {
+      "version": "20260910153000",
+      "name": "audit_blockers"
+    },
+    {
+      "version": "20260910160000",
+      "name": "apply_intervention_client_target"
+    },
+    {
+      "version": "20260911235551",
+      "name": "coach_questionnaires"
+    }
   ]
 }

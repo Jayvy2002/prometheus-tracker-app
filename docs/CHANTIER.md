@@ -67,11 +67,10 @@ Le builder est implémenté en branche autour du standard versionné de 27 quest
 **Reste nécessaire pour terminer le chantier :**
 
 1. Exiger la CI verte du SHA à livrer. Le parcours Chromium publication → invitation → brouillon → rechargement → nouvelle version → finalisation → lecture coach a réussi dans le [run 34659126010](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34659126010). La matrice historique compte 21 checks ; les tests questionnaire sont exécutés séparément, sans prétendre qu’ils sont inclus dans ce compteur.
-2. Récupérer l’artefact du SHA final (pas celui d’un commit dépassé) `questionnaire-release-candidate` produit après succès du navigateur : migration nommée par la CLI et manifeste `applied:false`. Sa préparation ne modifie aucune base.
-3. Vérifier les advisors, appliquer la migration sous sa version exacte et aligner Git/lock/production selon `docs/MIGRATIONS.md`. Le secret CLI `SUPABASE_ACCESS_TOKEN` est absent de la CI vérifiée : le déploiement distant n’est pas réalisé.
-4. Déployer les fonctions consommatrices du module partagé modifié (`coach-agent`, `notify-onboarding-complete`), actualiser leur inventaire et vérifier le parcours sur le déploiement final avant de clore le chantier.
+2. Après approbation du merge, vérifier que l’intégration Supabase applique exactement `20260911235551`, puis vérifier advisors et alignement Git/lock/production selon `docs/MIGRATIONS.md`.
+3. Vérifier que l’intégration redéploie `coach-agent` et `notify-onboarding-complete`, actualiser leur inventaire et exécuter les smokes live avant de clore le chantier.
 
-Le SQL reste en `supabase/changes/coach_questionnaires.sql` tant qu’il n’a pas été promu. Aucune migration de cette PR n’est appliquée en production. Ne pas merger les nouvelles routes avant leur schéma, et ne pas déclarer le chantier terminé sur la seule base de la CI.
+La migration est présente en Git et reste non appliquée tant que la PR n’est pas mergée. L’intégration Supabase reliée à `new-JV` devient le canal de déploiement ; ne déclarer le chantier terminé qu’après preuve live.
 
 
 ### Données
