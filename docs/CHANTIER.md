@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** ne jamais supprimer un élément parce qu’il est supposé, ancien, partiellement présent ou décrit dans la vision. Un élément sort de ce fichier uniquement après preuve de son implémentation et de sa validation, ou après une décision produit explicite de l’abandonner. Ne pas transformer ce fichier en journal de PR ou en inventaire de production. Git conserve l’historique ; le README décrit le produit actuel et `docs/VISION.md` sa destination.
 
-**Mis à jour : 11 septembre 2026.**
+**Mis à jour : 12 septembre 2026.**
 
 ## Mode d’emploi
 
@@ -40,92 +40,14 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 ## Ordre général
 
-1. **Builder de questionnaire par coach.**
-2. **Recherche, départ et changement de coach.**
-3. **Billing**, après décision sur les prix et les règles d’essai.
-4. **UX — vérité des actions et conservation du travail.**
-5. **UX — parcours quotidiens coach, coaché et solo.**
-6. **UX — autonomie, compréhension et confort.**
-7. **Mesure continue de l’utilité**, appliquée aux chantiers au moment de leur réalisation.
+1. **Recherche, départ et changement de coach.**
+2. **Billing**, après décision sur les prix et les règles d’essai.
+3. **UX — vérité des actions et conservation du travail.**
+4. **UX — parcours quotidiens coach, coaché et solo.**
+5. **UX — autonomie, compréhension et confort.**
+6. **Mesure continue de l’utilité**, appliquée aux chantiers au moment de leur réalisation.
 
 Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améliorent le résultat ou corrigent un problème mesuré.
-
-## Chantier 1 — Builder de questionnaire par coach
-
-Le builder est implémenté en branche autour du standard versionné de 27 questions. Sa livraison et les vérifications distantes restent à terminer.
-
-### État de l’implémentation — en branche, non livré
-
-- Éditeur coach raccordé à `/coach/questionnaire` : créer, dupliquer, réviser, ajouter/supprimer/ordonner les questions et sections, aperçu, publication et choix du défaut.
-- Template des 27 questions standards, dans leur ordre d’origine, FR/EN. Les correspondances `maps_to` sont explicites, uniques et contrôlées en TypeScript et PostgreSQL ; les types et valeurs des choix standards sont protégés. Le mapping ne modifie pas les cibles du profil.
-- Version figée par invitation et attribution à l’acceptation. Le parcours invité ouvre cette version ; le standard reste le parcours des solos et des invitations sans questionnaire personnalisé.
-- Réponses : sauvegarde du brouillon sur le serveur, reprise, révision attendue obligatoire, finalisation figée et lecture coach dans la fiche client. La révocation de l’invitation conserve les réponses ; la fin du lien retire leur lecture à l’ancien coach.
-- Copilote : réponses finalisées du coach actif, définition/version d’origine, contexte personnalisé borné et mapping standard explicite. Les brouillons et les réponses d’un autre coach ne sont pas transmis.
-- Télémétrie de finalisation : identifiant/version uniquement, sans réponse ni signal médical ; contrat actualisé dans `docs/TELEMETRY.md`.
-- CI : tests de contrat, rendu, mapping et contexte ; replay PostgreSQL et matrice RLS ; scénario Chromium sur comptes fictifs et Supabase temporaire. La preuve du dernier SHA doit être verte avant livraison.
-
-**Reste nécessaire pour terminer le chantier :**
-
-1. Exiger la CI verte du SHA à livrer. Le parcours Chromium publication → invitation → brouillon → rechargement → nouvelle version → finalisation → lecture coach a réussi dans le [run 34659126010](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34659126010). La matrice historique compte 21 checks ; les tests questionnaire sont exécutés séparément, sans prétendre qu’ils sont inclus dans ce compteur.
-2. Après approbation du merge, vérifier que l’intégration Supabase applique exactement `20260911235551`, puis vérifier advisors et alignement Git/lock/production selon `docs/MIGRATIONS.md`.
-3. Vérifier que l’intégration redéploie `coach-agent` et `notify-onboarding-complete`, actualiser leur inventaire et exécuter les smokes live avant de clore le chantier.
-
-La migration est présente en Git et reste non appliquée tant que la PR n’est pas mergée. L’intégration Supabase reliée à `new-JV` devient le canal de déploiement ; ne déclarer le chantier terminé qu’après preuve live.
-
-
-### Données
-
-Créer une définition versionnée appartenant au coach :
-
-- nom et version ;
-- groupes ou écrans ;
-- questions ordonnées ;
-- types de réponses ;
-- labels FR et EN ;
-- caractère obligatoire ;
-- drapeau médical ;
-- correspondance éventuelle avec un champ standard.
-
-Les identifiants standards et leur sens restent stables. Une modification crée une nouvelle version ; les réponses existantes restent rattachées à la version remplie.
-
-### Expérience coach
-
-Prévoir une page dédiée pour :
-
-- créer ou dupliquer un questionnaire ;
-- ajouter, retirer et réordonner les questions ;
-- modifier les deux langues ;
-- prévisualiser le parcours ;
-- choisir le questionnaire par défaut ;
-- revenir au template standard.
-
-### Expérience athlète
-
-- Un solo reçoit toujours le questionnaire standard.
-- Un invité reçoit le questionnaire choisi par son coach.
-- Le brouillon reste reprenable.
-- La fiche client affiche les réponses selon la bonne définition.
-- Les questions personnalisées sont transmises au copilote comme contexte générique sans modifier les champs standards.
-
-### Conditions de fin
-
-- RLS prouvée pour coach, invité et autre coach.
-- Anciennes réponses encore lisibles après une nouvelle version.
-- Parité FR/EN.
-- Tests du rendu, de la reprise, du mapping et du contexte agent.
-- Télémétrie sans contenu de réponse ni signal médical.
-
-### Structure du code à livrer
-
-- `coach_questionnaire_versions` : définitions publiées immuables ; `coach_questionnaire_defaults` : choix des futures invitations.
-- `coach_invites.questionnaire_version_id` : version figée à la création ; `client_questionnaire_responses` : brouillon/finalisation selon la révision attendue.
-- `src/lib/coachQuestionnaire.ts` : validation des définitions et réponses ; `questionnaireStandard.ts` partagé : identifiants, ordre et valeurs standards.
-- `CoachQuestionnairePage` : éditeur ; `CoachQuestionnaireFields` : rendu commun ; `ClientQuestionnairePanel` : réponse et lecture selon l’auteur et le lien.
-- `questionnaireContext.ts` partagé : vérification de la relation active, sélection des réponses finalisées et contexte borné ; `compactIntake` reçoit les correspondances standards explicites.
-- `scripts/test-questionnaire-browser.mjs` : scénario isolé de publication jusqu’à la lecture coach. Les captures utilisent uniquement des données fictives.
-- Suppression du compte client : suppression de ses réponses ; suppression du compte coach : références devenues nulles, définition historique toujours lisible par le client. Les nouvelles références ne doivent pas bloquer la suppression de compte.
-
-Les versions historiques conservent leurs libellés. Le nom du questionnaire, les réponses et les indicateurs médicaux ne doivent jamais devenir des propriétés de télémétrie.
 
 ## Chantier 2 — Recherche, départ et changement de coach
 
@@ -202,6 +124,7 @@ Le futur mur doit conserver un accès en lecture aux données et permettre d’a
 - types de prescription au-delà des répétitions ;
 - extension de la file hors ligne à d’autres écritures ;
 - optimisation des policies après preuve RLS : notamment fusion éventuelle des policies SELECT permissives seulement après comparaison dans la matrice ;
+- activer la protection Supabase Auth contre les mots de passe compromis dès que le plan du projet le permet, puis vérifier les parcours d’inscription et de changement de mot de passe ;
 - étude du déplacement de `pg_trgm` et `pg_net` hors de `public`, uniquement sur un environnement de staging avec mesure d’impact ;
 - amélioration des performances fondée sur des mesures.
 
