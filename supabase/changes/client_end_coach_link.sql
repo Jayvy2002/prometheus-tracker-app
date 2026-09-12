@@ -1,62 +1,26 @@
--- Candidate for isolated replay. Promote with `supabase migration new client_end_coach_link` only after CI.
--- Lets the authenticated athlete end their active coaching relationship atomically.
+-- Candidate: isolated replay only. Generate a migration with the CLI after validation.
+-- Both initiators use the same transition; its active link is locked before writes.
+CREATE OR REPLACE FUNCTION public.transition_client_to_solo(p_coach_id uuid, p_client_id uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ DECLARE v_updated int; BEGIN IF p_coach_id IS NULL OR p_client_id IS NULL OR p_coach_id = p_client_id THEN RETURN jsonb_build_object('ok', false, 'error', 'invalid_pair'); END IF; PERFORM 1 FROM public.coach_client_links WHERE coach_id = p_coach_id AND client_id = p_client_id AND status = 'active' FOR UPDATE; IF NOT FOUND THEN RETURN jsonb_build_object('ok', false, 'error', 'not_linked'); END IF; UPDATE public.program_assignments SET status = 'paused', updated_at = now() WHERE client_id = p_client_id AND assigned_by = p_coach_id AND status = 'active'; UPDATE public.coach_client_links SET status = 'ended', updated_at = now() WHERE coach_id = p_coach_id AND client_id = p_client_id AND status = 'active'; GET DIAGNOSTICS v_updated = ROW_COUNT; IF v_updated = 0 THEN RETURN jsonb_build_object('ok', false, 'error', 'not_linked'); END IF; UPDATE public.user_roles SET coaching_role = 'none', updated_at = now() WHERE user_id = p_client_id AND coaching_role = 'client'; DELETE FROM public.client_tracking_config WHERE client_id = p_client_id AND coach_id = p_coach_id; UPDATE public.user_profiles SET coach_link_ended_at = now(), solo_trial_ends_at = COALESCE(solo_trial_ends_at, now() + interval '30 days'), updated_at = now() WHERE id = p_client_id; RETURN jsonb_build_object('ok', true); END; $$; REVOKE ALL ON FUNCTION public.transition_client_to_solo(uuid, uuid) FROM PUBLIC, anon, authenticated; GRANT EXECUTE ON FUNCTION public.transition_client_to_solo(uuid, uuid) TO service_role; CREATE OR REPLACE FUNCTION public.end_coach_client_link(p_client_id uuid) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ DECLARE v_uid uuid := auth.uid(); BEGIN IF v_uid IS NULL THEN RETURN jsonb_build_object('ok', false, 'error', 'not_authenticated'); END IF; IF p_client_id = v_uid THEN RETURN jsonb_build_object('ok', false, 'error', 'cannot_end_self'); END IF; RETURN public.transition_client_to_solo(v_uid, p_client_id); END; $$; REVOKE ALL ON FUNCTION public.end_coach_client_link(uuid) FROM PUBLIC, anon; GRANT EXECUTE ON FUNCTION public.end_coach_client_link(uuid) TO authenticated;
+
+
 create or replace function public.client_end_coach_link()
-returns jsonb
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  v_uid uuid := auth.uid();
-  v_coach_id uuid;
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare v_uid uuid := auth.uid(); v_coach_id uuid; v_result jsonb;
 begin
   if v_uid is null then
     return jsonb_build_object('ok', false, 'error', 'not_authenticated');
   end if;
-
-  select coach_id into v_coach_id
-  from public.coach_client_links
-  where client_id = v_uid and status = 'active'
-  for update;
-
+  select coach_id into v_coach_id from public.coach_client_links
+  where client_id = v_uid and status = 'active';
   if v_coach_id is null then
     return jsonb_build_object('ok', false, 'error', 'not_linked');
   end if;
-
-  if v_coach_id = v_uid then
-    return jsonb_build_object('ok', false, 'error', 'cannot_end_self');
+  v_result := public.transition_client_to_solo(v_coach_id, v_uid);
+  if v_result->>'ok' = 'true' then
+    return v_result || jsonb_build_object('former_coach_id', v_coach_id);
   end if;
-
-  update public.program_assignments
-  set status = 'paused', updated_at = now()
-  where client_id = v_uid
-    and assigned_by = v_coach_id
-    and status = 'active';
-
-  update public.coach_client_links
-  set status = 'ended', updated_at = now()
-  where coach_id = v_coach_id
-    and client_id = v_uid
-    and status = 'active';
-
-  update public.user_roles
-  set coaching_role = 'none', updated_at = now()
-  where user_id = v_uid
-    and coaching_role = 'client';
-
-  delete from public.client_tracking_config
-  where client_id = v_uid
-    and coach_id = v_coach_id;
-
-  update public.user_profiles
-  set coach_link_ended_at = now(),
-      solo_trial_ends_at = coalesce(solo_trial_ends_at, now() + interval '30 days'),
-      updated_at = now()
-  where id = v_uid;
-
-  return jsonb_build_object('ok', true, 'former_coach_id', v_coach_id);
+  return v_result;
 end;
 $$;
-
 revoke all on function public.client_end_coach_link() from public, anon;
 grant execute on function public.client_end_coach_link() to authenticated;
