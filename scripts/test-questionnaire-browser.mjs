@@ -135,6 +135,21 @@ try {
  assert.equal(notices.length,1);
  assert.ok(notices[0].read_at);
  console.log('PASS: browser departure, refresh outage, solo reload, coach notice and persisted acknowledgement');
+ // Independent requests exercise the database lock rather than the UI click guard.
+ const rejoinToken='departure-rejoin-'+crypto.randomUUID();
+ check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token:rejoinToken,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
+ assert.equal(check(await athlete.client.rpc('accept_coach_invite',{p_token:rejoinToken})).ok,true);
+ const attempts=await Promise.all([
+   athlete.client.rpc('client_end_coach_link'),
+   athlete.client.rpc('client_end_coach_link'),
+ ]);
+ const results=attempts.map(check);
+ assert.equal(results.filter(row=>row.ok===true).length,1);
+ assert.equal(results.filter(row=>row.error==='not_linked').length,1);
+ const afterRace=check(await coach.client.from('coach_relationship_notices').select('id').eq('client_id',athlete.id));
+ assert.equal(afterRace.length,2,'One notice for each real departure, none for repeated calls');
+ console.log('PASS: concurrent departures serialize, rejoining preserves the client and notices are not duplicated');
+
 } catch(error) {
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;

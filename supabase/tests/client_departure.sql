@@ -127,5 +127,31 @@ do $$ begin
 end $$;
 reset role;
 
+
+-- Professional capability survives personal departure; coach-initiated departure uses the same transition.
+update public.coach_client_links set status='active' where client_id='a1750000-0000-4000-8000-000000000002';
+update public.user_roles set coaching_role='coach' where user_id='a1750000-0000-4000-8000-000000000002';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000002',true);
+do $$ begin
+ if public.client_end_coach_link()->>'ok' is distinct from 'true' then raise exception 'coach personal departure failed'; end if;
+end $$;
+reset role;
+do $$ begin
+ if not exists(select 1 from public.user_roles where user_id='a1750000-0000-4000-8000-000000000002' and coaching_role='coach') then raise exception 'professional capability removed'; end if;
+end $$;
+update public.coach_client_links set status='active' where client_id='a1750000-0000-4000-8000-000000000002';
+update public.user_roles set coaching_role='client' where user_id='a1750000-0000-4000-8000-000000000002';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000001',true);
+do $$ begin
+ if public.end_coach_client_link('a1750000-0000-4000-8000-000000000002')->>'ok' is distinct from 'true' then raise exception 'coach departure failed'; end if;
+end $$;
+reset role;
+do $$ begin
+ if not exists(select 1 from public.user_roles where user_id='a1750000-0000-4000-8000-000000000002' and coaching_role='none') then raise exception 'coach departure did not restore solo'; end if;
+ if (select count(*) from public.coach_relationship_notices where client_id='a1750000-0000-4000-8000-000000000002')<>2 then raise exception 'coach own action emitted unnecessary notice'; end if;
+end $$;
+
 rollback;
 \echo 'client departure: isolation, rollback, archives, revocation, role transition and repeat checks passed'
