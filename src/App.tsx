@@ -147,7 +147,7 @@ function AppRoutes() {
   const coachedClient =
     isCoachedAthlete(coachingRole, myCoach)
     || coachingRole === 'client';
-  const needsIntakeProbe = !profileLoading && roleReady && intakeGateNeedsUsageProbe({
+  const needsIntakeProbe = !returningFromCoaching && !profileLoading && roleReady && intakeGateNeedsUsageProbe({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,
@@ -324,7 +324,7 @@ function AppRoutes() {
     );
   }
 
-  if (!activeAssignment?.response && shouldForceKinesiologyIntake({
+  if (!returningFromCoaching && !activeAssignment?.response && shouldForceKinesiologyIntake({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,

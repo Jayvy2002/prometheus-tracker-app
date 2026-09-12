@@ -151,6 +151,42 @@ try {
  assert.equal(afterRace.length,2,'One notice for each real departure, none for repeated calls');
  console.log('PASS: concurrent departures serialize, rejoining preserves the client and notices are not duplicated');
 
+
+ // Execute the real store with a delayed RPC to check session isolation and the local lock.
+ const isolation=await clientPage.evaluate(async()=>{
+  const {useCoachingStore}=await import('/src/stores/coachingStore.ts');
+  const {supabase}=await import('/src/lib/supabase.ts');
+  const {setSessionOwner,getSessionOwner}=await import('/src/lib/sessionScope.ts');
+  const originalRpc=supabase.rpc;
+  const originalGetUser=supabase.auth.getUser;
+  const owner=getSessionOwner();
+  let release;
+  let markStarted;
+  const started=new Promise(resolve=>{markStarted=resolve;});
+  try {
+    useCoachingStore.getState().clear();
+    setSessionOwner('departure-test-A');
+    useCoachingStore.setState({coachingRole:'client',myCoach:{id:'coach-A',full_name:'Coach A',avatar_url:''}});
+    supabase.auth.getUser=async()=>({data:{user:{id:'departure-test-A'}},error:null});
+    supabase.rpc=()=>new Promise(resolve=>{release=resolve;markStarted();});
+    const first=useCoachingStore.getState().endMyCoachLink();
+    await started;
+    const second=await useCoachingStore.getState().endMyCoachLink();
+    useCoachingStore.getState().clear();
+    setSessionOwner('departure-test-B');
+    useCoachingStore.setState({coachingRole:'coach',myCoach:{id:'coach-B',full_name:'Coach B',avatar_url:''}});
+    release({data:{ok:true,ended_at:new Date().toISOString()},error:null});
+    const oldResult=await first;
+    return {secondError:second.error,oldError:oldResult.error,role:useCoachingStore.getState().coachingRole,coach:useCoachingStore.getState().myCoach?.id};
+  } finally {
+    supabase.rpc=originalRpc;
+    supabase.auth.getUser=originalGetUser;
+    useCoachingStore.getState().clear();
+    setSessionOwner(owner);
+  }
+ });
+ assert.deepEqual(isolation,{secondError:'operation_pending',oldError:'session_changed',role:'coach',coach:'coach-B'});
+ console.log('PASS: real store ignores old account departure and rejects concurrent local submission');
 } catch(error) {
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;
