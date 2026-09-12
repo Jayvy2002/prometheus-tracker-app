@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { createAccountRequestGuard } from './accountRequestGuard';
+import { setSessionOwner } from './sessionScope';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -76,4 +78,74 @@ test('single coach-agent invoke — no ask-second alias, no suggest-client-plan'
   assert.doesNotMatch(ask, /handleCoachAgentHttp/);
   const plan = src('supabase/functions/suggest-client-plan/index.ts');
   assert.match(plan, /status: 410/);
+});
+
+test('role requests reject another account and logout responses', () => {
+  const guard = createAccountRequestGuard();
+  setSessionOwner('A');
+  const first = guard.begin('A')!;
+  setSessionOwner('B');
+  assert.equal(first(), false);
+  assert.equal(guard.begin('A'), null);
+  const second = guard.begin('B')!;
+  setSessionOwner(null);
+  assert.equal(second(), false);
+});
+
+test('newer request wins even if the earlier request resolves last', async () => {
+  const guard = createAccountRequestGuard();
+  setSessionOwner('A');
+  let release!: () => void;
+  const delayed = new Promise<void>(resolve => { release = resolve; });
+  const first = guard.begin('A')!;
+  const applied: string[] = [];
+  const oldRead = delayed.then(() => { if (first()) applied.push('old'); });
+  const second = guard.begin('A')!;
+  if (second()) applied.push('new');
+  release();
+  await oldRead;
+  assert.deepEqual(applied, ['new']);
+  setSessionOwner(null);
+});
+
+test('reset invalidates pending reads even when the same account signs back in', () => {
+  const guard = createAccountRequestGuard();
+  setSessionOwner('A');
+  const before = guard.begin('A')!;
+  guard.invalidate();
+  setSessionOwner(null);
+  setSessionOwner('A');
+  assert.equal(before(), false);
+  assert.equal(guard.begin('A')!(), true);
+  setSessionOwner(null);
+});
+
+test('stale account caller does not cancel the current account request', () => {
+  const guard = createAccountRequestGuard();
+  setSessionOwner('B');
+  const current = guard.begin('B')!;
+  assert.equal(guard.begin('A'), null);
+  assert.equal(current(), true);
+  setSessionOwner(null);
+});
+
+test('role mutation invalidates an older read', () => {
+  const guard = createAccountRequestGuard();
+  setSessionOwner('A');
+  const read = guard.begin('A')!;
+  guard.invalidate();
+  assert.equal(read(), false);
+  setSessionOwner(null);
+});
+
+test('role read integration guards errors, state and persistence and resets requests', () => {
+  const store = src('src/stores/coachingStore.ts');
+  const fetch = store.slice(store.indexOf('fetchMyRole: async'), store.indexOf('setCoachingRole: async'));
+  assert.match(fetch, /roleRequests.begin\(userId\)/);
+  assert.equal(fetch.split('if (!isCurrent()) return;').length - 1, 2);
+  assert.ok(fetch.indexOf('if (!isCurrent()) return;') < fetch.indexOf('persistRememberedCoachingRole('));
+  const reset = store.slice(store.lastIndexOf('clear: () =>'));
+  assert.match(reset, /roleRequests.invalidate\(\)/);
+  const mutation = store.slice(store.indexOf('setCoachingRole: async'), store.indexOf('applyIntendedCoachingRole: async'));
+  assert.match(mutation, /roleRequests.invalidate\(\)/);
 });
