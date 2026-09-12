@@ -24,7 +24,7 @@ La priorité `P1/P2/P3` de la feuille de route UX classe les améliorations **à
 
 ## Lots UX — reportés après finalisation fonctionnelle
 
-Décision produit : reprendre les chantiers fonctionnels dans l’ordre général ci-dessous. Les lots UX sont reportés après finalisation fonctionnelle ; leurs tâches inachevées restent conservées ici. Les défauts bloquant une fonctionnalité restent à corriger dans le chantier concerné.
+Décision produit : reprendre les chantiers fonctionnels dans l’ordre général ci-dessous. Les lots UX sont reportés après finalisation fonctionnelle ; leurs tâches inachevées restent conservées ici. La direction marketplace confirme que l’UX minimale est une condition de chaque livraison : texte utile, choix clair, mobile, accessibilité, FR/EN et reprise après erreur. Les optimisations générales restent reportées ; les défauts du parcours livré sont corrigés dans le chantier concerné.
 
 | Lot | Couverture partielle et travail restant | Conditions de fin |
 |---|---|---|
@@ -40,7 +40,7 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 ## Ordre général
 
-1. **Recherche, départ et changement de coach.**
+1. **Marketplace : recherche guidée, mise en relation, départ et changement de coach.**
 2. **Billing**, après décision sur les prix et les règles d’essai.
 3. **UX — vérité des actions et conservation du travail.**
 4. **UX — parcours quotidiens coach, coaché et solo.**
@@ -49,13 +49,47 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améliorent le résultat ou corrigent un problème mesuré.
 
-## Chantier 2 — Recherche, départ et changement de coach
+## Chantier 2 — Marketplace, recherche guidée et relation de coaching
 
 ### État du chantier — partiel, non livré
 
 La branche `feature/coach-discovery` contient la confirmation FR/EN et une RPC candidate de départ autonome. La confirmation gère les exceptions et bloque les doubles appels depuis cette instance du composant. La CI applique maintenant le SQL de `supabase/changes/` exclusivement sur sa base temporaire, puis exécute `supabase/tests/client_departure.sql` dans une transaction annulée. Ces tests passent sur le [run 34675961602](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34675961602) : refus du rôle anonyme, absence de lien pour un compte tiers sans modification du lien existant, départ du client, rôle solo, profil conservé avec date de départ et réponse contrôlée au second appel. Cette preuve ne couvre ni la production ni le parcours navigateur de départ.
 
 Avant livraison : étendre les tests à la conservation de l’historique et aux programmes mis en pause, au retrait du tracking et à l’atomicité en cas d’erreur ; vérifier les départs concurrents entre sessions et les changements de compte ; distinguer un départ réussi d’un échec de rafraîchissement ; mutualiser la transition avec le départ initié par le coach, informer le coach, distinguer l’auteur du départ dans la bannière solo, valider le parcours navigateur, puis promouvoir la migration. Le profil public, l’annuaire et les demandes restent à construire. Aucun critère ci-dessous n’est retiré.
+
+### Direction et ordre d’exécution — marketplace
+
+**Décision produit :** conserver coach, coaché et solo. Les coachs viennent aussi pour être découverts ; les pratiquants recherchent un service adapté ou choisissent l’autonomie. La marketplace et son questionnaire restent à construire. Les preuves du départ ci-dessus ne valident pas ces futurs parcours.
+
+| Ordre | Lot restant | Conditions de fin |
+|---|---|---|
+| 2.1 | Terminer le départ autonome et la transition commune | Couvrir tous les points de validation ci-dessus ; confirmation des conséquences, accès conservés, coach informé, aucune erreur de rafraîchissement présentée comme un départ échoué. |
+| 2.2 | Profil coach et offre opt-in | Édition FR/EN, aperçu avant publication, service et modalités explicites, disciplines/langues, disponibilité et dépublication. Un profil masqué ou indisponible ne reçoit pas une nouvelle demande. Identité et qualifications déclarées distinguées des vérifications effectives. |
+| 2.3 | Questionnaire de recherche et annuaire | Questions limitées aux critères utilisés, brouillon isolé par compte, reprise et correction, exploration manuelle possible. Aucun dossier de prise en charge imposé pour consulter les résultats. |
+| 2.4 | Sélection de coachs expliquée | Séparer exigences et préférences ; exclure les incompatibilités obligatoires, trier selon des règles testables et versionnées. Montrer les raisons utiles et les informations inconnues ; aucun faux score. Aucun résultat : conserver les réponses et proposer un changement volontaire de filtres ou le solo. |
+| 2.5 | Demandes et choix mutuel | Envoyer, retrouver, retirer, accepter ou refuser une demande sans doublon. Tester acceptations concurrentes, nouvelle indisponibilité, compte changé et invitation concurrente. Un seul coach actif ; demande acceptée distincte d’un service payé ou commencé. |
+| 2.6 | Démarrage du suivi et changement de coach | Confirmer ce qui sera partagé ; reprendre les réponses utiles sans double questionnaire ; remplir ensuite le questionnaire du coach. Conserver les invitations directes. Retrouver programme, messages et prochaine action ; aucun transfert des anciennes notes privées. |
+| 2.7 | Confiance et validation de bout en bout | Signalement et traitement opérationnel définis avant ouverture large, maîtrise des sollicitations, profils retirés exclus, tests des trois rôles et parcours mobile/clavier FR/EN. Mesurer les abandons et réussites sans contenu personnel dans les événements. |
+
+Les lots 2.2 à 2.6 doivent fournir un parcours complet avant de présenter la marketplace comme disponible. Un catalogue vide ne devient pas une fausse sélection : préparer aussi l’entrée et la publication des premiers coachs volontaires. Le périmètre d’ouverture commerciale dépend des décisions du chantier 3.
+
+### Questionnaire de recherche et contrat de sélection — à construire
+
+- Critères envisagés : discipline, expérience, type et niveau de suivi souhaités, langue, distance/zone, disponibilités et budget si des offres tarifées existent. Chaque question doit avoir un effet documenté sur les résultats.
+- Réutiliser les informations existantes seulement si pertinentes et confirmées. Ne pas réinterpréter le questionnaire coach comme un questionnaire marketplace ni modifier son contrat historique.
+- Garder les réponses privées par défaut. Une demande transmet uniquement le résumé annoncé au client ; les coachs consultés n’accèdent pas au dossier personnel.
+- Commencer par des filtres et un classement explicables. L’IA ne doit ni inventer une compétence, ni affirmer une adéquation médicale, ni prendre la décision à la place du client.
+- Tester contraintes incompatibles, absence d’information, égalités de classement, absence de résultat, modifications des réponses, langue, disponibilité et profil dépublié entre consultation et envoi.
+- Définir la persistance et la version du questionnaire de recherche, les critères réellement stockés et leur suppression. Ne pas ajouter de réponses sensibles aux outils de mesure.
+- Mesures à instrumenter au moment de l’implémentation : recherche terminée, résultats vides, demande envoyée/retirée/acceptée/refusée et démarrage effectif du suivi. Ajouter les contrats d’événements et la documentation ensemble.
+
+### Décisions marketplace encore ouvertes
+
+- Définir le contenu minimal d’une offre et la manière de présenter prix, fréquence des échanges et disponibilité réelle.
+- Définir demandes simultanées, expiration éventuelle, limites de sollicitation et devenir des autres demandes après acceptation. Ne pas inventer de délai de réponse.
+- Définir vérification des coachs, audience/périmètre d’ouverture, signalement, modération et responsable du traitement. Aucun badge « vérifié » sans procédure réelle.
+- Avis clients, classement sponsorisé et liste d’attente : à décider, pas requis par défaut pour le premier parcours. Si ajoutés, prévoir authenticité/modération, identification commerciale et accord aux notifications.
+- Commission, encaissement du coaching et reversements : à décider dans le chantier 3. L’expression « Uber du coaching » ne vaut pas autorisation d’implémenter un modèle financier précis.
 
 ### Départ autonome
 
@@ -79,7 +113,7 @@ Profil opt-in avec :
 - Un seul coach actif par client.
 - Changement de coach comme parcours contrôlé : fin du lien actuel, puis nouvelle demande.
 
-### Plan technique de départ — non implémenté
+### Plan technique — proposition, à confronter au code
 
 - RPC proposée `client_end_coach_link()` : vérification de `auth.uid()`, fin du lien actif et appel de la transition commune vers le solo ;
 - table proposée `coach_profiles` pour le nom public, la présentation, les disciplines, les langues, la zone ou le coaching à distance, la disponibilité et l’opt-in public ;
@@ -107,7 +141,13 @@ Ne pas commencer avant les décisions produit suivantes :
 - paliers coach selon le nombre de clients ;
 - durée et population concernée par l’essai ;
 - devise et taxes ;
-- comportement exact à l’expiration.
+- comportement exact à l’expiration ;
+- réévaluation de l’hypothèse historique abonnement solo / abonnement coach / accès logiciel coaché inclus ;
+- prix du service de coaching distinct de l’accès logiciel, fournisseur du service et partie qui encaisse ;
+- commission éventuelle, reversements et responsabilités opérationnelles ;
+- annulations, remboursements, litiges, et effet d’un changement ou départ de coach sur les paiements.
+
+Le choix marketplace ne tranche aucune de ces règles. Conserver l’hypothèse historique comme option explicite, sans l’implémenter comme décision acquise. Une mise en relation acceptée ne constitue pas une confirmation de paiement.
 
 Le futur mur doit conserver un accès en lecture aux données et permettre d’accepter une invitation coach. Un coach qui dépasse son palier conserve ses clients existants mais ne peut plus en ajouter.
 
