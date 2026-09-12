@@ -10,6 +10,8 @@
 
 Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, disponible en français et en anglais.
 
+La destination produit est une marketplace : aider les coachs à trouver des clients compatibles et les pratiquants à choisir un accompagnement, puis réaliser le suivi dans l’app. Cette direction ne prouve pas que la marketplace est déjà implémentée. Le solo reste un choix complet, accessible sans être expert.
+
 Trois rôles sont officiels :
 
 - **Coach** : gère ses clients, leurs programmes, leur suivi et les propositions préparées par Prometheus.
@@ -17,6 +19,15 @@ Trois rôles sont officiels :
 - **Solo** : utilise le tracker complet et valide lui-même les propositions du copilote.
 
 Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition n’est jamais appliquée automatiquement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
+
+## Règles UX et marketplace
+
+- Chaque nouvelle fonctionnalité doit réduire une difficulté concrète. Conserver les textes utiles aux décisions et erreurs ; supprimer jargon interne, répétitions et obligations artificielles.
+- Le questionnaire de recherche oriente le choix ; le questionnaire de prise en charge appartient au suivi. Éviter les doubles saisies sans partager silencieusement les réponses.
+- Recommandations expliquées, critères modifiables et choix mutuel explicite. Aucun coach attribué automatiquement, faux score de compatibilité ou disponibilité inventée.
+- La consultation d’un profil ne donne aucun accès au dossier du client. Définir une surface minimale pour les demandes entre personnes non encore liées et tester ses droits ; ne pas élargir l’accès au dossier pour la construire.
+- Mobile, accessibilité, FR/EN, états vide/chargement/erreur et conservation du travail font partie de la fonctionnalité, même avant les lots d’optimisation UX.
+- Ne pas déduire de la vision marketplace une commission, des reversements, un badge vérifié ou une garantie de résultats. Les décisions ouvertes restent dans le Chantier.
 
 ## Sources de vérité
 
