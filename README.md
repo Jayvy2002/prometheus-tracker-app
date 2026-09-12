@@ -22,6 +22,7 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 
 - Command Center et file des clients à traiter.
 - Invitations et fiche client 360.
+- Builder de questionnaires FR/EN, versions publiées et questionnaire par défaut des invitations.
 - Configuration du suivi et des cibles.
 - Création, copie, versionnage et assignation des programmes.
 - Messages, notes et propositions d’intervention.
@@ -31,6 +32,7 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 
 - Séance du jour et programme assigné.
 - Check-ins, messages et photos.
+- Questionnaire choisi par le coach, brouillon reprenable et réponses rattachées à la version remplie.
 - Modules de suivi sélectionnés par le coach.
 - Cibles gérées dans le cadre de la relation de coaching.
 - Continuité des données lors du retour au mode solo.
