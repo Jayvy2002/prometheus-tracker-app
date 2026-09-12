@@ -1777,6 +1777,22 @@ const en = {
     completeLater: 'Complete the questionnaire',
     later: 'Later',
   },
+  coachDiscovery: {
+    leave: {
+      title: 'Coaching relationship',
+      current: 'You are currently coached by {{name}}.',
+      action: 'End coaching relationship',
+      confirmTitle: 'Continue without this coach?',
+      confirmBody: 'This change takes effect immediately.',
+      kept: 'Your personal history and entries stay available.',
+      stopped: 'Your coach loses access and their tracking settings stop.',
+      paused: 'The current program from this coach is kept but paused.',
+      billing: 'This action only ends the coaching relationship. It does not cancel a separate subscription.',
+      confirm: 'End relationship',
+      success: 'The coaching relationship has ended. You are now in solo mode.',
+      error: 'The relationship could not be ended. Try again.',
+    },
+  },
 } as const;
 
 export default en;
