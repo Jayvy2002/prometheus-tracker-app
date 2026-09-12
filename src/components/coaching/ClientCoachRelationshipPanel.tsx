@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { UserMinus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -18,23 +18,30 @@ export default function ClientCoachRelationshipPanel({ coachName }: { coachName:
   const fetchProfile = useProfileStore(s => s.fetchProfile);
   const [confirming, setConfirming] = useState(false);
   const [ending, setEnding] = useState(false);
+  const inFlight = useRef(false);
   const [error, setError] = useState('');
 
   const endRelationship = async () => {
-    if (ending) return;
+    if (inFlight.current) return;
+    inFlight.current = true;
     setEnding(true);
     setError('');
-    const result = await endMyCoachLink();
-    if (result.error) {
+    try {
+      const result = await endMyCoachLink();
+      if (result.error) {
+        setError(t('coachDiscovery.leave.error'));
+        return;
+      }
+      if (user) await fetchProfile(user.id);
+      setConfirming(false);
+      toast(t('coachDiscovery.leave.success'));
+      navigate('/dashboard', { replace: true });
+    } catch {
       setError(t('coachDiscovery.leave.error'));
+    } finally {
+      inFlight.current = false;
       setEnding(false);
-      return;
     }
-    if (user) await fetchProfile(user.id);
-    setConfirming(false);
-    setEnding(false);
-    toast(t('coachDiscovery.leave.success'));
-    navigate('/dashboard', { replace: true });
   };
 
   return <>
