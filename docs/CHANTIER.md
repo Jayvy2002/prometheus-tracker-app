@@ -70,9 +70,9 @@ Cinq scénarios comportementaux passent localement, dont réponses dans le déso
 
 ### M1 — modifications de rôle liées à la session
 
-Les modifications via `setCoachingRole` sont limitées à une opération locale en cours. Le reset invalide leur résultat ; une ancienne opération ne peut pas libérer le verrou d’une nouvelle session. Les lectures concurrentes du rôle attendent la fin de la mutation. Le rôle affiché et mémorisé provient uniquement d’une valeur reconnue dans la réponse serveur, sans repli sur le rôle demandé. Une exception libère le verrou et retourne une erreur.
+Les modifications via `setCoachingRole` sont limitées à une opération locale en cours. Le reset invalide leur résultat ; une ancienne opération ne peut pas libérer le verrou d’une nouvelle session. Les nouveaux chargements de rôle sont ignorés pendant la mutation ; les chargements antérieurs sont invalidés. Le rôle affiché et mémorisé provient uniquement d’une valeur reconnue dans la réponse serveur, sans repli sur le rôle demandé. Une exception libère le verrou et retourne une erreur.
 
-Tests ajoutés pour double soumission, ancienne session, reconnexion et raccordement au store ; CI en cours. Cela ne résout pas encore les changements concurrents entre appareils, ni les autres opérations du store. La migration des capacités, le contexte serveur et les parcours navigateur restent à réaliser.
+Tests ajoutés pour double soumission, ancienne session, reconnexion et raccordement au store. Job `verify` réussi sur le [run 34712021683](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34712021683) : tests, lint, TypeScript et build. Pas de validation navigateur supplémentaire. Cela ne résout pas encore les changements concurrents entre appareils, ni les autres opérations du store. La migration des capacités, le contexte serveur et les parcours navigateur restent à réaliser.
 
 ### État du chantier — partiel, non livré
 
