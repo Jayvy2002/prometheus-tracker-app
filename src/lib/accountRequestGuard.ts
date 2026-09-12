@@ -13,3 +13,22 @@ export function createAccountRequestGuard() {
     },
   };
 }
+
+/** Serialize role writes in one session; an old completion cannot unlock a new one. */
+export function createAccountMutationGuard() {
+  const generation = createGeneration();
+  let active: number | null = null;
+  return {
+    invalidate() { generation.next(); active = null; },
+    pending() { return active !== null; },
+    begin(accountId: string) {
+      if (getSessionOwner() !== accountId || active !== null) return null;
+      const ticket = generation.next();
+      active = ticket;
+      return {
+        isCurrent: () => getSessionOwner() === accountId && !generation.isStale(ticket),
+        finish: () => { if (active === ticket) active = null; },
+      };
+    },
+  };
+}
