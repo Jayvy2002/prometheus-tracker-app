@@ -51,6 +51,12 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 
 ## Chantier 2 — Recherche, départ et changement de coach
 
+### État du chantier — partiel, non livré
+
+La branche `feature/coach-discovery` contient la confirmation FR/EN et une RPC candidate de départ autonome. La confirmation gère les exceptions et bloque les appels concurrents. Le SQL dans `supabase/changes/` n’est pas encore exécuté par la CI : la matrice historique verte ne valide donc pas cette nouvelle RPC.
+
+Avant livraison : ajouter le replay et les tests dédiés, vérifier les départs concurrents et les changements de compte, mutualiser la transition avec le départ initié par le coach, informer le coach, distinguer l’auteur du départ dans la bannière solo, puis promouvoir la migration. Le profil public, l’annuaire et les demandes restent à construire. Aucun critère ci-dessous n’est retiré.
+
 ### Départ autonome
 
 Permettre à un client coaché de mettre fin à la relation depuis son profil. Réutiliser la transition existante vers le mode solo : historique conservé, tracking coach retiré, programme mis en pause et coach informé.
