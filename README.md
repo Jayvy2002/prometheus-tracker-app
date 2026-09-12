@@ -90,6 +90,7 @@ supabase/
 |---|---|
 | Règles obligatoires pour les agents et développeurs | [`CLAUDE.md`](CLAUDE.md) |
 | Destination, rôles et principes produit | [`docs/VISION.md`](docs/VISION.md) |
+| Carte cible des parcours et transition depuis le code existant | [`docs/CARTE_PRODUIT.md`](docs/CARTE_PRODUIT.md) |
 | Ordre des travaux et tout ce qui reste à faire | [`docs/CHANTIER.md`](docs/CHANTIER.md) |
 | Procédure et historique des migrations | [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) |
 | Télémétrie autorisée | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) |
