@@ -53,9 +53,9 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 
 ### État du chantier — partiel, non livré
 
-La branche `feature/coach-discovery` contient la confirmation FR/EN et une RPC candidate de départ autonome. La confirmation gère les exceptions et bloque les appels concurrents. Le SQL dans `supabase/changes/` n’est pas encore exécuté par la CI : la matrice historique verte ne valide donc pas cette nouvelle RPC.
+La branche `feature/coach-discovery` contient la confirmation FR/EN et une RPC candidate de départ autonome. La confirmation gère les exceptions et bloque les doubles appels depuis cette instance du composant. La CI applique maintenant le SQL de `supabase/changes/` exclusivement sur sa base temporaire, puis exécute `supabase/tests/client_departure.sql` dans une transaction annulée. Ces tests passent sur le [run 34675961602](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34675961602) : refus du rôle anonyme, absence de lien pour un compte tiers sans modification du lien existant, départ du client, rôle solo, profil conservé avec date de départ et réponse contrôlée au second appel. Cette preuve ne couvre ni la production ni le parcours navigateur de départ.
 
-Avant livraison : ajouter le replay et les tests dédiés, vérifier les départs concurrents et les changements de compte, mutualiser la transition avec le départ initié par le coach, informer le coach, distinguer l’auteur du départ dans la bannière solo, puis promouvoir la migration. Le profil public, l’annuaire et les demandes restent à construire. Aucun critère ci-dessous n’est retiré.
+Avant livraison : étendre les tests à la conservation de l’historique et aux programmes mis en pause, au retrait du tracking et à l’atomicité en cas d’erreur ; vérifier les départs concurrents entre sessions et les changements de compte ; distinguer un départ réussi d’un échec de rafraîchissement ; mutualiser la transition avec le départ initié par le coach, informer le coach, distinguer l’auteur du départ dans la bannière solo, valider le parcours navigateur, puis promouvoir la migration. Le profil public, l’annuaire et les demandes restent à construire. Aucun critère ci-dessous n’est retiré.
 
 ### Départ autonome
 
