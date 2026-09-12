@@ -84,6 +84,9 @@ import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
+import { createAccountRequestGuard } from '../lib/accountRequestGuard';
+
+const roleRequests = createAccountRequestGuard();
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -491,6 +494,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   progressPhotosEpoch: 0,
 
   fetchMyRole: async (userId) => {
+    const isCurrent = roleRequests.begin(userId);
+    if (!isCurrent) return;
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
     try {
       const { data, error } = await supabase
@@ -498,6 +503,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
+      if (!isCurrent()) return;
       const outcome = nextRoleAfterFetch({
         previous,
         data: data as { coaching_role?: string | null } | null,
@@ -523,6 +529,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
           : { myTrackingConfig: cloneTracking(ALL_ON_TRACKING), trackingReady: true }),
       });
     } catch {
+      if (!isCurrent()) return;
       set({
         coachingRole: previous,
         coachingRoleError: 'network',
@@ -533,6 +540,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   setCoachingRole: async (role) => {
+    roleRequests.invalidate();
     const { data, error } = await supabase.rpc('set_coaching_role', { p_role: role });
     if (error) return { error: error.message };
     set({ coachingRole: (data as CoachingRole) || role });
@@ -2221,6 +2229,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   clear: () => {
+    roleRequests.invalidate();
     get().stopCoachRealtime();
     get().stopClientRealtime();
     for (const channel of dossierChannels.values()) void supabase.removeChannel(channel);
