@@ -28,7 +28,23 @@ Prometheus relie quatre capacités :
 
 Le produit vise d’abord les coachs et pratiquants de musculation, bodybuilding et powerlifting. Son avantage recherché associe acquisition de clients pour les coachs, choix d’un accompagnement adapté pour les pratiquants et suivi individualisé simple à utiliser, soutenu par l’IA et contrôlé par l’humain.
 
-## Les trois rôles
+## Un moteur, plusieurs expériences
+
+**Prometheus = marketplace de coaching + plateforme commune de suivi de performance + système d’exploitation du coaching.**
+
+Les données personnelles appartiennent au compte et suivent toute son histoire sportive. Solo et coaché sont des situations d’accompagnement ; coach est une capacité professionnelle qui peut coexister avec l’usage personnel. L’espace affiché ne confère aucun droit.
+
+Un coach peut utiliser les outils pour son entraînement personnel et inviter ses clients existants sans publier de profil marketplace. Aucun second moteur de séances, de programmes ou de progression ne doit être construit pour un rôle.
+
+L’entrée cible crée le compte, puis demande l’intention : « M’entraîner seul », « Trouver un coach » ou « Je suis coach ». Un utilisateur qui revient retrouve son contexte ; une invitation garde sa destination. Chaque parcours demande ensuite seulement les informations utiles à sa première action.
+
+Le Solo privilégie logging, historique, routines et progression. L’IA est facultative et informative ; elle ne tente pas de devenir en permanence son coach. La marketplace reste un accès discret et volontaire.
+
+La boucle commune est objectif → plan → action → suivi → analyse → adaptation. Le solo décide pour lui-même ; avec un coach, le coach interprète et valide les adaptations. Le bilan mène à un nouvel objectif, au maintien ou à un changement volontaire de mode, sans supprimer l’histoire.
+
+La carte des parcours, écrans et contrats d’architecture est dans [CARTE_PRODUIT.md](CARTE_PRODUIT.md). Elle décrit une cible et ses écarts avec le code ; le statut des travaux reste dans le Chantier.
+
+## Les trois expériences
 
 | | Coach | Client coaché | Solo |
 |---|---|---|---|
