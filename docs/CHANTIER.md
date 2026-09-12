@@ -66,7 +66,7 @@ Les sept tests de `coachRole.test.ts` passent localement : compatibilité des co
 
 `fetchMyRole` ignore désormais les réponses et erreurs d’un ancien compte, d’une requête remplacée ou d’un chargement invalidé par le reset du store. Un appel avec l’identifiant d’un ancien compte ne peut pas annuler la requête du compte courant. Le début d’une mutation de rôle invalide les lectures antérieures.
 
-Cinq scénarios comportementaux passent localement, dont réponses dans le désordre et reconnexion au même compte après reset. Un test de raccordement au store complète la suite CI. Cela couvre les lectures de rôle ; les autres chargements du store et les réponses des mutations restent à auditer séparément. Aucune migration de capacité serveur ni ouverture de droit n’est livrée par ce correctif. Validation CI de l’ensemble en cours.
+Cinq scénarios comportementaux passent localement, dont réponses dans le désordre et reconnexion au même compte après reset. Un test de raccordement au store complète la suite CI. Cela couvre les lectures de rôle ; les autres chargements du store et les réponses des mutations restent à auditer séparément. Aucune migration de capacité serveur ni ouverture de droit n’est livrée par ce correctif. Validation du code : [run 34699032863](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34699032863), job `verify` réussi — 440 tests, lint, TypeScript et build. Aucun nouveau parcours navigateur de changement de compte n’est déclaré validé.
 
 ### État du chantier — partiel, non livré
 
