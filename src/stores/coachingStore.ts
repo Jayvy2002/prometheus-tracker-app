@@ -84,9 +84,11 @@ import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
-import { createAccountRequestGuard } from '../lib/accountRequestGuard';
+import { createAccountRequestGuard, createAccountMutationGuard } from '../lib/accountRequestGuard';
+import { getSessionOwner } from '../lib/sessionScope';
 
 const roleRequests = createAccountRequestGuard();
+const roleMutations = createAccountMutationGuard();
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -494,6 +496,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   progressPhotosEpoch: 0,
 
   fetchMyRole: async (userId) => {
+    if (roleMutations.pending()) return;
     const isCurrent = roleRequests.begin(userId);
     if (!isCurrent) return;
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
@@ -540,11 +543,26 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   setCoachingRole: async (role) => {
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    const operation = roleMutations.begin(accountId);
+    if (!operation) return { error: 'operation_in_progress' };
     roleRequests.invalidate();
-    const { data, error } = await supabase.rpc('set_coaching_role', { p_role: role });
-    if (error) return { error: error.message };
-    set({ coachingRole: (data as CoachingRole) || role });
-    return { error: null };
+    try {
+      const { data, error } = await supabase.rpc('set_coaching_role', { p_role: role });
+      if (!operation.isCurrent()) return { error: 'session_changed' };
+      if (error) return { error: error.message };
+      const confirmed = parseRememberedCoachingRole(typeof data === 'string' ? data : null);
+      if (!confirmed) return { error: 'invalid_role_response' };
+      persistRememberedCoachingRole(accountId, confirmed);
+      set({ coachingRole: confirmed, coachingRoleError: null });
+      return { error: null };
+    } catch {
+      return { error: operation.isCurrent() ? 'network' : 'session_changed' };
+    } finally {
+      if (operation.isCurrent()) roleRequests.invalidate();
+      operation.finish();
+    }
   },
 
   applyIntendedCoachingRole: async () => {
@@ -2229,6 +2247,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   clear: () => {
+    roleMutations.invalidate();
     roleRequests.invalidate();
     get().stopCoachRealtime();
     get().stopClientRealtime();
