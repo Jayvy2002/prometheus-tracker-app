@@ -125,7 +125,16 @@ try {
  await clientPage.unroute('**/rest/v1/user_profiles?*');
  await clientPage.reload();
  await clientPage.getByText('Your coaching relationship has ended',{exact:true}).waitFor();
- console.log('PASS: browser departure, refresh outage does not undo success, solo reload');
+
+ await page.goto(origin+'/dashboard');
+ await page.getByText('Questionnaire Athlete ended the coaching relationship.',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Mark the departure of Questionnaire Athlete as read',exact:true}).click();
+ await page.getByText('Questionnaire Athlete ended the coaching relationship.',{exact:true}).waitFor({state:'hidden'});
+ await page.reload();
+ const notices=check(await coach.client.from('coach_relationship_notices').select('read_at').eq('client_id',athlete.id));
+ assert.equal(notices.length,1);
+ assert.ok(notices[0].read_at);
+ console.log('PASS: browser departure, refresh outage, solo reload, coach notice and persisted acknowledgement');
 } catch(error) {
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;

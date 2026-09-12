@@ -1778,6 +1778,14 @@ const en = {
     later: 'Later',
   },
   coachDiscovery: {
+    notices: {
+      title: 'Coaching updates',
+      ended: '{{name}} ended the coaching relationship.',
+      client: 'This client',
+      dismiss: 'Got it',
+      dismissFor: 'Mark the departure of {{name}} as read',
+      error: 'Coaching notifications could not be updated.',
+    },
     leave: {
       title: 'Coaching relationship',
       current: 'You are currently coached by {{name}}.',

@@ -1778,6 +1778,14 @@ const fr = {
     later: 'Plus tard',
   },
   coachDiscovery: {
+    notices: {
+      title: 'Fins de suivi',
+      ended: '{{name}} a mis fin au suivi.',
+      client: 'Ce client',
+      dismiss: 'Compris',
+      dismissFor: 'Marquer le départ de {{name}} comme lu',
+      error: 'Impossible de mettre à jour les notifications de suivi.',
+    },
     leave: {
       title: 'Relation de coaching',
       current: 'Tu es actuellement suivi par {{name}}.',

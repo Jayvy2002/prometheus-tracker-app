@@ -103,5 +103,29 @@ do $$ begin
 end $$;
 reset role;
 
+
+-- The client departure emits one durable notice, visible only to its recipient.
+do $$ begin
+ if (select count(*) from public.coach_relationship_notices where client_id='a1750000-0000-4000-8000-000000000002') <> 1 then raise exception 'notice missing or duplicated'; end if;
+ if has_table_privilege('authenticated','public.coach_relationship_notices','insert') then raise exception 'notice forgery allowed'; end if;
+end $$;
+select set_config('test.departure_notice_id',(select id::text from public.coach_relationship_notices where client_id='a1750000-0000-4000-8000-000000000002'),true);
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000003',true);
+do $$ begin
+ if exists(select 1 from public.coach_relationship_notices) then raise exception 'third party reads notices'; end if;
+ if public.dismiss_coach_relationship_notice(current_setting('test.departure_notice_id')::uuid)->>'error' is distinct from 'not_found' then raise exception 'third party dismisses notice'; end if;
+end $$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000001',true);
+do $$ begin
+ if not exists(select 1 from public.coach_relationship_notices where client_id='a1750000-0000-4000-8000-000000000002' and read_at is null) then raise exception 'recipient cannot read notice'; end if;
+ if public.dismiss_coach_relationship_notice(current_setting('test.departure_notice_id')::uuid)->>'ok' is distinct from 'true' then raise exception 'dismiss failed'; end if;
+ if public.dismiss_coach_relationship_notice(current_setting('test.departure_notice_id')::uuid)->>'ok' is distinct from 'true' then raise exception 'dismiss not idempotent'; end if;
+ if not exists(select 1 from public.coach_relationship_notices where id=current_setting('test.departure_notice_id')::uuid and read_at is not null) then raise exception 'receipt not persisted'; end if;
+end $$;
+reset role;
+
 rollback;
 \echo 'client departure: isolation, rollback, archives, revocation, role transition and repeat checks passed'

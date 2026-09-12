@@ -16,6 +16,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import CoachRelationshipNotices from './CoachRelationshipNotices';
 import CoachTodayQueue from './CoachTodayQueue';
 import { formatWeekdayDate } from '../../lib/utils';
 
@@ -121,6 +122,8 @@ export default function CoachDashboard() {
             </button>
           </div>
         </div>
+
+        <CoachRelationshipNotices />
 
         {opsLoading ? (
           <div className="space-y-2">
