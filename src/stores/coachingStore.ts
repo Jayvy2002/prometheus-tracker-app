@@ -456,6 +456,7 @@ interface CoachingState {
   fetchNotes: (clientId: string) => Promise<void>;
   addNote: (clientId: string, body: string, opts?: { noteDate?: string; workoutId?: string }) => Promise<{ error: string | null }>;
   deleteNote: (id: string) => Promise<void>;
+  endMyCoachLink: () => Promise<{ error: string | null }>;
   endClientLink: (linkClientId: string) => Promise<{ error: string | null }>;
   clear: () => void;
 }
@@ -2149,6 +2150,29 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   deleteNote: async (id) => {
     await supabase.from('coach_notes').delete().eq('id', id);
     set(s => ({ notes: s.notes.filter(n => n.id !== id) }));
+  },
+
+  endMyCoachLink: async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'not_authenticated' };
+
+    const { data, error } = await supabase.rpc('client_end_coach_link');
+    if (error) return { error: error.message };
+    const payload = data as { ok?: boolean; error?: string } | null;
+    if (!payload?.ok) return { error: payload?.error ?? 'not_linked' };
+
+    get().stopClientRealtime();
+    set({
+      coachingRole: 'none',
+      myCoach: null,
+      myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+      trackingReady: true,
+      latestCoachMessage: null,
+      unreadMessageCount: 0,
+    });
+    await get().fetchMyRole(user.id);
+    await get().fetchMyCoach();
+    return { error: null };
   },
 
   endClientLink: async (linkClientId) => {
