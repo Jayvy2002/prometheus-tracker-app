@@ -20,6 +20,14 @@ function ResponseForm({initial,readOnly,onCompleted}:{initial:QuestionnaireRespo
  const [retry,setRetry]=useState(0);
  const inFlight=useRef(false);
  const dirty=JSON.stringify(answers)!==JSON.stringify(response.answers);
+ // A response can be refreshed in place after navigation or an auth-store reload.
+ // Keep the form bound to the newest server revision instead of retaining stale local state.
+ useEffect(()=>{
+  setResponse(initial);
+  setAnswers(initial.answers ?? {});
+  setIssues([]);
+  setSaved(false);
+ },[initial.id,initial.revision,initial.completed_at,initial.answers]);
  useEffect(()=>{
   if(!dirty)return;
   const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
