@@ -140,6 +140,8 @@ function AppRoutes() {
     return () => { cancelled = true; };
   }, [assignmentScope, userId, myCoach?.id, roleReady, assignmentRetry]);
 
+  // Ending an existing relationship must not restart first-time setup.
+  const returningFromCoaching = profile?.id === userId && !!profile?.coach_link_ended_at;
   const skipPersonalOnboarding =
     coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
   const coachedClient =
@@ -339,7 +341,7 @@ function AppRoutes() {
     );
   }
 
-  if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
+  if (!profile?.onboarding_completed && !returningFromCoaching && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
       <Suspense fallback={<RouteFallback />}>
         <Routes>

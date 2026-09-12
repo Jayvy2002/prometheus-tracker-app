@@ -2213,13 +2213,17 @@ fetchMyCoach: async () => {
       const { data, error } = await supabase.rpc('client_end_coach_link');
       if (!operation.isCurrent()) return { error: 'session_changed' };
       if (error) return { error: error.message };
-      const payload = data as { ok?: boolean; error?: string } | null;
+      const payload = data as { ok?: boolean; error?: string; ended_at?: string } | null;
       if (payload?.ok !== true) return { error: payload?.error ?? 'invalid_response' };
 
       get().stopClientRealtime();
       // Leaving personal coaching does not remove professional coach capability.
       const role = get().coachingRole === 'coach' ? 'coach' : 'none';
       persistRememberedCoachingRole(accountId, role);
+      const currentProfile = useProfileStore.getState().profile;
+      if (currentProfile?.id === accountId && payload.ended_at && Number.isFinite(Date.parse(payload.ended_at))) {
+        useProfileStore.setState({ profile: { ...currentProfile, coach_link_ended_at: payload.ended_at } });
+      }
       set({
         coachingRole: role,
         roleReady: true,

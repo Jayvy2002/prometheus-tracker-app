@@ -56,7 +56,8 @@ begin
   end if;
   v_result := public.transition_client_to_solo(v_coach_id, v_uid);
   if v_result->>'ok' = 'true' then
-    return v_result || jsonb_build_object('former_coach_id', v_coach_id);
+    return v_result || jsonb_build_object('former_coach_id', v_coach_id,
+      'ended_at', (SELECT coach_link_ended_at FROM public.user_profiles WHERE id=v_uid));
   end if;
   return v_result;
 end;
