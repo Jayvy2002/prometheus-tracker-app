@@ -2247,48 +2247,30 @@ fetchMyCoach: async () => {
   },
 
   endClientLink: async (linkClientId) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'not_authenticated' };
-    if (linkClientId === user.id) return { error: 'cannot_end_self' };
-
-    const { data, error: rpcError } = await supabase.rpc('end_coach_client_link', {
-      p_client_id: linkClientId,
-    });
-    const rpcMissing = !!rpcError && (
-      rpcError.code === 'PGRST202'
-      || rpcError.code === '42883'
-      || /end_coach_client_link/i.test(rpcError.message)
-    );
-
-    if (rpcError && !rpcMissing) {
-      return { error: rpcError.message };
-    }
-
-    if (!rpcError) {
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    if (linkClientId === accountId) return { error: 'cannot_end_self' };
+    const operation = roleMutations.begin(accountId);
+    if (!operation) return { error: 'operation_pending' };
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!operation.isCurrent()) return { error: 'session_changed' };
+      if (!user || user.id !== accountId) return { error: 'not_authenticated' };
+      // All departure writes belong to the server transaction. No partial fallback.
+      const { data, error } = await supabase.rpc('end_coach_client_link', {
+        p_client_id: linkClientId,
+      });
+      if (!operation.isCurrent()) return { error: 'session_changed' };
+      if (error) return { error: error.message };
       const payload = data as { ok?: boolean; error?: string } | null;
-      if (payload && payload.ok === false) {
-        return { error: payload.error ?? 'not_linked' };
-      }
-    } else {
-      const iso = new Date().toISOString();
-      const paused = await supabase
-        .from('program_assignments')
-        .update({ status: 'paused', updated_at: iso })
-        .eq('client_id', linkClientId)
-        .eq('assigned_by', user.id)
-        .eq('status', 'active');
-      if (paused.error) return { error: paused.error.message };
-      const ended = await supabase
-        .from('coach_client_links')
-        .update({ status: 'ended', updated_at: iso })
-        .eq('coach_id', user.id)
-        .eq('client_id', linkClientId)
-        .eq('status', 'active');
-      if (ended.error) return { error: ended.error.message };
+      if (payload?.ok !== true) return { error: payload?.error ?? 'invalid_response' };
+      set(s => dropUnlinkedClient(s, linkClientId));
+      return { error: null };
+    } catch {
+      return { error: operation.isCurrent() ? 'network' : 'session_changed' };
+    } finally {
+      operation.finish();
     }
-
-    set(s => dropUnlinkedClient(s, linkClientId));
-    return { error: null };
   },
 
   clear: () => {
