@@ -33,6 +33,7 @@ export default function ClientCoachRelationshipPanel({ coachName }: { coachName:
 
   const endRelationship = async () => {
     if (inFlight.current || !user) return;
+    const startedPath = window.location.pathname;
     const current = generation.current;
     const isCurrent = () => generation.current === current && useAuthStore.getState().user?.id === user.id;
     inFlight.current = true;
@@ -40,14 +41,15 @@ export default function ClientCoachRelationshipPanel({ coachName }: { coachName:
     setError('');
     try {
       const result = await endMyCoachLink();
-      if (!isCurrent()) return;
+      if (useAuthStore.getState().user !== user) return;
       if (result.error) {
-        setError(t('coachDiscovery.leave.error'));
+        if (isCurrent()) setError(t('coachDiscovery.leave.error'));
         return;
       }
-      setConfirming(false);
+      // Removing myCoach can unmount this panel before the promise resumes.
+      if (isCurrent()) setConfirming(false);
       toast(t('coachDiscovery.leave.success'));
-      navigate('/dashboard', { replace: true });
+      if (window.location.pathname === startedPath) navigate('/dashboard', { replace: true });
       // Refresh errors must not invite repeating an already committed departure.
       void fetchProfile(user.id, { silent: true }).catch(() => undefined);
     } catch {
