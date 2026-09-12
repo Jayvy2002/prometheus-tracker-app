@@ -1797,7 +1797,7 @@ const en = {
       paused: 'The current program from this coach is kept but paused.',
       billing: 'This action only ends the coaching relationship. It does not cancel a separate subscription.',
       confirm: 'End relationship',
-      success: 'The coaching relationship has ended. You are now in solo mode.',
+      success: 'The coaching relationship has ended. Your history stays available.',
       error: 'The relationship could not be ended. Try again.',
     },
   },

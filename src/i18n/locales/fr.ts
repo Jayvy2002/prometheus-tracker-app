@@ -1797,7 +1797,7 @@ const fr = {
       paused: 'Le programme actuel de ce coach est conservé, mais mis en pause.',
       billing: 'Cette action met seulement fin à la relation de coaching. Elle ne résilie pas un abonnement séparé.',
       confirm: 'Mettre fin au suivi',
-      success: 'La relation de coaching est terminée. Tu es maintenant en mode solo.',
+      success: 'La relation de coaching est terminée. Ton historique reste accessible.',
       error: 'Impossible de mettre fin au suivi. Réessaie.',
     },
   },

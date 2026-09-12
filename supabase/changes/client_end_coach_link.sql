@@ -18,6 +18,9 @@ CREATE POLICY coach_reads_relationship_notices ON public.coach_relationship_noti
 CREATE INDEX IF NOT EXISTS coach_relationship_notices_unread_idx
   ON public.coach_relationship_notices(coach_id, ended_at DESC) WHERE read_at IS NULL;
 
+CREATE INDEX IF NOT EXISTS coach_relationship_notices_coach_idx ON public.coach_relationship_notices(coach_id);
+CREATE INDEX IF NOT EXISTS coach_relationship_notices_client_idx ON public.coach_relationship_notices(client_id);
+
 CREATE OR REPLACE FUNCTION public.dismiss_coach_relationship_notice(p_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

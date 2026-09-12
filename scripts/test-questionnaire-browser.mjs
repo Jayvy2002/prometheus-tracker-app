@@ -115,6 +115,7 @@ try {
  }));
  await confirm.click();
  await clientPage.waitForURL('**/dashboard');
+ await clientPage.getByText('Your coaching relationship has ended',{exact:true}).waitFor();
  assert.equal(departureCalls,1,'Departure is submitted once');
  const ended=check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single());
  assert.equal(ended.status,'ended');
