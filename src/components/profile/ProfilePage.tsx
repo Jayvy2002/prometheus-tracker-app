@@ -22,6 +22,7 @@ import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
 import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
+import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPanel';
 import SoloHub from './SoloHub';
 
 type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
@@ -165,6 +166,8 @@ export default function ProfilePage() {
           )}
         </Card>
       )}
+
+      {coached && myCoach && <ClientCoachRelationshipPanel coachName={myCoach.full_name || t('coaching.invite.aCoach')} />}
 
       {!coached && !isCoach && (
         <div className="md:hidden">
