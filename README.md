@@ -8,6 +8,8 @@
 
 Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais.
 
+La direction produit est une marketplace reliant recherche d’un coach adapté et accompagnement dans l’app, tout en conservant un mode solo complet. Cette destination est décrite dans [`docs/VISION.md`](docs/VISION.md) ; la marketplace et sa recherche guidée ne sont pas encore des fonctionnalités livrées.
+
 Prometheus sert trois profils :
 
 - **Coach** : suit ses clients et valide les propositions préparées par l’application.
