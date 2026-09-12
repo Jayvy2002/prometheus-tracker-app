@@ -62,6 +62,12 @@ Les sept tests de `coachRole.test.ts` passent localement : compatibilité des co
 
 **M1 reste partiel :** inventaire complet des prédicats, migration des capacités persistées, backfill et contexte serveur lié au compte restent à faire. L’espace personnel du coach n’est pas encore ouvert ; aucun changement RLS ou SQL dans ce lot. Le job `verify` du [run 34698717201](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34698717201) passe sur le code de ce lot : lint, TypeScript, suite applicative et build. Les parcours navigateur spécifiques au contexte de compte restent à vérifier ; la migration serveur n’est pas validée par ces tests. Les autres tâches M0–M8 sont conservées.
 
+### M1 — isolation des chargements de rôle
+
+`fetchMyRole` ignore désormais les réponses et erreurs d’un ancien compte, d’une requête remplacée ou d’un chargement invalidé par le reset du store. Un appel avec l’identifiant d’un ancien compte ne peut pas annuler la requête du compte courant. Le début d’une mutation de rôle invalide les lectures antérieures.
+
+Cinq scénarios comportementaux passent localement, dont réponses dans le désordre et reconnexion au même compte après reset. Un test de raccordement au store complète la suite CI. Cela couvre les lectures de rôle ; les autres chargements du store et les réponses des mutations restent à auditer séparément. Aucune migration de capacité serveur ni ouverture de droit n’est livrée par ce correctif. Validation CI de l’ensemble en cours.
+
 ### État du chantier — partiel, non livré
 
 La branche `feature/coach-discovery` contient la confirmation FR/EN et une RPC candidate de départ autonome. La confirmation gère les exceptions et bloque les doubles appels depuis cette instance du composant. La CI applique maintenant le SQL de `supabase/changes/` exclusivement sur sa base temporaire, puis exécute `supabase/tests/client_departure.sql` dans une transaction annulée. Ces tests passent sur le [run 34675961602](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34675961602) : refus du rôle anonyme, absence de lien pour un compte tiers sans modification du lien existant, départ du client, rôle solo, profil conservé avec date de départ et réponse contrôlée au second appel. Cette preuve ne couvre ni la production ni le parcours navigateur de départ.
