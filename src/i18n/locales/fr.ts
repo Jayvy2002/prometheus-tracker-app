@@ -1777,6 +1777,22 @@ const fr = {
     completeLater: 'Compléter le questionnaire',
     later: 'Plus tard',
   },
+  coachDiscovery: {
+    leave: {
+      title: 'Relation de coaching',
+      current: 'Tu es actuellement suivi par {{name}}.',
+      action: 'Mettre fin au suivi',
+      confirmTitle: 'Continuer sans ce coach ?',
+      confirmBody: 'Ce changement prend effet immédiatement.',
+      kept: 'Ton historique et tes saisies personnelles restent accessibles.',
+      stopped: 'Ton coach perd son accès et ses réglages de suivi sont retirés.',
+      paused: 'Le programme actuel de ce coach est conservé, mais mis en pause.',
+      billing: 'Cette action met seulement fin à la relation de coaching. Elle ne résilie pas un abonnement séparé.',
+      confirm: 'Mettre fin au suivi',
+      success: 'La relation de coaching est terminée. Tu es maintenant en mode solo.',
+      error: 'Impossible de mettre fin au suivi. Réessaie.',
+    },
+  },
 } as const;
 
 export default fr;
