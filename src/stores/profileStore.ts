@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { applyNutritionTargets } from '../lib/clientLive';
 import type { UserProfile } from '../lib/types';
+import { createAccountRequestGuard } from '../lib/accountRequestGuard';
+
+const profileRequests = createAccountRequestGuard();
 
 interface ProfileState {
   profile: UserProfile | null;
@@ -25,18 +28,25 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   uploadingAvatar: false,
 
   fetchProfile: async (userId, opts) => {
+    const isCurrent = profileRequests.begin(userId);
+    if (!isCurrent) return;
     if (!opts?.silent) set({ loading: true, fetchError: null });
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-    if (error) {
-      console.error('[Prometheus] fetchProfile failed:', error.message);
-      set({ loading: false, fetchError: error.message });
-      return;
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      if (!isCurrent()) return;
+      if (error) {
+        console.error('[Prometheus] fetchProfile failed:', error.message);
+        set({ loading: false, fetchError: error.message });
+        return;
+      }
+      set({ profile: data as UserProfile | null, loading: false, fetchError: null });
+    } catch {
+      if (isCurrent()) set({ loading: false, fetchError: 'network' });
     }
-    set({ profile: data as UserProfile | null, loading: false, fetchError: null });
   },
 
   applyRemoteTargets: (userId, targets) => {
@@ -91,5 +101,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     return avatarUrl;
   },
 
-  clearProfile: () => set({ profile: null, loading: true, fetchError: null }),
+  clearProfile: () => {
+    profileRequests.invalidate();
+    set({ profile: null, loading: true, fetchError: null });
+  },
 }));

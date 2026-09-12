@@ -99,6 +99,33 @@ try {
  await page.getByText('Answers sent',{exact:true}).waitFor();
  console.log('PASS: pinned revision, finalization, read-only answers, coach review, other-coach isolation');
  await clientPage.screenshot({path:'artifacts/questionnaire/completed.png',fullPage:true});
+
+ // Departure must succeed even if the subsequent profile refresh fails.
+ await clientPage.goto(origin+'/profile');
+ await clientPage.getByRole('button',{name:'End coaching relationship',exact:true}).click();
+ const confirm=clientPage.getByRole('button',{name:'End relationship',exact:true});
+ await confirm.waitFor();
+ let departureCalls=0;
+ await clientPage.route('**/rest/v1/rpc/client_end_coach_link',async route=>{
+  departureCalls++;
+  await route.continue();
+ });
+ await clientPage.route('**/rest/v1/user_profiles?*',route=>route.fulfill({
+  status:503,contentType:'application/json',body:JSON.stringify({message:'injected refresh outage'})
+ }));
+ await confirm.click();
+ await clientPage.waitForURL('**/dashboard');
+ assert.equal(departureCalls,1,'Departure is submitted once');
+ const ended=check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single());
+ assert.equal(ended.status,'ended');
+ const role=check(await admin.from('user_roles').select('coaching_role').eq('user_id',athlete.id).single());
+ assert.equal(role.coaching_role,'none');
+ const archivedAnswers=check(await athlete.client.from('client_questionnaire_responses').select('id'));
+ assert.equal(archivedAnswers.length,1,'Client retains their answers');
+ await clientPage.unroute('**/rest/v1/user_profiles?*');
+ await clientPage.reload();
+ await clientPage.getByText('Your coaching relationship has ended',{exact:true}).waitFor();
+ console.log('PASS: browser departure, refresh outage does not undo success, solo reload');
 } catch(error) {
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;

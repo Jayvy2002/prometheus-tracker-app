@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { UserMinus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -20,27 +20,43 @@ export default function ClientCoachRelationshipPanel({ coachName }: { coachName:
   const [ending, setEnding] = useState(false);
   const inFlight = useRef(false);
   const [error, setError] = useState('');
+  const generation = useRef(0);
+
+  useEffect(() => {
+    generation.current += 1;
+    inFlight.current = false;
+    setEnding(false);
+    setConfirming(false);
+    setError('');
+    return () => { generation.current += 1; };
+  }, [user?.id]);
 
   const endRelationship = async () => {
-    if (inFlight.current) return;
+    if (inFlight.current || !user) return;
+    const current = generation.current;
+    const isCurrent = () => generation.current === current && useAuthStore.getState().user?.id === user.id;
     inFlight.current = true;
     setEnding(true);
     setError('');
     try {
       const result = await endMyCoachLink();
+      if (!isCurrent()) return;
       if (result.error) {
         setError(t('coachDiscovery.leave.error'));
         return;
       }
-      if (user) await fetchProfile(user.id);
       setConfirming(false);
       toast(t('coachDiscovery.leave.success'));
       navigate('/dashboard', { replace: true });
+      // Refresh errors must not invite repeating an already committed departure.
+      void fetchProfile(user.id, { silent: true }).catch(() => undefined);
     } catch {
-      setError(t('coachDiscovery.leave.error'));
+      if (isCurrent()) setError(t('coachDiscovery.leave.error'));
     } finally {
-      inFlight.current = false;
-      setEnding(false);
+      if (isCurrent()) {
+        inFlight.current = false;
+        setEnding(false);
+      }
     }
   };
 

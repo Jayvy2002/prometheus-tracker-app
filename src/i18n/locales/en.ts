@@ -236,7 +236,7 @@ const en = {
     },
     photosCard: 'Progress photos',
     linkEnded: {
-      title: 'Your coach has ended your collaboration',
+      title: 'Your coaching relationship has ended',
       body: 'Your history and targets are kept. Your program is paused and you can continue in solo mode.',
       trial: 'Solo trial: {{days}} day(s) left.',
       trialOver: 'Your solo trial has ended.',

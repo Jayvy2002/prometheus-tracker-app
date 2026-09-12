@@ -89,6 +89,8 @@ import { getSessionOwner } from '../lib/sessionScope';
 
 const roleRequests = createAccountRequestGuard();
 const roleMutations = createAccountMutationGuard();
+const coachRequests = createAccountRequestGuard();
+const trackingRequests = createAccountRequestGuard();
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -881,7 +883,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   fetchMyTrackingConfig: async () => {
+    const accountId = getSessionOwner();
+    if (!accountId || roleMutations.pending()) return;
+    const isCurrent = trackingRequests.begin(accountId);
+    if (!isCurrent) return;
     const { data: { user } } = await supabase.auth.getUser();
+    if (!isCurrent()) return;
+    if (user && user.id !== accountId) return;
     const isCoached = isCoachedAthlete(get().coachingRole, get().myCoach);
     if (!user) {
       const next = viewerTrackingAfterFetch({ isCoached: false, row: null, fetchError: false });
@@ -893,6 +901,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .select('*')
       .eq('client_id', user.id)
       .maybeSingle();
+    if (!isCurrent()) return;
     const next = viewerTrackingAfterFetch({
       isCoached,
       row: data,
@@ -1990,8 +1999,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     set(s => ({ invites: s.invites.filter(i => i.id !== id) }));
   },
 
-  fetchMyCoach: async () => {
+fetchMyCoach: async () => {
+    const accountId = getSessionOwner();
+    if (!accountId || roleMutations.pending()) return;
+    const isCurrent = coachRequests.begin(accountId);
+    if (!isCurrent) return;
     const { data: { user } } = await supabase.auth.getUser();
+    if (!isCurrent()) return;
     if (!user) {
       set({
         myCoach: null,
@@ -2002,12 +2016,15 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       });
       return;
     }
-    const { data: link } = await supabase
+    if (user.id !== accountId) return;
+    const { data: link, error: linkError } = await supabase
       .from('coach_client_links')
       .select('coach_id')
       .eq('client_id', user.id)
       .eq('status', 'active')
       .maybeSingle();
+    if (!isCurrent()) return;
+    if (linkError) { toast(i18n.t('errors.loadRole'), 'error'); return; }
     if (!link) {
       set({
         myCoach: null,
@@ -2020,7 +2037,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       return;
     }
     // S03 : carte coach minimale via RPC — le client ne lit plus user_profiles.
-    const { data: card } = await supabase.rpc('get_my_coach_card').maybeSingle();
+    const { data: card, error: cardError } = await supabase.rpc('get_my_coach_card').maybeSingle();
+    if (!isCurrent()) return;
+    if (cardError) { toast(i18n.t('errors.loadRole'), 'error'); return; }
     const profile = card as { coach_id: string; full_name: string; avatar_url: string | null } | null;
     if (!profile) {
       set({ myCoach: null, latestCoachMessage: null, unreadMessageCount: 0 });
@@ -2033,6 +2052,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       .eq('client_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50);
+    if (!isCurrent()) return;
     const messages = (msgs ?? [])
       .map(row => mapCoachMessage(row as Record<string, unknown>))
       .filter((row): row is CoachMessage => !!row);
@@ -2179,26 +2199,51 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   endMyCoachLink: async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { error: 'not_authenticated' };
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    const operation = roleMutations.begin(accountId);
+    if (!operation) return { error: 'operation_pending' };
+    roleRequests.invalidate();
+    coachRequests.invalidate();
+    trackingRequests.invalidate();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!operation.isCurrent()) return { error: 'session_changed' };
+      if (!user || user.id !== accountId) return { error: 'not_authenticated' };
+      const { data, error } = await supabase.rpc('client_end_coach_link');
+      if (!operation.isCurrent()) return { error: 'session_changed' };
+      if (error) return { error: error.message };
+      const payload = data as { ok?: boolean; error?: string } | null;
+      if (payload?.ok !== true) return { error: payload?.error ?? 'invalid_response' };
 
-    const { data, error } = await supabase.rpc('client_end_coach_link');
-    if (error) return { error: error.message };
-    const payload = data as { ok?: boolean; error?: string } | null;
-    if (!payload?.ok) return { error: payload?.error ?? 'not_linked' };
-
-    get().stopClientRealtime();
-    set({
-      coachingRole: 'none',
-      myCoach: null,
-      myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
-      trackingReady: true,
-      latestCoachMessage: null,
-      unreadMessageCount: 0,
-    });
-    await get().fetchMyRole(user.id);
-    await get().fetchMyCoach();
-    return { error: null };
+      get().stopClientRealtime();
+      // Leaving personal coaching does not remove professional coach capability.
+      const role = get().coachingRole === 'coach' ? 'coach' : 'none';
+      persistRememberedCoachingRole(accountId, role);
+      set({
+        coachingRole: role,
+        roleReady: true,
+        coachingRoleError: null,
+        myCoach: null,
+        myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+        trackingReady: true,
+        latestCoachMessage: null,
+        unreadMessageCount: 0,
+        sentMessages: [],
+        threadExhausted: {},
+      });
+      // A confirmed mutation is successful independently of subsequent reads.
+      return { error: null };
+    } catch {
+      return { error: operation.isCurrent() ? 'network' : 'session_changed' };
+    } finally {
+      if (operation.isCurrent()) {
+        roleRequests.invalidate();
+        coachRequests.invalidate();
+        trackingRequests.invalidate();
+      }
+      operation.finish();
+    }
   },
 
   endClientLink: async (linkClientId) => {
@@ -2247,6 +2292,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   clear: () => {
+    coachRequests.invalidate();
+    trackingRequests.invalidate();
     roleMutations.invalidate();
     roleRequests.invalidate();
     get().stopCoachRealtime();
