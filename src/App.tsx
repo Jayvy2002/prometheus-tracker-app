@@ -9,6 +9,7 @@ import { resetSessionStores } from './lib/resetStores';
 import { getSessionOwner } from './lib/sessionScope';
 import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
+import { resolveLegacyAccountContext } from './lib/accountContext';
 import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
 import { toast } from './components/ui/Toast';
@@ -66,25 +67,36 @@ function RouteFallback() {
   );
 }
 
+function useAccountContext() {
+  const role = useCoachingStore(s => s.coachingRole);
+  const coach = useCoachingStore(s => s.myCoach);
+  const ready = useCoachingStore(s => s.roleReady);
+  return resolveLegacyAccountContext(role, coach, ready);
+}
+
 function HomeDashboard() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  return coachingRole === 'coach' ? <CoachDashboard /> : <Dashboard />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  return context.defaultWorkspace === 'coaching' ? <CoachDashboard /> : <Dashboard />;
 }
 
 function CoachOnly({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole !== 'coach') return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (!context.capabilities.coach) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function MessagesHome() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  return coachingRole === 'coach' ? <CoachInboxPage /> : <ClientMessagesPage />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  return context.defaultWorkspace === 'coaching' ? <CoachInboxPage /> : <ClientMessagesPage />;
 }
 
 function CoachTrackerRedirect({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole === 'coach') return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (!context.personalToolsAvailable) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
@@ -96,8 +108,9 @@ function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
 }
 
 function ProgramsHome() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole === 'coach') return <ProgramsPage />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (context.defaultWorkspace === 'coaching') return <ProgramsPage />;
   return <ClientProgramPage />;
 }
 
