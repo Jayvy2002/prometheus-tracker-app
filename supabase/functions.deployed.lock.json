@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-10T22:12:03Z",
-  "comment": "Inventaire live vérifié après déploiement Supabase Management API. coach-fleet-round v32 et coach-agent v26 sont ACTIVE ; JWT conforme, import map conservée et CORS agent vérifié. La PR #69 prépare un futur déploiement CLI manuel.",
+  "captured_at": "2026-09-12T04:18:34Z",
+  "comment": "Inventaire live vérifié après le déploiement automatique de la PR #74 par l’intégration GitHub Supabase. coach-agent v27 et notify-onboarding-complete v22 sont ACTIVE ; JWT conforme, import maps conservées et preflights CORS vérifiés à 200.",
   "functions": [
     {
       "slug": "analyze-product",
@@ -25,8 +25,8 @@
       "slug": "coach-agent",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 26,
-      "ezbr_sha256": "5a8ee074df72b2858a12ad99befb74ee650cccdc0491047ce53f51ba22748cd3"
+      "version": 27,
+      "ezbr_sha256": "c2402a8ceead0af7be721c801dbfe509e738e5384bc7974b24604452f27cae81"
     },
     {
       "slug": "coach-fleet-round",
@@ -57,7 +57,8 @@
       "slug": "notify-onboarding-complete",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 21
+      "version": 22,
+      "ezbr_sha256": "0b9267b3bef5fd9172597305981d7f281ebe34e43f17894319084ab7e5e7ee5d"
     },
     {
       "slug": "send-daily-reminders",
