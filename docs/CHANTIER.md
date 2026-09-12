@@ -60,7 +60,7 @@ Le routage de l’accueil, des messages, des programmes et les gardes coach util
 
 Les sept tests de `coachRole.test.ts` passent localement : compatibilité des combinaisons rôle/lien, chargement, données de lien incomplètes, rôle temporairement incohérent et transition vers solo. Cette projection est un adaptateur frontend, pas une nouvelle source d’autorisation serveur.
 
-**M1 reste partiel :** inventaire complet des prédicats, migration des capacités persistées, backfill et contexte serveur lié au compte restent à faire. L’espace personnel du coach n’est pas encore ouvert ; aucun changement RLS ou SQL dans ce lot. La CI et les parcours navigateur restent à vérifier pour l’intégration complète. Les autres tâches M0–M8 sont conservées.
+**M1 reste partiel :** inventaire complet des prédicats, migration des capacités persistées, backfill et contexte serveur lié au compte restent à faire. L’espace personnel du coach n’est pas encore ouvert ; aucun changement RLS ou SQL dans ce lot. Le job `verify` du [run 34698717201](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34698717201) passe sur le code de ce lot : lint, TypeScript, suite applicative et build. Les parcours navigateur spécifiques au contexte de compte restent à vérifier ; la migration serveur n’est pas validée par ces tests. Les autres tâches M0–M8 sont conservées.
 
 ### État du chantier — partiel, non livré
 
