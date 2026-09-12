@@ -40,6 +40,9 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 ## Ordre général
 
+**Direction de référence : vision détaillée du propriétaire du 12 septembre 2026.** La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours, les écrans, les écarts au code et les contrats de permissions. Ce Chantier reste la source unique des statuts et priorités.
+
+
 1. **Marketplace : recherche guidée, mise en relation, départ et changement de coach.**
 2. **Billing**, après décision sur les prix et les règles d’essai.
 3. **UX — vérité des actions et conservation du travail.**
@@ -57,21 +60,35 @@ La branche `feature/coach-discovery` contient la confirmation FR/EN et une RPC c
 
 Avant livraison : étendre les tests à la conservation de l’historique et aux programmes mis en pause, au retrait du tracking et à l’atomicité en cas d’erreur ; vérifier les départs concurrents entre sessions et les changements de compte ; distinguer un départ réussi d’un échec de rafraîchissement ; mutualiser la transition avec le départ initié par le coach, informer le coach, distinguer l’auteur du départ dans la bannière solo, valider le parcours navigateur, puis promouvoir la migration. Le profil public, l’annuaire et les demandes restent à construire. Aucun critère ci-dessous n’est retiré.
 
-### Direction et ordre d’exécution — marketplace
+### Direction et ordre d’exécution — parcours complets
 
-**Décision produit :** conserver coach, coaché et solo. Les coachs viennent aussi pour être découverts ; les pratiquants recherchent un service adapté ou choisissent l’autonomie. La marketplace et son questionnaire restent à construire. Les preuves du départ ci-dessus ne valident pas ces futurs parcours.
+**Décision produit :** un moteur commun, identité durable, capacité coach indépendante de l’accompagnement personnel, marketplace et suivi dans la même application. Aucun des lots ci-dessous n’est déclaré livré par la carte.
 
 | Ordre | Lot restant | Conditions de fin |
 |---|---|---|
-| 2.1 | Terminer le départ autonome et la transition commune | Couvrir tous les points de validation ci-dessus ; confirmation des conséquences, accès conservés, coach informé, aucune erreur de rafraîchissement présentée comme un départ échoué. |
-| 2.2 | Profil coach et offre opt-in | Édition FR/EN, aperçu avant publication, service et modalités explicites, disciplines/langues, disponibilité et dépublication. Un profil masqué ou indisponible ne reçoit pas une nouvelle demande. Identité et qualifications déclarées distinguées des vérifications effectives. |
-| 2.3 | Questionnaire de recherche et annuaire | Questions limitées aux critères utilisés, brouillon isolé par compte, reprise et correction, exploration manuelle possible. Aucun dossier de prise en charge imposé pour consulter les résultats. |
-| 2.4 | Sélection de coachs expliquée | Séparer exigences et préférences ; exclure les incompatibilités obligatoires, trier selon des règles testables et versionnées. Montrer les raisons utiles et les informations inconnues ; aucun faux score. Aucun résultat : conserver les réponses et proposer un changement volontaire de filtres ou le solo. |
-| 2.5 | Demandes et choix mutuel | Envoyer, retrouver, retirer, accepter ou refuser une demande sans doublon. Tester acceptations concurrentes, nouvelle indisponibilité, compte changé et invitation concurrente. Un seul coach actif ; demande acceptée distincte d’un service payé ou commencé. |
-| 2.6 | Démarrage du suivi et changement de coach | Confirmer ce qui sera partagé ; reprendre les réponses utiles sans double questionnaire ; remplir ensuite le questionnaire du coach. Conserver les invitations directes. Retrouver programme, messages et prochaine action ; aucun transfert des anciennes notes privées. |
-| 2.7 | Confiance et validation de bout en bout | Signalement et traitement opérationnel définis avant ouverture large, maîtrise des sollicitations, profils retirés exclus, tests des trois rôles et parcours mobile/clavier FR/EN. Mesurer les abandons et réussites sans contenu personnel dans les événements. |
+| M0 | Inventorier tous les appels de rôles et policies ; confronter les contrats de la carte au schéma effectif | Scénarios de référence et incompatibilités recensés. La revue ciblée est disponible dans la carte ; inventaire exhaustif et parcours navigateur restent à faire. |
+| M1 | Projection compatible de capacités, contexte Personnel/Coaching et backfill | Aucun changement de droits involontaire ; anciens comptes conservés ; coach utilisateur personnel représentable ; aucun auto-lien. |
+| M2 | Finir départ autonome, transition commune et partage d’historique ; accès personnel du coach | Conservation des données, révocation, programmes en pause, notification et concurrence validées. Les points détaillés de l’état partiel ci-dessus restent requis. |
+| M3 | Entrée par intention, setup minimal, invitations directes et reprise | Connexion habituelle directe ; pas de questionnaire global bloquant l’historique/messages ; première séance sans marketplace ou IA obligatoire. Google/Apple uniquement après validation complète. |
+| M4 | Profils/offres opt-in, disponibilités/capacité et espace prospects | Coach peut gérer ses clients sans publier ; publication/retrait et offre claire ; droits du prospect distincts du dossier client. |
+| M5 | Questionnaire de recherche, sélection expliquée, comparaison et demandes | 3–5 résultats si pertinents, vide honnête, filtres conservés ; envoi/retrait idempotents ; aucune exposition du dossier brut. |
+| M6 | Accord, paiement selon décisions, activation et accueil client | Acceptation distincte du paiement et du lien ; activation commune aux invitations ; un coach actif ; synthèse autorisée et complément de questionnaire sans ressaisie. |
+| M7 | Accueils contextuels et boucle de suivi jusqu’à la suite de l’objectif | Programme, séance, historique, communication et bilan reliés ; maintien/nouvel objectif/changement de mode ; coach garde l’autorité. |
+| M8 | Ouverture graduelle et qualité de service | Tests des trois parcours, support et signalement opérationnels, mesures minimales ; pas de lancement large sur CI seule. |
 
-Les lots 2.2 à 2.6 doivent fournir un parcours complet avant de présenter la marketplace comme disponible. Un catalogue vide ne devient pas une fausse sélection : préparer aussi l’entrée et la publication des premiers coachs volontaires. Le périmètre d’ouverture commerciale dépend des décisions du chantier 3.
+Cet ordre remplace l’ancien découpage 2.1–2.7 sans abandonner ses tâches : départ dans M2, profil dans M4, questionnaire/sélection dans M5, demandes dans M5–M6, démarrage/changement dans M2–M6 et confiance dans M8. Les critères et décisions détaillés ci-dessous restent applicables.
+
+La carte contient les contrats écran par écran et la stratégie additive de migration. Le paiement du coaching est une dépendance commerciale de M6, avec décisions du chantier 3 ; il ne bloque pas la construction testable des lots précédents.
+
+### Continuité et nouveaux points transversaux du parcours
+
+- Séparer capacité professionnelle, espace affiché, relation active et entitlement. Auditer aussi les prédicats SQL et outils IA, pas seulement les routes React.
+- Conserver l’autorité du coach sur son plan tout en donnant au client accès à son historique personnel et à sa progression.
+- Autoriser la consultation de l’historique par le nouveau coach seulement dans le périmètre accepté ; invalider les synthèses/caches après révocation. Aucun transfert de notes privées ou de conversations de l’ancien coach.
+- Réutiliser composants, modèles et RPC existants ; aucun second moteur entraînement ou base de données dupliquée par rôle.
+- Définir et tester le cycle de vie objectif actif, bilan, maintien, successeur et changement de mode. Ne pas déduire automatiquement la réussite du champ texte historique.
+- Distinguer un coach refusé/indisponible, un paiement en attente et une activation échouée. Prévoir reprise serveur et issue utilisateur pour chacun.
+- Préserver les fonctions existantes et les tests historiques pendant la bascule ; aucune refonte visuelle gratuite.
 
 ### Questionnaire de recherche et contrat de sélection — à construire
 
