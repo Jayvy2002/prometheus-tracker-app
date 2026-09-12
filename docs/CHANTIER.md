@@ -54,6 +54,14 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 
 ## Chantier 2 — Marketplace, recherche guidée et relation de coaching
 
+### M1 — contexte de compte compatible, première étape
+
+Le routage de l’accueil, des messages, des programmes et les gardes coach utilisent maintenant la projection `resolveLegacyAccountContext`. Elle distingue capacité professionnelle, accompagnement personnel et espace par défaut tout en conservant les restrictions existantes. Les helpers de rôle existants passent par cette même projection. Quand les rôles ne sont pas prêts, les routes concernées attendent sans afficher d’actions.
+
+Les sept tests de `coachRole.test.ts` passent localement : compatibilité des combinaisons rôle/lien, chargement, données de lien incomplètes, rôle temporairement incohérent et transition vers solo. Cette projection est un adaptateur frontend, pas une nouvelle source d’autorisation serveur.
+
+**M1 reste partiel :** inventaire complet des prédicats, migration des capacités persistées, backfill et contexte serveur lié au compte restent à faire. L’espace personnel du coach n’est pas encore ouvert ; aucun changement RLS ou SQL dans ce lot. La CI et les parcours navigateur restent à vérifier pour l’intégration complète. Les autres tâches M0–M8 sont conservées.
+
 ### État du chantier — partiel, non livré
 
 La branche `feature/coach-discovery` contient la confirmation FR/EN et une RPC candidate de départ autonome. La confirmation gère les exceptions et bloque les doubles appels depuis cette instance du composant. La CI applique maintenant le SQL de `supabase/changes/` exclusivement sur sa base temporaire, puis exécute `supabase/tests/client_departure.sql` dans une transaction annulée. Ces tests passent sur le [run 34675961602](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34675961602) : refus du rôle anonyme, absence de lien pour un compte tiers sans modification du lien existant, départ du client, rôle solo, profil conservé avec date de départ et réponse contrôlée au second appel. Cette preuve ne couvre ni la production ni le parcours navigateur de départ.
