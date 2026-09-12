@@ -20,7 +20,7 @@ insert into public.workouts(id,user_id,name,date,completed,program_assignment_id
 insert into public.client_tracking_config(coach_id,client_id) values
 ('a1750000-0000-4000-8000-000000000001','a1750000-0000-4000-8000-000000000002');
 
-do $ begin
+do $$ begin
  if has_function_privilege('anon','public.client_end_coach_link()','execute') then
  raise exception 'anonymous execution allowed'; end if;
 end $$;
@@ -37,32 +37,32 @@ do $$ begin
 end $$;
 
 -- Fault injection proves rollback of the earlier program pause.
-create function public.departure_test_fail() returns trigger language plpgsql as $
+create function public.departure_test_fail() returns trigger language plpgsql as $$
 begin
  if new.client_id='a1750000-0000-4000-8000-000000000002' and new.status='ended' then
   raise exception 'departure_injected_failure';
  end if;
  return new;
-end $;
+end $$;
 create trigger departure_test_fail before update on public.coach_client_links
 for each row execute function public.departure_test_fail();
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000002',true);
-do $ begin
+do $$ begin
  begin
   perform public.client_end_coach_link();
   raise exception 'expected injected failure';
  exception when others then
   if sqlerrm <> 'departure_injected_failure' then raise; end if;
  end;
-end $;
+end $$;
 reset role;
-do $ begin
+do $$ begin
  if not exists(select 1 from public.program_assignments where id='a1750000-0000-4000-8000-000000000011' and status='active') then raise exception 'partial program pause'; end if;
  if not exists(select 1 from public.coach_client_links where client_id='a1750000-0000-4000-8000-000000000002' and status='active') then raise exception 'partial departure'; end if;
  if not exists(select 1 from public.client_tracking_config where client_id='a1750000-0000-4000-8000-000000000002') then raise exception 'partial tracking deletion'; end if;
  if has_function_privilege('authenticated','public.transition_client_to_solo(uuid,uuid)','execute') then raise exception 'private helper exposed'; end if;
-end $;
+end $$;
 drop trigger departure_test_fail on public.coach_client_links;
 drop function public.departure_test_fail();
 
@@ -84,24 +84,24 @@ do $$ begin
  raise exception 'profile not preserved with departure date'; end if;
 end $$;
 
-do $ begin
+do $$ begin
  if not exists(select 1 from public.program_assignments where id='a1750000-0000-4000-8000-000000000011' and status='paused') then raise exception 'program not paused'; end if;
  if exists(select 1 from public.client_tracking_config where client_id='a1750000-0000-4000-8000-000000000002') then raise exception 'tracking not removed'; end if;
  if not exists(select 1 from public.workouts where id='a1750000-0000-4000-8000-000000000012' and completed and program_assignment_id='a1750000-0000-4000-8000-000000000011') then raise exception 'history changed'; end if;
-end $;
+end $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000002',true);
-do $ begin
+do $$ begin
  if not exists(select 1 from public.programs where id='a1750000-0000-4000-8000-000000000010') then raise exception 'paused program archive inaccessible'; end if;
  if not exists(select 1 from public.workouts where id='a1750000-0000-4000-8000-000000000012') then raise exception 'personal history inaccessible'; end if;
-end $;
+end $$;
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000001',true);
-do $ begin
+do $$ begin
  if exists(select 1 from public.workouts where id='a1750000-0000-4000-8000-000000000012') then raise exception 'former coach still reads history'; end if;
-end $;
+end $$;
 reset role;
 
 rollback;
-\echo 'client departure: isolation, anonymous grants, role transition and repeat checks passed'
+\echo 'client departure: isolation, rollback, archives, revocation, role transition and repeat checks passed'
