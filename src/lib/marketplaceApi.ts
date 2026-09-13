@@ -21,8 +21,11 @@ export async function readCoachProfile(id: string): Promise<CoachPublicProfile |
 }
 export async function readRequests(owner: string, page = 0): Promise<CoachingRequest[]> {
   if (!OWNER_ID.test(owner)) throw Error('invalid_response');
+  const current = captureSession(owner);
+  if (!current()) throw Error('session_changed');
   const { data, error } = await supabase.from('coach_join_requests').select('*')
     .or(`coach_id.eq.${owner},client_id.eq.${owner}`).order('created_at', { ascending: false }).order('id').range(page * 50, page * 50 + 50);
+  if (!current()) throw Error('session_changed');
   if (error) throw error;
   const rows = data ?? [];
   if (!rows.length) return [];
@@ -32,6 +35,7 @@ export async function readRequests(owner: string, page = 0): Promise<CoachingReq
     supabase.from('coaching_relationship_consents').select('join_request_id,revoked_at')
       .in('join_request_id', rows.map(row => row.id)),
   ]);
+  if (!current()) throw Error('session_changed');
   if (profiles.error) throw profiles.error;
   if (consents.error) throw consents.error;
   return rows.map(row => {

@@ -29,6 +29,8 @@ jobs:
       - run: npm test
       - name: Session generation regression
         run: node --import tsx --test src/lib/sessionScope.test.ts
+      - name: Profile store session isolation
+        run: node scripts/test-profile-session.mjs
       - run: npm run verify:migrations
       - run: npm run verify:edges
       - name: Detect Management API token
