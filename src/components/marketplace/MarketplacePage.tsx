@@ -97,9 +97,9 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       }}>{t(`marketplace.action_${action}`)}</Button>)}</div>
     </article>)}</div> : <p>{t('marketplace.noRequests')}</p>}{pagination}</>;
     if (mode === 'directory') return <>
-      <div className="grid gap-3 sm:grid-cols-3">{([['discipline', MARKET_DISCIPLINES], ['language', MARKET_LANGUAGES], ['format', MARKET_FORMATS]] as const).map(([key, values]) => <label key={key} className="space-y-2">{t(`marketplace.${key}`)}<select className={fieldStyle} value={filters[key]} onChange={e => {
+      <div className="grid gap-3 sm:grid-cols-3">{([['discipline', MARKET_DISCIPLINES], ['language', MARKET_LANGUAGES], ['format', MARKET_FORMATS]] as const).map(([key, values]) => <div key={key} className="space-y-2"><label htmlFor={`market-filter-${key}`}>{t(`marketplace.${key}`)}</label><select id={`market-filter-${key}`} className={fieldStyle} value={filters[key]} onChange={e => {
         const next = new URLSearchParams(params); if (e.target.value) next.set(key, e.target.value); else next.delete(key); setPage(0); setParams(next);
-      }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></label>)}</div>
+      }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></div>)}</div>
       <p className="text-sm text-neutral-400">{t('marketplace.matchExplanation')}</p>
       {!profiles.length && <p>{t('marketplace.noResults')}</p>}
       {profiles.map(row => <article key={row.coach_id} className="border border-neutral-800 rounded-xl p-4 space-y-2">
