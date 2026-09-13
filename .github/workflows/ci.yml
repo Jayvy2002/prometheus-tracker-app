@@ -117,6 +117,10 @@ jobs:
           npm ci
           npm install --no-save --package-lock=false playwright@1.56.1
           npx playwright install --with-deps chromium
+      - name: Recheck historical RLS with all relationship candidates
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: node scripts/run-rls-matrix.mjs
       - name: Concurrent coaching transitions (local database only)
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

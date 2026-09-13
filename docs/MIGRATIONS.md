@@ -1,15 +1,20 @@
 # Historique des migrations
 
+> **RÔLE — CONTRAT DE MIGRATION ET DE DÉPLOIEMENT.** Décrire les sources de vérité, la procédure et les preuves. Les tâches inachevées restent dans `CHANTIER.md` ; les versions appliquées restent dans les locks. Ne pas présenter un SQL candidat comme une migration en production.
+
 ## Source de vérité
 
 Le dossier `supabase/migrations/` et `supabase/schema_migrations.lock.json` doivent représenter exactement les versions enregistrées dans `supabase_migrations.schema_migrations` du projet de production `phyuijjekxtjvipjtdfv`.
 
-État vérifié le 10 septembre 2026 :
+Le lock courant contient 99 versions, jusqu’à `20260911235551_coach_questionnaires.sql`. Les vérifications distantes doivent préciser leur date et leur canal ; le replay CI seul ne prouve pas un déploiement.
 
-- 98 versions dans Git, le lock et la production ;
-- aucune version Git-only ou prod-only ;
-- dernière version : `20260910160000_apply_intervention_client_target.sql` ;
-- replay local complet sur PostgreSQL 17 validé par la CI.
+Les candidats de la PR #75 restent dans `supabase/changes/` et sont appliqués uniquement à la base temporaire de CI, après le replay des migrations :
+
+1. `account_capabilities.sql` — reprise compatible des capacités et contexte de compte ;
+2. `client_end_coach_link.sql` — transition commune et notification privée ;
+3. `coaching_relationship_consistency.sql` — auteur/date de fin et sérialisation des adaptations/attributions.
+
+L’ordre est vérifié avec les tests SQL et les parcours navigateur. Ces fichiers ne doivent pas être ajoutés au lock comme s’ils étaient appliqués. Après validation, leur promotion suit la procédure ci-dessous, avec une vérification distante explicite avant le merge.
 
 ## Règles
 
@@ -53,10 +58,4 @@ Avec un `SUPABASE_ACCESS_TOKEN` disponible, `npm run verify:prod-history` compar
 
 Le déploiement des Edge Functions est distinct de l’historique SQL. Leur inventaire live est conservé dans `supabase/functions.deployed.lock.json`.
 
-État vérifié :
-
-- `coach-fleet-round` v32 ;
-- `coach-agent` v26 ;
-- JWT conforme à `supabase/config.toml` ;
-- preflight CORS du copilote vérifié ;
-- workflow CLI futur suivi dans la PR #69, encore en draft.
+Les versions et paramètres JWT sont décrits dans `supabase/functions.deployed.lock.json` et `supabase/config.toml`. Le canal de déploiement et les smokes doivent être prouvés pour le bundle concerné. Une étape CLI ignorée ne constitue pas un déploiement réussi.

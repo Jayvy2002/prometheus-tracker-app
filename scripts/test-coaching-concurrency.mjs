@@ -10,6 +10,7 @@ const args = [database, '-X', '-qAt', '-v', 'ON_ERROR_STOP=1'];
 const sql = async command => (await execute('psql', [...args, '-c', command], { timeout: 15000 })).stdout.trim();
 const coach = crypto.randomUUID();
 const client = crypto.randomUUID();
+const nextCoach = crypto.randomUUID();
 const processes = [];
 const asUser = id => `SET LOCAL ROLE authenticated; SELECT set_config('request.jwt.claim.sub','${id}',true);`;
 const leave = `SELECT public.client_end_coach_link();`;
@@ -85,7 +86,31 @@ try {
   assert.equal(await sql(`SELECT count(*) FROM public.coach_notes WHERE client_id='${client}'`), '1');
   assert.equal(await sql(`SELECT count(*) FROM public.coach_relationship_endings WHERE client_id='${client}'`), '2');
   console.log('PASS: an earlier adaptation finishes before departure, and each departure is recorded once');
+
+  // A new coach cannot activate while the preceding departure is uncommitted.
+  const invite = crypto.randomUUID();
+  await sql(`INSERT INTO auth.users(id,email) VALUES('${nextCoach}','${nextCoach}@example.test');
+   UPDATE public.user_roles SET coaching_role='coach' WHERE user_id='${nextCoach}';
+   UPDATE public.user_roles SET coaching_role='client' WHERE user_id='${client}';
+   UPDATE public.coach_client_links SET status='active' WHERE coach_id='${coach}' AND client_id='${client}';
+   INSERT INTO public.coach_invites(coach_id,token,max_uses,expires_at) VALUES('${nextCoach}','${invite}',1,now()+interval '1 hour');`);
+  const ending = session('departure_before_new_coach');
+  await ending.run(`BEGIN; ${asUser(client)} ${leave}`);
+  const accept = `SELECT public.accept_coach_invite('${invite}');`;
+  const blocked = await sql(`BEGIN; ${asUser(client)} ${accept} COMMIT;`);
+  assert.match(blocked, /already_coached/);
+  assert.equal(await sql(`SELECT use_count FROM public.coach_invites WHERE token='${invite}'`), '0');
+  assert.equal((await ending.finish('COMMIT;')).code, 0);
+  const joined = await sql(`BEGIN; ${asUser(client)} ${accept} COMMIT;`);
+  assert.match(joined, /"ok": true/);
+  assert.equal(await sql(`SELECT count(*) FROM public.coach_client_links WHERE client_id='${client}' AND status='active'`), '1');
+  assert.equal(await sql(`SELECT coach_id FROM public.coach_client_links WHERE client_id='${client}' AND status='active'`), nextCoach);
+  assert.equal(await sql(`SELECT coaching_role FROM public.user_roles WHERE user_id='${client}'`), 'client');
+  const privateNotes = await sql(`BEGIN; ${asUser(nextCoach)} SELECT count(*) FROM public.coach_notes WHERE client_id='${client}'; COMMIT;`);
+  assert.equal(privateNotes.split('\n').at(-1), '0', 'Former coach notes never transfer to the new coach');
+  console.log('PASS: new activation is refused during departure, then succeeds on explicit retry with one active coach and no former private notes');
+
 } finally {
   for (const child of processes) if (child.exitCode === null) child.kill('SIGTERM');
-  await sql(`DELETE FROM auth.users WHERE id IN ('${coach}','${client}');`);
+  await sql(`DELETE FROM auth.users WHERE id IN ('${coach}','${client}','${nextCoach}');`);
 }

@@ -16,7 +16,7 @@ Les données personnelles restent attachées à l’utilisateur. Solo et coaché
 
 ### Périmètre et preuves
 
-Sources relues sur `new-JV` le 12 septembre 2026 : routes, authentification, rôles, accueil, console coach, stores de programmes et coaching, API questionnaires, file hors ligne, types et migrations ciblées. La branche de travail `feature/coach-discovery` ajoute le départ candidat et les documents de la PR 75 ; référence documentaire avant ce travail : `412ba8e50325d29189bc3085738bcf77de2fd126`.
+Sources relues sur `new-JV` le 12 septembre 2026 : routes, authentification, rôles, accueil, console coach, stores de programmes et coaching, API questionnaires, file hors ligne, types et migrations ciblées. La branche de travail `feature/coach-discovery` ajoute le contexte de compte compatible et le départ candidat de la PR 75 ; les preuves et les tâches restantes sont maintenues dans `CHANTIER.md`. Ces changements ne sont pas encore livrés.
 
 La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve de production. Les absences ci-dessous signifient « non raccordé au parcours dans les sources inspectées », à confirmer par inventaire complet avant création d’une table ou d’un service. Les extraits historiques SQL doivent être confrontés à toutes les redéfinitions ultérieures lors de l’implémentation.
 
@@ -35,7 +35,7 @@ La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve d
 | Invitations | [coachingStore](../src/stores/coachingStore.ts) appelle `accept_coach_invite`, aperçu et rafraîchissement | Conserver l’entrée des clients existants. Lier les futures demandes au même invariant d’association côté serveur. |
 | Questionnaires | [coachQuestionnaireApi](../src/lib/coachQuestionnaireApi.ts), [migration questionnaire](../supabase/migrations/20260911235551_coach_questionnaires.sql) : versions et réponses avec révision | Réutiliser rendu/validation et historique. Le questionnaire de recherche a un contrat séparé ; pas de réécriture des anciennes réponses. |
 | IA personnelle | [migration self-coach](../supabase/migrations/20260906023512_solo_self_coach.sql) utilise une intervention sur soi ; son prédicat historique exige `none` | Auditer les redéfinitions SQL et les Edge Functions avant d’autoriser le coach dans son espace personnel. Aucun auto-lien de coaching. |
-| Départ | [soloTransition](../src/lib/soloTransition.ts), archives/adoption ; départ client candidat dans PR 75 | Le retour solo existe côté coach ; la nouvelle voie client reste partielle. Auteur du départ, notifications et concurrence à terminer. |
+| Départ | [soloTransition](../src/lib/soloTransition.ts), archives/adoption ; départ client candidat dans PR 75 | Le socle commun client/coach, l’auteur du départ, la notification privée et la concurrence avec une adaptation sont validés sur base isolée dans PR 75. Partage, caches de dossiers, autres activations et déploiement restent à traiter. |
 | Hors ligne | [offlineQueue](../src/lib/offlineQueue.ts) porte compte, identifiants stables, mapping et dead-letter ; [sessionScope](../src/lib/sessionScope.ts) fournit isolation et générations | Réutiliser pour les séances. Ne pas promettre une marketplace ou des paiements utilisables hors ligne. |
 | Marketplace | Aucune route annuaire/prospects/recherche dans App inspecté ; backlog les indique à construire | Nouvelle couche profil/offre/recherche/demande à raccorder au moteur existant. |
 | Objectifs | Profil avec objectif ; pas de cycle objectif atteint/maintien/successeur dans les contrats inspectés | Ajouter un cycle de vie sans changer rétroactivement le sens des anciennes données. |
@@ -401,3 +401,4 @@ Tests existants conservés et étendus, pas remplacés. La matrice historique ve
 **À vérifier dans un prochain passage technique** : inventaire exhaustif des policies et redéfinitions de RPC, coexistence des droits coach/personnel, formats d’import réels, configuration OAuth, stockage commercial existant et preuve live. Ne pas annoncer ces points validés sur la seule lecture des fichiers.
 
 La carte ne promet ni acquisition garantie ni résultats sportifs garantis. Elle organise un parcours cohérent où chaque participant sait quoi faire, pourquoi, et ce qui a réellement été enregistré.
+
