@@ -27,7 +27,7 @@ export default function EntryIntentionPage() {
         setError(true);
         return;
       }
-      navigate('/dashboard', { replace: true });
+      navigate(intent === 'find_coach' ? '/coaches' : '/dashboard', { replace: true });
     } finally {
       writing.current = false;
       setBusy(false);

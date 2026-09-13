@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BarChart2, CalendarDays, CalendarRange, Camera, ChefHat, Scale, TrendingUp } from 'lucide-react';
+import { BarChart2, CalendarDays, CalendarRange, Camera, ChefHat, Inbox, Scale, Search, TrendingUp } from 'lucide-react';
 import Card from '../ui/Card';
 
 /**
@@ -18,6 +18,8 @@ export default function SoloHub() {
     { path: '/weight', icon: Scale, label: t('nav.weight') },
     { path: '/recipes', icon: ChefHat, label: t('nav.recipes') },
     { path: '/photos', icon: Camera, label: t('nav.photos') },
+    { path: '/coaches', icon: Search, label: t('marketplace.directory') },
+    { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests') },
   ];
   return (
     <Card className="mb-6 space-y-1">

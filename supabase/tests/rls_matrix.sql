@@ -504,6 +504,30 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.save_my_coach_profile(jsonb,timestamptz)', 'execute')
+     AND has_function_privilege('authenticated', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.respond_coaching_request(uuid,text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.marketplace_coach_eligible(uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.save_my_coach_profile(jsonb,timestamptz)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.respond_coaching_request(uuid,text)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'update')
+     AND has_table_privilege('authenticated', 'public.coach_profiles', 'select')
+     AND has_table_privilege('authenticated', 'public.coach_join_requests', 'select')
+     AND to_regclass('public.coach_profiles') IS NOT NULL
+     AND to_regclass('public.coach_join_requests') IS NOT NULL
+  THEN
+    PERFORM pg_temp.record('MARKETPLACE_GRANTS', true, 'directory RPCs granted; table writes revoked; anon revoked');
+  ELSE
+    PERFORM pg_temp.record('MARKETPLACE_GRANTS', false, 'marketplace grants mismatch');
+  END IF;
+END $$;
+
 -- A1 ne peut pas assigner P_B via la RPC.
 DO $$
 DECLARE

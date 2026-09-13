@@ -59,6 +59,8 @@ const ClientPhotosPage = lazy(() => import('./components/coaching/ClientPhotosPa
 const CoachQuestionnairePage = lazy(() => import('./components/coaching/CoachQuestionnairePage'));
 const ClientQuestionnairePanel = lazy(() => import('./components/onboarding/ClientQuestionnairePanel'));
 const CoachLearnedPage = lazy(() => import('./components/coaching/CoachLearnedPage'));
+const MarketplacePage = lazy(() => import('./components/marketplace/MarketplacePage'));
+const CoachComparisonPage = lazy(() => import('./components/marketplace/CoachComparisonPage'));
 
 function RouteFallback() {
   return (
@@ -145,7 +147,9 @@ function AppRoutes() {
   }, [assignmentScope, userId, myCoach?.id, roleReady, assignmentRetry]);
 
   const skipPersonalOnboarding =
-    coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
+    coachingRole === 'coach'
+    || getIntendedCoachingRole() === 'coach'
+    || profile?.entry_intent === 'find_coach';
   const coachedClient =
     isCoachedAthlete(coachingRole, myCoach)
     || coachingRole === 'client';
@@ -334,6 +338,27 @@ function AppRoutes() {
           onCompleted={() => setAssignmentRetry(n => n + 1)} />
       </div>} />
     </Routes></Suspense>;
+  }
+
+  if (
+    location.pathname === '/coaches'
+    || location.pathname.startsWith('/coaches/')
+    || location.pathname === '/coach/profile'
+    || location.pathname === '/coaching-requests'
+  ) {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route element={<AppLayout />}>
+            <Route path="/coaches" element={<MarketplacePage key={user.id + ':directory'} mode="directory" />} />
+            <Route path="/coaches/compare" element={<CoachComparisonPage key={user.id} />} />
+            <Route path="/coaches/:coachId" element={<MarketplacePage key={user.id + location.pathname} mode="detail" />} />
+            <Route path="/coach/profile" element={<CoachOnly><MarketplacePage key={user.id + ':profile'} mode="profile" /></CoachOnly>} />
+            <Route path="/coaching-requests" element={<MarketplacePage key={user.id + ':requests'} mode="requests" />} />
+          </Route>
+        </Routes>
+      </Suspense>
+    );
   }
 
   if (!activeAssignment?.response && needsIntakeProbe && (intakeProbeStatus === 'idle' || intakeProbeStatus === 'pending')) {

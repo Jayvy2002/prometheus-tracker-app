@@ -103,6 +103,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_entry_intent.sql | tee /tmp/account-entry-intent-db-results.txt
+      - name: Test coach marketplace
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_marketplace.sql | tee /tmp/coach-marketplace-db-results.txt
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

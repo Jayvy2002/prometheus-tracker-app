@@ -71,6 +71,7 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /relationship_consent\.sql/);
   assert.match(ci, /account_capabilities\.sql/);
   assert.match(ci, /account_entry_intent\.sql/);
+  assert.match(ci, /coach_marketplace\.sql/);
   assert.match(ci, /deploy-audit-edges/);
   assert.match(ci, /2\.117\.0/);
   assert.match(ci, /steps\.token\.outputs\.present == 'true'/);

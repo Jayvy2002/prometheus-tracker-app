@@ -24,7 +24,11 @@ export default function AppLayout() {
   const context = resolveAccountContext(coachingRole, myCoach, roleReady, snapshot, workspace);
   const isCoach = context.activeWorkspace === 'coaching';
   const location = useLocation();
-  const hideFab = isCoach || location.pathname.startsWith('/dashboard');
+  const hideFab = isCoach
+    || location.pathname.startsWith('/dashboard')
+    || location.pathname.startsWith('/coaches')
+    || location.pathname === '/coach/profile'
+    || location.pathname === '/coaching-requests';
 
   useEffect(() => {
     trackScreen(location.pathname);

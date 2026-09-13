@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera, Search, Inbox } from 'lucide-react';
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,6 +30,9 @@ export default function SideNav() {
         { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
         { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
+        { path: '/coach/profile', icon: User, label: t('marketplace.profile') },
+        { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests') },
+        { path: '/coaches', icon: Search, label: t('marketplace.directory') },
       ]
     : [
         { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), show: true },
@@ -43,6 +46,8 @@ export default function SideNav() {
         { path: '/calendar', icon: CalendarDays, label: t('nav.calendar'), show: !coached },
         { path: '/stats', icon: BarChart2, label: t('nav.stats'), show: !coached },
         { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts && !coached },
+        { path: '/coaches', icon: Search, label: t('marketplace.directory'), show: true },
+        { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests'), show: true },
         { path: '/profile', icon: User, label: t('nav.profile'), show: true },
       ].filter(tab => !('show' in tab) || tab.show);
 
