@@ -407,7 +407,8 @@ export default function ClientDetailPage() {
     trackWorkouts: tracking.track_workouts,
   }), [ops?.hasProgram, boundAssignment?.program, insightWorkouts, lifts, tracking.track_workouts]);
   const sessionGap = hasSessionGap(situation);
-  const setupHref = id && ops && shouldOpenSetup(ops) ? `/clients/${id}/setup` : undefined;
+  const setupHref = id ? `/clients/${id}/setup` : undefined;
+  const firstRun = !!ops && !ops.hasProgram;
   const showInsight = !!insight && (
     insight.workoutsCompleted > 0
     || insight.progressed.length > 0
@@ -672,25 +673,53 @@ export default function ClientDetailPage() {
           <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mt-8" />
         ) : tab === 'overview' ? (
           <div className="space-y-4">
+            {firstRun && id ? (
+              <Card className="space-y-3 border-blue-500/20">
+                <p className="text-sm font-medium text-white">{t('coaching.client360.firstRunTitle')}</p>
+                <p className="text-sm text-neutral-400">{t('coaching.client360.firstRunBody')}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={() => navigate(`/clients/${id}/setup`)}>
+                    {t('coaching.setupCta')}
+                  </Button>
+                  <Button size="sm" variant="secondary" onClick={() => navigate(`/messages/${id}`)}>
+                    {t('nav.messages')}
+                  </Button>
+                </div>
+              </Card>
+            ) : null}
             <SituationCards
-              lines={situation}
+              lines={firstRun ? situation.filter(line => line.id !== 'no_program') : situation}
               relanceHref={trainingRelanceHref}
               setupHref={setupHref}
             />
 
             {isIntakeAlreadyFilled(clientProfile) ? (
-              <>
-                <MedicalFlagsCard raw={clientProfile?.kinesiology_intake} />
-                <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
-              </>
+              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4" open={!firstRun}>
+                <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
+                  {t('coaching.client360.intakeSummary')}
+                </summary>
+                <div className="mt-3 space-y-4">
+                  <MedicalFlagsCard raw={clientProfile?.kinesiology_intake} />
+                  <KinesiologyIntakeReview raw={clientProfile?.kinesiology_intake} />
+                </div>
+              </details>
             ) : null}
-            {id && <ClientQuestionnairePanel key={id} clientId={id} emptyFallback={
-              isIntakeAlreadyFilled(clientProfile) ? null : (
-                <Card className="border-amber-500/20">
-                  <p className="text-sm text-amber-200">{t('intake.waiting')}</p>
-                </Card>
-              )
-            }/>}
+            {id && (
+              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4" open={!firstRun}>
+                <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
+                  {t('coaching.client360.questionnaire')}
+                </summary>
+                <div className="mt-3">
+                  <ClientQuestionnairePanel key={id} clientId={id} emptyFallback={
+                    isIntakeAlreadyFilled(clientProfile) ? null : (
+                      <Card className="border-amber-500/20">
+                        <p className="text-sm text-amber-200">{t('intake.waiting')}</p>
+                      </Card>
+                    )
+                  }/>
+                </div>
+              </details>
+            )}
 
             {showInsight && insight ? (
               <Card>
@@ -1042,7 +1071,7 @@ export default function ClientDetailPage() {
             ))}
           </div>
         )}
-        {client && user && client.id !== user.id && (
+        {!loading && client && user && client.id !== user.id && (
           <div className="mt-8 pt-6 border-t border-neutral-800/80">
             <button
               type="button"
