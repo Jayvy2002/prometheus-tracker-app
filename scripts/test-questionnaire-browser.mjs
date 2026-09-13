@@ -108,13 +108,23 @@ try {
  let departureCalls=0;
  await clientPage.route('**/rest/v1/rpc/client_end_coach_link',async route=>{
   departureCalls++;
-  await route.continue();
+  const response=await route.fetch();
+  const body=await response.json();
+  console.log('departure RPC contract', {ok:body.ok,hasEndedAt:!!body.ended_at,error:body.error});
+  await route.fulfill({response,json:body});
  });
  await clientPage.route('**/rest/v1/user_profiles?*',route=>route.fulfill({
   status:503,contentType:'application/json',body:JSON.stringify({message:'injected refresh outage'})
  }));
  await confirm.click();
  await clientPage.waitForURL('**/dashboard');
+ console.log('departure UI context',await clientPage.evaluate(async()=>{
+  const {useProfileStore}=await import('/src/stores/profileStore.ts');
+  const {useCoachingStore}=await import('/src/stores/coachingStore.ts');
+  const {useAuthStore}=await import('/src/stores/authStore.ts');
+  const profile=useProfileStore.getState().profile;
+  return {profilePresent:!!profile,profileMatchesAccount:profile?.id===useAuthStore.getState().user?.id,endedAt:profile?.coach_link_ended_at,role:useCoachingStore.getState().coachingRole,hasCoach:!!useCoachingStore.getState().myCoach,profileError:useProfileStore.getState().fetchError};
+ }));
  await clientPage.getByText('Your coaching relationship has ended',{exact:true}).waitFor();
  assert.equal(departureCalls,1,'Departure is submitted once');
  const ended=check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single());
