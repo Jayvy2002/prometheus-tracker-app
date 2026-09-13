@@ -13,7 +13,8 @@ test('client Mon programme is the assigned plan; coached stays read-only, solo e
   assert.match(page, /fetchMyAssignment/);
   assert.match(page, /programs\.todayBadge/);
   assert.match(page, /ProgramSessionEditor/);
-  assert.match(page, /isSoloAthlete/);
+  assert.match(page, /resolveAccountContext/);
+  assert.match(page, /personalCoaching === 'solo'/);
   assert.doesNotMatch(page, /\/programs\/new/);
   assert.doesNotMatch(page, /createProgram/);
   assert.doesNotMatch(page, /navigate\('\/routines'\)/);
