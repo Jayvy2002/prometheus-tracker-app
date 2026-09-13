@@ -6,7 +6,7 @@ Le dossier `supabase/migrations/` et `supabase/schema_migrations.lock.json` doiv
 
 État vérifié le 13 septembre 2026 :
 
-- 99 versions dans Git, le lock et la production ;
+- 106 versions dans Git, le lock et la production ;
 - aucune version Git-only ou prod-only ;
 - dernière version : `20260913235158_marketplace_audit_hardening.sql` ;
 - replay local complet sur PostgreSQL 17 validé par la CI.
