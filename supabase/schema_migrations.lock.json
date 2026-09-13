@@ -423,6 +423,10 @@
     {
       "version": "20260913193923",
       "name": "coach_marketplace"
+    },
+    {
+      "version": "20260913204917",
+      "name": "marketplace_activate_link"
     }
   ]
 }

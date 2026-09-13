@@ -16,7 +16,7 @@ export function marketFilters(params: URLSearchParams) {
   return { discipline: valid('discipline', MARKET_DISCIPLINES), language: valid('language', MARKET_LANGUAGES), format: valid('format', MARKET_FORMATS) };
 }
 export function requestActions(request: CoachingRequest, userId: string): CoachingRequest['status'][] {
-  if (request.client_id === userId && ['pending', 'accepted'].includes(request.status)) return ['withdrawn'];
+  if (request.client_id === userId && request.status === 'pending') return ['withdrawn'];
   if (request.coach_id === userId && request.status === 'pending') return ['accepted', 'declined'];
   return [];
 }

@@ -14,7 +14,7 @@ test('prospect and coach can only see actions corresponding to their side and cu
  assert.deepEqual(requestActions(row,'client'),['withdrawn']);
  assert.deepEqual(requestActions(row,'coach'),['accepted','declined']);
  assert.deepEqual(requestActions({...row,status:'accepted'},'coach'),[]);
- assert.deepEqual(requestActions({...row,status:'accepted'},'client'),['withdrawn']);
+ assert.deepEqual(requestActions({...row,status:'accepted'},'client'),[]);
  assert.deepEqual(requestActions({...row,status:'withdrawn'},'client'),[]);
 });
 

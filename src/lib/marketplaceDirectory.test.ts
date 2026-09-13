@@ -8,27 +8,30 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-test('directory writes go through RPCs and accepted requests never create a coaching link or billing', () => {
+test('directory writes go through RPCs; coach accept activates the coaching link without billing', () => {
   const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
   const mig = latest.sql;
-  assert.match(latest.file, /_coach_marketplace\.sql$/);
-  assert.match(mig, /REVOKE ALL ON public\.coach_profiles FROM PUBLIC, anon, authenticated/);
-  assert.match(mig, /GRANT SELECT ON public\.coach_profiles TO authenticated/);
+  assert.match(latest.file, /_marketplace_activate_link\.sql$/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.request_coaching\(uuid, text, text, integer, uuid\) TO authenticated/);
   assert.match(mig, /REVOKE ALL ON FUNCTION public\.request_coaching\(uuid, text, text, integer, uuid\) FROM PUBLIC, anon, authenticated/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.respond_coaching_request\(uuid, text\) TO authenticated/);
-  assert.match(mig, /accepted does not create coach_client_links/);
-  assert.match(mig, /Agreement grants neither dossier access nor a paid subscription/);
-  assert.doesNotMatch(mig, /INSERT INTO public\.coach_client_links/);
+  assert.match(mig, /CREATE OR REPLACE FUNCTION public\.activate_coaching_relationship\(p_coach uuid, p_client uuid\)/);
+  assert.match(mig, /REVOKE ALL ON FUNCTION public\.activate_coaching_relationship\(uuid, uuid\) FROM PUBLIC, anon, authenticated/);
+  assert.doesNotMatch(mig, /GRANT EXECUTE ON FUNCTION public\.activate_coaching_relationship\(uuid, uuid\) TO authenticated/);
+  assert.match(mig, /INSERT INTO public\.coach_client_links/);
+  assert.match(mig, /source, consent_version, scopes/);
+  assert.match(mig, /directory_request/);
   assert.doesNotMatch(mig, /INSERT INTO public\.subscriptions/);
   assert.doesNotMatch(mig, /stripe/i);
   assert.doesNotMatch(mig, /oauth/i);
   const sqlTest = src('supabase/tests/coach_marketplace.sql');
-  assert.match(sqlTest, /agreement granted dossier access/);
-  assert.match(sqlTest, /acceptance created a coaching link/);
+  assert.match(sqlTest, /acceptance did not grant dossier access/);
+  assert.match(sqlTest, /acceptance did not create a coaching link/);
+  assert.match(sqlTest, /accepted request withdrawn without ending the link/);
   assert.match(sqlTest, /direct write allowed/);
   const matrix = src('supabase/tests/rls_matrix.sql');
   assert.match(matrix, /MARKETPLACE_GRANTS/);
+  assert.match(matrix, /activate_coaching_relationship/);
 });
 
 test('the directory is reachable without a 6th bottom tab and skips intake, not the assigned questionnaire', () => {
@@ -53,6 +56,12 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   const picker = src('src/components/onboarding/EntryIntentionPage.tsx');
   assert.match(picker, /navigate\(intent === 'find_coach' \? '\/coaches' : '\/dashboard'/);
 
+  const page = src('src/components/marketplace/MarketplacePage.tsx');
+  assert.match(page, /DIRECT_INVITE_CONSENT_SCOPES/);
+  assert.match(page, /track\('coaching_request_accepted'/);
+  assert.match(page, /\/clients\/\$\{/);
+  assert.doesNotMatch(page, /agreementOnly/);
+
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /coach_marketplace\.sql/);
   const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
@@ -60,4 +69,5 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   const version = latest.file.slice(0, 14);
   assert.match(lock, new RegExp(`"version": "${version}"`));
   assert.match(lock, /"name": "coach_marketplace"/);
+  assert.match(lock, /"name": "marketplace_activate_link"/);
 });

@@ -5,6 +5,9 @@ import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
 import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
+import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
+import { track } from '../../lib/telemetryClient';
+import { useCoachingStore } from '../../stores/coachingStore';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
@@ -14,6 +17,10 @@ const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p
 export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
   const { t } = useTranslation();
   const owner = useAuthStore(s => s.user?.id) ?? '';
+  const fetchMyRole = useCoachingStore(s => s.fetchMyRole);
+  const fetchClients = useCoachingStore(s => s.fetchClients);
+  const fetchMyCoach = useCoachingStore(s => s.fetchMyCoach);
+  const activeCoachId = useCoachingStore(s => s.accountSnapshot?.activeCoachId) ?? null;
   const { coachId } = useParams();
   const [params, setParams] = useSearchParams();
   const filters = marketFilters(params);
@@ -32,6 +39,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   const [name, setName] = useState('');
   const [summary, setSummary] = useState('');
   const [consent, setConsent] = useState(false);
+  const [relationshipConsent, setRelationshipConsent] = useState(false);
   const [page, setPage] = useState(0);
   const [more, setMore] = useState(false);
   const sequence = useRef(0);
@@ -40,7 +48,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   useEffect(() => {
     const seq = ++sequence.current;
     writing.current = false; setBusy(false); setStatus('loading'); setError(''); setNotice('');
-    setProfiles([]); setProfile(null); setRequests([]); setConsent(false); setName(''); setSummary('');
+    setProfiles([]); setProfile(null); setRequests([]); setConsent(false); setRelationshipConsent(false); setName(''); setSummary('');
     void (async () => {
       if (mode === 'directory') {
         const selected = JSON.parse(filterKey) as ReturnType<typeof marketFilters>;
@@ -60,11 +68,15 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         const found = await readRequests(owner, page);
         if (seq !== sequence.current) return;
         setRequests(found.slice(0, 50)); setMore(found.length > 50);
+        if (found.some(row => row.status === 'accepted' && row.client_id === owner)) {
+          void fetchMyRole(owner);
+          void fetchMyCoach();
+        }
       }
       if (seq === sequence.current) setStatus('ready');
     })().catch(() => { if (seq === sequence.current) setStatus('failed'); });
     return () => { sequence.current = seq + 1; };
-  }, [owner, mode, coachId, revision, filterKey, page]);
+  }, [owner, mode, coachId, revision, filterKey, page, fetchMyRole, fetchMyCoach]);
 
   async function write(action: () => Promise<void>) {
     if (writing.current) return;
@@ -90,12 +102,23 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       <p>{t(`marketplace.${row.status}`)}</p>
       <time dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
       {row.client_id === owner && <Link className="block text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
-      {row.status === 'accepted' && <p className="text-sm text-neutral-400">{t('marketplace.agreementOnly')}</p>}
+      {row.status === 'accepted' && (
+        <div className="space-y-2">
+          <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? 'marketplace.coachingActiveCoach' : 'marketplace.coachingActive')}</p>
+          {row.coach_id === owner && <Link className="block text-blue-400 underline" to={`/clients/${row.client_id}`}>{t('marketplace.openClient')}</Link>}
+          {row.client_id === owner && <Link className="block text-blue-400 underline" to="/dashboard">{t('marketplace.goDashboard')}</Link>}
+        </div>
+      )}
       <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant="secondary" onClick={() => {
         const seq = sequence.current;
         void write(async () => {
           const updated = await marketRpc<CoachingRequest>('respond_coaching_request', { p_request: row.id, p_status: action }, owner);
           if (seq === sequence.current) setRequests(rows => rows.map(r => r.id === updated.id ? updated : r));
+          if (action === 'accepted') {
+            track('coaching_request_accepted');
+            await fetchClients();
+            await fetchMyRole(owner);
+          }
         });
       }}>{t(`marketplace.action_${action}`)}</Button>)}</div>
     </article>)}</div> : <p>{t('marketplace.noRequests')}</p>}{pagination}</>;
@@ -141,17 +164,25 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       <p>{[...profile.disciplines, ...profile.languages, ...profile.formats].map(v => t(`marketplace.${v}`)).join(' · ')}</p>
       {profile.area && <p>{profile.area}</p>}
       {!profile.accepting_clients && <p>{t('marketplace.unavailable')}</p>}
-      {profile.accepting_clients && profile.coach_id !== owner && <form className="space-y-4" onSubmit={e => {
-        e.preventDefault(); if (!consent) return; const seq = sequence.current;
+      {profile.accepting_clients && profile.coach_id !== owner && activeCoachId && <p>{t('marketplace.already_coached')}</p>}
+      {profile.accepting_clients && profile.coach_id !== owner && !activeCoachId && <form className="space-y-4" onSubmit={e => {
+        e.preventDefault(); if (!consent || !relationshipConsent) return; const seq = sequence.current;
         void write(async () => {
           const result = await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: 1, p_request_key: coachingRequestKey(sessionStorage, owner, profile.coach_id) }, owner);
-          if (seq === sequence.current) { clearCoachingRequestKey(sessionStorage, owner, profile.coach_id); setNotice(t(result.status === 'pending' ? 'marketplace.sent' : `marketplace.${result.status}`)); setConsent(false); }
+          if (seq === sequence.current) { clearCoachingRequestKey(sessionStorage, owner, profile.coach_id); setNotice(t(result.status === 'pending' ? 'marketplace.sent' : `marketplace.${result.status}`)); setConsent(false); setRelationshipConsent(false); }
         });
       }}><fieldset disabled={busy} className="space-y-4">
         <Input required maxLength={100} label={t('marketplace.yourName')} value={name} onChange={e => setName(e.target.value)} />
         <label className="block space-y-2">{t('marketplace.summary')}<textarea required className={fieldStyle} maxLength={1500} rows={4} value={summary} onChange={e => setSummary(e.target.value)} /></label>
         <label className="flex items-start gap-3"><input className="mt-1" type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /><span>{t('marketplace.sharing')}</span></label>
-        <Button type="submit" loading={busy} disabled={!consent}>{t('marketplace.send')}</Button>
+        <p className="text-sm text-neutral-300">{t('marketplace.relationshipIfAccepted')}</p>
+        <ul className="text-sm text-neutral-400 list-disc pl-5 space-y-1">
+          {DIRECT_INVITE_CONSENT_SCOPES.map(scope => (
+            <li key={scope}>{t(`coaching.invite.scopes.${scope}`)}</li>
+          ))}
+        </ul>
+        <label className="flex items-start gap-3"><input className="mt-1" type="checkbox" required checked={relationshipConsent} onChange={e => setRelationshipConsent(e.target.checked)} /><span>{t('marketplace.consentAck')}</span></label>
+        <Button type="submit" loading={busy} disabled={!consent || !relationshipConsent}>{t('marketplace.send')}</Button>
       </fieldset></form>}
     </div>;
   };

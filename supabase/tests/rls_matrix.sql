@@ -510,9 +510,12 @@ BEGIN
      AND has_function_privilege('authenticated', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
      AND has_function_privilege('authenticated', 'public.respond_coaching_request(uuid,text)', 'execute')
      AND has_function_privilege('authenticated', 'public.marketplace_coach_eligible(uuid)', 'execute')
+     AND to_regprocedure('public.activate_coaching_relationship(uuid,uuid)') IS NOT NULL
+     AND NOT has_function_privilege('authenticated', 'public.activate_coaching_relationship(uuid,uuid)', 'execute')
      AND NOT has_function_privilege('anon', 'public.save_my_coach_profile(jsonb,timestamptz)', 'execute')
      AND NOT has_function_privilege('anon', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
      AND NOT has_function_privilege('anon', 'public.respond_coaching_request(uuid,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.activate_coaching_relationship(uuid,uuid)', 'execute')
      AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'insert')
      AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'update')
      AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'insert')

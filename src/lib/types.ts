@@ -882,6 +882,7 @@ export type ProductEventName =
   | 'intake_completed'
   | 'invite_created'
   | 'invite_accepted'
+  | 'coaching_request_accepted'
   | 'intervention_resolved'
   | 'coach_message_sent'
   | 'client_reply_sent'
