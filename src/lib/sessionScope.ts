@@ -7,9 +7,16 @@
  */
 
 let currentOwner: string | null = null;
+let sessionGeneration = 0;
 
 export function setSessionOwner(owner: string | null): void {
+  if (owner !== currentOwner) sessionGeneration += 1;
   currentOwner = owner;
+}
+
+/** Owner equality alone cannot detect A → logout/B → A. Token refresh is unchanged. */
+export function getSessionGeneration(): number {
+  return sessionGeneration;
 }
 
 export function getSessionOwner(): string | null {
