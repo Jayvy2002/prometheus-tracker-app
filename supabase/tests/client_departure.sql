@@ -61,6 +61,7 @@ do $$ begin
  if not exists(select 1 from public.program_assignments where id='a1750000-0000-4000-8000-000000000011' and status='active') then raise exception 'partial program pause'; end if;
  if not exists(select 1 from public.coach_client_links where client_id='a1750000-0000-4000-8000-000000000002' and status='active') then raise exception 'partial departure'; end if;
  if not exists(select 1 from public.client_tracking_config where client_id='a1750000-0000-4000-8000-000000000002') then raise exception 'partial tracking deletion'; end if;
+ if exists(select 1 from public.coach_relationship_endings where client_id='a1750000-0000-4000-8000-000000000002') then raise exception 'partial departure event'; end if;
  if has_function_privilege('authenticated','public.transition_client_to_solo(uuid,uuid)','execute') then raise exception 'private helper exposed'; end if;
 end $$;
 drop trigger departure_test_fail on public.coach_client_links;
@@ -153,5 +154,36 @@ do $$ begin
  if (select count(*) from public.coach_relationship_notices where client_id='a1750000-0000-4000-8000-000000000002')<>2 then raise exception 'coach own action emitted unnecessary notice'; end if;
 end $$;
 
+-- Minimal end history remains available to participants, without dossier permissions.
+do $$ begin
+ if (select count(*) from public.coach_relationship_endings where client_id='a1750000-0000-4000-8000-000000000002')<>3 then raise exception 'departure history missing or duplicated'; end if;
+ if (select count(*) from public.coach_relationship_endings where initiated_as='client' and initiated_by='a1750000-0000-4000-8000-000000000002')<>2 then raise exception 'client author missing'; end if;
+ if (select count(*) from public.coach_relationship_endings where initiated_as='coach' and initiated_by='a1750000-0000-4000-8000-000000000001')<>1 then raise exception 'coach author missing'; end if;
+ if has_table_privilege('authenticated','public.coach_relationship_endings','insert') or has_table_privilege('authenticated','public.coach_relationship_endings','update') then raise exception 'departure history forgery allowed'; end if;
+ begin
+  update public.program_assignments set status='active' where id='a1750000-0000-4000-8000-000000000011';
+  raise exception 'expected inactive assignment rejection';
+ exception when others then
+  if sqlerrm <> 'Coaching relationship is no longer active' then raise; end if;
+ end;
+ begin
+  perform public.assert_client_target('a1750000-0000-4000-8000-000000000002');
+  raise exception 'expected old coach rejection';
+ exception when others then
+  if sqlerrm <> 'Not authorized for this client' then raise; end if;
+ end;
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000003',true);
+do $$ begin
+ if exists(select 1 from public.coach_relationship_endings) then raise exception 'third party sees relationship history'; end if;
+end $$;
+select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000002',true);
+do $$ begin
+ if (select count(*) from public.coach_relationship_endings)<>3 then raise exception 'client lost relationship history'; end if;
+end $$;
+reset role;
+
 rollback;
 \echo 'client departure: isolation, rollback, archives, revocation, role transition and repeat checks passed'
+

@@ -67,6 +67,8 @@ try {
  assert.equal(accepted.ok,true);
  const clientPage=await pageFor(athlete);
  await clientPage.goto(origin+'/dashboard');
+ await clientPage.evaluate(()=>navigator.serviceWorker.ready);
+ await clientPage.waitForFunction(()=>!!navigator.serviceWorker.controller);
  const answer=clientPage.getByLabel('How do you prefer to communicate?',{exact:false});
  await answer.fill('Messages in the morning');
  await clientPage.getByRole('button',{name:'Save draft',exact:true}).click();
@@ -105,26 +107,13 @@ try {
  await clientPage.getByRole('button',{name:'End coaching relationship',exact:true}).click();
  const confirm=clientPage.getByRole('button',{name:'End relationship',exact:true});
  await confirm.waitFor();
- clientPage.on('console',message=>{
-  if(message.text().startsWith('departure-trace')) console.log(message.text());
- });
- await clientPage.evaluate(async()=>{
-  const {useProfileStore}=await import('/src/stores/profileStore.ts');
-  const original=useProfileStore.getState().applyCoachingDeparture;
-  useProfileStore.setState({applyCoachingDeparture:(id,date)=>{
-   console.log('departure-trace apply',useProfileStore.getState().profile?.id===id,!!date);
-   original(id,date);
-  }});
-  useProfileStore.subscribe((state,previous)=>{
-   if(state.profile!==previous.profile)console.log('departure-trace profile',state.profile?.coach_link_ended_at, new Error().stack);
-  });
- });
  let departureCalls=0;
  await clientPage.route('**/rest/v1/rpc/client_end_coach_link',async route=>{
   departureCalls++;
   const response=await route.fetch();
   const body=await response.json();
-  console.log('departure RPC contract', {ok:body.ok,hasEndedAt:!!body.ended_at, endedAtType:typeof body.ended_at, parseable:Number.isFinite(Date.parse(body.ended_at)),error:body.error});
+  assert.equal(body.ok,true);
+  assert.ok(Number.isFinite(Date.parse(body.ended_at)),'Departure returns the persisted date');
   await route.fulfill({response,json:body});
  });
  await clientPage.route('**/rest/v1/user_profiles?*',route=>route.fulfill({
@@ -132,13 +121,6 @@ try {
  }));
  await confirm.click();
  await clientPage.waitForURL('**/dashboard');
- console.log('departure UI context',await clientPage.evaluate(async()=>{
-  const {useProfileStore}=await import('/src/stores/profileStore.ts');
-  const {useCoachingStore}=await import('/src/stores/coachingStore.ts');
-  const {useAuthStore}=await import('/src/stores/authStore.ts');
-  const profile=useProfileStore.getState().profile;
-  return {profilePresent:!!profile,profileMatchesAccount:profile?.id===useAuthStore.getState().user?.id,endedAt:profile?.coach_link_ended_at,role:useCoachingStore.getState().coachingRole,hasCoach:!!useCoachingStore.getState().myCoach,profileError:useProfileStore.getState().fetchError};
- }));
  await clientPage.getByText('Your coaching relationship has ended',{exact:true}).waitFor();
  assert.equal(departureCalls,1,'Departure is submitted once');
  const ended=check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single());
@@ -160,6 +142,12 @@ try {
  assert.equal(notices.length,1);
  assert.ok(notices[0].read_at);
  console.log('PASS: browser departure, refresh outage, solo reload, coach notice and persisted acknowledgement');
+ const cachedUrls=await clientPage.evaluate(async()=>{
+  const keys=await caches.keys();
+  return (await Promise.all(keys.map(async key=>(await (await caches.open(key)).keys()).map(request=>request.url)))).flat();
+ });
+ assert.ok(cachedUrls.every(url=>new URL(url).origin===origin&&!url.includes('/rest/')&&!url.includes('/auth/')),'No private API response is stored by the worker');
+ console.log('PASS: active service worker excludes all private API responses');
  // Independent requests exercise the database lock rather than the UI click guard.
  const rejoinToken='departure-rejoin-'+crypto.randomUUID();
  check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token:rejoinToken,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
@@ -218,3 +206,4 @@ try {
  await browser.close();
  vite.kill('SIGTERM');
 }
+
