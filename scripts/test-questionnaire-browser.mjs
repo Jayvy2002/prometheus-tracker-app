@@ -269,7 +269,7 @@ try {
  await clientPage.unroute('**/rest/v1/rpc/get_coach_invite_preview');
  await clientPage.getByRole('button',{name:'Retry',exact:true}).click();
  await clientPage.getByRole('button',{name:'Accept invite',exact:true}).waitFor();
- await clientPage.getByText('By accepting, you allow this coach to view your profile and tracking history during your coaching relationship. You keep your data if you end the relationship.',{exact:true}).waitFor();
+ await clientPage.getByText('By accepting, you allow this coach to view your profile, questionnaire, program, workouts, check-ins, nutrition, progress photos and messages during your coaching relationship. Tracking modules remain configurable and you keep your data when the relationship ends.',{exact:true}).waitFor();
  assert.equal(accepts,0);
  await clientPage.getByRole('button',{name:'Cancel',exact:true}).click();
  await clientPage.waitForURL('**/dashboard');
