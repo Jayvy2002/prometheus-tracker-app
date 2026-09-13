@@ -2,7 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { isCoachedAthlete } from '../../lib/coachRole';
+import { resolveAccountContext } from '../../lib/accountContext';
 
 export default function BottomNav() {
   const { t } = useTranslation();
@@ -12,9 +12,13 @@ export default function BottomNav() {
   const myCoach = useCoachingStore(s => s.myCoach);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
   const tracking = useCoachingStore(s => s.myTrackingConfig);
-  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const roleReady = useCoachingStore(s => s.roleReady);
+  const snapshot = useCoachingStore(s => s.accountSnapshot);
+  const workspace = useCoachingStore(s => s.accountWorkspace);
+  const context = resolveAccountContext(coachingRole, myCoach, roleReady, snapshot, workspace);
+  const coached = context.personalCoaching === 'coached';
 
-  const tabs = coachingRole === 'coach'
+  const tabs = context.activeWorkspace === 'coaching'
     ? [
         { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today') },
         { path: '/clients', icon: Users, label: t('nav.clients') },

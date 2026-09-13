@@ -75,13 +75,14 @@ function useAccountContext() {
   const coach = useCoachingStore(s => s.myCoach);
   const ready = useCoachingStore(s => s.roleReady);
   const snapshot = useCoachingStore(s => s.accountSnapshot);
-  return resolveAccountContext(role, coach, ready, snapshot);
+  const workspace = useCoachingStore(s => s.accountWorkspace);
+  return resolveAccountContext(role, coach, ready, snapshot, workspace);
 }
 
 function HomeDashboard() {
   const context = useAccountContext();
   if (!context.ready) return <RouteFallback />;
-  return context.defaultWorkspace === 'coaching' ? <CoachDashboard /> : <Dashboard />;
+  return context.activeWorkspace === 'coaching' ? <CoachDashboard /> : <Dashboard />;
 }
 
 function CoachOnly({ children }: { children: ReactNode }) {
@@ -94,7 +95,7 @@ function CoachOnly({ children }: { children: ReactNode }) {
 function MessagesHome() {
   const context = useAccountContext();
   if (!context.ready) return <RouteFallback />;
-  return context.defaultWorkspace === 'coaching' ? <CoachInboxPage /> : <ClientMessagesPage />;
+  return context.activeWorkspace === 'coaching' ? <CoachInboxPage /> : <ClientMessagesPage />;
 }
 
 function CoachTrackerRedirect({ children }: { children: ReactNode }) {
@@ -105,30 +106,32 @@ function CoachTrackerRedirect({ children }: { children: ReactNode }) {
 }
 
 function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  if (isCoachedAthlete(coachingRole, myCoach)) return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (context.personalCoaching === 'coached') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function ProgramsHome() {
   const context = useAccountContext();
   if (!context.ready) return <RouteFallback />;
-  if (context.defaultWorkspace === 'coaching') return <ProgramsPage />;
+  if (context.activeWorkspace === 'coaching') return <ProgramsPage />;
   return <ClientProgramPage />;
 }
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, updateProfile } = useProfileStore();
-  const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole } = useCoachingStore();
+  const { roleReady, coachingRole, myCoach, accountSnapshot, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole } = useCoachingStore();
   const { t } = useTranslation();
   const location = useLocation();
   const [intakeUsage, setIntakeUsage] = useState<IntakeUsageSignals | null>(null);
   const [intakeProbeStatus, setIntakeProbeStatus] = useState<IntakeProbeStatus>('idle');
   const userId = user?.id ?? null;
   const timezoneWriteFor = useRef<string | null>(null);
-  const assignmentScope = userId && myCoach?.id && coachingRole !== 'coach' ? userId + ':' + myCoach.id : null;
+  const assignmentScope = userId && myCoach?.id
+    && (coachingRole !== 'coach' || accountSnapshot?.activeCoachId === myCoach.id)
+    ? userId + ':' + myCoach.id : null;
   const [assignment, setAssignment] = useState<{ scope: string; status: 'ready' | 'failed'; response: QuestionnaireResponse | null } | null>(null);
   const [assignmentRetry, setAssignmentRetry] = useState(0);
   const activeAssignment = assignmentScope && assignment?.scope === assignmentScope ? assignment : null;
@@ -425,4 +428,3 @@ export default function App() {
     </BrowserRouter>
   );
 }
-

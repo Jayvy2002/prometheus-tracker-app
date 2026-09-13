@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { readAccountRole, type AccountSnapshot } from '../lib/accountContext';
+import { loadAccountWorkspace, persistAccountWorkspace, readAccountRole, type AccountSnapshot, type AccountWorkspace } from '../lib/accountContext';
 import { supabase } from '../lib/supabase';
 import type {
   ClientOpsRow,
@@ -296,6 +296,7 @@ interface CoachingState {
   coachingRole: CoachingRole;
   roleReady: boolean;
   accountSnapshot: AccountSnapshot | null;
+  accountWorkspace: AccountWorkspace;
   coachingRoleError: string | null;
   loading: boolean;
   clients: CoachClientSummary[];
@@ -328,6 +329,7 @@ interface CoachingState {
   } | null;
   progressPhotosEpoch: number;
   fetchMyRole: (userId: string) => Promise<void>;
+  selectAccountWorkspace: (workspace: AccountWorkspace) => void;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
   enableCoachMode: () => Promise<{ error: string | null }>;
@@ -475,6 +477,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   coachingRole: 'none',
   roleReady: false,
   accountSnapshot: null,
+  accountWorkspace: 'personal',
   coachingRoleError: null,
   loading: false,
   clients: [],
@@ -521,6 +524,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       if (outcome.error) {
         set({
           coachingRole: outcome.role,
+          accountSnapshot: null,
+          accountWorkspace: 'personal',
           coachingRoleError: outcome.error,
           roleReady: true,
         });
@@ -532,6 +537,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       set({
         coachingRole: role,
         accountSnapshot: snapshot,
+        accountWorkspace: snapshot?.coachCapability
+          ? loadAccountWorkspace(userId) ?? 'coaching'
+          : 'personal',
         roleReady: true,
         coachingRoleError: null,
         ...(role === 'client'
@@ -542,11 +550,21 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       if (!isCurrent()) return;
       set({
         coachingRole: previous,
+        accountSnapshot: null,
+        accountWorkspace: 'personal',
         coachingRoleError: 'network',
         roleReady: true,
       });
       toast(i18n.t('errors.loadRole'), 'error');
     }
+  },
+
+  selectAccountWorkspace: (workspace) => {
+    const accountId = getSessionOwner();
+    const snapshot = get().accountSnapshot;
+    if (!accountId || snapshot?.userId !== accountId || !snapshot.coachCapability) return;
+    persistAccountWorkspace(accountId, workspace);
+    set({ accountWorkspace: workspace });
   },
 
   setCoachingRole: async (role) => {
@@ -2344,7 +2362,8 @@ fetchMyCoach: async () => {
     set({
       coachingRole: 'none',
       roleReady: false,
-  accountSnapshot: null,
+      accountSnapshot: null,
+      accountWorkspace: 'personal',
       coachingRoleError: null,
       clients: [],
       clientsFetchError: null,
@@ -2372,4 +2391,3 @@ fetchMyCoach: async () => {
     });
   },
 }));
-

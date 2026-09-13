@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseAccountSnapshot, readAccountRole, resolveAccountContext } from './accountContext';
+import { parseAccountSnapshot, parseAccountWorkspace, readAccountRole, resolveAccountContext } from './accountContext';
 
 const coach = { user_id: 'A', coach_capability: true, legacy_coaching_role: 'coach', active_coach_id: null };
 
@@ -13,7 +13,20 @@ test('a coach may have an independent personal coaching relationship', () => {
   const context = resolveAccountContext('coach', null, true, coached);
   assert.equal(context.personalCoaching, 'coached');
   assert.equal(context.capabilities.coach, true);
-  assert.equal(context.personalToolsAvailable, false, 'Permission rollout remains gated');
+  assert.equal(context.personalToolsAvailable, true);
+  assert.equal(context.activeWorkspace, 'coaching');
+  assert.equal(resolveAccountContext('coach', null, true, coached, 'personal').activeWorkspace, 'personal');
+  assert.equal(resolveAccountContext('coach', null, true, coached, 'coaching').activeWorkspace, 'coaching');
+});
+
+test('workspace choice is strict and only a server-confirmed coach can use it', () => {
+  const snapshot = parseAccountSnapshot(coach, 'A');
+  assert.equal(parseAccountWorkspace('personal'), 'personal');
+  assert.equal(parseAccountWorkspace('coaching'), 'coaching');
+  assert.equal(parseAccountWorkspace('admin'), null);
+  assert.equal(resolveAccountContext('coach', null, true, snapshot, 'admin' as never).activeWorkspace, 'coaching');
+  assert.equal(resolveAccountContext('coach', null, true, null, 'personal').activeWorkspace, 'coaching');
+  assert.equal(resolveAccountContext('none', null, true, null, 'coaching').activeWorkspace, 'personal');
 });
 
 test('context rejects another account, self-link, malformed or inconsistent capabilities', () => {

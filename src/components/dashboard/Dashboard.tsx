@@ -16,7 +16,7 @@ import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
-import { isCoachedAthlete } from '../../lib/coachRole';
+import { resolveAccountContext } from '../../lib/accountContext';
 import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import {
@@ -61,7 +61,7 @@ export default function Dashboard() {
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, checkins, fetchToday, fetchRecent, loading: checkinLoading } = useCheckinStore();
-  const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
+  const { myCoach, coachingRole, roleReady, accountSnapshot, accountWorkspace, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
   const tracking = useClientTracking();
   const [startingRoutine, setStartingRoutine] = useState(false);
@@ -171,7 +171,9 @@ export default function Dashboard() {
   const programWeek = assignment?.program
     ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
     : null;
-  const hasCoach = isCoachedAthlete(coachingRole, myCoach);
+  const hasCoach = resolveAccountContext(
+    coachingRole, myCoach, roleReady, accountSnapshot, accountWorkspace,
+  ).personalCoaching === 'coached';
   const scheduledToday = !alreadyTrainedToday
     ? routines.find(r => r.scheduled_days?.includes(todayDow))
     : null;

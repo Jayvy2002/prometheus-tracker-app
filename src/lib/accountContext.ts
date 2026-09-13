@@ -59,8 +59,25 @@ export interface AccountContext {
   capabilities: { coach: boolean };
   personalCoaching: PersonalCoachingState;
   defaultWorkspace: AccountWorkspace;
-  /** Compatibility gate until personal coach access is validated server-side. */
+  activeWorkspace: AccountWorkspace;
+  /** Personal routes remain protected by their own owner/link RLS policies. */
   personalToolsAvailable: boolean;
+}
+
+const WORKSPACE_KEY = 'prometheus_account_workspace';
+
+export function parseAccountWorkspace(value: unknown): AccountWorkspace | null {
+  return value === 'personal' || value === 'coaching' ? value : null;
+}
+
+export function loadAccountWorkspace(userId: string): AccountWorkspace | null {
+  try { return parseAccountWorkspace(localStorage.getItem(`${WORKSPACE_KEY}:${userId}`)); }
+  catch { return null; }
+}
+
+export function persistAccountWorkspace(userId: string, workspace: AccountWorkspace): void {
+  try { localStorage.setItem(`${WORKSPACE_KEY}:${userId}`, workspace); }
+  catch { /* private mode / quota */ }
 }
 
 /** The snapshot resolves personal relationships without widening legacy permissions. */
@@ -69,13 +86,20 @@ export function resolveAccountContext(
   myCoach: { id?: string } | null | undefined,
   ready: boolean,
   snapshot: AccountSnapshot | null,
+  preferredWorkspace?: AccountWorkspace | null,
 ): AccountContext {
   const legacy = resolveLegacyAccountContext(role, myCoach, ready);
   if (!ready || !snapshot || snapshot.legacyRole !== role) return legacy;
+  const personalToolsAvailable = snapshot.coachCapability || !legacy.capabilities.coach;
+  const selected = parseAccountWorkspace(preferredWorkspace);
+  const activeWorkspace = snapshot.coachCapability && selected
+    ? selected : legacy.defaultWorkspace;
   return {
     ...legacy,
     personalCoaching: snapshot.activeCoachId ? 'coached'
       : role === 'client' ? 'unresolved' : 'solo',
+    personalToolsAvailable,
+    activeWorkspace,
   };
 }
 
@@ -97,6 +121,7 @@ export function resolveLegacyAccountContext(
       capabilities: { coach: false },
       personalCoaching: 'unresolved',
       defaultWorkspace: 'personal',
+      activeWorkspace: 'personal',
       personalToolsAvailable: false,
     };
   }
@@ -106,6 +131,7 @@ export function resolveLegacyAccountContext(
     capabilities: { coach },
     personalCoaching: coach ? 'unresolved' : role === 'client' || !!myCoach ? 'coached' : 'solo',
     defaultWorkspace: coach ? 'coaching' : 'personal',
+    activeWorkspace: coach ? 'coaching' : 'personal',
     personalToolsAvailable: !coach,
   };
 }

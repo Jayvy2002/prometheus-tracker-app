@@ -82,6 +82,12 @@ const en = {
     prometheus: 'Prometheus',
   },
 
+  workspace: {
+    label: 'Choose a workspace',
+    personal: 'Personal',
+    coaching: 'Coaching',
+  },
+
   auth: {
     emailAddress: 'Email address',
     password: 'Password',
@@ -1810,4 +1816,3 @@ const en = {
 } as const;
 
 export default en;
-
