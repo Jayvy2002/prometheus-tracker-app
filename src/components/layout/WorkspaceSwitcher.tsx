@@ -1,4 +1,4 @@
-import { BriefcaseBusiness, Dumbbell } from 'lucide-react';
+import { Briefcase, Dumbbell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { resolveAccountContext, type AccountWorkspace } from '../../lib/accountContext';
@@ -22,7 +22,7 @@ export default function WorkspaceSwitcher({ className = '' }: { className?: stri
   };
   const options = [
     { value: 'personal' as const, icon: Dumbbell, label: t('workspace.personal') },
-    { value: 'coaching' as const, icon: BriefcaseBusiness, label: t('workspace.coaching') },
+    { value: 'coaching' as const, icon: Briefcase, label: t('workspace.coaching') },
   ];
   return <div className={`grid grid-cols-2 gap-1 rounded-xl bg-neutral-900 p-1 ${className}`} role="group" aria-label={t('workspace.label')}>
     {options.map(option => <button key={option.value} type="button"
