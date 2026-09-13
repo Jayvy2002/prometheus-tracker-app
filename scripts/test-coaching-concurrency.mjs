@@ -96,7 +96,7 @@ try {
    INSERT INTO public.coach_invites(coach_id,token,max_uses,expires_at) VALUES('${nextCoach}','${invite}',1,now()+interval '1 hour');`);
   const ending = session('departure_before_new_coach');
   await ending.run(`BEGIN; ${asUser(client)} ${leave}`);
-  const accept = `SELECT public.accept_coach_invite('${invite}');`;
+  const accept = `SELECT public.accept_coach_invite('${invite}',1,ARRAY['checkins','messages','nutrition','profile','program','progress_photos','questionnaire','workouts']);`;
   const blocked = await sql(`BEGIN; ${asUser(client)} ${accept} COMMIT;`);
   assert.match(blocked, /already_coached/);
   assert.equal(await sql(`SELECT use_count FROM public.coach_invites WHERE token='${invite}'`), '0');
