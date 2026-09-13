@@ -1,8 +1,8 @@
 /**
  * Coached → solo transition (docs/VISION.md point 4).
- * When a coach ends the link, end_coach_client_link hands the account back to solo and stamps
- * user_profiles.coach_link_ended_at / solo_trial_ends_at. These helpers decide what the solo home
- * says about it. Pure — no Supabase.
+ * When the link ends, end_coach_client_link / client_end_coach_link hand the account back to
+ * solo and stamp user_profiles.coach_link_ended_at / solo_trial_ends_at. These helpers decide
+ * what the solo home says about it. Pure — no Supabase.
  */
 
 export const SOLO_TRIAL_DAYS = 30;

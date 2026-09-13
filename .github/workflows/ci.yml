@@ -87,6 +87,26 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
           RLS_RESULTS_PATH: /tmp/rls-matrix-results.txt
         run: node scripts/run-rls-matrix.mjs
+      - name: Test client departure
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/client_departure.sql | tee /tmp/client-departure-db-results.txt
+      - name: Test relationship consent
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/relationship_consent.sql | tee /tmp/relationship-consent-db-results.txt
+      - name: Test account capabilities
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_capabilities.sql | tee /tmp/account-capabilities-db-results.txt
+      - name: Test account entry intent
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_entry_intent.sql | tee /tmp/account-entry-intent-db-results.txt
+      - name: Test coach marketplace
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_marketplace.sql | tee /tmp/coach-marketplace-db-results.txt
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

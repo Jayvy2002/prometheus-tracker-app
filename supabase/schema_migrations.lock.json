@@ -403,6 +403,30 @@
     {
       "version": "20260911235551",
       "name": "coach_questionnaires"
+    },
+    {
+      "version": "20260913184325",
+      "name": "client_end_coach_link"
+    },
+    {
+      "version": "20260913185941",
+      "name": "relationship_consent"
+    },
+    {
+      "version": "20260913191435",
+      "name": "account_capabilities"
+    },
+    {
+      "version": "20260913192450",
+      "name": "account_entry_intent"
+    },
+    {
+      "version": "20260913193923",
+      "name": "coach_marketplace"
+    },
+    {
+      "version": "20260913204917",
+      "name": "marketplace_activate_link"
     }
   ]
 }

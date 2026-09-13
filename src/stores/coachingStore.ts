@@ -84,6 +84,18 @@ import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
+import { getSessionOwner } from '../lib/sessionScope';
+import { directInviteConsentArgs } from '../lib/relationshipConsent';
+import {
+  loadAccountWorkspace,
+  persistAccountWorkspace,
+  readAccountRole,
+  type AccountSnapshot,
+  type AccountWorkspace,
+} from '../lib/accountContext';
+
+let endMyCoachLinkInFlight = false;
+let acceptInviteInFlight = false;
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -288,6 +300,8 @@ interface CoachingState {
   coachingRole: CoachingRole;
   roleReady: boolean;
   coachingRoleError: string | null;
+  accountSnapshot: AccountSnapshot | null;
+  accountWorkspace: AccountWorkspace;
   loading: boolean;
   clients: CoachClientSummary[];
   clientsFetchError: string | null;
@@ -319,6 +333,8 @@ interface CoachingState {
   } | null;
   progressPhotosEpoch: number;
   fetchMyRole: (userId: string) => Promise<void>;
+  selectAccountWorkspace: (workspace: AccountWorkspace) => void;
+  chooseEntryIntention: (intent: 'solo' | 'find_coach' | 'coach') => Promise<{ error: string | null }>;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
   enableCoachMode: () => Promise<{ error: string | null }>;
@@ -447,7 +463,7 @@ interface CoachingState {
   revokeInvite: (id: string) => Promise<void>;
   fetchMyCoach: () => Promise<void>;
   acceptInvite: (token: string) => Promise<{ ok: boolean; error?: string; coach_name?: string }>;
-  previewInvite: (token: string) => Promise<{ valid: boolean; coach_name: string | null }>;
+  previewInvite: (token: string) => Promise<{ valid: boolean; coach_name: string | null; error?: string }>;
   fetchClientWorkouts: (clientId: string) => Promise<Workout[]>;
   fetchClientWorkout: (workoutId: string) => Promise<Workout | null>;
   fetchClientNutrition: (clientId: string, date: string) => Promise<{ logs: NutritionLog[]; water: WaterLog[] }>;
@@ -456,6 +472,7 @@ interface CoachingState {
   fetchNotes: (clientId: string) => Promise<void>;
   addNote: (clientId: string, body: string, opts?: { noteDate?: string; workoutId?: string }) => Promise<{ error: string | null }>;
   deleteNote: (id: string) => Promise<void>;
+  endMyCoachLink: () => Promise<{ error: string | null }>;
   endClientLink: (linkClientId: string) => Promise<{ error: string | null }>;
   clear: () => void;
 }
@@ -464,6 +481,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   coachingRole: 'none',
   roleReady: false,
   coachingRoleError: null,
+  accountSnapshot: null,
+  accountWorkspace: 'personal',
   loading: false,
   clients: [],
   clientsFetchError: null,
@@ -492,11 +511,11 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   fetchMyRole: async (userId) => {
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const { data, error, snapshot } = await readAccountRole(
+        userId,
+        () => supabase.rpc('get_my_account_context'),
+        () => supabase.from('user_roles').select('coaching_role').eq('user_id', userId).maybeSingle(),
+      );
       const outcome = nextRoleAfterFetch({
         previous,
         data: data as { coaching_role?: string | null } | null,
@@ -505,6 +524,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       if (outcome.error) {
         set({
           coachingRole: outcome.role,
+          accountSnapshot: null,
+          accountWorkspace: 'personal',
           coachingRoleError: outcome.error,
           roleReady: true,
         });
@@ -515,6 +536,10 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       persistRememberedCoachingRole(userId, role);
       set({
         coachingRole: role,
+        accountSnapshot: snapshot,
+        accountWorkspace: snapshot?.coachCapability
+          ? loadAccountWorkspace(userId) ?? 'coaching'
+          : 'personal',
         roleReady: true,
         coachingRoleError: null,
         ...(role === 'client'
@@ -524,6 +549,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     } catch {
       set({
         coachingRole: previous,
+        accountSnapshot: null,
+        accountWorkspace: 'personal',
         coachingRoleError: 'network',
         roleReady: true,
       });
@@ -531,10 +558,43 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     }
   },
 
+  selectAccountWorkspace: (workspace) => {
+    const accountId = getSessionOwner();
+    const snapshot = get().accountSnapshot;
+    if (!accountId || snapshot?.userId !== accountId || !snapshot.coachCapability) return;
+    persistAccountWorkspace(accountId, workspace);
+    set({ accountWorkspace: workspace });
+  },
+
+  chooseEntryIntention: async (intent) => {
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    if (endMyCoachLinkInFlight || acceptInviteInFlight) return { error: 'operation_pending' };
+    const { data, error } = await supabase.rpc('choose_account_intent', { p_intent: intent });
+    if (getSessionOwner() !== accountId) return { error: 'session_changed' };
+    if (error) return { error: error.message };
+    const payload = data as { user_id?: string; intent?: string; coaching_role?: string } | null;
+    if (!payload || payload.user_id !== accountId || payload.intent !== intent
+      || !['none', 'client', 'coach'].includes(String(payload.coaching_role))) {
+      return { error: 'invalid_response' };
+    }
+    const role = payload.coaching_role as CoachingRole;
+    persistRememberedCoachingRole(accountId, role);
+    useProfileStore.getState().applyEntryIntention(accountId, intent);
+    set({ coachingRole: role, roleReady: true, coachingRoleError: null });
+    await get().fetchMyRole(accountId);
+    return { error: null };
+  },
+
   setCoachingRole: async (role) => {
     const { data, error } = await supabase.rpc('set_coaching_role', { p_role: role });
     if (error) return { error: error.message };
-    set({ coachingRole: (data as CoachingRole) || role });
+    const accountId = getSessionOwner();
+    if (accountId) {
+      await get().fetchMyRole(accountId);
+    } else {
+      set({ coachingRole: (data as CoachingRole) || role });
+    }
     return { error: null };
   },
 
@@ -2024,22 +2084,37 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   acceptInvite: async (token) => {
-    const { data, error } = await supabase.rpc('accept_coach_invite', { p_token: token });
-    if (error) return { ok: false, error: error.message };
-    const result = data as { ok?: boolean; error?: string; coach_name?: string };
-    if (!result?.ok) return { ok: false, error: result?.error ?? 'failed' };
-    clearPendingInviteToken();
-    clearIntendedCoachingRole();
-    await get().fetchMyCoach();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) await get().fetchMyRole(user.id);
-    track('invite_accepted');
-    return { ok: true, coach_name: result.coach_name };
+    const accountId = getSessionOwner();
+    if (!accountId) return { ok: false, error: 'not_authenticated' };
+    if (acceptInviteInFlight) return { ok: false, error: 'operation_pending' };
+    acceptInviteInFlight = true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || user.id !== accountId) return { ok: false, error: 'not_authenticated' };
+      const { data, error } = await supabase.rpc('accept_coach_invite', {
+        p_token: token,
+        ...directInviteConsentArgs(),
+      });
+      if (getSessionOwner() !== accountId) return { ok: false, error: 'session_changed' };
+      if (error) return { ok: false, error: error.message };
+      const result = data as { ok?: boolean; error?: string; coach_name?: string } | null;
+      if (result?.ok !== true) return { ok: false, error: result?.error ?? 'invalid_response' };
+      clearPendingInviteToken();
+      clearIntendedCoachingRole();
+      await get().fetchMyCoach();
+      if (getSessionOwner() === accountId) await get().fetchMyRole(accountId);
+      track('invite_accepted');
+      return { ok: true, coach_name: result.coach_name };
+    } catch {
+      return { ok: false, error: getSessionOwner() === accountId ? 'network' : 'session_changed' };
+    } finally {
+      acceptInviteInFlight = false;
+    }
   },
 
   previewInvite: async (token) => {
     const { data, error } = await supabase.rpc('get_coach_invite_preview', { p_token: token });
-    if (error) return { valid: false, coach_name: null };
+    if (error) return { valid: false, coach_name: null, error: error.message };
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) return { valid: false, coach_name: null };
     return {
@@ -2151,46 +2226,64 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     set(s => ({ notes: s.notes.filter(n => n.id !== id) }));
   },
 
+  endMyCoachLink: async () => {
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    if (endMyCoachLinkInFlight) return { error: 'operation_pending' };
+    endMyCoachLinkInFlight = true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || user.id !== accountId) return { error: 'not_authenticated' };
+      const { data, error } = await supabase.rpc('client_end_coach_link');
+      if (getSessionOwner() !== accountId) return { error: 'session_changed' };
+      if (error) return { error: error.message };
+      const payload = data as { ok?: boolean; error?: string; ended_at?: string } | null;
+      if (payload?.ok !== true) return { error: payload?.error ?? 'invalid_response' };
+
+      get().stopClientRealtime();
+      // Leaving personal coaching does not remove professional coach capability.
+      const role = get().coachingRole === 'coach' ? 'coach' : 'none';
+      persistRememberedCoachingRole(accountId, role);
+      if (typeof payload.ended_at === 'string') {
+        useProfileStore.getState().applyCoachingDeparture(accountId, payload.ended_at);
+      }
+      const snapshot = get().accountSnapshot;
+      set({
+        coachingRole: role,
+        roleReady: true,
+        coachingRoleError: null,
+        myCoach: null,
+        myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+        trackingReady: true,
+        latestCoachMessage: null,
+        unreadMessageCount: 0,
+        sentMessages: [],
+        threadExhausted: {},
+        accountSnapshot: snapshot && snapshot.userId === accountId
+          ? { ...snapshot, activeCoachId: null, legacyRole: role }
+          : snapshot,
+      });
+      return { error: null };
+    } catch {
+      return { error: getSessionOwner() === accountId ? 'network' : 'session_changed' };
+    } finally {
+      endMyCoachLinkInFlight = false;
+    }
+  },
+
   endClientLink: async (linkClientId) => {
+    const accountId = getSessionOwner();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'not_authenticated' };
+    if (accountId && user.id !== accountId) return { error: 'session_changed' };
     if (linkClientId === user.id) return { error: 'cannot_end_self' };
 
-    const { data, error: rpcError } = await supabase.rpc('end_coach_client_link', {
+    const { data, error } = await supabase.rpc('end_coach_client_link', {
       p_client_id: linkClientId,
     });
-    const rpcMissing = !!rpcError && (
-      rpcError.code === 'PGRST202'
-      || rpcError.code === '42883'
-      || /end_coach_client_link/i.test(rpcError.message)
-    );
-
-    if (rpcError && !rpcMissing) {
-      return { error: rpcError.message };
-    }
-
-    if (!rpcError) {
-      const payload = data as { ok?: boolean; error?: string } | null;
-      if (payload && payload.ok === false) {
-        return { error: payload.error ?? 'not_linked' };
-      }
-    } else {
-      const iso = new Date().toISOString();
-      const paused = await supabase
-        .from('program_assignments')
-        .update({ status: 'paused', updated_at: iso })
-        .eq('client_id', linkClientId)
-        .eq('assigned_by', user.id)
-        .eq('status', 'active');
-      if (paused.error) return { error: paused.error.message };
-      const ended = await supabase
-        .from('coach_client_links')
-        .update({ status: 'ended', updated_at: iso })
-        .eq('coach_id', user.id)
-        .eq('client_id', linkClientId)
-        .eq('status', 'active');
-      if (ended.error) return { error: ended.error.message };
-    }
+    if (error) return { error: error.message };
+    const payload = data as { ok?: boolean; error?: string } | null;
+    if (payload?.ok !== true) return { error: payload?.error ?? 'invalid_response' };
 
     set(s => dropUnlinkedClient(s, linkClientId));
     return { error: null };
@@ -2205,6 +2298,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       coachingRole: 'none',
       roleReady: false,
       coachingRoleError: null,
+      accountSnapshot: null,
+      accountWorkspace: 'personal',
       clients: [],
       clientsFetchError: null,
       invites: [],

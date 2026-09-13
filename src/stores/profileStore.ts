@@ -13,6 +13,8 @@ interface ProfileState {
     userId: string,
     targets: Pick<UserProfile, 'daily_calorie_target' | 'protein_target' | 'carbs_target' | 'fat_target'>,
   ) => void;
+  applyCoachingDeparture: (userId: string, endedAt: string) => void;
+  applyEntryIntention: (userId: string, intent: 'solo' | 'find_coach' | 'coach') => void;
   updateProfile: (userId: string, data: Partial<UserProfile>) => Promise<{ error: string | null }>;
   uploadAvatar: (userId: string, file: File) => Promise<string | null>;
   clearProfile: () => void;
@@ -39,6 +41,18 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     set({ profile: data as UserProfile | null, loading: false, fetchError: null });
   },
 
+  applyCoachingDeparture: (userId, endedAt) => {
+    const current = get().profile;
+    if (current?.id !== userId || !Number.isFinite(Date.parse(endedAt))) return;
+    set({ profile: { ...current, coach_link_ended_at: endedAt } });
+  },
+
+  applyEntryIntention: (userId, intent) => {
+    const current = get().profile;
+    if (current?.id !== userId) return;
+    set({ profile: { ...current, entry_intent: intent } });
+  },
+
   applyRemoteTargets: (userId, targets) => {
     const current = get().profile;
     const next = applyNutritionTargets(current, userId, targets);
@@ -47,9 +61,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   updateProfile: async (userId, updates) => {
     // D03 : contrat de résultat — un refus RLS / réseau ne ressemble plus à un succès.
+    const { entry_intent: _entryIntent, ...safeUpdates } = updates;
+    void _entryIntent;
     const { data, error } = await supabase
       .from('user_profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
+      .update({ ...safeUpdates, updated_at: new Date().toISOString() })
       .eq('id', userId)
       .select()
       .maybeSingle();

@@ -54,6 +54,9 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(matrix, /apply_intervention/);
   assert.match(matrix, /claim_intervention/);
   assert.match(matrix, /end_coach_client_link/);
+  assert.match(matrix, /client_end_coach_link/);
+  assert.match(matrix, /RPC_CLIENT_END_CROSS/);
+  assert.match(matrix, /RPC_CLIENT_END_AS_COACH/);
   assert.match(matrix, /D01_ATOMIC/);
   assert.match(matrix, /RPC_CLAIM_CROSS/);
   assert.match(matrix, /RPC_APPLY_NULL_CROSS/);
@@ -64,6 +67,11 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /rls-matrix/);
   assert.match(ci, /run-rls-matrix/);
   assert.match(ci, /verify-local-migrations/);
+  assert.match(ci, /client_departure\.sql/);
+  assert.match(ci, /relationship_consent\.sql/);
+  assert.match(ci, /account_capabilities\.sql/);
+  assert.match(ci, /account_entry_intent\.sql/);
+  assert.match(ci, /coach_marketplace\.sql/);
   assert.match(ci, /deploy-audit-edges/);
   assert.match(ci, /2\.117\.0/);
   assert.match(ci, /steps\.token\.outputs\.present == 'true'/);

@@ -1,10 +1,11 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera } from 'lucide-react';
+import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera, Search, Inbox } from 'lucide-react';
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { isCoachedAthlete } from '../../lib/coachRole';
+import { resolveAccountContext } from '../../lib/accountContext';
+import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 export default function SideNav() {
   const { t } = useTranslation();
@@ -15,8 +16,12 @@ export default function SideNav() {
   const myCoach = useCoachingStore(s => s.myCoach);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
   const tracking = useCoachingStore(s => s.myTrackingConfig);
-  const isCoach = coachingRole === 'coach';
-  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const roleReady = useCoachingStore(s => s.roleReady);
+  const snapshot = useCoachingStore(s => s.accountSnapshot);
+  const workspace = useCoachingStore(s => s.accountWorkspace);
+  const context = resolveAccountContext(coachingRole, myCoach, roleReady, snapshot, workspace);
+  const isCoach = context.activeWorkspace === 'coaching';
+  const coached = context.personalCoaching === 'coached';
 
   const tabs = isCoach
     ? [
@@ -25,6 +30,9 @@ export default function SideNav() {
         { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
         { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
+        { path: '/coach/profile', icon: User, label: t('marketplace.profile') },
+        { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests') },
+        { path: '/coaches', icon: Search, label: t('marketplace.directory') },
       ]
     : [
         { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), show: true },
@@ -38,6 +46,8 @@ export default function SideNav() {
         { path: '/calendar', icon: CalendarDays, label: t('nav.calendar'), show: !coached },
         { path: '/stats', icon: BarChart2, label: t('nav.stats'), show: !coached },
         { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts && !coached },
+        { path: '/coaches', icon: Search, label: t('marketplace.directory'), show: true },
+        { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests'), show: true },
         { path: '/profile', icon: User, label: t('nav.profile'), show: true },
       ].filter(tab => !('show' in tab) || tab.show);
 
@@ -54,6 +64,9 @@ export default function SideNav() {
           <img src="/logo.svg" alt="Prometheus" className="w-8 h-8" />
         </div>
         <span className="text-white font-bold text-lg tracking-tight">Prometheus</span>
+      </div>
+      <div className="px-3 pt-3">
+        <WorkspaceSwitcher />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-hide">

@@ -15,7 +15,12 @@ async function actor(name, role) {
  const password = 'Only-local-test-'+crypto.randomUUID();
  const { user } = check(await admin.auth.admin.createUser({email,password,email_confirm:true}));
  check(await admin.from('user_roles').update({coaching_role:role}).eq('user_id',user.id));
- check(await admin.from('user_profiles').update({full_name:name,language:'en',onboarding_completed:role==='coach'}).eq('id',user.id));
+ check(await admin.from('user_profiles').update({
+  full_name:name,
+  language:'en',
+  onboarding_completed:role==='coach',
+  entry_intent:role==='coach'?'coach':'solo',
+ }).eq('id',user.id));
  const client=createClient(url,config.ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
  const { session }=check(await client.auth.signInWithPassword({email,password}));
  return {id:user.id,client,session};
@@ -49,8 +54,18 @@ try {
   if(i===59)throw new Error('Vite failed to start');
   await new Promise(resolve=>setTimeout(resolve,500));
  }
+ async function passIntentionIfShown(page,intent) {
+  const choice=page.getByRole('button',{name:new RegExp(intent)});
+  if(await choice.isVisible().catch(()=>false)){
+   await choice.click();
+   await choice.waitFor({state:'hidden'});
+  }
+ }
  const page=await pageFor(coach);
  await page.goto(origin+'/coach/questionnaire');
+ await page.getByRole('button').first().waitFor();
+ await passIntentionIfShown(page,'I am a coach');
+ if(!page.url().includes('/coach/questionnaire'))await page.goto(origin+'/coach/questionnaire');
  await page.getByRole('button',{name:'Add',exact:true}).click();
  await page.getByLabel('Name (FR)',{exact:true}).fill('Accueil test');
  await page.getByLabel('Name (EN)',{exact:true}).fill('Test welcome');
@@ -67,6 +82,8 @@ try {
  assert.equal(accepted.ok,true);
  const clientPage=await pageFor(athlete);
  await clientPage.goto(origin+'/dashboard');
+ await clientPage.getByRole('button').first().waitFor();
+ await passIntentionIfShown(clientPage,'Train on my own');
  const answer=clientPage.getByLabel('How do you prefer to communicate?',{exact:false});
  await answer.fill('Messages in the morning');
  await clientPage.getByRole('button',{name:'Save draft',exact:true}).click();

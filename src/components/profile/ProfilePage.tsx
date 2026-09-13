@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, ClipboardCheck, Scale, ClipboardList } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, ClipboardCheck, Scale, ClipboardList, Inbox, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -22,6 +22,7 @@ import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
 import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
+import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPanel';
 import SoloHub from './SoloHub';
 
 type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
@@ -166,10 +167,29 @@ export default function ProfilePage() {
         </Card>
       )}
 
+      {coached && myCoach && (
+        <ClientCoachRelationshipPanel coachName={myCoach.full_name || t('coaching.invite.aCoach')} />
+      )}
+
       {!coached && !isCoach && (
         <div className="md:hidden">
           <SoloHub />
         </div>
+      )}
+
+      {isCoach && (
+        <Card className="mb-6 space-y-1 md:hidden">
+          <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest px-1 mb-2">{t('marketplace.directory')}</p>
+          <button type="button" onClick={() => navigate('/coach/profile')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <User size={16} className="text-blue-400" /> {t('marketplace.profile')}
+          </button>
+          <button type="button" onClick={() => navigate('/coaching-requests')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Inbox size={16} className="text-blue-400" /> {t('marketplace.requests')}
+          </button>
+          <button type="button" onClick={() => navigate('/coaches')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Search size={16} className="text-blue-400" /> {t('marketplace.directory')}
+          </button>
+        </Card>
       )}
 
       <div className="space-y-2 mb-6">

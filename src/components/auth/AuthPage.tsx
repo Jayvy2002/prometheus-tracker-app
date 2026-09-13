@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft, Users, User, Dumbbell } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Button from '../ui/Button';
@@ -9,10 +9,9 @@ import {
   credentialsFromLoginForm,
   clientLoginErrorCopy,
   postLoginPath,
-  type AuthDoor,
 } from '../../lib/clientAuth';
 import { useAuthStore } from '../../stores/authStore';
-import { clearIntendedCoachingRole, setIntendedCoachingRole } from '../../stores/coachingStore';
+import { clearIntendedCoachingRole } from '../../stores/coachingStore';
 import { track } from '../../lib/telemetryClient';
 
 interface Props {
@@ -24,8 +23,6 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
-  const [step, setStep] = useState<'role' | 'form'>(fromInvite ? 'form' : 'role');
-  const [role, setRole] = useState<AuthDoor | null>(fromInvite ? 'client' : null);
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,25 +34,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
   const submittingRef = useRef(false);
   const { signIn, signUp, resetPasswordForEmail } = useAuthStore();
 
-  const canRegister = authDoorCanRegister(role, fromInvite);
-
-  const chooseRole = (next: AuthDoor) => {
-    setRole(next);
-    setStep('form');
-    setMode('login');
-    setError('');
-    setCheckEmail(false);
-    setResetSent(false);
-  };
-
-  const backToRoles = () => {
-    if (fromInvite) return;
-    setStep('role');
-    setMode('login');
-    setError('');
-    setCheckEmail(false);
-    setResetSent(false);
-  };
+  const canRegister = authDoorCanRegister(null, fromInvite);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -82,18 +61,8 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
         setResetSent(true);
         return;
       }
-      if (mode === 'register' && !canRegister) {
-        setError(t('auth.clientNeedsInvite'));
-        return;
-      }
-      // Only the coach door persists a role claim. Solo = coaching_role 'none'
-      // (nothing to claim). Coached clients are linked via /invite/:token
-      // (accept_coach_invite), never from this form.
-      if (!fromInvite && role === 'coach') {
-        setIntendedCoachingRole('coach');
-      } else {
-        clearIntendedCoachingRole();
-      }
+      // Signing in never grants professional capability or accepts a coaching link.
+      clearIntendedCoachingRole();
       const result = mode === 'login' || !canRegister
         ? await signIn(nextEmail, nextPassword)
         : await signUp(nextEmail, nextPassword);
@@ -102,7 +71,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
         return;
       }
       if (mode === 'register') {
-        track('account_created', { door: role ?? 'client', from_invite: fromInvite });
+        track('account_created', { door: fromInvite ? 'invite' : 'intention_pending', from_invite: fromInvite });
       }
       if ('needsConfirmation' in result && result.needsConfirmation) {
         setCheckEmail(true);
@@ -133,65 +102,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
             </div>
           )}
 
-          {step === 'role' && !fromInvite ? (
-            <div className="space-y-3 animate-fade-in-up">
-              <div className="text-center mb-5">
-                <h2 className="text-lg font-semibold text-white">{t('auth.chooseRoleTitle')}</h2>
-                <p className="text-sm text-neutral-500 mt-1">{t('auth.chooseRoleSubtitle')}</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => chooseRole('coach')}
-                className="w-full text-left bg-neutral-900 border border-neutral-800 [@media(hover:hover)]:hover:border-blue-500/40 rounded-2xl p-4 transition-colors touch-manipulation"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-blue-600/15 text-blue-400 flex items-center justify-center shrink-0">
-                    <Users size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold">{t('auth.coachEntry')}</p>
-                    <p className="text-sm text-neutral-500 mt-0.5">{t('auth.coachEntryHint')}</p>
-                  </div>
-                  <ArrowRight size={18} className="text-neutral-600 shrink-0" />
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => chooseRole('client')}
-                className="w-full text-left bg-neutral-900 border border-neutral-800 [@media(hover:hover)]:hover:border-blue-500/40 rounded-2xl p-4 transition-colors touch-manipulation"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-neutral-800 text-neutral-300 flex items-center justify-center shrink-0">
-                    <User size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold">{t('auth.clientEntry')}</p>
-                    <p className="text-sm text-neutral-500 mt-0.5">{t('auth.clientEntryHint')}</p>
-                  </div>
-                  <ArrowRight size={18} className="text-neutral-600 shrink-0" />
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => chooseRole('solo')}
-                className="w-full text-left bg-neutral-900 border border-neutral-800 [@media(hover:hover)]:hover:border-blue-500/40 rounded-2xl p-4 transition-colors touch-manipulation"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-11 h-11 rounded-xl bg-neutral-800 text-neutral-300 flex items-center justify-center shrink-0">
-                    <Dumbbell size={20} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold">{t('auth.soloEntry')}</p>
-                    <p className="text-sm text-neutral-500 mt-0.5">{t('auth.soloEntryHint')}</p>
-                  </div>
-                  <ArrowRight size={18} className="text-neutral-600 shrink-0" />
-                </div>
-              </button>
-            </div>
-          ) : checkEmail ? (
+          {checkEmail ? (
             <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-5 text-center">
               <p className="text-white font-medium mb-2">{t('auth.checkInboxTitle')}</p>
               <p className="text-sm text-neutral-400">{t('auth.checkInboxBody', { email })}</p>
@@ -215,40 +126,6 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
             </div>
           ) : (
             <>
-              {!fromInvite && (
-                <button
-                  type="button"
-                  onClick={backToRoles}
-                  className="mb-4 inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-300"
-                >
-                  <ArrowLeft size={16} />
-                  {t('auth.backToRoles')}
-                </button>
-              )}
-
-              <p className="text-xs font-medium uppercase tracking-wide text-blue-400/80 mb-3">
-                {role === 'coach'
-                  ? t('auth.signingInAsCoach')
-                  : role === 'solo'
-                    ? t('auth.signingInAsSolo')
-                    : t('auth.signingInAsClient')}
-              </p>
-
-              {!canRegister && mode !== 'forgot' && (
-                <div className="mb-4">
-                  <p className="text-sm text-neutral-500">
-                    {t('auth.clientNeedsInvite')}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => chooseRole('solo')}
-                    className="mt-2 text-sm text-blue-400 hover:text-blue-300"
-                  >
-                    {t('auth.goSolo')}
-                  </button>
-                </div>
-              )}
-
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
@@ -331,7 +208,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
                   <button
                     type="button"
                     onClick={() => { setMode('login'); setError(''); setResetSent(false); }}
-                    className="text-sm text-neutral-400 hover:text-blue-400 transition-colors"
+                    className="text-sm text-neutral-400 hover:text-blue-400"
                   >
                     {t('auth.backToSignIn')}
                   </button>

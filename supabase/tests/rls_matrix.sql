@@ -151,7 +151,19 @@ BEGIN
   DELETE FROM public.program_days WHERE program_id IN (SELECT id FROM public.programs WHERE owner_id = ANY (v_ids));
   DELETE FROM public.programs WHERE owner_id = ANY (v_ids);
   DELETE FROM public.coach_client_links WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  IF to_regclass('public.coach_relationship_notices') IS NOT NULL THEN
+    DELETE FROM public.coach_relationship_notices WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  END IF;
+  IF to_regclass('public.coach_relationship_endings') IS NOT NULL THEN
+    DELETE FROM public.coach_relationship_endings WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  END IF;
+  IF to_regclass('public.coaching_relationship_consents') IS NOT NULL THEN
+    DELETE FROM public.coaching_relationship_consents WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  END IF;
   DELETE FROM public.user_roles WHERE user_id = ANY (v_ids);
+  IF to_regclass('public.user_capabilities') IS NOT NULL THEN
+    DELETE FROM public.user_capabilities WHERE user_id = ANY (v_ids);
+  END IF;
   DELETE FROM public.user_profiles WHERE id = ANY (v_ids);
   DELETE FROM auth.identities WHERE user_id = ANY (v_ids);
   DELETE FROM auth.users WHERE id = ANY (v_ids);
@@ -409,6 +421,8 @@ BEGIN
      AND pg_temp.fn_exec('assign_program_secure')
      AND pg_temp.fn_exec('fork_program')
      AND pg_temp.fn_exec('end_coach_client_link')
+     AND pg_temp.fn_exec('client_end_coach_link')
+     AND pg_temp.fn_exec('dismiss_coach_relationship_notice')
      AND pg_temp.fn_exec('get_my_coach_card')
      AND pg_temp.fn_exec('save_program_day_exercises')
      AND pg_temp.fn_exec('sync_program_days')
@@ -424,13 +438,15 @@ BEGIN
     PERFORM pg_temp.record('DEFINER_GRANTS', true, 'surface RPCs granted ; helpers revoked');
   ELSE
     PERFORM pg_temp.record('DEFINER_GRANTS', false, format(
-      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s card=%s save=%s sync=%s snap=%s adopt=%s helper=%s assert=%s trans=%s close=%s handle=%s fleet=%s',
+      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s client_end=%s dismiss=%s card=%s save=%s sync=%s snap=%s adopt=%s helper=%s assert=%s trans=%s close=%s handle=%s fleet=%s',
       pg_temp.fn_exec('create_program_complete'),
       pg_temp.fn_exec('apply_intervention'),
       pg_temp.fn_exec('claim_intervention'),
       pg_temp.fn_exec('assign_program_secure'),
       pg_temp.fn_exec('fork_program'),
       pg_temp.fn_exec('end_coach_client_link'),
+      pg_temp.fn_exec('client_end_coach_link'),
+      pg_temp.fn_exec('dismiss_coach_relationship_notice'),
       pg_temp.fn_exec('get_my_coach_card'),
       pg_temp.fn_exec('save_program_day_exercises'),
       pg_temp.fn_exec('sync_program_days'),
@@ -443,6 +459,75 @@ BEGIN
       pg_temp.fn_exec('handle_new_user'),
       pg_temp.fn_exec('invoke_coach_fleet_round')
     ));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.accept_coach_invite(text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.accept_coach_invite(text,integer,text[])', 'execute')
+     AND NOT has_function_privilege('anon', 'public.accept_coach_invite(text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.accept_coach_invite(text,integer,text[])', 'execute')
+     AND to_regclass('public.coaching_relationship_consents') IS NOT NULL
+  THEN
+    PERFORM pg_temp.record('ACCEPT_CONSENT_GRANTS', true, 'legacy 1-arg kept; 3-arg granted; anon revoked');
+  ELSE
+    PERFORM pg_temp.record('ACCEPT_CONSENT_GRANTS', false, 'invite consent grants mismatch');
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.get_my_account_context()', 'execute')
+     AND NOT has_function_privilege('anon', 'public.get_my_account_context()', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.sync_legacy_coach_capability()', 'execute')
+     AND to_regclass('public.user_capabilities') IS NOT NULL
+  THEN
+    PERFORM pg_temp.record('ACCOUNT_CONTEXT_GRANTS', true, 'context granted; sync helper revoked');
+  ELSE
+    PERFORM pg_temp.record('ACCOUNT_CONTEXT_GRANTS', false, 'account context grants mismatch');
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.choose_account_intent(text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.choose_account_intent(text)', 'execute')
+     AND EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'user_profiles' AND column_name = 'entry_intent'
+     )
+  THEN
+    PERFORM pg_temp.record('ACCOUNT_INTENT_GRANTS', true, 'intention granted; anon revoked');
+  ELSE
+    PERFORM pg_temp.record('ACCOUNT_INTENT_GRANTS', false, 'account intention grants mismatch');
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.save_my_coach_profile(jsonb,timestamptz)', 'execute')
+     AND has_function_privilege('authenticated', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.respond_coaching_request(uuid,text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.marketplace_coach_eligible(uuid)', 'execute')
+     AND to_regprocedure('public.activate_coaching_relationship(uuid,uuid)') IS NOT NULL
+     AND NOT has_function_privilege('authenticated', 'public.activate_coaching_relationship(uuid,uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.save_my_coach_profile(jsonb,timestamptz)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.respond_coaching_request(uuid,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.activate_coaching_relationship(uuid,uuid)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'update')
+     AND has_table_privilege('authenticated', 'public.coach_profiles', 'select')
+     AND has_table_privilege('authenticated', 'public.coach_join_requests', 'select')
+     AND to_regclass('public.coach_profiles') IS NOT NULL
+     AND to_regclass('public.coach_join_requests') IS NOT NULL
+  THEN
+    PERFORM pg_temp.record('MARKETPLACE_GRANTS', true, 'directory RPCs granted; table writes revoked; anon revoked');
+  ELSE
+    PERFORM pg_temp.record('MARKETPLACE_GRANTS', false, 'marketplace grants mismatch');
   END IF;
 END $$;
 
@@ -654,6 +739,52 @@ BEGIN
     PERFORM pg_temp.record('RPC_UNLINK_SELF', false, 'client ended self');
   ELSE
     PERFORM pg_temp.record('RPC_UNLINK_SELF', true, coalesce(v_out->>'error', 'rejected'));
+  END IF;
+END $$;
+
+-- A ne coupe pas son propre lien via la RPC client (il n’est pas l’athlète).
+DO $$
+DECLARE
+  v_a uuid := '00000000-0000-0000-0000-0000000000a1';
+  v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
+  v_out jsonb;
+  v_still boolean;
+BEGIN
+  PERFORM pg_temp.as_user(v_a);
+  SET LOCAL ROLE authenticated;
+  v_out := public.client_end_coach_link();
+  RESET ROLE; PERFORM pg_temp.clear_user();
+  SELECT EXISTS (
+    SELECT 1 FROM public.coach_client_links
+    WHERE coach_id = v_a AND client_id = v_a1 AND status = 'active'
+  ) INTO v_still;
+  IF COALESCE(v_out->>'ok', '') = 'true' OR NOT v_still THEN
+    PERFORM pg_temp.record('RPC_CLIENT_END_AS_COACH', false, coalesce(v_out::text, 'link lost'));
+  ELSE
+    PERFORM pg_temp.record('RPC_CLIENT_END_AS_COACH', true, coalesce(v_out->>'error', 'rejected'));
+  END IF;
+END $$;
+
+-- B ne coupe pas le lien A–A1 via la RPC client.
+DO $$
+DECLARE
+  v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
+  v_b uuid := '00000000-0000-0000-0000-0000000000b1';
+  v_out jsonb;
+  v_still boolean;
+BEGIN
+  PERFORM pg_temp.as_user(v_b);
+  SET LOCAL ROLE authenticated;
+  v_out := public.client_end_coach_link();
+  RESET ROLE; PERFORM pg_temp.clear_user();
+  SELECT EXISTS (
+    SELECT 1 FROM public.coach_client_links
+    WHERE client_id = v_a1 AND status = 'active'
+  ) INTO v_still;
+  IF COALESCE(v_out->>'ok', '') = 'true' OR NOT v_still THEN
+    PERFORM pg_temp.record('RPC_CLIENT_END_CROSS', false, 'B ended A-A1');
+  ELSE
+    PERFORM pg_temp.record('RPC_CLIENT_END_CROSS', true, coalesce(v_out->>'error', 'rejected'));
   END IF;
 END $$;
 
