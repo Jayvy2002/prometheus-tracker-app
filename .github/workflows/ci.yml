@@ -89,6 +89,8 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
           RLS_RESULTS_PATH: /tmp/rls-matrix-results.txt
         run: node scripts/run-rls-matrix.mjs
+      - name: Baseline local database advisors
+        run: supabase db advisors --local --type all --level info --fail-on none --output-format json > /tmp/advisors-before.json
       - name: Test account capabilities candidate (local database only)
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -114,6 +116,22 @@ jobs:
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_marketplace.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_marketplace.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_marketplace.sql
+      - name: Candidate local database advisors
+        run: supabase db advisors --local --type all --level info --fail-on none --output-format json > /tmp/advisors-after.json
+      - name: Inventory effective account permissions
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: node scripts/inventory-account-access.mjs
+      - name: Upload advisors and account permission inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: account-access-review
+          path: |
+            /tmp/advisors-before.json
+            /tmp/advisors-after.json
+            artifacts/account-access/
+          if-no-files-found: warn
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

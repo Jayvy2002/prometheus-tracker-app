@@ -56,6 +56,8 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 
 ### État d’implémentation — PR #75, non livrée
 
+**M0 — inventaire reproductible ajouté à la CI.** Le script `inventory-account-access.mjs` recense les sites d’appel liés aux rôles dans le frontend et les Edge Functions, ainsi que les policies effectives et les droits d’exécution des fonctions concernées sur la base isolée. Les advisors avant/après candidats sont archivés avec cet inventaire. Ce relevé sert à la revue sémantique de la bascule ; il ne vaut pas à lui seul validation de tous les droits.
+
 **M1 — contexte de compte, partiel.** Les routes principales et helpers partagent une projection compatible. Le candidat `account_capabilities.sql` ajoute la capacité professionnelle, reprend les coachs existants et expose un contexte serveur limité au compte authentifié. Le frontend vérifie l’identité et la forme de cette réponse ; il utilise l’ancien accès seulement si la nouvelle RPC n’est pas installée. Une erreur réseau ou un refus ne déclenche pas ce repli. Les anciennes règles d’accès restent en vigueur ; `user_roles` reste la source d’écriture pendant cette phase compatible.
 
 Restent : inventaire exhaustif des prédicats frontend/SQL/IA, bascule complète des capacités, choix Personnel/Coaching, accès personnel du coach, mutations entre appareils et validation des parcours de changement de compte. Ne pas annoncer la migration de rôles terminée à partir de la seule table de compatibilité.
