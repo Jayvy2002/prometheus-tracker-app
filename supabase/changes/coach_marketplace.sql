@@ -59,6 +59,7 @@ GRANT EXECUTE ON FUNCTION public.save_my_coach_profile(jsonb,timestamptz) TO aut
 
 CREATE TABLE IF NOT EXISTS public.coach_join_requests (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ client_request_id uuid NOT NULL,
  coach_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
  client_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
  public_name text NOT NULL CHECK(length(btrim(public_name)) BETWEEN 1 AND 100),
@@ -69,6 +70,7 @@ CREATE TABLE IF NOT EXISTS public.coach_join_requests (
  updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  CHECK(coach_id <> client_id)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS coach_join_requests_mutation ON public.coach_join_requests(client_id,client_request_id);
 CREATE UNIQUE INDEX IF NOT EXISTS coach_join_requests_open_pair ON public.coach_join_requests(coach_id,client_id) WHERE status IN ('pending','accepted');
 CREATE INDEX IF NOT EXISTS coach_join_requests_client ON public.coach_join_requests(client_id,created_at DESC);
 CREATE INDEX IF NOT EXISTS coach_join_requests_coach ON public.coach_join_requests(coach_id,created_at DESC);
@@ -80,23 +82,34 @@ DROP POLICY IF EXISTS "marketplace_request_participants" ON public.coach_join_re
 CREATE POLICY "marketplace_request_participants" ON public.coach_join_requests FOR SELECT TO authenticated
  USING ((select auth.uid()) IN (coach_id,client_id));
 
-CREATE OR REPLACE FUNCTION public.request_coaching(p_coach uuid,p_public_name text,p_summary text,p_sharing_version integer)
+DROP FUNCTION IF EXISTS public.request_coaching(uuid,text,text,integer);
+CREATE OR REPLACE FUNCTION public.request_coaching(p_coach uuid,p_public_name text,p_summary text,p_sharing_version integer,p_request_key uuid)
 RETURNS public.coach_join_requests LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_uid uuid:=auth.uid(); v_result public.coach_join_requests;
 BEGIN
  IF v_uid IS NULL OR p_coach IS NULL OR p_coach=v_uid THEN RAISE EXCEPTION 'invalid_target'; END IF;
  IF p_sharing_version IS DISTINCT FROM 1 THEN RAISE EXCEPTION 'consent_required'; END IF;
+ IF p_request_key IS NULL THEN RAISE EXCEPTION 'request_key_required'; END IF;
+ -- Serialize submissions from this account, including replay after withdrawal.
+ PERFORM 1 FROM public.user_roles WHERE user_id=v_uid FOR UPDATE;
+ SELECT * INTO v_result FROM public.coach_join_requests WHERE client_id=v_uid AND client_request_id=p_request_key;
+ IF FOUND THEN
+   IF v_result.coach_id<>p_coach THEN RAISE EXCEPTION 'request_key_conflict'; END IF;
+   RETURN v_result;
+ END IF;
+ SELECT * INTO v_result FROM public.coach_join_requests WHERE client_id=v_uid AND coach_id=p_coach AND status IN ('pending','accepted');
+ IF FOUND THEN RETURN v_result; END IF;
  PERFORM 1 FROM public.coach_profiles WHERE coach_id=p_coach AND published AND accepting_clients FOR SHARE;
  IF NOT FOUND OR NOT public.marketplace_coach_eligible(p_coach) THEN RAISE EXCEPTION 'coach_unavailable'; END IF;
  IF EXISTS(SELECT 1 FROM public.coach_client_links WHERE client_id=v_uid AND status='active') THEN RAISE EXCEPTION 'already_coached'; END IF;
- INSERT INTO public.coach_join_requests(coach_id,client_id,public_name,summary,sharing_version)
- VALUES(p_coach,v_uid,btrim(p_public_name),btrim(p_summary),p_sharing_version)
+ INSERT INTO public.coach_join_requests(coach_id,client_id,public_name,summary,sharing_version,client_request_id)
+ VALUES(p_coach,v_uid,btrim(p_public_name),btrim(p_summary),p_sharing_version,p_request_key)
  ON CONFLICT(coach_id,client_id) WHERE status IN ('pending','accepted') DO UPDATE SET updated_at=coach_join_requests.updated_at
  RETURNING * INTO v_result;
  RETURN v_result;
 END $$;
-REVOKE ALL ON FUNCTION public.request_coaching(uuid,text,text,integer) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.request_coaching(uuid,text,text,integer) TO authenticated;
+REVOKE ALL ON FUNCTION public.request_coaching(uuid,text,text,integer,uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.request_coaching(uuid,text,text,integer,uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.respond_coaching_request(p_request uuid,p_status text)
 RETURNS public.coach_join_requests LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$

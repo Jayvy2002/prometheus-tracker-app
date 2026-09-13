@@ -27,10 +27,10 @@ END $$;
 SELECT set_config('request.jwt.claim.sub','a1780000-0000-4000-8000-000000000003',true);
 DO $$ DECLARE a public.coach_join_requests; b public.coach_join_requests; BEGIN
  IF (SELECT count(*) FROM public.coach_profiles)<>1 THEN RAISE EXCEPTION 'published profile not readable'; END IF;
- BEGIN PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000001','Client','Only shared summary',NULL); RAISE EXCEPTION 'missing consent accepted';
+ BEGIN PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000001','Client','Only shared summary',NULL,'a1780000-0000-4000-8000-000000000010'); RAISE EXCEPTION 'missing consent accepted';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'consent_required' THEN RAISE; END IF; END;
- a:=public.request_coaching('a1780000-0000-4000-8000-000000000001','Client','Only shared summary',1);
- b:=public.request_coaching('a1780000-0000-4000-8000-000000000001','Client','Retry must not replace the original summary',1);
+ a:=public.request_coaching('a1780000-0000-4000-8000-000000000001','Client','Only shared summary',1,'a1780000-0000-4000-8000-000000000010');
+ b:=public.request_coaching('a1780000-0000-4000-8000-000000000001','Client','Retry must not replace the original summary',1,'a1780000-0000-4000-8000-000000000010');
  IF a.id<>b.id OR b.summary<>'Only shared summary' THEN RAISE EXCEPTION 'duplicate request'; END IF;
  BEGIN PERFORM public.respond_coaching_request(a.id,'accepted'); RAISE EXCEPTION 'client accepted own request';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'not_authorized' THEN RAISE; END IF; END;
@@ -39,7 +39,7 @@ END $$;
 RESET ROLE;
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM public.coach_client_links WHERE client_id='a1780000-0000-4000-8000-000000000003') THEN RAISE EXCEPTION 'request activated coaching'; END IF;
- IF has_function_privilege('anon','public.request_coaching(uuid,text,text,integer)','execute') THEN RAISE EXCEPTION 'anonymous request surface'; END IF;
+ IF has_function_privilege('anon','public.request_coaching(uuid,text,text,integer,uuid)','execute') THEN RAISE EXCEPTION 'anonymous request surface'; END IF;
  IF has_table_privilege('anon','public.coach_profiles','select') THEN RAISE EXCEPTION 'anonymous directory'; END IF;
 END $$;
 SET LOCAL ROLE authenticated;
@@ -61,6 +61,8 @@ DO $$ DECLARE r public.coach_join_requests; BEGIN
  r:=public.respond_coaching_request(r.id,'withdrawn');
  IF r.status<>'withdrawn' THEN RAISE EXCEPTION 'accepted request cannot be withdrawn'; END IF;
  PERFORM public.respond_coaching_request(r.id,'withdrawn');
+ r:=public.request_coaching('a1780000-0000-4000-8000-000000000001','Client','Only shared summary',1,'a1780000-0000-4000-8000-000000000010');
+ IF r.status<>'withdrawn' THEN RAISE EXCEPTION 'retry reopened a withdrawn request'; END IF;
 END $$;
 SELECT set_config('request.jwt.claim.sub','a1780000-0000-4000-8000-000000000001',true);
 DO $$ DECLARE p public.coach_profiles; BEGIN
@@ -70,7 +72,7 @@ END $$;
 SELECT set_config('request.jwt.claim.sub','a1780000-0000-4000-8000-000000000004',true);
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM public.coach_profiles) OR EXISTS(SELECT 1 FROM public.coach_join_requests) THEN RAISE EXCEPTION 'withdrawal or request isolation failed'; END IF;
- BEGIN PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000001','Stranger','Summary',1); RAISE EXCEPTION 'unpublished coach requested';
+ BEGIN PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000001','Stranger','Summary',1,'a1780000-0000-4000-8000-000000000011'); RAISE EXCEPTION 'unpublished coach requested';
  EXCEPTION WHEN OTHERS THEN IF SQLERRM<>'coach_unavailable' THEN RAISE; END IF; END;
 END $$;
 RESET ROLE;

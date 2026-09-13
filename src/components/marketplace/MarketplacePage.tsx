@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
 import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -54,9 +54,9 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         if (seq !== sequence.current) return;
         setProfile(found ?? (mode === 'profile' ? { ...blank, coach_id: owner } : null));
       } else {
-        const found = await readRequests(owner);
+        const found = await readRequests(owner, page);
         if (seq !== sequence.current) return;
-        setRequests(found);
+        setRequests(found.slice(0, 50)); setMore(found.length > 50);
       }
       if (seq === sequence.current) setStatus('ready');
     })().catch(() => { if (seq === sequence.current) setStatus('failed'); });
@@ -77,11 +77,12 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
     } finally { if (seq === sequence.current) { writing.current = false; setBusy(false); } }
   }
   const title = t(`marketplace.${mode}`);
+  const pagination = <div className="flex gap-3">{page > 0 && <Button variant="secondary" onClick={() => setPage(n => n - 1)}>{t('marketplace.previous')}</Button>}{more && <Button variant="secondary" onClick={() => setPage(n => n + 1)}>{t('marketplace.next')}</Button>}</div>;
   const content = () => {
     if (status === 'loading') return <p role="status">{t('marketplace.loading')}</p>;
     if (status === 'failed') return <div className="space-y-3"><p role="alert">{t('marketplace.loadError')}</p><Button onClick={() => setRevision(n => n + 1)}>{t('errors.retry')}</Button></div>;
-    if (mode === 'requests') return requests.length ? <div className="space-y-4">{requests.map(row => <article key={row.id} className="rounded-xl border border-neutral-800 p-4 space-y-3">
-      <h2 className="font-semibold">{row.public_name}</h2>
+    if (mode === 'requests') return <><Button variant="secondary" onClick={() => setRevision(n => n + 1)}>{t('marketplace.refresh')}</Button>{requests.length ? <div className="space-y-4">{requests.map(row => <article key={row.id} className="rounded-xl border border-neutral-800 p-4 space-y-3">
+      <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.public_name}</h2>
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
       <p>{t(`marketplace.${row.status}`)}</p>
       <time dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
@@ -94,7 +95,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
           if (seq === sequence.current) setRequests(rows => rows.map(r => r.id === updated.id ? updated : r));
         });
       }}>{t(`marketplace.action_${action}`)}</Button>)}</div>
-    </article>)}</div> : <p>{t('marketplace.noRequests')}</p>;
+    </article>)}</div> : <p>{t('marketplace.noRequests')}</p>}{pagination}</>;
     if (mode === 'directory') return <>
       <div className="grid gap-3 sm:grid-cols-3">{([['discipline', MARKET_DISCIPLINES], ['language', MARKET_LANGUAGES], ['format', MARKET_FORMATS]] as const).map(([key, values]) => <label key={key} className="space-y-2">{t(`marketplace.${key}`)}<select className={fieldStyle} value={filters[key]} onChange={e => {
         const next = new URLSearchParams(params); if (e.target.value) next.set(key, e.target.value); else next.delete(key); setPage(0); setParams(next);
@@ -106,7 +107,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <p className="text-sm text-neutral-400">{matchingReasons(row, filters).map(reason => t(`marketplace.${reason}`)).join(' · ')}</p>
         <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
       </article>)}
-      <div className="flex gap-3">{page > 0 && <Button variant="secondary" onClick={() => setPage(n => n - 1)}>{t('marketplace.previous')}</Button>}{more && <Button variant="secondary" onClick={() => setPage(n => n + 1)}>{t('marketplace.next')}</Button>}</div>
+      {pagination}
     </>;
     if (!profile) return <p>{t('marketplace.unavailable')}</p>;
     if (mode === 'profile') return <form onSubmit={(e: FormEvent) => {
@@ -134,8 +135,8 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {profile.accepting_clients && profile.coach_id !== owner && <form className="space-y-4" onSubmit={e => {
         e.preventDefault(); if (!consent) return; const seq = sequence.current;
         void write(async () => {
-          await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: 1 }, owner);
-          if (seq === sequence.current) { setNotice(t('marketplace.sent')); setConsent(false); }
+          const result = await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: 1, p_request_key: coachingRequestKey(sessionStorage, owner, profile.coach_id) }, owner);
+          if (seq === sequence.current) { clearCoachingRequestKey(sessionStorage, owner, profile.coach_id); setNotice(t(result.status === 'pending' ? 'marketplace.sent' : `marketplace.${result.status}`)); setConsent(false); }
         });
       }}><fieldset disabled={busy} className="space-y-4">
         <Input required maxLength={100} label={t('marketplace.yourName')} value={name} onChange={e => setName(e.target.value)} />

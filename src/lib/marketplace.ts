@@ -25,3 +25,21 @@ export function matchingReasons(profile: CoachPublicProfile, filters: ReturnType
     filters.language && profile.languages.includes(filters.language) ? filters.language : '',
     filters.format && profile.formats.includes(filters.format) ? filters.format : ''].filter(Boolean);
 }
+
+/** Only an opaque identifier is stored, never the prospect's message. */
+const requestKeys = new Map<string, string>();
+export function coachingRequestKey(storage: Pick<Storage, 'getItem' | 'setItem'>, owner: string, coach: string): string {
+  const name = `prometheus:coaching-request:${owner}:${coach}`;
+  let existing = requestKeys.get(name);
+  try { existing = storage.getItem(name) ?? existing; } catch { /* Storage can be disabled. */ }
+  if (existing && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(existing)) { requestKeys.set(name, existing); return existing; }
+  const key = crypto.randomUUID();
+  requestKeys.set(name, key);
+  try { storage.setItem(name, key); } catch { /* Keep this session's retry key in memory. */ }
+  return key;
+}
+export function clearCoachingRequestKey(storage: Pick<Storage, 'removeItem'>, owner: string, coach: string) {
+  const name = `prometheus:coaching-request:${owner}:${coach}`;
+  requestKeys.delete(name);
+  try { storage.removeItem(name); } catch { /* Cleanup cannot turn a confirmed write into failure. */ }
+}

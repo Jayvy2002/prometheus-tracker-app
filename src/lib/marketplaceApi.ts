@@ -15,9 +15,9 @@ export async function readCoachProfile(id: string): Promise<CoachPublicProfile |
   if (error) throw error;
   return data;
 }
-export async function readRequests(owner: string): Promise<CoachingRequest[]> {
+export async function readRequests(owner: string, page = 0): Promise<CoachingRequest[]> {
   const { data, error } = await supabase.from('coach_join_requests').select('*')
-    .or(`coach_id.eq.${owner},client_id.eq.${owner}`).order('created_at', { ascending: false }).limit(100);
+    .or(`coach_id.eq.${owner},client_id.eq.${owner}`).order('created_at', { ascending: false }).order('id').range(page * 50, page * 50 + 50);
   if (error) throw error;
   return data ?? [];
 }
