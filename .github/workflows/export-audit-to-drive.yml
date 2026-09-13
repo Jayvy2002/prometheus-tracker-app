@@ -225,7 +225,10 @@ jobs:
           folder_id = os.environ['GDRIVE_FOLDER_ID']
           credentials = service_account.Credentials.from_service_account_info(
               json.loads(os.environ['GDRIVE_SERVICE_ACCOUNT_KEY']),
-              scopes=['https://www.googleapis.com/auth/drive.file'],
+              # A service account needs the Drive scope to discover a file
+              # created by the user's account inside a shared folder. Its
+              # effective access remains limited to resources shared with it.
+              scopes=['https://www.googleapis.com/auth/drive'],
           )
           drive = build('drive', 'v3', credentials=credentials, cache_discovery=False)
           escaped_name = filename.replace("'", "\\'")
@@ -250,13 +253,11 @@ jobs:
               ).execute()
               action = 'updated'
           else:
-              result = drive.files().create(
-                  body={'name': filename, 'parents': [folder_id]},
-                  media_body=media,
-                  fields='id,name,webViewLink',
-                  supportsAllDrives=True,
-              ).execute()
-              action = 'created'
+              raise SystemExit(
+                  f'{filename} was not found in the configured folder. '
+                  'Create it with the Drive owner account and keep it shared '
+                  'with the service account; service accounts have no storage quota.'
+              )
 
           print(f"Drive file {action}: {result['name']} (ID: {result['id']})")
           PY
