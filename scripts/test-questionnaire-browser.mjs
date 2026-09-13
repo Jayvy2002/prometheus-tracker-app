@@ -321,7 +321,7 @@ try {
  await loginPage.goto(origin+'/dashboard');
  await loginPage.locator('input[name="email"]').fill(newcomer.email);
  await loginPage.locator('input[name="password"]').fill(newcomer.password);
- await loginPage.getByRole('button',{name:'Sign In',exact:true}).click();
+ await loginPage.locator('input[name="password"]').press('Enter');
  await loginPage.getByRole('heading',{name:'What brings you to Prometheus?',exact:true}).waitFor();
  assert.equal(roleGrantsOnLogin,0);
  await loginPage.getByRole('button',{name:/Find a coach/}).click();
