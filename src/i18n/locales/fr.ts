@@ -1,4 +1,7 @@
 const fr = {
+  entryIntention: {"title": "Qu’est-ce qui t’amène sur Prometheus ?", "solo": "M’entraîner seul", "soloHint": "Enregistrer mes séances et suivre ma progression.", "find_coach": "Trouver un coach", "find_coachHint": "Choisir un accompagnement adapté à mes besoins.", "coach": "Je suis coach", "coachHint": "Gérer mes clients et en rencontrer de nouveaux.", "error": "Le choix n’a pas pu être enregistré. Réessaie."},
+  marketplace: {"compare": "Comparer les coachs", "chooseComparison": "Choisis deux ou trois coachs dans la recherche pour les comparer.", "comparisonUnavailable": "Un profil sélectionné n’est plus publié. Les autres restent consultables.", "comparisonDisclosure": "Compare leur méthode et le service proposé. Les informations sont déclarées par chaque coach.", "notProvided": "Non précisé", "availability": "Disponibilité", "available": "Accepte de nouvelles demandes", "compareCoach": "Comparer {{name}}",refresh: "Actualiser", fromYou: "Ta demande", toYou: "Demande reçue", "directory": "Trouver un coach", "profile": "Mon profil coach", "detail": "Découvrir le coach", "requests": "Demandes de coaching", "loading": "Chargement…", "loadError": "Cette page est indisponible pour le moment. Réessaie.", "saveError": "La modification n’a pas pu être confirmée. Vérifie les champs et réessaie.", "profile_changed": "Le profil a changé sur un autre appareil. Recharge la page avant de modifier cette version.", "coach_unavailable": "Ce coach ne reçoit plus de demandes pour le moment.", "already_coached": "Termine ta relation actuelle depuis ton profil avant de demander un nouveau coaching.", "request_closed": "Cette demande a déjà reçu une réponse. Recharge la page pour voir son état.", "session_changed": "Le compte connecté a changé. Recharge la page.", "noRequests": "Aucune demande pour le moment.", "viewCoach": "Voir le profil du coach", "agreementOnly": "Le coach a accepté la demande. Le coaching n’est pas encore activé et aucun paiement n’est confirmé.", "pending": "En attente de réponse", "accepted": "Demande acceptée", "declined": "Demande refusée", "withdrawn": "Demande retirée", "action_accepted": "Accepter la demande", "action_declined": "Refuser", "action_withdrawn": "Retirer ma demande", "discipline": "Discipline", "language": "Langue", "format": "Format du suivi", "any": "Sans préférence", "strength": "Force", "powerlifting": "Powerlifting", "general_fitness": "Activité physique générale", "fr": "Français", "en": "Anglais", "online": "À distance", "in_person": "En présentiel", "hybrid": "Hybride", "matchExplanation": "Profils correspondant à tes critères, classés par nom.", "noResults": "Aucun coach disponible avec ces critères. Tu peux élargir tes filtres.", "previous": "Précédent", "next": "Suivant", "publicDisclosure": "La publication rend ces informations visibles aux membres de Prometheus. Tu peux gérer tes clients sans publier de profil.", "publicName": "Nom public", "introduction": "Présentation et expérience", "method": "Méthode et fréquence des échanges", "offer": "Accompagnement proposé et conditions", "disciplines": "Disciplines accompagnées", "languages": "Langues proposées", "formats": "Formats proposés", "area": "Ville ou zone desservie", "published": "Publier mon profil", "accepting_clients": "Recevoir de nouvelles demandes", "saved": "Profil enregistré", "unavailable": "Ce profil ne reçoit pas de nouvelles demandes pour le moment.", "yourName": "Nom à partager avec le coach", "summary": "Ce que tu attends de cet accompagnement", "sharing": "J’accepte de partager ce nom et ce résumé avec ce coach. Mon historique personnel, mes questionnaires et mes conversations ne sont pas transmis par cette demande.", "send": "Envoyer ma demande", "sent": "Demande envoyée. Son état est disponible dans Demandes de coaching."},
+  relationshipAccess: {"checking": "Vérification de l’accès…", "ended": "Cette relation de coaching est terminée. Le dossier personnel n’est plus accessible.", "unavailable": "Impossible de vérifier l’accès au dossier. Réessaie une fois connecté.", "back": "Retour aux clients"},
   coachQuestionnaire: {"fromStandard":"Créer depuis le standard","mapping":"Correspondance standard","unmapped":"Question personnalisée, sans correspondance","title":"Questionnaires","choose":"Choisir","required":"Réponds à cette question.","invalid":"Vérifie cette réponse.","loadError":"Impossible de charger les questionnaires.","saveError":"Enregistrement non confirmé. Ton travail reste affiché. Réessaie ; si une autre version a été enregistrée, recharge avant de modifier.","invalidDefinition":"Complète les deux langues, les sections et les options avant de publier.","standard":"Utiliser le questionnaire standard pour les prochaines invitations","duplicate":"Dupliquer","useDefault":"Utiliser pour les prochaines invitations","name":"Nom","section":"Section","question":"Question","type":"Type de réponse","option":"Option","addOption":"Ajouter une option","mandatory":"Obligatoire","medical":"Information de santé","up":"Monter","down":"Descendre","addQuestion":"Ajouter une question","addSection":"Ajouter une section","preview":"Aperçu","publish":"Publier cette version","audience":"Ces réponses sont accessibles à toi et à ton coach pendant votre accompagnement.","saveDraft":"Enregistrer le brouillon","submit":"Terminer et envoyer","saved":"Brouillon enregistré","completed":"Réponses envoyées","empty":"Aucun questionnaire personnalisé attribué.","types":{"text":"Texte","number":"Nombre","single":"Un choix","multi":"Plusieurs choix","yes_no":"Oui / non","weekdays":"Jours de la semaine"}},
   common: {
     save: 'Enregistrer',
@@ -77,6 +80,12 @@ const fr = {
     today: "Aujourd'hui",
     messages: 'Messages',
     prometheus: 'Prometheus',
+  },
+
+  workspace: {
+    label: 'Choisir un espace',
+    personal: 'Personnel',
+    coaching: 'Coaching',
   },
 
   auth: {
@@ -236,7 +245,7 @@ const fr = {
     },
     photosCard: 'Photos de progression',
     linkEnded: {
-      title: 'Ton coach a mis fin à votre collaboration',
+      title: 'Votre relation de coaching est terminée',
       body: 'Ton historique et tes cibles sont conservés. Ton programme est en pause et tu peux continuer en mode solo.',
       trial: 'Période d’essai solo : {{days}} jour(s) restant(s).',
       trialOver: 'Ta période d’essai solo est terminée.',
@@ -1632,6 +1641,9 @@ const fr = {
       notes: 'Aucune note',
     },
     invite: {
+      previewError: 'Impossible de vérifier cette invitation. Vérifie ta connexion et réessaie.',
+      retryError: 'Impossible de rejoindre le coach pour le moment. Réessaie.',
+      sharing: 'En acceptant, tu autorises ce coach à consulter ton profil, questionnaire, programme, séances, check-ins, nutrition, photos de progression et messages pendant votre coaching. Les modules de suivi restent configurables et tu conserves tes données à la fin de la relation.',
       title: 'Rejoindre ton coach',
       body: '{{name}} t’invite au coaching Prometheus.',
       aCoach: 'ton coach',
@@ -1776,6 +1788,30 @@ const fr = {
     waiting: 'Questionnaire pas encore rempli',
     completeLater: 'Compléter le questionnaire',
     later: 'Plus tard',
+  },
+  coachDiscovery: {
+    notices: {
+      title: 'Fins de suivi',
+      ended: '{{name}} a mis fin au suivi.',
+      client: 'Ce client',
+      dismiss: 'Compris',
+      dismissFor: 'Marquer le départ de {{name}} comme lu',
+      error: 'Impossible de mettre à jour les notifications de suivi.',
+    },
+    leave: {
+      title: 'Relation de coaching',
+      current: 'Tu es actuellement suivi par {{name}}.',
+      action: 'Mettre fin au suivi',
+      confirmTitle: 'Continuer sans ce coach ?',
+      confirmBody: 'Ce changement prend effet immédiatement.',
+      kept: 'Ton historique et tes saisies personnelles restent accessibles.',
+      stopped: 'Ton coach perd son accès et ses réglages de suivi sont retirés.',
+      paused: 'Le programme actuel de ce coach est conservé, mais mis en pause.',
+      billing: 'Cette action met seulement fin à la relation de coaching. Elle ne résilie pas un abonnement séparé.',
+      confirm: 'Mettre fin au suivi',
+      success: 'La relation de coaching est terminée. Ton historique reste accessible.',
+      error: 'Impossible de mettre fin au suivi. Réessaie.',
+    },
   },
 } as const;
 

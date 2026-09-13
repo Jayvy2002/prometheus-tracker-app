@@ -20,7 +20,8 @@ test('mobile coach chrome: avatar opens /profile, no 6th bottom-nav tab', () => 
   assert.match(layout, /CoachProfileButton/);
   assert.match(layout, /md:hidden/);
   assert.match(layout, /isCoach && !location\.pathname\.startsWith\('\/profile'\)/);
-  assert.match(layout, /h-12/);
+  assert.match(layout, /WorkspaceSwitcher/);
+  assert.match(layout, /min-h-14/);
   assert.doesNotMatch(layout, /h-0 pointer-events-none/);
   assert.match(layout, /navigate\('\/profile'\)|CoachProfileButton/);
 
@@ -32,7 +33,7 @@ test('mobile coach chrome: avatar opens /profile, no 6th bottom-nav tab', () => 
 
   const bottom = src('src/components/layout/BottomNav.tsx');
   const coachTabs = bottom.slice(
-    bottom.indexOf("coachingRole === 'coach'"),
+    bottom.indexOf("context.activeWorkspace === 'coaching'"),
     bottom.indexOf(': coached'),
   );
   assert.match(coachTabs, /path: '\/dashboard'/);

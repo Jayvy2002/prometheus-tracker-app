@@ -22,6 +22,7 @@ import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
 import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
+import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPanel';
 import SoloHub from './SoloHub';
 
 type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
@@ -114,6 +115,11 @@ export default function ProfilePage() {
 
   return (
     <PageTransition>
+      <Card className="space-y-3">
+        <Button variant="secondary" onClick={() => navigate('/coaches')}>{t('marketplace.directory')}</Button>
+        <Button variant="ghost" onClick={() => navigate('/coaching-requests')}>{t('marketplace.requests')}</Button>
+        {isCoach && <Button variant="ghost" onClick={() => navigate('/coach/profile')}>{t('marketplace.profile')}</Button>}
+      </Card>
     <div className="px-4 pt-6 pb-4">
       <h1 className="text-2xl font-bold text-white mb-6">{t('profile.title')}</h1>
 
@@ -165,6 +171,8 @@ export default function ProfilePage() {
           )}
         </Card>
       )}
+
+      {coached && myCoach && <ClientCoachRelationshipPanel coachName={myCoach.full_name || t('coaching.invite.aCoach')} />}
 
       {!coached && !isCoach && (
         <div className="md:hidden">
@@ -300,3 +308,4 @@ export default function ProfilePage() {
     </PageTransition>
   );
 }
+

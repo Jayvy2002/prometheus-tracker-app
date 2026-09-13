@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
@@ -9,9 +9,11 @@ import { resetSessionStores } from './lib/resetStores';
 import { getSessionOwner } from './lib/sessionScope';
 import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
+import { accountWorkspaceStorageKey, parseAccountWorkspace, resolveAccountContext } from './lib/accountContext';
+import { ACCOUNT_CONTEXT_REFRESH_MS, createAccountContextRefresh } from './lib/accountContextRefresh';
 import i18n, { setAppLanguage } from './i18n';
+import ActiveRelationshipBoundary from './components/coaching/ActiveRelationshipBoundary';
 import TrackingGate from './components/coaching/TrackingGate';
-import { toast } from './components/ui/Toast';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -19,6 +21,9 @@ import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
 // Q05 : routes en lazy — le bundle initial ne porte que l'auth + le shell.
 // Scanner (barcode-detector) et stats (recharts) partent dans leurs propres chunks.
+const EntryIntentionPage = lazy(() => import('./components/onboarding/EntryIntentionPage'));
+const CoachComparisonPage = lazy(() => import('./components/marketplace/CoachComparisonPage'));
+const MarketplacePage = lazy(() => import('./components/marketplace/MarketplacePage'));
 const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'));
 const KinesiologyIntakeFlow = lazy(() => import('./components/onboarding/KinesiologyIntakeFlow'));
 import {
@@ -66,51 +71,68 @@ function RouteFallback() {
   );
 }
 
+function useAccountContext() {
+  const role = useCoachingStore(s => s.coachingRole);
+  const coach = useCoachingStore(s => s.myCoach);
+  const ready = useCoachingStore(s => s.roleReady);
+  const snapshot = useCoachingStore(s => s.accountSnapshot);
+  const workspace = useCoachingStore(s => s.accountWorkspace);
+  return resolveAccountContext(role, coach, ready, snapshot, workspace);
+}
+
 function HomeDashboard() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  return coachingRole === 'coach' ? <CoachDashboard /> : <Dashboard />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  return context.activeWorkspace === 'coaching' ? <CoachDashboard /> : <Dashboard />;
 }
 
 function CoachOnly({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole !== 'coach') return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (!context.capabilities.coach) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function MessagesHome() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  return coachingRole === 'coach' ? <CoachInboxPage /> : <ClientMessagesPage />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  return context.activeWorkspace === 'coaching' ? <CoachInboxPage /> : <ClientMessagesPage />;
 }
 
 function CoachTrackerRedirect({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole === 'coach') return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (!context.personalToolsAvailable) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  if (isCoachedAthlete(coachingRole, myCoach)) return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (context.personalCoaching === 'coached') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function ProgramsHome() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole === 'coach') return <ProgramsPage />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (context.activeWorkspace === 'coaching') return <ProgramsPage />;
   return <ClientProgramPage />;
 }
 
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, updateProfile } = useProfileStore();
-  const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
+  const { roleReady, coachingRole, myCoach, accountSnapshot, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole, selectAccountWorkspace } = useCoachingStore();
   const { t } = useTranslation();
+  const location = useLocation();
   const [intakeUsage, setIntakeUsage] = useState<IntakeUsageSignals | null>(null);
   const [intakeProbeStatus, setIntakeProbeStatus] = useState<IntakeProbeStatus>('idle');
   const userId = user?.id ?? null;
   const timezoneWriteFor = useRef<string | null>(null);
-  const assignmentScope = userId && myCoach?.id && coachingRole !== 'coach' ? userId + ':' + myCoach.id : null;
+  const assignmentScope = userId && myCoach?.id
+    && (coachingRole !== 'coach' || accountSnapshot?.activeCoachId === myCoach.id)
+    ? userId + ':' + myCoach.id : null;
   const [assignment, setAssignment] = useState<{ scope: string; status: 'ready' | 'failed'; response: QuestionnaireResponse | null } | null>(null);
   const [assignmentRetry, setAssignmentRetry] = useState(0);
   const activeAssignment = assignmentScope && assignment?.scope === assignmentScope ? assignment : null;
@@ -127,12 +149,14 @@ function AppRoutes() {
     return () => { cancelled = true; };
   }, [assignmentScope, userId, myCoach?.id, roleReady, assignmentRetry]);
 
+  // Ending an existing relationship must not restart first-time setup.
+  const returningFromCoaching = profile?.id === userId && !!profile?.coach_link_ended_at;
   const skipPersonalOnboarding =
     coachingRole === 'coach' || getIntendedCoachingRole() === 'coach';
   const coachedClient =
     isCoachedAthlete(coachingRole, myCoach)
     || coachingRole === 'client';
-  const needsIntakeProbe = !profileLoading && roleReady && intakeGateNeedsUsageProbe({
+  const needsIntakeProbe = !profile?.entry_intent && !returningFromCoaching && !profileLoading && roleReady && intakeGateNeedsUsageProbe({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,
@@ -144,23 +168,7 @@ function AppRoutes() {
       fetchProfile(userId, { silent: existing?.id === userId });
       void (async () => {
         try {
-          const token = getPendingInviteToken();
-          if (token) {
-            const accepted = await acceptInvite(token);
-            if (accepted.ok) {
-              toast(i18n.t('coaching.invite.accepted', { name: accepted.coach_name || i18n.t('coaching.invite.aCoach') }));
-            } else {
-              const err = accepted.error ?? 'invalid';
-              const key = err === 'expired' ? 'expired'
-                : err === 'used' ? 'used'
-                : err === 'already_coached' ? 'alreadyCoached'
-                : err === 'self' ? 'self'
-                : 'invalid';
-              toast(i18n.t(`coaching.invite.errors.${key}`), 'error');
-            }
-          } else {
-            await applyIntendedCoachingRole();
-          }
+          await applyIntendedCoachingRole();
         } finally {
           await fetchMyRole(userId);
           await fetchMyCoach();
@@ -174,7 +182,38 @@ function AppRoutes() {
       void detachPushOnLogout(getSessionOwner());
       resetSessionStores();
     }
-  }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
+  }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole]);
+
+  useEffect(() => {
+    if (!userId || !roleReady) return;
+    const refresh = createAccountContextRefresh(async () => {
+      if (getSessionOwner() !== userId) return;
+      await fetchMyRole(userId);
+      if (getSessionOwner() === userId) await fetchMyCoach();
+    });
+    const requestWhenActive = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine !== false) void refresh.request();
+    };
+    const onVisibility = () => requestWhenActive();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== accountWorkspaceStorageKey(userId)) return;
+      const workspace = parseAccountWorkspace(event.newValue);
+      if (workspace) selectAccountWorkspace(workspace);
+    };
+    window.addEventListener('focus', requestWhenActive);
+    window.addEventListener('online', requestWhenActive);
+    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onVisibility);
+    const timer = window.setInterval(requestWhenActive, ACCOUNT_CONTEXT_REFRESH_MS);
+    return () => {
+      refresh.dispose();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', requestWhenActive);
+      window.removeEventListener('online', requestWhenActive);
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [userId, roleReady, fetchMyRole, fetchMyCoach, selectAccountWorkspace]);
 
   // D07 : au retour du réseau, rejoue la file offline du compte courant.
   useEffect(() => {
@@ -257,6 +296,15 @@ function AppRoutes() {
     );
   }
 
+  // Opening an invitation remembers the destination, never the user's consent.
+  const pendingInvite = getPendingInviteToken();
+  if (pendingInvite && !location.pathname.startsWith('/invite/')) {
+    return <Navigate to={'/invite/' + encodeURIComponent(pendingInvite)} replace />;
+  }
+  if (location.pathname.startsWith('/invite/')) {
+    return <Routes><Route path="/invite/:token" element={<InvitePage />} /></Routes>;
+  }
+
   if (profileLoading || !roleReady) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -277,6 +325,23 @@ function AppRoutes() {
         </button>
       </div>
     );
+  }
+
+  // Searching for a coach never requires completing a personal tracking questionnaire.
+  if (location.pathname === '/coaches' || location.pathname.startsWith('/coaches/')
+    || location.pathname === '/coach/profile' || location.pathname === '/coaching-requests') {
+    return <Suspense fallback={<RouteFallback />}><Routes><Route element={<AppLayout />}>
+      <Route path="/coaches" element={<MarketplacePage key={user.id + ':directory'} mode="directory" />} />
+      <Route path="/coaches/compare" element={<CoachComparisonPage key={user.id} />} />
+      <Route path="/coaches/:coachId" element={<MarketplacePage key={user.id + location.pathname} mode="detail" />} />
+      <Route path="/coach/profile" element={<CoachOnly><MarketplacePage key={user.id + ':profile'} mode="profile" /></CoachOnly>} />
+      <Route path="/coaching-requests" element={<MarketplacePage key={user.id + ':requests'} mode="requests" />} />
+    </Route></Routes></Suspense>;
+  }
+
+  if (profile && 'entry_intent' in profile && !profile.entry_intent && !returningFromCoaching
+    && !skipPersonalOnboarding && !coachedClient && location.pathname === '/dashboard') {
+    return <Suspense fallback={<RouteFallback />}><EntryIntentionPage key={user.id} /></Suspense>;
   }
 
   const deferClientOnboarding =
@@ -309,7 +374,7 @@ function AppRoutes() {
     );
   }
 
-  if (!activeAssignment?.response && shouldForceKinesiologyIntake({
+  if (!profile?.entry_intent && !returningFromCoaching && !activeAssignment?.response && shouldForceKinesiologyIntake({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,
@@ -326,7 +391,7 @@ function AppRoutes() {
     );
   }
 
-  if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
+  if (!profile?.onboarding_completed && !returningFromCoaching && !skipPersonalOnboarding && !deferClientOnboarding) {
     return (
       <Suspense fallback={<RouteFallback />}>
         <Routes>
@@ -351,8 +416,8 @@ function AppRoutes() {
         <Route path="/stats" element={<CoachTrackerRedirect><CoachedAthleteRedirect><StatsPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
-        <Route path="/clients/:id" element={<CoachOnly><ClientDetailPage /></CoachOnly>} />
-        <Route path="/clients/:id/setup" element={<CoachOnly><ClientSetupPage /></CoachOnly>} />
+        <Route path="/clients/:id" element={<CoachOnly><ActiveRelationshipBoundary><ClientDetailPage /></ActiveRelationshipBoundary></CoachOnly>} />
+        <Route path="/clients/:id/setup" element={<CoachOnly><ActiveRelationshipBoundary><ClientSetupPage /></ActiveRelationshipBoundary></CoachOnly>} />
         <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/inbox/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/messages" element={<MessagesHome />} />

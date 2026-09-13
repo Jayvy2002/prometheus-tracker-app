@@ -10,7 +10,15 @@
 
 Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, disponible en français et en anglais.
 
-Trois rôles sont officiels :
+La destination produit est une marketplace : aider les coachs à trouver des clients compatibles et les pratiquants à choisir un accompagnement, puis réaliser le suivi dans l’app. Cette direction ne prouve pas que la marketplace est déjà implémentée. Le solo reste un choix complet, accessible sans être expert.
+
+Trois expériences sont officielles ; elles reposent sur un moteur commun. Solo/coaché décrivent l’accompagnement personnel, coach une capacité professionnelle. Le modèle actuel de rôle exclusif doit évoluer par migration compatible, pas par simple suppression des gardes frontend.
+
+- Un coach garde un espace d’entraînement personnel et peut inviter ses clients sans publication marketplace.
+- Le contexte d’interface ne donne aucun droit. Ne jamais créer un auto-lien de coaching pour débloquer le tracker.
+- Les séances et leur historique restent attachés au compte. Ne pas créer de moteurs distincts par rôle.
+
+Expériences :
 
 - **Coach** : gère ses clients, leurs programmes, leur suivi et les propositions préparées par Prometheus.
 - **Client coaché** : suit le programme et les modules autorisés par son coach.
@@ -18,12 +26,22 @@ Trois rôles sont officiels :
 
 Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition n’est jamais appliquée automatiquement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
 
+## Règles UX et marketplace
+
+- Chaque nouvelle fonctionnalité doit réduire une difficulté concrète. Conserver les textes utiles aux décisions et erreurs ; supprimer jargon interne, répétitions et obligations artificielles.
+- Le questionnaire de recherche oriente le choix ; le questionnaire de prise en charge appartient au suivi. Éviter les doubles saisies sans partager silencieusement les réponses.
+- Recommandations expliquées, critères modifiables et choix mutuel explicite. Aucun coach attribué automatiquement, faux score de compatibilité ou disponibilité inventée.
+- La consultation d’un profil ne donne aucun accès au dossier du client. Définir une surface minimale pour les demandes entre personnes non encore liées et tester ses droits ; ne pas élargir l’accès au dossier pour la construire.
+- Mobile, accessibilité, FR/EN, états vide/chargement/erreur et conservation du travail font partie de la fonctionnalité, même avant les lots d’optimisation UX.
+- Ne pas déduire de la vision marketplace une commission, des reversements, un badge vérifié ou une garantie de résultats. Les décisions ouvertes restent dans le Chantier.
+
 ## Sources de vérité
 
 | Sujet | Source |
 |---|---|
 | Présentation et utilisation du projet actuel | `README.md` |
 | Destination, rôles et principes produit | `docs/VISION.md` |
+| Carte des parcours, écrans, permissions cibles et comparaison au code | `docs/CARTE_PRODUIT.md` |
 | Priorités et totalité du travail restant | `docs/CHANTIER.md` |
 | Schéma et ordre des migrations | `supabase/migrations/` + `supabase/schema_migrations.lock.json` |
 | État des Edge Functions | `supabase/functions.deployed.lock.json` |
@@ -140,5 +158,8 @@ Les noms de tables, RPC et routes proposés dans `docs/CHANTIER.md` sont un poin
 - Ne jamais commiter un fichier `.env`, un token ou un secret.
 
 ## Priorité actuelle
+
+La vision détaillée du propriétaire du 12 septembre 2026 fait référence. Privilégier les parcours complets et le plan de transition de `docs/CARTE_PRODUIT.md` ; ne pas reprendre des ajouts isolés au tracker avant de traiter leurs dépendances. Les propositions techniques de la carte nécessitent validation et ne valent pas preuve de déploiement.
+
 
 Lire `docs/CHANTIER.md`, qui est l’unique source de l’ordre complet et du travail restant. Ne pas lancer un chantier transversal sans instruction ou sans démontrer qu’il soutient cet ordre ou corrige un problème bloquant.

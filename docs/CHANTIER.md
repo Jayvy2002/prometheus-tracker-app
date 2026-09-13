@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** ne jamais supprimer un élément parce qu’il est supposé, ancien, partiellement présent ou décrit dans la vision. Un élément sort de ce fichier uniquement après preuve de son implémentation et de sa validation, ou après une décision produit explicite de l’abandonner. Ne pas transformer ce fichier en journal de PR ou en inventaire de production. Git conserve l’historique ; le README décrit le produit actuel et `docs/VISION.md` sa destination.
 
-**Mis à jour : 12 septembre 2026.**
+**Mis à jour : 13 septembre 2026.**
 
 ## Mode d’emploi
 
@@ -24,7 +24,7 @@ La priorité `P1/P2/P3` de la feuille de route UX classe les améliorations **à
 
 ## Lots UX — reportés après finalisation fonctionnelle
 
-Décision produit : reprendre les chantiers fonctionnels dans l’ordre général ci-dessous. Les lots UX sont reportés après finalisation fonctionnelle ; leurs tâches inachevées restent conservées ici. Les défauts bloquant une fonctionnalité restent à corriger dans le chantier concerné.
+Décision produit : reprendre les chantiers fonctionnels dans l’ordre général ci-dessous. Les lots UX sont reportés après finalisation fonctionnelle ; leurs tâches inachevées restent conservées ici. La direction marketplace confirme que l’UX minimale est une condition de chaque livraison : texte utile, choix clair, mobile, accessibilité, FR/EN et reprise après erreur. Les optimisations générales restent reportées ; les défauts du parcours livré sont corrigés dans le chantier concerné.
 
 | Lot | Couverture partielle et travail restant | Conditions de fin |
 |---|---|---|
@@ -40,7 +40,10 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 ## Ordre général
 
-1. **Recherche, départ et changement de coach.**
+**Direction de référence : vision détaillée du propriétaire du 12 septembre 2026.** La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours, les écrans, les écarts au code et les contrats de permissions. Ce Chantier reste la source unique des statuts et priorités.
+
+
+1. **Marketplace : recherche guidée, mise en relation, départ et changement de coach.**
 2. **Billing**, après décision sur les prix et les règles d’essai.
 3. **UX — vérité des actions et conservation du travail.**
 4. **UX — parcours quotidiens coach, coaché et solo.**
@@ -49,7 +52,85 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améliorent le résultat ou corrigent un problème mesuré.
 
-## Chantier 2 — Recherche, départ et changement de coach
+## Chantier 2 — Marketplace, recherche guidée et relation de coaching
+
+### État d’implémentation — PR #75, non livrée
+
+**M0 — inventaire reproductible ajouté à la CI.** Le script `inventory-account-access.mjs` recense les sites d’appel liés aux rôles dans le frontend et les Edge Functions, ainsi que les policies effectives et les droits d’exécution des fonctions concernées sur la base isolée. Les advisors avant/après candidats sont archivés avec cet inventaire. Ce relevé sert à la revue sémantique de la bascule ; il ne vaut pas à lui seul validation de tous les droits.
+
+**M1 — contexte de compte, partiel.** Les routes principales et helpers partagent une projection compatible. Le candidat `account_capabilities.sql` ajoute la capacité professionnelle, reprend les coachs existants et expose un contexte serveur limité au compte authentifié. Le frontend vérifie l’identité et la forme de cette réponse ; il utilise l’ancien accès seulement si la nouvelle RPC n’est pas installée. Une erreur réseau ou un refus ne déclenche pas ce repli. Un coach dont la capacité est confirmée peut choisir un espace Personnel ou Coaching ; le choix est isolé par compte, ne crée aucun droit et pilote accueil, navigation et abonnements temps réel. Les anciennes règles d’accès restent en vigueur ; `user_roles` reste la source d’écriture pendant cette phase compatible.
+
+Le parcours navigateur de la base isolée vérifie le passage Personnel/Coaching, l’accès du coach à ses outils d’entraînement, la conservation au rechargement et l’isolation de la préférence entre deux comptes. Le contexte serveur est revérifié au retour dans l’app, à la reconnexion et toutes les 30 secondes pendant son utilisation ; les signaux simultanés sont regroupés et les réponses d’une session terminée restent rejetées. Le choix d’espace se synchronise aussi entre onglets du même compte. Restent : inventaire exhaustif des prédicats frontend/SQL/IA, bascule complète des capacités et validation élargie des mutations distantes et parcours de changement de compte. Ne pas annoncer la migration de rôles terminée à partir de la seule table de compatibilité.
+
+**M2 — socle de départ validé sur base isolée, non livré.** Les deux initiateurs passent par la même transition SQL : lien verrouillé, programme mis en pause, historique conservé, suivi du coach retiré. La notification privée au coach est durable et son accusé de lecture idempotent. Un enregistrement minimal conserve l’auteur et la date de chaque fin, y compris après une nouvelle relation. Le départ ne retire pas la capacité professionnelle du client lorsqu’il est également coach.
+
+Preuve du [run 34728810721](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/34728810721) : vérification générale, matrice historique, candidats SQL et navigateur réussis. Le navigateur couvre questionnaire/version figée, départ malgré un rafraîchissement en panne, retour solo immédiat puis rechargé, notification et accusé persisté, deux départs concurrents et réponse tardive après changement de compte. Deux connexions PostgreSQL vérifient aussi départ contre adaptation : une adaptation antérieure finit avant le départ ; une adaptation retardée est refusée sans écriture partielle. Une invitation vers un autre coach est refusée tant que le départ précédent n’est pas validé ; un réessai explicite fonctionne ensuite avec un seul coach actif et sans transfert des notes privées. La matrice historique est rejouée aussi après installation des trois candidats.
+
+Le test a révélé un cache de service worker qui conservait des réponses API sur les domaines locaux/personnalisés. Le cache est désormais limité aux ressources publiques de même origine, exclut les requêtes authentifiées et purge l’ancienne version. Le parcours navigateur vérifie cette exclusion avec un service worker actif. Les tests généraux comptent 453 réussites au dernier contrôle local. Un test du store réel couvre aussi les écritures de profil et l’avatar : réponses d’un ancien compte ignorées, doubles écritures refusées, fin de coaching conservée pendant une sauvegarde et erreurs d’upload réessayables sans faux succès. Ce test utilise un transport simulé et ne prouve pas une écriture Storage en production.
+
+**Dossier ouvert — révocation côté interface validée sur base isolée, non livrée.** Les routes du dossier client et de préparation vérifient le lien actif avant de monter leur contenu. Elles retirent le contenu sur panne, passage hors ligne ou changement d’onglet, puis revérifient au retour ; abonnement temps réel et contrôle périodique de 30 secondes complètent cette vérification. Les lectures tardives ne rouvrent pas un accès invalidé. Les conversations archivées ne sont pas supprimées. Les URL de fichiers déjà signées restent valables jusqu’à leur expiration : cette limite reste à traiter. Tests unitaires et scénario navigateur réussis dans le run 34752996019.
+
+**Invitation explicite — validée en navigateur sur base isolée.** Ouvrir un lien ou se connecter ne doit plus accepter automatiquement la relation. La branche ajoute l’explication du partage, la confirmation, l’annulation sans acceptation et une erreur de prévisualisation réessayable. Le scénario du même run prouve panne/réessai de prévisualisation, annulation puis rechargement sans relation créée et une seule acceptation confirmée.
+
+**Consentement d’invitation directe — validé sur base isolée, non livré.** L’acceptation transmet une version et la liste annoncée des catégories de données. Le serveur refuse une version obsolète, un périmètre incomplet et l’ancienne RPC sans consentement ; il conserve un enregistrement lisible uniquement par les deux parties et le révoque à la fin de la relation. Ce premier contrat porte sur l’invitation directe avec un périmètre maximal fixe ; le choix fin des modules et le consentement propre à l’activation marketplace restent à construire. Le run CI 34770770003 valide le contrat SQL, les refus de contournement, la révocation, les transitions concurrentes et le parcours navigateur avec la divulgation FR/EN.
+
+Restent avant livraison complète de M2 : concurrence avec les futures demandes marketplace, changements de compte sur les autres opérations, périmètres configurables et consentement d’activation marketplace, révocation des caches de dossiers et accès fichiers concernés, puis promotion des candidats en migrations et vérification du déploiement. La notification dans l’application n’est pas une notification push ou email.
+
+Les candidats (`account_capabilities.sql`, `client_end_coach_link.sql`, `coaching_relationship_consistency.sql`, `relationship_consent.sql`, `coach_marketplace.sql`, `account_entry_intent.sql`) sont testés uniquement sur la base temporaire de CI. Aucune migration de ce lot n’est appliquée en production ; le lock conserve uniquement les versions réellement appliquées. Docker étant absent de l’environnement de travail, le replay PostgreSQL 17 est réalisé en CI.
+
+**M3 — entrée par intention en validation, non livrée.** La connexion ouvre directement le formulaire d’identité et ne réclame plus un rôle professionnel selon une porte choisie avant connexion. Les nouveaux comptes choisissent ensuite Solo, recherche de coach ou activité coach. Le choix est enregistré par une transaction serveur ; rechercher un coach ne crée aucun lien, et un choix de présentation ne retire pas une capacité professionnelle existante. Les anciens comptes sont repris sans nouvelle question imposée. Les questionnaires coach et les préférences détaillées restent distincts de cette entrée minimale. Le passage Personnel/Coaching du coach, sa persistance par compte et son accès aux outils personnels sont validés sur la base isolée. Google/Apple et la première routine guidée restent à compléter.
+
+**M4–M5 — premier parcours marketplace en validation, non livré.** Profil opt-in et retrait, disponibilité déclarée, présentation/méthode/offre, filtres discipline/langue/format conservés dans l’URL, résultats paginés, comparaison de deux ou trois profils avec sélection conservée dans l’URL, demande avec partage minimal confirmé, acceptation/refus/retrait privés. Les demandes utilisent une clé d’envoi isolée par compte, conservée pendant les réessais ; un ancien envoi rejoué après retrait ne rouvre pas la demande. La liste des demandes est paginée et actualisable ; la sauvegarde du profil refuse les versions obsolètes. Une acceptation ne crée ni lien de coaching, ni accès au dossier, ni paiement. Le SQL candidat `coach_marketplace.sql`, les tests d’isolation et le parcours navigateur sont validés sur base isolée par le run CI 34770770003.
+
+Ce premier annuaire utilise des filtres exacts et un ordre alphabétique annoncé. Il ne remplace pas le futur questionnaire de matching, les autres disciplines à intégrer, la capacité maximale réelle, les règles anti-sollicitation, la modération et les mesures marketplace. Le tarif structuré et l’activation restent dépendants des contrats M6/Billing. Les autres lots M0–M8 et tous leurs critères inachevés sont conservés.
+
+### Direction et ordre d’exécution — parcours complets
+
+**Décision produit :** un moteur commun, identité durable, capacité coach indépendante de l’accompagnement personnel, marketplace et suivi dans la même application. Aucun des lots ci-dessous n’est déclaré livré par la carte.
+
+| Ordre | Lot restant | Conditions de fin |
+|---|---|---|
+| M0 | Inventorier tous les appels de rôles et policies ; confronter les contrats de la carte au schéma effectif | Scénarios de référence et incompatibilités recensés. La revue ciblée est disponible dans la carte ; inventaire exhaustif et parcours navigateur restent à faire. |
+| M1 | Projection compatible de capacités, contexte Personnel/Coaching et backfill | Aucun changement de droits involontaire ; anciens comptes conservés ; coach utilisateur personnel représentable ; aucun auto-lien. |
+| M2 | Finir départ autonome, transition commune et partage d’historique ; accès personnel du coach | Conservation des données, révocation, programmes en pause, notification et concurrence validées. Les points détaillés de l’état partiel ci-dessus restent requis. |
+| M3 | Entrée par intention, setup minimal, invitations directes et reprise | Connexion habituelle directe ; pas de questionnaire global bloquant l’historique/messages ; première séance sans marketplace ou IA obligatoire. Google/Apple uniquement après validation complète. |
+| M4 | Profils/offres opt-in, disponibilités/capacité et espace prospects | Coach peut gérer ses clients sans publier ; publication/retrait et offre claire ; droits du prospect distincts du dossier client. |
+| M5 | Questionnaire de recherche, sélection expliquée, comparaison et demandes | 3–5 résultats si pertinents, vide honnête, filtres conservés ; envoi/retrait idempotents ; aucune exposition du dossier brut. |
+| M6 | Accord, paiement selon décisions, activation et accueil client | Acceptation distincte du paiement et du lien ; activation commune aux invitations ; un coach actif ; synthèse autorisée et complément de questionnaire sans ressaisie. |
+| M7 | Accueils contextuels et boucle de suivi jusqu’à la suite de l’objectif | Programme, séance, historique, communication et bilan reliés ; maintien/nouvel objectif/changement de mode ; coach garde l’autorité. |
+| M8 | Ouverture graduelle et qualité de service | Tests des trois parcours, support et signalement opérationnels, mesures minimales ; pas de lancement large sur CI seule. |
+
+Cet ordre remplace l’ancien découpage 2.1–2.7 sans abandonner ses tâches : départ dans M2, profil dans M4, questionnaire/sélection dans M5, demandes dans M5–M6, démarrage/changement dans M2–M6 et confiance dans M8. Les critères et décisions détaillés ci-dessous restent applicables.
+
+La carte contient les contrats écran par écran et la stratégie additive de migration. Le paiement du coaching est une dépendance commerciale de M6, avec décisions du chantier 3 ; il ne bloque pas la construction testable des lots précédents.
+
+### Continuité et nouveaux points transversaux du parcours
+
+- Séparer capacité professionnelle, espace affiché, relation active et entitlement. Auditer aussi les prédicats SQL et outils IA, pas seulement les routes React.
+- Conserver l’autorité du coach sur son plan tout en donnant au client accès à son historique personnel et à sa progression.
+- Autoriser la consultation de l’historique par le nouveau coach seulement dans le périmètre accepté ; invalider les synthèses/caches après révocation. Aucun transfert de notes privées ou de conversations de l’ancien coach.
+- Réutiliser composants, modèles et RPC existants ; aucun second moteur entraînement ou base de données dupliquée par rôle.
+- Définir et tester le cycle de vie objectif actif, bilan, maintien, successeur et changement de mode. Ne pas déduire automatiquement la réussite du champ texte historique.
+- Distinguer un coach refusé/indisponible, un paiement en attente et une activation échouée. Prévoir reprise serveur et issue utilisateur pour chacun.
+- Préserver les fonctions existantes et les tests historiques pendant la bascule ; aucune refonte visuelle gratuite.
+
+### Questionnaire de recherche et contrat de sélection — à construire
+
+- Critères envisagés : discipline, expérience, type et niveau de suivi souhaités, langue, distance/zone, disponibilités et budget si des offres tarifées existent. Chaque question doit avoir un effet documenté sur les résultats.
+- Réutiliser les informations existantes seulement si pertinentes et confirmées. Ne pas réinterpréter le questionnaire coach comme un questionnaire marketplace ni modifier son contrat historique.
+- Garder les réponses privées par défaut. Une demande transmet uniquement le résumé annoncé au client ; les coachs consultés n’accèdent pas au dossier personnel.
+- Commencer par des filtres et un classement explicables. L’IA ne doit ni inventer une compétence, ni affirmer une adéquation médicale, ni prendre la décision à la place du client.
+- Tester contraintes incompatibles, absence d’information, égalités de classement, absence de résultat, modifications des réponses, langue, disponibilité et profil dépublié entre consultation et envoi.
+- Définir la persistance et la version du questionnaire de recherche, les critères réellement stockés et leur suppression. Ne pas ajouter de réponses sensibles aux outils de mesure.
+- Mesures à instrumenter au moment de l’implémentation : recherche terminée, résultats vides, demande envoyée/retirée/acceptée/refusée et démarrage effectif du suivi. Ajouter les contrats d’événements et la documentation ensemble.
+
+### Décisions marketplace encore ouvertes
+
+- Définir le contenu minimal d’une offre et la manière de présenter prix, fréquence des échanges et disponibilité réelle.
+- Définir demandes simultanées, expiration éventuelle, limites de sollicitation et devenir des autres demandes après acceptation. Ne pas inventer de délai de réponse.
+- Définir vérification des coachs, audience/périmètre d’ouverture, signalement, modération et responsable du traitement. Aucun badge « vérifié » sans procédure réelle.
+- Avis clients, classement sponsorisé et liste d’attente : à décider, pas requis par défaut pour le premier parcours. Si ajoutés, prévoir authenticité/modération, identification commerciale et accord aux notifications.
+- Commission, encaissement du coaching et reversements : à décider dans le chantier 3. L’expression « Uber du coaching » ne vaut pas autorisation d’implémenter un modèle financier précis.
 
 ### Départ autonome
 
@@ -73,7 +154,7 @@ Profil opt-in avec :
 - Un seul coach actif par client.
 - Changement de coach comme parcours contrôlé : fin du lien actuel, puis nouvelle demande.
 
-### Plan technique de départ — non implémenté
+### Plan technique — proposition, à confronter au code
 
 - RPC proposée `client_end_coach_link()` : vérification de `auth.uid()`, fin du lien actif et appel de la transition commune vers le solo ;
 - table proposée `coach_profiles` pour le nom public, la présentation, les disciplines, les langues, la zone ou le coaching à distance, la disponibilité et l’opt-in public ;
@@ -101,7 +182,13 @@ Ne pas commencer avant les décisions produit suivantes :
 - paliers coach selon le nombre de clients ;
 - durée et population concernée par l’essai ;
 - devise et taxes ;
-- comportement exact à l’expiration.
+- comportement exact à l’expiration ;
+- réévaluation de l’hypothèse historique abonnement solo / abonnement coach / accès logiciel coaché inclus ;
+- prix du service de coaching distinct de l’accès logiciel, fournisseur du service et partie qui encaisse ;
+- commission éventuelle, reversements et responsabilités opérationnelles ;
+- annulations, remboursements, litiges, et effet d’un changement ou départ de coach sur les paiements.
+
+Le choix marketplace ne tranche aucune de ces règles. Conserver l’hypothèse historique comme option explicite, sans l’implémenter comme décision acquise. Une mise en relation acceptée ne constitue pas une confirmation de paiement.
 
 Le futur mur doit conserver un accès en lecture aux données et permettre d’accepter une invitation coach. Un coach qui dépasse son palier conserve ses clients existants mais ne peut plus en ajouter.
 

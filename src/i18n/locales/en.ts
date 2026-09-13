@@ -1,4 +1,7 @@
 const en = {
+  entryIntention: {"title": "What brings you to Prometheus?", "solo": "Train on my own", "soloHint": "Log my sessions and follow my progress.", "find_coach": "Find a coach", "find_coachHint": "Find support that fits my needs.", "coach": "I am a coach", "coachHint": "Manage my clients and meet new ones.", "error": "Your choice could not be saved. Please try again."},
+  marketplace: {"compare": "Compare coaches", "chooseComparison": "Choose two or three coaches in the directory to compare them.", "comparisonUnavailable": "A selected profile is no longer published. You can still view the others.", "comparisonDisclosure": "Compare coaching methods and services. These details are provided by each coach.", "notProvided": "Not provided", "availability": "Availability", "available": "Accepting new requests", "compareCoach": "Compare {{name}}",refresh: "Refresh", fromYou: "Your request", toYou: "Received request", "directory": "Find a coach", "profile": "My coach profile", "detail": "Meet the coach", "requests": "Coaching requests", "loading": "Loading…", "loadError": "This page is unavailable right now. Please try again.", "saveError": "The change could not be confirmed. Check the fields and try again.", "profile_changed": "This profile changed on another device. Reload before editing this version.", "coach_unavailable": "This coach is not accepting requests right now.", "already_coached": "End your current relationship from your profile before requesting another coach.", "request_closed": "This request already has a response. Reload to see its status.", "session_changed": "The signed-in account changed. Reload the page.", "noRequests": "No requests yet.", "viewCoach": "View coach profile", "agreementOnly": "The coach accepted the request. Coaching is not yet active and no payment is confirmed.", "pending": "Awaiting a response", "accepted": "Request accepted", "declined": "Request declined", "withdrawn": "Request withdrawn", "action_accepted": "Accept request", "action_declined": "Decline", "action_withdrawn": "Withdraw my request", "discipline": "Discipline", "language": "Language", "format": "Coaching format", "any": "No preference", "strength": "Strength", "powerlifting": "Powerlifting", "general_fitness": "General physical activity", "fr": "French", "en": "English", "online": "Online", "in_person": "In person", "hybrid": "Hybrid", "matchExplanation": "Profiles matching your criteria, sorted by name.", "noResults": "No available coach matches these criteria. Try broadening your filters.", "previous": "Previous", "next": "Next", "publicDisclosure": "Publishing makes these details visible to Prometheus members. You can manage your clients without publishing a profile.", "publicName": "Public name", "introduction": "Introduction and experience", "method": "Coaching method and contact frequency", "offer": "Coaching services and terms", "disciplines": "Coaching disciplines", "languages": "Available languages", "formats": "Available formats", "area": "City or service area", "published": "Publish my profile", "accepting_clients": "Accept new requests", "saved": "Profile saved", "unavailable": "This profile is not accepting new requests right now.", "yourName": "Name to share with the coach", "summary": "What you want from this coaching relationship", "sharing": "I agree to share this name and summary with this coach. This request does not share my personal history, questionnaires or conversations.", "send": "Send my request", "sent": "Request sent. You can follow its status in Coaching requests."},
+  relationshipAccess: {"checking": "Checking access…", "ended": "This coaching relationship has ended. The personal file is no longer accessible.", "unavailable": "Unable to verify access. Reconnect and try again.", "back": "Back to clients"},
   coachQuestionnaire: {"fromStandard":"Create from standard","mapping":"Standard field","unmapped":"Custom question, no mapping","title":"Questionnaires","choose":"Choose","required":"Please answer this question.","invalid":"Please check this answer.","loadError":"Unable to load questionnaires.","saveError":"Saving was not confirmed. Your work is still displayed. Retry; if another version was saved, reload before editing.","invalidDefinition":"Complete both languages, sections and options before publishing.","standard":"Use the standard questionnaire for future invitations","duplicate":"Duplicate","useDefault":"Use for future invitations","name":"Name","section":"Section","question":"Question","type":"Answer type","option":"Option","addOption":"Add an option","mandatory":"Required","medical":"Health information","up":"Move up","down":"Move down","addQuestion":"Add a question","addSection":"Add a section","preview":"Preview","publish":"Publish this version","audience":"You and your coach can access these answers during your coaching relationship.","saveDraft":"Save draft","submit":"Finish and send","saved":"Draft saved","completed":"Answers sent","empty":"No custom questionnaire assigned.","types":{"text":"Text","number":"Number","single":"Single choice","multi":"Multiple choices","yes_no":"Yes / no","weekdays":"Weekdays"}},
   common: {
     save: 'Save',
@@ -77,6 +80,12 @@ const en = {
     today: 'Today',
     messages: 'Messages',
     prometheus: 'Prometheus',
+  },
+
+  workspace: {
+    label: 'Choose a workspace',
+    personal: 'Personal',
+    coaching: 'Coaching',
   },
 
   auth: {
@@ -236,7 +245,7 @@ const en = {
     },
     photosCard: 'Progress photos',
     linkEnded: {
-      title: 'Your coach has ended your collaboration',
+      title: 'Your coaching relationship has ended',
       body: 'Your history and targets are kept. Your program is paused and you can continue in solo mode.',
       trial: 'Solo trial: {{days}} day(s) left.',
       trialOver: 'Your solo trial has ended.',
@@ -1632,6 +1641,9 @@ const en = {
       notes: 'No notes yet',
     },
     invite: {
+      previewError: 'Unable to check this invitation. Check your connection and try again.',
+      retryError: 'Unable to join the coach right now. Please try again.',
+      sharing: 'By accepting, you allow this coach to view your profile, questionnaire, program, workouts, check-ins, nutrition, progress photos and messages during your coaching relationship. Tracking modules remain configurable and you keep your data when the relationship ends.',
       title: 'Join your coach',
       body: '{{name}} invited you to Prometheus coaching.',
       aCoach: 'your coach',
@@ -1776,6 +1788,30 @@ const en = {
     waiting: 'Questionnaire not filled yet',
     completeLater: 'Complete the questionnaire',
     later: 'Later',
+  },
+  coachDiscovery: {
+    notices: {
+      title: 'Coaching updates',
+      ended: '{{name}} ended the coaching relationship.',
+      client: 'This client',
+      dismiss: 'Got it',
+      dismissFor: 'Mark the departure of {{name}} as read',
+      error: 'Coaching notifications could not be updated.',
+    },
+    leave: {
+      title: 'Coaching relationship',
+      current: 'You are currently coached by {{name}}.',
+      action: 'End coaching relationship',
+      confirmTitle: 'Continue without this coach?',
+      confirmBody: 'This change takes effect immediately.',
+      kept: 'Your personal history and entries stay available.',
+      stopped: 'Your coach loses access and their tracking settings stop.',
+      paused: 'The current program from this coach is kept but paused.',
+      billing: 'This action only ends the coaching relationship. It does not cancel a separate subscription.',
+      confirm: 'End relationship',
+      success: 'The coaching relationship has ended. Your history stays available.',
+      error: 'The relationship could not be ended. Try again.',
+    },
   },
 } as const;
 

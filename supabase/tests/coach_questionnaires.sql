@@ -88,7 +88,11 @@ insert into public.coach_invites(id,coach_id,token,expires_at,max_uses)
 values('a1740000-0000-4000-8000-000000000088','a1740000-0000-4000-8000-000000000001','questionnaire-ci-only',now()+interval '1 day',1);
 delete from public.coach_questionnaire_defaults;
 select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000003',true);
-select public.accept_coach_invite('questionnaire-ci-only');
+select public.accept_coach_invite(
+  'questionnaire-ci-only',
+  1,
+  array['checkins','messages','nutrition','profile','program','progress_photos','questionnaire','workouts']::text[]
+);
 do $$
 declare r public.client_questionnaire_responses; saved public.client_questionnaire_responses;
 begin

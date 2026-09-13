@@ -5,7 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
-import { isSoloAthlete } from '../../lib/coachRole';
+import { resolveAccountContext } from '../../lib/accountContext';
 import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
 import { programWeekNumber } from '../../lib/utils';
 import { outlineFromEdited } from '../../lib/coachDraftSend';
@@ -32,10 +32,15 @@ export default function ClientProgramPage() {
   const { assignment, fetchMyAssignment, fetchPausedAssignments, loading, updateProgram, syncProgramDays } = useProgramStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
+  const roleReady = useCoachingStore(s => s.roleReady);
+  const accountSnapshot = useCoachingStore(s => s.accountSnapshot);
+  const accountWorkspace = useCoachingStore(s => s.accountWorkspace);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
   const applyProgramOutline = useCoachingStore(s => s.applyProgramOutline);
-  const solo = isSoloAthlete(coachingRole, myCoach);
+  const solo = resolveAccountContext(
+    coachingRole, myCoach, roleReady, accountSnapshot, accountWorkspace,
+  ).personalCoaching === 'solo';
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [archives, setArchives] = useState<Awaited<ReturnType<typeof fetchPausedAssignments>>>([]);

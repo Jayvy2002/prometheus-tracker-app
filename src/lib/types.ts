@@ -1,4 +1,6 @@
 export interface UserProfile {
+  /** Optional until the additive entry-intent candidate is installed. Not an authorization field. */
+  entry_intent?: 'solo' | 'find_coach' | 'coach' | null;
   id: string;
   email: string;
   full_name: string;
