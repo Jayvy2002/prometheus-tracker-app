@@ -27,6 +27,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Session generation regression
+        run: node --import tsx --test src/lib/sessionScope.test.ts
       - run: npm run verify:migrations
       - run: npm run verify:edges
       - name: Detect Management API token
@@ -66,7 +68,7 @@ jobs:
         with:
           version: 2.117.0
       - name: Start local Supabase (staging-like, Postgres 17)
-        run: supabase start -x studio,mailpit,realtime,logflare,vector,imgproxy,edge-runtime
+        run: supabase start -x studio,mailpit,logflare,vector,imgproxy,edge-runtime
       - name: Install psql
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
       - name: Align local vs lock (toutes les versions lock)
@@ -120,6 +122,13 @@ jobs:
           npm ci
           npm install --no-save --package-lock=false playwright@1.56.1
           npx playwright install --with-deps chromium
+      - name: Audit hardening candidate (isolated database only)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/marketplace_audit_hardening.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/marketplace_audit_hardening.sql
       - name: Questionnaire browser journey (local Supabase only)
         run: node scripts/test-questionnaire-browser.mjs
       - name: Upload questionnaire browser proof

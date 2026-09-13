@@ -103,6 +103,11 @@ const en = {
   },
 
   marketplace: {
+    coachUnavailableName: 'Coach profile unavailable',
+    relationshipEnded: 'This coaching relationship has ended.',
+    relationshipUnknown: 'Request accepted. Check your profile for the current coaching relationship.',
+    consent_renewal_required: 'This request uses an older agreement. The client must withdraw it and send a new one.',
+    reloadProfile: 'Reload profile and discard local changes',
     compare: 'Compare coaches',
     chooseComparison: 'Pick two or three coaches from search to compare them.',
     comparisonUnavailable: 'A selected profile is no longer published. The others remain visible.',
@@ -1352,7 +1357,7 @@ const en = {
       loadError: 'Incomplete load — some data is missing.',
       retry: 'Reload',
       firstRunTitle: 'New client',
-      firstRunBody: 'Set up tracking and a program first. Nudging a session only helps after that.',
+      firstRunBody: 'Set up tracking and prepare your client’s first program.',
       questionnaire: 'Questionnaire',
       intakeSummary: 'Intake review',
       historyTitle: 'Previous programs',

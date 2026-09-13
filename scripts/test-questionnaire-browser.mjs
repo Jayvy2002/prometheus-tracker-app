@@ -78,7 +78,10 @@ try {
  await page.getByText(/✓/).waitFor();
  const token='browser-test-'+crypto.randomUUID();
  check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
- const accepted=check(await athlete.client.rpc('accept_coach_invite',{p_token:token}));
+ const accepted=check(await athlete.client.rpc('accept_coach_invite',{
+  p_token:token,p_consent_version:1,
+  p_scopes:['checkins','messages','nutrition','profile','program','progress_photos','questionnaire','workouts'],
+ }));
  assert.equal(accepted.ok,true);
  const clientPage=await pageFor(athlete);
  await clientPage.goto(origin+'/dashboard');
@@ -117,6 +120,9 @@ try {
  console.log('PASS: pinned revision, finalization, read-only answers, coach review, other-coach isolation');
  await clientPage.screenshot({path:'artifacts/questionnaire/completed.png',fullPage:true});
 } catch(error) {
+ for (const page of pages) {
+  console.error('Local test page:', page.url(), await page.locator('body').innerText().catch(()=>'unavailable'));
+ }
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;
 } finally {

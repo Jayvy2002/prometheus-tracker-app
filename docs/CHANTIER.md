@@ -1,5 +1,13 @@
 # Chantier — Prometheus
 
+## Corrections de l’audit PR76–84 — en validation, non déployées
+
+Le candidat `supabase/changes/marketplace_audit_hardening.sql` ferme l’ancienne invitation sans consentement, sépare le consentement marketplace v2 de l’ancien partage minimal, empêche une acceptation historique de réactiver un client parti et sérialise les réponses par client. Les migrations appliquées restent immuables.
+
+Le frontend rejette les réponses de profil d’une session terminée, garde l’autorisation du dossier liée à sa cible et distingue demande acceptée, suivi actif et suivi terminé. Les demandes envoyées affichent le coach destinataire. La navigation et les messages sont clarifiés en FR/EN.
+
+La CI applique le candidat uniquement sur sa base isolée après les tests historiques, teste le rejeu après départ et active Realtime pour les parcours navigateur. Ne pas annoncer ce lot livré avant CI complète et parcours vérifiés. La promotion du candidat en migration et le déploiement coordonné backend/frontend restent requis avant fusion : le frontend v2 exige le nouveau contrat SQL.
+
 > **RÔLE DE CE DOCUMENT — SOURCE UNIQUE DU TRAVAIL RESTANT**
 >
 > Ce document contient l’ordre des chantiers, les décisions ouvertes, les fonctionnalités à construire, les problèmes à corriger, les améliorations UX à réaliser et leurs critères de fin.

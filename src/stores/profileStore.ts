@@ -2,6 +2,15 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { applyNutritionTargets } from '../lib/clientLive';
 import type { UserProfile } from '../lib/types';
+import { captureSession } from '../lib/sessionScope';
+
+let profileGeneration = 0;
+let profileRead = 0;
+function profileScope(userId: string) {
+  const currentSession = captureSession(userId);
+  const generation = profileGeneration;
+  return () => currentSession() && generation === profileGeneration;
+}
 
 interface ProfileState {
   profile: UserProfile | null;
@@ -27,12 +36,16 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   uploadingAvatar: false,
 
   fetchProfile: async (userId, opts) => {
+    const current = profileScope(userId);
+    const read = ++profileRead;
+    if (!current()) return;
     if (!opts?.silent) set({ loading: true, fetchError: null });
     const { data, error } = await supabase
       .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
+    if (!current() || read !== profileRead) return;
     if (error) {
       console.error('[Prometheus] fetchProfile failed:', error.message);
       set({ loading: false, fetchError: error.message });
@@ -60,6 +73,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   updateProfile: async (userId, updates) => {
+    const current = profileScope(userId);
+    if (!current()) return { error: 'session_changed' };
     // D03 : contrat de résultat — un refus RLS / réseau ne ressemble plus à un succès.
     const { entry_intent: _entryIntent, ...safeUpdates } = updates;
     void _entryIntent;
@@ -69,6 +84,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       .eq('id', userId)
       .select()
       .maybeSingle();
+    if (!current()) return { error: 'session_changed' };
     if (error) return { error: error.message };
     if (!data) return { error: 'Profil introuvable ou non autorisé.' };
     set({ profile: data as UserProfile });
@@ -76,6 +92,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   uploadAvatar: async (userId, file) => {
+    const current = profileScope(userId);
+    if (!current()) return null;
     set({ uploadingAvatar: true });
     const ext = file.name.split('.').pop() || 'jpg';
     const filePath = `${userId}/avatar.${ext}`;
@@ -84,6 +102,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       .from('avatars')
       .upload(filePath, file, { upsert: true });
 
+    if (!current()) return null;
     if (uploadError) {
       set({ uploadingAvatar: false });
       return null;
@@ -95,17 +114,26 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
     const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_profiles')
       .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
       .eq('id', userId)
       .select()
       .maybeSingle();
 
-    if (data) set({ profile: data as UserProfile });
+    if (!current()) return null;
+    if (error || !data) {
+      set({ uploadingAvatar: false });
+      return null;
+    }
+    set({ profile: data as UserProfile });
     set({ uploadingAvatar: false });
     return avatarUrl;
   },
 
-  clearProfile: () => set({ profile: null, loading: true, fetchError: null }),
+  clearProfile: () => {
+    profileGeneration++;
+    profileRead++;
+    set({ profile: null, loading: true, fetchError: null, uploadingAvatar: false });
+  },
 }));

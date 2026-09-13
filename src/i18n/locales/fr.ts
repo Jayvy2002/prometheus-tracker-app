@@ -103,6 +103,11 @@ const fr = {
   },
 
   marketplace: {
+    coachUnavailableName: 'Profil du coach indisponible',
+    relationshipEnded: 'Ce suivi est terminé.',
+    relationshipUnknown: 'Demande acceptée. Consulte ton profil pour vérifier le suivi actuel.',
+    consent_renewal_required: 'Cette demande utilise un ancien accord. Le client doit la retirer puis en envoyer une nouvelle.',
+    reloadProfile: 'Recharger le profil et abandonner les modifications locales',
     compare: 'Comparer les coachs',
     chooseComparison: 'Choisis deux ou trois coachs dans la recherche pour les comparer.',
     comparisonUnavailable: 'Un profil sélectionné n’est plus publié. Les autres restent consultables.',
@@ -1352,7 +1357,7 @@ const fr = {
       loadError: 'Chargement incomplet — certaines données manquent.',
       retry: 'Recharger',
       firstRunTitle: 'Nouveau client',
-      firstRunBody: 'Prépare le suivi et le programme. Relancer une séance n’a de sens qu’après ça.',
+      firstRunBody: 'Configure le suivi et prépare le premier programme de ton client.',
       questionnaire: 'Questionnaire',
       intakeSummary: 'Bilan d’entrée',
       historyTitle: 'Programmes précédents',
