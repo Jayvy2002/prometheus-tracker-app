@@ -105,6 +105,20 @@ try {
  await clientPage.getByRole('button',{name:'End coaching relationship',exact:true}).click();
  const confirm=clientPage.getByRole('button',{name:'End relationship',exact:true});
  await confirm.waitFor();
+ clientPage.on('console',message=>{
+  if(message.text().startsWith('departure-trace')) console.log(message.text());
+ });
+ await clientPage.evaluate(async()=>{
+  const {useProfileStore}=await import('/src/stores/profileStore.ts');
+  const original=useProfileStore.getState().applyCoachingDeparture;
+  useProfileStore.setState({applyCoachingDeparture:(id,date)=>{
+   console.log('departure-trace apply',useProfileStore.getState().profile?.id===id,!!date);
+   original(id,date);
+  }});
+  useProfileStore.subscribe((state,previous)=>{
+   if(state.profile!==previous.profile)console.log('departure-trace profile',state.profile?.coach_link_ended_at, new Error().stack);
+  });
+ });
  let departureCalls=0;
  await clientPage.route('**/rest/v1/rpc/client_end_coach_link',async route=>{
   departureCalls++;
