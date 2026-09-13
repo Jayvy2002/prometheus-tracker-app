@@ -116,6 +116,7 @@ try {
  const denied=check(await other.client.from('client_questionnaire_responses').select('id'));
  assert.equal(denied.length,0);
  await page.goto(origin+'/clients/'+athlete.id);
+ await page.locator('summary').filter({hasText:/^Questionnaire$/}).click();
  await page.getByText('Answers sent',{exact:true}).waitFor();
  console.log('PASS: pinned revision, finalization, read-only answers, coach review, other-coach isolation');
  await clientPage.screenshot({path:'artifacts/questionnaire/completed.png',fullPage:true});

@@ -8,7 +8,9 @@ Le frontend rejette les réponses de profil d’une session terminée, garde l�
 
 La PR 85 ajoute des cartes de coach séparées du contrôleur de page, une grille responsive et des repères de focus. Le test du véritable store de profil avec réponses différées valide le changement de compte, la reconnexion au même compte et le rejet d’un appelant périmé. Le parcours CI comprend aussi une capture mobile/desktop et deux acceptations concurrentes ; leur ajout ne vaut pas preuve de réussite avant la fin du job.
 
-La CI applique le candidat uniquement sur sa base isolée après les tests historiques, teste le rejeu après départ et active Realtime pour les parcours navigateur. Ne pas annoncer ce lot livré avant CI complète et parcours vérifiés. La promotion du candidat en migration et le déploiement coordonné backend/frontend restent requis avant fusion : le frontend v2 exige le nouveau contrat SQL.
+Le cache hors ligne est limité aux fichiers statiques de même origine et exclut les requêtes authentifiées. La version de cache est renouvelée pour purger les anciennes réponses : le scénario navigateur confirme que le brouillon de questionnaire survit au rechargement et que sa version assignée reste stable après une nouvelle publication du coach.
+
+La CI applique le candidat uniquement sur sa base isolée après les tests historiques, teste le rejeu après départ et active Realtime pour les parcours navigateur. Les contrôles applicatifs et SQL du run 34789724200 passent ; le scénario a ensuite été ajusté pour ouvrir le panneau de réponses replié côté coach. Ne pas annoncer ce lot livré avant CI complète et parcours vérifiés. La promotion du candidat en migration et le déploiement coordonné backend/frontend restent requis avant fusion : le frontend v2 exige le nouveau contrat SQL.
 
 > **RÔLE DE CE DOCUMENT — SOURCE UNIQUE DU TRAVAIL RESTANT**
 >
