@@ -100,6 +100,17 @@ try {
  await page.goto(origin+'/clients/'+athlete.id);
  await page.getByText('Answers sent',{exact:true}).waitFor();
  console.log('PASS: pinned revision, finalization, read-only answers, coach review, other-coach isolation');
+ // Private dossier content is removed while access cannot be verified.
+ await page.route('**/rest/v1/coach_client_links?*', route => route.fulfill({
+   status:503,contentType:'application/json',body:JSON.stringify({message:'injected access outage'})
+ }));
+ await page.evaluate(()=>window.dispatchEvent(new Event('online')));
+ await page.getByText('Unable to verify access. Reconnect and try again.',{exact:true}).waitFor();
+ assert.equal(await page.getByText('Answers sent',{exact:true}).count(),0);
+ await page.unroute('**/rest/v1/coach_client_links?*');
+ await page.getByRole('button',{name:'Retry',exact:true}).click();
+ await page.getByText('Answers sent',{exact:true}).waitFor();
+
  await clientPage.screenshot({path:'artifacts/questionnaire/completed.png',fullPage:true});
 
  // Departure must succeed even if the subsequent profile refresh fails.
@@ -125,6 +136,11 @@ try {
  assert.equal(departureCalls,1,'Departure is submitted once');
  const ended=check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single());
  assert.equal(ended.status,'ended');
+ await page.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));
+ await page.getByText('This coaching relationship has ended. The personal file is no longer accessible.',{exact:true}).waitFor();
+ assert.equal(await page.getByText('Answers sent',{exact:true}).count(),0);
+ console.log('PASS: open coach dossier closes on access failure and after client departure');
+
  const role=check(await admin.from('user_roles').select('coaching_role').eq('user_id',athlete.id).single());
  assert.equal(role.coaching_role,'none');
  const archivedAnswers=check(await athlete.client.from('client_questionnaire_responses').select('id'));

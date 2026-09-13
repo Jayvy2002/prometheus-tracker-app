@@ -11,6 +11,7 @@ import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
 import { resolveAccountContext } from './lib/accountContext';
 import i18n, { setAppLanguage } from './i18n';
+import ActiveRelationshipBoundary from './components/coaching/ActiveRelationshipBoundary';
 import TrackingGate from './components/coaching/TrackingGate';
 
 import AppLayout from './components/layout/AppLayout';
@@ -360,8 +361,8 @@ function AppRoutes() {
         <Route path="/stats" element={<CoachTrackerRedirect><CoachedAthleteRedirect><StatsPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
-        <Route path="/clients/:id" element={<CoachOnly><ClientDetailPage /></CoachOnly>} />
-        <Route path="/clients/:id/setup" element={<CoachOnly><ClientSetupPage /></CoachOnly>} />
+        <Route path="/clients/:id" element={<CoachOnly><ActiveRelationshipBoundary><ClientDetailPage /></ActiveRelationshipBoundary></CoachOnly>} />
+        <Route path="/clients/:id/setup" element={<CoachOnly><ActiveRelationshipBoundary><ClientSetupPage /></ActiveRelationshipBoundary></CoachOnly>} />
         <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/inbox/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/messages" element={<MessagesHome />} />
