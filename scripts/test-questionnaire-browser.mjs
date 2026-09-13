@@ -10,6 +10,10 @@ const url = config.API_URL;
 assert.equal(new URL(url).hostname, '127.0.0.1', 'Only the local Supabase test instance is allowed');
 const admin = createClient(url, config.SERVICE_ROLE_KEY, { auth: { persistSession:false, autoRefreshToken:false } });
 const check = ({data,error}) => { if(error) throw error; return data; };
+const directInviteConsentArgs = () => ({
+ p_consent_version: 1,
+ p_scopes: ['checkins','messages','nutrition','profile','program','progress_photos','questionnaire','workouts'],
+});
 async function actor(name, role) {
  const email = name.toLowerCase().replaceAll(' ','-')+'@example.test';
  const password = 'Only-local-test-'+crypto.randomUUID();
@@ -95,7 +99,7 @@ try {
  await page.getByText(/✓/).waitFor();
  const token='browser-test-'+crypto.randomUUID();
  check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
- const accepted=check(await athlete.client.rpc('accept_coach_invite',{p_token:token}));
+ const accepted=check(await athlete.client.rpc('accept_coach_invite',{p_token:token,...directInviteConsentArgs()}));
  assert.equal(accepted.ok,true);
  const clientPage=await pageFor(athlete);
  await clientPage.goto(origin+'/dashboard');
@@ -199,7 +203,7 @@ try {
  // Independent requests exercise the database lock rather than the UI click guard.
  const rejoinToken='departure-rejoin-'+crypto.randomUUID();
  check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token:rejoinToken,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
- assert.equal(check(await athlete.client.rpc('accept_coach_invite',{p_token:rejoinToken})).ok,true);
+ assert.equal(check(await athlete.client.rpc('accept_coach_invite',{p_token:rejoinToken,...directInviteConsentArgs()})).ok,true);
  const attempts=await Promise.all([
    athlete.client.rpc('client_end_coach_link'),
    athlete.client.rpc('client_end_coach_link'),

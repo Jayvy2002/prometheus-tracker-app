@@ -87,6 +87,7 @@ import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
 import { createAccountRequestGuard, createAccountMutationGuard } from '../lib/accountRequestGuard';
 import { getSessionOwner } from '../lib/sessionScope';
+import { directInviteConsentArgs } from '../lib/relationshipConsent';
 
 const roleRequests = createAccountRequestGuard();
 const roleMutations = createAccountMutationGuard();
@@ -2102,7 +2103,10 @@ fetchMyCoach: async () => {
     coachRequests.invalidate();
     trackingRequests.invalidate();
     try {
-      const { data, error } = await supabase.rpc('accept_coach_invite', { p_token: token });
+      const { data, error } = await supabase.rpc('accept_coach_invite', {
+        p_token: token,
+        ...directInviteConsentArgs(),
+      });
       if (!operation.isCurrent()) return { ok: false, error: 'session_changed' };
       if (error) return { ok: false, error: error.message };
       const result = data as { ok?: boolean; error?: string; coach_id?: string; coach_name?: string } | null;

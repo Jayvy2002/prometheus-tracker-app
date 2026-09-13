@@ -1643,7 +1643,7 @@ const en = {
     invite: {
       previewError: 'Unable to check this invitation. Check your connection and try again.',
       retryError: 'Unable to join the coach right now. Please try again.',
-      sharing: 'By accepting, you allow this coach to view your profile and tracking history during your coaching relationship. You keep your data if you end the relationship.',
+      sharing: 'By accepting, you allow this coach to view your profile, questionnaire, program, workouts, check-ins, nutrition, progress photos and messages during your coaching relationship. Tracking modules remain configurable and you keep your data when the relationship ends.',
       title: 'Join your coach',
       body: '{{name}} invited you to Prometheus coaching.',
       aCoach: 'your coach',
