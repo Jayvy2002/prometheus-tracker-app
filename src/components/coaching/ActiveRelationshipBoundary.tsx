@@ -3,7 +3,11 @@ import { Link, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { createRelationshipAccess, type RelationshipAccess } from '../../lib/relationshipAccess';
+import {
+  createRelationshipAccess,
+  relationshipLinkChangeNeedsRecheck,
+  type RelationshipAccess,
+} from '../../lib/relationshipAccess';
 import Button from '../ui/Button';
 
 /** UI revocation complements RLS; it never grants server permissions. */
@@ -15,7 +19,17 @@ export default function ActiveRelationshipBoundary({ children }: { children: Rea
   const scope = owner && target ? `${owner}:${target}` : null;
   const [result, setResult] = useState<{ scope: string; state: RelationshipAccess } | null>(null);
   const [retry, setRetry] = useState(0);
+  const [seenAllowed, setSeenAllowed] = useState(false);
   const state = scope && result?.scope === scope ? result.state : 'checking';
+
+  useEffect(() => {
+    setSeenAllowed(false);
+  }, [scope]);
+
+  useEffect(() => {
+    if (state === 'allowed') setSeenAllowed(true);
+    if (state === 'ended' || state === 'unavailable') setSeenAllowed(false);
+  }, [state]);
 
   useEffect(() => {
     if (!scope || !owner || !target) return;
@@ -31,10 +45,9 @@ export default function ActiveRelationshipBoundary({ children }: { children: Rea
     }, next => setResult({ scope, state: next }));
     void access.check();
     const onVisible = () => {
-      if (document.visibilityState === 'hidden') access.invalidate('checking');
-      else void access.check();
+      if (document.visibilityState === 'visible') void access.check(false);
     };
-    const onOnline = () => { void access.check(); };
+    const onOnline = () => { void access.check(false); };
     const onOffline = () => access.invalidate('unavailable');
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('online', onOnline);
@@ -43,7 +56,10 @@ export default function ActiveRelationshipBoundary({ children }: { children: Rea
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'coach_client_links', filter: `client_id=eq.${target}` },
-        () => { void access.check(); },
+        payload => {
+          if (!relationshipLinkChangeNeedsRecheck(payload)) return;
+          void access.check(false);
+        },
       )
       .subscribe(status => {
         if (status === 'SUBSCRIBED') void access.check(false);
@@ -61,7 +77,8 @@ export default function ActiveRelationshipBoundary({ children }: { children: Rea
     };
   }, [scope, owner, target, retry]);
 
-  if (state === 'allowed') return <div key={scope}>{children}</div>;
+  const showDossier = state === 'allowed' || (state === 'checking' && seenAllowed);
+  if (showDossier) return <div key={scope}>{children}</div>;
   return (
     <div className="p-6 space-y-4" data-testid="relationship-access">
       <p role={state === 'checking' ? 'status' : 'alert'}>{t(`relationshipAccess.${state}`)}</p>

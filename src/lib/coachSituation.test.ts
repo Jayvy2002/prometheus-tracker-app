@@ -68,6 +68,17 @@ test('Émile-like ghost: names the idle days and the missing program', () => {
   assert.equal(hasSessionGap(lines), true);
 });
 
+test('never trained, no program: setup first, no Relancer for a missed session', () => {
+  const lines = clientSituationLines({
+    hasProgram: false,
+    lastSessionDate: lastLoggedSessionDate([], []),
+    today: TODAY,
+  });
+  assert.deepEqual(lines.map(l => l.id), ['no_program']);
+  assert.equal(lines[0]?.relance, false);
+  assert.equal(hasSessionGap(lines), false);
+});
+
 test('never trained, program assigned: one Relancer line, not a mute blank', () => {
   const lines = clientSituationLines({
     hasProgram: true,
@@ -108,4 +119,5 @@ test('i18n defaults to French, not English navigator fallback', () => {
   assert.match(fr, /training:\s*'Entraînement'/);
   assert.match(fr, /Pas de séance depuis \{\{days\}\} jours/);
   assert.match(fr, /Pas de programme assigné/);
+  assert.match(fr, /firstRunTitle:\s*'Nouveau client'/);
 });

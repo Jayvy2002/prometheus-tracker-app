@@ -1,12 +1,38 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createRelationshipAccess, type RelationshipAccess } from './relationshipAccess';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { createRelationshipAccess, relationshipLinkChangeNeedsRecheck, type RelationshipAccess } from './relationshipAccess';
 
 function deferred() {
   let resolve!: (value: boolean) => void;
   const promise = new Promise<boolean>(r => { resolve = r; });
   return { promise, resolve };
 }
+
+test('a last-visit update on an active link does not require hiding the dossier', () => {
+  assert.equal(relationshipLinkChangeNeedsRecheck({
+    eventType: 'UPDATE',
+    new: { status: 'active', last_visited_at: '2026-09-13T18:20:00Z' },
+    old: { status: 'active', last_visited_at: null },
+  }), false);
+  assert.equal(relationshipLinkChangeNeedsRecheck({ eventType: 'INSERT', new: { status: 'active' } }), true);
+  assert.equal(relationshipLinkChangeNeedsRecheck({
+    eventType: 'UPDATE',
+    new: { status: 'ended' },
+    old: { status: 'active' },
+  }), true);
+});
+
+test('the client 360 keeps the dossier visible while access is rechecked', () => {
+  const boundary = readFileSync(resolve(process.cwd(), 'src/components/coaching/ActiveRelationshipBoundary.tsx'), 'utf8');
+  assert.match(boundary, /relationshipLinkChangeNeedsRecheck/);
+  assert.match(boundary, /check\(false\)/);
+  assert.doesNotMatch(boundary, /invalidate\('checking'\)/);
+  assert.match(boundary, /seenAllowed/);
+  const page = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
+  assert.match(page, /touchClientVisit\(id\)/);
+});
 
 test('a stale authorized response cannot reopen a revoked dossier', async () => {
   const pending = deferred();

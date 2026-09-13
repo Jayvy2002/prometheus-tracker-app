@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
@@ -16,6 +16,7 @@ const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p
 
 export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const owner = useAuthStore(s => s.user?.id) ?? '';
   const fetchMyRole = useCoachingStore(s => s.fetchMyRole);
   const fetchClients = useCoachingStore(s => s.fetchClients);
@@ -99,17 +100,17 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
     if (mode === 'requests') return <><Button variant="secondary" onClick={() => setRevision(n => n + 1)}>{t('marketplace.refresh')}</Button>{requests.length ? <div className="space-y-4">{requests.map(row => <article key={row.id} className="rounded-xl border border-neutral-800 p-4 space-y-3">
       <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.public_name}</h2>
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
-      <p>{t(`marketplace.${row.status}`)}</p>
-      <time dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
-      {row.client_id === owner && <Link className="block text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
+      <p className="text-sm text-neutral-300">{t(`marketplace.${row.status}`)}</p>
+      <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
       {row.status === 'accepted' && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? 'marketplace.coachingActiveCoach' : 'marketplace.coachingActive')}</p>
-          {row.coach_id === owner && <Link className="block text-blue-400 underline" to={`/clients/${row.client_id}`}>{t('marketplace.openClient')}</Link>}
-          {row.client_id === owner && <Link className="block text-blue-400 underline" to="/dashboard">{t('marketplace.goDashboard')}</Link>}
+          {row.coach_id === owner && <Button onClick={() => navigate(`/clients/${row.client_id}`)}>{t('marketplace.openClient')}</Button>}
+          {row.client_id === owner && <Button onClick={() => navigate('/dashboard')}>{t('marketplace.goDashboard')}</Button>}
         </div>
       )}
-      <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant="secondary" onClick={() => {
+      {row.client_id === owner && row.status !== 'accepted' && <Link className="block min-h-11 inline-flex items-center text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
+      <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant={action === 'accepted' ? 'primary' : 'secondary'} onClick={() => {
         const seq = sequence.current;
         void write(async () => {
           const updated = await marketRpc<CoachingRequest>('respond_coaching_request', { p_request: row.id, p_status: action }, owner);
@@ -188,7 +189,10 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   };
   return <div className="p-4 md:p-6 pb-28 space-y-5">
     <h1 className="text-2xl font-semibold">{title}</h1>
-    <nav className="flex flex-wrap gap-5"><Link className="min-h-11 inline-flex items-center text-blue-400 underline" to={`/coaches?${params}`}>{t('marketplace.directory')}</Link><Link className="min-h-11 inline-flex items-center text-blue-400 underline" to="/coaching-requests">{t('marketplace.requests')}</Link></nav>
+    <nav className="flex flex-wrap gap-2">
+      <Link className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'directory' || mode === 'detail' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to={`/coaches?${params}`}>{t('marketplace.directory')}</Link>
+      <Link className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'requests' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to="/coaching-requests">{t('marketplace.requests')}</Link>
+    </nav>
     {error && <p role="alert" className="text-rose-300">{error}</p>}
     {notice && <p role="status" className="text-emerald-300">{notice}</p>}
     {content()}

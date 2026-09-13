@@ -20,6 +20,7 @@ test('C01: observation tables are realtime-published; the 360 reloads on change'
   assert.match(page, /dossierFetchedAt/);
   assert.match(page, /client360\.updatedAt/);
   assert.match(page, /client360\.loadError/);
+  assert.match(page, /client360\.firstRunTitle/);
   assert.match(page, /Promise\.allSettled/);
   assert.match(page, /visibilitychange/);
 });

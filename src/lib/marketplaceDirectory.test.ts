@@ -59,7 +59,7 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   const page = src('src/components/marketplace/MarketplacePage.tsx');
   assert.match(page, /DIRECT_INVITE_CONSENT_SCOPES/);
   assert.match(page, /track\('coaching_request_accepted'/);
-  assert.match(page, /\/clients\/\$\{/);
+  assert.match(page, /navigate\(`\/clients\/\$\{/);
   assert.doesNotMatch(page, /agreementOnly/);
 
   const ci = src('.github/workflows/ci.yml');

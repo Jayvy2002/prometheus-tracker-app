@@ -80,6 +80,7 @@ export function clientSituationLines(input: {
   if (input.trackWorkouts === false) return lines;
 
   if (!input.lastSessionDate) {
+    if (!input.hasProgram) return lines;
     lines.push({
       id: 'no_session',
       messageKey: 'coaching.situation.noSession',
