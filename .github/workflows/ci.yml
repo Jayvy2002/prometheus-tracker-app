@@ -31,6 +31,8 @@ jobs:
         run: node --import tsx --test src/lib/sessionScope.test.ts
       - name: Profile store session isolation
         run: node scripts/test-profile-session.mjs
+      - name: Service worker cache isolation
+        run: node scripts/test-service-worker.mjs
       - run: npm run verify:migrations
       - run: npm run verify:edges
       - name: Detect Management API token

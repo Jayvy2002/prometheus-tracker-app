@@ -1,4 +1,4 @@
-const CACHE_NAME = 'prometheus-v2';
+const CACHE_NAME = 'prometheus-v3';
 
 const STATIC_ASSETS = [
   '/',
@@ -68,11 +68,8 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // Skip Supabase API and external APIs — always network
-  if (
-    url.hostname.includes('supabase.co') ||
-    url.hostname.includes('openfoodfacts.org')
-  ) return;
+  // An API can use localhost or a custom domain. Cache only our own public assets.
+  if (url.origin !== self.location.origin || event.request.headers.has('authorization')) return;
 
   // For navigation requests (HTML pages) — network first, fallback to cache
   if (event.request.mode === 'navigate') {
@@ -88,7 +85,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For static assets — cache first, then network
+  const staticAsset = url.pathname.startsWith('/assets/')
+    || url.pathname.startsWith('/fonts/')
+    || STATIC_ASSETS.includes(url.pathname);
+  if (!staticAsset) return;
+
+  // For explicitly allowed static assets — cache first, then network
   event.respondWith(
     caches.match(event.request).then(cached => {
       const fetchPromise = fetch(event.request)
