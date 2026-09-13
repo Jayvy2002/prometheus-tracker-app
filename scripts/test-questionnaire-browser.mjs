@@ -165,7 +165,8 @@ try {
 
 
  // Execute the real store with a delayed RPC to check session isolation and the local lock.
- const isolation=await clientPage.evaluate(async()=>{
+ for (const mutation of ['departure','invitation']) {
+ const isolation=await clientPage.evaluate(async mutation=>{
   const {useCoachingStore}=await import('/src/stores/coachingStore.ts');
   const {supabase}=await import('/src/lib/supabase.ts');
   const {setSessionOwner,getSessionOwner}=await import('/src/lib/sessionScope.ts');
@@ -181,13 +182,16 @@ try {
     useCoachingStore.setState({coachingRole:'client',myCoach:{id:'coach-A',full_name:'Coach A',avatar_url:''}});
     supabase.auth.getUser=async()=>({data:{user:{id:'departure-test-A'}},error:null});
     supabase.rpc=()=>new Promise(resolve=>{release=resolve;markStarted();});
-    const first=useCoachingStore.getState().endMyCoachLink();
+    const act=()=>mutation==='departure'
+      ? useCoachingStore.getState().endMyCoachLink()
+      : useCoachingStore.getState().acceptInvite('synthetic-invitation');
+    const first=act();
     await started;
-    const second=await useCoachingStore.getState().endMyCoachLink();
+    const second=await act();
     useCoachingStore.getState().clear();
     setSessionOwner('departure-test-B');
     useCoachingStore.setState({coachingRole:'coach',myCoach:{id:'coach-B',full_name:'Coach B',avatar_url:''}});
-    release({data:{ok:true,ended_at:new Date().toISOString()},error:null});
+    release({data:{ok:true,ended_at:new Date().toISOString(),coach_id:'coach-A',coach_name:'Coach A'},error:null});
     const oldResult=await first;
     return {secondError:second.error,oldError:oldResult.error,role:useCoachingStore.getState().coachingRole,coach:useCoachingStore.getState().myCoach?.id};
   } finally {
@@ -196,9 +200,10 @@ try {
     useCoachingStore.getState().clear();
     setSessionOwner(owner);
   }
- });
+ },mutation);
  assert.deepEqual(isolation,{secondError:'operation_pending',oldError:'session_changed',role:'coach',coach:'coach-B'});
- console.log('PASS: real store ignores old account departure and rejects concurrent local submission');
+ console.log('PASS: real store ignores old account '+mutation+' and rejects concurrent local submission');
+ }
 
  // Merely opening a link (or signing back in) must not accept the invitation.
  const explicitToken='explicit-invite-'+crypto.randomUUID();
