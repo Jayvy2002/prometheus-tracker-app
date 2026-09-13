@@ -465,6 +465,7 @@ interface CoachingState {
   fetchNotes: (clientId: string) => Promise<void>;
   addNote: (clientId: string, body: string, opts?: { noteDate?: string; workoutId?: string }) => Promise<{ error: string | null }>;
   deleteNote: (id: string) => Promise<void>;
+  chooseEntryIntention: (intent: 'solo' | 'find_coach' | 'coach') => Promise<{ error?: string }>;
   endMyCoachLink: () => Promise<{ error: string | null }>;
   endClientLink: (linkClientId: string) => Promise<{ error: string | null }>;
   clear: () => void;
@@ -2224,6 +2225,32 @@ fetchMyCoach: async () => {
   deleteNote: async (id) => {
     await supabase.from('coach_notes').delete().eq('id', id);
     set(s => ({ notes: s.notes.filter(n => n.id !== id) }));
+  },
+
+  chooseEntryIntention: async (intent) => {
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    const operation = roleMutations.begin(accountId);
+    if (!operation) return { error: 'operation_pending' };
+    roleRequests.invalidate();
+    try {
+      const { data, error } = await supabase.rpc('choose_account_intent', { p_intent: intent });
+      if (!operation.isCurrent()) return { error: 'session_changed' };
+      if (error) return { error: error.message };
+      if (!data || data.user_id !== accountId || data.intent !== intent
+        || !['none', 'client', 'coach'].includes(data.coaching_role)) return { error: 'invalid_response' };
+      const role = data.coaching_role as CoachingRole;
+      persistRememberedCoachingRole(accountId, role);
+      useProfileStore.getState().applyEntryIntention(accountId, intent);
+      set({ coachingRole: role, accountSnapshot: null, roleReady: true });
+      operation.finish();
+      void get().fetchMyRole(accountId);
+      return {};
+    } catch {
+      return { error: 'network' };
+    } finally {
+      operation.finish();
+    }
   },
 
   endMyCoachLink: async () => {

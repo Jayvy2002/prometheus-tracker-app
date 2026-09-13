@@ -17,7 +17,9 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   const { coachId } = useParams();
   const [params, setParams] = useSearchParams();
   const filters = marketFilters(params);
-  const compared = comparisonIds(params);
+  const comparisonKey = params.get('compare') ?? '';
+  const [compared, setCompared] = useState(() => comparisonIds(params));
+  useEffect(() => { setCompared(comparisonIds(new URLSearchParams({ compare: comparisonKey }))); }, [comparisonKey]);
   const filterKey = JSON.stringify(filters);
   const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -110,6 +112,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
         <label className="flex gap-2 min-h-11 items-center"><input type="checkbox" checked={compared.includes(row.coach_id)} disabled={!compared.includes(row.coach_id) && compared.length >= 3} onChange={e => {
           const selected = e.target.checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
+          setCompared(selected);
           const next = new URLSearchParams(params); if (selected.length) next.set('compare', selected.join(',')); else next.delete('compare'); setParams(next);
         }} />{t('marketplace.compareCoach', { name: row.public_name })}</label>
       </article>)}

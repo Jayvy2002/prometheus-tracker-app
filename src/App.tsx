@@ -20,6 +20,7 @@ import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
 // Q05 : routes en lazy — le bundle initial ne porte que l'auth + le shell.
 // Scanner (barcode-detector) et stats (recharts) partent dans leurs propres chunks.
+const EntryIntentionPage = lazy(() => import('./components/onboarding/EntryIntentionPage'));
 const CoachComparisonPage = lazy(() => import('./components/marketplace/CoachComparisonPage'));
 const MarketplacePage = lazy(() => import('./components/marketplace/MarketplacePage'));
 const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'));
@@ -151,7 +152,7 @@ function AppRoutes() {
   const coachedClient =
     isCoachedAthlete(coachingRole, myCoach)
     || coachingRole === 'client';
-  const needsIntakeProbe = !returningFromCoaching && !profileLoading && roleReady && intakeGateNeedsUsageProbe({
+  const needsIntakeProbe = !profile?.entry_intent && !returningFromCoaching && !profileLoading && roleReady && intakeGateNeedsUsageProbe({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,
@@ -303,6 +304,11 @@ function AppRoutes() {
     </Route></Routes></Suspense>;
   }
 
+  if (profile && 'entry_intent' in profile && !profile.entry_intent && !returningFromCoaching
+    && !skipPersonalOnboarding && !coachedClient && location.pathname === '/dashboard') {
+    return <Suspense fallback={<RouteFallback />}><EntryIntentionPage key={user.id} /></Suspense>;
+  }
+
   const deferClientOnboarding =
     coachedClient
     || (isOnboardingDeferred() && !!myCoach);
@@ -333,7 +339,7 @@ function AppRoutes() {
     );
   }
 
-  if (!returningFromCoaching && !activeAssignment?.response && shouldForceKinesiologyIntake({
+  if (!profile?.entry_intent && !returningFromCoaching && !activeAssignment?.response && shouldForceKinesiologyIntake({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,

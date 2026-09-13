@@ -12,6 +12,7 @@ interface ProfileState {
   loading: boolean;
   fetchError: string | null;
   uploadingAvatar: boolean;
+  applyEntryIntention: (userId: string, intent: 'solo' | 'find_coach' | 'coach') => void;
   applyCoachingDeparture: (userId: string, endedAt: string) => void;
   fetchProfile: (userId: string, opts?: { silent?: boolean }) => Promise<void>;
   applyRemoteTargets: (
@@ -49,6 +50,13 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } catch {
       if (isCurrent()) set({ loading: false, fetchError: 'network' });
     }
+  },
+
+  applyEntryIntention: (userId, intent) => {
+    const current = get().profile;
+    if (current?.id !== userId) return;
+    profileRequests.invalidate();
+    set({ profile: { ...current, entry_intent: intent, onboarding_completed: true }, loading: false });
   },
 
   applyCoachingDeparture: (userId, endedAt) => {

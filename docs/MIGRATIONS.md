@@ -13,7 +13,8 @@ Les candidats de la PR #75 restent dans `supabase/changes/` et sont appliqués u
 1. `account_capabilities.sql` — reprise compatible des capacités et contexte de compte ;
 2. `client_end_coach_link.sql` — transition commune et notification privée ;
 3. `coaching_relationship_consistency.sql` — auteur/date de fin et sérialisation des adaptations/attributions ;
-4. `coach_marketplace.sql` — profils opt-in et demandes privées ; aucune activation de coaching ou facturation.
+4. `coach_marketplace.sql` — profils opt-in et demandes privées ; aucune activation de coaching ou facturation ;
+5. `account_entry_intent.sql` — préférence d’entrée, reprise des comptes existants et choix initial atomique.
 
 L’ordre est vérifié avec les tests SQL et les parcours navigateur. Ces fichiers ne doivent pas être ajoutés au lock comme s’ils étaient appliqués. Après validation, leur promotion suit la procédure ci-dessous, avec une vérification distante explicite avant le merge.
 

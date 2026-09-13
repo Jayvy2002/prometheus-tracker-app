@@ -116,6 +116,14 @@ jobs:
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_marketplace.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_marketplace.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_marketplace.sql
+      - name: Account entry intention (local only)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/account_entry_intent.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/account_entry_intent.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_entry_intent.sql
       - name: Candidate local database advisors
         run: supabase db advisors --local --type all --level info --fail-on none --output-format json > /tmp/advisors-after.json
       - name: Inventory effective account permissions

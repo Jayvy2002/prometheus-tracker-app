@@ -24,7 +24,7 @@ Aucune lecture cliente. Lecture : SQL editor / service role (admin produit).
 | Événement | props | Usage produit |
 |---|---|---|
 | `screen_view` | `screen` | navigation réelle |
-| `account_created` | `door`, `from_invite` | acquisition (portes coach/solo/invité) |
+| `account_created` | `door` (`intention_pending` ou `invite` pour la nouvelle entrée), `from_invite` | création de l’identité ; ne prouve ni choix d’intention, ni activation coaché. Les anciennes valeurs coach/solo/invité restent historiques. |
 | `intake_completed` | `revisit`, `targets_computed`, `questionnaire_id`, `questionnaire_version` (ces deux derniers uniquement pour un questionnaire coach) | fin de questionnaire (AUCUN contenu d'intake, AUCUN signal santé) |
 | `invite_created` | `days`, `max_uses` | invitations coach |
 | `invite_accepted` | — | activation coaché |
@@ -67,3 +67,4 @@ Un signal nécessaire au produit mais sensible (ex. accusé médical) reste un
 Tout nouvel événement : nom ajouté d'abord à `ProductEventName`, props relues
 contre la liste d'interdits, ligne ajoutée au tableau ci-dessus **dans le même
 commit** (le test `auditOps` verrouille la parité).
+

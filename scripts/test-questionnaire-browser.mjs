@@ -18,7 +18,7 @@ async function actor(name, role) {
  check(await admin.from('user_profiles').update({full_name:name,language:'en',onboarding_completed:role==='coach'}).eq('id',user.id));
  const client=createClient(url,config.ANON_KEY,{auth:{persistSession:false,autoRefreshToken:false}});
  const { session }=check(await client.auth.signInWithPassword({email,password}));
- return {id:user.id,client,session};
+ return {id:user.id,client,session,email,password};
 }
 const coach=await actor('Questionnaire Coach','coach');
 const athlete=await actor('Questionnaire Athlete','none');
@@ -312,6 +312,29 @@ try {
  await prospectPage.getByText('A selected profile is no longer published. You can still view the others.',{exact:true}).waitFor();
  assert.equal(await prospectPage.getByRole('columnheader',{name:'Other Marketplace Coach',exact:true}).count(),0);
  console.log('PASS: comparison survives reload, shows declared methods and removes unpublished profiles');
+ const newcomer=await actor('Intention Newcomer','none');
+ const loginContext=await browser.newContext({locale:'en-US'});
+ await loginContext.addInitScript(()=>localStorage.setItem('i18nextLng','en'));
+ const loginPage=await loginContext.newPage();pages.push(loginPage);loginPage.setDefaultTimeout(25000);
+ let roleGrantsOnLogin=0;
+ loginPage.on('request',request=>{if(request.url().endsWith('/rest/v1/rpc/set_coaching_role'))roleGrantsOnLogin++;});
+ await loginPage.goto(origin+'/dashboard');
+ await loginPage.locator('input[name="email"]').fill(newcomer.email);
+ await loginPage.locator('input[name="password"]').fill(newcomer.password);
+ await loginPage.getByRole('button',{name:'Sign in',exact:true}).click();
+ await loginPage.getByRole('heading',{name:'What brings you to Prometheus?',exact:true}).waitFor();
+ assert.equal(roleGrantsOnLogin,0);
+ await loginPage.getByRole('button',{name:/Find a coach/}).click();
+ await loginPage.waitForURL('**/coaches');
+ await loginPage.getByRole('heading',{name:'Find a coach',exact:true}).waitFor();
+ const entry=check(await admin.from('user_profiles').select('entry_intent,onboarding_completed').eq('id',newcomer.id).single());
+ assert.equal(entry.entry_intent,'find_coach'); assert.equal(entry.onboarding_completed,true);
+ assert.equal(check(await admin.from('user_roles').select('coaching_role').eq('user_id',newcomer.id).single()).coaching_role,'none');
+ assert.equal(check(await admin.from('coach_client_links').select('id').eq('client_id',newcomer.id)).length,0);
+ await loginPage.reload();
+ await loginPage.getByRole('heading',{name:'Find a coach',exact:true}).waitFor();
+ console.log('PASS: direct identity login, intention after login, persisted coach search without a role or link grant');
+
 
 
 } catch(error) {
