@@ -199,6 +199,35 @@ try {
  });
  assert.deepEqual(isolation,{secondError:'operation_pending',oldError:'session_changed',role:'coach',coach:'coach-B'});
  console.log('PASS: real store ignores old account departure and rejects concurrent local submission');
+
+ // Merely opening a link (or signing back in) must not accept the invitation.
+ const explicitToken='explicit-invite-'+crypto.randomUUID();
+ check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token:explicitToken,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
+ let accepts=0;
+ clientPage.on('request',request=>{if(request.url().endsWith('/rest/v1/rpc/accept_coach_invite'))accepts++;});
+ await clientPage.route('**/rest/v1/rpc/get_coach_invite_preview',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({message:'injected preview outage'})}));
+ await clientPage.goto(origin+'/invite/'+explicitToken);
+ await clientPage.getByText('Unable to check this invitation. Check your connection and try again.',{exact:true}).waitFor();
+ assert.equal(accepts,0);
+ await clientPage.unroute('**/rest/v1/rpc/get_coach_invite_preview');
+ await clientPage.getByRole('button',{name:'Retry',exact:true}).click();
+ await clientPage.getByRole('button',{name:'Accept invite',exact:true}).waitFor();
+ await clientPage.getByText('By accepting, you allow this coach to view your profile and tracking history during your coaching relationship. You keep your data if you end the relationship.',{exact:true}).waitFor();
+ assert.equal(accepts,0);
+ await clientPage.getByRole('button',{name:'Cancel',exact:true}).click();
+ await clientPage.waitForURL('**/dashboard');
+ await clientPage.reload();
+ await clientPage.getByText('Your coaching relationship has ended',{exact:true}).waitFor();
+ assert.equal(accepts,0);
+ assert.equal(check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single()).status,'ended');
+ await clientPage.goto(origin+'/invite/'+explicitToken);
+ await clientPage.getByRole('button',{name:'Accept invite',exact:true}).click();
+ await clientPage.waitForURL('**/dashboard');
+ assert.equal(accepts,1);
+ assert.equal(check(await admin.from('coach_invites').select('use_count').eq('token',explicitToken).single()).use_count,1);
+ assert.equal(check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single()).status,'active');
+ console.log('PASS: invite preview failure/retry, explicit sharing notice, cancel/reload without acceptance, and one confirmed join');
+
 } catch(error) {
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;

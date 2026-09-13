@@ -456,7 +456,7 @@ interface CoachingState {
   revokeInvite: (id: string) => Promise<void>;
   fetchMyCoach: () => Promise<void>;
   acceptInvite: (token: string) => Promise<{ ok: boolean; error?: string; coach_name?: string }>;
-  previewInvite: (token: string) => Promise<{ valid: boolean; coach_name: string | null }>;
+  previewInvite: (token: string) => Promise<{ valid: boolean; coach_name: string | null; error?: string }>;
   fetchClientWorkouts: (clientId: string) => Promise<Workout[]>;
   fetchClientWorkout: (workoutId: string) => Promise<Workout | null>;
   fetchClientNutrition: (clientId: string, date: string) => Promise<{ logs: NutritionLog[]; water: WaterLog[] }>;
@@ -2075,22 +2075,46 @@ fetchMyCoach: async () => {
   },
 
   acceptInvite: async (token) => {
-    const { data, error } = await supabase.rpc('accept_coach_invite', { p_token: token });
-    if (error) return { ok: false, error: error.message };
-    const result = data as { ok?: boolean; error?: string; coach_name?: string };
-    if (!result?.ok) return { ok: false, error: result?.error ?? 'failed' };
-    clearPendingInviteToken();
-    clearIntendedCoachingRole();
-    await get().fetchMyCoach();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) await get().fetchMyRole(user.id);
-    track('invite_accepted');
-    return { ok: true, coach_name: result.coach_name };
+    const accountId = getSessionOwner();
+    if (!accountId) return { ok: false, error: 'not_authenticated' };
+    const operation = roleMutations.begin(accountId);
+    if (!operation) return { ok: false, error: 'operation_pending' };
+    roleRequests.invalidate();
+    coachRequests.invalidate();
+    trackingRequests.invalidate();
+    try {
+      const { data, error } = await supabase.rpc('accept_coach_invite', { p_token: token });
+      if (!operation.isCurrent()) return { ok: false, error: 'session_changed' };
+      if (error) return { ok: false, error: error.message };
+      const result = data as { ok?: boolean; error?: string; coach_id?: string; coach_name?: string } | null;
+      if (result?.ok !== true || typeof result.coach_id !== 'string' || result.coach_id === accountId) {
+        return { ok: false, error: result?.error ?? 'invalid_response' };
+      }
+      clearPendingInviteToken();
+      clearIntendedCoachingRole();
+      const role = get().coachingRole === 'coach' ? 'coach' : 'client';
+      persistRememberedCoachingRole(accountId, role);
+      set({
+        coachingRole: role, roleReady: true, coachingRoleError: null, accountSnapshot: null,
+        myCoach: { id: result.coach_id, full_name: result.coach_name ?? '', avatar_url: '' },
+        myTrackingConfig: cloneTracking(ALL_OFF_TRACKING), trackingReady: false,
+        sentMessages: [], latestCoachMessage: null, unreadMessageCount: 0, threadExhausted: {},
+      });
+      track('invite_accepted');
+      operation.finish();
+      // Confirmation is independent of refreshing the new coach's preview/settings.
+      void get().fetchMyRole(accountId).then(() => get().fetchMyCoach()).catch(() => undefined);
+      return { ok: true, coach_name: result.coach_name };
+    } catch {
+      return { ok: false, error: operation.isCurrent() ? 'network' : 'session_changed' };
+    } finally {
+      operation.finish();
+    }
   },
 
   previewInvite: async (token) => {
     const { data, error } = await supabase.rpc('get_coach_invite_preview', { p_token: token });
-    if (error) return { valid: false, coach_name: null };
+    if (error) return { valid: false, coach_name: null, error: error.message };
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) return { valid: false, coach_name: null };
     return {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, lazy, Suspense, type ReactNode } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from './stores/authStore';
 import { useProfileStore } from './stores/profileStore';
@@ -12,7 +12,6 @@ import { isCoachedAthlete } from './lib/coachRole';
 import { resolveAccountContext } from './lib/accountContext';
 import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
-import { toast } from './components/ui/Toast';
 
 import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
@@ -118,8 +117,9 @@ function ProgramsHome() {
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, updateProfile } = useProfileStore();
-  const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole } = useCoachingStore();
+  const { roleReady, coachingRole, myCoach, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole } = useCoachingStore();
   const { t } = useTranslation();
+  const location = useLocation();
   const [intakeUsage, setIntakeUsage] = useState<IntakeUsageSignals | null>(null);
   const [intakeProbeStatus, setIntakeProbeStatus] = useState<IntakeProbeStatus>('idle');
   const userId = user?.id ?? null;
@@ -160,23 +160,7 @@ function AppRoutes() {
       fetchProfile(userId, { silent: existing?.id === userId });
       void (async () => {
         try {
-          const token = getPendingInviteToken();
-          if (token) {
-            const accepted = await acceptInvite(token);
-            if (accepted.ok) {
-              toast(i18n.t('coaching.invite.accepted', { name: accepted.coach_name || i18n.t('coaching.invite.aCoach') }));
-            } else {
-              const err = accepted.error ?? 'invalid';
-              const key = err === 'expired' ? 'expired'
-                : err === 'used' ? 'used'
-                : err === 'already_coached' ? 'alreadyCoached'
-                : err === 'self' ? 'self'
-                : 'invalid';
-              toast(i18n.t(`coaching.invite.errors.${key}`), 'error');
-            }
-          } else {
-            await applyIntendedCoachingRole();
-          }
+          await applyIntendedCoachingRole();
         } finally {
           await fetchMyRole(userId);
           await fetchMyCoach();
@@ -190,7 +174,7 @@ function AppRoutes() {
       void detachPushOnLogout(getSessionOwner());
       resetSessionStores();
     }
-  }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, acceptInvite, applyIntendedCoachingRole]);
+  }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole]);
 
   // D07 : au retour du réseau, rejoue la file offline du compte courant.
   useEffect(() => {
@@ -271,6 +255,15 @@ function AppRoutes() {
         <Route path="*" element={<AuthPage />} />
       </Routes>
     );
+  }
+
+  // Opening an invitation remembers the destination, never the user's consent.
+  const pendingInvite = getPendingInviteToken();
+  if (pendingInvite && !location.pathname.startsWith('/invite/')) {
+    return <Navigate to={'/invite/' + encodeURIComponent(pendingInvite)} replace />;
+  }
+  if (location.pathname.startsWith('/invite/')) {
+    return <Routes><Route path="/invite/:token" element={<InvitePage />} /></Routes>;
   }
 
   if (profileLoading || !roleReady) {

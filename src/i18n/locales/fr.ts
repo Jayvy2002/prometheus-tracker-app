@@ -1632,6 +1632,9 @@ const fr = {
       notes: 'Aucune note',
     },
     invite: {
+      previewError: 'Impossible de vérifier cette invitation. Vérifie ta connexion et réessaie.',
+      retryError: 'Impossible de rejoindre le coach pour le moment. Réessaie.',
+      sharing: 'En acceptant, tu autorises ce coach à consulter ton profil et ton historique de suivi pendant votre coaching. Tu conserves tes données si tu mets fin à la relation.',
       title: 'Rejoindre ton coach',
       body: '{{name}} t’invite au coaching Prometheus.',
       aCoach: 'ton coach',
@@ -1804,3 +1807,4 @@ const fr = {
 } as const;
 
 export default fr;
+
