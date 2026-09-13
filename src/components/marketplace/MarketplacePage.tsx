@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
 import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
@@ -17,6 +17,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   const { coachId } = useParams();
   const [params, setParams] = useSearchParams();
   const filters = marketFilters(params);
+  const compared = comparisonIds(params);
   const filterKey = JSON.stringify(filters);
   const [revision, setRevision] = useState(0);
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
@@ -97,6 +98,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       }}>{t(`marketplace.action_${action}`)}</Button>)}</div>
     </article>)}</div> : <p>{t('marketplace.noRequests')}</p>}{pagination}</>;
     if (mode === 'directory') return <>
+      {compared.length >= 2 && <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/compare?${params}`}>{t('marketplace.compare')}</Link>}
       <div className="grid gap-3 sm:grid-cols-3">{([['discipline', MARKET_DISCIPLINES], ['language', MARKET_LANGUAGES], ['format', MARKET_FORMATS]] as const).map(([key, values]) => <div key={key} className="space-y-2"><label htmlFor={`market-filter-${key}`}>{t(`marketplace.${key}`)}</label><select id={`market-filter-${key}`} className={fieldStyle} value={filters[key]} onChange={e => {
         const next = new URLSearchParams(params); if (e.target.value) next.set(key, e.target.value); else next.delete(key); setPage(0); setParams(next);
       }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></div>)}</div>
@@ -106,6 +108,10 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <h2 className="font-semibold">{row.public_name}</h2><p className="whitespace-pre-wrap break-words">{row.introduction}</p>
         <p className="text-sm text-neutral-400">{matchingReasons(row, filters).map(reason => t(`marketplace.${reason}`)).join(' · ')}</p>
         <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
+        <label className="flex gap-2 min-h-11 items-center"><input type="checkbox" checked={compared.includes(row.coach_id)} disabled={!compared.includes(row.coach_id) && compared.length >= 3} onChange={e => {
+          const selected = e.target.checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
+          const next = new URLSearchParams(params); if (selected.length) next.set('compare', selected.join(',')); else next.delete('compare'); setParams(next);
+        }} />{t('marketplace.compareCoach', { name: row.public_name })}</label>
       </article>)}
       {pagination}
     </>;

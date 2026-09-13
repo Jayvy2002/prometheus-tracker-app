@@ -43,3 +43,7 @@ export function clearCoachingRequestKey(storage: Pick<Storage, 'removeItem'>, ow
   requestKeys.delete(name);
   try { storage.removeItem(name); } catch { /* Cleanup cannot turn a confirmed write into failure. */ }
 }
+
+export function comparisonIds(params: URLSearchParams): string[] {
+  return [...new Set((params.get('compare') ?? '').split(',').filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)))].slice(0, 3);
+}

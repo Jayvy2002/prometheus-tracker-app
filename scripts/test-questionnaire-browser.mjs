@@ -293,6 +293,26 @@ try {
  await prospectPage.getByText('No available coach matches these criteria. Try broadening your filters.',{exact:true}).waitFor();
  await prospectPage.screenshot({path:'artifacts/questionnaire/marketplace-empty.png',fullPage:true});
  console.log('PASS: marketplace publish, retained filters, explicit minimal sharing, acceptance without dossier access, withdrawal and unpublish');
+ const firstProfile=check(await coach.client.from('coach_profiles').select('*').eq('coach_id',coach.id).single());
+ check(await coach.client.rpc('save_my_coach_profile',{p_profile:{...firstProfile,published:true},p_expected_updated_at:firstProfile.updated_at}));
+ check(await other.client.rpc('save_my_coach_profile',{p_profile:{public_name:'Other Marketplace Coach',introduction:'Another approach.',method:'Monthly discussions.',offer:'Service details available before starting.',disciplines:['strength'],languages:['en'],formats:['online'],published:true,accepting_clients:true}}));
+ await prospectPage.goto(origin+'/coaches');
+ await prospectPage.getByLabel('Compare Coach Marketplace Test',{exact:true}).check();
+ await prospectPage.getByLabel('Compare Other Marketplace Coach',{exact:true}).check();
+ await prospectPage.getByRole('link',{name:'Compare coaches',exact:true}).click();
+ await prospectPage.getByRole('columnheader',{name:'Coach Marketplace Test',exact:true}).waitFor();
+ await prospectPage.getByRole('columnheader',{name:'Other Marketplace Coach',exact:true}).waitFor();
+ await prospectPage.getByRole('cell',{name:'Monthly discussions.',exact:true}).waitFor();
+ await prospectPage.reload();
+ await prospectPage.getByRole('columnheader',{name:'Other Marketplace Coach',exact:true}).waitFor();
+ await prospectPage.screenshot({path:'artifacts/questionnaire/marketplace-comparison.png',fullPage:true});
+ const secondProfile=check(await other.client.from('coach_profiles').select('*').eq('coach_id',other.id).single());
+ check(await other.client.rpc('save_my_coach_profile',{p_profile:{...secondProfile,published:false},p_expected_updated_at:secondProfile.updated_at}));
+ await prospectPage.reload();
+ await prospectPage.getByText('A selected profile is no longer published. You can still view the others.',{exact:true}).waitFor();
+ assert.equal(await prospectPage.getByRole('columnheader',{name:'Other Marketplace Coach',exact:true}).count(),0);
+ console.log('PASS: comparison survives reload, shows declared methods and removes unpublished profiles');
+
 
 } catch(error) {
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});

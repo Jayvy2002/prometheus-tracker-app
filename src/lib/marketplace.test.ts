@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { coachingRequestKey, clearCoachingRequestKey, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from './marketplace';
+import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from './marketplace';
 test('search only accepts implemented criteria and keeps compatible URL filters', () => {
  assert.deepEqual(marketFilters(new URLSearchParams('discipline=unknown&language=en&format=online&score=99')), { discipline:'',language:'en',format:'online' });
 });
@@ -34,4 +34,9 @@ test('disabled browser storage keeps a retry key and cannot turn success into cl
  const first=coachingRequestKey(storage,'no-storage','coach');
  assert.equal(coachingRequestKey(storage,'no-storage','coach'),first);
  assert.doesNotThrow(()=>clearCoachingRequestKey(storage,'no-storage','coach'));
+});
+
+test('comparison accepts at most three unique profile identifiers, never arbitrary query fragments', () => {
+ const ids=[1,2,3,4].map(n=>`a1780000-0000-4000-8000-00000000000${n}`);
+ assert.deepEqual(comparisonIds(new URLSearchParams({compare:[ids[0],ids[0],'invalid',...ids.slice(1)].join(',')})),ids.slice(0,3));
 });

@@ -20,6 +20,7 @@ import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
 // Q05 : routes en lazy — le bundle initial ne porte que l'auth + le shell.
 // Scanner (barcode-detector) et stats (recharts) partent dans leurs propres chunks.
+const CoachComparisonPage = lazy(() => import('./components/marketplace/CoachComparisonPage'));
 const MarketplacePage = lazy(() => import('./components/marketplace/MarketplacePage'));
 const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'));
 const KinesiologyIntakeFlow = lazy(() => import('./components/onboarding/KinesiologyIntakeFlow'));
@@ -295,6 +296,7 @@ function AppRoutes() {
     || location.pathname === '/coach/profile' || location.pathname === '/coaching-requests') {
     return <Suspense fallback={<RouteFallback />}><Routes><Route element={<AppLayout />}>
       <Route path="/coaches" element={<MarketplacePage key={user.id + ':directory'} mode="directory" />} />
+      <Route path="/coaches/compare" element={<CoachComparisonPage key={user.id} />} />
       <Route path="/coaches/:coachId" element={<MarketplacePage key={user.id + location.pathname} mode="detail" />} />
       <Route path="/coach/profile" element={<CoachOnly><MarketplacePage key={user.id + ':profile'} mode="profile" /></CoachOnly>} />
       <Route path="/coaching-requests" element={<MarketplacePage key={user.id + ':requests'} mode="requests" />} />
