@@ -37,8 +37,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   fetchProfile: async (userId, opts) => {
     const current = profileScope(userId);
-    const read = ++profileRead;
     if (!current()) return;
+    const read = ++profileRead;
     if (!opts?.silent) set({ loading: true, fetchError: null });
     const { data, error } = await supabase
       .from('user_profiles')
@@ -93,8 +93,9 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
   uploadAvatar: async (userId, file) => {
     const current = profileScope(userId);
-    if (!current()) return null;
+    if (!current() || get().uploadingAvatar) return null;
     set({ uploadingAvatar: true });
+    try {
     const ext = file.name.split('.').pop() || 'jpg';
     const filePath = `${userId}/avatar.${ext}`;
 
@@ -129,6 +130,11 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     set({ profile: data as UserProfile });
     set({ uploadingAvatar: false });
     return avatarUrl;
+    } catch {
+      return null;
+    } finally {
+      if (current()) set({ uploadingAvatar: false });
+    }
   },
 
   clearProfile: () => {

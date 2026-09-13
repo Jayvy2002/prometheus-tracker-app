@@ -95,6 +95,12 @@ DO $$ DECLARE a public.coach_join_requests; b public.coach_join_requests; BEGIN
     IF SQLERRM <> 'consent_required' THEN RAISE; END IF;
   END;
   a := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Only shared summary', 2, 'a1780000-0000-4000-8000-000000000010');
+  BEGIN
+    PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Old consent', 1, 'a1780000-0000-4000-8000-000000000015');
+    RAISE EXCEPTION 'old consent accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'consent_required' THEN RAISE; END IF;
+  END;
   b := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Retry must not replace the original summary', 2, 'a1780000-0000-4000-8000-000000000010');
   IF a.id <> b.id OR b.summary <> 'Only shared summary' THEN RAISE EXCEPTION 'duplicate request'; END IF;
   BEGIN
@@ -214,11 +220,10 @@ DO $$ BEGIN
   END;
 END $$;
 RESET ROLE;
-DO $ BEGIN
+DO $$ BEGIN
  IF has_function_privilege('authenticated','public.accept_coach_invite(text)','execute') THEN
    RAISE EXCEPTION 'legacy consent bypass remains callable';
  END IF;
-END $;
+END $$;
 ROLLBACK;
 \echo 'marketplace: publication, consent, isolation, acceptance activates coaching, departure restores a new request'
-

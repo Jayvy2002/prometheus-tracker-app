@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import CoachDirectoryCard from './CoachDirectoryCard';
 import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
 import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
 import { track } from '../../lib/telemetryClient';
@@ -132,16 +133,11 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></div>)}</div>
       <p className="text-sm text-neutral-400">{t('marketplace.matchExplanation')}</p>
       {!profiles.length && <p>{t('marketplace.noResults')}</p>}
-      {profiles.map(row => <article key={row.coach_id} className="border border-neutral-800 rounded-xl p-4 space-y-2">
-        <h2 className="font-semibold">{row.public_name}</h2><p className="whitespace-pre-wrap break-words line-clamp-3">{row.introduction}</p>
-        <p className="text-sm text-neutral-400">{matchingReasons(row, filters).map(reason => t(`marketplace.${reason}`)).join(' · ')}</p>
-        <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
-        <label className="flex gap-2 min-h-11 items-center"><input type="checkbox" checked={compared.includes(row.coach_id)} disabled={!compared.includes(row.coach_id) && compared.length >= 3} onChange={e => {
-          const selected = e.target.checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
+      <div className="grid gap-4 md:grid-cols-2">{profiles.map(row => <CoachDirectoryCard key={row.coach_id} profile={row} filters={filters} query={params.toString()} compared={compared.includes(row.coach_id)} comparisonFull={compared.length >= 3} onCompare={checked => {
+          const selected = checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
           setCompared(selected);
           const next = new URLSearchParams(params); if (selected.length) next.set('compare', selected.join(',')); else next.delete('compare'); setParams(next);
-        }} />{t('marketplace.compareCoach', { name: row.public_name })}</label>
-      </article>)}
+        }} />)}</div>
       {pagination}
     </>;
     if (!profile) return <p>{t('marketplace.unavailable')}</p>;
@@ -189,7 +185,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       </fieldset></form>}
     </div>;
   };
-  return <div className="p-4 md:p-6 pb-28 space-y-5">
+  return <div className="mx-auto w-full max-w-5xl p-4 md:p-6 pb-28 space-y-5">
     <h1 className="text-2xl font-semibold">{title}</h1>
     <nav className="flex flex-wrap gap-2">
       <Link aria-current={mode === 'directory' || mode === 'detail' ? 'page' : undefined} className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'directory' || mode === 'detail' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to={`/coaches?${params}`}>{t('marketplace.directory')}</Link>
