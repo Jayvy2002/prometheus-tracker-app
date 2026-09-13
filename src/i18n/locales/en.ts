@@ -91,6 +91,17 @@ const en = {
     coaching: 'Coaching',
   },
 
+  entryIntention: {
+    title: 'What brings you to Prometheus?',
+    solo: 'Train on my own',
+    soloHint: 'Log sessions and track my progress.',
+    find_coach: 'Find a coach',
+    find_coachHint: 'Choose support that fits my needs.',
+    coach: 'I am a coach',
+    coachHint: 'Manage my athletes and meet new ones.',
+    error: 'Your choice could not be saved. Please try again.',
+  },
+
   auth: {
     emailAddress: 'Email address',
     password: 'Password',

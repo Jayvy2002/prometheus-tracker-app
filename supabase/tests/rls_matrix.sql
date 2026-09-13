@@ -489,6 +489,21 @@ BEGIN
   END IF;
 END $$;
 
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.choose_account_intent(text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.choose_account_intent(text)', 'execute')
+     AND EXISTS (
+       SELECT 1 FROM information_schema.columns
+       WHERE table_schema = 'public' AND table_name = 'user_profiles' AND column_name = 'entry_intent'
+     )
+  THEN
+    PERFORM pg_temp.record('ACCOUNT_INTENT_GRANTS', true, 'intention granted; anon revoked');
+  ELSE
+    PERFORM pg_temp.record('ACCOUNT_INTENT_GRANTS', false, 'account intention grants mismatch');
+  END IF;
+END $$;
+
 -- A1 ne peut pas assigner P_B via la RPC.
 DO $$
 DECLARE

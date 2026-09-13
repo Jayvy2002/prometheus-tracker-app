@@ -158,34 +158,27 @@ test('in-flight submit is not launched twice; empty creds do not call signIn', a
   assert.equal(calls, 0);
 });
 
-test('auth doors: coach and solo register freely; coached client only via invite', () => {
+test('identity registration does not require an invitation or a permanent role', () => {
   assert.equal(authDoorCanRegister('coach', false), true);
   assert.equal(authDoorCanRegister('solo', false), true);
-  assert.equal(authDoorCanRegister('client', false), false);
+  assert.equal(authDoorCanRegister('client', false), true);
   assert.equal(authDoorCanRegister('client', true), true);
-  assert.equal(authDoorCanRegister(null, false), false);
+  assert.equal(authDoorCanRegister(null, false), true);
 });
 
-test('AuthPage: three doors; client stays login-only unless invited; first submit is not gated on auth loading', () => {
+test('AuthPage: identity login keeps first-submit behavior without granting roles', () => {
   const page = src('src/components/auth/AuthPage.tsx');
-  assert.match(page, /canRegister = authDoorCanRegister\(role, fromInvite\)/);
-  assert.match(page, /chooseRole\('solo'\)/);
-  assert.match(page, /auth\.soloEntry/);
-  assert.match(page, /auth\.goSolo/);
+  assert.match(page, /canRegister = authDoorCanRegister\(null, fromInvite\)/);
   assert.match(page, /credentialsFromLoginForm/);
   assert.match(page, /submitClientLogin|submittingRef/);
   assert.match(page, /name="email"/);
   assert.match(page, /name="password"/);
   assert.match(page, /pressOnly/);
-  assert.match(page, /auth\.clientNeedsInvite/);
-  assert.match(page, /auth\.signingInAsClient/);
-  assert.match(page, /chooseRole\('client'\)/);
-  assert.match(page, /chooseRole\('coach'\)/);
   assert.match(page, /clientLoginErrorCopy/);
   assert.doesNotMatch(page, /useAuthStore\([^)]*loading/);
   assert.doesNotMatch(page, /disabled=\{!initialized/);
   assert.doesNotMatch(page, /disabled=\{authLoading/);
-  assert.doesNotMatch(page, /setIntendedCoachingRole\('client'\)/);
+  assert.doesNotMatch(page, /setIntendedCoachingRole\(/);
 
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /clientNeedsInvite: 'Pas encore de compte \? Ton coach t’envoie un lien/);

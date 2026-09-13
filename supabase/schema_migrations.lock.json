@@ -415,6 +415,10 @@
     {
       "version": "20260913191435",
       "name": "account_capabilities"
+    },
+    {
+      "version": "20260913192450",
+      "name": "account_entry_intent"
     }
   ]
 }

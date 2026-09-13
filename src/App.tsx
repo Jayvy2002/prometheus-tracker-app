@@ -22,6 +22,7 @@ import InvitePage from './components/coaching/InvitePage';
 // Scanner (barcode-detector) et stats (recharts) partent dans leurs propres chunks.
 const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'));
 const KinesiologyIntakeFlow = lazy(() => import('./components/onboarding/KinesiologyIntakeFlow'));
+const EntryIntentionPage = lazy(() => import('./components/onboarding/EntryIntentionPage'));
 import {
   intakeGateNeedsUsageProbe,
   shouldForceKinesiologyIntake,
@@ -295,6 +296,21 @@ function AppRoutes() {
           {t('errors.retry')}
         </button>
       </div>
+    );
+  }
+
+  if (
+    profile
+    && 'entry_intent' in profile
+    && !profile.entry_intent
+    && !returningFromCoaching
+    && !coachedClient
+    && !getPendingInviteToken()
+  ) {
+    return (
+      <Suspense fallback={<RouteFallback />}>
+        <EntryIntentionPage key={user.id} />
+      </Suspense>
     );
   }
 

@@ -91,6 +91,17 @@ const fr = {
     coaching: 'Coaching',
   },
 
+  entryIntention: {
+    title: 'Qu’est-ce qui t’amène sur Prometheus ?',
+    solo: 'M’entraîner seul',
+    soloHint: 'Enregistrer mes séances et suivre ma progression.',
+    find_coach: 'Trouver un coach',
+    find_coachHint: 'Choisir un accompagnement adapté à mes besoins.',
+    coach: 'Je suis coach',
+    coachHint: 'Gérer mes clients et en rencontrer de nouveaux.',
+    error: 'Le choix n’a pas pu être enregistré. Réessaie.',
+  },
+
   auth: {
     emailAddress: 'Adresse e-mail',
     password: 'Mot de passe',

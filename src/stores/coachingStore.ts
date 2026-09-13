@@ -334,6 +334,7 @@ interface CoachingState {
   progressPhotosEpoch: number;
   fetchMyRole: (userId: string) => Promise<void>;
   selectAccountWorkspace: (workspace: AccountWorkspace) => void;
+  chooseEntryIntention: (intent: 'solo' | 'find_coach' | 'coach') => Promise<{ error: string | null }>;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
   enableCoachMode: () => Promise<{ error: string | null }>;
@@ -563,6 +564,26 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     if (!accountId || snapshot?.userId !== accountId || !snapshot.coachCapability) return;
     persistAccountWorkspace(accountId, workspace);
     set({ accountWorkspace: workspace });
+  },
+
+  chooseEntryIntention: async (intent) => {
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    if (endMyCoachLinkInFlight || acceptInviteInFlight) return { error: 'operation_pending' };
+    const { data, error } = await supabase.rpc('choose_account_intent', { p_intent: intent });
+    if (getSessionOwner() !== accountId) return { error: 'session_changed' };
+    if (error) return { error: error.message };
+    const payload = data as { user_id?: string; intent?: string; coaching_role?: string } | null;
+    if (!payload || payload.user_id !== accountId || payload.intent !== intent
+      || !['none', 'client', 'coach'].includes(String(payload.coaching_role))) {
+      return { error: 'invalid_response' };
+    }
+    const role = payload.coaching_role as CoachingRole;
+    persistRememberedCoachingRole(accountId, role);
+    useProfileStore.getState().applyEntryIntention(accountId, intent);
+    set({ coachingRole: role, roleReady: true, coachingRoleError: null });
+    await get().fetchMyRole(accountId);
+    return { error: null };
   },
 
   setCoachingRole: async (role) => {
