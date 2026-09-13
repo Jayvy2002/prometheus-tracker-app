@@ -7,6 +7,7 @@ import { useWorkoutStore } from './stores/workoutStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 import { resetSessionStores } from './lib/resetStores';
 import { getSessionOwner } from './lib/sessionScope';
+import { resolveAccountContext } from './lib/accountContext';
 import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
 import i18n, { setAppLanguage } from './i18n';
@@ -66,38 +67,52 @@ function RouteFallback() {
   );
 }
 
+function useAccountContext() {
+  const role = useCoachingStore(s => s.coachingRole);
+  const coach = useCoachingStore(s => s.myCoach);
+  const ready = useCoachingStore(s => s.roleReady);
+  const snapshot = useCoachingStore(s => s.accountSnapshot);
+  const workspace = useCoachingStore(s => s.accountWorkspace);
+  return resolveAccountContext(role, coach, ready, snapshot, workspace);
+}
+
 function HomeDashboard() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  return coachingRole === 'coach' ? <CoachDashboard /> : <Dashboard />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  return context.activeWorkspace === 'coaching' ? <CoachDashboard /> : <Dashboard />;
 }
 
 function CoachOnly({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole !== 'coach') return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (!context.capabilities.coach) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function MessagesHome() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  return coachingRole === 'coach' ? <CoachInboxPage /> : <ClientMessagesPage />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  return context.activeWorkspace === 'coaching' ? <CoachInboxPage /> : <ClientMessagesPage />;
 }
 
 function CoachTrackerRedirect({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole === 'coach') return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (!context.personalToolsAvailable) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  if (isCoachedAthlete(coachingRole, myCoach)) return <Navigate to="/dashboard" replace />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (context.personalCoaching === 'coached') return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 function ProgramsHome() {
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  if (coachingRole === 'coach') return <ProgramsPage />;
+  const context = useAccountContext();
+  if (!context.ready) return <RouteFallback />;
+  if (context.activeWorkspace === 'coaching') return <ProgramsPage />;
   return <ClientProgramPage />;
 }
 

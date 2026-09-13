@@ -86,6 +86,13 @@ import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
 import { getSessionOwner } from '../lib/sessionScope';
 import { directInviteConsentArgs } from '../lib/relationshipConsent';
+import {
+  loadAccountWorkspace,
+  persistAccountWorkspace,
+  readAccountRole,
+  type AccountSnapshot,
+  type AccountWorkspace,
+} from '../lib/accountContext';
 
 let endMyCoachLinkInFlight = false;
 let acceptInviteInFlight = false;
@@ -293,6 +300,8 @@ interface CoachingState {
   coachingRole: CoachingRole;
   roleReady: boolean;
   coachingRoleError: string | null;
+  accountSnapshot: AccountSnapshot | null;
+  accountWorkspace: AccountWorkspace;
   loading: boolean;
   clients: CoachClientSummary[];
   clientsFetchError: string | null;
@@ -324,6 +333,7 @@ interface CoachingState {
   } | null;
   progressPhotosEpoch: number;
   fetchMyRole: (userId: string) => Promise<void>;
+  selectAccountWorkspace: (workspace: AccountWorkspace) => void;
   setCoachingRole: (role: CoachingRole) => Promise<{ error: string | null }>;
   applyIntendedCoachingRole: () => Promise<void>;
   enableCoachMode: () => Promise<{ error: string | null }>;
@@ -470,6 +480,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   coachingRole: 'none',
   roleReady: false,
   coachingRoleError: null,
+  accountSnapshot: null,
+  accountWorkspace: 'personal',
   loading: false,
   clients: [],
   clientsFetchError: null,
@@ -498,11 +510,11 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   fetchMyRole: async (userId) => {
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const { data, error, snapshot } = await readAccountRole(
+        userId,
+        () => supabase.rpc('get_my_account_context'),
+        () => supabase.from('user_roles').select('coaching_role').eq('user_id', userId).maybeSingle(),
+      );
       const outcome = nextRoleAfterFetch({
         previous,
         data: data as { coaching_role?: string | null } | null,
@@ -511,6 +523,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       if (outcome.error) {
         set({
           coachingRole: outcome.role,
+          accountSnapshot: null,
+          accountWorkspace: 'personal',
           coachingRoleError: outcome.error,
           roleReady: true,
         });
@@ -521,6 +535,10 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       persistRememberedCoachingRole(userId, role);
       set({
         coachingRole: role,
+        accountSnapshot: snapshot,
+        accountWorkspace: snapshot?.coachCapability
+          ? loadAccountWorkspace(userId) ?? 'coaching'
+          : 'personal',
         roleReady: true,
         coachingRoleError: null,
         ...(role === 'client'
@@ -530,6 +548,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     } catch {
       set({
         coachingRole: previous,
+        accountSnapshot: null,
+        accountWorkspace: 'personal',
         coachingRoleError: 'network',
         roleReady: true,
       });
@@ -537,10 +557,23 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     }
   },
 
+  selectAccountWorkspace: (workspace) => {
+    const accountId = getSessionOwner();
+    const snapshot = get().accountSnapshot;
+    if (!accountId || snapshot?.userId !== accountId || !snapshot.coachCapability) return;
+    persistAccountWorkspace(accountId, workspace);
+    set({ accountWorkspace: workspace });
+  },
+
   setCoachingRole: async (role) => {
     const { data, error } = await supabase.rpc('set_coaching_role', { p_role: role });
     if (error) return { error: error.message };
-    set({ coachingRole: (data as CoachingRole) || role });
+    const accountId = getSessionOwner();
+    if (accountId) {
+      await get().fetchMyRole(accountId);
+    } else {
+      set({ coachingRole: (data as CoachingRole) || role });
+    }
     return { error: null };
   },
 
@@ -2193,6 +2226,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       if (typeof payload.ended_at === 'string') {
         useProfileStore.getState().applyCoachingDeparture(accountId, payload.ended_at);
       }
+      const snapshot = get().accountSnapshot;
       set({
         coachingRole: role,
         roleReady: true,
@@ -2204,6 +2238,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
         unreadMessageCount: 0,
         sentMessages: [],
         threadExhausted: {},
+        accountSnapshot: snapshot && snapshot.userId === accountId
+          ? { ...snapshot, activeCoachId: null, legacyRole: role }
+          : snapshot,
       });
       return { error: null };
     } catch {
@@ -2240,6 +2277,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       coachingRole: 'none',
       roleReady: false,
       coachingRoleError: null,
+      accountSnapshot: null,
+      accountWorkspace: 'personal',
       clients: [],
       clientsFetchError: null,
       invites: [],

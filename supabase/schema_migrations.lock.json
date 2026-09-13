@@ -411,6 +411,10 @@
     {
       "version": "20260913185941",
       "name": "relationship_consent"
+    },
+    {
+      "version": "20260913191435",
+      "name": "account_capabilities"
     }
   ]
 }

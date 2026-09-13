@@ -85,6 +85,12 @@ const fr = {
     prometheus: 'Prometheus',
   },
 
+  accountSpaces: {
+    label: 'Espace',
+    personal: 'Personnel',
+    coaching: 'Coaching',
+  },
+
   auth: {
     emailAddress: 'Adresse e-mail',
     password: 'Mot de passe',

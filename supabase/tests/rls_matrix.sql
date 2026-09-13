@@ -161,6 +161,9 @@ BEGIN
     DELETE FROM public.coaching_relationship_consents WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
   END IF;
   DELETE FROM public.user_roles WHERE user_id = ANY (v_ids);
+  IF to_regclass('public.user_capabilities') IS NOT NULL THEN
+    DELETE FROM public.user_capabilities WHERE user_id = ANY (v_ids);
+  END IF;
   DELETE FROM public.user_profiles WHERE id = ANY (v_ids);
   DELETE FROM auth.identities WHERE user_id = ANY (v_ids);
   DELETE FROM auth.users WHERE id = ANY (v_ids);
@@ -470,6 +473,19 @@ BEGIN
     PERFORM pg_temp.record('ACCEPT_CONSENT_GRANTS', true, 'legacy 1-arg kept; 3-arg granted; anon revoked');
   ELSE
     PERFORM pg_temp.record('ACCEPT_CONSENT_GRANTS', false, 'invite consent grants mismatch');
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.get_my_account_context()', 'execute')
+     AND NOT has_function_privilege('anon', 'public.get_my_account_context()', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.sync_legacy_coach_capability()', 'execute')
+     AND to_regclass('public.user_capabilities') IS NOT NULL
+  THEN
+    PERFORM pg_temp.record('ACCOUNT_CONTEXT_GRANTS', true, 'context granted; sync helper revoked');
+  ELSE
+    PERFORM pg_temp.record('ACCOUNT_CONTEXT_GRANTS', false, 'account context grants mismatch');
   END IF;
 END $$;
 
