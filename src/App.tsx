@@ -9,7 +9,7 @@ import { resetSessionStores } from './lib/resetStores';
 import { getSessionOwner } from './lib/sessionScope';
 import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
-import { resolveLegacyAccountContext } from './lib/accountContext';
+import { resolveAccountContext } from './lib/accountContext';
 import i18n, { setAppLanguage } from './i18n';
 import TrackingGate from './components/coaching/TrackingGate';
 import { toast } from './components/ui/Toast';
@@ -71,7 +71,8 @@ function useAccountContext() {
   const role = useCoachingStore(s => s.coachingRole);
   const coach = useCoachingStore(s => s.myCoach);
   const ready = useCoachingStore(s => s.roleReady);
-  return resolveLegacyAccountContext(role, coach, ready);
+  const snapshot = useCoachingStore(s => s.accountSnapshot);
+  return resolveAccountContext(role, coach, ready, snapshot);
 }
 
 function HomeDashboard() {
@@ -410,3 +411,4 @@ export default function App() {
     </BrowserRouter>
   );
 }
+

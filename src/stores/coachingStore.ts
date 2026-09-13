@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { readAccountRole, type AccountSnapshot } from '../lib/accountContext';
 import { supabase } from '../lib/supabase';
 import type {
   ClientOpsRow,
@@ -294,6 +295,7 @@ const dossierChannels = new Map<string, RealtimeChannel>();
 interface CoachingState {
   coachingRole: CoachingRole;
   roleReady: boolean;
+  accountSnapshot: AccountSnapshot | null;
   coachingRoleError: string | null;
   loading: boolean;
   clients: CoachClientSummary[];
@@ -471,6 +473,7 @@ interface CoachingState {
 export const useCoachingStore = create<CoachingState>((set, get) => ({
   coachingRole: 'none',
   roleReady: false,
+  accountSnapshot: null,
   coachingRoleError: null,
   loading: false,
   clients: [],
@@ -503,11 +506,11 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     if (!isCurrent) return;
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const { data, error, snapshot } = await readAccountRole(
+        userId,
+        () => supabase.rpc('get_my_account_context'),
+        () => supabase.from('user_roles').select('coaching_role').eq('user_id', userId).maybeSingle(),
+      );
       if (!isCurrent()) return;
       const outcome = nextRoleAfterFetch({
         previous,
@@ -527,6 +530,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       persistRememberedCoachingRole(userId, role);
       set({
         coachingRole: role,
+        accountSnapshot: snapshot,
         roleReady: true,
         coachingRoleError: null,
         ...(role === 'client'
@@ -557,7 +561,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
       const confirmed = parseRememberedCoachingRole(typeof data === 'string' ? data : null);
       if (!confirmed) return { error: 'invalid_role_response' };
       persistRememberedCoachingRole(accountId, confirmed);
-      set({ coachingRole: confirmed, coachingRoleError: null });
+      set({ coachingRole: confirmed, coachingRoleError: null, accountSnapshot: null });
       return { error: null };
     } catch {
       return { error: operation.isCurrent() ? 'network' : 'session_changed' };
@@ -2225,6 +2229,7 @@ fetchMyCoach: async () => {
       }
       set({
         coachingRole: role,
+        accountSnapshot: null,
         roleReady: true,
         coachingRoleError: null,
         myCoach: null,
@@ -2288,6 +2293,7 @@ fetchMyCoach: async () => {
     set({
       coachingRole: 'none',
       roleReady: false,
+  accountSnapshot: null,
       coachingRoleError: null,
       clients: [],
       clientsFetchError: null,
@@ -2315,3 +2321,4 @@ fetchMyCoach: async () => {
     });
   },
 }));
+
