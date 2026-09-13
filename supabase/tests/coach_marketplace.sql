@@ -94,8 +94,8 @@ DO $$ DECLARE a public.coach_join_requests; b public.coach_join_requests; BEGIN
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'consent_required' THEN RAISE; END IF;
   END;
-  a := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Only shared summary', 1, 'a1780000-0000-4000-8000-000000000010');
-  b := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Retry must not replace the original summary', 1, 'a1780000-0000-4000-8000-000000000010');
+  a := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Only shared summary', 2, 'a1780000-0000-4000-8000-000000000010');
+  b := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Retry must not replace the original summary', 2, 'a1780000-0000-4000-8000-000000000010');
   IF a.id <> b.id OR b.summary <> 'Only shared summary' THEN RAISE EXCEPTION 'duplicate request'; END IF;
   BEGIN
     PERFORM public.respond_coaching_request(a.id, 'accepted');
@@ -126,7 +126,7 @@ DO $$ DECLARE p public.coach_profiles; BEGIN
 END $$;
 SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000003');
 DO $$ BEGIN
-  PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000002', 'Client', 'Second coach while waiting', 1, 'a1780000-0000-4000-8000-000000000012');
+  PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000002', 'Client', 'Second coach while waiting', 2, 'a1780000-0000-4000-8000-000000000012');
 END $$;
 SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000001');
 DO $$ DECLARE r public.coach_join_requests; BEGIN
@@ -174,7 +174,7 @@ DO $$ DECLARE r public.coach_join_requests; ended jsonb; BEGIN
     IF SQLERRM <> 'request_closed' THEN RAISE; END IF;
   END;
   BEGIN
-    PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000002', 'Client', 'Already coached', 1, 'a1780000-0000-4000-8000-000000000013');
+    PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000002', 'Client', 'Already coached', 2, 'a1780000-0000-4000-8000-000000000013');
     RAISE EXCEPTION 'second coach requested while linked';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'already_coached' THEN RAISE; END IF;
@@ -184,7 +184,7 @@ DO $$ DECLARE r public.coach_join_requests; ended jsonb; BEGIN
   END IF;
   ended := public.client_end_coach_link();
   IF ended->>'ok' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'directory departure failed'; END IF;
-  r := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Only shared summary', 1, 'a1780000-0000-4000-8000-000000000014');
+  r := public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Client', 'Only shared summary', 2, 'a1780000-0000-4000-8000-000000000014');
   IF r.status <> 'pending' THEN RAISE EXCEPTION 'new request after departure blocked'; END IF;
 END $$;
 SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000001');
@@ -198,7 +198,7 @@ DO $$ BEGIN
     RAISE EXCEPTION 'stranger saw another users requests';
   END IF;
   BEGIN
-    PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Stranger', 'Summary', 1, 'a1780000-0000-4000-8000-000000000011');
+    PERFORM public.request_coaching('a1780000-0000-4000-8000-000000000001', 'Stranger', 'Summary', 2, 'a1780000-0000-4000-8000-000000000011');
     RAISE EXCEPTION 'unpublished coach requested';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'coach_unavailable' THEN RAISE; END IF;

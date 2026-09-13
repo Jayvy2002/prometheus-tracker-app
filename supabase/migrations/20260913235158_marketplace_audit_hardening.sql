@@ -239,5 +239,3 @@ $$;
 
 REVOKE ALL ON FUNCTION public.respond_coaching_request(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.respond_coaching_request(uuid, text) TO authenticated;
-
-

@@ -126,12 +126,11 @@ jobs:
           npm ci
           npm install --no-save --package-lock=false playwright@1.56.1
           npx playwright install --with-deps chromium
-      - name: Audit hardening candidate (isolated database only)
+      - name: Audit hardening regression (migrated database)
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: |
           set -euo pipefail
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/marketplace_audit_hardening.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/marketplace_audit_hardening.sql
       - name: Questionnaire browser journey (local Supabase only)
         run: node scripts/test-questionnaire-browser.mjs

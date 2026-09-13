@@ -11,14 +11,14 @@ function src(rel: string): string {
 test('directory writes go through RPCs; coach accept activates the coaching link without billing', () => {
   const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
   const mig = latest.sql;
-  assert.match(latest.file, /_marketplace_activate_link\.sql$/);
+  assert.match(latest.file, /_marketplace_audit_hardening\.sql$/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.request_coaching\(uuid, text, text, integer, uuid\) TO authenticated/);
   assert.match(mig, /REVOKE ALL ON FUNCTION public\.request_coaching\(uuid, text, text, integer, uuid\) FROM PUBLIC, anon, authenticated/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.respond_coaching_request\(uuid, text\) TO authenticated/);
-  assert.match(mig, /CREATE OR REPLACE FUNCTION public\.activate_coaching_relationship\(p_coach uuid, p_client uuid\)/);
-  assert.match(mig, /REVOKE ALL ON FUNCTION public\.activate_coaching_relationship\(uuid, uuid\) FROM PUBLIC, anon, authenticated/);
+  const activation = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.activate_coaching_relationship').sql;
+  assert.match(activation, /REVOKE ALL ON FUNCTION public\.activate_coaching_relationship\(uuid, uuid\) FROM PUBLIC, anon, authenticated/);
   assert.doesNotMatch(mig, /GRANT EXECUTE ON FUNCTION public\.activate_coaching_relationship\(uuid, uuid\) TO authenticated/);
-  assert.match(mig, /INSERT INTO public\.coach_client_links/);
+  assert.match(activation, /INSERT INTO public\.coach_client_links/);
   assert.match(mig, /source, consent_version, scopes/);
   assert.match(mig, /directory_request/);
   assert.doesNotMatch(mig, /INSERT INTO public\.subscriptions/);
