@@ -6,25 +6,25 @@
 >
 > **Instruction pour les agents :** lire la Vision pour les principes et le Chantier pour les statuts et priorités. Ici, conserver les contrats de parcours et leurs dépendances ; ne pas créer un deuxième backlog ni supprimer une fonctionnalité existante pour obtenir une architecture plus élégante. Mettre à jour les constats lorsque leurs sources changent.
 
-**Référence : vision détaillée fournie par le propriétaire le 12 septembre 2026.** Analyse documentaire et statique ; aucun parcours navigateur, replay SQL ou inventaire live supplémentaire exécuté pour ce document.
+**Référence : vision détaillée fournie par le propriétaire le 12 septembre 2026.** Analyse documentaire et statique. Les lots M1–M5 existent dans le code et SQL de `new-JV` ; leur statut (À vérifier, pas Terminé) est uniquement dans `CHANTIER.md`. Cette carte ne prouve aucun smoke utilisateur.
 
 ## 1. Conclusion de la revue
 
-Prometheus possède déjà son moteur de suivi et une plateforme coach. La transformation prioritaire est la couche qui relie identité, intention, découverte d’un coach, engagement et suivi. Il faut faire évoluer les droits et les parcours avant d’ajouter des fonctions isolées au tracker.
+Prometheus possède déjà son moteur de suivi, une plateforme coach et une première couche marketplace (annuaire opt-in, demande, activation du lien sans paiement). Il reste à fumer ces parcours, puis à élever la qualité de la rencontre (matching expliqué, accueils contextuels) avant tout billing.
 
 Les données personnelles restent attachées à l’utilisateur. Solo et coaché décrivent sa situation d’accompagnement ; coach décrit une capacité professionnelle. L’espace affiché ne décide jamais des droits.
 
 ### Périmètre et preuves
 
-Sources relues sur `new-JV` le 12–13 septembre 2026 : routes, authentification, rôles, accueil, console coach, stores de programmes et coaching, API questionnaires, file hors ligne, types et migrations ciblées. Les lots M1–M5 se construisent ensuite, un par un ; leur statut est uniquement dans `CHANTIER.md`. Cette carte ne prouve aucun déploiement.
+Sources relues sur `new-JV` le 12–13 septembre 2026, puis recoupées le 13 septembre après merge des lots M1–M5 : routes, authentification, rôles, accueil, console coach, stores, marketplace, API questionnaires, file hors ligne, types et migrations. Le statut des lots reste uniquement dans `CHANTIER.md`. Cette carte ne prouve aucun smoke.
 
 La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve de production. Les absences ci-dessous signifient « non raccordé au parcours dans les sources inspectées », à confirmer par inventaire complet avant création d’une table ou d’un service. Les extraits historiques SQL doivent être confrontés à toutes les redéfinitions ultérieures lors de l’implémentation.
 
 | Domaine | Constat vérifiable | Réutilisation / écart |
 |---|---|---|
 | Identité | [authStore](../src/stores/authStore.ts) utilise email/mot de passe, récupération et session | Réutiliser Auth. Google/Apple ne sont pas exposés par ce store ; configuration et parcours complets restent à vérifier/construire. |
-| Entrée | [AuthPage](../src/components/auth/AuthPage.tsx) choisit un rôle avant le formulaire ; une inscription client sans invitation est refusée | Remplacer cette orientation par l’intention après création du compte, avec connexion directe pour les habitués. |
-| Rôles | [types](../src/lib/types.ts) expose `coaching_role = none/coach/client` ; [coachRole](../src/lib/coachRole.ts) exclut le coach du solo | État exclusif incompatible avec coach + entraînement personnel. Introduire une projection de capacités progressivement. |
+| Entrée | [AuthPage](../src/components/auth/AuthPage.tsx) se connecte sans choisir un rôle ; [EntryIntentionPage](../src/components/onboarding/EntryIntentionPage.tsx) enregistre `entry_intent` après identité | Connexion directe livrée (M3, à vérifier). OAuth Google/Apple toujours hors périmètre. |
+| Rôles | `coaching_role` historique coexiste avec [accountContext](../src/lib/accountContext.ts) (`coachCapability`, espaces Personnel/Coaching) | Projection M1 en place ; l’espace UI ne confère aucun droit. Parcours coach lui-même coaché non fumé. |
 | Routage | [App](../src/App.tsx) contient `CoachTrackerRedirect`, `CoachOnly`, `CoachedAthleteRedirect` | Plusieurs routes personnelles sont interdites au coach ; stats et calendrier sont aussi bloqués pour le coaché. Ouvrir selon propriété et type d’action, sans ouvrir l’édition du plan coach. |
 | Onboarding | App possède plusieurs portes globales de questionnaire, dont questionnaire coach incomplet | Réutiliser les composants ; séparer configuration minimale, recherche et prise en charge. Ne pas bloquer messages/historique par un questionnaire global. |
 | Moteur séances | `Workout.user_id`, `Routine.user_id` ; [startWorkout](../src/lib/startWorkout.ts) appelle une RPC commune avec routine ou programme assigné | Conserver les identifiants et cette entrée commune. Aucun deuxième moteur coaché. Import externe non prouvé par cette lecture. |
@@ -32,14 +32,14 @@ La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve d
 | Erreurs programmes | `fetchPrograms` remplace la liste par vide en cas d’échec ; `fetchProgram` renvoie null pour plusieurs causes | Rendre les résultats typés : vide, inaccessible, absent et erreur réseau doivent mener à des issues différentes. |
 | Accueil personnel | [Dashboard](../src/components/dashboard/Dashboard.tsx) contient déjà logique coaché, carte séance, revue solo et bannière de départ | Composer deux accueils contextuels avec ces éléments, conserver les fonctions communes. Réduire les chargements aux données utiles. |
 | Console coach | [CoachDashboard](../src/components/coaching/CoachDashboard.tsx) réutilise priorités, file du jour, bilans, invitations et erreurs partielles | Préserver le centre de décisions ; ajouter les prospects dans une zone distincte du suivi des clients. |
-| Invitations | [coachingStore](../src/stores/coachingStore.ts) appelle `accept_coach_invite`, aperçu et rafraîchissement | Conserver l’entrée des clients existants. Lier les futures demandes au même invariant d’association côté serveur. |
+| Invitations | [coachingStore](../src/stores/coachingStore.ts) appelle `accept_coach_invite` (3-arg) ; l’annuaire passe par `activate_coaching_relationship` interne | Même invariant d’association invitation / demande. Overload 1-arg encore granted (M2b-2). |
 | Questionnaires | [coachQuestionnaireApi](../src/lib/coachQuestionnaireApi.ts), [migration questionnaire](../supabase/migrations/20260911235551_coach_questionnaires.sql) : versions et réponses avec révision | Réutiliser rendu/validation et historique. Le questionnaire de recherche a un contrat séparé ; pas de réécriture des anciennes réponses. |
 | IA personnelle | [migration self-coach](../supabase/migrations/20260906023512_solo_self_coach.sql) utilise une intervention sur soi ; son prédicat historique exige `none` | Auditer les redéfinitions SQL et les Edge Functions avant d’autoriser le coach dans son espace personnel. Aucun auto-lien de coaching. |
-| Départ | [soloTransition](../src/lib/soloTransition.ts), `end_coach_client_link` côté coach, archives/adoption | Le départ **client** autonome n’est pas livré. À construire au lot M2 en réutilisant la transition commune, sans voie parallèle. |
+| Départ | [soloTransition](../src/lib/soloTransition.ts), `end_coach_client_link` côté coach, `client_end_coach_link` côté client, [ClientCoachRelationshipPanel](../src/components/coaching/ClientCoachRelationshipPanel.tsx) | M2a en code (À vérifier). Réutilise la transition commune. Smoke profil encore à faire. |
 | Hors ligne | [offlineQueue](../src/lib/offlineQueue.ts) porte compte, identifiants stables, mapping et dead-letter ; [sessionScope](../src/lib/sessionScope.ts) fournit isolation et générations | Réutiliser pour les séances. Ne pas promettre une marketplace ou des paiements utilisables hors ligne. |
-| Marketplace | Absente du code livré | Premier parcours (M4–M5) : filtres exacts, profil opt-in, demande privée. Matching guidé, capacité réelle, modération et activation (M6) restent distincts. |
+| Marketplace | [MarketplacePage](../src/components/marketplace/MarketplacePage.tsx), `coach_profiles`, `coach_join_requests`, `respond_coaching_request` | M4–M5 en code (À vérifier) : filtres exacts, profil opt-in, demande privée, acceptation = lien sans paiement. Matching guidé, questionnaire de recherche dédié, modération et billing (M6) restent distincts. |
 | Objectifs | Profil avec objectif ; pas de cycle objectif atteint/maintien/successeur dans les contrats inspectés | Ajouter un cycle de vie sans changer rétroactivement le sens des anciennes données. |
-| Historique technique | Lock et production : 99 versions, dernière `20260911235551_coach_questionnaires` | Git, lock et `schema_migrations` doivent rester alignés. Ne jamais prendre un résumé daté pour un inventaire live. |
+| Historique technique | Lock et production : 105 versions, dernière `20260913204917_marketplace_activate_link` | Git, lock et `schema_migrations` doivent rester alignés. Ne jamais prendre un résumé daté pour un inventaire live. |
 
 ## 2. Architecture fonctionnelle cible
 
@@ -247,7 +247,7 @@ Les rendez-vous et avis ne créent pas d’écrans actifs tant que leur contrat 
 | Objet | États cibles | Effet sur l’accompagnement |
 |---|---|---|
 | Recherche | brouillon / prête | Aucun changement de rôle |
-| Demande | pending / accepted / declined / withdrawn / expired | Acceptée signifie accord du coach, pas lien actif ni paiement confirmé |
+| Demande | pending / accepted / declined / withdrawn / expired / request_closed | Tant que le billing n’est pas ouvert, **acceptée active le lien** (décision 13 sept.). Le paiement reste un objet distinct, aujourd’hui `not_required`. |
 | Engagement | awaiting_client / awaiting_payment / ready / cancelled / activation_failed | Conditions et capacité réservée selon règle définie ; toujours pas d’accès complet prématuré |
 | Paiement | not_required / pending / confirmed / failed / refunded | Source serveur ; ne doit pas devenir une colonne de rôle |
 | Relation | active / ended | Seul le passage à active rend l’espace personnel coaché |
@@ -257,11 +257,13 @@ Ces noms sont des propositions de contrat, pas des enums SQL existants. Les dél
 
 ### Activation
 
-La demande et l’invitation doivent aboutir au même service de transition. Il vérifie identité, absence de lien actif incompatible, capacité du coach, disponibilité, accord client, partage et paiement requis. Il crée le lien et les éléments de prise en charge dans une transaction unique, avec identifiant d’opération stable.
+La demande et l’invitation aboutissent au même helper interne `activate_coaching_relationship`. Il vérifie identité, absence de lien actif incompatible, éligibilité marketplace du coach publié, accord client et partage. Il crée le lien et les éléments de prise en charge dans une transaction unique.
 
-Deux acceptations concurrentes ne peuvent pas activer deux liens. Le verrou doit porter sur une ressource stable de l’athlète même lorsqu’aucun lien n’existe encore ; la contrainte d’unicité complète le verrou. La capacité du coach est contrôlée sous verrou ou réservation transactionnelle ; compter les clients uniquement dans le navigateur ne suffit pas.
+Tant que le billing n’est pas ouvert, le paiement n’est pas requis : l’acceptation active le lien. Quand M6 existera, le helper devra aussi vérifier le paiement requis sans créer un second moteur d’association.
 
-Après paiement externe, l’activation peut échouer : conserver une trace récupérable et un état visible, réessayer de façon idempotente et traiter le remboursement si le service ne peut être fourni. Ne pas essayer de rendre atomique une transaction SQL et un prestataire externe.
+Deux acceptations concurrentes ne peuvent pas activer deux liens. Le verrou porte sur une ressource stable de l’athlète ; la contrainte d’unicité complète le verrou. Compter les clients uniquement dans le navigateur ne suffit pas.
+
+Après un futur paiement externe, l’activation peut échouer : conserver une trace récupérable et un état visible, réessayer de façon idempotente et traiter le remboursement si le service ne peut être fourni. Ne pas essayer de rendre atomique une transaction SQL et un prestataire externe.
 
 ### Fin et changement
 
@@ -360,8 +362,8 @@ Cet ordre devient celui du Chantier ; les identifiants M ci-dessous sont des lot
 | M2 Continuité et permissions | Finaliser départ déjà commencé, transition commune, accords de partage et accès personnel du coach | Matrice RLS + concurrence + conservation historique ; ne pas ouvrir le tracker coach avec le seul retrait d’un redirect. |
 | M3 Entrée et premier succès | Intention post-auth, mini setup, invitations directes et reprise ; OAuth seulement configuré | Ancien utilisateur non ré-onboardé ; première séance et invitation réalisables sans détour. |
 | M4 Offre et prospects | Profil/offre opt-in, disponibilité/capacité, réception de demandes ; réutiliser invitations | Coach opérationnel avec ses clients sans publier ; publication/retrait testés. |
-| M5 Recherche et demande | Questionnaire, classement explicable, résultats/comparaison, demande et retrait | Parcours sans résultat, concurrence et exposition minimale validés. |
-| M6 Engagement et activation | **Reporté** avec le billing. L’activation commune invitation/marketplace se fera sans paiement tant que le chantier 3 n’est pas ouvert. | Ne pas créer de lien depuis une demande marketplace avant ce lot. |
+| M5 Recherche, demande et activation | Filtres exacts, demande privée, acceptation = lien sans paiement via le helper interne commun | Parcours sans résultat, concurrence, un seul coach actif, helper non granted. Matching guidé et questionnaire de recherche dédié restent une cible, pas un livrable M5. |
+| M6 Paiement | **Reporté** avec le billing. | L’activation sans paiement est déjà dans M5 (`activate_coaching_relationship`). Ne pas poser Stripe ici. |
 | M7 Boucle et objectifs | Accueils contextuels, continuité messages/bilans, objectif/maintien/suite | Trois parcours bout en bout jusqu’au bilan ; pas d’application IA silencieuse. |
 | M8 Ouverture graduelle | Cohorte de coachs volontaires, support/signalement opérationnels, mesures et corrections | Pas de lancement large sur CI seule ; métriques et retours réels. Retrait du flag bloque nouveaux flux mais laisse traiter les engagements déjà créés. |
 
@@ -369,7 +371,7 @@ Adopter une migration additive : étendre → comparer → basculer les lectures
 
 Avant chaque migration SQL réelle : générer le fichier par CLI, rejouer la base, tester le backfill, les contraintes et la matrice ; vérifier advisors et correspondance Git/lock/base. Ne jamais réécrire une migration appliquée. Aucun nom de migration daté ni changement SQL n’est créé par cette carte.
 
-Le chantier Billing est **fermé** jusqu’à ouverture explicite (pas de clientèle payante). Les profils et la recherche (M4–M5) se construisent sans paiement. M6 n’active pas de lien tant que ce lot n’est pas ouvert.
+Le chantier Billing est **fermé** jusqu’à ouverture explicite (pas de clientèle payante). Décision du 13 septembre 2026 : une demande acceptée active le lien **sans** paiement. M6 ne porte plus que le commercial.
 
 ## 11. Plan de tests
 
