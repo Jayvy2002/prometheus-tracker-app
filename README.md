@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** conserver ce document court, factuel et à jour. Ne pas y placer la feuille de route, des idées futures, un journal de chantier, des numéros de PR ou des versions live recopiées. La direction produit appartient à `docs/VISION.md`, tout ce qui reste à faire à `docs/CHANTIER.md`, et les états techniques détaillés à leurs fichiers de référence.
 
-Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais.
+Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais. La destination (marketplace de coaching avec continuité solo) est dans `docs/VISION.md` ; elle n’est pas encore livrée.
 
 Prometheus sert trois profils :
 
