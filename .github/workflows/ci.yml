@@ -161,7 +161,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: node scripts/test-coaching-concurrency.mjs
-      - name: Questionnaire browser journey (local Supabase only)
+      - name: Chantier 2 browser journeys (local Supabase only)
         run: node scripts/test-questionnaire-browser.mjs
       - name: Upload questionnaire browser proof
         if: always()
@@ -231,4 +231,3 @@ jobs:
         run: |
           chmod +x scripts/deploy-audit-edges.sh
           bash scripts/deploy-audit-edges.sh
-

@@ -31,11 +31,12 @@ const origin='http://127.0.0.1:4173';
 const browser=await chromium.launch();
 await mkdir('artifacts/questionnaire',{recursive:true});
 const pages=[];
+const authStorageKey='sb-'+new URL(url).hostname.split('.')[0]+'-auth-token';
 async function pageFor(actor) {
  const context=await browser.newContext({locale:'en-US'});
  const page=await context.newPage();
  pages.push(page);
- const key='sb-'+new URL(url).hostname.split('.')[0]+'-auth-token';
+ const key=authStorageKey;
  await context.addInitScript(({key,session})=>{
   if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(session));
   localStorage.setItem('i18nextLng','en');
@@ -50,6 +51,37 @@ try {
   await new Promise(resolve=>setTimeout(resolve,500));
  }
  const page=await pageFor(coach);
+ await page.goto(origin+'/dashboard');
+ const personalWorkspace=page.getByRole('button',{name:'Personal',exact:true}).first();
+ const coachingWorkspace=page.getByRole('button',{name:'Coaching',exact:true}).first();
+ await coachingWorkspace.waitFor();
+ assert.equal(await coachingWorkspace.getAttribute('aria-pressed'),'true');
+ await personalWorkspace.click();
+ await page.waitForURL('**/dashboard');
+ assert.equal(await personalWorkspace.getAttribute('aria-pressed'),'true');
+ assert.equal(await page.getByRole('button',{name:'Clients',exact:true}).count(),0,'Personal workspace hides coach navigation');
+ await page.goto(origin+'/workout');
+ await page.waitForURL('**/workout');
+ assert.equal(await personalWorkspace.getAttribute('aria-pressed'),'true','Coach can open their own workout tools');
+ await page.reload();
+ assert.equal(await personalWorkspace.getAttribute('aria-pressed'),'true','Workspace survives reload');
+
+ await page.evaluate(({key,session})=>localStorage.setItem(key,JSON.stringify(session)),{key:authStorageKey,session:other.session});
+ await page.reload();
+ await coachingWorkspace.waitFor();
+ assert.equal(await coachingWorkspace.getAttribute('aria-pressed'),'true','Another coach gets their own default');
+ await personalWorkspace.click();
+ assert.equal(await personalWorkspace.getAttribute('aria-pressed'),'true');
+
+ await page.evaluate(({key,session})=>localStorage.setItem(key,JSON.stringify(session)),{key:authStorageKey,session:coach.session});
+ await page.reload();
+ await personalWorkspace.waitFor();
+ assert.equal(await personalWorkspace.getAttribute('aria-pressed'),'true','Returning account recovers only its own preference');
+ await coachingWorkspace.click();
+ await page.waitForURL('**/dashboard');
+ await page.screenshot({path:'artifacts/questionnaire/account-workspaces.png',fullPage:true});
+ console.log('PASS: coach Personal/Coaching navigation, reload and account-isolated preference');
+
  await page.goto(origin+'/coach/questionnaire');
  await page.getByRole('button',{name:'Add',exact:true}).click();
  await page.getByLabel('Name (FR)',{exact:true}).fill('Accueil test');
@@ -344,4 +376,3 @@ try {
  await browser.close();
  vite.kill('SIGTERM');
 }
-
