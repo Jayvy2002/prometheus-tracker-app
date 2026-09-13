@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** conserver ce document court, factuel et à jour. Ne pas y placer la feuille de route, des idées futures, un journal de chantier, des numéros de PR ou des versions live recopiées. La direction produit appartient à `docs/VISION.md`, tout ce qui reste à faire à `docs/CHANTIER.md`, et les états techniques détaillés à leurs fichiers de référence.
 
-Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais. La destination (marketplace de coaching avec continuité solo) est dans `docs/VISION.md` ; elle n’est pas encore livrée.
+Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais. La destination reste dans `docs/VISION.md`. L’annuaire opt-in, les demandes et l’activation du lien sans paiement existent dans le code ; le billing, le matching guidé et les accueils contextuels ne sont pas livrés.
 
 Prometheus sert trois profils :
 
@@ -21,7 +21,8 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 ### Coach
 
 - Command Center et file des clients à traiter.
-- Invitations et fiche client 360.
+- Invitations, demandes d’annuaire et fiche client 360.
+- Profil marketplace opt-in (publication volontaire, pas obligatoire pour gérer ses clients).
 - Builder de questionnaires FR/EN, versions publiées et questionnaire par défaut des invitations.
 - Configuration du suivi et des cibles.
 - Création, copie, versionnage et assignation des programmes.
@@ -35,7 +36,9 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 - Questionnaire choisi par le coach, brouillon reprenable et réponses rattachées à la version remplie.
 - Modules de suivi sélectionnés par le coach.
 - Cibles gérées dans le cadre de la relation de coaching.
+- Départ autonome de la relation, avec retour au mode solo.
 - Continuité des données lors du retour au mode solo.
+- Annuaire des coachs publiés, demande et suivi de l’état.
 
 ### Solo
 
@@ -88,6 +91,7 @@ supabase/
 |---|---|
 | Règles obligatoires pour les agents et développeurs | [`CLAUDE.md`](CLAUDE.md) |
 | Destination, rôles et principes produit | [`docs/VISION.md`](docs/VISION.md) |
+| Parcours et contrats d’architecture cible | [`docs/CARTE_PRODUIT.md`](docs/CARTE_PRODUIT.md) |
 | Ordre des travaux et tout ce qui reste à faire | [`docs/CHANTIER.md`](docs/CHANTIER.md) |
 | Procédure et historique des migrations | [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) |
 | Télémétrie autorisée | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) |

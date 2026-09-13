@@ -8,7 +8,9 @@
 
 **Mis à jour : 13 septembre 2026.**
 
-Direction de référence : vision marketplace du 12 septembre 2026. La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours cibles et les écarts au code. Ce fichier reste la seule source des **statuts**. Aucun lot M1–M8 n’est livré en production tant qu’il n’a pas sa migration Git, son apply prod et sa preuve de parcours.
+Direction de référence : vision marketplace du 12 septembre 2026. La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours cibles et les écarts au code. Ce fichier reste la seule source des **statuts**.
+
+Code, migration Git, apply prod et CI verte ne suffisent pas : un lot passe à **Terminé** seulement après preuve de parcours réel. M1–M5 (y compris l’activation du lien sans paiement) sont en **À vérifier**. M2b-2, M7, M8 et le chantier UX restent ouverts. M6 (billing) est reporté.
 
 ## Mode d’emploi
 
@@ -42,7 +44,7 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 ## Ordre général
 
-1. **Chantier 2 — continuité, identité et marketplace** (lots M0–M5, puis M7). Livrer **un lot à la fois** : une capacité + une migration Git + apply prod + preuve de parcours.
+1. **Chantier 2 — continuité, identité et marketplace.** Fumer M1–M5 à deux comptes, révoquer l’ancienne RPC d’invitation (M2b-2) après preuve Netlify, puis concevoir M7. Livrer **un lot à la fois**.
 2. **Chantier 3 — Billing**, **reporté jusqu’à ce que l’app soit prête à ouvrir**. Pas de clientèle aujourd’hui : aucun Stripe, paywall, abonnement ni commission à implémenter. Une demande marketplace « acceptée » ne crée pas de paiement.
 3. **UX — vérité des actions et conservation du travail.**
 4. **UX — parcours quotidiens coach, coaché et solo.**
@@ -56,49 +58,50 @@ Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améli
 - Une PR = une capacité observable. Pas de monolithe mélangeant départ, rôles, annuaire et invitations.
 - SQL dans `supabase/migrations/` uniquement au merge. `supabase/changes/` n’est pas la production.
 - Front et SQL cassant (nouvelle signature RPC) partent **ensemble**, ou en deux temps : ajouter la nouvelle signature, basculer le front, **puis** révoquer l’ancienne.
-- `user_roles` reste la source d’écriture tant que M1 n’a pas basculé les droits. L’espace affiché ne donne aucun privilège.
+- M1 a ajouté une projection de capacités (`accountSnapshot`) ; `user_roles` reste la compatibilité d’écriture. L’espace affiché ne donne aucun privilège.
 - Réutiliser `transition_client_to_solo` / `end_coach_client_link`. Aucun second moteur de séances.
 - Le questionnaire **coach** (#74, `20260911235551`) reste distinct du questionnaire **recherche**.
 
 ## Chantier 2 — Marketplace, recherche guidée et relation de coaching
 
-**Décision produit :** un moteur commun, identité durable, capacité coach indépendante de l’accompagnement personnel, marketplace et suivi dans la même application.
+**Décision produit :** un moteur commun, identité durable, capacité coach indépendante de l’accompagnement personnel, marketplace et suivi dans la même application. Décision du 13 septembre 2026 : hors billing, l’acceptation d’une demande d’annuaire **active** le lien (`coach_client_links`), avec les mêmes invariants que l’invitation. M6 reste le billing uniquement.
 
-**État live (13 sept. 2026) :** invitation coach, fin de lien **côté coach** (`end_coach_client_link`), questionnaire de prise en charge versionné. Pas de départ client autonome, pas de contexte de capacités, pas d’annuaire.
+**État live (13 sept. 2026) :** Git, lock et production alignés (105 versions, dernière `20260913204917_marketplace_activate_link`). Code M1–M5 + activation sans paiement dans `new-JV`. Tests SQL/RLS/Node et CI du merge concernés verts. **Parcours réel à deux comptes : non fumé.** L’overload `accept_coach_invite(text)` reste granted (M2b-2). Pas de Stripe. Ne pas merger `feature/coach-discovery` ni le draft de déploiement Edge.
 
 | Ordre | Lot | Statut | Conditions de fin |
 |---|---|---|---|
-| M0 | Inventaire des appels de rôles / policies vs carte | À construire | Scénarios solo, coaché, coach, coach-athlète recensés. Aucun changement de droits. |
-| M1 | Projection compatible de capacités + espaces Personnel/Coaching | À construire | Backfill des coachs existants ; aucun auto-lien ; rollback UI sans supprimer les colonnes. |
-| M2a | Départ autonome du client + consistance de la relation | À construire | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notification minimale au coach ; sérialisation vs une adaptation en cours. |
-| M2b | Invitation + consentement versionné | À construire | Nouvelle signature d’acceptation **en plus** de l’ancienne ; bascule du front ; puis révocation de l’ancienne. Périmètre = invitation directe. |
-| M3 | Entrée par intention après identité | À construire | Login direct ; pas de rôle avant le formulaire ; OAuth seulement plus tard. |
-| M4 | Profils/offres opt-in, prospects | À construire | Un coach gère ses clients **sans** publier ; publication/retrait testés. |
-| M5 | Annuaire, comparaison, demandes | À construire | Filtres exacts d’abord ; « demande acceptée » ≠ lien de coaching ; pas de dossier prospect. |
-| M6 | Accord, paiement, activation | **Reporté** (billing) | Une seule RPC d’activation, commune à l’invitation. Interdit tant que le chantier 3 n’est pas ouvert. |
+| M0 | Inventaire des appels de rôles / policies vs carte | À vérifier | Scénarios solo, coaché, coach, coach-athlète recensés. Inventaire exhaustif des policies vs carte encore ouvert. Aucun changement de droits propre à ce lot. |
+| M1 | Projection compatible de capacités + espaces Personnel/Coaching | À vérifier | Migration `account_capabilities` ; backfill des coachs existants ; aucun auto-lien ; l’espace UI ne confère aucun droit. Smoke Personnel/Coaching et coach lui-même coaché encore à faire. |
+| M2a | Départ autonome du client + consistance de la relation | À vérifier | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notice coach (`coach_relationship_notices`). Smoke profil client encore à faire. |
+| M2b | Invitation + consentement versionné (3 arguments) | À vérifier | Signature `accept_coach_invite(token, version, scopes)` + front 3-arg + cases de consentement. Périmètre = invitation directe. |
+| M2b-2 | Révoquer `accept_coach_invite(text)` | À construire | Seulement après preuve que Netlify sert le front 3-arg. Adapter les tests qui exigent encore le GRANT de l’overload 1-arg. |
+| M3 | Entrée par intention après identité | À vérifier | Login direct ; intention post-auth (`solo` / `find_coach` / `coach`) ; OAuth seulement plus tard. Smoke inscription réelle encore à faire. |
+| M4 | Profils/offres opt-in, prospects | À vérifier | Un coach gère ses clients **sans** publier ; publication/retrait testés en SQL/UI. Smoke publication réelle encore à faire. |
+| M5 | Annuaire, demandes et activation sans paiement | À vérifier | Filtres exacts ; demande privée ; acceptation = lien via helper interne `activate_coaching_relationship` (non granted) ; consentement `directory_request` aux mêmes scopes que l’invitation ; un seul coach actif ; pas de dossier prospect ; pas de Stripe. Smoke deux comptes encore à faire. |
+| M6 | Paiement, essai, commission | **Reporté** (billing) | Interdit tant que le chantier 3 n’est pas ouvert. L’activation du lien **sans** paiement est déjà dans M5. |
 | M7 | Accueils contextuels et boucle jusqu’à la suite d’objectif | À concevoir | Trois parcours jusqu’au bilan ; le coach garde l’autorité. |
 | M8 | Ouverture graduelle | À concevoir | Pas de lancement large sur CI seule. |
 
 ### M2a — détail
 
-Prod a déjà `end_coach_client_link(p_client_id)` **pour le coach** (refus si `p_client_id = auth.uid()`). Il manque :
+Livré en code et SQL : `client_end_coach_link()` (`auth.uid()` = client), même `transition_client_to_solo` que `end_coach_client_link`, auteur/date de fin, notice privée au coach. Reste : smoke profil (confirmation, accès fermé, programme en pause). Aucun Stripe.
 
-- RPC `client_end_coach_link()` : `auth.uid()` est le client ; même `transition_client_to_solo` ;
-- auteur et date de fin, notification privée au coach, sérialisation vs une adaptation en cours.
+### M2b / M2b-2 — détail
 
-Aucun Stripe ni effet d’abonnement dans ce lot.
-
-### M2b — détail
-
-Invitation : plus d’acceptation automatique ; consentement versionné **en plus** de l’ancienne RPC, puis révocation de l’ancienne après bascule du front.
+Livré : consentement versionné **en plus** de l’ancienne RPC ; le front n’appelle plus l’overload 1-arg. **M2b-2 à construire** : `REVOKE EXECUTE` sur `accept_coach_invite(text)` seulement après preuve Netlify ; mettre à jour `relationshipConsent.test.ts`, la matrice RLS et les tests SQL/browser qui exigent encore ce GRANT.
 
 ### M4–M5 — détail
 
-- Table `coach_profiles` (opt-in, disciplines, langues, formats, disponibilité).
-- Table `coach_join_requests` (pending / accepted / declined / withdrawn).
-- Routes `/coaches`, `/coaches/:id`, `/coach/profile`.
-- RLS : profils publics lisibles par `authenticated` seulement ; demandes visibles des deux parties.
-- **Ne pas** appeler `accept_coach_invite` depuis l’acceptation d’une demande tant que M6 n’existe pas.
+Livré en code et SQL :
+
+- `coach_profiles` (opt-in, disciplines, langues, formats, disponibilité) ;
+- `coach_join_requests` (pending / accepted / declined / withdrawn / request_closed) ; unicité ouverte **pending only** ;
+- `activate_coaching_relationship(coach, client)` interne (REVOKE ALL public/anon/authenticated) ; appelée par `respond_coaching_request(..., 'accepted')` ;
+- consentement `source IN ('direct_invite','directory_request')` ;
+- routes `/coaches`, `/coaches/:id`, `/coach/profile`, `/coaching-requests` ;
+- RLS : SELECT authentifié sur les projections ; écritures via RPC ; helper interne non callable.
+
+Reste hors billing : matching guidé, questionnaire de recherche dédié, comparaison riche, notification push à nouvelle demande, smoke deux comptes. Ne pas reconstruire un second moteur d’association.
 
 ### Continuité
 
@@ -168,7 +171,7 @@ La priorité est un jugement produit fondé sur la gravité plausible, la fréqu
 
 ### 1. Entrée dans l’app et questionnaire
 
-Les parcours d’authentification demandent actuellement un choix de rôle en entrée, sauf contexte d’invitation. Le questionnaire possède déjà des écrans, une progression et une reprise. Il faut améliorer la première expérience sans recréer ces mécanismes.
+L’entrée post-auth demande une intention (lot M3, à vérifier en parcours). Le questionnaire possède déjà des écrans, une progression et une reprise. Il faut améliorer la première expérience sans recréer ces mécanismes. Vérifier UX01 sur la branche courante avant de reconstruire une porte de rôle.
 
 | ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
 |---|---|---|
