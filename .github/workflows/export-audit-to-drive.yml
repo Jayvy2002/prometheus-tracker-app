@@ -1,0 +1,87 @@
+name: Export Frontend Audit to Google Drive
+
+on:
+  push:
+    branches:
+      - new-JV
+      - main
+
+jobs:
+  export-code:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Google API client
+        run: pip install google-api-python-client google-auth
+
+      - name: Generate Frontend Diff & Context
+        run: |
+          cat << 'EOF' > generate_context.py
+          import subprocess
+          import os
+
+          # Récupération des métadonnées du commit
+          log = subprocess.check_output(['git', 'log', '-1', '--pretty=format:Commit: %h%nDate: %cd%nMessage: %s%nAuthor: %an']).decode('utf-8')
+          
+          # Fichiers modifiés dans src/
+          files_changed = subprocess.check_output(['git', 'diff', '--name-status', 'HEAD~1', 'HEAD', '--', 'src/']).decode('utf-8')
+          
+          # Diff ciblé sur le frontend
+          diff = subprocess.check_output(['git', 'diff', 'HEAD~1', 'HEAD', '--', 'src/components/', 'src/pages/', 'src/lib/']).decode('utf-8')
+
+          with open('latest_frontend_audit_context.md', 'w', encoding='utf-8') as f:
+              f.write("# Contexte et Diff Frontend — Branche new-JV\n\n")
+              f.write("## 1. Dernier Commit\n```\n" + log + "\n```\n\n")
+              f.write("## 2. Fichiers Frontend Modifiés\n```\n" + (files_changed if files_changed else "Aucun fichier modifié dans src/") + "\n```\n\n")
+              f.write("## 3. Code Diff (Composants & Pages)\n```diff\n" + (diff[:80000] if diff else "Aucun diff frontend.") + "\n```\n")
+          EOF
+          python generate_context.py
+
+      - name: Upload Context to Google Drive
+        env:
+          GDRIVE_SERVICE_ACCOUNT_KEY: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_KEY }}
+          GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+        run: |
+          cat << 'EOF' > upload_to_drive.py
+          import os
+          import json
+          from google.oauth2 import service_account
+          from googleapiclient.discovery import build
+          from googleapiclient.http import MediaFileUpload
+
+          creds_dict = json.loads(os.environ['GDRIVE_SERVICE_ACCOUNT_KEY'])
+          creds = service_account.Credentials.from_service_account_info(
+              creds_dict,
+              scopes=['https://www.googleapis.com/auth/drive.file']
+          )
+          service = build('drive', 'v3', credentials=creds)
+
+          folder_id = os.environ['GDRIVE_FOLDER_ID']
+          filename = 'latest_frontend_audit_context.md'
+
+          # Recherche si le fichier existe déjà pour le mettre à jour
+          query = f"'{folder_id}' in parents and name='{filename}' and trashed=false"
+          res = service.files().list(q=query, fields='files(id)').execute()
+          files = res.get('files', [])
+
+          media = MediaFileUpload(filename, mimetype='text/markdown', resumable=True)
+
+          if files:
+              file_id = files[0]['id']
+              service.files().update(fileId=file_id, media_body=media).execute()
+              print(f"Fichier {filename} mis à jour avec succès (ID: {file_id}).")
+          else:
+              meta = {'name': filename, 'parents': [folder_id]}
+              created = service.files().create(body=meta, media_body=media).execute()
+              print(f"Fichier {filename} créé avec succès (ID: {created.get('id')}).")
+          EOF
+          python upload_to_drive.py
