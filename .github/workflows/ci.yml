@@ -27,6 +27,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Profile session isolation and upload failures
+        run: node scripts/test-profile-session.mjs
       - run: npm run verify:migrations
       - run: npm run verify:edges
       - name: Detect Management API token

@@ -2,9 +2,10 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { applyNutritionTargets } from '../lib/clientLive';
 import type { UserProfile } from '../lib/types';
-import { createAccountRequestGuard } from '../lib/accountRequestGuard';
+import { createAccountRequestGuard, createAccountMutationGuard } from '../lib/accountRequestGuard';
 
 const profileRequests = createAccountRequestGuard();
+const profileMutations = createAccountMutationGuard();
 
 interface ProfileState {
   profile: UserProfile | null;
@@ -64,53 +65,70 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   },
 
   updateProfile: async (userId, updates) => {
-    // D03 : contrat de résultat — un refus RLS / réseau ne ressemble plus à un succès.
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', userId)
-      .select()
-      .maybeSingle();
-    if (error) return { error: error.message };
-    if (!data) return { error: 'Profil introuvable ou non autorisé.' };
-    set({ profile: data as UserProfile });
-    return { error: null };
+    const operation = profileMutations.begin(userId);
+    if (!operation) return { error: 'Une modification est en cours ou la session a changé.' };
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update({ ...updates, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
+      if (!operation.isCurrent()) return { error: 'La session a changé.' };
+      if (error) return { error: error.message };
+      if (!data || data.id !== userId) return { error: 'Profil introuvable ou non autorisé.' };
+      profileRequests.invalidate();
+      // Preserve unrelated changes received while this request was in flight.
+      const current = get().profile;
+      const patch = Object.fromEntries(Object.keys(updates).map(key => [key, data[key]]));
+      set({ profile: current?.id === userId ? { ...current, ...patch, updated_at: data.updated_at } : data as UserProfile, loading: false, fetchError: null });
+      return { error: null };
+    } catch {
+      return { error: 'La modification n’a pas pu être confirmée. Réessaie.' };
+    } finally {
+      operation.finish();
+    }
   },
 
   uploadAvatar: async (userId, file) => {
+    const operation = profileMutations.begin(userId);
+    if (!operation) return null;
     set({ uploadingAvatar: true });
-    const ext = file.name.split('.').pop() || 'jpg';
-    const filePath = `${userId}/avatar.${ext}`;
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const filePath = `${userId}/avatar.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+      if (!operation.isCurrent() || uploadError) return null;
 
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file, { upsert: true });
-
-    if (uploadError) {
-      set({ uploadingAvatar: false });
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+      const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+        .eq('id', userId)
+        .select()
+        .maybeSingle();
+      if (!operation.isCurrent() || error || !data || data.id !== userId) return null;
+      profileRequests.invalidate();
+      const current = get().profile;
+      set({ profile: current?.id === userId
+        ? { ...current, avatar_url: data.avatar_url, updated_at: data.updated_at }
+        : data as UserProfile, loading: false, fetchError: null });
+      return data.avatar_url;
+    } catch {
       return null;
+    } finally {
+      if (operation.isCurrent()) set({ uploadingAvatar: false });
+      operation.finish();
     }
-
-    const { data: urlData } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(filePath);
-
-    const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
-
-    const { data } = await supabase
-      .from('user_profiles')
-      .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
-      .eq('id', userId)
-      .select()
-      .maybeSingle();
-
-    if (data) set({ profile: data as UserProfile });
-    set({ uploadingAvatar: false });
-    return avatarUrl;
   },
 
   clearProfile: () => {
     profileRequests.invalidate();
-    set({ profile: null, loading: true, fetchError: null });
+    profileMutations.invalidate();
+    set({ profile: null, loading: true, fetchError: null, uploadingAvatar: false });
   },
 }));
+
