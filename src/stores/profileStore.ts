@@ -13,6 +13,7 @@ interface ProfileState {
     userId: string,
     targets: Pick<UserProfile, 'daily_calorie_target' | 'protein_target' | 'carbs_target' | 'fat_target'>,
   ) => void;
+  applyCoachingDeparture: (userId: string, endedAt: string) => void;
   updateProfile: (userId: string, data: Partial<UserProfile>) => Promise<{ error: string | null }>;
   uploadAvatar: (userId: string, file: File) => Promise<string | null>;
   clearProfile: () => void;
@@ -37,6 +38,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       return;
     }
     set({ profile: data as UserProfile | null, loading: false, fetchError: null });
+  },
+
+  applyCoachingDeparture: (userId, endedAt) => {
+    const current = get().profile;
+    if (current?.id !== userId || !Number.isFinite(Date.parse(endedAt))) return;
+    set({ profile: { ...current, coach_link_ended_at: endedAt } });
   },
 
   applyRemoteTargets: (userId, targets) => {

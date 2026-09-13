@@ -39,9 +39,9 @@ export interface UserProfile {
   motivation: string;
   kinesiology_intake?: Record<string, unknown> | null;
   kinesiology_intake_completed_at?: string | null;
-  /** Set by end_coach_client_link when a coach ends the link — the athlete is solo again. */
+  /** Last time the coaching link ended (client or coach). The athlete is solo again. */
   coach_link_ended_at?: string | null;
-  /** Solo trial started by that unlink (30 days). Billing gate later; no hard wall yet. */
+  /** Solo trial started by that unlink (30 days). No billing wall until that chantier opens. */
   solo_trial_ends_at?: string | null;
   created_at: string;
   updated_at: string;

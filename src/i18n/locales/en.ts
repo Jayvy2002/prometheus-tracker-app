@@ -1,4 +1,10 @@
 const en = {
+  relationshipAccess: {
+    checking: 'Checking access…',
+    ended: 'This coaching relationship has ended. The personal file is no longer accessible.',
+    unavailable: 'Unable to verify access. Reconnect and try again.',
+    back: 'Back to clients',
+  },
   coachQuestionnaire: {"fromStandard":"Create from standard","mapping":"Standard field","unmapped":"Custom question, no mapping","title":"Questionnaires","choose":"Choose","required":"Please answer this question.","invalid":"Please check this answer.","loadError":"Unable to load questionnaires.","saveError":"Saving was not confirmed. Your work is still displayed. Retry; if another version was saved, reload before editing.","invalidDefinition":"Complete both languages, sections and options before publishing.","standard":"Use the standard questionnaire for future invitations","duplicate":"Duplicate","useDefault":"Use for future invitations","name":"Name","section":"Section","question":"Question","type":"Answer type","option":"Option","addOption":"Add an option","mandatory":"Required","medical":"Health information","up":"Move up","down":"Move down","addQuestion":"Add a question","addSection":"Add a section","preview":"Preview","publish":"Publish this version","audience":"You and your coach can access these answers during your coaching relationship.","saveDraft":"Save draft","submit":"Finish and send","saved":"Draft saved","completed":"Answers sent","empty":"No custom questionnaire assigned.","types":{"text":"Text","number":"Number","single":"Single choice","multi":"Multiple choices","yes_no":"Yes / no","weekdays":"Weekdays"}},
   common: {
     save: 'Save',
@@ -236,7 +242,7 @@ const en = {
     },
     photosCard: 'Progress photos',
     linkEnded: {
-      title: 'Your coach has ended your collaboration',
+      title: 'Your coaching relationship has ended',
       body: 'Your history and targets are kept. Your program is paused and you can continue in solo mode.',
       trial: 'Solo trial: {{days}} day(s) left.',
       trialOver: 'Your solo trial has ended.',
@@ -960,6 +966,27 @@ const en = {
     coachMode: 'Coach mode',
     coachModeHint: 'Invite clients and review their training.',
     coachedBy: 'Coached by {{name}}',
+    leave: {
+      title: 'Coaching relationship',
+      current: 'You are currently coached by {{name}}.',
+      action: 'End coaching relationship',
+      confirmTitle: 'Continue without this coach?',
+      confirmBody: 'This change takes effect immediately.',
+      kept: 'Your personal history and entries stay available.',
+      stopped: 'Your coach loses access and their tracking settings stop.',
+      paused: 'The current program from this coach is kept but paused.',
+      confirm: 'End relationship',
+      success: 'The coaching relationship has ended. Your history stays available.',
+      error: 'The relationship could not be ended. Try again.',
+    },
+    notices: {
+      title: 'Coaching updates',
+      ended: '{{name}} ended the coaching relationship.',
+      client: 'This client',
+      dismiss: 'Got it',
+      dismissFor: 'Mark the departure of {{name}} as read',
+      error: 'Coaching notifications could not be updated.',
+    },
     weekSessions: '{{count}} session(s) this week',
     noteSaved: 'Note saved',
     noteOnWorkout: 'Note on this workout…',

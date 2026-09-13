@@ -1,4 +1,10 @@
 const fr = {
+  relationshipAccess: {
+    checking: 'Vérification de l’accès…',
+    ended: 'Cette relation de coaching est terminée. Le dossier personnel n’est plus accessible.',
+    unavailable: 'Impossible de vérifier l’accès au dossier. Réessaie une fois connecté.',
+    back: 'Retour aux clients',
+  },
   coachQuestionnaire: {"fromStandard":"Créer depuis le standard","mapping":"Correspondance standard","unmapped":"Question personnalisée, sans correspondance","title":"Questionnaires","choose":"Choisir","required":"Réponds à cette question.","invalid":"Vérifie cette réponse.","loadError":"Impossible de charger les questionnaires.","saveError":"Enregistrement non confirmé. Ton travail reste affiché. Réessaie ; si une autre version a été enregistrée, recharge avant de modifier.","invalidDefinition":"Complète les deux langues, les sections et les options avant de publier.","standard":"Utiliser le questionnaire standard pour les prochaines invitations","duplicate":"Dupliquer","useDefault":"Utiliser pour les prochaines invitations","name":"Nom","section":"Section","question":"Question","type":"Type de réponse","option":"Option","addOption":"Ajouter une option","mandatory":"Obligatoire","medical":"Information de santé","up":"Monter","down":"Descendre","addQuestion":"Ajouter une question","addSection":"Ajouter une section","preview":"Aperçu","publish":"Publier cette version","audience":"Ces réponses sont accessibles à toi et à ton coach pendant votre accompagnement.","saveDraft":"Enregistrer le brouillon","submit":"Terminer et envoyer","saved":"Brouillon enregistré","completed":"Réponses envoyées","empty":"Aucun questionnaire personnalisé attribué.","types":{"text":"Texte","number":"Nombre","single":"Un choix","multi":"Plusieurs choix","yes_no":"Oui / non","weekdays":"Jours de la semaine"}},
   common: {
     save: 'Enregistrer',
@@ -236,7 +242,7 @@ const fr = {
     },
     photosCard: 'Photos de progression',
     linkEnded: {
-      title: 'Ton coach a mis fin à votre collaboration',
+      title: 'Ta collaboration de coaching est terminée',
       body: 'Ton historique et tes cibles sont conservés. Ton programme est en pause et tu peux continuer en mode solo.',
       trial: 'Période d’essai solo : {{days}} jour(s) restant(s).',
       trialOver: 'Ta période d’essai solo est terminée.',
@@ -960,6 +966,27 @@ const fr = {
     coachMode: 'Mode coach',
     coachModeHint: 'Inviter des clients et suivre leur entraînement.',
     coachedBy: 'Coaché par {{name}}',
+    leave: {
+      title: 'Relation de coaching',
+      current: 'Tu es actuellement suivi par {{name}}.',
+      action: 'Mettre fin au suivi',
+      confirmTitle: 'Continuer sans ce coach ?',
+      confirmBody: 'Ce changement prend effet immédiatement.',
+      kept: 'Ton historique et tes saisies personnelles restent accessibles.',
+      stopped: 'Ton coach perd son accès et ses réglages de suivi sont retirés.',
+      paused: 'Le programme actuel de ce coach est conservé, mais mis en pause.',
+      confirm: 'Mettre fin au suivi',
+      success: 'La relation de coaching est terminée. Ton historique reste accessible.',
+      error: 'Impossible de mettre fin au suivi. Réessaie.',
+    },
+    notices: {
+      title: 'Fins de suivi',
+      ended: '{{name}} a mis fin au suivi.',
+      client: 'Ce client',
+      dismiss: 'Compris',
+      dismissFor: 'Marquer le départ de {{name}} comme lu',
+      error: 'Impossible de mettre à jour les notifications de suivi.',
+    },
     weekSessions: '{{count}} séance(s) cette semaine',
     noteSaved: 'Note enregistrée',
     noteOnWorkout: 'Note sur cette séance…',

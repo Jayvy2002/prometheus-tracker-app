@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { linkEndedNotice, profileLinkEndedChanged, SOLO_TRIAL_DAYS } from './soloTransition';
+import { latestMigrationContaining } from './migrationScan';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -46,7 +47,7 @@ test('realtime: only a new coach_link_ended_at value triggers the role reload', 
   assert.equal(profileLinkEndedChanged(undefined, null), false);
 });
 
-test('end_coach_client_link hands the account back to solo and starts the trial; nothing deleted', () => {
+test('end_coach_client_link and client_end_coach_link share the solo transition; nothing deleted', () => {
   const sql = src('supabase/migrations/20260905002213_end_coach_link_back_to_solo.sql');
   assert.match(sql, /SET coaching_role = 'none'/);
   assert.match(sql, /DELETE FROM public\.client_tracking_config/);
@@ -55,6 +56,11 @@ test('end_coach_client_link hands the account back to solo and starts the trial;
   assert.match(sql, /SET status = 'paused'/);
   assert.doesNotMatch(sql, /DELETE FROM public\.(workouts|nutrition_logs|weight_measurements|daily_checkins|progress_photos|user_profiles)/);
   assert.doesNotMatch(sql, /daily_calorie_target/);
+
+  const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.client_end_coach_link').sql;
+  assert.match(latest, /client_end_coach_link/);
+  assert.match(latest, /FOR UPDATE/);
+  assert.match(latest, /SET coaching_role = 'none'/);
 
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /profileLinkEndedChanged\(/);

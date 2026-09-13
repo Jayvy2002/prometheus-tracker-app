@@ -29,10 +29,11 @@ test('D02: apply_intervention persists idempotency_key and client_msg_id', () =>
   assert.doesNotMatch(store, /clearInterventionKeys/);
 });
 
-test('apply_intervention p_id NULL requires self or is_coach_of before any write', () => {
+test('apply_intervention p_id NULL requires self or an active locked link before any write', () => {
   const mig = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.assert_client_target').sql;
   assert.match(mig, /p_client = auth\.uid\(\)/);
-  assert.match(mig, /is_coach_of\(p_client\)/);
+  assert.match(mig, /FOR SHARE/);
+  assert.match(mig, /Not authorized for this client/);
   assert.match(mig, /REVOKE ALL ON FUNCTION public\.assert_client_target/);
   const apply = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.apply_intervention').sql;
   assert.match(apply, /IF p_id IS NULL THEN/);

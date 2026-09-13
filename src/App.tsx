@@ -10,6 +10,7 @@ import { getSessionOwner } from './lib/sessionScope';
 import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
 import i18n, { setAppLanguage } from './i18n';
+import ActiveRelationshipBoundary from './components/coaching/ActiveRelationshipBoundary';
 import TrackingGate from './components/coaching/TrackingGate';
 import { toast } from './components/ui/Toast';
 
@@ -132,7 +133,9 @@ function AppRoutes() {
   const coachedClient =
     isCoachedAthlete(coachingRole, myCoach)
     || coachingRole === 'client';
-  const needsIntakeProbe = !profileLoading && roleReady && intakeGateNeedsUsageProbe({
+  // Ending an existing relationship must not restart first-time setup.
+  const returningFromCoaching = profile?.id === userId && !!profile?.coach_link_ended_at;
+  const needsIntakeProbe = !returningFromCoaching && !profileLoading && roleReady && intakeGateNeedsUsageProbe({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,
@@ -326,7 +329,7 @@ function AppRoutes() {
     );
   }
 
-  if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding) {
+  if (!profile?.onboarding_completed && !skipPersonalOnboarding && !deferClientOnboarding && !returningFromCoaching) {
     return (
       <Suspense fallback={<RouteFallback />}>
         <Routes>
@@ -351,12 +354,12 @@ function AppRoutes() {
         <Route path="/stats" element={<CoachTrackerRedirect><CoachedAthleteRedirect><StatsPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/clients" element={<CoachOnly><ClientsPage /></CoachOnly>} />
-        <Route path="/clients/:id" element={<CoachOnly><ClientDetailPage /></CoachOnly>} />
-        <Route path="/clients/:id/setup" element={<CoachOnly><ClientSetupPage /></CoachOnly>} />
-        <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
+        <Route path="/clients/:id" element={<CoachOnly><ActiveRelationshipBoundary><ClientDetailPage /></ActiveRelationshipBoundary></CoachOnly>} />
+        <Route path="/clients/:id/setup" element={<CoachOnly><ActiveRelationshipBoundary><ClientSetupPage /></ActiveRelationshipBoundary></CoachOnly>} />
+        <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><ActiveRelationshipBoundary><InterventionDraftPage /></ActiveRelationshipBoundary></CoachOnly>} />
         <Route path="/inbox/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/messages" element={<MessagesHome />} />
-        <Route path="/messages/:clientId" element={<CoachOnly><CoachInboxPage /></CoachOnly>} />
+        <Route path="/messages/:clientId" element={<CoachOnly><ActiveRelationshipBoundary><CoachInboxPage /></ActiveRelationshipBoundary></CoachOnly>} />
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />

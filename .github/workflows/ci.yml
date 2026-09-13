@@ -87,6 +87,10 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
           RLS_RESULTS_PATH: /tmp/rls-matrix-results.txt
         run: node scripts/run-rls-matrix.mjs
+      - name: Test client departure
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/client_departure.sql | tee /tmp/client-departure-db-results.txt
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

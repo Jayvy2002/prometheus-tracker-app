@@ -15,8 +15,8 @@ function readAck(userId: string): string | null {
 }
 
 /**
- * Shown once on the solo home after a coach ended the link: what happened, what he keeps,
- * and the solo trial the product will gate on later (docs/VISION.md point 4).
+ * Shown once on the solo home after the coaching link ended: what happened, what they keep,
+ * and the solo trial window (no billing wall until that chantier opens).
  */
 export default function LinkEndedBanner() {
   const { t } = useTranslation();

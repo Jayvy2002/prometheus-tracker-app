@@ -84,6 +84,9 @@ import { buildCoachPriorities, commandStats } from '../lib/coachPriorities';
 import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
+import { getSessionOwner } from '../lib/sessionScope';
+
+let endMyCoachLinkInFlight = false;
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -456,6 +459,7 @@ interface CoachingState {
   fetchNotes: (clientId: string) => Promise<void>;
   addNote: (clientId: string, body: string, opts?: { noteDate?: string; workoutId?: string }) => Promise<{ error: string | null }>;
   deleteNote: (id: string) => Promise<void>;
+  endMyCoachLink: () => Promise<{ error: string | null }>;
   endClientLink: (linkClientId: string) => Promise<{ error: string | null }>;
   clear: () => void;
 }
@@ -2151,46 +2155,60 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     set(s => ({ notes: s.notes.filter(n => n.id !== id) }));
   },
 
+  endMyCoachLink: async () => {
+    const accountId = getSessionOwner();
+    if (!accountId) return { error: 'not_authenticated' };
+    if (endMyCoachLinkInFlight) return { error: 'operation_pending' };
+    endMyCoachLinkInFlight = true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || user.id !== accountId) return { error: 'not_authenticated' };
+      const { data, error } = await supabase.rpc('client_end_coach_link');
+      if (getSessionOwner() !== accountId) return { error: 'session_changed' };
+      if (error) return { error: error.message };
+      const payload = data as { ok?: boolean; error?: string; ended_at?: string } | null;
+      if (payload?.ok !== true) return { error: payload?.error ?? 'invalid_response' };
+
+      get().stopClientRealtime();
+      // Leaving personal coaching does not remove professional coach capability.
+      const role = get().coachingRole === 'coach' ? 'coach' : 'none';
+      persistRememberedCoachingRole(accountId, role);
+      if (typeof payload.ended_at === 'string') {
+        useProfileStore.getState().applyCoachingDeparture(accountId, payload.ended_at);
+      }
+      set({
+        coachingRole: role,
+        roleReady: true,
+        coachingRoleError: null,
+        myCoach: null,
+        myTrackingConfig: cloneTracking(ALL_ON_TRACKING),
+        trackingReady: true,
+        latestCoachMessage: null,
+        unreadMessageCount: 0,
+        sentMessages: [],
+        threadExhausted: {},
+      });
+      return { error: null };
+    } catch {
+      return { error: getSessionOwner() === accountId ? 'network' : 'session_changed' };
+    } finally {
+      endMyCoachLinkInFlight = false;
+    }
+  },
+
   endClientLink: async (linkClientId) => {
+    const accountId = getSessionOwner();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'not_authenticated' };
+    if (accountId && user.id !== accountId) return { error: 'session_changed' };
     if (linkClientId === user.id) return { error: 'cannot_end_self' };
 
-    const { data, error: rpcError } = await supabase.rpc('end_coach_client_link', {
+    const { data, error } = await supabase.rpc('end_coach_client_link', {
       p_client_id: linkClientId,
     });
-    const rpcMissing = !!rpcError && (
-      rpcError.code === 'PGRST202'
-      || rpcError.code === '42883'
-      || /end_coach_client_link/i.test(rpcError.message)
-    );
-
-    if (rpcError && !rpcMissing) {
-      return { error: rpcError.message };
-    }
-
-    if (!rpcError) {
-      const payload = data as { ok?: boolean; error?: string } | null;
-      if (payload && payload.ok === false) {
-        return { error: payload.error ?? 'not_linked' };
-      }
-    } else {
-      const iso = new Date().toISOString();
-      const paused = await supabase
-        .from('program_assignments')
-        .update({ status: 'paused', updated_at: iso })
-        .eq('client_id', linkClientId)
-        .eq('assigned_by', user.id)
-        .eq('status', 'active');
-      if (paused.error) return { error: paused.error.message };
-      const ended = await supabase
-        .from('coach_client_links')
-        .update({ status: 'ended', updated_at: iso })
-        .eq('coach_id', user.id)
-        .eq('client_id', linkClientId)
-        .eq('status', 'active');
-      if (ended.error) return { error: ended.error.message };
-    }
+    if (error) return { error: error.message };
+    const payload = data as { ok?: boolean; error?: string } | null;
+    if (payload?.ok !== true) return { error: payload?.error ?? 'invalid_response' };
 
     set(s => dropUnlinkedClient(s, linkClientId));
     return { error: null };
