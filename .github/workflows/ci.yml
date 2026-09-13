@@ -106,6 +106,14 @@ jobs:
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coaching_relationship_consistency.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coaching_relationship_consistency.sql
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/client_departure.sql
+      - name: Marketplace publication and request isolation (local only)
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: |
+          set -euo pipefail
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_marketplace.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -1 -f supabase/changes/coach_marketplace.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_marketplace.sql
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

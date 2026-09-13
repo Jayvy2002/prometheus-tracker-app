@@ -1,0 +1,155 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../../stores/authStore';
+import { supabase } from '../../lib/supabase';
+import { MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+
+const blank: CoachPublicProfile = { coach_id: '', public_name: '', introduction: '', method: '', offer: '', disciplines: [], languages: [], formats: [], area: '', published: false, accepting_clients: false, updated_at: '' };
+const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
+
+export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
+  const { t } = useTranslation();
+  const owner = useAuthStore(s => s.user?.id) ?? '';
+  const { coachId } = useParams();
+  const [params, setParams] = useSearchParams();
+  const filters = marketFilters(params);
+  const filterKey = JSON.stringify(filters);
+  const [revision, setRevision] = useState(0);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
+  const [profiles, setProfiles] = useState<CoachPublicProfile[]>([]);
+  const [profile, setProfile] = useState<CoachPublicProfile | null>(null);
+  const [requests, setRequests] = useState<CoachingRequest[]>([]);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [name, setName] = useState('');
+  const [summary, setSummary] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [page, setPage] = useState(0);
+  const [more, setMore] = useState(false);
+  const sequence = useRef(0);
+  const writing = useRef(false);
+
+  useEffect(() => {
+    const seq = ++sequence.current;
+    writing.current = false; setBusy(false); setStatus('loading'); setError(''); setNotice('');
+    setProfiles([]); setProfile(null); setRequests([]); setConsent(false); setName(''); setSummary('');
+    void (async () => {
+      if (mode === 'directory') {
+        const selected = JSON.parse(filterKey) as ReturnType<typeof marketFilters>;
+        let query = supabase.from('coach_profiles').select('*').eq('published', true).eq('accepting_clients', true).neq('coach_id', owner);
+        if (selected.discipline) query = query.contains('disciplines', [selected.discipline]);
+        if (selected.language) query = query.contains('languages', [selected.language]);
+        if (selected.format) query = query.contains('formats', [selected.format]);
+        const { data, error } = await query.order('public_name').order('coach_id').range(page * 20, page * 20 + 20);
+        if (error) throw error;
+        if (seq !== sequence.current) return;
+        setProfiles((data ?? []).slice(0, 20)); setMore((data?.length ?? 0) > 20);
+      } else if (mode === 'profile' || mode === 'detail') {
+        const found = await readCoachProfile(mode === 'profile' ? owner : coachId ?? '');
+        if (seq !== sequence.current) return;
+        setProfile(found ?? (mode === 'profile' ? { ...blank, coach_id: owner } : null));
+      } else {
+        const found = await readRequests(owner);
+        if (seq !== sequence.current) return;
+        setRequests(found);
+      }
+      if (seq === sequence.current) setStatus('ready');
+    })().catch(() => { if (seq === sequence.current) setStatus('failed'); });
+    return () => { sequence.current = seq + 1; };
+  }, [owner, mode, coachId, revision, filterKey, page]);
+
+  async function write(action: () => Promise<void>) {
+    if (writing.current) return;
+    const seq = sequence.current;
+    writing.current = true; setBusy(true); setError(''); setNotice('');
+    try { await action(); }
+    catch (cause) {
+      if (seq === sequence.current) {
+        const message = cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : '';
+        const key = ['profile_changed', 'coach_unavailable', 'already_coached', 'request_closed', 'session_changed'].includes(message) ? message : 'saveError';
+        setError(t(`marketplace.${key}`));
+      }
+    } finally { if (seq === sequence.current) { writing.current = false; setBusy(false); } }
+  }
+  const title = t(`marketplace.${mode}`);
+  const content = () => {
+    if (status === 'loading') return <p role="status">{t('marketplace.loading')}</p>;
+    if (status === 'failed') return <div className="space-y-3"><p role="alert">{t('marketplace.loadError')}</p><Button onClick={() => setRevision(n => n + 1)}>{t('errors.retry')}</Button></div>;
+    if (mode === 'requests') return requests.length ? <div className="space-y-4">{requests.map(row => <article key={row.id} className="rounded-xl border border-neutral-800 p-4 space-y-3">
+      <h2 className="font-semibold">{row.public_name}</h2>
+      <p className="whitespace-pre-wrap break-words">{row.summary}</p>
+      <p>{t(`marketplace.${row.status}`)}</p>
+      <time dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
+      {row.client_id === owner && <Link className="block text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
+      {row.status === 'accepted' && <p className="text-sm text-neutral-400">{t('marketplace.agreementOnly')}</p>}
+      <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant="secondary" onClick={() => {
+        const seq = sequence.current;
+        void write(async () => {
+          const updated = await marketRpc<CoachingRequest>('respond_coaching_request', { p_request: row.id, p_status: action }, owner);
+          if (seq === sequence.current) setRequests(rows => rows.map(r => r.id === updated.id ? updated : r));
+        });
+      }}>{t(`marketplace.action_${action}`)}</Button>)}</div>
+    </article>)}</div> : <p>{t('marketplace.noRequests')}</p>;
+    if (mode === 'directory') return <>
+      <div className="grid gap-3 sm:grid-cols-3">{([['discipline', MARKET_DISCIPLINES], ['language', MARKET_LANGUAGES], ['format', MARKET_FORMATS]] as const).map(([key, values]) => <label key={key} className="space-y-2">{t(`marketplace.${key}`)}<select className={fieldStyle} value={filters[key]} onChange={e => {
+        const next = new URLSearchParams(params); if (e.target.value) next.set(key, e.target.value); else next.delete(key); setPage(0); setParams(next);
+      }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></label>)}</div>
+      <p className="text-sm text-neutral-400">{t('marketplace.matchExplanation')}</p>
+      {!profiles.length && <p>{t('marketplace.noResults')}</p>}
+      {profiles.map(row => <article key={row.coach_id} className="border border-neutral-800 rounded-xl p-4 space-y-2">
+        <h2 className="font-semibold">{row.public_name}</h2><p className="whitespace-pre-wrap break-words">{row.introduction}</p>
+        <p className="text-sm text-neutral-400">{matchingReasons(row, filters).map(reason => t(`marketplace.${reason}`)).join(' · ')}</p>
+        <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
+      </article>)}
+      <div className="flex gap-3">{page > 0 && <Button variant="secondary" onClick={() => setPage(n => n - 1)}>{t('marketplace.previous')}</Button>}{more && <Button variant="secondary" onClick={() => setPage(n => n + 1)}>{t('marketplace.next')}</Button>}</div>
+    </>;
+    if (!profile) return <p>{t('marketplace.unavailable')}</p>;
+    if (mode === 'profile') return <form onSubmit={(e: FormEvent) => {
+      e.preventDefault(); const seq = sequence.current;
+      void write(async () => {
+        const saved = await marketRpc<CoachPublicProfile>('save_my_coach_profile', { p_profile: profile, p_expected_updated_at: profile.updated_at || null }, owner);
+        if (seq === sequence.current) { setProfile(saved); setNotice(t('marketplace.saved')); }
+      });
+    }}><fieldset disabled={busy} className="space-y-4">
+      <p className="text-sm text-neutral-400">{t('marketplace.publicDisclosure')}</p>
+      <Input required maxLength={100} label={t('marketplace.publicName')} value={profile.public_name} onChange={e => setProfile({ ...profile, public_name: e.target.value })} />
+      {(['introduction', 'method', 'offer'] as const).map(key => <label key={key} className="block space-y-2">{t(`marketplace.${key}`)}<textarea className={fieldStyle} required={profile.published} maxLength={2000} rows={4} value={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.value })} /></label>)}
+      {([['disciplines', MARKET_DISCIPLINES], ['languages', MARKET_LANGUAGES], ['formats', MARKET_FORMATS]] as const).map(([key, values]) => <fieldset key={key}><legend>{t(`marketplace.${key}`)}</legend><div className="flex flex-wrap gap-4">{values.map(value => <label key={value} className="min-h-11 flex items-center gap-2"><input type="checkbox" checked={profile[key].includes(value)} onChange={e => setProfile({ ...profile, [key]: e.target.checked ? [...profile[key], value] : profile[key].filter(v => v !== value) })} />{t(`marketplace.${value}`)}</label>)}</div></fieldset>)}
+      <Input maxLength={150} required={profile.published && profile.formats.some(v => v !== 'online')} label={t('marketplace.area')} value={profile.area} onChange={e => setProfile({ ...profile, area: e.target.value })} />
+      {(['published', 'accepting_clients'] as const).map(key => <label key={key} className="min-h-11 flex items-center gap-2"><input type="checkbox" checked={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.checked })} />{t(`marketplace.${key}`)}</label>)}
+      <Button type="submit" loading={busy}>{t('common.save')}</Button>
+      {profile.published && <Link className="block text-blue-400 underline" to={`/coaches/${owner}`}>{t('marketplace.viewCoach')}</Link>}
+    </fieldset></form>;
+    return <div className="space-y-5">
+      <h2 className="text-xl font-semibold">{profile.public_name}</h2>
+      {(['introduction', 'method', 'offer'] as const).map(key => <section key={key}><h3 className="font-semibold">{t(`marketplace.${key}`)}</h3><p className="whitespace-pre-wrap break-words text-neutral-300">{profile[key]}</p></section>)}
+      <p>{[...profile.disciplines, ...profile.languages, ...profile.formats].map(v => t(`marketplace.${v}`)).join(' · ')}</p>
+      {profile.area && <p>{profile.area}</p>}
+      {!profile.accepting_clients && <p>{t('marketplace.unavailable')}</p>}
+      {profile.accepting_clients && profile.coach_id !== owner && <form className="space-y-4" onSubmit={e => {
+        e.preventDefault(); if (!consent) return; const seq = sequence.current;
+        void write(async () => {
+          await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: 1 }, owner);
+          if (seq === sequence.current) { setNotice(t('marketplace.sent')); setConsent(false); }
+        });
+      }}><fieldset disabled={busy} className="space-y-4">
+        <Input required maxLength={100} label={t('marketplace.yourName')} value={name} onChange={e => setName(e.target.value)} />
+        <label className="block space-y-2">{t('marketplace.summary')}<textarea required className={fieldStyle} maxLength={1500} rows={4} value={summary} onChange={e => setSummary(e.target.value)} /></label>
+        <label className="flex items-start gap-3"><input className="mt-1" type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /><span>{t('marketplace.sharing')}</span></label>
+        <Button type="submit" loading={busy} disabled={!consent}>{t('marketplace.send')}</Button>
+      </fieldset></form>}
+    </div>;
+  };
+  return <div className="p-4 md:p-6 pb-28 space-y-5">
+    <h1 className="text-2xl font-semibold">{title}</h1>
+    <nav className="flex flex-wrap gap-5"><Link className="min-h-11 inline-flex items-center text-blue-400 underline" to={`/coaches?${params}`}>{t('marketplace.directory')}</Link><Link className="min-h-11 inline-flex items-center text-blue-400 underline" to="/coaching-requests">{t('marketplace.requests')}</Link></nav>
+    {error && <p role="alert" className="text-rose-300">{error}</p>}
+    {notice && <p role="status" className="text-emerald-300">{notice}</p>}
+    {content()}
+  </div>;
+}

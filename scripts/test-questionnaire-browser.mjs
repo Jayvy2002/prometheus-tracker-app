@@ -249,6 +249,51 @@ try {
  assert.equal(check(await admin.from('coach_client_links').select('status').eq('client_id',athlete.id).single()).status,'active');
  console.log('PASS: invite preview failure/retry, explicit sharing notice, cancel/reload without acceptance, and one confirmed join');
 
+ // A new member can discover coaches without a blocking personal questionnaire.
+ const prospect=await actor('Market Prospect','none');
+ const prospectPage=await pageFor(prospect);
+ await page.goto(origin+'/coach/profile');
+ await page.getByLabel('Public name',{exact:true}).fill('Coach Marketplace Test');
+ await page.getByLabel('Introduction and experience',{exact:true}).fill('Experience supporting regular physical activity.');
+ await page.getByLabel('Coaching method and contact frequency',{exact:true}).fill('Weekly discussion and collaborative planning.');
+ await page.getByLabel('Coaching services and terms',{exact:true}).fill('Discuss services before starting.');
+ await page.getByLabel('Strength',{exact:true}).check();
+ await page.getByLabel('English',{exact:true}).check();
+ await page.getByLabel('Online',{exact:true}).check();
+ await page.getByLabel('Publish my profile',{exact:true}).check();
+ await page.getByLabel('Accept new requests',{exact:true}).check();
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Profile saved',{exact:true}).waitFor();
+ await prospectPage.goto(origin+'/coaches?language=en&format=online');
+ await prospectPage.getByRole('heading',{name:'Coach Marketplace Test',exact:true}).waitFor();
+ await prospectPage.reload();
+ assert.equal(await prospectPage.getByLabel('Language',{exact:true}).inputValue(),'en');
+ await prospectPage.getByRole('link',{name:'View coach profile',exact:true}).click();
+ await prospectPage.getByLabel('Name to share with the coach',{exact:true}).fill('Prospect shared name');
+ await prospectPage.getByLabel('What you want from this coaching relationship',{exact:true}).fill('I would like help building a consistent routine.');
+ assert.equal(await prospectPage.getByRole('button',{name:'Send my request',exact:true}).isDisabled(),true);
+ await prospectPage.getByRole('checkbox').check();
+ await prospectPage.getByRole('button',{name:'Send my request',exact:true}).click();
+ await prospectPage.getByText('Request sent. You can follow its status in Coaching requests.',{exact:true}).waitFor();
+ await page.goto(origin+'/coaching-requests');
+ await page.getByRole('heading',{name:'Prospect shared name',exact:true}).waitFor();
+ await page.getByRole('button',{name:'Accept request',exact:true}).click();
+ await page.getByText('Request accepted',{exact:true}).waitFor();
+ assert.equal(check(await admin.from('coach_client_links').select('id').eq('client_id',prospect.id)).length,0);
+ assert.equal(check(await coach.client.from('user_profiles').select('id').eq('id',prospect.id)).length,0);
+ await prospectPage.goto(origin+'/coaching-requests');
+ await prospectPage.getByText('Request accepted',{exact:true}).waitFor();
+ await prospectPage.getByRole('button',{name:'Withdraw my request',exact:true}).click();
+ await prospectPage.getByText('Request withdrawn',{exact:true}).waitFor();
+ await page.goto(origin+'/coach/profile');
+ await page.getByLabel('Publish my profile',{exact:true}).uncheck();
+ await page.getByRole('button',{name:'Save',exact:true}).click();
+ await page.getByText('Profile saved',{exact:true}).waitFor();
+ await prospectPage.goto(origin+'/coaches');
+ await prospectPage.getByText('No available coach matches these criteria. Try broadening your filters.',{exact:true}).waitFor();
+ await prospectPage.screenshot({path:'artifacts/questionnaire/marketplace-empty.png',fullPage:true});
+ console.log('PASS: marketplace publish, retained filters, explicit minimal sharing, acceptance without dossier access, withdrawal and unpublish');
+
 } catch(error) {
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;

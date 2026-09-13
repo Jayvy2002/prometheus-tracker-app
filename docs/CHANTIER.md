@@ -72,9 +72,11 @@ Le test a révélé un cache de service worker qui conservait des réponses API 
 
 Restent avant livraison complète de M2 : concurrence avec les futures demandes marketplace, changements de compte sur les autres opérations, consentement serveur et périmètres autorisés pour le prochain coach, révocation des caches de dossiers et accès fichiers concernés, accès personnel du coach, puis promotion des candidats en migrations et vérification du déploiement. La notification dans l’application n’est pas une notification push ou email.
 
-Les trois candidats (`account_capabilities.sql`, `client_end_coach_link.sql`, `coaching_relationship_consistency.sql`) sont testés uniquement sur la base temporaire de CI. Aucune migration de ce lot n’est appliquée en production ; le lock conserve uniquement les versions réellement appliquées. Docker étant absent de l’environnement de travail, le replay PostgreSQL 17 est réalisé en CI.
+Les candidats (`account_capabilities.sql`, `client_end_coach_link.sql`, `coaching_relationship_consistency.sql`, `coach_marketplace.sql`) sont testés uniquement sur la base temporaire de CI. Aucune migration de ce lot n’est appliquée en production ; le lock conserve uniquement les versions réellement appliquées. Docker étant absent de l’environnement de travail, le replay PostgreSQL 17 est réalisé en CI.
 
-Le profil public, l’annuaire, les demandes et les autres lots M0–M8 restent à construire ou compléter. Aucun critère inachevé n’est retiré.
+**M4–M5 — premier parcours marketplace en validation, non livré.** Profil opt-in et retrait, disponibilité déclarée, présentation/méthode/offre, filtres discipline/langue/format conservés dans l’URL, résultats paginés, demande avec partage minimal confirmé, acceptation/refus/retrait privés. Les demandes sont rejouables sans doublon ; la sauvegarde du profil refuse les versions obsolètes. Une acceptation ne crée ni lien de coaching, ni accès au dossier, ni paiement. Le SQL candidat `coach_marketplace.sql`, les tests d’isolation et le parcours navigateur sont ajoutés en CI ; leur résultat reste à vérifier sur le SHA livré.
+
+Ce premier annuaire utilise des filtres exacts et un ordre alphabétique annoncé. Il ne remplace pas le futur questionnaire de matching, la comparaison, les autres disciplines à intégrer, la capacité maximale réelle, les règles anti-sollicitation, la modération et les mesures marketplace. Le tarif structuré et l’activation restent dépendants des contrats M6/Billing. Les autres lots M0–M8 et tous leurs critères inachevés sont conservés.
 
 ### Direction et ordre d’exécution — parcours complets
 
