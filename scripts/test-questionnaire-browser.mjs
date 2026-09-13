@@ -110,7 +110,7 @@ try {
   departureCalls++;
   const response=await route.fetch();
   const body=await response.json();
-  console.log('departure RPC contract', {ok:body.ok,hasEndedAt:!!body.ended_at,error:body.error});
+  console.log('departure RPC contract', {ok:body.ok,hasEndedAt:!!body.ended_at, endedAtType:typeof body.ended_at, parseable:Number.isFinite(Date.parse(body.ended_at)),error:body.error});
   await route.fulfill({response,json:body});
  });
  await clientPage.route('**/rest/v1/user_profiles?*',route=>route.fulfill({

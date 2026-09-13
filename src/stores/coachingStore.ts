@@ -2220,9 +2220,8 @@ fetchMyCoach: async () => {
       // Leaving personal coaching does not remove professional coach capability.
       const role = get().coachingRole === 'coach' ? 'coach' : 'none';
       persistRememberedCoachingRole(accountId, role);
-      const currentProfile = useProfileStore.getState().profile;
-      if (currentProfile?.id === accountId && payload.ended_at && Number.isFinite(Date.parse(payload.ended_at))) {
-        useProfileStore.setState({ profile: { ...currentProfile, coach_link_ended_at: payload.ended_at } });
+      if (typeof payload.ended_at === 'string') {
+        useProfileStore.getState().applyCoachingDeparture(accountId, payload.ended_at);
       }
       set({
         coachingRole: role,

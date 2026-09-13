@@ -11,6 +11,7 @@ interface ProfileState {
   loading: boolean;
   fetchError: string | null;
   uploadingAvatar: boolean;
+  applyCoachingDeparture: (userId: string, endedAt: string) => void;
   fetchProfile: (userId: string, opts?: { silent?: boolean }) => Promise<void>;
   applyRemoteTargets: (
     userId: string,
@@ -47,6 +48,13 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     } catch {
       if (isCurrent()) set({ loading: false, fetchError: 'network' });
     }
+  },
+
+  applyCoachingDeparture: (userId, endedAt) => {
+    const current = get().profile;
+    if (current?.id !== userId || !Number.isFinite(Date.parse(endedAt))) return;
+    profileRequests.invalidate();
+    set({ profile: { ...current, coach_link_ended_at: endedAt } });
   },
 
   applyRemoteTargets: (userId, targets) => {
