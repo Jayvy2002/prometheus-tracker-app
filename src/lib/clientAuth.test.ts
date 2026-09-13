@@ -194,15 +194,17 @@ test('AuthPage: three doors; client stays login-only unless invited; first submi
   assert.match(fr, /invalidCredentials: 'E-mail ou mot de passe incorrect\.'/);
 });
 
-test('invite leftovers: banner without coach name, toast after login accept, ops refresh after setup', () => {
+test('invite leftovers: banner without coach name, explicit consent after login, ops refresh after setup', () => {
   const page = src('src/components/auth/AuthPage.tsx');
   assert.match(page, /fromInvite && \(/);
   assert.match(page, /authBannerNoName/);
   assert.match(page, /fromInvite \? postLoginPath\(location\.pathname\)/);
   const app = src('src/App.tsx');
-  assert.match(app, /coaching\.invite\.accepted/);
-  assert.match(app, /accepted\.coach_name \|\| i18n\.t\('coaching\.invite\.aCoach'\)/);
-  assert.match(app, /toast\(i18n\.t\(`coaching\.invite\.errors\.\$\{key\}`\), 'error'\)/);
+  assert.doesNotMatch(app, /await acceptInvite\(token\)/);
+  assert.match(app, /\/invite\/\$\{pendingInvite\}/);
+  const invite = src('src/components/coaching/InvitePage.tsx');
+  assert.match(invite, /coaching\.invite\.accepted/);
+  assert.match(invite, /ToastContainer/);
   const setup = src('src/components/coaching/ClientSetupPage.tsx');
   assert.match(setup, /void fetchCoachOps\(\)/);
   const toastSrc = src('src/components/ui/Toast.tsx');

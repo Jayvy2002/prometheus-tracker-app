@@ -85,8 +85,10 @@ import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
 import { getSessionOwner } from '../lib/sessionScope';
+import { directInviteConsentArgs } from '../lib/relationshipConsent';
 
 let endMyCoachLinkInFlight = false;
+let acceptInviteInFlight = false;
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
@@ -450,7 +452,7 @@ interface CoachingState {
   revokeInvite: (id: string) => Promise<void>;
   fetchMyCoach: () => Promise<void>;
   acceptInvite: (token: string) => Promise<{ ok: boolean; error?: string; coach_name?: string }>;
-  previewInvite: (token: string) => Promise<{ valid: boolean; coach_name: string | null }>;
+  previewInvite: (token: string) => Promise<{ valid: boolean; coach_name: string | null; error?: string }>;
   fetchClientWorkouts: (clientId: string) => Promise<Workout[]>;
   fetchClientWorkout: (workoutId: string) => Promise<Workout | null>;
   fetchClientNutrition: (clientId: string, date: string) => Promise<{ logs: NutritionLog[]; water: WaterLog[] }>;
@@ -2028,22 +2030,37 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   },
 
   acceptInvite: async (token) => {
-    const { data, error } = await supabase.rpc('accept_coach_invite', { p_token: token });
-    if (error) return { ok: false, error: error.message };
-    const result = data as { ok?: boolean; error?: string; coach_name?: string };
-    if (!result?.ok) return { ok: false, error: result?.error ?? 'failed' };
-    clearPendingInviteToken();
-    clearIntendedCoachingRole();
-    await get().fetchMyCoach();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) await get().fetchMyRole(user.id);
-    track('invite_accepted');
-    return { ok: true, coach_name: result.coach_name };
+    const accountId = getSessionOwner();
+    if (!accountId) return { ok: false, error: 'not_authenticated' };
+    if (acceptInviteInFlight) return { ok: false, error: 'operation_pending' };
+    acceptInviteInFlight = true;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user || user.id !== accountId) return { ok: false, error: 'not_authenticated' };
+      const { data, error } = await supabase.rpc('accept_coach_invite', {
+        p_token: token,
+        ...directInviteConsentArgs(),
+      });
+      if (getSessionOwner() !== accountId) return { ok: false, error: 'session_changed' };
+      if (error) return { ok: false, error: error.message };
+      const result = data as { ok?: boolean; error?: string; coach_name?: string } | null;
+      if (result?.ok !== true) return { ok: false, error: result?.error ?? 'invalid_response' };
+      clearPendingInviteToken();
+      clearIntendedCoachingRole();
+      await get().fetchMyCoach();
+      if (getSessionOwner() === accountId) await get().fetchMyRole(accountId);
+      track('invite_accepted');
+      return { ok: true, coach_name: result.coach_name };
+    } catch {
+      return { ok: false, error: getSessionOwner() === accountId ? 'network' : 'session_changed' };
+    } finally {
+      acceptInviteInFlight = false;
+    }
   },
 
   previewInvite: async (token) => {
     const { data, error } = await supabase.rpc('get_coach_invite_preview', { p_token: token });
-    if (error) return { valid: false, coach_name: null };
+    if (error) return { valid: false, coach_name: null, error: error.message };
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) return { valid: false, coach_name: null };
     return {

@@ -157,6 +157,9 @@ BEGIN
   IF to_regclass('public.coach_relationship_endings') IS NOT NULL THEN
     DELETE FROM public.coach_relationship_endings WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
   END IF;
+  IF to_regclass('public.coaching_relationship_consents') IS NOT NULL THEN
+    DELETE FROM public.coaching_relationship_consents WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
+  END IF;
   DELETE FROM public.user_roles WHERE user_id = ANY (v_ids);
   DELETE FROM public.user_profiles WHERE id = ANY (v_ids);
   DELETE FROM auth.identities WHERE user_id = ANY (v_ids);
@@ -453,6 +456,20 @@ BEGIN
       pg_temp.fn_exec('handle_new_user'),
       pg_temp.fn_exec('invoke_coach_fleet_round')
     ));
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF has_function_privilege('authenticated', 'public.accept_coach_invite(text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.accept_coach_invite(text,integer,text[])', 'execute')
+     AND NOT has_function_privilege('anon', 'public.accept_coach_invite(text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.accept_coach_invite(text,integer,text[])', 'execute')
+     AND to_regclass('public.coaching_relationship_consents') IS NOT NULL
+  THEN
+    PERFORM pg_temp.record('ACCEPT_CONSENT_GRANTS', true, 'legacy 1-arg kept; 3-arg granted; anon revoked');
+  ELSE
+    PERFORM pg_temp.record('ACCEPT_CONSENT_GRANTS', false, 'invite consent grants mismatch');
   END IF;
 END $$;
 
