@@ -9,7 +9,8 @@ import { resetSessionStores } from './lib/resetStores';
 import { getSessionOwner } from './lib/sessionScope';
 import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
-import { resolveAccountContext } from './lib/accountContext';
+import { accountWorkspaceStorageKey, parseAccountWorkspace, resolveAccountContext } from './lib/accountContext';
+import { ACCOUNT_CONTEXT_REFRESH_MS, createAccountContextRefresh } from './lib/accountContextRefresh';
 import i18n, { setAppLanguage } from './i18n';
 import ActiveRelationshipBoundary from './components/coaching/ActiveRelationshipBoundary';
 import TrackingGate from './components/coaching/TrackingGate';
@@ -122,7 +123,7 @@ function ProgramsHome() {
 function AppRoutes() {
   const { user, loading: authLoading, initialized, passwordRecovery } = useAuthStore();
   const { profile, loading: profileLoading, fetchError, fetchProfile, updateProfile } = useProfileStore();
-  const { roleReady, coachingRole, myCoach, accountSnapshot, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole } = useCoachingStore();
+  const { roleReady, coachingRole, myCoach, accountSnapshot, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole, selectAccountWorkspace } = useCoachingStore();
   const { t } = useTranslation();
   const location = useLocation();
   const [intakeUsage, setIntakeUsage] = useState<IntakeUsageSignals | null>(null);
@@ -182,6 +183,37 @@ function AppRoutes() {
       resetSessionStores();
     }
   }, [userId, initialized, fetchProfile, fetchMyRole, fetchMyCoach, applyIntendedCoachingRole]);
+
+  useEffect(() => {
+    if (!userId || !roleReady) return;
+    const refresh = createAccountContextRefresh(async () => {
+      if (getSessionOwner() !== userId) return;
+      await fetchMyRole(userId);
+      if (getSessionOwner() === userId) await fetchMyCoach();
+    });
+    const requestWhenActive = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine !== false) void refresh.request();
+    };
+    const onVisibility = () => requestWhenActive();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== accountWorkspaceStorageKey(userId)) return;
+      const workspace = parseAccountWorkspace(event.newValue);
+      if (workspace) selectAccountWorkspace(workspace);
+    };
+    window.addEventListener('focus', requestWhenActive);
+    window.addEventListener('online', requestWhenActive);
+    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onVisibility);
+    const timer = window.setInterval(requestWhenActive, ACCOUNT_CONTEXT_REFRESH_MS);
+    return () => {
+      refresh.dispose();
+      window.clearInterval(timer);
+      window.removeEventListener('focus', requestWhenActive);
+      window.removeEventListener('online', requestWhenActive);
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [userId, roleReady, fetchMyRole, fetchMyCoach, selectAccountWorkspace]);
 
   // D07 : au retour du réseau, rejoue la file offline du compte courant.
   useEffect(() => {

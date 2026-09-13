@@ -66,17 +66,21 @@ export interface AccountContext {
 
 const WORKSPACE_KEY = 'prometheus_account_workspace';
 
+export function accountWorkspaceStorageKey(userId: string): string {
+  return `${WORKSPACE_KEY}:${userId}`;
+}
+
 export function parseAccountWorkspace(value: unknown): AccountWorkspace | null {
   return value === 'personal' || value === 'coaching' ? value : null;
 }
 
 export function loadAccountWorkspace(userId: string): AccountWorkspace | null {
-  try { return parseAccountWorkspace(localStorage.getItem(`${WORKSPACE_KEY}:${userId}`)); }
+  try { return parseAccountWorkspace(localStorage.getItem(accountWorkspaceStorageKey(userId))); }
   catch { return null; }
 }
 
 export function persistAccountWorkspace(userId: string, workspace: AccountWorkspace): void {
-  try { localStorage.setItem(`${WORKSPACE_KEY}:${userId}`, workspace); }
+  try { localStorage.setItem(accountWorkspaceStorageKey(userId), workspace); }
   catch { /* private mode / quota */ }
 }
 
