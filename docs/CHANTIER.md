@@ -6,7 +6,9 @@
 >
 > **Instruction pour les agents :** ne jamais supprimer un élément parce qu’il est supposé, ancien, partiellement présent ou décrit dans la vision. Un élément sort de ce fichier uniquement après preuve de son implémentation et de sa validation, ou après une décision produit explicite de l’abandonner. Ne pas transformer ce fichier en journal de PR ou en inventaire de production. Git conserve l’historique ; le README décrit le produit actuel et `docs/VISION.md` sa destination.
 
-**Mis à jour : 12 septembre 2026.**
+**Mis à jour : 13 septembre 2026.**
+
+Direction de référence : vision marketplace du 12 septembre 2026. La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours cibles et les écarts au code. Ce fichier reste la seule source des **statuts**. Aucun lot M1–M8 n’est livré en production tant qu’il n’a pas sa migration Git, son apply prod et sa preuve de parcours.
 
 ## Mode d’emploi
 
@@ -40,8 +42,8 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 ## Ordre général
 
-1. **Recherche, départ et changement de coach.**
-2. **Billing**, après décision sur les prix et les règles d’essai.
+1. **Chantier 2 — continuité, identité et marketplace** (lots M0–M5, puis M7). Livrer **un lot à la fois** : une capacité + une migration Git + apply prod + preuve de parcours.
+2. **Chantier 3 — Billing**, **reporté jusqu’à ce que l’app soit prête à ouvrir**. Pas de clientèle aujourd’hui : aucun Stripe, paywall, abonnement ni commission à implémenter. Une demande marketplace « acceptée » ne crée pas de paiement.
 3. **UX — vérité des actions et conservation du travail.**
 4. **UX — parcours quotidiens coach, coaché et solo.**
 5. **UX — autonomie, compréhension et confort.**
@@ -49,70 +51,75 @@ Décision produit : reprendre les chantiers fonctionnels dans l’ordre généra
 
 Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améliorent le résultat ou corrigent un problème mesuré.
 
-## Chantier 2 — Recherche, départ et changement de coach
+### Règle de livraison (chantier 2)
 
-### Départ autonome
+- Une PR = une capacité observable. Pas de monolithe mélangeant départ, rôles, annuaire et invitations.
+- SQL dans `supabase/migrations/` uniquement au merge. `supabase/changes/` n’est pas la production.
+- Front et SQL cassant (nouvelle signature RPC) partent **ensemble**, ou en deux temps : ajouter la nouvelle signature, basculer le front, **puis** révoquer l’ancienne.
+- `user_roles` reste la source d’écriture tant que M1 n’a pas basculé les droits. L’espace affiché ne donne aucun privilège.
+- Réutiliser `transition_client_to_solo` / `end_coach_client_link`. Aucun second moteur de séances.
+- Le questionnaire **coach** (#74, `20260911235551`) reste distinct du questionnaire **recherche**.
 
-Permettre à un client coaché de mettre fin à la relation depuis son profil. Réutiliser la transition existante vers le mode solo : historique conservé, tracking coach retiré, programme mis en pause et coach informé.
+## Chantier 2 — Marketplace, recherche guidée et relation de coaching
 
-### Profil public du coach
+**Décision produit :** un moteur commun, identité durable, capacité coach indépendante de l’accompagnement personnel, marketplace et suivi dans la même application.
 
-Profil opt-in avec :
+**État live (13 sept. 2026) :** invitation coach, fin de lien **côté coach** (`end_coach_client_link`), questionnaire de prise en charge versionné. Pas de départ client autonome, pas de contexte de capacités, pas d’annuaire.
 
-- nom public et présentation ;
-- disciplines ;
-- langues ;
-- coaching à distance ou zone géographique ;
-- disponibilité pour de nouveaux clients.
+| Ordre | Lot | Statut | Conditions de fin |
+|---|---|---|---|
+| M0 | Inventaire des appels de rôles / policies vs carte | À construire | Scénarios solo, coaché, coach, coach-athlète recensés. Aucun changement de droits. |
+| M1 | Projection compatible de capacités + espaces Personnel/Coaching | À construire | Backfill des coachs existants ; aucun auto-lien ; rollback UI sans supprimer les colonnes. |
+| M2a | Départ autonome du client + consistance de la relation | À construire | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notification minimale au coach ; sérialisation vs une adaptation en cours. |
+| M2b | Invitation + consentement versionné | À construire | Nouvelle signature d’acceptation **en plus** de l’ancienne ; bascule du front ; puis révocation de l’ancienne. Périmètre = invitation directe. |
+| M3 | Entrée par intention après identité | À construire | Login direct ; pas de rôle avant le formulaire ; OAuth seulement plus tard. |
+| M4 | Profils/offres opt-in, prospects | À construire | Un coach gère ses clients **sans** publier ; publication/retrait testés. |
+| M5 | Annuaire, comparaison, demandes | À construire | Filtres exacts d’abord ; « demande acceptée » ≠ lien de coaching ; pas de dossier prospect. |
+| M6 | Accord, paiement, activation | **Reporté** (billing) | Une seule RPC d’activation, commune à l’invitation. Interdit tant que le chantier 3 n’est pas ouvert. |
+| M7 | Accueils contextuels et boucle jusqu’à la suite d’objectif | À concevoir | Trois parcours jusqu’au bilan ; le coach garde l’autorité. |
+| M8 | Ouverture graduelle | À concevoir | Pas de lancement large sur CI seule. |
 
-### Annuaire et demandes
+### M2a — détail
 
-- Filtres simples par discipline, langue et disponibilité.
-- Demande envoyée au coach.
-- Acceptation explicite du coach.
-- Un seul coach actif par client.
-- Changement de coach comme parcours contrôlé : fin du lien actuel, puis nouvelle demande.
+Prod a déjà `end_coach_client_link(p_client_id)` **pour le coach** (refus si `p_client_id = auth.uid()`). Il manque :
 
-### Plan technique de départ — non implémenté
+- RPC `client_end_coach_link()` : `auth.uid()` est le client ; même `transition_client_to_solo` ;
+- auteur et date de fin, notification privée au coach, sérialisation vs une adaptation en cours.
 
-- RPC proposée `client_end_coach_link()` : vérification de `auth.uid()`, fin du lien actif et appel de la transition commune vers le solo ;
-- table proposée `coach_profiles` pour le nom public, la présentation, les disciplines, les langues, la zone ou le coaching à distance, la disponibilité et l’opt-in public ;
-- table proposée `coach_join_requests` pour les demandes et leurs états ;
-- routes proposées `/coach/profile` et `/coaches` ;
-- l’acceptation doit réutiliser les invariants d’`accept_coach_invite` au lieu de créer un deuxième mécanisme d’association ;
-- les profils publics sont lisibles uniquement par des utilisateurs authentifiés ; les demandes sont visibles seulement par leurs deux parties ;
-- toute RPC privilégiée garde des droits `EXECUTE` explicites et vérifie la cible avant les effets.
+Aucun Stripe ni effet d’abonnement dans ce lot.
 
-Le champ `solo_trial_ends_at` et l’ancien parcours utilisent déjà une cible de 30 jours après la fin du coaching, mais aucun mur de paiement n’est actif. Avant le chantier Billing, confirmer explicitement si ces 30 jours deviennent la règle commerciale définitive, s’ils s’appliquent aussi aux nouveaux solos, ou s’ils doivent changer.
+### M2b — détail
 
-### Conditions de fin
+Invitation : plus d’acceptation automatique ; consentement versionné **en plus** de l’ancienne RPC, puis révocation de l’ancienne après bascule du front.
 
-- Isolation RLS entre les parties.
-- Aucun transfert des notes privées de l’ancien coach.
-- Historique personnel de l’athlète conservé.
-- États d’attente, refus et erreurs visibles.
-- Tests coach/client et télémétrie minimale.
+### M4–M5 — détail
+
+- Table `coach_profiles` (opt-in, disciplines, langues, formats, disponibilité).
+- Table `coach_join_requests` (pending / accepted / declined / withdrawn).
+- Routes `/coaches`, `/coaches/:id`, `/coach/profile`.
+- RLS : profils publics lisibles par `authenticated` seulement ; demandes visibles des deux parties.
+- **Ne pas** appeler `accept_coach_invite` depuis l’acceptation d’une demande tant que M6 n’existe pas.
+
+### Continuité
+
+- Séparer capacité professionnelle, espace affiché, relation active et entitlement.
+- Un client : un coach actif. Après départ : lien terminé, tracking retiré, programme en pause, données personnelles conservées.
+- Aucun transfert des notes privées ni des conversations de l’ancien coach.
 
 ## Chantier 3 — Billing
 
-Ne pas commencer avant les décisions produit suivantes :
+**Fermé jusqu’à décision explicite d’ouverture.** Aucun utilisateur payant aujourd’hui. Ne pas poser Stripe, Checkout, webhook, mur d’essai ni commission.
 
-- prix du solo ;
-- paliers coach selon le nombre de clients ;
-- durée et population concernée par l’essai ;
-- devise et taxes ;
-- comportement exact à l’expiration.
+Quand ce chantier s’ouvrira, trancher avant toute ligne de code :
 
-Le futur mur doit conserver un accès en lecture aux données et permettre d’accepter une invitation coach. Un coach qui dépasse son palier conserve ses clients existants mais ne peut plus en ajouter.
+- prix du solo et paliers coach ;
+- essai, devise, taxes, expiration ;
+- qui encaisse le coaching vs l’accès logiciel ;
+- effet d’un départ ou d’un changement de coach.
 
-### Plan technique de départ — non implémenté
+Le champ `solo_trial_ends_at` existe déjà (cible 30 jours après une fin de lien) **sans mur**. Ne pas en faire une règle commerciale tant que ce chantier n’est pas ouvert.
 
-- étendre ou remplacer proprement `subscriptions` pour représenter le plan, la limite de clients, l’essai et l’état courant ;
-- exposer une fonction d’entitlement étroite donnant au frontend un état comme actif, en essai ou expiré, sans lui donner de privilèges supplémentaires ;
-- remplacer les réponses 410 seulement lorsque les décisions commerciales sont prises : Checkout Session, portail client et webhook Stripe signé ;
-- rendre le traitement du webhook idempotent et conserver les clés secrètes et la `service_role` uniquement côté serveur ;
-- tester le paywall, le checkout, les rejeux de webhook, l’expiration et les limites de clients ;
-- ajouter les événements de paywall/checkout à `docs/TELEMETRY.md` uniquement au moment de leur implémentation.
+Le futur mur, s’il existe, devra conserver un accès en lecture aux données et permettre d’accepter une invitation. Un coach au-dessus de son palier conserverait ses clients mais ne pourrait plus en ajouter.
 
 ## Travaux transversaux autorisés
 

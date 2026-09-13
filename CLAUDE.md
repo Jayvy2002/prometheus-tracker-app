@@ -4,7 +4,7 @@
 >
 > À lire au début de chaque tâche. Ce fichier définit les sources de vérité, invariants, règles de sécurité et conventions de travail.
 >
-> **Instruction pour les agents :** ne pas y recopier le backlog, un état live daté ou un journal de PR. Lire `README.md` pour comprendre le projet actuel, `docs/VISION.md` pour la destination produit et `docs/CHANTIER.md` pour l’ordre complet des travaux. Ne pas modifier le rôle de ces documents.
+> **Instruction pour les agents :** ne pas y recopier le backlog, un état live daté ou un journal de PR. Lire `README.md` pour comprendre le projet actuel, `docs/VISION.md` pour la destination produit, `docs/CARTE_PRODUIT.md` pour les parcours cibles et `docs/CHANTIER.md` pour l’ordre complet des travaux. Ne pas modifier le rôle de ces documents.
 
 ## Produit
 
@@ -24,6 +24,7 @@ Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition
 |---|---|
 | Présentation et utilisation du projet actuel | `README.md` |
 | Destination, rôles et principes produit | `docs/VISION.md` |
+| Parcours et contrats d’architecture cible | `docs/CARTE_PRODUIT.md` |
 | Priorités et totalité du travail restant | `docs/CHANTIER.md` |
 | Schéma et ordre des migrations | `supabase/migrations/` + `supabase/schema_migrations.lock.json` |
 | État des Edge Functions | `supabase/functions.deployed.lock.json` |

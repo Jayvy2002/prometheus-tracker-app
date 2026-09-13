@@ -4,11 +4,11 @@
 
 Le dossier `supabase/migrations/` et `supabase/schema_migrations.lock.json` doivent représenter exactement les versions enregistrées dans `supabase_migrations.schema_migrations` du projet de production `phyuijjekxtjvipjtdfv`.
 
-État vérifié le 10 septembre 2026 :
+État vérifié le 13 septembre 2026 :
 
-- 98 versions dans Git, le lock et la production ;
+- 99 versions dans Git, le lock et la production ;
 - aucune version Git-only ou prod-only ;
-- dernière version : `20260910160000_apply_intervention_client_target.sql` ;
+- dernière version : `20260911235551_coach_questionnaires.sql` ;
 - replay local complet sur PostgreSQL 17 validé par la CI.
 
 ## Règles
