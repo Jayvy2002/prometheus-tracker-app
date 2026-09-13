@@ -30,6 +30,8 @@ test('login is identity-only; intention is chosen after auth', () => {
   assert.match(store, /choose_account_intent/);
   const picker = src('src/components/onboarding/EntryIntentionPage.tsx');
   assert.match(picker, /navigate\(intent === 'find_coach' \? '\/coaches' : '\/dashboard'/);
+  const browser = src('scripts/test-questionnaire-browser.mjs');
+  assert.match(browser, /entry_intent:role==='coach'\?'coach':'solo'/);
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /account_entry_intent\.sql/);
   const lock = src('supabase/schema_migrations.lock.json');
