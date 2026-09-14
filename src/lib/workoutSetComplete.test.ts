@@ -57,6 +57,8 @@ test('set complete without a prescribed rest still starts a 90s timer', () => {
   const card = src('src/components/workout/ExerciseCard.tsx');
   assert.match(card, /resolveRestSeconds\(exercise\.prescribed_rest_seconds\) \?\? 90/);
 });
+
+test('messages fill the viewport minus the tab bar; check-in extras are collapsed', () => {
   const clientMsg = src('src/components/coaching/ClientMessagesPage.tsx');
   assert.doesNotMatch(clientMsg, /pb-28/);
   assert.match(clientMsg, /100dvh-6rem/);
