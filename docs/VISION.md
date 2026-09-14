@@ -205,4 +205,4 @@ Les prix, limites, dates d’effet et conditions doivent être visibles avant en
 - Les erreurs importantes sont visibles et récupérables.
 - Les fonctionnalités facultatives ou sensibles ne bloquent pas les parcours essentiels.
 
-L’ordre d’implémentation, les décisions ouvertes et les critères de fin se trouvent uniquement dans `docs/CHANTIER.md`.
+L’ordre d’implémentation, les décisions ouvertes et les critères de fin se trouvent uniquement dans `docs/CHANTIER.md`. Un diagnostic de l’expérience **livrée** (trois personae) est dans `docs/RAPPORT_UX_FONCTIONNALITES.md` ; il ne remplace pas cette vision.
