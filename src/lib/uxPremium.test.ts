@@ -50,6 +50,56 @@ test('error boundary never prints Error.name to the user', () => {
   assert.match(boundary, /errors\.dataSafe/);
 });
 
+test('client setup is a four-step wizard', () => {
+  const setup = src('src/components/coaching/ClientSetupPage.tsx');
+  assert.match(setup, /SETUP_WIZARD_STEPS/);
+  assert.match(setup, /coaching\.setup\.wizard\.start/);
+  assert.doesNotMatch(setup, /coaching\.interventions\.send/);
+});
+
+test('client 360 tabs are a keyboard tablist', () => {
+  const page = src('src/components/coaching/ClientDetailPage.tsx');
+  assert.match(page, /TabList/);
+  assert.match(page, /role="tabpanel"/);
+  assert.match(page, /coaching\.client360\.message/);
+  assert.match(page, /coaching\.client360\.sinceVisit/);
+});
+
+test('assigning a program does not preselect the first client', () => {
+  const programs = src('src/components/programs/ProgramsPage.tsx');
+  assert.doesNotMatch(programs, /setAssignClient\(clients\[0\]\.id\)/);
+  assert.match(programs, /setAssignClient\(''\)/);
+  assert.match(programs, /OverflowMenu/);
+});
+
+test('learned preferences hide cron / seen / flagged jargon', () => {
+  const learned = src('src/components/coaching/CoachLearnedPage.tsx');
+  assert.doesNotMatch(learned, /coaching\.learned\.cron/);
+  assert.doesNotMatch(learned, /coaching\.learned\.roundStats/);
+  assert.match(learned, /coaching\.learned\.correct/);
+});
+
+test('scanner search UI does not expose Open Food Facts steps', () => {
+  const scanner = src('src/components/scanner/UnifiedScanner.tsx');
+  assert.doesNotMatch(scanner, /scanner\.checkingDb/);
+  assert.doesNotMatch(scanner, /scanner\.checkingOff/);
+  assert.match(scanner, /scanner\.lookingUp/);
+  assert.match(scanner, /scanner\.notFoundHuman/);
+});
+
+test('progress hub links to stats weight calendar', () => {
+  const hub = src('src/components/workout/ExerciseProgressPage.tsx');
+  assert.match(hub, /to="\/stats"/);
+  assert.match(hub, /to="\/weight"/);
+  assert.match(hub, /to="\/calendar"/);
+});
+
+test('set type dots use a static Tailwind class', () => {
+  const card = src('src/components/workout/ExerciseCard.tsx');
+  assert.doesNotMatch(card, /color\.replace\('text-', 'bg-'\)/);
+  assert.match(card, /dotColor/);
+});
+
 test('mobile and desktop nav share Aujourd’hui and use NavLink', () => {
   const bottom = src('src/components/layout/BottomNav.tsx');
   const side = src('src/components/layout/SideNav.tsx');

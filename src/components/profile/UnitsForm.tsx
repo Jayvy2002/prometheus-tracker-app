@@ -5,6 +5,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { usePreferencesStore } from '../../stores/preferencesStore';
 import Button from '../ui/Button';
+import UnitToggle from '../ui/UnitToggle';
 import { toast } from '../ui/Toast';
 
 export default function UnitsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
@@ -32,26 +33,6 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
     }
     onBack();
   };
-
-  const UnitToggle = ({ label, value, options, onChange }: {
-    label: string; value: string; options: [string, string]; onChange: (v: string) => void;
-  }) => (
-    <div className="flex items-center justify-between py-3">
-      <span className="text-sm text-neutral-300">{label}</span>
-      <div className="flex rounded-xl overflow-hidden border border-neutral-800">
-        {options.map(o => (
-          <button
-            key={o}
-            onClick={() => onChange(o)}
-            className={`px-4 py-1.5 text-xs font-medium transition-colors
-              ${value === o ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'}`}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 
   return (
     <div>

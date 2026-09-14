@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Camera, Trash2 } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { todayStr } from '../../lib/utils';
@@ -8,6 +8,10 @@ import type { ProgressPhoto, ProgressPhotoKind } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import ProgressPhotoCompare from './ProgressPhotoCompare';
+import EmptyState from '../ui/EmptyState';
+import OverflowMenu from '../ui/OverflowMenu';
+import { formatDate } from '../../lib/utils';
 import { toast } from '../ui/Toast';
 
 const KINDS: ProgressPhotoKind[] = ['front', 'side', 'back'];
@@ -129,8 +133,31 @@ export default function ClientPhotosPage() {
           </Button>
         </Card>
 
+        {photos.length >= 2 && (
+          <div className="mb-4">
+            <ProgressPhotoCompare photos={photos} urls={urls} />
+          </div>
+        )}
+
+        {KINDS.map(k => {
+          const group = photos.filter(p => p.kind === k).sort((a, b) => a.taken_at.localeCompare(b.taken_at));
+          if (group.length === 0) return null;
+          const first = group[0];
+          const last = group[group.length - 1];
+          return (
+            <Card key={k} className="mb-3">
+              <p className="text-sm font-medium text-white">{t(`coaching.photos.kinds.${k}`)}</p>
+              <p className="text-sm text-neutral-500 mt-1">
+                {t('coaching.photos.firstDate', { date: formatDate(first.taken_at) })}
+                {' · '}
+                {t('coaching.photos.lastDate', { date: formatDate(last.taken_at) })}
+              </p>
+            </Card>
+          );
+        })}
+
         {photos.length === 0 ? (
-          <Card className="text-sm text-neutral-500 text-center py-8">{t('coaching.photos.empty')}</Card>
+          <EmptyState title={t('coaching.photos.empty')} body={t('coaching.photos.emptyBody')} />
         ) : (
           <div className="grid grid-cols-2 gap-2">
             {photos.map(photo => (
@@ -144,12 +171,13 @@ export default function ClientPhotosPage() {
                 </div>
                 <div className="p-2 flex items-center justify-between gap-1">
                   <div className="min-w-0">
-                    <p className="text-[11px] text-white truncate">{t(`coaching.photos.kinds.${photo.kind}`)}</p>
-                    <p className="text-[10px] text-neutral-500">{photo.taken_at}</p>
+                    <p className="text-sm text-white truncate">{t(`coaching.photos.kinds.${photo.kind}`)}</p>
+                    <p className="text-xs text-neutral-500">{formatDate(photo.taken_at)}</p>
                   </div>
-                  <button type="button" onClick={() => onDelete(photo)} className="p-1 text-neutral-500 hover:text-rose-400">
-                    <Trash2 size={14} />
-                  </button>
+                  <OverflowMenu
+                    label={t('common.manage')}
+                    actions={[{ id: 'delete', label: t('common.delete'), danger: true, onSelect: () => { void onDelete(photo); } }]}
+                  />
                 </div>
               </Card>
             ))}

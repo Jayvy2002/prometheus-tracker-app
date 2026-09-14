@@ -1,9 +1,10 @@
-const CACHE_NAME = 'prometheus-v3';
+const CACHE_NAME = 'prometheus-v4';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/logo.svg',
+  '/icon-192.png',
   '/offline.html',
 ];
 
@@ -36,8 +37,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title ?? 'Prometheus';
   const options = {
     body: payload.body ?? '',
-    icon: '/logo.svg',
-    badge: '/logo.svg',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
     tag: payload.tag ?? 'prometheus-reminder',
     data: { url: payload.url ?? '/' },
   };

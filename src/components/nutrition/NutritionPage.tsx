@@ -141,6 +141,9 @@ export default function NutritionPage() {
               <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/scanner'); }}>
                 <ScanLine size={16} className="inline mr-2" />{t('nutrition.foodForm.openScanner')}
               </button>
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleReuseCategory(getTimeBasedCategory()); }}>
+                {t('nutrition.reuseMeal')}
+              </button>
               {!coached && (
                 <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/recipes'); }}>
                   <ChefHat size={16} className="inline mr-2" />{t('nav.recipes')}
@@ -168,8 +171,8 @@ export default function NutritionPage() {
             <ProgressRing progress={pct} size={80} strokeWidth={6} color="#2563eb">
               <div className="text-center">
                 <div className="text-sm font-bold text-white leading-tight">{Math.round(totalCals)}</div>
-                <div className="text-[10px] text-neutral-500 leading-tight">/ {target}</div>
-                <div className="text-[9px] text-neutral-400">cal</div>
+                <div className="text-xs text-neutral-500 leading-tight">/ {target}</div>
+                <div className="text-xs text-neutral-400">{t('common.kcal')}</div>
               </div>
             </ProgressRing>
           ) : null}

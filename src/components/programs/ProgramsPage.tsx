@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2, CalendarRange, Pencil } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useRoutineStore } from '../../stores/routineStore';
@@ -14,6 +14,9 @@ import Card from '../ui/Card';
 import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
+import OverflowMenu from '../ui/OverflowMenu';
+import EmptyState from '../ui/EmptyState';
+import { ListSkeleton } from '../ui/PageSkeleton';
 import { toast } from '../ui/Toast';
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0]; // Mon-first for display, Sunday=0 stored
@@ -106,64 +109,54 @@ export default function ProgramsPage() {
         )}
 
         {loading ? (
-          <div className="space-y-2">{[1, 2].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}</div>
+          <ListSkeleton count={2} />
         ) : programs.length === 0 ? (
-          <Card className="text-center py-10">
-            <CalendarRange className="mx-auto mb-3 text-neutral-600" size={28} />
-            <p className="text-neutral-400 mb-4">{coached ? t('programs.clientLocked') : t('programs.empty')}</p>
-            {isCoach && (
+          <EmptyState
+            title={coached ? t('programs.clientLocked') : t('programs.empty')}
+            body={coached ? undefined : t('programs.emptyBody')}
+            action={isCoach ? (
               <Button type="button" size="sm" onClick={() => navigate('/programs/new')}>{t('programs.createFirst')}</Button>
-            )}
-          </Card>
+            ) : undefined}
+          />
         ) : (
           <div className="space-y-3">
             {programs.map(p => {
               const exerciseCount = (p.days ?? []).reduce((n, d) => n + (d.exercises?.length ?? 0), 0);
+              const sessionCount = (p.days ?? []).filter(d => d.name).length;
               return (
               <Card key={p.id} onClick={isCoach ? () => navigate(`/programs/${p.id}`) : undefined}>
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white">{p.name}</p>
-                    <p className="text-xs text-neutral-500">{t('programs.weeksCount', { n: p.duration_weeks })}</p>
+                    <p className="text-sm text-neutral-400 mt-1">
+                      {t('programs.sessionsPerWeek', { n: sessionCount || (p.days ?? []).length })}
+                      {' · '}
+                      {t('programs.weeksCount', { n: p.duration_weeks })}
+                    </p>
                     <div className="flex flex-wrap gap-1 mt-2">
                       {(p.days ?? []).filter(d => d.name).map(d => (
-                        <span key={d.id} className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
+                        <span key={d.id} className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
                           {weekdayLabel(d.weekday)}: {d.name}
                         </span>
                       ))}
                       {exerciseCount === 0 && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
                           {t('programs.noExercises')}
                         </span>
                       )}
                     </div>
                   </div>
                   {isCoach && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); navigate(`/programs/${p.id}`); }}
-                        className="p-1.5 rounded-lg text-neutral-300 hover:text-white hover:bg-neutral-800"
-                        aria-label={t('common.edit')}
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={e => { e.stopPropagation(); void deleteProgram(p.id); }}
-                        className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-neutral-800"
-                        aria-label={t('common.delete')}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    <OverflowMenu
+                      label={t('programs.moreActions')}
+                      actions={[
+                        { id: 'open', label: t('common.edit'), onSelect: () => navigate(`/programs/${p.id}`) },
+                        { id: 'assign', label: t('programs.assign'), onSelect: () => { setAssigningId(p.id); setAssignClient(''); } },
+                        { id: 'delete', label: t('common.delete'), danger: true, onSelect: () => { void deleteProgram(p.id); } },
+                      ]}
+                    />
                   )}
                 </div>
-                {isCoach && clients.length > 0 && (
-                  <Button type="button" size="sm" variant="secondary" className="w-full mt-3" onClick={e => { e.stopPropagation(); setAssigningId(p.id); setAssignClient(clients[0].id); }}>
-                    {t('programs.assign')}
-                  </Button>
-                )}
               </Card>
               );
             })}
@@ -171,7 +164,10 @@ export default function ProgramsPage() {
         )}
 
         {isCoach && (
-        <button type="button" onClick={() => navigate('/routines')} className="mt-6 text-sm text-blue-400">
+        <p className="mt-6 text-sm text-neutral-500">{t('programs.templatesHint')}</p>
+        )}
+        {isCoach && (
+        <button type="button" onClick={() => navigate('/routines')} className="mt-2 min-h-11 text-sm text-blue-400">
           {t('programs.manageRoutines')}
         </button>
         )}
@@ -221,6 +217,7 @@ export default function ProgramsPage() {
             onChange={e => setAssignClient(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
           >
+            <option value="">{t('programs.pickClientFirst')}</option>
             {clients.map(c => (
               <option key={c.id} value={c.id}>{c.full_name || c.email}</option>
             ))}
@@ -231,7 +228,7 @@ export default function ProgramsPage() {
             onChange={e => setAssignDate(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
           />
-          <Button onClick={handleAssign} className="w-full">{t('programs.assign')}</Button>
+          <Button onClick={handleAssign} disabled={!assignClient} className="w-full">{t('programs.assign')}</Button>
         </div>
       </Modal>
     </PageTransition>

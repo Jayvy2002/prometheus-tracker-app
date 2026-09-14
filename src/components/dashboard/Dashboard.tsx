@@ -307,7 +307,7 @@ export default function Dashboard() {
             onEditPlan={!hasCoach ? () => navigate('/programs') : undefined}
           />
         )}
-        {hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
+        {!firstRun && hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
           <button
             type="button"
             onClick={() => navigate('/checkin')}
@@ -316,7 +316,7 @@ export default function Dashboard() {
             {t('checkin.dashboardCta')}
           </button>
         )}
-        {hasCoach && !activityPending && (
+        {!firstRun && hasCoach && !activityPending && (
           <button
             type="button"
             onClick={() => navigate('/photos')}
@@ -327,7 +327,7 @@ export default function Dashboard() {
             <ChevronRight size={16} className="text-neutral-600" />
           </button>
         )}
-        {!isIntakeAlreadyFilled(profile) && (
+        {!firstRun && !isIntakeAlreadyFilled(profile) && (
           <button
             type="button"
             onClick={() => navigate('/intake')}
@@ -399,7 +399,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {hasCoach && <button type="button" onClick={() => navigate('/questionnaire')} className="w-full p-3 rounded-xl border border-neutral-800 text-left">{t('coachQuestionnaire.title')}</button>}
+        {!firstRun && hasCoach && <button type="button" onClick={() => navigate('/questionnaire')} className="w-full p-3 rounded-xl border border-neutral-800 text-left">{t('coachQuestionnaire.title')}</button>}
         {/* Solo copilot: the weekly kcal / macros review. A coached client's coach receives it instead. */}
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
 
@@ -506,7 +506,7 @@ export default function Dashboard() {
           </div>
         ) : null}
 
-        {!hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
+        {!firstRun && !hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
           <button
             onClick={() => navigate('/checkin')}
             className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort } from '../../lib/utils';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
+import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 
 interface ExerciseEntry {
@@ -220,7 +221,22 @@ export default function ExerciseProgressPage() {
           <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-white flex-1">{t('progress.title')}</h1>
+          <h1 className="text-xl font-bold text-white flex-1">{t('pages.progress')}</h1>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 mb-6">
+          <CardLink to="/stats">
+            <p className="text-sm font-medium text-white flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />{t('nav.progressSummary')}</p>
+          </CardLink>
+          <CardLink to="/exercise-progress">
+            <p className="text-sm font-medium text-white flex items-center gap-2"><Dumbbell size={16} className="text-blue-400" />{t('nav.progressTraining')}</p>
+          </CardLink>
+          <CardLink to="/weight">
+            <p className="text-sm font-medium text-white flex items-center gap-2"><Scale size={16} className="text-blue-400" />{t('nav.progressMeasures')}</p>
+          </CardLink>
+          <CardLink to="/calendar">
+            <p className="text-sm font-medium text-white flex items-center gap-2"><CalendarDays size={16} className="text-blue-400" />{t('nav.progressHistory')}</p>
+          </CardLink>
         </div>
 
         {loading ? (

@@ -82,6 +82,7 @@ export default function RoutinesPage() {
   return (
     <PageTransition>
     <div className="px-4 pt-6">
+      <p className="text-sm text-neutral-500 mb-4">{t('programs.templatesHint')}</p>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <button

@@ -154,22 +154,22 @@ Décision produit : une seule app, un moteur commun, pas de Stripe, pas de secon
 | **0A** i18n / finition visible | Terminé (code + tests) | Namespace `options.*` FR/EN, `auth.signOut`, repas/genres/set types, dates via `dateLocale`, plus de fallback `Workout`. Tests `optionLabels`, `uxPremium`. « Truc » = donnée prod, pas un bug code. |
 | **0B** auth / intention / invite | Terminé (code + tests) | Labels Auth + `autocomplete`, cartes d’intention avec CTA, invitation avec nom/initiales. E-mail de confirmation : action Dashboard, voir [SUPABASE_EMAIL.md](SUPABASE_EMAIL.md). Intake kinesio : 7 écrans conservés (sécurité médicale) + barre sticky déjà en place. |
 | **0C** vérité produit | Terminé (code + tests) | Cibles nutritionnelles sans 150/250/65 ; `Terminer` ne coche plus les séries ; confirmation si séries incomplètes ; erreurs techniques filtrées ; ErrorBoundary sans stack. |
-| **1** design system | À vérifier | Tokens Tailwind (`page`, `surface`, `ink`, `line`), `IconButton`, `PageHeader`, `CardLink`, `usePageTitle`, Select `htmlFor`. Primitive `Card` encore utilisée avec `onClick` sur quelques listes. |
-| **2** accessibilité | À vérifier | Cibles 44px (nav, mot de passe, FAB), labels Auth, focus déjà global. Inventaire 8–11 px encore partiel. |
+| **1** design system | Terminé (code + tests) | Tokens, `PageHeader`, `CardLink`, `EmptyState`, `ErrorState`, `TabList`, `OverflowMenu`, `UnitToggle`. `Card onClick` encore utilisé sur quelques listes historiques. |
+| **2** accessibilité | À vérifier | Cibles 44px étendues (tabs, message 360, overflow). Inventaire 8–11 px encore partiel. Revue lecteur d’écran restante. |
 | **3** navigation | Terminé (code + tests) | Aujourd’hui partout. Solo : Aujourd’hui / Entraînement / Progression / Nutrition / Profil. Coaché et Coach inchangés (5 tabs). `NavLink`. FAB hors `bottom-[76px]` dur. |
-| **4** dashboard utilisateur | À vérifier | Cibles honnêtes, anneau calories non moralisateur. Hiérarchie 1 CTA encore à resserrer en parcours réel. |
+| **4** dashboard utilisateur | À vérifier | First-run : un CTA (première séance), photos / check-in / questionnaire / intake masqués. Parcours réel à rejouer. |
 | **5** Coach Today | À vérifier | Empty « premier client », file avant les métriques, sévérité en texte, « Actualiser les priorités ». Parcours réel à rejouer. |
-| **6** Client 360 | À construire | Header + « depuis ta dernière visite » encore trop denses. |
-| **7** Client setup wizard | À construire | Écran unique encore présent ; le découpage 4 étapes reste à faire. |
-| **8** Messages / Prometheus | À vérifier | Correctifs messagerie déjà dans `new-JV` ; polish Messenger et copy Prometheus encore partiels. |
-| **9** Marketplace vitrine | À construire | Fiches encore trop « formulaire / admin ». Prix hors scope tant que le billing est fermé. |
-| **10** Programmes / routines / builder | À construire | Bibliothèque + menu … et Form Builder encore à simplifier. |
-| **11** Nutrition / workout / scanner | À vérifier | Nutrition : un CTA Ajouter. Finish workout honnête. Scanner copy à rejouer en live. |
-| **12** Progression / photos | À construire | Hub Progression : les routes existent ; pas encore un écran unique. |
-| **13** Profil | À vérifier | Déconnexion n’est plus le bouton rouge principal. Organisation des sections encore partielle. |
-| **14** PWA / offline / errors | À vérifier | `offline.html` retravaillé, ErrorBoundary de marque. Manifest / icônes PNG à auditer. |
-| **15** Performance | À construire | Requêtes Dashboard et classes Tailwind dynamiques encore à mesurer. |
-| **16** Polish global | À vérifier | Glow/scale bouton réduits. Revue visuelle live restante. |
+| **6** Client 360 | Terminé (code + tests) | Header Message 44px + label, `role=tablist`, « depuis ta dernière visite » en tête, 1 reco max, dossier derrière détails. |
+| **7** Client setup wizard | Terminé (code + tests) | 4 étapes Comprendre / Suivi / Prise en charge / Vérifier. `handleConfirm` inchangé. Résumé « X recevra ». |
+| **8** Messages / Prometheus | Terminé (code + tests) | Séparateurs de date, composer safe-area, retry. Prometheus contextuel. Learned sans cron/round/seen. |
+| **9** Marketplace vitrine | Terminé (code) | Cartes + profil public + comparaison en cartes. Pas de prix inventé (`priceOnRequest`). Billing toujours fermé. |
+| **10** Programmes / routines / builder | Terminé (code + tests) | Bibliothèque + menu … ; assignation sans premier client auto ; routines = templates ; mapping questionnaire derrière Avancé. |
+| **11** Nutrition / workout / scanner | Terminé (code + tests) | CTA Ajouter + réutiliser un repas. Scanner : « Recherche du produit… » / « Produit introuvable ». Inputs séance plus grands + `inputMode`. |
+| **12** Progression / photos | Terminé (code + tests) | Hub liens Résumé / Entraînement / Mesures / Historique. Photos Face/Profil/Dos + avant/après. |
+| **13** Profil | Terminé (code) | Groupes Profil / Coaching / Préférences / Compte / Avancé. Déconnexion secondary. Timezone coach lisible. |
+| **14** PWA / offline / errors | Terminé (code) | Icônes PNG 192/512 + maskable + apple-touch. Notifications SW en PNG. `offline.html` et ErrorBoundary déjà de marque. |
+| **15** Performance | À vérifier | `UnitToggle` sorti du render. `dotColor` statique à la place de `color.replace`. Dashboard : fetches déjà groupés ; mesure live restante. |
+| **16** Polish global | À vérifier | EmptyState / ErrorState / skeletons, toasts plus longs + pause hover. Revue visuelle live restante. |
 
 ## Chantiers 4 à 6 — Feuille de route UX complète
 

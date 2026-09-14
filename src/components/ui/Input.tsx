@@ -6,7 +6,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 }
 
 const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, className = '', id, 'aria-describedby': describedBy, 'aria-invalid': ariaInvalid, ...props }, ref) => {
+  ({ label, error, className = '', id, type, inputMode, 'aria-describedby': describedBy, 'aria-invalid': ariaInvalid, ...props }, ref) => {
     const generatedId = useId();
     const inputId = id ?? generatedId;
     const errorId = `${inputId}-error`;
@@ -20,6 +20,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         <input
           ref={ref}
           id={inputId}
+          type={type}
+          inputMode={inputMode ?? (type === 'number' ? 'decimal' : undefined)}
           aria-describedby={descriptionIds}
           aria-invalid={error ? true : ariaInvalid}
           className={`w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-white

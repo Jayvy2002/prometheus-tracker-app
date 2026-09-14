@@ -11,6 +11,9 @@ export interface ToastMessage {
   onUndo?: () => void;
 }
 
+const MAX_TOASTS = 3;
+const timers = new Map<string, ReturnType<typeof setTimeout>>();
+
 let toastQueue: ToastMessage[] = [];
 let listeners: ((toasts: ToastMessage[]) => void)[] = [];
 
@@ -18,14 +21,25 @@ function notify() {
   listeners.forEach(fn => fn([...toastQueue]));
 }
 
+function scheduleDismiss(id: string, ms: number) {
+  const existing = timers.get(id);
+  if (existing) clearTimeout(existing);
+  timers.set(id, setTimeout(() => {
+    toastQueue = toastQueue.filter(t => t.id !== id);
+    timers.delete(id);
+    notify();
+  }, ms));
+}
+
+function durationFor(type: ToastType, extra = 0) {
+  return (type === 'error' || extra > 80 ? 8000 : 4000);
+}
+
 export function toast(message: string, type: ToastType = 'success') {
   const id = crypto.randomUUID();
-  toastQueue = [...toastQueue, { id, message, type }];
+  toastQueue = [...toastQueue, { id, message, type }].slice(-MAX_TOASTS);
   notify();
-  setTimeout(() => {
-    toastQueue = toastQueue.filter(t => t.id !== id);
-    notify();
-  }, 3000);
+  scheduleDismiss(id, durationFor(type, message.length));
 }
 
 export function toastWithUndo(message: string, onUndo: () => void) {
@@ -36,12 +50,10 @@ export function toastWithUndo(message: string, onUndo: () => void) {
     notify();
     onUndo();
   };
-  toastQueue = [...toastQueue, { id, message, type: 'info', onUndo: wrappedUndo }];
+  const next: ToastMessage = { id, message, type: 'info', onUndo: wrappedUndo };
+  toastQueue = [...toastQueue, next].slice(-MAX_TOASTS);
   notify();
-  setTimeout(() => {
-    toastQueue = toastQueue.filter(t => t.id !== id);
-    notify();
-  }, 4500);
+  scheduleDismiss(id, 8000);
 }
 
 export function useToasts() {
@@ -96,6 +108,11 @@ export function ToastContainer() {
             key={t.id}
             role={t.type === 'error' ? 'alert' : 'status'}
             aria-live={t.type === 'error' ? 'assertive' : 'polite'}
+            onMouseEnter={() => {
+              const existing = timers.get(t.id);
+              if (existing) clearTimeout(existing);
+            }}
+            onMouseLeave={() => scheduleDismiss(t.id, durationFor(t.type, t.message.length))}
             className={`max-w-sm w-full flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-xl pointer-events-auto animate-fade-in-down ${colors[t.type]}`}
           >
             <Icon aria-hidden="true" size={16} className={`shrink-0 ${iconColors[t.type]}`} />
