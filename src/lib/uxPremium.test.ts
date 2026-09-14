@@ -70,6 +70,14 @@ test('assigning a program does not preselect the first client', () => {
   assert.doesNotMatch(programs, /setAssignClient\(clients\[0\]\.id\)/);
   assert.match(programs, /setAssignClient\(''\)/);
   assert.match(programs, /OverflowMenu/);
+  assert.doesNotMatch(programs, /<Card[^>]*onClick/);
+});
+
+test('navigation cards use links instead of Card onClick', () => {
+  assert.doesNotMatch(src('src/components/stats/StatsPage.tsx'), /<Card[^>]*onClick/);
+  assert.match(src('src/components/stats/StatsPage.tsx'), /CardLink/);
+  assert.doesNotMatch(src('src/components/coaching/CoachDashboard.tsx'), /<Card[^>]*onClick/);
+  assert.match(src('src/components/coaching/CoachDashboard.tsx'), /CardLink/);
 });
 
 test('learned preferences hide cron / seen / flagged jargon', () => {
@@ -98,6 +106,9 @@ test('set type dots use a static Tailwind class', () => {
   const card = src('src/components/workout/ExerciseCard.tsx');
   assert.doesNotMatch(card, /color\.replace\('text-', 'bg-'\)/);
   assert.match(card, /dotColor/);
+  assert.doesNotMatch(card, />Tempo</);
+  assert.doesNotMatch(card, />Cluster</);
+  assert.doesNotMatch(card, />ACT</);
 });
 
 test('mobile and desktop nav share Aujourd’hui and use NavLink', () => {

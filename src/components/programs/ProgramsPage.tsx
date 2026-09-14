@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
@@ -124,10 +124,16 @@ export default function ProgramsPage() {
               const exerciseCount = (p.days ?? []).reduce((n, d) => n + (d.exercises?.length ?? 0), 0);
               const sessionCount = (p.days ?? []).filter(d => d.name).length;
               return (
-              <Card key={p.id} onClick={isCoach ? () => navigate(`/programs/${p.id}`) : undefined}>
+              <Card key={p.id}>
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
+                    {isCoach ? (
+                      <Link to={`/programs/${p.id}`} className="font-semibold text-white hover:text-blue-300">
+                        {p.name}
+                      </Link>
+                    ) : (
                     <p className="font-semibold text-white">{p.name}</p>
+                    )}
                     <p className="text-sm text-neutral-400 mt-1">
                       {t('programs.sessionsPerWeek', { n: sessionCount || (p.days ?? []).length })}
                       {' · '}

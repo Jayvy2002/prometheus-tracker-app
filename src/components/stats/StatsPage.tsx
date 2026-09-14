@@ -9,6 +9,7 @@ import { toLocalDateStr, formatChartDate } from '../../lib/utils';
 import { nutritionTargetsFromProfile } from '../../lib/nutritionTargets';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 import Card from '../ui/Card';
+import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
@@ -433,14 +434,14 @@ export default function StatsPage() {
               </Card>
             )}
 
-            <Card onClick={() => navigate('/exercise-progress')} className="flex items-center gap-3 animate-fade-in-up">
+            <CardLink to="/exercise-progress" className="flex items-center gap-3 animate-fade-in-up">
               <Dumbbell size={16} className="text-blue-400" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white">{t('dashboard.viewProgress')}</p>
-                <p className="text-[11px] text-neutral-500">{t('dashboard.progressDesc')}</p>
+                <p className="text-xs text-neutral-500">{t('dashboard.progressDesc')}</p>
               </div>
               <ChevronRight size={16} className="text-neutral-600" />
-            </Card>
+            </CardLink>
 
             {/* Achievements */}
             {achievements.length > 0 && (

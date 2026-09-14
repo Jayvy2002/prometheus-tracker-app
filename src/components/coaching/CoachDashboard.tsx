@@ -14,6 +14,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { checkinReviewRows, formatCheckinScore } from '../../lib/coachCheckins';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import CoachRelationshipNotices from './CoachRelationshipNotices';
@@ -178,7 +179,7 @@ export default function CoachDashboard() {
                 </p>
                 <div className="space-y-2">
                   {reviewRows.slice(0, 6).map(row => (
-                    <Card key={row.checkin.id} onClick={() => navigate(row.href)} className="flex items-start gap-3">
+                    <CardLink key={row.checkin.id} to={row.href} className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
                         {row.avatarUrl
                           ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -186,14 +187,14 @@ export default function CoachDashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
-                        <p className="text-[11px] text-neutral-500 truncate">
+                        <p className="text-xs text-neutral-500 truncate">
                           {row.checkin.checked_at}
                           {' · '}
                           {t(`coaching.checkinReview.kinds.${row.kind}`, { n: formatCheckinScore(row.checkin.joint_pain, row.checkin) })}
                         </p>
                       </div>
                       <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
-                    </Card>
+                    </CardLink>
                   ))}
                 </div>
               </div>

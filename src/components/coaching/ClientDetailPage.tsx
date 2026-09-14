@@ -921,7 +921,12 @@ export default function ClientDetailPage() {
                 </p>
               )}
               {workouts.filter(w => w.id !== sessionView?.workoutId).slice(0, 6).map(w => (
-                <Card key={w.id} onClick={() => handleOpenWorkout(w.id)} className="flex items-center gap-3">
+                <Card key={w.id} padding={false}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWorkout(w.id)}
+                    className="w-full flex items-center gap-3 p-4 text-left"
+                  >
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${w.completed ? 'bg-blue-600/20 text-blue-400' : 'bg-neutral-800 text-neutral-500'}`}>
                     <Dumbbell size={16} />
                   </div>
@@ -929,6 +934,7 @@ export default function ClientDetailPage() {
                     <p className="text-sm font-medium text-white truncate">{w.name || t('workout.title')}</p>
                     <p className="text-xs text-neutral-500">{formatDate(w.date)}</p>
                   </div>
+                  </button>
                 </Card>
               ))}
             </div>
