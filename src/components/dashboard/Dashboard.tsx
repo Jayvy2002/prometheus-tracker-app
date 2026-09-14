@@ -404,35 +404,36 @@ export default function Dashboard() {
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
 
         {myCoach && (latestCoachMessage || unreadMessageCount > 0) && (
-          <button
-            type="button"
-            onClick={() => navigate('/messages')}
-            className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/25 rounded-xl px-3.5 py-2.5 mb-4 w-full text-left"
-          >
-            <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-              <MessageSquare size={14} className="text-blue-300" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-medium text-blue-300 mb-0.5">
-                {t('dashboard.coachMessageTitle')}
-                {unreadMessageCount > 1 ? ` · ${unreadMessageCount}` : ''}
-              </p>
-              <p className="text-xs text-blue-100/90 whitespace-pre-wrap line-clamp-3">
-                {latestCoachMessage?.body || t('coaching.messages.openInbox')}
-              </p>
-            </div>
-            <span
-              role="button"
-              tabIndex={0}
-              onClick={e => {
-                e.stopPropagation();
+          <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/25 rounded-xl px-3.5 py-2.5 mb-4">
+            <button
+              type="button"
+              onClick={() => navigate('/messages')}
+              className="flex items-start gap-3 flex-1 min-w-0 text-left"
+            >
+              <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                <MessageSquare size={14} className="text-blue-300" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] font-medium text-blue-300 mb-0.5">
+                  {t('dashboard.coachMessageTitle')}
+                  {unreadMessageCount > 1 ? ` · ${unreadMessageCount}` : ''}
+                </p>
+                <p className="text-xs text-blue-100/90 whitespace-pre-wrap line-clamp-3">
+                  {latestCoachMessage?.body || t('coaching.messages.openInbox')}
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              aria-label={t('common.dismiss')}
+              onClick={() => {
                 if (latestCoachMessage) void markCoachMessageRead(latestCoachMessage.id);
               }}
               className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-200 transition-colors shrink-0"
             >
               <X size={14} />
-            </span>
-          </button>
+            </button>
+          </div>
         )}
 
         {/* Notification Reminders */}
@@ -446,7 +447,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/workout')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-amber-200/90 leading-snug">{t('dashboard.reminders.deload')}</p>
                 </button>
-                <button onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
+                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
@@ -459,7 +460,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/weight')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}</p>
                 </button>
-                <button onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
+                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
@@ -472,7 +473,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-orange-200/80 leading-snug">{t('dashboard.reminders.meal')}</p>
                 </button>
-                <button onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
+                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
@@ -485,7 +486,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-cyan-200/80 leading-snug">{t('dashboard.reminders.water')}</p>
                 </button>
-                <button onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
+                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
