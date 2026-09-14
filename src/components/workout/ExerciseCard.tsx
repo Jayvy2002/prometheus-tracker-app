@@ -702,7 +702,7 @@ export default function ExerciseCard({
 
   const handleSetComplete = () => {
     if (!restOn) return;
-    onStartRestTimer(resolveRestSeconds(exercise.prescribed_rest_seconds));
+    onStartRestTimer(resolveRestSeconds(exercise.prescribed_rest_seconds) ?? 90);
   };
 
   const suggestion = getOverloadSuggestion(history);
