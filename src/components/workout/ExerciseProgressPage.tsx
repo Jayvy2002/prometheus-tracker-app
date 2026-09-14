@@ -4,39 +4,21 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort } from '../../lib/utils';
+import {
+  aggregateExerciseProgress,
+  isRecordAtIndex,
+  type ExerciseProgressSummary,
+} from '../../lib/performedSets';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 
-interface ExerciseEntry {
-  date: string;
-  maxWeight: number;
-  totalVolume: number;
-  estimated1RM: number;
-  sets: number;
-}
-
-interface ExerciseSummary {
-  name: string;
-  entries: ExerciseEntry[];
-  latest1RM: number;
-  best1RM: number;
-  trend: number;
-  totalSessions: number;
-}
-
-function estimate1RM(weight: number, reps: number): number {
-  if (reps <= 0 || weight <= 0) return 0;
-  if (reps === 1) return weight;
-  return Math.round(weight * (1 + reps / 30));
-}
-
 export default function ExerciseProgressPage() {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
 
-  const [allData, setAllData] = useState<ExerciseSummary[]>([]);
+  const [allData, setAllData] = useState<ExerciseProgressSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,57 +38,15 @@ export default function ExerciseProgressPage() {
       .then(({ data }) => {
         if (!data) { setLoading(false); return; }
 
-        const byExercise: Record<string, Record<string, { maxWeight: number; totalVolume: number; best1RM: number; sets: number }>> = {};
+        const summaries = aggregateExerciseProgress(
+          data as unknown as Array<{
+            name: string;
+            workout_sets: { weight_kg: number; reps: number; set_type: string; completed: boolean }[];
+            workouts: { date: string };
+          }>,
+          iso => toLocalDateStr(parseDate(iso)),
+        ).sort((a, b) => b.totalSessions - a.totalSessions);
 
-        for (const ex of data as unknown as {
-          name: string;
-          workout_sets: { weight_kg: number; reps: number; set_type: string; completed: boolean }[];
-          workouts: { date: string; completed: boolean };
-        }[]) {
-          const name = ex.name;
-          if (!byExercise[name]) byExercise[name] = {};
-          const dateKey = toLocalDateStr(parseDate(ex.workouts.date));
-          if (!byExercise[name][dateKey]) {
-            byExercise[name][dateKey] = { maxWeight: 0, totalVolume: 0, best1RM: 0, sets: 0 };
-          }
-          for (const s of (ex.workout_sets ?? [])) {
-            if (s.set_type === 'warmup') continue;
-            if (!s.completed && !ex.workouts.completed) continue;
-            const w = s.weight_kg || 0;
-            const r = s.reps || 0;
-            if (w === 0) continue;
-            byExercise[name][dateKey].maxWeight = Math.max(byExercise[name][dateKey].maxWeight, w);
-            byExercise[name][dateKey].totalVolume += w * r;
-            byExercise[name][dateKey].best1RM = Math.max(byExercise[name][dateKey].best1RM, estimate1RM(w, r));
-            byExercise[name][dateKey].sets++;
-          }
-        }
-
-        const summaries: ExerciseSummary[] = Object.entries(byExercise)
-          .map(([name, dates]) => {
-            const entries: ExerciseEntry[] = Object.entries(dates)
-              .sort(([a], [b]) => a.localeCompare(b))
-              .map(([date, d]) => ({
-                date,
-                maxWeight: Math.round(d.maxWeight * 10) / 10,
-                totalVolume: Math.round(d.totalVolume),
-                estimated1RM: d.best1RM,
-                sets: d.sets,
-              }))
-              .filter(e => e.sets > 0);
-
-            if (entries.length === 0) return null;
-
-            const latest1RM = entries[entries.length - 1].estimated1RM;
-            const best1RM = Math.max(...entries.map(e => e.estimated1RM));
-            const prev1RM = entries.length >= 2 ? entries[entries.length - 2].estimated1RM : latest1RM;
-            const trend = prev1RM > 0 ? Math.round(((latest1RM - prev1RM) / prev1RM) * 100) : 0;
-
-            return { name, entries, latest1RM, best1RM, trend, totalSessions: entries.length };
-          })
-          .filter(Boolean) as ExerciseSummary[];
-
-        summaries.sort((a, b) => b.totalSessions - a.totalSessions);
         setAllData(summaries);
         setLoading(false);
       });
@@ -128,7 +68,7 @@ export default function ExerciseProgressPage() {
       '1RM': e.estimated1RM,
       volume: e.totalVolume,
     }));
-    const isNewPR = detail.latest1RM === detail.best1RM && detail.entries.length > 1;
+    const isNewPR = isRecordAtIndex(detail.entries, detail.entries.length - 1);
 
     return (
       <PageTransition>
@@ -199,7 +139,7 @@ export default function ExerciseProgressPage() {
                       <p className="text-xs font-medium text-blue-400">{e.estimated1RM} kg <span className="text-neutral-600">1RM</span></p>
                       <p className="text-[11px] text-neutral-500">{e.maxWeight} kg max | {e.totalVolume} vol</p>
                     </div>
-                    {e.estimated1RM === detail.best1RM && detail.entries.indexOf(e) < detail.entries.length - 1 && (
+                    {isRecordAtIndex(detail.entries, detail.entries.indexOf(e)) && (
                       <Trophy size={12} className="text-amber-400 shrink-0" />
                     )}
                   </div>
@@ -248,7 +188,7 @@ export default function ExerciseProgressPage() {
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-3 animate-fade-in-up">{t('progress.topExercises')}</h2>
             <div className="space-y-3 mb-6">
               {topExercises.map((ex, i) => {
-                const isNewPR = ex.latest1RM === ex.best1RM && ex.entries.length > 1;
+                const isNewPR = isRecordAtIndex(ex.entries, ex.entries.length - 1);
                 return (
                   <button
                     key={ex.name}

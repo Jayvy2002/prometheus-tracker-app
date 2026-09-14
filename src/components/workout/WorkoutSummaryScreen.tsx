@@ -1,81 +1,11 @@
-import { useEffect, useRef } from 'react';
-import { CheckCircle, Zap, Dumbbell, Clock, BarChart2, MessageCircle } from 'lucide-react';
+import { CheckCircle, Zap, Dumbbell, Clock, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { formatDuration } from '../../lib/utils';
 import type { Workout } from '../../lib/types';
+import { computeWorkoutSummaryStats } from '../../lib/performedSets';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
 import Button from '../ui/Button';
-
-interface SummaryStats {
-  duration: number;
-  totalVolume: number;
-  exerciseCount: number;
-  setCount: number;
-  topExercises: { name: string; volume: number; estimated1RM: number }[];
-  prCount: number;
-}
-
-function computeStats(workout: Workout, duration: number): SummaryStats {
-  let totalVolume = 0;
-  let setCount = 0;
-  const prCount = 0;
-  const exerciseStats: { name: string; volume: number; estimated1RM: number }[] = [];
-
-  for (const ex of workout.exercises ?? []) {
-    let exVolume = 0;
-    let max1RM = 0;
-    for (const s of ex.sets ?? []) {
-      if (s.set_type === 'warmup') continue;
-      const vol = (s.weight_kg ?? 0) * (s.reps ?? 0);
-      exVolume += vol;
-      totalVolume += vol;
-      setCount++;
-      if ((s.reps ?? 0) > 0 && (s.weight_kg ?? 0) > 0) {
-        const rm = s.weight_kg * (1 + s.reps / 30);
-        if (rm > max1RM) max1RM = rm;
-      }
-    }
-    if (exVolume > 0 || (ex.sets?.length ?? 0) > 0) {
-      exerciseStats.push({ name: ex.name, volume: exVolume, estimated1RM: max1RM });
-    }
-  }
-
-  exerciseStats.sort((a, b) => b.volume - a.volume);
-
-  return {
-    duration,
-    totalVolume,
-    exerciseCount: workout.exercises?.length ?? 0,
-    setCount,
-    topExercises: exerciseStats.slice(0, 3),
-    prCount,
-  };
-}
-
-function getCoachingTips(stats: SummaryStats, t: (key: string, opts?: Record<string, unknown>) => string): string[] {
-  const tips: string[] = [];
-
-  if (stats.duration > 0 && stats.duration < 30 * 60) {
-    tips.push(t('workout.summary.coaching.shortSession'));
-  } else if (stats.duration >= 75 * 60) {
-    tips.push(t('workout.summary.coaching.longSession'));
-  }
-
-  if (stats.totalVolume >= 10000) {
-    tips.push(t('workout.summary.coaching.highVolume'));
-  } else if (stats.totalVolume > 0 && stats.totalVolume < 3000) {
-    tips.push(t('workout.summary.coaching.lightSession'));
-  }
-
-  if (stats.exerciseCount >= 6) {
-    tips.push(t('workout.summary.coaching.manyExercises', { count: stats.exerciseCount }));
-  }
-
-  tips.push(t('workout.summary.coaching.protein'));
-
-  return tips.slice(0, 2);
-}
 
 function StatCard({
   icon: Icon,
@@ -112,30 +42,22 @@ export default function WorkoutSummaryScreen({
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const showCoachSaw = isCoachedAthlete(coachingRole, myCoach);
-  const stats = computeStats(workout, duration);
-  const closedRef = useRef(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!closedRef.current) onClose();
-    }, 30000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const handleClose = () => {
-    closedRef.current = true;
-    onClose();
-  };
+  const stats = computeWorkoutSummaryStats(workout, duration);
 
   const volumeLabel =
     stats.totalVolume >= 1000
       ? `${(stats.totalVolume / 1000).toFixed(1)}t`
       : `${Math.round(stats.totalVolume)} kg`;
 
+  const fact = stats.setCount === 0
+    ? t('workout.summary.facts.nonePerformed')
+    : stats.skippedSetCount > 0
+      ? t('workout.summary.facts.skipped', { count: stats.skippedSetCount })
+      : null;
+
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col overflow-y-auto">
       <div className="flex-1 px-5 pt-10 pb-8 flex flex-col">
-        {/* Hero */}
         <div className="text-center mb-8 animate-fade-in-scale">
           <div className="relative w-24 h-24 mx-auto mb-5">
             <div className="absolute inset-0 rounded-full bg-blue-600/20 animate-pulse" />
@@ -154,7 +76,6 @@ export default function WorkoutSummaryScreen({
           ) : null}
         </div>
 
-        {/* Stats grid */}
         <div
           className="grid grid-cols-2 gap-3 mb-6 animate-fade-in-up"
           style={{ animationDelay: '80ms' }}
@@ -185,7 +106,16 @@ export default function WorkoutSummaryScreen({
           />
         </div>
 
-        {/* Top lifts */}
+        {fact ? (
+          <p
+            role="status"
+            className="text-sm text-neutral-400 mb-6 px-0.5 animate-fade-in-up"
+            style={{ animationDelay: '120ms' }}
+          >
+            {fact}
+          </p>
+        ) : null}
+
         {stats.topExercises.length > 0 && (
           <div
             className="mb-6 animate-fade-in-up"
@@ -214,7 +144,7 @@ export default function WorkoutSummaryScreen({
                     )}
                     {ex.estimated1RM > 0 && (
                       <p className="text-xs text-blue-400 font-medium">
-                        ~{Math.round(ex.estimated1RM)} kg {t('workout.summary.oneRM')}
+                        ~{ex.estimated1RM} kg {t('workout.summary.oneRM')}
                       </p>
                     )}
                   </div>
@@ -224,40 +154,15 @@ export default function WorkoutSummaryScreen({
           </div>
         )}
 
-        {/* Coaching tips */}
-        {(() => {
-          const tips = getCoachingTips(stats, t);
-          if (tips.length === 0) return null;
-          return (
-            <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
-              <div className="flex items-center gap-1.5 mb-2 px-0.5">
-                <MessageCircle size={12} className="text-blue-400" />
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
-                  {t('workout.summary.coaching.title')}
-                </span>
-              </div>
-              <div className="space-y-2">
-                {tips.map((tip, i) => (
-                  <div key={i} className="flex items-start gap-2.5 bg-neutral-900/60 border border-neutral-800/40 rounded-xl px-4 py-3">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-                    <p className="text-sm text-neutral-300 leading-relaxed">{tip}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })()}
-
         <div className="flex-1" />
 
-        {/* CTA */}
         <Button
           type="button"
           size="lg"
-          onClick={handleClose}
+          onClick={onClose}
           className="w-full"
         >
-          {t('workout.summary.backToWorkouts')}
+          {t('workout.summary.seeSession')}
         </Button>
       </div>
     </div>

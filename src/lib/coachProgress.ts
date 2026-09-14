@@ -1,5 +1,8 @@
 import type { ClientLiftProgress, DailyNutritionPoint, WeightMeasurement } from './types';
 import { correctLogCalories } from './foodEnergy';
+import { epley1RM, isPerformedSet } from './performedSets';
+
+export { epley1RM } from './performedSets';
 
 export function aggregateNutritionByDay(
   logs: Array<{ logged_at: string; calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string }>,
@@ -20,12 +23,6 @@ export function aggregateNutritionByDay(
   return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
-export function epley1RM(weight: number, reps: number): number {
-  if (reps <= 0 || weight <= 0) return 0;
-  if (reps === 1) return Math.round(weight);
-  return Math.round(weight * (1 + reps / 30));
-}
-
 export function liftChartPoints(lift: ClientLiftProgress): Array<{
   date: string;
   topSet: number;
@@ -36,7 +33,7 @@ export function liftChartPoints(lift: ClientLiftProgress): Array<{
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(s => {
       const e1rm = s.sets
-        .filter(x => x.weight_kg > 0 && x.reps > 0)
+        .filter(isPerformedSet)
         .reduce((acc, set) => Math.max(acc, epley1RM(set.weight_kg, set.reps)), 0);
       return {
         date: s.date,

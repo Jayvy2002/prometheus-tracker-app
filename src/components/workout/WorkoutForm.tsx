@@ -371,7 +371,6 @@ function WorkoutFormInner() {
       const snapshot = { ...currentWorkout, name: workoutName || currentWorkout.name, exercises: mergedExercises };
       setSummaryDuration(finalDuration);
       setSummaryWorkout(snapshot);
-      setCurrentWorkout(null);
     } finally {
       setSaving(false);
     }
@@ -383,8 +382,10 @@ function WorkoutFormInner() {
         workout={summaryWorkout}
         duration={summaryDuration}
         onClose={() => {
+          const workoutId = summaryWorkout.id;
           setSummaryWorkout(null);
-          navigate(summaryWorkout.program_day_id ? '/dashboard' : '/workout');
+          void fetchWorkout(workoutId);
+          navigate(`/workout/${workoutId}`, { replace: true });
         }}
       />
     );

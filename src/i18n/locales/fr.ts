@@ -430,6 +430,9 @@ const fr = {
     goBack: 'Retour',
     prescribedVsLogged: '{{prescribed}} prescrit · {{logged}} réalisé',
     prescribedShort: '{{sets}}×{{reps}}',
+    recap: {
+      skippedSet: 'non cochée',
+    },
     summary: {
       title: 'Séance terminée !',
       subtitle: 'Super séance 💪',
@@ -441,15 +444,11 @@ const fr = {
       vol: 'vol',
       oneRM: '1RM',
       backToWorkouts: 'Retour aux entraînements',
+      seeSession: 'Voir la séance',
       coachWillSee: 'Ton coach verra cette séance.',
-      coaching: {
-        title: 'Conseil du coach',
-        shortSession: "Séance rapide et efficace ! L'intensité compte plus que la durée.",
-        longSession: "Séance longue aujourd'hui. Pense à bien récupérer et t'hydrater.",
-        highVolume: "Gros volume ! Tes muscles vont bien se reconstruire si tu manges assez.",
-        lightSession: "Séance légère mais utile. Chaque rep compte.",
-        manyExercises: "{{count}} exercices, belle diversité ! Assure-toi de garder la qualité sur chaque mouvement.",
-        protein: "Pense à consommer 30-40g de protéines dans l'heure qui suit.",
+      facts: {
+        skipped: '{{count}} série(s) non cochée(s) — hors volume et 1RM.',
+        nonePerformed: 'Aucune série cochée. Rien n’est compté comme réalisé.',
       },
     },
     exerciseCard: {
