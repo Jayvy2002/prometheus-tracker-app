@@ -155,10 +155,10 @@ Décision produit : une seule app, un moteur commun, pas de Stripe, pas de secon
 | **0B** auth / intention / invite | Terminé (code + tests) | Labels Auth + `autocomplete`, cartes d’intention avec CTA, invitation avec nom/initiales. E-mail de confirmation : action Dashboard, voir [SUPABASE_EMAIL.md](SUPABASE_EMAIL.md). Intake kinesio : 7 écrans conservés (sécurité médicale) + barre sticky déjà en place. |
 | **0C** vérité produit | Terminé (code + tests) | Cibles nutritionnelles sans 150/250/65 ; `Terminer` ne coche plus les séries ; confirmation si séries incomplètes ; erreurs techniques filtrées ; ErrorBoundary sans stack. |
 | **1** design system | Terminé (code + tests) | Tokens, `PageHeader`, `CardLink`, `EmptyState`, `ErrorState`, `TabList`, `OverflowMenu`, `UnitToggle`. Navigation via `CardLink` / `Link` ; plus de `Card onClick` sur programmes, stats et check-ins. |
-| **2** accessibilité | À vérifier | Cibles 44px étendues (tabs, message 360, overflow). Inventaire 8–11 px encore partiel. Revue lecteur d’écran restante. |
+| **2** accessibilité | À vérifier | Cibles 44px étendues. `prefers-reduced-motion` annule aussi `animation-delay` : la SideNav ne reste plus à opacity 0. Inventaire 8–11 px encore partiel. Revue lecteur d’écran restante. |
 | **3** navigation | Terminé (code + tests) | Aujourd’hui partout. Solo : Aujourd’hui / Entraînement / Progression / Nutrition / Profil. Coaché et Coach inchangés (5 tabs). `NavLink`. FAB hors `bottom-[76px]` dur. |
 | **4** dashboard utilisateur | À vérifier | First-run : un CTA (première séance), photos / check-in / questionnaire / intake masqués. Parcours réel à rejouer. |
-| **5** Coach Today | À vérifier | Empty « premier client », file avant les métriques, sévérité en texte, « Actualiser les priorités ». Parcours réel à rejouer. |
+| **5** Coach Today | À vérifier | Empty « Commence avec ton premier client » + « Créer un lien » confirmé en live (compte audit-coach, 14 sept. 2026). File / sévérité à rejouer avec un roster non vide. |
 | **6** Client 360 | Terminé (code + tests) | Header Message 44px + label, `role=tablist`, « depuis ta dernière visite » en tête, 1 reco max, dossier derrière détails. |
 | **7** Client setup wizard | Terminé (code + tests) | 4 étapes Comprendre / Suivi / Prise en charge / Vérifier. `handleConfirm` inchangé. Résumé « X recevra ». |
 | **8** Messages / Prometheus | Terminé (code + tests) | Séparateurs de date, composer safe-area, retry. Prometheus contextuel. Learned sans cron/round/seen. |

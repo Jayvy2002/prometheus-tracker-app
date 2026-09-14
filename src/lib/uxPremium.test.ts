@@ -111,6 +111,14 @@ test('set type dots use a static Tailwind class', () => {
   assert.doesNotMatch(card, />ACT</);
 });
 
+test('reduced motion does not leave delayed sidebar items at opacity 0', () => {
+  const css = src('src/index.css');
+  assert.match(css, /prefers-reduced-motion:\s*reduce/);
+  assert.match(css, /animation-delay:\s*0s/);
+  assert.match(css, /\.sidebar-item/);
+  assert.match(css, /animation:\s*none/);
+});
+
 test('mobile and desktop nav share Aujourd’hui and use NavLink', () => {
   const bottom = src('src/components/layout/BottomNav.tsx');
   const side = src('src/components/layout/SideNav.tsx');

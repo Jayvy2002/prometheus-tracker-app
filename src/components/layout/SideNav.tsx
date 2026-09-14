@@ -69,12 +69,11 @@ export default function SideNav() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-hide">
-        {tabs.map((tab, i) => (
+        {tabs.map((tab) => (
           <NavLink
             key={tab.path}
             to={tab.path}
-            style={{ animationDelay: `${i * 50}ms` }}
-            className={({ isActive }) => `sidebar-item relative w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
+            className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
               ${isActive
                 ? 'bg-blue-600/15 text-white'
                 : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60'
