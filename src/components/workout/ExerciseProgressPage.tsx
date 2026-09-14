@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { parseDate, toLocalDateStr } from '../../lib/utils';
+import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort } from '../../lib/utils';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -33,7 +33,7 @@ function estimate1RM(weight: number, reps: number): number {
 }
 
 export default function ExerciseProgressPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
 
@@ -125,7 +125,7 @@ export default function ExerciseProgressPage() {
 
   if (selectedExercise && detail) {
     const chartData = detail.entries.slice(-20).map(e => ({
-      date: new Date(e.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+      date: formatChartDate(e.date, i18n.language),
       '1RM': e.estimated1RM,
       volume: e.totalVolume,
     }));
@@ -192,7 +192,7 @@ export default function ExerciseProgressPage() {
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-white">
-                        {new Date(e.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                        {formatWeekdayShort(e.date, i18n.language)}
                       </p>
                       <p className="text-xs text-neutral-500">{e.sets} sets</p>
                     </div>

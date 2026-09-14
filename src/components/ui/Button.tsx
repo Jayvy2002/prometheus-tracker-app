@@ -11,8 +11,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants = {
   primary: {
-    base: 'bg-blue-600 text-white shadow-lg shadow-blue-900/30',
-    hover: 'hover:bg-blue-500 hover:shadow-blue-900/50',
+    base: 'bg-blue-600 text-white',
+    hover: 'hover:bg-blue-500',
   },
   secondary: {
     base: 'bg-neutral-800 text-neutral-200 border border-neutral-700/80',
@@ -55,7 +55,7 @@ export default function Button({
           ? 'opacity-50 cursor-not-allowed'
           : pressOnly
             ? 'active:opacity-90'
-            : 'active:scale-[0.96] hover:scale-[1.01]'
+            : 'active:opacity-90'
         }
         ${className}`}
       disabled={disabled || loading}

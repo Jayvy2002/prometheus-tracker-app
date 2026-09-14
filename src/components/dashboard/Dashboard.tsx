@@ -19,6 +19,7 @@ import { showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
+import { nutritionTargetsFromProfile, targetRatio } from '../../lib/nutritionTargets';
 import {
   clientHomeNextAction,
   clientHomeNextActionKey,
@@ -100,31 +101,32 @@ export default function Dashboard() {
   const timeKey = hour < 12 ? 'goodMorning' : hour < 18 ? 'goodAfternoon' : 'goodEvening';
   const greeting = `${t(`dashboard.${timeKey}`)}${firstName ? `, ${firstName}` : ''} !`;
 
-  // Daily metrics
-  const calorieTarget = profile?.daily_calorie_target ?? 0;
+  // Daily metrics — never invent a target the user or coach did not set.
+  const nutritionTargets = nutritionTargetsFromProfile(profile);
+  const calorieTarget = nutritionTargets.calories ?? 0;
   const showHomeRings = showModule(tracking, 'nutrition') && hasSentNutritionTarget(profile);
   const consumed = logs.reduce((sum, l) => sum + l.calories, 0);
-  const caloriePct = calorieTarget > 0 ? Math.min(100, (consumed / calorieTarget) * 100) : 0;
+  const caloriePct = targetRatio(consumed, nutritionTargets.calories);
 
-  const waterTarget = profile?.daily_water_target_ml ?? 2500;
+  const waterTarget = nutritionTargets.waterMl;
   const waterConsumed = waterLogs.reduce((sum, l) => sum + l.amount_ml, 0);
-  const waterPct = Math.min(100, (waterConsumed / waterTarget) * 100);
+  const waterPct = targetRatio(waterConsumed, waterTarget);
 
-  const proteinTarget = profile?.protein_target ?? 150;
+  const proteinTarget = nutritionTargets.protein;
   const proteinConsumed = logs.reduce((sum, l) => sum + l.protein, 0);
-  const proteinPct = Math.min(100, (proteinConsumed / proteinTarget) * 100);
+  const proteinPct = targetRatio(proteinConsumed, proteinTarget);
 
-  const carbsTarget = profile?.carbs_target ?? 250;
+  const carbsTarget = nutritionTargets.carbs;
   const carbsConsumed = logs.reduce((sum, l) => sum + (l.carbs ?? 0), 0);
-  const carbsPct = Math.min(100, (carbsConsumed / carbsTarget) * 100);
+  const carbsPct = targetRatio(carbsConsumed, carbsTarget);
 
-  const fatTarget = profile?.fat_target ?? 70;
+  const fatTarget = nutritionTargets.fat;
   const fatConsumed = logs.reduce((sum, l) => sum + (l.fat ?? 0), 0);
-  const fatPct = Math.min(100, (fatConsumed / fatTarget) * 100);
+  const fatPct = targetRatio(fatConsumed, fatTarget);
 
-  const stepsTarget = profile?.daily_steps_target ?? 10000;
+  const stepsTarget = nutritionTargets.steps;
   const stepsConsumed = stepsLog?.logged_at === todayStr() ? stepsLog.steps : 0;
-  const stepsPct = stepsTarget > 0 ? Math.min(100, (stepsConsumed / stepsTarget) * 100) : 0;
+  const stepsPct = targetRatio(stepsConsumed, stepsTarget);
 
   // Weekly workout goal
   const weekDates = getWeekDates();
@@ -220,7 +222,7 @@ export default function Dashboard() {
     (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3)
   );
 
-  const showWaterReminder = !hasCoach && !calmHome && hourNow >= 15 && waterConsumed > 0 && waterPct < 50;
+  const showWaterReminder = !hasCoach && !calmHome && hourNow >= 15 && waterConsumed > 0 && waterTarget != null && waterPct < 50;
 
   // Deload suggestion — if trained 4+ consecutive weeks without a break
   const fourWeeksAgo = new Date();
@@ -538,12 +540,12 @@ export default function Dashboard() {
                 progress={caloriePct}
                 size={80}
                 strokeWidth={6}
-                color={caloriePct >= 95 && caloriePct <= 105 ? '#10b981' : caloriePct > 105 ? '#f43f5e' : '#2563eb'}
+                color={calorieTarget > 0 && caloriePct >= 95 && caloriePct <= 105 ? '#60a5fa' : '#2563eb'}
               >
                 <Flame size={20} className="text-orange-400" />
               </ProgressRing>
               <p className="text-sm font-bold text-white mt-1">{consumed === 0 ? '—' : Math.round(consumed)}</p>
-              <p className="text-[10px] text-neutral-500">{consumed === 0 ? t('dashboard.notLoggedYet') : `/ ${calorieTarget} kcal`}</p>
+              <p className="text-xs text-neutral-500">{consumed === 0 ? t('dashboard.notLoggedYet') : calorieTarget > 0 ? `/ ${calorieTarget} kcal` : t('common.noTarget')}</p>
             </button>
             )}
 
@@ -553,12 +555,12 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.protein')}</span>
-                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(proteinConsumed)}g / ${proteinTarget}g`}</span>
+                  <span className="text-sm text-neutral-400">{consumed === 0 ? '—' : proteinTarget == null ? `${Math.round(proteinConsumed)}g · ${t('common.noTarget')}` : `${Math.round(proteinConsumed)}g / ${proteinTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${proteinPct}%`, backgroundColor: '#38bdf8' }}
+                    style={{ width: `${proteinTarget == null ? 0 : proteinPct}%`, backgroundColor: '#38bdf8' }}
                   />
                 </div>
               </div>
@@ -568,12 +570,12 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.carbs')}</span>
-                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(carbsConsumed)}g / ${carbsTarget}g`}</span>
+                  <span className="text-sm text-neutral-400">{consumed === 0 ? '—' : carbsTarget == null ? `${Math.round(carbsConsumed)}g · ${t('common.noTarget')}` : `${Math.round(carbsConsumed)}g / ${carbsTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${carbsPct}%`, backgroundColor: '#fbbf24' }}
+                    style={{ width: `${carbsTarget == null ? 0 : carbsPct}%`, backgroundColor: '#fbbf24' }}
                   />
                 </div>
               </div>
@@ -583,12 +585,12 @@ export default function Dashboard() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-medium text-neutral-300">{t('common.fat')}</span>
-                  <span className="text-[11px] text-neutral-400">{consumed === 0 ? '—' : `${Math.round(fatConsumed)}g / ${fatTarget}g`}</span>
+                  <span className="text-sm text-neutral-400">{consumed === 0 ? '—' : fatTarget == null ? `${Math.round(fatConsumed)}g · ${t('common.noTarget')}` : `${Math.round(fatConsumed)}g / ${fatTarget}g`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${fatPct}%`, backgroundColor: '#fb7185' }}
+                    style={{ width: `${fatTarget == null ? 0 : fatPct}%`, backgroundColor: '#a78bfa' }}
                   />
                 </div>
               </div>
@@ -601,12 +603,12 @@ export default function Dashboard() {
                     <Droplets size={10} className="text-cyan-400" />
                     {t('coaching.water')}
                   </span>
-                  <span className="text-[11px] text-neutral-400">{(waterConsumed / 1000).toFixed(1)}L / {(waterTarget / 1000).toFixed(1)}L</span>
+                  <span className="text-sm text-neutral-400">{waterTarget == null ? `${(waterConsumed / 1000).toFixed(1)}L · ${t('common.noTarget')}` : `${(waterConsumed / 1000).toFixed(1)}L / ${(waterTarget / 1000).toFixed(1)}L`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${waterPct}%`, backgroundColor: '#22d3ee' }}
+                    style={{ width: `${waterTarget == null ? 0 : waterPct}%`, backgroundColor: '#22d3ee' }}
                   />
                 </div>
               </div>
@@ -619,12 +621,12 @@ export default function Dashboard() {
                     <Footprints size={10} className="text-emerald-400" />
                     {t('nutrition.steps.title')}
                   </span>
-                  <span className="text-[11px] text-neutral-400">{stepsConsumed.toLocaleString()} / {stepsTarget.toLocaleString()}</span>
+                  <span className="text-sm text-neutral-400">{stepsTarget == null ? `${stepsConsumed.toLocaleString()} · ${t('common.noTarget')}` : `${stepsConsumed.toLocaleString()} / ${stepsTarget.toLocaleString()}`}</span>
                 </div>
                 <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${stepsPct}%`, backgroundColor: '#34d399' }}
+                    style={{ width: `${stepsTarget == null ? 0 : stepsPct}%`, backgroundColor: '#34d399' }}
                   />
                 </div>
               </div>

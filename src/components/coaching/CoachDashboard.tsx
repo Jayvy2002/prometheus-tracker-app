@@ -109,9 +109,11 @@ export default function CoachDashboard() {
             ) : null}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {opsRows.length > 0 && (
             <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
-              {t('coaching.fleet.run')}
+              {t('coaching.fleet.refresh')}
             </Button>
+            )}
             <button
               type="button"
               onClick={() => navigate('/prometheus')}
@@ -155,7 +157,9 @@ export default function CoachDashboard() {
           </Card>
         ) : (
           <>
-            <div className={`grid grid-cols-2 gap-3 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
+            <CoachTodayQueue />
+
+            <div className={`grid grid-cols-2 gap-3 mt-6 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
               <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
               <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
               {stats.checkinsToReview > 0 && (
@@ -203,8 +207,6 @@ export default function CoachDashboard() {
                 </button>
               </Card>
             ) : null}
-
-            <CoachTodayQueue />
           </>
         )}
       </div>

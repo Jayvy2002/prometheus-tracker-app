@@ -223,6 +223,25 @@ export function formatWeekdayDate(d: Date = new Date(), lang?: string): string {
   return d.toLocaleDateString(dateLocale(lang), { weekday: 'long', month: 'long', day: 'numeric' });
 }
 
+export function formatChartDate(dateStr: string, lang?: string): string {
+  return parseDate(dateStr).toLocaleDateString(dateLocale(lang), {
+    month: 'short', day: 'numeric',
+  });
+}
+
+export function formatWeekdayShort(dateStr: string, lang?: string): string {
+  return parseDate(dateStr).toLocaleDateString(dateLocale(lang), {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+}
+
+export function formatInstant(iso: string, lang?: string): string {
+  return new Date(iso).toLocaleString(dateLocale(lang), {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  });
+}
+
 export function formatDuration(seconds: number): string {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);

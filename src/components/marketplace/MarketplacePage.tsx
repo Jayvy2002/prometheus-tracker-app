@@ -16,7 +16,7 @@ const blank: CoachPublicProfile = { coach_id: '', public_name: '', introduction:
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
 
 export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const owner = useAuthStore(s => s.user?.id) ?? '';
   const fetchMyRole = useCoachingStore(s => s.fetchMyRole);
@@ -102,7 +102,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.client_id === owner ? row.coach_name || t('marketplace.coachUnavailableName') : row.public_name}</h2>
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
       <p className="text-sm text-neutral-300">{t(`marketplace.${row.status}`)}</p>
-      <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
+      <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
       {row.status === 'accepted' && row.relationship_state === 'active' && (
         <div className="space-y-3">
           <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? 'marketplace.coachingActiveCoach' : 'marketplace.coachingActive')}</p>

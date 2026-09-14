@@ -9,7 +9,7 @@ export default function WallSignOut() {
     <button
       type="button"
       onClick={() => void signOut()}
-      className="text-sm text-neutral-500 [@media(hover:hover)]:hover:text-white"
+      className="text-sm min-h-11 px-2 text-neutral-400 [@media(hover:hover)]:hover:text-white"
     >
       {t('auth.signOut')}
     </button>

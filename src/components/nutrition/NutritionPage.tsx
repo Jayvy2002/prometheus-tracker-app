@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
-import { todayStr, addDaysToDateStr } from '../../lib/utils';
+import { todayStr, addDaysToDateStr, formatWeekdayShort } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 import { toast } from '../ui/Toast';
 import { MEAL_CATEGORIES } from '../../lib/constants';
@@ -26,7 +26,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { optionLabel } from '../../lib/optionLabels';
 
 export default function NutritionPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
@@ -37,6 +37,7 @@ export default function NutritionPage() {
   const myCoach = useCoachingStore(s => s.myCoach);
   const coached = isCoachedAthlete(coachingRole, myCoach);
   const [showAdd, setShowAdd] = useState(false);
+  const [showAddMenu, setShowAddMenu] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
 
@@ -66,9 +67,7 @@ export default function NutritionPage() {
   };
 
   const isToday = selectedDate === todayStr();
-  const dateLabel = isToday ? t('common.today') : new Date(selectedDate + 'T12:00:00').toLocaleDateString(undefined, {
-    weekday: 'short', month: 'short', day: 'numeric',
-  });
+  const dateLabel = isToday ? t('common.today') : formatWeekdayShort(selectedDate, i18n.language);
 
   const getTimeBasedCategory = () => {
     const hour = new Date().getHours();
@@ -120,24 +119,35 @@ export default function NutritionPage() {
   return (
     <PageTransition>
     <div className="px-4 pt-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-white">{t('nutrition.title')}</h1>
-        <div className="flex gap-2">
-          {!coached && (
-          <button onClick={() => navigate('/recipes')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
-            <ChefHat size={18} />
-          </button>
-          )}
-          <button onClick={() => navigate('/scanner')} className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors">
-            <ScanLine size={18} />
-          </button>
+      <div className="flex items-start justify-between mb-4 gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">{t('nutrition.title')}</h1>
+          <p className="text-sm text-neutral-400 mt-0.5">{dateLabel}</p>
+        </div>
+        <div className="relative">
           <button
-            onClick={handleQuickAdd}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+            type="button"
+            onClick={() => setShowAddMenu(o => !o)}
+            className="min-h-11 flex items-center gap-1.5 px-3 rounded-xl bg-blue-600 text-white text-sm font-medium"
           >
             <Plus size={16} />
             {t('nutrition.add')}
           </button>
+          {showAddMenu && (
+            <div className="absolute right-0 mt-2 w-48 rounded-xl border border-neutral-800 bg-neutral-950 p-1 z-20">
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleQuickAdd(); }}>
+                {t('nutrition.addFood')}
+              </button>
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/scanner'); }}>
+                <ScanLine size={16} className="inline mr-2" />{t('nutrition.foodForm.openScanner')}
+              </button>
+              {!coached && (
+                <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/recipes'); }}>
+                  <ChefHat size={16} className="inline mr-2" />{t('nav.recipes')}
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -155,7 +165,7 @@ export default function NutritionPage() {
       <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale">
         <div className="flex items-center gap-5">
           {showNutritionField(tracking, 'calories') ? (
-            <ProgressRing progress={pct} size={80} strokeWidth={6} color={pct > 100 ? '#f43f5e' : '#2563eb'}>
+            <ProgressRing progress={pct} size={80} strokeWidth={6} color="#2563eb">
               <div className="text-center">
                 <div className="text-sm font-bold text-white leading-tight">{Math.round(totalCals)}</div>
                 <div className="text-[10px] text-neutral-500 leading-tight">/ {target}</div>

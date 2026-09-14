@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** ne jamais supprimer un élément parce qu’il est supposé, ancien, partiellement présent ou décrit dans la vision. Un élément sort de ce fichier uniquement après preuve de son implémentation et de sa validation, ou après une décision produit explicite de l’abandonner. Ne pas transformer ce fichier en journal de PR ou en inventaire de production. Git conserve l’historique ; le README décrit le produit actuel et `docs/VISION.md` sa destination.
 
-**Mis à jour : 13 septembre 2026.**
+**Mis à jour : 14 septembre 2026.**
 
 Direction de référence : vision marketplace du 12 septembre 2026. La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours cibles et les écarts au code. Ce fichier reste la seule source des **statuts**. Aucun lot M1–M8 n’est livré en production tant qu’il n’a pas sa migration Git, son apply prod et sa preuve de parcours.
 
@@ -145,6 +145,31 @@ Le futur mur, s’il existe, devra conserver un accès en lecture aux données e
 - Une migration appliquée n’est jamais réécrite.
 - Une proposition IA exige toujours une validation humaine.
 
+## Refonte UX/UI premium (lots 0A–16)
+
+Décision produit : une seule app, un moteur commun, pas de Stripe, pas de second design system. Travailler lot par lot. Ne pas retirer une ligne M1–M8 de ce fichier sans preuve.
+
+| Lot | Statut | Preuve / reste |
+|---|---|---|
+| **0A** i18n / finition visible | Terminé (code + tests) | Namespace `options.*` FR/EN, `auth.signOut`, repas/genres/set types, dates via `dateLocale`, plus de fallback `Workout`. Tests `optionLabels`, `uxPremium`. « Truc » = donnée prod, pas un bug code. |
+| **0B** auth / intention / invite | Terminé (code + tests) | Labels Auth + `autocomplete`, cartes d’intention avec CTA, invitation avec nom/initiales. E-mail de confirmation : action Dashboard, voir [SUPABASE_EMAIL.md](SUPABASE_EMAIL.md). Intake kinesio : 7 écrans conservés (sécurité médicale) + barre sticky déjà en place. |
+| **0C** vérité produit | Terminé (code + tests) | Cibles nutritionnelles sans 150/250/65 ; `Terminer` ne coche plus les séries ; confirmation si séries incomplètes ; erreurs techniques filtrées ; ErrorBoundary sans stack. |
+| **1** design system | À vérifier | Tokens Tailwind (`page`, `surface`, `ink`, `line`), `IconButton`, `PageHeader`, `CardLink`, `usePageTitle`, Select `htmlFor`. Primitive `Card` encore utilisée avec `onClick` sur quelques listes. |
+| **2** accessibilité | À vérifier | Cibles 44px (nav, mot de passe, FAB), labels Auth, focus déjà global. Inventaire 8–11 px encore partiel. |
+| **3** navigation | Terminé (code + tests) | Aujourd’hui partout. Solo : Aujourd’hui / Entraînement / Progression / Nutrition / Profil. Coaché et Coach inchangés (5 tabs). `NavLink`. FAB hors `bottom-[76px]` dur. |
+| **4** dashboard utilisateur | À vérifier | Cibles honnêtes, anneau calories non moralisateur. Hiérarchie 1 CTA encore à resserrer en parcours réel. |
+| **5** Coach Today | À vérifier | Empty « premier client », file avant les métriques, sévérité en texte, « Actualiser les priorités ». Parcours réel à rejouer. |
+| **6** Client 360 | À construire | Header + « depuis ta dernière visite » encore trop denses. |
+| **7** Client setup wizard | À construire | Écran unique encore présent ; le découpage 4 étapes reste à faire. |
+| **8** Messages / Prometheus | À vérifier | Correctifs messagerie déjà dans `new-JV` ; polish Messenger et copy Prometheus encore partiels. |
+| **9** Marketplace vitrine | À construire | Fiches encore trop « formulaire / admin ». Prix hors scope tant que le billing est fermé. |
+| **10** Programmes / routines / builder | À construire | Bibliothèque + menu … et Form Builder encore à simplifier. |
+| **11** Nutrition / workout / scanner | À vérifier | Nutrition : un CTA Ajouter. Finish workout honnête. Scanner copy à rejouer en live. |
+| **12** Progression / photos | À construire | Hub Progression : les routes existent ; pas encore un écran unique. |
+| **13** Profil | À vérifier | Déconnexion n’est plus le bouton rouge principal. Organisation des sections encore partielle. |
+| **14** PWA / offline / errors | À vérifier | `offline.html` retravaillé, ErrorBoundary de marque. Manifest / icônes PNG à auditer. |
+| **15** Performance | À construire | Requêtes Dashboard et classes Tailwind dynamiques encore à mesurer. |
+| **16** Polish global | À vérifier | Glow/scale bouton réduits. Revue visuelle live restante. |
 
 ## Chantiers 4 à 6 — Feuille de route UX complète
 

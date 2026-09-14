@@ -12,7 +12,7 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 
 export default function ProgramEditorPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -133,7 +133,7 @@ export default function ProgramEditorPage() {
           <p className="text-[11px] text-neutral-600 mb-4">
             {t('programs.revisionBadge', {
               n: revision.revision_no,
-              date: new Date(revision.created_at).toLocaleDateString(),
+              date: new Date(revision.created_at).toLocaleDateString(i18n.language),
             })}
           </p>
         )}

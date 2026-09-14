@@ -270,7 +270,7 @@ export default function ProfilePage() {
 
 
 
-      <Button variant="danger" onClick={handleSignOut} className="w-full animate-fade-in-up stagger-7">
+      <Button variant="secondary" onClick={handleSignOut} className="w-full animate-fade-in-up stagger-7">
         <LogOut size={16} /> {t('profile.signOut')}
       </Button>
 
