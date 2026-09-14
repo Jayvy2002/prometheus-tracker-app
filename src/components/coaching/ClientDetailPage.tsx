@@ -61,6 +61,7 @@ import {
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import TabList from '../ui/TabList';
 import { toast } from '../ui/Toast';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
@@ -409,12 +410,6 @@ export default function ClientDetailPage() {
   const sessionGap = hasSessionGap(situation);
   const setupHref = id ? `/clients/${id}/setup` : undefined;
   const firstRun = !!ops && !ops.hasProgram;
-  const showInsight = !!insight && (
-    insight.workoutsCompleted > 0
-    || insight.progressed.length > 0
-    || insight.stalled.length > 0
-    || (insight.pain != null && insight.pain >= 3)
-  );
   const showKpis = !!kpis && (
     kpis.progression !== 'unknown'
     || kpis.trainingAdherence != null
@@ -602,10 +597,11 @@ export default function ClientDetailPage() {
           <button
             type="button"
             onClick={() => id && navigate(`/messages/${id}`)}
-            className="p-2 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white"
-            aria-label={t('coaching.messages.write')}
+            className="min-h-11 min-w-11 px-3 rounded-xl bg-neutral-900 border border-neutral-800 text-blue-400 hover:text-white inline-flex items-center gap-2"
+            aria-label={t('coaching.client360.message')}
           >
             <MessageSquare size={18} />
+            <span className="text-sm font-medium">{t('coaching.client360.message')}</span>
           </button>
         </div>
 
@@ -655,24 +651,16 @@ export default function ClientDetailPage() {
           </button>
         )}
 
-        <div className="flex gap-1 overflow-x-auto mb-4 -mx-4 px-4 scrollbar-hide">
-          {visibleTabs.map(key => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap ${
-                tab === key ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
-              }`}
-            >
-              {t(`coaching.tabs360.${key}`)}
-            </button>
-          ))}
-        </div>
+        <TabList
+          tabs={visibleTabs.map(key => ({ id: key, label: t(`coaching.tabs360.${key}`) }))}
+          value={tab}
+          onChange={setTab}
+        />
 
         {loading ? (
           <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mt-8" />
         ) : tab === 'overview' ? (
-          <div className="space-y-4">
+          <div className="space-y-4" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview">
             {firstRun && id ? (
               <Card className="space-y-3 border-blue-500/20">
                 <p className="text-sm font-medium text-white">{t('coaching.client360.firstRunTitle')}</p>
@@ -682,19 +670,55 @@ export default function ClientDetailPage() {
                     {t('coaching.setupCta')}
                   </Button>
                   <Button size="sm" variant="secondary" onClick={() => navigate(`/messages/${id}`)}>
-                    {t('nav.messages')}
+                    {t('coaching.client360.message')}
                   </Button>
                 </div>
               </Card>
             ) : null}
+
+            {insight ? (
+              <Card>
+                <p className="text-sm font-semibold text-white mb-2">{t('coaching.client360.sinceVisit')}</p>
+                {insight.since && (
+                  <p className="text-sm text-neutral-400 mb-2">
+                    {t(`coaching.client360.sinceSource.${insight.source}`, { date: formatDate(insight.since) })}
+                  </p>
+                )}
+                <ul className="space-y-1 text-sm text-neutral-200">
+                  <li>{t('coaching.client360.sinceMeta', { workouts: insight.workoutsCompleted, checkins: insight.checkins })}</li>
+                  {kpis?.trainingAdherence != null && (
+                    <li>{t('coaching.kpis.adherence')} : {formatCheckinScore(kpis.trainingAdherence)}</li>
+                  )}
+                  <li>
+                    {insight.weightDeltaKg == null || insight.weightDeltaKg === 0
+                      ? t('coaching.client360.weightStable')
+                      : `${insight.weightDeltaKg > 0 ? '+' : ''}${insight.weightDeltaKg} kg`}
+                  </li>
+                  {insight.pain != null && (scoreOnTen(insight.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : insight.pain <= 5) ?? 0) >= PAIN_WATCH_ON_TEN && (
+                    <li className="text-rose-300">{t('coaching.client360.painFlag', { n: formatCheckinScore(insight.pain, checkins[0]) })}</li>
+                  )}
+                </ul>
+              </Card>
+            ) : null}
+
             <SituationCards
-              lines={firstRun ? situation.filter(line => line.id !== 'no_program') : situation}
+              lines={(firstRun ? situation.filter(line => line.id !== 'no_program') : situation).slice(0, 1)}
               relanceHref={trainingRelanceHref}
               setupHref={setupHref}
             />
 
+            {clientPriorities[0] && situation.length === 0 && (
+              <Card className="space-y-3">
+                <p className="text-sm text-white">{t(clientPriorities[0].headlineKey, clientPriorities[0].headlineParams)}</p>
+                <p className="text-sm text-neutral-400">{t('coaching.client360.attentionOne')}</p>
+                <Button size="sm" onClick={() => navigate(clientPriorities[0].href)}>
+                  {t('coaching.client360.examine')}
+                </Button>
+              </Card>
+            )}
+
             {isIntakeAlreadyFilled(clientProfile) ? (
-              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4" open={!firstRun}>
+              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
                 <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
                   {t('coaching.client360.intakeSummary')}
                 </summary>
@@ -705,7 +729,7 @@ export default function ClientDetailPage() {
               </details>
             ) : null}
             {id && (
-              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4" open={!firstRun}>
+              <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
                 <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
                   {t('coaching.client360.questionnaire')}
                 </summary>
@@ -721,104 +745,62 @@ export default function ClientDetailPage() {
               </details>
             )}
 
-            {showInsight && insight ? (
-              <Card>
-                <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1 flex items-center gap-1">
-                  <Sparkles size={12} /> {t('coaching.client360.insightTitle')}
-                </p>
-                <p className="text-sm text-neutral-200">
-                  {t('coaching.client360.insightBody', {
-                    workouts: insight.workoutsCompleted,
-                    weight: insight.weightDeltaKg == null
-                      ? '—'
-                      : `${insight.weightDeltaKg > 0 ? '+' : ''}${insight.weightDeltaKg} kg`,
-                    progressed: insight.progressed.join(', ') || t('coaching.client360.none'),
-                    stalled: insight.stalled.join(', ') || t('coaching.client360.none'),
-                  })}
-                </p>
-                {insight.pain != null && (scoreOnTen(insight.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : insight.pain <= 5) ?? 0) >= PAIN_WATCH_ON_TEN && (
-                  <p className="text-xs text-rose-300 mt-2">{t('coaching.client360.painFlag', { n: formatCheckinScore(insight.pain, checkins[0]) })}</p>
+            <details className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
+              <summary className="cursor-pointer text-sm font-medium text-white min-h-11 flex items-center">
+                {t('coaching.client360.moreDetails')}
+              </summary>
+              <div className="mt-4 space-y-4">
+                {!sessionGap && tracking.track_workouts && (
+                  <ClientLiftChart
+                    compact
+                    lifts={lifts}
+                    selectedName={exerciseHint}
+                    notes={notes}
+                    relanceHref={trainingRelanceHref}
+                    onSelect={name => setTab('training', { exercise: name })}
+                  />
                 )}
-              </Card>
-            ) : null}
 
-            {insight?.since ? (
-              <Card>
-                <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-2">
-                  {t('coaching.client360.sinceVisit')}
-                </p>
-                <p className="text-sm text-neutral-300">
-                  {t(`coaching.client360.sinceSource.${insight.source}`, { date: formatDate(insight.since) })}
-                </p>
-                <p className="text-xs text-neutral-500 mt-1">
-                  {t('coaching.client360.sinceMeta', {
-                    workouts: insight.workoutsCompleted,
-                    checkins: insight.checkins,
-                  })}
-                </p>
-              </Card>
-            ) : null}
+                {showKpis && kpis && (
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
+                    <Kpi label={t('coaching.kpis.adherence')} value={formatCheckinScore(kpis.trainingAdherence)} />
+                    <Kpi label={t('coaching.kpis.recovery')} value={kpis.recovery == null ? '—' : formatCheckinScore(kpis.recovery)} />
+                    <Kpi
+                      label={t('coaching.kpis.weight')}
+                      value={kpis.weightDelta == null ? '—' : `${kpis.weightDelta > 0 ? '+' : ''}${kpis.weightDelta} kg`}
+                    />
+                    <Kpi
+                      label={t('coaching.kpis.pain')}
+                      value={formatCheckinScore(kpis.pain, checkins[0])}
+                      tone={(scoreOnTen(kpis.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : (kpis.pain ?? 0) <= 5) ?? 0) >= PAIN_WATCH_ON_TEN ? 'text-rose-300' : undefined}
+                    />
+                  </div>
+                )}
 
-            {!sessionGap && tracking.track_workouts && (
-              <ClientLiftChart
-                compact
-                lifts={lifts}
-                selectedName={exerciseHint}
-                notes={notes}
-                relanceHref={trainingRelanceHref}
-                onSelect={name => setTab('training', { exercise: name })}
-              />
-            )}
-
-            {showKpis && kpis && (
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                <Kpi label={t('coaching.kpis.progression')} value={progressionLabel} />
-                <Kpi label={t('coaching.kpis.adherence')} value={formatCheckinScore(kpis.trainingAdherence)} />
-                <Kpi label={t('coaching.kpis.recovery')} value={kpis.recovery == null ? '—' : formatCheckinScore(kpis.recovery)} />
-                <Kpi
-                  label={t('coaching.kpis.weight')}
-                  value={kpis.weightDelta == null ? '—' : `${kpis.weightDelta > 0 ? '+' : ''}${kpis.weightDelta} kg`}
-                />
-                <Kpi
-                  label={t('coaching.kpis.pain')}
-                  value={formatCheckinScore(kpis.pain, checkins[0])}
-                  tone={(scoreOnTen(kpis.pain, checkins[0] ? isLegacyFiveScaleCheckin(checkins[0]) : (kpis.pain ?? 0) <= 5) ?? 0) >= PAIN_WATCH_ON_TEN ? 'text-rose-300' : undefined}
-                />
+                {timeline.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
+                      {t('coaching.client360.timeline')}
+                    </p>
+                    <div className="space-y-2">
+                      {timeline.map((item, i) => (
+                        <Card key={`${item.kind}-${item.at}-${i}`} className="flex items-center gap-3 !py-2.5">
+                          {item.kind === 'workout' ? <Dumbbell size={14} className="text-blue-400" />
+                            : item.kind === 'weight' ? <Scale size={14} className="text-emerald-400" />
+                            : item.kind === 'note' ? <MessageSquare size={14} className="text-neutral-400" />
+                            : <CalendarDays size={14} className="text-amber-300" />}
+                          <div className="min-w-0">
+                            <p className="text-sm text-white truncate">{item.label}</p>
+                            <p className="text-xs text-neutral-500">{formatDate(item.at)}</p>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-
-            {clientPriorities.length > 0 && (
-              <div className="space-y-2">
-                {clientPriorities.map(p => (
-                  <Card key={p.id} onClick={() => navigate(p.href)} className="!py-3">
-                    <p className="text-sm text-white">{t(p.headlineKey, p.headlineParams)}</p>
-                    <p className="text-[11px] text-neutral-500 mt-0.5">{t(p.detailKey, p.detailParams)}</p>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {timeline.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
-                  {t('coaching.client360.timeline')}
-                </p>
-                <div className="space-y-2">
-                  {timeline.map((item, i) => (
-                    <Card key={`${item.kind}-${item.at}-${i}`} className="flex items-center gap-3 !py-2.5">
-                      {item.kind === 'workout' ? <Dumbbell size={14} className="text-blue-400" />
-                        : item.kind === 'weight' ? <Scale size={14} className="text-emerald-400" />
-                        : item.kind === 'note' ? <MessageSquare size={14} className="text-neutral-400" />
-                        : <CalendarDays size={14} className="text-amber-300" />}
-                      <div className="min-w-0">
-                        <p className="text-sm text-white truncate">{item.label}</p>
-                        <p className="text-[11px] text-neutral-500">{formatDate(item.at)}</p>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
+            </details>
 
             {id ? (
               <Card>
@@ -939,7 +921,12 @@ export default function ClientDetailPage() {
                 </p>
               )}
               {workouts.filter(w => w.id !== sessionView?.workoutId).slice(0, 6).map(w => (
-                <Card key={w.id} onClick={() => handleOpenWorkout(w.id)} className="flex items-center gap-3">
+                <Card key={w.id} padding={false}>
+                  <button
+                    type="button"
+                    onClick={() => handleOpenWorkout(w.id)}
+                    className="w-full flex items-center gap-3 p-4 text-left"
+                  >
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${w.completed ? 'bg-blue-600/20 text-blue-400' : 'bg-neutral-800 text-neutral-500'}`}>
                     <Dumbbell size={16} />
                   </div>
@@ -947,6 +934,7 @@ export default function ClientDetailPage() {
                     <p className="text-sm font-medium text-white truncate">{w.name || t('workout.title')}</p>
                     <p className="text-xs text-neutral-500">{formatDate(w.date)}</p>
                   </div>
+                  </button>
                 </Card>
               ))}
             </div>

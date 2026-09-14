@@ -282,7 +282,7 @@ export default function WorkoutPage() {
                   <Dumbbell size={18} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-white truncate">{w.name || 'Workout'}</p>
+                  <p className="font-medium text-white truncate">{w.name || t('workout.unnamed')}</p>
                   <p className="text-xs text-neutral-500">{formatDate(w.date)}</p>
                 </div>
                 {w.duration_seconds > 0 && (
@@ -322,7 +322,7 @@ export default function WorkoutPage() {
 
       <Modal open={!!deleteTarget} onClose={() => setDeleteTarget(null)} title={t('workout.deleteTitle')}>
         <p className="text-neutral-300 mb-6">
-          {t('workout.deleteConfirm').replace('this workout', deleteTargetWorkout?.name || 'this workout')}
+          {t('workout.deleteConfirm', { name: deleteTargetWorkout?.name || t('workout.unnamed') })}
         </p>
         <div className="flex gap-3">
           <Button variant="secondary" onClick={() => setDeleteTarget(null)} className="flex-1" disabled={deleting}>

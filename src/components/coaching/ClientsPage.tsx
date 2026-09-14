@@ -26,7 +26,7 @@ function goalChipKey(status: RosterGoalStatus): 'coaching.rosterList.goalCut' | 
 }
 
 export default function ClientsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
@@ -275,7 +275,7 @@ export default function ClientsPage() {
                   <p className="text-xs text-neutral-400 flex-1 truncate">
                     {t('coaching.invite.usesLeft', { n: inv.max_uses - inv.use_count })}
                     {' · '}
-                    {new Date(inv.expires_at).toLocaleDateString()}
+                    {new Date(inv.expires_at).toLocaleDateString(i18n.language)}
                   </p>
                   <button onClick={() => copyUrl(inv.token)} className="p-1.5 text-neutral-400 hover:text-white">
                     <Copy size={14} className={copied === inv.token ? 'text-emerald-400' : ''} />

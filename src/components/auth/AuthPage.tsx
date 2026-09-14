@@ -127,41 +127,54 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
           ) : (
             <>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
-                  <Input
-                    type="email"
-                    name="email"
-                    autoComplete="email"
-                    placeholder={t('auth.emailAddress')}
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="pl-11"
-                    required
-                  />
+                <div>
+                  <label htmlFor="auth-email" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                    {t('auth.emailAddress')}
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
+                    <Input
+                      id="auth-email"
+                      type="email"
+                      name="email"
+                      autoComplete="email"
+                      placeholder={t('auth.emailAddress')}
+                      value={email}
+                      onChange={e => setEmail(e.target.value)}
+                      className="pl-11"
+                      required
+                    />
+                  </div>
                 </div>
 
                 {mode !== 'forgot' && (
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      name="password"
-                      autoComplete="current-password"
-                      placeholder={t('auth.password')}
-                      value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      className="pl-11 pr-11"
-                      required
-                      minLength={6}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+                  <div>
+                    <label htmlFor="auth-password" className="block text-sm font-medium text-neutral-300 mb-1.5">
+                      {t('auth.password')}
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 pointer-events-none" size={18} />
+                      <Input
+                        id="auth-password"
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
+                        placeholder={t('auth.password')}
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="pl-11 pr-12"
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 min-h-11 min-w-11 flex items-center justify-center text-neutral-500 hover:text-neutral-300"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
                   </div>
                 )}
 

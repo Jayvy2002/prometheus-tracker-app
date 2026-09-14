@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Clock, Pencil } from 'lucide-react';
 import { formatDate, formatDuration } from '../../lib/utils';
+import { optionLabel } from '../../lib/optionLabels';
 import type { Workout } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -12,7 +13,7 @@ interface Props {
 }
 
 export default function WorkoutRecap({ workout, onEdit }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
 
   return (
@@ -23,7 +24,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-white truncate">{workout.name || t('workout.title')}</h1>
-          <p className="text-xs text-neutral-500">{formatDate(workout.date)}</p>
+          <p className="text-xs text-neutral-500">{formatDate(workout.date, i18n.language)}</p>
         </div>
         <Button size="sm" variant="secondary" onClick={onEdit}>
           <Pencil size={14} /> {t('common.edit')}
@@ -57,7 +58,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
                   <p key={s.id} className="text-xs text-neutral-400 tabular-nums">
                     {i + 1}. {s.weight_kg} kg × {s.set_type === 'isometric' ? `${s.duration_seconds ?? 0}s` : s.reps}
                     {s.rir ? ` · RIR ${s.rir}` : ''}
-                    {s.set_type !== 'working' ? ` · ${s.set_type}` : ''}
+                    {s.set_type && s.set_type !== 'working' ? ` · ${optionLabel(t, 'setTypes', s.set_type)}` : ''}
                   </p>
                 ))}
               </div>

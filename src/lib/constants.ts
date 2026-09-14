@@ -17,20 +17,21 @@ export interface SetTypeConfig {
   label: string;
   shortLabel: string;
   color: string;
+  dotColor: string;
   bgColor: string;
   restBehavior: 'normal' | 'none' | 'short' | 'custom';
   defaultRestSeconds: number;
 }
 
 export const SET_TYPES: SetTypeConfig[] = [
-  { value: 'warmup', label: 'Warm-up', shortLabel: 'W', color: 'text-amber-400', bgColor: 'bg-amber-400/15', restBehavior: 'none', defaultRestSeconds: 0 },
-  { value: 'working', label: 'Working', shortLabel: 'S', color: 'text-blue-400', bgColor: 'bg-blue-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
-  { value: 'drop', label: 'Drop', shortLabel: 'D', color: 'text-sky-400', bgColor: 'bg-sky-400/15', restBehavior: 'none', defaultRestSeconds: 0 },
-  { value: 'superset', label: 'Superset', shortLabel: 'SS', color: 'text-green-400', bgColor: 'bg-green-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
-  { value: 'myo', label: 'Myo-rep', shortLabel: 'M', color: 'text-rose-400', bgColor: 'bg-rose-400/15', restBehavior: 'short', defaultRestSeconds: 10 },
-  { value: 'tempo', label: 'Tempo', shortLabel: 'T', color: 'text-teal-400', bgColor: 'bg-teal-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
-  { value: 'isometric', label: 'Iso', shortLabel: 'I', color: 'text-orange-400', bgColor: 'bg-orange-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
-  { value: 'cluster', label: 'Cluster', shortLabel: 'C', color: 'text-cyan-400', bgColor: 'bg-cyan-400/15', restBehavior: 'custom', defaultRestSeconds: 20 },
+  { value: 'warmup', label: 'Warm-up', shortLabel: 'W', color: 'text-amber-400', dotColor: 'bg-amber-400', bgColor: 'bg-amber-400/15', restBehavior: 'none', defaultRestSeconds: 0 },
+  { value: 'working', label: 'Working', shortLabel: 'S', color: 'text-blue-400', dotColor: 'bg-blue-400', bgColor: 'bg-blue-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
+  { value: 'drop', label: 'Drop', shortLabel: 'D', color: 'text-sky-400', dotColor: 'bg-sky-400', bgColor: 'bg-sky-400/15', restBehavior: 'none', defaultRestSeconds: 0 },
+  { value: 'superset', label: 'Superset', shortLabel: 'SS', color: 'text-green-400', dotColor: 'bg-green-400', bgColor: 'bg-green-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
+  { value: 'myo', label: 'Myo-rep', shortLabel: 'M', color: 'text-rose-400', dotColor: 'bg-rose-400', bgColor: 'bg-rose-400/15', restBehavior: 'short', defaultRestSeconds: 10 },
+  { value: 'tempo', label: 'Tempo', shortLabel: 'T', color: 'text-teal-400', dotColor: 'bg-teal-400', bgColor: 'bg-teal-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
+  { value: 'isometric', label: 'Iso', shortLabel: 'I', color: 'text-orange-400', dotColor: 'bg-orange-400', bgColor: 'bg-orange-400/15', restBehavior: 'normal', defaultRestSeconds: 90 },
+  { value: 'cluster', label: 'Cluster', shortLabel: 'C', color: 'text-cyan-400', dotColor: 'bg-cyan-400', bgColor: 'bg-cyan-400/15', restBehavior: 'custom', defaultRestSeconds: 20 },
 ];
 
 export const MEAL_CATEGORIES = [

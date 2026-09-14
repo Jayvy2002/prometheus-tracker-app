@@ -120,15 +120,9 @@ export default function CoachLearnedPage() {
                   {lessons.map(row => (
                     <Card key={row.id} className={`space-y-1.5 ${row.disabled ? 'opacity-60' : ''}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium text-blue-300">{row.kind}</p>
-                        <p className="text-[10px] text-neutral-600">{formatWhen(row.created_at, loc)}</p>
+                        <p className="text-sm font-medium text-white">{snapLabel(row.accepted) || snapLabel(row.proposed)}</p>
+                        <p className="text-xs text-neutral-500">{formatWhen(row.created_at, loc)}</p>
                       </div>
-                      <p className="text-[11px] text-neutral-500">
-                        {t('coaching.learned.proposed')}: <span className="text-neutral-300">{snapLabel(row.proposed)}</span>
-                      </p>
-                      <p className="text-[11px] text-neutral-500">
-                        {t('coaching.learned.sent')}: <span className="text-neutral-200">{snapLabel(row.accepted)}</span>
-                      </p>
                       {row.note?.trim() ? (
                         <p className="text-xs text-amber-200/90">{row.note.trim()}</p>
                       ) : null}
@@ -138,7 +132,7 @@ export default function CoachLearnedPage() {
                           onClick={() => void toggleLesson(row)}
                           className="text-[11px] text-neutral-400 [@media(hover:hover)]:hover:text-white"
                         >
-                          {row.disabled ? t('coaching.learned.enable') : t('coaching.learned.disable')}
+                          {row.disabled ? t('coaching.learned.enable') : t('coaching.learned.correct')}
                         </button>
                         <button
                           type="button"
@@ -157,35 +151,11 @@ export default function CoachLearnedPage() {
               )}
             </section>
 
-            <section>
-              <h2 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">{t('coaching.learned.rounds')}</h2>
-              {rounds.length === 0 ? (
-                <p className="text-sm text-neutral-500">{t('coaching.learned.roundsEmpty')}</p>
-              ) : (
-                <div className="space-y-2">
-                  {rounds.map(row => (
-                    <Card key={row.id} className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm text-white">
-                          {row.trigger === 'cron' ? t('coaching.learned.cron') : t('coaching.learned.onDemand')}
-                        </p>
-                        <p className="text-[10px] text-neutral-600">{formatWhen(row.started_at, loc)}</p>
-                      </div>
-                      <p className="text-xs text-neutral-400">
-                        {t('coaching.learned.roundStats', {
-                          seen: row.clients_seen,
-                          flagged: row.clients_flagged,
-                          skipped: row.clients_skipped,
-                        })}
-                      </p>
-                      {row.error ? (
-                        <p className="text-[11px] text-rose-300">{row.error}</p>
-                      ) : null}
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </section>
+            {rounds[0] && (
+              <p className="text-sm text-neutral-500">
+                {formatWhen(rounds[0].started_at, loc)}
+              </p>
+            )}
           </div>
         )}
       </div>

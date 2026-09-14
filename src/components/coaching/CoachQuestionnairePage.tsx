@@ -78,7 +78,9 @@ export default function CoachQuestionnairePage() {
      {(['fr','en'] as const).map(lang=><label key={lang} className="block">{t('coachQuestionnaire.question')} ({lang.toUpperCase()})
       <input className={input} value={q.label[lang]} onChange={e=>mutate(d=>{d.sections[si].questions[qi].label[lang]=e.target.value;})}/>
      </label>)}
-     <label className="block">{t('coachQuestionnaire.mapping')}<select className={input} value={q.maps_to??''} onChange={e=>mutate(d=>{
+     <details className="rounded-lg border border-neutral-800 p-2">
+     <summary className="min-h-11 flex items-center text-sm text-neutral-400">{t('coachQuestionnaire.advanced')}</summary>
+     <label className="block mt-2">{t('coachQuestionnaire.mapping')}<select className={input} value={q.maps_to??''} onChange={e=>mutate(d=>{
       const item=d.sections[si].questions[qi];
       if(!e.target.value){delete item.maps_to;if(!item.id.startsWith('custom_'))item.id='custom_'+crypto.randomUUID();}
       else d.sections[si].questions[qi]={...structuredClone(STANDARD_QUESTIONS[e.target.value]),id:item.id.startsWith('custom_')?item.id:e.target.value};
@@ -99,6 +101,7 @@ export default function CoachQuestionnairePage() {
      {q.options&&!q.maps_to&&<button type="button" onClick={()=>mutate(d=>{d.sections[si].questions[qi].options!.push({id:crypto.randomUUID(),label:{fr:'',en:''}});})}>{t('coachQuestionnaire.addOption')}</button>}
      <label className="block"><input type="checkbox" checked={q.required} onChange={e=>mutate(d=>{d.sections[si].questions[qi].required=e.target.checked;})}/>{t('coachQuestionnaire.mandatory')}</label>
      <label className="block"><input type="checkbox" disabled={!!q.maps_to&&STANDARD_QUESTIONS[q.maps_to]?.medical} checked={q.medical} onChange={e=>mutate(d=>{d.sections[si].questions[qi].medical=e.target.checked;})}/>{t('coachQuestionnaire.medical')}</label>
+     </details>
      <button type="button" disabled={qi===0} onClick={()=>mutate(d=>{const qs=d.sections[si].questions;[qs[qi-1],qs[qi]]=[qs[qi],qs[qi-1]];})}>{t('coachQuestionnaire.up')}</button>
      <button type="button" disabled={qi===section.questions.length-1} onClick={()=>mutate(d=>{const qs=d.sections[si].questions;[qs[qi],qs[qi+1]]=[qs[qi+1],qs[qi]];})}>{t('coachQuestionnaire.down')}</button>
      <button type="button" onClick={()=>mutate(d=>{d.sections[si].questions.splice(qi,1);})}>{t('common.delete')}</button>

@@ -137,7 +137,7 @@ function SetTypePicker({ currentType, onChange, onClose }: { currentType: string
                 : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'
               }`}
           >
-            <span className={`w-2 h-2 rounded-full ${t.color.replace('text-', 'bg-')}`} />
+            <span className={`w-2 h-2 rounded-full ${t.dotColor}`} />
             {optionLabel(tr, 'setTypes', t.value, t.label)}
           </button>
         ))}
@@ -179,6 +179,7 @@ function SetRow({
   onSetComplete?: (setType: SetType, restOverride?: number) => void;
   weightUnit: 'kg' | 'lbs';
 }) {
+  const { t } = useTranslation();
   const { initSetDraft, getSetDraft, updateSetDraft, updateSetType, clearSetDraft } = useDraftContext();
   const { updateSet } = useWorkoutStore();
   /** Q03 : saisie/affichage dans l'unité du profil, stockage canonique en kg. */
@@ -374,10 +375,10 @@ function SetRow({
 
         {/* Myo activation badge */}
         {!hevySimple && isMyoActivation && (
-          <span className="text-[9px] font-bold text-rose-400/70 shrink-0">ACT</span>
+          <span className="text-[9px] font-bold text-rose-400/70 shrink-0">{t('workout.exerciseCard.act')}</span>
         )}
         {!hevySimple && isMyo && !isMyoActivation && (
-          <span className="text-[9px] font-medium text-rose-400/50 shrink-0">mini</span>
+          <span className="text-[9px] font-medium text-rose-400/50 shrink-0">{t('workout.exerciseCard.mini')}</span>
         )}
 
         {/* Weight */}
@@ -396,7 +397,7 @@ function SetRow({
               const w = parseFloat(localWeight);
               updateSet(set.id, { weight_kg: isNaN(w) ? 0 : toStorage(w) });
             }}
-            className={`w-full rounded-lg px-2 py-1.5 text-xs text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
+            className={`w-full min-h-11 rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
               ${suggestedWeight && !localWeight && !set.weight_kg ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-neutral-800/80 border border-transparent'}`}
             placeholder={weightPlaceholder}
           />
@@ -417,7 +418,7 @@ function SetRow({
               }}
               onFocus={e => e.target.select()}
               onBlur={handleDurationBlur}
-              className="w-full bg-neutral-800/80 border border-transparent rounded-lg px-2 py-1.5 text-xs text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-orange-500"
+              className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-orange-500"
               placeholder="sec"
             />
           ) : (
@@ -431,7 +432,7 @@ function SetRow({
               }}
               onFocus={e => e.target.select()}
               onBlur={handleRepsBlur}
-              className="w-full bg-neutral-800/80 border border-transparent rounded-lg px-2 py-1.5 text-xs text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder={repsPlaceholder}
             />
           )}
@@ -451,7 +452,7 @@ function SetRow({
               }}
               onFocus={e => e.target.select()}
               onBlur={handleRirBlur}
-              className="w-full bg-neutral-800/80 border border-transparent rounded-lg px-2 py-1.5 text-xs text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
               placeholder="RIR"
             />
           </div>
@@ -479,7 +480,7 @@ function SetRow({
       {isTempo && (
         <div className="px-2 pb-2 -mt-0.5 animate-fade-in">
           <div className="flex items-center gap-2 pl-6">
-            <span className="text-[10px] text-teal-400/70 font-medium shrink-0">Tempo</span>
+            <span className="text-[10px] text-teal-400/70 font-medium shrink-0">{optionLabel(t, 'setTypes', 'tempo')}</span>
             <input
               type="text"
               value={localTempo}
@@ -499,7 +500,7 @@ function SetRow({
       {isCluster && (
         <div className="px-2 pb-2 -mt-0.5 animate-fade-in">
           <div className="flex items-center gap-2 pl-6">
-            <span className="text-[10px] text-cyan-400/70 font-medium shrink-0">Cluster</span>
+            <span className="text-[10px] text-cyan-400/70 font-medium shrink-0">{optionLabel(t, 'setTypes', 'cluster')}</span>
             <input
               type="number"
               inputMode="numeric"
@@ -507,9 +508,9 @@ function SetRow({
               onChange={e => setLocalClusterBurst(e.target.value)}
               onBlur={handleClusterBurstBlur}
               className="w-12 bg-neutral-800/60 border border-cyan-500/20 rounded-lg px-2 py-1 text-xs text-cyan-300 text-center focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-neutral-600"
-              placeholder="reps"
+              placeholder={t('workout.exerciseCard.repsShort')}
             />
-            <span className="text-[10px] text-neutral-600">/burst</span>
+            <span className="text-[10px] text-neutral-600">{t('workout.exerciseCard.burst')}</span>
             <input
               type="number"
               inputMode="numeric"
@@ -519,7 +520,7 @@ function SetRow({
               className="w-12 bg-neutral-800/60 border border-cyan-500/20 rounded-lg px-2 py-1 text-xs text-cyan-300 text-center focus:outline-none focus:ring-1 focus:ring-cyan-500 placeholder-neutral-600"
               placeholder="20"
             />
-            <span className="text-[10px] text-neutral-600">s rest</span>
+            <span className="text-[10px] text-neutral-600">{t('workout.exerciseCard.restSeconds')}</span>
           </div>
           {localClusterBurst && localReps && (
             <div className="pl-6 mt-1">

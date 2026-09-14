@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Camera, X, ScanLine, Loader2, Sparkles,
   AlertCircle, Image as ImageIcon, Clock, Search as SearchIcon,
-  ChevronRight, ArrowLeft, Check,
+  ChevronRight, ArrowLeft,
 } from 'lucide-react';
 import { detectBarcodes } from '../../lib/barcodeScanner';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -48,7 +48,6 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const [phase, setPhase] = useState<Phase>('idle');
   const [scannedCode, setScannedCode] = useState('');
   const [manualCode, setManualCode] = useState('');
-  const [searchingStep, setSearchingStep] = useState<'db' | 'off'>('db');
   const [error, setError] = useState('');
   const [cameraActive, setCameraActive] = useState(false);
   const [flashActive, setFlashActive] = useState(false);
@@ -91,7 +90,6 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const lookupBarcode = useCallback(async (code: string) => {
     stopCamera();
     setScannedCode(code);
-    setSearchingStep('db');
     setPhase('searching');
 
     try {
@@ -101,7 +99,6 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       if (dbProduct) { onResult(dbProduct); return; }
 
       // 2. Open Food Facts (v2, with 6-second timeout)
-      if (mountedRef.current) setSearchingStep('off');
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 6000);
@@ -283,7 +280,6 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     setPhase('idle');
     setScannedCode('');
     setManualCode('');
-    setSearchingStep('db');
     if (photoFront?.preview) URL.revokeObjectURL(photoFront.preview);
     if (photoBack?.preview) URL.revokeObjectURL(photoBack.preview);
     if (photoNutrition?.preview) URL.revokeObjectURL(photoNutrition.preview);
@@ -313,30 +309,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
             {scannedCode}
           </p>
         )}
-        <p className="text-white font-semibold mb-5">{t('scanner.lookingUp')}</p>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
-          {/* Step 1 — local DB */}
-          <div className="flex items-center gap-3">
-            <div className="w-6 h-6 flex items-center justify-center shrink-0">
-              {searchingStep === 'db'
-                ? <Loader2 size={16} className="animate-spin text-blue-400" />
-                : <Check size={16} className="text-emerald-400" />
-              }
-            </div>
-            <p className={`text-sm ${searchingStep === 'db' ? 'text-white' : 'text-neutral-500'}`}>
-              {t('scanner.checkingDb')}
-            </p>
-          </div>
-          {/* Step 2 — Open Food Facts */}
-          <div className={`flex items-center gap-3 transition-opacity ${searchingStep === 'off' ? 'opacity-100' : 'opacity-35'}`}>
-            <div className="w-6 h-6 flex items-center justify-center shrink-0">
-              {searchingStep === 'off' && <Loader2 size={16} className="animate-spin text-blue-400" />}
-            </div>
-            <p className={`text-sm ${searchingStep === 'off' ? 'text-white' : 'text-neutral-500'}`}>
-              {t('scanner.checkingOff')}
-            </p>
-          </div>
-        </div>
+        <p className="text-white font-semibold">{t('scanner.lookingUp')}</p>
       </div>
     );
   }
@@ -464,12 +437,8 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
       <div className="px-4 py-6 pb-24">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-bold text-white">{t('scanner.aiIdentification')}</h2>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              {scannedCode
-                ? t('scanner.barcodeNotInDb', { code: scannedCode })
-                : t('scanner.identifyFromPhoto')}
-            </p>
+            <h2 className="text-xl font-bold text-white">{t('scanner.notFoundHuman')}</h2>
+            <p className="text-sm text-neutral-400 mt-0.5">{t('scanner.takePhotoHint')}</p>
           </div>
           <button onClick={reset} className="p-2 text-neutral-400 hover:text-white rounded-xl transition-colors">
             <X size={20} />

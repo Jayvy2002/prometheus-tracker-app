@@ -145,6 +145,31 @@ Le futur mur, s’il existe, devra conserver un accès en lecture aux données e
 - Une migration appliquée n’est jamais réécrite.
 - Une proposition IA exige toujours une validation humaine.
 
+## Refonte UX/UI premium (lots 0A–16)
+
+Décision produit : une seule app, un moteur commun, pas de Stripe, pas de second design system. Travailler lot par lot. Ne pas retirer une ligne M1–M8 de ce fichier sans preuve.
+
+| Lot | Statut | Preuve / reste |
+|---|---|---|
+| **0A** i18n / finition visible | Terminé (code + tests) | Namespace `options.*` FR/EN, `auth.signOut`, repas/genres/set types, dates via `dateLocale`, plus de fallback `Workout`. Tests `optionLabels`, `uxPremium`. « Truc » = donnée prod, pas un bug code. |
+| **0B** auth / intention / invite | Terminé (code + tests) | Labels Auth + `autocomplete`, cartes d’intention avec CTA, invitation avec nom/initiales. E-mail de confirmation : action Dashboard, voir [SUPABASE_EMAIL.md](SUPABASE_EMAIL.md). Intake kinesio : 7 écrans conservés (sécurité médicale) + barre sticky déjà en place. |
+| **0C** vérité produit | Terminé (code + tests) | Cibles nutritionnelles sans 150/250/65 ; `Terminer` ne coche plus les séries ; confirmation si séries incomplètes ; erreurs techniques filtrées ; ErrorBoundary sans stack. |
+| **1** design system | Terminé (code + tests) | Tokens, `PageHeader`, `CardLink`, `EmptyState`, `ErrorState`, `TabList`, `OverflowMenu`, `UnitToggle`. Navigation via `CardLink` / `Link` ; plus de `Card onClick` sur programmes, stats et check-ins. |
+| **2** accessibilité | À vérifier | Cibles 44px étendues. `prefers-reduced-motion` annule aussi `animation-delay` : la SideNav ne reste plus à opacity 0. Inventaire 8–11 px encore partiel. Revue lecteur d’écran restante. |
+| **3** navigation | Terminé (code + tests) | Aujourd’hui partout. Solo : Aujourd’hui / Entraînement / Progression / Nutrition / Profil. Coaché et Coach inchangés (5 tabs). `NavLink`. FAB hors `bottom-[76px]` dur. |
+| **4** dashboard utilisateur | À vérifier | First-run : un CTA (première séance), photos / check-in / questionnaire / intake masqués. Parcours réel à rejouer. |
+| **5** Coach Today | À vérifier | Empty « Commence avec ton premier client » + « Créer un lien » confirmé en live (compte audit-coach, 14 sept. 2026). File / sévérité à rejouer avec un roster non vide. |
+| **6** Client 360 | Terminé (code + tests) | Header Message 44px + label, `role=tablist`, « depuis ta dernière visite » en tête, 1 reco max, dossier derrière détails. |
+| **7** Client setup wizard | Terminé (code + tests) | 4 étapes Comprendre / Suivi / Prise en charge / Vérifier. `handleConfirm` inchangé. Résumé « X recevra ». |
+| **8** Messages / Prometheus | Terminé (code + tests) | Séparateurs de date, composer safe-area, retry. Prometheus contextuel. Learned sans cron/round/seen. |
+| **9** Marketplace vitrine | Terminé (code) | Cartes + profil public + comparaison en cartes. Pas de prix inventé (`priceOnRequest`). Billing toujours fermé. |
+| **10** Programmes / routines / builder | Terminé (code + tests) | Bibliothèque + menu … ; assignation sans premier client auto ; routines = templates ; mapping questionnaire derrière Avancé. |
+| **11** Nutrition / workout / scanner | Terminé (code + tests) | CTA Ajouter + réutiliser un repas. Scanner : « Recherche du produit… » / « Produit introuvable ». Inputs séance plus grands + `inputMode`. |
+| **12** Progression / photos | Terminé (code + tests) | Hub liens Résumé / Entraînement / Mesures / Historique. Photos Face/Profil/Dos + avant/après. |
+| **13** Profil | Terminé (code) | Groupes Profil / Coaching / Préférences / Compte / Avancé. Déconnexion secondary. Timezone coach lisible. |
+| **14** PWA / offline / errors | Terminé (code) | Icônes PNG 192/512 + maskable + apple-touch. Notifications SW en PNG. `offline.html` et ErrorBoundary déjà de marque. |
+| **15** Performance | À vérifier | `UnitToggle` sorti du render. `dotColor` statique à la place de `color.replace`. Dashboard : fetches déjà groupés ; mesure live restante. |
+| **16** Polish global | À vérifier | EmptyState / ErrorState / skeletons, toasts plus longs + pause hover. Revue visuelle live restante. |
 
 ## Chantiers 4 à 6 — Feuille de route UX complète
 

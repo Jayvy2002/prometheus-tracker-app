@@ -1,13 +1,11 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Dumbbell, Apple, User, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { resolveAccountContext } from '../../lib/accountContext';
 
 export default function BottomNav() {
   const { t } = useTranslation();
-  const location = useLocation();
-  const navigate = useNavigate();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
@@ -27,48 +25,46 @@ export default function BottomNav() {
         { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
       ]
     : coached
-      // Five tabs, daily things first: the check-in is daily, photos are weekly → Photos lives on the
-      // home card and in the Profile hub (docs/VISION.md, décision du 4 sept.).
       ? [
-          { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
+          { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today'), show: true },
           { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
           { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
           { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: true },
           { path: '/profile', icon: User, label: t('nav.profile'), show: true },
         ].filter(tab => tab.show !== false)
       : [
-          { path: '/dashboard', icon: LayoutDashboard, label: t('nav.home'), show: true },
+          { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today'), show: true },
           { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
-          { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
+          { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts },
           { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
           { path: '/profile', icon: User, label: t('nav.profile'), show: true },
         ].filter(tab => tab.show !== false);
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 z-40 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-neutral-950/95 backdrop-blur-md border-t border-neutral-800 z-40 pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center max-w-lg mx-auto px-1 py-1">
-        {tabs.map((tab) => {
-          const active = location.pathname.startsWith(tab.path);
-          return (
-            <button
-              key={tab.path}
-              onClick={() => navigate(tab.path)}
-              className={`flex flex-1 flex-col items-center gap-0.5 py-2 rounded-xl transition-transform duration-200
-                ${active ? 'text-blue-400 scale-105' : 'text-neutral-500 hover:text-neutral-300'}`}
-            >
-              <span className="relative">
-                <tab.icon size={20} strokeWidth={active ? 2.5 : 2} />
-                {tab.path === '/messages' && unreadMessageCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-blue-600 text-white text-[8px] leading-[14px] text-center">
-                    {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
-                  </span>
-                )}
-              </span>
-              <span className="text-[9px] font-medium leading-tight text-center">{tab.label}</span>
-              {active && <div className="w-1 h-1 rounded-full bg-blue-400 mt-0.5 animate-scale-in" />}
-            </button>
-          );
-        })}
+        {tabs.map((tab) => (
+          <NavLink
+            key={tab.path}
+            to={tab.path}
+            className={({ isActive }) => `flex flex-1 flex-col items-center justify-center gap-0.5 min-h-11 py-1.5 rounded-xl
+              ${isActive ? 'text-blue-400' : 'text-neutral-400 hover:text-neutral-200'}`}
+          >
+            {({ isActive }) => (
+              <>
+                <span className="relative">
+                  <tab.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                  {tab.path === '/messages' && unreadMessageCount > 0 && (
+                    <span className="absolute -top-1 -right-1 min-w-[14px] h-3.5 px-0.5 rounded-full bg-blue-600 text-white text-[10px] leading-[14px] text-center">
+                      {unreadMessageCount > 9 ? '9+' : unreadMessageCount}
+                    </span>
+                  )}
+                </span>
+                <span className="text-xs font-medium leading-tight text-center">{tab.label}</span>
+              </>
+            )}
+          </NavLink>
+        ))}
       </div>
     </nav>
   );

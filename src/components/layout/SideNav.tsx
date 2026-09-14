@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera, Search, Inbox } from 'lucide-react';
 
 import { useState } from 'react';
@@ -9,7 +9,6 @@ import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 export default function SideNav() {
   const { t } = useTranslation();
-  const location = useLocation();
   const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -35,9 +34,10 @@ export default function SideNav() {
         { path: '/coaches', icon: Search, label: t('marketplace.directory') },
       ]
     : [
-        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.dashboard'), show: true },
-        { path: '/workout', icon: Dumbbell, label: t('nav.workouts'), show: tracking.track_workouts },
-        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins },
+        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today'), show: true },
+        { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
+        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins && coached },
+        { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts && !coached },
         { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
         { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: coached },
         { path: '/programs', icon: CalendarRange, label: t('nav.myProgram'), show: tracking.track_workouts },
@@ -45,7 +45,6 @@ export default function SideNav() {
         { path: '/photos', icon: Camera, label: t('nav.photos'), show: true },
         { path: '/calendar', icon: CalendarDays, label: t('nav.calendar'), show: !coached },
         { path: '/stats', icon: BarChart2, label: t('nav.stats'), show: !coached },
-        { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts && !coached },
         { path: '/coaches', icon: Search, label: t('marketplace.directory'), show: true },
         { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests'), show: true },
         { path: '/profile', icon: User, label: t('nav.profile'), show: true },
@@ -70,37 +69,34 @@ export default function SideNav() {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-hide">
-        {tabs.map((tab, i) => {
-          const active = location.pathname.startsWith(tab.path);
-          return (
-            <button
-              key={tab.path}
-              onClick={() => navigate(tab.path)}
-              className={`sidebar-item relative w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200
-                ${active
-                  ? 'bg-blue-600/15 text-white'
-                  : 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800/60'
-                }`}
-              style={{ animationDelay: `${i * 50}ms` }}
-            >
-              {active && <span className="nav-active-indicator" />}
-              <tab.icon
-                size={18}
-                strokeWidth={active ? 2.5 : 1.8}
-                className={active ? 'text-blue-400' : ''}
-              />
-              <span>{tab.label}</span>
-              {tab.path === '/messages' && unreadMessageCount > 0 && (
-                <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
-                  {unreadMessageCount}
-                </span>
-              )}
-              {active && tab.path !== '/messages' && (
-                <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-400 animate-scale-in" />
-              )}
-            </button>
-          );
-        })}
+        {tabs.map((tab) => (
+          <NavLink
+            key={tab.path}
+            to={tab.path}
+            className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
+              ${isActive
+                ? 'bg-blue-600/15 text-white'
+                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60'
+              }`}
+          >
+            {({ isActive }) => (
+              <>
+                {isActive && <span className="nav-active-indicator" />}
+                <tab.icon
+                  size={18}
+                  strokeWidth={isActive ? 2.5 : 1.8}
+                  className={isActive ? 'text-blue-400' : ''}
+                />
+                <span>{tab.label}</span>
+                {tab.path === '/messages' && unreadMessageCount > 0 && (
+                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
+                    {unreadMessageCount}
+                  </span>
+                )}
+              </>
+            )}
+          </NavLink>
+        ))}
       </nav>
 
       {isCoach && (

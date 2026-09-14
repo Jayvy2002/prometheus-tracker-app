@@ -34,17 +34,19 @@ export default function CoachComparisonPage() {
       <p role="alert">{t('marketplace.loadError')}</p><Button onClick={() => setRetry(n => n + 1)}>{t('errors.retry')}</Button>
     </div> : <>
       {rows.length < ids.split(',').length && <p role="status">{t('marketplace.comparisonUnavailable')}</p>}
-      {!!rows.length && <div className="overflow-x-auto rounded-xl border border-neutral-800">
-        <table className="w-full text-left text-sm">
-          <caption className="p-3 text-neutral-400 text-left">{t('marketplace.comparisonDisclosure')}</caption>
-          <thead><tr><th scope="col" className="p-3">{t('marketplace.detail')}</th>{rows.map(row => <th scope="col" className="p-3 min-w-52" key={row.coach_id}>{row.public_name}</th>)}</tr></thead>
-          <tbody>
-            {(['introduction', 'method', 'offer', 'area'] as const).map(key => <tr key={key} className="border-t border-neutral-800 align-top"><th scope="row" className="p-3">{t(`marketplace.${key}`)}</th>{rows.map(row => <td className="p-3 whitespace-pre-wrap break-words" key={row.coach_id}>{row[key] || t('marketplace.notProvided')}</td>)}</tr>)}
-            {(['disciplines', 'languages', 'formats'] as const).map(key => <tr key={key} className="border-t border-neutral-800 align-top"><th scope="row" className="p-3">{t(`marketplace.${key}`)}</th>{rows.map(row => <td className="p-3" key={row.coach_id}>{row[key].map(value => t(`marketplace.${value}`)).join(', ')}</td>)}</tr>)}
-            <tr className="border-t border-neutral-800"><th scope="row" className="p-3">{t('marketplace.availability')}</th>{rows.map(row => <td className="p-3" key={row.coach_id}>{t(row.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</td>)}</tr>
-            <tr className="border-t border-neutral-800"><th scope="row" className="p-3">{t('marketplace.viewCoach')}</th>{rows.map(row => <td className="p-3" key={row.coach_id}><Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{row.public_name}</Link></td>)}</tr>
-          </tbody>
-        </table>
+      {!!rows.length && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {rows.map(row => (
+          <article key={row.coach_id} className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 space-y-3">
+            <h2 className="text-lg font-semibold text-white">{row.public_name}</h2>
+            <p className="text-sm text-neutral-300 line-clamp-4">{row.introduction || t('marketplace.notProvided')}</p>
+            <p className="text-sm text-neutral-400">{row.disciplines.map(v => t(`marketplace.${v}`)).join(' · ')}</p>
+            <p className="text-sm text-neutral-400">{row.method || t('marketplace.notProvided')}</p>
+            <p className="text-sm text-neutral-400">{row.formats.map(v => t(`marketplace.${v}`)).join(' · ')} · {row.languages.map(v => t(`marketplace.${v}`)).join(' / ')}</p>
+            <p className="text-sm text-neutral-500">{t(row.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</p>
+            <p className="text-sm text-neutral-500">{t('marketplace.priceOnRequest')}</p>
+            <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
+          </article>
+        ))}
       </div>}
     </>}
   </div>;

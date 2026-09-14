@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import type { CoachMessage } from '../../lib/types';
+import { formatMessageDay, formatMessageTime, messageDayKey } from '../../lib/messageDates';
 
 export default function MessageThread({
   messages,
@@ -112,17 +113,26 @@ export default function MessageThread({
         ) : null}
         {ordered.length === 0 && !pendingBody ? (
           <p className="text-sm text-neutral-500 px-1">{emptyHint || t('coaching.messages.threadEmpty')}</p>
-        ) : ordered.map(msg => {
+        ) : ordered.map((msg, i) => {
           const mine = msg.sender_id === currentUserId;
+          const day = messageDayKey(msg.created_at);
+          const prevDay = i > 0 ? messageDayKey(ordered[i - 1].created_at) : null;
           return (
-            <div key={msg.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                mine ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-100 border border-neutral-800'
-              }`}>
-                <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.body}</p>
-                <p className={`text-xs mt-1 ${mine ? 'text-blue-100' : 'text-neutral-500'}`}>
-                  {new Date(msg.created_at).toLocaleString(i18n.language)}
+            <div key={msg.id}>
+              {day !== prevDay && (
+                <p className="text-center text-xs text-neutral-500 py-2">
+                  {formatMessageDay(msg.created_at, i18n.language, t('common.today'), t('common.yesterday'))}
                 </p>
+              )}
+              <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                  mine ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-100 border border-neutral-800'
+                }`}>
+                  <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.body}</p>
+                  <p className={`text-xs mt-1 ${mine ? 'text-blue-100' : 'text-neutral-500'}`}>
+                    {formatMessageTime(msg.created_at, i18n.language)}
+                  </p>
+                </div>
               </div>
             </div>
           );
@@ -144,12 +154,17 @@ export default function MessageThread({
           nearBottom.current = true;
           setNewMessages(false);
         }}>{t('coaching.messages.newMessages')}</button>}
-      <div className="pt-2 border-t border-neutral-800 shrink-0">
+      <div className="pt-2 pb-[env(safe-area-inset-bottom)] border-t border-neutral-800 shrink-0">
         {draftHint ? (
-          <p className="text-[11px] text-neutral-500 mb-2">{draftHint}</p>
+          <p className="text-sm text-neutral-500 mb-2">{draftHint}</p>
         ) : null}
         {sendError ? (
-          <p className="text-xs text-red-400 mb-2" role="alert">{sendError}</p>
+          <div className="mb-2 flex items-center gap-2" role="alert">
+            <p className="text-sm text-red-400 flex-1">{sendError}</p>
+            <button type="button" onClick={() => void submit()} className="text-sm text-blue-400 min-h-11">
+              {t('errors.retry')}
+            </button>
+          </div>
         ) : null}
         <div className="flex gap-2">
           <textarea

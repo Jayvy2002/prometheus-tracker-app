@@ -14,6 +14,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { checkinReviewRows, formatCheckinScore } from '../../lib/coachCheckins';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import CoachRelationshipNotices from './CoachRelationshipNotices';
@@ -109,9 +110,11 @@ export default function CoachDashboard() {
             ) : null}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {opsRows.length > 0 && (
             <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
-              {t('coaching.fleet.run')}
+              {t('coaching.fleet.refresh')}
             </Button>
+            )}
             <button
               type="button"
               onClick={() => navigate('/prometheus')}
@@ -155,7 +158,9 @@ export default function CoachDashboard() {
           </Card>
         ) : (
           <>
-            <div className={`grid grid-cols-2 gap-3 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
+            <CoachTodayQueue />
+
+            <div className={`grid grid-cols-2 gap-3 mt-6 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
               <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
               <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
               {stats.checkinsToReview > 0 && (
@@ -174,7 +179,7 @@ export default function CoachDashboard() {
                 </p>
                 <div className="space-y-2">
                   {reviewRows.slice(0, 6).map(row => (
-                    <Card key={row.checkin.id} onClick={() => navigate(row.href)} className="flex items-start gap-3">
+                    <CardLink key={row.checkin.id} to={row.href} className="flex items-start gap-3">
                       <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
                         {row.avatarUrl
                           ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
@@ -182,14 +187,14 @@ export default function CoachDashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
-                        <p className="text-[11px] text-neutral-500 truncate">
+                        <p className="text-xs text-neutral-500 truncate">
                           {row.checkin.checked_at}
                           {' · '}
                           {t(`coaching.checkinReview.kinds.${row.kind}`, { n: formatCheckinScore(row.checkin.joint_pain, row.checkin) })}
                         </p>
                       </div>
                       <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
-                    </Card>
+                    </CardLink>
                   ))}
                 </div>
               </div>
@@ -203,8 +208,6 @@ export default function CoachDashboard() {
                 </button>
               </Card>
             ) : null}
-
-            <CoachTodayQueue />
           </>
         )}
       </div>

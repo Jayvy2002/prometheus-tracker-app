@@ -14,6 +14,7 @@ import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import Input from '../ui/Input';
 import PageTransition from '../ui/PageTransition';
+import EmptyState from '../ui/EmptyState';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule } from '../../lib/clientTracking';
 
@@ -140,6 +141,18 @@ export default function WeightPage() {
           <Plus size={16} /> {t('weight.log')}
         </Button>
       </div>
+
+      {!latest && (
+        <EmptyState
+          title={t('errors.emptyWeightTitle')}
+          body={t('errors.emptyWeightBody')}
+          action={(
+            <Button size="sm" onClick={() => { setEditId(null); setWeight(''); setDate(todayStr()); setShowAdd(true); }}>
+              {t('weight.log')}
+            </Button>
+          )}
+        />
+      )}
 
       {latest && (
         <Card className="mb-4 animate-fade-in-scale">

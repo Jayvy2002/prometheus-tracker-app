@@ -18,6 +18,7 @@ import AppLayout from './components/layout/AppLayout';
 import AuthPage from './components/auth/AuthPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import InvitePage from './components/coaching/InvitePage';
+import { usePageTitle } from './hooks/usePageTitle';
 // Q05 : routes en lazy — le bundle initial ne porte que l'auth + le shell.
 // Scanner (barcode-detector) et stats (recharts) partent dans leurs propres chunks.
 const OnboardingFlow = lazy(() => import('./components/onboarding/OnboardingFlow'));
@@ -442,6 +443,11 @@ function AppRoutes() {
   );
 }
 
+function TitleManager() {
+  usePageTitle();
+  return null;
+}
+
 export default function App() {
   const { initialize } = useAuthStore();
 
@@ -451,6 +457,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <TitleManager />
       <AppRoutes />
     </BrowserRouter>
   );

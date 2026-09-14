@@ -9,6 +9,9 @@ import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
 import Input from '../ui/Input';
+import Modal from '../ui/Modal';
+import { userFacingError } from '../../lib/userFacingError';
+import { incompleteWorkingSets, shouldConfirmIncompleteFinish } from '../../lib/workoutFinish';
 import ExerciseCard from './ExerciseCard';
 import SupersetGroup from './SupersetGroup';
 import RestTimer from './RestTimer';
@@ -62,6 +65,7 @@ function WorkoutFormInner() {
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDate, setWorkoutDate] = useState('');
   const [saving, setSaving] = useState(false);
+  const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [summaryWorkout, setSummaryWorkout] = useState<Workout | null>(null);
   const [summaryDuration, setSummaryDuration] = useState(0);
   const [initError, setInitError] = useState(false);
@@ -248,8 +252,18 @@ function WorkoutFormInner() {
     if (!timer.running) toggleSessionTimer();
   };
 
+  const requestFinish = () => {
+    if (!currentWorkout || saving) return;
+    if (shouldConfirmIncompleteFinish(currentWorkout.exercises)) {
+      setFinishConfirmOpen(true);
+      return;
+    }
+    void handleFinish();
+  };
+
   const handleFinish = async () => {
     if (!currentWorkout || saving) return;
+    setFinishConfirmOpen(false);
     setSaving(true);
 
     try {
@@ -294,7 +308,7 @@ function WorkoutFormInner() {
       const results = await Promise.all([...setUpdates, ...exerciseUpdates]) as Array<{ error: { message: string } | null }>;
       const writeFailed = results.find(r => r?.error)?.error;
       if (writeFailed) {
-        toast(writeFailed.message, 'error');
+        toast(userFacingError(writeFailed.message, t('errors.generic')), 'error');
         return;
       }
 
@@ -304,20 +318,7 @@ function WorkoutFormInner() {
       if (Object.keys(workoutUpdates).length > 0) {
         const { error } = await supabase.from('workouts').update(workoutUpdates).eq('id', currentWorkout.id);
         if (error) {
-          toast(error.message, 'error');
-          return;
-        }
-      }
-
-      const exerciseIds = (currentWorkout.exercises ?? []).map(e => e.id);
-      if (exerciseIds.length > 0) {
-        const { error } = await supabase
-          .from('workout_sets')
-          .update({ completed: true })
-          .in('exercise_id', exerciseIds)
-          .neq('set_type', 'warmup');
-        if (error) {
-          toast(error.message, 'error');
+          toast(userFacingError(error.message, t('errors.generic')), 'error');
           return;
         }
       }
@@ -329,7 +330,7 @@ function WorkoutFormInner() {
         duration_seconds: finalDuration,
       });
       if (finished.error) {
-        toast(finished.error === 'quota' ? t('workout.syncQuota') : finished.error, 'error');
+        toast(finished.error === 'quota' ? t('workout.syncQuota') : userFacingError(finished.error, t('errors.generic')), 'error');
         return;
       }
       clearSessionTimer(currentWorkout.id);
@@ -536,7 +537,7 @@ function WorkoutFormInner() {
           <Plus size={16} /> {t('workout.addExercise')}
         </Button>
         )}
-        <Button onClick={handleFinish} disabled={saving} className="w-full">
+        <Button onClick={requestFinish} disabled={saving} className="w-full min-h-11">
           <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
       </div>
@@ -548,6 +549,25 @@ function WorkoutFormInner() {
       />
       )}
       <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />
+      <Modal
+        open={finishConfirmOpen}
+        onClose={() => setFinishConfirmOpen(false)}
+        title={t('workout.finishIncompleteTitle')}
+      >
+        <p className="text-neutral-300 mb-6">
+          {t('workout.finishIncompleteBody', {
+            count: incompleteWorkingSets(currentWorkout?.exercises).length,
+          })}
+        </p>
+        <div className="flex gap-3">
+          <Button variant="secondary" onClick={() => setFinishConfirmOpen(false)} className="flex-1">
+            {t('workout.backToSession')}
+          </Button>
+          <Button onClick={() => void handleFinish()} className="flex-1" disabled={saving}>
+            {t('workout.finishAnyway')}
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

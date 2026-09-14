@@ -167,7 +167,7 @@ export default function CalendarPage() {
               fat: Math.round(nutritionLogs.reduce((s, l) => s + l.fat, 0)),
             } : null;
             setDaySummary({
-              workout: workoutRes.data ? { name: workoutRes.data.name || 'Workout', exerciseCount: count ?? 0 } : null,
+              workout: workoutRes.data ? { name: workoutRes.data.name || t('workout.unnamed'), exerciseCount: count ?? 0 } : null,
               nutrition: totalNutrition,
               nutritionCount: nutritionLogs.length,
               weight: weightRes.data ? weightRes.data.weight_kg : null,
@@ -193,7 +193,7 @@ export default function CalendarPage() {
         setSummaryLoading(false);
       }
     });
-  }, [user, selectedDate]);
+  }, [user, selectedDate, t]);
 
   const workoutDateSet = useMemo(() => {
     return new Set(workouts.map(w => dateToStr(parseDate(w.date))));

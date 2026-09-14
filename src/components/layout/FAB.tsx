@@ -33,7 +33,7 @@ export default function FAB() {
         />
       )}
 
-      <div className="md:hidden fixed bottom-[76px] right-4 z-50 flex flex-col items-end gap-2">
+      <div className="md:hidden fixed right-4 z-50 flex flex-col items-end gap-2 bottom-[calc(4.75rem+env(safe-area-inset-bottom))]">
         {open && (
           <div className="flex flex-col items-center gap-2 mb-1 animate-fade-in-up">
             {actions.map((action, i) => {

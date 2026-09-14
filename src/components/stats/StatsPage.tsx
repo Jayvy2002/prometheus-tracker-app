@@ -5,9 +5,11 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { supabase } from '../../lib/supabase';
-import { toLocalDateStr } from '../../lib/utils';
+import { toLocalDateStr, formatChartDate } from '../../lib/utils';
+import { nutritionTargetsFromProfile } from '../../lib/nutritionTargets';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Area, AreaChart } from 'recharts';
 import Card from '../ui/Card';
+import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
@@ -66,7 +68,7 @@ function TrendBadge({ value }: { value: number | null }) {
 }
 
 export default function StatsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
@@ -81,9 +83,10 @@ export default function StatsPage() {
   const [loading, setLoading] = useState(true);
 
   const unit = profile?.unit_weight ?? 'kg';
-  const calorieTarget = profile?.daily_calorie_target ?? 2000;
-  const proteinTarget = profile?.protein_target ?? 150;
-  const waterTarget = profile?.daily_water_target_ml ?? 2500;
+  const nutritionTargets = nutritionTargetsFromProfile(profile);
+  const calorieTarget = nutritionTargets.calories ?? 0;
+  const proteinTarget = nutritionTargets.protein ?? 0;
+  const waterTarget = nutritionTargets.waterMl ?? 0;
 
   const PERIODS: { value: Period; label: string }[] = [
     { value: 'week', label: t('stats.periods.week') },
@@ -190,9 +193,13 @@ export default function StatsPage() {
 
   // Achievements / encouragements
   const achievements: string[] = [];
-  const daysOnTarget = nutrition.filter(d => d.calories >= calorieTarget * 0.9 && d.calories <= calorieTarget * 1.1).length;
+  const daysOnTarget = calorieTarget > 0
+    ? nutrition.filter(d => d.calories >= calorieTarget * 0.9 && d.calories <= calorieTarget * 1.1).length
+    : 0;
   if (daysOnTarget >= 5) achievements.push(t('stats.achievements.caloriesOnTarget', { days: daysOnTarget }));
-  const proteinDaysHit = nutrition.filter(d => d.protein >= proteinTarget * 0.9).length;
+  const proteinDaysHit = proteinTarget > 0
+    ? nutrition.filter(d => d.protein >= proteinTarget * 0.9).length
+    : 0;
   if (proteinDaysHit >= 4) achievements.push(t('stats.achievements.proteinGoal', { days: proteinDaysHit }));
   if (totalWorkouts >= 3) achievements.push(t('stats.achievements.consistentTraining', { count: totalWorkouts }));
   if (weightChange !== null && weightChange < 0 && profile?.goal === 'lose') achievements.push(t('stats.achievements.weightLoss'));
@@ -201,13 +208,13 @@ export default function StatsPage() {
 
   // Chart data
   const calorieChartData = nutrition.map(d => ({
-    date: new Date(d.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    date: formatChartDate(d.date, i18n.language),
     value: Math.round(d.calories),
     target: calorieTarget,
   }));
 
   const weightChartData = weights.map(w => ({
-    date: new Date(w.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+    date: formatChartDate(w.date, i18n.language),
     value: w.weight,
   }));
 
@@ -223,10 +230,10 @@ export default function StatsPage() {
     return Object.entries(weeks)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, count]) => ({
-        date: new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        date: formatChartDate(date, i18n.language),
         value: count,
       }));
-  }, [workoutDates]);
+  }, [workoutDates, i18n.language]);
 
   const CHART_TABS: { key: ChartTab; label: string }[] = [
     ...(showNutritionField(tracking, 'calories') ? [{ key: 'calories' as const, label: t('stats.chartTabs.calories') }] : []),
@@ -427,14 +434,14 @@ export default function StatsPage() {
               </Card>
             )}
 
-            <Card onClick={() => navigate('/exercise-progress')} className="flex items-center gap-3 animate-fade-in-up">
+            <CardLink to="/exercise-progress" className="flex items-center gap-3 animate-fade-in-up">
               <Dumbbell size={16} className="text-blue-400" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white">{t('dashboard.viewProgress')}</p>
-                <p className="text-[11px] text-neutral-500">{t('dashboard.progressDesc')}</p>
+                <p className="text-xs text-neutral-500">{t('dashboard.progressDesc')}</p>
               </div>
               <ChevronRight size={16} className="text-neutral-600" />
-            </Card>
+            </CardLink>
 
             {/* Achievements */}
             {achievements.length > 0 && (

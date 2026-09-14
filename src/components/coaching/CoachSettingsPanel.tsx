@@ -13,6 +13,7 @@ import {
 import TrackingVarsEditor from './TrackingVarsEditor';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
+import { timezoneDisplayLabel } from '../../lib/timezoneLabel';
 
 const TEMPLATE_KEYS: CoachNudgeTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup'];
 
@@ -111,12 +112,13 @@ export default function CoachSettingsPanel() {
       <div className="rounded-xl border border-neutral-800 p-3 space-y-3">
         <p className="text-xs font-medium text-neutral-400">{t('coaching.settings.alertTiming')}</p>
         <label className="block">
-          <span className="text-[11px] text-neutral-500">{t('coaching.settings.timezone')}</span>
+          <span className="text-sm text-neutral-400">{t('coaching.settings.timezone')}</span>
+          <p className="text-sm text-neutral-500 mt-1">{t('coaching.settings.timezoneHint', { label: timezoneDisplayLabel(timezone, i18n.language), tz: timezone })}</p>
           <input
             value={timezone}
             onChange={e => setTimezone(e.target.value)}
             placeholder="America/Toronto"
-            className="mt-1 w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+            className="mt-1 w-full min-h-11 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
           />
         </label>
         <label className="block">

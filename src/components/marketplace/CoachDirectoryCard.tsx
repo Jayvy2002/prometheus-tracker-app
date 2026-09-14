@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpRight, MapPin } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { matchingReasons, type CoachPublicProfile, type marketFilters } from '../../lib/marketplace';
 
 interface Props {
@@ -21,13 +21,24 @@ export default function CoachDirectoryCard({ profile, filters, query, compared, 
         <span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500/10 text-lg font-semibold text-blue-300">
           {profile.public_name.trim().slice(0, 1).toLocaleUpperCase()}
         </span>
-        <h2 className="break-words text-lg font-semibold text-white">{profile.public_name}</h2>
+        <div className="min-w-0">
+          <h2 className="break-words text-lg font-semibold text-white">{profile.public_name}</h2>
+          <p className="text-sm text-neutral-400 truncate">
+            {[...profile.disciplines, ...profile.formats].slice(0, 3).map(v => t(`marketplace.${v}`)).join(' · ')}
+          </p>
+        </div>
       </div>
       <p className="line-clamp-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-neutral-300">{profile.introduction}</p>
+      <p className="text-sm text-neutral-400">
+        {[profile.area, profile.languages.map(v => t(`marketplace.${v}`)).join(' / ')].filter(Boolean).join(' · ')}
+      </p>
       <div className="flex flex-wrap gap-2">
         {reasons.map(reason => <span key={reason} className="rounded-full bg-neutral-800 px-3 py-1 text-xs text-neutral-300">{t(`marketplace.${reason}`)}</span>)}
       </div>
-      {profile.area && <p className="flex items-center gap-2 text-sm text-neutral-400"><MapPin size={15} aria-hidden="true" />{profile.area}</p>}
+      {reasons.length > 0 && (
+        <p className="text-sm text-blue-300">{t('marketplace.whyThisCoach')}</p>
+      )}
+      <p className="text-sm text-neutral-500">{t('marketplace.priceOnRequest')}</p>
       <div className="mt-auto space-y-2 border-t border-neutral-800 pt-3">
         <Link className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-medium text-blue-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400" to={`/coaches/${profile.coach_id}?${query}`}>
           {t('marketplace.viewCoach')}<ArrowUpRight size={16} aria-hidden="true" />

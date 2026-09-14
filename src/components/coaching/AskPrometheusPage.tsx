@@ -129,7 +129,9 @@ export default function AskPrometheusPage() {
       { key: 'coaching.ask.examples.stalled', filter: 'stalled' },
       { key: 'coaching.ask.examples.pain', filter: 'pain' },
       { key: 'coaching.ask.examples.adherence', filter: 'adherence' },
+      { key: 'coaching.ask.examples.priority', always: true },
       { key: 'coaching.ask.examples.program', always: true },
+      { key: 'coaching.ask.examples.analyze', always: true },
     ];
     return chips.filter(chip => (
       chip.always
@@ -140,8 +142,17 @@ export default function AskPrometheusPage() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
-        <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-1">Prometheus</p>
-        <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.ask.title')}</h1>
+        <p className="text-xs uppercase tracking-wider text-blue-300 mb-1">Prometheus</p>
+        <h1 className="text-2xl font-bold text-white mb-1">
+          {searchParams.get('client')
+            ? t('coaching.ask.aboutClient', {
+              name: opsRows.find(r => r.client.id === searchParams.get('client'))?.client.full_name
+                || t('coaching.unnamed'),
+            })
+            : searchParams.get('program')
+              ? t('coaching.ask.aboutProgram')
+              : t('coaching.ask.prioritize')}
+        </h1>
         <p className="text-sm text-neutral-500 mb-4">{t('coaching.ask.subtitle')}</p>
 
         <form

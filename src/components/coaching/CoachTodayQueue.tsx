@@ -19,10 +19,10 @@ import type { CoachPriority, CoachPrioritySeverity } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 
-const SEVERITY_DOT: Record<CoachPrioritySeverity, string> = {
-  red: '🔴',
-  orange: '🟠',
-  yellow: '🟡',
+const SEVERITY_CLASS: Record<CoachPrioritySeverity, string> = {
+  red: 'bg-rose-500/15 text-rose-300',
+  orange: 'bg-amber-500/15 text-amber-300',
+  yellow: 'bg-neutral-800 text-neutral-300',
 };
 
 export default function CoachTodayQueue() {
@@ -54,8 +54,8 @@ export default function CoachTodayQueue() {
   return (
     <>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest">
-          {t('coaching.queue.title')}
+        <p className="text-sm font-semibold text-neutral-300">
+          {t('coaching.queue.attentionCount', { count: groups.length })}
         </p>
         <p className="text-xs text-neutral-500">{t('coaching.queue.remaining', { count: groups.length })}</p>
       </div>
@@ -78,7 +78,9 @@ export default function CoachTodayQueue() {
           return (
             <Card key={group.clientId} className="!p-4">
               <div className="flex items-start gap-3">
-                <span className="text-lg leading-6 shrink-0" aria-hidden>{SEVERITY_DOT[group.severity]}</span>
+                <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${SEVERITY_CLASS[group.severity]}`}>
+                  {t(`coaching.queue.severity.${group.severity}`)}
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-2">
                     {group.avatarUrl ? (
@@ -98,8 +100,10 @@ export default function CoachTodayQueue() {
                             onClick={() => navigate(href)}
                             className="w-full text-left flex items-start gap-2 rounded-lg px-1 py-0.5 hover:bg-neutral-800/60"
                           >
-                            <span className="text-[11px] leading-5 shrink-0" aria-hidden>{SEVERITY_DOT[item.severity]}</span>
-                            <span className="text-xs text-neutral-300 min-w-0">
+                            <span className={`text-xs leading-5 shrink-0 px-1.5 rounded ${SEVERITY_CLASS[item.severity]}`}>
+                              {t(`coaching.queue.severity.${item.severity}`)}
+                            </span>
+                            <span className="text-sm text-neutral-300 min-w-0">
                               {t(queueItemLabelKey(item), item.headlineParams)}
                               {draft && item.kind !== 'draft_pending' ? (
                                 <span className="text-blue-400"> · {t('coaching.queue.draftBadge')}</span>

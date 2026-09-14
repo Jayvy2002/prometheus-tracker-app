@@ -22,6 +22,7 @@ import { isCoachedAthlete } from '../../lib/coachRole';
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
+import { optionDescription, optionLabel, type OptionGroup } from '../../lib/optionLabels';
 
 const TOTAL_STEPS = 7;
 
@@ -72,29 +73,34 @@ function StepHeader({ icon: Icon, title, subtitle }: { icon: typeof User; title:
   );
 }
 
-function SelectGrid({ options, value, onChange, columns = 2 }: {
+function SelectGrid({ options, value, onChange, columns = 2, group }: {
   options: readonly { value: string; label: string; description?: string }[];
   value: string;
   onChange: (val: string) => void;
   columns?: 2 | 3;
+  group: OptionGroup;
 }) {
+  const { t } = useTranslation();
   return (
     <div className={`grid gap-2 ${columns === 3 ? 'grid-cols-3' : 'grid-cols-2'}`}>
       {options.map(opt => (
         <button
           key={opt.value}
+          type="button"
           onClick={() => onChange(opt.value)}
-          className={`p-3 rounded-xl border text-left transition-all ${
+          className={`p-3 rounded-xl border text-left transition-all min-h-11 ${
             value === opt.value
               ? 'border-blue-500 bg-blue-500/10 ring-1 ring-blue-500/30'
               : 'border-neutral-800 bg-neutral-900/60 hover:border-neutral-700'
           }`}
         >
           <span className={`text-sm font-medium ${value === opt.value ? 'text-blue-300' : 'text-white'}`}>
-            {opt.label}
+            {optionLabel(t, group, opt.value, opt.label)}
           </span>
           {opt.description && (
-            <span className="block text-[11px] text-neutral-500 mt-0.5">{opt.description}</span>
+            <span className="block text-xs text-neutral-500 mt-0.5">
+              {optionDescription(t, group, opt.value, opt.description)}
+            </span>
           )}
         </button>
       ))}
@@ -102,11 +108,13 @@ function SelectGrid({ options, value, onChange, columns = 2 }: {
   );
 }
 
-function ChipSelect({ options, selected, onChange }: {
+function ChipSelect({ options, selected, onChange, group }: {
   options: readonly { value: string; label: string }[];
   selected: string[];
   onChange: (val: string[]) => void;
+  group: OptionGroup;
 }) {
+  const { t } = useTranslation();
   const toggle = (val: string) => {
     onChange(selected.includes(val) ? selected.filter(v => v !== val) : [...selected, val]);
   };
@@ -115,14 +123,15 @@ function ChipSelect({ options, selected, onChange }: {
       {options.map(opt => (
         <button
           key={opt.value}
+          type="button"
           onClick={() => toggle(opt.value)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+          className={`min-h-11 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
             selected.includes(opt.value)
               ? 'bg-blue-500/20 text-blue-300 ring-1 ring-blue-500/40'
               : 'bg-neutral-800/80 text-neutral-400 hover:text-white hover:bg-neutral-700/80'
           }`}
         >
-          {opt.label}
+          {optionLabel(t, group, opt.value, opt.label)}
         </button>
       ))}
     </div>
@@ -244,7 +253,7 @@ function StepTraining({ form, setForm }: { form: FormData; setForm: (f: FormData
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.experience')}</label>
-        <SelectGrid options={TRAINING_EXPERIENCES} value={form.training_experience} onChange={v => setForm({ ...form, training_experience: v })} />
+        <SelectGrid group="trainingExperience" options={TRAINING_EXPERIENCES} value={form.training_experience} onChange={v => setForm({ ...form, training_experience: v })} />
       </div>
 
       <div>
@@ -267,7 +276,7 @@ function StepTraining({ form, setForm }: { form: FormData; setForm: (f: FormData
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.trainingFocus')}</label>
-        <SelectGrid options={TRAINING_FOCUSES} value={form.training_focus} onChange={v => setForm({ ...form, training_focus: v })} />
+        <SelectGrid group="trainingFocus" options={TRAINING_FOCUSES} value={form.training_focus} onChange={v => setForm({ ...form, training_focus: v })} />
       </div>
 
       <div>
@@ -293,7 +302,7 @@ function StepLifestyle({ form, setForm }: { form: FormData; setForm: (f: FormDat
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.activityOutside')}</label>
-        <SelectGrid options={ACTIVITY_LEVELS} value={form.activity_level} onChange={v => setForm({ ...form, activity_level: v })} />
+        <SelectGrid group="activity" options={ACTIVITY_LEVELS} value={form.activity_level} onChange={v => setForm({ ...form, activity_level: v })} />
       </div>
 
       <div>
@@ -342,12 +351,12 @@ function StepNutrition({ form, setForm }: { form: FormData; setForm: (f: FormDat
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.diet')}</label>
-        <SelectGrid options={DIET_TYPES} value={form.diet_type} onChange={v => setForm({ ...form, diet_type: v })} />
+        <SelectGrid group="diet" options={DIET_TYPES} value={form.diet_type} onChange={v => setForm({ ...form, diet_type: v })} />
       </div>
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.allergies')}</label>
-        <ChipSelect options={FOOD_ALLERGIES} selected={form.food_allergies} onChange={v => setForm({ ...form, food_allergies: v })} />
+        <ChipSelect group="allergies" options={FOOD_ALLERGIES} selected={form.food_allergies} onChange={v => setForm({ ...form, food_allergies: v })} />
         {form.food_allergies.length === 0 && (
           <p className="text-[11px] text-neutral-600 mt-1.5">{t('onboarding.fields.tapNone')}</p>
         )}
@@ -355,7 +364,7 @@ function StepNutrition({ form, setForm }: { form: FormData; setForm: (f: FormDat
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.hydration')}</label>
-        <SelectGrid options={HYDRATION_HABITS} value={form.hydration_habit} onChange={v => setForm({ ...form, hydration_habit: v })} />
+        <SelectGrid group="hydration" options={HYDRATION_HABITS} value={form.hydration_habit} onChange={v => setForm({ ...form, hydration_habit: v })} />
       </div>
     </div>
   );
@@ -370,7 +379,7 @@ function StepGoalMotivation({ form, setForm }: { form: FormData; setForm: (f: Fo
 
       <div>
         <label className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-2 block">{t('onboarding.fields.bodyGoal')}</label>
-        <SelectGrid options={GOALS} value={form.goal} onChange={v => setForm({ ...form, goal: v })} columns={3} />
+        <SelectGrid group="goals" options={GOALS} value={form.goal} onChange={v => setForm({ ...form, goal: v })} columns={3} />
       </div>
     </div>
   );
@@ -399,7 +408,7 @@ function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
         <h3 className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-3">{t('onboarding.fields.dailyTargets')}</h3>
         <div className="text-center mb-4">
           <span className="text-4xl font-bold text-white">{calorieTarget}</span>
-          <span className="text-sm text-neutral-500 ml-1">kcal/day</span>
+          <span className="text-sm text-neutral-500 ml-1">{t('onboarding.summary.calDay')}</span>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center p-3 rounded-xl bg-blue-500/10">
@@ -425,7 +434,7 @@ function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
           <span className="block text-lg font-bold text-white">{Math.round(bmr)} kcal</span>
         </div>
         <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">TDEE</span>
+          <span className="text-xs text-neutral-500 uppercase tracking-wider">{t('onboarding.summary.tdee')}</span>
           <span className="block text-lg font-bold text-white">{tdee} kcal</span>
         </div>
         <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
@@ -434,7 +443,7 @@ function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
         </div>
         <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
           <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.fields.sessionsPerWeek')}</span>
-          <span className="block text-lg font-bold text-white">{form.training_frequency}x/wk</span>
+          <span className="block text-lg font-bold text-white">{t('onboarding.summary.sessionsShort', { n: form.training_frequency })}</span>
         </div>
       </div>
 
@@ -456,13 +465,13 @@ function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
         <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.fields.yourProfile')}</span>
         <div className="flex flex-wrap gap-1.5 mt-2">
           <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-medium">
-            {DIET_TYPES.find(d => d.value === form.diet_type)?.label}
+            {optionLabel(t, 'diet', form.diet_type)}
           </span>
           <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-medium">
-            {TRAINING_FOCUSES.find(f => f.value === form.training_focus)?.label}
+            {optionLabel(t, 'trainingFocus', form.training_focus)}
           </span>
           <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-medium">
-            {TRAINING_EXPERIENCES.find(e => e.value === form.training_experience)?.label}
+            {optionLabel(t, 'trainingExperience', form.training_experience)}
           </span>
         </div>
       </div>

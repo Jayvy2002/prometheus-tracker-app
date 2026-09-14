@@ -115,9 +115,19 @@ export default function InvitePage() {
           <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto" />
         ) : valid ? (
           <>
-            <h1 className="text-xl font-bold text-white mb-2">{t('coaching.invite.title')}</h1>
+            <div
+              className="w-16 h-16 rounded-full bg-blue-600/20 text-blue-300 text-xl font-semibold flex items-center justify-center mx-auto mb-4"
+              aria-hidden
+            >
+              {(coachName || t('coaching.invite.aCoach')).trim().charAt(0).toUpperCase()}
+            </div>
+            <h1 className="text-xl font-bold text-white mb-2">
+              {coachName
+                ? t('coaching.invite.title', { name: coachName })
+                : t('coaching.invite.titleNoName')}
+            </h1>
             <p className="text-sm text-neutral-400 mb-4">
-              {t('coaching.invite.body', { name: coachName || t('coaching.invite.aCoach') })}
+              {t('coaching.invite.humanBody')}
             </p>
             <p className="text-sm text-neutral-300 mb-3 text-left">{t('coaching.invite.sharing')}</p>
             <ul className="text-sm text-neutral-400 text-left list-disc pl-5 mb-4 space-y-1">

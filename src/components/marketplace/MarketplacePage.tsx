@@ -16,7 +16,7 @@ const blank: CoachPublicProfile = { coach_id: '', public_name: '', introduction:
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
 
 export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const owner = useAuthStore(s => s.user?.id) ?? '';
   const fetchMyRole = useCoachingStore(s => s.fetchMyRole);
@@ -102,7 +102,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.client_id === owner ? row.coach_name || t('marketplace.coachUnavailableName') : row.public_name}</h2>
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
       <p className="text-sm text-neutral-300">{t(`marketplace.${row.status}`)}</p>
-      <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
+      <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
       {row.status === 'accepted' && row.relationship_state === 'active' && (
         <div className="space-y-3">
           <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? 'marketplace.coachingActiveCoach' : 'marketplace.coachingActive')}</p>
@@ -158,10 +158,17 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {profile.published && <Link className="block text-blue-400 underline" to={`/coaches/${owner}`}>{t('marketplace.viewCoach')}</Link>}
     </fieldset></form>;
     return <div className="space-y-5">
-      <h2 className="text-xl font-semibold">{profile.public_name}</h2>
-      {(['introduction', 'method', 'offer'] as const).map(key => <section key={key}><h3 className="font-semibold">{t(`marketplace.${key}`)}</h3><p className="whitespace-pre-wrap break-words text-neutral-300">{profile[key]}</p></section>)}
-      <p>{[...profile.disciplines, ...profile.languages, ...profile.formats].map(v => t(`marketplace.${v}`)).join(' · ')}</p>
-      {profile.area && <p>{profile.area}</p>}
+      <header className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 space-y-2">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-2xl font-semibold text-blue-300">
+          {profile.public_name.trim().slice(0, 1).toLocaleUpperCase()}
+        </div>
+        <h2 className="text-2xl font-semibold text-white">{profile.public_name}</h2>
+        <p className="text-sm text-neutral-400">{[...profile.disciplines, ...profile.formats].map(v => t(`marketplace.${v}`)).join(' · ')}</p>
+        <p className="text-sm text-neutral-400">{[profile.area, profile.languages.map(v => t(`marketplace.${v}`)).join(' / ')].filter(Boolean).join(' · ')}</p>
+        <p className="text-sm text-neutral-500">{t(profile.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</p>
+        <p className="text-sm text-neutral-500">{t('marketplace.priceOnRequest')}</p>
+      </header>
+      {(['introduction', 'method', 'offer'] as const).map(key => <section key={key}><h3 className="font-semibold text-white">{t(`marketplace.${key}`)}</h3><p className="whitespace-pre-wrap break-words text-neutral-300">{profile[key]}</p></section>)}
       {!profile.accepting_clients && <p>{t('marketplace.unavailable')}</p>}
       {profile.accepting_clients && profile.coach_id !== owner && activeCoachId && <p>{t('marketplace.already_coached')}</p>}
       {profile.accepting_clients && profile.coach_id !== owner && !activeCoachId && <form className="space-y-4" onSubmit={e => {
