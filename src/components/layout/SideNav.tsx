@@ -47,7 +47,7 @@ export default function SideNav() {
                         ? t('nav.messagesUnread', { count: unreadMessageCount })
                         : t(tab.labelKey)
                     }
-                    className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200
+                    className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-2 min-h-11 rounded-xl text-sm font-medium transition-colors duration-200
                       ${isActive
                         ? 'bg-blue-600/15 text-white'
                         : muted

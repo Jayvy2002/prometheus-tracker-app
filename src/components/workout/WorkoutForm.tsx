@@ -7,9 +7,14 @@ import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
 import Button from '../ui/Button';
-import { toast } from '../ui/Toast';
+import EmptyState from '../ui/EmptyState';
+import ErrorState from '../ui/ErrorState';
+import IconButton from '../ui/IconButton';
 import Input from '../ui/Input';
 import Modal from '../ui/Modal';
+import { PageSkeleton } from '../ui/PageSkeleton';
+import PageHeader from '../ui/PageHeader';
+import { toast } from '../ui/Toast';
 import { userFacingError } from '../../lib/userFacingError';
 import { incompleteWorkingSets, shouldConfirmIncompleteFinish } from '../../lib/workoutFinish';
 import ExerciseCard from './ExerciseCard';
@@ -388,25 +393,14 @@ function WorkoutFormInner() {
   if (initError) {
     return (
       <div className="px-4 pt-6">
-        <div className="flex items-center gap-3 mb-4">
-          <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white">
-            <ArrowLeft size={20} />
-          </button>
-          <p className="text-red-400">{t('workout.createFailed')}</p>
-        </div>
-        <Button onClick={() => navigate('/workout')} variant="secondary" className="w-full">
-          {t('workout.goBack')}
-        </Button>
+        <PageHeader title={t('workout.title')} backTo="/workout" />
+        <ErrorState title={t('workout.createFailed')} onRetry={() => navigate('/workout')} />
       </div>
     );
   }
 
   if (!currentWorkout) {
-    return (
-      <div className="px-4 pt-6 flex items-center justify-center min-h-[50vh]">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (currentWorkout.completed && !forceEdit) {
@@ -421,9 +415,9 @@ function WorkoutFormInner() {
   return (
     <div className="px-4 pt-4 pb-6">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={handleBack} className="p-2 -ml-2 text-neutral-400 hover:text-white">
+        <IconButton label={t('common.back')} onClick={handleBack} className="-ml-2">
           <ArrowLeft size={20} />
-        </button>
+        </IconButton>
         {isProgramSession ? (
           <p className="flex-1 text-lg font-semibold text-white truncate">{workoutName || t('workout.title')}</p>
         ) : (
@@ -436,13 +430,12 @@ function WorkoutFormInner() {
         )}
         <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
         {restEnabled && (
-        <button
+        <IconButton
+          label={t('workout.restTimer.title')}
           onClick={() => handleStartRestTimer()}
-          className="p-2 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-          title={t('workout.restTimer.title')}
         >
           <Timer size={18} />
-        </button>
+        </IconButton>
         )}
       </div>
 
@@ -460,38 +453,40 @@ function WorkoutFormInner() {
               : t('workout.syncPending', { n: pendingOps })}
           </p>
           {online && pendingOps > 0 && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => void syncOfflineQueue()}
-              className="flex items-center gap-1 text-xs text-amber-300 hover:text-amber-100 shrink-0"
             >
-              <RefreshCw size={12} /> {t('workout.syncRetry')}
-            </button>
+              <RefreshCw size={14} /> {t('workout.syncRetry')}
+            </Button>
           )}
         </div>
       )}
 
       {deadOps > 0 && (
         <div
-          className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 space-y-2"
+          className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/10 px-3 py-2 space-y-2"
           role="alert"
         >
-          <p className="text-xs text-red-200/90 flex items-center gap-2">
-            <AlertTriangle size={14} className="text-red-400 shrink-0" />
+          <p className="text-xs text-rose-200/90 flex items-center gap-2">
+            <AlertTriangle size={14} className="text-rose-400 shrink-0" />
             {t('workout.syncDeadLetter', { n: deadOps })}
           </p>
           {peekDeadLetterOps().map(op => (
             <div key={op.id} className="flex items-start gap-2">
-              <p className="text-[11px] text-red-200/70 flex-1 break-all">
+              <p className="text-xs text-rose-200/70 flex-1 break-all">
                 {op.type}{op.lastError ? ` — ${op.lastError}` : ''}
               </p>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => void retryDeadLetter(op.id)}
-                className="flex items-center gap-1 text-xs text-red-200 hover:text-white shrink-0"
               >
-                <RefreshCw size={12} /> {t('workout.syncDeadRetry')}
-              </button>
+                <RefreshCw size={14} /> {t('workout.syncDeadRetry')}
+              </Button>
             </div>
           ))}
         </div>
@@ -509,9 +504,7 @@ function WorkoutFormInner() {
 
       <div className="space-y-4">
         {(currentWorkout.exercises?.length ?? 0) === 0 && (
-          <p className="text-sm text-neutral-500 text-center py-10 px-4">
-            {t('workout.emptySession')}
-          </p>
+          <EmptyState title={t('workout.emptySession')} />
         )}
         {(() => {
           const exercises = currentWorkout.exercises ?? [];
@@ -552,7 +545,7 @@ function WorkoutFormInner() {
           <Plus size={16} /> {t('workout.addExercise')}
         </Button>
         )}
-        <Button onClick={requestFinish} disabled={saving} className="w-full min-h-11">
+        <Button onClick={requestFinish} disabled={saving} className="w-full">
           <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
       </div>

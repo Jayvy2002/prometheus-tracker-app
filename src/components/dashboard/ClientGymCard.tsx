@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { ClientGymCard as GymCard } from '../../lib/clientGym';
 import type { ProgramDay, ProgramDayExercise } from '../../lib/types';
 import Button from '../ui/Button';
+import ListRow from '../ui/ListRow';
 
 interface Props {
   card: GymCard;
@@ -42,19 +43,12 @@ export default function ClientGymCard({
   if (card.kind === 'done_next') {
     return (
       <div className="mb-4 space-y-2">
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-            <Check size={18} className="text-emerald-400" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-sm font-semibold text-white">{t('dashboard.gym.done')}</p>
-            {card.doneDay && (
-              <p className="text-[11px] text-emerald-200/80 truncate">
-                {card.doneDay.name || programName}
-              </p>
-            )}
-          </div>
-        </div>
+        <ListRow
+          tone="success"
+          icon={<Check size={18} />}
+          title={t('dashboard.gym.done')}
+          subtitle={card.doneDay ? (card.doneDay.name || programName) : undefined}
+        />
         {card.nextDay && (
           <SessionPreview
             day={card.nextDay}
@@ -133,12 +127,12 @@ function SessionPreview({
             {day.name ? ` · ${day.name}` : ''}
             {count > 0 ? ` · ${t('dashboard.gym.exercises', { n: count })}` : ''}
           </p>
-          <p className="text-[11px] text-neutral-500 mt-0.5 truncate">{weekLabel}</p>
+          <p className="text-xs text-neutral-500 mt-0.5 truncate">{weekLabel}</p>
         </div>
       </div>
 
       {count === 0 ? (
-        <p className="mt-3 text-[11px] text-neutral-500">{t('programs.noExercises')}</p>
+        <p className="mt-3 text-xs text-neutral-500">{t('programs.noExercises')}</p>
       ) : (
         <ul className="mt-3 space-y-1">
           {exercises.map(ex => (
@@ -154,7 +148,7 @@ function SessionPreview({
       )}
 
       {showPreviewHint && (
-        <p className="mt-2 text-[11px] text-neutral-500">{t('dashboard.gym.previewHint')}</p>
+        <p className="mt-2 text-xs text-neutral-500">{t('dashboard.gym.previewHint')}</p>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -163,13 +157,9 @@ function SessionPreview({
           <ChevronRight size={14} />
         </Button>
         {onEditPlan && (
-          <button
-            type="button"
-            onClick={onEditPlan}
-            className="text-xs text-blue-300 hover:text-blue-200"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onEditPlan}>
             {t('dashboard.gym.editPlan')}
-          </button>
+          </Button>
         )}
       </div>
     </div>

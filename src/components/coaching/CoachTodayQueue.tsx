@@ -19,6 +19,7 @@ import { clientFileHref } from '../../lib/coachSituation';
 import type { CoachPrioritySeverity, CoachQueueClientGroup } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import ListRow from '../ui/ListRow';
 
 const SEVERITY_CLASS: Record<CoachPrioritySeverity, string> = {
   red: 'bg-rose-500/15 text-rose-300',
@@ -111,22 +112,22 @@ function QueueClientRow({
 
   if (!featured) {
     return (
-      <button
-        type="button"
+      <ListRow
+        tone={group.severity === 'red' ? 'danger' : group.severity === 'orange' ? 'warning' : 'neutral'}
+        leading={(
+          <>
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full shrink-0 ${SEVERITY_CLASS[group.severity]}`}>
+              {t(`coaching.queue.severity.${group.severity}`)}
+            </span>
+            {group.avatarUrl ? (
+              <img src={group.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+            ) : null}
+          </>
+        )}
+        title={group.clientName}
+        subtitle={headline}
         onClick={() => onOpen(href)}
-        className="w-full flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3.5 py-3 text-left hover:border-neutral-700"
-      >
-        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${SEVERITY_CLASS[group.severity]}`}>
-          {t(`coaching.queue.severity.${group.severity}`)}
-        </span>
-        {group.avatarUrl ? (
-          <img src={group.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium text-white truncate">{group.clientName}</p>
-          <p className="text-xs text-neutral-400 truncate">{headline}</p>
-        </div>
-      </button>
+      />
     );
   }
 
@@ -145,10 +146,10 @@ function QueueClientRow({
           </div>
           <p className="text-sm text-neutral-300">{headline}</p>
           {extra > 0 ? (
-            <p className="text-[11px] text-neutral-500 mt-1">{t('coaching.queue.moreSignals', { count: extra })}</p>
+            <p className="text-xs text-neutral-500 mt-1">{t('coaching.queue.moreSignals', { count: extra })}</p>
           ) : null}
           {lastMessage ? (
-            <p className="text-[11px] text-neutral-500 truncate mt-2">{lastMessage}</p>
+            <p className="text-xs text-neutral-500 truncate mt-2">{lastMessage}</p>
           ) : null}
         </div>
       </div>

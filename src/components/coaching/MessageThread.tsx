@@ -102,14 +102,9 @@ export default function MessageThread({
         }}
         className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 pb-3">
         {onLoadMore && hasMore ? (
-          <button
-            type="button"
-            onClick={onLoadMore}
-            disabled={loadingMore}
-            className="w-full text-center text-xs text-blue-400 py-2 disabled:opacity-50"
-          >
+          <Button type="button" variant="ghost" size="sm" className="w-full" onClick={onLoadMore} disabled={loadingMore}>
             {loadingMore ? t('common.loading') : t('coaching.messages.loadMore')}
-          </button>
+          </Button>
         ) : null}
         {ordered.length === 0 && !pendingBody ? (
           <p className="text-sm text-neutral-500 px-1">{emptyHint || t('coaching.messages.threadEmpty')}</p>
@@ -147,23 +142,32 @@ export default function MessageThread({
         ) : null}
         
       </div>
-      {newMessages && <button type="button" className="py-2 text-sm text-blue-300"
-        onClick={() => {
-          const el = scrollRef.current;
-          if (el) el.scrollTop = el.scrollHeight;
-          nearBottom.current = true;
-          setNewMessages(false);
-        }}>{t('coaching.messages.newMessages')}</button>}
+      {newMessages && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="w-full"
+          onClick={() => {
+            const el = scrollRef.current;
+            if (el) el.scrollTop = el.scrollHeight;
+            nearBottom.current = true;
+            setNewMessages(false);
+          }}
+        >
+          {t('coaching.messages.newMessages')}
+        </Button>
+      )}
       <div className="pt-2 pb-2 border-t border-neutral-800 shrink-0">
         {draftHint ? (
           <p className="text-sm text-neutral-500 mb-2">{draftHint}</p>
         ) : null}
         {sendError ? (
           <div className="mb-2 flex items-center gap-2" role="alert">
-            <p className="text-sm text-red-400 flex-1">{sendError}</p>
-            <button type="button" onClick={() => void submit()} className="text-sm text-blue-400 min-h-11">
+            <p className="text-sm text-rose-400 flex-1">{sendError}</p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => void submit()}>
               {t('errors.retry')}
-            </button>
+            </Button>
           </div>
         ) : null}
         <div className="flex gap-2">
@@ -181,7 +185,7 @@ export default function MessageThread({
             placeholder={t('coaching.messages.replyPlaceholder')}
             className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white resize-none"
           />
-          <Button size="sm" onClick={() => void submit()} disabled={!body.trim()} loading={sending || pendingBody !== null} className="self-end">
+          <Button type="button" size="sm" onClick={() => void submit()} disabled={!body.trim()} loading={sending || pendingBody !== null} className="self-end">
             {t('common.send')}
           </Button>
         </div>

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import Button from '../ui/Button';
+import IconButton from '../ui/IconButton';
 import Modal from '../ui/Modal';
 import { countdownEndAt, countdownRemaining } from '../../lib/restTimer';
 
@@ -152,29 +154,35 @@ export default function RestTimer({
         </div>
 
         <div className="flex items-center justify-center gap-3 mb-6">
-          <button onClick={() => reset()} className="p-3 rounded-xl bg-neutral-900 text-neutral-300 hover:text-white transition-colors">
+          <IconButton
+            label={t('workout.restTimer.reset')}
+            onClick={() => reset()}
+            className="bg-neutral-900"
+          >
             <RotateCcw size={20} />
-          </button>
+          </IconButton>
           <button
+            type="button"
+            aria-label={active ? t('workout.restTimer.pause') : t('workout.restTimer.play')}
             onClick={() => setActive(!active)}
-            className={`p-4 rounded-2xl text-white hover:opacity-90 transition-all shadow-lg
+            className={`p-4 rounded-2xl text-white hover:opacity-90 transition-all shadow-lg min-h-11 min-w-11
               ${isFinished ? 'bg-emerald-600 shadow-emerald-900/30' : 'bg-blue-600 shadow-blue-900/30'}`}
           >
             {active ? <Pause size={24} /> : <Play size={24} />}
           </button>
         </div>
 
-        {/* Presets */}
         <div className="flex flex-wrap gap-2 justify-center mb-5">
           {PRESETS.map(p => (
-            <button
+            <Button
               key={p.value}
+              type="button"
+              size="sm"
+              variant={duration === p.value ? 'primary' : 'secondary'}
               onClick={() => reset(p.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-transform active:scale-90
-                ${duration === p.value ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:text-white'}`}
             >
               {p.label}
-            </button>
+            </Button>
           ))}
         </div>
 

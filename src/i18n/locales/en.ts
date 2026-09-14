@@ -519,6 +519,9 @@ const en = {
       title: 'Rest Timer',
       go: 'GO!',
       customPlaceholder: 'sec',
+      pause: 'Pause',
+      play: 'Play',
+      reset: 'Reset',
     },
   },
 
@@ -1895,6 +1898,7 @@ const en = {
       maxUses: 'Max uses',
       usesLeft: '{{n}} use(s) left',
       copied: 'Invite link copied',
+      copyLink: 'Copy link',
       accepted: 'You are now coached by {{name}}',
       authBanner: '{{name}} invited you. Sign in or create an account to accept.',
       authBannerNoName: 'Your coach invited you to Prometheus. Sign in or create an account to accept.',
