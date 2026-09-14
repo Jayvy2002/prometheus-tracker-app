@@ -19,17 +19,7 @@ export default function ActiveRelationshipBoundary({ children }: { children: Rea
   const scope = owner && target ? `${owner}:${target}` : null;
   const [result, setResult] = useState<{ scope: string; state: RelationshipAccess } | null>(null);
   const [retry, setRetry] = useState(0);
-  const [seenAllowed, setSeenAllowed] = useState(false);
   const state = scope && result?.scope === scope ? result.state : 'checking';
-
-  useEffect(() => {
-    setSeenAllowed(false);
-  }, [scope]);
-
-  useEffect(() => {
-    if (state === 'allowed') setSeenAllowed(true);
-    if (state === 'ended' || state === 'unavailable') setSeenAllowed(false);
-  }, [state]);
 
   useEffect(() => {
     if (!scope || !owner || !target) return;
@@ -77,8 +67,7 @@ export default function ActiveRelationshipBoundary({ children }: { children: Rea
     };
   }, [scope, owner, target, retry]);
 
-  const showDossier = state === 'allowed' || (state === 'checking' && seenAllowed);
-  if (showDossier) return <div key={scope}>{children}</div>;
+  if (state === 'allowed') return <div key={scope}>{children}</div>;
   return (
     <div className="p-6 space-y-4" data-testid="relationship-access">
       <p role={state === 'checking' ? 'status' : 'alert'}>{t(`relationshipAccess.${state}`)}</p>

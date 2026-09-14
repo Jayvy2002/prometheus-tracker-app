@@ -1,5 +1,11 @@
 # Chantier — Prometheus
 
+## Mise en ligne des corrections de l’audit PR76–84
+
+La migration de sécurité est appliquée en production : consentement marketplace v2, refus de l’invitation héritée sans consentement, absence de réactivation par rejeu historique et sérialisation par client. La PR 85 inclut la protection des sessions, la correction du cache API, les cartes responsive et les messages FR/EN. Les parcours complets passent sur le commit 1845cff (CI 34789979869).
+
+Reste à vérifier la CI après promotion en migration, fusionner la PR 85 et confirmer que l’hébergeur publie ce commit. Les autres travaux ci-dessous conservent leur statut.
+
 > **RÔLE DE CE DOCUMENT — SOURCE UNIQUE DU TRAVAIL RESTANT**
 >
 > Ce document contient l’ordre des chantiers, les décisions ouvertes, les fonctionnalités à construire, les problèmes à corriger, les améliorations UX à réaliser et leurs critères de fin.

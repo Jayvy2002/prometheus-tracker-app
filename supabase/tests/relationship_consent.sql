@@ -19,8 +19,8 @@ do $$ begin
   if has_function_privilege('anon','public.accept_coach_invite(text,integer,text[])','execute') then
     raise exception 'anonymous 3-arg execution allowed';
   end if;
-  if not has_function_privilege('authenticated','public.accept_coach_invite(text)','execute') then
-    raise exception 'legacy 1-arg revoked too early';
+  if has_function_privilege('authenticated','public.accept_coach_invite(text)','execute') then
+    raise exception 'legacy consent bypass callable';
   end if;
   if not has_function_privilege('authenticated','public.accept_coach_invite(text,integer,text[])','execute') then
     raise exception '3-arg not granted to authenticated';
@@ -61,19 +61,20 @@ do $$ declare result jsonb; begin
   if (select count(*) from public.coaching_relationship_consents) <> 0 then
     raise exception 'consent exposed to third party';
   end if;
-  result := public.accept_coach_invite('consent-legacy');
-  if result->>'ok' is distinct from 'true' then
-    raise exception 'legacy 1-arg window closed too early: %', result;
-  end if;
+  begin
+    perform public.accept_coach_invite('consent-legacy');
+    raise exception 'legacy consent bypass succeeded';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
 reset role;
 
 do $$ begin
-  if not exists (
+  if exists (
     select 1 from public.coach_client_links
     where client_id = 'c0750000-0000-4000-8000-000000000003' and status = 'active'
   ) then
-    raise exception 'legacy accept did not create a link';
+    raise exception 'legacy accept created a link';
   end if;
   if exists (
     select 1 from public.coaching_relationship_consents

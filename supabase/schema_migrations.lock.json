@@ -1,6 +1,6 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-12T00:00:00Z",
+  "captured_at": "2026-09-13T23:53:37.349Z",
   "strategy": "Git migrations are deployed from new-JV by the Supabase GitHub integration. Every filename timestamp MUST equal schema_migrations.version in production. Never repair or restamp applied history.",
   "audit_range": {
     "from": "20260910044211",
@@ -427,6 +427,10 @@
     {
       "version": "20260913204917",
       "name": "marketplace_activate_link"
+    },
+    {
+      "version": "20260913235158",
+      "name": "marketplace_audit_hardening"
     }
   ]
 }

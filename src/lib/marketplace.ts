@@ -1,4 +1,5 @@
 export const MARKET_DISCIPLINES = ['strength', 'powerlifting', 'general_fitness'] as const;
+export const MARKETPLACE_CONSENT_VERSION = 2;
 export const MARKET_LANGUAGES = ['fr', 'en'] as const;
 export const MARKET_FORMATS = ['online', 'in_person', 'hybrid'] as const;
 export interface CoachPublicProfile {
@@ -7,6 +8,8 @@ export interface CoachPublicProfile {
   published: boolean; accepting_clients: boolean; updated_at: string;
 }
 export interface CoachingRequest {
+  coach_name?: string | null;
+  relationship_state?: 'active' | 'ended' | 'unknown';
   id: string; coach_id: string; client_id: string; public_name: string; summary: string;
   sharing_version: number; status: 'pending' | 'accepted' | 'declined' | 'withdrawn';
   created_at: string; updated_at: string;

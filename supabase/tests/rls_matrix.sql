@@ -464,7 +464,7 @@ END $$;
 
 DO $$
 BEGIN
-  IF has_function_privilege('authenticated', 'public.accept_coach_invite(text)', 'execute')
+  IF NOT has_function_privilege('authenticated', 'public.accept_coach_invite(text)', 'execute')
      AND has_function_privilege('authenticated', 'public.accept_coach_invite(text,integer,text[])', 'execute')
      AND NOT has_function_privilege('anon', 'public.accept_coach_invite(text)', 'execute')
      AND NOT has_function_privilege('anon', 'public.accept_coach_invite(text,integer,text[])', 'execute')

@@ -7,9 +7,17 @@
  */
 
 let currentOwner: string | null = null;
+let sessionGeneration = 0;
 
 export function setSessionOwner(owner: string | null): void {
+  if (owner !== currentOwner) sessionGeneration++;
   currentOwner = owner;
+}
+
+/** Identity alone cannot detect A → logout → A. */
+export function captureSession(owner = currentOwner): () => boolean {
+  const generation = sessionGeneration;
+  return () => owner !== null && owner === currentOwner && generation === sessionGeneration;
 }
 
 export function getSessionOwner(): string | null {

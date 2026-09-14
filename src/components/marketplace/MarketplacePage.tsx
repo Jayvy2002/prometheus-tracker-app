@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import CoachDirectoryCard from './CoachDirectoryCard';
 import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
 import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
 import { track } from '../../lib/telemetryClient';
@@ -87,7 +88,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
     catch (cause) {
       if (seq === sequence.current) {
         const message = cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : '';
-        const key = ['profile_changed', 'coach_unavailable', 'already_coached', 'request_closed', 'session_changed'].includes(message) ? message : 'saveError';
+        const key = ['profile_changed', 'coach_unavailable', 'already_coached', 'request_closed', 'session_changed', 'consent_renewal_required'].includes(message) ? message : 'saveError';
         setError(t(`marketplace.${key}`));
       }
     } finally { if (seq === sequence.current) { writing.current = false; setBusy(false); } }
@@ -98,28 +99,30 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
     if (status === 'loading') return <p role="status">{t('marketplace.loading')}</p>;
     if (status === 'failed') return <div className="space-y-3"><p role="alert">{t('marketplace.loadError')}</p><Button onClick={() => setRevision(n => n + 1)}>{t('errors.retry')}</Button></div>;
     if (mode === 'requests') return <><Button variant="secondary" onClick={() => setRevision(n => n + 1)}>{t('marketplace.refresh')}</Button>{requests.length ? <div className="space-y-4">{requests.map(row => <article key={row.id} className="rounded-xl border border-neutral-800 p-4 space-y-3">
-      <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.public_name}</h2>
+      <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.client_id === owner ? row.coach_name || t('marketplace.coachUnavailableName') : row.public_name}</h2>
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
       <p className="text-sm text-neutral-300">{t(`marketplace.${row.status}`)}</p>
       <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString()}</time>
-      {row.status === 'accepted' && (
+      {row.status === 'accepted' && row.relationship_state === 'active' && (
         <div className="space-y-3">
           <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? 'marketplace.coachingActiveCoach' : 'marketplace.coachingActive')}</p>
           {row.coach_id === owner && <Button onClick={() => navigate(`/clients/${row.client_id}`)}>{t('marketplace.openClient')}</Button>}
           {row.client_id === owner && <Button onClick={() => navigate('/dashboard')}>{t('marketplace.goDashboard')}</Button>}
         </div>
       )}
+      {row.status === 'accepted' && row.relationship_state !== 'active' && <p>{t(row.relationship_state === 'ended' ? 'marketplace.relationshipEnded' : 'marketplace.relationshipUnknown')}</p>}
       {row.client_id === owner && row.status !== 'accepted' && <Link className="block min-h-11 inline-flex items-center text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
       <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant={action === 'accepted' ? 'primary' : 'secondary'} onClick={() => {
         const seq = sequence.current;
         void write(async () => {
           const updated = await marketRpc<CoachingRequest>('respond_coaching_request', { p_request: row.id, p_status: action }, owner);
-          if (seq === sequence.current) setRequests(rows => rows.map(r => r.id === updated.id ? updated : r));
+          if (seq === sequence.current) setRequests(rows => rows.map(r => r.id === updated.id ? { ...r, ...updated } : r));
           if (action === 'accepted') {
             track('coaching_request_accepted');
             await fetchClients();
             await fetchMyRole(owner);
           }
+          if (seq === sequence.current) setRevision(n => n + 1);
         });
       }}>{t(`marketplace.action_${action}`)}</Button>)}</div>
     </article>)}</div> : <p>{t('marketplace.noRequests')}</p>}{pagination}</>;
@@ -130,16 +133,11 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></div>)}</div>
       <p className="text-sm text-neutral-400">{t('marketplace.matchExplanation')}</p>
       {!profiles.length && <p>{t('marketplace.noResults')}</p>}
-      {profiles.map(row => <article key={row.coach_id} className="border border-neutral-800 rounded-xl p-4 space-y-2">
-        <h2 className="font-semibold">{row.public_name}</h2><p className="whitespace-pre-wrap break-words">{row.introduction}</p>
-        <p className="text-sm text-neutral-400">{matchingReasons(row, filters).map(reason => t(`marketplace.${reason}`)).join(' · ')}</p>
-        <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
-        <label className="flex gap-2 min-h-11 items-center"><input type="checkbox" checked={compared.includes(row.coach_id)} disabled={!compared.includes(row.coach_id) && compared.length >= 3} onChange={e => {
-          const selected = e.target.checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
+      <div className="grid gap-4 md:grid-cols-2">{profiles.map(row => <CoachDirectoryCard key={row.coach_id} profile={row} filters={filters} query={params.toString()} compared={compared.includes(row.coach_id)} comparisonFull={compared.length >= 3} onCompare={checked => {
+          const selected = checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
           setCompared(selected);
           const next = new URLSearchParams(params); if (selected.length) next.set('compare', selected.join(',')); else next.delete('compare'); setParams(next);
-        }} />{t('marketplace.compareCoach', { name: row.public_name })}</label>
-      </article>)}
+        }} />)}</div>
       {pagination}
     </>;
     if (!profile) return <p>{t('marketplace.unavailable')}</p>;
@@ -169,7 +167,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {profile.accepting_clients && profile.coach_id !== owner && !activeCoachId && <form className="space-y-4" onSubmit={e => {
         e.preventDefault(); if (!consent || !relationshipConsent) return; const seq = sequence.current;
         void write(async () => {
-          const result = await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: 1, p_request_key: coachingRequestKey(sessionStorage, owner, profile.coach_id) }, owner);
+          const result = await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: MARKETPLACE_CONSENT_VERSION, p_request_key: coachingRequestKey(sessionStorage, owner, profile.coach_id) }, owner);
           if (seq === sequence.current) { clearCoachingRequestKey(sessionStorage, owner, profile.coach_id); setNotice(t(result.status === 'pending' ? 'marketplace.sent' : `marketplace.${result.status}`)); setConsent(false); setRelationshipConsent(false); }
         });
       }}><fieldset disabled={busy} className="space-y-4">
@@ -187,13 +185,13 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       </fieldset></form>}
     </div>;
   };
-  return <div className="p-4 md:p-6 pb-28 space-y-5">
+  return <div className="mx-auto w-full max-w-5xl p-4 md:p-6 pb-28 space-y-5">
     <h1 className="text-2xl font-semibold">{title}</h1>
     <nav className="flex flex-wrap gap-2">
-      <Link className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'directory' || mode === 'detail' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to={`/coaches?${params}`}>{t('marketplace.directory')}</Link>
-      <Link className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'requests' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to="/coaching-requests">{t('marketplace.requests')}</Link>
+      <Link aria-current={mode === 'directory' || mode === 'detail' ? 'page' : undefined} className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'directory' || mode === 'detail' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to={`/coaches?${params}`}>{t('marketplace.directory')}</Link>
+      <Link aria-current={mode === 'requests' ? 'page' : undefined} className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'requests' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to="/coaching-requests">{t('marketplace.requests')}</Link>
     </nav>
-    {error && <p role="alert" className="text-rose-300">{error}</p>}
+    {error && <div><p role="alert" className="text-rose-300">{error}</p>{mode === 'profile' && <Button variant="secondary" onClick={() => setRevision(n => n + 1)}>{t('marketplace.reloadProfile')}</Button>}</div>}
     {notice && <p role="status" className="text-emerald-300">{notice}</p>}
     {content()}
   </div>;

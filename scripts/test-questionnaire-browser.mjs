@@ -78,7 +78,10 @@ try {
  await page.getByText(/✓/).waitFor();
  const token='browser-test-'+crypto.randomUUID();
  check(await coach.client.from('coach_invites').insert({coach_id:coach.id,token,max_uses:1,expires_at:new Date(Date.now()+3600000).toISOString()}));
- const accepted=check(await athlete.client.rpc('accept_coach_invite',{p_token:token}));
+ const accepted=check(await athlete.client.rpc('accept_coach_invite',{
+  p_token:token,p_consent_version:1,
+  p_scopes:['checkins','messages','nutrition','profile','program','progress_photos','questionnaire','workouts'],
+ }));
  assert.equal(accepted.ok,true);
  const clientPage=await pageFor(athlete);
  await clientPage.goto(origin+'/dashboard');
@@ -113,10 +116,41 @@ try {
  const denied=check(await other.client.from('client_questionnaire_responses').select('id'));
  assert.equal(denied.length,0);
  await page.goto(origin+'/clients/'+athlete.id);
+ await page.locator('summary').filter({hasText:/^Questionnaire$/}).click();
  await page.getByText('Answers sent',{exact:true}).waitFor();
  console.log('PASS: pinned revision, finalization, read-only answers, coach review, other-coach isolation');
  await clientPage.screenshot({path:'artifacts/questionnaire/completed.png',fullPage:true});
+ // Independent marketplace actors: two simultaneous acceptances must never grant two accesses.
+ const visitor=await actor('Directory Visitor','none');
+ check(await admin.from('user_profiles').update({entry_intent:'find_coach',onboarding_completed:true}).eq('id',visitor.id));
+ for(const [person,name] of [[coach,'Questionnaire Coach'],[other,'Questionnaire Other']]) {
+  check(await person.client.rpc('save_my_coach_profile',{p_profile:{public_name:name,introduction:'A clear introduction to our coaching service.',method:'Regular conversations and shared planning.',offer:'Discuss your expectations before starting.',disciplines:['strength'],languages:['en'],formats:['online'],published:true,accepting_clients:true}}));
+ }
+ const directoryPage=await pageFor(visitor);
+ await directoryPage.setViewportSize({width:390,height:844});
+ await directoryPage.goto(origin+'/coaches');
+ await directoryPage.getByRole('heading',{name:'Questionnaire Coach',exact:true}).waitFor();
+ assert.equal(await directoryPage.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true,'Mobile directory must not overflow');
+ await directoryPage.screenshot({path:'artifacts/questionnaire/directory-mobile.png',fullPage:true});
+ await directoryPage.setViewportSize({width:1280,height:900});
+ await directoryPage.screenshot({path:'artifacts/questionnaire/directory-desktop.png',fullPage:true});
+ const requests=[];
+ for(const person of [coach,other]) requests.push(check(await visitor.client.rpc('request_coaching',{p_coach:person.id,p_public_name:'Directory Visitor',p_summary:'I would like to learn how your service works.',p_sharing_version:2,p_request_key:crypto.randomUUID()})));
+ const outcomes=await Promise.all([coach,other].map((person,index)=>person.client.rpc('respond_coaching_request',{p_request:requests[index].id,p_status:'accepted'})));
+ assert.equal(outcomes.filter(result=>!result.error).length,1,'Only one concurrent acceptance may succeed');
+ assert.equal(outcomes.find(result=>result.error).error.message,'request_closed');
+ const winner=outcomes.findIndex(result=>!result.error);
+ const links=check(await admin.from('coach_client_links').select('coach_id').eq('client_id',visitor.id).eq('status','active'));
+ assert.equal(links.length,1);
+ assert.equal(links[0].coach_id,[coach,other][winner].id);
+ assert.equal(check(await visitor.client.rpc('client_end_coach_link')).ok,true);
+ check(await [coach,other][winner].client.rpc('respond_coaching_request',{p_request:requests[winner].id,p_status:'accepted'}));
+ assert.equal(check(await admin.from('coach_client_links').select('id').eq('client_id',visitor.id).eq('status','active')).length,0,'Retry cannot reactivate departed client');
+ console.log('PASS: responsive directory, concurrent acceptance, departure and historical retry');
 } catch(error) {
+ for (const page of pages) {
+  console.error('Local test page:', page.url(), await page.locator('body').innerText().catch(()=>'unavailable'));
+ }
  for(let i=0;i<pages.length;i++)await pages[i].screenshot({path:'artifacts/questionnaire/failure-'+i+'.png',fullPage:true}).catch(()=>{});
  throw error;
 } finally {
