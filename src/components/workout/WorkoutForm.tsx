@@ -508,6 +508,11 @@ function WorkoutFormInner() {
       )}
 
       <div className="space-y-4">
+        {(currentWorkout.exercises?.length ?? 0) === 0 && (
+          <p className="text-sm text-neutral-500 text-center py-10 px-4">
+            {t('workout.emptySession')}
+          </p>
+        )}
         {(() => {
           const exercises = currentWorkout.exercises ?? [];
           const rendered = new Set<string>();

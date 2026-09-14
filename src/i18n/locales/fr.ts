@@ -424,6 +424,7 @@ const fr = {
     syncDeadRetry: 'Réessayer',
     syncQuota: 'Stockage local plein : la modification n’a pas pu être mise en file. Libère de l’espace puis réessaie.',
     addExercise: 'Ajouter un exercice',
+    emptySession: 'Cette séance n’a pas encore d’exercices.',
     finishWorkout: 'Terminer la séance',
     createFailed: 'Impossible de créer la séance. Réessaie.',
     goBack: 'Retour',

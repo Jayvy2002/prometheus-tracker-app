@@ -424,6 +424,7 @@ const en = {
     syncDeadRetry: 'Retry',
     syncQuota: 'This device is out of local storage, so the change could not be queued. Free some space, then retry.',
     addExercise: 'Add Exercise',
+    emptySession: 'This session has no exercises yet.',
     finishWorkout: 'Finish Workout',
     createFailed: 'Failed to create workout. Please try again.',
     goBack: 'Go Back',

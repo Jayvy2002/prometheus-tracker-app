@@ -196,6 +196,7 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(form, /showTrainingField\(tracking, 'rest'\)/);
   assert.match(form, /autoStart=\{restAutoStart\}/);
   assert.match(form, /initialSeconds=\{restDuration\}/);
+  assert.match(form, /workout\.emptySession/);
 
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /done: 'Séance faite'/);
