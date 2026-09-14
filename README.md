@@ -88,6 +88,7 @@ supabase/
 |---|---|
 | Règles obligatoires pour les agents et développeurs | [`CLAUDE.md`](CLAUDE.md) |
 | Destination, rôles et principes produit | [`docs/VISION.md`](docs/VISION.md) |
+| Audit navigation, IA et structure front-end | [`docs/AUDIT_NAVIGATION_UX.md`](docs/AUDIT_NAVIGATION_UX.md) |
 | Ordre des travaux et tout ce qui reste à faire | [`docs/CHANTIER.md`](docs/CHANTIER.md) |
 | Procédure et historique des migrations | [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) |
 | Télémétrie autorisée | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) |

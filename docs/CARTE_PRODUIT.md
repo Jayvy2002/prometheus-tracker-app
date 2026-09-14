@@ -324,7 +324,7 @@ Pas de table « solo_workouts », « coached_workouts » ou seconde base d’exe
 ### Frontend
 
 - Évolution de `App.tsx` vers des gardes de capacité, relation et propriété ; préserver les anciennes URL avec résolution explicite.
-- Deux contextes de navigation pour un coach : Personnel / Coaching. Les trois expériences réutilisent les composants de suivi.
+- Deux contextes de navigation pour un coach : Personnel / Coaching. Les trois expériences réutilisent les composants de suivi. L’écart actuel du chrome (tab bar, sidebar, hubs Profil) et l’architecture cible sont dans [AUDIT_NAVIGATION_UX.md](AUDIT_NAVIGATION_UX.md).
 - Remplacer la porte de rôle pré-auth par l’intention post-auth ; lien d’invitation et destination de connexion prioritaires pour les utilisateurs existants.
 - Rendre les étapes de questionnaire locales au parcours et non un blocage global des messages/historique.
 - Ajouter les modules marketplace et prospects ; composer l’accueil sans refaire le design system.

@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** ne jamais supprimer un élément parce qu’il est supposé, ancien, partiellement présent ou décrit dans la vision. Un élément sort de ce fichier uniquement après preuve de son implémentation et de sa validation, ou après une décision produit explicite de l’abandonner. Ne pas transformer ce fichier en journal de PR ou en inventaire de production. Git conserve l’historique ; le README décrit le produit actuel et `docs/VISION.md` sa destination.
 
-**Mis à jour : 13 septembre 2026.**
+**Mis à jour : 14 septembre 2026.**
 
 Direction de référence : vision marketplace du 12 septembre 2026. La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours cibles et les écarts au code. Ce fichier reste la seule source des **statuts**. Aucun lot M1–M8 n’est livré en production tant qu’il n’a pas sa migration Git, son apply prod et sa preuve de parcours.
 
@@ -183,6 +183,8 @@ Les parcours d’authentification demandent actuellement un choix de rôle en en
 
 Les fonctions solo sont notamment accessibles dans le hub du Profil sur mobile ; l’accueil coach cumule plusieurs groupes de cartes. La présence des fonctions ne garantit pas qu’on les trouve.
 
+Diagnostic et architecture cible (chrome, IA, structure front) : [`AUDIT_NAVIGATION_UX.md`](AUDIT_NAVIGATION_UX.md), revue code du 14 septembre 2026. Ce fichier reste la source des statuts ; l’audit n’ajoute pas de priorité au-dessus des chantiers 1–3.
+
 | ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
 |---|---|---|
 | **UX07 · P1 · H/I** | **Une action principale selon l’état.** Coach : reprendre le client à traiter. Coaché : ouvrir sa séance ou sa prochaine demande. Solo : reprendre son activité ou son programme. Donner la priorité à une tâche déjà commencée, sans ajouter de rendez-vous artificiel. | Depuis l’accueil, chacun identifie spontanément sa prochaine action ; aucune obligation n’est inventée un jour sans tâche. |
@@ -190,6 +192,10 @@ Les fonctions solo sont notamment accessibles dans le hub du Profil sur mobile ;
 | **UX09 · P1 · C/I** | **Préserver le contexte au retour.** Garder recherche, filtres, onglet, position de liste et client courant. Revenir à la file d’origine depuis une fiche ou une intervention. | Un coach traite plusieurs clients successivement sans reconstruire sa sélection après chaque visite. |
 | **UX10 · P1 · H/I+D** | **Transformer les états d’attente en orientation utile.** Programme en préparation, bilan envoyé, demande de coaching en attente : expliquer l’état, proposer le bon contact et afficher une échéance seulement si quelqu’un l’a réellement définie. | L’utilisateur sait ce qu’il peut faire maintenant ; aucune fausse date de réponse ni fausse absence de données. |
 | **UX11 · P2 · C+F/I** | **Cohérence des mots et des modules.** Employer les mêmes termes pour séance, programme, bilan, brouillon et publication. Expliquer la différence entre un modèle réutilisable et le programme actif. Rendre les modules désactivés compréhensibles sans déplacer les repères à chaque visite. | Une même action porte le même nom entre accueil, détail, notification et retour ; les anciens liens utiles restent orientés correctement. |
+| **UX74 · P1 · C/I** | **Une seule source de vérité pour la navigation.** BottomNav, SideNav, SoloHub, hubs Profil et PageTransition recopient des listes divergentes (libellés Accueil/Tableau de bord, workout/workouts, marketplace primaire sur desktop seulement). Extraire un `navConfig` par persona et espace. | Un ajout de destination se fait en un endroit ; mobile et desktop enseignent la même carte avec les mêmes mots. |
+| **UX75 · P1 · C/I** | **Le Profil et le chrome suivent l’espace affiché.** `ProfilePage` lit `coachingRole === 'coach'` au lieu de `activeWorkspace` : un dual-rôle en Personnel perd Objectifs et garde le hub marketplace. BottomNav coach n’a pas d’entrée Compte ; le sticky avatar n’existe que si les outils personnels sont disponibles. | Changer d’espace change vraiment Profil et onglets. Un coach mobile atteint langue, déconnexion et offre en un geste. |
+| **UX76 · P2 · C/I** | **Chrome de navigation accessible.** Items en `button`+`navigate`, pas de `aria-current`, labels `text-[9px]`, badge messages hors nom accessible, palette ⌘K sans affordance. | Clavier et lecteur d’écran identifient l’onglet actif ; labels lisibles à 200 % de zoom ; cible minimale respectée. |
+| **UX77 · P2 · C/I** | **Un graphe de routes, deux shells.** Marketplace a une branche `AppLayout` anticipée dans `App.tsx` ; séance/scanner/recettes vivent hors `AppLayout` via `FullPageLayout` (pas de BottomNav). Extraire gates et carte ; `AppShell` vs `SessionShell`. | Chaque path a une définition ; Recettes n’est plus une session ; une séance immersive a une sortie évidente. |
 
 ### 3. Séance : saisie, interruption et bilan
 
@@ -361,9 +367,9 @@ Ne pas lancer 70 changements à la fois. Transformer les lignes pertinentes en p
 | Ordre | Lot | Contenu prioritaire et raison |
 |---|---|---|
 | **1** | Vérité des actions et travail conservé | UX12, 16, 17, 20, 21, 23, 29–31, 42–43, 48, 63. Corriger d’abord les erreurs de résultat, la perte de texte et les effets ambigus. |
-| **2** | Parcours quotidien de bout en bout | UX07, 09–10, 13–15, 18–19, 22, 26–28, 33–37, 62, 68. Entrer, agir, terminer, revenir à la suite. Les défauts d’accessibilité bloquants se corrigent dès le lot 1. |
+| **2** | Parcours quotidien de bout en bout | UX07, 09–10, 13–15, 18–19, 22, 26–28, 33–37, 62, 68, 74–77. Entrer, agir, terminer, revenir à la suite. Chrome et carte mentale se corrigent ici, pas dans un lot « design » isolé. Les défauts d’accessibilité bloquants se corrigent dès le lot 1. |
 | **3** | Entrée et transitions sans surprise | UX01–05, 39–41, 54–61. Questionnaire, demande, changement de relation et abonnement : vérifier les parcours finaux supposés livrés. Une ambiguïté de destinataire ou de paiement avérée remonte au lot 1. |
-| **4** | Valeur durable et autonomie | UX08, 11, 24–25, 32, 44–47, 49–53, 64–67. Retrouver, comprendre, se faire aider et maîtriser ses réglages. |
+| **4** | Valeur durable et autonomie | UX08, 11, 24–25, 32, 44–47, 49–53, 64–67, 75. Retrouver, comprendre, se faire aider et maîtriser ses réglages. |
 | **5** | Optimisations à prouver | UX06, 38, 69. Prototyper, observer, puis garder seulement ce qui apporte un gain. |
 | **Continu** | Mesure de l’utilité | UX70 dès le début avec les outils existants ; pas un projet préalable de télémétrie à reconstruire. |
 
