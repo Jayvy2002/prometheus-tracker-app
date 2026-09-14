@@ -451,7 +451,7 @@ export default function Dashboard() {
           />
         )}
 
-        <SoloProgramProposal />
+        <SoloProgramProposal variant="notice" />
 
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
         {showHomeRings && !activityPending && (
