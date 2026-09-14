@@ -4,7 +4,7 @@
 >
 > **Preuve** : revue du code sur `new-JV` au 14 septembre 2026 (routes, `navConfig`, dashboards, gates, stores). Complétée par les parcours authentifiés déjà joués sur les comptes d’audit (Camille / Thomas / Julie / Léa). Ce document décrit l’app **telle qu’elle est**, puis ce qu’il faudrait changer.
 >
-> **Instruction agents** : ne pas transformer ces recommandations en tickets dans `CHANTIER.md` sans décision produit. Ne pas défaire les décisions déjà prises : cinq onglets, Copilote hors tab bar, switcher Personnel/Coaching uniquement dans Profil, FAB hors espace Coaching, `TrackingGate` (module off = disparu).
+> **Instruction agents** : diagnostic uniquement. Ne pas exécuter un ordre depuis ce fichier. La file, les statuts et les refus sont uniquement dans [`CHANTIER.md`](CHANTIER.md) (recalé 14 sept. 2026). Ne pas défaire : cinq onglets, Copilote hors tab bar, switcher Personnel/Coaching uniquement dans Profil, FAB hors espace Coaching, `TrackingGate` (module off = disparu).
 
 ---
 
@@ -147,7 +147,7 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 |---|---|
 | **Quoi** | Coach : retirer un client (`end_coach_client_link`). Client : panneau Profil → `client_end_coach_link` (code + migration + tests). Historique personnel conservé, tracking retiré, programme en pause. |
 | **Marche** | Même transition solo des deux côtés. Pas d’auto-lien. Confirmation avant départ. |
-| **Ne va pas** | `CHANTIER` M2a encore « à construire » (preuve prod, notif coach, sérialisation vs adaptation en cours). L’UI de départ est **enterrée** dans Profil, ce qui est acceptable ; le résumé « ce qui reste / ce qui s’arrête » peut encore être trop technique. |
+| **Ne va pas** | Preuve prod M2a encore ouverte (notif, sérialisation, copy). L’UI de départ est **enterrée** dans Profil, ce qui est acceptable ; le résumé « ce qui reste / ce qui s’arrête » peut encore être trop technique. |
 | **Changer** | Avant confirm : trois listes en langage courant — *tu gardes* (séances, poids, photos) / *ça s’arrête* (messages, plan assigné, partage) / *ça ne part pas chez un autre coach*. Puis accueil solo avec programme en pause, pas un onboarding vide. |
 
 ---
@@ -427,8 +427,8 @@ Invites : empty Today + roster. Réglages : onglets 360, tracking défaut, templ
 
 Offre `/coach/profile` : opt-in, `accepting_clients`, pas de faux prix (`priceOnRequest`). Demandes `/coaching-requests`. Un coach peut **ne pas** publier et quand même inviter.
 
-| **Ne va pas** | Billing fermé : « accepter une demande » ≠ paiement ≠ parfois ≠ lien selon M6 — à dire **très** clairement. Profil offre vs Profil compte : deux « profils ». |
-| **Changer** | Vocabulaire : **Compte** vs **Offre publique**. Demande acceptée : état réel (lien créé ou pas) en une phrase. Pas de prix inventé — déjà. |
+| **Ne va pas** | Billing fermé : « accepter une demande » **n’est pas** un paiement, mais **crée déjà le suivi**. L’UI ne le dit pas assez. Profil offre vs Profil compte : deux « profils ». |
+| **Changer** | Vocabulaire : **Compte** vs **Offre publique**. Demande acceptée : « suivi actif, pas un paiement » en une phrase. Pas de prix inventé — déjà. |
 
 ### 5.13 Espace Personnel du coach
 
@@ -445,7 +445,7 @@ Le coach dual-rôle retrouve le tracker solo. C’est la bonne architecture.
 
 **Pas livré / fermé** : billing, matching riche (indispensables vs préférences expliquées), questionnaire *recherche* distinct, modération / signalement, avis, OAuth, wearables.
 
-**Écart docs** : `CARTE_PRODUIT` et lots M4–M5 du `CHANTIER` parlent encore d’annuaire absent ; le **lot UX 9** est marqué terminé. L’expérience vitrine existe ; la **preuve prod + activation relation** n’est pas le même lot.
+**Écart docs** : la vitrine marketplace est en code ; M4–M5 du `CHANTIER` sont **à vérifier** (preuve prod), pas à reconstruire. Une demande **acceptée active déjà le lien** — ce n’est pas un paiement.
 
 | **Marche** | Accès discret (pas d’onglet). Pas de faux prix. Choix mutuel, pas d’Uber magique. |
 | **Ne va pas** | Matching = intersection de filtres, pas une explication. Chercheur sans intake = accueil perso faible. Acceptation sans paiement : OK tant que dit. |
@@ -563,51 +563,18 @@ Ce qu’il **faut** faire :
 - **Progressive disclosure** partout (déjà le bon réflexe check-in « plus de détails »).
 - **Mots stables** (séance, programme, check-in).
 - **Même carte** téléphone / desktop.
-- **États honnêtes** (en préparation, enregistré, transmis, pas encore vu).
+- **États honnêtes** (en préparation, enregistré, visible par le coach, pas encore vu). Pas « transmis » sans preuve.
 - **Empty utiles** (écrire au coach, première séance, inviter un client) — jamais un blanc, jamais une fausse tâche.
 
 ---
 
-## 11. Changements recommandés (ordre d’usage, pas un second chantier)
+## 11. Ordre d’exécution
 
-Lots **d’expérience**. Les IDs `CHANTIER` déjà ouverts restent la source des statuts. Ici : *quoi changer dans le produit ressenti*.
+**Ne pas exécuter depuis ce diagnostic.** Une première liste (Lots A–D) ordonnait mal le travail : progression coaché avant la vérité des séries, confirmation à chaque séance libre, « transmis » sans preuve.
 
-### Lot A — Vérité et accueil (P0/P1, peu de surface)
+File réelle, refus, ancres code et critères de fin : uniquement [`CHANTIER.md`](CHANTIER.md).
 
-1. **Coaché : lecture de sa progression** (stats / calendrier / exercise-progress en RO). Tab bar inchangée ; lien depuis Aujourd’hui ou Profil.
-2. **Solo : proposition IA = notice**, détail sur `/programs` (le mur Home est le plus grave défaut solo actuel).
-3. **Questionnaire : bannière, pas lock.**
-4. **Résumé séance** : plus d’auto-close ; tips factuels, pas de leçon.
-5. **Empty waiting_program** + empty pre-setup : message + CTA Messages.
-6. **Séance libre vs séance du plan** : libellé et confirmation.
-
-### Lot B — Trouver sans ajouter d’onglets
-
-7. **Mon programme** toujours à un tap depuis Entraînement (les deux athlètes).
-8. **Recettes dans le shell** Nutrition (UX77 ciblé recettes, pas toute la séance).
-9. **Profil = compte** ; sortir Recettes / Photos / Programme du tiroir.
-10. **Marque d’espace** Coaching vs Mon entraînement (couleur/mot), switcher reste dans Profil.
-11. **Health → Récupération.** Learned / Actualiser les priorités en français.
-
-### Lot C — Relation quotidienne coach ↔ coaché
-
-12. Check-in : accusé **Enregistré / transmis** ; plus tard « vu » si preuve.
-13. File : pourquoi + depuis quand + une action ; dédupliquer.
-14. 360 : « depuis ta dernière visite » vraiment en tête (renforcer le lot 6).
-15. Setup : preview de ce que le client recevra.
-16. Prometheus : cible + type d’effet avant envoi.
-
-### Lot D — Entrée et transitions
-
-17. Un seul first-run personnel ; chercheur = solo + magasin.
-18. Invite → Aujourd’hui utilisable, questionnaire demandé, pas un mur.
-19. Départ : trois listes *gardes / s’arrête / ne se transmet pas* ; reprise solo sans onboarding.
-20. Annuaire si déjà lié : expliquer, ne pas faire échouer un formulaire.
-
-### Plus tard (ne pas mélanger)
-
-- Billing, matching riche, modération, wearables, OAuth, pièces jointes chat, cycles/phases programme, offline élargi.
-- Accessibilité parcours complet, parité i18n restante, mesure d’utilité (UX70).
+Direction conservée ici (le *quoi*, pas le *quand*) : l’écran dit vrai ; même moteur, trois surfaces ; profondeur à un tap ; pas de 6ᵉ onglet.
 
 ---
 
@@ -649,4 +616,4 @@ Le coaché **utilise** le moteur solo (séance, nutrition, poids) **bridé** par
 | Relation | `ClientCoachRelationshipPanel.tsx`, `client_end_coach_link` |
 | Séance | `WorkoutForm.tsx`, `WorkoutSummaryScreen.tsx` |
 
-Compléments : `docs/VISION.md` (destination), `docs/CARTE_PRODUIT.md` (parcours cibles ; marketplace datée), `docs/AUDIT_NAVIGATION_UX.md` (chrome), `docs/CHANTIER.md` (statuts).
+Compléments : `docs/VISION.md` (destination), `docs/CARTE_PRODUIT.md` (parcours cibles), `docs/AUDIT_NAVIGATION_UX.md` (chrome), `docs/CHANTIER.md` (**seule** file d’exécution).
