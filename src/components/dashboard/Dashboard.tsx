@@ -236,7 +236,7 @@ export default function Dashboard() {
   const showDeloadSuggestion = !hasCoach && weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
   const showGymHero = hasGymCard && !!assignment?.program;
   const showRoutineHero = !showGymHero && !!nextRoutine && showModule(tracking, 'workouts');
-  const showNextActionHero = !showGymHero && !showRoutineHero && nextAction !== null;
+  const showNextActionHero = !activityPending && !showGymHero && !showRoutineHero && nextAction !== null;
   const showCheckinStrip = !firstRun && showModule(tracking, 'checkins') && !todayCheckin && !activityPending;
   const showUnreadCoachMessage = !!myCoach && unreadMessageCount > 0;
   const todayReminder = pickTodayReminder({
