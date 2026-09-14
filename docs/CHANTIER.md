@@ -208,7 +208,7 @@ Les parcours d’authentification demandent actuellement un choix de rôle en en
 
 Les fonctions solo sont notamment accessibles dans le hub du Profil sur mobile ; l’accueil coach cumule plusieurs groupes de cartes. La présence des fonctions ne garantit pas qu’on les trouve.
 
-Diagnostic et architecture cible (chrome, IA, structure front) : [`AUDIT_NAVIGATION_UX.md`](AUDIT_NAVIGATION_UX.md), revue code du 14 septembre 2026. Ce fichier reste la source des statuts ; l’audit n’ajoute pas de priorité au-dessus des chantiers 1–3.
+Diagnostic et architecture cible (chrome, IA, structure front) : [`AUDIT_NAVIGATION_UX.md`](AUDIT_NAVIGATION_UX.md), revue code du 14 septembre 2026. Inventaire des fonctionnalités livrées et diagnostic d’usage des trois personae : [`RAPPORT_UX_FONCTIONNALITES.md`](RAPPORT_UX_FONCTIONNALITES.md). Ce fichier reste la source des statuts ; l’audit et le rapport n’ajoutent pas de priorité au-dessus des chantiers 1–3.
 
 | ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
 |---|---|---|
