@@ -24,6 +24,7 @@ import NotificationSettings from './NotificationSettings';
 import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
 import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPanel';
 import SoloHub from './SoloHub';
+import WorkspaceSwitcher from '../layout/WorkspaceSwitcher';
 
 type Section = 'personal' | 'goals' | 'units' | 'password' | 'feedback' | 'notifications' | 'language' | 'coachPrefs';
 
@@ -119,6 +120,13 @@ export default function ProfilePage() {
     <PageTransition>
     <div className="px-4 pt-6 pb-4">
       <h1 className="text-2xl font-bold text-white mb-6">{t('profile.title')}</h1>
+
+      {canCoach && context.personalToolsAvailable && (
+        <div className="mb-6">
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('accountSpaces.label')}</p>
+          <WorkspaceSwitcher />
+        </div>
+      )}
 
       <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('profile.groups.profile')}</p>
       <Card className="mb-6 animate-fade-in-scale">

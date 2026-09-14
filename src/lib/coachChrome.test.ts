@@ -18,9 +18,13 @@ test('profile initials use first letters, fallback when empty', () => {
 test('mobile coach chrome: profile is a tab, no 6th bottom-nav tab', () => {
   const layout = src('src/components/layout/AppLayout.tsx');
   assert.doesNotMatch(layout, /CoachProfileButton/);
-  assert.match(layout, /md:hidden/);
-  assert.match(layout, /min-h-14/);
+  assert.doesNotMatch(layout, /WorkspaceSwitcher/);
   assert.doesNotMatch(layout, /h-0 pointer-events-none/);
+  assert.match(layout, /!hideFab && <FAB/);
+  assert.doesNotMatch(layout, /startsWith\('\/dashboard'\)/);
+
+  const profile = src('src/components/profile/ProfilePage.tsx');
+  assert.match(profile, /WorkspaceSwitcher/);
 
   const nav = src('src/navigation/navConfig.ts');
   const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));

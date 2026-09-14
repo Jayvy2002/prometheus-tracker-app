@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '../../lib/useAccountContext';
 import { desktopSections, navPersona, quickAddActions } from '../../navigation/navConfig';
-import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 export default function SideNav() {
   const { t } = useTranslation();
@@ -24,9 +23,6 @@ export default function SideNav() {
           <img src="/logo.svg" alt="Prometheus" className="w-8 h-8" />
         </div>
         <span className="text-white font-bold text-lg tracking-tight">Prometheus</span>
-      </div>
-      <div className="px-3 pt-3">
-        <WorkspaceSwitcher />
       </div>
 
       <nav className="flex-1 px-3 py-3 space-y-3 overflow-y-auto scrollbar-hide">

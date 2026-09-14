@@ -129,5 +129,6 @@ test('mobile and desktop nav share Aujourd’hui via navConfig and use NavLink',
   assert.doesNotMatch(bottom, /t\('nav\.home'\)/);
   assert.match(side, /NavLink/);
   assert.match(side, /desktopSections/);
+  assert.doesNotMatch(side, /WorkspaceSwitcher/);
   assert.doesNotMatch(bottom, /\/prometheus/);
 });

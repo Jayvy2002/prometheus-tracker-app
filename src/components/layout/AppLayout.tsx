@@ -8,7 +8,6 @@ import CoachCommandPalette from '../coaching/CoachCommandPalette';
 import { trackScreen } from '../../lib/telemetryClient';
 import { useEffect } from 'react';
 import { useAccountContext } from '../../lib/useAccountContext';
-import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -20,8 +19,6 @@ export default function AppLayout() {
   const isCoach = context.activeWorkspace === 'coaching';
   const location = useLocation();
   const hideFab = isCoach
-    || location.pathname.startsWith('/dashboard')
-    || location.pathname.startsWith('/profile')
     || location.pathname.startsWith('/coaches')
     || location.pathname === '/coach/profile'
     || location.pathname === '/coaching-requests';
@@ -49,11 +46,6 @@ export default function AppLayout() {
       <SideNav />
 
       <main className="flex-1 min-w-0 pb-24 md:pb-8 md:ml-64">
-        {context.capabilities.coach && context.personalToolsAvailable && (
-          <div className="md:hidden sticky top-0 z-30 flex min-h-14 items-center gap-3 px-3 bg-neutral-950/95 backdrop-blur-md border-b border-neutral-800">
-            <WorkspaceSwitcher className="flex-1" />
-          </div>
-        )}
         <div className={`mx-auto w-full ${isCoach ? 'max-w-6xl' : 'max-w-3xl'}`}>
           <Outlet />
         </div>
