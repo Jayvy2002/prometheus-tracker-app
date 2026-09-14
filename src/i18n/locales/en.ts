@@ -92,7 +92,14 @@ const en = {
     recipes: 'Recipes',
     today: 'Today',
     messages: 'Messages',
+    messagesUnread: '{{count}} unread messages',
     prometheus: 'Prometheus',
+    copilot: 'Copilot',
+    sectionTrain: 'Train',
+    sectionBody: 'Body',
+    sectionUnderstand: 'Progress',
+    sectionCopilot: 'Copilot',
+    sectionActivity: 'Activity',
   },
 
   accountSpaces: {
@@ -649,7 +656,7 @@ const en = {
     },
     fallbackName: 'You',
     hubTitle: 'Coaching',
-    soloHubTitle: 'Explore',
+    soloHubTitle: 'Tools',
     signOut: 'Sign Out',
     deleteAccount: 'Delete my account',
     adminAccess: 'Full access to all features',

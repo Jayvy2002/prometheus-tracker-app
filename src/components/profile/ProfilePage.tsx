@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, ClipboardCheck, Scale, ClipboardList, Inbox, Search } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, Scale, ClipboardList, Inbox, Search } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { isCoachedAthlete } from '../../lib/coachRole';
 import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
+import { useAccountContext } from '../../lib/useAccountContext';
 import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
 
@@ -69,9 +69,11 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { coachingRole, myCoach, enableCoachMode, disableCoachMode, myTrackingConfig: tracking } = useCoachingStore();
-  const isCoach = coachingRole === 'coach';
-  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const { myCoach, enableCoachMode, disableCoachMode, myTrackingConfig: tracking } = useCoachingStore();
+  const context = useAccountContext();
+  const inCoaching = context.activeWorkspace === 'coaching';
+  const canCoach = context.capabilities.coach;
+  const coached = context.personalCoaching === 'coached';
 
   const [openSection, setOpenSection] = useState<Section | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -133,38 +135,32 @@ export default function ProfilePage() {
         </div>
       </Card>
 
-      <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('profile.groups.coaching')}</p>
+      {(coached || inCoaching) && (
+        <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">{t('profile.groups.coaching')}</p>
+      )}
       {coached && (
         <Card className="mb-6 space-y-1">
           <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest px-1 mb-2">{t('profile.hubTitle')}</p>
-          <button type="button" onClick={() => navigate('/messages')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-            <MessageSquare size={16} className="text-blue-400" /> {t('nav.messages')}
-          </button>
-          <button type="button" onClick={() => navigate('/photos')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <Link to="/photos" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Camera size={16} className="text-blue-400" /> {t('nav.photos')}
-          </button>
-          <button type="button" onClick={() => navigate('/programs')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          </Link>
+          <Link to="/programs" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <CalendarRange size={16} className="text-blue-400" /> {t('nav.myProgram')}
-          </button>
-          {tracking.track_checkins && (
-            <button type="button" onClick={() => navigate('/checkin')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
-              <ClipboardCheck size={16} className="text-blue-400" /> {t('nav.checkin')}
-            </button>
-          )}
+          </Link>
           {tracking.track_nutrition && (
-            <button type="button" onClick={() => navigate('/nutrition')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Link to="/nutrition" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
               <Apple size={16} className="text-blue-400" /> {t('nav.nutrition')}
-            </button>
+            </Link>
           )}
           {tracking.track_weight && (
-            <button type="button" onClick={() => navigate('/weight')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Link to="/weight" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
               <Scale size={16} className="text-blue-400" /> {t('nav.weight')}
-            </button>
+            </Link>
           )}
           {!isIntakeAlreadyFilled(profile) && (
-            <button type="button" onClick={() => navigate('/intake')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <Link to="/intake" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
               <ClipboardList size={16} className="text-blue-400" /> {t('intake.completeLater')}
-            </button>
+            </Link>
           )}
         </Card>
       )}
@@ -173,24 +169,24 @@ export default function ProfilePage() {
         <ClientCoachRelationshipPanel coachName={myCoach.full_name || t('coaching.invite.aCoach')} />
       )}
 
-      {!coached && !isCoach && (
+      {!coached && !inCoaching && (
         <div className="md:hidden">
           <SoloHub />
         </div>
       )}
 
-      {isCoach && (
+      {inCoaching && (
         <Card className="mb-6 space-y-1 md:hidden">
-          <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest px-1 mb-2">{t('marketplace.directory')}</p>
-          <button type="button" onClick={() => navigate('/coach/profile')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest px-1 mb-2">{t('marketplace.directory')}</p>
+          <Link to="/coach/profile" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <User size={16} className="text-blue-400" /> {t('marketplace.profile')}
-          </button>
-          <button type="button" onClick={() => navigate('/coaching-requests')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          </Link>
+          <Link to="/coaching-requests" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Inbox size={16} className="text-blue-400" /> {t('marketplace.requests')}
-          </button>
-          <button type="button" onClick={() => navigate('/coaches')} className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+          </Link>
+          <Link to="/coaches" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Search size={16} className="text-blue-400" /> {t('marketplace.directory')}
-          </button>
+          </Link>
         </Card>
       )}
 
@@ -200,13 +196,13 @@ export default function ProfilePage() {
           <PersonalInfoForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
 
-        {isCoach && (
+        {inCoaching && (
         <AccordionSection id="coachPrefs" icon={SlidersHorizontal} label={t('coaching.settings.title')} isOpen={openSection === 'coachPrefs'} onToggle={() => toggle('coachPrefs')} animationDelay="90ms">
           <CoachSettingsPanel />
         </AccordionSection>
         )}
 
-        {!isCoach && (
+        {!inCoaching && (
         <AccordionSection id="goals" icon={Target} label={t('profile.sections.goalsTargets')} isOpen={openSection === 'goals'} onToggle={() => toggle('goals')} animationDelay="120ms">
           <GoalsForm onBack={() => setOpenSection(null)} inline />
         </AccordionSection>
@@ -245,7 +241,7 @@ export default function ProfilePage() {
           <FeedbackForm />
         </AccordionSection>
 
-        {!coached && (
+        {!coached && !inCoaching && (
         <Card className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
             <Users size={16} />
@@ -257,14 +253,14 @@ export default function ProfilePage() {
           <button
             type="button"
             onClick={async () => {
-              const result = isCoach ? await disableCoachMode() : await enableCoachMode();
+              const result = canCoach ? await disableCoachMode() : await enableCoachMode();
               if (result.error) toast(result.error, 'error');
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
-              isCoach ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
+              canCoach ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
             }`}
           >
-            {isCoach ? t('common.on') : t('common.off')}
+            {canCoach ? t('common.on') : t('common.off')}
           </button>
         </Card>
         )}

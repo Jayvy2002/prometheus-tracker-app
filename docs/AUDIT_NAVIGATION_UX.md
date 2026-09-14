@@ -2,7 +2,11 @@
 
 > **Rôle de ce document** — diagnostic et architecture cible de la navigation Prometheus (mobile + desktop) et de la structure du frontend. Ce n’est pas un backlog. Les statuts restent dans [`CHANTIER.md`](CHANTIER.md). La destination produit reste [`VISION.md`](VISION.md). Les parcours cibles restent [`CARTE_PRODUIT.md`](CARTE_PRODUIT.md).
 >
-> **Preuve** : revue du code au 14 septembre 2026, branche `new-JV` (`005c7b6`). Pas de smoke authentifié (aucun compte de test dans cet environnement). Chaque constat cite un fichier.
+> **Preuve** : revue du code au 14 septembre 2026, puis alignement sur la refonte premium du PR 87 (`cursor/ux-premium-425e`). Pas de smoke authentifié dans cet environnement. Chaque constat cite un fichier.
+>
+> **PR 87 — ce qui est gardé.** NavLink, libellé unique « Aujourd’hui », hub Progression (UX08), labels `text-xs` / `min-h-11`, FAB `safe-area`, primitives (`PageHeader`, `CardLink`, `EmptyState`, `TabList`), vérité nutrition/séance, first-run à un CTA, empty Coach Today.
+>
+> **PR 87 — ce qui est corrigé ici.** Listes BottomNav/SideNav encore dupliquées → `navConfig`. Copilote en 5ᵉ onglet coach → Compte. SideNav 13 items plats + marketplace primaire → sections. Profil lisait le rôle, pas l’espace. SoloHub restait un tiroir alors que Progression existe. L’avatar sticky `CoachProfileButton` (palliatif PR 87) est retiré : Profil est le 5ᵉ onglet, y compris pour un coach sans outils personnels.
 
 ---
 
@@ -40,12 +44,12 @@ Quatre situations réelles, pas trois intitulés marketing.
 
 | Situation | Comment le code la détecte | Chrome mobile (`BottomNav`) | Chrome desktop (`SideNav`) |
 |---|---|---|---|
-| Solo | `activeWorkspace === 'personal'` et `personalCoaching !== 'coached'` | Accueil, Entraînement?, Check-in?, Nutrition?, Profil | 13 items plats + Ajout rapide |
-| Coaché | `personalCoaching === 'coached'` | Accueil, Entraînement?, Check-in?, Messages, Profil | Liste perso moins calendrier/stats/progression ; Messages et Photos allumés |
-| Coach (espace Coaching) | `activeWorkspace === 'coaching'` | Aujourd’hui, Clients, Programmes, Messages, Prometheus | Les 5 + profil marketplace, demandes, annuaire + pied Profil |
-| Dual-rôle | `capabilities.coach` et `personalToolsAvailable` | Switcher collé en haut + l’un des deux jeux d’onglets | Switcher sous le logo + le jeu correspondant |
+| Solo | `navPersona` → `solo` | Aujourd’hui, Entraînement?, Progression, Nutrition?, Profil | Sections : Aujourd’hui / S’entraîner / Corps / Comprendre / Compte + Activité en muted |
+| Coaché | `navPersona` → `coached` | Aujourd’hui, Entraînement?, Check-in?, Messages, Profil | Sections train/corps/messages/compte + Activité muted |
+| Coach (espace Coaching) | `navPersona` → `coaching` | Aujourd’hui, Clients, Messages, Programmes, Profil | Primary + Copilote + Activité muted + Compte |
+| Dual-rôle | `capabilities.coach` et `personalToolsAvailable` | Switcher collé en haut + le jeu de l’espace actif | Switcher sous le logo + le jeu de l’espace |
 
-Sources : `src/components/layout/BottomNav.tsx`, `SideNav.tsx`, `AppLayout.tsx`, `WorkspaceSwitcher.tsx`, `src/lib/accountContext.ts`.
+Sources : `src/navigation/navConfig.ts`, `src/components/layout/BottomNav.tsx`, `SideNav.tsx`, `AppLayout.tsx`, `WorkspaceSwitcher.tsx`, `src/lib/accountContext.ts`.
 
 ### 2.2 Où vit vraiment chaque destination (solo)
 

@@ -45,13 +45,16 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.match(app, /mode="directory"/);
 
   const bottom = src('src/components/layout/BottomNav.tsx');
-  assert.doesNotMatch(bottom, /path: '\/coaches'/);
-  assert.doesNotMatch(bottom, /path: '\/coach\/profile'/);
+  assert.doesNotMatch(bottom, /\/coaches/);
+  assert.doesNotMatch(bottom, /\/coach\/profile/);
 
-  const side = src('src/components/layout/SideNav.tsx');
-  assert.match(side, /path: '\/coaches'/);
-  assert.match(side, /path: '\/coach\/profile'/);
-  assert.match(side, /path: '\/coaching-requests'/);
+  const nav = src('src/navigation/navConfig.ts');
+  assert.match(nav, /path: '\/coaches'/);
+  assert.match(nav, /path: '\/coach\/profile'/);
+  assert.match(nav, /path: '\/coaching-requests'/);
+  const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
+  assert.doesNotMatch(mobileFn, /directory/);
+  assert.doesNotMatch(mobileFn, /coachOffer/);
 
   const picker = src('src/components/onboarding/EntryIntentionPage.tsx');
   assert.match(picker, /navigate\(intent === 'find_coach' \? '\/coaches' : '\/dashboard'/);

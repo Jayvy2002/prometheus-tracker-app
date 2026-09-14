@@ -3,18 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { useAccountContext } from '../../lib/useAccountContext';
 import { answerCoachAsk, parseCoachAsk } from '../../lib/coachAsk';
 
 export default function CoachCommandPalette() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const context = useAccountContext();
+  const inCoaching = context.activeWorkspace === 'coaching';
   const { opsRows, priorities, rosterSignals } = useCoachingStore();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
 
   useEffect(() => {
-    if (coachingRole !== 'coach') return;
+    if (!inCoaching) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
@@ -24,9 +26,9 @@ export default function CoachCommandPalette() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [coachingRole]);
+  }, [inCoaching]);
 
-  if (coachingRole !== 'coach' || !open) return null;
+  if (!inCoaching || !open) return null;
 
   const answer = query.trim()
     ? answerCoachAsk(parseCoachAsk(query), opsRows, priorities, rosterSignals)

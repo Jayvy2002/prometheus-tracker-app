@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, ChevronRight, Dumbbell, Trash2, TrendingUp } from 'lucide-react';
+import { Plus, Clock, ChevronRight, Dumbbell, Trash2, CalendarRange } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -15,6 +15,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 
 import Card from '../ui/Card';
+import CardLink from '../ui/CardLink';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import PageTransition from '../ui/PageTransition';
@@ -179,20 +180,18 @@ export default function WorkoutPage() {
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
         <h1 className="text-2xl font-bold text-white">{t('workout.title')}</h1>
-        <div className="flex items-center gap-2">
-          {!coached && (
-            <button
-              onClick={() => navigate('/exercise-progress')}
-              className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
-            >
-              <TrendingUp size={18} />
-            </button>
-          )}
-          <Button onClick={() => navigate('/workout/new')} size="sm">
-            <Plus size={16} /> {t('common.new')}
-          </Button>
-        </div>
+        <Button onClick={() => navigate('/workout/new')} size="sm">
+          <Plus size={16} /> {t('common.new')}
+        </Button>
       </div>
+
+      {!coached && !assignment?.program && (
+        <CardLink to="/programs" className="mb-4 flex items-center gap-3">
+          <CalendarRange size={16} className="text-blue-400 shrink-0" />
+          <span className="text-sm font-medium text-white flex-1">{t('nav.myProgram')}</span>
+          <ChevronRight size={16} className="text-neutral-600" />
+        </CardLink>
+      )}
 
       {assignment?.program && gymCard.kind !== 'none' && (
         <ClientGymCard

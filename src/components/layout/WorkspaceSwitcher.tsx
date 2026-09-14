@@ -1,19 +1,15 @@
 import { Briefcase, Dumbbell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { resolveAccountContext, type AccountWorkspace } from '../../lib/accountContext';
+import { type AccountWorkspace } from '../../lib/accountContext';
+import { useAccountContext } from '../../lib/useAccountContext';
 import { useCoachingStore } from '../../stores/coachingStore';
 
 export default function WorkspaceSwitcher({ className = '' }: { className?: string }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const role = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  const ready = useCoachingStore(s => s.roleReady);
-  const snapshot = useCoachingStore(s => s.accountSnapshot);
-  const workspace = useCoachingStore(s => s.accountWorkspace);
   const select = useCoachingStore(s => s.selectAccountWorkspace);
-  const context = resolveAccountContext(role, myCoach, ready, snapshot, workspace);
+  const context = useAccountContext();
   if (!context.ready || !context.capabilities.coach || !context.personalToolsAvailable) return null;
 
   const choose = (next: AccountWorkspace) => {

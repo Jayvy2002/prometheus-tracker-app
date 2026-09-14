@@ -173,7 +173,8 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   const workoutPage = src('src/components/workout/WorkoutPage.tsx');
   assert.match(workoutPage, /ClientGymCard/);
   assert.match(workoutPage, /startProgramDay/);
-  assert.doesNotMatch(workoutPage, /nav\.myProgram/);
+  assert.match(workoutPage, /to="\/programs"/);
+  assert.doesNotMatch(workoutPage, /ProgramEditorPage/);
   assert.doesNotMatch(workoutPage, /workout\.myRoutines/);
 
   const card = src('src/components/workout/ExerciseCard.tsx');

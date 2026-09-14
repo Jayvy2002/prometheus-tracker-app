@@ -31,11 +31,11 @@ test('client Mon programme is the assigned plan; coached stays read-only, solo e
 });
 
 test('client sidebar has Photos + Mon programme', () => {
-  const side = src('src/components/layout/SideNav.tsx');
-  assert.match(side, /path: '\/photos'/);
-  assert.match(side, /nav\.photos/);
-  assert.match(side, /nav\.myProgram/);
-  assert.doesNotMatch(side, /path: '\/routines'/);
+  const nav = src('src/navigation/navConfig.ts');
+  assert.match(nav, /path: '\/photos'/);
+  assert.match(nav, /labelKey: 'nav\.photos'/);
+  assert.match(nav, /labelKey: 'nav\.myProgram'/);
+  assert.doesNotMatch(nav, /path: '\/routines'/);
 });
 
 test('rest timer interval is wall-clock and does not re-arm on remaining', () => {

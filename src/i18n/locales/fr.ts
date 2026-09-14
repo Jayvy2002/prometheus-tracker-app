@@ -92,7 +92,14 @@ const fr = {
     recipes: 'Recettes',
     today: "Aujourd'hui",
     messages: 'Messages',
+    messagesUnread: '{{count}} messages non lus',
     prometheus: 'Prometheus',
+    copilot: 'Copilote',
+    sectionTrain: "S'entraîner",
+    sectionBody: 'Corps',
+    sectionUnderstand: 'Comprendre',
+    sectionCopilot: 'Copilote',
+    sectionActivity: 'Activité',
   },
 
   accountSpaces: {
@@ -649,7 +656,7 @@ const fr = {
     },
     fallbackName: 'Toi',
     hubTitle: 'Coaching',
-    soloHubTitle: 'Explorer',
+    soloHubTitle: 'Outils',
     signOut: 'Se déconnecter',
     deleteAccount: 'Supprimer mon compte',
     adminAccess: 'Accès complet à toutes les fonctionnalités',

@@ -119,13 +119,15 @@ test('reduced motion does not leave delayed sidebar items at opacity 0', () => {
   assert.match(css, /animation:\s*none/);
 });
 
-test('mobile and desktop nav share Aujourd’hui and use NavLink', () => {
+test('mobile and desktop nav share Aujourd’hui via navConfig and use NavLink', () => {
+  const config = src('src/navigation/navConfig.ts');
   const bottom = src('src/components/layout/BottomNav.tsx');
   const side = src('src/components/layout/SideNav.tsx');
-  assert.match(bottom, /from 'react-router-dom'/);
+  assert.match(config, /labelKey: 'nav\.today'/);
   assert.match(bottom, /NavLink/);
-  assert.match(bottom, /t\('nav\.today'\)/);
+  assert.match(bottom, /mobileTabs/);
   assert.doesNotMatch(bottom, /t\('nav\.home'\)/);
   assert.match(side, /NavLink/);
-  assert.match(side, /t\('nav\.today'\)/);
+  assert.match(side, /desktopSections/);
+  assert.doesNotMatch(bottom, /\/prometheus/);
 });

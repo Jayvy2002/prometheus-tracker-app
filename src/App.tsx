@@ -7,7 +7,7 @@ import { useWorkoutStore } from './stores/workoutStore';
 import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from './stores/coachingStore';
 import { resetSessionStores } from './lib/resetStores';
 import { getSessionOwner } from './lib/sessionScope';
-import { resolveAccountContext } from './lib/accountContext';
+import { useAccountContext } from './lib/useAccountContext';
 import { detachPushOnLogout } from './lib/notifications';
 import { isCoachedAthlete } from './lib/coachRole';
 import i18n, { setAppLanguage } from './i18n';
@@ -69,15 +69,6 @@ function RouteFallback() {
       <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
     </div>
   );
-}
-
-function useAccountContext() {
-  const role = useCoachingStore(s => s.coachingRole);
-  const coach = useCoachingStore(s => s.myCoach);
-  const ready = useCoachingStore(s => s.roleReady);
-  const snapshot = useCoachingStore(s => s.accountSnapshot);
-  const workspace = useCoachingStore(s => s.accountWorkspace);
-  return resolveAccountContext(role, coach, ready, snapshot, workspace);
 }
 
 function HomeDashboard() {

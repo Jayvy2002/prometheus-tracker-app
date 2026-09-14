@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
 import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
@@ -35,7 +34,6 @@ function estimate1RM(weight: number, reps: number): number {
 
 export default function ExerciseProgressPage() {
   const { t, i18n } = useTranslation();
-  const navigate = useNavigate();
   const { user } = useAuthStore();
 
   const [allData, setAllData] = useState<ExerciseSummary[]>([]);
@@ -218,9 +216,6 @@ export default function ExerciseProgressPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-28">
         <div className="flex items-center gap-3 mb-5 animate-fade-in-down">
-          <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
-            <ArrowLeft size={20} />
-          </button>
           <h1 className="text-xl font-bold text-white flex-1">{t('pages.progress')}</h1>
         </div>
 

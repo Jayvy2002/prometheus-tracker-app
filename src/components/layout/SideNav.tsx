@@ -1,60 +1,21 @@
-import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Dumbbell, Apple, User, CalendarDays, Plus, Scale, Flame, BarChart2, TrendingUp, ClipboardCheck, Users, CalendarRange, MessageSquare, Sparkles, Camera, Search, Inbox } from 'lucide-react';
-
+import { NavLink, Link } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { resolveAccountContext } from '../../lib/accountContext';
+import { useAccountContext } from '../../lib/useAccountContext';
+import { desktopSections, navPersona, quickAddActions } from '../../navigation/navConfig';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 export default function SideNav() {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const [hoveredAction, setHoveredAction] = useState<string | null>(null);
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
   const tracking = useCoachingStore(s => s.myTrackingConfig);
-  const roleReady = useCoachingStore(s => s.roleReady);
-  const snapshot = useCoachingStore(s => s.accountSnapshot);
-  const workspace = useCoachingStore(s => s.accountWorkspace);
-  const context = resolveAccountContext(coachingRole, myCoach, roleReady, snapshot, workspace);
-  const isCoach = context.activeWorkspace === 'coaching';
-  const coached = context.personalCoaching === 'coached';
-
-  const tabs = isCoach
-    ? [
-        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today') },
-        { path: '/clients', icon: Users, label: t('nav.clients') },
-        { path: '/programs', icon: CalendarRange, label: t('nav.programs') },
-        { path: '/messages', icon: MessageSquare, label: t('nav.messages') },
-        { path: '/prometheus', icon: Sparkles, label: t('nav.prometheus') },
-        { path: '/coach/profile', icon: User, label: t('marketplace.profile') },
-        { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests') },
-        { path: '/coaches', icon: Search, label: t('marketplace.directory') },
-      ]
-    : [
-        { path: '/dashboard', icon: LayoutDashboard, label: t('nav.today'), show: true },
-        { path: '/workout', icon: Dumbbell, label: t('nav.workout'), show: tracking.track_workouts },
-        { path: '/checkin', icon: ClipboardCheck, label: t('nav.checkin'), show: tracking.track_checkins && coached },
-        { path: '/exercise-progress', icon: TrendingUp, label: t('nav.exerciseProgress'), show: tracking.track_workouts && !coached },
-        { path: '/nutrition', icon: Apple, label: t('nav.nutrition'), show: tracking.track_nutrition },
-        { path: '/messages', icon: MessageSquare, label: t('nav.messages'), show: coached },
-        { path: '/programs', icon: CalendarRange, label: t('nav.myProgram'), show: tracking.track_workouts },
-        { path: '/weight', icon: Scale, label: t('nav.weight'), show: tracking.track_weight },
-        { path: '/photos', icon: Camera, label: t('nav.photos'), show: true },
-        { path: '/calendar', icon: CalendarDays, label: t('nav.calendar'), show: !coached },
-        { path: '/stats', icon: BarChart2, label: t('nav.stats'), show: !coached },
-        { path: '/coaches', icon: Search, label: t('marketplace.directory'), show: true },
-        { path: '/coaching-requests', icon: Inbox, label: t('marketplace.requests'), show: true },
-        { path: '/profile', icon: User, label: t('nav.profile'), show: true },
-      ].filter(tab => !('show' in tab) || tab.show);
-
-  const quickActions = [
-    ...(tracking.track_workouts ? [{ label: t('nav.newWorkout'), icon: Dumbbell, path: '/workout/new' }] : []),
-    ...(tracking.track_weight ? [{ label: t('nav.logWeight'), icon: Scale, path: '/weight?log=1' }] : []),
-    ...(tracking.track_nutrition ? [{ label: t('nav.addMeal'), icon: Flame, path: '/nutrition?add=1' }] : []),
-  ];
+  const context = useAccountContext();
+  const persona = navPersona(context);
+  const sections = desktopSections(persona, tracking);
+  const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking);
 
   return (
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-800/60 z-40">
@@ -68,50 +29,61 @@ export default function SideNav() {
         <WorkspaceSwitcher />
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto scrollbar-hide">
-        {tabs.map((tab) => (
-          <NavLink
-            key={tab.path}
-            to={tab.path}
-            className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
-              ${isActive
-                ? 'bg-blue-600/15 text-white'
-                : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60'
-              }`}
-          >
-            {({ isActive }) => (
-              <>
-                {isActive && <span className="nav-active-indicator" />}
-                <tab.icon
-                  size={18}
-                  strokeWidth={isActive ? 2.5 : 1.8}
-                  className={isActive ? 'text-blue-400' : ''}
-                />
-                <span>{tab.label}</span>
-                {tab.path === '/messages' && unreadMessageCount > 0 && (
-                  <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
-                    {unreadMessageCount}
-                  </span>
-                )}
-              </>
+      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto scrollbar-hide">
+        {sections.map(section => (
+          <div key={section.id}>
+            {section.labelKey && (
+              <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-1 px-4">
+                {t(section.labelKey)}
+              </p>
             )}
-          </NavLink>
+            <div className="space-y-0.5">
+              {section.items.map(tab => {
+                const Icon = tab.icon;
+                const muted = section.tone === 'muted';
+                return (
+                  <NavLink
+                    key={tab.id}
+                    to={tab.path}
+                    end={tab.end}
+                    aria-label={
+                      tab.badge === 'unreadMessages' && unreadMessageCount > 0
+                        ? t('nav.messagesUnread', { count: unreadMessageCount })
+                        : t(tab.labelKey)
+                    }
+                    className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
+                      ${isActive
+                        ? 'bg-blue-600/15 text-white'
+                        : muted
+                          ? 'text-neutral-500 hover:text-neutral-200 hover:bg-neutral-800/60'
+                          : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60'
+                      }`}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {isActive && <span className="nav-active-indicator" />}
+                        <Icon
+                          size={18}
+                          strokeWidth={isActive ? 2.5 : 1.8}
+                          className={isActive ? 'text-blue-400' : ''}
+                        />
+                        <span>{t(tab.labelKey)}</span>
+                        {tab.badge === 'unreadMessages' && unreadMessageCount > 0 && (
+                          <span className="ml-auto text-xs px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
+                            {unreadMessageCount}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                );
+              })}
+            </div>
+          </div>
         ))}
       </nav>
 
-      {isCoach && (
-        <div className="px-3 pb-4 border-t border-neutral-800/60 pt-3">
-          <button
-            onClick={() => navigate('/profile')}
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-neutral-800/60"
-          >
-            <User size={16} />
-            {t('nav.profile')}
-          </button>
-        </div>
-      )}
-
-      {!isCoach && (
+      {quickActions.length > 0 && (
         <div className="px-3 pb-4 border-t border-neutral-800/60 pt-4">
           <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
             {t('nav.quickAdd')}
@@ -119,12 +91,12 @@ export default function SideNav() {
           <div className="space-y-1">
             {quickActions.map((action, i) => {
               const Icon = action.icon;
-              const isHovered = hoveredAction === action.label;
+              const isHovered = hoveredAction === action.id;
               return (
-                <button
-                  key={action.label}
-                  onClick={() => navigate(action.path)}
-                  onMouseEnter={() => setHoveredAction(action.label)}
+                <Link
+                  key={action.id}
+                  to={action.path}
+                  onMouseEnter={() => setHoveredAction(action.id)}
                   onMouseLeave={() => setHoveredAction(null)}
                   className="sidebar-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-blue-600/10 hover:border-blue-600/20 border border-transparent transition-all duration-200 group"
                   style={{ animationDelay: `${(i + 5) * 50}ms` }}
@@ -133,9 +105,9 @@ export default function SideNav() {
                     ${isHovered ? 'bg-blue-600/25 text-blue-400' : 'bg-neutral-800 text-neutral-500 group-hover:bg-blue-600/20 group-hover:text-blue-400'}`}>
                     <Icon size={13} />
                   </div>
-                  <span className="font-medium">{action.label}</span>
+                  <span className="font-medium">{t(action.labelKey)}</span>
                   <Plus size={13} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" />
-                </button>
+                </Link>
               );
             })}
           </div>

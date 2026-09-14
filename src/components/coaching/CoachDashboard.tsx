@@ -118,7 +118,7 @@ export default function CoachDashboard() {
             <button
               type="button"
               onClick={() => navigate('/prometheus')}
-              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-300 hover:text-white"
+              className="inline-flex items-center gap-1.5 min-h-11 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-300 hover:text-white"
             >
               <Search size={14} />
               {t('coaching.ask.shortcut')}

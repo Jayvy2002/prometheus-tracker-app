@@ -15,33 +15,20 @@ test('profile initials use first letters, fallback when empty', () => {
   assert.equal(profileInitials(null), '?');
 });
 
-test('mobile coach chrome: avatar opens /profile, no 6th bottom-nav tab', () => {
+test('mobile coach chrome: profile is a tab, no 6th bottom-nav tab', () => {
   const layout = src('src/components/layout/AppLayout.tsx');
-  assert.match(layout, /CoachProfileButton/);
+  assert.doesNotMatch(layout, /CoachProfileButton/);
   assert.match(layout, /md:hidden/);
-  assert.match(layout, /isCoach && !location\.pathname\.startsWith\('\/profile'\)/);
   assert.match(layout, /min-h-14/);
   assert.doesNotMatch(layout, /h-0 pointer-events-none/);
-  assert.match(layout, /navigate\('\/profile'\)|CoachProfileButton/);
 
-  const button = src('src/components/layout/CoachProfileButton.tsx');
-  assert.match(button, /navigate\('\/profile'\)/);
-  assert.match(button, /profileInitials/);
-  assert.match(button, /rounded-full/);
-  assert.match(button, /avatar_url/);
-
-  const bottom = src('src/components/layout/BottomNav.tsx');
-  const coachTabs = bottom.slice(
-    bottom.indexOf("activeWorkspace === 'coaching'"),
-    bottom.indexOf(': coached'),
-  );
-  assert.match(coachTabs, /path: '\/dashboard'/);
-  assert.match(coachTabs, /path: '\/clients'/);
-  assert.match(coachTabs, /path: '\/prometheus'/);
-  assert.doesNotMatch(coachTabs, /path: '\/profile'/);
+  const nav = src('src/navigation/navConfig.ts');
+  const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
+  assert.match(mobileFn, /return \[today, clients, messages, programs, profile\]/);
+  assert.doesNotMatch(mobileFn, /\bcopilot\b/);
 
   const side = src('src/components/layout/SideNav.tsx');
-  assert.match(side, /navigate\('\/profile'\)/);
+  assert.match(side, /desktopSections/);
   assert.match(side, /hidden md:flex/);
 });
 
@@ -101,15 +88,14 @@ test('Progress: no empty before/after spam; logged-exercise picker stays on Trai
   assert.match(trainingBlock, /onOpenSeries/);
 });
 
-test('Coached client shell: hub Messages + Photos + Mon programme, no coach-mode dump', () => {
+test('Coached client shell: photos and program in hub, messages in tabs, no coach-mode dump', () => {
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.doesNotMatch(profile, /\/recipes/);
   assert.doesNotMatch(profile, /\/routines/);
   assert.match(profile, /\/photos/);
-  assert.match(profile, /\/messages/);
   assert.match(profile, /nav\.myProgram/);
   assert.doesNotMatch(profile, /nav\.clients/);
-  assert.match(profile, /!coached && \(/);
+  assert.match(profile, /!coached && !inCoaching && \(/);
   assert.match(profile, /coaching\.coachMode/);
 
   const app = src('src/App.tsx');
@@ -122,35 +108,37 @@ test('Coached client shell: hub Messages + Photos + Mon programme, no coach-mode
   assert.match(app, /TrackingGate module="nutrition"/);
   assert.match(app, /path="\/clients" element=\{<CoachOnly>/);
 
-  const side = src('src/components/layout/SideNav.tsx');
-  assert.match(side, /nav\.myProgram/);
-  assert.match(side, /path: '\/photos'/);
-  assert.match(side, /track_workouts && !coached/);
+  const nav = src('src/navigation/navConfig.ts');
+  assert.match(nav, /labelKey: 'nav\.myProgram'/);
+  assert.match(nav, /path: '\/photos'/);
 
-  // Coached bottom bar (décision du 4 sept.): five tabs, daily things first — Home / Séance /
-  // Check-in / Messages / Profil. Photos moved to the home card + Profile hub.
   const bottom = src('src/components/layout/BottomNav.tsx');
-  const coachedTabs = bottom.slice(bottom.indexOf(': coached'), bottom.indexOf(': ['));
-  assert.match(coachedTabs, /path: '\/messages'/);
-  assert.match(coachedTabs, /path: '\/checkin'/);
-  assert.match(coachedTabs, /path: '\/profile'/);
-  assert.doesNotMatch(coachedTabs, /path: '\/photos'/);
+  assert.match(bottom, /mobileTabs/);
+  assert.doesNotMatch(bottom, /path: '\/photos'/);
+  const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
+  const coachedMobile = mobileFn.slice(
+    mobileFn.indexOf("if (persona === 'coached')"),
+    mobileFn.lastIndexOf('return ['),
+  );
+  assert.match(coachedMobile, /\bmessages\b/);
+  assert.match(coachedMobile, /\bcheckin\b/);
+  assert.match(coachedMobile, /\bprofile\b/);
+  assert.doesNotMatch(coachedMobile, /\bphotos\b/);
   assert.match(profile, /\/photos/);
   const dash = src('src/components/dashboard/Dashboard.tsx');
   assert.match(dash, /hasCoach && !activityPending && \(\s*<button[^]*?navigate\('\/photos'\)/);
 });
 
 test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {
-  const side = src('src/components/layout/SideNav.tsx');
-  assert.match(side, /t\('nav\.today'\)/);
-  assert.match(side, /t\('nav\.clients'\)/);
-  assert.match(side, /t\('nav\.programs'\)/);
-  assert.match(side, /t\('nav\.messages'\)/);
-  assert.match(side, /t\('nav\.prometheus'\)/);
+  const nav = src('src/navigation/navConfig.ts');
+  assert.match(nav, /labelKey: 'nav\.today'/);
+  assert.match(nav, /labelKey: 'nav\.clients'/);
+  assert.match(nav, /labelKey: 'nav\.programs'/);
+  assert.match(nav, /labelKey: 'nav\.messages'/);
+  assert.match(nav, /labelKey: 'nav\.copilot'/);
 
   const bottom = src('src/components/layout/BottomNav.tsx');
-  assert.match(bottom, /t\('nav\.today'\)/);
-  assert.match(bottom, /t\('nav\.programs'\)/);
+  assert.match(bottom, /t\(tab\.labelKey\)/);
 
   const detail = src('src/components/coaching/ClientDetailPage.tsx');
   assert.match(detail, /params\.set\('tab', 'overview'\)/);

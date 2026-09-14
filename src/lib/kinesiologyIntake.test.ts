@@ -542,7 +542,7 @@ describe('kinesiologyIntake wiring', () => {
 
     const profile = readFileSync(resolve(process.cwd(), 'src/components/profile/ProfilePage.tsx'), 'utf8');
     assert.match(profile, /isIntakeAlreadyFilled/);
-    assert.match(profile, /navigate\('\/intake'\)/);
+    assert.match(profile, /to="\/intake"/);
 
     const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
     assert.match(detail, /KinesiologyIntakeReview/);

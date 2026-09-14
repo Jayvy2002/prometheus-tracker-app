@@ -1,29 +1,12 @@
 import { type ReactNode, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { useAccountContext } from '../../lib/useAccountContext';
+import { mobileTabs, navPersona, tabIndexForPath } from '../../navigation/navConfig';
 
 interface PageTransitionProps {
   children: ReactNode;
   className?: string;
-}
-
-// Map tab routes to their index for directional sliding
-const TAB_ORDER: Record<string, number> = {
-  '/dashboard': 0,
-  '/workout': 1,
-  '/checkin': 2,
-  '/clients': 1,
-  '/programs': 2,
-  '/messages': 3,
-  '/prometheus': 4,
-  '/nutrition': 3,
-  '/profile': 4,
-};
-
-function getTabIndex(pathname: string): number {
-  for (const [path, idx] of Object.entries(TAB_ORDER)) {
-    if (pathname.startsWith(path)) return idx;
-  }
-  return -1;
 }
 
 let previousTabIndex = -1;
@@ -31,10 +14,10 @@ let previousTabIndex = -1;
 export default function PageTransition({ children, className = '' }: PageTransitionProps) {
   const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
+  const context = useAccountContext();
+  const tracking = useCoachingStore(s => s.myTrackingConfig);
+  const currentIndex = tabIndexForPath(location.pathname, mobileTabs(navPersona(context), tracking));
 
-  const currentIndex = getTabIndex(location.pathname);
-
-  // Choose animation direction based on tab position
   let animClass = 'animate-fade-in-up';
   if (currentIndex !== -1 && previousTabIndex !== -1) {
     animClass = currentIndex > previousTabIndex
