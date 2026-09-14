@@ -96,8 +96,8 @@ export default function CoachDashboard() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-28 md:px-6">
-        <div className="flex items-start justify-between gap-3 mb-6">
-          <div>
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
             <p className="text-neutral-400 text-xs">
               {formatWeekdayDate(new Date(), i18n.language)}
             </p>
@@ -109,7 +109,7 @@ export default function CoachDashboard() {
               </button>
             ) : null}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex flex-wrap items-center gap-2">
             {opsRows.length > 0 && (
             <Button type="button" size="sm" variant="secondary" loading={fleetRunning} onClick={() => void handleFleet()}>
               {t('coaching.fleet.refresh')}

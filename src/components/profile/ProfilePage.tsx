@@ -140,7 +140,6 @@ export default function ProfilePage() {
       )}
       {coached && (
         <Card className="mb-6 space-y-1">
-          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest px-1 mb-2">{t('profile.hubTitle')}</p>
           <Link to="/photos" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <Camera size={16} className="text-blue-400" /> {t('nav.photos')}
           </Link>
@@ -177,7 +176,6 @@ export default function ProfilePage() {
 
       {inCoaching && (
         <Card className="mb-6 space-y-1 md:hidden">
-          <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest px-1 mb-2">{t('marketplace.directory')}</p>
           <Link to="/coach/profile" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <User size={16} className="text-blue-400" /> {t('marketplace.profile')}
           </Link>

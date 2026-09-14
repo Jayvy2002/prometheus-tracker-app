@@ -73,7 +73,7 @@ const fr = {
     workouts: 'Entraînements',
     exerciseProgress: 'Progression',
     progressSummary: 'Résumé',
-    progressTraining: 'Entraînement',
+    progressTraining: 'Exercices',
     progressMeasures: 'Mesures',
     progressHistory: 'Historique',
     calendar: 'Calendrier',

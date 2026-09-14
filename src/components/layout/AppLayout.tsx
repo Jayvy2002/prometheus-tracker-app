@@ -21,6 +21,7 @@ export default function AppLayout() {
   const location = useLocation();
   const hideFab = isCoach
     || location.pathname.startsWith('/dashboard')
+    || location.pathname.startsWith('/profile')
     || location.pathname.startsWith('/coaches')
     || location.pathname === '/coach/profile'
     || location.pathname === '/coaching-requests';

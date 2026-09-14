@@ -29,7 +29,7 @@ export default function SideNav() {
         <WorkspaceSwitcher />
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-4 overflow-y-auto scrollbar-hide">
+      <nav className="flex-1 px-3 py-3 space-y-3 overflow-y-auto scrollbar-hide">
         {sections.map(section => (
           <div key={section.id}>
             {section.labelKey && (
@@ -51,7 +51,7 @@ export default function SideNav() {
                         ? t('nav.messagesUnread', { count: unreadMessageCount })
                         : t(tab.labelKey)
                     }
-                    className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-colors duration-200
+                    className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-2 rounded-xl text-sm font-medium transition-colors duration-200
                       ${isActive
                         ? 'bg-blue-600/15 text-white'
                         : muted
@@ -81,38 +81,38 @@ export default function SideNav() {
             </div>
           </div>
         ))}
-      </nav>
 
-      {quickActions.length > 0 && (
-        <div className="px-3 pb-4 border-t border-neutral-800/60 pt-4">
-          <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
-            {t('nav.quickAdd')}
-          </p>
-          <div className="space-y-1">
-            {quickActions.map((action, i) => {
-              const Icon = action.icon;
-              const isHovered = hoveredAction === action.id;
-              return (
-                <Link
-                  key={action.id}
-                  to={action.path}
-                  onMouseEnter={() => setHoveredAction(action.id)}
-                  onMouseLeave={() => setHoveredAction(null)}
-                  className="sidebar-item w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-blue-600/10 hover:border-blue-600/20 border border-transparent transition-all duration-200 group"
-                  style={{ animationDelay: `${(i + 5) * 50}ms` }}
-                >
-                  <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200
-                    ${isHovered ? 'bg-blue-600/25 text-blue-400' : 'bg-neutral-800 text-neutral-500 group-hover:bg-blue-600/20 group-hover:text-blue-400'}`}>
-                    <Icon size={13} />
-                  </div>
-                  <span className="font-medium">{t(action.labelKey)}</span>
-                  <Plus size={13} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" />
-                </Link>
-              );
-            })}
+        {quickActions.length > 0 && (
+          <div className="border-t border-neutral-800/60 pt-3">
+            <p className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest mb-2 px-2">
+              {t('nav.quickAdd')}
+            </p>
+            <div className="space-y-1">
+              {quickActions.map((action, i) => {
+                const Icon = action.icon;
+                const isHovered = hoveredAction === action.id;
+                return (
+                  <Link
+                    key={action.id}
+                    to={action.path}
+                    onMouseEnter={() => setHoveredAction(action.id)}
+                    onMouseLeave={() => setHoveredAction(null)}
+                    className="sidebar-item w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-blue-600/10 hover:border-blue-600/20 border border-transparent transition-all duration-200 group"
+                    style={{ animationDelay: `${(i + 5) * 50}ms` }}
+                  >
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-200
+                      ${isHovered ? 'bg-blue-600/25 text-blue-400' : 'bg-neutral-800 text-neutral-500 group-hover:bg-blue-600/20 group-hover:text-blue-400'}`}>
+                      <Icon size={13} />
+                    </div>
+                    <span className="font-medium">{t(action.labelKey)}</span>
+                    <Plus size={13} className="ml-auto opacity-0 group-hover:opacity-60 transition-opacity" />
+                  </Link>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </nav>
     </aside>
   );
 }
