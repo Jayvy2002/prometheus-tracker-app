@@ -10,13 +10,13 @@
 
 ## 1. Conclusion de la revue
 
-Prometheus possède déjà son moteur de suivi et une plateforme coach. La transformation prioritaire est la couche qui relie identité, intention, découverte d’un coach, engagement et suivi. Il faut faire évoluer les droits et les parcours avant d’ajouter des fonctions isolées au tracker.
+Prometheus possède déjà son moteur de suivi et une plateforme coach. La destination reste la couche qui relie identité, intention, découverte d’un coach, engagement et suivi. L’**ordre d’exécution** (y compris les défauts qui mentent, verrouillent ou détruisent un accès) est uniquement dans `CHANTIER.md` : ne pas reconstruire les lots M dont le code existe, et ne pas reporter un bilan de séance faux derrière M8.
 
 Les données personnelles restent attachées à l’utilisateur. Solo et coaché décrivent sa situation d’accompagnement ; coach décrit une capacité professionnelle. L’espace affiché ne décide jamais des droits.
 
 ### Périmètre et preuves
 
-Sources relues sur `new-JV` le 12–13 septembre 2026 : routes, authentification, rôles, accueil, console coach, stores de programmes et coaching, API questionnaires, file hors ligne, types et migrations ciblées. Les lots M1–M5 se construisent ensuite, un par un ; leur statut est uniquement dans `CHANTIER.md`. Cette carte ne prouve aucun déploiement.
+Sources relues sur `new-JV` le 12–13 septembre 2026 : routes, authentification, rôles, accueil, console coach, stores de programmes et coaching, API questionnaires, file hors ligne, types et migrations ciblées. Le statut des lots M1–M5 est uniquement dans `CHANTIER.md` (à vérifier, pas à reconstruire). Cette carte ne prouve aucun déploiement.
 
 La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve de production. Les absences ci-dessous signifient « non raccordé au parcours dans les sources inspectées », à confirmer par inventaire complet avant création d’une table ou d’un service. Les extraits historiques SQL doivent être confrontés à toutes les redéfinitions ultérieures lors de l’implémentation.
 

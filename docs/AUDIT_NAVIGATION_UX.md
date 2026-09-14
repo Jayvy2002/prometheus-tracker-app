@@ -1,6 +1,6 @@
 # Audit — Navigation, IA et structure front-end
 
-> **Rôle de ce document** — diagnostic et architecture cible de la navigation Prometheus (mobile + desktop) et de la structure du frontend. Ce n’est pas un backlog. Les statuts restent dans [`CHANTIER.md`](CHANTIER.md). La destination produit reste [`VISION.md`](VISION.md). Les parcours cibles restent [`CARTE_PRODUIT.md`](CARTE_PRODUIT.md). L’inventaire des fonctionnalités par persona et le diagnostic d’usage sont dans [`RAPPORT_UX_FONCTIONNALITES.md`](RAPPORT_UX_FONCTIONNALITES.md).
+> **Rôle de ce document** — diagnostic et architecture cible de la navigation Prometheus (mobile + desktop) et de la structure du frontend. Ce n’est pas un backlog. Les statuts et la file d’exécution restent dans [`CHANTIER.md`](CHANTIER.md). La destination produit reste [`VISION.md`](VISION.md). Les parcours cibles restent [`CARTE_PRODUIT.md`](CARTE_PRODUIT.md). L’inventaire des fonctionnalités par persona est dans [`RAPPORT_UX_FONCTIONNALITES.md`](RAPPORT_UX_FONCTIONNALITES.md).
 >
 > **Preuve** : revue du code au 14 septembre 2026, puis alignement sur la refonte premium du PR 87 (`cursor/ux-premium-425e`). Pas de smoke authentifié dans cet environnement. Chaque constat cite un fichier.
 >
@@ -449,19 +449,19 @@ Homonymes à tuer à moyen terme : `/dashboard` coach vs perso. Deux paths (`/` 
 
 ---
 
-## 7. Plan d’exécution (quand le chantier UX est ouvert)
+## 7. Plan d’exécution (architecture chrome)
 
-Le Chantier reporte les lots UX après la finalisation fonctionnelle (marketplace M0–M5). **Ne pas** livrer ce chrome au milieu d’un lot M. S’en servir comme spec le moment venu. Correctifs P0 de *mensonge d’espace* (Profil vs workspace) peuvent partir plus tôt s’ils débloquent M7 (accueils contextuels).
+**Ne pas exécuter depuis cet audit.** L’ordre, y compris les défauts qui mentent / verrouillent / détruisent un accès, est uniquement dans [`CHANTIER.md`](CHANTIER.md). La règle « UX après M0–M5 » est **abrogée**.
+
+Les vagues ci-dessous restent une **spec chrome** (V0–V1 en grande partie dans `navConfig` ; reste lots 8 et 10 du Chantier). Ne pas en faire une file parallèle.
 
 | Vague | Quoi | Pourquoi d’abord | Critère |
 |---|---|---|---|
 | **V0 — vérité** | `useAccountContext` partagé. Profil et palette lisent l’espace, pas seulement le rôle. Coach mobile : entrée Compte. | UX75 | Un coach en Personnel voit Objectifs ; un coach sans sticky header atteint `/profile` |
-| **V1 — une carte** | `navConfig` + NavItem `NavLink` + `aria-current` + labels ≥11px. SideNav sectionnée. SoloHub supprimé. | UX08, UX11, UX74, UX76 | Programme trouvable sans Profil ; libellés identiques mobile/desktop |
+| **V1 — une carte** | `navConfig` + NavItem `NavLink` + `aria-current` + labels ≥11px. SideNav sectionnée. SoloHub allégé. | UX08, UX11, UX74, UX76 | Programme trouvable sans Profil ; libellés identiques mobile/desktop |
 | **V2 — Home verbe** | Dashboard et CoachDashboard : une primaire. FAB contextuel. Recettes dans AppShell. | UX07 | Un test 5 secondes : « qu’est-ce que je fais maintenant ? » |
 | **V3 — shells** | Extraire routes/gates. SessionShell. Plus de branche marketplace. Palette visible. | UX09, UX77 | Une définition par path ; séance immersive explicite |
 | **V4 — URLs honnêtes** | Préfixe d’espace ou paths distincts. Switcher sans destroy. | Dual-rôle, Retour navigateur | L’URL + le chrome nomment le produit |
-
-Chaque vague = une PR observable, comme la règle M du Chantier.
 
 ---
 

@@ -1,418 +1,473 @@
 # Chantier — Prometheus
 
-> **RÔLE DE CE DOCUMENT — SOURCE UNIQUE DU TRAVAIL RESTANT**
+> **RÔLE — SEULE SOURCE DU TRAVAIL RESTANT**
 >
-> Ce document contient l’ordre des chantiers, les décisions ouvertes, les fonctionnalités à construire, les problèmes à corriger, les améliorations UX à réaliser et leurs critères de fin.
+> Ordre des travaux, décisions, défauts à corriger, fonctionnalités à construire, critères de fin.
 >
-> **Instruction pour les agents :** ne jamais supprimer un élément parce qu’il est supposé, ancien, partiellement présent ou décrit dans la vision. Un élément sort de ce fichier uniquement après preuve de son implémentation et de sa validation, ou après une décision produit explicite de l’abandonner. Ne pas transformer ce fichier en journal de PR ou en inventaire de production. Git conserve l’historique ; le README décrit le produit actuel et `docs/VISION.md` sa destination.
+> **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 14 septembre 2026.**
+**Mis à jour : 14 septembre 2026.** Recalé sur `new-JV` `3233932` (PRs #91–#92) et la contre-expertise code du même jour. Une CI verte ne clôt pas une ligne UX.
 
-Direction de référence : vision marketplace du 12 septembre 2026. La carte [CARTE_PRODUIT.md](CARTE_PRODUIT.md) décrit les parcours cibles et les écarts au code. Ce fichier reste la seule source des **statuts**. Aucun lot M1–M8 n’est livré en production tant qu’il n’a pas sa migration Git, son apply prod et sa preuve de parcours.
+**Prochain lot à ouvrir : 1 — vérité des séries réalisées.**
+
+**Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
+
+---
 
 ## Mode d’emploi
 
 | Statut | Sens |
 |---|---|
-| **À décider** | Une décision produit empêche de définir correctement le travail. |
-| **À concevoir** | Le résultat attendu est connu, mais le parcours ou le contrat reste à préciser. |
-| **À construire** | Le besoin et les conditions de fin sont assez précis pour être implémentés. |
-| **À vérifier** | Le comportement paraît présent ou a changé ; il faut le prouver dans le parcours réel. |
-| **Terminé** | Code, tests nécessaires et parcours attendu ont été vérifiés. L’élément peut être retiré de ce backlog dans le même changement. |
+| **À décider** | Une décision produit manque. |
+| **À concevoir** | Le résultat est connu, le contrat de parcours non. |
+| **À construire** | Assez précis pour implémenter. |
+| **Partiel** | Une partie du critère est dans le code ; le reste est faux ou absent. |
+| **À vérifier** | Le code semble là ; il manque la preuve de parcours (et souvent l’apply prod). |
+| **Reporté** | Volontairement plus tard (billing, P3, confort). |
+| **Terminé** | Code, tests nécessaires **et** parcours attendu vérifiés. Retirable dans le même changement. |
 
-Une CI verte ne prouve pas à elle seule qu’une expérience utilisateur est terminée. Inversement, un élément déjà satisfait par le code ne doit pas être reconstruit : le vérifier, documenter la preuve, puis le retirer.
+| Priorité | Sens **à l’intérieur d’un lot ouvert** |
+|---|---|
+| **P1** | Ment, verrouille, ou détruit un accès / un travail. |
+| **P2** | Gain de temps ou de clarté sur un parcours fréquent. |
+| **P3** | Confort à tester avant de construire. |
 
-La priorité `P1/P2/P3` de la feuille de route UX classe les améliorations **à l’intérieur du chantier UX**. Sauf défaut empêchant un parcours essentiel ou corrompant son résultat, les chantiers fonctionnels 1 à 3 restent exécutés avant cette feuille de route, conformément à la décision produit.
+**Règle d’arbitrage.** Un défaut qui **ment sur un résultat**, **verrouille l’app** ou **détruit un accès coach** se traite **maintenant**, même si un lot M n’est pas « Terminé ». Ne pas reconstruire un lot M dont le code existe : le **vérifier**, documenter la preuve, puis le retirer. Ne pas attendre M8 pour corriger un bilan de séance faux.
 
-## Lots UX — reportés après finalisation fonctionnelle
+**Une PR = une capacité observable** (un lot de la file, ou un item numéroté du lot 10). Accessibilité du parcours **dans** le lot, pas un cosmétique final.
 
-Décision produit : reprendre les chantiers fonctionnels dans l’ordre général ci-dessous. Les lots UX sont reportés après finalisation fonctionnelle ; leurs tâches inachevées restent conservées ici. Les défauts bloquant une fonctionnalité restent à corriger dans le chantier concerné.
+---
 
-| Lot | Couverture partielle et travail restant | Conditions de fin |
-|---|---|---|
-| Accessibilité — UX62 | Les boutons Annuler/Fermer des notifications ont une cible minimale de 44 × 44 px et les textes longs peuvent se couper sans masquer ces actions. La vérification tactile en parcours reste à effectuer. Des correctifs de Button, Input, Toast et Modal sont présents dans `new-JV` : focus stable lors des saisies dans une modale, repères de focus visibles et respect du mouvement réduit. Validation navigateur encore nécessaire. Reste à vérifier et compléter les noms accessibles, le focus des modales et tiroirs, la navigation clavier, les annonces, les contrastes, le zoom, le mouvement réduit et le clavier mobile sur les parcours essentiels. | Tests automatisés pertinents et vérification navigateur clavier, lecteur d’écran, zoom et petit écran. Ne pas annoncer une accessibilité complète sur la seule base de composants corrigés. |
-| Textes restants — UX11, UX65, UX67 | Une première simplification FR/EN existe dans `new-JV`. Continuer l’inventaire des textes affichés, supprimer les répétitions et remplacer le jargon. Préserver les informations utiles sur confidentialité, limites, effets des actions et erreurs. | Parité FR/EN, libellés cohérents avec les effets réels, revue en contexte des parcours et absence de suppression d’une information nécessaire au choix. |
-| Messagerie fiable — UX29–31, UX63, UX68 | Correctifs intégrés à vérifier en parcours : conservation des éditions pendant un envoi, verrou anti-double-clic, sortie de l’attente après exception, retour à la ligne mobile, protection de la composition de texte, dates localisées et défilement de l’historique. Reste à compléter l’isolation des brouillons par compte et conversation, la reprise après erreur, les doubles envois, le défilement lors du chargement de l’historique et les changements de conversation. Vérifier le temps réel, la reconnexion et les états de lecture réellement persistés. | Deux comptes de test : envoi lent puis nouvelle saisie conservée ; échec et réessai sans doublon ; changement de fil sans fuite de brouillon ; historique sans saut ; reconnexion sans message manquant ; écran mobile et saisie avec composition utilisables. |
+## Ce que ce fichier remplace (ne pas ressusciter)
 
-**Cadrage messagerie :** expérience de conversation intégrée inspirée de Messenger/WhatsApp, pas une connexion à ces services. Les états envoyé, distribué et lu doivent correspondre à des preuves distinctes. Pièces jointes, messages vocaux, recherche dans l’historique, réponses citées, présence et notifications sont à cadrer et prioriser après le socle fiable ; ne pas les considérer comme livrés. Aucun chiffrement de bout en bout n’est promis sans conception et validation dédiées.
+| Ancienne règle | Décision actuelle |
+|---|---|
+| Lots M1–M5 « à construire from scratch » | Le code est là → **À vérifier** (+ apply prod + parcours) |
+| M5 « demande acceptée ≠ lien » | **Faux.** `respond_coaching_request('accepted')` appelle déjà `activate_coaching_relationship`. Ce n’est **pas** un paiement. |
+| « Ne pas activer le lien tant que M6 n’existe pas » | **Annulé.** Retirer l’activation re-casserait le suivi. M6 = encaissement seulement. |
+| UX reportée après « finalisation fonctionnelle » | Trop tardif pour les mensonges / murs / roster orphelin |
+| Lots A–D du rapport UX (§11) | Diagnostic d’usage, **mauvais ordre** (progression coaché avant vérité des séries, confirm à chaque séance libre, « transmis ») |
+| Journal CI / typecheck / smoke perdu | Git, pas ici |
 
-**Vérification des derniers correctifs :** typecheck, build et lint ciblé réussis sur la copie locale avec les fichiers concernés actualisés. Le navigateur de test a perdu sa connexion avant les scénarios ; aucun smoke interactif n’est déclaré réussi. Les brouillons ne sont pas encore durables lors d’un changement de conversation ; la reconnexion et les accusés de lecture restent à traiter.
+IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
 
-**Statut de validation :** les correctifs UX sont intégrés dans `new-JV`, avec CI et matrice RLS vertes avant merge. Les parcours interactifs restent à vérifier. La revue du code ne remplace pas les tests de comportement et les parcours réels. Conserver les lignes UX concernées tant que leurs critères ne sont pas vérifiés.
+---
 
-## Ordre général
+## Décisions stables — ne pas défaire
 
-1. **Chantier 2 — continuité, identité et marketplace** (lots M0–M5, puis M7). Livrer **un lot à la fois** : une capacité + une migration Git + apply prod + preuve de parcours.
-2. **Chantier 3 — Billing**, **reporté jusqu’à ce que l’app soit prête à ouvrir**. Pas de clientèle aujourd’hui : aucun Stripe, paywall, abonnement ni commission à implémenter. Une demande marketplace « acceptée » ne crée pas de paiement.
-3. **UX — vérité des actions et conservation du travail.**
-4. **UX — parcours quotidiens coach, coaché et solo.**
-5. **UX — autonomie, compréhension et confort.**
-6. **Mesure continue de l’utilité**, appliquée aux chantiers au moment de leur réalisation.
+- Un moteur de séances / programmes / progression. Pas de second logger par rôle.
+- Cinq onglets mobile. **Pas** de 6ᵉ onglet, **pas** de Copilote dans la tab bar.
+- Switcher Personnel / Coaching **uniquement dans Profil**.
+- FAB hors espace Coaching, hors `/messages`, `/checkin`, marketplace.
+- `TrackingGate` : module off = disparu. Photos hors tab bar coaché.
+- L’IA prépare, un humain décide. Jamais d’auto-apply.
+- Billing **fermé** : pas de Stripe, paywall, commission.
+- L’espace affiché n’accorde aucun droit.
+- Simplifier en **nommant** et en mettant l’action principale devant — pas en interdisant séance libre, recettes ou FAB entier.
+- Accueil = prochaine action **utile** ou **vide honnête**.
+- Accessibilité bloquante : dans le lot du parcours.
 
-Les travaux transversaux sont intégrés à une priorité lorsqu’ils en améliorent le résultat ou corrigent un problème mesuré.
+### Interdit (propositions tranchées)
 
-### Règle de livraison (chantier 2)
+| Ne pas faire | Faire plutôt |
+|---|---|
+| Ouvrir `/stats` / calendrier / hub progression au coaché **avant** la vérité des séries | Lot 1, puis lecture `/exercise-progress` (lot 8) |
+| Réduire l’intake à « 3 questions » | Seulement ce qui sert la **prochaine** action (UX03) |
+| Forcer le chercheur de coach sur un accueil solo | Intention respectée ; Personnel utilisable |
+| Interdire la séance libre si un jour de plan est dû | Jour prescrit en premier ; libeller « hors programme » |
+| Confirmer chaque séance libre | Confirmer seulement une conséquence particulière |
+| Retirer le FAB de tout `/dashboard` | Masquer **Nouvelle séance** si le jour de plan est dû et cliquable |
+| Photos = 5ᵉ interrupteur tracking | Suivi proposé / conservation / partage (UX54) |
+| « Enregistré » → « Transmis au coach » | « Enregistré — visible par {coach} » après succès serveur (UX26) |
+| Fusionner Messages, brouillons et Prometheus | Relier les parcours ; trois jobs distincts |
+| Recettes coupées au coaché « parce qu’il a un coach » | Trancher utilité + contrat de suivi, pas l’autonomie |
+| Déclarer nav / accueil / 0C « terminés » | `navConfig` existe ; trouvabilité et chiffres mentent encore |
+| Confondre lock questionnaire coach et intake kiné | Kiné (7 écrans, 0B) = sécurité médicale. UX80 = questionnaire **prise en charge** incomplet |
 
-- Une PR = une capacité observable. Pas de monolithe mélangeant départ, rôles, annuaire et invitations.
-- SQL dans `supabase/migrations/` uniquement au merge. `supabase/changes/` n’est pas la production.
-- Front et SQL cassant (nouvelle signature RPC) partent **ensemble**, ou en deux temps : ajouter la nouvelle signature, basculer le front, **puis** révoquer l’ancienne.
-- `user_roles` reste la source d’écriture tant que M1 n’a pas basculé les droits. L’espace affiché ne donne aucun privilège.
-- Réutiliser `transition_client_to_solo` / `end_coach_client_link`. Aucun second moteur de séances.
-- Le questionnaire **coach** (#74, `20260911235551`) reste distinct du questionnaire **recherche**.
+---
 
-## Chantier 2 — Marketplace, recherche guidée et relation de coaching
+## Déjà dans le code — ne pas reconstruire
 
-**Décision produit :** un moteur commun, identité durable, capacité coach indépendante de l’accompagnement personnel, marketplace et suivi dans la même application.
+Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer Terminé pour autant.
 
-**État live (13 sept. 2026) :** invitation coach, fin de lien **côté coach** (`end_coach_client_link`), questionnaire de prise en charge versionné. Pas de départ client autonome, pas de contexte de capacités, pas d’annuaire.
+| Livré | Reste éventuel |
+|---|---|
+| Notice proposition programme solo (plus de mur Accueil) | — |
+| `navConfig` unique, 5 onglets, Copilote hors tab, switcher Profil, 5ᵉ onglet Compte coach | Trouvabilité mobile ≠ desktop (lots 8, 10) |
+| Cibles macros inventées (150/250/65) retirées | — |
+| 1 reminder / jour (deload/repas/eau masqués si coaché) | Message + check-in + reminder peuvent encore coexister (UX07) |
+| Heroes d’accueil exclusifs | Vide honnête un jour sans tâche |
+| File coach : empty, sévérité **texte**, une carte featured | « Depuis quand » ; Passer = tout le groupe (lot 9) |
+| Ancres check-in haut/bas (#91) | Accusé « visible par {coach} » (lot 10) |
+| `Terminer` **n’écrit plus** `completed` sur les séries restantes | L’**affichage** les compte encore (lot 1) |
+| Repos 90 s lancé après coche | Préférence auto **volontaire** (UX15) |
+| Assign programme : plus de premier client auto | Recap destinataire à rejouer (UX21) |
+| Inputs séance agrandis, cibles 44 px (#91) | OverflowMenu clavier (lot 10) |
+| RPC `client_end_coach_link` + UI Profil + tests | Preuve prod, notif, sérialisation, copy 3 listes (M2a) |
+| Annuaire / offre / demandes en code | Copy « accepté = suivi actif » (M5) |
+| `accountContext`, espaces Personnel / Coaching | Trou : `set_coaching_role('none')` (lot 2) |
 
-| Ordre | Lot | Statut | Conditions de fin |
+---
+
+## File d’exécution — ce qu’il reste à faire maintenant
+
+Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses sont le contrat du catalogue. Un ID **absent de cette file** ne se commence pas tant que les lots 1–10 ne sont pas verts (sauf P1 nouveau du même type : ment / verrouille / détruit un accès).
+
+| # | Lot | Statut | Preuve de fin |
 |---|---|---|---|
-| M0 | Inventaire des appels de rôles / policies vs carte | À construire | Scénarios solo, coaché, coach, coach-athlète recensés. Aucun changement de droits. |
-| M1 | Projection compatible de capacités + espaces Personnel/Coaching | À construire | Backfill des coachs existants ; aucun auto-lien ; rollback UI sans supprimer les colonnes. |
-| M2a | Départ autonome du client + consistance de la relation | À construire | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notification minimale au coach ; sérialisation vs une adaptation en cours. |
-| M2b | Invitation + consentement versionné | À construire | Nouvelle signature d’acceptation **en plus** de l’ancienne ; bascule du front ; puis révocation de l’ancienne. Périmètre = invitation directe. |
-| M3 | Entrée par intention après identité | À construire | Login direct ; pas de rôle avant le formulaire ; OAuth seulement plus tard. |
-| M4 | Profils/offres opt-in, prospects | À construire | Un coach gère ses clients **sans** publier ; publication/retrait testés. |
-| M5 | Annuaire, comparaison, demandes | À construire | Filtres exacts d’abord ; « demande acceptée » ≠ lien de coaching ; pas de dossier prospect. |
-| M6 | Accord, paiement, activation | **Reporté** (billing) | Une seule RPC d’activation, commune à l’invitation. Interdit tant que le chantier 3 n’est pas ouvert. |
-| M7 | Accueils contextuels et boucle jusqu’à la suite d’objectif | À concevoir | Trois parcours jusqu’au bilan ; le coach garde l’autorité. |
-| M8 | Ouverture graduelle | À concevoir | Pas de lancement large sur CI seule. |
+| **1** | **Vérité des séries réalisées** (UX12, UX17, UX49) | À construire | Une série non cochée n’est **jamais** une performance. Même définition dans bilan, graphes, **dernière séance 360** (`readableSets`). Auto-close 30 s retiré ; bilan retrouvable. Tips génériques ≠ « Conseil du coach ». `prCount` mort : supprimer. |
+| **2** | **Désactivation mode coach** (UX78) | À construire | `set_coaching_role('none')` refusé tant qu’un lien **actif** `coach_id = auth.uid()` existe. UI : confirmation avec le **nombre** de clients. Pas de roster orphelin. |
+| **3** | **Programmes : écriture honnête** (UX20, UX21, UX63) | À construire | Sauvegarde solo **une** opération (métadonnées + jours) avec version ; échec ≠ plan à moitié. `deleteProgram` n’ôte la liste **qu’après** succès. `fetchPrograms` en erreur ≠ `[]`. Assign : destinataire choisi (code : à vérifier en parcours). |
+| **4** | **Questionnaire sans prison** (UX80, UX02, UX03, UX04) | À construire | Plus de `path="*"` sur questionnaire **prise en charge** incomplet, ni mur sur échec de fetch. Aujourd’hui, messages et compte restent accessibles. Bannière + **lien** « Mon questionnaire » (`/questionnaire` n’a aucun `Link` dans `src/`). Brouillon conservé. Audience avant questions sensibles. Retirer « 60 secondes » non mesuré. **Ne pas** casser l’intake kiné. |
+| **5** | **Photos et audience** (UX54) | À construire | Solo ne lit plus « Ton coach les voit ». Texte = audience réelle. Consentement marketplace (`progress_photos` dans le paquet) = phrase d’acceptation. Coach actuel : dire si l’historique antérieur au lien est visible. Pas un 5ᵉ module unique. |
+| **6** | **Calendrier, recherche, erreur ≠ vide** (UX48, UX49, UX63) | À construire | Plusieurs séances (et pesées) le même jour listées. Recherche progression : **tous** les matchs — `filteredExercises.slice(5)` saute les 5 premiers **après filtre**. Stats / progression : erreur avec réessai, pas un historique fantôme. |
+| **7** | **Messages : brouillon et lu** (UX29–31, UX85) | À construire | Brouillon par compte × conversation, restauré au retour. Relance préremplie n’écrase pas un brouillon perso. Écarter une carte Accueil ≠ marquer lu. `read_at` seulement si le serveur a réussi. Pas d’accusé « lu » sans preuve. |
+| **8** | **Trouver programme et progression** (UX08, UX10, UX81, UX84, UX07 athlète) | À construire **après 1** | Coaché : lien **lecture** « Mon programme » depuis Entraînement (aujourd’hui `!coached`). Puis `/exercise-progress` en lecture — **pas** `/stats` ni calendrier dans le même PR. `waiting_program` → Messages (aujourd’hui `ListRow` sans `to`). FAB / **Nouveau** : pas « nouvelle séance » en doublon du jour dû ; libeller hors programme. Accueil : vide honnête si rien à faire. |
+| **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | À construire | Chaque carte : pourquoi, **depuis quand**, une action. « Passer » = **un** signal, annulable. Contexte roster conservé au retour. 360 : « depuis ta dernière visite » ; dernière séance = définition lot 1. |
+| **10** | **Cohérence restante** | À construire | Une PR par ligne ci-dessous. |
 
-### M2a — détail
+### Lot 10 — une PR par ligne
 
-Prod a déjà `end_coach_client_link(p_client_id)` **pour le coach** (refus si `p_client_id = auth.uid()`). Il manque :
+| # | Contenu | IDs |
+|---|---|---|
+| 10a | Recettes dans le chrome Nutrition (pas `SessionShell` entier) | UX77, UX53 |
+| 10b | Revue solo compacte (3 chiffres, pas un pavé). Notice Accueil **gardée** | UX45 |
+| 10c | Onglet 360 « health » → **Récupération**. Learned / priorités en français | UX46, UX35 |
+| 10d | Ask : qui + effet avant envoi | UX42, UX43 |
+| 10e | Check-in : « Enregistré — visible par {coach} » après succès serveur. Pas « transmis » | UX26 |
+| 10f | Unités kg/lbs partout (progression encore collée en kg) | UX14, UX65 |
+| 10g | OverflowMenu : Échap + focus. `aria-current` / badge onglet | UX62, UX76 |
+| 10h | `PageTransition` reset au changement de persona | UX74, UX75 |
+| 10i | Vocabulaire séance / programme / modèle. Plus de « routine » zombie | UX11 |
+| 10j | Preview setup : ce que le client **verra** | UX37 |
 
-- RPC `client_end_coach_link()` : `auth.uid()` est le client ; même `transition_client_to_solo` ;
-- auteur et date de fin, notification privée au coach, sérialisation vs une adaptation en cours.
+**Ensuite seulement :** preuve prod des lots M encore « À vérifier », M7 (accueils / suite d’objectif), confort P2/P3 du catalogue, billing.
 
-Aucun Stripe ni effet d’abonnement dans ce lot.
+---
 
-### M2b — détail
+## Ancres code (lot 1–9) — ne pas chercher à l’aveugle
 
-Invitation : plus d’acceptation automatique ; consentement versionné **en plus** de l’ancienne RPC, puis révocation de l’ancienne après bascule du front.
+| Lot | Où ça ment / casse aujourd’hui |
+|---|---|
+| 1 | `WorkoutSummaryScreen.computeStats` : ignore `completed` (sauf échauffement). `useEffect` 30 s. Titre i18n `workout.summary.coaching.title` = « Conseil du coach ». `prCount = 0` jamais rendu. `ExerciseProgressPage` : `if (!s.completed && !ex.workouts.completed) continue` — séance `completed` ⇒ séries non cochées comptées. `readableSets` : `completed \|\| weight \|\| reps \|\| duration`. |
+| 2 | SQL `set_coaching_role` (`20260831235414`) : si `p_role = 'none'`, protège seulement `client_id = moi`. Un coach en Personnel (`ProfilePage` toggle, `!coached && !inCoaching`) peut passer à `'none'` avec un roster actif. |
+| 3 | `ProgramEditorPage` : `updateProgram` puis `syncProgramDays`. `deleteProgram` : delete puis retire la liste **sans** `error`. `fetchPrograms` `catch` → `programs: []`. |
+| 4 | `App.tsx` ~324–332 : `activeAssignment.response && !completed_at` → `path="*"`. Échec fetch : écran retry (mieux) mais toujours un mur. Route `/questionnaire` sans aucun lien. |
+| 5 | `coaching.photos.subtitle` inconditionnel. `DIRECT_INVITE_CONSENT_SCOPES` inclut `progress_photos`. `is_coach_of` exige `status = 'active'` (pas « sans statut ») ; le trou est l’**audience affichée** et l’historique vu par le coach **actuel**. |
+| 6 | `CalendarPage` : `workouts` et `weight_measurements` du jour en `.maybeSingle()`. Recherche : `filteredExercises.slice(5)` **après** le filtre. |
+| 7 | Brouillon local au composant. `Dashboard` `onDismiss` → `markCoachMessageRead`. Store : `update({ read_at })` **sans** check `error`, puis état local optimiste. |
+| 8 | `WorkoutPage` : `CardLink` programmes si `!coached && !assignment?.program`. `CoachedAthleteRedirect` bloque `/exercise-progress`. `waiting_program` : `ListRow` sans `to`. FAB `nav.addWorkout` → `/workout/new`. |
+| 9 | `CoachTodayQueue` `onSkip` → `dismissQueueItems(group.items.map(...))` (tout le groupe). Pas d’ancienneté sur la carte. |
 
-### M4–M5 — détail
+---
 
-- Table `coach_profiles` (opt-in, disciplines, langues, formats, disponibilité).
-- Table `coach_join_requests` (pending / accepted / declined / withdrawn).
-- Routes `/coaches`, `/coaches/:id`, `/coach/profile`.
-- RLS : profils publics lisibles par `authenticated` seulement ; demandes visibles des deux parties.
-- **Ne pas** appeler `accept_coach_invite` depuis l’acceptation d’une demande tant que M6 n’existe pas.
+## Chantier 2 — Continuité, identité, marketplace
 
-### Continuité
+**Décision :** un moteur, identité durable, capacité coach ≠ accompagnement personnel, marketplace et suivi dans la même app.
 
-- Séparer capacité professionnelle, espace affiché, relation active et entitlement.
-- Un client : un coach actif. Après départ : lien terminé, tracking retiré, programme en pause, données personnelles conservées.
-- Aucun transfert des notes privées ni des conversations de l’ancien coach.
+**État code (14 sept. 2026, `3233932`) — ce n’est pas la preuve prod.** Intention après compte, espaces Personnel/Coaching, `client_end_coach_link`, invitation consentie, annuaire / demandes / offre, `respond_coaching_request` **active déjà** le lien **sans paiement**. Les lignes M restent ici tant que migration Git + apply prod + parcours n’ont pas été **prouvés**.
+
+| Lot | Statut | Conditions de fin | Reste réel |
+|---|---|---|---|
+| **M0** Inventaire rôles / policies vs carte | À vérifier | Scénarios solo, coaché, coach, coach-athlète. Aucun changement de droits. | Revues UX 14 sept. = UI ; confirmer vs policies live, puis retirer. |
+| **M1** Capacités + espaces Personnel/Coaching | À vérifier | Backfill coachs ; aucun auto-lien ; rollback UI sans drop de colonnes. | `accountContext` existe. Prouver droits serveur ≠ espace affiché, dual-rôle. **Lot 2 (UX78) est un trou de cette projection.** `user_roles` reste l’écriture tant que la bascule n’est pas prouvée. |
+| **M2a** Départ client autonome | À vérifier | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notif minimale coach ; sérialisation vs adaptation en cours. | RPC + UI + tests présents (`20260913184325`, Profil). Manquent preuve prod, notif, sérialisation, copy « tu gardes / ça s’arrête / ça ne se transmet pas » (UX57–58). **Ne pas reconstruire la RPC.** |
+| **M2b** Invitation + consentement versionné | À vérifier | Acceptation explicite ; ancienne RPC révoquée après bascule. | Consentement versionné en code. Vérifier révocation de l’ancienne signature et cas expiré / mauvais compte (UX02). |
+| **M3** Intention après identité | À vérifier | Login direct ; pas de rôle avant le formulaire ; OAuth plus tard. | `EntryIntentionPage` existe. Parcours `find_coach` : Personnel utilisable. Ne pas fusionner intake / onboarding **avant** d’avoir testé chaque chemin. |
+| **M4** Offres opt-in | À vérifier | Coach sans publier ; publication / retrait. | `/coach/profile` existe. Compte ≠ offre publique (libellés). |
+| **M5** Annuaire, comparaison, demandes | À vérifier | Filtres exacts ; pas de dossier prospect ; empty honnête. | Vitrine en code. **Accepté = suivi actif**, pas un paiement. L’UI doit le dire (UX56). Annuaire si déjà lié : expliquer, pas un formulaire qui échoue. Matching riche / modération / avis : **pas** dans M4–M5. |
+| **M6** Paiement / accord commercial | **Reporté** | Une RPC d’activation **déjà** utilisée à l’acceptation et à l’invitation. M6 = encaissement, pas ré-activer le lien. | Chantier 3 fermé. |
+| **M7** Accueils et suite d’objectif | À concevoir | Trois parcours jusqu’au bilan ; coach autorité du plan. | Après lots 1, 4, 8, 9. |
+| **M8** Ouverture graduelle | À concevoir | Pas de lancement large sur CI seule. | |
+
+### Livraison chantier 2
+
+- Une PR = une capacité. Pas de monolithe départ + rôles + annuaire.
+- SQL uniquement dans `supabase/migrations/` au merge. `supabase/changes/` n’est pas la production.
+- Front et SQL cassant : nouvelle signature, bascule, **puis** révocation.
+- Réutiliser `transition_client_to_solo` / `end_coach_client_link` / `client_end_coach_link`.
+- Questionnaire **prise en charge** ≠ questionnaire **recherche** (ce dernier n’est pas un parcours dédié).
+- `activate_coaching_relationship` n’est **pas** grant `authenticated` (appel interne). Ne pas l’exposer au client.
+
+### Continuité (invariants)
+
+- Un client : un coach actif.
+- Après départ : lien terminé, tracking retiré, programme en pause, données personnelles conservées.
+- Pas de transfert des notes privées ni de la conversation de l’ancien coach.
+
+---
 
 ## Chantier 3 — Billing
 
-**Fermé jusqu’à décision explicite d’ouverture.** Aucun utilisateur payant aujourd’hui. Ne pas poser Stripe, Checkout, webhook, mur d’essai ni commission.
+**Fermé** jusqu’à décision explicite. Pas de Stripe, Checkout, webhook, mur d’essai, commission.
 
-Quand ce chantier s’ouvrira, trancher avant toute ligne de code :
+À trancher **avant** toute ligne le jour de l’ouverture : prix solo / paliers coach ; essai, devise, taxes ; qui encaisse le coaching vs le logiciel ; effet d’un départ.
 
-- prix du solo et paliers coach ;
-- essai, devise, taxes, expiration ;
-- qui encaisse le coaching vs l’accès logiciel ;
-- effet d’un départ ou d’un changement de coach.
+`solo_trial_ends_at` existe **sans mur**. Ne pas en faire une règle commerciale.
 
-Le champ `solo_trial_ends_at` existe déjà (cible 30 jours après une fin de lien) **sans mur**. Ne pas en faire une règle commerciale tant que ce chantier n’est pas ouvert.
+UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là : **Reporté**.
 
-Le futur mur, s’il existe, devra conserver un accès en lecture aux données et permettre d’accepter une invitation. Un coach au-dessus de son palier conserverait ses clients mais ne pourrait plus en ajouter.
+---
 
-## Travaux transversaux autorisés
+## Après la file 1–10 (ne pas commencer avant)
 
-À réaliser lorsqu’ils soutiennent une priorité ou corrigent un problème mesuré :
+| Thème | IDs | Statut |
+|---|---|---|
+| Reprendre valeurs ≠ ajouter une série | UX13 | À construire |
+| Offline en langage courant ; file hors séances | UX16 | À construire / transversal |
+| Sélecteur d’exercice (variantes, récents) | UX18 | À construire |
+| Remplacement « cette séance » vs plan | UX19 | À concevoir |
+| Cycles / phases / prescriptions hors reps | UX22 | À concevoir / transversal |
+| Historique visuel des révisions | UX23 | À concevoir / transversal |
+| Check-in : champs vraiment utilisés | UX25 | À construire |
+| Relier réponse coach au bilan | UX27 | À concevoir |
+| Manque ≠ faute ; relances | UX28 | À construire |
+| Lier séance / check-in dans le fil | UX32 | Après lot 7 |
+| Filtres roster visibles | UX36 | À construire |
+| Builder questionnaire (modèle, preview, publication) | UX39–41 | À construire |
+| Attente IA quittable | UX44 | À construire |
+| Calendrier : prévu / commencé / terminé | UX47 | À concevoir |
+| Du point de courbe vers la séance | UX50 | À concevoir |
+| Provenance alimentaire en mots | UX51 | À construire |
+| Scanner : issue si pas de caméra / produit | UX52 | À vérifier |
+| Permission notif au bon moment | UX64 | À construire |
+| Audience, export, delete compte | UX66 | À construire |
+| Aide contextuelle | UX67 | À concevoir |
+| Stabilité chargement / double submit | UX68 | À vérifier |
+| Raccourcis Accueil | UX69 | Reporté P3 |
+| Silhouette vs liste | UX06 | Reporté P3 |
+| Actions groupées coach | UX38 | Reporté P3 |
+| Télémétrie utilité | UX70 | Continu, pas un projet préalable |
 
-- écran interne de lecture de la télémétrie ;
-- historique visuel et restauration des révisions de programme ;
-- cycles, semaines, blocs et changements de phase ;
-- types de prescription au-delà des répétitions ;
-- extension de la file hors ligne à d’autres écritures ;
-- optimisation des policies après preuve RLS : notamment fusion éventuelle des policies SELECT permissives seulement après comparaison dans la matrice ;
-- activer la protection Supabase Auth contre les mots de passe compromis dès que le plan du projet le permet, puis vérifier les parcours d’inscription et de changement de mot de passe ;
-- étude du déplacement de `pg_trgm` et `pg_net` hors de `public`, uniquement sur un environnement de staging avec mesure d’impact ;
-- amélioration des performances fondée sur des mesures.
+Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un défaut mesuré : écran interne télémétrie ; policies SELECT après preuve RLS ; protection Auth mots de passe compromis ; `pg_trgm` / `pg_net` hors `public` (staging + mesure) ; perf fondée sur des mesures (lot premium 15).
+
+---
 
 ## Règles de livraison
 
-- Une fonctionnalité inclut ses états chargement, vide, erreur et reprise.
-- Toute copie visible est disponible en FR et EN.
-- Toute écriture critique est atomique ou idempotente selon le cas.
-- Une modification RLS ou `SECURITY DEFINER` inclut la matrice de sécurité correspondante.
-- Une modification de télémétrie met à jour `docs/TELEMETRY.md` dans le même commit.
-- Une migration appliquée n’est jamais réécrite.
-- Une proposition IA exige toujours une validation humaine.
+- Chargement, vide, **erreur** et reprise : une erreur n’est jamais un écran vide silencieux.
+- Toute copie visible : FR **et** EN (y compris toasts ; pas de `deleted` hardcodé).
+- Écriture critique : atomique ou idempotente.
+- RLS / `SECURITY DEFINER` : matrice de sécurité dans le même changement.
+- Télémétrie : `docs/TELEMETRY.md` dans le même commit.
+- Migration appliquée : jamais réécrite.
+- Proposition IA : validation humaine.
 
-## Refonte UX/UI premium (lots 0A–16)
+---
 
-Décision produit : une seule app, un moteur commun, pas de Stripe, pas de second design system. Travailler lot par lot. Ne pas retirer une ligne M1–M8 de ce fichier sans preuve.
+## Couverture déjà dans le code (lots premium 0A–16)
 
-| Lot | Statut | Preuve / reste |
+Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
+
+| Lot | Statut | Reste |
 |---|---|---|
-| **0A** i18n / finition visible | Terminé (code + tests) | Namespace `options.*` FR/EN, `auth.signOut`, repas/genres/set types, dates via `dateLocale`, plus de fallback `Workout`. Tests `optionLabels`, `uxPremium`. « Truc » = donnée prod, pas un bug code. |
-| **0B** auth / intention / invite | Terminé (code + tests) | Labels Auth + `autocomplete`, cartes d’intention avec CTA, invitation avec nom/initiales. E-mail de confirmation : action Dashboard, voir [SUPABASE_EMAIL.md](SUPABASE_EMAIL.md). Intake kinesio : 7 écrans conservés (sécurité médicale) + barre sticky déjà en place. |
-| **0C** vérité produit | Terminé (code + tests) | Cibles nutritionnelles sans 150/250/65 ; `Terminer` ne coche plus les séries ; confirmation si séries incomplètes ; erreurs techniques filtrées ; ErrorBoundary sans stack. |
-| **1** design system | Terminé (code + tests) | Tokens, `PageHeader`, `CardLink`, `EmptyState`, `ErrorState`, `TabList`, `OverflowMenu`, `UnitToggle`. Navigation via `CardLink` / `Link` ; plus de `Card onClick` sur programmes, stats et check-ins. |
-| **2** accessibilité | À vérifier | Cibles 44px étendues. `prefers-reduced-motion` annule aussi `animation-delay` : la SideNav ne reste plus à opacity 0. Inventaire 8–11 px encore partiel. Revue lecteur d’écran restante. |
-| **3** navigation | Partiel | PR 87 : Aujourd’hui, hub Progression, `NavLink`, FAB safe-area. Alignement audit : `navConfig` unique, onglet coach = Compte (copilote hors tab bar), SideNav groupée, Profil suit l’espace, SoloHub allégé, avatar sticky retiré. Reste UX77 (graphe de routes / SessionShell) et smoke authentifié. |
-| **4** dashboard utilisateur | À vérifier | First-run : un CTA (première séance), photos / check-in / questionnaire / intake masqués. Parcours réel à rejouer. |
-| **5** Coach Today | À vérifier | Empty « Commence avec ton premier client » + « Créer un lien » confirmé en live (compte audit-coach, 14 sept. 2026). File / sévérité à rejouer avec un roster non vide. |
-| **6** Client 360 | Terminé (code + tests) | Header Message 44px + label, `role=tablist`, « depuis ta dernière visite » en tête, 1 reco max, dossier derrière détails. |
-| **7** Client setup wizard | Terminé (code + tests) | 4 étapes Comprendre / Suivi / Prise en charge / Vérifier. `handleConfirm` inchangé. Résumé « X recevra ». |
-| **8** Messages / Prometheus | Terminé (code + tests) | Séparateurs de date, composer safe-area, retry. Prometheus contextuel. Learned sans cron/round/seen. |
-| **9** Marketplace vitrine | Terminé (code) | Cartes + profil public + comparaison en cartes. Pas de prix inventé (`priceOnRequest`). Billing toujours fermé. |
-| **10** Programmes / routines / builder | Terminé (code + tests) | Bibliothèque + menu … ; assignation sans premier client auto ; routines = templates ; mapping questionnaire derrière Avancé. |
-| **11** Nutrition / workout / scanner | Terminé (code + tests) | CTA Ajouter + réutiliser un repas. Scanner : « Recherche du produit… » / « Produit introuvable ». Inputs séance plus grands + `inputMode`. |
-| **12** Progression / photos | Terminé (code + tests) | Hub liens Résumé / Entraînement / Mesures / Historique. Photos Face/Profil/Dos + avant/après. |
-| **13** Profil | Terminé (code) | Groupes Profil / Coaching / Préférences / Compte / Avancé. Déconnexion secondary. Timezone coach lisible. |
-| **14** PWA / offline / errors | Terminé (code) | Icônes PNG 192/512 + maskable + apple-touch. Notifications SW en PNG. `offline.html` et ErrorBoundary déjà de marque. |
-| **15** Performance | À vérifier | `UnitToggle` sorti du render. `dotColor` statique à la place de `color.replace`. Dashboard : fetches déjà groupés ; mesure live restante. |
-| **16** Polish global | À vérifier | EmptyState / ErrorState / skeletons, toasts plus longs + pause hover. Revue visuelle live restante. |
+| **0A** i18n options | À vérifier | Toasts / intake / unités encore hors clés (ex. `"… deleted"`). |
+| **0B** auth / intention / invite | À vérifier | Lock questionnaire après invite (lot 4). Intake kiné : 7 écrans **conservés**. |
+| **0C** vérité produit | **Partiel** | Cibles macros : corrigé. **Terminer n’écrit plus** `completed` sur le reste : corrigé. **Le bilan et les graphes comptent encore les séries non cochées** → lot 1. |
+| **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu clavier (10g). |
+| **2** accessibilité | À vérifier | Cibles 44 px présentes ; clavier / zoom / lecteur restants. |
+| **3** navigation | **Partiel** | `navConfig`, 5 onglets, Copilote hors tab, switcher Profil. Trouvabilité ; recettes ; `PageTransition` (lots 8, 10). |
+| **4** dashboard | **Partiel** | Un hero ; proposition IA = notice (#91). Message + check-in + reminder peuvent coexister. `waiting_program` inerte. |
+| **5** Coach Today | **Partiel** | Empty + sévérité texte + featured. Pas de « depuis quand ». Passer écarte **tous** les signaux du client. |
+| **6** Client 360 | À vérifier | Structure en code ; « ce qui a changé » et dernière séance **fausse** tant que lot 1 n’est pas fait. Onglet « health » à renommer (10c). |
+| **7** Setup 4 étapes | À vérifier | Preview écrans client encore faible (10j). |
+| **8** Messages / Prometheus | **Partiel** | Retry / safe-area. Brouillon non durable ; lu local trop optimiste (lot 7). |
+| **9** Marketplace vitrine | À vérifier | Pas de faux prix. Acceptation = **lien actif**. Copy à aligner. |
+| **10** Programmes builder | **Partiel** | Pas de premier client auto. Sauvegarde solo non atomique ; delete ignore l’erreur (lot 3). |
+| **11** Nutrition / séance / scanner | À vérifier | Recettes hors chrome (10a). UX15 = auto **optionnel** après coche. |
+| **12** Progression / photos | **Partiel** | Hub solo. Coaché bloqué. Calculs faux (lots 1, 6). Sous-titre photos menteur (lot 5). |
+| **13** Profil | **Partiel** | Groupes OK. Toggle mode coach dangereux (lot 2). SoloHub encore un tiroir mobile. |
+| **14** PWA / offline | À vérifier | File = séances seulement. |
+| **15** Performance | À vérifier | Mesure live. |
+| **16** Polish | À vérifier | Revue visuelle live. |
 
-## Chantiers 4 à 6 — Feuille de route UX complète
+---
 
-**Statut initial : à vérifier, à concevoir ou à construire selon chaque ligne.**
+## Catalogue UX — contrat détaillé
 
-Cette feuille de route couvre le coach, le client coaché et le solo. Elle a été établie après revue du frontend et des propositions UX disponibles. Elle raisonne sur les chantiers 1 à 3 et les travaux transversaux comme s’ils étaient déjà réalisés, afin de définir la qualité d’usage finale attendue.
+Les constats « 11 septembre » sont **périmés** là où le statut dit autre chose. Avant d’implémenter : relire le HEAD. **P1** dans un lot ouvert = faire maintenant si ça bloque ce lot.
 
-Les constats de code datent de la revue du 11 septembre 2026. Avant toute correction, vérifier le comportement sur la branche courante : une ligne peut déjà avoir été satisfaite depuis cette revue. Les critères de réussite décrivent le résultat attendu ; ils ne constituent pas la preuve qu’un test utilisateur a déjà été exécuté.
+**Base :** `C` constat code ; `H` hypothèse ; `F` cible d’un chantier pas encore prouvé. **Portée :** `I` interface ; `I+D` état durable.
 
-### Comment lire les priorités
+**Colonne File :** lot de la file, `M*`, `ens.` (après 1–10), `rep.`, `chaque`, `fait`.
 
-| Niveau | Décision |
+### Entrée et questionnaire
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX01** | P2 | M3 | À vérifier | Connexion directe / intention à l’inscription. | Habitué → son espace sans redéfinir un rôle. |
+| **UX02** | P1 | 4 | Partiel | Invitation : contexte OK en code. Après accept : **plus de lock**. | Aucune invite invalide sans issue ; rattachement clair. |
+| **UX03** | P2 | 4 | À construire | Complément au moment utile. **Pas** « 3 questions ». Retirer durée non mesurée. | On sait pourquoi maintenant ; reprise sans ressaisie. |
+| **UX04** | P1 | 4 | À construire | Audience et facultatif avant les questions sensibles. | Destinataire et conséquence d’un refus connus. |
+| **UX05** | P2 | ens. | À construire | Résumé + correction par rubrique ; nouvelle version = complément. | Pas de parcours entier à refaire. |
+| **UX06** | P3 | rep. | Reporté | Silhouette facultative vs liste. | Seulement si un test le justifie. |
+| **UX80** | P1 | 4 | À construire | Bannière, pas `path="*"`. Hub « Mon questionnaire ». Brouillon. Échec fetch ≠ mur. | Messages / Aujourd’hui / compte accessibles ; réponses conservées. |
+
+### Accueil et navigation
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX07** | P1 | 8+9 | Partiel | Heroes exclusifs : oui. Encore message + check-in + reminder. Jour sans tâche = vide honnête. | Prochaine action évidente **ou** absence honnête. |
+| **UX08** | P2 | 8 | Partiel | Hub Progression solo : oui. Programme trop Profil / desktop. Coaché : lecture lot 8. | Programme / historique sans deviner Profil. |
+| **UX09** | P1 | 9 | À construire | Filtres, position, client courant. | Enchaîner des fiches sans reconstruire la liste. |
+| **UX10** | P1 | 8 | À construire | `waiting_program` **inerte**. CTA Messages. | On sait quoi faire maintenant. |
+| **UX11** | P2 | 10i | À construire | Séance / programme / modèle. Plus de « routine » zombie. | Un nom = une action. |
+| **UX74** | P1 | 10h | Partiel | `navConfig` existe. Reste : **même carte** mobile/desktop. | Un ajout de destination = un endroit. |
+| **UX75** | P1 | 10h | À vérifier | Switcher Profil, 5ᵉ onglet Compte. Dual-rôle : Objectifs selon **espace**. | Changer d’espace change Profil et onglets. |
+| **UX76** | P2 | 10g | Partiel | Labels / 44 px en cours. `aria-current`, badge, zoom. | Onglet actif identifiable clavier / lecteur. |
+| **UX77** | P2 | 10a | À construire | Recettes **dans** Nutrition. Séance immersive : sortie évidente. **Pas** tout regrapher. | Recettes ≠ session ; séance a une sortie. |
+| **UX84** | P1 | 8 | À construire | FAB + Nouveau `/workout` : pas de doublon vs jour dû. | Hors programme **nommé** ; pas d’interdiction. |
+
+### Séance
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX12** | P1 | 1 | **Partiel** | L’écriture ne coche plus le reste. Le **calcul d’affichage** ignore `completed`. Une définition unique « réalisé ». | Séries non cochées absentes du volume / 1RM / dernière séance coach. |
+| **UX13** | P2 | ens. | À construire | Reprendre les valeurs ≠ ajouter une série. | Pas de série en trop par raccourci. |
+| **UX14** | P2 | 10f | À vérifier | Inputs séance agrandis. Unités partout. | Édition conservée ; unité du profil. |
+| **UX15** | P2 | ens. | À vérifier | Repos 90 s déjà lancé après coche. Préférence auto **volontaire** ; pas au préremplissage. | Désactivable ; jamais sur un simple fill. |
+| **UX16** | P1 | ens. | À construire | Langage : appareil / sync / action requise. | Après coupure, on sait ce qui est conservé. |
+| **UX17** | P1 | 1 | À construire | Plus de `setTimeout` 30 s. Bilan retrouvable. Faits, pas leçon. | Fermeture volontaire seulement. |
+
+### Exercices et programmes
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX18** | P2 | ens. | À construire | Variantes / matériel / récents. | Bonne variante avant sélection. |
+| **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
+| **UX20** | P1 | 3 | À construire | Brouillon / enregistré / actif **et** sauvegarde solo atomique + version. | Le client voit ou ne voit pas ; pas de plan à moitié. |
+| **UX21** | P1 | 3 | À vérifier | Plus de premier client auto. Recap destinataire / date. | Parcours bibliothèque sans destinataire accidentel. |
+| **UX22** | P2 | ens. | À concevoir | Athlète = séance ; coach = structure. | Séance identifiable après report. |
+| **UX23** | P1 | ens. | À concevoir | Diff avant/après, auteur, date d’effet. | Restaurer ≠ réécrire le passé. |
+| **UX81** | P1 | 8 | À construire | **Après UX12.** Progression **lecture** coaché (`/exercise-progress`). Pas stats/calendrier dans le même PR. | Tendances d’exo accessibles ; plan non éditable. |
+
+### Check-in et relation
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX24** | P2 | fait | À vérifier | Ancres bas/haut livrées (#91). | Historique comparable. |
+| **UX25** | P2 | ens. | À construire | Champs vraiment utilisés ; cœur vs détails. | Chaque champ explicable. |
+| **UX26** | P1 | 10e | À construire | **Pas** « transmis ». « Enregistré — visible par {coach} » si accès réel. | Succès ≠ lu. |
+| **UX27** | P2 | ens. | À concevoir | Relier réponse coach / adaptation au bilan. | Le coaché voit à quoi ça a servi. |
+| **UX28** | P1 | ens. | À construire | Manque ≠ faute. Relances respectueuses. | Pas d’interprétation santé automatique. |
+
+### Messagerie
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX29** | P1 | 7 | À vérifier | Ancrage au chargement de l’historique. | Page ancienne ≠ saut en bas. |
+| **UX30** | P1 | 7 | À construire | Brouillon durable hors du composant. | Changer de fil restaure le bon texte. |
+| **UX31** | P1 | 7 | À construire | États serveur. Pas de lu local si l’update a échoué. | Pas de doublon ; pas de faux lu. |
+| **UX32** | P2 | ens. | À concevoir | Lier séance / check-in (résumé). Après le socle 7. | Objet identifiable dans le fil. |
+| **UX85** | P1 | 7 | À construire | Dismiss carte Accueil ≠ `markCoachMessageRead`. | Masquer un rappel ne marque pas lu. |
+
+Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, recherche, présence : **après** le socle. Pas de E2E promis.
+
+### Travail coach
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX33** | P1 | 9 | Partiel | Pourquoi + action : oui. **Depuis quand : non.** | Priorité compréhensible sans ouvrir la fiche. |
+| **UX34** | P2 | 9 | À construire | Passer = un signal ; report ; undo. | Pas d’écartement en bloc. |
+| **UX35** | P2 | 9+10c | À vérifier | « Depuis ta dernière visite ». Dernière séance = UX12. | Répondre sans relire tout le dossier. |
+| **UX36** | P2 | ens. | À construire | Filtres visibles, éditables, effaçables. | On sait pourquoi un client est dans la liste. |
+| **UX37** | P2 | 10j | À construire | Preview de ce que le client **verra**. | Pas de surprise d’onglets / champs. |
+| **UX38** | P3 | rep. | Reporté | Actions groupées limitées. | Seulement si gain prouvé. |
+| **UX78** | P1 | 2 | À construire | SQL `coach_id` + confirmation chiffrée. | Dual-rôle Personnel ne peut pas couper le roster. |
+
+### Questionnaire coach (builder)
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX39** | P2 | ens. | À construire | Partir d’un modèle court. | Questionnaire court sans jargon. |
+| **UX40** | P2 | ens. | À construire | Preview effort (écrans, obligatoires, FR/EN). | Aperçu = parcours client. |
+| **UX41** | P1 | ens. | À construire | Publication : qui doit compléter. | Pas de reset massif pour une typo. |
+
+### IA
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX42** | P1 | 10d | À construire | Cible client / programme visible avant Ask. | Pas d’ambiguïté de destinataire. |
+| **UX43** | P1 | 10d | À construire | Effet : réponse / filtre / brouillon / message. | « Envoyer » ne cache pas un changement de plan. |
+| **UX44** | P2 | ens. | À construire | Attente IA quittable. | L’app reste utilisable. |
+| **UX45** | P2 | 10b | À construire | Solo : aide sur programme / séance, pas un chat `/prometheus`. Notice Accueil : **garder**. Revue = 3 chiffres. | Aucune application sans choix. |
+| **UX46** | P2 | 10c | À vérifier | Learned en langage humain. | Désactivation sans clés techniques. |
+
+### Calendrier et indicateurs
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX47** | P2 | ens. | À concevoir | Prévu / commencé / terminé ; report expliqué. | Le passé ne disparaît pas. |
+| **UX48** | P1 | 6 | À construire | Plus de `maybeSingle()` séance (ni pesée) du jour. Fenêtre = période vue. Requête périmée ignorée. | Deux séances le même jour visibles. |
+| **UX49** | P2 | 1+6 | À construire | Manque ≠ 0. Record égalé ≠ battu. Jours ≠ séances. | Pas de conclusion sur données insuffisantes. |
+| **UX50** | P2 | ens. | À concevoir | Du point de courbe vers la séance. | Origine retrouvable. |
+
+### Nutrition, recettes, photos
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX51** | P2 | ens. | À construire | Provenance en mots, pas seulement icônes. | Source ≠ certifié. |
+| **UX52** | P2 | ens. | À vérifier | Produit introuvable / pas de caméra : issue. | Le journal reste possible. |
+| **UX53** | P2 | 10a | À construire | Recettes pour cuisiner ; **dans** le shell. Contrat onglet FoodForm vs page CRUD pour le coaché. | Utiles sans tableau de macros. |
+| **UX54** | P1 | 5 | À construire | Texte selon `myCoach`. Partage ≠ interrupteur UI. Scopes marketplace = phrase d’acceptation. | Audience connue avant upload. |
+
+### Marketplace et fin de relation
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX55** | P2 | M5 | À vérifier | Filtres exacts en code. Pas de % inventé. | On sait ce qu’on demande. |
+| **UX56** | P1 | M5 | Partiel | États pending/… existent. **Copy :** accepté = **suivi actif**, pas un paiement. | Pas de 2ᵉ demande identique ; effet compris. |
+| **UX57** | P1 | M2a | À vérifier | UI départ présente. Listes *gardes / s’arrête / ne se transmet pas*. | Anticiper accès après départ. |
+| **UX58** | P1 | M2a | À vérifier | Reprise solo sans onboarding ; programme en pause. | Pas d’histoire effacée ni dossier transféré. |
+| **UX59–61** | P1 | M6 | Reporté | Billing fermé. | Quand chantier 3 s’ouvre. |
+
+### Qualité transversale
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **UX62** | P1 | chaque | Partiel | Dans chaque lot. OverflowMenu : Échap + focus (10g). | Parcours essentiels sans souris, zoom 200 %. |
+| **UX63** | P1 | 3+6 | À construire | `fetchPrograms` / stats / progression : erreur ≠ vide. | Données déjà là conservées + réessai. |
+| **UX64** | P2 | ens. | À construire | Permission au bon moment ; rappel = objet encore vrai. | Pas de relance d’une tâche finie. |
+| **UX65** | P2 | 10f | Partiel | FR/EN clés ≠ UI. Progression en kg collé. Fuseau lisible. | Changer d’unité ne change pas la donnée. |
+| **UX66** | P2 | ens. | À construire | Audience, export éventuel, delete, liens. | Contrôle sans écrire au support. |
+| **UX67** | P2 | ens. | À concevoir | Aide contextuelle. | Pas de dump de parcours. |
+| **UX68** | P1 | ens. | À vérifier | Stabilité chargement ; pas de double submit. | Action prise en compte tout de suite. |
+| **UX69** | P3 | rep. | Reporté | Raccourcis Accueil seulement si la nav par défaut échoue. | Test comparatif. |
+| **UX70** | P2 | cont. | Continu | Mesurer réussite de tâche, pas le temps passé. | Sans contenu de messages / photos. |
+
+---
+
+## Décisions de cadrage (conservées)
+
+| Suggestion | Décision |
 |---|---|
-| **P1** | À traiter d’abord dans le chantier UX : risque de travail perdu, résultat trompeur, action mal comprise ou blocage fréquent d’un parcours essentiel. |
-| **P2** | À traiter ensuite : gain de temps, meilleure compréhension, accès plus direct et réduction de la charge quotidienne. |
-| **P3** | À tester avant de construire : personnalisation ou confort dont le bénéfice reste à démontrer. |
+| Questionnaire en phases | Oui au regroupement utile. Pas exactement 3 phases. UX03–05, UX80. |
+| Silhouette | P3. UX06. |
+| Accusé de check-in | Oui. Date seulement si réelle. Pas « transmis ». UX26. |
+| Empty sans programme | Oui, avec contact. UX10. |
+| Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43. |
+| Équivalence alimentaire « compensation » | Non. UX51–53. |
+| Mode simple / avancé parallèle | Non : disclosure progressive. |
+| Repos auto | Volontaire, après coche. UX15. |
+| Actions groupées coach | P3. UX38. |
+| 6ᵉ onglet / Copilote tab / switcher chrome | Non. |
 
-La priorité est un jugement produit fondé sur la gravité plausible, la fréquence du parcours et le nombre de rôles concernés. Elle ne repose pas sur des taux d’abandon mesurés. À priorité égale, commencer par les actions les plus fréquentes. Une difficulté d’accessibilité qui empêche réellement une action devient P1.
+---
 
-**Base** : `C` = comportement ou structure constatés dans le code, conséquence UX à confirmer au besoin ; `H` = hypothèse d’amélioration à tester ; `F` = expérience projetée d’un chantier supposé réalisé. `C` ne signifie pas que toute la solution proposée est absente. **Portée** : `I` = interface principalement ; `I+D` = interface avec état durable ou logique métier si nécessaire. Les dépendances techniques indiquées sont des moyens possibles, pas une autorisation à reconstruire le backend.
+## Preuves de parcours (quand un lot se clôt)
 
-### 1. Entrée dans l’app et questionnaire
+Comptes de test, pas la CI seule.
 
-Les parcours d’authentification demandent actuellement un choix de rôle en entrée, sauf contexte d’invitation. Le questionnaire possède déjà des écrans, une progression et une reprise. Il faut améliorer la première expérience sans recréer ces mécanismes.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
+| Rôle | Scénario | Observer |
 |---|---|---|
-| **UX01 · P2 · C/I** | **Connexion directe pour les habitués.** Proposer « Se connecter » immédiatement ; demander l’intention coach/coaché/solo lors de l’inscription ou d’un changement volontaire. Utiliser des phrases concrètes pour expliquer les rôles. | Une personne déjà inscrite retrouve son espace sans devoir redéfinir son rôle. |
-| **UX02 · P1 · H/I+D** | **Invitation compréhensible jusqu’au bout.** Garder le nom du coach et le contexte pendant connexion, création du compte et questionnaire. Expiration, compte différent ou lien déjà utilisé doivent mener à une action précise. | Aucun cas d’invitation invalide ne se termine dans un écran sans issue ; l’utilisateur sait à quel compte et coach il se rattache. |
-| **UX03 · P2 · C+F/I+D** | **Questionnaire progressif par utilité.** Recueillir d’abord le nécessaire à la prochaine action, proposer le complément au moment utile. Regrouper les questions ; afficher une durée estimée seulement si elle a été mesurée. Préserver progression et reprise existantes. | On comprend pourquoi répondre maintenant, ce qui peut attendre et où reprendre ; aucune réponse n’est ressaisie après interruption. |
-| **UX04 · P1 · H+F/I+D** | **Expliquer les informations sensibles et leur audience.** Dire pourquoi une question est posée, qui verra la réponse et quelles questions sont facultatives. Ne pas préremplir un ressenti actuel à partir d’une ancienne réponse. | Avant de répondre, la personne peut identifier le destinataire et les conséquences d’un refus sur le service proposé. |
-| **UX05 · P2 · F/I+D** | **Résumer avant de terminer.** Montrer les réponses utiles et les engagements de suivi, permettre la correction par rubrique et éviter de répéter ce qui est déjà connu. Pour une nouvelle version du questionnaire, ne redemander que ce qui est nécessaire. | Une correction ne force pas à refaire tout le parcours ; les anciennes réponses gardent leur sens. |
-| **UX06 · P3 · H/I** | **Silhouette uniquement comme aide facultative.** Si une sélection de zone corporelle apporte un gain, l’accompagner d’une liste textuelle accessible et d’une option « autre/préciser ». Aucun diagnostic automatique. | En test comparatif, la sélection devient plus claire sans exclure clavier ou lecteur d’écran ; sinon garder la liste simple. |
+| Solo / coaché | Séance : 1 série cochée, 1 préremplie non cochée, Terminer | Bilan, historique, graphes, 360 coach : **une** série réalisée |
+| Coach dual-rôle | Personnel → Profil → Mode coach OFF avec clients actifs | Refus ou confirmation chiffrée ; roster encore joignable |
+| Coaché | Invite → questionnaire incomplet | Aujourd’hui + messages accessibles ; bannière ; reprise |
+| Solo | Photos | Aucun texte « ton coach voit » |
+| Coaché / solo | Deux séances le même jour dans le calendrier | Les deux listées |
+| Coach / coaché | Texte dans un fil, changer de conversation, revenir | Brouillon intact ; dismiss Accueil ≠ lu |
+| Coaché | Entraînement sans éditer le plan | « Mon programme » lecture ; courbes d’exo **après** vérité des séries |
+| Coach | File : deux signaux, Passer | Un seul écarté ; ancienneté visible |
+| Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
-### 2. Accueil et navigation des trois rôles
-
-Les fonctions solo sont notamment accessibles dans le hub du Profil sur mobile ; l’accueil coach cumule plusieurs groupes de cartes. La présence des fonctions ne garantit pas qu’on les trouve.
-
-Diagnostic et architecture cible (chrome, IA, structure front) : [`AUDIT_NAVIGATION_UX.md`](AUDIT_NAVIGATION_UX.md), revue code du 14 septembre 2026. Inventaire des fonctionnalités livrées et diagnostic d’usage des trois personae : [`RAPPORT_UX_FONCTIONNALITES.md`](RAPPORT_UX_FONCTIONNALITES.md). Ce fichier reste la source des statuts ; l’audit et le rapport n’ajoutent pas de priorité au-dessus des chantiers 1–3.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX07 · P1 · H/I** | **Une action principale selon l’état.** Coach : reprendre le client à traiter. Coaché : ouvrir sa séance ou sa prochaine demande. Solo : reprendre son activité ou son programme. Donner la priorité à une tâche déjà commencée, sans ajouter de rendez-vous artificiel. | Depuis l’accueil, chacun identifie spontanément sa prochaine action ; aucune obligation n’est inventée un jour sans tâche. |
-| **UX08 · P2 · C/I** | **Rendre programme et historique trouvables pour le solo.** Tester un accès direct depuis accueil et navigation, avec un espace « Suivi » ou équivalent. Réserver Profil aux informations du compte et préférences. | Trouver son programme ou une séance passée ne nécessite pas de deviner qu’ils se cachent dans Profil. |
-| **UX09 · P1 · C/I** | **Préserver le contexte au retour.** Garder recherche, filtres, onglet, position de liste et client courant. Revenir à la file d’origine depuis une fiche ou une intervention. | Un coach traite plusieurs clients successivement sans reconstruire sa sélection après chaque visite. |
-| **UX10 · P1 · H/I+D** | **Transformer les états d’attente en orientation utile.** Programme en préparation, bilan envoyé, demande de coaching en attente : expliquer l’état, proposer le bon contact et afficher une échéance seulement si quelqu’un l’a réellement définie. | L’utilisateur sait ce qu’il peut faire maintenant ; aucune fausse date de réponse ni fausse absence de données. |
-| **UX11 · P2 · C+F/I** | **Cohérence des mots et des modules.** Employer les mêmes termes pour séance, programme, bilan, brouillon et publication. Expliquer la différence entre un modèle réutilisable et le programme actif. Rendre les modules désactivés compréhensibles sans déplacer les repères à chaque visite. | Une même action porte le même nom entre accueil, détail, notification et retour ; les anciens liens utiles restent orientés correctement. |
-| **UX74 · P1 · C/I** | **Une seule source de vérité pour la navigation.** BottomNav, SideNav, SoloHub, hubs Profil et PageTransition recopient des listes divergentes (libellés Accueil/Tableau de bord, workout/workouts, marketplace primaire sur desktop seulement). Extraire un `navConfig` par persona et espace. | Un ajout de destination se fait en un endroit ; mobile et desktop enseignent la même carte avec les mêmes mots. |
-| **UX75 · P1 · C/I** | **Le Profil et le chrome suivent l’espace affiché.** `ProfilePage` lit `coachingRole === 'coach'` au lieu de `activeWorkspace` : un dual-rôle en Personnel perd Objectifs et garde le hub marketplace. BottomNav coach n’a pas d’entrée Compte ; le sticky avatar n’existe que si les outils personnels sont disponibles. | Changer d’espace change vraiment Profil et onglets. Un coach mobile atteint langue, déconnexion et offre en un geste. |
-| **UX76 · P2 · C/I** | **Chrome de navigation accessible.** Items en `button`+`navigate`, pas de `aria-current`, labels `text-[9px]`, badge messages hors nom accessible, palette ⌘K sans affordance. | Clavier et lecteur d’écran identifient l’onglet actif ; labels lisibles à 200 % de zoom ; cible minimale respectée. |
-| **UX77 · P2 · C/I** | **Un graphe de routes, deux shells.** Marketplace a une branche `AppLayout` anticipée dans `App.tsx` ; séance/scanner/recettes vivent hors `AppLayout` via `FullPageLayout` (pas de BottomNav). Extraire gates et carte ; `AppShell` vs `SessionShell`. | Chaque path a une définition ; Recettes n’est plus une session ; une séance immersive a une sortie évidente. |
-
-### 3. Séance : saisie, interruption et bilan
-
-Le code distingue imparfaitement données renseignées et séries réalisées. `WorkoutForm` marque toutes les séries hors échauffement comme terminées à la clôture. La duplication ajoute une série ; elle ne remplit pas simplement la suivante prévue. Le résumé se ferme automatiquement après trente secondes. Ces trois points méritent une vérification de parcours prioritaire.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX12 · P1 · C/I+D** | **Séparer prévu, renseigné, réalisé et non réalisé.** Terminer une séance ne doit pas transformer les séries restantes en travail effectué. Autoriser à finir une séance partielle sans culpabiliser. | Une séance interrompue conserve uniquement les réalisations explicitement confirmées ; le résumé et le coach voient la même chose. |
-| **UX13 · P2 · C/I+D** | **Distinguer reprendre les valeurs et ajouter une série.** Le raccourci courant remplit la prochaine ligne prévue ; « Ajouter une série » reste une action distincte et volontaire. | Réutiliser une saisie ne change pas accidentellement le programme ou le nombre de séries. |
-| **UX14 · P2 · C/I** | **Saisie adaptée au téléphone.** Clavier approprié, unités visibles, passage logique au champ suivant, action principale accessible malgré le clavier. Tester les incréments seulement s’ils réduisent les erreurs ; garder la saisie directe. | Une édition est conservée après changement de champ ; affichage et enregistrement respectent l’unité choisie. |
-| **UX15 · P2 · C/I** | **Repos automatique au choix.** Conserver le démarrage manuel actuel ; proposer une préférence pour lancer le minuteur après confirmation explicite d’une série. Son et vibration sont optionnels et dépendants du support du navigateur. | Aucun minuteur ne démarre à cause d’un simple préremplissage ; le réglage se désactive facilement. |
-| **UX16 · P1 · C+F/I+D** | **Reprise et synchronisation en langage courant.** « Enregistré sur cet appareil », « Synchronisation en attente », « Cette modification nécessite une action ». Nommer l’objet concerné et proposer Réessayer. Étendre cette qualité aux autres modules hors ligne supposés livrés. | Après coupure et retour du réseau, on sait ce qui est conservé et partagé, sans lire un type d’opération ou une erreur technique. |
-| **UX17 · P1 · C/I** | **Bilan sous le contrôle de l’utilisateur.** Retirer la fermeture automatique, rendre le bilan retrouvable, résumer les faits sans juger une séance sur une durée ou un volume universel. Ne pas afficher une distinction non calculée comme un résultat réel. | Le bilan reste lisible jusqu’à fermeture volontaire ; une séance courte ou partielle n’entraîne pas de pression à en faire davantage. |
-
-### 4. Exercices, programmes et modifications
-
-Le sélecteur possède déjà recherche, détails et détection de ressemblances. L’éditeur dispose déjà d’une simplification pour certaines séances issues d’un programme. Une proposition acceptée peut être ajoutée à l’éditeur sans être encore enregistrée. L’attribution présélectionne le premier client de la liste.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX18 · P2 · C/I** | **Trouver un exercice sans connaître son nom exact.** Exposer clairement matériel, variantes, instructions et synonymes déjà exploités par la recherche. Donner accès aux choix récents pertinents ; création personnelle après les correspondances possibles. | Une personne reconnaît la bonne variante avant sélection et peut revenir sans perdre sa recherche. |
-| **UX19 · P2 · H+F/I+D** | **Remplacement d’exercice avec portée explicite.** « Pour cette séance » ou « Proposer un changement du programme », selon les droits. Conserver la raison utile et signaler le changement au coach sans modifier silencieusement les prochaines semaines. | Remplacer aujourd’hui ne réécrit pas le programme futur sans choix explicite. |
-| **UX20 · P1 · C/I+D** | **Brouillon, enregistré et actif : trois états lisibles.** Renommer l’ajout IA local « Ajouter au brouillon ». Sauvegarder le brouillon et rendre visible ce qui attend encore une publication ; protéger la sortie avec modifications. | La personne peut dire si son client voit déjà les changements ; quitter et reprendre ne détruit pas le travail. |
-| **UX21 · P1 · C/I+D** | **Attribution sans destinataire accidentel.** Depuis une fiche client, conserver sa cible visible ; depuis la bibliothèque, demander un choix explicite. Résumer destinataire, programme, date et éventuel remplacement avant validation. | Aucun premier client arbitraire n’est sélectionné ; une attribution à la mauvaise personne est évitée dans le scénario de test. |
-| **UX22 · P2 · F/I+D** | **Semaines, cycles et prescriptions compréhensibles.** Le coach voit la structure complète ; l’athlète voit d’abord sa séance et les consignes utiles. Reporter une séance ou changer de phase explique les conséquences, sans exiger de comprendre l’arborescence. | La séance attendue reste identifiable après report ou changement de semaine ; les formats affichent uniquement leurs champs utiles. |
-| **UX23 · P1 · F/I+D** | **Révisions utiles à la décision.** Avant publication ou restauration : différence avant/après, auteur, date d’effet, destinataires et séances affectées. Conserver l’historique réellement effectué. | Le coach comprend exactement ce que restaure une version ; une séance passée ou en cours n’est pas réinterprétée silencieusement. |
-
-### 5. Bilans et relation coach–coaché
-
-L’historique de bilans existe et le coach peut lire des scores, comparer certaines valeurs et ajouter une note privée. L’enjeu est d’alléger l’effort demandé et de rendre visible son utilité.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX24 · P2 · C+H/I+D** | **Donner du sens aux échelles.** Ajouter des repères verbaux clairs aux valeurs ; conserver le sens et la version des anciennes réponses. Ne pas convertir silencieusement une échelle en une autre. | Deux personnes comprennent les extrêmes de façon cohérente ; l’historique ne compare pas des réponses incompatibles. |
-| **UX25 · P2 · F/I+D** | **Un suivi aussi léger que possible.** Ne demander que les informations utilisées par le coach ou le solo. Fréquence convenue, champs réellement facultatifs, accès rapide au complément. Aucun ressenti actuel recopié automatiquement. | Chaque champ demandé a une utilité explicable ; l’utilisateur peut signaler qu’un suivi ne lui convient pas. |
-| **UX26 · P1 · H/I+D** | **Accusé de réception honnête.** Distinguer « Enregistré », « Transmis au coach » et « Examiné » si ce dernier événement existe. Proposer correction ou complément. Afficher le prochain échange seulement s’il est convenu. | Envoi réussi ne signifie jamais lu ou approuvé ; une réponse réseau lente ne laisse pas croire à un échec définitif. |
-| **UX27 · P2 · H/I+D** | **Fermer la boucle du suivi.** Relier la réponse du coach ou un changement de programme au bilan concerné. Expliquer aussi quand aucune modification n’est nécessaire, sans imposer au coach une validation quotidienne supplémentaire. | Le coaché retrouve à quoi a servi son retour et ne doit pas chercher dans plusieurs écrans. |
-| **UX28 · P1 · H/I+D** | **Absence de saisie ≠ problème avéré.** Distinguer repos, indisponibilité, donnée manquante et difficulté déclarée. Rendre les messages de relance respectueux et laisser exprimer un empêchement. | Une journée sans saisie ne reçoit pas automatiquement une interprétation négative ou une conclusion de santé. |
-
-### 6. Messagerie
-
-Le texte est déjà conservé après échec d’envoi. En revanche, l’effet de défilement dépend du nombre total de messages ; charger les anciens messages déclenche donc aussi un retour en bas. La saisie reste modifiable pendant un envoi, puis le champ est vidé au succès : le scénario d’un second texte commencé pendant l’attente doit être vérifié.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX29 · P1 · C/I** | **Garder la position de lecture.** Lors du chargement de l’historique, conserver l’ancrage visuel. Pour un nouveau message reçu, aller en bas uniquement si la personne y était déjà ; sinon afficher un repère. | Charger une page ancienne ne renvoie plus au dernier message. |
-| **UX30 · P1 · C/I+D** | **Protéger le texte en cours.** Brouillon par conversation ; effacer uniquement le texte effectivement envoyé. Respecter la composition clavier et rendre le comportement Entrée explicite, notamment sur mobile. | Commencer un second message pendant l’envoi du premier ne le fait pas disparaître ; changer de fil préserve le bon brouillon. |
-| **UX31 · P1 · C+F/I+D** | **Statut et reprise fiables.** Afficher attente, envoyé et échec au niveau du message ; Réessayer réutilise le même envoi logique. Ne montrer « Lu » que si une preuve réelle le permet. | Coupure réseau et nouvel essai ne créent ni doublon visible ni fausse confirmation de lecture. |
-| **UX32 · P2 · H/I+D** | **Contexte directement dans la conversation.** Lier un message à une séance, un bilan ou une proposition, avec un résumé compréhensible et un retour au fil. | Coach et client identifient l’objet discuté sans recopier ses détails. |
-
-### 7. Travail quotidien du coach
-
-La file regroupe déjà des alertes par client et utilise une hiérarchie. Le besoin est de mieux expliquer l’urgence et d’achever le traitement sans perdre le contexte, pas d’ajouter une deuxième file concurrente. La fiche client contient un questionnaire détaillé et de nombreuses rubriques.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX33 · P1 · C+H/I+D** | **Une file de travail expliquée.** Pour chaque client : pourquoi il apparaît, depuis quand, ce qui est nouveau et une action pertinente. Utiliser texte et pictogramme en plus de la couleur ; dédupliquer les sollicitations portant sur la même situation. | Le coach comprend la priorité sans ouvrir chaque fiche ; des données manquantes ne sont pas présentées comme des certitudes. |
-| **UX34 · P2 · H/I+D** | **Traiter, différer ou classer sans se répéter.** Prévoir un statut utile, un report choisi et une remise en file seulement lorsqu’un fait nouveau le justifie. Reprendre le client suivant depuis la même sélection. | Une alerte déjà traitée ne réapparaît pas immédiatement sans explication ; les reports ne cachent pas les nouvelles informations importantes. |
-| **UX35 · P2 · C+H/I** | **Fiche 360 centrée sur ce qui a changé.** Mettre en tête dernier échange, prochain événement, changements récents et contexte pertinent. Ranger le questionnaire complet et l’historique détaillé dans des sections accessibles. | Répondre à un bilan courant ne nécessite pas de relire le dossier entier. |
-| **UX36 · P2 · C+H/I** | **Recherche et filtres directement manipulables.** Nom, état du suivi, programme, éléments non traités ; montrer les filtres actifs et un bouton d’effacement. Les demandes en langage naturel produisent des filtres visibles et éditables. | Le coach comprend pourquoi un client apparaît ou manque dans la liste. |
-| **UX37 · P2 · C+F/I+D** | **Voir la charge imposée au client avant d’envoyer.** Depuis setup et réglages de suivi, prévisualiser les écrans, champs et fréquence reçus par le client. Distinguer préférences générales et exception individuelle. | Le coach ne découvre pas après coup qu’il a activé des demandes inutiles ; une modification générale annonce son périmètre. |
-| **UX38 · P3 · H/I+D** | **Actions groupées limitées et contrôlables.** Commencer par classement ou report. Pour les messages, montrer destinataires et aperçu individualisé ; ne pas valider en masse des adaptations de programme nécessitant un jugement individuel. | Le gain de temps est démontré sans hausse des erreurs de destinataire ou de contenu. |
-
-### 8. Questionnaire personnalisable du coach — projection
-
-Le builder et son aperçu sont considérés comme livrés. Ces items ajoutent une qualité d’usage à cette base, sans redemander sa construction.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX39 · P2 · F/I** | **Commencer par adapter un bon modèle.** Favoriser modifier/retirer/réordonner des questions utiles plutôt qu’une page vide. Montrer les questions redondantes et l’usage attendu de chaque réponse. | Un coach peut préparer un questionnaire court sans maîtriser une structure technique. |
-| **UX40 · P2 · F/I** | **Aperçu qui révèle l’effort demandé.** Tester mobile, deux langues, réponses manquantes et branches conditionnelles si disponibles. Montrer nombre d’écrans et de questions obligatoires. | L’aperçu correspond au parcours reçu et révèle une traduction manquante avant publication. |
-| **UX41 · P1 · F/I+D** | **Publication sans surprise pour les clients existants.** Expliquer qui reçoit la nouvelle version, ce qui reste valide et si un complément sera demandé. Éviter une notification pour chaque petite correction de présentation. | Publier une version ne force pas tous les clients à recommencer leur dossier. |
-
-### 9. IA et autonomie du solo
-
-Le copilote possède des suggestions de demandes, un historique local et des propositions nécessitant une décision humaine. Certaines actions « envoyer » peuvent aussi modifier un programme. L’écran des apprentissages permet déjà désactivation et suppression ; l’amélioration porte sur la compréhension de leur effet.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX42 · P1 · C/I** | **Client et programme toujours visibles.** Avant une demande ou une proposition, afficher la cible et permettre sa correction. En cas d’ambiguïté, demander le choix. Les exemples de prompts ne doivent pas lancer une action inattendue. | Le coach peut vérifier sur qui porte la demande sans relire son texte libre. |
-| **UX43 · P1 · C/I+D** | **Prévisualiser les effets, pas seulement le texte.** Séparer réponse informative, préparation de brouillon, modification du programme et message au client. Expliquer données utilisées, inconnues et portée de la validation. | « Envoyer » ne masque pas une modification de programme ; l’utilisateur comprend ce qui sera visible et quand. |
-| **UX44 · P2 · C+F/I+D** | **Une attente IA que l’on peut quitter.** Conserver demande et résultat, permettre de revenir, relancer sans double action et continuer manuellement en cas d’échec. N’afficher des étapes ou un pourcentage que s’ils correspondent à un état réel. | Une génération lente ne bloque pas toute l’app et ne fait pas perdre le travail. |
-| **UX45 · P2 · H+F/I** | **Solo : aide au bon endroit, détails à la demande.** Depuis le programme ou une séance, permettre de comprendre les consignes et demander une proposition liée au contexte. Rendre les réglages avancés découvrables sans imposer un second mode complet à configurer. | L’essentiel reste utilisable sans connaître le vocabulaire de préparation ; aucune suggestion n’est appliquée sans choix. |
-| **UX46 · P2 · C/I+D** | **Apprentissages IA en langage humain.** Présenter ce qui a été retenu, sa source, son périmètre et son usage possible ; rendre correction et désactivation déjà disponibles compréhensibles. | Une préférence attribuée à tort peut être identifiée et désactivée sans lire des clés techniques. |
-
-### 10. Calendrier, historique et indicateurs
-
-Le calendrier consulte une séance unique dans le détail d’une journée alors que le cas de plusieurs séances doit être géré ; certains marqueurs ne chargent qu’une fenêtre de dates. Ces situations doivent être vérifiées avec les données autorisées par le produit. Les statistiques proposent déjà des périodes, mais une absence de données ne doit pas produire une interprétation trompeuse.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX47 · P2 · F/I+D** | **Un calendrier qui aide à agir.** Distinguer prévu, reporté, commencé et terminé ; ouvrir directement l’élément et expliquer les conséquences d’un report. | Une modification du planning ne fait pas disparaître une réalisation passée ni perdre la prochaine séance. |
-| **UX48 · P1 · C/I+D** | **Détail journalier complet et honnête.** Montrer tous les éléments autorisés d’une journée. Distinguer absence réelle, chargement hors fenêtre et erreur. Empêcher qu’une réponse tardive réaffiche le jour précédent. | Deux séances le même jour restent accessibles ; naviguer dans des dates anciennes n’affiche pas un faux vide. |
-| **UX49 · P2 · C+H/I** | **Indicateurs compréhensibles sans jugement automatique.** Afficher période, source, quantité de données disponibles et sens de la comparaison. Choisir les indicateurs utiles à l’utilisateur ; une hausse n’est pas universellement positive. | Une donnée manquante n’est pas un zéro et une comparaison insuffisamment documentée n’est pas présentée comme une conclusion. |
-| **UX50 · P2 · H/I+D** | **Revenir à l’événement qui explique un graphique.** Relier l’historique aux séances et notes concernées ; permettre de retrouver et corriger une erreur de saisie dans le respect du programme et des droits. | Depuis un point de suivi, on retrouve son origine et comprend pourquoi il est affiché. |
-
-### 11. Alimentation, recettes et données personnelles sensibles
-
-La recherche distingue déjà favoris, récents, base et source externe par des icônes. Cela ne vaut pas certification. Ici les propositions portent sur compréhension, confidentialité et organisation pratique ; elles ne visent ni davantage de comptage, ni des objectifs corporels, ni des incitations à compenser. Les photos restent facultatives.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX51 · P2 · C/I** | **Provenance explicite des informations alimentaires.** Remplacer les seules icônes par un libellé compréhensible et préciser ce qui est connu ou incomplet. Employer « source… » plutôt que « certifié » sans validation correspondante. | L’utilisateur distingue donnée fournie par une source et information effectivement vérifiée. |
-| **UX52 · P2 · H/I+D** | **Information incertaine ou produit introuvable : une issue simple.** Permettre signalement, correction personnelle et poursuite sans obligation de compléter une fiche. La lecture d’un code ne doit pas être la seule entrée. | Un produit absent ou un appareil sans permission caméra ne bloque pas l’usage général. |
-| **UX53 · P2 · H/I** | **Recettes conçues pour préparer un repas.** Mettre en avant ingrédients, étapes, temps disponible et contraintes choisies ; faciliter retrouver une recette enregistrée. Garder un vocabulaire neutre. | Une personne peut choisir et suivre une recette sans devoir comprendre un tableau de mesures. |
-| **UX54 · P1 · C+H/I+D** | **Contrôle des photos et suivis sensibles.** Expliquer qui peut voir, rendre ces modules facultatifs, afficher progression/échec de transfert et les conséquences de suppression. Sans notation d’apparence ni comparaison imposée. | Avant transfert, la personne connaît l’audience ; masquer ou ne pas utiliser ce module n’empêche pas les parcours essentiels. |
-
-### 12. Trouver, rejoindre, quitter ou changer de coach — projection
-
-L’annuaire, les demandes et le départ autonome sont supposés fonctionnels. L’objectif supplémentaire est une décision éclairée et une transition continue.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX55 · P2 · F/I+D** | **Comparer sur des critères utiles.** Disponibilité, langue, modalités, spécialités déclarées, contenu du service et prix lorsqu’il s’applique. Expliquer la portée de toute vérification ; éviter un classement opaque présenté comme une recommandation objective. | L’utilisateur comprend ce qu’il obtiendra avant de demander un accompagnement. |
-| **UX56 · P1 · F/I+D** | **Demande avec état et prochaine étape.** Demandé, accepté, refusé, expiré ou retiré ; éviter les doublons et permettre de retirer sa demande. Ne pas promettre un délai non convenu. | On retrouve l’état sans renvoyer plusieurs fois une demande identique. |
-| **UX57 · P1 · F/I+D** | **Départ expliqué avant confirmation.** Présenter ce qui reste accessible, ce qui ne sera plus partagé, le devenir des messages et programmes et l’éventuel effet commercial. Ne pas faire croire que rompre le lien résilie automatiquement un abonnement si ce n’est pas vrai. | L’utilisateur peut anticiper ses accès et paiements après le départ sans contacter le support. |
-| **UX58 · P1 · F/I+D** | **Continuité vers le solo ou un nouveau coach.** Conserver l’historique permis, identifier un programme en pause, proposer une reprise claire. Choisir explicitement les informations transmises au nouveau coach. | Changer de rôle ne renvoie pas à un démarrage vide et ne partage pas silencieusement l’ancien dossier. |
-
-### 13. Abonnements et limites — projection
-
-Le billing est supposé livré selon le modèle produit choisi. Les propositions ci-dessous ne présument ni prix ni formule commerciale.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX59 · P1 · F/I** | **Offre et limites expliquées avant engagement.** Montrer ce qui est inclus, à qui s’applique la limite, fréquence de facturation et date d’effet. Afficher une limite avant le travail susceptible d’être bloqué. | Un coach n’apprend pas après préparation complète qu’il ne peut pas terminer l’action ; le client sait qui paie quoi. |
-| **UX60 · P1 · F/I+D** | **Paiement en attente ou échoué sans perte de travail.** Garder le brouillon et distinguer abandon du paiement, confirmation en cours et échec. Une reprise ramène à l’action interrompue. | Aucun double paiement demandé parce que le retour de confirmation est lent ; le travail préparé est toujours accessible. |
-| **UX61 · P1 · F/I+D** | **Gestion autonome de l’abonnement.** Trouver factures, moyen de paiement, changement de formule et résiliation. Montrer la date d’effet et les conséquences d’un dépassement ou d’une baisse de formule. | La sortie est aussi trouvable que l’entrée et aucune suppression de données n’est une surprise. |
-
-### 14. Qualité transversale, réglages et aide
-
-Il existe déjà des améliorations d’accessibilité, des états de notifications, des réglages de langue et des protections de suppression. Il faut vérifier la cohérence du parcours complet et combler les cas précis restants.
-
-| ID · priorité · base/portée | Amélioration et bénéfice | Critère de réussite |
-|---|---|---|
-| **UX62 · P1 · C+H/I** | **Actions essentielles accessibles.** Labels persistants, focus visible, ordre clavier, lecteur d’écran, contrastes, zoom, mouvement réduit et cibles tactiles confortables. Vérifier formulaires, modales et tiroirs, pas seulement les composants isolés. | Connexion, séance, message et publication restent réalisables sans souris et avec le texte agrandi ; aucun bouton principal masqué par le clavier. |
-| **UX63 · P1 · C+F/I+D** | **Erreurs et sauvegardes cohérentes.** Message près de l’action, distinction local/serveur/partagé, correction proposée, champs conservés. Ne jamais convertir un échec de chargement en écran vide ou en nouveau document silencieux. | Chaque parcours critique survit à un échec réseau sans fausse réussite ni perte des valeurs saisies. |
-| **UX64 · P2 · C+H/I+D** | **Notifications utiles et maîtrisables.** Demander la permission au moment où leur bénéfice est clair ; fréquence, horaires silencieux et pause. Distinguer permission navigateur et abonnement opérationnel. Regrouper et supprimer les rappels devenus inutiles. | Un rappel ouvre l’objet concerné ; une tâche terminée n’est plus relancée et un état en cours de vérification ne s’affiche pas comme actif. |
-| **UX65 · P2 · C/I+D** | **Réglages compréhensibles dans les deux langues.** Vérifier libellés, dates, unités, aide, messages d’erreur et notifications. Remplacer la saisie brute de fuseau horaire par une sélection lisible. Expliquer quand un réglage prend effet. | Changer langue ou unité ne modifie pas la donnée réelle ; le fuseau choisi peut être vérifié par une heure locale affichée. |
-| **UX66 · P2 · H+F/I+D** | **Confidentialité et sortie du compte trouvables.** Regrouper audience des données, préférences et gestion du compte. Si un export est prévu ou ajouté, dire ce qu’il contient et quand il sera disponible. Expliquer suppression et liens actifs avant confirmation. | L’utilisateur trouve comment reprendre le contrôle de ses données sans devoir écrire au support ; aucune fausse promesse d’effacement instantané. |
-| **UX67 · P2 · H/I+D** | **Aide liée à ce qui bloque.** Petites explications là où elles servent, contact depuis le contexte d’erreur et référence technique copiable séparément. Une introduction peut être passée et retrouvée. | On peut demander de l’aide sans recopier tout son parcours ni transmettre par défaut ses données sensibles. |
-| **UX68 · P1 · C+H/I** | **Réactivité sur le parcours réel.** Garder une interface stable pendant chargement, laisser lire les données déjà disponibles avec leur fraîcheur, éviter les clics perdus et actions doubles. Mesurer sur téléphone et réseau contraint. | L’action confirme immédiatement sa prise en compte ; chargements et reprises n’effacent pas contexte ou brouillon. Aucun gain chiffré n’est affirmé avant mesure. |
-| **UX69 · P3 · H/I+D** | **Personnalisation mesurée de l’accueil.** Permettre au plus quelques raccourcis ou modules favoris si la navigation par défaut ne suffit pas. Ne pas faire configurer un tableau de bord avant d’utiliser l’app. | Le test montre moins de recherche sans imposer un nouveau travail de configuration. |
-| **UX70 · P2 · F/I+D** | **Mesurer l’utilité, pas le temps passé.** Avec les outils de télémétrie supposés disponibles, suivre réussite d’une tâche, erreurs corrigées, reprises et demandes d’aide. Compléter par observation des trois rôles, avec données de test. | On sait si une modification facilite effectivement une tâche ; aucun contenu de message, réponse sensible ou photo n’est nécessaire à ces mesures. |
-
-### Décisions de cadrage issues de la revue UX
-
-| Suggestion étudiée | Décision et nuance |
-|---|---|
-| Regrouper le questionnaire en phases, montrer la progression | Oui au regroupement utile. Progression et reprise existent déjà ; ne pas les recréer. Ne pas imposer exactement trois phases à tous les questionnaires. UX03–05. |
-| Silhouette de localisation | Option P3 à comparer à une liste accessible ; pas un prérequis à une bonne entrée dans l’app. UX06. |
-| Expliquer les questions sensibles | Oui, en précisant l’audience et le caractère facultatif. UX04. |
-| Remplacer les notes brutes par des mots ou visuels | Ajouter des repères sémantiques ; préserver le sens des historiques. Les emojis seuls ne suffisent pas. UX24. |
-| Confirmer l’envoi et donner la prochaine revue | Oui à l’accusé de réception. Date seulement si réelle ; envoyé, reçu et examiné ne sont pas synonymes. UX26. |
-| Donner une action lorsqu’aucun programme n’est prêt | Oui ; distinguer préparation, non-attribution et erreur de chargement. UX10. |
-| Cartes avant/après pour l’IA | Oui, avec portée, destinataire et date d’effet. La présentation seule ne suffit pas. UX20, UX23, UX43. |
-| Traduire un changement énergétique en équivalence alimentaire | Non retenu. Préférer une aide pratique et neutre sur les repas, sans prescriptions de compensation ni incitation au comptage. UX51–53. |
-| Mode simple/avancé | Préférer l’affichage progressif des détails. Une simplification existe déjà pour certaines séances ; éviter deux expériences parallèles difficiles à maintenir. UX14, UX22, UX45. |
-| Duplication et boutons d’incrément | La duplication existe. Séparer remplir la prochaine série prévue et en ajouter une ; tester les incréments avant généralisation. UX13–14. |
-| Repos automatique et vibration | La vibration existe déjà selon support. Le repos est actuellement manuel : automatisation volontaire, déclenchée par une réalisation explicite. UX15. |
-| Badge vérifié/communauté | Provenance explicite oui ; certification implicite non. UX51. |
-| Portions habituelles, favoris et récents | Favoris et récents sont déjà distingués. Pas de chantier d’intensification du suivi alimentaire proposé ici ; priorité à la lisibilité des sources et à l’usage pratique des recettes. UX51–53. |
-| Alertes coach hiérarchisées | La hiérarchie et le regroupement existent. Ajouter explication, état de traitement et continuité. UX33–35. |
-| Traitement groupé | P3, sur actions adaptées ; aucune validation aveugle de recommandations individuelles. UX38. |
-
-### Ordre d’exécution conseillé après les chantiers existants
-
-Ne pas lancer 70 changements à la fois. Transformer les lignes pertinentes en petits lots de parcours. À chaque lot, comparer à l’état réellement livré : si le chantier antérieur satisfait déjà un critère, le marquer couvert et ne pas réimplémenter.
-
-| Ordre | Lot | Contenu prioritaire et raison |
-|---|---|---|
-| **1** | Vérité des actions et travail conservé | UX12, 16, 17, 20, 21, 23, 29–31, 42–43, 48, 63. Corriger d’abord les erreurs de résultat, la perte de texte et les effets ambigus. |
-| **2** | Parcours quotidien de bout en bout | UX07, 09–10, 13–15, 18–19, 22, 26–28, 33–37, 62, 68, 74–77. Entrer, agir, terminer, revenir à la suite. Chrome et carte mentale se corrigent ici, pas dans un lot « design » isolé. Les défauts d’accessibilité bloquants se corrigent dès le lot 1. |
-| **3** | Entrée et transitions sans surprise | UX01–05, 39–41, 54–61. Questionnaire, demande, changement de relation et abonnement : vérifier les parcours finaux supposés livrés. Une ambiguïté de destinataire ou de paiement avérée remonte au lot 1. |
-| **4** | Valeur durable et autonomie | UX08, 11, 24–25, 32, 44–47, 49–53, 64–67, 75. Retrouver, comprendre, se faire aider et maîtriser ses réglages. |
-| **5** | Optimisations à prouver | UX06, 38, 69. Prototyper, observer, puis garder seulement ce qui apporte un gain. |
-| **Continu** | Mesure de l’utilité | UX70 dès le début avec les outils existants ; pas un projet préalable de télémétrie à reconstruire. |
-
-Les lots expriment un ordre de travail par parcours ; les priorités P1/P2/P3 restent le critère d’arbitrage entre défauts concrets. Une projection P1 ne signifie pas qu’un défaut existe déjà dans une fonctionnalité future.
-
-### Vérifier que l’expérience s’améliore réellement
-
-Utiliser des comptes et données de test pour ces scénarios. Ils décrivent des critères futurs, pas des résultats obtenus durant cette revue.
-
-| Rôle | Scénario représentatif | Observer |
-|---|---|---|
-| Coach | Depuis une liste filtrée, ouvrir un bilan, préparer une réponse, modifier un brouillon, publier puis revenir au client suivant | Conservation du contexte, bonne cible, différence comprise entre brouillon et actif, absence de double traitement. |
-| Coaché | Suivre une invitation, répondre partiellement, reprendre, attendre le programme, ouvrir une séance et finir avant toutes les séries prévues | Compréhension de la prochaine étape, absence de ressaisie, données réelles correctement restituées. |
-| Solo | Retrouver son programme, consulter une consigne, interrompre une séance, revenir hors ligne puis consulter son historique | Fonctions trouvables, autonomie, reprise fidèle et absence de jugement automatique. |
-| Coach et coaché | Envoyer un message lent, commencer le suivant et charger l’historique | Pas de texte effacé, pas de saut de lecture, état d’envoi honnête. |
-| Tous | Réseau perdu, session expirée, petit écran, clavier ouvert, lecteur d’écran, texte agrandi, FR puis EN | Parcours essentiel toujours faisable et issue compréhensible. |
-| Transitions futures | Demande de coach retirée, changement de coach, retour solo, paiement en attente puis changement de formule | Aucun accès, partage, paiement ou historique surprenant. |
-
-Mesurer le succès sans assistance, les erreurs et retours en arrière, la récupération après interruption et la compréhension du résultat. Relever durée et interactions pour comparer avant/après, pas pour pousser l’utilisateur à passer plus de temps dans l’app. Établir une référence avant de fixer des objectifs chiffrés. Tester auprès de personnes représentant chaque rôle ; un test synthétique ou une CI verte ne remplace pas cette observation.
-
-Pour les formulaires, les recommandations de regroupement, progression et conservation des réponses suivent les principes décrits par le [W3C sur les formulaires en plusieurs pages](https://www.w3.org/WAI/tutorials/forms/multi-page/). Pour les contrôles, vérifier les [cibles minimales et exceptions WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) ; une cible tactile plus confortable reste un choix de conception, pas une fausse citation du minimum. Les confirmations doivent aussi être perceptibles aux technologies d’assistance selon les [messages de statut du W3C](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
+Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
