@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare, Camera } from 'lucide-react';
@@ -144,18 +144,18 @@ export default function Dashboard() {
   const longestStreak = streak?.longest_streak ?? 0;
 
   // Weight mini trend (last 7)
-  const recentWeights = [...measurements]
-    .sort((a, b) => a.measured_at.localeCompare(b.measured_at))
-    .slice(-7);
   const weightUnit = profile?.unit_weight ?? 'kg';
-  const latestWeight = recentWeights.length > 0
-    ? weightUnit === 'lbs'
-      ? kgToLbs(recentWeights[recentWeights.length - 1].weight_kg)
-      : +recentWeights[recentWeights.length - 1].weight_kg
-    : null;
-  const weightDelta = recentWeights.length >= 2
-    ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
-    : null;
+  const { latestWeight, weightDelta, lastWeighIn } = useMemo(() => {
+    if (measurements.length === 0) return { latestWeight: null, weightDelta: null, lastWeighIn: null };
+    const sorted = [...measurements].sort((a, b) => a.measured_at.localeCompare(b.measured_at));
+    const recent = sorted.slice(-7);
+    const last = recent[recent.length - 1];
+
+    const latestWeight = weightUnit === 'lbs' ? kgToLbs(last.weight_kg) : +last.weight_kg;
+    const weightDelta = recent.length >= 2 ? +(last.weight_kg - recent[0].weight_kg).toFixed(1) : null;
+
+    return { latestWeight, weightDelta, lastWeighIn: last };
+  }, [measurements, weightUnit]);
 
   const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
   const alreadyTrainedToday = doneDays[todayIndex];
@@ -180,11 +180,12 @@ export default function Dashboard() {
     ? (scheduledToday || (!alreadyTrainedToday && routines.length > 0 ? routines[0] : null))
     : null;
 
-  const completedWorkoutCount = workouts.filter(w => w.completed).length;
+  const { completedWorkoutCount, lastCompletedWorkout } = useMemo(() => {
+    const completed = workouts.filter(w => w.completed);
+    const last = completed.filter(w => w.date).sort((a, b) => b.date.localeCompare(a.date))[0];
+    return { completedWorkoutCount: completed.length, lastCompletedWorkout: last };
+  }, [workouts]);
   const checkinCount = Math.max(checkins.length, todayCheckin ? 1 : 0);
-  const lastCompletedWorkout = [...workouts]
-    .filter(w => w.completed && w.date)
-    .sort((a, b) => b.date.localeCompare(a.date))[0];
   const lastCheckin = todayCheckin ?? checkins[0] ?? null;
   const activityPending = !!user && (nutritionHistoryCount === null || workoutsLoading || checkinLoading || !assignmentReady);
   const firstRun = !activityPending && isClientFirstRun({
@@ -206,9 +207,6 @@ export default function Dashboard() {
   });
 
   // Reminders — never from null / epoch-zero (that used to render « 999 days »)
-  const lastWeighIn = measurements.length > 0
-    ? [...measurements].sort((a, b) => b.measured_at.localeCompare(a.measured_at))[0]
-    : null;
   const daysSinceWeighIn = daysSinceActivity(lastWeighIn?.measured_at);
   const showWeightReminder = !calmHome && shouldShowDaysSinceReminder(daysSinceWeighIn);
 
@@ -223,15 +221,20 @@ export default function Dashboard() {
   const showWaterReminder = !hasCoach && !calmHome && hourNow >= 15 && waterConsumed > 0 && waterPct < 50;
 
   // Deload suggestion — if trained 4+ consecutive weeks without a break
-  const fourWeeksAgo = new Date();
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-  const recentCompletedWorkouts = workouts.filter(w => w.completed && new Date(w.date) >= fourWeeksAgo);
-  const weeksWithWorkouts = new Set(recentCompletedWorkouts.map(w => {
-    const d = new Date(w.date);
-    const startOfYear = new Date(d.getFullYear(), 0, 1);
-    return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
-  }));
-  const showDeloadSuggestion = !hasCoach && weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
+  const showDeloadSuggestion = useMemo(() => {
+    if (hasCoach) return false;
+    const fourWeeksAgo = new Date();
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const recentCompletedWorkouts = workouts.filter(w => w.completed && new Date(w.date) >= fourWeeksAgo);
+    if (recentCompletedWorkouts.length < 12) return false;
+
+    const weeksWithWorkouts = new Set(recentCompletedWorkouts.map(w => {
+      const d = new Date(w.date);
+      const startOfYear = new Date(d.getFullYear(), 0, 1);
+      return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
+    }));
+    return weeksWithWorkouts.size >= 4;
+  }, [workouts, hasCoach]);
 
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;

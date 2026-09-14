@@ -1,0 +1,3 @@
+## 2024-05-24 - Array Cloning and Sorting in Render Cycle
+**Learning:** Found an anti-pattern in React components where large arrays from store state (like `measurements` and `workouts` in the Dashboard) were being cloned and sorted on every render (`[...array].sort()`). Because this component receives frequent updates from subscriptions and local state changes, these O(N log N) sorts were running continuously and unnecessarily.
+**Action:** Always wrap array transformations (filtering, sorting, mapping) of store data in a `useMemo` block, especially when the operations are expensive and the source arrays can grow large.
