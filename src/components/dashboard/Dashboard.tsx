@@ -444,7 +444,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/workout')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-amber-200/90 leading-snug">{t('dashboard.reminders.deload')}</p>
                 </button>
-                <button onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
+                <button aria-label={t('common.dismiss')} onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
@@ -457,7 +457,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/weight')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}</p>
                 </button>
-                <button onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
+                <button aria-label={t('common.dismiss')} onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
@@ -470,7 +470,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-orange-200/80 leading-snug">{t('dashboard.reminders.meal')}</p>
                 </button>
-                <button onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
+                <button aria-label={t('common.dismiss')} onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
@@ -483,7 +483,7 @@ export default function Dashboard() {
                 <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
                   <p className="text-xs font-medium text-cyan-200/80 leading-snug">{t('dashboard.reminders.water')}</p>
                 </button>
-                <button onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
+                <button aria-label={t('common.dismiss')} onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
                   <X size={14} />
                 </button>
               </div>
