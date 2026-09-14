@@ -105,7 +105,7 @@ Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer 
 | Inputs séance agrandis, cibles 44 px (#91) | OverflowMenu clavier (lot 10) |
 | RPC `client_end_coach_link` + UI Profil + tests | Preuve prod, notif, sérialisation, copy 3 listes (M2a) |
 | Annuaire / offre / demandes en code | Copy « accepté = suivi actif » (M5) |
-| `accountContext`, espaces Personnel / Coaching | Trou : `set_coaching_role('none')` (lot 2) |
+| `accountContext`, espaces Personnel / Coaching | SQL refuse `none` si roster `coach_id` actif (lot 2 : apply prod + parcours) |
 
 ---
 
@@ -116,7 +116,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | # | Lot | Statut | Preuve de fin |
 |---|---|---|---|
 | **1** | **Vérité des séries réalisées** (UX12, UX17, UX49) | À construire | Une série non cochée n’est **jamais** une performance. Même définition dans bilan, graphes, **dernière séance 360** (`readableSets`). Auto-close 30 s retiré ; bilan retrouvable. Tips génériques ≠ « Conseil du coach ». `prCount` mort : supprimer. |
-| **2** | **Désactivation mode coach** (UX78) | À construire | `set_coaching_role('none')` refusé tant qu’un lien **actif** `coach_id = auth.uid()` existe. UI : confirmation avec le **nombre** de clients. Pas de roster orphelin. |
+| **2** | **Désactivation mode coach** (UX78) | **À vérifier** | SQL `20260914221500` : `none` refuse si lien **actif** `coach_id = moi`. UI Profil : confirmation **chiffrée** ; N>0 bloque (pas d’appel RPC). **Reste :** apply prod + rejouer le toggle Personnel. |
 | **3** | **Programmes : écriture honnête** (UX20, UX21, UX63) | À construire | Sauvegarde solo **une** opération (métadonnées + jours) avec version ; échec ≠ plan à moitié. `deleteProgram` n’ôte la liste **qu’après** succès. `fetchPrograms` en erreur ≠ `[]`. Assign : destinataire choisi (code : à vérifier en parcours). |
 | **4** | **Questionnaire sans prison** (UX80, UX02, UX03, UX04) | À construire | Plus de `path="*"` sur questionnaire **prise en charge** incomplet, ni mur sur échec de fetch. Aujourd’hui, messages et compte restent accessibles. Bannière + **lien** « Mon questionnaire » (`/questionnaire` n’a aucun `Link` dans `src/`). Brouillon conservé. Audience avant questions sensibles. Retirer « 60 secondes » non mesuré. **Ne pas** casser l’intake kiné. |
 | **5** | **Photos et audience** (UX54) | À construire | Solo ne lit plus « Ton coach les voit ». Texte = audience réelle. Consentement marketplace (`progress_photos` dans le paquet) = phrase d’acceptation. Coach actuel : dire si l’historique antérieur au lien est visible. Pas un 5ᵉ module unique. |
@@ -150,7 +150,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | Lot | Où ça ment / casse aujourd’hui |
 |---|---|
 | 1 | `WorkoutSummaryScreen.computeStats` : ignore `completed` (sauf échauffement). `useEffect` 30 s. Titre i18n `workout.summary.coaching.title` = « Conseil du coach ». `prCount = 0` jamais rendu. `ExerciseProgressPage` : `if (!s.completed && !ex.workouts.completed) continue` — séance `completed` ⇒ séries non cochées comptées. `readableSets` : `completed \|\| weight \|\| reps \|\| duration`. |
-| 2 | SQL `set_coaching_role` (`20260831235414`) : si `p_role = 'none'`, protège seulement `client_id = moi`. Un coach en Personnel (`ProfilePage` toggle, `!coached && !inCoaching`) peut passer à `'none'` avec un roster actif. |
+| 2 | **Corrigé.** `set_coaching_role('none')` → `coach_has_active_clients` tant qu’un lien actif `coach_id = moi` existe. Profil : modal avec le nombre ; « Voir mes clients » bascule l’espace Coaching. |
 | 3 | `ProgramEditorPage` : `updateProgram` puis `syncProgramDays`. `deleteProgram` : delete puis retire la liste **sans** `error`. `fetchPrograms` `catch` → `programs: []`. |
 | 4 | `App.tsx` ~324–332 : `activeAssignment.response && !completed_at` → `path="*"`. Échec fetch : écran retry (mieux) mais toujours un mur. Route `/questionnaire` sans aucun lien. |
 | 5 | `coaching.photos.subtitle` inconditionnel. `DIRECT_INVITE_CONSENT_SCOPES` inclut `progress_photos`. `is_coach_of` exige `status = 'active'` (pas « sans statut ») ; le trou est l’**audience affichée** et l’historique vu par le coach **actuel**. |
@@ -170,7 +170,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | Lot | Statut | Conditions de fin | Reste réel |
 |---|---|---|---|
 | **M0** Inventaire rôles / policies vs carte | À vérifier | Scénarios solo, coaché, coach, coach-athlète. Aucun changement de droits. | Revues UX 14 sept. = UI ; confirmer vs policies live, puis retirer. |
-| **M1** Capacités + espaces Personnel/Coaching | À vérifier | Backfill coachs ; aucun auto-lien ; rollback UI sans drop de colonnes. | `accountContext` existe. Prouver droits serveur ≠ espace affiché, dual-rôle. **Lot 2 (UX78) est un trou de cette projection.** `user_roles` reste l’écriture tant que la bascule n’est pas prouvée. |
+| **M1** Capacités + espaces Personnel/Coaching | À vérifier | Backfill coachs ; aucun auto-lien ; rollback UI sans drop de colonnes. | `accountContext` existe. Prouver droits serveur ≠ espace affiché, dual-rôle. **Lot 2 (UX78) : SQL refuse `none` si roster actif** — apply prod encore dû. `user_roles` reste l’écriture. |
 | **M2a** Départ client autonome | À vérifier | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notif minimale coach ; sérialisation vs adaptation en cours. | RPC + UI + tests présents (`20260913184325`, Profil). Manquent preuve prod, notif, sérialisation, copy « tu gardes / ça s’arrête / ça ne se transmet pas » (UX57–58). **Ne pas reconstruire la RPC.** |
 | **M2b** Invitation + consentement versionné | À vérifier | Acceptation explicite ; ancienne RPC révoquée après bascule. | Consentement versionné en code. Vérifier révocation de l’ancienne signature et cas expiré / mauvais compte (UX02). |
 | **M3** Intention après identité | À vérifier | Login direct ; pas de rôle avant le formulaire ; OAuth plus tard. | `EntryIntentionPage` existe. Parcours `find_coach` : Personnel utilisable. Ne pas fusionner intake / onboarding **avant** d’avoir testé chaque chemin. |
@@ -276,7 +276,7 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **10** Programmes builder | **Partiel** | Pas de premier client auto. Sauvegarde solo non atomique ; delete ignore l’erreur (lot 3). |
 | **11** Nutrition / séance / scanner | À vérifier | Recettes hors chrome (10a). UX15 = auto **optionnel** après coche. |
 | **12** Progression / photos | **Partiel** | Hub solo. Coaché bloqué. Calculs faux (lots 1, 6). Sous-titre photos menteur (lot 5). |
-| **13** Profil | **Partiel** | Groupes OK. Toggle mode coach dangereux (lot 2). SoloHub encore un tiroir mobile. |
+| **13** Profil | **Partiel** | Groupes OK. Toggle mode coach : confirmation chiffrée + SQL (lot 2, apply prod). SoloHub encore un tiroir mobile. |
 | **14** PWA / offline | À vérifier | File = séances seulement. |
 | **15** Performance | À vérifier | Mesure live. |
 | **16** Polish | À vérifier | Revue visuelle live. |
@@ -373,7 +373,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX36** | P2 | ens. | À construire | Filtres visibles, éditables, effaçables. | On sait pourquoi un client est dans la liste. |
 | **UX37** | P2 | 10j | À construire | Preview de ce que le client **verra**. | Pas de surprise d’onglets / champs. |
 | **UX38** | P3 | rep. | Reporté | Actions groupées limitées. | Seulement si gain prouvé. |
-| **UX78** | P1 | 2 | À construire | SQL `coach_id` + confirmation chiffrée. | Dual-rôle Personnel ne peut pas couper le roster. |
+| **UX78** | P1 | 2 | **À vérifier** | SQL `coach_id` + modal avec le **nombre**. Apply prod + parcours toggle Personnel. | Dual-rôle Personnel ne peut pas couper le roster. |
 
 ### Questionnaire coach (builder)
 
