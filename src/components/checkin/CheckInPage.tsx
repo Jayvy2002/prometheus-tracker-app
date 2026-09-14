@@ -19,6 +19,10 @@ import {
   type CheckinVarKey,
 } from '../../lib/clientTracking';
 import Button from '../ui/Button';
+import Input from '../ui/Input';
+import PageHeader from '../ui/PageHeader';
+import EmptyState from '../ui/EmptyState';
+import { PageSkeleton } from '../ui/PageSkeleton';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import type { DailyCheckinInput } from '../../lib/types';
@@ -144,19 +148,15 @@ export default function CheckInPage() {
   };
 
   if (loading && !todayCheckin) {
-    return (
-      <div className="px-4 pt-8 flex justify-center">
-        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
-      </div>
-    );
+    return <PageSkeleton />;
   }
 
   if (!checkinHasAnyField(tracking)) {
     return (
       <PageTransition>
         <div className="px-4 pt-6">
-          <h1 className="text-2xl font-bold text-white mb-2">{t('checkin.title')}</h1>
-          <p className="text-sm text-neutral-500">{t('checkin.disabled')}</p>
+          <PageHeader title={t('checkin.title')} />
+          <EmptyState title={t('checkin.disabled')} />
         </div>
       </PageTransition>
     );
@@ -185,39 +185,31 @@ export default function CheckInPage() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8">
-        <h1 className="text-2xl font-bold text-white mb-1">{t('checkin.title')}</h1>
-        <p className="text-sm text-neutral-500 mb-1">{solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')}</p>
-        <p className="text-[11px] text-neutral-600 mb-6">{t('checkin.scaleHint')}</p>
+        <PageHeader title={t('checkin.title')} subtitle={solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')} />
+        <p className="text-xs text-neutral-600 -mt-4 mb-6">{t('checkin.scaleHint')}</p>
 
         <div className="space-y-5">
           {coreVars.includes('sleep_hours') && (
-            <div>
-              <label className="text-sm font-medium text-white block mb-1.5">{t('checkin.sleepHours')}</label>
-              <input
-                type="number"
-                inputMode="decimal"
-                min={0}
-                max={24}
-                step={0.5}
-                value={sleepHours}
-                onChange={e => setSleepHours(e.target.value)}
-                placeholder="7.5"
-                className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-white placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
-              />
-            </div>
+            <Input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={24}
+              step={0.5}
+              value={sleepHours}
+              onChange={e => setSleepHours(e.target.value)}
+              placeholder="7.5"
+              label={t('checkin.sleepHours')}
+            />
           )}
 
           {coreVars.filter(key => key !== 'sleep_hours').map(renderSlider)}
 
           {extraCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setMoreOpen(o => !o)}
-              className="flex items-center gap-2 text-sm text-blue-300"
-            >
+            <Button type="button" variant="ghost" size="sm" onClick={() => setMoreOpen(o => !o)}>
               <ChevronDown size={16} className={showExtras ? 'rotate-180 transition-transform' : 'transition-transform'} />
               {t('checkin.moreDetails')}
-            </button>
+            </Button>
           )}
 
           {showExtras && (

@@ -5,6 +5,7 @@ import { formatDuration } from '../../lib/utils';
 import type { Workout } from '../../lib/types';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
+import Button from '../ui/Button';
 
 interface SummaryStats {
   duration: number;
@@ -174,13 +175,13 @@ export default function WorkoutSummaryScreen({
             icon={Dumbbell}
             label={t('workout.summary.exercises')}
             value={String(stats.exerciseCount)}
-            colorClass="bg-orange-500/15 text-orange-400"
+            colorClass="bg-neutral-800 text-neutral-300"
           />
           <StatCard
             icon={Zap}
             label={t('workout.summary.setsDone')}
             value={String(stats.setCount)}
-            colorClass="bg-violet-500/15 text-violet-400"
+            colorClass="bg-blue-500/15 text-blue-400"
           />
         </div>
 
@@ -190,7 +191,7 @@ export default function WorkoutSummaryScreen({
             className="mb-6 animate-fade-in-up"
             style={{ animationDelay: '160ms' }}
           >
-            <p className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider mb-2 px-0.5">
+            <p className="text-xs font-semibold text-neutral-500 uppercase tracking-wider mb-2 px-0.5">
               {t('workout.summary.topLifts')}
             </p>
             <div className="space-y-2">
@@ -212,7 +213,7 @@ export default function WorkoutSummaryScreen({
                       </p>
                     )}
                     {ex.estimated1RM > 0 && (
-                      <p className="text-[11px] text-blue-400 font-medium">
+                      <p className="text-xs text-blue-400 font-medium">
                         ~{Math.round(ex.estimated1RM)} kg {t('workout.summary.oneRM')}
                       </p>
                     )}
@@ -231,7 +232,7 @@ export default function WorkoutSummaryScreen({
             <div className="mb-6 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
               <div className="flex items-center gap-1.5 mb-2 px-0.5">
                 <MessageCircle size={12} className="text-blue-400" />
-                <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
+                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wider">
                   {t('workout.summary.coaching.title')}
                 </span>
               </div>
@@ -250,13 +251,14 @@ export default function WorkoutSummaryScreen({
         <div className="flex-1" />
 
         {/* CTA */}
-        <button
+        <Button
+          type="button"
+          size="lg"
           onClick={handleClose}
-          className="w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-base transition-colors animate-fade-in-up shadow-lg shadow-blue-900/30"
-          style={{ animationDelay: '240ms' }}
+          className="w-full"
         >
           {t('workout.summary.backToWorkouts')}
-        </button>
+        </Button>
       </div>
     </div>
   );

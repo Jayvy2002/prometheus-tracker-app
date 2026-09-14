@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, MessageSquare } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import {
@@ -16,7 +16,11 @@ import { clientFileHref } from '../../lib/coachSituation';
 import { coachingPassHref } from '../../lib/coachInterventions';
 import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
-import Card from '../ui/Card';
+import EmptyState from '../ui/EmptyState';
+import Button from '../ui/Button';
+import IconButton from '../ui/IconButton';
+import ListRow from '../ui/ListRow';
+import PageHeader from '../ui/PageHeader';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import MessageThread from './MessageThread';
@@ -118,18 +122,18 @@ export default function CoachInboxPage() {
       <PageTransition>
         <div className="px-4 pt-3 pb-0 md:px-6 flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100dvh-2rem)] min-h-0">
           <div className="flex items-center gap-3 pb-2 border-b border-neutral-800 shrink-0">
-            <button onClick={() => navigate('/messages')} className="flex items-center gap-2 text-neutral-400 hover:text-white min-h-11">
+            <IconButton label={t('nav.messages')} onClick={() => navigate('/messages')} className="-ml-2">
               <ArrowLeft size={18} />
-              <span className="sr-only">{t('nav.messages')}</span>
-            </button>
+            </IconButton>
             <h1 className="text-base font-semibold text-white truncate flex-1">{clientName}</h1>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="sm"
               onClick={() => navigate(clientFileHref(clientId))}
-              className="text-xs text-blue-400 shrink-0 min-h-11"
             >
               {t('coaching.command.openClient')}
-            </button>
+            </Button>
           </div>
           <div className="flex-1 min-h-0">
             <MessageThread
@@ -157,12 +161,7 @@ export default function CoachInboxPage() {
   return (
     <PageTransition>
         <div className="px-4 pt-6 pb-6 md:px-6">
-        <div className="flex items-start justify-between gap-3 mb-5">
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.inbox.title')}</h1>
-            <p className="text-sm text-neutral-500">{t('coaching.inbox.subtitle')}</p>
-          </div>
-        </div>
+        <PageHeader title={t('coaching.inbox.title')} subtitle={t('coaching.inbox.subtitle')} />
 
         {pendingInterventions.length > 0 && (
           <div className="mb-6">
@@ -190,49 +189,38 @@ export default function CoachInboxPage() {
           {t('coaching.inbox.threads')}
         </p>
         {threads.length === 0 ? (
-          <Card className="flex items-center gap-3">
-            <MessageSquare size={18} className="text-neutral-600" />
-            <p className="text-sm text-neutral-400">{t('coaching.inbox.threadsEmpty')}</p>
-          </Card>
+          <EmptyState title={t('coaching.inbox.threadsEmpty')} />
         ) : (
           <div className="space-y-2">
             {threads.map(thread => {
               const client = clients.find(c => c.id === thread.clientId);
               return (
-                <Card
+                <ListRow
                   key={thread.clientId}
-                  onClick={() => navigate(`/messages/${thread.clientId}`)}
-                  className="flex items-start gap-3"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-300 flex items-center justify-center font-semibold text-sm shrink-0">
-                    {(client?.full_name?.[0] || client?.email?.[0] || '?').toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-white truncate">
-                        {client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}
-                      </p>
-                      {thread.unreadCount > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
-                          {thread.unreadCount}
-                        </span>
-                      )}
+                  to={`/messages/${thread.clientId}`}
+                  leading={(
+                    <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-300 flex items-center justify-center font-semibold text-sm shrink-0">
+                      {(client?.full_name?.[0] || client?.email?.[0] || '?').toUpperCase()}
                     </div>
-                    <p className="text-[11px] text-neutral-500 truncate mt-0.5">
-                      {thread.lastMessage?.body || t('coaching.messages.noMessagesYet')}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation();
-                      navigate(relanceThreadHref(thread.clientId, 'general_followup'));
-                    }}
-                    className="text-[11px] text-blue-400 shrink-0 mt-1"
-                  >
-                    {t('coaching.queue.relance')}
-                  </button>
-                </Card>
+                  )}
+                  title={client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}
+                  subtitle={thread.lastMessage?.body || t('coaching.messages.noMessagesYet')}
+                  badge={thread.unreadCount > 0 ? thread.unreadCount : undefined}
+                  trailing={(
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate(relanceThreadHref(thread.clientId, 'general_followup'));
+                      }}
+                    >
+                      {t('coaching.queue.relance')}
+                    </Button>
+                  )}
+                />
               );
             })}
           </div>

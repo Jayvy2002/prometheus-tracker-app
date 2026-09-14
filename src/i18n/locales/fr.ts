@@ -519,6 +519,9 @@ const fr = {
       title: 'Minuteur de repos',
       go: 'GO !',
       customPlaceholder: 'sec',
+      pause: 'Pause',
+      play: 'Lecture',
+      reset: 'Recommencer',
     },
   },
 
@@ -1895,6 +1898,7 @@ const fr = {
       maxUses: 'Utilisations max',
       usesLeft: '{{n}} utilisation(s) restante(s)',
       copied: 'Lien copié',
+      copyLink: 'Copier le lien',
       accepted: 'Tu es maintenant coaché par {{name}}',
       authBanner: '{{name}} t’invite. Connecte-toi ou crée un compte pour accepter.',
       authBannerNoName: 'Ton coach t’invite sur Prometheus. Connecte-toi ou crée un compte pour accepter.',

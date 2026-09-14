@@ -18,13 +18,19 @@ import { track } from '../../lib/telemetryClient';
 import type { AiProgramDayDraft } from '../../lib/types';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import Button from '../ui/Button';
+import ListRow from '../ui/ListRow';
 import { toast } from '../ui/Toast';
 
 /**
  * Solo copilot — program proposal: same coach-agent draft as a coach sees.
  * Preview + free edit before accept. Never auto-applied.
+ * Today shows a notice; /programs keeps the full card.
  */
-export default function SoloProgramProposal() {
+export default function SoloProgramProposal({
+  variant = 'full',
+}: {
+  variant?: 'notice' | 'full';
+}) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -67,6 +73,36 @@ export default function SoloProgramProposal() {
 
   if (!user || !solo) return null;
   if (!row) return null;
+
+  if (variant === 'notice') {
+    if (isInterventionDrafting(row)) {
+      return (
+        <ListRow
+          className="mb-4"
+          tone="info"
+          icon={<Sparkles size={16} />}
+          title={t('soloProgram.draftingTitle')}
+          subtitle={t('soloProgram.draftingBody')}
+          to="/programs"
+        />
+      );
+    }
+    const edited = soloDraftEdited(row);
+    const subtitle = edited.programName
+      ? `${edited.programName} · ${t('programs.weeksCount', { n: edited.programWeeks })}`
+      : t('soloProgram.nothingAuto');
+    return (
+      <ListRow
+        className="mb-4"
+        tone="info"
+        icon={<Sparkles size={16} />}
+        title={t('soloProgram.title')}
+        subtitle={subtitle}
+        to="/programs"
+      />
+    );
+  }
+
   if (isInterventionDrafting(row)) {
     return (
       <div className="mb-4 rounded-2xl border border-blue-500/25 bg-blue-500/5 px-4 py-3">
@@ -153,7 +189,7 @@ export default function SoloProgramProposal() {
   };
 
   return (
-    <div className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/5 px-4 py-4 space-y-3">
+    <div id="solo-program-proposal" className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/5 px-4 py-4 space-y-3">
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
           <Sparkles size={18} className="text-blue-400" />

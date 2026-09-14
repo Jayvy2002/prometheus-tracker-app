@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -33,6 +33,10 @@ import type { ProgramDay } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
+import Button from '../ui/Button';
+import Card from '../ui/Card';
+import CardLink from '../ui/CardLink';
+import ListRow from '../ui/ListRow';
 import ClientGymCard from './ClientGymCard';
 import SoloWeeklyReview from './SoloWeeklyReview';
 import SoloProgramProposal from './SoloProgramProposal';
@@ -276,7 +280,7 @@ export default function Dashboard() {
     <PageTransition>
       <div className="px-4 pt-6 pb-28">
         {/* Header */}
-        <div className="flex items-center gap-3 mb-6 animate-fade-in-down">
+        <div className="flex items-center gap-3 mb-6">
           <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -315,185 +319,149 @@ export default function Dashboard() {
         )}
 
         {showRoutineHero && nextRoutine && (
-          <button
-            type="button"
-            disabled={startingRoutine}
-            onClick={async () => {
-              if (!user || startingRoutine) return;
-              setStartingRoutine(true);
-              try {
-                const routine = await fetchRoutineWithExercises(nextRoutine.id);
-                if (!routine) return;
-                const workoutId = await startWorkoutFromTemplate({
-                  userId: user.id,
-                  name: routine.name,
-                  routineId: nextRoutine.id,
-                  exercises: (routine.exercises ?? []).map(ex => ({
-                    name: ex.name,
-                    default_sets: ex.default_sets,
-                    default_reps: ex.default_reps,
-                    order_index: ex.order_index,
-                  })),
-                });
-                if (workoutId) navigate(`/workout/${workoutId}`);
-              } finally {
-                setStartingRoutine(false);
-              }
-            }}
-            className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4 text-left hover:border-blue-500/50 active:scale-[0.98] transition-all"
-          >
+          <div className="w-full bg-gradient-to-r from-blue-600/20 to-blue-500/5 border border-blue-500/30 rounded-2xl p-4 mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-xl bg-blue-500/20 flex items-center justify-center shrink-0">
                 <Play size={18} className="text-blue-400 ml-0.5" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-blue-400 font-medium">{t('dashboard.nextWorkout')}</p>
+                <p className="text-xs text-blue-300 font-medium">{t('dashboard.nextWorkout')}</p>
                 <p className="text-sm font-semibold text-white truncate">{nextRoutine.name}</p>
                 {nextRoutine.exercises && (
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
+                  <p className="text-xs text-neutral-500 mt-0.5">
                     {nextRoutine.exercises.length} {t('dashboard.exercises')}
                   </p>
                 )}
               </div>
-              <span className="text-xs font-semibold text-blue-300 flex items-center gap-0.5 shrink-0">
-                {t('dashboard.gym.startCta')}
-                <ChevronRight size={16} />
-              </span>
             </div>
-          </button>
+            <div className="mt-3">
+              <Button
+                type="button"
+                size="sm"
+                loading={startingRoutine}
+                onClick={async () => {
+                  if (!user || startingRoutine) return;
+                  setStartingRoutine(true);
+                  try {
+                    const routine = await fetchRoutineWithExercises(nextRoutine.id);
+                    if (!routine) return;
+                    const workoutId = await startWorkoutFromTemplate({
+                      userId: user.id,
+                      name: routine.name,
+                      routineId: nextRoutine.id,
+                      exercises: (routine.exercises ?? []).map(ex => ({
+                        name: ex.name,
+                        default_sets: ex.default_sets,
+                        default_reps: ex.default_reps,
+                        order_index: ex.order_index,
+                      })),
+                    });
+                    if (workoutId) navigate(`/workout/${workoutId}`);
+                  } finally {
+                    setStartingRoutine(false);
+                  }
+                }}
+              >
+                {t('dashboard.gym.startCta')}
+                <ChevronRight size={14} />
+              </Button>
+            </div>
+          </div>
         )}
 
         {showNextActionHero && nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
-          <button
-            type="button"
-            onClick={() => navigate('/workout')}
-            className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
-          >
-            <p className="text-sm text-neutral-200">{t('dashboard.firstRun.firstSession')}</p>
-          </button>
+          <ListRow
+            className="mb-4"
+            title={t('dashboard.firstRun.firstSession')}
+            to="/workout"
+          />
         ) : showNextActionHero && nextAction ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4">
-            <p className="text-sm text-neutral-200">{t(clientHomeNextActionKey(nextAction))}</p>
-          </div>
+          <ListRow className="mb-4" title={t(clientHomeNextActionKey(nextAction))} />
         ) : null}
 
         {showUnreadCoachMessage && (
-          <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/25 rounded-xl px-3.5 py-2.5 mb-4">
-            <button
-              type="button"
-              onClick={() => navigate('/messages')}
-              className="flex items-start gap-3 flex-1 min-w-0 text-left"
-            >
-              <div className="w-7 h-7 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                <MessageSquare size={14} className="text-blue-300" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-medium text-blue-300 mb-0.5">
-                  {t('dashboard.coachMessageTitle')}
-                  {unreadMessageCount > 1 ? ` · ${unreadMessageCount}` : ''}
-                </p>
-                <p className="text-xs text-blue-100/90 whitespace-pre-wrap line-clamp-3">
-                  {latestCoachMessage?.body || t('coaching.messages.openInbox')}
-                </p>
-              </div>
-            </button>
-            <button
-              type="button"
-              aria-label={t('common.dismiss')}
-              onClick={() => {
-                if (latestCoachMessage) void markCoachMessageRead(latestCoachMessage.id);
-              }}
-              className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-200 transition-colors shrink-0"
-            >
-              <X size={14} />
-            </button>
-          </div>
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<MessageSquare size={16} />}
+            title={t('dashboard.coachMessageTitle')}
+            badge={unreadMessageCount > 1 ? unreadMessageCount : undefined}
+            subtitle={latestCoachMessage?.body || t('coaching.messages.openInbox')}
+            to="/messages"
+            onDismiss={() => {
+              if (latestCoachMessage) void markCoachMessageRead(latestCoachMessage.id);
+            }}
+            dismissLabel={t('common.dismiss')}
+          />
         )}
 
         {showCheckinStrip && (
-          <button
-            type="button"
-            onClick={() => navigate('/checkin')}
-            className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
-          >
-            <ClipboardCheck size={16} className="text-violet-300 shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white">{t('checkin.dashboardCta')}</p>
-              {!hasCoach && (
-                <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHintSolo')}</p>
-              )}
-            </div>
-            <ChevronRight size={16} className="text-violet-300/70" />
-          </button>
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<ClipboardCheck size={16} />}
+            title={t('checkin.dashboardCta')}
+            subtitle={!hasCoach ? t('checkin.dashboardHintSolo') : undefined}
+            to="/checkin"
+          />
         )}
 
         {todayReminder === 'deload' && (
-          <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3.5 py-2.5 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-              <Battery size={14} className="text-amber-400" />
-            </div>
-            <button type="button" onClick={() => navigate('/workout')} className="flex-1 text-left">
-              <p className="text-xs font-medium text-amber-200/90 leading-snug">{t('dashboard.reminders.deload')}</p>
-            </button>
-            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
-              <X size={14} />
-            </button>
-          </div>
+          <ListRow
+            className="mb-4"
+            tone="warning"
+            icon={<Battery size={16} />}
+            title={t('dashboard.reminders.deload')}
+            onClick={() => navigate('/workout')}
+            onDismiss={() => dismissReminder('deload')}
+            dismissLabel={t('common.dismiss')}
+          />
         )}
         {todayReminder === 'meal' && (
-          <div className="flex items-center gap-3 bg-orange-500/8 border border-orange-500/20 rounded-xl px-3.5 py-2.5 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
-              <AlertCircle size={14} className="text-orange-400" />
-            </div>
-            <button type="button" onClick={() => navigate('/nutrition')} className="flex-1 text-left">
-              <p className="text-xs font-medium text-orange-200/80 leading-snug">{t('dashboard.reminders.meal')}</p>
-            </button>
-            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
-              <X size={14} />
-            </button>
-          </div>
+          <ListRow
+            className="mb-4"
+            tone="warning"
+            icon={<AlertCircle size={16} />}
+            title={t('dashboard.reminders.meal')}
+            onClick={() => navigate('/nutrition')}
+            onDismiss={() => dismissReminder('meal')}
+            dismissLabel={t('common.dismiss')}
+          />
         )}
         {todayReminder === 'water' && (
-          <div className="flex items-center gap-3 bg-cyan-500/8 border border-cyan-500/20 rounded-xl px-3.5 py-2.5 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
-              <Droplets size={14} className="text-cyan-400" />
-            </div>
-            <button type="button" onClick={() => navigate('/nutrition')} className="flex-1 text-left">
-              <p className="text-xs font-medium text-cyan-200/80 leading-snug">{t('dashboard.reminders.water')}</p>
-            </button>
-            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
-              <X size={14} />
-            </button>
-          </div>
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<Droplets size={16} />}
+            title={t('dashboard.reminders.water')}
+            onClick={() => navigate('/nutrition')}
+            onDismiss={() => dismissReminder('water')}
+            dismissLabel={t('common.dismiss')}
+          />
         )}
         {todayReminder === 'weight' && (
-          <div className="flex items-center gap-3 bg-blue-500/8 border border-blue-500/20 rounded-xl px-3.5 py-2.5 mb-4">
-            <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
-              <Scale size={14} className="text-blue-400" />
-            </div>
-            <button type="button" onClick={() => navigate('/weight')} className="flex-1 text-left">
-              <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}</p>
-            </button>
-            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
-              <X size={14} />
-            </button>
-          </div>
+          <ListRow
+            className="mb-4"
+            tone="info"
+            icon={<Scale size={16} />}
+            title={t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}
+            onClick={() => navigate('/weight')}
+            onDismiss={() => dismissReminder('weight')}
+            dismissLabel={t('common.dismiss')}
+          />
         )}
 
-        <SoloProgramProposal />
+        <SoloProgramProposal variant="notice" />
 
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
         {showHomeRings && !activityPending && (
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
+        <Card className="mb-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
-            <button
-              onClick={() => navigate('/nutrition')}
-              className="text-xs text-neutral-500 hover:text-neutral-300 flex items-center gap-0.5 transition-colors"
-            >
+            <Button variant="ghost" size="sm" onClick={() => navigate('/nutrition')}>
               {t('common.details')}
-              <ChevronRight size={12} />
-            </button>
+              <ChevronRight size={14} />
+            </Button>
           </div>
 
           <div className="flex items-start gap-5">
@@ -597,11 +565,11 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-        </div>
+        </Card>
         )}
 
         {showModule(tracking, 'workouts') && !activityPending && (
-        <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up stagger-2">
+        <Card className="mb-4">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${weekGoalMet ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
@@ -662,15 +630,15 @@ export default function Dashboard() {
               }}
             />
           </div>
-        </div>
+        </Card>
         )}
 
         {/* Streak & Weight row — hide while history is still loading to avoid a 0-day flash.
             The streak is solo gamification; a coached athlete's accountability is his coach. */}
         {!activityPending && (
-        <div className="grid grid-cols-2 gap-3 mb-4 animate-fade-in-up stagger-4">
+        <div className="grid grid-cols-2 gap-3 mb-4">
           {!hasCoach && (
-          <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
+          <Card>
             <div className="flex items-center gap-2 mb-2">
               <Flame size={16} className={currentStreak > 0 ? 'text-orange-400' : 'text-neutral-600'} />
               <span className="text-xs text-neutral-500">{t('dashboard.streak')}</span>
@@ -682,19 +650,16 @@ export default function Dashboard() {
               <span className="text-xs text-neutral-500">{currentStreak !== 1 ? t('dashboard.days') : t('dashboard.day')}</span>
             </div>
             {longestStreak > 0 && (
-              <p className="text-[10px] text-neutral-600 mt-1">
+              <p className="text-xs text-neutral-600 mt-1">
                 {t('dashboard.bestStreak')}: {longestStreak}
               </p>
             )}
-          </div>
+          </Card>
           )}
 
           {/* Weight */}
           {showModule(tracking, 'weight') && (
-          <button
-            onClick={() => navigate('/weight')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 transition-colors"
-          >
+          <CardLink to="/weight">
             <div className="flex items-center gap-2 mb-2">
               <Scale size={16} className="text-emerald-400" />
               <span className="text-xs text-neutral-500">{t('dashboard.weight')}</span>
@@ -706,7 +671,7 @@ export default function Dashboard() {
                   <span className="text-xs text-neutral-500">{weightUnit}</span>
                 </div>
                 {weightDelta !== null && weightDelta !== 0 && (
-                  <p className={`text-[10px] mt-1 font-medium ${weightDelta > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                  <p className={`text-xs mt-1 font-medium ${weightDelta > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                     {weightDelta > 0 ? '+' : ''}{weightUnit === 'lbs' ? +(weightDelta * 2.20462).toFixed(1) : weightDelta} {weightUnit} {t('dashboard.thisWeek')}
                   </p>
                 )}
@@ -714,7 +679,7 @@ export default function Dashboard() {
             ) : (
               <p className="text-xs text-neutral-500 mt-1">{t('dashboard.noWeightYet')}</p>
             )}
-          </button>
+          </CardLink>
           )}
         </div>
         )}

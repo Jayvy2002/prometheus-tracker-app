@@ -118,6 +118,24 @@ test('reduced motion does not leave delayed sidebar items at opacity 0', () => {
   assert.match(css, /animation:\s*none/);
 });
 
+test('daily-driver items use ListRow, PageHeader and 44px Button chrome', () => {
+  const row = src('src/components/ui/ListRow.tsx');
+  assert.match(row, /min-h-11/);
+  assert.match(row, /rounded-2xl/);
+  assert.match(row, /ListRowTone/);
+  assert.match(src('src/components/ui/Button.tsx'), /min-h-11/);
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  assert.match(dash, /ListRow/);
+  assert.doesNotMatch(dash, /violet-500/);
+  assert.doesNotMatch(dash, /cyan-500\/8/);
+  assert.doesNotMatch(dash, /orange-500\/8/);
+  assert.match(src('src/components/checkin/CheckInPage.tsx'), /PageHeader/);
+  assert.match(src('src/components/workout/WorkoutSummaryScreen.tsx'), /<Button/);
+  assert.match(src('src/components/coaching/CoachTodayQueue.tsx'), /ListRow/);
+  assert.doesNotMatch(src('src/components/coaching/CoachInboxPage.tsx'), /<Card[^>]*onClick/);
+  assert.match(src('src/components/coaching/CoachInboxPage.tsx'), /ListRow/);
+});
+
 test('mobile and desktop nav share Aujourd’hui via navConfig and use NavLink', () => {
   const config = src('src/navigation/navConfig.ts');
   const bottom = src('src/components/layout/BottomNav.tsx');

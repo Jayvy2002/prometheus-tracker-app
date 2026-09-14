@@ -6,17 +6,20 @@ import {
   Link2,
   Plus,
   Search,
-  Users,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import EmptyState from '../ui/EmptyState';
+import IconButton from '../ui/IconButton';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import { ListSkeleton } from '../ui/PageSkeleton';
 import CoachRelationshipNotices from './CoachRelationshipNotices';
 import CoachTodayQueue from './CoachTodayQueue';
 import { formatWeekdayDate } from '../../lib/utils';
+import ListRow from '../ui/ListRow';
 
 export default function CoachDashboard() {
   const { t, i18n } = useTranslation();
@@ -84,9 +87,9 @@ export default function CoachDashboard() {
             <h1 className="text-2xl font-bold text-white">{t('coaching.command.title')}</h1>
             <p className="text-sm text-neutral-500 mt-1">{t('coaching.command.subtitle')}</p>
             {coachingRoleError ? (
-              <button type="button" className="text-xs text-amber-300 mt-2" onClick={() => user && fetchMyRole(user.id)}>
+              <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => user && fetchMyRole(user.id)}>
                 {t('errors.loadRole')} · {t('errors.retry')}
-              </button>
+              </Button>
             ) : null}
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -95,47 +98,51 @@ export default function CoachDashboard() {
               {t('coaching.fleet.refresh')}
             </Button>
             )}
-            <button
+            <Button
               type="button"
+              size="sm"
+              variant="secondary"
               onClick={() => navigate('/prometheus')}
-              className="inline-flex items-center gap-1.5 min-h-11 px-3 py-2 rounded-xl bg-neutral-900 border border-neutral-800 text-xs text-neutral-300 hover:text-white"
             >
               <Search size={14} />
               {t('coaching.ask.shortcut')}
-            </button>
+            </Button>
           </div>
         </div>
 
         <CoachRelationshipNotices />
 
         {opsLoading ? (
-          <div className="space-y-2">
-            {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}
-          </div>
+          <ListSkeleton />
         ) : opsRows.length === 0 ? (
-          <Card className="text-center py-10">
-            <Users className="mx-auto mb-3 text-neutral-600" size={32} />
-            <p className="text-neutral-300 mb-1">{t('coaching.ops.emptyTitle')}</p>
-            <p className="text-sm text-neutral-500 mb-5">{t('coaching.ops.emptyBody')}</p>
-            <Button onClick={handleCreate} loading={creating}>
-              <Plus size={14} /> {t('coaching.invite.create')}
-            </Button>
+          <div className="space-y-4">
+            <EmptyState
+              title={t('coaching.ops.emptyTitle')}
+              body={t('coaching.ops.emptyBody')}
+              action={(
+                <Button onClick={handleCreate} loading={creating}>
+                  <Plus size={14} /> {t('coaching.invite.create')}
+                </Button>
+              )}
+            />
             {activeInvites.length > 0 && (
-              <div className="mt-4 space-y-2 text-left">
+              <div className="space-y-2">
                 {activeInvites.map(inv => (
-                  <div key={inv.id} className="flex items-center gap-2 bg-neutral-900 rounded-xl px-3 py-2">
-                    <Link2 size={14} className="text-blue-400 shrink-0" />
-                    <p className="text-xs text-neutral-400 flex-1 truncate">
-                      {t('coaching.invite.usesLeft', { n: inv.max_uses - inv.use_count })}
-                    </p>
-                    <button onClick={() => copyUrl(inv.token)} className="p-1.5 text-neutral-400 hover:text-white">
-                      <Copy size={14} className={copied === inv.token ? 'text-emerald-400' : ''} />
-                    </button>
-                  </div>
+                  <ListRow
+                    key={inv.id}
+                    icon={<Link2 size={16} />}
+                    tone="info"
+                    title={t('coaching.invite.usesLeft', { n: inv.max_uses - inv.use_count })}
+                    trailing={(
+                      <IconButton label={t('coaching.invite.copyLink')} onClick={() => copyUrl(inv.token)}>
+                        <Copy size={16} className={copied === inv.token ? 'text-emerald-400' : ''} />
+                      </IconButton>
+                    )}
+                  />
                 ))}
               </div>
             )}
-          </Card>
+          </div>
         ) : (
           <>
             <CoachTodayQueue />
@@ -143,9 +150,9 @@ export default function CoachDashboard() {
             {opsPartialError ? (
               <Card className="mt-4 mb-4 border-amber-500/30">
                 <p className="text-sm text-amber-200">{t('errors.opsPartial')}</p>
-                <button type="button" className="text-xs text-blue-400 mt-2" onClick={() => fetchCoachOps()}>
+                <Button type="button" variant="ghost" size="sm" className="mt-2" onClick={() => fetchCoachOps()}>
                   {t('errors.retry')}
-                </button>
+                </Button>
               </Card>
             ) : null}
           </>

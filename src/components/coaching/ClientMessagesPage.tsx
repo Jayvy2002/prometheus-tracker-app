@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import Card from '../ui/Card';
+import EmptyState from '../ui/EmptyState';
+import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
 import MessageThread from './MessageThread';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
@@ -56,15 +56,14 @@ export default function ClientMessagesPage() {
         </div>
         <div className="flex-1 min-h-0 px-4 pt-3">
         {!myCoach ? (
-          <Card className="flex items-center gap-3">
-            <MessageSquare size={18} className="text-neutral-600" />
-            <div>
-              <p className="text-sm text-neutral-300">{t('coaching.messages.noCoachBody')}</p>
-              <button type="button" onClick={() => navigate('/profile')} className="text-xs text-blue-400 mt-1">
+          <EmptyState
+            title={t('coaching.messages.noCoachBody')}
+            action={(
+              <Button type="button" variant="ghost" size="sm" onClick={() => navigate('/profile')}>
                 {t('nav.profile')}
-              </button>
-            </div>
-          </Card>
+              </Button>
+            )}
+          />
         ) : (
           <MessageThread
             key={`${user?.id}:${myCoach.id}`}

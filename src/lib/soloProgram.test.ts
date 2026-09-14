@@ -91,6 +91,8 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   assert.doesNotMatch(app, /Navigate to="\/workout"/);
   const dash = src('src/components/dashboard/Dashboard.tsx');
   assert.match(dash, /SoloProgramProposal/);
+  assert.match(dash, /variant="notice"/);
+  assert.doesNotMatch(dash, /ProgramSessionEditor/);
   const page = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(page, /SoloProgramProposal/);
   assert.match(page, /ProgramSessionEditor/);
@@ -105,6 +107,9 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   assert.doesNotMatch(page, /\/programs\/new/);
   assert.doesNotMatch(page, /createProgram/);
   const card = src('src/components/dashboard/SoloProgramProposal.tsx');
+  assert.match(card, /variant === 'notice'/);
+  assert.match(card, /ListRow/);
+  assert.match(card, /to="\/programs"/);
   assert.match(card, /applyIntervention\(row\.id, 'sent'/);
   assert.doesNotMatch(card, /claimIntervention\(row\.id\)/);
   assert.doesNotMatch(card, /finalizeIntervention\(row\.id, claimKey, 'sent'/);
