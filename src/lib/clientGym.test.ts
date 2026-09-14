@@ -152,7 +152,10 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(dash, /ClientGymCard/);
   const gymIdx = dash.indexOf('<ClientGymCard');
   const ringsIdx = dash.indexOf("t('dashboard.todaySummary')");
+  const proposalIdx = dash.indexOf('<SoloProgramProposal');
   assert.ok(gymIdx > 0 && ringsIdx > 0 && gymIdx < ringsIdx, 'séance card must render before calorie rings');
+  assert.ok(gymIdx < proposalIdx, 'séance card must render before the solo program proposal');
+  assert.doesNotMatch(dash, /navigate\('\/profile'\)/);
   assert.match(dash, /assignmentReady/);
   assert.match(dash, /isClientFirstRun/);
   assert.match(dash, /clientHomeNextAction/);

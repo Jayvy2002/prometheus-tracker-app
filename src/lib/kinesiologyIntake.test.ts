@@ -536,9 +536,8 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(usage, /intake usage probe timeout/);
 
     const dashboard = readFileSync(resolve(process.cwd(), 'src/components/dashboard/Dashboard.tsx'), 'utf8');
-    assert.match(dashboard, /isIntakeAlreadyFilled/);
-    assert.match(dashboard, /navigate\('\/intake'\)/);
-    assert.match(dashboard, /intake\.completeLater/);
+    assert.doesNotMatch(dashboard, /navigate\('\/intake'\)/);
+    assert.doesNotMatch(dashboard, /intake\.completeLater/);
 
     const profile = readFileSync(resolve(process.cwd(), 'src/components/profile/ProfilePage.tsx'), 'utf8');
     assert.match(profile, /isIntakeAlreadyFilled/);

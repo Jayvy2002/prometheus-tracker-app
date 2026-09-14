@@ -77,7 +77,6 @@ test('navigation cards use links instead of Card onClick', () => {
   assert.doesNotMatch(src('src/components/stats/StatsPage.tsx'), /<Card[^>]*onClick/);
   assert.match(src('src/components/stats/StatsPage.tsx'), /CardLink/);
   assert.doesNotMatch(src('src/components/coaching/CoachDashboard.tsx'), /<Card[^>]*onClick/);
-  assert.match(src('src/components/coaching/CoachDashboard.tsx'), /CardLink/);
 });
 
 test('learned preferences hide cron / seen / flagged jargon', () => {

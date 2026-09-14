@@ -278,7 +278,7 @@ test('Aujourd’hui has no Séances à relire / Cuts qui stagnent lists — sess
   assert.doesNotMatch(dash, /seances-a-relire/);
   assert.doesNotMatch(dash, /stalls-nutrition/);
   assert.match(dash, /CoachTodayQueue/);
-  assert.match(queue, /session_logged/);
+  assert.match(queue, /primaryQueueAction/);
   assert.match(queue, /groups\.map/);
 });
 

@@ -11,6 +11,7 @@ import {
   daysSinceActivity,
   isClientFirstRun,
   parseActivityTime,
+  pickTodayReminder,
   shouldShowDaysSinceReminder,
   statsCalorieSummary,
 } from './clientHome';
@@ -170,4 +171,19 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
 
   const stats = src('src/components/stats/StatsPage.tsx');
   assert.match(stats, /statsCalorieSummary/);
+});
+
+test('Today shows at most one reminder, in a fixed urgency order', () => {
+  assert.equal(pickTodayReminder({
+    deload: true, meal: true, water: true, weight: true,
+  }, []), 'deload');
+  assert.equal(pickTodayReminder({
+    deload: true, meal: true, water: false, weight: true,
+  }, ['deload']), 'meal');
+  assert.equal(pickTodayReminder({
+    deload: false, meal: false, water: false, weight: true,
+  }, []), 'weight');
+  assert.equal(pickTodayReminder({
+    deload: false, meal: false, water: false, weight: false,
+  }, []), null);
 });

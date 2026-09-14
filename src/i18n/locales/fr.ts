@@ -1326,6 +1326,7 @@ const fr = {
       openSession: 'Voir la séance',
       openRecovery: 'Voir la récup',
       skip: 'Passer',
+      moreSignals: '{{count}} autre(s) signal(s)',
       nextUp: 'Ensuite : {{names}}',
       draftBadge: 'brouillon',
       items: {

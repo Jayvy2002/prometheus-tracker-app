@@ -42,7 +42,8 @@ test('Today keeps File du jour; drafts live in Messages, not a third inbox', () 
   assert.doesNotMatch(dash, /coaching\.interventions\.title/);
   assert.doesNotMatch(dash, /InterventionInboxCard/);
   assert.doesNotMatch(dash, /topDrafts/);
-  assert.match(dash, /stats\.checkinsToReview > 0/);
+  assert.doesNotMatch(dash, /stats\.checkinsToReview/);
+  assert.doesNotMatch(dash, /checkins-a-relire/);
   assert.doesNotMatch(dash, /navigate\('\/profile'\)/);
   assert.doesNotMatch(dash, /nav\.clients/);
 
@@ -130,7 +131,8 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   assert.doesNotMatch(coachedMobile, /\bphotos\b/);
   assert.match(profile, /\/photos/);
   const dash = src('src/components/dashboard/Dashboard.tsx');
-  assert.match(dash, /hasCoach && !activityPending && \(\s*<button[^]*?navigate\('\/photos'\)/);
+  assert.doesNotMatch(dash, /navigate\('\/photos'\)/);
+  assert.doesNotMatch(dash, /dashboard\.photosCard/);
 });
 
 test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {

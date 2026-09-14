@@ -110,3 +110,16 @@ export function clientHomeNextAction(input: {
 export function clientHomeNextActionKey(kind: ClientHomeNextActionKind): string {
   return kind === 'waiting_program' ? 'dashboard.firstRun.waitingProgram' : 'dashboard.firstRun.firstSession';
 }
+
+export type TodayReminderKind = 'deload' | 'meal' | 'water' | 'weight';
+
+const TODAY_REMINDER_ORDER: TodayReminderKind[] = ['deload', 'meal', 'water', 'weight'];
+
+/** One nudge under the fold — never a stack of four banners. */
+export function pickTodayReminder(
+  flags: Record<TodayReminderKind, boolean>,
+  dismissed: readonly string[],
+): TodayReminderKind | null {
+  const hidden = new Set(dismissed);
+  return TODAY_REMINDER_ORDER.find(kind => flags[kind] && !hidden.has(kind)) ?? null;
+}

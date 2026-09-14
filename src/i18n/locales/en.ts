@@ -1326,6 +1326,7 @@ const en = {
       openSession: 'See session',
       openRecovery: 'See recovery',
       skip: 'Skip',
+      moreSignals: '{{count}} more signal(s)',
       nextUp: 'Next: {{names}}',
       draftBadge: 'draft',
       items: {

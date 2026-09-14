@@ -8,14 +8,15 @@ import {
   groupQueueByClient,
   lastMessageForClient,
   matchingPendingIntervention,
+  nextClientNames,
+  primaryQueueAction,
+  queueActionHref,
   queueItemLabelKey,
-  relanceHrefForGroup,
-  resolveQueueAction,
   visibleQueueItems,
 } from '../../lib/coachQueue';
 import { todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
-import type { CoachPriority, CoachPrioritySeverity } from '../../lib/types';
+import type { CoachPrioritySeverity, CoachQueueClientGroup } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 
@@ -51,121 +52,118 @@ export default function CoachTodayQueue() {
     );
   }
 
+  const nextNames = nextClientNames(groups).join(', ');
+
   return (
     <>
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-3">
         <p className="text-sm font-semibold text-neutral-300">
           {t('coaching.queue.attentionCount', { count: groups.length })}
         </p>
-        <p className="text-xs text-neutral-500">{t('coaching.queue.remaining', { count: groups.length })}</p>
+        {nextNames ? (
+          <p className="text-xs text-neutral-500 truncate">{t('coaching.queue.nextUp', { names: nextNames })}</p>
+        ) : null}
       </div>
 
       <div className="space-y-2">
-        {groups.map(group => {
-          const relanceHref = relanceHrefForGroup(group, pendingInterventions);
-          const sessionAction = group.items.find(item => item.kind === 'session_logged') ?? null;
-          const recoveryAction = group.items.find(item => (
-            item.kind === 'new_pain'
-            || item.kind === 'low_sleep'
-            || item.kind === 'high_stress'
-            || item.kind === 'low_mood'
-            || item.kind === 'high_hunger'
-          )) ?? null;
-          const setupAction = group.items
-            .map(item => resolveQueueAction(item, pendingInterventions))
-            .find(a => a.kind === 'open_setup' || a.kind === 'open_draft');
-          const lastMessage = lastMessageForClient(sentMessages, group.clientId);
-          return (
-            <Card key={group.clientId} className="!p-4">
-              <div className="flex items-start gap-3">
-                <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${SEVERITY_CLASS[group.severity]}`}>
-                  {t(`coaching.queue.severity.${group.severity}`)}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    {group.avatarUrl ? (
-                      <img src={group.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
-                    ) : null}
-                    <p className="text-sm font-medium text-white truncate">{group.clientName}</p>
-                  </div>
-                  <ul className="space-y-1.5">
-                    {group.items.map((item: CoachPriority) => {
-                      const draft = matchingPendingIntervention(item, pendingInterventions);
-                      const action = resolveQueueAction(item, pendingInterventions);
-                      const href = action.kind === 'open_draft' && action.href ? action.href : item.href;
-                      return (
-                        <li key={item.id}>
-                          <button
-                            type="button"
-                            onClick={() => navigate(href)}
-                            className="w-full text-left flex items-start gap-2 rounded-lg px-1 py-0.5 hover:bg-neutral-800/60"
-                          >
-                            <span className={`text-xs leading-5 shrink-0 px-1.5 rounded ${SEVERITY_CLASS[item.severity]}`}>
-                              {t(`coaching.queue.severity.${item.severity}`)}
-                            </span>
-                            <span className="text-sm text-neutral-300 min-w-0">
-                              {t(queueItemLabelKey(item), item.headlineParams)}
-                              {draft && item.kind !== 'draft_pending' ? (
-                                <span className="text-blue-400"> · {t('coaching.queue.draftBadge')}</span>
-                              ) : null}
-                            </span>
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                  {lastMessage?.body ? (
-                    <p className="text-[11px] text-neutral-500 truncate mt-2 px-1">
-                      {lastMessage.body}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2 mt-4">
-                {sessionAction?.href && (
-                  <Button size="sm" onClick={() => navigate(sessionAction.href)}>
-                    {t('coaching.queue.openSession')}
-                  </Button>
-                )}
-                {recoveryAction?.href && (
-                  <Button
-                    size="sm"
-                    variant={sessionAction ? 'secondary' : 'primary'}
-                    onClick={() => navigate(recoveryAction.href)}
-                  >
-                    {t('coaching.queue.openRecovery')}
-                  </Button>
-                )}
-                {relanceHref && (
-                  <Button
-                    size="sm"
-                    variant={sessionAction || recoveryAction ? 'secondary' : 'primary'}
-                    onClick={() => navigate(relanceHref)}
-                  >
-                    {t('coaching.queue.relance')}
-                  </Button>
-                )}
-                {!relanceHref && !sessionAction && !recoveryAction && setupAction?.href && (
-                  <Button size="sm" onClick={() => navigate(setupAction.href!)}>
-                    {t(setupAction.ctaKey)}
-                  </Button>
-                )}
-                <Button variant="secondary" size="sm" onClick={() => navigate(clientFileHref(group.clientId))}>
-                  {t('coaching.command.openClient')}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => dismissQueueItems(group.items.map(item => item.id))}
-                >
-                  {t('coaching.queue.skip')}
-                </Button>
-              </div>
-            </Card>
-          );
-        })}
+        {groups.map((group, index) => (
+          <QueueClientRow
+            key={group.clientId}
+            group={group}
+            featured={index === 0}
+            lastMessage={lastMessageForClient(sentMessages, group.clientId)?.body}
+            onOpen={href => navigate(href)}
+            onSkip={() => dismissQueueItems(group.items.map(item => item.id))}
+          />
+        ))}
       </div>
     </>
+  );
+}
+
+function QueueClientRow({
+  group,
+  featured,
+  lastMessage,
+  onOpen,
+  onSkip,
+}: {
+  group: CoachQueueClientGroup;
+  featured: boolean;
+  lastMessage: string | undefined;
+  onOpen: (href: string) => void;
+  onSkip: () => void;
+}) {
+  const { t } = useTranslation();
+  const pending = useCoachingStore(s => s.pendingInterventions);
+  const { item, action } = primaryQueueAction(group, pending);
+  const href = queueActionHref(item, action);
+  const draft = matchingPendingIntervention(item, pending);
+  const extra = group.items.length - 1;
+  const headline = (
+    <>
+      {t(queueItemLabelKey(item), item.headlineParams)}
+      {draft && item.kind !== 'draft_pending' ? (
+        <span className="text-blue-400"> · {t('coaching.queue.draftBadge')}</span>
+      ) : null}
+    </>
+  );
+
+  if (!featured) {
+    return (
+      <button
+        type="button"
+        onClick={() => onOpen(href)}
+        className="w-full flex items-center gap-3 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3.5 py-3 text-left hover:border-neutral-700"
+      >
+        <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full shrink-0 ${SEVERITY_CLASS[group.severity]}`}>
+          {t(`coaching.queue.severity.${group.severity}`)}
+        </span>
+        {group.avatarUrl ? (
+          <img src={group.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-medium text-white truncate">{group.clientName}</p>
+          <p className="text-xs text-neutral-400 truncate">{headline}</p>
+        </div>
+      </button>
+    );
+  }
+
+  return (
+    <Card className="!p-4">
+      <div className="flex items-start gap-3">
+        <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${SEVERITY_CLASS[group.severity]}`}>
+          {t(`coaching.queue.severity.${group.severity}`)}
+        </span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            {group.avatarUrl ? (
+              <img src={group.avatarUrl} alt="" className="w-6 h-6 rounded-full object-cover" />
+            ) : null}
+            <p className="text-sm font-medium text-white truncate">{group.clientName}</p>
+          </div>
+          <p className="text-sm text-neutral-300">{headline}</p>
+          {extra > 0 ? (
+            <p className="text-[11px] text-neutral-500 mt-1">{t('coaching.queue.moreSignals', { count: extra })}</p>
+          ) : null}
+          {lastMessage ? (
+            <p className="text-[11px] text-neutral-500 truncate mt-2">{lastMessage}</p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 mt-4">
+        <Button size="sm" onClick={() => onOpen(href)}>
+          {t(action.ctaKey)}
+        </Button>
+        <Button variant="ghost" size="sm" onClick={onSkip}>
+          {t('coaching.queue.skip')}
+        </Button>
+        <Button variant="secondary" size="sm" onClick={() => onOpen(clientFileHref(group.clientId))}>
+          {t('coaching.command.openClient')}
+        </Button>
+      </div>
+    </Card>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, TrendingUp, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare, Camera } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, X, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -17,7 +17,6 @@ import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import { nutritionTargetsFromProfile, targetRatio } from '../../lib/nutritionTargets';
 import {
@@ -25,6 +24,7 @@ import {
   clientHomeNextActionKey,
   daysSinceActivity,
   isClientFirstRun,
+  pickTodayReminder,
   shouldShowDaysSinceReminder,
 } from '../../lib/clientHome';
 import { resolveClientGymCard } from '../../lib/clientGym';
@@ -234,6 +234,17 @@ export default function Dashboard() {
     return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
   }));
   const showDeloadSuggestion = !hasCoach && weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
+  const showGymHero = hasGymCard && !!assignment?.program;
+  const showRoutineHero = !showGymHero && !!nextRoutine && showModule(tracking, 'workouts');
+  const showNextActionHero = !showGymHero && !showRoutineHero && nextAction !== null;
+  const showCheckinStrip = !firstRun && showModule(tracking, 'checkins') && !todayCheckin && !activityPending;
+  const showUnreadCoachMessage = !!myCoach && unreadMessageCount > 0;
+  const todayReminder = pickTodayReminder({
+    deload: showDeloadSuggestion,
+    meal: showNutritionField(tracking, 'calories') && showMealReminder,
+    water: showNutritionField(tracking, 'water') && showWaterReminder,
+    weight: showModule(tracking, 'weight') && showWeightReminder,
+  }, dismissedReminders);
 
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;
@@ -266,10 +277,7 @@ export default function Dashboard() {
       <div className="px-4 pt-6 pb-28">
         {/* Header */}
         <div className="flex items-center gap-3 mb-6 animate-fade-in-down">
-          <button
-            onClick={() => navigate('/profile')}
-            className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800 hover:ring-blue-500 transition-all active:scale-95"
-          >
+          <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 ring-2 ring-neutral-800">
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -277,7 +285,7 @@ export default function Dashboard() {
                 {firstName[0]?.toUpperCase() || 'U'}
               </div>
             )}
-          </button>
+          </div>
           <div className="flex-1">
             <p className="text-neutral-400 text-xs">
               {formatWeekdayDate(new Date(), i18n.language)}
@@ -293,9 +301,7 @@ export default function Dashboard() {
 
         <LinkEndedBanner />
 
-        <SoloProgramProposal />
-
-        {hasGymCard && assignment?.program && (
+        {showGymHero && assignment?.program && (
           <ClientGymCard
             card={gymCard}
             programName={assignment.program.name}
@@ -307,37 +313,8 @@ export default function Dashboard() {
             onEditPlan={!hasCoach ? () => navigate('/programs') : undefined}
           />
         )}
-        {!firstRun && hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
-          <button
-            type="button"
-            onClick={() => navigate('/checkin')}
-            className="text-xs text-neutral-500 hover:text-neutral-300 mb-4 -mt-1"
-          >
-            {t('checkin.dashboardCta')}
-          </button>
-        )}
-        {!firstRun && hasCoach && !activityPending && (
-          <button
-            type="button"
-            onClick={() => navigate('/photos')}
-            className="w-full flex items-center gap-3 rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-left hover:border-neutral-700 transition-colors"
-          >
-            <Camera size={16} className="text-blue-400 shrink-0" />
-            <span className="text-sm text-neutral-200 flex-1">{t('dashboard.photosCard')}</span>
-            <ChevronRight size={16} className="text-neutral-600" />
-          </button>
-        )}
-        {!firstRun && !isIntakeAlreadyFilled(profile) && (
-          <button
-            type="button"
-            onClick={() => navigate('/intake')}
-            className="block text-xs text-neutral-500 hover:text-neutral-300 mb-4"
-          >
-            {t('intake.completeLater')}
-          </button>
-        )}
 
-        {showModule(tracking, 'workouts') && nextRoutine && (
+        {showRoutineHero && nextRoutine && (
           <button
             type="button"
             disabled={startingRoutine}
@@ -386,24 +363,21 @@ export default function Dashboard() {
           </button>
         )}
 
-        {myCoach && (hasProgram || (!activityPending && showNutritionField(tracking, 'calories') && hasSentNutritionTarget(profile))) && (
-          <div className="rounded-xl bg-neutral-900/60 border border-neutral-800 px-3.5 py-2.5 mb-4 text-xs text-neutral-300 space-y-0.5">
-            {assignment?.program && (
-              <button type="button" onClick={() => navigate('/programs')} className="text-left hover:text-white transition-colors">
-                {t('coaching.loop.program', { name: assignment.program.name })}
-              </button>
-            )}
-            {!activityPending && showNutritionField(tracking, 'calories') && hasSentNutritionTarget(profile) && (
-              <p>{t('coaching.loop.calories', { n: calorieTarget })}</p>
-            )}
+        {showNextActionHero && nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
+          <button
+            type="button"
+            onClick={() => navigate('/workout')}
+            className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
+          >
+            <p className="text-sm text-neutral-200">{t('dashboard.firstRun.firstSession')}</p>
+          </button>
+        ) : showNextActionHero && nextAction ? (
+          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4">
+            <p className="text-sm text-neutral-200">{t(clientHomeNextActionKey(nextAction))}</p>
           </div>
-        )}
+        ) : null}
 
-        {!firstRun && hasCoach && <button type="button" onClick={() => navigate('/questionnaire')} className="w-full p-3 rounded-xl border border-neutral-800 text-left">{t('coachQuestionnaire.title')}</button>}
-        {/* Solo copilot: the weekly kcal / macros review. A coached client's coach receives it instead. */}
-        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
-
-        {myCoach && (latestCoachMessage || unreadMessageCount > 0) && (
+        {showUnreadCoachMessage && (
           <div className="flex items-start gap-3 bg-blue-500/10 border border-blue-500/25 rounded-xl px-3.5 py-2.5 mb-4">
             <button
               type="button"
@@ -436,90 +410,79 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Notification Reminders */}
-        {(showWeightReminder || showMealReminder || showWaterReminder || showDeloadSuggestion) && (
-          <div className="space-y-2 mb-4 animate-fade-in-down" style={{ animationDelay: '100ms' }}>
-            {showDeloadSuggestion && !dismissedReminders.includes('deload') && (
-              <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
-                <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
-                  <Battery size={14} className="text-amber-400" />
-                </div>
-                <button onClick={() => navigate('/workout')} className="flex-1 text-left">
-                  <p className="text-xs font-medium text-amber-200/90 leading-snug">{t('dashboard.reminders.deload')}</p>
-                </button>
-                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-            {showModule(tracking, 'weight') && showWeightReminder && !dismissedReminders.includes('weight') && (
-              <div className="flex items-center gap-3 bg-blue-500/8 border border-blue-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
-                <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
-                  <Scale size={14} className="text-blue-400" />
-                </div>
-                <button onClick={() => navigate('/weight')} className="flex-1 text-left">
-                  <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}</p>
-                </button>
-                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-            {showNutritionField(tracking, 'calories') && showMealReminder && !dismissedReminders.includes('meal') && (
-              <div className="flex items-center gap-3 bg-orange-500/8 border border-orange-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
-                <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
-                  <AlertCircle size={14} className="text-orange-400" />
-                </div>
-                <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
-                  <p className="text-xs font-medium text-orange-200/80 leading-snug">{t('dashboard.reminders.meal')}</p>
-                </button>
-                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-            {showNutritionField(tracking, 'water') && showWaterReminder && !dismissedReminders.includes('water') && (
-              <div className="flex items-center gap-3 bg-cyan-500/8 border border-cyan-500/20 rounded-xl px-3.5 py-2.5 backdrop-blur-sm">
-                <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
-                  <Droplets size={14} className="text-cyan-400" />
-                </div>
-                <button onClick={() => navigate('/nutrition')} className="flex-1 text-left">
-                  <p className="text-xs font-medium text-cyan-200/80 leading-snug">{t('dashboard.reminders.water')}</p>
-                </button>
-                <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
-                  <X size={14} />
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
+        {showCheckinStrip && (
           <button
-            onClick={() => navigate('/workout')}
-            className="w-full rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4 text-left hover:border-neutral-700 active:scale-[0.99] transition-all"
-          >
-            <p className="text-sm text-neutral-200">{t('dashboard.firstRun.firstSession')}</p>
-          </button>
-        ) : nextAction ? (
-          <div className="rounded-2xl border border-neutral-800 bg-neutral-900/60 px-4 py-5 mb-4">
-            <p className="text-sm text-neutral-200">{t(clientHomeNextActionKey(nextAction))}</p>
-          </div>
-        ) : null}
-
-        {!firstRun && !hasCoach && showModule(tracking, 'checkins') && !todayCheckin && !activityPending && (
-          <button
+            type="button"
             onClick={() => navigate('/checkin')}
             className="w-full flex items-center gap-3 bg-violet-500/10 border border-violet-500/25 rounded-xl px-3.5 py-2.5 mb-4 text-left"
           >
             <ClipboardCheck size={16} className="text-violet-300 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white">{t('checkin.dashboardCta')}</p>
-              <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHintSolo')}</p>
+              {!hasCoach && (
+                <p className="text-[11px] text-neutral-400">{t('checkin.dashboardHintSolo')}</p>
+              )}
             </div>
             <ChevronRight size={16} className="text-violet-300/70" />
           </button>
         )}
+
+        {todayReminder === 'deload' && (
+          <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/25 rounded-xl px-3.5 py-2.5 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center shrink-0">
+              <Battery size={14} className="text-amber-400" />
+            </div>
+            <button type="button" onClick={() => navigate('/workout')} className="flex-1 text-left">
+              <p className="text-xs font-medium text-amber-200/90 leading-snug">{t('dashboard.reminders.deload')}</p>
+            </button>
+            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('deload')} className="p-1 rounded-md hover:bg-amber-500/10 text-amber-400/60 hover:text-amber-300 transition-colors shrink-0">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        {todayReminder === 'meal' && (
+          <div className="flex items-center gap-3 bg-orange-500/8 border border-orange-500/20 rounded-xl px-3.5 py-2.5 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
+              <AlertCircle size={14} className="text-orange-400" />
+            </div>
+            <button type="button" onClick={() => navigate('/nutrition')} className="flex-1 text-left">
+              <p className="text-xs font-medium text-orange-200/80 leading-snug">{t('dashboard.reminders.meal')}</p>
+            </button>
+            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('meal')} className="p-1 rounded-md hover:bg-orange-500/10 text-orange-400/60 hover:text-orange-300 transition-colors shrink-0">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        {todayReminder === 'water' && (
+          <div className="flex items-center gap-3 bg-cyan-500/8 border border-cyan-500/20 rounded-xl px-3.5 py-2.5 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
+              <Droplets size={14} className="text-cyan-400" />
+            </div>
+            <button type="button" onClick={() => navigate('/nutrition')} className="flex-1 text-left">
+              <p className="text-xs font-medium text-cyan-200/80 leading-snug">{t('dashboard.reminders.water')}</p>
+            </button>
+            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('water')} className="p-1 rounded-md hover:bg-cyan-500/10 text-cyan-400/60 hover:text-cyan-300 transition-colors shrink-0">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+        {todayReminder === 'weight' && (
+          <div className="flex items-center gap-3 bg-blue-500/8 border border-blue-500/20 rounded-xl px-3.5 py-2.5 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0">
+              <Scale size={14} className="text-blue-400" />
+            </div>
+            <button type="button" onClick={() => navigate('/weight')} className="flex-1 text-left">
+              <p className="text-xs font-medium text-blue-200/80 leading-snug">{t('dashboard.reminders.weight', { days: daysSinceWeighIn ?? 0 })}</p>
+            </button>
+            <button type="button" aria-label={t('common.dismiss')} onClick={() => dismissReminder('weight')} className="p-1 rounded-md hover:bg-blue-500/10 text-blue-400/60 hover:text-blue-300 transition-colors shrink-0">
+              <X size={14} />
+            </button>
+          </div>
+        )}
+
+        <SoloProgramProposal />
+
+        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
         {showHomeRings && !activityPending && (
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-up">
           <div className="flex items-center justify-between mb-4">
@@ -753,28 +716,6 @@ export default function Dashboard() {
             )}
           </button>
           )}
-        </div>
-        )}
-
-        {/* Quick actions — /stats and /exercise-progress are solo-only routes (CoachedAthleteRedirect) */}
-        {!activityPending && !hasCoach && (
-        <div className="grid grid-cols-2 gap-3 animate-fade-in-up stagger-5">
-          <button
-            onClick={() => navigate('/stats')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
-          >
-            <Footprints size={18} className="text-blue-400 mb-2" />
-            <p className="text-sm font-medium text-white">{t('dashboard.viewStats')}</p>
-            <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.statsDesc')}</p>
-          </button>
-          <button
-            onClick={() => navigate('/exercise-progress')}
-            className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 text-left hover:border-neutral-700 active:scale-[0.98] transition-all"
-          >
-            <TrendingUp size={18} className="text-emerald-400 mb-2" />
-            <p className="text-sm font-medium text-white">{t('dashboard.viewProgress')}</p>
-            <p className="text-[11px] text-neutral-500 mt-0.5">{t('dashboard.progressDesc')}</p>
-          </button>
         </div>
         )}
       </div>

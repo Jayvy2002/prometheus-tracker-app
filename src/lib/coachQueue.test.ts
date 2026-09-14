@@ -10,6 +10,7 @@ import {
   queueItemLabelKey,
   relanceHrefForGroup,
   relanceThreadHref,
+  primaryQueueAction,
   resolveQueueAction,
   visibleQueueItems,
 } from './coachQueue';
@@ -235,6 +236,63 @@ test('one list: a fleet draft with no local priority becomes a File du jour item
   assert.equal(action.interventionId, 'kit-1');
   const groups = groupQueueByClient([stalled, ...drafts]);
   assert.deepEqual(groups.map(g => g.clientId), ['lea', 'sofia']);
+});
+
+test('primaryQueueAction is one CTA: pain before session before relance; draft beats all', () => {
+  const group = groupQueueByClient([
+    item({
+      id: 'missed',
+      clientId: 't',
+      clientName: 'Thomas',
+      kind: 'missed_workout',
+      severity: 'orange',
+    }),
+    item({
+      id: 'pain',
+      clientId: 't',
+      clientName: 'Thomas',
+      kind: 'new_pain',
+      severity: 'red',
+      href: '/clients/t?tab=health&checkin=ck',
+      checkinId: 'ck',
+    }),
+    item({
+      id: 'session',
+      clientId: 't',
+      clientName: 'Thomas',
+      kind: 'session_logged',
+      severity: 'yellow',
+      href: '/clients/t?tab=training&workout=w1',
+      workoutId: 'w1',
+    }),
+  ])[0]!;
+
+  const pain = primaryQueueAction(group, []);
+  assert.equal(pain.item.kind, 'new_pain');
+  assert.equal(pain.action.ctaKey, 'coaching.queue.openRecovery');
+  assert.equal(pain.action.href, '/clients/t?tab=health&checkin=ck');
+
+  const draft: CoachIntervention = {
+    id: 'd1',
+    coach_id: 'coach',
+    client_id: 't',
+    kind: 'program_nl_edit',
+    title: 'Ajustement',
+    rationale: 'Douleur + séance.',
+    payload: {},
+    status: 'pending',
+    source: 'agent',
+    created_at: '2026-08-29T00:00:00Z',
+    updated_at: '2026-08-29T00:00:00Z',
+    resolved_at: null,
+  };
+  const withDraft = groupQueueByClient([
+    ...group.items,
+    item({ id: 'stall', clientId: 't', clientName: 'Thomas', kind: 'stalled_lift' }),
+  ])[0]!;
+  const drafted = primaryQueueAction(withDraft, [draft]);
+  assert.equal(drafted.action.kind, 'open_draft');
+  assert.equal(drafted.action.href, '/clients/t/draft/d1?from=today');
 });
 
 test('drafts for unknown clients or non-pending rows never enter the queue', () => {

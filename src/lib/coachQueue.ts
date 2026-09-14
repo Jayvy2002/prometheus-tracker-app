@@ -137,6 +137,62 @@ export function resolveQueueAction(
 
 const SEVERITY_RANK: Record<CoachPrioritySeverity, number> = { red: 0, orange: 1, yellow: 2 };
 
+/** Lower = treat first. Drafts win, then pain/setup, then the session, then nudges. */
+const KIND_PRIORITY: Partial<Record<CoachPriorityKind, number>> = {
+  draft_pending: 0,
+  new_pain: 1,
+  onboarding_incomplete: 2,
+  program_unassigned: 2,
+  low_sleep: 3,
+  high_stress: 3,
+  low_mood: 3,
+  high_hunger: 3,
+  session_logged: 4,
+  missed_workout: 5,
+  missed_checkin: 5,
+  missed_nutrition: 5,
+  dropped_adherence: 5,
+  stalled_lift: 6,
+  program_adapt: 6,
+  nutrition_stall: 6,
+  weight_off_trajectory: 6,
+};
+
+function draftBoost(item: CoachPriority, pending: CoachIntervention[]): number {
+  if (item.kind === 'draft_pending') return 0;
+  return matchingPendingIntervention(item, pending) ? 0 : 1;
+}
+
+function compareQueueItems(a: CoachPriority, b: CoachPriority, pending: CoachIntervention[]): number {
+  const draft = draftBoost(a, pending) - draftBoost(b, pending);
+  if (draft !== 0) return draft;
+  const kind = (KIND_PRIORITY[a.kind] ?? 8) - (KIND_PRIORITY[b.kind] ?? 8);
+  if (kind !== 0) return kind;
+  return SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];
+}
+
+/** The one event the File du jour should act on for this client. */
+export function primaryQueueItem(
+  group: CoachQueueClientGroup,
+  pending: CoachIntervention[],
+): CoachPriority {
+  return group.items.reduce((best, item) => (
+    compareQueueItems(item, best, pending) < 0 ? item : best
+  ));
+}
+
+export function primaryQueueAction(
+  group: CoachQueueClientGroup,
+  pending: CoachIntervention[],
+): { item: CoachPriority; action: CoachQueueAction } {
+  const item = primaryQueueItem(group, pending);
+  return { item, action: resolveQueueAction(item, pending) };
+}
+
+export function queueActionHref(item: CoachPriority, action: CoachQueueAction): string {
+  return action.href || item.href;
+}
+
 export function isComposeQueueKind(kind: CoachPriorityKind): boolean {
   return COMPOSE_KINDS.has(kind);
 }

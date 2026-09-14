@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  ChevronRight,
   Copy,
   Link2,
   Plus,
@@ -11,36 +10,21 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { checkinReviewRows, formatCheckinScore } from '../../lib/coachCheckins';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import CardLink from '../ui/CardLink';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import CoachRelationshipNotices from './CoachRelationshipNotices';
 import CoachTodayQueue from './CoachTodayQueue';
 import { formatWeekdayDate } from '../../lib/utils';
 
-function StatCard({ label, value, tone }: { label: string; value: number; tone?: 'amber' | 'rose' | 'blue' | 'white' }) {
-  const color = tone === 'amber' ? 'text-amber-300'
-    : tone === 'rose' ? 'text-rose-300'
-    : tone === 'blue' ? 'text-blue-300'
-    : 'text-white';
-  return (
-    <Card className="!p-3 min-w-0">
-      <p className="text-[11px] text-neutral-500 uppercase tracking-wider truncate">{label}</p>
-      <p className={`text-2xl font-bold mt-1 ${color}`}>{value}</p>
-    </Card>
-  );
-}
-
 export default function CoachDashboard() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    opsRows, opsLoading, opsPartialError, invites, priorities, rosterSignals,
-    fetchCoachOps, fetchInvites, createInvite, commandStats: stats, fetchCoachSettings,
+    opsRows, opsLoading, opsPartialError, invites,
+    fetchCoachOps, fetchInvites, createInvite, fetchCoachSettings,
     runFleetRound, fleetRunning, coachingRoleError, fetchMyRole,
   } = useCoachingStore();
   const [creating, setCreating] = useState(false);
@@ -54,10 +38,6 @@ export default function CoachDashboard() {
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
-  const reviewRows = useMemo(
-    () => checkinReviewRows(opsRows, rosterSignals, priorities),
-    [opsRows, rosterSignals, priorities],
-  );
 
   const copyUrl = async (token: string) => {
     const url = `${window.location.origin}/invite/${token}`;
@@ -160,48 +140,8 @@ export default function CoachDashboard() {
           <>
             <CoachTodayQueue />
 
-            <div className={`grid grid-cols-2 gap-3 mt-6 mb-6 ${stats.checkinsToReview > 0 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
-              <StatCard label={t('coaching.command.stats.active')} value={stats.activeClients} />
-              <StatCard label={t('coaching.command.stats.attention')} value={stats.needAttention} tone="amber" />
-              {stats.checkinsToReview > 0 && (
-                <button type="button" className="text-left" onClick={() => document.getElementById('checkins-a-relire')?.scrollIntoView({ behavior: 'smooth' })}>
-                  <StatCard label={t('coaching.command.stats.checkins')} value={stats.checkinsToReview} tone="blue" />
-                </button>
-              )}
-              <StatCard label={t('coaching.command.stats.adapt')} value={stats.programsMayAdapt} tone="amber" />
-              <StatCard label={t('coaching.command.stats.important')} value={stats.important} tone="rose" />
-            </div>
-
-            {reviewRows.length > 0 && (
-              <div id="checkins-a-relire" className="mb-6">
-                <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-3">
-                  {t('coaching.checkinReview.title')}
-                </p>
-                <div className="space-y-2">
-                  {reviewRows.slice(0, 6).map(row => (
-                    <CardLink key={row.checkin.id} to={row.href} className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-300 font-semibold text-sm shrink-0">
-                        {row.avatarUrl
-                          ? <img src={row.avatarUrl} alt="" className="w-full h-full object-cover" />
-                          : (row.clientName[0] || '?').toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{row.clientName}</p>
-                        <p className="text-xs text-neutral-500 truncate">
-                          {row.checkin.checked_at}
-                          {' · '}
-                          {t(`coaching.checkinReview.kinds.${row.kind}`, { n: formatCheckinScore(row.checkin.joint_pain, row.checkin) })}
-                        </p>
-                      </div>
-                      <ChevronRight size={16} className="text-neutral-600 mt-1 shrink-0" />
-                    </CardLink>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {opsPartialError ? (
-              <Card className="mb-4 border-amber-500/30">
+              <Card className="mt-4 mb-4 border-amber-500/30">
                 <p className="text-sm text-amber-200">{t('errors.opsPartial')}</p>
                 <button type="button" className="text-xs text-blue-400 mt-2" onClick={() => fetchCoachOps()}>
                   {t('errors.retry')}
