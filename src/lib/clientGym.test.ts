@@ -185,11 +185,17 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(card, /hevySimple/);
   assert.match(card, /showTrainingField\(tracking, 'sets'\)/);
   assert.match(card, /showTrainingField\(tracking, 'load'\)/);
-  assert.match(card, /showTrainingField\(tracking, 'rest'\)|showTrainingField\(tracking, 'rir'\)/);
+  assert.match(card, /showTrainingField\(tracking, 'rest'\)/);
+  assert.match(card, /applySetPlaceholders/);
+  assert.match(card, /resolveRestSeconds/);
+  assert.match(card, /workout\.exerciseCard\.completeSet/);
+  assert.match(card, /s\.completed/);
 
   const form = src('src/components/workout/WorkoutForm.tsx');
   assert.match(form, /isProgramSession/);
   assert.match(form, /showTrainingField\(tracking, 'rest'\)/);
+  assert.match(form, /autoStart=\{restAutoStart\}/);
+  assert.match(form, /initialSeconds=\{restDuration\}/);
 
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /done: 'Séance faite'/);
@@ -202,4 +208,6 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
 
   const layout = src('src/components/layout/AppLayout.tsx');
   assert.match(layout, /hideFab/);
+  assert.match(layout, /startsWith\('\/messages'\)/);
+  assert.match(layout, /startsWith\('\/checkin'\)/);
 });

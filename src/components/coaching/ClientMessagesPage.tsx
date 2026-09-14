@@ -8,6 +8,7 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import MessageThread from './MessageThread';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
+import { firstNameOf } from '../../lib/coachQueue';
 
 export default function ClientMessagesPage() {
   const { t } = useTranslation();
@@ -43,15 +44,17 @@ export default function ClientMessagesPage() {
     }
   };
 
+  const coachName = firstNameOf(myCoach?.full_name || '') || myCoach?.full_name || t('coaching.invite.aCoach');
+
   return (
     <PageTransition>
-      <div className="px-4 pt-6 pb-28 flex flex-col h-[calc(100dvh-4rem)] min-h-[24rem]">
-        <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.messages.clientTitle')}</h1>
-        <p className="text-sm text-neutral-500 mb-4">
-          {myCoach
-            ? t('coaching.coachedBy', { name: myCoach.full_name || t('coaching.invite.aCoach') })
-            : t('coaching.messages.noCoach')}
-        </p>
+      <div className="flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100dvh-2rem)] min-h-0">
+        <div className="flex items-center gap-3 px-4 pt-3 pb-2 border-b border-neutral-800 shrink-0">
+          <h1 className="text-base font-semibold text-white truncate">
+            {myCoach ? coachName : t('coaching.messages.clientTitle')}
+          </h1>
+        </div>
+        <div className="flex-1 min-h-0 px-4 pt-3">
         {!myCoach ? (
           <Card className="flex items-center gap-3">
             <MessageSquare size={18} className="text-neutral-600" />
@@ -63,23 +66,22 @@ export default function ClientMessagesPage() {
             </div>
           </Card>
         ) : (
-          <div className="flex-1 min-h-0">
-            <MessageThread
-              key={`${user?.id}:${myCoach.id}`}
-              messages={sentMessages.filter(m => m.client_id === user?.id && m.coach_id === myCoach.id)}
-              currentUserId={user?.id ?? ''}
-              sending={sending}
-              onSend={handleSend}
-              hasMore={user ? !threadExhausted[user.id] : false}
-              loadingMore={loadingMore}
-              onLoadMore={user ? () => {
-                if (loadingMore) return;
-                setLoadingMore(true);
-                void fetchThreadPage(user.id).catch(() => undefined).finally(() => setLoadingMore(false));
-              } : undefined}
-            />
-          </div>
+          <MessageThread
+            key={`${user?.id}:${myCoach.id}`}
+            messages={sentMessages.filter(m => m.client_id === user?.id && m.coach_id === myCoach.id)}
+            currentUserId={user?.id ?? ''}
+            sending={sending}
+            onSend={handleSend}
+            hasMore={user ? !threadExhausted[user.id] : false}
+            loadingMore={loadingMore}
+            onLoadMore={user ? () => {
+              if (loadingMore) return;
+              setLoadingMore(true);
+              void fetchThreadPage(user.id).catch(() => undefined).finally(() => setLoadingMore(false));
+            } : undefined}
+          />
         )}
+        </div>
       </div>
     </PageTransition>
   );

@@ -142,6 +142,22 @@ export const ALL_OFF_TRACKING: ResolvedTrackingConfig = {
   setup_completed_at: null,
 };
 
+/** New client / empty coach defaults: core check-in only. Extras stay opt-in. */
+export const CORE_CHECKIN_VARS: CheckinVars = {
+  ...OFF_CHECKIN_VARS,
+  sleep_hours: true,
+  sleep_quality: true,
+  energy: true,
+  stress: true,
+};
+
+export const DEFAULT_COACH_TRACKING: ResolvedTrackingConfig = {
+  ...ALL_ON_TRACKING,
+  training: { ...DEFAULT_TRAINING_VARS },
+  nutrition: { ...DEFAULT_NUTRITION_VARS },
+  checkin: { ...CORE_CHECKIN_VARS },
+};
+
 export type CheckinScaleKey = keyof Pick<
   DailyCheckin,
   | 'hunger'
@@ -256,11 +272,20 @@ export function serializeTrackingVars(cfg: ResolvedTrackingConfig): {
 
 /** Coach-level defaults stored on coach_settings.default_tracking. */
 export function parseCoachTrackingDefaults(raw: unknown): ResolvedTrackingConfig {
+  const src = asRecord(raw);
+  if (!src) {
+    return {
+      ...DEFAULT_COACH_TRACKING,
+      training: { ...DEFAULT_COACH_TRACKING.training },
+      nutrition: { ...DEFAULT_COACH_TRACKING.nutrition },
+      checkin: { ...DEFAULT_COACH_TRACKING.checkin },
+    };
+  }
   return parseResolvedTracking(raw);
 }
 
 export function seedTrackingFromDefaults(defaults: ResolvedTrackingConfig | null | undefined): ResolvedTrackingConfig {
-  const src = defaults ?? ALL_ON_TRACKING;
+  const src = defaults ?? DEFAULT_COACH_TRACKING;
   return {
     ...src,
     training: { ...src.training },

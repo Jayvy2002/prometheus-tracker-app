@@ -3,6 +3,8 @@ import { CheckCircle, Zap, Dumbbell, Clock, BarChart2, MessageCircle } from 'luc
 import { useTranslation } from 'react-i18next';
 import { formatDuration } from '../../lib/utils';
 import type { Workout } from '../../lib/types';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { useCoachingStore } from '../../stores/coachingStore';
 
 interface SummaryStats {
   duration: number;
@@ -106,6 +108,9 @@ export default function WorkoutSummaryScreen({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const showCoachSaw = isCoachedAthlete(coachingRole, myCoach);
   const stats = computeStats(workout, duration);
   const closedRef = useRef(false);
 
@@ -143,6 +148,9 @@ export default function WorkoutSummaryScreen({
           ) : (
             <p className="text-neutral-500 text-sm">{t('workout.summary.subtitle')}</p>
           )}
+          {showCoachSaw ? (
+            <p className="text-sm text-blue-300/90 mt-2">{t('workout.summary.coachWillSee')}</p>
+          ) : null}
         </div>
 
         {/* Stats grid */}

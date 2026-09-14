@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { countdownEndAt, countdownRemaining } from './restTimer';
+import { countdownEndAt, countdownRemaining, resolveRestSeconds } from './restTimer';
 
 test('1:30 countdown tracks wall clock, not stacked ticks', () => {
   const start = 1_000_000;
@@ -19,6 +19,13 @@ test('presets map to real seconds', () => {
     assert.equal(countdownRemaining(endAt, start + (sec - 1) * 1000), 1);
     assert.equal(countdownRemaining(endAt, start + sec * 1000), 0);
   }
+});
+
+test('prescribed rest of 90s is used; zero or missing falls back', () => {
+  assert.equal(resolveRestSeconds(90), 90);
+  assert.equal(resolveRestSeconds(0), undefined);
+  assert.equal(resolveRestSeconds(null), undefined);
+  assert.equal(resolveRestSeconds(undefined), undefined);
 });
 
 test('sub-second elapsed does not skip a whole second', () => {

@@ -154,7 +154,7 @@ export default function MessageThread({
           nearBottom.current = true;
           setNewMessages(false);
         }}>{t('coaching.messages.newMessages')}</button>}
-      <div className="pt-2 pb-[env(safe-area-inset-bottom)] border-t border-neutral-800 shrink-0">
+      <div className="pt-2 pb-2 border-t border-neutral-800 shrink-0">
         {draftHint ? (
           <p className="text-sm text-neutral-500 mb-2">{draftHint}</p>
         ) : null}

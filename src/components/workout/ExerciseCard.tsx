@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2 } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -18,6 +18,8 @@ import Card from '../ui/Card';
 import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
+import { applySetPlaceholders } from '../../lib/workoutSetComplete';
+import { resolveRestSeconds } from '../../lib/restTimer';
 
 export type OverloadSuggestionKind =
   | 'stagnant'
@@ -176,7 +178,7 @@ function SetRow({
   previousSet?: WorkoutSet | null;
   onDelete: () => void;
   onDuplicate: () => void;
-  onSetComplete?: (setType: SetType, restOverride?: number) => void;
+  onSetComplete: (restOverride?: number) => void;
   weightUnit: 'kg' | 'lbs';
 }) {
   const { t } = useTranslation();
@@ -248,32 +250,19 @@ function SetRow({
     }
   }, [set.rir]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleFieldComplete = () => {
-    const hasWeight = !showLoad || !!localWeight;
-    const hasReps = !showReps || (isIsometric ? !!localDuration : !!localReps);
-    const hasRir = !showRir || !!localRir;
-    if (hasWeight && hasReps && hasRir && onSetComplete) {
-      const clusterRest = isCluster ? parseInt(localClusterRest, 10) || 20 : undefined;
-      onSetComplete(localType as SetType, clusterRest);
-    }
-  };
-
   const handleRepsBlur = () => {
     const r = parseInt(localReps, 10);
     updateSet(set.id, { reps: isNaN(r) ? 0 : r });
-    if (!showRir) handleFieldComplete();
   };
 
   const handleRirBlur = () => {
     const r = parseInt(localRir, 10);
     updateSet(set.id, { rir: isNaN(r) ? 0 : r });
-    handleFieldComplete();
   };
 
   const handleDurationBlur = () => {
     const d = parseInt(localDuration, 10);
     updateSet(set.id, { duration_seconds: isNaN(d) ? 0 : d });
-    if (!showRir) handleFieldComplete();
   };
 
   const handleTempoBlur = () => {
@@ -324,6 +313,38 @@ function SetRow({
   const weightPlaceholder = suggestedWeight && !localWeight ? String(displaySuggested) : prevSet?.weight_kg ? String(displayPrev) : '0';
   const repsPlaceholder = prevSet?.reps ? String(prevSet.reps) : '0';
 
+  const handleToggleComplete = () => {
+    if (set.completed) {
+      updateSet(set.id, { completed: false });
+      return;
+    }
+    const filled = applySetPlaceholders({
+      weight: localWeight,
+      reps: localReps,
+      duration: localDuration,
+      isIsometric,
+      showLoad,
+      showReps,
+      weightPlaceholder,
+      repsPlaceholder,
+    });
+    const updates: Partial<WorkoutSet> = { completed: true };
+    if (filled.weight !== localWeight) {
+      setLocalWeight(filled.weight);
+      updateSetDraft(set.id, 'weight_kg', filled.weight);
+      const w = parseFloat(filled.weight);
+      if (!isNaN(w)) updates.weight_kg = toStorage(w);
+    }
+    if (filled.reps !== localReps) {
+      setLocalReps(filled.reps);
+      updateSetDraft(set.id, 'reps', filled.reps);
+      const r = parseInt(filled.reps, 10);
+      if (!isNaN(r)) updates.reps = r;
+    }
+    updateSet(set.id, updates);
+    onSetComplete();
+  };
+
   const isFilled = !!localWeight && (isIsometric ? !!localDuration : !!localReps);
 
   // Drop percentage badge (ratio — computed in display units consistently)
@@ -337,7 +358,7 @@ function SetRow({
 
   return (
     <div className={`relative rounded-xl transition-all
-      ${isFilled ? 'bg-neutral-900/80 ring-1 ring-emerald-500/20' : 'bg-neutral-900/60'}
+      ${set.completed ? 'bg-emerald-950/30 ring-1 ring-emerald-500/30' : isFilled ? 'bg-neutral-900/80 ring-1 ring-emerald-500/20' : 'bg-neutral-900/60'}
       ${isDrop && index > 0 ? '-mt-0.5' : ''}
     `}>
       <div className="flex items-center gap-1.5 p-2">
@@ -460,18 +481,38 @@ function SetRow({
 
         {/* Actions */}
         <div className="flex items-center gap-0.5 shrink-0">
+          {!hevySimple && (
+            <>
+              <button
+                type="button"
+                onClick={onDuplicate}
+                className="p-1 text-neutral-700 hover:text-blue-400 transition-colors"
+                title={t('workout.exerciseCard.duplicateSet')}
+              >
+                <Copy size={11} />
+              </button>
+              <button
+                type="button"
+                onClick={onDelete}
+                className="p-1 text-neutral-700 hover:text-rose-400 transition-colors"
+                title={t('workout.exerciseCard.setRemoved')}
+              >
+                <Trash2 size={11} />
+              </button>
+            </>
+          )}
           <button
-            onClick={onDuplicate}
-            className="p-1 text-neutral-700 hover:text-blue-400 transition-colors"
-            title="Duplicate"
+            type="button"
+            onClick={() => void handleToggleComplete()}
+            aria-pressed={set.completed}
+            aria-label={t(set.completed ? 'workout.exerciseCard.uncompleteSet' : 'workout.exerciseCard.completeSet')}
+            className={`min-h-11 min-w-11 flex items-center justify-center rounded-lg transition-colors ${
+              set.completed
+                ? 'bg-emerald-600 text-white'
+                : 'bg-neutral-800 text-neutral-500 hover:text-emerald-400'
+            }`}
           >
-            <Copy size={11} />
-          </button>
-          <button
-            onClick={onDelete}
-            className="p-1 text-neutral-700 hover:text-rose-400 transition-colors"
-          >
-            <Trash2 size={11} />
+            <Check size={16} />
           </button>
         </div>
       </div>
@@ -533,8 +574,8 @@ function SetRow({
       )}
 
       {/* Completion indicator */}
-      {isFilled && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full bg-emerald-500/60" />
+      {set.completed && (
+        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-full bg-emerald-500/80" />
       )}
     </div>
   );
@@ -585,6 +626,7 @@ function SupersetLinkPicker({ currentExerciseId, onClose }: { currentExerciseId:
 
 export default function ExerciseCard({
   exercise,
+  onStartRestTimer,
   isInSuperset = false,
 }: {
   exercise: WorkoutExercise;
@@ -606,6 +648,7 @@ export default function ExerciseCard({
   const showLoad = showTrainingField(tracking, 'load');
   const showReps = showTrainingField(tracking, 'reps') || showTrainingField(tracking, 'reps_range');
   const showSets = showTrainingField(tracking, 'sets');
+  const restOn = showTrainingField(tracking, 'rest');
   const hevySimple = !!currentWorkout?.program_day_id;
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft, clearExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
@@ -658,7 +701,8 @@ export default function ExerciseCard({
   };
 
   const handleSetComplete = () => {
-    // Rest timer is now manual-only — user starts it via the timer button
+    if (!restOn) return;
+    onStartRestTimer(resolveRestSeconds(exercise.prescribed_rest_seconds));
   };
 
   const suggestion = getOverloadSuggestion(history);
@@ -672,11 +716,7 @@ export default function ExerciseCard({
     : 0;
   const isPR = currentMaxWeight > 0 && maxHistoricalWeight > 0 && currentMaxWeight > maxHistoricalWeight;
 
-  const completedCount = exercise.sets?.filter(s => {
-    const hasWeight = !showLoad || s.weight_kg > 0;
-    const hasReps = !showReps || (s.set_type === 'isometric' ? (s.duration_seconds ?? 0) > 0 : s.reps > 0);
-    return hasWeight && hasReps;
-  }).length ?? 0;
+  const completedCount = exercise.sets?.filter(s => s.completed).length ?? 0;
   const totalSets = exercise.sets?.length ?? 0;
 
   // Myo-rep total reps counter
@@ -744,6 +784,7 @@ export default function ExerciseCard({
         >
           <StickyNote size={16} />
         </button>
+        {!hevySimple && (
         <button
           onClick={() => {
             const exerciseSnapshot = { ...exercise, sets: [...(exercise.sets ?? [])] };
@@ -757,6 +798,7 @@ export default function ExerciseCard({
         >
           <Trash2 size={16} />
         </button>
+        )}
       </div>
 
       {/* Previous session info + overload suggestion */}
@@ -849,7 +891,8 @@ export default function ExerciseCard({
                 </div>
               )}
               {showRir && <div className="w-12 text-center">{t('workout.exerciseCard.rir')}</div>}
-              <div className="w-12"></div>
+              {!hevySimple && <div className="w-12" />}
+              <div className="w-11" />
             </div>
           )}
 

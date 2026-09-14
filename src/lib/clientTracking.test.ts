@@ -9,6 +9,9 @@ import {
   formatExercisePrescription,
   groupAllEnabled,
   mergeTrackingOverlay,
+  CORE_CHECKIN_VARS,
+  DEFAULT_COACH_TRACKING,
+  parseCoachTrackingDefaults,
   parseResolvedTracking,
   repsInputMode,
   resolveViewerTracking,
@@ -25,6 +28,7 @@ import {
   TRAINING_VAR_KEYS,
 } from './clientTracking';
 import { parseClientVisiblePatch } from './coachClientProfile';
+import { EMPTY_COACH_SETTINGS } from './coachSettings';
 
 test('missing config defaults to every variable on', () => {
   const cfg = parseResolvedTracking(null);
@@ -228,4 +232,21 @@ test('solo check-in core is sleep + energy + stress, not the full slider wall', 
   for (const key of CHECKIN_CORE_VAR_KEYS) {
     assert.ok(CHECKIN_VAR_KEYS.includes(key));
   }
+});
+
+test('new coach defaults keep check-in to the core four, extras opt-in', () => {
+  assert.equal(CORE_CHECKIN_VARS.sleep_hours, true);
+  assert.equal(CORE_CHECKIN_VARS.stress, true);
+  assert.equal(CORE_CHECKIN_VARS.mood, false);
+  assert.equal(CORE_CHECKIN_VARS.notes, false);
+  const seeded = seedTrackingFromDefaults(null);
+  assert.equal(seeded.checkin.hunger, false);
+  assert.equal(seeded.checkin.energy, true);
+  assert.equal(seeded.track_workouts, true);
+  const parsed = parseCoachTrackingDefaults(null);
+  assert.equal(parsed.checkin.joint_pain, false);
+  assert.equal(DEFAULT_COACH_TRACKING.checkin.adherence_training, false);
+  const empty = parseCoachTrackingDefaults(EMPTY_COACH_SETTINGS.default_tracking);
+  assert.equal(empty.checkin.mood, false);
+  assert.equal(empty.checkin.sleep_quality, true);
 });

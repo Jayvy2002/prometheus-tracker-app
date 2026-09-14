@@ -61,6 +61,9 @@ function WorkoutFormInner() {
   const restEnabled = showTrainingField(tracking, 'rest');
 
   const [showTimer, setShowTimer] = useState(false);
+  const [restDuration, setRestDuration] = useState<number | undefined>(undefined);
+  const [restAutoStart, setRestAutoStart] = useState(false);
+  const [restEpoch, setRestEpoch] = useState(0);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDate, setWorkoutDate] = useState('');
@@ -247,7 +250,14 @@ function WorkoutFormInner() {
     setShowExercisePicker(false);
   };
 
-  const handleStartRestTimer = () => {
+  const handleStartRestTimer = (overrideDuration?: number) => {
+    if (typeof overrideDuration === 'number' && overrideDuration > 0) {
+      setRestDuration(overrideDuration);
+      setRestAutoStart(true);
+      setRestEpoch(n => n + 1);
+    } else {
+      setRestAutoStart(false);
+    }
     setShowTimer(true);
     if (!timer.running) toggleSessionTimer();
   };
@@ -427,7 +437,7 @@ function WorkoutFormInner() {
         <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
         {restEnabled && (
         <button
-          onClick={() => setShowTimer(true)}
+          onClick={() => handleStartRestTimer()}
           className="p-2 rounded-lg bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
           title={t('workout.restTimer.title')}
         >
@@ -544,8 +554,11 @@ function WorkoutFormInner() {
 
       {restEnabled && (
       <RestTimer
+        key={restEpoch}
         open={showTimer}
         onClose={() => setShowTimer(false)}
+        initialSeconds={restDuration}
+        autoStart={restAutoStart}
       />
       )}
       <ExercisePicker open={showExercisePicker} onClose={() => setShowExercisePicker(false)} onSelect={handleAddExercise} />

@@ -116,16 +116,17 @@ export default function CoachInboxPage() {
   if (clientId) {
     return (
       <PageTransition>
-        <div className="px-4 pt-6 pb-28 md:px-6 flex flex-col h-[calc(100dvh-4rem)] min-h-[24rem]">
-          <button onClick={() => navigate('/messages')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-3">
-            <ArrowLeft size={18} /> {t('nav.messages')}
-          </button>
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h1 className="text-lg font-semibold text-white truncate">{clientName}</h1>
+        <div className="px-4 pt-3 pb-0 md:px-6 flex flex-col h-[calc(100dvh-6rem)] md:h-[calc(100dvh-2rem)] min-h-0">
+          <div className="flex items-center gap-3 pb-2 border-b border-neutral-800 shrink-0">
+            <button onClick={() => navigate('/messages')} className="flex items-center gap-2 text-neutral-400 hover:text-white min-h-11">
+              <ArrowLeft size={18} />
+              <span className="sr-only">{t('nav.messages')}</span>
+            </button>
+            <h1 className="text-base font-semibold text-white truncate flex-1">{clientName}</h1>
             <button
               type="button"
               onClick={() => navigate(clientFileHref(clientId))}
-              className="text-xs text-blue-400 shrink-0"
+              className="text-xs text-blue-400 shrink-0 min-h-11"
             >
               {t('coaching.command.openClient')}
             </button>
@@ -155,7 +156,7 @@ export default function CoachInboxPage() {
 
   return (
     <PageTransition>
-      <div className="px-4 pt-6 pb-28 md:px-6">
+        <div className="px-4 pt-6 pb-6 md:px-6">
         <div className="flex items-start justify-between gap-3 mb-5">
           <div>
             <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.inbox.title')}</h1>

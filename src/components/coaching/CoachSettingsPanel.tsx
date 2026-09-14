@@ -5,7 +5,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { DEFAULT_COACH_VISIBLE_TABS } from '../../lib/types';
 import type { CoachClientTab, CoachNudgeTemplateKey, CoachNudgeTemplateSet } from '../../lib/types';
 import {
-  ALL_ON_TRACKING,
+  DEFAULT_COACH_TRACKING,
   parseCoachTrackingDefaults,
   serializeTrackingVars,
   type ResolvedTrackingConfig,
@@ -31,7 +31,7 @@ export default function CoachSettingsPanel() {
   const { coachSettings, fetchCoachSettings, saveCoachSettings } = useCoachingStore();
   const [tabs, setTabs] = useState<CoachClientTab[]>([...DEFAULT_COACH_VISIBLE_TABS]);
   const [templates, setTemplates] = useState<CoachNudgeTemplateSet>({});
-  const [defaults, setDefaults] = useState<ResolvedTrackingConfig>(cloneTracking(ALL_ON_TRACKING));
+  const [defaults, setDefaults] = useState<ResolvedTrackingConfig>(cloneTracking(DEFAULT_COACH_TRACKING));
   const [timezone, setTimezone] = useState('America/Toronto');
   const [cutoffHour, setCutoffHour] = useState(21);
   const [saving, setSaving] = useState(false);

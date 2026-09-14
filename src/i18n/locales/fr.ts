@@ -440,6 +440,7 @@ const fr = {
       vol: 'vol',
       oneRM: '1RM',
       backToWorkouts: 'Retour aux entraînements',
+      coachWillSee: 'Ton coach verra cette séance.',
       coaching: {
         title: 'Conseil du coach',
         shortSession: "Séance rapide et efficace ! L'intensité compte plus que la durée.",
@@ -458,6 +459,9 @@ const fr = {
       reps: 'Reps',
       rir: 'RIR',
       addSet: 'Ajouter une série',
+      completeSet: 'Valider la série',
+      uncompleteSet: 'Annuler la série',
+      duplicateSet: 'Dupliquer la série',
       act: 'ACT',
       mini: 'mini',
       burst: '/burst',
@@ -1326,7 +1330,9 @@ const fr = {
       openSession: 'Voir la séance',
       openRecovery: 'Voir la récup',
       skip: 'Passer',
-      moreSignals: '{{count}} autre(s) signal(s)',
+      moreSignals_one: '{{count}} autre signal',
+      moreSignals_other: '{{count}} autres signaux',
+      moreSignals: '{{count}} autres signaux',
       nextUp: 'Ensuite : {{names}}',
       draftBadge: 'brouillon',
       items: {

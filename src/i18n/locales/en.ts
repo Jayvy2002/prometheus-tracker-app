@@ -440,6 +440,7 @@ const en = {
       vol: 'vol',
       oneRM: '1RM',
       backToWorkouts: 'Back to Workouts',
+      coachWillSee: 'Your coach will see this session.',
       coaching: {
         title: 'Coach tip',
         shortSession: 'Quick and efficient! Intensity matters more than duration.',
@@ -458,6 +459,9 @@ const en = {
       reps: 'Reps',
       rir: 'RIR',
       addSet: 'Add Set',
+      completeSet: 'Mark set done',
+      uncompleteSet: 'Unmark set',
+      duplicateSet: 'Duplicate set',
       act: 'ACT',
       mini: 'mini',
       burst: '/burst',
@@ -1326,7 +1330,9 @@ const en = {
       openSession: 'See session',
       openRecovery: 'See recovery',
       skip: 'Skip',
-      moreSignals: '{{count}} more signal(s)',
+      moreSignals_one: '{{count}} more signal',
+      moreSignals_other: '{{count}} more signals',
+      moreSignals: '{{count}} more signals',
       nextUp: 'Next: {{names}}',
       draftBadge: 'draft',
       items: {

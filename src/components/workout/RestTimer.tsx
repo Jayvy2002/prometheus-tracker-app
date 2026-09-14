@@ -48,17 +48,22 @@ function vibrate() {
 export default function RestTimer({
   open,
   onClose,
+  initialSeconds,
+  autoStart = false,
 }: {
   open: boolean;
   onClose: () => void;
+  initialSeconds?: number;
+  autoStart?: boolean;
 }) {
   const { t } = useTranslation();
-  const [duration, setDuration] = useState(90);
-  const [remaining, setRemaining] = useState(90);
-  const [active, setActive] = useState(false);
-  const [inputMin, setInputMin] = useState('1');
-  const [inputSec, setInputSec] = useState('30');
-  const remainingRef = useRef(90);
+  const seed = initialSeconds && initialSeconds > 0 ? initialSeconds : 90;
+  const [duration, setDuration] = useState(seed);
+  const [remaining, setRemaining] = useState(seed);
+  const [active, setActive] = useState(autoStart && open);
+  const [inputMin, setInputMin] = useState(String(Math.floor(seed / 60)));
+  const [inputSec, setInputSec] = useState(String(seed % 60));
+  const remainingRef = useRef(seed);
   const firedRef = useRef(false);
 
   remainingRef.current = remaining;
@@ -66,11 +71,13 @@ export default function RestTimer({
   useEffect(() => {
     if (open) {
       firedRef.current = false;
-      setActive(false);
-      setRemaining(duration);
-      remainingRef.current = duration;
-      setInputMin(String(Math.floor(duration / 60)));
-      setInputSec(String(duration % 60));
+      const next = initialSeconds && initialSeconds > 0 ? initialSeconds : duration;
+      setDuration(next);
+      setRemaining(next);
+      remainingRef.current = next;
+      setInputMin(String(Math.floor(next / 60)));
+      setInputSec(String(next % 60));
+      setActive(autoStart);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 

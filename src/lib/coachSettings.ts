@@ -5,7 +5,7 @@ import type {
   CoachSettings,
 } from './types';
 import { DEFAULT_COACH_VISIBLE_TABS } from './types';
-import { ALL_ON_TRACKING, parseCoachTrackingDefaults, serializeTrackingVars } from './clientTracking';
+import { DEFAULT_COACH_TRACKING, parseCoachTrackingDefaults, serializeTrackingVars } from './clientTracking';
 
 export const DEFAULT_COACH_TIMEZONE = 'America/Toronto';
 export const DEFAULT_MISSED_WORKOUT_CUTOFF_HOUR = 21;
@@ -13,7 +13,7 @@ export const DEFAULT_MISSED_WORKOUT_CUTOFF_HOUR = 21;
 export const EMPTY_COACH_SETTINGS: Omit<CoachSettings, 'coach_id'> = {
   visible_tabs: [...DEFAULT_COACH_VISIBLE_TABS],
   nudge_templates: {},
-  default_tracking: serializeTrackingVars(ALL_ON_TRACKING),
+  default_tracking: serializeTrackingVars(DEFAULT_COACH_TRACKING),
   timezone: DEFAULT_COACH_TIMEZONE,
   missed_workout_cutoff_hour: DEFAULT_MISSED_WORKOUT_CUTOFF_HOUR,
   updated_at: '',

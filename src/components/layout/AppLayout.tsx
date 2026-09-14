@@ -21,7 +21,9 @@ export default function AppLayout() {
   const hideFab = isCoach
     || location.pathname.startsWith('/coaches')
     || location.pathname === '/coach/profile'
-    || location.pathname === '/coaching-requests';
+    || location.pathname === '/coaching-requests'
+    || location.pathname.startsWith('/messages')
+    || location.pathname.startsWith('/checkin');
 
   useEffect(() => {
     trackScreen(location.pathname);

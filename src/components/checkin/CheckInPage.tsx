@@ -162,11 +162,12 @@ export default function CheckInPage() {
     );
   }
 
+  const extraCount = extraVars.length + (showCheckinField(tracking, 'notes') ? 1 : 0);
   const extraHasAnswers = extraVars.some(key => {
     const col = CHECKIN_SCALE_BY_VAR[key];
     return col != null && scales[col] != null;
   }) || (showCheckinField(tracking, 'notes') && notes.trim().length > 0);
-  const showExtras = !solo || moreOpen || extraHasAnswers;
+  const showExtras = moreOpen || extraHasAnswers;
 
   const renderSlider = (key: CheckinVarKey) => {
     const col = CHECKIN_SCALE_BY_VAR[key];
@@ -212,7 +213,7 @@ export default function CheckInPage() {
 
           {coreVars.filter(key => key !== 'sleep_hours').map(renderSlider)}
 
-          {solo && extraVars.length + (showCheckinField(tracking, 'notes') ? 1 : 0) > 0 && (
+          {extraCount > 0 && (
             <button
               type="button"
               onClick={() => setMoreOpen(o => !o)}
