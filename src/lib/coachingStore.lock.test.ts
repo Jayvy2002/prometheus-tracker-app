@@ -77,3 +77,11 @@ test('single coach-agent invoke — no ask-second alias, no suggest-client-plan'
   const plan = src('supabase/functions/suggest-client-plan/index.ts');
   assert.match(plan, /status: 410/);
 });
+
+test('an active coach link survives a missing coach-card RPC', () => {
+  const store = src('src/stores/coachingStore.ts');
+  const fn = store.slice(store.indexOf('get_my_coach_card'));
+  assert.match(fn, /previous\?\.full_name/);
+  assert.match(fn, /link\.coach_id/);
+  assert.doesNotMatch(fn.slice(0, 800), /myCoach: null/);
+});

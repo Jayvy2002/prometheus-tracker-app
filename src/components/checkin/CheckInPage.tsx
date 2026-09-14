@@ -163,11 +163,7 @@ export default function CheckInPage() {
   }
 
   const extraCount = extraVars.length + (showCheckinField(tracking, 'notes') ? 1 : 0);
-  const extraHasAnswers = extraVars.some(key => {
-    const col = CHECKIN_SCALE_BY_VAR[key];
-    return col != null && scales[col] != null;
-  }) || (showCheckinField(tracking, 'notes') && notes.trim().length > 0);
-  const showExtras = moreOpen || extraHasAnswers;
+  const showExtras = moreOpen;
 
   const renderSlider = (key: CheckinVarKey) => {
     const col = CHECKIN_SCALE_BY_VAR[key];

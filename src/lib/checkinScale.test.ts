@@ -97,7 +97,7 @@ test('client check-in form uses 0–10 sliders, not a button grid', () => {
   assert.match(page, /checkin\.subtitleSolo/);
   assert.match(page, /checkin\.moreDetails/);
   assert.match(page, /extraCount > 0/);
-  assert.match(page, /showExtras = moreOpen \|\| extraHasAnswers/);
+  assert.match(page, /showExtras = moreOpen;/);
   assert.doesNotMatch(page, /!solo \|\| moreOpen/);
   assert.doesNotMatch(page, /solo && extraVars/);
   assert.doesNotMatch(page, /\[1, 2, 3, 4, 5\]/);

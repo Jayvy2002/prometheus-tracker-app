@@ -2055,11 +2055,8 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     // S03 : carte coach minimale via RPC — le client ne lit plus user_profiles.
     const { data: card } = await supabase.rpc('get_my_coach_card').maybeSingle();
     const profile = card as { coach_id: string; full_name: string; avatar_url: string | null } | null;
-    if (!profile) {
-      set({ myCoach: null, latestCoachMessage: null, unreadMessageCount: 0 });
-      await get().fetchMyTrackingConfig();
-      return;
-    }
+    const coachId = (profile?.coach_id as string | undefined) || (link.coach_id as string);
+    const previous = get().myCoach;
     const { data: msgs } = await supabase
       .from('coach_messages')
       .select('*')
@@ -2072,9 +2069,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const unread = messages.filter(m => m.sender_id !== user.id && !m.read_at);
     set({
       myCoach: {
-        id: profile.coach_id as string,
-        full_name: (profile.full_name as string) || '',
-        avatar_url: (profile.avatar_url as string) || '',
+        id: coachId,
+        full_name: (profile?.full_name as string) || previous?.full_name || '',
+        avatar_url: (profile?.avatar_url as string) || previous?.avatar_url || '',
       },
       latestCoachMessage: unread[0] ?? null,
       sentMessages: messages,
