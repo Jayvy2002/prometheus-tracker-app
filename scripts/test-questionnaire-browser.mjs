@@ -66,7 +66,7 @@ try {
  await page.getByRole('button').first().waitFor();
  await passIntentionIfShown(page,'I am a coach');
  if(!page.url().includes('/coach/questionnaire'))await page.goto(origin+'/coach/questionnaire');
- await page.getByRole('button',{name:'Add',exact:true}).click();
+ await page.getByRole('button',{name:'Start from a blank page',exact:true}).click();
  await page.getByLabel('Name (FR)',{exact:true}).fill('Accueil test');
  await page.getByLabel('Name (EN)',{exact:true}).fill('Test welcome');
  await page.getByRole('button',{name:'Add a question',exact:true}).click();
@@ -75,6 +75,8 @@ try {
  await page.locator('summary').filter({hasText:'Advanced settings'}).click();
  await page.getByLabel('Required',{exact:true}).check();
  await page.getByRole('button',{name:'Publish this version',exact:true}).click();
+ await page.getByTestId('questionnaire-publish-recap').waitFor();
+ await page.getByRole('button',{name:'Publish without asking again',exact:true}).click();
  await page.getByRole('button',{name:'Use for future invitations',exact:true}).click();
  await page.getByText(/✓/).waitFor();
  const token='browser-test-'+crypto.randomUUID();
@@ -110,6 +112,8 @@ try {
  await page.getByRole('button',{name:'Edit',exact:true}).click();
  await page.getByLabel('Question (EN)',{exact:true}).fill('Updated question');
  await page.getByRole('button',{name:'Publish this version',exact:true}).click();
+ await page.getByTestId('questionnaire-publish-recap').waitFor();
+ await page.getByRole('button',{name:'Publish without asking again',exact:true}).click();
  await page.getByText(/v2/).first().waitFor();
  await clientPage.reload();
  await clientPage.getByTestId('questionnaire-summary').waitFor();

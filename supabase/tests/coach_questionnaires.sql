@@ -159,6 +159,59 @@ do $$ begin
  raise exception 'old version no longer readable'; end if;
  if exists(select 1 from public.coach_questionnaire_versions where version=2) then raise exception 'unassigned revision leaked'; end if;
 end $$;
+
+-- UX41: completed clients can receive a complement; in-progress is never reset.
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000001',true);
+do $$
+declare v2 uuid; v3 uuid; out jsonb;
+begin
+ select id into strict v2 from public.coach_questionnaire_versions where version=2;
+ out := public.assign_questionnaire_complements(v2, array['a1740000-0000-4000-8000-000000000003'::uuid]);
+ if out->>'ok' is distinct from 'true' then raise exception 'complement assign failed %', out; end if;
+ if jsonb_array_length(out->'assigned') <> 1 then raise exception 'completed client not assigned %', out; end if;
+ perform set_config('questionnaire.test_v2', v2::text, true);
+ out := public.assign_questionnaire_complements(v2, array['a1740000-0000-4000-8000-000000000003'::uuid]);
+ if out->'skipped'->0->>'reason' is distinct from 'already_assigned' then raise exception 'duplicate assign not skipped %', out; end if;
+ insert into public.coach_questionnaire_versions(coach_id,questionnaire_id,version,definition)
+ select coach_id,questionnaire_id,3,jsonb_set(definition,'{version}','3')
+ from public.coach_questionnaire_versions where version=2
+ returning id into v3;
+ out := public.assign_questionnaire_complements(v3, array['a1740000-0000-4000-8000-000000000003'::uuid]);
+ if out->'skipped'->0->>'reason' is distinct from 'in_progress' then raise exception 'in-progress was reset %', out; end if;
+ out := public.assign_questionnaire_complements(v2, array['a1740000-0000-4000-8000-000000000002'::uuid]);
+ if out->'skipped'->0->>'reason' is distinct from 'not_linked' then raise exception 'unlinked client assigned %', out; end if;
+end $$;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000003',true);
+do $$ begin
+ if (select count(*) from public.client_questionnaire_responses) <> 2 then raise exception 'complement row missing'; end if;
+ if not exists(select 1 from public.coach_questionnaire_versions where version=2) then raise exception 'assigned v2 unreadable'; end if;
+end $$;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000002',true);
+do $$
+begin
+ begin
+  perform public.assign_questionnaire_complements(current_setting('questionnaire.test_v2')::uuid, array['a1740000-0000-4000-8000-000000000003'::uuid]);
+  raise exception 'cross-coach assign accepted';
+ exception when raise_exception then
+  if SQLERRM<>'version_not_found' then raise; end if;
+ end;
+end $$;
+select set_config('request.jwt.claim.sub','a1740000-0000-4000-8000-000000000003',true);
+do $$
+begin
+ begin
+  perform public.assign_questionnaire_complements(current_setting('questionnaire.test_v2')::uuid, array['a1740000-0000-4000-8000-000000000003'::uuid]);
+  raise exception 'client assign accepted';
+ exception when raise_exception then
+  if SQLERRM<>'not_coach' then raise; end if;
+ end;
+end $$;
+reset role;
+-- Restore the invitation fixture: one completed v1 response, unassigned later revisions.
+delete from public.client_questionnaire_responses
+ where version_id in (select id from public.coach_questionnaire_versions where version>=2);
+delete from public.coach_questionnaire_versions where version=3;
+
 reset role;
 -- Ended relationship: athlete keeps their history; former coach loses access.
 update public.coach_client_links set status='ended'

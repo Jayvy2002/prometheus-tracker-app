@@ -4,6 +4,7 @@ export interface QuestionnaireVersion { id: string; definition: CoachQuestionnai
 export interface QuestionnaireResponse {
  id: string; version_id: string; client_id: string; coach_id: string | null;
  answers: Record<string, QuestionnaireAnswer>; revision: number; completed_at: string | null;
+ created_at?: string;
 }
 function version(row: { id: string; definition: unknown }): QuestionnaireVersion {
  const parsed = parseCoachQuestionnaire(row.definition);
@@ -39,6 +40,21 @@ export async function listQuestionnaireResponses(clientId: string) {
  const {data,error}=await supabase.from('client_questionnaire_responses').select('*').eq('client_id',clientId).order('created_at',{ascending:false});
  if(error) throw error;
  return (data ?? []) as QuestionnaireResponse[];
+}
+export async function listCoachQuestionnaireResponses(coachId: string) {
+ const {data,error}=await supabase.from('client_questionnaire_responses')
+  .select('id,client_id,version_id,coach_id,answers,revision,completed_at,created_at')
+  .eq('coach_id',coachId)
+  .order('created_at',{ascending:false});
+ if(error) throw error;
+ return (data ?? []) as QuestionnaireResponse[];
+}
+export async function assignQuestionnaireComplements(versionId: string, clientIds: string[]) {
+ const {data,error}=await supabase.rpc('assign_questionnaire_complements',{
+  p_version_id:versionId,p_client_ids:clientIds,
+ });
+ if(error) throw error;
+ return data as { ok: boolean; assigned: string[]; skipped: { client_id: string; reason: string }[] };
 }
 export async function getQuestionnaireVersion(id: string) {
  const {data,error}=await supabase.from('coach_questionnaire_versions').select('id,definition').eq('id',id).single();

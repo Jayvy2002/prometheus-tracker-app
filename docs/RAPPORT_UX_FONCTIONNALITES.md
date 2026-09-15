@@ -404,9 +404,9 @@ Même dette fiabilité que le client. Plus : bascule client trop facile à perdr
 | | |
 |---|---|
 | **Quoi** | `/coach/questionnaire`. Sections, questions FR/EN, types, required/medical, publish, défaut, duplicate, preview. |
-| **Marche** | Versionné. Distinct de la recherche marketplace. |
-| **Ne va pas** | Builder **brut** (outil interne). Aperçu effort client (nombre d’écrans, obligatoire) faible. Publier une version peut surprendre les clients existants. |
-| **Changer** | Commencer par un **modèle court**. Preview mobile + « X questions obligatoires ». Publication : qui recevra un complément, qui garde l’ancienne réponse. |
+| **Marche** | Versionné. Modèle court (UX39). Aperçu effort + FR/EN largeur téléphone (UX40). Publication : qui garde / complète / reste en cours (UX41). |
+| **Ne va pas** | — |
+| **Changer** | **Livré.** Typo ≠ reset. Complément explicite. |
 
 ### 5.10 Learned
 

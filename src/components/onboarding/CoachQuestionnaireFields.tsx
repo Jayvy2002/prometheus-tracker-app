@@ -9,15 +9,17 @@ interface Props {
   issues?: QuestionnaireIssue[];
   disabled?: boolean;
   onlySectionId?: string;
+  previewLanguage?: 'fr' | 'en';
 }
 
 /** Shared by builder preview and athlete form; persistence belongs to the caller. */
 export default function CoachQuestionnaireFields({
-  definition, answers, onChange, issues = [], disabled = false, onlySectionId,
+  definition, answers, onChange, issues = [], disabled = false, onlySectionId, previewLanguage,
 }: Props) {
   const { t, i18n } = useTranslation();
   const prefix = React.useId();
-  const language = i18n.language.startsWith('fr') ? 'fr' : 'en';
+  const language = previewLanguage ?? (i18n.language.startsWith('fr') ? 'fr' : 'en');
+  const tx = previewLanguage ? i18n.getFixedT(previewLanguage) : t;
   const update = (id: string, value: QuestionnaireAnswer | undefined) => {
     const next = { ...answers };
     if (value === undefined) delete next[id];
@@ -35,7 +37,7 @@ export default function CoachQuestionnaireFields({
     ? definition.sections.filter(section => section.id === onlySectionId)
     : definition.sections;
   return <div className="space-y-6">
-    <p className="text-sm text-neutral-400">{t('coachQuestionnaire.audience')}</p>
+    <p className="text-sm text-neutral-400">{tx('coachQuestionnaire.audience')}</p>
     {sections.map(section => <section key={section.id} aria-labelledby={prefix + section.id}>
       <h2 id={prefix + section.id} className="text-lg font-semibold mb-4">{section.label[language]}</h2>
       <div className="space-y-5">
@@ -51,7 +53,7 @@ export default function CoachQuestionnaireFields({
           const multiple = q.type === 'multi' || q.type === 'weekdays';
           return <div key={q.id}>
             {q.id === firstMedicalId && (
-              <p role="note" className="text-sm text-neutral-400 mb-4">{t('coachQuestionnaire.sensitiveNotice')}</p>
+              <p role="note" className="text-sm text-neutral-400 mb-4">{tx('coachQuestionnaire.sensitiveNotice')}</p>
             )}
             {multiple ? <fieldset disabled={disabled} aria-describedby={descriptionId} aria-invalid={!!error}>
               <legend className="text-sm font-medium mb-2">
@@ -88,15 +90,15 @@ export default function CoachQuestionnaireFields({
                     value={q.type === 'yes_no' ? typeof value === 'boolean' ? String(value) : '' : typeof value === 'string' ? value : ''}
                     onChange={e => update(q.id, e.target.value === '' ? undefined
                       : q.type === 'yes_no' ? e.target.value === 'true' : e.target.value)}>
-                    <option value="">{t('coachQuestionnaire.choose')}</option>
+                    <option value="">{tx('coachQuestionnaire.choose')}</option>
                     {q.type === 'yes_no' ? <>
-                      <option value="true">{t('common.yes')}</option>
-                      <option value="false">{t('common.no')}</option>
+                      <option value="true">{tx('common.yes')}</option>
+                      <option value="false">{tx('common.no')}</option>
                     </> : q.options?.map(option => <option key={option.id} value={option.id}>{option.label[language]}</option>)}
                   </select>}
             </>}
             {error && <p id={descriptionId} role="alert" className="text-sm text-red-400 mt-1">
-              {t(error.code === 'required' ? 'coachQuestionnaire.required' : 'coachQuestionnaire.invalid')}
+              {tx(error.code === 'required' ? 'coachQuestionnaire.required' : 'coachQuestionnaire.invalid')}
             </p>}
           </div>;
         })}
