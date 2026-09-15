@@ -137,11 +137,40 @@ export function rosterBackPath(filter: string | null | undefined): string {
 export function rosterFromLocationState(state: unknown): string {
   if (state && typeof state === 'object' && 'from' in state) {
     const from = (state as { from?: unknown }).from;
-    if (typeof from === 'string' && (from === '/clients' || from.startsWith('/clients?'))) {
+    if (typeof from === 'string' && (from === '/clients' || from.startsWith('/clients?') || from === '/dashboard')) {
       return from;
     }
   }
   return '/clients';
+}
+
+export function rosterIdsFromLocationState(state: unknown): string[] {
+  if (!state || typeof state !== 'object' || !('rosterIds' in state)) return [];
+  const ids = (state as { rosterIds?: unknown }).rosterIds;
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id): id is string => typeof id === 'string' && id.length > 0 && !id.includes('/'));
+}
+
+export function rosterChainState(from: string, ids: readonly string[]): { from: string; rosterIds: string[] } {
+  return { from, rosterIds: [...ids] };
+}
+
+export function rosterNeighbors(ids: readonly string[], currentId: string | undefined): {
+  prevId: string | null;
+  nextId: string | null;
+  index: number;
+  total: number;
+} {
+  const i = currentId ? ids.indexOf(currentId) : -1;
+  if (i < 0) {
+    return { prevId: null, nextId: null, index: -1, total: ids.length };
+  }
+  return {
+    prevId: i > 0 ? ids[i - 1] ?? null : null,
+    nextId: i < ids.length - 1 ? ids[i + 1] ?? null : null,
+    index: i,
+    total: ids.length,
+  };
 }
 
 export function sortRosterClients(

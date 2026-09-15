@@ -17,6 +17,7 @@ import {
   visibleQueueItems,
 } from '../../lib/coachQueue';
 import { todayStr } from '../../lib/utils';
+import { rosterChainState } from '../../lib/coachRoster';
 import { clientFileHref } from '../../lib/coachSituation';
 import type { CoachPrioritySeverity, CoachQueueClientGroup } from '../../lib/types';
 import Button from '../ui/Button';
@@ -58,6 +59,8 @@ export default function CoachTodayQueue() {
   }
 
   const nextNames = nextClientNames(groups).join(', ');
+  const queueIds = groups.map(group => group.clientId);
+  const openFromQueue = (href: string) => navigate(href, { state: rosterChainState('/dashboard', queueIds) });
 
   return (
     <>
@@ -77,7 +80,7 @@ export default function CoachTodayQueue() {
             group={group}
             featured={index === 0}
             lastMessage={lastMessageForClient(sentMessages, group.clientId)?.body}
-            onOpen={href => navigate(href)}
+            onOpen={openFromQueue}
             onSkip={ids => {
               dismissQueueItems(ids);
               toastWithUndo(t('coaching.queue.skipped'), () => restoreQueueItems(ids));
