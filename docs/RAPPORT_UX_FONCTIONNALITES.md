@@ -4,7 +4,9 @@
 >
 > **Preuve** : revue du code sur `new-JV` au 14 septembre 2026 (routes, `navConfig`, dashboards, gates, stores). Complétée par les parcours authentifiés déjà joués sur les comptes d’audit (Camille / Thomas / Julie / Léa). Ce document décrit l’app **telle qu’elle est**, puis ce qu’il faudrait changer.
 >
-> **Instruction agents** : diagnostic uniquement. Ne pas exécuter un ordre depuis ce fichier. La file, les statuts et les refus sont uniquement dans [`CHANTIER.md`](CHANTIER.md) (recalé 14 sept. 2026). Ne pas défaire : cinq onglets, Copilote hors tab bar, switcher Personnel/Coaching uniquement dans Profil, FAB hors espace Coaching, `TrackingGate` (module off = disparu).
+> **Instruction agents** : diagnostic uniquement. Ne pas exécuter un ordre depuis ce fichier. La file, les statuts et les refus sont uniquement dans [`CHANTIER.md`](CHANTIER.md). Ne pas défaire : cinq onglets, Copilote hors tab bar, switcher Personnel/Coaching uniquement dans Profil, FAB hors espace Coaching, `TrackingGate` (module off = disparu).
+>
+> **Recalé 15 sept. 2026 — Accueil.** La destination n’est plus « un verbe / une carte exclusive ». L’accueil athlète est un **Dashboard** : priorité claire **et** vue d’ensemble du jour (rings nutrition, poids, check-in, coaching selon les modules). Les reco « Accueil = 1 verbe » et « anneaux seulement si le coach a envoyé des cibles » sont **périmées**. Onglet **Dashboard**.
 
 ---
 
@@ -12,7 +14,7 @@
 
 Prometheus a **un moteur commun solide** et **trois expériences quotidiennes encore inégales**.
 
-Ce qui est déjà juste : un compte, des données personnelles qui appartiennent à l’utilisateur, un suivi individualisé (modules allumés ou éteints), une IA qui prépare sans appliquer, une file coach centrée sur la prochaine décision, un accueil athlète qui tend vers *un verbe*.
+Ce qui est déjà juste : un compte, des données personnelles qui appartiennent à l’utilisateur, un suivi individualisé (modules allumés ou éteints), une IA qui prépare sans appliquer, une file coach centrée sur la prochaine décision, un Dashboard athlète (priorité + vue d’ensemble).
 
 Ce qui casse l’usage : la **profondeur arrive trop tôt** (murs d’entrée, proposition de programme en plein écran sur Aujourd’hui, fiche 360 trop dense, builder questionnaire brut) ; la **même chose n’a pas le même nom ni le même endroit** selon le rôle, l’espace et la largeur d’écran ; le coaché **n’a pas accès à sa propre progression** alors que la vision dit que l’histoire suit le compte.
 
@@ -154,20 +156,20 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 
 ## 3. Client coaché
 
-**Chrome mobile** : Aujourd’hui · Entraînement? · Check-in? · Messages · Profil.
+**Chrome mobile** : Dashboard · Entraînement? · Check-in? · Messages · Profil.
 
 **Interdit** (`CoachedAthleteRedirect`) : calendrier, stats, progression exercices, routines, recettes.
 
 **Interdit** (`CoachOnly`) : roster, 360, Prometheus, builder programmes, learned, offre coach.
 
-### 3.1 Aujourd’hui
+### 3.1 Dashboard
 
 | | |
 |---|---|
-| **Quoi** | `Dashboard`. Header + « Coaché par {nom} ». Carte gym du **jour de programme** (Démarrer / Continuer) **sans** « modifier le plan ». Message non lu → `/messages`. Strip check-in. Un seul reminder (poids possible ; deload/repas/eau **masqués**). Pas de revue hebdo solo, pas de streak, pas d’édition de programme. Anneaux nutrition **seulement** si le coach a envoyé des cibles. |
-| **Marche** | Un verbe principal quand un jour de programme existe. Accountability = coach, pas la gamification solo. Modules off = cartes absentes. |
-| **Ne va pas** | Si pas de programme : `waiting_program` sans issue claire (écrire au coach ? attendre ?). FAB « nouvelle séance » peut lancer une **séance libre** à côté du plan assigné. Accueil encore capable d’empiler message + check-in + reminder + anneaux. |
-| **Changer** | **Une** carte hero. Le reste = une ligne. Empty : « Programme en préparation — tu peux écrire à {coach} ». FAB coaché : **pas** « séance libre » si un jour de programme est dû ; ou libellé « séance hors programme » avec confirmation. |
+| **Quoi** | `Dashboard`. Priorité (séance due / waiting → Messages) + « À regarder » + « Ta journée » : rings nutrition (`NutritionRings`, mêmes que `/nutrition`), courbe de poids, semaine, check-in fait, suivi coach. Message et check-in restent visibles à côté d’une séance due. Pas d’édition de plan. Cibles absentes = `—` / « Aucune cible définie ». |
+| **Marche** | On sait quoi faire **et** où on en est. Modules off = cartes absentes. Waiting a une issue (Messages). Hors programme **nommé** (UX84). |
+| **Ne va pas** | Programme encore trop desktop / Profil (UX08). Trouvabilité / a11y encore dues. |
+| **Changer** | Programme / historique sans deviner Profil (UX08). Ne pas revenir à une carte exclusive. |
 
 ### 3.2 Séance (gym floor)
 
@@ -242,18 +244,18 @@ C’est **correct** : l’IA prépare pour le coach, pas un second coach dans la
 
 ## 4. Client solo
 
-**Chrome mobile** : Aujourd’hui · Entraînement · Progression · Nutrition? · Profil. Tracking **toujours allumé**.
+**Chrome mobile** : Dashboard · Entraînement · Progression · Nutrition? · Profil. Tracking **toujours allumé**.
 
 **Pas d’accès** : outils coach, Ask Prometheus (`/prometheus`), messages coach (pas de fil).
 
-### 4.1 Aujourd’hui
+### 4.1 Dashboard
 
 | | |
 |---|---|
-| **Quoi** | Carte gym si programme actif ; sinon hero **routine** legacy ; sinon CTA première séance. Check-in. Un reminder (deload / repas / eau / poids). **Proposition de programme en carte pleine** (pourquoi, séances, Accepter / Refuser) — mur potentiel. Revue hebdo (paragraphe 14 j.). Anneaux. Pastilles de semaine. Streak. Lien poids. |
-| **Marche** | First-run peut se réduire à **un** CTA séance. IA jamais auto-appliquée. Streak / nudges = auto-coaching assumé (retirés chez le coaché). |
-| **Ne va pas** | **Proposition de programme = mur** sur l’accueil : on ne voit plus le verbe du jour. Revue hebdo = pavé. Routine vs programme : deux heroes possibles. Programme **absent** de la tab bar. |
-| **Changer** | Accueil = verbe (séance). Proposition IA = **une ligne** « Proposition de programme » → `/programs` (détail + accepter là). Revue = 3 chiffres + Accepter/Garder, texte derrière « Pourquoi ». Une seule notion de *plan actif*. |
+| **Quoi** | Priorité (séance / routine / first-run) + « Ta journée » : rings nutrition, courbe de poids, semaine, progression, streak. Proposition de programme = **notice** (plus un mur). Revue hebdo compacte. |
+| **Marche** | On sait quoi faire **et** où on en est. IA jamais auto-appliquée. Streak / nudges = auto-coaching assumé (retirés chez le coaché). |
+| **Ne va pas** | Programme encore trop Profil / desktop (UX08). Trouvabilité restante. |
+| **Changer** | Programme / historique sans deviner Profil. Ne pas ramener un mur IA ni une carte exclusive. |
 
 ### 4.2 Séance
 
@@ -322,7 +324,7 @@ SoloHub mobile : Recettes · Photos · Annuaire · Demandes. Toggle « passer co
 
 ## 5. Coach (espace Coaching)
 
-**Chrome mobile** : Aujourd’hui · Clients · Messages · Programmes · Profil.
+**Chrome mobile** : Dashboard · Clients · Messages · Programmes · Profil.
 
 **FAB masqué.** Copilote = sidebar desktop + ⌘K, pas un onglet.
 
@@ -459,7 +461,7 @@ Même concept, trois bouches :
 
 | Concept | Coaché | Solo | Coach | Problème |
 |---|---|---|---|---|
-| Accueil | Aujourd’hui | Aujourd’hui | Aujourd’hui (file) | Même URL, deux produits |
+| Accueil | Dashboard | Dashboard | Dashboard (file) | Même URL, deux produits |
 | Plan | Mon programme (RO, caché mobile) | Programme éditable (caché mobile) | Bibliothèque + assign | Mot « routine » zombie |
 | Logger | Séance assignée (+ libre via FAB) | Séance libre / plan | N/A en Coaching | FAB libre vs plan |
 | Bilan corps | Check-in tab | Bandeau + SideNav | Onglet 360 | Pas le même geste |
@@ -541,7 +543,7 @@ Règle cible, **un mot partout** : Séance · Programme · Check-in · Message �
 
 Principe unique, trois applications :
 
-> **Aujourd’hui = 1 verbe. La profondeur = 1 tap. Jamais 0 accès, jamais un mur.**
+> **Dashboard = priorité + vue d’ensemble. La profondeur = 1 tap. Jamais 0 accès, jamais un mur.**
 
 | Couche | Coaché | Solo | Coach |
 |---|---|---|---|

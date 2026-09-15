@@ -1,6 +1,6 @@
 # Design system — tokens et primitives
 
-> **Rôle** — ce que le frontend **a** aujourd’hui, et ce que le lot **19** doit aligner. Pas un restyle dans le lot 17. Ordre : [`CHANTIER.md`](CHANTIER.md) lot **19** (après **18**, pour travailler dans `shared/ui`). Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md) ARCH06.
+> **Rôle** — tokens et primitives. Lot **19 livré** : les primitives listées utilisent les tokens sémantiques. Les écrans métier (`Dashboard`, séances, nutrition) peuvent encore mélanger `neutral-*` / `blue-*` — hors lot, à aligner au fil des PR produit. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md) ARCH06.
 
 ---
 
