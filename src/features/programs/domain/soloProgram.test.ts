@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { isSoloAthlete } from './coachRole';
+import { isSoloAthlete } from '../../../lib/coachRole';
 import {
   isSoloProgramKind,
   pendingSoloProgramDraft,
@@ -10,8 +10,8 @@ import {
   soloDraftEdited,
   soloDraftWhy,
 } from './soloProgram';
-import { muscleLabel } from './muscleLabels';
-import type { CoachIntervention } from './types';
+import { muscleLabel } from '../../../lib/muscleLabels';
+import type { CoachIntervention } from '../../../lib/types';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
