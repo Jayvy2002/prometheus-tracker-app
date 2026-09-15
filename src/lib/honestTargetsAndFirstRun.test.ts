@@ -10,6 +10,7 @@ function src(rel: string): string {
 test('nutrition targets are never invented as 150 / 250 / 65 / 2000', () => {
   const files = [
     'src/components/nutrition/MacroSummary.tsx',
+    'src/components/nutrition/NutritionRings.tsx',
     'src/components/dashboard/Dashboard.tsx',
     'src/components/stats/StatsPage.tsx',
   ];
@@ -21,6 +22,9 @@ test('nutrition targets are never invented as 150 / 250 / 65 / 2000', () => {
     assert.doesNotMatch(text, /daily_calorie_target \?\? 2000/);
     assert.match(text, /nutritionTargetsFromProfile/);
   }
+  const nutritionPage = src('src/components/nutrition/NutritionPage.tsx');
+  assert.match(nutritionPage, /NutritionRings/);
+  assert.doesNotMatch(nutritionPage, /hasSentNutritionTarget/);
 });
 
 test('finishing a workout does not mark leftover sets as completed', () => {

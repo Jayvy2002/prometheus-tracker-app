@@ -192,7 +192,7 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(dash, /ClientGymCard/);
   assert.match(dash, /DashboardWeightCard/);
   const gymIdx = dash.indexOf('<ClientGymCard');
-  const ringsIdx = dash.indexOf("t('dashboard.todaySummary')");
+  const ringsIdx = dash.indexOf('<NutritionRings');
   const proposalIdx = dash.indexOf('<SoloProgramProposal');
   assert.ok(gymIdx > 0 && ringsIdx > 0 && gymIdx < ringsIdx, 'séance card must render before calorie rings');
   assert.ok(gymIdx < proposalIdx, 'séance card must render before the solo program proposal');

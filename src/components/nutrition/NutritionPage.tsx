@@ -10,8 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { toast } from '../ui/Toast';
 import { MEAL_CATEGORIES } from '../../lib/constants';
 import type { NutritionLog } from '../../lib/types';
-import ProgressRing from '../ui/ProgressRing';
-import MacroSummary from './MacroSummary';
+import NutritionRings from './NutritionRings';
 import MealSection from './MealSection';
 import FoodForm from './FoodForm';
 import EditFoodModal from './EditFoodModal';
@@ -22,8 +21,7 @@ import CardLink from '../ui/CardLink';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import { useClientTracking } from '../../lib/useClientTracking';
-import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
-import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
+import { showNutritionField } from '../../lib/clientTracking';
 import { optionLabel } from '../../lib/optionLabels';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useRecipeStore } from '../../stores/recipeStore';
@@ -67,11 +65,6 @@ export default function NutritionPage() {
       setSearchParams({});
     }
   }, [searchParams]);
-
-  const totalCals = logs.reduce((s, l) => s + l.calories, 0);
-  const target = profile?.daily_calorie_target ?? 0;
-  const pct = target > 0 ? Math.min(100, (totalCals / target) * 100) : 0;
-  const showTargets = hasSentNutritionTarget(profile);
 
   const shiftDate = (days: number) => {
     setSelectedDate(addDaysToDateStr(selectedDate, days));
@@ -276,22 +269,7 @@ export default function NutritionPage() {
         <p className="text-xs text-neutral-500 mt-1">{t('nutrition.recipes.chromeHint')}</p>
       </CardLink>
 
-      {anyMacroField(tracking) && showTargets && (
-      <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale">
-        <div className="flex items-center gap-5">
-          {showNutritionField(tracking, 'calories') ? (
-            <ProgressRing progress={pct} size={80} strokeWidth={6} color="#2563eb">
-              <div className="text-center">
-                <div className="text-sm font-bold text-white leading-tight">{Math.round(totalCals)}</div>
-                <div className="text-xs text-neutral-500 leading-tight">/ {target}</div>
-                <div className="text-xs text-neutral-400">{t('common.kcal')}</div>
-              </div>
-            </ProgressRing>
-          ) : null}
-          <MacroSummary />
-        </div>
-      </div>
-      )}
+      <NutritionRings className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale" />
 
       {showNutritionField(tracking, 'water') && (
       <div className="animate-fade-in-up stagger-2">
