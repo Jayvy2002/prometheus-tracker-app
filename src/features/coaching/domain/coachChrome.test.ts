@@ -156,3 +156,26 @@ test('Coach chrome labels come from i18n; 360 default tab is overview with named
   const queue = src('src/components/coaching/CoachTodayQueue.tsx');
   assert.match(queue, /clientFileHref/);
 });
+
+test('UX28: missing logs are not framed as the athlete’s fault', () => {
+  const fr = src('src/i18n/locales/fr/coaching.ts');
+  assert.doesNotMatch(fr, /a manqué/);
+  assert.doesNotMatch(fr, /Séance manquée/);
+  assert.doesNotMatch(fr, /Check-ins manqués/);
+  assert.doesNotMatch(fr, /Séances manquées/);
+  assert.match(fr, /pas de check-in aujourd’hui/);
+  assert.match(fr, /Séance non loggée/);
+  assert.match(fr, /Signaler une séance non loggée/);
+  assert.match(fr, /Check-ins en attente/);
+  const en = src('src/i18n/locales/en/coaching.ts');
+  assert.doesNotMatch(en, /has missed/);
+  assert.doesNotMatch(en, /Missed session/);
+  assert.doesNotMatch(en, /Missed check-ins/);
+  assert.match(en, /Session not logged/);
+  assert.match(en, /Pending check-ins/);
+  const fleet = src('supabase/functions/_shared/fleetCopy.ts');
+  assert.match(fleet, /séances non loggées/);
+  assert.match(fleet, /Sessions not logged/);
+  assert.doesNotMatch(fleet, /Séances manquées —/);
+  assert.doesNotMatch(fleet, /Missed sessions —/);
+});
