@@ -83,6 +83,8 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
   const browser = src('scripts/test-questionnaire-browser.mjs');
   assert.match(browser, /Advanced settings/);
   assert.match(browser, /Start from a blank page/);
+  assert.match(browser, /Publish without asking again/);
+  assert.match(browser, /questionnaire-publish-recap/);
   assert.match(browser, /incomplete questionnaire must not prison the home/);
   assert.match(browser, /goto\(origin\+'\/questionnaire'\)/);
   assert.match(browser, /questionnaire-summary/);
