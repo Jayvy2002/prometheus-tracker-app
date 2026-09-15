@@ -34,40 +34,45 @@ export default function ExerciseProgressPage() {
     setLoading(true);
     setLoadError(false);
 
-    supabase
-      .from('workout_exercises')
-      .select(`
+    void Promise.resolve(
+      supabase
+        .from('workout_exercises')
+        .select(`
         name,
         workout_sets(weight_kg, reps, set_type, completed),
         workouts!inner(user_id, date, completed)
       `)
-      .eq('workouts.user_id', user.id)
-      .then(({ data, error }) => {
-        if (seq !== loadSeq.current) return;
-        if (error) {
-          setLoadError(true);
-          setLoading(false);
-          return;
-        }
-        if (!data) {
-          setLoadError(true);
-          setLoading(false);
-          return;
-        }
-
-        const summaries = aggregateExerciseProgress(
-          data as unknown as Array<{
-            name: string;
-            workout_sets: { weight_kg: number; reps: number; set_type: string; completed: boolean }[];
-            workouts: { date: string };
-          }>,
-          iso => toLocalDateStr(parseDate(iso)),
-        ).sort((a, b) => b.totalSessions - a.totalSessions);
-
-        setAllData(summaries);
-        appliedUser.current = user.id;
+        .eq('workouts.user_id', user.id),
+    ).then(({ data, error }) => {
+      if (seq !== loadSeq.current) return;
+      if (error) {
+        setLoadError(true);
         setLoading(false);
-      });
+        return;
+      }
+      if (!data) {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
+
+      const summaries = aggregateExerciseProgress(
+        data as unknown as Array<{
+          name: string;
+          workout_sets: { weight_kg: number; reps: number; set_type: string; completed: boolean }[];
+          workouts: { date: string };
+        }>,
+        iso => toLocalDateStr(parseDate(iso)),
+      ).sort((a, b) => b.totalSessions - a.totalSessions);
+
+      setAllData(summaries);
+      appliedUser.current = user.id;
+      setLoading(false);
+    }).catch(() => {
+      if (seq !== loadSeq.current) return;
+      setLoadError(true);
+      setLoading(false);
+    });
   }, [user, retry]);
 
   const topExercises = useMemo(() => allData.slice(0, 5), [allData]);

@@ -178,6 +178,11 @@ export default function CalendarPage() {
         weights: calendarDayWeights(weightRes.data ?? []),
       });
       setSummaryLoading(false);
+    }).catch(() => {
+      if (seq !== summarySeq.current) return;
+      setSummaryError(true);
+      setDaySummary(null);
+      setSummaryLoading(false);
     });
   }, [user, selectedDate, t, summaryRetry]);
 

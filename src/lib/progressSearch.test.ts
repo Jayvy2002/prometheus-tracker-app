@@ -42,6 +42,7 @@ test('calendar, progress and stats treat a failed fetch as an error with retry',
   assert.match(calendar, /calendarDayWorkouts/);
   assert.match(calendar, /summarySeq/);
   assert.match(calendar, /calendar\.loadError/);
+  assert.match(calendar, /\.catch\(/);
 
   const progress = src('src/components/workout/ExerciseProgressPage.tsx');
   assert.match(progress, /listedProgressMatches/);
