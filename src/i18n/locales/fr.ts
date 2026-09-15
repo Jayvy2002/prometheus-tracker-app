@@ -645,6 +645,7 @@ const fr = {
       createFirstRecipe: 'Crée ta première recette pour suivre tes repas facilement',
       createRecipe: 'Créer une recette',
       chromeHint: 'Tes recettes, dans Nutrition.',
+      saved: 'Recette enregistrée dans Mes recettes',
       deleteTitle: 'Supprimer la recette',
       serving: 'portion',
       servings: 'portions',

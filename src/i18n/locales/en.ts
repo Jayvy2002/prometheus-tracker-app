@@ -645,6 +645,7 @@ const en = {
       createFirstRecipe: 'Create your first recipe to track meals easily',
       createRecipe: 'Create Recipe',
       chromeHint: 'Your recipes, inside Nutrition.',
+      saved: 'Recipe saved to My recipes',
       deleteTitle: 'Delete Recipe',
       serving: 'serving',
       servings: 'servings',

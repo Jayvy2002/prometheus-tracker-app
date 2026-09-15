@@ -23,6 +23,11 @@ import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import { optionLabel } from '../../lib/optionLabels';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { useRecipeStore } from '../../stores/recipeStore';
+import { isSoloAthlete } from '../../lib/coachRole';
+import SoloAskBar from '../solo/SoloAskBar';
+import type { SoloAskContext } from '../../lib/soloAsk';
 
 export default function NutritionPage() {
   const { t, i18n } = useTranslation();
@@ -32,6 +37,10 @@ export default function NutritionPage() {
   const { profile } = useProfileStore();
   const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, fetchOrCreateSteps, addLog, loading: nutritionLoading } = useNutritionStore();
   const tracking = useClientTracking();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
+  const createRecipe = useRecipeStore(s => s.createRecipe);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
@@ -64,6 +73,34 @@ export default function NutritionPage() {
 
   const isToday = selectedDate === todayStr();
   const dateLabel = isToday ? t('common.today') : formatWeekdayShort(selectedDate, i18n.language);
+
+  const askContext: Omit<SoloAskContext, 'question'> = {
+    surface: 'nutrition',
+    injuries: profile?.injuries_limitations ?? '',
+    experience: profile?.training_experience ?? '',
+    frequency: profile?.training_frequency ?? 0,
+    focus: profile?.training_focus ?? '',
+    programName: null,
+    programExercises: [],
+    recentLiftNames: [],
+    calorieTarget: profile?.daily_calorie_target ?? 0,
+    proteinTarget: profile?.protein_target ?? 0,
+    carbsTarget: profile?.carbs_target ?? 0,
+    fatTarget: profile?.fat_target ?? 0,
+    consumedCalories: logs.reduce((s, l) => s + l.calories, 0),
+    consumedProtein: logs.reduce((s, l) => s + l.protein, 0),
+    consumedCarbs: logs.reduce((s, l) => s + l.carbs, 0),
+    consumedFat: logs.reduce((s, l) => s + l.fat, 0),
+    allergies: profile?.food_allergies ?? [],
+    dietType: profile?.diet_type ?? 'omnivore',
+    currentExerciseName: null,
+    catalog: [],
+    lastWeightKg: null,
+    lastReps: null,
+    lastRestSeconds: null,
+    missedWeekday: null,
+    coachName: null,
+  };
 
   const getTimeBasedCategory = () => {
     const hour = new Date().getHours();
@@ -147,6 +184,49 @@ export default function NutritionPage() {
           )}
         </div>
       </div>
+
+      {solo && user && (
+        <SoloAskBar
+          context={askContext}
+          onApplyOnce={async (proposal) => {
+            const meal = proposal.recipe;
+            if (!meal) return;
+            const result = await addLog({
+              user_id: user.id,
+              name: meal.name,
+              calories: meal.calories,
+              protein: meal.protein,
+              carbs: meal.carbs,
+              fat: meal.fat,
+              category: meal.category,
+              quantity: 1,
+              unit: 'serving',
+              logged_at: selectedDate,
+            });
+            if (result.error) return;
+            toast(t('nutrition.itemsCopied', { count: 1 }));
+          }}
+          onSave={async (proposal) => {
+            const meal = proposal.recipe;
+            if (!meal) return;
+            const saved = await createRecipe({
+              user_id: user.id,
+              name: meal.name,
+              description: meal.description,
+              servings: 1,
+              calories_per_serving: meal.calories,
+              protein_per_serving: meal.protein,
+              carbs_per_serving: meal.carbs,
+              fat_per_serving: meal.fat,
+            });
+            if (!saved) {
+              toast(t('errors.saveFailed'), 'error');
+              return;
+            }
+            toast(t('nutrition.recipes.saved'));
+          }}
+        />
+      )}
 
       <div className="flex items-center justify-between mb-4">
         <button onClick={() => shiftDate(-1)} className="p-2 text-neutral-400 hover:text-white">

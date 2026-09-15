@@ -103,7 +103,7 @@ test('swap uses same muscles and equipment; Ask bar is not /prometheus', () => {
   assert.equal(p?.kind, 'swap_exercise');
   assert.equal(p!.swapFrom, 'Bench Press');
   assert.equal(p!.swapTo, 'Incline Bench Press');
-  const workoutPage = src('src/components/workout/WorkoutPage.tsx');
-  assert.match(workoutPage, /SoloAskBar/);
-  assert.doesNotMatch(workoutPage, /\/prometheus/);
+  const nutrition = src('src/components/nutrition/NutritionPage.tsx');
+  assert.match(nutrition, /SoloAskBar/);
+  assert.doesNotMatch(nutrition, /\/prometheus/);
 });
