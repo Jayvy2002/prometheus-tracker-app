@@ -30,8 +30,10 @@ import {
   type IntakeProbeStatus,
   type IntakeUsageSignals,
 } from './lib/kinesiologyIntake';
-import { listQuestionnaireResponses, type QuestionnaireResponse } from './lib/coachQuestionnaireApi';
 import { probeIntakeUsage } from './lib/kinesiologyIntakeUsage';
+import { shouldSkipKinesiologyForAssignedQuestionnaire } from './lib/assignedQuestionnaire';
+import AssignedQuestionnaireProvider from './components/onboarding/AssignedQuestionnaireProvider';
+import { useAssignedQuestionnaire } from './components/onboarding/assignedQuestionnaireContext';
 import Dashboard from './components/dashboard/Dashboard';
 const WorkoutPage = lazy(() => import('./components/workout/WorkoutPage'));
 const WorkoutForm = lazy(() => import('./components/workout/WorkoutForm'));
@@ -121,22 +123,8 @@ function AppRoutes() {
   const [intakeProbeStatus, setIntakeProbeStatus] = useState<IntakeProbeStatus>('idle');
   const userId = user?.id ?? null;
   const timezoneWriteFor = useRef<string | null>(null);
-  const assignmentScope = userId && myCoach?.id && coachingRole !== 'coach' ? userId + ':' + myCoach.id : null;
-  const [assignment, setAssignment] = useState<{ scope: string; status: 'ready' | 'failed'; response: QuestionnaireResponse | null } | null>(null);
-  const [assignmentRetry, setAssignmentRetry] = useState(0);
-  const activeAssignment = assignmentScope && assignment?.scope === assignmentScope ? assignment : null;
-  useEffect(() => {
-    let cancelled = false;
-    setAssignment(null);
-    if (!assignmentScope || !userId || !myCoach?.id || !roleReady) return;
-    const coachId = myCoach.id;
-    listQuestionnaireResponses(userId).then(rows => {
-      if (!cancelled) setAssignment({ scope: assignmentScope, status: 'ready', response: rows.find(r => r.coach_id === coachId) ?? null });
-    }).catch(() => {
-      if (!cancelled) setAssignment({ scope: assignmentScope, status: 'failed', response: null });
-    });
-    return () => { cancelled = true; };
-  }, [assignmentScope, userId, myCoach?.id, roleReady, assignmentRetry]);
+  const assignedQuestionnaire = useAssignedQuestionnaire();
+  const skipKineForQuestionnaire = shouldSkipKinesiologyForAssignedQuestionnaire(assignedQuestionnaire);
 
   const skipPersonalOnboarding =
     coachingRole === 'coach'
@@ -314,24 +302,6 @@ function AppRoutes() {
     coachedClient
     || (isOnboardingDeferred() && !!myCoach);
 
-  if (assignmentScope && !activeAssignment) return <RouteFallback />;
-  if (activeAssignment?.status === 'failed') {
-    return <div className="p-6 space-y-4">
-      <p role="alert">{t('coachQuestionnaire.loadError')}</p>
-      <button type="button" onClick={() => setAssignmentRetry(n => n + 1)}>{t('errors.retry')}</button>
-    </div>;
-  }
-  if (activeAssignment?.response && !activeAssignment.response.completed_at) {
-    const responseId = activeAssignment.response.id;
-    return <Suspense fallback={<RouteFallback />}><Routes>
-      <Route path="/invite/:token" element={<InvitePage />} />
-      <Route path="*" element={<div className="p-4 max-w-2xl mx-auto">
-        <ClientQuestionnairePanel key={responseId} responseId={responseId}
-          onCompleted={() => setAssignmentRetry(n => n + 1)} />
-      </div>} />
-    </Routes></Suspense>;
-  }
-
   if (
     location.pathname === '/coaches'
     || location.pathname.startsWith('/coaches/')
@@ -353,7 +323,7 @@ function AppRoutes() {
     );
   }
 
-  if (!activeAssignment?.response && needsIntakeProbe && (intakeProbeStatus === 'idle' || intakeProbeStatus === 'pending')) {
+  if (!skipKineForQuestionnaire && needsIntakeProbe && (intakeProbeStatus === 'idle' || intakeProbeStatus === 'pending')) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full" />
@@ -361,7 +331,7 @@ function AppRoutes() {
     );
   }
 
-  if (!activeAssignment?.response && shouldForceKinesiologyIntake({
+  if (!skipKineForQuestionnaire && shouldForceKinesiologyIntake({
     isCoachedClient: coachedClient,
     isCoach: skipPersonalOnboarding,
     profile,
@@ -412,7 +382,7 @@ function AppRoutes() {
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />
-        <Route path="/questionnaire" element={<div className="p-4 pb-28"><ClientQuestionnairePanel key={user.id}/></div>} />
+        <Route path="/questionnaire" element={<AthleteQuestionnairePage key={user.id} />} />
         <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
@@ -449,7 +419,19 @@ export default function App() {
   return (
     <BrowserRouter>
       <TitleManager />
-      <AppRoutes />
+      <AssignedQuestionnaireProvider>
+        <AppRoutes />
+      </AssignedQuestionnaireProvider>
     </BrowserRouter>
+  );
+}
+
+function AthleteQuestionnairePage() {
+  const { user } = useAuthStore();
+  const { retry } = useAssignedQuestionnaire();
+  return (
+    <div className="p-4 pb-28">
+      <ClientQuestionnairePanel key={user?.id} onCompleted={retry} />
+    </div>
   );
 }
