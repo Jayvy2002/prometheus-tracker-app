@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M2a Terminé**. Lots **M2b–M5** encore **À vérifier**. Lots **17–23 Terminé**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M2b Terminé**. Lots **M3–M5** encore **À vérifier**. Lots **17–23 Terminé**.
 
-| **Lot ouvert :** M2b (preuve, pas rebuild). Lots **1–16**, **M0–M2a** et **17–23 Terminé**.
+| **Lot ouvert :** M3 (preuve, pas rebuild). Lots **1–16**, **M0–M2b** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -30,6 +30,7 @@
 | **M0** Rôles / policies | **PASS.** Solo / coaché / coach / coach-athlète. RLS `workouts` + `is_coach_of` prod. Espace Personnel ≠ roster. | — |
 | **M1** Espaces ≠ droits | **PASS.** Switcher Personnel : nav sans Clients ; `/clients` direct toujours le roster. `user_roles` reste `coach`. 0 auto-lien. | — |
 | **M2a** Départ client | **PASS.** Modal : Tu gardes / Ça s’arrête / pause / Ça ne se transmet pas. RPC live : lien `ended`, rôle `none`, programme `paused`, tracking 0, séance gardée, note coach gardée, notice coach, 2ᵉ appel `not_linked`. | — |
+| **M2b** Invite + consentement | **PASS.** Ancienne `accept_coach_invite(text)` : `authenticated` sans EXECUTE. Expiré / épuisé → « Invitation indisponible » + Retour. Déjà lié → « Tu as déjà un coach ». Self → « Tu ne peux pas accepter ta propre invitation ». | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -325,7 +326,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** preuve prod des lots **M2b–M5** encore « À vérifier » (M0–M2a **Terminé**), M7, confort P2/P3 restant, capteurs santé (UX112), billing.
+**Après les lots 17–23 :** preuve prod des lots **M3–M5** encore « À vérifier » (M0–M2b **Terminé**), M7, confort P2/P3 restant, capteurs santé (UX112), billing.
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -371,7 +372,7 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | **M0** Inventaire rôles / policies vs carte | **Terminé** | Scénarios solo, coaché, coach, coach-athlète. Aucun changement de droits. | Live 15 sept. soir + RLS prod. `is_coach_of` = lien **actif** seulement. Coach lit les séances du client, pas du solo. Client : 0 `coach_notes`, pas le `user_roles` du coach. Espace Personnel n’accorde aucun droit. |
 | **M1** Capacités + espaces Personnel/Coaching | **Terminé** | Backfill coachs ; aucun auto-lien ; rollback UI sans drop de colonnes. | Live : `selectAccountWorkspace` = localStorage seulement. Personnel masque Clients ; `/clients` reste lisible (RLS). 0 self-link. `user_roles` = `coach`. Lot 2 (UX78) déjà Terminé. |
 | **M2a** Départ client autonome | **Terminé** | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notif minimale coach ; sérialisation vs adaptation en cours. | Live `chantier-leaver-1515` : copy 4 listes ; toast + bandeau solo ; séance « Séance avant départ » gardée ; notice « Chantier Leaver a mis fin au suivi » ; hors roster. SQL : `ended` / `paused` / tracking 0 / note intacte / `initiated_as=client` / 2ᵉ RPC `not_linked` / `FOR UPDATE` prod. **RPC inchangée.** |
-| **M2b** Invitation + consentement versionné | À vérifier | Acceptation explicite ; ancienne RPC révoquée après bascule. | Consentement versionné en code. Vérifier révocation de l’ancienne signature et cas expiré / mauvais compte (UX02). |
+| **M2b** Invitation + consentement versionné | **Terminé** | Acceptation explicite ; ancienne RPC révoquée après bascule. | Prod : `accept_coach_invite(text)` **sans** EXECUTE `authenticated` ; nouvelle signature (version + scopes) oui. Live : expiré / used = issue + Retour ; autre coach = « déjà un coach » ; self = refus. Happy-path lot 4. |
 | **M3** Intention après identité | À vérifier | Login direct ; pas de rôle avant le formulaire ; OAuth plus tard. | `EntryIntentionPage` existe. Parcours `find_coach` : Personnel utilisable. Ne pas fusionner intake / onboarding **avant** d’avoir testé chaque chemin. |
 | **M4** Offres opt-in | À vérifier | Coach sans publier ; publication / retrait. | `/coach/profile` existe. Compte ≠ offre publique (libellés). |
 | **M5** Annuaire, comparaison, demandes | À vérifier | Filtres exacts ; pas de dossier prospect ; empty honnête. | Vitrine en code. **Accepté = suivi actif**, pas un paiement. L’UI doit le dire (UX56). Annuaire si déjà lié : expliquer, pas un formulaire qui échoue. Matching riche / modération / avis : **pas** dans M4–M5. |
@@ -750,7 +751,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16** et **M0–M2a**. Lots **M2b–M5** encore dus.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16** et **M0–M2b**. Lots **M3–M5** encore dus.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -776,6 +777,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Coach-athlète | Switcher → Personnel | **Joué.** Accueil solo-like ; `user_roles` reste `coach`. |
 | Coach dual-rôle | Personnel puis `/clients` direct | **Joué (M1).** Nav sans Clients ; roster encore là. 0 self-link prod. |
 | Coaché (leaver) | Profil → Mettre fin au suivi | **Joué (M2a).** 4 listes ; solo ; séance gardée ; notice coach ; hors roster. |
+| Solo / coaché / coach | Invite expiré, used, déjà lié, self | **Joué (M2b).** Issue + Retour ; « déjà un coach » ; pas sa propre invite. |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
