@@ -576,6 +576,13 @@ const en = {
       play: 'Play',
       reset: 'Reset',
     },
+    plates: {
+      title: 'Plates',
+      body: '{{load}} {{unit}} on a {{bar}} {{unit}} bar — per side.',
+      perSide: 'per side',
+      leftover: '{{leftover}} {{unit}} left over.',
+      empty: 'Too light for this bar.',
+    },
   },
 
   nutrition: {
@@ -585,8 +592,9 @@ const en = {
     addFood: 'Food',
     reuseMeal: 'Reuse a meal',
     addMenuHint: 'Choose how to add',
-    nothingLoggedYesterday: 'Nothing logged for this meal yesterday',
-    itemsCopied: '{{count}} item(s) copied from yesterday',
+    nothingLoggedYesterday: 'Nothing logged for this meal on that day',
+    itemsCopied: '{{count}} item(s) copied',
+    reuseFromDate: 'Copy from this day',
     removedFromMeal: 'removed',
     copyFromYesterday: 'Copy from yesterday',
     foodForm: {

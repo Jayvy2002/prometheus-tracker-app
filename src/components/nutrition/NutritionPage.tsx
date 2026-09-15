@@ -19,6 +19,8 @@ import WaterTracker from './WaterTracker';
 import StepsTracker from './StepsTracker';
 import PageTransition from '../ui/PageTransition';
 import CardLink from '../ui/CardLink';
+import Button from '../ui/Button';
+import Modal from '../ui/Modal';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
@@ -46,6 +48,9 @@ export default function NutritionPage() {
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
+  const [reuseOpen, setReuseOpen] = useState(false);
+  const [reuseCategory, setReuseCategory] = useState('breakfast');
+  const [reuseDate, setReuseDate] = useState(() => addDaysToDateStr(todayStr(), -1));
 
   useEffect(() => {
     if (user) {
@@ -116,9 +121,13 @@ export default function NutritionPage() {
     setShowAdd(true);
   };
 
-  const handleReuseCategory = async (category: string) => {
+  const handleReuseCategory = async (category: string, fromDate?: string) => {
     if (!user) return;
-    const prevStr = addDaysToDateStr(selectedDate, -1);
+    const prevStr = fromDate || addDaysToDateStr(selectedDate, -1);
+    if (prevStr === selectedDate) {
+      toast(t('nutrition.nothingLoggedYesterday'));
+      return;
+    }
 
     const { data } = await supabase
       .from('nutrition_logs')
@@ -150,6 +159,15 @@ export default function NutritionPage() {
     toast(t('nutrition.itemsCopied', { count: data.length }));
   };
 
+  const openReuse = (category: string) => {
+    setReuseCategory(category);
+    setReuseDate(addDaysToDateStr(selectedDate, -1));
+    setReuseOpen(true);
+  };
+
+  const scannerHref = (category: string) =>
+    `/scanner?date=${encodeURIComponent(selectedDate)}&category=${encodeURIComponent(category)}`;
+
   return (
     <PageTransition>
     <div className="px-4 pt-6">
@@ -172,10 +190,10 @@ export default function NutritionPage() {
               <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleQuickAdd(); }}>
                 {t('nutrition.addFood')}
               </button>
-              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/scanner'); }}>
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate(scannerHref(getTimeBasedCategory())); }}>
                 <ScanLine size={16} className="inline mr-2" />{t('nutrition.foodForm.openScanner')}
               </button>
-              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleReuseCategory(getTimeBasedCategory()); }}>
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); openReuse(getTimeBasedCategory()); }}>
                 {t('nutrition.reuseMeal')}
               </button>
               <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/recipes'); }}>
@@ -312,7 +330,7 @@ export default function NutritionPage() {
                 logs={logs.filter(l => l.category === cat.value)}
                 onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
                 onEdit={(log) => setEditingLog(log)}
-                onReuse={() => handleReuseCategory(cat.value)}
+                onReuse={() => openReuse(cat.value)}
               />
             </div>
           ))
@@ -330,6 +348,41 @@ export default function NutritionPage() {
       {editingLog && (
         <EditFoodModal log={editingLog} onClose={() => setEditingLog(null)} />
       )}
+
+      <Modal open={reuseOpen} onClose={() => setReuseOpen(false)} title={t('nutrition.reuseMeal')}>
+        <p className="text-sm text-neutral-400 mb-3">{t('nutrition.reuseFromDate')}</p>
+        <input
+          type="date"
+          data-reuse-date="true"
+          max={selectedDate}
+          value={reuseDate}
+          onChange={e => setReuseDate(e.target.value)}
+          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white mb-3"
+        />
+        <Button
+          type="button"
+          className="w-full mb-2"
+          onClick={() => {
+            void handleReuseCategory(reuseCategory, reuseDate);
+            setReuseOpen(false);
+          }}
+        >
+          {t('nutrition.reuseFromDate')}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full"
+          onClick={() => {
+            const yesterday = addDaysToDateStr(selectedDate, -1);
+            setReuseDate(yesterday);
+            void handleReuseCategory(reuseCategory, yesterday);
+            setReuseOpen(false);
+          }}
+        >
+          {t('nutrition.copyFromYesterday')}
+        </Button>
+      </Modal>
     </div>
     </PageTransition>
   );

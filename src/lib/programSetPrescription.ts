@@ -1,4 +1,4 @@
-import type { ProgramExerciseDraft, SetType, WorkoutTemplateExercise } from './types';
+import type { ProgramExerciseDraft, SetType, WorkoutExercise, WorkoutTemplateExercise } from './types';
 
 export const PROGRAM_SET_TYPES: SetType[] = [
   'warmup',
@@ -68,5 +68,29 @@ export function toWorkoutTemplateExercise(
   return {
     ...programExerciseRpcFields(ex),
     order_index: ex.order_index ?? orderIndex,
+  };
+}
+
+/** Séance libre → jour de plan : les types du logger (lot 14) suivent. */
+export function workoutExerciseToPlanDraft(ex: WorkoutExercise): ProgramExerciseDraft {
+  const sets = ex.sets ?? [];
+  const sample = sets.find(s => s.set_type && s.set_type !== 'warmup') ?? sets[0];
+  const drop = sets.find(s => s.set_type === 'drop');
+  const dropSegs = drop ? parseDropSegments(drop.drop_segments) : [];
+  return {
+    name: ex.name,
+    default_sets: Math.max(1, ex.prescribed_sets ?? (sets.length || 3)),
+    default_reps: ex.prescribed_reps ?? (sample && sample.reps > 0 ? sample.reps : 8),
+    default_rir: ex.prescribed_rir ?? sample?.rir ?? null,
+    default_rest_seconds: ex.prescribed_rest_seconds ?? 90,
+    default_weight_kg: ex.prescribed_weight_kg ?? (sample && sample.weight_kg > 0 ? sample.weight_kg : null),
+    set_type: normalizeProgramSetType(sample?.set_type),
+    superset_group: ex.superset_group_id,
+    drop_count: drop ? Math.max(2, dropSegs.length || 2) : null,
+    tempo: sample?.tempo ?? null,
+    isometric_seconds: sample?.set_type === 'isometric' ? (sample.duration_seconds ?? null) : null,
+    cluster_rest_seconds: sample?.cluster_rest_seconds ?? null,
+    cluster_reps_per_burst: sample?.cluster_reps_per_burst ?? null,
+    myo_activation: sets.some(s => s.myo_is_activation),
   };
 }

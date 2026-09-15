@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { toast } from '../ui/Toast';
+import { imageFileForUpload } from '../../lib/heicConvert';
 
 export default function AvatarUpload() {
   const { t } = useTranslation();
@@ -25,20 +26,17 @@ export default function AvatarUpload() {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file || !user) return;
-    // Q02 : mêmes règles que le bucket (5 Mo, JPEG/PNG/WebP), message utile.
-    const lower = file.name.toLowerCase();
-    if (lower.endsWith('.heic') || lower.endsWith('.heif')) {
-      toast(t('profile.avatar.heicUnsupported'), 'error');
+    const prepared = await imageFileForUpload(file);
+    if ('error' in prepared) {
+      toast(
+        prepared.error === 'too_large' ? t('profile.avatar.tooLarge')
+        : prepared.error === 'heic_unsupported' ? t('profile.avatar.heicUnsupported')
+        : t('profile.avatar.unsupportedType'),
+        'error',
+      );
       return;
     }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type.toLowerCase())) {
-      toast(t('profile.avatar.unsupportedType'), 'error');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast(t('profile.avatar.tooLarge'), 'error');
-      return;
-    }
+    file = prepared.file;
 
     const localUrl = URL.createObjectURL(file);
     setPreviewUrl(localUrl);
@@ -80,7 +78,7 @@ export default function AvatarUpload() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         onChange={handleFileSelect}
         className="hidden"
       />

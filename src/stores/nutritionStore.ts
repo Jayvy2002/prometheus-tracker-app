@@ -8,6 +8,7 @@ import { useStreakStore } from './streakStore';
 
 import { functionsErrorBody, functionsHttpStatus } from '../lib/supabaseFunctions';
 import { waitForRowChange } from '../lib/realtimeWait';
+import { imageFileForUpload } from '../lib/heicConvert';
 import {
   FAST_VERIFY_BONUS_POLL_MS,
   FAST_VERIFY_BONUS_TIMEOUT_MS,
@@ -235,10 +236,14 @@ export const useNutritionStore = create<NutritionState>((set, get) => ({
   },
 
   uploadProductImage: async (userId, file, slot) => {
-    // Q02 : mêmes règles que le bucket (le scanner affiche l'échec).
+    const prepared = await imageFileForUpload(file);
+    if ('error' in prepared) return null;
+    file = prepared.file;
     const lower = file.name.toLowerCase();
-    if (lower.endsWith('.heic') || lower.endsWith('.heif')) return null;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes((file.type || '').toLowerCase())) return null;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes((file.type || '').toLowerCase())
+      && !['.jpg', '.jpeg', '.png', '.webp'].some(e => lower.endsWith(e))) {
+      return null;
+    }
     if (file.size > 5 * 1024 * 1024) return null;
     const ext = file.name.split('.').pop() ?? 'jpg';
     const path = `${userId}/${crypto.randomUUID()}_${slot}.${ext}`;

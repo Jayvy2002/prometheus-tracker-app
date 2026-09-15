@@ -576,6 +576,13 @@ const fr = {
       play: 'Lecture',
       reset: 'Recommencer',
     },
+    plates: {
+      title: 'Disques',
+      body: '{{load}} {{unit}} avec une barre de {{bar}} {{unit}} — par côté.',
+      perSide: 'par côté',
+      leftover: 'Reste {{leftover}} {{unit}} non plaquable.',
+      empty: 'Charge trop légère pour cette barre.',
+    },
   },
 
   nutrition: {
@@ -585,8 +592,9 @@ const fr = {
     addFood: 'Aliment',
     reuseMeal: 'Réutiliser un repas',
     addMenuHint: 'Choisis comment ajouter',
-    nothingLoggedYesterday: 'Rien de logué pour ce repas hier',
-    itemsCopied: '{{count}} aliment(s) copié(s) depuis hier',
+    nothingLoggedYesterday: 'Rien de logué pour ce repas à cette date',
+    itemsCopied: '{{count}} aliment(s) copié(s)',
+    reuseFromDate: 'Copier depuis ce jour',
     removedFromMeal: 'supprimé',
     copyFromYesterday: 'Copier depuis hier',
     foodForm: {

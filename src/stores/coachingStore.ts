@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { imageFileForUpload } from '../lib/heicConvert';
 import type {
   ClientOpsRow,
   ClientTrackingConfig,
@@ -1371,11 +1372,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   uploadProgressPhoto: async ({ file, takenAt, kind, notes }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
-    // Q02 : validation réelle avant envoi (le accept= du input n'est qu'indicatif).
-    const lower = file.name.toLowerCase();
-    if (lower.endsWith('.heic') || lower.endsWith('.heif') || file.type.toLowerCase().includes('heic') || file.type.toLowerCase().includes('heif')) {
-      return { error: 'heic_unsupported' };
+    const prepared = await imageFileForUpload(file);
+    if ('error' in prepared) {
+      if (prepared.error === 'heic_unsupported') return { error: 'heic_unsupported' };
+      return { error: prepared.error };
     }
+    file = prepared.file;
+    const lower = file.name.toLowerCase();
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     const extOk = ['.jpg', '.jpeg', '.png', '.webp'].some(e => lower.endsWith(e));
     if (!allowed.includes(file.type.toLowerCase()) && !extOk) {

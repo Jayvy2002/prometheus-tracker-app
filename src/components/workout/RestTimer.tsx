@@ -50,11 +50,13 @@ function vibrate() {
 export default function RestTimer({
   open,
   onClose,
+  onReopen,
   initialSeconds,
   autoStart = false,
 }: {
   open: boolean;
   onClose: () => void;
+  onReopen?: () => void;
   initialSeconds?: number;
   autoStart?: boolean;
 }) {
@@ -71,16 +73,18 @@ export default function RestTimer({
   remainingRef.current = remaining;
 
   useEffect(() => {
-    if (open) {
-      firedRef.current = false;
-      const next = initialSeconds && initialSeconds > 0 ? initialSeconds : duration;
-      setDuration(next);
-      setRemaining(next);
-      remainingRef.current = next;
-      setInputMin(String(Math.floor(next / 60)));
-      setInputSec(String(next % 60));
-      setActive(autoStart);
-    }
+    if (!open) return;
+    // Fermer le modal ne tue pas le chrono : on ne reseed que si rien n'est en cours.
+    const inFlight = active || (remainingRef.current > 0 && remainingRef.current < duration);
+    if (inFlight) return;
+    firedRef.current = false;
+    const next = initialSeconds && initialSeconds > 0 ? initialSeconds : duration;
+    setDuration(next);
+    setRemaining(next);
+    remainingRef.current = next;
+    setInputMin(String(Math.floor(next / 60)));
+    setInputSec(String(next % 60));
+    setActive(autoStart);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -129,8 +133,20 @@ export default function RestTimer({
   const mins = Math.floor(remaining / 60);
   const secs = remaining % 60;
   const isFinished = remaining === 0;
+  const showBar = !open && (active || (remaining > 0 && remaining < duration) || isFinished);
 
   return (
+    <>
+      {showBar && (
+        <button
+          type="button"
+          data-rest-bar="true"
+          onClick={() => onReopen?.()}
+          className="fixed z-40 left-1/2 -translate-x-1/2 bottom-[calc(5.5rem+env(safe-area-inset-bottom))] md:bottom-6 rounded-full px-4 py-2 bg-neutral-900 border border-blue-500/40 text-sm font-mono text-white shadow-xl"
+        >
+          {t('workout.restTimer.title')} · {isFinished ? t('workout.restTimer.go') : `${mins}:${secs.toString().padStart(2, '0')}`}
+        </button>
+      )}
     <Modal open={open} onClose={onClose} title={t('workout.restTimer.title')}>
       <div className="text-center">
         <div className="relative w-48 h-48 mx-auto mb-6 animate-fade-in-scale">
@@ -219,5 +235,6 @@ export default function RestTimer({
         </div>
       </div>
     </Modal>
+    </>
   );
 }

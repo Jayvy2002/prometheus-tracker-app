@@ -137,7 +137,7 @@ export default function ClientPhotosPage() {
             placeholder={t('coaching.photos.notesPlaceholder')}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
           />
-          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onFile} />
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" className="hidden" onChange={onFile} />
           <Button onClick={() => inputRef.current?.click()} loading={uploading} className="w-full">
             <Camera size={16} /> {t('coaching.photos.upload')}
           </Button>

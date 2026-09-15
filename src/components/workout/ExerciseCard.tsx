@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2, Check, Info } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2, Check, Info, Weight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -24,6 +24,7 @@ import { parseDropSegments, emptyDropSegments } from '../../lib/programSetPrescr
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { findCatalogExercise } from '../../lib/exerciseCatalog';
 import ExerciseMedia from './ExerciseMedia';
+import PlateCalc from './PlateCalc';
 import SoloAskBar from '../solo/SoloAskBar';
 import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 
@@ -719,6 +720,7 @@ export default function ExerciseCard({
   const [history, setHistory] = useState<ExerciseSession[]>([]);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
   const [showMedia, setShowMedia] = useState(false);
+  const [plateOpen, setPlateOpen] = useState(false);
   const catalogExercises = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const catalog = findCatalogExercise(catalogExercises, exercise.name);
@@ -788,6 +790,10 @@ export default function ExerciseCard({
 
   const completedCount = exercise.sets?.filter(s => s.completed).length ?? 0;
   const totalSets = exercise.sets?.length ?? 0;
+  const plateKg = exercise.sets?.find(s => s.weight_kg > 0)?.weight_kg
+    ?? exercise.prescribed_weight_kg
+    ?? 0;
+  const plateLoad = weightUnit === 'lbs' ? kgToLbs(plateKg) : Math.round(plateKg * 10) / 10;
 
   // Myo-rep total reps counter
   const myoSets = exercise.sets?.filter(s => s.set_type === 'myo') ?? [];
@@ -847,6 +853,17 @@ export default function ExerciseCard({
               />
             )}
           </div>
+        )}
+        {showLoad && (
+          <button
+            type="button"
+            data-plates-open="true"
+            onClick={() => setPlateOpen(true)}
+            className="p-1 text-neutral-600 hover:text-white transition-colors"
+            aria-label={t('workout.plates.title')}
+          >
+            <Weight size={16} />
+          </button>
         )}
         {catalog && (
           <button
@@ -1061,6 +1078,12 @@ export default function ExerciseCard({
           )}
         </div>
       )}
+      <PlateCalc
+        open={plateOpen}
+        onClose={() => setPlateOpen(false)}
+        load={plateLoad}
+        unit={weightUnit}
+      />
     </Card>
   );
 }

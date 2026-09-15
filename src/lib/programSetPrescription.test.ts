@@ -7,6 +7,7 @@ import {
   normalizeProgramSetType,
   parseDropSegments,
   programExerciseRpcFields,
+  workoutExerciseToPlanDraft,
 } from './programSetPrescription';
 
 function src(rel: string): string {
@@ -44,4 +45,37 @@ test('program set types persist on the day, not as a working-only plate', () => 
   const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
   assert.match(editor, /PROGRAM_SET_TYPES/);
   assert.match(editor, /superset_group/);
+});
+
+test('free session to plan day keeps drop/tempo types', () => {
+  const draft = workoutExerciseToPlanDraft({
+    id: 'ex1',
+    workout_id: 'w1',
+    name: 'Bench',
+    order_index: 0,
+    notes: '',
+    superset_group_id: 'A',
+    created_at: '',
+    sets: [{
+      id: 's1',
+      exercise_id: 'ex1',
+      set_type: 'drop',
+      weight_kg: 80,
+      reps: 6,
+      rir: 1,
+      completed: true,
+      order_index: 0,
+      duration_seconds: null,
+      tempo: null,
+      cluster_rest_seconds: null,
+      cluster_reps_per_burst: null,
+      myo_is_activation: false,
+      drop_percentage: 20,
+      drop_segments: [{ weight_kg: 80, reps: 6 }, { weight_kg: 60, reps: 8 }],
+      created_at: '',
+    }],
+  });
+  assert.equal(draft.set_type, 'drop');
+  assert.equal(draft.drop_count, 2);
+  assert.equal(draft.superset_group, 'A');
 });

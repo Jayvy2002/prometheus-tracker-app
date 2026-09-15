@@ -29,7 +29,7 @@ import WorkoutRecap from './WorkoutRecap';
 import SessionTimer from './SessionTimer';
 import { useRoutineStore } from '../../stores/routineStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
-import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
+import { toWorkoutTemplateExercise, workoutExerciseToPlanDraft } from '../../lib/programSetPrescription';
 import {
   loadSessionTimer, saveSessionTimer, clearSessionTimer,
   currentElapsedMs, startTimer, pauseTimer, emptyTimer,
@@ -78,6 +78,7 @@ function WorkoutFormInner() {
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const assignment = useProgramStore(s => s.assignment);
   const saveProgram = useProgramStore(s => s.saveProgram);
+  const createProgram = useProgramStore(s => s.createProgram);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const online = useOnline();
   const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
@@ -681,6 +682,39 @@ function WorkoutFormInner() {
         <Button onClick={requestFinish} disabled={saving} className="w-full">
           <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
+        {solo && user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            data-save-plan="true"
+            onClick={async () => {
+              const name = (workoutName || t('soloAsk.namedDay')).trim();
+              const id = await createProgram({
+                owner_id: user.id,
+                name,
+                description: '',
+                duration_weeks: 1,
+              }, [{
+                weekday: new Date().getDay(),
+                name,
+                routine_id: null,
+                order_index: 0,
+                exercises: (currentWorkout.exercises ?? []).map((ex, i) =>
+                  toWorkoutTemplateExercise(workoutExerciseToPlanDraft(ex), i),
+                ),
+              }]);
+              if (!id) {
+                toast(t('programs.createFailed'), 'error');
+                return;
+              }
+              toast(t('programs.created'));
+              navigate('/programs');
+            }}
+          >
+            {t('soloAsk.savePlan')}
+          </Button>
+        )}
       </div>
 
       {restEnabled && (
@@ -688,6 +722,7 @@ function WorkoutFormInner() {
         key={restEpoch}
         open={showTimer}
         onClose={() => setShowTimer(false)}
+        onReopen={() => setShowTimer(true)}
         initialSeconds={restDuration}
         autoStart={restAutoStart}
       />
