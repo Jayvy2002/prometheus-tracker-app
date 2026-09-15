@@ -11,20 +11,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants = {
   primary: {
-    base: 'bg-blue-600 text-white',
-    hover: 'hover:bg-blue-500',
+    base: 'bg-primary text-ink',
+    hover: 'hover:bg-primary-hover',
   },
   secondary: {
-    base: 'bg-neutral-800 text-neutral-200 border border-neutral-700/80',
-    hover: 'hover:bg-neutral-700 hover:border-neutral-600',
+    base: 'bg-surface-hover text-ink-secondary border border-line',
+    hover: 'hover:bg-surface-active hover:border-ink-disabled',
   },
   ghost: {
-    base: 'bg-transparent text-neutral-300',
-    hover: 'hover:bg-neutral-800/80',
+    base: 'bg-transparent text-ink-secondary',
+    hover: 'hover:bg-surface-hover/80',
   },
   danger: {
-    base: 'bg-rose-600 text-white shadow-lg shadow-rose-900/20',
-    hover: 'hover:bg-rose-500',
+    base: 'bg-danger text-ink shadow-lg shadow-danger/20',
+    hover: 'hover:bg-danger-hover',
   },
 };
 

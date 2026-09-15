@@ -73,7 +73,7 @@ src/
 ├── App.tsx                         Routes, gardes, bootstrap (lot 21a pour découper)
 ├── app/layout/                     Chrome ; app/navigation/ = navConfig
 ├── features/                       account / coaching / nutrition — hooks évidents seulement
-├── shared/                         api/supabase, hooks, ui (tokens : lot 19)
+├── shared/                         api/supabase, hooks, ui (tokens lot 19)
 ├── components/                     Écrans métier ; ui/ et layout/ = réexports
 ├── stores/                         Zustand par domaine — coachingStore intact jusqu’au 21c
 ├── lib/                            Métier + réexports ; tests `*.test.ts`

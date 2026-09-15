@@ -51,7 +51,7 @@ export default function TabList<T extends string>({ tabs, value, onChange, label
             tabIndex={selected ? 0 : -1}
             onClick={() => onChange(tab.id)}
             className={`min-h-11 px-3 rounded-lg text-sm font-medium whitespace-nowrap ${
-              selected ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
+              selected ? 'bg-primary text-ink' : 'bg-elevated text-ink-muted'
             }`}
           >
             {tab.label}

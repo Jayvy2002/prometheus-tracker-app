@@ -9,7 +9,9 @@ export default {
           DEFAULT: '#0a0a0a',
           raised: '#171717',
           hover: '#262626',
+          active: '#404040',
         },
+        elevated: '#171717',
         overlay: 'rgba(0,0,0,0.72)',
         ink: {
           DEFAULT: '#f8fafc',
@@ -21,6 +23,23 @@ export default {
           DEFAULT: '#262626',
           subtle: '#1f1f1f',
           focus: '#60a5fa',
+        },
+        primary: {
+          DEFAULT: '#2563eb',
+          hover: '#3b82f6',
+        },
+        success: {
+          DEFAULT: '#16a34a',
+          hover: '#22c55e',
+        },
+        warning: {
+          DEFAULT: '#d97706',
+          hover: '#f59e0b',
+        },
+        danger: {
+          DEFAULT: '#e11d48',
+          hover: '#f43f5e',
+          muted: '#fb7185',
         },
       },
       keyframes: {

@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–18** dans `new-JV`. File ouverte : **lot 19** (tokens). Lots 20–23 après. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–19** dans `new-JV`. File ouverte : **lot 20** (migrer `src/lib` par domaine). Lots 21–23 après. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 19** (tokens sémantiques sur primitives). Lots **17–18** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
+| **Lot ouvert : 20** (`src/lib` par domaine). Lots **17–19** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -162,7 +162,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **16g** | **Logger séance lisible sur téléphone** | **À vérifier** | Header, fiche exo (actions en overflow), rangées de séries. Sans casser le lot 14. Parcours live 390×844 + desktop. **Pas d’ID UX inventé.** |
 | **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | **Terminé** (17a–17e) | Docs + découverte `src/**/*.test.ts` + nom package + convention env + rename `auditLot*` / `uxPremium`. **Zéro écran.** |
 | **18** | **Socle dossiers + alias** (ARCH02 évidents) | **Terminé** | `app` / `features` / `shared` + alias `@/`. Hooks évidents, client Supabase, `ui`, layout, nav. Réexports aux anciens chemins. |
-| **19** | **Tokens sémantiques sur primitives** (ARCH06) | À construire **après 18** | `Button` / `Card` / `Input` / `Select` / etc. = `bg-primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` **dans les primitives**. Relie premium lot 1. |
+| **19** | **Tokens sémantiques sur primitives** (ARCH06) | **Terminé** | `Button` / `Card` / `Input` / `Select` / `Modal` / `PageHeader` / `EmptyState` / `ErrorState` / `TabList` / `IconButton` = `primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**. Écrans métier inchangés. |
 | **20** | **Migrer `src/lib` par domaine** (ARCH01) | À construire **après 18** | Une PR **par** domaine, zéro comportement. Coaching d’abord (`coach*.ts` → `features/coaching/`), puis marketplace, workout, nutrition, programs. |
 | **21** | **Découper les mini-apps** (ARCH03, ARCH04) | À construire **après 20** | 21a `App.tsx` → router / guards / bootstrap ; 21b gros composants ; 21c `coachingStore` **avec façade**. |
 | **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | À construire **après 20** | `types.ts` puis `fr.ts`/`en.ts` découpés ; réexport de transition. Hotspots merge : PR courtes. |
@@ -289,9 +289,9 @@ Créer les dossiers et les alias Vite/TS (`@/app/*`, `@/features/*`, `@/shared/*
 
 ### Lot 19 — primitives = tokens
 
-`Button`, `Card`, `Input`, `Select`, `Modal`, `PageHeader`, `EmptyState`, `ErrorState`, `TabList`, `IconButton` : `bg-primary`, `bg-surface`, `bg-elevated`, `text-ink`, `text-ink-muted`, `border-line`, `text-danger`, `bg-warning`. Plus de `bg-blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**.
+**Terminé.** `Button`, `Card`, `Input`, `Select`, `Modal`, `PageHeader`, `EmptyState`, `ErrorState`, `TabList`, `IconButton` : `bg-primary`, `bg-surface`, `bg-elevated`, `text-ink`, `text-ink-muted`, `border-line`, `text-danger`. Plus de `bg-blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**.
 
-Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visualisations seulement. Relie premium **1**. Screenshots avant/après des primitives.
+Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visualisations seulement. Relie premium **1**.
 
 ### Lot 20 — `src/lib` domaine par domaine
 
@@ -345,7 +345,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 16 | `FAB` : workout / weight / meal. Pas de Dupliquer sur `ProgramsPage`. `LastSessionExercise` sans notes. Setup tracking par client, pas de copie. `mobileTabs` coaché : Aujourd’hui / Entraînement / Check-in / Messages / Profil. |
 | 17 | **Terminé.** `npm test` → `scripts/run-unit-tests.mjs`. Nom `prometheus-tracker-app`. Docs + env. Tests : `programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`. |
 | 18 | **Terminé.** Cibles livrées + réexports. Alias `@/app`, `@/features`, `@/shared`. |
-| 19 | Primitives : `bg-blue-600`, `neutral-*`, `rose-*`. Tokens `page` / `surface` / `ink` / `line` / `primary` dans `tailwind.config.js` sous-employés. |
+| 19 | **Terminé.** Primitives listées = tokens. `primary` / `success` / `warning` / `danger` dans `tailwind.config.js`. |
 | 20 | `src/lib/coach*.ts`, `marketplace*.ts`, logique workout/nutrition/programs encore dans `lib/`. |
 | 21 | `App.tsx` : session + guards + routes. `stores/coachingStore.ts` ~89 KB. `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `ProgramSessionEditor`, `workoutStore`. |
 | 22 | `src/lib/types.ts` ~26 KB. `i18n/locales/fr.ts` / `en.ts` ~87–95 KB. |
@@ -499,7 +499,7 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **0A** i18n options | À vérifier | Toasts / intake / unités encore hors clés (ex. `"… deleted"`). |
 | **0B** auth / intention / invite | À vérifier | Lock questionnaire prise en charge retiré (lot 4 Git). Intake kiné : 7 écrans **conservés**. Parcours invite dû. |
 | **0C** vérité produit | **Partiel** | Cibles macros : corrigé. Terminer n’écrit plus `completed` sur le reste. Affichage = séries cochées ; parcours 15 sept. (bilan, recap, 360). UX49 jours ≠ séances : Git lot 6. |
-| **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu Échap + focus (Git 10g). Primitives encore `blue-600` / `neutral-*` (lot **19**). |
+| **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu Échap + focus (Git 10g). Primitives listées = tokens (lot **19**). Écrans métier encore bruts. |
 | **2** accessibilité | À vérifier | Cibles 44 px présentes ; `aria-current` onglets (Git 10g). Clavier / zoom / lecteur restants. |
 | **3** navigation | **Partiel** | `navConfig`, 5 onglets, Copilote hors tab, switcher Profil. Recettes Nutrition (Git 10a). `PageTransition` persona (Git 10h). Trouvabilité live due. |
 | **4** dashboard | **Partiel** | Un hero ; proposition IA = notice (#91). Message + check-in + reminder peuvent coexister. `waiting_program` inerte. |
@@ -708,7 +708,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 | **ARCH03** | P2 | 21a | À construire | `App.tsx` = session + guards + routes + bootstrap. | Une PR onboarding et une PR router ne se marchent plus dessus. |
 | **ARCH04** | P2 | 21b–c | À construire | `coachingStore` ~89 KB, `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `workoutStore`, `coachFleet`, `ProgramSessionEditor`. | Façade store ; composants = écran, pas mini-app. |
 | **ARCH05** | P2 | 17+23 | À construire | `Dashboard` (et d’autres) : `supabase.from` dans l’UI. | Composant → hook/model → API → Supabase. CI refuse l’inverse. |
-| **ARCH06** | P2 | 19 | À construire | Primitives en `blue-600` / `neutral-*` alors que les tokens existent. | `<Button variant="primary">` = tokens. Pas deux systèmes. |
+| **ARCH06** | P2 | 19 | **Terminé** | Primitives listées = tokens. Écrans métier encore `blue-600` (hors lot). | `<Button variant="primary">` = tokens. Pas deux systèmes dans les primitives. |
 | **ARCH07** | P2 | 22a | À construire | `types.ts` ~26 KB hotspot. | Transversal / domaine + réexport de transition. |
 | **ARCH08** | P2 | 22b | À construire | `fr.ts` / `en.ts` ~90 KB. | Un agent nutrition ne touche plus un fichier de 100 KB. |
 | **ARCH09** | P1 | 17 | **Terminé** | Découverte `src/**/*.test.ts` ; nom `prometheus-tracker-app` ; rename `auditLot*` / `uxPremium`. | Un `.test.ts` est lancé sans éditer `package.json`. |

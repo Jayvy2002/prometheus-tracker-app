@@ -22,10 +22,10 @@ export default function Card({ children, className = '', onClick, padding = true
         }
       } : undefined}
       onClick={onClick}
-      className={`bg-neutral-900/60 border border-neutral-800/50 rounded-2xl ${glowClass}
+      className={`bg-surface-raised/60 border border-line/50 rounded-2xl ${glowClass}
         ${padding ? 'p-4' : ''}
         ${onClick
-          ? 'cursor-pointer hover:bg-neutral-900/80 hover:border-neutral-700/70 transition-colors duration-200'
+          ? 'cursor-pointer hover:bg-surface-raised/80 hover:border-surface-active/70 transition-colors duration-200'
           : 'transition-colors duration-200'
         }
         ${className}`}
