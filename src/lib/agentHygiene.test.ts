@@ -112,6 +112,35 @@ test('18: app / features / shared exist, aliases are wired, old paths re-export'
   assert.match(readFileSync(at('src/navigation/navConfig.ts'), 'utf8'), /app\/navigation\/navConfig/);
 });
 
+test('19: listed primitives use semantic tokens, not blue-600 / neutral-* / rose-*', () => {
+  const primitives = [
+    'src/shared/ui/Button.tsx',
+    'src/shared/ui/Card.tsx',
+    'src/shared/ui/Input.tsx',
+    'src/shared/ui/Select.tsx',
+    'src/shared/ui/Modal.tsx',
+    'src/shared/ui/PageHeader.tsx',
+    'src/shared/ui/EmptyState.tsx',
+    'src/shared/ui/ErrorState.tsx',
+    'src/shared/ui/TabList.tsx',
+    'src/shared/ui/IconButton.tsx',
+  ];
+  const banned = /\b(?:bg|text|border|ring|shadow|placeholder|hover:bg|hover:text|hover:border|focus:ring|focus:border)-(?:blue|neutral|rose)-/;
+  for (const rel of primitives) {
+    const src = readFileSync(resolve(root, rel), 'utf8');
+    assert.doesNotMatch(src, banned, `${rel} still uses a raw palette class`);
+    assert.doesNotMatch(src, /\bbg-blue-600\b|\bbg-rose-600\b/);
+  }
+  const theme = readFileSync(resolve(root, 'tailwind.config.js'), 'utf8');
+  assert.match(theme, /primary:/);
+  assert.match(theme, /success:/);
+  assert.match(theme, /warning:/);
+  assert.match(theme, /danger:/);
+  const button = readFileSync(resolve(root, 'src/shared/ui/Button.tsx'), 'utf8');
+  assert.match(button, /bg-primary/);
+  assert.match(button, /bg-danger/);
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

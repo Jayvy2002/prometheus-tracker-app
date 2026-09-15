@@ -29,8 +29,8 @@ export default function PageHeader({ title, subtitle, backTo, onBack, actions }:
         </IconButton>
       )}
       <div className="flex-1 min-w-0">
-        <h1 className="text-2xl font-semibold text-white tracking-tight truncate">{title}</h1>
-        {subtitle && <p className="text-sm text-neutral-400 mt-1">{subtitle}</p>}
+        <h1 className="text-2xl font-semibold text-ink tracking-tight truncate">{title}</h1>
+        {subtitle && <p className="text-sm text-ink-muted mt-1">{subtitle}</p>}
       </div>
       {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
     </header>

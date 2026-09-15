@@ -15,7 +15,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-medium text-neutral-300">{label}</label>
+          <label htmlFor={inputId} className="block text-sm font-medium text-ink-secondary">{label}</label>
         )}
         <input
           ref={ref}
@@ -24,12 +24,12 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           inputMode={inputMode ?? (type === 'number' ? 'decimal' : undefined)}
           aria-describedby={descriptionIds}
           aria-invalid={error ? true : ariaInvalid}
-          className={`w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-2.5 text-white
-            placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500
-            transition-all duration-200 ${error ? 'border-rose-500' : ''} ${className}`}
+          className={`w-full bg-surface-raised border border-line rounded-xl px-4 py-2.5 text-ink
+            placeholder-ink-disabled focus:outline-none focus:ring-2 focus:ring-primary-hover/50 focus:border-primary-hover
+            transition-all duration-200 ${error ? 'border-danger-hover' : ''} ${className}`}
           {...props}
         />
-        {error && <p id={errorId} role="alert" className="text-sm text-rose-400">{error}</p>}
+        {error && <p id={errorId} role="alert" className="text-sm text-danger-muted">{error}</p>}
       </div>
     );
   }

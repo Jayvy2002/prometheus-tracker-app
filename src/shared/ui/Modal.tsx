@@ -79,7 +79,7 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm animate-modal-overlay"
+        className="fixed inset-0 bg-overlay backdrop-blur-sm animate-modal-overlay"
         onClick={onClose}
       />
 
@@ -91,16 +91,16 @@ export default function Modal({ open, onClose, title, children, size = 'md' }: M
         aria-labelledby={title ? titleId : undefined}
         aria-label={title ? undefined : t('common.details')}
         tabIndex={-1}
-        className={`relative bg-neutral-950 border border-neutral-800/80 rounded-2xl w-full ${sizeMap[size]} max-h-[88vh] overflow-hidden flex flex-col z-10 animate-modal-content shadow-2xl focus:outline-none`}
+        className={`relative bg-page border border-line/80 rounded-2xl w-full ${sizeMap[size]} max-h-[88vh] overflow-hidden flex flex-col z-10 animate-modal-content shadow-2xl focus:outline-none`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-800/60 flex-shrink-0">
-          {title && <h3 id={titleId} className="text-base font-semibold text-white">{title}</h3>}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-line/60 flex-shrink-0">
+          {title && <h3 id={titleId} className="text-base font-semibold text-ink">{title}</h3>}
           <button
             type="button"
             onClick={onClose}
             aria-label={t('common.close')}
-            className="ml-auto min-h-11 min-w-11 flex items-center justify-center p-1.5 rounded-lg hover:bg-neutral-800 text-neutral-400 hover:text-white transition-all duration-150 active:scale-90"
+            className="ml-auto min-h-11 min-w-11 flex items-center justify-center p-1.5 rounded-lg hover:bg-surface-hover text-ink-muted hover:text-ink transition-all duration-150 active:scale-90"
           >
             <X size={18} />
           </button>

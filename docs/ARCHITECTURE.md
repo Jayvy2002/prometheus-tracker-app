@@ -1,6 +1,6 @@
 # Architecture frontend — actuel vs cible
 
-> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Le lot **18** a créé `app` / `features` / `shared` et les alias `@/`. Les lots **19–23** bougent encore, un domaine ou une ligne à la fois.
+> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Le lot **18** a créé `app` / `features` / `shared` et les alias `@/`. Le lot **19** a aligné les primitives sur les tokens. Les lots **20–23** bougent encore, un domaine ou une ligne à la fois.
 >
 > **Invariants :** zéro changement de parcours dans une PR de structure (sauf lot 19 : mêmes écrans, tokens). `coachingStore` : **pas** de découpage avant le lot **21c** (façade obligatoire). `coachFleet.ts` et `supabase/functions/coach-fleet-round` restent jumelés. Migrations appliquées immuables.
 
@@ -21,7 +21,7 @@ src/
 ├── shared/
 │   ├── api/supabase/       client
 │   ├── hooks/              useOnline, usePageTitle
-│   └── ui/                 primitives (tokens : lot 19)
+│   └── ui/                 primitives (tokens lot 19)
 ├── components/             Écrans métier ; ui/ et layout/ = réexports temporaires
 ├── hooks/                  réexport usePageTitle
 ├── i18n/locales/{fr,en}.ts
