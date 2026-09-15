@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07** (Dashboard + rings nutrition) **/ UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX44 / UX51 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX44 / UX51 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28 / UX36 / UX44 / UX84** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX07 / UX08 / UX28 / UX36 / UX44 / UX84** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -612,7 +612,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX07** | P1 | 8+9 | **Terminé** | Vision 15 sept. soir : priorité + vue d’ensemble (plus « une carte exclusive »). Onglet **Dashboard**. Rings nutrition = page Nutrition. Graphique poids. Message / check-in restent visibles à côté de la séance due. | On sait quoi faire **et** où on en est. |
-| **UX08** | P2 | 8 | Partiel | Hub Progression solo : oui. Programme trop Profil / desktop. Coaché : lecture lot 8. | Programme / historique sans deviner Profil. |
+| **UX08** | P2 | 8 | **Terminé** | Live Solo : Dashboard « Mon programme · Plan UX84 Mardi » → `/programs` ; même carte sur Entraînement. Client : « Plan Chantier Force ». | Programme / historique sans deviner Profil. |
 | **UX09** | P1 | 9 | **Terminé** | Live : `1 / 2` Invitee → `2 / 2` Client ; précédent garde `tab=checkins` ; retour liste. | Enchaîner des fiches sans reconstruire la liste. |
 | **UX10** | P1 | 8 | **Terminé** | Live invitee : « Ton coach va t’envoyer un programme » → `/messages`. | On sait quoi faire maintenant. |
 | **UX11** | P2 | 10i | **À vérifier** | Séance / programme / modèle. Copy « routine » retirée. **Reste :** parcours live. | Un nom = une action. |
@@ -812,7 +812,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07** (vue d’ensemble + rings), **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX44**, **UX51**, **UX84**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX44**, **UX51**, **UX84**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -844,6 +844,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Coaché / chercheur | Annuaire + acceptation | **Joué (M5).** Déjà lié = explication. Accepté = suivi actif, pas un paiement. |
 | Coaché / Solo / Invitee | Dashboard : rings nutrition + courbe de poids | **Joué (UX07).** Mêmes rings que `/nutrition` (kcal + macros). Cible absente = `—` / « Aucune cible définie », jamais 2000/150/250/65. |
 | Coaché | Accueil : séance due + message / check-in + poids | **Joué (UX07).** Priorité + vue d’ensemble. Waiting reste une priorité claire vers Messages. |
+| Solo / Coaché | Dashboard / Entraînement → Mon programme | **Joué (UX08).** Solo « Plan UX84 Mardi » → `/programs`. Client « Plan Chantier Force ». |
 | Coach | Roster → fiche → suivante / précédente | **Joué (UX09).** `1 / 2` → `2 / 2` ; onglet Check-ins conservé ; retour liste. |
 | Solo | Reprendre les valeurs d’une série | **Joué (UX13).** 3 rangées restent 3 ; 2ᵉ = 80/5/2. |
 | Coach | File / settings / Ask / relance | **Joué (UX28).** « non loggée » / « en attente » / « manquant(s) » ; relance « comment se passent tes séances ? ». |

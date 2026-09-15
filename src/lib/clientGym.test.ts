@@ -204,6 +204,8 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.doesNotMatch(dash, /navigate\('\/routines'\)/);
   assert.doesNotMatch(dash, /navigate\('\/programs\/new'\)/);
   assert.match(dash, /navigate\('\/programs'\)/);
+  assert.match(dash, /data-testid="dashboard-program"/);
+  assert.match(dash, /to="\/programs"/);
 
   const gymUi = src('src/components/dashboard/ClientGymCard.tsx');
   assert.match(gymUi, /dashboard\.gym\.done/);
@@ -218,7 +220,8 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(workoutPage, /ClientGymCard/);
   assert.match(workoutPage, /startProgramDay/);
   assert.match(workoutPage, /to="\/programs"/);
-  assert.match(workoutPage, /coached \|\| !assignment\?\.program/);
+  assert.match(workoutPage, /data-testid="workout-program"/);
+  assert.doesNotMatch(workoutPage, /coached \|\| !assignment\?\.program/);
   assert.match(workoutPage, /to="\/exercise-progress"/);
   assert.match(workoutPage, /isProgramDayDue/);
   assert.match(workoutPage, /nav\.addWorkoutOffPlan/);

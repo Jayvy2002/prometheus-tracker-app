@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -463,6 +463,23 @@ export default function Dashboard() {
         )}
 
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
+        {showModule(tracking, 'workouts') && !activityPending && (
+          <CardLink to="/programs" className="mb-4" data-testid="dashboard-program">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <CalendarRange size={16} className="text-blue-400 shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white">{t('nav.myProgram')}</p>
+                  <p className="text-[11px] text-neutral-500 truncate">
+                    {assignment?.program?.name
+                      ?? (hasCoach ? t('dashboard.firstRun.waitingProgram') : t('dashboard.programHint'))}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-neutral-600 shrink-0" />
+            </div>
+          </CardLink>
+        )}
         {showNutritionRings && (
           <CardLink to="/nutrition" className="mb-4">
             <NutritionRings />

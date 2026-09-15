@@ -45,9 +45,9 @@ Gravité utilisée ensuite :
 
 | Situation | Job du jour | Autorité | Accueil cible |
 |---|---|---|---|
-| **Coaché** | Faire ce qui est convenu avec le coach | Coach pour le plan ; client pour ses saisies | *Démarrer la séance* / *Envoyer le check-in* / *Lire le message* |
-| **Solo** | S’entraîner, logger, comprendre, adapter | L’athlète | *Reprendre / commencer* ; l’IA propose, il valide |
-| **Coach** | Traiter le prochain client utile | Coach | *Traiter cette carte* puis le suivant |
+| **Coaché** | Faire ce qui est convenu avec le coach | Coach pour le plan ; client pour ses saisies | Priorité du jour **et** vue d’ensemble (séance, rings, poids, check-in, messages) |
+| **Solo** | S’entraîner, logger, comprendre, adapter | L’athlète | Priorité du jour **et** vue d’ensemble (séance, rings, poids, programme) |
+| **Coach** | Traiter le prochain client utile | Coach | File à traiter, puis le client suivant |
 
 Les quatre situations réelles du code (`navPersona`) :
 
@@ -158,7 +158,7 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 
 **Chrome mobile** : Dashboard · Entraînement? · Check-in? · Messages · Profil.
 
-**Interdit** (`CoachedAthleteRedirect`) : calendrier, stats, progression exercices, routines, recettes.
+**Interdit** (`CoachedAthleteRedirect`) : calendrier, stats, routines. `/exercise-progress` est **ouvert** en lecture (UX81). Recettes = lot 10a à vérifier.
 
 **Interdit** (`CoachOnly`) : roster, 360, Prometheus, builder programmes, learned, offre coach.
 
@@ -167,27 +167,27 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 | | |
 |---|---|
 | **Quoi** | `Dashboard`. Priorité (séance due / waiting → Messages) + « À regarder » + « Ta journée » : rings nutrition (`NutritionRings`, mêmes que `/nutrition`), courbe de poids, semaine, check-in fait, suivi coach. Message et check-in restent visibles à côté d’une séance due. Pas d’édition de plan. Cibles absentes = `—` / « Aucune cible définie ». |
-| **Marche** | On sait quoi faire **et** où on en est. Modules off = cartes absentes. Waiting a une issue (Messages). Hors programme **nommé** (UX84). |
-| **Ne va pas** | Programme encore trop desktop / Profil (UX08). Trouvabilité / a11y encore dues. |
-| **Changer** | Programme / historique sans deviner Profil (UX08). Ne pas revenir à une carte exclusive. |
+| **Marche** | On sait quoi faire **et** où on en est. Modules off = cartes absentes. Waiting a une issue (Messages). Hors programme **nommé** (UX84). « Mon programme » depuis Dashboard et Entraînement (UX08). |
+| **Ne va pas** | Trouvabilité / a11y encore dues (zoom, clavier). |
+| **Changer** | Ne pas revenir à une carte exclusive. Ne pas renvoyer le programme uniquement dans Profil. |
 
 ### 3.2 Séance (gym floor)
 
 | | |
 |---|---|
-| **Quoi** | `/workout` historique + gym card. `/workout/new` et `/:id` immersifs (`FullPageLayout`). Check série, repos 90s manuel, session programme simplifiée, empty session → suppression à la sortie, finish incomplet → confirmation (ne coche plus tout). Résumé : « ton coach verra » + auto-fermeture **30 s**. |
-| **Marche** | Moteur commun (pas un second logger coaché). Terminer ≠ tout cocher (UX12 corrigé en code). Hors ligne séances. |
-| **Ne va pas** | Résumé qui se ferme tout seul (UX17). Séance immersive **sans** BottomNav : sortie pas toujours évidente. FAB / « Nouveau » = séance libre vs jour prescrit : le coaché peut croire qu’il suit le plan. Tips du résumé encore un peu moralisateurs (séance courte / volume). |
-| **Changer** | Résumé sous contrôle (bouton, retrouvable dans l’historique). Distinguer visuellement *séance du programme* et *séance libre*. Repos auto **optionnel** après une série **confirmée**. Profondeur (RIR, historique 1RM, suggestions) derrière la série, pas au-dessus du check. |
+| **Quoi** | `/workout` historique + gym card. `/workout/new` et `/:id` immersifs. Check série, repos 90 s **après coche** (pas au préremplissage). Types de séries du plan (lot 14, plus de logger plat). Empty session → suppression à la sortie. Terminer ≠ tout cocher. Résumé : faits, fermeture volontaire (plus de 30 s). Hors programme **nommé** (UX84). |
+| **Marche** | Moteur commun. UX12 / UX17 / UX84 tenus. Hors ligne séances. |
+| **Ne va pas** | Séance immersive **sans** BottomNav : sortie pas toujours évidente. Repos auto pas encore **désactivable** (UX15). Tips du résumé encore un peu moralisateurs. |
+| **Changer** | Repos auto **optionnel** (préférence volontaire). Distinguer *séance du programme* et *séance libre* (déjà nommé hors programme). Profondeur (RIR, 1RM) derrière la série. |
 
 ### 3.3 Mon programme (lecture)
 
 | | |
 |---|---|
-| **Quoi** | `/programs` → `ClientProgramPage` lecture : nom, semaine, jour du jour, jours d’entraînement, archives. Pas d’éditeur. Mobile : **pas** dans la tab bar ; desktop « Mon programme » ; raccourci Profil. |
-| **Marche** | Le coaché ne peut pas réécrire le plan du coach. Empty « pas encore assigné ». |
-| **Ne va pas** | Introuvable sur téléphone si on ne passe pas par Entraînement / Profil. Pas de « pourquoi ce programme » ni de consignes du coach en tête. Demander un changement = message libre, pas une demande structurée. |
-| **Changer** | Lien « Voir la semaine » **depuis la carte gym**. Un tap = semaine ; un second = détail d’un exercice. « Demander un ajustement » préremplit un message (sans créer un second copilote). |
+| **Quoi** | `/programs` → `ClientProgramPage` lecture : nom, semaine, jour du jour, jours d’entraînement, archives. Pas d’éditeur. Carte « Mon programme » sur Dashboard et Entraînement (nom du plan). Desktop + Profil restent des accès secondaires. |
+| **Marche** | Le coaché ne peut pas réécrire le plan du coach. Empty « pas encore assigné » / waiting → Messages. Trouvable sans Profil (UX08). |
+| **Ne va pas** | Pas de « pourquoi ce programme » ni de consignes du coach en tête. Demander un changement = message libre, pas une demande structurée. |
+| **Changer** | Un tap = semaine ; un second = détail d’un exercice. « Demander un ajustement » préremplit un message (sans créer un second copilote). |
 
 ### 3.4 Check-in
 
@@ -195,8 +195,8 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 |---|---|
 | **Quoi** | `/checkin`. Cœur : sommeil, qualité, énergie, stress. « Plus de détails » : humeur, faim, fatigue, douleur, adhérence, notes — selon `checkin_vars`. Historique 14 j. Tab mobile si module on. |
 | **Marche** | Court par défaut. Champs réellement allumés par le coach. Pas de sous-titre « auto-coaching » solo. |
-| **Ne va pas** | Accusé : enregistré ≠ « ton coach a vu ». Boucle fermée absente (à quoi a servi le bilan). Échelles 0–10 sans mots-ancres. |
-| **Changer** | Après envoi : « Enregistré — {coach} le verra dans sa file ». Si le coach a répondu ou adapté, le relier. Repères verbaux sur les échelles. Ne pas inventer une date de revue. |
+| **Ne va pas** | Boucle fermée absente (à quoi a servi le bilan — UX27 conçu). Échelles 0–10 sans mots-ancres. Cœur vs détails encore à resserrer (UX25). |
+| **Changer** | Toast UX26 déjà là (« Enregistré — visible par {coach} »). Relier la réponse coach au bilan (UX27). Ne pas inventer une date de revue. |
 
 ### 3.5 Messages
 
@@ -211,19 +211,19 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 
 | | |
 |---|---|
-| **Quoi** | Nutrition / scanner si `track_nutrition` ; **pas** de recettes. Anneaux si cibles coach envoyées. Poids si module. Photos Face/Profil/Dos + compare — **toujours** joignables (desktop + hub Profil), hors tab bar. |
-| **Marche** | Recettes coupées : le coaché n’a pas à gérer une cuisine autonome si le suivi alimentaire est un journal convenu. Photos hors tab : bon jugement (hebdo). |
-| **Ne va pas** | Sur mobile, nutrition/poids/photos sont **cachés** dans Profil alors que le module est allumé — l’utilisateur croit que « ce n’est pas dans l’app ». Cibles absentes = pas d’anneaux, parfois lu comme « ça ne marche pas ». Qui voit les photos n’est pas assez dit **avant** l’upload. |
-| **Changer** | Si le module est on : une ligne sur Aujourd’hui (« Ajouter un repas », « Pesée ») suffit. Audience photos : « visible par {coach} » avant transfert. Profondeur (historique, compare, scanner) à un tap, pas dans l’accueil. |
+| **Quoi** | Nutrition / scanner si `track_nutrition`. Rings sur Dashboard **et** `/nutrition` (`NutritionRings`) dès qu’un champ macro est on ; sans cible = `—` / « Aucune cible définie » (pas d’invention 150/250/65). Poids si module (courbe Dashboard). Photos Face/Profil/Dos + compare — hors tab bar. |
+| **Marche** | Rings honnêtes. Photos hors tab. Audience dite avant upload (UX54). |
+| **Ne va pas** | Recettes / profondeur nutrition encore trop Profil sur mobile. |
+| **Changer** | Profondeur (historique, compare, scanner) à un tap. Ne pas cacher un module allumé. Ne pas exiger une cible coach pour afficher les rings. |
 
-### 3.7 Progression (trou P0)
+### 3.7 Progression (lecture, UX81)
 
 | | |
 |---|---|
-| **Quoi** | **Aucune.** `/stats`, `/calendar`, `/exercise-progress` redirigent silencieusement vers `/dashboard`. Le coach, lui, voit lifts, poids, photos dans le 360. |
-| **Marche** | Évite que le coaché édite un plan ou se construise un second cockpit solo. |
-| **Ne va pas** | **Contradiction vision** : les données suivent l’athlète. Le coaché a *fait* les séances et ne peut pas *voir* sa courbe. Ça pousse à quitter l’app pour un tableur, ou à se sentir surveillé plutôt qu’acteur. |
-| **Changer** | **Lecture seule** de *sa* progression : hub léger (comme le solo) sans routines, sans recettes, sans édition de programme. Même graphes, même calendrier personnel. Le coach reste l’autorité du plan. Ne pas mettre ça dans la tab bar — depuis Profil ou un lien « Ma progression » sous la carte gym. |
+| **Quoi** | `/exercise-progress` **ouvert** en lecture (recherche d’exo). `/stats` et `/calendar` restent redirigés. Lien depuis Entraînement. Le coach voit aussi lifts / poids / photos dans le 360. |
+| **Marche** | L’athlète voit *sa* courbe d’exo sans éditer le plan. Pas de 6ᵉ onglet. |
+| **Ne va pas** | Pas de calendrier / stats complets côté coaché. Hub moins riche que le solo. |
+| **Changer** | Ne pas refermer `/exercise-progress`. Ne pas ouvrir l’édition du plan. Calendrier / stats : seulement si un lot le décide, en lecture. |
 
 ### 3.8 Profil, relation, marketplace
 
@@ -253,9 +253,9 @@ C’est **correct** : l’IA prépare pour le coach, pas un second coach dans la
 | | |
 |---|---|
 | **Quoi** | Priorité (séance / routine / first-run) + « Ta journée » : rings nutrition, courbe de poids, semaine, progression, streak. Proposition de programme = **notice** (plus un mur). Revue hebdo compacte. |
-| **Marche** | On sait quoi faire **et** où on en est. IA jamais auto-appliquée. Streak / nudges = auto-coaching assumé (retirés chez le coaché). |
-| **Ne va pas** | Programme encore trop Profil / desktop (UX08). Trouvabilité restante. |
-| **Changer** | Programme / historique sans deviner Profil. Ne pas ramener un mur IA ni une carte exclusive. |
+| **Marche** | On sait quoi faire **et** où on en est. IA jamais auto-appliquée. Streak / nudges = auto-coaching assumé (retirés chez le coaché). « Mon programme » depuis Dashboard et Entraînement (UX08). |
+| **Ne va pas** | Trouvabilité restante (a11y, vocabulaire routine / programme). |
+| **Changer** | Ne pas ramener un mur IA ni une carte exclusive. Ne pas renvoyer le programme uniquement dans Profil. |
 
 ### 4.2 Séance
 
@@ -270,8 +270,8 @@ Même moteur que le coaché, plus : séance libre naturelle, lien « Mon program
 |---|---|
 | **Quoi** | `/programs` : créer / éditer jours, accepter une proposition, archives RO. `/programs/new` = CoachOnly (éditeur bibliothèque). `/routines` **redirige** vers `/programs`. Le dashboard peut encore proposer une « prochaine routine » stock. |
 | **Marche** | Solo édite **son** plan. Proposition = preview + edit avant accept. |
-| **Ne va pas** | Trois mots pour un utilisateur : **routine**, **programme**, **séance**. La redirection `/routines` cache le concept au lieu de l’expliquer. Programme introuvable sur mobile. |
-| **Changer** | Vocabulaire unique : **Séance** (ce que je fais maintenant) · **Programme** (la semaine / le cycle) · éventuellement **Modèle** plus tard, pas « routine » dans l’UI. Accès programme : depuis Entraînement (déjà un lien) + depuis Progression, **pas** uniquement Profil. Profondeur (semaines, révisions, NL edit) dans l’éditeur, pas sur Home. |
+| **Ne va pas** | Trois mots pour un utilisateur : **routine**, **programme**, **séance**. La redirection `/routines` cache le concept au lieu de l’expliquer. |
+| **Changer** | Vocabulaire unique : **Séance** (ce que je fais maintenant) · **Programme** (la semaine / le cycle) · éventuellement **Modèle** plus tard, pas « routine » dans l’UI. Accès programme : Dashboard + Entraînement (UX08), pas uniquement Profil. Profondeur (semaines, révisions, NL edit) dans l’éditeur, pas comme mur sur le Dashboard. |
 
 ### 4.4 Progression (hub)
 
@@ -293,7 +293,7 @@ Même moteur que le coaché, plus : séance libre naturelle, lien « Mon program
 
 ### 4.6 Check-in, poids, photos
 
-Hors 5 tabs (sauf poids via hub Progression). Check-in via bandeau Aujourd’hui + SideNav. Photos via SoloHub.
+Hors 5 tabs (sauf poids via hub Progression). Check-in via Dashboard + SideNav. Photos via SoloHub.
 
 | **Ne va pas** | Trop d’endroits. Check-in solo a **tous** les champs possibles (pas le sous-ensemble coach) — long si on n’ouvre pas « plus de détails » (le cœur existe, à garder). |
 | **Changer** | Même pattern coaché : cœur court, détails à la demande. Photos : audience = **toi** (solo) ; le dire. Poids déjà dans Progression : bien. |
@@ -311,7 +311,7 @@ Hors 5 tabs (sauf poids via hub Progression). Check-in via bandeau Aujourd’hui
 
 Accès discret : SoloHub + SideNav muted. Intention `find_coach` ouvre `/coaches` **avant** intake.
 
-| **Changer** | Magasin = magasin. Un solo qui n’a pas demandé un coach ne voit pas l’annuaire en primaire. Empty directory honnête. Pendant la recherche, **Aujourd’hui reste utilisable**. |
+| **Changer** | Magasin = magasin. Un solo qui n’a pas demandé un coach ne voit pas l’annuaire en primaire. Empty directory honnête. Pendant la recherche, le **Dashboard reste utilisable**. |
 
 ### 4.9 Profil / SoloHub
 
@@ -501,24 +501,24 @@ Règle cible, **un mot partout** : Séance · Programme · Check-in · Message �
 
 | # | Problème | Qui |
 |---|---|---|
-| 1 | Coaché **sans sa progression** (redirect silencieux) | Coaché vs vision « l’histoire suit » |
-| 2 | Accueil solo **muré** par la proposition de programme (carte pleine) | Solo |
-| 3 | Questionnaire coach = **lock de toute l’app** | Coaché |
-| 4 | Mobile ≠ desktop (programme, photos, stats, marketplace) | Tous |
-| 5 | First-run **empilé** (intake + questionnaire + onboarding selon le chemin) | Solo, coaché, chercheur |
+| 1 | ~~Coaché sans progression~~ **Livré (UX81)** : `/exercise-progress` lecture | — |
+| 2 | ~~Mur proposition de programme~~ **Livré** : notice, plus un lock | — |
+| 3 | ~~Questionnaire = lock app~~ **Livré (UX80)** : vide honnête | — |
+| 4 | Mobile ≠ desktop (photos, stats, marketplace) — programme **trouvable** (UX08) | Tous |
+| 5 | First-run encore fragmenté selon le chemin | Solo, coaché, chercheur |
 
 ### P1 — quotidien
 
 | # | Problème | Qui |
 |---|---|---|
-| 6 | Empty coaché sans programme / sans tracking : pas d’issue | Coaché |
-| 7 | FAB / Nouveau = séance libre alors qu’un jour de plan est dû | Coaché, solo |
-| 8 | Résumé séance auto-close 30 s | Tous athlètes |
-| 9 | Check-in « enregistré » ≠ « vu par le coach » | Coaché |
+| 6 | ~~Empty sans programme~~ **Livré (UX10)** | — |
+| 7 | ~~FAB hors programme non nommé~~ **Livré (UX84)** | — |
+| 8 | ~~Auto-close 30 s~~ **Livré (UX17)** | — |
+| 9 | ~~Check-in « transmis »~~ **Livré (UX26)** : visible par {coach} | — |
 | 10 | File coach : urgence peu expliquée, jargon | Coach |
 | 11 | 360 encore un dossier, pas « ce qui a changé » | Coach |
 | 12 | Trois boîtes Messages / Drafts / Prometheus | Coach |
-| 13 | Programme introuvable sur mobile | Solo, coaché |
+| 13 | ~~Programme introuvable~~ **Livré (UX08)** : Dashboard + Entraînement | — |
 | 14 | Recettes / scanner hors chrome | Solo |
 | 15 | Messagerie : brouillons, lu, reconnexion | Coach + coaché |
 | 16 | Dual-rôle : même URL, espace facile à oublier | Coach-athlète |

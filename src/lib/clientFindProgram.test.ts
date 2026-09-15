@@ -18,9 +18,10 @@ test('coached athlete can open Mon programme and exercise-progress in read-only,
   assert.match(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
 
   const workout = src('src/components/workout/WorkoutPage.tsx');
-  assert.match(workout, /coached \|\| !assignment\?\.program/);
+  assert.match(workout, /data-testid="workout-program"/);
   assert.match(workout, /to="\/programs"/);
   assert.match(workout, /to="\/exercise-progress"/);
+  assert.doesNotMatch(workout, /coached \|\| !assignment\?\.program/);
 
   const progress = src('src/components/workout/ExerciseProgressPage.tsx');
   assert.match(progress, /isCoachedAthlete/);

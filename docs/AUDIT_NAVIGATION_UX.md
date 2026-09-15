@@ -29,7 +29,7 @@ Aujourd’hui, la réponse est : **ça dépend du rôle, de l’espace, de la la
 Cinq règles. Tout le reste en découle.
 
 1. **Un chrome, une intention.** Mobile = cinq destinations quotidiennes, jamais plus. Desktop = les mêmes cinq, *groupées*, plus les outils rares. Pas une troisième carte mentale.
-2. **L’accueil est un verbe.** L’écran Home n’est pas un tableau de bord de widgets. C’est « Reprendre la séance », « Traiter ce client », ou le vide honnête d’un jour sans tâche (VISION, UX07).
+2. **L’accueil est un Dashboard.** Priorité claire **et** vue d’ensemble du jour (séance, rings, poids, check-in, coaching). Ce n’est plus « un seul verbe / une carte exclusive ». Le coach : file à traiter. Vide honnête s’il n’y a rien aujourd’hui (VISION, UX07).
 3. **Profil n’est pas un tiroir.** Compte, préférences, sécurité. Rien d’autre. Programme, stats, photos, recettes, annuaire n’ont rien à faire là (VISION solo complet + UX08).
 4. **L’espace est un produit, pas un filtre.** Personnel et Coaching doivent *se voir* : mot, couleur, onglets, accueil. Même URL `/dashboard` pour deux applications = confusion garantie.
 5. **Une source de vérité.** Destinations, libellés, ordre, badges : un seul module. BottomNav, SideNav, hubs Profil et animations d’onglets le consomment. Aujourd’hui ils divergent déjà.
@@ -157,7 +157,7 @@ Jobs : *si deux écrans du même appareil n’enseignent pas la même carte, l�
 
 Le hub coaché dans `ProfilePage.tsx` duplique encore Messages (déjà un onglet), Check-in (déjà un onglet), Programme, Photos, Nutrition, Poids, Intake.
 
-UX08 est ouvert dans le Chantier. Le code n’a pas bougé : **trouver son programme sur mobile, c’est deviner Profil → Explorer.**
+UX08 **Terminé**. Carte « Mon programme » sur Dashboard et Entraînement (nom du plan). Ne plus décrire le programme comme caché dans Profil.
 
 Jobs : Réglages n’a jamais contenu Mail. Mail n’a jamais contenu Réglages.
 
@@ -175,7 +175,7 @@ Cinq onglets. Le programme n’est plus caché. Profil n’explore plus.
 
 **Cible mobile coaché** : Accueil · Séance · Check-in · Coach (messages) · Toi. Programme = carte primaire de l’accueil (déjà amorcé par `ClientGymCard`). Photos = carte hebdo sur l’accueil (déjà là). Nutrition/poids seulement si convenus, depuis Accueil ou Corps, jamais depuis un tiroir Profil.
 
-**Cible mobile coach** : Aujourd’hui · Clients · Messages · Programmes · Toi. Prometheus n’est **pas** un onglet de tab bar : c’est un outil (palette + bouton dans Aujourd’hui). Un copilote n’est pas un lieu où l’on « habite ».
+**Cible mobile coach** : Dashboard · Clients · Messages · Programmes · Toi. Prometheus n’est **pas** un onglet de tab bar : c’est un outil (palette + bouton dans le Dashboard). Un copilote n’est pas un lieu où l’on « habite ».
 
 ### P0 — L’espace Personnel d’un coach n’est pas un espace personnel
 
