@@ -4,7 +4,9 @@
 >
 > **Preuve** : revue du code au 14 septembre 2026, puis alignement sur la refonte premium du PR 87 (`cursor/ux-premium-425e`). Pas de smoke authentifié dans cet environnement. Chaque constat cite un fichier.
 >
-> **PR 87 — ce qui est gardé.** NavLink, libellé unique « Aujourd’hui », hub Progression (UX08), labels `text-xs` / `min-h-11`, FAB `safe-area`, primitives (`PageHeader`, `CardLink`, `EmptyState`, `TabList`), vérité nutrition/séance, first-run à un CTA, empty Coach Today.
+> **PR 87 — ce qui est gardé.** NavLink, hub Progression (UX08), labels `text-xs` / `min-h-11`, FAB `safe-area`, primitives (`PageHeader`, `CardLink`, `EmptyState`, `TabList`), vérité nutrition/séance, first-run à un CTA, empty Coach Today. Le libellé d’accueil est **Dashboard** (plus « Aujourd’hui »).
+>
+> **Recalé 15 sept. 2026 — Accueil.** La cible n’est plus « une carte / un verbe ». L’accueil athlète est un **Dashboard** : priorité du jour **et** vue d’ensemble (rings nutrition, poids, check-in, coaching selon les modules). Si ce texte contredit `VISION.md` / `CHANTIER.md`, **ils gagnent**.
 >
 > **PR 87 — ce qui est corrigé ici.** Listes BottomNav/SideNav encore dupliquées → `navConfig`. Copilote en 5ᵉ onglet coach → Compte. SideNav 13 items plats + marketplace primaire → sections. Profil lisait le rôle, pas l’espace. SoloHub restait un tiroir alors que Progression existe. L’avatar sticky `CoachProfileButton` (palliatif PR 87) est retiré : Profil est le 5ᵉ onglet, y compris pour un coach sans outils personnels.
 
@@ -44,9 +46,9 @@ Quatre situations réelles, pas trois intitulés marketing.
 
 | Situation | Comment le code la détecte | Chrome mobile (`BottomNav`) | Chrome desktop (`SideNav`) |
 |---|---|---|---|
-| Solo | `navPersona` → `solo` | Aujourd’hui, Entraînement?, Progression, Nutrition?, Profil | Sections : Aujourd’hui / S’entraîner / Corps / Comprendre / Compte + Activité en muted |
-| Coaché | `navPersona` → `coached` | Aujourd’hui, Entraînement?, Check-in?, Messages, Profil | Sections train/corps/messages/compte + Activité muted |
-| Coach (espace Coaching) | `navPersona` → `coaching` | Aujourd’hui, Clients, Messages, Programmes, Profil | Primary + Copilote + Activité muted + Compte |
+| Solo | `navPersona` → `solo` | Dashboard, Entraînement?, Progression, Nutrition?, Profil | Sections : Dashboard / S’entraîner / Corps / Comprendre / Compte + Activité en muted |
+| Coaché | `navPersona` → `coached` | Dashboard, Entraînement?, Check-in?, Messages, Profil | Sections train/corps/messages/compte + Activité muted |
+| Coach (espace Coaching) | `navPersona` → `coaching` | Dashboard, Clients, Messages, Programmes, Profil | Primary + Copilote + Activité muted + Compte |
 | Dual-rôle | `capabilities.coach` et `personalToolsAvailable` | Switcher collé en haut + le jeu de l’espace actif | Switcher sous le logo + le jeu de l’espace |
 
 Sources : `src/navigation/navConfig.ts`, `src/components/layout/BottomNav.tsx`, `SideNav.tsx`, `AppLayout.tsx`, `WorkspaceSwitcher.tsx`, `src/lib/accountContext.ts`.
@@ -163,7 +165,7 @@ Jobs : Réglages n’a jamais contenu Mail. Mail n’a jamais contenu Réglages.
 
 | Onglet | Rôle | Contient |
 |---|---|---|
-| Accueil | verbe du jour | séance / programme du jour, rien d’autre en primaire |
+| Accueil | priorité + vue d’ensemble | séance / programme du jour en priorité ; rings, poids, check-in, coaching selon les modules |
 | Entraîner | faire | séances, programme, historique |
 | Corps | logger | nutrition si active, sinon poids/photos selon tracking |
 | Suivi | comprendre | stats, progression, calendrier |
@@ -217,7 +219,7 @@ Jobs : *une action primaire. Les autres sont des satellites.*
 
 **Cible** :
 
-- Accueil : **une** carte primaire (reprendre / commencer / traiter). Le reste passe sous un pli ou dans les onglets.
+- Accueil : **une priorité** (reprendre / commencer / traiter) **plus** la vue d’ensemble du jour. Pas une carte exclusive qui cache nutrition / poids / check-in.
 - FAB : soit une action contextuelle de l’écran (nutrition → ajouter un aliment), soit rien. Plus de menu radial global qui duplique la sidebar desktop.
 - Espace Coaching : pas de FAB tracker. L’action primaire du jour est dans la file.
 

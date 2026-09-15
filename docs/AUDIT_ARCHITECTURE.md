@@ -2,7 +2,7 @@
 
 > **Rôle de ce document** — diagnostic de l’organisation du frontend (et de quelques contradictions docs / tests / env). Ce n’est pas un backlog. Les statuts et la file d’exécution restent dans [`CHANTIER.md`](CHANTIER.md) lots **17–23**. La destination produit reste [`VISION.md`](VISION.md). Les parcours cibles restent [`CARTE_PRODUIT.md`](CARTE_PRODUIT.md). L’audit navigation (chrome, onglets) reste [`AUDIT_NAVIGATION_UX.md`](AUDIT_NAVIGATION_UX.md) — autre sujet.
 >
-> **Preuve :** revue de `new-JV` au commit `2222e11` (15 septembre 2026). Verdict ~6,5/10. Ce n’est pas un ordre d’implémentation. Si ce texte contredit le Chantier, **le Chantier gagne**.
+> **Preuve :** revue de `new-JV` au commit `2222e11` (15 septembre 2026). Verdict ~6,5/10. Lots **17–23 livrés** depuis : l’arbre `app` / `features` / `shared` existe ; ce diagnostic reste utile pour ce qui n’est **pas** encore déplacé (écrans métier, `supabase.from` dans l’UI). Ce n’est pas un ordre d’implémentation. Si ce texte contredit le Chantier, **le Chantier gagne**.
 >
 > **IDs.** Série **ARCH**, distincte du catalogue UX et des parcours `S01` de la carte produit. Ne pas inventer d’IDs UX.
 

@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** lire la Vision pour les principes et le Chantier pour les statuts et priorités. Ici, conserver les contrats de parcours et leurs dépendances ; ne pas créer un deuxième backlog ni supprimer une fonctionnalité existante pour obtenir une architecture plus élégante. Mettre à jour les constats lorsque leurs sources changent.
 
-**Référence : vision détaillée fournie par le propriétaire le 12 septembre 2026.** Analyse documentaire et statique ; aucun parcours navigateur, replay SQL ou inventaire live supplémentaire exécuté pour ce document.
+**Référence : vision du 12 septembre 2026, Accueil précisé le 15 septembre (Dashboard = priorité + vue d’ensemble).** Les constats du tableau §1 qui décrivent encore l’entrée « rôle avant login », le départ client absent ou la marketplace absente sont **périmés** : voir `CHANTIER.md` (M2–M5, M3, UX07). Cette carte garde les contrats de parcours ; elle n’ordonne pas le travail.
 
 ## 1. Conclusion de la revue
 
@@ -23,21 +23,21 @@ La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve d
 | Domaine | Constat vérifiable | Réutilisation / écart |
 |---|---|---|
 | Identité | [authStore](../src/stores/authStore.ts) utilise email/mot de passe, récupération et session | Réutiliser Auth. Google/Apple ne sont pas exposés par ce store ; configuration et parcours complets restent à vérifier/construire. |
-| Entrée | [AuthPage](../src/components/auth/AuthPage.tsx) choisit un rôle avant le formulaire ; une inscription client sans invitation est refusée | Remplacer cette orientation par l’intention après création du compte, avec connexion directe pour les habitués. |
+| Entrée | Login email+mdp ; intention après identité (`EntryIntentionPage`). Habitué solo/coaché ne revoit pas le picker (M3) | Conserver. OAuth plus tard. |
 | Rôles | [types](../src/lib/types.ts) expose `coaching_role = none/coach/client` ; [coachRole](../src/lib/coachRole.ts) exclut le coach du solo | État exclusif incompatible avec coach + entraînement personnel. Introduire une projection de capacités progressivement. |
 | Routage | [App](../src/App.tsx) contient `CoachTrackerRedirect`, `CoachOnly`, `CoachedAthleteRedirect` | Plusieurs routes personnelles sont interdites au coach ; stats et calendrier sont aussi bloqués pour le coaché. Ouvrir selon propriété et type d’action, sans ouvrir l’édition du plan coach. |
 | Onboarding | App possède plusieurs portes globales de questionnaire, dont questionnaire coach incomplet | Réutiliser les composants ; séparer configuration minimale, recherche et prise en charge. Ne pas bloquer messages/historique par un questionnaire global. |
 | Moteur séances | `Workout.user_id`, `Routine.user_id` ; [startWorkout](../src/lib/startWorkout.ts) appelle une RPC commune avec routine ou programme assigné | Conserver les identifiants et cette entrée commune. Aucun deuxième moteur coaché. Import externe non prouvé par cette lecture. |
 | Programmes | [programStore](../src/stores/programStore.ts) expose création atomique, fork, révisions et attributions en pause | Réutiliser. Distinguer routine, modèle propriétaire et attribution ; ne pas les fusionner par simple renommage. |
 | Erreurs programmes | `fetchPrograms` remplace la liste par vide en cas d’échec ; `fetchProgram` renvoie null pour plusieurs causes | Rendre les résultats typés : vide, inaccessible, absent et erreur réseau doivent mener à des issues différentes. |
-| Accueil personnel | [Dashboard](../src/components/dashboard/Dashboard.tsx) contient déjà logique coaché, carte séance, revue solo et bannière de départ | Composer deux accueils contextuels avec ces éléments, conserver les fonctions communes. Réduire les chargements aux données utiles. |
+| Accueil personnel | [Dashboard](../src/components/dashboard/Dashboard.tsx) : priorité + « Ta journée » (rings nutrition, poids, semaine, check-in, coaching selon modules) | Conserver ce contrat. Ne pas revenir à « une carte exclusive ». Réduire les chargements aux données utiles. |
 | Console coach | [CoachDashboard](../src/components/coaching/CoachDashboard.tsx) réutilise priorités, file du jour, bilans, invitations et erreurs partielles | Préserver le centre de décisions ; ajouter les prospects dans une zone distincte du suivi des clients. |
 | Invitations | [coachingStore](../src/stores/coachingStore.ts) appelle `accept_coach_invite`, aperçu et rafraîchissement | Conserver l’entrée des clients existants. Lier les futures demandes au même invariant d’association côté serveur. |
 | Questionnaires | [coachQuestionnaireApi](../src/lib/coachQuestionnaireApi.ts), [migration questionnaire](../supabase/migrations/20260911235551_coach_questionnaires.sql) : versions et réponses avec révision | Réutiliser rendu/validation et historique. Le questionnaire de recherche a un contrat séparé ; pas de réécriture des anciennes réponses. |
 | IA personnelle | [migration self-coach](../supabase/migrations/20260906023512_solo_self_coach.sql) utilise une intervention sur soi ; son prédicat historique exige `none` | Auditer les redéfinitions SQL et les Edge Functions avant d’autoriser le coach dans son espace personnel. Aucun auto-lien de coaching. |
-| Départ | [soloTransition](../src/lib/soloTransition.ts), `end_coach_client_link` côté coach, archives/adoption | Le départ **client** autonome n’est pas livré. À construire au lot M2 en réutilisant la transition commune, sans voie parallèle. |
+| Départ | Client : `client_end_coach_link` + modal (M2a). Coach : `end_coach_client_link` | Conserver. Pas de voie parallèle. |
 | Hors ligne | [offlineQueue](../src/lib/offlineQueue.ts) porte compte, identifiants stables, mapping et dead-letter ; [sessionScope](../src/lib/sessionScope.ts) fournit isolation et générations | Réutiliser pour les séances. Ne pas promettre une marketplace ou des paiements utilisables hors ligne. |
-| Marketplace | Absente du code livré | Premier parcours (M4–M5) : filtres exacts, profil opt-in, demande privée. Matching guidé, capacité réelle, modération et activation (M6) restent distincts. |
+| Marketplace | Offre opt-in, annuaire, demandes, acceptation = lien actif (M4–M5). Billing fermé (M6) | Matching guidé, capacité réelle, modération et encaissement restent distincts. |
 | Objectifs | Profil avec objectif ; pas de cycle objectif atteint/maintien/successeur dans les contrats inspectés | Ajouter un cycle de vie sans changer rétroactivement le sens des anciennes données. |
 | Historique technique | Lock et production : 99 versions, dernière `20260911235551_coach_questionnaires` | Git, lock et `schema_migrations` doivent rester alignés. Ne jamais prendre un résumé daté pour un inventaire live. |
 

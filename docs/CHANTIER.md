@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX44 / UX51 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07** (Dashboard + rings nutrition) **/ UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX44 / UX51 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
 | **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28 / UX36 / UX44 / UX84** et **17–23 Terminé**.
 
@@ -101,7 +101,7 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83. S
 - Simplifier en **nommant** et en mettant l’action principale devant — pas en interdisant séance libre, recettes ou FAB entier.
 - Accueil (**Dashboard**) = une **priorité claire** + une **vue d’ensemble** de la journée (entraînement, rings nutrition, poids, check-in, coaching selon les modules). Pas une page réduite à un seul verbe.
 - Accessibilité bloquante : dans le lot du parcours.
-- Frontend cible : `src/app` / `src/features/<domaine>` / `src/shared` + alias `@/`. Aujourd’hui le code n’y est pas — lots 17–23, **pas** 11–16.
+- Frontend cible : `src/app` / `src/features/<domaine>` / `src/shared` + alias `@/`. Lots **17–23 livrés**. Les écrans métier restent surtout dans `components/` ; `supabase.from` dans l’UI n’est pas encore interdit.
 - Données : composant → hook / model → API → Supabase. Pas de `supabase.from()` dans l’UI une fois 23 livré.
 - Primitives UI = tokens sémantiques (`surface`, `ink`, `line`, `primary`, …), pas un second système `blue-600` / `neutral-*` (lot 19).
 
@@ -622,7 +622,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX77** | P2 | 10a | **À vérifier** | Recettes dans AppLayout / Nutrition. Plus de `FullPageLayout`. **Reste :** parcours live (solo + coaché). | Recettes ≠ session ; séance a une sortie. |
 | **UX84** | P1 | 8 | **Terminé** | Live : jour dû = « Séance hors programme » (FAB, header, Ajout rapide) + nom + notice. Jour de repos = « Nouvelle séance » / « Nouveau ». `/workout/new` reste ouvert. | Hors programme **nommé** ; pas d’interdiction. |
 | **UX107** | P2 | 16a | **Terminé** | Live FAB : Check-in (module on). | Check-in sans chercher l’onglet. |
-| **UX111** | P2 | 16e | **Terminé** | Live : 5 onglets (Aujourd’hui / Entraînement / Check-in / Messages / Profil). Nutrition = Profil + FAB repas. | Nutrition = même carte mobile/desktop. |
+| **UX111** | P2 | 16e | **Terminé** | Live : 5 onglets (Dashboard / Entraînement / Check-in / Messages / Profil). Nutrition = Profil + FAB repas. | Nutrition = même carte mobile/desktop. |
 
 ### Séance
 
@@ -812,7 +812,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX44**, **UX51**, **UX84**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07** (vue d’ensemble + rings), **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX44**, **UX51**, **UX84**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -842,6 +842,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Nouveau compte | `/auth` puis intention `find_coach` | **Joué (M3).** Annuaire puis Accueil / Entraînement personnels. |
 | Coach | Offre opt-in | **Joué (M4).** Sans publier = roster OK. Publier / retirer = annuaire. |
 | Coaché / chercheur | Annuaire + acceptation | **Joué (M5).** Déjà lié = explication. Accepté = suivi actif, pas un paiement. |
+| Coaché / Solo / Invitee | Dashboard : rings nutrition + courbe de poids | **Joué (UX07).** Mêmes rings que `/nutrition` (kcal + macros). Cible absente = `—` / « Aucune cible définie », jamais 2000/150/250/65. |
 | Coaché | Accueil : séance due + message / check-in + poids | **Joué (UX07).** Priorité + vue d’ensemble. Waiting reste une priorité claire vers Messages. |
 | Coach | Roster → fiche → suivante / précédente | **Joué (UX09).** `1 / 2` → `2 / 2` ; onglet Check-ins conservé ; retour liste. |
 | Solo | Reprendre les valeurs d’une série | **Joué (UX13).** 3 rangées restent 3 ; 2ᵉ = 80/5/2. |

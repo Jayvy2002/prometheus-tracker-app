@@ -6,7 +6,7 @@
 >
 > **Instruction pour les agents :** ne pas transformer cette vision en inventaire du code, backlog, journal de PR, état de production ou plan d’implémentation. Une fonctionnalité décrite ici peut représenter la destination finale sans être encore livrée. Tout travail restant appartient à `docs/CHANTIER.md` ; l’état et l’usage actuels du dépôt appartiennent au `README.md` et aux sources techniques.
 
-**Direction produit : marketplace de coaching avec continuité solo — 12 septembre 2026.**
+**Direction produit : marketplace de coaching avec continuité solo — 15 septembre 2026.**
 
 ## Promesse
 
@@ -49,7 +49,7 @@ La carte des parcours, écrans et contrats d’architecture est dans [CARTE_PROD
 | | Coach | Client coaché | Solo |
 |---|---|---|---|
 | Entrée | Configuration de son activité et publication volontaire de son offre | Questionnaire de recherche, choix du coach et demande acceptée, ou invitation directe | Inscription libre, sans recherche de coach obligatoire |
-| Accueil | Clients à traiter et prochaine décision utile | Priorité du jour + vue d’ensemble (programme, nutrition, poids, check-in, échanges) | Priorité du jour + vue d’ensemble (séance, nutrition, poids, outils personnels) |
+| Accueil | Clients à traiter et prochaine décision utile | Dashboard : priorité du jour + vue d’ensemble (programme, rings nutrition, poids, check-in, échanges) | Dashboard : priorité du jour + vue d’ensemble (séance, rings nutrition, poids, outils personnels) |
 | Programme | Construit, adapte, assigne et publie | Consulte et exécute le programme assigné | Construit ou valide une proposition |
 | Suivi | Choisit avec le client les informations utiles | Partage les informations convenues | Choisit ses propres outils |
 | Copilote | Prépare analyses, brouillons et propositions | Le coach reste responsable des décisions | Prépare des propositions pour l’athlète |
@@ -107,9 +107,11 @@ Le client choisit à qui adresser sa demande ; le coach accepte explicitement. L
 
 Les utilisateurs doivent pouvoir signaler un profil ou un comportement problématique et obtenir une issue compréhensible. Les éventuels avis reposent sur une relation réelle et des règles de modération. Une visibilité commerciale éventuelle est identifiée et ne se fait pas passer pour une meilleure adéquation.
 
+L’accueil athlète (**Dashboard**) doit répondre à deux questions en même temps : *quoi faire maintenant* (priorité) et *où j’en suis aujourd’hui* (entraînement, nutrition, activité, check-in, progression, coaching — seulement les modules réellement actifs). Ce n’est ni un seul verbe qui cache le reste, ni une pile de widgets.
+
 ## Contrat UX
 
-- Une action principale identifiable à chaque étape ; les détails apparaissent lorsqu’ils aident à décider.
+- Une priorité claire à chaque étape ; les détails apparaissent lorsqu’ils aident à décider. Sur le Dashboard, la priorité coexiste avec la vue d’ensemble du jour.
 - Des textes courts et concrets, sans commentaires internes ni répétitions ; conserver les conséquences, destinataires et erreurs utiles.
 - Aucun questionnaire redemandé sans nécessité, aucune saisie perdue après erreur ou interruption.
 - Un choix de coach reste libre ; pas de pression artificielle, de fausse urgence ou de promesse de disponibilité.

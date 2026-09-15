@@ -30,6 +30,7 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 
 ### Client coaché
 
+- Dashboard : priorité du jour et vue d’ensemble (séance, rings nutrition, poids, check-in, messages).
 - Séance du jour et programme assigné.
 - Check-ins, messages et photos.
 - Questionnaire choisi par le coach, brouillon reprenable et réponses rattachées à la version remplie.
@@ -39,6 +40,7 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 
 ### Solo
 
+- Dashboard : priorité du jour et vue d’ensemble (séance, rings nutrition, poids, progression).
 - Séances, routines, progression, statistiques et calendrier.
 - Nutrition, recherche d’aliments, scanner et recettes.
 - Questionnaire initial, cibles et proposition de programme.
@@ -65,16 +67,14 @@ Proposition visible → validation humaine → écriture persistée
 
 ```text
 src/
-├── App.tsx                         Routes et gardes de rôle
-├── components/
-│   ├── coaching/                   Console coach, fiche client et messages
-│   ├── programs/                   Programmes coach, coaché et solo
-│   ├── dashboard/                  Accueils et revues
-│   ├── onboarding/                 Questionnaire et reprise
-│   └── workout|nutrition|checkin/  Outils de suivi
+├── App.tsx                         Assembleur (router + session)
+├── app/                            Routes, gardes, chrome, navConfig
+├── features/                       Domaines (coaching, workout, nutrition, …)
+├── shared/                         UI, types transversaux, client Supabase
+├── components/                     Écrans métier (dashboard, séance, nutrition, …)
 ├── stores/                         État Zustand par domaine
-├── lib/                            Logique partagée, contrats et tests
-└── i18n/locales/{fr,en}.ts         Textes visibles
+├── lib/                            Contrats + réexports
+└── i18n/locales/{fr,en}/           Textes par domaine
 
 supabase/
 ├── migrations/                     Historique de base immuable
@@ -88,8 +88,11 @@ supabase/
 |---|---|
 | Règles obligatoires pour les agents et développeurs | [`CLAUDE.md`](CLAUDE.md) |
 | Destination, rôles et principes produit | [`docs/VISION.md`](docs/VISION.md) |
-| Audit navigation, IA et structure front-end | [`docs/AUDIT_NAVIGATION_UX.md`](docs/AUDIT_NAVIGATION_UX.md) |
+| Parcours et contrats cibles | [`docs/CARTE_PRODUIT.md`](docs/CARTE_PRODUIT.md) |
 | Ordre des travaux et tout ce qui reste à faire | [`docs/CHANTIER.md`](docs/CHANTIER.md) |
+| Arbre frontend actuel vs cible | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Tokens et primitives UI | [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) |
+| Diagnostic navigation (peut être daté) | [`docs/AUDIT_NAVIGATION_UX.md`](docs/AUDIT_NAVIGATION_UX.md) |
 | Procédure et historique des migrations | [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) |
 | Télémétrie autorisée | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) |
 | État déployé des Edge Functions | [`supabase/functions.deployed.lock.json`](supabase/functions.deployed.lock.json) |

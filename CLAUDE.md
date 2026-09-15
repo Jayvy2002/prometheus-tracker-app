@@ -18,6 +18,8 @@ Trois rôles sont officiels :
 
 Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition n’est jamais appliquée automatiquement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
 
+Accueil athlète = **Dashboard** : une priorité claire **et** une vue d’ensemble du jour (entraînement, rings nutrition, poids, check-in, coaching selon les modules). Pas une page réduite à un seul verbe.
+
 ## Sources de vérité
 
 | Sujet | Source |
