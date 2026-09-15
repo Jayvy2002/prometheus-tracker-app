@@ -3,6 +3,12 @@ import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import type { CoachMessage } from '../../lib/types';
 import { formatMessageDay, formatMessageTime, messageDayKey } from '../../lib/messageDates';
+import {
+  clearMessageDraft,
+  composeThreadBody,
+  loadMessageDraft,
+  saveMessageDraft,
+} from '../../lib/messageDrafts';
 
 export default function MessageThread({
   messages,
@@ -15,6 +21,8 @@ export default function MessageThread({
   hasMore,
   loadingMore,
   onLoadMore,
+  accountId,
+  peerId,
 }: {
   messages: CoachMessage[];
   currentUserId: string;
@@ -27,9 +35,11 @@ export default function MessageThread({
   hasMore?: boolean;
   loadingMore?: boolean;
   onLoadMore?: () => void;
+  accountId?: string;
+  peerId?: string;
 }) {
   const { t, i18n } = useTranslation();
-  const [body, setBody] = useState('');
+  const [body, setBody] = useState(() => composeThreadBody(loadMessageDraft(accountId, peerId), draftBody));
   const [sendError, setSendError] = useState<string | null>(null);
   const [pendingBody, setPendingBody] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -41,15 +51,23 @@ export default function MessageThread({
   const changeBody = (value: string) => {
     revisionRef.current += 1;
     setBody(value);
+    saveMessageDraft(accountId, peerId, value);
   };
   const ordered = useMemo(() => [...messages].sort((a, b) =>
     a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [messages]);
 
   useEffect(() => {
-    if (typeof draftBody === 'string' && draftBody.length > 0) {
-      setBody(current => current || draftBody);
+    const personal = loadMessageDraft(accountId, peerId);
+    if (personal.trim()) {
+      setBody(personal);
+      return;
     }
-  }, [draftBody]);
+    if (typeof draftBody === 'string' && draftBody.length > 0) {
+      setBody(current => (current.trim() ? current : draftBody));
+      return;
+    }
+    setBody('');
+  }, [accountId, peerId, draftBody]);
 
   useLayoutEffect(() => {
     const el = scrollRef.current;
@@ -82,7 +100,10 @@ export default function MessageThread({
         return;
       }
       // An acknowledgement must never erase a newer edit, even identical text.
-      if (revisionRef.current === revision) setBody('');
+      if (revisionRef.current === revision) {
+        setBody('');
+        clearMessageDraft(accountId, peerId);
+      }
     } catch {
       setSendError(t('coaching.messages.sendFailed'));
     } finally {
