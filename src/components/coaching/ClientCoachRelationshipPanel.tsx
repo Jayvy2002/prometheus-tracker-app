@@ -85,6 +85,7 @@ export default function ClientCoachRelationshipPanel({ coachName }: { coachName:
             <li>{t('coaching.leave.kept')}</li>
             <li>{t('coaching.leave.stopped')}</li>
             <li>{t('coaching.leave.paused')}</li>
+            <li>{t('coaching.leave.notTransferred')}</li>
           </ul>
           {error && <p role="alert" className="text-sm text-rose-400">{error}</p>}
           <div className="flex gap-3">
