@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX51 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
 | **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28 / UX36** et **17–23 Terminé**.
 
@@ -41,6 +41,7 @@
 | **UX16** Offline langage | **PASS.** Bandeau « Hors ligne — tes modifications sont conservées sur cet appareil. » File séances seulement. | — |
 | **UX28** Manque ≠ faute | **PASS.** Settings : « séance non loggée » + « Séances non loggées » / « Check-ins en attente ». File : Pas de programme / Séance faite, pas « a manqué ». Ask : « log(s) manquant(s) ». Relance : « comment se passent tes séances ? ». | — |
 | **UX36** Filtres roster | **PASS.** Puces Tous / Check-in / … ; « Filtre : Check-in · 1 client(s) » (Invitee) ; Effacer → les deux clients. | — |
+| **UX51** Provenance alimentaire | **PASS.** Hit Banana : « Catalogue interne — non certifié ». Saisie « Yaourt nature » : « Saisie manuelle — non certifié ». | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -486,7 +487,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Attente IA quittable | UX44 | À construire |
 | Calendrier : prévu / commencé / terminé | UX47 | **Conçu** |
 | Du point de courbe vers la séance | UX50 | **Conçu** |
-| Provenance alimentaire en mots | UX51 | À construire |
+| Provenance alimentaire en mots | UX51 | **Terminé** |
 | Scanner : issue si pas de caméra / produit | UX52 | À vérifier |
 | Permission notif au bon moment | UX64 | À construire |
 | Audience, export, delete compte | UX66 | À construire |
@@ -730,7 +731,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **UX51** | P2 | ens. | À construire | Provenance en mots, pas seulement icônes. | Source ≠ certifié. |
+| **UX51** | P2 | ens. | **Terminé** | Live : Banana = catalogue interne non certifié ; Yaourt = saisie manuelle non certifiée. | Source ≠ certifié. |
 | **UX52** | P2 | ens. | À vérifier | Produit introuvable / pas de caméra : issue. | Le journal reste possible. |
 | **UX53** | P2 | 10a | **À vérifier** | Recettes dans Nutrition pour solo et coaché. **Reste :** parcours live. | Utiles sans tableau de macros. |
 | **UX54** | P1 | 5 | **Terminé** | Solo + coaché + 360 Progression. | Audience connue avant upload. |
@@ -809,7 +810,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX51**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -844,6 +845,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Solo | Reprendre les valeurs d’une série | **Joué (UX13).** 3 rangées restent 3 ; 2ᵉ = 80/5/2. |
 | Coach | File / settings / Ask / relance | **Joué (UX28).** « non loggée » / « en attente » / « manquant(s) » ; relance « comment se passent tes séances ? ». |
 | Coach | Filtres roster | **Joué (UX36).** Puces ; Check-in = Invitee seul ; Effacer = les deux. |
+| Solo | Ajouter un aliment | **Joué (UX51).** Catalogue / saisie manuelle en mots, non certifié. |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
