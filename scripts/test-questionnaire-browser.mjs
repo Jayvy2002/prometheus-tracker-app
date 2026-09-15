@@ -86,7 +86,6 @@ try {
  assert.equal(accepted.ok,true);
  const clientPage=await pageFor(athlete);
  await clientPage.goto(origin+'/dashboard');
- await clientPage.getByRole('button').first().waitFor();
  await passIntentionIfShown(clientPage,'Train on my own');
  await clientPage.getByText('Questionnaire from your coach').waitFor();
  assert.equal(await clientPage.getByLabel('How do you prefer to communicate?',{exact:false}).count(),0,'incomplete questionnaire must not prison the home');

@@ -36,12 +36,12 @@ export default function AvatarUpload() {
       );
       return;
     }
-    file = prepared.file;
+    const uploadFile = prepared.file;
 
-    const localUrl = URL.createObjectURL(file);
+    const localUrl = URL.createObjectURL(uploadFile);
     setPreviewUrl(localUrl);
 
-    const url = await uploadAvatar(user.id, file);
+    const url = await uploadAvatar(user.id, uploadFile);
     URL.revokeObjectURL(localUrl);
     setPreviewUrl(null);
     if (!url) toast(t('profile.avatar.uploadFailed'), 'error');

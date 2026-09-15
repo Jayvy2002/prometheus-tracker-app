@@ -164,16 +164,16 @@ export function inferPrioritySinceIso(
     ? lastLoggedSessionDate([], [named])
     : null;
   const checkinAt = lastCheckinDate(signals.checkins.filter(c => c.user_id === id));
-  const nutritionAt = signals.nutritionLogs
+  const nutritionDates = signals.nutritionLogs
     .filter(n => n.user_id === id)
     .map(n => n.logged_at)
-    .sort()
-    .at(-1) ?? null;
-  const weightAt = signals.weights
+    .sort();
+  const nutritionAt = nutritionDates[nutritionDates.length - 1] ?? null;
+  const weightDates = signals.weights
     .filter(w => w.user_id === id)
     .map(w => w.measured_at)
-    .sort()
-    .at(-1) ?? null;
+    .sort();
+  const weightAt = weightDates[weightDates.length - 1] ?? null;
 
   switch (item.kind) {
     case 'missed_workout':

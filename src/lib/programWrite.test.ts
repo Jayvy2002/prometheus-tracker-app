@@ -36,7 +36,7 @@ test('assign recap date stays on the local calendar day', () => {
 });
 
 test('latest save_program wraps metadata + sync_program_days and refuses stale', () => {
-  const found = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.save_program');
+  const found = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
   assert.equal(found.file, '20260915133000_save_program.sql');
   assert.match(found.sql, /SECURITY DEFINER/);
   assert.match(found.sql, /SET search_path = public/);

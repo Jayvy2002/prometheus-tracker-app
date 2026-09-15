@@ -164,7 +164,9 @@ function pickMeals(ctx: SoloAskContext, count: number): RecipeIdea[] {
   return pool
     .sort((a, b) => Math.abs(a.calories - target) - Math.abs(b.calories - target))
     .slice(0, count)
-    .map(({ avoid: _a, diets: _d, ...idea }) => idea);
+    .map(({ name, description, calories, protein, carbs, fat, category }) => ({
+      name, description, calories, protein, carbs, fat, category,
+    }));
 }
 
 function catalogAlternatives(

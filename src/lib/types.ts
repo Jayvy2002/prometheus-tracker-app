@@ -1017,7 +1017,7 @@ export interface ProgramDayExercise {
   default_rir?: number | null;
   default_rest_seconds: number;
   default_weight_kg?: number | null;
-  set_type?: string;
+  set_type?: SetType;
   superset_group?: string | null;
   drop_count?: number | null;
   tempo?: string | null;
