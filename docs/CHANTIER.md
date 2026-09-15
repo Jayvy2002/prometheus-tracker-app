@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–4 dans Git. File : lots **11–12** inscrits après 10 (biblio exo, Ask solo). Lots 2–3 : apply prod SQL encore dû. Lots 3–4 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans Git. File : lots **11–13** inscrits après 10 (biblio exo, Ask solo pages, Ask autres surfaces). Lots 2–3 : apply prod SQL encore dû. Lots 3–4 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
 
 **Lot ouvert : 5 — photos et audience.** Lot 1 : Terminé. Lots 2–4 : À vérifier.
 
@@ -80,7 +80,7 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
 | Photos = 5ᵉ interrupteur tracking | Suivi proposé / conservation / partage (UX54) |
 | « Enregistré » → « Transmis au coach » | « Enregistré — visible par {coach} » après succès serveur (UX26) |
 | Fusionner Messages, brouillons et Prometheus | Relier les parcours ; trois jobs distincts |
-| Ask solo = chat `/prometheus` (coach) | Barre **sur** Entraînement / Nutrition. Solo seulement. Lots 12a–12b |
+| Ask solo = chat `/prometheus` (coach) | Barre **sur** les pages (lots 12–13). Solo : Entraînement / Nutrition puis autres surfaces. Coaché : brouillon Messages (UX93), pas `/prometheus`. |
 | Enregistrer recette ou réécrire le plan sans tap | Carte avant/après, puis confirmation. Jamais d’auto-apply |
 | Recettes coupées au coaché « parce qu’il a un coach » | Trancher utilité + contrat de suivi, pas l’autonomie |
 | Déclarer nav / accueil / 0C « terminés » | `navConfig` existe ; trouvabilité et chiffres mentent encore |
@@ -131,7 +131,8 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | À construire | Chaque carte : pourquoi, **depuis quand**, une action. « Passer » = **un** signal, annulable. Contexte roster conservé au retour. 360 : « depuis ta dernière visite » ; dernière séance = définition lot 1. |
 | **10** | **Cohérence restante** | À construire | Une PR par ligne ci-dessous. |
 | **11** | **Bibliothèque d’exercices** (UX86) | À construire **après 10** | Catalogue **complet** : chaque exo a une **vidéo d’exécution** et un **mannequin blanc** dont les muscles travaillés sont en **rouge** (`primary_muscles` / `secondary_muscles`, ids `muscleLabels`). Picker et fiche séance s’en servent. Une PR. |
-| **12** | **Ask solo contextualisé** | À construire **après 10** | Solo seulement. Bouton IA sur Entraînement et Nutrition → barre de question. Pas d’onglet, pas `/prometheus`. Contexte envoyé + proposition **enregistrable**. Une PR par ligne. |
+| **12** | **Ask solo contextualisé** | À construire **après 10** | Solo seulement. Bouton IA sur Entraînement et Nutrition → barre de question. Pas d’onglet, pas `/prometheus`. Proposition **revue** : ignorer / appliquer une fois / enregistrer. Jamais auto-apply. Une PR par ligne. |
+| **13** | **Ask : autres surfaces** | À construire **après 12** | Même contrat (contexte de page, validation humaine). Séance en cours, journal / macros restants, check-in, jour loupé, coaché = brouillon Messages, alternatives d’exo (après 11), plan semaine + courses, swap d’ingrédient, deload. Une PR par ligne. |
 
 ### Lot 10 — une PR par ligne
 
@@ -152,14 +153,28 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 
 | # | Contenu | IDs |
 |---|---|---|
-| 12a | Barre Ask **Entraînement** : question + perfs, programme actuel, blessures / limites, expérience, fréquence, focus. Proposition d’ajustement **revue puis enregistrée** (cette séance et/ou le plan, nommé). Réutilisable. | UX87 |
-| 12b | Barre Ask **Nutrition** : question + cibles kcal/macros, allergies, type d’alimentation, déjà consommé **aujourd’hui**. Recette proposée → **enregistrer** dans Mes recettes, réutiliser au journal. | UX88 |
+| 12a | Barre Ask **Entraînement** : question + perfs, programme actuel, blessures / limites, expérience, fréquence, focus. Proposition d’ajustement **revue** : ignorer / appliquer **cette séance** / enregistrer comme jour de plan **nommé**. Réutilisable. | UX87 |
+| 12b | Barre Ask **Nutrition** : question + cibles kcal/macros, allergies, type d’alimentation, déjà consommé **aujourd’hui**. Recette proposée **revue** : ignorer / ajouter **une fois** au journal / **enregistrer** dans Mes recettes (réutiliser plus tard). | UX88 |
 
-**Après le lot 12 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, billing.
+### Lot 13 — une PR par ligne
+
+| # | Contenu | IDs |
+|---|---|---|
+| 13a | Ask **pendant** la séance (`WorkoutForm`) : séries déjà cochées + exo courant. Proposition = **cette séance** sauf enregistrement explicite. | UX89 |
+| 13b | Journal du jour / kcal-macros **restants** → 2–3 idées de repas. Même choix qu’en 12b (ignorer / une fois / Mes recettes). | UX90 |
+| 13c | Check-in : proposer une **note de séance** (pas un diagnostic médical). Enregistrable au choix. | UX91 |
+| 13d | Jour / semaine loupé : proposer un **recalage** du plan. Pas d’auto-skip, pas de « rattrapage » silencieux. | UX92 |
+| 13e | Ask **coaché** : ouvre un **brouillon Messages** (jamais d’envoi auto). Recette perso = choix du client, pas le plan coach. | UX93 |
+| 13f | **Après lot 11.** Alternatives d’exo depuis la fiche (mêmes muscles, matériel). Revue puis swap **cette séance**. | UX94 |
+| 13g | Plan repas **semaine** + liste de courses, enregistrable. | UX95 |
+| 13h | Swap d’ingrédient (allergie / stock) en gardant les cibles. | UX96 |
+| 13i | Deload / charges et repos de la **dernière fois** sur le même exo. Proposition revue, pas d’auto-apply. | UX97 |
+
+**Après le lot 13 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, billing.
 
 ---
 
-## Ancres code (lot 1–12) — ne pas chercher à l’aveugle
+## Ancres code (lot 1–13) — ne pas chercher à l’aveugle
 
 | Lot | Où ça ment / casse aujourd’hui |
 |---|---|
@@ -174,6 +189,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | 9 | `CoachTodayQueue` `onSkip` → `dismissQueueItems(group.items.map(...))` (tout le groupe). Pas d’ancienneté sur la carte. |
 | 11 | Table `exercises` : nom, muscles, consignes. **Pas** de `video_url` / mannequin. Picker : `ExercisePicker`. |
 | 12 | `/prometheus` = `CoachOnly`. Solo : revue hebdo Accueil (`soloCopilot`), pas de barre Ask sur `/workout` ni `/nutrition`. Recettes = `recipeStore`. |
+| 13 | `WorkoutForm` : pas d’Ask in-session. Check-in : champs, pas de note proposée. Coaché : Ask n’existe pas ; Messages = texte. Picker : pas d’alternatives muscle/matériel. |
 
 ---
 
@@ -225,7 +241,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 
 ---
 
-## Après la file 1–10 (lots 11–12 et catalogue — ne pas commencer avant)
+## Après la file 1–10 (lots 11–13 et catalogue — ne pas commencer avant)
 
 | Thème | IDs | Statut |
 |---|---|---|
@@ -255,8 +271,17 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Actions groupées coach | UX38 | Reporté P3 |
 | Télémétrie utilité | UX70 | Continu, pas un projet préalable |
 | Bibliothèque exo : vidéo + mannequin muscles | UX86 | Lot 11, après 10 |
-| Ask solo Entraînement + enregistrement d’ajustement | UX87 | Lot 12a, après 10 |
-| Ask solo Nutrition + enregistrement recette | UX88 | Lot 12b, après 10 |
+| Ask solo Entraînement + choix ignorer / cette séance / plan nommé | UX87 | Lot 12a, après 10 |
+| Ask solo Nutrition + choix ignorer / une fois / Mes recettes | UX88 | Lot 12b, après 10 |
+| Ask pendant la séance | UX89 | Lot 13a, après 12 |
+| Reste macros / journal → idées repas | UX90 | Lot 13b, après 12 |
+| Check-in → note de séance (pas diagnostic) | UX91 | Lot 13c, après 12 |
+| Jour loupé → recaler le plan | UX92 | Lot 13d, après 12 |
+| Ask coaché = brouillon Messages | UX93 | Lot 13e, après 12 |
+| Alternatives d’exo depuis la fiche | UX94 | Lot 13f, après 11 et 12 |
+| Plan repas semaine + liste courses | UX95 | Lot 13g, après 12 |
+| Swap d’ingrédient | UX96 | Lot 13h, après 12 |
+| Deload / charges-repos dernière fois | UX97 | Lot 13i, après 12 |
 
 Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un défaut mesuré : écran interne télémétrie ; policies SELECT après preuve RLS ; protection Auth mots de passe compromis ; `pg_trgm` / `pg_net` hors `public` (staging + mesure) ; perf fondée sur des mesures (lot premium 15).
 
@@ -412,8 +437,17 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX44** | P2 | ens. | À construire | Attente IA quittable. | L’app reste utilisable. |
 | **UX45** | P2 | 10b | À construire | Solo : aide sur programme / séance, pas un chat `/prometheus`. Notice Accueil : **garder**. Revue = 3 chiffres. | Aucune application sans choix. |
 | **UX46** | P2 | 10c | À vérifier | Learned en langage humain. | Désactivation sans clés techniques. |
-| **UX87** | P2 | 12a | À construire | **Après 10. Solo.** Barre Ask Entraînement. Contexte : perfs, programme, blessures / limites, expérience. Ajustement proposé → revue → enregistrer (séance et/ou plan, nommé). Réutiliser. | La réponse est actionnable et durable, jamais auto-appliquée. |
-| **UX88** | P2 | 12b | À construire | **Après 10. Solo.** Barre Ask Nutrition. Contexte : cibles kcal/macros, allergies, type d’alimentation, consommé aujourd’hui. Recette → Mes recettes → journal. | Recette proposée = enregistrable et réutilisable. |
+| **UX87** | P2 | 12a | À construire | **Après 10. Solo.** Barre Ask Entraînement. Contexte : perfs, programme, blessures / limites, expérience. Ajustement proposé → revue : ignorer / cette séance / plan nommé. | La réponse est actionnable et durable, jamais auto-appliquée. |
+| **UX88** | P2 | 12b | À construire | **Après 10. Solo.** Barre Ask Nutrition. Contexte : cibles kcal/macros, allergies, type d’alimentation, consommé aujourd’hui. Recette → revue : ignorer / une fois au journal / Mes recettes. | Recette proposée = enregistrable **au choix**, jamais forcée. |
+| **UX89** | P2 | 13a | À construire | **Après 12. Solo.** Ask dans `WorkoutForm`. Contexte : séries cochées, exo courant. | N’écrit le plan que si on enregistre. |
+| **UX90** | P2 | 13b | À construire | **Après 12. Solo.** Restes du jour → idées de repas. | Même choix qu’UX88. |
+| **UX91** | P2 | 13c | À construire | **Après 12.** Check-in → note de séance. Pas d’interprétation santé. | Proposition ≠ diagnostic. |
+| **UX92** | P2 | 13d | À construire | **Après 12.** Semaine / jour loupé → recaler. | Pas d’auto-skip. |
+| **UX93** | P2 | 13e | À construire | **Après 12. Coaché.** Ask = brouillon Messages. Jamais d’envoi. Recette perso ≠ plan coach. | Le coach lit ce que le client envoie. |
+| **UX94** | P2 | 13f | À construire | **Après 11 et 12.** Alternatives depuis la fiche exo (muscles, matériel). | Swap cette séance après revue. |
+| **UX95** | P2 | 13g | À construire | **Après 12. Solo.** Semaine + courses. | Enregistrable, pas auto-appliqué. |
+| **UX96** | P2 | 13h | À construire | **Après 12. Solo.** Swap ingrédient (allergie / stock). | Cibles conservées. |
+| **UX97** | P2 | 13i | À construire | **Après 12. Solo.** Deload / charges et repos dernière fois. | Revue avant écriture. |
 
 ### Calendrier et indicateurs
 
@@ -467,8 +501,9 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | Silhouette | P3. UX06. |
 | Accusé de check-in | Oui. Date seulement si réelle. Pas « transmis ». UX26. |
 | Empty sans programme | Oui, avec contact. UX10. |
-| Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43, UX87–88. |
-| Ask solo | Barre sur Entraînement / Nutrition. Pas d’onglet, pas `/prometheus`. Solo seulement. |
+| Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43, UX87–97. |
+| Ask solo | Barre sur Entraînement / Nutrition (lot 12), puis autres surfaces (lot 13). Pas d’onglet, pas `/prometheus`. Coaché : brouillon Messages (UX93), pas `/prometheus`. |
+| Proposition IA | Toujours un choix : ignorer / une fois / enregistrer. Jamais d’auto-apply. |
 | Équivalence alimentaire « compensation » | Non. UX51–53. |
 | Mode simple / avancé parallèle | Non : disclosure progressive. |
 | Repos auto | Volontaire, après coche. UX15. |
