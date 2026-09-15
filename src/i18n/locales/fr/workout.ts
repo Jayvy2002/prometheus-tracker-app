@@ -76,7 +76,7 @@ const workout = {
       addSet: 'Ajouter une série',
       completeSet: 'Valider la série',
       uncompleteSet: 'Annuler la série',
-      duplicateSet: 'Dupliquer la série',
+      duplicateSet: 'Reprendre les valeurs',
       act: 'ACT',
       mini: 'mini',
       burst: '/burst',

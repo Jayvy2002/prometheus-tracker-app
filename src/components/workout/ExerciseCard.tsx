@@ -15,6 +15,7 @@ import Card from '../ui/Card';
 import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 import { isPerformedSet } from '../../lib/performedSets';
+import { nextBlankSetId } from '../../lib/workoutSetComplete';
 import { resolveRestSeconds } from '../../lib/restTimer';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { findCatalogExercise } from '../../lib/exerciseCatalog';
@@ -93,24 +94,28 @@ export default function ExerciseCard({
     addSet(exercise.id, idx);
   };
 
+  const reusePayload = (sourceSet: WorkoutSet) => ({
+    weight_kg: sourceSet.weight_kg,
+    reps: sourceSet.reps,
+    rir: sourceSet.rir,
+    set_type: sourceSet.set_type,
+    duration_seconds: sourceSet.duration_seconds,
+    tempo: sourceSet.tempo,
+    cluster_rest_seconds: sourceSet.cluster_rest_seconds,
+    cluster_reps_per_burst: sourceSet.cluster_reps_per_burst,
+    myo_is_activation: false,
+    drop_percentage: sourceSet.drop_percentage,
+  });
+
   const handleDuplicateSet = async (sourceSet: WorkoutSet) => {
     const sets = exercise.sets ?? [];
-    const idx = sets.length;
-    const newSet = await addSet(exercise.id, idx);
-    if (newSet) {
-      await updateSet(newSet.id, {
-        weight_kg: sourceSet.weight_kg,
-        reps: sourceSet.reps,
-        rir: sourceSet.rir,
-        set_type: sourceSet.set_type,
-        duration_seconds: sourceSet.duration_seconds,
-        tempo: sourceSet.tempo,
-        cluster_rest_seconds: sourceSet.cluster_rest_seconds,
-        cluster_reps_per_burst: sourceSet.cluster_reps_per_burst,
-        myo_is_activation: false,
-        drop_percentage: sourceSet.drop_percentage,
-      });
+    const nextId = nextBlankSetId(sets, sourceSet.id);
+    if (nextId) {
+      await updateSet(nextId, reusePayload(sourceSet));
+      return;
     }
+    const newSet = await addSet(exercise.id, sets.length);
+    if (newSet) await updateSet(newSet.id, reusePayload(sourceSet));
   };
 
   const handleSetComplete = () => {
