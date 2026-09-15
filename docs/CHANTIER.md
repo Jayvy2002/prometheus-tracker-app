@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–22b** dans `new-JV`. File ouverte : **lot 23** (garde-fous ESLint). Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–23** dans `new-JV`. File ouverte : **preuves live** lots 3–16 / M (pas de rebuild). Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 23**. Lots **17–22b** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
+| **Lot ouvert :** preuves / restes 3–16 / M. Lots **17–23 Terminé**. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -166,7 +166,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **20** | **Migrer `src/lib` par domaine** (ARCH01) | **Terminé** | Coaching, marketplace, workout, nutrition, programs → `features/<domaine>/domain` + réexports `lib/`. |
 | **21** | **Découper les mini-apps** (ARCH03, ARCH04) | **Terminé** | 21a router / guards / bootstrap. 21b fetch hors écrans. 21c `coachingStore` modules + **façade**. |
 | **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | **Terminé** | Types + `fr/` `en/` par domaine. Réexports de transition. |
-| **23** | **Garde-fous CI** (ARCH10, ARCH05) | À construire **après 18** et au fil de 20–22 | `shared` ↛ `features` ; pas de deep-import inter-features ; UI sans `supabase.from()` ; `shared/ui` sans Supabase/Zustand. **Pas** un bang TypeScript extra. |
+| **23** | **Garde-fous CI** (ARCH10, ARCH05) | **Terminé** (progressif) | ESLint : `shared` ↛ `features` ; pas de deep-import inter-features ; `shared/ui` sans Supabase/Zustand. UI métier : `supabase.from` encore présent — **pas** activé. **Pas** de flag TS extra. |
 
 ### Lot 10 — contrat 10a–10j (livré en une PR)
 
@@ -314,9 +314,9 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 | 22a | **Terminé.** Transversal → `shared/types.ts`. Workout / nutrition / programs / coaching → `features/<domaine>/types.ts`. `lib/types.ts` réexporte. | ARCH07 |
 | 22b | **Terminé.** `i18n/locales/{fr,en}/` : `common`, `navigation`, `coaching`, `workout`, `nutrition`, `programs`, `marketplace`. Barils `fr.ts` / `en.ts`. i18next inchangé. | ARCH08 |
 
-### Lot 23 — règles, pas un nouveau style de code
+### Lot 23 — règles, pas un nouveau style de code — **Terminé** (progressif, 15 sept. 2026)
 
-Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / ARCH05. Ne **pas** activer d’un coup des flags TS absents (`noUncheckedIndexedAccess`, etc.). `strict` est déjà `true`.
+ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
 **Après les lots 17–23 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, capteurs santé (UX112), billing.
 
@@ -349,7 +349,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 20 | **Terminé.** Domaines métier dans `features/*/domain`. Réexports `lib/`. Transverse (utils, types, i18n) reste pour 22. |
 | 21 | **Terminé.** 21a router / gardes. 21b fetch hors écrans. 21c façade `stores/coachingStore.ts` + `features/coaching/model`. |
 | 22 | **Terminé.** Types + i18n par domaine. |
-| 23 | ESLint standard, pas de frontières `shared`/`features`. `Dashboard.tsx` (et d’autres) : `supabase.from` dans l’UI. `tsconfig.app.json` : `"strict": true` **déjà**. |
+| 23 | **Terminé** (progressif). Overlays ESLint `shared`/`features`. `PageTransition` dans `app/layout`. `supabase.from` dans l’UI **encore autorisé**. `strict: true` sans flag extra. |
 
 ---
 
@@ -707,12 +707,12 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 | **ARCH02** | P2 | 18 | **Terminé** | Dossiers + alias + déplacements évidents + réexports. | Les cas **évidents** sont au bon endroit. Pas tout `lib` d’un coup. |
 | **ARCH03** | P2 | 21a | **Terminé** | `App.tsx` assembleur ; routes / gardes / session extraits. | Une PR onboarding et une PR router ne se marchent plus dessus. |
 | **ARCH04** | P2 | 21b–c | **Terminé** | Fetch hors écrans. `coachingStore` = modules + façade. | Façade store ; composants = écran, pas mini-app. |
-| **ARCH05** | P2 | 17+23 | À construire | `Dashboard` (et d’autres) : `supabase.from` dans l’UI. | Composant → hook/model → API → Supabase. CI refuse l’inverse. |
+| **ARCH05** | P2 | 17+23 | **Partiel** | CI refuse `shared` → `features` / stores et les deep-imports inter-features. **Reste :** `supabase.from` dans l’UI (`Dashboard`, `WorkoutForm`, …) — couche reportée. | Composant → hook/model → API → Supabase. CI refuse l’inverse **quand** la couche UI sera activée. |
 | **ARCH06** | P2 | 19 | **Terminé** | Primitives listées = tokens. Écrans métier encore `blue-600` (hors lot). | `<Button variant="primary">` = tokens. Pas deux systèmes dans les primitives. |
 | **ARCH07** | P2 | 22a | **Terminé** | Transversal / domaine + réexport `lib/types.ts`. | Un agent nutrition ne touche plus le hotspot unique. |
 | **ARCH08** | P2 | 22b | **Terminé** | `fr/` `en/` par domaine + barils. | Un agent nutrition ne touche plus un fichier de 100 KB. |
 | **ARCH09** | P1 | 17 | **Terminé** | Découverte `src/**/*.test.ts` ; nom `prometheus-tracker-app` ; rename `auditLot*` / `uxPremium`. | Un `.test.ts` est lancé sans éditer `package.json`. |
-| **ARCH10** | P2 | 23 | À construire | Pas de frontières ESLint. Audit source **faux** sur `strict: false`. | Règles `shared`/`features`/`ui`. **Pas** de bang TS extra (`strict` déjà true). |
+| **ARCH10** | P2 | 23 | **Terminé** | Overlays ESLint + `PageTransition` hors `shared/ui`. Pas de `noUncheckedIndexedAccess`. | Règles `shared`/`features`/`ui`. **Pas** de bang TS extra (`strict` déjà true). |
 | **ARCH11** | P1 | — | **Terminé** (ne pas toucher) | 2 migrations ping identiques dans le lock. | Historique appliqué immuable. |
 | **ARCH12** | P2 | 17d | **Terminé** | `.env` local ; `.env.example` placeholders ; `.env.production` = clés publiques frontend seulement. | Une convention. Pas de `service_role` dans Git. |
 

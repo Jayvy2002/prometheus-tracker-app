@@ -314,6 +314,20 @@ test('22b: i18n locales are split by domain and reassembled', () => {
   assert.match(readFileSync(at('src/i18n/index.ts'), 'utf8'), /from '\.\/locales\/fr'/);
 });
 
+test('23: ESLint forbids shared→features, inter-feature deep imports, and Zustand in shared/ui', () => {
+  const eslint = readFileSync(resolve(root, 'eslint.config.js'), 'utf8');
+  assert.match(eslint, /shared ↛ features/);
+  assert.match(eslint, /shared\/ui sans Zustand/);
+  assert.match(eslint, /shared\/ui sans Supabase/);
+  assert.match(eslint, /pas de deep-import inter-features/);
+  assert.doesNotMatch(eslint, /noUncheckedIndexedAccess/);
+  assert.match(readFileSync(resolve(root, 'tsconfig.app.json'), 'utf8'), /"strict": true/);
+  assert.doesNotMatch(readFileSync(resolve(root, 'tsconfig.app.json'), 'utf8'), /noUncheckedIndexedAccess/);
+  assert.ok(existsSync(resolve(root, 'src/app/layout/PageTransition.tsx')));
+  assert.match(readFileSync(resolve(root, 'src/shared/ui/PageTransition.tsx'), 'utf8'), /app\/layout\/PageTransition/);
+  assert.doesNotMatch(readFileSync(resolve(root, 'src/shared/ui/PageTransition.tsx'), 'utf8'), /useCoachingStore/);
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

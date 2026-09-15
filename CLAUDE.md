@@ -66,7 +66,7 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
-Ceci est l’**arbre actuel** (lots 18–22b livrés). La matrice et la suite (lot 23) sont dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c). `lib/types.ts` réexporte `shared/types` + `features/*/types` (lot 22a). i18n : `locales/{fr,en}/*.ts` + barils (lot 22b).
+Ceci est l’**arbre actuel** (lots 18–23 livrés). La matrice est dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c). `lib/types.ts` réexporte `shared/types` + `features/*/types` (lot 22a). i18n : `locales/{fr,en}/*.ts` + barils (lot 22b). Lot 23 : overlays ESLint `shared`/`features` ; `PageTransition` dans `app/layout`.
 
 ```text
 src/
@@ -74,7 +74,7 @@ src/
 ├── app/router/                     AppRoutes (arbre public / authentifié)
 ├── app/guards/                     CoachOnly, CoachTrackerRedirect, CoachedAthleteRedirect
 ├── app/bootstrap/                  Session, offline, langue, intake
-├── app/layout/                     Chrome ; app/navigation/ = navConfig
+├── app/layout/                     Chrome (PageTransition inclus) ; app/navigation/ = navConfig
 ├── features/                       account / coaching (domain + model 21c) / marketplace / workout / nutrition / programs
 ├── shared/                         api/supabase, hooks, ui (tokens lot 19)
 ├── components/                     Écrans métier ; ui/ et layout/ = réexports

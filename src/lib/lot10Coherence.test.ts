@@ -111,7 +111,7 @@ test('10g: OverflowMenu Escape + first item focus; nav aria-current', () => {
 });
 
 test('10h: PageTransition resets tab index when persona changes', () => {
-  const trans = src('src/shared/ui/PageTransition.tsx');
+  const trans = src('src/app/layout/PageTransition.tsx') + src('src/shared/ui/PageTransition.tsx');
   assert.match(trans, /previousPersona/);
   assert.match(trans, /previousTabIndex = -1/);
   assert.match(trans, /navPersona\(context\)/);
