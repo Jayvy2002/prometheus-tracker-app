@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX10 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
 | **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)** et **17–23 Terminé**.
 
@@ -34,6 +34,7 @@
 | **M3** Intention | **PASS.** `/auth` email+mdp, pas de rôle. Intention après login. `find_coach` → `/coaches` ; Accueil + Entraînement utilisables. Rôle reste `none`. | — |
 | **M4** Offre opt-in | **PASS.** Roster sans profil public. Copy « gérer tes clients sans publier ». Publier Coach2 → visible annuaire ; dépublier → retiré. | — |
 | **M5** Annuaire / demandes | **PASS.** Déjà lié : « suivi actif… formulaire n’est pas ouvert ». Accepté = « le suivi est actif (pas un paiement) ». SQL : `accepted` + lien `active`. | — |
+| **UX10** Empty sans programme | **PASS.** Invitee Accueil : « Ton coach va t’envoyer un programme » → `/messages`. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -329,7 +330,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX07, UX10, …), capteurs santé (UX112), billing (**M6 Reporté**).
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX07, UX09, UX13, …), capteurs santé (UX112), billing (**M6 Reporté**).
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -380,7 +381,7 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | **M4** Offres opt-in | **Terminé** | Coach sans publier ; publication / retrait. | Live : Chantier Coach a un roster **sans** `coach_profiles`. `/coach/profile` : compte ≠ offre. Coach2 publié puis retiré ; l’annuaire suit. |
 | **M5** Annuaire, comparaison, demandes | **Terminé** | Filtres exacts ; pas de dossier prospect ; empty honnête. | Live : déjà lié → explication, pas de formulaire. Acceptation Coach2 × Intent : copy « pas un paiement » ; SQL `accepted` + lien `active`. Filtres exacts déjà en code. Matching riche / avis : hors lot. |
 | **M6** Paiement / accord commercial | **Reporté** | Une RPC d’activation **déjà** utilisée à l’acceptation et à l’invitation. M6 = encaissement, pas ré-activer le lien. | Chantier 3 fermé. |
-| **M7** Accueils et suite d’objectif | **Conçu** | Trois parcours jusqu’au bilan ; coach autorité du plan. | Contrat ci-dessous. Construction = écarts encore listés (UX07, UX10). Lots 1, 4, 8, 9 déjà verts. |
+| **M7** Accueils et suite d’objectif | **Conçu** | Trois parcours jusqu’au bilan ; coach autorité du plan. | Contrat ci-dessous. Construction = écarts encore listés (UX07, UX28). Lots 1, 4, 8, 9 déjà verts. UX10 **Terminé**. |
 | **M8** Ouverture graduelle | **Conçu** | Pas de lancement large sur CI seule. | Contrat ci-dessous. Billing reste fermé. |
 
 ### M7 — contrat des trois accueils (conçu 15 sept. 2026)
@@ -395,7 +396,7 @@ Un moteur, trois suites. Le bilan = faits (séries cochées, check-in enregistr�
 
 **Bilan.** Solo : recap de séance + hub. Coaché : même recap côté client ; 360 côté coach (pas de second logger). Coach : « depuis quand » + dernière séance cochée, pas un dump.
 
-**Écarts encore À construire** (ne pas les fondre dans M7) : UX07 (heroes qui coexistent), UX10 (preuve live `waiting_program` → Messages), UX28 (manque ≠ faute).
+**Écarts encore À construire** (ne pas les fondre dans M7) : UX07 (heroes qui coexistent), UX28 (manque ≠ faute). UX10 **Terminé**.
 
 ### M8 — contrat d’ouverture (conçu 15 sept. 2026)
 
@@ -543,7 +544,7 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu Échap + focus (Git 10g). Primitives listées = tokens (lot **19**). Écrans métier encore bruts. |
 | **2** accessibilité | À vérifier | Cibles 44 px présentes ; `aria-current` onglets (Git 10g). Clavier / zoom / lecteur restants. |
 | **3** navigation | **Partiel** | `navConfig`, 5 onglets, Copilote hors tab, switcher Profil. Recettes Nutrition (Git 10a). `PageTransition` persona (Git 10h). Trouvabilité live due. |
-| **4** dashboard | **Partiel** | Un hero ; proposition IA = notice (#91). Message + check-in + reminder peuvent coexister. `waiting_program` inerte. |
+| **4** dashboard | **Partiel** | Un hero ; proposition IA = notice (#91). Message + check-in + reminder peuvent coexister (UX07). `waiting_program` → Messages (UX10 Terminé). |
 | **5** Coach Today | **Partiel** | Empty + sévérité texte + featured. « Depuis quand » + Passer un signal (Git lot 9). Parcours live dû. |
 | **6** Client 360 | À vérifier | Dernière séance = séries cochées (parcours 15 sept.). Onglet **Récupération** (Git 10c). « Depuis ta dernière visite » (lot 9). |
 | **7** Setup 4 étapes | À vérifier | Titre preview « Ce que le client verra » (Git 10j). Parcours live dû. |
@@ -586,7 +587,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX07** | P1 | 8+9 | Partiel | Heroes exclusifs : oui. Encore message + check-in + reminder. Jour sans tâche = vide honnête. | Prochaine action évidente **ou** absence honnête. |
 | **UX08** | P2 | 8 | Partiel | Hub Progression solo : oui. Programme trop Profil / desktop. Coaché : lecture lot 8. | Programme / historique sans deviner Profil. |
 | **UX09** | P1 | 9 | À construire | Filtres, position, client courant. | Enchaîner des fiches sans reconstruire la liste. |
-| **UX10** | P1 | 8 | À construire | `waiting_program` **inerte**. CTA Messages. | On sait quoi faire maintenant. |
+| **UX10** | P1 | 8 | **Terminé** | Live invitee : « Ton coach va t’envoyer un programme » → `/messages`. | On sait quoi faire maintenant. |
 | **UX11** | P2 | 10i | **À vérifier** | Séance / programme / modèle. Copy « routine » retirée. **Reste :** parcours live. | Un nom = une action. |
 | **UX74** | P1 | 10h | **À vérifier** | `navConfig` + reset `PageTransition` au changement de persona. **Reste :** parcours dual-rôle live. | Un ajout de destination = un endroit. |
 | **UX75** | P1 | 10h | À vérifier | Switcher Profil, 5ᵉ onglet Compte. Dual-rôle : Objectifs selon **espace**. | Changer d’espace change Profil et onglets. |
@@ -766,7 +767,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 | Questionnaire en phases | Oui au regroupement utile. Pas exactement 3 phases. UX03–05, UX80. |
 | Silhouette | P3. UX06. |
 | Accusé de check-in | Oui. Date seulement si réelle. Pas « transmis ». UX26. |
-| Empty sans programme | Oui, avec contact. UX10. |
+| Empty sans programme | Oui, avec contact. UX10 **Terminé**. |
 | Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43, UX87–97. |
 | Ask solo | Barre sur Entraînement / Nutrition (lot 12), puis autres surfaces (lot 13). Pas d’onglet, pas `/prometheus`. Coaché : brouillon Messages (UX93), pas `/prometheus`. |
 | Proposition IA | Toujours un choix : ignorer / une fois / enregistrer. Jamais d’auto-apply. |
