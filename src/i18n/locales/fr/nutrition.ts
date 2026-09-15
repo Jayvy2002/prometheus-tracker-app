@@ -125,6 +125,7 @@ const nutrition = {
     typeBarcode: 'Tape le code-barres...',
     recentlyLogged: 'Récemment journalisé',
     lookingUp: 'Recherche du produit…',
+    waitQuitHint: 'Tu peux quitter. Le journal reste possible.',
     checkingDb: 'Recherche du produit…',
     checkingOff: 'Recherche du produit…',
     notFoundHuman: 'Produit introuvable',

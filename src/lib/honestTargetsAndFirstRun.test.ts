@@ -94,6 +94,16 @@ test('scanner search UI does not expose Open Food Facts steps', () => {
   assert.match(scanner, /scanner\.notFoundHuman/);
 });
 
+test('UX44: barcode and AI waits are dismissible without applying a result', () => {
+  const scanner = src('src/components/scanner/UnifiedScanner.tsx');
+  assert.match(scanner, /dismissWait/);
+  assert.match(scanner, /cancelledRef/);
+  assert.match(scanner, /scanner\.waitQuitHint/);
+  assert.match(scanner, /onClose\(\)/);
+  const fr = src('src/i18n/locales/fr/nutrition.ts');
+  assert.match(fr, /Le journal reste possible/);
+});
+
 test('progress hub links to stats weight calendar', () => {
   const hub = src('src/components/workout/ExerciseProgressPage.tsx');
   assert.match(hub, /to="\/stats"/);
