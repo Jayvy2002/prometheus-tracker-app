@@ -14,6 +14,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboardBootstrap';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
@@ -243,16 +244,7 @@ export default function Dashboard() {
         name: day.name || assignment.program.name,
         programAssignmentId: assignment.id,
         programDayId: day.id,
-        exercises: (day.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_reps_min: ex.default_reps_min,
-          default_rir: ex.default_rir,
-          default_rest_seconds: ex.default_rest_seconds,
-          default_weight_kg: ex.default_weight_kg,
-          order_index: ex.order_index,
-        })),
+        exercises: (day.exercises ?? []).map((ex, i) => toWorkoutTemplateExercise(ex, i)),
       });
       if (workoutId) navigate(`/workout/${workoutId}`);
     } finally {

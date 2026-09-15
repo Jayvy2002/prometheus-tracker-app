@@ -509,7 +509,15 @@ export default function ProgramSessionEditor({
                         {t('workout.exerciseCard.type')}
                         <select
                           value={ex.set_type ?? 'working'}
-                          onChange={e => updateExercise(ei, { set_type: e.target.value as ProgramExerciseDraft['set_type'] })}
+                          onChange={e => {
+                            const set_type = e.target.value as ProgramExerciseDraft['set_type'];
+                            updateExercise(ei, {
+                              set_type,
+                              ...(set_type === 'drop'
+                                ? { drop_count: ex.drop_count ?? 2, default_sets: Math.min(ex.default_sets || 1, 1) }
+                                : {}),
+                            });
+                          }}
                           className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
                         >
                           {SET_TYPES.filter(st => PROGRAM_SET_TYPES.includes(st.value as typeof PROGRAM_SET_TYPES[number])).map(st => (

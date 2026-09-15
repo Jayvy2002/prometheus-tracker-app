@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–13 Terminé** (preuve live). Lots **14–16** + M encore **À vérifier**. Lots **17–23 Terminé**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–14 Terminé** (preuve live). Lots **15–16** + M encore **À vérifier**. Lots **17–23 Terminé**.
 
-| **Lot ouvert :** 14–16 / M (preuve, pas rebuild). Lots **1–13** et **17–23 Terminé**.
+| **Lot ouvert :** 15–16 / M (preuve, pas rebuild). Lots **1–14** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -24,6 +24,7 @@
 | **9** File / roster | **PASS.** `/clients?filter=checkin` : « Filtre : checkin · N client(s) · Effacer le filtre ». | — |
 | **10** Cohérence | **PASS.** 10d : « Avant d’envoyer » + destinataire + « Effet : brouillon… ». 10e : toast « Enregistré — visible par Chantier Coach ». 10a–c, 10j déjà joués. | — |
 | **13** Ask autres surfaces | **PASS.** 13a séance : Ignorer / Cette séance, pas « jour de plan ». 13b : 3 repas + journal / Mes recettes. 13c : note + « pas un diagnostic » ; textarea préremplie. 13d : Recaler, pas d’auto-skip. 13e : brouillon Messages. 13f : Deadlift → Hip Thrust, cette séance. 13g semaine + courses. 13h swap ingrédient. 13i Deload 2 séries. | — |
+| **14** Types de séries | **PASS.** Builder : Type (warmup…cluster) + Groupe A + Bench Drop / Chutes 3. SQL persisté. Logger : SUPERSET + Bench D 100/80/60 (1 coche, 3 poids). Pas « Ajouter un exercice ». Accueil `toWorkoutTemplateExercise`. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -156,7 +157,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **11** | **Bibliothèque d’exercices** (UX86) | **Terminé** | Apply prod `20260915180000`. Picker live : Squat listé + iframe YouTube (`youtube-nocookie`) + muscles (quadriceps / fessiers). |
 | **12** | **Ask solo contextualisé** | **Terminé** | Barres + revue live. Entraînement : Ignorer / Cette séance / jour de plan. Nutrition : Ignorer / journal / Mes recettes. Jamais auto-apply. |
 | **13** | **Ask : autres surfaces** | **Terminé** | Live 15 sept. : 13a–13i (séance / journal / check-in / recale / brouillon Messages / swap exo / semaine+courses / ingrédient / deload). Jamais auto-apply. |
-| **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
+| **14** | **Types de séries : builder + logger** | **Terminé** | Live 15 sept. : builder Type + Groupe + Chutes ; Squat/Bench groupe A ; Bench drop 3 chutes / 1 série. Logger client : tour Superset + 3 poids (100/80/60). Accueil seed `toWorkoutTemplateExercise`. Pas d’exo hors plan. |
 | **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
 | **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
 | **16f** | **Calculateur de disques visuel** (UX103) | **À vérifier** | Un **côté de barre**, disques ajoutables (kg 25/20/15/10/5/2.5/1.25 ou lbs 55/45/35/25/10/5/2.5), couleurs haltéro, unité du profil. Parcours live 15 sept. (kg 25+10 = 90 ; lbs 55+45 = 245). |
@@ -341,7 +342,7 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | 11 | **Terminé.** `video_url` prod + picker live (iframe + mannequin). |
 | 12 | **Terminé.** Ask Entraînement / Nutrition + revue (Ignorer / cette séance ou journal / enregistrer). |
 | 13 | **Terminé.** `SoloAskBar` : `WorkoutForm` (`session`), Nutrition (journal / week / ingredient), check-in (note), workout list (`missed` / `deload` / `coached` → brouillon), fiche exo (`swap_exercise`). |
-| 14 | `ProgramDayExercise` / `ProgramExerciseDraft` : sets, reps, rir, rest, poids. `SET_TYPES` + drop/myo/tempo/iso/cluster **seulement** dans `ExerciseCard` si `!program_day_id`. `hevySimple = !!program_day_id`. Superset = `superset_group_id` à la volée, pas au plan. Drop = **autre ligne** `set_type: drop`, un poids. |
+| 14 | **Terminé.** Builder `set_type` / `superset_group` / `drop_count`. Logger drop multi-charges + tour superset. Plus de `hevySimple`. Accueil seed les types. |
 | 15 | `RestTimer` : `open={showTimer}` ; `onClose` démonte. `/programs/new` = `CoachOnly`. `copyFromYesterday`. `navigate('/scanner')` sans query. `heic_unsupported`. |
 | 16 | `FAB` : workout / weight / meal. Pas de Dupliquer sur `ProgramsPage`. `LastSessionExercise` sans notes. Setup tracking par client, pas de copie. `mobileTabs` coaché : Aujourd’hui / Entraînement / Check-in / Messages / Profil. |
 | 17 | **Terminé.** `npm test` → `scripts/run-unit-tests.mjs`. Nom `prometheus-tracker-app`. Docs + env. Tests : `programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`. |
@@ -443,9 +444,9 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Plan repas semaine + liste courses | UX95 | **13g Terminé** |
 | Swap d’ingrédient | UX96 | **13h Terminé** |
 | Deload / charges-repos dernière fois | UX97 | **13i Terminé** |
-| Builder : tous les types de séries + groupes superset | UX98 | Lot 14a, après 10 |
-| Logger adapté au type (drop multi-charges, tour superset, …) | UX99 | Lot 14b, après 10 |
-| Séance programmée joue la prescription (plus de `hevySimple`) | UX100 | Lot 14c, après 10 |
+| Builder : tous les types de séries + groupes superset | UX98 | **14a Terminé** |
+| Logger adapté au type (drop multi-charges, tour superset, …) | UX99 | **14b Terminé** |
+| Séance programmée joue la prescription (plus de `hevySimple`) | UX100 | **14c Terminé** |
 | Timer de repos persistant | UX101 | Lot 15a |
 | Séance libre → jour de plan / modèle | UX102 | Lot 15b |
 | Calculateur de disques visuel (un côté, couleurs, 55 lb) | UX103 | Lots 15c / 16f |
@@ -575,9 +576,9 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 |---|---|---|---|---|---|
 | **UX18** | P2 | ens. | À construire | Variantes / matériel / récents. | Bonne variante avant sélection. |
 | **UX86** | P2 | 11 | **Terminé** | Apply prod + picker live (iframe + mannequin blanc/rouge). | On voit le mouvement et les muscles avant de choisir. |
-| **UX98** | P2 | 14a | **À vérifier** | Builder : type + groupe superset + champs drop/tempo/iso/cluster/myo sur `program_day_exercises`. **Reste :** apply prod + parcours. | Le jour de plan dit *comment* logger, pas seulement 3×10. |
-| **UX99** | P2 | 14b | **À vérifier** | Logger : drop = N charges / une coche ; repos superset après le dernier exo du groupe. **Reste :** parcours live. | On ne « simule » pas un drop ou un superset avec des working. |
-| **UX100** | P2 | 14c | **À vérifier** | Plus de `hevySimple`. Seed `start_workout_from_template` joue la prescription. Coaché : toujours pas d’exo hors plan. **Reste :** apply prod. | Le client logge ce que le plan a prescrit. |
+| **UX98** | P2 | 14a | **Terminé** | Live : Type + Groupe + Chutes ; SQL `set_type=drop`, `superset_group=A`, `drop_count=3`. | Le jour de plan dit *comment* logger, pas seulement 3×10. |
+| **UX99** | P2 | 14b | **Terminé** | Live : Bench D, 3 poids (100/80/60), 1 série. Tour SUPERSET Squat+Bench. | On ne « simule » pas un drop ou un superset avec des working. |
+| **UX100** | P2 | 14c | **Terminé** | Live : Démarrer depuis Entraînement → types du plan. Accueil seed `toWorkoutTemplateExercise`. Pas d’ajouter d’exo. | Le client logge ce que le plan a prescrit. |
 | **UX102** | P2 | 15b | **À vérifier** | Solo : « Enregistrer comme jour de plan » (`createProgram` + types lot 14). **Reste :** parcours live. | Une bonne séance libre n’est pas perdue. |
 | **UX108** | P2 | 16b | **À vérifier** | Overflow « Dupliquer » → `fork_program`. **Reste :** parcours live. | Copier un plan ≠ l’assigner. |
 | **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
@@ -744,7 +745,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–13**. Lots **14–16** / M encore dus.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–14**. Lots **15–16** / M encore dus.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -763,7 +764,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Coaché | Check-in | **Joué.** « Enregistré — visible par {coach} ». |
 | Solo / coaché | Ask 13a–13i | **Joué.** Séance / journal / note / recale / brouillon / swap / semaine / ingrédient / deload. |
 | Coach / solo | Enregistrer un programme (nom + un jour) | Une écriture ; échec = rien changé. Liste encore là si le chargement rate. |
-| Coach → client | Jour avec squat + développé en **superset**, et un développé avec **drop** 100→80→60 | Builder : les 2 exos liés ; drop = 3 charges / 1 série. Logger client : tour A puis B ; une coche drop avec 3 poids. Pas une séance « tout en working ». |
+| Coach → client | Jour avec squat + développé en **superset**, et un développé avec **drop** 100→80→60 | **Joué.** Groupe A ; Bench drop 3 chutes. Logger : SUPERSET + 100/80/60. |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).

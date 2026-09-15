@@ -7,6 +7,7 @@ import {
   normalizeProgramSetType,
   parseDropSegments,
   programExerciseRpcFields,
+  toWorkoutTemplateExercise,
   workoutExerciseToPlanDraft,
 } from './programSetPrescription';
 
@@ -42,9 +43,13 @@ test('program set types persist on the day, not as a working-only plate', () => 
   const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.doesNotMatch(card, /hevySimple/);
   assert.match(card, /data-drop-segments/);
+  assert.match(src('src/components/workout/SupersetGroup.tsx'), /data-superset="true"/);
   const editor = src('src/components/coaching/ProgramSessionEditor.tsx') + src('src/features/programs/hooks/useProgramEditorTracking.ts') + src('src/features/programs/hooks/useProgramNlEdit.ts');
   assert.match(editor, /PROGRAM_SET_TYPES/);
   assert.match(editor, /superset_group/);
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  assert.match(dash, /toWorkoutTemplateExercise/);
+  assert.doesNotMatch(dash, /hevySimple/);
 });
 
 test('free session to plan day keeps drop/tempo types', () => {
@@ -78,4 +83,15 @@ test('free session to plan day keeps drop/tempo types', () => {
   assert.equal(draft.set_type, 'drop');
   assert.equal(draft.drop_count, 2);
   assert.equal(draft.superset_group, 'A');
+  const seeded = toWorkoutTemplateExercise({
+    name: 'Bench',
+    default_sets: 1,
+    default_reps: 8,
+    set_type: 'drop',
+    drop_count: 3,
+    superset_group: 'A',
+  }, 0);
+  assert.equal(seeded.drop_segments?.length, 3);
+  assert.equal(seeded.set_type, 'drop');
+  assert.equal(seeded.superset_group, 'A');
 });
