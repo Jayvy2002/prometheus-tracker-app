@@ -31,6 +31,7 @@ const workout = {
     hiddenSession: 'hidden session',
     unlockFullHistory: 'Unlock full history',
     workoutName: 'Workout name',
+    offPlanNotice: 'This session is not today’s prescribed day. You can still log it.',
     sessionDate: 'Session date',
     syncOffline: 'Offline — your changes are kept on this device.',
     syncPending: '{{n}} change(s) waiting to sync',

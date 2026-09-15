@@ -54,6 +54,7 @@ interface LocationState {
   programAssignmentId?: string;
   programDayId?: string;
   programName?: string;
+  offPlan?: boolean;
 }
 
 function WorkoutFormInner() {
@@ -174,7 +175,8 @@ function WorkoutFormInner() {
 
         const now = new Date();
         const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`;
-        const workoutId = await createWorkout({ user_id: user.id, name: '', date: localDate });
+        const offPlanName = state.offPlan ? t('nav.addWorkoutOffPlan') : '';
+        const workoutId = await createWorkout({ user_id: user.id, name: offPlanName, date: localDate });
         if (!workoutId) {
           if (useWorkoutStore.getState().queueBlocked === 'quota') {
             toast(t('workout.syncQuota'), 'error');
@@ -182,7 +184,7 @@ function WorkoutFormInner() {
           setInitError(true);
           return;
         }
-        navigate(`/workout/${workoutId}`, { replace: true });
+        navigate(`/workout/${workoutId}`, { replace: true, state: state.offPlan ? { offPlan: true } : undefined });
       };
 
       seed().catch(() => setInitError(true));
@@ -481,6 +483,12 @@ function WorkoutFormInner() {
           )}
         </div>
       </div>
+
+      {!isProgramSession && (state.offPlan || workoutName === t('nav.addWorkoutOffPlan')) && (
+        <p data-testid="workout-off-plan-notice" className="mb-3 text-sm text-neutral-400">
+          {t('workout.offPlanNotice')}
+        </p>
+      )}
 
       {solo && user && currentWorkout && !currentWorkout.completed && (
         <SoloAskBar

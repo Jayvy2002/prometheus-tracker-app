@@ -31,6 +31,7 @@ const workout = {
     hiddenSession: 'séance masquée',
     unlockFullHistory: "Débloquer l'historique complet",
     workoutName: 'Nom de la séance',
+    offPlanNotice: 'Cette séance n’est pas le jour de programme dû. Tu peux quand même logger.',
     sessionDate: 'Date de la séance',
     syncOffline: 'Hors ligne — tes modifications sont conservées sur cet appareil.',
     syncPending: '{{n}} modification(s) en attente de synchro',

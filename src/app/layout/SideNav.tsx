@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { desktopSections, navPersona, quickAddActions } from '@/app/navigation/navConfig';
+import { useProgramDayDue } from '@/features/workout/hooks/useProgramDayDue';
 
 export default function SideNav() {
   const { t } = useTranslation();
@@ -14,7 +15,8 @@ export default function SideNav() {
   const context = useAccountContext();
   const persona = navPersona(context);
   const sections = desktopSections(persona, tracking);
-  const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking);
+  const programDayDue = useProgramDayDue();
+  const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking, { programDayDue });
 
   return (
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-800/60 z-40">
@@ -92,6 +94,7 @@ export default function SideNav() {
                   <Link
                     key={action.id}
                     to={action.path}
+                    state={action.state}
                     onMouseEnter={() => setHoveredAction(action.id)}
                     onMouseLeave={() => setHoveredAction(null)}
                     className="sidebar-item w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm text-neutral-500 hover:text-white hover:bg-blue-600/10 hover:border-blue-600/20 border border-transparent transition-all duration-200 group"

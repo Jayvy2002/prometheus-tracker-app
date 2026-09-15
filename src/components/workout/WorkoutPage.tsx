@@ -213,7 +213,11 @@ export default function WorkoutPage() {
     <div className="px-3 pt-5 sm:px-4 sm:pt-6">
       <div className="flex items-center justify-between gap-3 mb-6 animate-fade-in-down">
         <h1 className="text-2xl font-bold text-white min-w-0 truncate">{t('workout.title')}</h1>
-        <Button onClick={() => navigate('/workout/new')} size="sm" className="shrink-0">
+        <Button
+          onClick={() => navigate('/workout/new', { state: isProgramDayDue(gymCard) ? { offPlan: true } : undefined })}
+          size="sm"
+          className="shrink-0"
+        >
           <Plus size={16} /> {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('common.new')}
         </Button>
       </div>
@@ -394,7 +398,10 @@ export default function WorkoutPage() {
         <Card className="text-center py-12">
           <Dumbbell className="mx-auto mb-3 text-neutral-600" size={32} />
           <p className="text-neutral-400 mb-4">{t('workout.noWorkoutsYet')}</p>
-          <Button onClick={() => navigate('/workout/new')} size="sm">
+          <Button
+            onClick={() => navigate('/workout/new', { state: isProgramDayDue(gymCard) ? { offPlan: true } : undefined })}
+            size="sm"
+          >
             {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('workout.startFirstWorkout')}
           </Button>
         </Card>

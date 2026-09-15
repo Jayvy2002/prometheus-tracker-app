@@ -34,7 +34,10 @@ export default function FAB() {
     ...(tracking.track_workouts ? [{
       label: gymDue ? t('nav.addWorkoutOffPlan') : t('nav.addWorkout'),
       icon: Dumbbell,
-      onClick: () => { navigate('/workout/new'); setOpen(false); },
+      onClick: () => {
+        navigate('/workout/new', { state: gymDue ? { offPlan: true } : undefined });
+        setOpen(false);
+      },
     }] : []),
     ...(tracking.track_checkins ? [{
       label: t('nav.addCheckin'),
