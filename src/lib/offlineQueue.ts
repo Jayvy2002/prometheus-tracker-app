@@ -240,3 +240,24 @@ export function isQuotaError(error: unknown): boolean {
   return error === 'quota'
     || (error instanceof Error && /quota/i.test(error.message));
 }
+
+const OFFLINE_OP_KEYS: Record<OfflineOpType, string> = {
+  'workout.create': 'workout.offlineOp.create',
+  'workout.update': 'workout.offlineOp.update',
+  'workout.delete': 'workout.offlineOp.delete',
+  'exercise.add': 'workout.offlineOp.exerciseAdd',
+  'exercise.update': 'workout.offlineOp.exerciseUpdate',
+  'exercise.delete': 'workout.offlineOp.exerciseDelete',
+  'exercise.restore': 'workout.offlineOp.exerciseRestore',
+  'set.add': 'workout.offlineOp.setAdd',
+  'set.update': 'workout.offlineOp.setUpdate',
+  'set.delete': 'workout.offlineOp.setDelete',
+  'set.restore': 'workout.offlineOp.setRestore',
+  'superset.link': 'workout.offlineOp.supersetLink',
+  'superset.unlink': 'workout.offlineOp.supersetUnlink',
+};
+
+/** i18n key for a queued mutation — never show `set.add` to the athlete. */
+export function offlineOpLabelKey(type: string): string {
+  return OFFLINE_OP_KEYS[type as OfflineOpType] ?? 'workout.offlineOp.generic';
+}

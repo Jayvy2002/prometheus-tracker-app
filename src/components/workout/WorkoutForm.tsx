@@ -38,7 +38,7 @@ import type { Workout, WorkoutTemplateExercise } from '../../lib/types';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showTrainingField } from '../../lib/clientTracking';
 import { useOnline } from '../../lib/useOnline';
-import { peekDeadLetterOps } from '../../lib/offlineQueue';
+import { offlineOpLabelKey, peekDeadLetterOps } from '../../lib/offlineQueue';
 import { isSoloAthlete } from '../../lib/coachRole';
 import { isPerformedSet } from '../../lib/performedSets';
 import { soloAskFromProfile } from '../../lib/soloAskDefaults';
@@ -612,8 +612,8 @@ function WorkoutFormInner() {
           </p>
           {peekDeadLetterOps().map(op => (
             <div key={op.id} className="flex items-start gap-2">
-              <p className="text-xs text-rose-200/70 flex-1 break-all">
-                {op.type}{op.lastError ? ` — ${op.lastError}` : ''}
+              <p className="text-xs text-rose-200/70 flex-1">
+                {t(offlineOpLabelKey(op.type))}
               </p>
               <Button
                 type="button"
