@@ -1,4 +1,5 @@
 import { liftsForClient } from './coachLifts';
+import { isCompletedSet } from './performedSets';
 import { relanceThreadHref } from './coachQueue';
 import { displayName, datePrefix } from './coachText';
 import { RECENT_SESSION_DAYS, trainingSessionHref } from './coachTraining';
@@ -20,7 +21,7 @@ export function isTodayOrYesterday(date: string, today: string): boolean {
 }
 
 export function readableSets(sets: LiftSetSnapshot[]): LiftSetSnapshot[] {
-  return sets.filter(s => s.completed || s.weight_kg > 0 || s.reps > 0 || (s.duration_seconds ?? 0) > 0);
+  return sets.filter(isCompletedSet);
 }
 
 function setLine(set: LiftSetSnapshot): string {

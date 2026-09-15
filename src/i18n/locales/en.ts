@@ -430,6 +430,9 @@ const en = {
     goBack: 'Go Back',
     prescribedVsLogged: '{{prescribed}} prescribed · {{logged}} logged',
     prescribedShort: '{{sets}}×{{reps}}',
+    recap: {
+      skippedSet: 'not checked',
+    },
     summary: {
       title: 'Workout Complete!',
       subtitle: 'Great session 💪',
@@ -441,15 +444,11 @@ const en = {
       vol: 'vol',
       oneRM: '1RM',
       backToWorkouts: 'Back to Workouts',
+      seeSession: 'See session',
       coachWillSee: 'Your coach will see this session.',
-      coaching: {
-        title: 'Coach tip',
-        shortSession: 'Quick and efficient! Intensity matters more than duration.',
-        longSession: "Long session today. Make sure to recover well and stay hydrated.",
-        highVolume: "High volume! Your muscles will rebuild well if you eat enough.",
-        lightSession: "Light session but it all adds up. Every rep counts.",
-        manyExercises: "{{count}} exercises, great variety! Keep quality form on each one.",
-        protein: "Aim for 30-40g of protein within the next hour.",
+      facts: {
+        skipped: '{{count}} set(s) not checked — not counted in volume or 1RM.',
+        nonePerformed: 'No set was checked. Nothing is counted as done.',
       },
     },
     exerciseCard: {

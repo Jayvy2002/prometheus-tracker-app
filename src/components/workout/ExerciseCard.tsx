@@ -20,6 +20,7 @@ import { toastWithUndo } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
 import { applySetPlaceholders } from '../../lib/workoutSetComplete';
 import { resolveRestSeconds } from '../../lib/restTimer';
+import { isPerformedSet } from '../../lib/performedSets';
 
 export type OverloadSuggestionKind =
   | 'stagnant'
@@ -43,7 +44,7 @@ function getOverloadSuggestion(history: ExerciseSession[]): OverloadResult | nul
   const sessions = history
     .map(h => ({
       date: h.date,
-      workingSets: h.sets.filter(s => s.set_type === 'working' && s.weight_kg > 0 && s.reps > 0),
+      workingSets: h.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0 && s.reps > 0),
     }))
     .filter(s => s.workingSets.length > 0);
 
@@ -706,13 +707,13 @@ export default function ExerciseCard({
   };
 
   const suggestion = getOverloadSuggestion(history);
-  const prevSets = history[0]?.sets ?? [];
+  const prevPerformed = (history[0]?.sets ?? []).filter(isPerformedSet);
 
   const maxHistoricalWeight = history.length > 0
-    ? Math.max(...history.flatMap(h => h.sets.filter(s => s.set_type === 'working').map(s => s.weight_kg)).filter(w => w > 0))
+    ? Math.max(...history.flatMap(h => h.sets.filter(isPerformedSet).map(s => s.weight_kg)).filter(w => w > 0), 0)
     : 0;
   const currentMaxWeight = exercise.sets
-    ? Math.max(...(exercise.sets.filter(s => s.set_type === 'working' && s.weight_kg > 0).map(s => s.weight_kg)), 0)
+    ? Math.max(...(exercise.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0).map(s => s.weight_kg)), 0)
     : 0;
   const isPR = currentMaxWeight > 0 && maxHistoricalWeight > 0 && currentMaxWeight > maxHistoricalWeight;
 
@@ -802,14 +803,14 @@ export default function ExerciseCard({
       </div>
 
       {/* Previous session info + overload suggestion */}
-      {prevSets.length > 0 && (
+      {prevPerformed.length > 0 && (
         <div className="px-4 pb-1 animate-fade-in">
           <div className="flex items-start gap-1.5 flex-wrap">
             <div className="flex items-center gap-1 text-neutral-600 mt-0.5">
               <History size={11} />
               <span className="text-[10px] font-medium uppercase tracking-wider">{t('workout.exerciseCard.last')}</span>
             </div>
-            {prevSets.filter(s => s.set_type === 'working').map((s, i) => (
+            {prevPerformed.map((s, i) => (
               <span key={i} className="text-[11px] text-neutral-500 bg-neutral-900/60 rounded px-1.5 py-0.5">
                 {s.weight_kg > 0 ? formatWeight(s.weight_kg, weightUnit) : '\u2014'} \u00d7 {s.reps > 0 ? s.reps : '\u2014'}
                 {showRir && s.rir > 0 ? <span className="text-neutral-600"> @{s.rir}</span> : null}
@@ -821,9 +822,9 @@ export default function ExerciseCard({
             <div className="flex items-center gap-1 mt-1">
               <span className="text-[9px] text-neutral-700 uppercase tracking-wider mr-0.5">{t('workout.exerciseCard.trend')}</span>
               {history.slice(0, 5).reverse().map((h, i) => {
-                const maxW = Math.max(...h.sets.filter(s => s.set_type === 'working' && s.weight_kg > 0).map(s => s.weight_kg), 0);
+                const maxW = Math.max(...h.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0).map(s => s.weight_kg), 0);
                 const prevH = history.slice(0, 5).reverse()[i - 1];
-                const prevMaxW = prevH ? Math.max(...prevH.sets.filter(s => s.set_type === 'working' && s.weight_kg > 0).map(s => s.weight_kg), 0) : 0;
+                const prevMaxW = prevH ? Math.max(...prevH.sets.filter(s => isPerformedSet(s) && s.weight_kg > 0).map(s => s.weight_kg), 0) : 0;
                 const isUp = i > 0 && maxW > prevMaxW;
                 const isDown = i > 0 && maxW < prevMaxW;
                 return (
@@ -898,8 +899,7 @@ export default function ExerciseCard({
 
           <div className="space-y-1.5">
             {exercise.sets?.map((set, i) => {
-              const prevWorkingIndex = prevSets.filter(s => s.set_type === 'working');
-              const matchingPrev = prevWorkingIndex[i] ?? null;
+              const matchingPrev = prevPerformed[i] ?? null;
               const previousSetInList = i > 0 ? (exercise.sets?.[i - 1] ?? null) : null;
               return (
                 <SetRow

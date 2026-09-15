@@ -5,6 +5,7 @@ import { Sparkles } from 'lucide-react';
 import type { ClientLiftProgress } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { liftChartPoints } from '../../lib/coachProgress';
+import { isCompletedSet } from '../../lib/performedSets';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { toast } from '../ui/Toast';
@@ -92,7 +93,7 @@ export default function ExerciseWorkspace({
             <p className="text-xs text-neutral-500">{s.date} · {s.workoutName}</p>
             <p className="text-sm text-white mt-1">{s.bestSet}{s.avgRir != null ? ` · RIR ${s.avgRir}` : ''}</p>
             <div className="mt-1 space-y-0.5">
-              {s.sets.filter(set => set.completed || set.weight_kg > 0).map((set, i) => (
+              {s.sets.filter(isCompletedSet).map((set, i) => (
                 <p key={i} className="text-[11px] text-neutral-400">
                   {i + 1}. {set.weight_kg}kg × {set.reps}{set.rir ? ` @ RIR ${set.rir}` : ''}
                 </p>

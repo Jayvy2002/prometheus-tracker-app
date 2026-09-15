@@ -351,27 +351,32 @@ function WorkoutFormInner() {
       clearSessionTimer(currentWorkout.id);
       clearFieldDrafts(currentWorkout.id);
 
-      const mergedExercises = (currentWorkout.exercises ?? []).map(ex => ({
-        ...ex,
-        sets: (ex.sets ?? []).map(s => {
-          const draft = setDrafts.get(s.id);
-          if (!draft) return s;
-          return {
-            ...s,
-            weight_kg: draft.weight_kg !== undefined ? (draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg)) : s.weight_kg,
-            reps: draft.reps !== undefined ? (draft.reps === '' ? 0 : safeInt(draft.reps)) : s.reps,
-            rir: draft.rir !== undefined ? (draft.rir === '' ? 0 : safeInt(draft.rir)) : s.rir,
-            set_type: draft.set_type !== undefined ? draft.set_type : s.set_type,
-            duration_seconds: draft.duration_seconds !== undefined ? (draft.duration_seconds === '' ? null : safeInt(draft.duration_seconds)) : s.duration_seconds,
-            tempo: draft.tempo !== undefined ? (draft.tempo === '' ? null : draft.tempo) : s.tempo,
-          };
-        }),
-      }));
+      const mergeDrafts = (workout: Workout): Workout => ({
+        ...workout,
+        name: workoutName || workout.name,
+        exercises: (workout.exercises ?? []).map(ex => ({
+          ...ex,
+          sets: (ex.sets ?? []).map(s => {
+            const draft = setDrafts.get(s.id);
+            if (!draft) return s;
+            return {
+              ...s,
+              weight_kg: draft.weight_kg !== undefined ? (draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg)) : s.weight_kg,
+              reps: draft.reps !== undefined ? (draft.reps === '' ? 0 : safeInt(draft.reps)) : s.reps,
+              rir: draft.rir !== undefined ? (draft.rir === '' ? 0 : safeInt(draft.rir)) : s.rir,
+              set_type: draft.set_type !== undefined ? draft.set_type : s.set_type,
+              duration_seconds: draft.duration_seconds !== undefined ? (draft.duration_seconds === '' ? null : safeInt(draft.duration_seconds)) : s.duration_seconds,
+              tempo: draft.tempo !== undefined ? (draft.tempo === '' ? null : draft.tempo) : s.tempo,
+            };
+          }),
+        })),
+      });
 
-      const snapshot = { ...currentWorkout, name: workoutName || currentWorkout.name, exercises: mergedExercises };
+      await fetchWorkout(currentWorkout.id);
+      const fresh = useWorkoutStore.getState().currentWorkout;
+      const snapshot = mergeDrafts(fresh ?? currentWorkout);
       setSummaryDuration(finalDuration);
       setSummaryWorkout(snapshot);
-      setCurrentWorkout(null);
     } finally {
       setSaving(false);
     }
@@ -383,8 +388,10 @@ function WorkoutFormInner() {
         workout={summaryWorkout}
         duration={summaryDuration}
         onClose={() => {
+          const workoutId = summaryWorkout.id;
           setSummaryWorkout(null);
-          navigate(summaryWorkout.program_day_id ? '/dashboard' : '/workout');
+          void fetchWorkout(workoutId);
+          navigate(`/workout/${workoutId}`, { replace: true });
         }}
       />
     );
