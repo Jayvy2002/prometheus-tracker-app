@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git. File : lots **11–16** après 10. Lots 2–3 : SQL prod lu. Lots 3–7 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
 
 **Lot ouvert : 8 — trouver programme et progression.** Lot 1 : Terminé. Lots 2–7 : À vérifier.
 
@@ -55,7 +55,7 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
 
 ## Décisions stables — ne pas défaire
 
-- Un moteur de séances / programmes / progression. Pas de second logger par rôle.
+- Un moteur de séances / programmes / progression. Pas de second logger par rôle. Séance programmée = le plan ; les **types de séries** viennent du builder, le logger s’y adapte (lot 14). Pas de mode plat `hevySimple` une fois 14 livré.
 - Cinq onglets mobile. **Pas** de 6ᵉ onglet, **pas** de Copilote dans la tab bar.
 - Switcher Personnel / Coaching **uniquement dans Profil**.
 - FAB hors espace Coaching, hors `/messages`, `/checkin`, marketplace.
@@ -80,7 +80,9 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
 | Photos = 5ᵉ interrupteur tracking | Suivi proposé / conservation / partage (UX54) |
 | « Enregistré » → « Transmis au coach » | « Enregistré — visible par {coach} » après succès serveur (UX26) |
 | Fusionner Messages, brouillons et Prometheus | Relier les parcours ; trois jobs distincts |
-| Recettes coupées au coaché « parce qu’il a un coach » | Trancher utilité + contrat de suivi, pas l’autonomie |
+| Ask solo = chat `/prometheus` (coach) | Barre **sur** les pages (lots 12–13). Solo : Entraînement / Nutrition puis autres surfaces. Coaché : brouillon Messages (UX93), pas `/prometheus`. |
+| Enregistrer recette ou réécrire le plan sans tap | Carte avant/après, puis confirmation. Jamais d’auto-apply |
+| Recettes coupées au coaché « parce qu’il a un coach » | Trancher utilité + contrat de suivi, pas l’autonomie. **Lot 10a** (UX53, UX77). |
 | Déclarer nav / accueil / 0C « terminés » | `navConfig` existe ; trouvabilité et chiffres mentent encore |
 | Confondre lock questionnaire coach et intake kiné | Kiné (7 écrans, 0B) = sécurité médicale. UX80 = questionnaire **prise en charge** incomplet |
 
@@ -106,6 +108,7 @@ Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer 
 | Inputs séance agrandis, cibles 44 px (#91) | OverflowMenu clavier (lot 10) |
 | RPC `client_end_coach_link` + UI Profil + tests | Preuve prod, notif, sérialisation, copy 3 listes (M2a) |
 | Annuaire / offre / demandes en code | Copy « accepté = suivi actif » (M5) |
+| Table `exercises` + `primary_muscles` / `muscleLabels` + picker | **Pas** de vidéo ni mannequin. Lot 11 étend, ne recrée pas |
 | `accountContext`, espaces Personnel / Coaching | SQL `none` si roster `coach_id` actif : **présent en prod** (`20260914221500`). Parcours RPC live encore dû (lot 2) |
 | Questionnaire prise en charge : plus de `path="*"` ; bannière + lien `/questionnaire` | Parcours invite live dû (lot 4) |
 
@@ -127,6 +130,12 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **8** | **Trouver programme et progression** (UX08, UX10, UX81, UX84, UX07 athlète) | À construire **après 1** | Coaché : lien **lecture** « Mon programme » depuis Entraînement (aujourd’hui `!coached`). Puis `/exercise-progress` en lecture — **pas** `/stats` ni calendrier dans le même PR. `waiting_program` → Messages (aujourd’hui `ListRow` sans `to`). FAB / **Nouveau** : pas « nouvelle séance » en doublon du jour dû ; libeller hors programme. Accueil : vide honnête si rien à faire. |
 | **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | À construire | Chaque carte : pourquoi, **depuis quand**, une action. « Passer » = **un** signal, annulable. Contexte roster conservé au retour. 360 : « depuis ta dernière visite » ; dernière séance = définition lot 1. |
 | **10** | **Cohérence restante** | À construire | Une PR par ligne ci-dessous. |
+| **11** | **Bibliothèque d’exercices** (UX86) | À construire **après 10** | Catalogue **complet** : chaque exo a une **vidéo d’exécution** et un **mannequin blanc** dont les muscles travaillés sont en **rouge** (`primary_muscles` / `secondary_muscles`, ids `muscleLabels`). Picker et fiche séance s’en servent. Une PR. |
+| **12** | **Ask solo contextualisé** | À construire **après 10** | Solo seulement. Bouton IA sur Entraînement et Nutrition → barre de question. Pas d’onglet, pas `/prometheus`. Proposition **revue** : ignorer / appliquer une fois / enregistrer. Jamais auto-apply. Une PR par ligne. |
+| **13** | **Ask : autres surfaces** | À construire **après 12** | Même contrat (contexte de page, validation humaine). Séance en cours, journal / macros restants, check-in, jour loupé, coaché = brouillon Messages, alternatives d’exo (après 11), plan semaine + courses, swap d’ingrédient, deload. Une PR par ligne. |
+| **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
+| **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
+| **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
 
 ### Lot 10 — une PR par ligne
 
@@ -143,11 +152,63 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | 10i | Vocabulaire séance / programme / modèle. Plus de « routine » zombie | UX11 |
 | 10j | Preview setup : ce que le client **verra** | UX37 |
 
-**Ensuite seulement :** preuve prod des lots M encore « À vérifier », M7 (accueils / suite d’objectif), confort P2/P3 du catalogue, billing.
+### Lot 12 — une PR par ligne
+
+| # | Contenu | IDs |
+|---|---|---|
+| 12a | Barre Ask **Entraînement** : question + perfs, programme actuel, blessures / limites, expérience, fréquence, focus. Proposition d’ajustement **revue** : ignorer / appliquer **cette séance** / enregistrer comme jour de plan **nommé**. Réutilisable. | UX87 |
+| 12b | Barre Ask **Nutrition** : question + cibles kcal/macros, allergies, type d’alimentation, déjà consommé **aujourd’hui**. Recette proposée **revue** : ignorer / ajouter **une fois** au journal / **enregistrer** dans Mes recettes (réutiliser plus tard). | UX88 |
+
+### Lot 13 — une PR par ligne
+
+| # | Contenu | IDs |
+|---|---|---|
+| 13a | Ask **pendant** la séance (`WorkoutForm`) : séries déjà cochées + exo courant. Proposition = **cette séance** sauf enregistrement explicite. | UX89 |
+| 13b | Journal du jour / kcal-macros **restants** → 2–3 idées de repas. Même choix qu’en 12b (ignorer / une fois / Mes recettes). | UX90 |
+| 13c | Check-in : proposer une **note de séance** (pas un diagnostic médical). Enregistrable au choix. | UX91 |
+| 13d | Jour / semaine loupé : proposer un **recalage** du plan. Pas d’auto-skip, pas de « rattrapage » silencieux. | UX92 |
+| 13e | Ask **coaché** : ouvre un **brouillon Messages** (jamais d’envoi auto). Recette perso = choix du client, pas le plan coach. | UX93 |
+| 13f | **Après lot 11.** Alternatives d’exo depuis la fiche (mêmes muscles, matériel). Revue puis swap **cette séance**. | UX94 |
+| 13g | Plan repas **semaine** + liste de courses, enregistrable. | UX95 |
+| 13h | Swap d’ingrédient (allergie / stock) en gardant les cibles. | UX96 |
+| 13i | Deload / charges et repos de la **dernière fois** sur le même exo. Proposition revue, pas d’auto-apply. | UX97 |
+
+### Lot 14 — une PR par ligne
+
+Le logger **libre** a déjà des types (`SET_TYPES` dans `ExerciseCard`). Le **builder** ne prescrit que `N×reps @ RIR / repos / charge`. Dès qu’il y a un `program_day_id`, `hevySimple` **masque** types et supersets, et on ne peut plus ajouter d’exo — séance « plate ». Ce lot aligne plan et saisie. **Un type = un contrat de champs**, pas un badge sur une ligne working.
+
+| # | Contenu | IDs |
+|---|---|---|
+| 14a | **Builder.** Chaque exo du jour prescrit un type (warmup / working / drop / myo / tempo / isometric / cluster) + champs utiles. **Superset** = lier 2+ exos du **même jour** (A1/A2…), pas un `set_type` orphelin. Drop prescrit : nombre de chutes (charges ou %). Tempo / iso / cluster / myo : tempo, durée, bursts, activation. Persistance `program_day_exercises` (aujourd’hui : sets/reps/rir/rest/poids seulement). | UX98 |
+| 14b | **Logger adapté au type choisi** (séance libre **et** programmée). **Drop :** une série = **une** coche, **plusieurs** poids (et reps) successifs — pas une 2ᵉ ligne « D » isolée. **Superset :** un *tour* affiche les 2+ exos ; on saisit A puis B ; repos **après le couple**. **Myo :** activation puis mini-sets. **Tempo :** tempo visible (ex. 3-1-2-0). **Isométrique :** charge × **durée**, pas des reps. **Cluster :** bursts + repos intra-série, une coche. **Warm-up :** mêmes champs, ne compte pas dans le réalisé (lot 1). | UX99 |
+| 14c | **Séance programmée joue le plan.** Retirer le mode plat `hevySimple` (`program_day_id` ⇒ tout en working). Seed depuis `program_day_exercises` : types, groupes, drops. Coaché : **pas** d’exo hors plan (les partenaires de superset sont **dans** le jour). Solo / libre : types choisissables ; un modèle / jour de plan **emporte** les types (lot 15b). | UX100 |
+
+### Lot 15 — une PR par ligne
+
+| # | Contenu | IDs |
+|---|---|---|
+| 15a | Timer de repos : **persistant** pendant la séance (barre), pas seulement un modal qui meurt à la fermeture. UX15 (auto après coche) inchangé. | UX101 |
+| 15b | Séance **libre** → enregistrer comme jour de plan / modèle (solo). `/programs/new` aujourd’hui `CoachOnly`. Les types du lot 14 suivent. | UX102 |
+| 15c | Calculateur de disques (barre + plaques) depuis une charge, unités du profil. | UX103 |
+| 15d | Réutiliser un repas : **n’importe quel jour**, pas seulement hier (`copyFromYesterday`). | UX104 |
+| 15e | Scanner : hériter **date + catégorie** du journal. `NutritionPage` navigue vers `/scanner` **sans** query ; `ScannerPage` lit `date` / `category`. | UX105 |
+| 15f | Photos / avatar / produit : **HEIC** iPhone (convertir ou accepter). Aujourd’hui rejeté (`heic_unsupported`). | UX106 |
+
+### Lot 16 — une PR par ligne
+
+| # | Contenu | IDs |
+|---|---|---|
+| 16a | FAB : **check-in** si `track_checkins` (aujourd’hui séance / poids / repas seulement). | UX107 |
+| 16b | **Dupliquer** un programme dans la bibliothèque. `fork_program` existe pour l’assignation, pas de bouton liste. | UX108 |
+| 16c | Notes d’exo de séance visibles en 360 / dernière séance. `LastSessionView` = nom + séries, **sans** `exercise.notes`. | UX109 |
+| 16d | Copier le **setup de suivi** d’un client vers un autre (tracking). Pas de copie aujourd’hui. | UX110 |
+| 16e | Coaché mobile : **Nutrition** joignable **sans 6ᵉ onglet**. Même carte que desktop (Profil / FAB). Contrat onglet Check-in vs Nutrition : **à trancher dans la PR** (pas les deux + Messages + Profil). | UX111 |
+
+**Après le lot 16 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, capteurs santé (UX112), billing.
 
 ---
 
-## Ancres code (lot 1–9) — ne pas chercher à l’aveugle
+## Ancres code (lot 1–16) — ne pas chercher à l’aveugle
 
 | Lot | Où ça ment / casse aujourd’hui |
 |---|---|
@@ -160,6 +221,12 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | 7 | **Corrigé (Git).** Brouillon `localStorage` compte × conversation. Relance n’écrase pas. Dismiss Accueil = session locale. `read_at` si `.select('id')` confirme. **Reste :** parcours live. |
 | 8 | `WorkoutPage` : `CardLink` programmes si `!coached && !assignment?.program`. `CoachedAthleteRedirect` bloque `/exercise-progress`. `waiting_program` : `ListRow` sans `to`. FAB `nav.addWorkout` → `/workout/new`. |
 | 9 | `CoachTodayQueue` `onSkip` → `dismissQueueItems(group.items.map(...))` (tout le groupe). Pas d’ancienneté sur la carte. |
+| 11 | Table `exercises` : nom, muscles, consignes. **Pas** de `video_url` / mannequin. Picker : `ExercisePicker`. |
+| 12 | `/prometheus` = `CoachOnly`. Solo : revue hebdo Accueil (`soloCopilot`), pas de barre Ask sur `/workout` ni `/nutrition`. Recettes = `recipeStore`. |
+| 13 | `WorkoutForm` : pas d’Ask in-session. Check-in : champs, pas de note proposée. Coaché : Ask n’existe pas ; Messages = texte. Picker : pas d’alternatives muscle/matériel. |
+| 14 | `ProgramDayExercise` / `ProgramExerciseDraft` : sets, reps, rir, rest, poids. `SET_TYPES` + drop/myo/tempo/iso/cluster **seulement** dans `ExerciseCard` si `!program_day_id`. `hevySimple = !!program_day_id`. Superset = `superset_group_id` à la volée, pas au plan. Drop = **autre ligne** `set_type: drop`, un poids. |
+| 15 | `RestTimer` : `open={showTimer}` ; `onClose` démonte. `/programs/new` = `CoachOnly`. `copyFromYesterday`. `navigate('/scanner')` sans query. `heic_unsupported`. |
+| 16 | `FAB` : workout / weight / meal. Pas de Dupliquer sur `ProgramsPage`. `LastSessionExercise` sans notes. Setup tracking par client, pas de copie. `mobileTabs` coaché : Aujourd’hui / Entraînement / Check-in / Messages / Profil. |
 
 ---
 
@@ -211,7 +278,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 
 ---
 
-## Après la file 1–10 (ne pas commencer avant)
+## Après la file 1–10 (lots 11–16 et catalogue — ne pas commencer avant)
 
 | Thème | IDs | Statut |
 |---|---|---|
@@ -240,6 +307,33 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Silhouette vs liste | UX06 | Reporté P3 |
 | Actions groupées coach | UX38 | Reporté P3 |
 | Télémétrie utilité | UX70 | Continu, pas un projet préalable |
+| Bibliothèque exo : vidéo + mannequin muscles | UX86 | Lot 11, après 10 |
+| Ask solo Entraînement + choix ignorer / cette séance / plan nommé | UX87 | Lot 12a, après 10 |
+| Ask solo Nutrition + choix ignorer / une fois / Mes recettes | UX88 | Lot 12b, après 10 |
+| Ask pendant la séance | UX89 | Lot 13a, après 12 |
+| Reste macros / journal → idées repas | UX90 | Lot 13b, après 12 |
+| Check-in → note de séance (pas diagnostic) | UX91 | Lot 13c, après 12 |
+| Jour loupé → recaler le plan | UX92 | Lot 13d, après 12 |
+| Ask coaché = brouillon Messages | UX93 | Lot 13e, après 12 |
+| Alternatives d’exo depuis la fiche | UX94 | Lot 13f, après 11 et 12 |
+| Plan repas semaine + liste courses | UX95 | Lot 13g, après 12 |
+| Swap d’ingrédient | UX96 | Lot 13h, après 12 |
+| Deload / charges-repos dernière fois | UX97 | Lot 13i, après 12 |
+| Builder : tous les types de séries + groupes superset | UX98 | Lot 14a, après 10 |
+| Logger adapté au type (drop multi-charges, tour superset, …) | UX99 | Lot 14b, après 10 |
+| Séance programmée joue la prescription (plus de `hevySimple`) | UX100 | Lot 14c, après 10 |
+| Timer de repos persistant | UX101 | Lot 15a |
+| Séance libre → jour de plan / modèle | UX102 | Lot 15b |
+| Calculateur de disques | UX103 | Lot 15c |
+| Réutiliser un repas d’un jour choisi | UX104 | Lot 15d |
+| Scanner hérite date + catégorie | UX105 | Lot 15e |
+| HEIC iPhone | UX106 | Lot 15f |
+| Check-in dans le FAB | UX107 | Lot 16a |
+| Dupliquer un programme | UX108 | Lot 16b |
+| Notes d’exo en 360 / dernière séance | UX109 | Lot 16c |
+| Copier le setup tracking | UX110 | Lot 16d |
+| Nutrition coaché sans 6ᵉ onglet | UX111 | Lot 16e |
+| Capteurs santé (Apple Health / Garmin, …) | UX112 | Après 16, à concevoir |
 
 Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un défaut mesuré : écran interne télémétrie ; policies SELECT après preuve RLS ; protection Auth mots de passe compromis ; `pg_trgm` / `pg_net` hors `public` (staging + mesure) ; perf fondée sur des mesures (lot premium 15).
 
@@ -275,8 +369,8 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **7** Setup 4 étapes | À vérifier | Preview écrans client encore faible (10j). |
 | **8** Messages / Prometheus | **Partiel** | Retry / safe-area. Brouillon + lu : Git (lot 7). |
 | **9** Marketplace vitrine | À vérifier | Pas de faux prix. Acceptation = **lien actif**. Copy à aligner. |
-| **10** Programmes builder | **Partiel** | Pas de premier client auto. Recap destinataire (code). `save_program` Git ; delete / fetch honnêtes. Apply prod + parcours (lot 3). |
-| **11** Nutrition / séance / scanner | À vérifier | Recettes hors chrome (10a). UX15 = auto **optionnel** après coche. |
+| **10** Programmes builder | **Partiel** | Pas de premier client auto. Recap destinataire (code). `save_program` Git ; delete / fetch honnêtes. Apply prod + parcours (lot 3). Types de séries / supersets de plan : lot 14. |
+| **11** Nutrition / séance / scanner | À vérifier | Recettes hors chrome (10a). UX15 = auto **optionnel** après coche. Logger plat séance programmée + types : lot 14. Timer / HEIC / scanner date : lot 15. |
 | **12** Progression / photos | **Partiel** | Hub solo. Coaché bloqué (lot 8). Séries cochées : lot 1. Calendrier / recherche / erreur : Git (lot 6). Audience photos : Git (lot 5). |
 | **13** Profil | **Partiel** | Groupes OK. Toggle mode coach : N=0 / N>0 joués 15 sept. Apply prod SQL (lot 2). SoloHub encore un tiroir mobile. |
 | **14** PWA / offline | À vérifier | File = séances seulement. |
@@ -319,6 +413,8 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX76** | P2 | 10g | Partiel | Labels / 44 px en cours. `aria-current`, badge, zoom. | Onglet actif identifiable clavier / lecteur. |
 | **UX77** | P2 | 10a | À construire | Recettes **dans** Nutrition. Séance immersive : sortie évidente. **Pas** tout regrapher. | Recettes ≠ session ; séance a une sortie. |
 | **UX84** | P1 | 8 | À construire | FAB + Nouveau `/workout` : pas de doublon vs jour dû. | Hors programme **nommé** ; pas d’interdiction. |
+| **UX107** | P2 | 16a | À construire | FAB : check-in si le module est on. | Check-in sans chercher l’onglet. |
+| **UX111** | P2 | 16e | À concevoir | Coaché mobile : Nutrition sans 6ᵉ onglet. Trancher Check-in vs Nutrition dans la tab bar. | Nutrition = même carte mobile/desktop. |
 
 ### Séance
 
@@ -330,12 +426,20 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX15** | P2 | ens. | À vérifier | Repos 90 s déjà lancé après coche. Préférence auto **volontaire** ; pas au préremplissage. | Désactivable ; jamais sur un simple fill. |
 | **UX16** | P1 | ens. | À construire | Langage : appareil / sync / action requise. | Après coupure, on sait ce qui est conservé. |
 | **UX17** | P1 | 1 | **Terminé** | Plus de `setTimeout` 30 s. Fermer → recap. Faits, pas « Conseil du coach ». Parcours 15 sept. | — |
+| **UX101** | P2 | 15a | À construire | Repos : barre persistante. Fermer le modal ≠ tuer le chrono. UX15 inchangé. | On voit le temps restant sans le modal. |
+| **UX103** | P3 | 15c | À construire | Disques pour une charge, kg/lbs du profil. | On sait quelles plaques mettre. |
 
 ### Exercices et programmes
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX18** | P2 | ens. | À construire | Variantes / matériel / récents. | Bonne variante avant sélection. |
+| **UX86** | P2 | 11 | À construire | **Après 10.** Vidéo d’exécution + mannequin blanc, muscles travaillés en rouge. Étendre `exercises`, pas un second catalogue. | On voit le mouvement et les muscles avant de choisir. |
+| **UX98** | P2 | 14a | À construire | **Après 10.** Builder : tous les `SET_TYPES` + lier 2+ exos en superset. Champs drop / tempo / iso / cluster / myo. | Le jour de plan dit *comment* logger, pas seulement 3×10. |
+| **UX99** | P2 | 14b | À construire | Logger = champs du type. Drop = N charges / **une** série. Superset = tour A puis B, repos après le couple. | On ne « simule » pas un drop ou un superset avec des working. |
+| **UX100** | P2 | 14c | À construire | Séance `program_day_id` : plus de `hevySimple`. Seed = prescription. Coaché : pas d’exo hors plan. | Le client logge ce que le plan a prescrit. |
+| **UX102** | P2 | 15b | À construire | Libre → modèle / jour de plan (solo). Types du 14 inclus. | Une bonne séance libre n’est pas perdue. |
+| **UX108** | P2 | 16b | À construire | Dupliquer dans la bibliothèque (`fork_program` déjà là pour l’assign). | Copier un plan ≠ l’assigner. |
 | **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
 | **UX20** | P1 | 3 | **À vérifier** | RPC `save_program` en prod (`20260915133000`). **Reste :** parcours live. | Le client voit ou ne voit pas ; pas de plan à moitié. |
 | **UX21** | P1 | 3 | **À vérifier** | Plus de premier client auto. Recap destinataire / date dans le modal. Parcours dû. | Parcours bibliothèque sans destinataire accidentel. |
@@ -376,6 +480,8 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX37** | P2 | 10j | À construire | Preview de ce que le client **verra**. | Pas de surprise d’onglets / champs. |
 | **UX38** | P3 | rep. | Reporté | Actions groupées limitées. | Seulement si gain prouvé. |
 | **UX78** | P1 | 2 | **À vérifier** | SQL prod + modal chiffrée. Parcours Personnel 15 sept. : N=0 désactive ; N>0 bloque sans RPC, roster joignable. **Reste :** rejouer `none` live avec roster. | Dual-rôle Personnel ne peut pas couper le roster en prod. |
+| **UX109** | P2 | 16c | À construire | Notes d’exo (`WorkoutExercise.notes`) dans 360 / `LastSessionView`. | Le coach lit ce que l’athlète a noté sur le mouvement. |
+| **UX110** | P2 | 16d | À construire | Copier tracking (modules + champs) d’un client vers un autre. | Pas de setup à retaper à l’identique. |
 
 ### Questionnaire coach (builder)
 
@@ -394,6 +500,17 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX44** | P2 | ens. | À construire | Attente IA quittable. | L’app reste utilisable. |
 | **UX45** | P2 | 10b | À construire | Solo : aide sur programme / séance, pas un chat `/prometheus`. Notice Accueil : **garder**. Revue = 3 chiffres. | Aucune application sans choix. |
 | **UX46** | P2 | 10c | À vérifier | Learned en langage humain. | Désactivation sans clés techniques. |
+| **UX87** | P2 | 12a | À construire | **Après 10. Solo.** Barre Ask Entraînement. Contexte : perfs, programme, blessures / limites, expérience. Ajustement proposé → revue : ignorer / cette séance / plan nommé. | La réponse est actionnable et durable, jamais auto-appliquée. |
+| **UX88** | P2 | 12b | À construire | **Après 10. Solo.** Barre Ask Nutrition. Contexte : cibles kcal/macros, allergies, type d’alimentation, consommé aujourd’hui. Recette → revue : ignorer / une fois au journal / Mes recettes. | Recette proposée = enregistrable **au choix**, jamais forcée. |
+| **UX89** | P2 | 13a | À construire | **Après 12. Solo.** Ask dans `WorkoutForm`. Contexte : séries cochées, exo courant. | N’écrit le plan que si on enregistre. |
+| **UX90** | P2 | 13b | À construire | **Après 12. Solo.** Restes du jour → idées de repas. | Même choix qu’UX88. |
+| **UX91** | P2 | 13c | À construire | **Après 12.** Check-in → note de séance. Pas d’interprétation santé. | Proposition ≠ diagnostic. |
+| **UX92** | P2 | 13d | À construire | **Après 12.** Semaine / jour loupé → recaler. | Pas d’auto-skip. |
+| **UX93** | P2 | 13e | À construire | **Après 12. Coaché.** Ask = brouillon Messages. Jamais d’envoi. Recette perso ≠ plan coach. | Le coach lit ce que le client envoie. |
+| **UX94** | P2 | 13f | À construire | **Après 11 et 12.** Alternatives depuis la fiche exo (muscles, matériel). | Swap cette séance après revue. |
+| **UX95** | P2 | 13g | À construire | **Après 12. Solo.** Semaine + courses. | Enregistrable, pas auto-appliqué. |
+| **UX96** | P2 | 13h | À construire | **Après 12. Solo.** Swap ingrédient (allergie / stock). | Cibles conservées. |
+| **UX97** | P2 | 13i | À construire | **Après 12. Solo.** Deload / charges et repos dernière fois. | Revue avant écriture. |
 
 ### Calendrier et indicateurs
 
@@ -412,6 +529,9 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX52** | P2 | ens. | À vérifier | Produit introuvable / pas de caméra : issue. | Le journal reste possible. |
 | **UX53** | P2 | 10a | À construire | Recettes pour cuisiner ; **dans** le shell. Contrat onglet FoodForm vs page CRUD pour le coaché. | Utiles sans tableau de macros. |
 | **UX54** | P1 | 5 | **À vérifier** | Texte selon `myCoach`. Scope photos = phrase d’acceptation. Historique avant le lien nommé. **Reste :** parcours live. | Audience connue avant upload. |
+| **UX104** | P2 | 15d | À construire | Réutiliser un repas : jour au choix, pas seulement hier. | Le lundi peut reprendre le samedi. |
+| **UX105** | P2 | 15e | À construire | `/scanner?date=&category=` depuis le journal. | Le scan tombe dans le bon repas / jour. |
+| **UX106** | P2 | 15f | À construire | HEIC iPhone (photos, avatar, produit). | Pas un mur « choisis JPEG ». |
 
 ### Marketplace et fin de relation
 
@@ -436,6 +556,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX68** | P1 | ens. | À vérifier | Stabilité chargement ; pas de double submit. | Action prise en compte tout de suite. |
 | **UX69** | P3 | rep. | Reporté | Raccourcis Accueil seulement si la nav par défaut échoue. | Test comparatif. |
 | **UX70** | P2 | cont. | Continu | Mesurer réussite de tâche, pas le temps passé. | Sans contenu de messages / photos. |
+| **UX112** | P3 | ens. | À concevoir | **Après 16.** Apple Health / Garmin / etc. Aujourd’hui : saisie manuelle, pas de `/health`. | Un chantier capteurs dédié ; pas dans 14–16. |
 
 ---
 
@@ -447,12 +568,15 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | Silhouette | P3. UX06. |
 | Accusé de check-in | Oui. Date seulement si réelle. Pas « transmis ». UX26. |
 | Empty sans programme | Oui, avec contact. UX10. |
-| Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43. |
+| Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43, UX87–97. |
+| Ask solo | Barre sur Entraînement / Nutrition (lot 12), puis autres surfaces (lot 13). Pas d’onglet, pas `/prometheus`. Coaché : brouillon Messages (UX93), pas `/prometheus`. |
+| Proposition IA | Toujours un choix : ignorer / une fois / enregistrer. Jamais d’auto-apply. |
 | Équivalence alimentaire « compensation » | Non. UX51–53. |
 | Mode simple / avancé parallèle | Non : disclosure progressive. |
 | Repos auto | Volontaire, après coche. UX15. |
 | Actions groupées coach | P3. UX38. |
 | 6ᵉ onglet / Copilote tab / switcher chrome | Non. |
+| Logger plat sur séance programmée (`hevySimple`) | Non une fois lot 14. Types + groupes viennent du plan. Coaché : pas d’exo hors plan. |
 
 ---
 
@@ -472,6 +596,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (comptes jetables, puis sup
 | Coach | File : deux signaux, Passer | Un seul écarté ; ancienneté visible |
 | Coach | Assigner un programme depuis la bibliothèque | Recap nom + destinataire + date avant confirm. Pas de premier client auto. |
 | Coach / solo | Enregistrer un programme (nom + un jour) | Une écriture ; échec = rien changé. Liste encore là si le chargement rate. |
+| Coach → client | Jour avec squat + développé en **superset**, et un développé avec **drop** 100→80→60 | Builder : les 2 exos liés ; drop = 3 charges / 1 série. Logger client : tour A puis B ; une coche drop avec 3 poids. Pas une séance « tout en working ». |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
