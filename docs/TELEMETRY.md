@@ -37,6 +37,8 @@ Aucune lecture cliente. Lecture : SQL editor / service role (admin produit).
 | `fleet_round_run` | `trigger`, `seen`, `flagged`, `skipped`, `failed` | tournée |
 | `agent_asked` | `kind`, `screen`, `landed` | copilote (jamais le prompt) |
 | `program_assigned` | `self` | attributions |
+| `program_saved` | `days`, `weeks` | sauvegarde atomique d’un programme |
+| `program_deleted` | — | suppression confirmée d’un programme |
 | `program_adopted` | — | reprises inter-coachs |
 | `workout_completed` | `from_program`, `from_routine`, `duration_seconds` | séances |
 | `checkin_saved` | `with_notes` (bool, jamais le contenu) | check-ins |

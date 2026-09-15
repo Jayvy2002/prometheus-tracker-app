@@ -45,6 +45,7 @@ import PageHeader from '../ui/PageHeader';
 import PageTransition from '../ui/PageTransition';
 import { SETUP_WIZARD_STEPS, setupProgramLabel, trackingModulesOn } from '../../lib/setupWizard';
 import { toast } from '../ui/Toast';
+import ErrorState from '../ui/ErrorState';
 import KinesiologyIntakeReview from '../onboarding/KinesiologyIntakeReview';
 import { intakeAvailableWeekdays, isIntakeAlreadyFilled, medicalYesFlags, parseIntake } from '../../lib/kinesiologyIntake';
 import { optionLabel } from '../../lib/optionLabels';
@@ -81,7 +82,7 @@ export default function ClientSetupPage() {
     applyIntervention,
     pendingInterventions, askCoachAgent, fetchCoachSettings, fetchCoachOps,
   } = useCoachingStore();
-  const { programs, fetchPrograms } = useProgramStore();
+  const { programs, programsError, fetchPrograms } = useProgramStore();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -511,6 +512,12 @@ export default function ClientSetupPage() {
       <Card className="mb-4 space-y-3">
         <p className="text-sm font-medium text-white">{t('coaching.setup.program')}</p>
         <p className="text-sm text-neutral-500">{t('coaching.setup.programHint')}</p>
+        {programsError && (
+          <ErrorState
+            title={t('errors.loadPrograms')}
+            onRetry={() => { if (user) void fetchPrograms(user.id); }}
+          />
+        )}
         <select
           value={assignId}
           onChange={e => setAssignId(e.target.value)}

@@ -76,6 +76,8 @@ test('track() is wired on the loops that matter (coach, client, solo)', () => {
     assert.match(store, new RegExp(`track\\('${event}'`), event);
   }
   assert.match(src('src/stores/programStore.ts'), /track\('program_assigned'/);
+  assert.match(src('src/stores/programStore.ts'), /track\('program_saved'/);
+  assert.match(src('src/stores/programStore.ts'), /track\('program_deleted'/);
   assert.match(src('src/stores/workoutStore.ts'), /track\('workout_completed'/);
   assert.match(src('src/stores/checkinStore.ts'), /track\('checkin_saved'/);
   assert.match(src('src/components/auth/AuthPage.tsx'), /track\('account_created'/);

@@ -426,6 +426,7 @@ BEGIN
      AND pg_temp.fn_exec('get_my_coach_card')
      AND pg_temp.fn_exec('save_program_day_exercises')
      AND pg_temp.fn_exec('sync_program_days')
+     AND pg_temp.fn_exec('save_program')
      AND pg_temp.fn_exec('snapshot_program_revision')
      AND pg_temp.fn_exec('adopt_client_program')
      AND NOT pg_temp.fn_exec('_apply_intervention_effects')
@@ -438,7 +439,7 @@ BEGIN
     PERFORM pg_temp.record('DEFINER_GRANTS', true, 'surface RPCs granted ; helpers revoked');
   ELSE
     PERFORM pg_temp.record('DEFINER_GRANTS', false, format(
-      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s client_end=%s dismiss=%s card=%s save=%s sync=%s snap=%s adopt=%s helper=%s assert=%s trans=%s close=%s handle=%s fleet=%s',
+      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s client_end=%s dismiss=%s card=%s save=%s sync=%s save_all=%s snap=%s adopt=%s helper=%s assert=%s trans=%s close=%s handle=%s fleet=%s',
       pg_temp.fn_exec('create_program_complete'),
       pg_temp.fn_exec('apply_intervention'),
       pg_temp.fn_exec('claim_intervention'),
@@ -450,6 +451,7 @@ BEGIN
       pg_temp.fn_exec('get_my_coach_card'),
       pg_temp.fn_exec('save_program_day_exercises'),
       pg_temp.fn_exec('sync_program_days'),
+      pg_temp.fn_exec('save_program'),
       pg_temp.fn_exec('snapshot_program_revision'),
       pg_temp.fn_exec('adopt_client_program'),
       pg_temp.fn_exec('_apply_intervention_effects'),

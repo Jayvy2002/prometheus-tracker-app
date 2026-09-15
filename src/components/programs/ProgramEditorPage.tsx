@@ -10,6 +10,7 @@ import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
+import { mapProgramWriteError } from '../../lib/programWrite';
 
 export default function ProgramEditorPage() {
   const { t, i18n } = useTranslation();
@@ -17,13 +18,14 @@ export default function ProgramEditorPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
-  const { fetchProgram, updateProgram, createProgram, fetchProgramRevisionInfo } = useProgramStore();
+  const { fetchProgram, createProgram, saveProgram, fetchProgramRevisionInfo } = useProgramStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [weeks, setWeeks] = useState(8);
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
   const [revision, setRevision] = useState<{ revision_no: number; created_at: string } | null>(null);
   const isNew = !id || id === 'new';
 
@@ -43,6 +45,7 @@ export default function ProgramEditorPage() {
       setName(p.name);
       setDescription(p.description);
       setWeeks(p.duration_weeks);
+      setExpectedUpdatedAt(p.updated_at);
       const sorted = [...(p.days ?? [])].sort((a, b) => a.order_index - b.order_index);
       setDays(sorted.length > 0 ? sorted.map(d => ({
         weekday: d.weekday,
@@ -94,18 +97,23 @@ export default function ProgramEditorPage() {
       navigate(`/programs/${created}`, { replace: true });
       return;
     }
-    const updated = await updateProgram(id!, { name: name.trim(), description, duration_weeks: weeks });
-    if (updated.error) {
+    const saved = await saveProgram(
+      id!,
+      { name: name.trim(), description, duration_weeks: weeks },
+      days,
+      expectedUpdatedAt,
+    );
+    if (saved.error) {
       setSaving(false);
-      toast(updated.error, 'error');
+      toast(mapProgramWriteError(saved.error, {
+        stale: t('programs.stale'),
+        fallback: t('programs.saveFailed'),
+      }), 'error');
       return;
     }
-    const synced = await useProgramStore.getState().syncProgramDays(id!, days);
-    if (synced.error) {
-      setSaving(false);
-      toast(synced.error, 'error');
-      return;
-    }
+    const latest = useProgramStore.getState().programs.find(p => p.id === id);
+    if (latest?.updated_at) setExpectedUpdatedAt(latest.updated_at);
+    void fetchProgramRevisionInfo(id!).then(setRevision);
     setSaving(false);
     toast(t('common.saveChanges'));
   };
