@@ -31,7 +31,8 @@ export default function AssignedQuestionnaireProvider({ children }: { children: 
     listQuestionnaireResponses(userId).then(rows => {
       if (cancelled) return;
       setStatus('ready');
-      setResponse(rows.find(r => r.coach_id === coachId) ?? null);
+      const mine = rows.filter(r => r.coach_id === coachId);
+      setResponse(mine.find(r => r.completed_at == null) ?? mine[0] ?? null);
     }).catch(() => {
       if (cancelled) return;
       setStatus('failed');

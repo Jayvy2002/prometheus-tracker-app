@@ -66,6 +66,9 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
   assert.match(banner, /status === 'failed'/);
   assert.doesNotMatch(banner, /path="\*"/);
 
+  const provider = src('src/components/onboarding/AssignedQuestionnaireProvider.tsx');
+  assert.match(provider, /completed_at == null/);
+
   const panel = src('src/components/onboarding/ClientQuestionnairePanel.tsx');
   assert.match(panel, /save\(false\)/);
   assert.match(panel, /coachQuestionnaire\.saveDraft/);
@@ -79,6 +82,7 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
 
   const browser = src('scripts/test-questionnaire-browser.mjs');
   assert.match(browser, /Advanced settings/);
+  assert.match(browser, /Start from a blank page/);
   assert.match(browser, /incomplete questionnaire must not prison the home/);
   assert.match(browser, /goto\(origin\+'\/questionnaire'\)/);
   assert.match(browser, /questionnaire-summary/);

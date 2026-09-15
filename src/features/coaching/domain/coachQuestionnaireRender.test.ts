@@ -64,6 +64,18 @@ test('preview can disable all answer controls', async () => {
   assert.match(html, /<select[^>]*disabled=""/);
 });
 
+test('builder preview can force the client language independently of the coach UI', async () => {
+  const instance = createInstance();
+  await instance.init({ lng: 'fr', resources: { fr: { translation: fr }, en: { translation: en } } });
+  const html = renderToStaticMarkup(createElement(I18nextProvider, { i18n: instance },
+    createElement(CoachQuestionnaireFields, {
+      definition, answers: {}, onChange: () => undefined, disabled: true, previewLanguage: 'en',
+    })));
+  assert.match(html, /Preferences/);
+  assert.match(html, /Answer text/);
+  assert.doesNotMatch(html, /Préférences/);
+});
+
 test('audience and the health notice appear before the first medical question', async () => {
   const withMedical: CoachQuestionnaire = {
     ...definition,
