@@ -22,18 +22,21 @@ src/
 │   ├── coaching/hooks/     useClientTracking, useClientDossier
 │   ├── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
 │   ├── coaching/model/     slices coachingStore (lot 21c)
+│   ├── coaching/types.ts   contrats coaching (lot 22a)
 │   ├── marketplace/domain/ marketplace*.ts (lot 20)
 │   ├── workout/domain/     séances, exos, disques (lot 20)
-│   ├── nutrition/          hooks + domain (cibles, OFF, courses)
-│   └── programs/domain/    écriture / patch / solo (lot 20)
+│   ├── workout/types.ts    contrats séance (lot 22a)
+│   ├── nutrition/          hooks + domain + types (lot 22a)
+│   └── programs/           domain + types (lot 22a)
 ├── shared/
 │   ├── api/supabase/       client
 │   ├── hooks/              useOnline, usePageTitle
+│   ├── types.ts            contrats transversaux (lot 22a)
 │   └── ui/                 primitives (tokens lot 19)
 ├── components/             Écrans métier ; ui/ et layout/ = réexports temporaires
 ├── hooks/                  réexport usePageTitle
 ├── i18n/locales/{fr,en}.ts
-├── lib/                    Métier + réexports hooks / supabase
+├── lib/                    Métier + réexports (`types.ts` baril 22a)
 ├── navigation/             réexport navConfig
 └── stores/                 Zustand ; coachingStore = façade (21c)
 
@@ -43,7 +46,7 @@ supabase/
 └── tests/                  SQL RLS / RPC (pas des `*.test.ts` Vite)
 ```
 
-Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `types.ts` et i18n : **pas** découpés (lot 22).
+Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `lib/types.ts` = réexport (22a). i18n : **pas** découpé (lot 22b).
 
 Convention d’accès données **cible** (à écrire ici, à faire respecter aux lots 20 puis 23) :
 
@@ -86,7 +89,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | `coach*.ts` (agent, fleet, ask, …) | `features/coaching/domain/` (+ réexports `lib/`) | idem | **20 coaching livré** |
 | Autre domaine dans `lib/` | `features/<domaine>/domain/` (+ réexports) | idem | **20 livré** |
 | Utils transverses, télémétrie, offline | `lib/` | `shared/lib/` | **20** quand ce n’est plus du domaine |
-| `types.ts` | `lib/types.ts` | `shared/types` + `features/*/types` + réexport | **22a** |
+| `types.ts` | réexport `lib/types.ts` + `shared/types` + `features/*/types` | idem | **22a livré** |
 | i18n | `i18n/locales/fr.ts`, `en.ts` | `i18n/locales/{fr,en}/*.ts` | **22b** |
 | Fetch / orchestration écrans listés | hooks `features/*/hooks` + `workout/data` | idem | **21b livré** |
 | Store Zustand (sauf coaching) | `stores/*Store.ts` | `features/*/model/` | progressif, **pas 18** |

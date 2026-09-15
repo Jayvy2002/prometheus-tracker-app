@@ -66,7 +66,7 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
-Ceci est l’**arbre actuel** (lots 18–21c livrés). La matrice et la suite (22–23) sont dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c) ; l’implémentation vit dans `features/coaching/model`. `types.ts` et i18n restent entiers jusqu’au lot 22.
+Ceci est l’**arbre actuel** (lots 18–22a livrés). La matrice et la suite (22b–23) sont dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c). `lib/types.ts` réexporte `shared/types` + `features/*/types` (lot 22a). i18n reste entier jusqu’au lot 22b.
 
 ```text
 src/
@@ -79,7 +79,7 @@ src/
 ├── shared/                         api/supabase, hooks, ui (tokens lot 19)
 ├── components/                     Écrans métier ; ui/ et layout/ = réexports
 ├── stores/                         Zustand ; coachingStore = façade (lot 21c)
-├── lib/                            Métier + réexports ; tests `*.test.ts`
+├── lib/                            Métier + réexports (`types.ts` = baril 22a) ; tests `*.test.ts`
 └── i18n/locales/{fr,en}.ts         Textes visibles (lot 22b pour découper)
 
 supabase/
@@ -137,7 +137,7 @@ Les noms de tables, RPC et routes proposés dans `docs/CHANTIER.md` sont un poin
 
 ## Conventions
 
-- TypeScript strict ; types partagés dans `src/lib/types.ts`.
+- TypeScript strict ; types dans `shared/types` + `features/*/types`, réexportés par `src/lib/types.ts`.
 - Composants fonctionnels, logique testable dans `src/lib/`.
 - Zustand pour l’état partagé.
 - Tailwind pour le style ; tokens et primitives : `docs/DESIGN_SYSTEM.md`. Pas de nouvelle bibliothèque UI sans besoin démontré.
