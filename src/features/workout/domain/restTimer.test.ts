@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { countdownEndAt, countdownRemaining, resolveRestSeconds } from './restTimer';
+import { countdownEndAt, countdownRemaining, resolveRestSeconds, shouldAutoStartRest } from './restTimer';
 
 test('1:30 countdown tracks wall clock, not stacked ticks', () => {
   const start = 1_000_000;
@@ -26,6 +26,15 @@ test('prescribed rest of 90s is used; zero or missing falls back', () => {
   assert.equal(resolveRestSeconds(0), undefined);
   assert.equal(resolveRestSeconds(null), undefined);
   assert.equal(resolveRestSeconds(undefined), undefined);
+});
+
+test('UX15 auto rest is voluntary and never starts on a fill', () => {
+  const base = { preferenceOn: true, restModuleOn: true, afterCompletedSet: true, restAfterThisSet: true };
+  assert.equal(shouldAutoStartRest(base), true);
+  assert.equal(shouldAutoStartRest({ ...base, preferenceOn: false }), false);
+  assert.equal(shouldAutoStartRest({ ...base, restModuleOn: false }), false);
+  assert.equal(shouldAutoStartRest({ ...base, afterCompletedSet: false }), false);
+  assert.equal(shouldAutoStartRest({ ...base, restAfterThisSet: false }), false);
 });
 
 test('sub-second elapsed does not skip a whole second', () => {

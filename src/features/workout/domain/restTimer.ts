@@ -12,3 +12,13 @@ export function resolveRestSeconds(prescribed?: number | null): number | undefin
   if (typeof prescribed === 'number' && prescribed > 0) return prescribed;
   return undefined;
 }
+
+/** Auto rest starts only after a completed set — never after a placeholder fill. */
+export function shouldAutoStartRest(input: {
+  preferenceOn: boolean;
+  restModuleOn: boolean;
+  afterCompletedSet: boolean;
+  restAfterThisSet: boolean;
+}): boolean {
+  return input.preferenceOn && input.restModuleOn && input.afterCompletedSet && input.restAfterThisSet;
+}

@@ -11,6 +11,22 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
+test('UX15 rest auto is a preference; fill does not start the timer', () => {
+  const prefs = src('src/stores/preferencesStore.ts');
+  assert.match(prefs, /autoStartRest/);
+  assert.match(prefs, /setAutoStartRest/);
+  const units = src('src/components/profile/UnitsForm.tsx');
+  assert.match(units, /data-testid="auto-start-rest"/);
+  assert.match(units, /setAutoStartRest/);
+  const card = src('src/components/workout/ExerciseCard.tsx');
+  assert.match(card, /shouldAutoStartRest/);
+  assert.match(card, /autoStartRest/);
+  const fill = card.slice(card.indexOf('const handleDuplicateSet'), card.indexOf('const handleSetComplete'));
+  assert.doesNotMatch(fill, /onStartRestTimer/);
+  const form = src('src/components/workout/WorkoutForm.tsx');
+  assert.match(form, /handleStartRestTimer\(\)/);
+});
+
 test('UX101 rest bar survives closing the modal; a new set remounts', () => {
   const timer = src('src/components/workout/RestTimer.tsx');
   assert.match(timer, /data-rest-bar="true"/);

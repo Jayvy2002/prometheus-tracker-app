@@ -177,8 +177,8 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 |---|---|
 | **Quoi** | `/workout` historique + gym card. `/workout/new` et `/:id` immersifs. Check série, repos 90 s **après coche** (pas au préremplissage). Types de séries du plan (lot 14, plus de logger plat). Empty session → suppression à la sortie. Terminer ≠ tout cocher. Résumé : faits, fermeture volontaire (plus de 30 s). Hors programme **nommé** (UX84). |
 | **Marche** | Moteur commun. UX12 / UX17 / UX84 tenus. Hors ligne séances. |
-| **Ne va pas** | Séance immersive **sans** BottomNav : sortie pas toujours évidente. Repos auto pas encore **désactivable** (UX15). Tips du résumé encore un peu moralisateurs. |
-| **Changer** | Repos auto **optionnel** (préférence volontaire). Distinguer *séance du programme* et *séance libre* (déjà nommé hors programme). Profondeur (RIR, 1RM) derrière la série. |
+| **Ne va pas** | Séance immersive **sans** BottomNav : sortie pas toujours évidente. Tips du résumé encore un peu moralisateurs. |
+| **Changer** | Repos auto **optionnel** déjà là (UX15, Profil → Unités). Distinguer *séance du programme* et *séance libre* (déjà nommé hors programme). Profondeur (RIR, 1RM) derrière la série. |
 
 ### 3.3 Mon programme (lecture)
 
