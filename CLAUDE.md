@@ -66,7 +66,7 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
-Ceci est l’**arbre actuel** (lots 18–21a livrés). La matrice et la suite (21b–23) sont dans `docs/ARCHITECTURE.md`. **Ne pas découper** `stores/coachingStore.ts` avant le lot **21c** (façade obligatoire). `types.ts` et i18n restent entiers jusqu’au lot 22.
+Ceci est l’**arbre actuel** (lots 18–21b livrés). La matrice et la suite (21c–23) sont dans `docs/ARCHITECTURE.md`. **Ne pas découper** `stores/coachingStore.ts` avant le lot **21c** (façade obligatoire). `types.ts` et i18n restent entiers jusqu’au lot 22.
 
 ```text
 src/

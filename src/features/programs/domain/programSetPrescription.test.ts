@@ -39,10 +39,10 @@ test('program set types persist on the day, not as a working-only plate', () => 
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.save_program_day_exercises/);
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.sync_program_days/);
 
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.doesNotMatch(card, /hevySimple/);
   assert.match(card, /data-drop-segments/);
-  const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
+  const editor = src('src/components/coaching/ProgramSessionEditor.tsx') + src('src/features/programs/hooks/useProgramEditorTracking.ts') + src('src/features/programs/hooks/useProgramNlEdit.ts');
   assert.match(editor, /PROGRAM_SET_TYPES/);
   assert.match(editor, /superset_group/);
 });

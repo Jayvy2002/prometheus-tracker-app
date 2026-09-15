@@ -85,7 +85,7 @@ test('Progress: no empty before/after spam; logged-exercise picker stays on Trai
   assert.match(compare, /if \(kind === 'empty'\) return null/);
   assert.doesNotMatch(compare, /emptyCoachRelance/);
 
-  const detail = src('src/components/coaching/ClientDetailPage.tsx');
+  const detail = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(detail, /photos\.length > 0/);
   const progressBlock = detail.slice(detail.indexOf("tab === 'progress'"));
   const trainingBlock = detail.slice(detail.indexOf("tab === 'training' ?"));
@@ -130,7 +130,7 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   assert.match(coachedMobile, /\bprofile\b/);
   assert.doesNotMatch(coachedMobile, /\bphotos\b/);
   assert.match(profile, /\/photos/);
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.doesNotMatch(dash, /navigate\('\/photos'\)/);
   assert.doesNotMatch(dash, /dashboard\.photosCard/);
 });
@@ -146,7 +146,7 @@ test('Coach chrome labels come from i18n; 360 default tab is overview with named
   const bottom = src('src/app/layout/BottomNav.tsx');
   assert.match(bottom, /t\(tab\.labelKey\)/);
 
-  const detail = src('src/components/coaching/ClientDetailPage.tsx');
+  const detail = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(detail, /params\.set\('tab', 'overview'\)/);
   assert.match(detail, /SituationCards/);
   assert.match(detail, /clientSituationLines/);

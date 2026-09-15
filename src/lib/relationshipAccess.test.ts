@@ -31,7 +31,7 @@ test('the client 360 keeps the dossier visible while access is rechecked', () =>
   assert.doesNotMatch(boundary, /invalidate\('checking'\)/);
   assert.doesNotMatch(boundary, /seenAllowed/);
   assert.match(boundary, /result\?\.scope === scope/);
-  const page = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
+  const page = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
   assert.match(page, /touchClientVisit\(id\)/);
 });
 

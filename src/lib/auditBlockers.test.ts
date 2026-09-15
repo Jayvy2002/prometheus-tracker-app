@@ -49,7 +49,7 @@ test('D07: workout drain never drops ops after 3 failures and never slices to 20
   assert.doesNotMatch(queue, /slice\(-200\)/);
   assert.match(queue, /moveOfflineOpToDeadLetter/);
   assert.match(queue, /error: 'no_account' \| 'quota'/);
-  const store = src('src/stores/workoutStore.ts');
+  const store = src('src/stores/workoutStore.ts') + src('src/features/workout/data/loadFullWorkout.ts') + src('src/features/workout/data/replayOfflineOp.ts') + src('src/features/workout/data/offlineIds.ts');
   assert.match(store, /persistIdMap/);
   assert.match(store, /nextAttempts >= 3/);
   assert.match(store, /moveOfflineOpToDeadLetter/);

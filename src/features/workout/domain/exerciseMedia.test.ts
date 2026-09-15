@@ -90,7 +90,7 @@ test('picker and session card mount ExerciseMedia', () => {
   assert.match(picker, /ExerciseMedia/);
   assert.match(picker, /setDetail\(ex\)/);
   assert.doesNotMatch(picker, /\(ex\.instructions \|\| ex\.tips\) && \(/);
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.match(card, /ExerciseMedia/);
   assert.match(card, /findCatalogExercise/);
   const media = src('src/components/workout/ExerciseMedia.tsx');

@@ -32,7 +32,7 @@ test('10b: solo weekly review is three figures; Accueil notice stays', () => {
   assert.match(card, /soloReview\.statKcal/);
   assert.match(card, /soloReview\.statWeight/);
   assert.match(card, /soloReview\.statSessions/);
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /SoloProgramProposal variant="notice"/);
 });
 

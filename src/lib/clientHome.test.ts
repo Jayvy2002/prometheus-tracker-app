@@ -139,7 +139,7 @@ test('Jade next action: waiting for program or first session — never a forced 
   }), 'waiting_program');
   assert.equal(clientHomeNextActionKey('waiting_program'), 'dashboard.firstRun.waitingProgram');
   assert.equal(clientHomeNextActionKey('first_session'), 'dashboard.firstRun.firstSession');
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /clientHomeNextActionKey\(nextAction\)/);
   assert.match(dash, /to="\/messages"/);
   assert.match(dash, /dashboard\.nothingToday/);
@@ -152,7 +152,7 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
   assert.match(fr, /firstSession: 'Première séance quand tu es prêt'/);
   assert.match(fr, /nothingToday:/);
 
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.doesNotMatch(dash, /:\s*999/);
   assert.match(dash, /isClientFirstRun/);
   assert.match(dash, /clientHomeNextAction/);

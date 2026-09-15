@@ -68,7 +68,7 @@ test('D07: transport errors are distinguished from app errors', () => {
 });
 
 test('D07: workout mutations go through the queue with stable client ids', () => {
-  const storeSrc = src('src/stores/workoutStore.ts');
+  const storeSrc = src('src/stores/workoutStore.ts') + src('src/features/workout/data/loadFullWorkout.ts') + src('src/features/workout/data/replayOfflineOp.ts') + src('src/features/workout/data/offlineIds.ts');
   assert.match(storeSrc, /guardedMutation\(/);
   assert.match(storeSrc, /syncOfflineQueue/);
   assert.match(storeSrc, /replayOfflineOp/);

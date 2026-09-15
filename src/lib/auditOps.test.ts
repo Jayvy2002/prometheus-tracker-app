@@ -68,7 +68,7 @@ test('Q05: routes are code-split; programs load embedded; workouts paginate', ()
   const programs = src('src/stores/programStore.ts');
   assert.match(programs, /program_days\(\*, program_day_exercises\(\*\)\)/);
   assert.doesNotMatch(programs, /Promise\.all\(list\.map\(async p/);
-  const workouts = src('src/stores/workoutStore.ts');
+  const workouts = src('src/stores/workoutStore.ts') + src('src/features/workout/data/loadFullWorkout.ts') + src('src/features/workout/data/replayOfflineOp.ts') + src('src/features/workout/data/offlineIds.ts');
   assert.match(workouts, /WORKOUTS_PAGE_SIZE/);
   assert.match(workouts, /fetchOlderWorkouts/);
   assert.match(workouts, /workoutsExhausted/);
@@ -104,7 +104,7 @@ test('Q04: dialog and switches are accessible primitives', () => {
 });
 
 test('Q03: weights render in profile units; fallback speaks the user language', () => {
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.match(card, /formatWeight\(s\.weight_kg, weightUnit\)/);
   assert.match(card, /SUGGESTION_KEY\[suggestion\.kind\]/);
   assert.doesNotMatch(card, /Stagnant 3\\u00d7/);

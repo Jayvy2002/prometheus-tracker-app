@@ -49,7 +49,7 @@ test('UX103 plate calculator uses profile units and a visual sleeve', () => {
   const lbs = platesForLoad(225, 'lbs');
   assert.deepEqual(lbs.perSide, [{ plate: 55, count: 1 }, { plate: 35, count: 1 }]);
   assert.deepEqual(platesForLoad(135, 'lbs').perSide, [{ plate: 45, count: 1 }]);
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.match(card, /data-plates-open="true"/);
   assert.match(card, /<PlateCalc/);
   assert.match(card, /unit=\{weightUnit\}/);
@@ -65,7 +65,7 @@ test('16g session logger stays usable on a phone', () => {
   const form = src('src/components/workout/WorkoutForm.tsx');
   assert.match(form, /data-workout-logger="true"/);
   assert.match(form, /min-w-0/);
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.match(card, /data-set-row="true"/);
   assert.match(card, /OverflowMenu/);
   assert.match(card, /SetRowMenu/);
