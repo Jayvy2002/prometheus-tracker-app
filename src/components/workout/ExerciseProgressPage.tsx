@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -9,6 +9,7 @@ import {
   isRecordAtIndex,
   type ExerciseProgressSummary,
 } from '../../lib/performedSets';
+import { listedProgressMatches } from '../../lib/progressSearch';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
@@ -20,12 +21,18 @@ export default function ExerciseProgressPage() {
 
   const [allData, setAllData] = useState<ExerciseProgressSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const loadSeq = useRef(0);
+  const appliedUser = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+    const seq = ++loadSeq.current;
     setLoading(true);
+    setLoadError(false);
 
     supabase
       .from('workout_exercises')
@@ -35,8 +42,18 @@ export default function ExerciseProgressPage() {
         workouts!inner(user_id, date, completed)
       `)
       .eq('workouts.user_id', user.id)
-      .then(({ data }) => {
-        if (!data) { setLoading(false); return; }
+      .then(({ data, error }) => {
+        if (seq !== loadSeq.current) return;
+        if (error) {
+          setLoadError(true);
+          setLoading(false);
+          return;
+        }
+        if (!data) {
+          setLoadError(true);
+          setLoading(false);
+          return;
+        }
 
         const summaries = aggregateExerciseProgress(
           data as unknown as Array<{
@@ -48,9 +65,10 @@ export default function ExerciseProgressPage() {
         ).sort((a, b) => b.totalSessions - a.totalSessions);
 
         setAllData(summaries);
+        appliedUser.current = user.id;
         setLoading(false);
       });
-  }, [user]);
+  }, [user, retry]);
 
   const topExercises = useMemo(() => allData.slice(0, 5), [allData]);
 
@@ -60,6 +78,11 @@ export default function ExerciseProgressPage() {
     return allData.filter(e => e.name.toLowerCase().includes(q));
   }, [allData, searchQuery]);
 
+  const searching = searchQuery.trim().length > 0;
+  const listedExercises = useMemo(
+    () => listedProgressMatches(filteredExercises, searchQuery),
+    [filteredExercises, searchQuery],
+  );
   const detail = selectedExercise ? allData.find(e => e.name === selectedExercise) : null;
 
   if (selectedExercise && detail) {
@@ -174,7 +197,18 @@ export default function ExerciseProgressPage() {
           </CardLink>
         </div>
 
-        {loading ? (
+        {loadError && appliedUser.current !== user?.id ? (
+          <Card className="text-center py-12 space-y-3">
+            <p role="alert" className="text-neutral-300">{t('progress.loadError')}</p>
+            <button
+              type="button"
+              onClick={() => setRetry(n => n + 1)}
+              className="min-h-11 px-4 rounded-xl bg-neutral-800 text-white text-sm"
+            >
+              {t('errors.retry')}
+            </button>
+          </Card>
+        ) : loading ? (
           <div className="text-center py-16 text-neutral-500">{t('common.loading')}</div>
         ) : allData.length === 0 ? (
           <Card className="text-center py-12">
@@ -184,7 +218,20 @@ export default function ExerciseProgressPage() {
           </Card>
         ) : (
           <>
-            {/* Top exercises */}
+            {loadError && (
+              <div className="mb-4 space-y-2">
+                <p role="alert" className="text-sm text-rose-300">{t('progress.loadError')}</p>
+                <button
+                  type="button"
+                  onClick={() => setRetry(n => n + 1)}
+                  className="min-h-11 px-4 rounded-xl bg-neutral-800 text-white text-sm"
+                >
+                  {t('errors.retry')}
+                </button>
+              </div>
+            )}
+            {!searching && (
+              <>
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-3 animate-fade-in-up">{t('progress.topExercises')}</h2>
             <div className="space-y-3 mb-6">
               {topExercises.map((ex, i) => {
@@ -224,16 +271,18 @@ export default function ExerciseProgressPage() {
                 );
               })}
             </div>
+            </>
+            )}
 
-            {/* All exercises with search */}
-            {allData.length > 5 && (
+            {(allData.length > 5 || searching) && (
               <>
+                {!searching && (
                 <div className="flex items-center gap-2 mb-3">
                   <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">{t('progress.allExercises')}</h2>
                   <span className="text-[10px] text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">{allData.length}</span>
                 </div>
+                )}
 
-                {/* Search */}
                 <div className="relative mb-3">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
                   <input
@@ -246,7 +295,9 @@ export default function ExerciseProgressPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {filteredExercises.slice(5).map(ex => (
+                  {listedExercises.length === 0 ? (
+                    <p className="text-sm text-neutral-500">{t('progress.noMatches')}</p>
+                  ) : listedExercises.map(ex => (
                     <button
                       key={ex.name}
                       onClick={() => setSelectedExercise(ex.name)}

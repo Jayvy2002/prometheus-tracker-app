@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { ArrowLeft, Flame, Dumbbell, Droplets, Scale, TrendingUp, TrendingDown, Minus, Award, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,7 @@ import { useClientTracking } from '../../lib/useClientTracking';
 import { showModule, showNutritionField } from '../../lib/clientTracking';
 import { averageLoggedCalories, statsCalorieSummary } from '../../lib/clientHome';
 import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
+import { responsesHaveError } from '../../lib/progressSearch';
 
 type Period = 'week' | 'month' | '3months';
 type ChartTab = 'calories' | 'weight' | 'workouts';
@@ -81,6 +82,10 @@ export default function StatsPage() {
   const [prevNutrition, setPrevNutrition] = useState<{ avgCalories: number; avgProtein: number; avgWater: number }>({ avgCalories: 0, avgProtein: 0, avgWater: 0 });
   const [prevWorkoutCount, setPrevWorkoutCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
+  const [appliedRange, setAppliedRange] = useState<string | null>(null);
+  const loadSeq = useRef(0);
 
   const unit = profile?.unit_weight ?? 'kg';
   const nutritionTargets = nutritionTargetsFromProfile(profile);
@@ -99,7 +104,10 @@ export default function StatsPage() {
 
   useEffect(() => {
     if (!user) return;
+    const seq = ++loadSeq.current;
+    const rangeKey = `${start}|${end}`;
     setLoading(true);
+    setLoadError(false);
 
     Promise.all([
       supabase.from('nutrition_logs').select('logged_at, calories, protein, carbs, fat, quantity, unit').eq('user_id', user.id).gte('logged_at', start).lte('logged_at', end),
@@ -110,6 +118,12 @@ export default function StatsPage() {
       supabase.from('water_logs').select('logged_at, amount_ml').eq('user_id', user.id).gte('logged_at', prevStart).lte('logged_at', prevEnd),
       supabase.from('workouts').select('date').eq('user_id', user.id).eq('completed', true).gte('date', prevStart).lte('date', prevEnd + 'T23:59:59'),
     ]).then(([nutRes, waterRes, wkRes, weightRes, prevNutRes, prevWaterRes, prevWkRes]) => {
+      if (seq !== loadSeq.current) return;
+      if (responsesHaveError([nutRes, waterRes, wkRes, weightRes, prevNutRes, prevWaterRes, prevWkRes])) {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
       const nutritionLogs = ((nutRes.data ?? []) as Array<{
         logged_at: string; calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string;
       }>).map(correctNutritionLogEnergy);
@@ -139,7 +153,6 @@ export default function StatsPage() {
         weight: unit === 'lbs' ? +(w.weight_kg * 2.20462).toFixed(1) : +w.weight_kg.toFixed(1),
       })));
 
-      // Previous period
       const prevNutLogs = ((prevNutRes.data ?? []) as Array<{
         logged_at: string; calories: number; protein: number; carbs?: number; fat?: number; quantity?: number; unit?: string;
       }>).map(row => correctNutritionLogEnergy({
@@ -167,10 +180,17 @@ export default function StatsPage() {
         avgWater: prevWaterDays.length > 0 ? Math.round(prevWaterDays.reduce((s, v) => s + v, 0) / prevWaterDays.length) : 0,
       });
       setPrevWorkoutCount((prevWkRes.data ?? []).length);
-
+      setAppliedRange(rangeKey);
       setLoading(false);
-    }).catch(() => setLoading(false));
-  }, [user, start, end, prevStart, prevEnd, unit]);
+    }).catch(() => {
+      if (seq !== loadSeq.current) return;
+      setLoadError(true);
+      setLoading(false);
+    });
+  }, [user, start, end, prevStart, prevEnd, unit, retry]);
+
+  const rangeKey = `${start}|${end}`;
+  const statsReady = appliedRange === rangeKey;
 
   // Computed stats — kcal average ignores water-only zeros so we never invent a fake deficit
   const calorieStats = averageLoggedCalories(nutrition);
@@ -289,10 +309,33 @@ export default function StatsPage() {
           ))}
         </div>
 
-        {loading ? (
+        {loadError && !statsReady ? (
+          <div className="space-y-3">
+            <p role="alert" className="text-sm text-rose-300">{t('stats.loadError')}</p>
+            <button
+              type="button"
+              onClick={() => setRetry(n => n + 1)}
+              className="min-h-11 px-4 rounded-xl bg-neutral-800 text-white text-sm"
+            >
+              {t('errors.retry')}
+            </button>
+          </div>
+        ) : loading && !statsReady ? (
           <div className="text-center py-16 text-neutral-500">{t('common.loading')}</div>
         ) : (
           <div className="space-y-4">
+            {loadError && (
+              <div className="space-y-2">
+                <p role="alert" className="text-sm text-rose-300">{t('stats.loadError')}</p>
+                <button
+                  type="button"
+                  onClick={() => setRetry(n => n + 1)}
+                  className="min-h-11 px-4 rounded-xl bg-neutral-800 text-white text-sm"
+                >
+                  {t('errors.retry')}
+                </button>
+              </div>
+            )}
             {/* Summary card */}
             <div className="bg-gradient-to-br from-blue-600/10 to-transparent border border-blue-500/15 rounded-2xl p-4 animate-fade-in-up">
               <p className="text-sm text-neutral-300 leading-relaxed">{buildSummary()}</p>

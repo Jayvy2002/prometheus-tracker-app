@@ -867,6 +867,7 @@ const en = {
 
   stats: {
     title: 'Statistics',
+    loadError: 'Unable to load statistics. Retry — this is not an empty history.',
     periods: {
       week: 'Week',
       month: 'Month',
@@ -917,6 +918,8 @@ const en = {
     recentSessions: 'Recent sessions',
     noDataYet: 'No data yet',
     noDataHint: 'Complete workouts to see your progress here',
+    noMatches: 'No exercise matches this search.',
+    loadError: 'Unable to load progress. Retry — this is not an empty history.',
   },
 
   calendar: {
@@ -956,6 +959,7 @@ const en = {
       exercises: 'exercises',
       weightLogged: 'Weight logged',
     },
+    loadError: 'Unable to load this day. Try again.',
   },
 
   scanner: {

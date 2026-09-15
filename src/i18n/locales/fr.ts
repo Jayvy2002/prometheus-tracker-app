@@ -867,6 +867,7 @@ const fr = {
 
   stats: {
     title: 'Statistiques',
+    loadError: 'Impossible de charger les statistiques. Réessaie — ce n’est pas un historique vide.',
     periods: {
       week: 'Semaine',
       month: 'Mois',
@@ -917,6 +918,8 @@ const fr = {
     recentSessions: 'Séances récentes',
     noDataYet: 'Pas encore de données',
     noDataHint: 'Termine des entraînements pour voir ta progression ici',
+    noMatches: 'Aucun exercice ne correspond à cette recherche.',
+    loadError: 'Impossible de charger la progression. Réessaie — ce n’est pas un historique vide.',
   },
 
   calendar: {
@@ -956,6 +959,7 @@ const fr = {
       exercises: 'exercices',
       weightLogged: 'Poids enregistré',
     },
+    loadError: 'Impossible de charger cette journée. Réessaie.',
   },
 
   scanner: {
