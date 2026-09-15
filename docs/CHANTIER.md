@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
 | **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28** et **17–23 Terminé**.
 
@@ -335,7 +335,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX28 Terminé**. Reste catalogue ens. (À concevoir / À vérifier / À construire), capteurs santé (UX112), billing (**M6 Reporté**).
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX28 Terminé**. Contrats **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Reste À vérifier / À construire. Billing (**M6 Reporté**). Capteurs = chantier dédié.
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -419,6 +419,24 @@ Pas de lancement large parce que la CI est verte.
 
 **Critère de fin M8 (plus tard) :** une check-list d’ouverture signée (qui, quoi, rollback) — pas un drapeau dans le code.
 
+### Catalogue — contrats conçus (15 sept. 2026)
+
+Ne pas reconstruire ce qui existe (lots 6, 7, 12–13, snapshots programmes). Une PR = un ID le jour de la construction. **UX112** n’entre pas dans cette file.
+
+| ID | Déjà là | Parcours | Interdit |
+|---|---|---|---|
+| **UX19** Remplacement | Solo : « Cette séance » / « Enregistrer comme jour de plan » ; swap « cette séance seulement » (lot 13). | Coaché : le swap / la substitution **ne touche pas** le plan assigné. Coach : « proposer au plan » = brouillon Ask, le coach confirme (`save_program` + recap). | Auto-apply sur les semaines suivantes. 2ᵉ moteur Ask. |
+| **UX22** Cycles / phases | Builder : nom / durée / notes de cycle. | Athlète = **la séance du jour** (nom + weekday). Coach = la structure. Après recale (UX92) : même séance encore nommée. | Moteur de phases / mésocycle dans cette file. Inventer un jour de plan. |
+| **UX23** Révisions | Table / RPC `program_revisions` + badge « révision n · date » dans l’éditeur. | Liste : avant / après, auteur, date d’effet. Restaurer = nouvelle révision, **les logs passés inchangés**. | Réécrire l’historique des séances. Nouveau versioning parallèle. |
+| **UX27** Réponse ↔ bilan | Toast « Enregistré — visible par {coach} » (UX26). | Le coaché voit *quel* check-in / *quelle* séance a servi : puce ou phrase dans Messages ou 360, après un message coach. | 2ᵉ inbox. « Lu » sans `read_at` confirmé. |
+| **UX32** Objet dans le fil | Fil texte (lot 7). Notes 360 peuvent déjà porter un `workout_id`. | Une carte résumé (nom + date de séance, ou date de check-in) attachée au message. Ouverture = la fiche / le recap, pas un logger dans le chat. | WhatsApp, pièces, vocaux. Logger embarqué. |
+| **UX47** Calendrier d’états | Points loggés (lot 6) : séance / nutrition / poids. | Jour de **plan** : prévu (dû, pas de log) / commencé (séance ouverte) / terminé (complétée). Un dû non loggé **reste** visible. Recale expliqué (UX92). | Effacer le passé. Confondre jour civil et séance. |
+| **UX50** Point → séance | Courbe + liste sous `/exercise-progress`. | Toucher un point ouvre `/workout/:id` de cette séance. Séance absente = vide honnête. | Point orphelin inventé. Recalcul « 0 » (UX49). |
+| **UX67** Aide | Copy inline (notices santé UX04, audience photos UX54). | Une phrase à côté du contrôle, au premier usage ou en disclosure. | Centre d’aide. 6ᵉ onglet. Dump de parcours. |
+| **UX112** Capteurs | Saisie manuelle. Onglet 360 « Récupération » = check-ins, pas un wearable. | Chantier dédié **après** cette file : source nommée, consentement, conflit saisie vs capteur. | Route `/health`, Apple Health / Garmin / Fitbit **maintenant**. |
+
+**Construction.** UX19 coach / UX23 UI / UX27 / UX32 / UX47 / UX50 = PRs séparées sur l’existant. UX22 = pas de moteur neuf. UX67 = copy, pas un produit aide. UX112 = hors file.
+
 ### Livraison chantier 2
 
 - Une PR = une capacité. Pas de monolithe départ + rôles + annuaire.
@@ -455,23 +473,23 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Reprendre valeurs ≠ ajouter une série | UX13 | **Terminé** |
 | Offline en langage courant ; file hors séances | UX16 | **Terminé** (langage). File = séances seulement. |
 | Sélecteur d’exercice (variantes, récents) | UX18 | À construire |
-| Remplacement « cette séance » vs plan | UX19 | À concevoir |
-| Cycles / phases / prescriptions hors reps | UX22 | À concevoir / transversal |
-| Historique visuel des révisions | UX23 | À concevoir / transversal |
+| Remplacement « cette séance » vs plan | UX19 | **Conçu** |
+| Cycles / phases / prescriptions hors reps | UX22 | **Conçu** |
+| Historique visuel des révisions | UX23 | **Conçu** |
 | Check-in : champs vraiment utilisés | UX25 | À construire |
-| Relier réponse coach au bilan | UX27 | À concevoir |
+| Relier réponse coach au bilan | UX27 | **Conçu** |
 | Manque ≠ faute ; relances | UX28 | **Terminé** |
-| Lier séance / check-in dans le fil | UX32 | Après lot 7 |
+| Lier séance / check-in dans le fil | UX32 | **Conçu** |
 | Filtres roster visibles | UX36 | À construire |
 | Builder questionnaire (modèle, preview, publication) | UX39–41 | À construire |
 | Attente IA quittable | UX44 | À construire |
-| Calendrier : prévu / commencé / terminé | UX47 | À concevoir |
-| Du point de courbe vers la séance | UX50 | À concevoir |
+| Calendrier : prévu / commencé / terminé | UX47 | **Conçu** |
+| Du point de courbe vers la séance | UX50 | **Conçu** |
 | Provenance alimentaire en mots | UX51 | À construire |
 | Scanner : issue si pas de caméra / produit | UX52 | À vérifier |
 | Permission notif au bon moment | UX64 | À construire |
 | Audience, export, delete compte | UX66 | À construire |
-| Aide contextuelle | UX67 | À concevoir |
+| Aide contextuelle | UX67 | **Conçu** |
 | Stabilité chargement / double submit | UX68 | À vérifier |
 | Raccourcis Accueil | UX69 | Reporté P3 |
 | Silhouette vs liste | UX06 | Reporté P3 |
@@ -504,7 +522,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Notes d’exo en 360 / dernière séance | UX109 | **16c Terminé** |
 | Copier le setup tracking | UX110 | **16d Terminé** |
 | Nutrition coaché sans 6ᵉ onglet | UX111 | **16e Terminé** |
-| Capteurs santé (Apple Health / Garmin, …) | UX112 | Après 16 **et 17–23**, à concevoir |
+| Capteurs santé (Apple Health / Garmin, …) | UX112 | **Conçu** (chantier dédié, pas cette file) |
 | Matrice fichiers + design tokens documentés | ARCH01 | Lot 17a |
 | Autodiscovery tests + nom package + rename progressif | ARCH09 | Lot 17b–e |
 | Une convention `.env` / Netlify | ARCH12 | Lot 17d |
@@ -626,11 +644,11 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX100** | P2 | 14c | **Terminé** | Live : Démarrer depuis Entraînement → types du plan. Accueil seed `toWorkoutTemplateExercise`. Pas d’ajouter d’exo. | Le client logge ce que le plan a prescrit. |
 | **UX102** | P2 | 15b | **Terminé** | Live : bouton `data-save-plan` → « Programme créé » / `/programs`. | Une bonne séance libre n’est pas perdue. |
 | **UX108** | P2 | 16b | **Terminé** | Live : toast « Programme dupliqué ». | Copier un plan ≠ l’assigner. |
-| **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
+| **UX19** | P2 | ens. | **Conçu** | Contrat ci-dessous. Solo : choix lot 13 déjà là. Construction = surface coach « proposer au plan » (brouillon), pas un 2ᵉ Ask. | Pas de réécriture silencieuse du futur. |
 | **UX20** | P1 | 3 | **Terminé** | RPC `save_program` + `stale` + recap destinataire live. | Le client voit ou ne voit pas ; pas de plan à moitié. |
 | **UX21** | P1 | 3 | **Terminé** | Recap live : programme + client + date avant confirm. | Parcours bibliothèque sans destinataire accidentel. |
-| **UX22** | P2 | ens. | À concevoir | Athlète = séance ; coach = structure. | Séance identifiable après report. |
-| **UX23** | P1 | ens. | À concevoir | Diff avant/après, auteur, date d’effet. | Restaurer ≠ réécrire le passé. |
+| **UX22** | P2 | ens. | **Conçu** | Contrat ci-dessous. Builder a déjà nom/durée/notes de cycle. Pas de moteur de phases dans cette file. | Séance identifiable après report. |
+| **UX23** | P1 | ens. | **Conçu** | Contrat ci-dessous. Snapshots `program_revisions` déjà en base. Construction = UI d’historique, pas un nouveau versioning. | Restaurer ≠ réécrire le passé. |
 | **UX81** | P1 | 8 | **Terminé** | Programme coaché en lecture (`/programs`). Progression `/exercise-progress` ouverte (recherche). | Tendances d’exo accessibles ; plan non éditable. |
 
 ### Check-in et relation
@@ -640,7 +658,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX24** | P2 | fait | À vérifier | Ancres bas/haut livrées (#91). | Historique comparable. |
 | **UX25** | P2 | ens. | À construire | Champs vraiment utilisés ; cœur vs détails. | Chaque champ explicable. |
 | **UX26** | P1 | 10e | **Terminé** | Toast live « Enregistré — visible par Chantier Coach ». | Succès ≠ lu. |
-| **UX27** | P2 | ens. | À concevoir | Relier réponse coach / adaptation au bilan. | Le coaché voit à quoi ça a servi. |
+| **UX27** | P2 | ens. | **Conçu** | Contrat ci-dessous. Toast UX26 déjà là. Construction = lien visible, pas un 2ᵉ inbox. | Le coaché voit à quoi ça a servi. |
 | **UX28** | P1 | ens. | **Terminé** | Live : cutoff « séance non loggée » ; templates « Séances non loggées » / « Check-ins en attente » ; Ask « log(s) manquant(s) » ; relance sans faute. `fleetCopy` jumelé. | Pas d’interprétation santé automatique. |
 
 ### Messagerie
@@ -650,7 +668,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX29** | P1 | 7 | À vérifier | Ancrage au chargement de l’historique. | Page ancienne ≠ saut en bas. |
 | **UX30** | P1 | 7 | **Partiel** | Brouillon restauré live (aller-retour dashboard). **Reste :** plusieurs fils / relance. | Changer de fil restaure le bon texte. |
 | **UX31** | P1 | 7 | **À vérifier** | `read_at` seulement si `.select('id')` confirme. **Reste :** parcours live. | Pas de doublon ; pas de faux lu. |
-| **UX32** | P2 | ens. | À concevoir | Lier séance / check-in (résumé). Après le socle 7. | Objet identifiable dans le fil. |
+| **UX32** | P2 | ens. | **Conçu** | Contrat ci-dessous. Fil texte déjà là (lot 7). Construction = carte résumé, pas WhatsApp. | Objet identifiable dans le fil. |
 | **UX85** | P1 | 7 | **Terminé** | Dismiss live ; `read_at` reste NULL. | Masquer un rappel ne marque pas lu. |
 
 Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, recherche, présence : **après** le socle. Pas de E2E promis.
@@ -702,10 +720,10 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **UX47** | P2 | ens. | À concevoir | Prévu / commencé / terminé ; report expliqué. | Le passé ne disparaît pas. |
+| **UX47** | P2 | ens. | **Conçu** | Contrat ci-dessous. Points loggés déjà là (lot 6). Construction = états de **plan**, pas un nouveau calendrier. | Le passé ne disparaît pas. |
 | **UX48** | P1 | 6 | **Terminé** | Deux séances déjà listées. Recherche progression live. Unique pesée/jour = contrainte prod. | Deux séances le même jour visibles. |
 | **UX49** | P2 | 1+6 | **À vérifier** | Lot 1 : manque ≠ 0. Lot 6 Git : jours ≠ séances (plusieurs cartes). **Reste :** parcours live calendrier. | Pas de conclusion sur données insuffisantes. |
-| **UX50** | P2 | ens. | À concevoir | Du point de courbe vers la séance. | Origine retrouvable. |
+| **UX50** | P2 | ens. | **Conçu** | Contrat ci-dessous. Courbe + liste déjà là. Construction = point cliquable → `/workout/:id`. | Origine retrouvable. |
 
 ### Nutrition, recettes, photos
 
@@ -738,11 +756,11 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX64** | P2 | ens. | À construire | Permission au bon moment ; rappel = objet encore vrai. | Pas de relance d’une tâche finie. |
 | **UX65** | P2 | 10f | **À vérifier** | Progression : unité du profil. FR/EN clés ≠ UI encore ailleurs. Fuseau lisible. | Changer d’unité ne change pas la donnée. |
 | **UX66** | P2 | ens. | À construire | Audience, export éventuel, delete, liens. | Contrôle sans écrire au support. |
-| **UX67** | P2 | ens. | À concevoir | Aide contextuelle. | Pas de dump de parcours. |
+| **UX67** | P2 | ens. | **Conçu** | Contrat ci-dessous. Copy inline déjà le défaut. Pas de centre d’aide, pas de 6ᵉ onglet. | Pas de dump de parcours. |
 | **UX68** | P1 | ens. | À vérifier | Stabilité chargement ; pas de double submit. | Action prise en compte tout de suite. |
 | **UX69** | P3 | rep. | Reporté | Raccourcis Accueil seulement si la nav par défaut échoue. | Test comparatif. |
 | **UX70** | P2 | cont. | Continu | Mesurer réussite de tâche, pas le temps passé. | Sans contenu de messages / photos. |
-| **UX112** | P3 | ens. | À concevoir | **Après 16.** Apple Health / Garmin / etc. Aujourd’hui : saisie manuelle, pas de `/health`. | Un chantier capteurs dédié ; pas dans 14–16. |
+| **UX112** | P3 | ens. | **Conçu** | Contrat ci-dessous. Saisie manuelle seulement. **Pas** dans cette file. | Un chantier capteurs dédié ; pas dans 14–16. |
 
 ### Structure et agents (ARCH)
 
@@ -790,7 +808,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**. **M7–M8 conçus** (contrats dans Chantier 2). Catalogue ens. encore dû.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
