@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
 | **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)** et **17–23 Terminé**.
 
@@ -38,6 +38,7 @@
 | **UX07** Une carte Accueil | **PASS.** Séance due = seul hero (message/check-in masqués). `waiting_program` = seul hero. Jour de repos = un strip message. | — |
 | **UX09** Enchaîner les fiches | **PASS.** Roster → Invitee `1 / 2` → Client `2 / 2` sans reliste. Check-ins conservé au précédent. Retour liste filtrée. | — |
 | **UX13** Reprendre les valeurs | **PASS.** 3 séries ; raccourci remplit la 2ᵉ (80/5/2) ; pas de 4ᵉ rangée. | — |
+| **UX16** Offline langage | **PASS.** Bandeau « Hors ligne — tes modifications sont conservées sur cet appareil. » File séances seulement. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -333,7 +334,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX16, UX28, …), capteurs santé (UX112), billing (**M6 Reporté**).
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX28, …), capteurs santé (UX112), billing (**M6 Reporté**).
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -451,7 +452,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Thème | IDs | Statut |
 |---|---|---|
 | Reprendre valeurs ≠ ajouter une série | UX13 | **Terminé** |
-| Offline en langage courant ; file hors séances | UX16 | À construire / transversal |
+| Offline en langage courant ; file hors séances | UX16 | **Terminé** (langage). File = séances seulement. |
 | Sélecteur d’exercice (variantes, récents) | UX18 | À construire |
 | Remplacement « cette séance » vs plan | UX19 | À concevoir |
 | Cycles / phases / prescriptions hors reps | UX22 | À concevoir / transversal |
@@ -608,7 +609,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX13** | P2 | ens. | **Terminé** | Live : 3 rangées ; « Reprendre les valeurs » remplit la suivante ; pas de 4ᵉ. | Pas de série en trop par raccourci. |
 | **UX14** | P2 | 10f | **À vérifier** | Inputs séance agrandis. Progression : `formatWeight` / `unit_weight`. **Reste :** parcours live kg↔lbs. | Édition conservée ; unité du profil. |
 | **UX15** | P2 | ens. | À vérifier | Repos 90 s déjà lancé après coche. Préférence auto **volontaire** ; pas au préremplissage. | Désactivable ; jamais sur un simple fill. |
-| **UX16** | P1 | ens. | À construire | Langage : appareil / sync / action requise. | Après coupure, on sait ce qui est conservé. |
+| **UX16** | P1 | ens. | **Terminé** | Live : « conservées sur cet appareil ». Dead-letter = « Ajouter une série », pas `set.add`. File hors séances reportée. | Après coupure, on sait ce qui est conservé. |
 | **UX17** | P1 | 1 | **Terminé** | Plus de `setTimeout` 30 s. Fermer → recap. Faits, pas « Conseil du coach ». Parcours 15 sept. | — |
 | **UX101** | P2 | 15a | **Terminé** | Live : Échap sur le modal → barre « Minuteur de repos · 1:29 ». | On voit le temps restant sans le modal. |
 | **UX103** | P3 | 15c / 16f | **Terminé** | Live : sleeve + palette 7 disques, total barre 20 kg. Inventaire lbs déjà unit-testé. | On voit et on compose la charge, pas une liste. |

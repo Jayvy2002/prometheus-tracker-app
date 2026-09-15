@@ -30,6 +30,7 @@ const {
   persistIdMap,
   clearOfflineQueue,
   isTransportError,
+  offlineOpLabelKey,
 } = await import('./offlineQueue');
 const { setSessionOwner } = await import('./sessionScope');
 
@@ -59,6 +60,15 @@ test('D07: queue is namespaced per account and survives reload', () => {
   setSessionOwner(null);
 });
 
+test('UX16: queued mutations have everyday-language keys, not set.add', () => {
+  assert.equal(offlineOpLabelKey('set.add'), 'workout.offlineOp.setAdd');
+  assert.equal(offlineOpLabelKey('workout.create'), 'workout.offlineOp.create');
+  assert.equal(offlineOpLabelKey('mystery'), 'workout.offlineOp.generic');
+  const fr = src('src/i18n/locales/fr/workout.ts');
+  assert.match(fr, /conservées sur cet appareil/);
+  assert.match(fr, /setAdd: 'Ajouter une série'/);
+});
+
 test('D07: transport errors are distinguished from app errors', () => {
   assert.equal(isTransportError(new Error('Failed to fetch')), true);
   assert.equal(isTransportError(new Error('Load failed')), true);
@@ -81,6 +91,8 @@ test('D07: workout mutations go through the queue with stable client ids', () =>
   assert.match(form, /peekDeadLetterOps/);
   assert.match(form, /workout\.syncDeadLetter/);
   assert.match(form, /workout\.syncQuota/);
+  assert.match(form, /offlineOpLabelKey/);
+  assert.doesNotMatch(form, /\{op\.type\}/);
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /syncOfflineQueue\(\)/);
   assert.match(app, /window\.addEventListener\('online'/);
