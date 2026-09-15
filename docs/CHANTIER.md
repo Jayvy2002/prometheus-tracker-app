@@ -612,7 +612,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX07** | P1 | 8+9 | **Terminé** | Vision 15 sept. soir : priorité + vue d’ensemble (plus « une carte exclusive »). Onglet **Dashboard**. Rings nutrition = page Nutrition. Graphique poids. Message / check-in restent visibles à côté de la séance due. | On sait quoi faire **et** où on en est. |
-| **UX08** | P2 | 8 | **Partiel** | Code : carte « Mon programme » sur Dashboard + Entraînement (solo avec plan aussi). **Reste :** parcours live. | Programme / historique sans deviner Profil. |
+| **UX08** | P2 | 8 | **Terminé** | Live Solo : Dashboard « Mon programme · Plan UX84 Mardi » → `/programs` ; même carte sur Entraînement. Client : « Plan Chantier Force ». | Programme / historique sans deviner Profil. |
 | **UX09** | P1 | 9 | **Terminé** | Live : `1 / 2` Invitee → `2 / 2` Client ; précédent garde `tab=checkins` ; retour liste. | Enchaîner des fiches sans reconstruire la liste. |
 | **UX10** | P1 | 8 | **Terminé** | Live invitee : « Ton coach va t’envoyer un programme » → `/messages`. | On sait quoi faire maintenant. |
 | **UX11** | P2 | 10i | **À vérifier** | Séance / programme / modèle. Copy « routine » retirée. **Reste :** parcours live. | Un nom = une action. |
