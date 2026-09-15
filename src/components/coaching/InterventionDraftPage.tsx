@@ -486,6 +486,7 @@ export default function InterventionDraftPage() {
         </p>
         {(patchPreview || outlinePreview || caloriePreview || relancePreview) && (
           <Card className="mb-4 border-blue-500/20">
+            <div data-testid="ux19-draft-recap">
             <p className="text-[11px] uppercase tracking-wider text-blue-300 mb-2">{t('coaching.draftSend.compare')}</p>
             {patchPreview && (
               <p className="text-sm text-neutral-200">
@@ -571,6 +572,7 @@ export default function InterventionDraftPage() {
             {willSee ? (
               <p className="text-[11px] text-neutral-500 mt-2">{t('coaching.draftSend.clientWillSee', { summary: willSee })}</p>
             ) : null}
+            </div>
           </Card>
         )}
 

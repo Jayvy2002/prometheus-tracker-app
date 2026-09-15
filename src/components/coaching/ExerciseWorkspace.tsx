@@ -132,13 +132,16 @@ export default function ExerciseWorkspace({
                 size="sm"
                 variant="secondary"
                 loading={saving === action}
+                data-testid={action === 'replace_exercise' ? 'ux19-propose-to-plan' : undefined}
                 onClick={() => propose(action)}
               >
-                {t(`coaching.workspace.actions.${action}`)}
+                {action === 'replace_exercise'
+                  ? t('coaching.ux19.proposeToPlan')
+                  : t(`coaching.workspace.actions.${action}`)}
               </Button>
             ))}
           </div>
-          <p className="text-[11px] text-neutral-600 mt-2">{t('coaching.workspace.proposalHint')}</p>
+          <p className="text-[11px] text-neutral-600 mt-2">{t('coaching.ux19.proposeHint')}</p>
         </div>
         <button
           type="button"
