@@ -7,6 +7,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { useAccountContext } from '../../lib/useAccountContext';
+import { deleteConfirmToken } from '../../lib/dataControl';
 import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
 import { userFacingError } from '../../lib/userFacingError';
@@ -23,6 +24,7 @@ import PasswordForm from './PasswordForm';
 import FeedbackForm from './FeedbackForm';
 import AvatarUpload from './AvatarUpload';
 import NotificationSettings from './NotificationSettings';
+import DataControlPanel from './DataControlPanel';
 import CoachSettingsPanel from '../coaching/CoachSettingsPanel';
 import ClientCoachRelationshipPanel from '../coaching/ClientCoachRelationshipPanel';
 import SoloHub from './SoloHub';
@@ -87,12 +89,7 @@ export default function ProfilePage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [coachModeDialog, setCoachModeDialog] = useState<{ count: number } | null>(null);
   const [coachModeBusy, setCoachModeBusy] = useState(false);
-
-
-
-
-
-
+  const confirmWord = deleteConfirmToken(i18n.language);
 
   const handleLanguageChange = async (lang: string) => {
     setAppLanguage(lang);
@@ -330,9 +327,15 @@ export default function ProfilePage() {
       </Button>
 
       <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mt-6 mb-2">{t('profile.groups.advanced')}</p>
+      <DataControlPanel
+        hasCoach={!!myCoach}
+        coachName={myCoach?.full_name ?? null}
+        tracking={tracking}
+      />
       <button
         onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(''); setDeleteError(null); }}
         className="w-full min-h-11 text-sm text-neutral-500 hover:text-rose-500 transition-colors animate-fade-in-up"
+        data-testid="data-delete-open"
       >
         {t('profile.deleteAccount')}
       </button>
@@ -376,13 +379,14 @@ export default function ProfilePage() {
           </p>
           <div>
             <label className="block text-xs text-neutral-500 mb-1.5">
-              {t('profile.deleteModal.typeToConfirm')}
+              {t('profile.deleteModal.typeToConfirm', { word: confirmWord })}
             </label>
             <input
               type="text"
               value={deleteConfirmText}
               onChange={e => setDeleteConfirmText(e.target.value)}
-              placeholder="DELETE"
+              placeholder={confirmWord}
+              data-testid="data-delete-confirm"
               className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 text-sm text-white placeholder-neutral-600 focus:outline-none focus:ring-1 focus:ring-rose-500"
             />
           </div>
@@ -396,7 +400,7 @@ export default function ProfilePage() {
             <Button
               onClick={handleDeleteAccount}
               className="flex-1 !bg-rose-600 hover:!bg-rose-700"
-              disabled={deleteConfirmText !== 'DELETE' || deleting}
+              disabled={deleteConfirmText !== confirmWord || deleting}
             >
               <Trash2 size={14} />
               {deleting ? t('profile.deleteModal.deleting') : t('profile.deleteModal.title')}
