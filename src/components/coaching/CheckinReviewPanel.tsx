@@ -2,19 +2,11 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { DailyCheckin } from '../../lib/types';
-import { formatCheckinScore } from '../../lib/coachCheckins';
 import { summarizeCheckin } from '../../lib/coachInsight';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import CheckinSummaryCard from './CheckinSummaryCard';
-
-const HIGHLIGHT_KEYS = [
-  'joint_pain',
-  'adherence_training',
-  'adherence_nutrition',
-  'energy_level',
-  'sleep_quality',
-] as const;
+import CheckinFilledScores from '../checkin/CheckinFilledScores';
 
 export default function CheckinReviewPanel({
   checkin,
@@ -45,11 +37,7 @@ export default function CheckinReviewPanel({
     <div className="space-y-3">
       <CheckinSummaryCard summary={summary} hideSeeAnswers />
       <Card>
-        <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400">
-          {HIGHLIGHT_KEYS.map(key => (
-            <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(checkin[key], checkin)}</span>
-          ))}
-        </div>
+        <CheckinFilledScores row={checkin} />
         {checkin.notes ? (
           <p className="text-xs text-neutral-300 mt-3">
             <span className="text-neutral-500">{t('coaching.checkinReview.clientNote')} </span>

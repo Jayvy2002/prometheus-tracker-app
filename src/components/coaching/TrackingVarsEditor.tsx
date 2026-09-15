@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import {
-  CHECKIN_VAR_KEYS,
+  CHECKIN_CORE_VAR_KEYS,
+  CHECKIN_EXTRA_VAR_KEYS,
   NUTRITION_VAR_KEYS,
   TRAINING_VAR_KEYS,
   groupAllEnabled,
@@ -132,21 +133,42 @@ export default function TrackingVarsEditor({ value, onChange }: Props) {
       )}
 
       {value.track_checkins && (
-        <div>
-          <GroupHeader
-            title={t('coaching.tracking.checkinVars')}
-            allOn={groupAllEnabled(value.checkin, CHECKIN_VAR_KEYS)}
-            onToggleAll={v => onChange({ ...value, checkin: toggleGroup(value.checkin, CHECKIN_VAR_KEYS, v) })}
-          />
-          <div className="grid grid-cols-2 gap-1.5">
-            {CHECKIN_VAR_KEYS.map(key => (
-              <Toggle
-                key={key}
-                checked={value.checkin[key]}
-                label={t(`coaching.tracking.check.${key}`)}
-                onChange={v => onChange({ ...value, checkin: { ...value.checkin, [key]: v } })}
-              />
-            ))}
+        <div className="space-y-3" data-testid="checkin-vars-editor">
+          <div>
+            <GroupHeader
+              title={t('coaching.tracking.checkinCore')}
+              allOn={groupAllEnabled(value.checkin, CHECKIN_CORE_VAR_KEYS)}
+              onToggleAll={v => onChange({ ...value, checkin: toggleGroup(value.checkin, CHECKIN_CORE_VAR_KEYS, v) })}
+            />
+            <p className="text-[11px] text-neutral-500 mb-1.5">{t('coaching.tracking.checkinCoreHint')}</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {CHECKIN_CORE_VAR_KEYS.map(key => (
+                <Toggle
+                  key={key}
+                  checked={value.checkin[key]}
+                  label={t(`coaching.tracking.check.${key}`)}
+                  onChange={v => onChange({ ...value, checkin: { ...value.checkin, [key]: v } })}
+                />
+              ))}
+            </div>
+          </div>
+          <div>
+            <GroupHeader
+              title={t('coaching.tracking.checkinExtra')}
+              allOn={groupAllEnabled(value.checkin, CHECKIN_EXTRA_VAR_KEYS)}
+              onToggleAll={v => onChange({ ...value, checkin: toggleGroup(value.checkin, CHECKIN_EXTRA_VAR_KEYS, v) })}
+            />
+            <p className="text-[11px] text-neutral-500 mb-1.5">{t('coaching.tracking.checkinExtraHint')}</p>
+            <div className="grid grid-cols-2 gap-1.5">
+              {CHECKIN_EXTRA_VAR_KEYS.map(key => (
+                <Toggle
+                  key={key}
+                  checked={value.checkin[key]}
+                  label={t(`coaching.tracking.check.${key}`)}
+                  onChange={v => onChange({ ...value, checkin: { ...value.checkin, [key]: v } })}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}

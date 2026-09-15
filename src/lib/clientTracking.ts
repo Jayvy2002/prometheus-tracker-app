@@ -31,6 +31,10 @@ export const CHECKIN_CORE_VAR_KEYS: readonly CheckinVarKey[] = [
   'stress',
 ];
 
+export const CHECKIN_EXTRA_VAR_KEYS: readonly CheckinVarKey[] = CHECKIN_VAR_KEYS.filter(
+  key => !CHECKIN_CORE_VAR_KEYS.includes(key),
+);
+
 export type TrainingVars = Record<TrainingVarKey, boolean>;
 export type NutritionVars = Record<NutritionVarKey, boolean>;
 export type CheckinVars = Record<CheckinVarKey, boolean>;

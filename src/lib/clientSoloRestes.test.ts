@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { previousCheckins } from './checkinHistory';
+import { previousCheckins, usedCheckinScores } from './checkinHistory';
 import type { DailyCheckin } from './types';
 import { coachingStoreSource } from './coachingStoreSource';
 import { i18nLocaleSource } from './i18nLocaleSource';
@@ -45,6 +45,22 @@ test('check-in history lists previous days, not today', () => {
   assert.deepEqual(rows.map(r => r.id), ['yest', 'older']);
 });
 
+test('UX25 history and 360 only show scores that were actually filled', () => {
+  const empty = checkin({ id: 'empty', checked_at: '2026-09-05' });
+  assert.deepEqual(usedCheckinScores(empty), []);
+
+  const filled = checkin({
+    id: 'yest',
+    checked_at: '2026-09-05',
+    energy_level: 7,
+    sleep_quality: 8,
+    hunger: null,
+    mood: null,
+  });
+  assert.deepEqual(usedCheckinScores(filled), ['sleep_quality', 'energy_level']);
+  assert.ok(!usedCheckinScores(filled).includes('hunger'));
+});
+
 test('CheckInPage loads recent check-ins under the daily form', () => {
   const page = src('src/components/checkin/CheckInPage.tsx');
   assert.match(page, /fetchRecent\(user\.id, 14\)/);
@@ -52,6 +68,12 @@ test('CheckInPage loads recent check-ins under the daily form', () => {
   const list = src('src/components/checkin/CheckinHistoryList.tsx');
   assert.match(list, /checkin\.historyTitle/);
   assert.match(list, /previousCheckins/);
+  assert.match(list, /CheckinFilledScores/);
+  assert.doesNotMatch(list, /CHECKIN_HISTORY_SCORE_KEYS\.map/);
+  assert.match(src('src/i18n/locales/fr.ts'), /Plan d’entraînement suivi/);
+  assert.match(src('src/i18n/locales/en.ts'), /Training plan followed/);
+  assert.match(src('src/i18n/locales/fr.ts'), /moreDetailsCount/);
+  assert.doesNotMatch(src('src/components/checkin/CheckInPage.tsx'), /Adhérence/);
 });
 
 test('steps journal calls logSteps from Nutrition and Dashboard reads the log', () => {
