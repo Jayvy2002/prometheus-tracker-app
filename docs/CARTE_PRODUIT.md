@@ -16,7 +16,7 @@ Les données personnelles restent attachées à l’utilisateur. Solo et coaché
 
 ### Périmètre et preuves
 
-Sources relues sur `new-JV` le 12–13 septembre 2026 : routes, authentification, rôles, accueil, console coach, stores de programmes et coaching, API questionnaires, file hors ligne, types et migrations ciblées. Le statut des lots M1–M5 est uniquement dans `CHANTIER.md` (à vérifier, pas à reconstruire). Cette carte ne prouve aucun déploiement.
+Sources relues sur `new-JV` le 12–13 septembre 2026, recalées le 15 septembre. Le statut des lots **M0–M5 Terminé** est uniquement dans `CHANTIER.md` (ne pas reconstruire). Cette carte ne prouve aucun déploiement.
 
 La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve de production. Les absences ci-dessous signifient « non raccordé au parcours dans les sources inspectées », à confirmer par inventaire complet avant création d’une table ou d’un service. Les extraits historiques SQL doivent être confrontés à toutes les redéfinitions ultérieures lors de l’implémentation.
 
@@ -30,7 +30,7 @@ La lecture n’est pas un audit exhaustif de toutes les policies ni une preuve d
 | Moteur séances | `Workout.user_id`, `Routine.user_id` ; [startWorkout](../src/lib/startWorkout.ts) appelle une RPC commune avec routine ou programme assigné | Conserver les identifiants et cette entrée commune. Aucun deuxième moteur coaché. Import externe non prouvé par cette lecture. |
 | Programmes | [programStore](../src/stores/programStore.ts) expose création atomique, fork, révisions et attributions en pause | Réutiliser. Distinguer routine, modèle propriétaire et attribution ; ne pas les fusionner par simple renommage. |
 | Erreurs programmes | `fetchPrograms` remplace la liste par vide en cas d’échec ; `fetchProgram` renvoie null pour plusieurs causes | Rendre les résultats typés : vide, inaccessible, absent et erreur réseau doivent mener à des issues différentes. |
-| Accueil personnel | [Dashboard](../src/components/dashboard/Dashboard.tsx) : priorité + « Ta journée » (rings nutrition, poids, semaine, check-in, coaching selon modules) | Conserver ce contrat. Ne pas revenir à « une carte exclusive ». Réduire les chargements aux données utiles. |
+| Accueil personnel | [Dashboard](../src/components/dashboard/Dashboard.tsx) : priorité + « Ta journée » (programme, rings nutrition, poids, semaine, check-in, coaching selon modules) | Conserver ce contrat. Ne pas revenir à « une carte exclusive ». Programme joignable depuis l’accueil (UX08). |
 | Console coach | [CoachDashboard](../src/components/coaching/CoachDashboard.tsx) réutilise priorités, file du jour, bilans, invitations et erreurs partielles | Préserver le centre de décisions ; ajouter les prospects dans une zone distincte du suivi des clients. |
 | Invitations | [coachingStore](../src/stores/coachingStore.ts) appelle `accept_coach_invite`, aperçu et rafraîchissement | Conserver l’entrée des clients existants. Lier les futures demandes au même invariant d’association côté serveur. |
 | Questionnaires | [coachQuestionnaireApi](../src/lib/coachQuestionnaireApi.ts), [migration questionnaire](../supabase/migrations/20260911235551_coach_questionnaires.sql) : versions et réponses avec révision | Réutiliser rendu/validation et historique. Le questionnaire de recherche a un contrat séparé ; pas de réécriture des anciennes réponses. |
@@ -214,7 +214,7 @@ Sur tous les écrans : langue FR/EN, focus/clavier et mobile utilisables ; charg
 
 | ID / écran | Objectif et informations | CTA principal → état suivant | Secondaires | Vide / erreur | Permissions |
 |---|---|---|---|---|---|
-| H01 Home coaché | Prochaine action convenue, séance, message et bilan réellement attendus | Reprendre/Commencer → S04 ou demande concernée | Programme ; messages ; progression | Plan en préparation : contact et outils personnels autorisés ; aucune heure fictive | U, R pour contenu coach |
+| H01 Home coaché | Priorité du jour + vue d’ensemble (séance, rings, poids, check-in, messages, programme) | Action de la priorité → S04 / Messages / Check-in | Programme ; progression lecture | Plan en préparation : empty honnête + Messages ; aucune heure fictive | U, R pour contenu coach |
 | H02 Questionnaire complémentaire | Champs manquants, réponses réutilisées avec source/date | Envoyer → H01 | Corriger ; reprendre plus tard ; messages | Version changée/conflit : conserver brouillon et résoudre ; ne pas redemander le dossier entier | U sur réponse ; R sur lecture partagée |
 | H03 Messages | Fil, destinataire et états réellement prouvés | Envoyer → même fil | Réessayer ; charger historique ; ouvrir contexte | Fil vide : composer ; réseau lent : conserver le message suivant ; aucun faux « lu » | Participants autorisés ; anciens fils selon règles d’archive |
 | H04 Bilan de suivi | Questions choisies et informations utiles au coach | Envoyer → reçu, en attente de revue | Brouillon ; corriger selon règles | Pas de bilan demandé : aucune obligation ; échec garde les réponses | U ; C+R pour revue |
@@ -247,7 +247,7 @@ Les rendez-vous et avis ne créent pas d’écrans actifs tant que leur contrat 
 | Objet | États cibles | Effet sur l’accompagnement |
 |---|---|---|
 | Recherche | brouillon / prête | Aucun changement de rôle |
-| Demande | pending / accepted / declined / withdrawn / expired | Acceptée signifie accord du coach, pas lien actif ni paiement confirmé |
+| Demande | pending / accepted / declined / withdrawn / expired | **Acceptée = suivi actif** (`activate_coaching_relationship`). Ce n’est **pas** un paiement (M5). |
 | Engagement | awaiting_client / awaiting_payment / ready / cancelled / activation_failed | Conditions et capacité réservée selon règle définie ; toujours pas d’accès complet prématuré |
 | Paiement | not_required / pending / confirmed / failed / refunded | Source serveur ; ne doit pas devenir une colonne de rôle |
 | Relation | active / ended | Seul le passage à active rend l’espace personnel coaché |

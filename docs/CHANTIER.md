@@ -8,7 +8,7 @@
 
 **Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX44 / UX51 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28 / UX36 / UX44 / UX84** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX07 / UX08 / UX28 / UX36 / UX44 / UX84** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -812,7 +812,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07** (vue d’ensemble + rings), **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX44**, **UX51**, **UX84**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX44**, **UX51**, **UX84**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|

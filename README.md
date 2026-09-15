@@ -31,7 +31,7 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 ### Client coaché
 
 - Dashboard : priorité du jour et vue d’ensemble (séance, rings nutrition, poids, check-in, messages).
-- Séance du jour et programme assigné.
+- Programme assigné, joignable depuis le Dashboard et Entraînement.
 - Check-ins, messages et photos.
 - Questionnaire choisi par le coach, brouillon reprenable et réponses rattachées à la version remplie.
 - Modules de suivi sélectionnés par le coach.
@@ -40,8 +40,8 @@ Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’
 
 ### Solo
 
-- Dashboard : priorité du jour et vue d’ensemble (séance, rings nutrition, poids, progression).
-- Séances, routines, progression, statistiques et calendrier.
+- Dashboard : priorité du jour et vue d’ensemble (séance, rings nutrition, poids, programme, progression).
+- Séances, programme (Dashboard + Entraînement), progression, statistiques et calendrier.
 - Nutrition, recherche d’aliments, scanner et recettes.
 - Questionnaire initial, cibles et proposition de programme.
 - Revue et modifications proposées par le copilote.
