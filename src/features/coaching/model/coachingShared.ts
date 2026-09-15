@@ -252,6 +252,7 @@ export interface CoachingState {
     body: string,
     templateKey: CoachNudgeTemplateKey,
     clientMsgId?: string,
+    bilan?: { workoutId?: string | null; checkinId?: string | null },
   ) => Promise<{ error: string | null }>;
   sendClientReply: (body: string, clientMsgId?: string) => Promise<{ error: string | null }>;
   /**

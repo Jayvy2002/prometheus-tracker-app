@@ -134,6 +134,8 @@ test('lastMessageForClient returns the newest preview for the roster card', () =
       template_key: 'reply',
       created_at: '2026-08-29T12:00:00Z',
       read_at: null,
+      workout_id: null,
+      checkin_id: null,
     },
     {
       id: 'm1',
@@ -144,6 +146,8 @@ test('lastMessageForClient returns the newest preview for the roster card', () =
       template_key: 'general_followup',
       created_at: '2026-08-29T13:00:00Z',
       read_at: null,
+      workout_id: null,
+      checkin_id: null,
     },
   ], 'sofia-id');
   assert.equal(preview?.body, 'Désolée, je rattrape demain');

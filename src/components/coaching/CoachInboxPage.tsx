@@ -16,6 +16,8 @@ import { clientFileHref } from '../../lib/coachSituation';
 import { coachingPassHref } from '../../lib/coachInterventions';
 import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
+import { formatBilanDate, hasBilan, parseBilanQuery } from '../../lib/messageBilan';
+import { supabase } from '../../lib/supabase';
 import EmptyState from '../ui/EmptyState';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
@@ -41,7 +43,9 @@ export default function CoachInboxPage() {
   const [sending, setSending] = useState(false);
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [bilanHint, setBilanHint] = useState<string | null>(null);
   const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
+  const bilan = useMemo(() => parseBilanQuery(searchParams), [searchParams]);
 
   useEffect(() => {
     if (!user) return;
@@ -53,6 +57,34 @@ export default function CoachInboxPage() {
   useEffect(() => {
     if (clientId) void markThreadRead(clientId);
   }, [clientId, sentMessages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!hasBilan(bilan)) {
+      setBilanHint(null);
+      return;
+    }
+    void (async () => {
+      if (bilan.workoutId) {
+        const { data } = await supabase.from('workouts').select('name, date').eq('id', bilan.workoutId).maybeSingle();
+        if (cancelled || !data) return;
+        const row = data as { name: string | null; date: string };
+        setBilanHint(t('coaching.messages.composeAboutWorkout', {
+          name: row.name?.trim() || t('workout.unnamed'),
+          date: formatBilanDate(row.date, i18n.language),
+        }));
+        return;
+      }
+      if (bilan.checkinId) {
+        const { data } = await supabase.from('daily_checkins').select('checked_at').eq('id', bilan.checkinId).maybeSingle();
+        if (cancelled || !data) return;
+        setBilanHint(t('coaching.messages.composeAboutCheckin', {
+          date: formatBilanDate((data as { checked_at: string }).checked_at, i18n.language),
+        }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [bilan, t, i18n.language]);
 
   const threads = useMemo(
     () => (user ? groupMessageThreads(sentMessages, clients, user.id) : []),
@@ -77,7 +109,7 @@ export default function CoachInboxPage() {
     setSending(true);
     try {
       const msgId = loadOrCreateMessageKey(clientId, body, user.id);
-      const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId);
+      const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId, bilan);
       if (!result.error) clearMessageKey(clientId, user.id);
       return result;
     } finally {
@@ -144,7 +176,7 @@ export default function CoachInboxPage() {
               currentUserId={user?.id ?? ''}
               sending={sending}
               draftBody={draftBody}
-              draftHint={nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined}
+              draftHint={bilanHint || (nudgeKey ? t('coaching.queue.relanceDraftHint') : undefined)}
               onSend={handleSend}
               hasMore={clientId ? !threadExhausted[clientId] : false}
               loadingMore={loadingMore}

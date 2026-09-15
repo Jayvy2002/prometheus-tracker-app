@@ -1,3 +1,4 @@
+import { appendBilanSearch, normalizeBilanRef } from './messageBilan';
 import { interventionHref } from './coachInterventions';
 import { datePrefix } from './coachText';
 import type {
@@ -273,8 +274,14 @@ export const RELANCE_NUDGE_PARAM = 'nudge';
 const NUDGE_KEYS: CoachNudgeTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup'];
 
 /** One-tap Relancer: Messages thread for that client + editable draft. Never auto-sends. */
-export function relanceThreadHref(clientId: string, templateKey: CoachNudgeTemplateKey): string {
-  return `/messages/${clientId}?${RELANCE_NUDGE_PARAM}=${templateKey}`;
+export function relanceThreadHref(
+  clientId: string,
+  templateKey: CoachNudgeTemplateKey,
+  bilan?: { workoutId?: string | null; checkinId?: string | null },
+): string {
+  const params = new URLSearchParams({ [RELANCE_NUDGE_PARAM]: templateKey });
+  appendBilanSearch(params, normalizeBilanRef(bilan));
+  return `/messages/${clientId}?${params.toString()}`;
 }
 
 export function parseNudgeQuery(value: string | null | undefined): CoachNudgeTemplateKey | null {
@@ -382,6 +389,8 @@ export function mapCoachMessage(raw: Record<string, unknown>): CoachMessage | nu
     template_key: template as CoachMessageTemplateKey,
     created_at: String(raw.created_at ?? ''),
     read_at: typeof raw.read_at === 'string' ? raw.read_at : null,
+    workout_id: typeof raw.workout_id === 'string' ? raw.workout_id : null,
+    checkin_id: typeof raw.checkin_id === 'string' ? raw.checkin_id : null,
   };
 }
 

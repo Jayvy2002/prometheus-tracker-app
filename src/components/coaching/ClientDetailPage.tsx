@@ -308,7 +308,11 @@ export default function ClientDetailPage() {
   const week = programWeekLabel(rosterSignals.assignmentStart[id ?? ''], rosterSignals.assignmentWeeks[id ?? '']);
   const clientPriorities = priorities.filter(p => p.clientId === id).slice(0, 4);
   const relanceHref = id ? relanceThreadHref(id, 'general_followup') : '';
-  const trainingRelanceHref = id ? relanceThreadHref(id, 'missed_training') : '';
+  const trainingRelanceHref = id
+    ? relanceThreadHref(id, 'missed_training', {
+      workoutId: sessionView?.workoutId ?? lastFromLifts?.workoutId ?? null,
+    })
+    : '';
   const situation = useMemo(() => clientSituationLines({
     hasProgram: !!(ops?.hasProgram || boundAssignment?.program),
     lastSessionDate: lastLoggedSessionDate(insightWorkouts, lifts),
@@ -910,7 +914,7 @@ export default function ClientDetailPage() {
               <CheckinReviewPanel
                 checkin={focusedCheckin}
                 previous={checkins.find(c => c.id !== focusedCheckin.id) ?? null}
-                relanceHref={relanceHrefForCheckin(id, flagKindForClient(priorities, id) ?? 'unread')}
+                relanceHref={relanceHrefForCheckin(id, flagKindForClient(priorities, id) ?? 'unread', focusedCheckin.id)}
                 savingNote={savingNote}
                 onSaveNote={async body => {
                   const { error } = await addNote(id, body, { noteDate: focusedCheckin.checked_at });
@@ -952,7 +956,7 @@ export default function ClientDetailPage() {
                 clientId={id}
                 client={client}
                 snapshot={recoveryView}
-                relanceHref={relanceHrefForRecovery(id, true)}
+                relanceHref={relanceHrefForRecovery(id, true, recoveryView.checkin.id)}
               />
             ) : (
               <Card className="space-y-3">
