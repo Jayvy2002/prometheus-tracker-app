@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–10 Terminé** (preuve live). Lots **11–16** + M encore **À vérifier**. Lots **17–23 Terminé**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–12 Terminé** (preuve live). Lots **13–16** + M encore **À vérifier**. Lots **17–23 Terminé**.
 
-| **Lot ouvert :** 11–16 / M (preuve, pas rebuild). Lots **1–10** et **17–23 Terminé**.
+| **Lot ouvert :** 13–16 / M (preuve, pas rebuild). Lots **1–12** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir (restes 3–10)** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -153,7 +153,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **9** | **File coach et continuité** (UX09, UX33, UX34) | **Terminé** | Filtre roster `?filter=` live. Depuis quand + Passer déjà prouvés. |
 | **10** | **Cohérence restante** | **Terminé** | 10d recap Ask + 10e check-in coaché live. 10a–c, 10j déjà prouvés. |
 | **11** | **Bibliothèque d’exercices** (UX86) | **Terminé** | Apply prod `20260915180000`. Picker live : Squat listé + iframe YouTube (`youtube-nocookie`) + muscles (quadriceps / fessiers). |
-| **12** | **Ask solo contextualisé** | **Partiel** | Barres Ask live sur `/workout` et `/nutrition` (« ASK PROMETHEUS / Demander »). **Reste :** revue ignorer / cette séance / Mes recettes. |
+| **12** | **Ask solo contextualisé** | **Terminé** | Barres + revue live. Entraînement : Ignorer / Cette séance / jour de plan. Nutrition : Ignorer / journal / Mes recettes. Jamais auto-apply. |
 | **13** | **Ask : autres surfaces** | À construire **après 12** | Même contrat (contexte de page, validation humaine). Séance en cours, journal / macros restants, check-in, jour loupé, coaché = brouillon Messages, alternatives d’exo (après 11), plan semaine + courses, swap d’ingrédient, deload. Une PR par ligne. |
 | **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
 | **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
@@ -639,8 +639,8 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX44** | P2 | ens. | À construire | Attente IA quittable. | L’app reste utilisable. |
 | **UX45** | P2 | 10b | **À vérifier** | Revue = 3 chiffres (kcal / delta / séances). Notice Accueil gardée. **Reste :** parcours live. | Aucune application sans choix. |
 | **UX46** | P2 | 10c | **À vérifier** | Learned : kinds FR/EN, pas de clés JSON. Onglet 360 **Récupération**. **Reste :** parcours live. | Désactivation sans clés techniques. |
-| **UX87** | P2 | 12a | **À vérifier** | Barre Ask Entraînement. **Reste :** parcours live. | La réponse est actionnable et durable, jamais auto-appliquée. |
-| **UX88** | P2 | 12b | **À vérifier** | Barre Ask Nutrition. **Reste :** parcours live. | Recette proposée = enregistrable **au choix**, jamais forcée. |
+| **UX87** | P2 | 12a | **Terminé** | Revue live : Ignorer / Cette séance / Enregistrer comme jour de plan. | La réponse est actionnable et durable, jamais auto-appliquée. |
+| **UX88** | P2 | 12b | **Terminé** | Revue live : Ignorer / Ajouter au journal / Mes recettes. | Recette proposée = enregistrable **au choix**, jamais forcée. |
 | **UX89** | P2 | 13a | **À vérifier** | Ask dans `WorkoutForm` (surface `session`) : apply = cette séance, pas de save plan. **Reste :** parcours live. | N’écrit le plan que si on enregistre. |
 | **UX90** | P2 | 13b | **À vérifier** | Restes du jour → 2–3 idées (`recipes`). **Reste :** parcours live. | Même choix qu’UX88. |
 | **UX91** | P2 | 13c | **À vérifier** | Check-in → note de séance préremplie. **Reste :** parcours live. | Proposition ≠ diagnostic. |
