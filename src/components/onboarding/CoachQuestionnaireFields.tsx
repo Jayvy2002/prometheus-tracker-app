@@ -8,11 +8,12 @@ interface Props {
   onChange: (answers: Record<string, QuestionnaireAnswer>) => void;
   issues?: QuestionnaireIssue[];
   disabled?: boolean;
+  onlySectionId?: string;
 }
 
 /** Shared by builder preview and athlete form; persistence belongs to the caller. */
 export default function CoachQuestionnaireFields({
-  definition, answers, onChange, issues = [], disabled = false,
+  definition, answers, onChange, issues = [], disabled = false, onlySectionId,
 }: Props) {
   const { t, i18n } = useTranslation();
   const prefix = React.useId();
@@ -30,9 +31,12 @@ export default function CoachQuestionnaireFields({
   }));
   const control = 'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-white';
   const firstMedicalId = definition.sections.flatMap(s => s.questions).find(q => q.medical)?.id;
+  const sections = onlySectionId
+    ? definition.sections.filter(section => section.id === onlySectionId)
+    : definition.sections;
   return <div className="space-y-6">
     <p className="text-sm text-neutral-400">{t('coachQuestionnaire.audience')}</p>
-    {definition.sections.map(section => <section key={section.id} aria-labelledby={prefix + section.id}>
+    {sections.map(section => <section key={section.id} aria-labelledby={prefix + section.id}>
       <h2 id={prefix + section.id} className="text-lg font-semibold mb-4">{section.label[language]}</h2>
       <div className="space-y-5">
         {section.questions.map(q => {

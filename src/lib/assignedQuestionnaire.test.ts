@@ -70,6 +70,7 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
   assert.match(panel, /save\(false\)/);
   assert.match(panel, /coachQuestionnaire\.saveDraft/);
   assert.match(panel, /coachQuestionnaire\.myTitle/);
+  assert.match(panel, /questionnaire-summary/);
 
   const fields = src('src/components/onboarding/CoachQuestionnaireFields.tsx');
   assert.match(fields, /coachQuestionnaire\.audience/);
