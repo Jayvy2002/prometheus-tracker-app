@@ -96,7 +96,7 @@ test('18: app / features / shared exist, aliases are wired, old paths re-export'
   assert.ok(existsSync(at('src/features/coaching/domain/coachFleet.ts')), 'lot 20: coachFleet lives in features/coaching');
   assert.ok(existsSync(at('src/App.tsx')), 'App.tsx remains the assembler');
   assert.ok(existsSync(at('src/stores/coachingStore.ts')), 'lot 18/21a must not split coachingStore');
-  assert.ok(existsSync(at('src/lib/types.ts')), 'lot 18 must not split types.ts');
+  assert.ok(existsSync(at('src/lib/types.ts')), 'lot 18 keeps the types.ts path');
 
   const vite = readFileSync(at('vite.config.ts'), 'utf8');
   assert.match(vite, /'@\/app'/);
@@ -271,6 +271,32 @@ test('21c: coachingStore is a façade over features/coaching/model', () => {
   assert.match(facade, /createTrackingSlice/);
   assert.doesNotMatch(facade, /fetchMyRole: async/);
   assert.match(facade, /from '\.\.\/features\/coaching\/model\/sessionTokens'/);
+});
+
+test('22a: types live by domain; lib/types.ts re-exports', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const rel of [
+    'src/lib/types.ts',
+    'src/shared/types.ts',
+    'src/features/workout/types.ts',
+    'src/features/nutrition/types.ts',
+    'src/features/programs/types.ts',
+    'src/features/coaching/types.ts',
+  ]) {
+    assert.ok(existsSync(at(rel)), rel);
+  }
+  const barrel = readFileSync(at('src/lib/types.ts'), 'utf8');
+  assert.match(barrel, /export \* from '\.\.\/shared\/types'/);
+  assert.match(barrel, /export \* from '\.\.\/features\/workout\/types'/);
+  assert.match(barrel, /export \* from '\.\.\/features\/nutrition\/types'/);
+  assert.match(barrel, /export \* from '\.\.\/features\/programs\/types'/);
+  assert.match(barrel, /export \* from '\.\.\/features\/coaching\/types'/);
+  assert.doesNotMatch(barrel, /export interface UserProfile/);
+  assert.match(readFileSync(at('src/shared/types.ts'), 'utf8'), /export interface UserProfile/);
+  assert.match(readFileSync(at('src/features/workout/types.ts'), 'utf8'), /export interface Workout \{/);
+  assert.match(readFileSync(at('src/features/nutrition/types.ts'), 'utf8'), /export interface NutritionLog \{/);
+  assert.match(readFileSync(at('src/features/programs/types.ts'), 'utf8'), /export interface Program \{/);
+  assert.match(readFileSync(at('src/features/coaching/types.ts'), 'utf8'), /export interface CoachIntervention /);
 });
 
 test('17d: one env convention — public Vite keys only, never service_role', () => {

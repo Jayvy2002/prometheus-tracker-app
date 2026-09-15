@@ -10,9 +10,11 @@ import {
   telemetryRole,
 } from './telemetry';
 import { coachingStoreSource } from './coachingStoreSource';
+import { typesSource } from './typesSource';
 
 function src(rel: string): string {
   if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
+  if (rel === 'src/lib/types.ts') return typesSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

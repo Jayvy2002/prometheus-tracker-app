@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–21c** dans `new-JV`. File ouverte : **lot 22** (types + i18n). Lots 23 après. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–22a** dans `new-JV`. File ouverte : **lot 22b** (i18n). Lot 23 après. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 22**. Lots **17–21c** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
+| **Lot ouvert : 22b**. Lots **17–22a** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -165,7 +165,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **19** | **Tokens sémantiques sur primitives** (ARCH06) | **Terminé** | `Button` / `Card` / `Input` / `Select` / `Modal` / `PageHeader` / `EmptyState` / `ErrorState` / `TabList` / `IconButton` = `primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**. Écrans métier inchangés. |
 | **20** | **Migrer `src/lib` par domaine** (ARCH01) | **Terminé** | Coaching, marketplace, workout, nutrition, programs → `features/<domaine>/domain` + réexports `lib/`. |
 | **21** | **Découper les mini-apps** (ARCH03, ARCH04) | **Terminé** | 21a router / guards / bootstrap. 21b fetch hors écrans. 21c `coachingStore` modules + **façade**. |
-| **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | À construire **après 20** | `types.ts` puis `fr.ts`/`en.ts` découpés ; réexport de transition. Hotspots merge : PR courtes. |
+| **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | **22a Terminé** ; 22b à construire | Types découpés + réexport. Reste : `fr.ts`/`en.ts`. |
 | **23** | **Garde-fous CI** (ARCH10, ARCH05) | À construire **après 18** et au fil de 20–22 | `shared` ↛ `features` ; pas de deep-import inter-features ; UI sans `supabase.from()` ; `shared/ui` sans Supabase/Zustand. **Pas** un bang TypeScript extra. |
 
 ### Lot 10 — contrat 10a–10j (livré en une PR)
@@ -311,7 +311,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 | # | Contenu | IDs |
 |---|---|---|
-| 22a | Contrats transversaux → `shared/types`. Reste → `features/<domaine>/types.ts`. `lib/types.ts` **réexporte** le temps de la migration. | ARCH07 |
+| 22a | **Terminé.** Transversal → `shared/types.ts`. Workout / nutrition / programs / coaching → `features/<domaine>/types.ts`. `lib/types.ts` réexporte. | ARCH07 |
 | 22b | `i18n/locales/fr/` et `en/` : `common`, `navigation`, `coaching`, `workout`, `nutrition`, `programs`, `marketplace`. i18next inchangé. | ARCH08 |
 
 ### Lot 23 — règles, pas un nouveau style de code
@@ -348,7 +348,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 19 | **Terminé.** Primitives listées = tokens. `primary` / `success` / `warning` / `danger` dans `tailwind.config.js`. |
 | 20 | **Terminé.** Domaines métier dans `features/*/domain`. Réexports `lib/`. Transverse (utils, types, i18n) reste pour 22. |
 | 21 | **Terminé.** 21a router / gardes. 21b fetch hors écrans. 21c façade `stores/coachingStore.ts` + `features/coaching/model`. |
-| 22 | `src/lib/types.ts` ~26 KB. `i18n/locales/fr.ts` / `en.ts` ~87–95 KB. |
+| 22 | **22a livré.** Reste `i18n/locales/fr.ts` / `en.ts` ~87–95 KB. |
 | 23 | ESLint standard, pas de frontières `shared`/`features`. `Dashboard.tsx` (et d’autres) : `supabase.from` dans l’UI. `tsconfig.app.json` : `"strict": true` **déjà**. |
 
 ---
@@ -467,7 +467,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Composant → hook → API → Supabase | ARCH05 | Lots 17 (convention), 20–21 (déplacer), 23 (CI) |
 | Découper `App.tsx` | ARCH03 | **21a Terminé** |
 | Gros fichiers / `coachingStore` façade | ARCH04 | **21c Terminé** |
-| `types.ts` par domaine (réexport) | ARCH07 | Lot 22a |
+| `types.ts` par domaine (réexport) | ARCH07 | **22a Terminé** |
 | i18n par domaine | ARCH08 | Lot 22b |
 | Garde-fous ESLint/CI (pas de bang `strict`) | ARCH10 | Lot 23 |
 | Migrations ping dupliquées | ARCH11 | **Ne pas** « nettoyer » |
@@ -709,7 +709,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 | **ARCH04** | P2 | 21b–c | **Terminé** | Fetch hors écrans. `coachingStore` = modules + façade. | Façade store ; composants = écran, pas mini-app. |
 | **ARCH05** | P2 | 17+23 | À construire | `Dashboard` (et d’autres) : `supabase.from` dans l’UI. | Composant → hook/model → API → Supabase. CI refuse l’inverse. |
 | **ARCH06** | P2 | 19 | **Terminé** | Primitives listées = tokens. Écrans métier encore `blue-600` (hors lot). | `<Button variant="primary">` = tokens. Pas deux systèmes dans les primitives. |
-| **ARCH07** | P2 | 22a | À construire | `types.ts` ~26 KB hotspot. | Transversal / domaine + réexport de transition. |
+| **ARCH07** | P2 | 22a | **Terminé** | Transversal / domaine + réexport `lib/types.ts`. | Un agent nutrition ne touche plus le hotspot unique. |
 | **ARCH08** | P2 | 22b | À construire | `fr.ts` / `en.ts` ~90 KB. | Un agent nutrition ne touche plus un fichier de 100 KB. |
 | **ARCH09** | P1 | 17 | **Terminé** | Découverte `src/**/*.test.ts` ; nom `prometheus-tracker-app` ; rename `auditLot*` / `uxPremium`. | Un `.test.ts` est lancé sans éditer `package.json`. |
 | **ARCH10** | P2 | 23 | À construire | Pas de frontières ESLint. Audit source **faux** sur `strict: false`. | Règles `shared`/`features`/`ui`. **Pas** de bang TS extra (`strict` déjà true). |
