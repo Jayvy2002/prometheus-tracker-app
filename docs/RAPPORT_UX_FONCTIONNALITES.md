@@ -167,9 +167,9 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 | | |
 |---|---|
 | **Quoi** | `Dashboard`. Priorité (séance due / waiting → Messages) + « À regarder » + « Ta journée » : rings nutrition (`NutritionRings`, mêmes que `/nutrition`), courbe de poids, semaine, check-in fait, suivi coach. Message et check-in restent visibles à côté d’une séance due. Pas d’édition de plan. Cibles absentes = `—` / « Aucune cible définie ». |
-| **Marche** | On sait quoi faire **et** où on en est. Modules off = cartes absentes. Waiting a une issue (Messages). Hors programme **nommé** (UX84). |
-| **Ne va pas** | Programme encore trop desktop / Profil (UX08). Trouvabilité / a11y encore dues. |
-| **Changer** | Programme / historique sans deviner Profil (UX08). Ne pas revenir à une carte exclusive. |
+| **Marche** | On sait quoi faire **et** où on en est. Modules off = cartes absentes. Waiting a une issue (Messages). Hors programme **nommé** (UX84). « Mon programme » depuis Dashboard et Entraînement (UX08). |
+| **Ne va pas** | Trouvabilité / a11y encore dues (zoom, clavier). |
+| **Changer** | Ne pas revenir à une carte exclusive. Ne pas renvoyer le programme uniquement dans Profil. |
 
 ### 3.2 Séance (gym floor)
 
@@ -184,10 +184,10 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 
 | | |
 |---|---|
-| **Quoi** | `/programs` → `ClientProgramPage` lecture : nom, semaine, jour du jour, jours d’entraînement, archives. Pas d’éditeur. Mobile : **pas** dans la tab bar ; desktop « Mon programme » ; raccourci Profil. |
-| **Marche** | Le coaché ne peut pas réécrire le plan du coach. Empty « pas encore assigné ». |
-| **Ne va pas** | Introuvable sur téléphone si on ne passe pas par Entraînement / Profil. Pas de « pourquoi ce programme » ni de consignes du coach en tête. Demander un changement = message libre, pas une demande structurée. |
-| **Changer** | Lien « Voir la semaine » **depuis la carte gym**. Un tap = semaine ; un second = détail d’un exercice. « Demander un ajustement » préremplit un message (sans créer un second copilote). |
+| **Quoi** | `/programs` → `ClientProgramPage` lecture : nom, semaine, jour du jour, jours d’entraînement, archives. Pas d’éditeur. Carte « Mon programme » sur Dashboard et Entraînement (nom du plan). Desktop + Profil restent des accès secondaires. |
+| **Marche** | Le coaché ne peut pas réécrire le plan du coach. Empty « pas encore assigné » / waiting → Messages. Trouvable sans Profil (UX08). |
+| **Ne va pas** | Pas de « pourquoi ce programme » ni de consignes du coach en tête. Demander un changement = message libre, pas une demande structurée. |
+| **Changer** | Un tap = semaine ; un second = détail d’un exercice. « Demander un ajustement » préremplit un message (sans créer un second copilote). |
 
 ### 3.4 Check-in
 
@@ -253,9 +253,9 @@ C’est **correct** : l’IA prépare pour le coach, pas un second coach dans la
 | | |
 |---|---|
 | **Quoi** | Priorité (séance / routine / first-run) + « Ta journée » : rings nutrition, courbe de poids, semaine, progression, streak. Proposition de programme = **notice** (plus un mur). Revue hebdo compacte. |
-| **Marche** | On sait quoi faire **et** où on en est. IA jamais auto-appliquée. Streak / nudges = auto-coaching assumé (retirés chez le coaché). |
-| **Ne va pas** | Programme encore trop Profil / desktop (UX08). Trouvabilité restante. |
-| **Changer** | Programme / historique sans deviner Profil. Ne pas ramener un mur IA ni une carte exclusive. |
+| **Marche** | On sait quoi faire **et** où on en est. IA jamais auto-appliquée. Streak / nudges = auto-coaching assumé (retirés chez le coaché). « Mon programme » depuis Dashboard et Entraînement (UX08). |
+| **Ne va pas** | Trouvabilité restante (a11y, vocabulaire routine / programme). |
+| **Changer** | Ne pas ramener un mur IA ni une carte exclusive. Ne pas renvoyer le programme uniquement dans Profil. |
 
 ### 4.2 Séance
 
@@ -270,8 +270,8 @@ Même moteur que le coaché, plus : séance libre naturelle, lien « Mon program
 |---|---|
 | **Quoi** | `/programs` : créer / éditer jours, accepter une proposition, archives RO. `/programs/new` = CoachOnly (éditeur bibliothèque). `/routines` **redirige** vers `/programs`. Le dashboard peut encore proposer une « prochaine routine » stock. |
 | **Marche** | Solo édite **son** plan. Proposition = preview + edit avant accept. |
-| **Ne va pas** | Trois mots pour un utilisateur : **routine**, **programme**, **séance**. La redirection `/routines` cache le concept au lieu de l’expliquer. Programme introuvable sur mobile. |
-| **Changer** | Vocabulaire unique : **Séance** (ce que je fais maintenant) · **Programme** (la semaine / le cycle) · éventuellement **Modèle** plus tard, pas « routine » dans l’UI. Accès programme : depuis Entraînement (déjà un lien) + depuis Progression, **pas** uniquement Profil. Profondeur (semaines, révisions, NL edit) dans l’éditeur, pas sur Home. |
+| **Ne va pas** | Trois mots pour un utilisateur : **routine**, **programme**, **séance**. La redirection `/routines` cache le concept au lieu de l’expliquer. |
+| **Changer** | Vocabulaire unique : **Séance** (ce que je fais maintenant) · **Programme** (la semaine / le cycle) · éventuellement **Modèle** plus tard, pas « routine » dans l’UI. Accès programme : Dashboard + Entraînement (UX08), pas uniquement Profil. Profondeur (semaines, révisions, NL edit) dans l’éditeur, pas comme mur sur le Dashboard. |
 
 ### 4.4 Progression (hub)
 
