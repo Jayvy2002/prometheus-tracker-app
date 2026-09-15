@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { applySetPlaceholders } from './workoutSetComplete';
+import { applySetPlaceholders, isBlankWorkoutSet, nextBlankSetId } from './workoutSetComplete';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -51,6 +51,26 @@ test('placeholder 0 is ignored so an empty set stays empty', () => {
   });
   assert.equal(filled.weight, '');
   assert.equal(filled.reps, '');
+});
+
+test('reuse values targets the next blank prescribed set, not a new row', () => {
+  assert.equal(isBlankWorkoutSet({ completed: false, weight_kg: 0, reps: 0 }), true);
+  assert.equal(isBlankWorkoutSet({ completed: true, weight_kg: 0, reps: 0 }), false);
+  assert.equal(isBlankWorkoutSet({ completed: false, weight_kg: 80, reps: 0 }), false);
+  const sets = [
+    { id: 's1', completed: true, weight_kg: 80, reps: 5 },
+    { id: 's2', completed: false, weight_kg: 0, reps: 0 },
+    { id: 's3', completed: false, weight_kg: 0, reps: 0 },
+  ];
+  assert.equal(nextBlankSetId(sets, 's1'), 's2');
+  assert.equal(nextBlankSetId(sets, 's2'), 's3');
+  assert.equal(nextBlankSetId(sets, 's3'), null);
+
+  const card = src('src/components/workout/ExerciseCard.tsx');
+  assert.match(card, /nextBlankSetId/);
+  assert.match(card, /updateSet\(nextId,/);
+  const fr = src('src/i18n/locales/fr/workout.ts');
+  assert.match(fr, /duplicateSet: 'Reprendre les valeurs'/);
 });
 
 test('set complete without a prescribed rest still starts a 90s timer', () => {

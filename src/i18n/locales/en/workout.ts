@@ -76,7 +76,7 @@ const workout = {
       addSet: 'Add Set',
       completeSet: 'Mark set done',
       uncompleteSet: 'Unmark set',
-      duplicateSet: 'Duplicate set',
+      duplicateSet: 'Reuse values',
       act: 'ACT',
       mini: 'mini',
       burst: '/burst',
