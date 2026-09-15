@@ -13,6 +13,7 @@ import type {
   SetType,
 } from '../lib/types';
 import { programExerciseRpcFields } from '../lib/programSetPrescription';
+import { snapshotToDayDrafts, type ProgramRevisionRow } from '../lib/programRevisionDiff';
 
 type ProgramDayDraft = {
   weekday: number;
@@ -108,6 +109,13 @@ interface ProgramState {
   fetchPausedAssignments: (clientId: string) => Promise<ProgramAssignment[]>;
   /** E01 : dernière révision (numéro + date) — le passé ne se réécrit pas. */
   fetchProgramRevisionInfo: (programId: string) => Promise<{ revision_no: number; created_at: string; count: number } | null>;
+  fetchProgramRevisions: (programId: string) => Promise<ProgramRevisionRow[]>;
+  restoreProgramRevision: (
+    programId: string,
+    revisionNo: number,
+    meta: { name: string; description: string; duration_weeks: number },
+    expectedUpdatedAt?: string | null,
+  ) => Promise<{ error: string | null }>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   duplicateProgram: (programId: string) => Promise<{ error: string | null; programId?: string }>;
   pauseAssignment: (id: string) => Promise<void>;
@@ -445,6 +453,29 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     if (error || !data) return null;
     const row = data as { revision_no: number; created_at: string };
     return { revision_no: row.revision_no, created_at: row.created_at, count: row.revision_no };
+  },
+
+  fetchProgramRevisions: async (programId) => {
+    const { data, error } = await supabase
+      .from('program_revisions')
+      .select('id, program_id, revision_no, snapshot, created_by, created_at')
+      .eq('program_id', programId)
+      .order('revision_no', { ascending: false });
+    if (error || !data) return [];
+    return data as ProgramRevisionRow[];
+  },
+
+  restoreProgramRevision: async (programId, revisionNo, meta, expectedUpdatedAt) => {
+    const { data, error } = await supabase
+      .from('program_revisions')
+      .select('snapshot')
+      .eq('program_id', programId)
+      .eq('revision_no', revisionNo)
+      .maybeSingle();
+    if (error || !data) return { error: error?.message ?? 'not_found' };
+    const days = snapshotToDayDrafts((data as { snapshot: unknown }).snapshot);
+    if (!days.length) return { error: 'empty_snapshot' };
+    return get().saveProgram(programId, meta, days, expectedUpdatedAt);
   },
 
   duplicateProgram: async (programId) => {

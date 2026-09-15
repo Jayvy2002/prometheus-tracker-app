@@ -7,6 +7,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import type { AiProgramDayDraft } from '../../lib/types';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
+import ProgramRevisionHistory from './ProgramRevisionHistory';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
@@ -27,6 +28,7 @@ export default function ProgramEditorPage() {
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
   const [revision, setRevision] = useState<{ revision_no: number; created_at: string } | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const isNew = !id || id === 'new';
 
   useEffect(() => {
@@ -138,12 +140,17 @@ export default function ProgramEditorPage() {
           {isNew ? t('programs.newTitle') : name || t('programs.title')}
         </h1>
         {!isNew && revision && (
-          <p className="text-[11px] text-neutral-600 mb-4">
+          <button
+            type="button"
+            data-testid="program-revision-badge"
+            onClick={() => setHistoryOpen(true)}
+            className="text-[11px] text-neutral-500 mb-4 text-left underline-offset-2 hover:text-neutral-300 hover:underline"
+          >
             {t('programs.revisionBadge', {
               n: revision.revision_no,
               date: new Date(revision.created_at).toLocaleDateString(i18n.language),
             })}
-          </p>
+          </button>
         )}
         {!isNew && !revision && <div className="mb-4" />}
         <ProgramSessionEditor
@@ -162,6 +169,40 @@ export default function ProgramEditorPage() {
         <Button className="w-full mt-4" onClick={handleSave} loading={saving} disabled={!name.trim()}>
           {t('common.save')}
         </Button>
+        {!isNew && id && (
+          <ProgramRevisionHistory
+            open={historyOpen}
+            programId={id}
+            programMeta={{ name: name.trim(), description, duration_weeks: weeks }}
+            expectedUpdatedAt={expectedUpdatedAt}
+            onClose={() => setHistoryOpen(false)}
+            onRestored={async () => {
+              const p = await fetchProgram(id);
+              if (p) {
+                setName(p.name);
+                setDescription(p.description);
+                setWeeks(p.duration_weeks);
+                setExpectedUpdatedAt(p.updated_at);
+                const sorted = [...(p.days ?? [])].sort((a, b) => a.order_index - b.order_index);
+                setDays(sorted.map(d => ({
+                  weekday: d.weekday,
+                  name: d.name,
+                  exercises: (d.exercises ?? []).map(ex => ({
+                    name: ex.name,
+                    default_sets: ex.default_sets,
+                    default_reps: ex.default_reps,
+                    default_reps_min: ex.default_reps_min,
+                    default_rir: ex.default_rir,
+                    default_rest_seconds: ex.default_rest_seconds,
+                    default_weight_kg: ex.default_weight_kg,
+                  })),
+                })));
+              }
+              void fetchProgramRevisionInfo(id).then(setRevision);
+              toast(t('programs.revisionRestored'));
+            }}
+          />
+        )}
       </div>
     </PageTransition>
   );

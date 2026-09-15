@@ -395,8 +395,8 @@ Même dette fiabilité que le client. Plus : bascule client trop facile à perdr
 | | |
 |---|---|
 | **Quoi** | Liste, créer, éditeur, assigner (client + date, **sans** premier client auto), supprimer, routines = templates. NL « Demander à Prometheus » dans l’éditeur. Assign aussi via setup / intervention. |
-| **Marche** | Un moteur. Athlète exécute un snapshot. Révisions existent côté data. |
-| **Ne va pas** | Brouillon vs enregistré vs **actif chez le client** encore trop interne. Routines vs programmes : même confusion que solo, côté coach. Historique visuel des révisions à construire (chantier transversal). |
+| **Marche** | Un moteur. Athlète exécute un snapshot. UX23 : badge → historique avant/après + auteur ; restaurer = nouvelle révision, logs inchangés. |
+| **Ne va pas** | Brouillon vs enregistré vs **actif chez le client** encore trop interne. Routines vs programmes : même confusion que solo, côté coach. |
 | **Changer** | Trois états **lisibles** : brouillon · enregistré · publié/assigné. Assign = récap destinataire / date / remplacement. L’athlète voit la séance, le coach voit la structure — déjà la bonne idée (UX22), à pousser dans l’UI. |
 
 ### 5.9 Questionnaire builder
