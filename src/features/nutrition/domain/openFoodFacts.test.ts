@@ -28,7 +28,7 @@ test('French product_name_fr is used when product_name is empty', () => {
 });
 
 test('D06: full-text goes through cgi/search.pl (v2 is structured search), never as-you-type', () => {
-  const off = src('src/lib/openFoodFacts.ts');
+  const off = src('src/features/nutrition/domain/openFoodFacts.ts');
   assert.match(off, /cgi\/search\.pl/);
   assert.doesNotMatch(off, /cgi\/search\.pl[^`\n]*fields=/);
   assert.doesNotMatch(off, /openfoodfacts\.org\/api\/v2/);
