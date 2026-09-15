@@ -12,7 +12,7 @@ test('I03: one 14-day window, real span, dated targets — solo and fleet alike'
   assert.match(solo, /weightSpanDaysBetween\(/);
   assert.match(solo, /avgEffectiveTargetForWindow\(/);
   assert.match(solo, /targetHistory/);
-  const fleet = src('src/lib/coachFleet.ts');
+  const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /effectiveCalorieTarget\(d\)/);
   assert.match(fleet, /weight_span_days \?\? FLEET_WINDOW_DAYS/);
   const mig = migrationsSql();
@@ -23,7 +23,7 @@ test('I03: one 14-day window, real span, dated targets — solo and fleet alike'
 });
 
 test('I04: declared signals only, tracked modules only, guarded profiles', () => {
-  const fleet = src('src/lib/coachFleet.ts');
+  const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /FATIGUE_DECLARED_MIN/);
   assert.match(fleet, /trackingOn\(d, 'nutrition'\)/);
   assert.match(fleet, /isGuardedProfile\(d\)/);

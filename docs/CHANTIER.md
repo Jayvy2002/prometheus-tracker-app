@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–19** dans `new-JV`. File ouverte : **lot 20** (migrer `src/lib` par domaine). Lots 21–23 après. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–19** + **20 coaching** dans `new-JV`. File ouverte : **lot 20 marketplace**. Lots 21–23 après. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 20** (`src/lib` par domaine). Lots **17–19** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
+| **Lot ouvert : 20** (reste marketplace → workout → nutrition → programs). Lots **17–19** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -163,7 +163,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | **Terminé** (17a–17e) | Docs + découverte `src/**/*.test.ts` + nom package + convention env + rename `auditLot*` / `uxPremium`. **Zéro écran.** |
 | **18** | **Socle dossiers + alias** (ARCH02 évidents) | **Terminé** | `app` / `features` / `shared` + alias `@/`. Hooks évidents, client Supabase, `ui`, layout, nav. Réexports aux anciens chemins. |
 | **19** | **Tokens sémantiques sur primitives** (ARCH06) | **Terminé** | `Button` / `Card` / `Input` / `Select` / `Modal` / `PageHeader` / `EmptyState` / `ErrorState` / `TabList` / `IconButton` = `primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**. Écrans métier inchangés. |
-| **20** | **Migrer `src/lib` par domaine** (ARCH01) | À construire **après 18** | Une PR **par** domaine, zéro comportement. Coaching d’abord (`coach*.ts` → `features/coaching/`), puis marketplace, workout, nutrition, programs. |
+| **20** | **Migrer `src/lib` par domaine** (ARCH01) | **Partiel** | Coaching : `coach*.ts` → `features/coaching/domain` + réexports. **Reste :** marketplace, workout, nutrition, programs. |
 | **21** | **Découper les mini-apps** (ARCH03, ARCH04) | À construire **après 20** | 21a `App.tsx` → router / guards / bootstrap ; 21b gros composants ; 21c `coachingStore` **avec façade**. |
 | **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | À construire **après 20** | `types.ts` puis `fr.ts`/`en.ts` découpés ; réexport de transition. Hotspots merge : PR courtes. |
 | **23** | **Garde-fous CI** (ARCH10, ARCH05) | À construire **après 18** et au fil de 20–22 | `shared` ↛ `features` ; pas de deep-import inter-features ; UI sans `supabase.from()` ; `shared/ui` sans Supabase/Zustand. **Pas** un bang TypeScript extra. |
@@ -295,9 +295,9 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ### Lot 20 — `src/lib` domaine par domaine
 
-Une PR par domaine, tests du domaine verts, **aucun** changement de copie / RPC / UI. Ordre : **coaching** (`coach*.ts` → `features/coaching/domain` ou `api`) → marketplace → workout → nutrition → programs. Le reste de `lib` (utils transverses, télémétrie, offline) → `shared/lib` quand ce n’est plus du domaine.
+Une PR par domaine, tests du domaine verts, **aucun** changement de copie / RPC / UI. Ordre : **coaching** (`coach*.ts` → `features/coaching/domain` — **livré**) → marketplace → workout → nutrition → programs. Le reste de `lib` (utils transverses, télémétrie, offline) → `shared/lib` quand ce n’est plus du domaine.
 
-`coachFleet.ts` reste jumelé à l’edge `coach-fleet-round` (`CLAUDE.md`) : même logique, deux implémentations ; le déplacement ne casse pas ce verrou.
+`coachFleet.ts` reste jumelé à l’edge `coach-fleet-round` (`CLAUDE.md`) : même logique, deux implémentations ; le déplacement ne casse pas ce verrou. Canonical : `features/coaching/domain/coachFleet.ts`.
 
 ### Lot 21 — une PR par ligne
 
@@ -346,7 +346,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 17 | **Terminé.** `npm test` → `scripts/run-unit-tests.mjs`. Nom `prometheus-tracker-app`. Docs + env. Tests : `programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`. |
 | 18 | **Terminé.** Cibles livrées + réexports. Alias `@/app`, `@/features`, `@/shared`. |
 | 19 | **Terminé.** Primitives listées = tokens. `primary` / `success` / `warning` / `danger` dans `tailwind.config.js`. |
-| 20 | `src/lib/coach*.ts`, `marketplace*.ts`, logique workout/nutrition/programs encore dans `lib/`. |
+| 20 | **Coaching livré.** Reste `marketplace*.ts` + workout / nutrition / programs dans `lib/`. |
 | 21 | `App.tsx` : session + guards + routes. `stores/coachingStore.ts` ~89 KB. `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `ProgramSessionEditor`, `workoutStore`. |
 | 22 | `src/lib/types.ts` ~26 KB. `i18n/locales/fr.ts` / `en.ts` ~87–95 KB. |
 | 23 | ESLint standard, pas de frontières `shared`/`features`. `Dashboard.tsx` (et d’autres) : `supabase.from` dans l’UI. `tsconfig.app.json` : `"strict": true` **déjà**. |
@@ -703,7 +703,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **ARCH01** | P2 | 17+20 | **17a Code Git.** Migration = 20 | Matrice dans `docs/ARCHITECTURE.md`. `lib/` reste un 2ᵉ `src` jusqu’au lot 20. | Un agent sait où créer un fichier sans explorer le repo. |
+| **ARCH01** | P2 | 17+20 | **17a + 20 coaching.** Reste marketplace / workout / nutrition / programs | Matrice dans `docs/ARCHITECTURE.md`. `coach*.ts` dans `features/coaching/domain`. | Un agent sait où créer un fichier sans explorer le repo. |
 | **ARCH02** | P2 | 18 | **Terminé** | Dossiers + alias + déplacements évidents + réexports. | Les cas **évidents** sont au bon endroit. Pas tout `lib` d’un coup. |
 | **ARCH03** | P2 | 21a | À construire | `App.tsx` = session + guards + routes + bootstrap. | Une PR onboarding et une PR router ne se marchent plus dessus. |
 | **ARCH04** | P2 | 21b–c | À construire | `coachingStore` ~89 KB, `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `workoutStore`, `coachFleet`, `ProgramSessionEditor`. | Façade store ; composants = écran, pas mini-app. |

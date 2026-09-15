@@ -70,7 +70,7 @@ test('I02: unknown name is not_found', () => {
 });
 
 test('I02: preview and apply share resolvePatchTargets; fork + version guard the write', () => {
-  const send = readFileSync(resolve(process.cwd(), 'src/lib/coachDraftSend.ts'), 'utf8');
+  const send = readFileSync(resolve(process.cwd(), 'src/features/coaching/domain/coachDraftSend.ts'), 'utf8');
   assert.match(send, /resolvePatchTargets\(program, patch\)/);
   assert.match(send, /patchPreviewTargets/);
   const store = readFileSync(resolve(process.cwd(), 'src/stores/programStore.ts'), 'utf8');
