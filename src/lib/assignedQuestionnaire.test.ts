@@ -70,6 +70,7 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
   assert.match(panel, /save\(false\)/);
   assert.match(panel, /coachQuestionnaire\.saveDraft/);
   assert.match(panel, /coachQuestionnaire\.myTitle/);
+  assert.match(panel, /questionnaire-summary/);
 
   const fields = src('src/components/onboarding/CoachQuestionnaireFields.tsx');
   assert.match(fields, /coachQuestionnaire\.audience/);
@@ -80,6 +81,9 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
   assert.match(browser, /Advanced settings/);
   assert.match(browser, /incomplete questionnaire must not prison the home/);
   assert.match(browser, /goto\(origin\+'\/questionnaire'\)/);
+  assert.match(browser, /questionnaire-summary/);
+  assert.match(browser, /questionnaire-edit-section_1/);
+  assert.match(browser, /completed answers stay on the summary/);
 
   const fr = src('src/i18n/locales/fr.ts');
   const en = src('src/i18n/locales/en.ts');

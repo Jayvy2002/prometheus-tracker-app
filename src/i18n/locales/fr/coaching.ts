@@ -38,6 +38,13 @@ const coaching = {
     saved: 'Brouillon enregistré',
     completed: 'Réponses envoyées',
     empty: 'Aucun questionnaire personnalisé attribué.',
+    summaryTitle: 'Résumé par rubrique',
+    editSection: 'Corriger',
+    completeSection: 'Compléter',
+    backToSummary: 'Retour au résumé',
+    unanswered: 'Non renseigné',
+    carried: 'Réponses reprises de ta version précédente. Complète seulement les nouvelles rubriques.',
+    sectionIncomplete: 'À compléter',
     types: {
       text: 'Texte',
       number: 'Nombre',

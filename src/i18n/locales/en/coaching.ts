@@ -38,6 +38,13 @@ const coaching = {
     saved: 'Draft saved',
     completed: 'Answers sent',
     empty: 'No custom questionnaire assigned.',
+    summaryTitle: 'Summary by section',
+    editSection: 'Edit',
+    completeSection: 'Complete',
+    backToSummary: 'Back to summary',
+    unanswered: 'Not answered',
+    carried: 'Answers reused from your previous version. Only fill the new sections.',
+    sectionIncomplete: 'To complete',
     types: {
       text: 'Text',
       number: 'Number',
