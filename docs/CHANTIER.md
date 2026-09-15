@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. Lots **17–23 Terminé**. **M6 Reporté**. **M7–M8** encore à concevoir.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** M7 (concevoir). Lots **1–16**, **M0–M5** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -329,7 +329,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**. Reste **M7–M8** (concevoir), confort P2/P3, capteurs santé (UX112), billing (**M6 Reporté**).
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX07, UX10, …), capteurs santé (UX112), billing (**M6 Reporté**).
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -380,8 +380,38 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | **M4** Offres opt-in | **Terminé** | Coach sans publier ; publication / retrait. | Live : Chantier Coach a un roster **sans** `coach_profiles`. `/coach/profile` : compte ≠ offre. Coach2 publié puis retiré ; l’annuaire suit. |
 | **M5** Annuaire, comparaison, demandes | **Terminé** | Filtres exacts ; pas de dossier prospect ; empty honnête. | Live : déjà lié → explication, pas de formulaire. Acceptation Coach2 × Intent : copy « pas un paiement » ; SQL `accepted` + lien `active`. Filtres exacts déjà en code. Matching riche / avis : hors lot. |
 | **M6** Paiement / accord commercial | **Reporté** | Une RPC d’activation **déjà** utilisée à l’acceptation et à l’invitation. M6 = encaissement, pas ré-activer le lien. | Chantier 3 fermé. |
-| **M7** Accueils et suite d’objectif | À concevoir | Trois parcours jusqu’au bilan ; coach autorité du plan. | Après lots 1, 4, 8, 9. |
-| **M8** Ouverture graduelle | À concevoir | Pas de lancement large sur CI seule. | |
+| **M7** Accueils et suite d’objectif | **Conçu** | Trois parcours jusqu’au bilan ; coach autorité du plan. | Contrat ci-dessous. Construction = écarts encore listés (UX07, UX10). Lots 1, 4, 8, 9 déjà verts. |
+| **M8** Ouverture graduelle | **Conçu** | Pas de lancement large sur CI seule. | Contrat ci-dessous. Billing reste fermé. |
+
+### M7 — contrat des trois accueils (conçu 15 sept. 2026)
+
+Un moteur, trois suites. Le bilan = faits (séries cochées, check-in enregistré, message **lu** seulement si `.select` confirme). Jamais d’auto-apply IA. Coach = autorité du **plan** assigné ; le client logge, ne réécrit pas le futur.
+
+| Parcours | Accueil aujourd’hui | Suite jusqu’au bilan | Interdit |
+|---|---|---|---|
+| **Solo** | Prochaine séance utile **ou** vide honnête. Proposition de programme = notice, pas un mur. | Entraînement libre / jour de plan perso → logger (lot 14) → recap (lot 1) → hub `/exercise-progress`. Nutrition / poids via chrome Personnel. | Forcer l’annuaire. Inventer un jour de plan. |
+| **Coaché** | Jour prescrit en premier (« Reprendre / Continuer ») **ou** `waiting_program` → Messages (UX10). Check-in / message = cartes, pas un 6ᵉ onglet. | Séance du plan (types du builder) → check-in « visible par {coach} » → Messages. Programme en **lecture**. Photos : audience nommée. | Éditer le plan. 6ᵉ onglet. « Transmis ». |
+| **Coach** | File : empty / sévérité texte / une featured. Filtre roster `?filter=`. | Featured → 360 (séries cochées, notes exo) → programme / setup / message. Dual-rôle : switcher **Profil** seulement. | Droits via l’espace affiché. Couper le mode coach si N>0. |
+
+**Bilan.** Solo : recap de séance + hub. Coaché : même recap côté client ; 360 côté coach (pas de second logger). Coach : « depuis quand » + dernière séance cochée, pas un dump.
+
+**Écarts encore À construire** (ne pas les fondre dans M7) : UX07 (heroes qui coexistent), UX10 (preuve live `waiting_program` → Messages), UX28 (manque ≠ faute).
+
+### M8 — contrat d’ouverture (conçu 15 sept. 2026)
+
+Pas de lancement large parce que la CI est verte.
+
+| Porte | Règle |
+|---|---|
+| **Frontend prod** | Merge `new-JV` → Netlify. Pas d’autre branche. |
+| **Supabase prod** | Projet `phyuijjekxtjvipjtdfv`. Migrations **appliquées immuables**. Pas de replay. |
+| **Qui entre** | Comptes déjà liés + invites consenties. Annuaire **opt-in** (M4). Pas d’annonce marketplace grand public tant que M7 n’a pas un parcours live des 3 accueils. |
+| **Billing** | **Fermé** (M6). `solo_trial_ends_at` n’est pas un mur. |
+| **OAuth** | Plus tard (M3). |
+| **CI** | Nécessaire, **insuffisante**. Preuve = comptes test + parcours (cette file). |
+| **Ne pas ouvrir** | Capteurs santé (UX112), avis/modération annuaire, matching riche, Stripe. |
+
+**Critère de fin M8 (plus tard) :** une check-list d’ouverture signée (qui, quoi, rollback) — pas un drapeau dans le code.
 
 ### Livraison chantier 2
 
@@ -754,7 +784,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16** et **M0–M5**. **M7–M8** encore dus.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16** et **M0–M5**. **M7–M8 conçus** (contrats dans Chantier 2). Catalogue ens. encore dû.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
