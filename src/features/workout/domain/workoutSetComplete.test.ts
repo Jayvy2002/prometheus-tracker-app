@@ -54,7 +54,7 @@ test('placeholder 0 is ignored so an empty set stays empty', () => {
 });
 
 test('set complete without a prescribed rest still starts a 90s timer', () => {
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.match(card, /resolveRestSeconds\(exercise\.prescribed_rest_seconds\) \?\? 90/);
 });
 

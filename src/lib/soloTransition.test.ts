@@ -64,7 +64,7 @@ test('end_coach_client_link and client_end_coach_link share the solo transition;
 
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /profileLinkEndedChanged\(/);
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /<LinkEndedBanner/);
   const banner = src('src/components/dashboard/LinkEndedBanner.tsx');
   assert.match(banner, /linkEndedNotice\(/);

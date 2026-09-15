@@ -62,7 +62,7 @@ test('thread, home and store honor durable drafts and proven reads', () => {
   assert.match(thread, /saveMessageDraft/);
   assert.match(thread, /clearMessageDraft/);
 
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /dismissHomeMessage/);
   assert.doesNotMatch(dash, /markCoachMessageRead/);
 

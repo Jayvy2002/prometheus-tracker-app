@@ -112,6 +112,6 @@ test('summary screen has no auto-close, no fake PR count, no coach lecture', () 
   const form = readFileSync(resolve(process.cwd(), 'src/components/workout/WorkoutForm.tsx'), 'utf8');
   assert.match(form, /navigate\(`\/workout\/\$\{workoutId\}`/);
   assert.match(form, /await fetchWorkout\(currentWorkout\.id\)/);
-  const store = readFileSync(resolve(process.cwd(), 'src/stores/workoutStore.ts'), 'utf8');
+  const store = readFileSync(resolve(process.cwd(), 'src/stores/workoutStore.ts'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/workout/data/loadFullWorkout.ts'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/workout/data/replayOfflineOp.ts'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/workout/data/offlineIds.ts'), 'utf8');
   assert.match(store, /if \(!error\) \{\s*applyLocal\(\);/s);
 });

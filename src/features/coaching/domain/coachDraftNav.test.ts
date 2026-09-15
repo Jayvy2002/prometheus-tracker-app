@@ -73,7 +73,7 @@ test('Ask and Demander un ajustement navigate to the editable draft, never a lef
 });
 
 test('program editor resolves both accepted and cancelled AI proposals', () => {
-  const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
+  const editor = src('src/components/coaching/ProgramSessionEditor.tsx') + src('src/features/programs/hooks/useProgramEditorTracking.ts') + src('src/features/programs/hooks/useProgramNlEdit.ts');
   assert.match(editor, /resolveIntervention\(nlRow\.id, 'dismissed'/);
   assert.match(editor, /resolveIntervention\(nlRow\.id, 'kept'/);
   assert.match(editor, /editor_resolution: 'cancelled'/);
@@ -115,7 +115,7 @@ test('App-wide cards without a client are not client-file drafts', () => {
   assert.equal(isClientBoundDraft(draft({ kind: 'program_nl_edit', client_id: 'lea' })), true);
   assert.equal(openDraftHref(draft({ client_id: null })), '/inbox/d1');
 
-  const detail = src('src/components/coaching/ClientDetailPage.tsx');
+  const detail = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(detail, /pendingForClient\(/);
   const chip = detail.slice(detail.indexOf('openDraftHref(pendingForClient'));
   assert.match(chip, /pendingForClient\(pendingInterventions, id\)/);

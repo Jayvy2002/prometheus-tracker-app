@@ -249,7 +249,7 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   assert.doesNotMatch(page, /lastMessageForClient/);
   assert.doesNotMatch(page, /navigate\('\/programs'\)/);
 
-  const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
+  const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
   assert.match(detail, /rosterFromLocationState/);
   assert.match(detail, /navigate\(rosterBack\)/);
   assert.doesNotMatch(detail, /navigate\('\/clients'\)/);

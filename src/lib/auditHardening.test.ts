@@ -74,7 +74,7 @@ test('auth refresh keeps the same user object; logout wipes session stores', () 
 });
 
 test('writes surface errors instead of a fake success toast', () => {
-  assert.match(src('src/stores/workoutStore.ts'), /updateWorkout: \(id: string, data: Partial<Workout>\) => Promise<\{ error: string \| null \}>/);
+  assert.match(src('src/stores/workoutStore.ts') + src('src/features/workout/data/loadFullWorkout.ts') + src('src/features/workout/data/replayOfflineOp.ts') + src('src/features/workout/data/offlineIds.ts'), /updateWorkout: \(id: string, data: Partial<Workout>\) => Promise<\{ error: string \| null \}>/);
   assert.match(src('src/components/workout/WorkoutForm.tsx'), /if \(finished\.error\)/);
   assert.match(src('src/components/workout/WorkoutForm.tsx'), /clearFieldDrafts/);
   assert.match(src('src/components/nutrition/FoodForm.tsx'), /if \(result\.error\) return/);
@@ -83,7 +83,7 @@ test('writes surface errors instead of a fake success toast', () => {
 });
 
 test('coach client file and draft bind assignment locally; resolve is idempotent', () => {
-  const detail = src('src/components/coaching/ClientDetailPage.tsx');
+  const detail = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(detail, /let cancelled = false/);
   assert.match(detail, /setBoundAssignment/);
   assert.doesNotMatch(detail, /useProgramStore\(s => s\.assignment\)/);

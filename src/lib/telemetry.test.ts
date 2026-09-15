@@ -78,12 +78,12 @@ test('track() is wired on the loops that matter (coach, client, solo)', () => {
   assert.match(src('src/stores/programStore.ts'), /track\('program_assigned'/);
   assert.match(src('src/stores/programStore.ts'), /track\('program_saved'/);
   assert.match(src('src/stores/programStore.ts'), /track\('program_deleted'/);
-  assert.match(src('src/stores/workoutStore.ts'), /track\('workout_completed'/);
+  assert.match(src('src/stores/workoutStore.ts') + src('src/features/workout/data/loadFullWorkout.ts') + src('src/features/workout/data/replayOfflineOp.ts') + src('src/features/workout/data/offlineIds.ts'), /track\('workout_completed'/);
   assert.match(src('src/stores/checkinStore.ts'), /track\('checkin_saved'/);
   assert.match(src('src/components/auth/AuthPage.tsx'), /track\('account_created'/);
   assert.match(src('src/components/dashboard/SoloProgramProposal.tsx'), /track\('solo_program_accepted'/);
   assert.match(src('src/components/dashboard/SoloProgramProposal.tsx'), /track\('solo_program_dismissed'/);
-  assert.match(src('src/components/coaching/ProgramSessionEditor.tsx'), /track\('solo_program_nl_asked'/);
+  assert.match(src('src/components/coaching/ProgramSessionEditor.tsx') + src('src/features/programs/hooks/useProgramEditorTracking.ts') + src('src/features/programs/hooks/useProgramNlEdit.ts'), /track\('solo_program_nl_asked'/);
   assert.match(src('src/components/coaching/ClientSetupPage.tsx'), /track\('setup_targets_choice'/);
   assert.match(src('src/lib/types.ts'), /'setup_targets_choice'/);
   assert.match(src('src/lib/types.ts'), /'coaching_request_accepted'/);

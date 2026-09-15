@@ -219,7 +219,7 @@ test('authStore: signIn commits the session; late getSession cannot eat it', () 
 });
 
 test('PR 34 first-run empty states stay in place', () => {
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /isClientFirstRun/);
   assert.match(dash, /clientHomeNextAction/);
   assert.match(dash, /calmHome/);

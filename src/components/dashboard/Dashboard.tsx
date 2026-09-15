@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Flame, Droplets, Dumbbell, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare } from 'lucide-react';
@@ -12,6 +12,7 @@ import { useRoutineStore } from '../../stores/routineStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboardBootstrap';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
@@ -31,7 +32,6 @@ import { resolveClientGymCard } from '../../lib/clientGym';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
-import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 import Button from '../ui/Button';
@@ -61,46 +61,23 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, waterLogs, stepsLog, fetchLogs, fetchWaterLogs, fetchOrCreateSteps } = useNutritionStore();
-  const { measurements, fetchMeasurements } = useWeightStore();
-  const { workouts, fetchWorkouts, loading: workoutsLoading } = useWorkoutStore();
-  const { streak, fetchStreak } = useStreakStore();
-  const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
-  const { todayCheckin, checkins, fetchToday, fetchRecent, loading: checkinLoading } = useCheckinStore();
-  const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount, fetchMyCoach } = useCoachingStore();
-  const { assignment, fetchMyAssignment } = useProgramStore();
+  const { logs, waterLogs, stepsLog } = useNutritionStore();
+  const { measurements } = useWeightStore();
+  const { workouts, loading: workoutsLoading } = useWorkoutStore();
+  const { streak } = useStreakStore();
+  const { routines, fetchRoutineWithExercises } = useRoutineStore();
+  const { todayCheckin, checkins, loading: checkinLoading } = useCheckinStore();
+  const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount } = useCoachingStore();
+  const { assignment } = useProgramStore();
   const tracking = useClientTracking();
+  const { nutritionHistoryCount, assignmentReady } = useDashboardBootstrap();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
   const [homeDismissTick, setHomeDismissTick] = useState(0);
-  const [nutritionHistoryCount, setNutritionHistoryCount] = useState<number | null>(null);
-  const [assignmentReady, setAssignmentReady] = useState(false);
 
   const dismissReminder = (key: string) => {
     setDismissedReminders(prev => [...prev, key]);
   };
-
-  useEffect(() => {
-    if (!user) return;
-    const today = todayStr();
-    fetchLogs(user.id, today);
-    fetchWaterLogs(user.id, today);
-    void fetchOrCreateSteps(user.id, today);
-    fetchMeasurements(user.id);
-    fetchWorkouts(user.id);
-    fetchStreak(user.id);
-    fetchRoutines(user.id);
-    fetchToday(user.id);
-    fetchRecent(user.id, 14);
-    fetchMyCoach();
-    setAssignmentReady(false);
-    void fetchMyAssignment(user.id).finally(() => setAssignmentReady(true));
-    void supabase
-      .from('nutrition_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .then(({ count }) => setNutritionHistoryCount(count ?? 0));
-  }, [user]);
 
   const firstName = profile?.full_name?.split(' ')[0] || '';
   const hour = new Date().getHours();

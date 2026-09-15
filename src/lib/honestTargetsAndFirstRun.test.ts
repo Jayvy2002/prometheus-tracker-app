@@ -58,7 +58,7 @@ test('client setup is a four-step wizard', () => {
 });
 
 test('client 360 tabs are a keyboard tablist', () => {
-  const page = src('src/components/coaching/ClientDetailPage.tsx');
+  const page = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(page, /TabList/);
   assert.match(page, /role="tabpanel"/);
   assert.match(page, /coaching\.client360\.message/);
@@ -102,7 +102,7 @@ test('progress hub links to stats weight calendar', () => {
 });
 
 test('set type dots use a static Tailwind class', () => {
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.doesNotMatch(card, /color\.replace\('text-', 'bg-'\)/);
   assert.match(card, /dotColor/);
   assert.doesNotMatch(card, />Tempo</);
@@ -124,7 +124,7 @@ test('daily-driver items use ListRow, PageHeader and 44px Button chrome', () => 
   assert.match(row, /rounded-2xl/);
   assert.match(row, /ListRowTone/);
   assert.match(src('src/shared/ui/Button.tsx'), /min-h-11/);
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /ListRow/);
   assert.doesNotMatch(dash, /violet-500/);
   assert.doesNotMatch(dash, /cyan-500\/8/);

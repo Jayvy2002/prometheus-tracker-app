@@ -27,7 +27,7 @@ test('coached athlete can open Mon programme and exercise-progress in read-only,
 });
 
 test('waiting for a program goes to Messages; a due plan day is labelled hors programme', () => {
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /nextAction === 'waiting_program'/);
   assert.match(dash, /to="\/messages"/);
   assert.match(dash, /dashboard\.nothingToday/);

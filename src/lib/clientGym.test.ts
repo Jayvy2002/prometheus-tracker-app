@@ -184,7 +184,7 @@ test('coach RIR flag wins over local pref; disabled vars stay hidden', () => {
 });
 
 test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 stay', () => {
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /resolveClientGymCard/);
   assert.match(dash, /ClientGymCard/);
   const gymIdx = dash.indexOf('<ClientGymCard');
@@ -221,7 +221,7 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.doesNotMatch(workoutPage, /ProgramEditorPage/);
   assert.doesNotMatch(workoutPage, /workout\.myRoutines/);
 
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.match(card, /showLoggingRir/);
   assert.doesNotMatch(card, /hevySimple/);
   assert.match(card, /planLocked/);

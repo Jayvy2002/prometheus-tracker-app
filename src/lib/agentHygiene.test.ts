@@ -214,6 +214,36 @@ test('21a: App.tsx assembles router, guards and session bootstrap', () => {
   assert.ok(existsSync(at('src/stores/coachingStore.ts')), '21a must not split coachingStore');
 });
 
+test('21b: fetch/orchestration extracted; screens and coachingStore stay', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const rel of [
+    'src/features/coaching/hooks/useClientDossier.ts',
+    'src/features/dashboard/hooks/useDashboardBootstrap.ts',
+    'src/features/programs/hooks/useProgramEditorTracking.ts',
+    'src/features/programs/hooks/useProgramNlEdit.ts',
+    'src/features/workout/hooks/useExerciseHistory.ts',
+    'src/features/workout/domain/overloadSuggestion.ts',
+    'src/features/workout/data/loadFullWorkout.ts',
+    'src/features/workout/data/replayOfflineOp.ts',
+    'src/components/workout/SetRow.tsx',
+    'src/components/coaching/ClientDetailPage.tsx',
+    'src/components/dashboard/Dashboard.tsx',
+    'src/components/workout/ExerciseCard.tsx',
+    'src/components/coaching/ProgramSessionEditor.tsx',
+    'src/stores/workoutStore.ts',
+    'src/stores/coachingStore.ts',
+  ]) {
+    assert.ok(existsSync(at(rel)), rel);
+  }
+  assert.match(readFileSync(at('src/components/coaching/ClientDetailPage.tsx'), 'utf8'), /useClientDossier/);
+  assert.doesNotMatch(readFileSync(at('src/components/coaching/ClientDetailPage.tsx'), 'utf8'), /subscribeClientDossier\(/);
+  assert.match(readFileSync(at('src/features/coaching/hooks/useClientDossier.ts'), 'utf8'), /subscribeClientDossier\(/);
+  assert.match(readFileSync(at('src/components/dashboard/Dashboard.tsx'), 'utf8'), /useDashboardBootstrap/);
+  assert.doesNotMatch(readFileSync(at('src/components/dashboard/Dashboard.tsx'), 'utf8'), /from\('nutrition_logs'\)/);
+  assert.match(readFileSync(at('src/stores/workoutStore.ts'), 'utf8'), /from '\.\.\/features\/workout\/data\/replayOfflineOp'/);
+  assert.ok(existsSync(at('src/stores/coachingStore.ts')), '21b must not split coachingStore');
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

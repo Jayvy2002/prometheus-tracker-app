@@ -77,7 +77,7 @@ test('photos page and consent copy tell the real audience, including history bef
   assert.match(page, /myCoach/);
   assert.doesNotMatch(page, /t\('coaching\.photos\.subtitle'\)/);
 
-  const dossier = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
+  const dossier = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
   assert.match(dossier, /coaching\.photos\.coachSeesHistory/);
 
   const fr = readFileSync(resolve(process.cwd(), 'src/i18n/locales/fr.ts'), 'utf8');

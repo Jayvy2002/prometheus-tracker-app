@@ -146,7 +146,7 @@ test('check-in is a note not a diagnosis; wiring stays off /prometheus', () => {
   assert.doesNotMatch(note!.sessionNote, /diagnostic|médical|patholog/i);
   const form = src('src/components/workout/WorkoutForm.tsx');
   const checkin = src('src/components/checkin/CheckInPage.tsx');
-  const card = src('src/components/workout/ExerciseCard.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   const page = src('src/components/workout/WorkoutPage.tsx');
   assert.match(form, /SoloAskBar/);
   assert.match(form, /soloAskFromProfile\('session'/);

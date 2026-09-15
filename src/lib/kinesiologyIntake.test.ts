@@ -540,7 +540,7 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(usage, /PROBE_TIMEOUT_MS/);
     assert.match(usage, /intake usage probe timeout/);
 
-    const dashboard = readFileSync(resolve(process.cwd(), 'src/components/dashboard/Dashboard.tsx'), 'utf8');
+    const dashboard = readFileSync(resolve(process.cwd(), 'src/components/dashboard/Dashboard.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/dashboard/hooks/useDashboardBootstrap.ts'), 'utf8');
     assert.doesNotMatch(dashboard, /navigate\('\/intake'\)/);
     assert.doesNotMatch(dashboard, /intake\.completeLater/);
 
@@ -548,7 +548,7 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(profile, /isIntakeAlreadyFilled/);
     assert.match(profile, /to="\/intake"/);
 
-    const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
+    const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
     assert.match(detail, /KinesiologyIntakeReview/);
     assert.match(detail, /intake\.waiting/);
 
@@ -605,7 +605,7 @@ describe('intake joursDispo → program weekdays', () => {
     const setup = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientSetupPage.tsx'), 'utf8');
     assert.match(setup, /preferredWeekdays=\{preferredWeekdays\}/);
     assert.match(setup, /intakeAvailableWeekdays/);
-    const editor = readFileSync(resolve(process.cwd(), 'src/components/coaching/ProgramSessionEditor.tsx'), 'utf8');
+    const editor = readFileSync(resolve(process.cwd(), 'src/components/coaching/ProgramSessionEditor.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/programs/hooks/useProgramEditorTracking.ts'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/programs/hooks/useProgramNlEdit.ts'), 'utf8');
     assert.match(editor, /nextProgramWeekday\(days\.map\(d => d\.weekday\), preferredWeekdays\)/);
   });
 });

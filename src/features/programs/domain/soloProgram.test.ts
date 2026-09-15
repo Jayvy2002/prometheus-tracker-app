@@ -89,7 +89,7 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /function ProgramsHome/);
   assert.doesNotMatch(app, /Navigate to="\/workout"/);
-  const dash = src('src/components/dashboard/Dashboard.tsx');
+  const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /SoloProgramProposal/);
   assert.match(dash, /variant="notice"/);
   assert.doesNotMatch(dash, /ProgramSessionEditor/);
@@ -99,7 +99,7 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   assert.match(page, /isSoloAthlete/);
   assert.match(page, /presentation="athlete"/);
   assert.match(page, /programs\.soloReadFirst/);
-  const editor = src('src/components/coaching/ProgramSessionEditor.tsx');
+  const editor = src('src/components/coaching/ProgramSessionEditor.tsx') + src('src/features/programs/hooks/useProgramEditorTracking.ts') + src('src/features/programs/hooks/useProgramNlEdit.ts');
   assert.match(editor, /presentation\?: 'coach' \| 'athlete'/);
   assert.match(editor, /programs\.tapToEdit/);
   assert.match(editor, /programs\.cycleDetails/);

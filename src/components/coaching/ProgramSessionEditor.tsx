@@ -1,25 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useProgramEditorTracking } from '../../features/programs/hooks/useProgramEditorTracking';
+import { useProgramNlEdit } from '../../features/programs/hooks/useProgramNlEdit';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react';
 import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft } from '../../lib/types';
-import { applyProgramProposal, type ProgramNlProposal } from '../../lib/programNl';
 import {
-  ALL_ON_TRACKING,
   formatExercisePrescription,
-  parseCoachTrackingDefaults,
-  parseResolvedTracking,
   repsInputMode,
   showTrainingField,
-  type ResolvedTrackingConfig,
 } from '../../lib/clientTracking';
 import { muscleForExercise, sessionMuscleVolume, volumeWarnings, weekMuscleVolume, type MuscleVolume } from '../../lib/programVolume';
 import { muscleLabel } from '../../lib/muscleLabels';
 import { useExerciseStore } from '../../stores/exerciseStore';
-import { useCoachingStore } from '../../stores/coachingStore';
-import { interventionDraftError, isInterventionDrafting, isInterventionReady } from '../../lib/coachSecond';
-import { parseProgramPatch } from '../../lib/coachInterventions';
+import { interventionDraftError, isInterventionDrafting } from '../../lib/coachSecond';
 import { nextProgramWeekday } from '../../lib/kinesiologyIntake';
-import { track } from '../../lib/telemetryClient';
 import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
@@ -84,24 +78,38 @@ export default function ProgramSessionEditor({
   const athlete = presentation === 'athlete';
   const exercisesLib = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
-  const askCoachAgent = useCoachingStore(s => s.askCoachAgent);
-  const resolveIntervention = useCoachingStore(s => s.resolveIntervention);
-  const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
-  const fetchTrackingConfig = useCoachingStore(s => s.fetchTrackingConfig);
-  const fetchCoachSettings = useCoachingStore(s => s.fetchCoachSettings);
-  const [tracking, setTracking] = useState<ResolvedTrackingConfig>(ALL_ON_TRACKING);
+  const tracking = useProgramEditorTracking(clientId);
   const [dayIndex, setDayIndex] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [analyzed, setAnalyzed] = useState<number | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerMode, setPickerMode] = useState<'add' | 'replace'>('add');
-  const [nl, setNl] = useState('');
-  const [nlError, setNlError] = useState<string | null>(null);
-  const [proposal, setProposal] = useState<ProgramNlProposal | null>(null);
-  const [nlJobId, setNlJobId] = useState<string | null>(null);
-  const [nlSending, setNlSending] = useState(false);
-  const [proposalResolving, setProposalResolving] = useState(false);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
+  const {
+    nl,
+    setNl,
+    nlError,
+    setNlError,
+    proposal,
+    nlRow,
+    nlSending,
+    proposalResolving,
+    requestNl,
+    dismissProposal,
+    applyProposal,
+  } = useProgramNlEdit({
+    name,
+    description,
+    durationWeeks,
+    days,
+    onDaysChange,
+    clientId,
+    programId,
+    onApplied: (nextDay, nextEx) => {
+      setDayIndex(nextDay);
+      setSelected(nextEx);
+    },
+  });
 
   const safeIndex = Math.min(dayIndex, Math.max(0, days.length - 1));
   const day = days[safeIndex];
@@ -118,23 +126,6 @@ export default function ProgramSessionEditor({
   useEffect(() => {
     void fetchExercises();
   }, [fetchExercises]);
-
-  useEffect(() => {
-    void fetchCoachSettings();
-    if (!clientId) {
-      const defaults = useCoachingStore.getState().coachSettings?.default_tracking;
-      setTracking(parseCoachTrackingDefaults(defaults));
-      return;
-    }
-    void fetchTrackingConfig(clientId).then(cfg => {
-      if (cfg) {
-        setTracking(parseResolvedTracking(cfg));
-        return;
-      }
-      const defaults = useCoachingStore.getState().coachSettings?.default_tracking;
-      setTracking(parseCoachTrackingDefaults(defaults));
-    });
-  }, [clientId, fetchTrackingConfig, fetchCoachSettings]);
 
   const volumes = useMemo(
     () => (day ? sessionMuscleVolume(day.exercises, exercisesLib) : []),
@@ -164,121 +155,6 @@ export default function ProgramSessionEditor({
   };
 
   const nextWeekday = () => nextProgramWeekday(days.map(d => d.weekday), preferredWeekdays);
-
-  const nlRow = pendingInterventions.find(r => r.id === nlJobId) ?? null;
-
-  useEffect(() => {
-    if (!nlRow || !isInterventionReady(nlRow)) return;
-    const patch = parseProgramPatch(nlRow.payload);
-    const afterRec = nlRow.payload.after && typeof nlRow.payload.after === 'object'
-      ? nlRow.payload.after as ProgramExerciseDraft
-      : null;
-    const beforeRec = nlRow.payload.before && typeof nlRow.payload.before === 'object'
-      ? nlRow.payload.before as ProgramExerciseDraft
-      : null;
-    const dayIndex = typeof nlRow.payload.dayIndex === 'number' ? nlRow.payload.dayIndex : days.findIndex(d => d.weekday === (patch?.weekday ?? -1));
-    const exerciseIndex = typeof nlRow.payload.exerciseIndex === 'number'
-      ? nlRow.payload.exerciseIndex
-      : dayIndex >= 0 && patch
-        ? days[dayIndex]?.exercises.findIndex(ex => ex.name === patch.exercise) ?? -1
-        : -1;
-    const before = beforeRec ?? (dayIndex >= 0 && exerciseIndex >= 0 ? days[dayIndex].exercises[exerciseIndex] : null);
-    const after = afterRec ?? (before && patch ? {
-      ...before,
-      default_sets: patch.default_sets ?? before.default_sets,
-      default_reps: patch.default_reps ?? before.default_reps,
-      default_reps_min: patch.default_reps_min === undefined ? before.default_reps_min : patch.default_reps_min,
-      default_rir: patch.default_rir === undefined ? before.default_rir : patch.default_rir,
-      default_rest_seconds: patch.default_rest_seconds ?? before.default_rest_seconds,
-      name: patch.replace_with || before.name,
-    } : null);
-    if (!after || dayIndex < 0 || exerciseIndex < 0) return;
-    setProposal({
-      raw: nl,
-      patch: patch ?? {
-        exercise: before?.name || after.name,
-        weekday: days[dayIndex]?.weekday,
-        default_sets: after.default_sets,
-        default_reps: after.default_reps,
-        default_reps_min: after.default_reps_min,
-        default_rir: after.default_rir ?? null,
-        default_rest_seconds: after.default_rest_seconds,
-      },
-      before,
-      after,
-      dayIndex,
-      exerciseIndex,
-      weekday: days[dayIndex]?.weekday ?? 1,
-      summaryKey: 'coaching.programNl.summary',
-      summaryParams: {
-        lift: after.name,
-        sets: after.default_sets,
-        reps: after.default_reps_min && after.default_reps_min !== after.default_reps
-          ? `${after.default_reps_min}-${after.default_reps}`
-          : String(after.default_reps),
-        rir: after.default_rir ?? '—',
-      },
-    });
-  }, [nlRow?.id, nlRow?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const requestNl = async () => {
-    const q = nl.trim();
-    if (!q) return;
-    setNlError(null);
-    setProposal(null);
-    setNlSending(true);
-    const result = await askCoachAgent({
-      kind: 'program_nl_edit',
-      clientId: clientId ?? null,
-      programId: programId ?? null,
-      prompt: q,
-      screen: programId ? 'program_editor' : 'client_setup',
-      context: { name, description, duration_weeks: durationWeeks, days },
-    });
-    setNlSending(false);
-    if ('error' in result) {
-      setNlError(t('coaching.second.failed'));
-      return;
-    }
-    setNlJobId(result.id);
-    track('solo_program_nl_asked', { has_program: !!programId });
-  };
-
-  const dismissProposal = async () => {
-    if (!nlRow) return;
-    setProposalResolving(true);
-    const result = await resolveIntervention(nlRow.id, 'dismissed', {
-      ...nlRow.payload,
-      editor_resolution: 'cancelled',
-    });
-    setProposalResolving(false);
-    if (result.error) {
-      setNlError(result.error);
-      return;
-    }
-    setProposal(null);
-    setNlJobId(null);
-  };
-
-  const applyProposal = async () => {
-    if (!proposal || !nlRow) return;
-    setProposalResolving(true);
-    const result = await resolveIntervention(nlRow.id, 'kept', {
-      ...nlRow.payload,
-      editor_resolution: 'applied_to_editor',
-    });
-    setProposalResolving(false);
-    if (result.error) {
-      setNlError(result.error);
-      return;
-    }
-    onDaysChange(applyProgramProposal(days, proposal));
-    setDayIndex(proposal.dayIndex);
-    setSelected(proposal.exerciseIndex);
-    setProposal(null);
-    setNl('');
-    setNlJobId(null);
-  };
 
   return (
     <div className="space-y-3">

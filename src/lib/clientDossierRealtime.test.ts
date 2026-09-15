@@ -15,7 +15,7 @@ test('C01: observation tables are realtime-published; the 360 reloads on change'
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /subscribeClientDossier/);
   assert.match(store, /dossierChannels/);
-  const page = src('src/components/coaching/ClientDetailPage.tsx');
+  const page = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(page, /subscribeClientDossier\(id/);
   assert.match(page, /dossierFetchedAt/);
   assert.match(page, /client360\.updatedAt/);
@@ -48,7 +48,7 @@ test('C04: assignment history follows the athlete; adoption is explicit', () => 
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /fetchClientAssignments/);
   assert.match(store, /adoptClientProgram/);
-  const page = src('src/components/coaching/ClientDetailPage.tsx');
+  const page = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(page, /client360\.historyTitle/);
   const athlete = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(athlete, /fetchPausedAssignments/);
