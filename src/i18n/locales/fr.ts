@@ -552,6 +552,11 @@ const fr = {
       details: 'Détails',
       instructions: 'Consignes',
       tips: 'Conseils',
+      videoTitle: 'Vidéo d’exécution — {{name}}',
+      noVideo: 'Pas encore de vidéo d’exécution.',
+      form: 'Exécution',
+      primaryRed: 'Rouge = muscles principaux',
+      secondaryRed: 'Rose = muscles secondaires',
       equipment: {
         barbell: 'Barre',
         dumbbell: 'Haltères',

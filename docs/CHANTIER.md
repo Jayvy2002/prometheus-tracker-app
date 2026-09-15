@@ -8,7 +8,7 @@
 
 **Mis à jour : 15 septembre 2026 (soir).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod (`phyuijjekxtjvipjtdfv`) — voir tableau ci-dessous. File produit ouverte : lots **11–16**. File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
 
-**Lot ouvert : 11** (bibliothèque exo). Lots 2–10 : plus « tous à vérifier » — **2 Terminé** ; **3–10 Partiel** (parcours joués, restes listés). Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène, zéro écran, si un test nouveau doit être lancé).
+| **Lot ouvert : 11** (bibliothèque exo — code Git, apply prod + parcours encore dus). Lots 2–10 : plus « tous à vérifier » — **2 Terminé** ; **3–10 Partiel** (parcours joués, restes listés). Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène, zéro écran, si un test nouveau doit être lancé).
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -152,7 +152,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **8** | **Trouver programme et progression** (UX08, UX10, UX81, UX84, UX07 athlète) | **Partiel** | Solo live : Mon programme + `/exercise-progress`. **Reste :** lecture programme coaché. |
 | **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | **Partiel** | Depuis quand + Passer un signal (annulable) + empty. **Reste :** filtre roster conservé. |
 | **10** | **Cohérence restante** | **Partiel** | 10a, 10b, 10c, 10j live. **Reste :** 10d recap Ask (filtre joué) ; 10e check-in coaché. |
-| **11** | **Bibliothèque d’exercices** (UX86) | **À construire** | Catalogue **complet** : chaque exo a une **vidéo d’exécution** et un **mannequin blanc** dont les muscles travaillés sont en **rouge** (`primary_muscles` / `secondary_muscles`, ids `muscleLabels`). Picker et fiche séance s’en servent. Une PR. |
+| **11** | **Bibliothèque d’exercices** (UX86) | **À vérifier** | Git : `video_url` + mannequin blanc / rouge (`primary` / `secondary`) dans picker **et** fiche séance. Seed 31 vidéos. **Reste :** parcours live picker (prod = apply `20260915180000`). |
 | **12** | **Ask solo contextualisé** | À construire **après 10** | Solo seulement. Bouton IA sur Entraînement et Nutrition → barre de question. Pas d’onglet, pas `/prometheus`. Proposition **revue** : ignorer / appliquer une fois / enregistrer. Jamais auto-apply. Une PR par ligne. |
 | **13** | **Ask : autres surfaces** | À construire **après 12** | Même contrat (contexte de page, validation humaine). Séance en cours, journal / macros restants, check-in, jour loupé, coaché = brouillon Messages, alternatives d’exo (après 11), plan semaine + courses, swap d’ingrédient, deload. Une PR par ligne. |
 | **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
@@ -326,7 +326,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 7 | **Partiel.** Brouillon restauré live. **Reste :** dismiss ≠ lu. |
 | 8 | **Partiel.** Solo Mon programme + progression. **Reste :** coaché. |
 | 9 | **Partiel.** Depuis quand + Passer live. **Reste :** `?filter=` roster. |
-| 11 | Table `exercises` : nom, muscles, consignes. **Pas** de `video_url` / mannequin. Picker : `ExercisePicker`. |
+| 11 | Table `exercises.video_url`. Mannequin `ExerciseMuscleMannequin`. Picker + `ExerciseCard` via `ExerciseMedia`. **Reste :** apply prod + parcours. |
 | 12 | `/prometheus` = `CoachOnly`. Solo : revue hebdo Accueil (`soloCopilot`), pas de barre Ask sur `/workout` ni `/nutrition`. Recettes = `recipeStore`. |
 | 13 | `WorkoutForm` : pas d’Ask in-session. Check-in : champs, pas de note proposée. Coaché : Ask n’existe pas ; Messages = texte. Picker : pas d’alternatives muscle/matériel. |
 | 14 | `ProgramDayExercise` / `ProgramExerciseDraft` : sets, reps, rir, rest, poids. `SET_TYPES` + drop/myo/tempo/iso/cluster **seulement** dans `ExerciseCard` si `!program_day_id`. `hevySimple = !!program_day_id`. Superset = `superset_group_id` à la volée, pas au plan. Drop = **autre ligne** `set_type: drop`, un poids. |
@@ -561,7 +561,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX18** | P2 | ens. | À construire | Variantes / matériel / récents. | Bonne variante avant sélection. |
-| **UX86** | P2 | 11 | À construire | **Après 10.** Vidéo d’exécution + mannequin blanc, muscles travaillés en rouge. Étendre `exercises`, pas un second catalogue. | On voit le mouvement et les muscles avant de choisir. |
+| **UX86** | P2 | 11 | **À vérifier** | Vidéo + mannequin dans picker et fiche. Seed 31 URLs. **Reste :** apply prod + parcours. | On voit le mouvement et les muscles avant de choisir. |
 | **UX98** | P2 | 14a | À construire | **Après 10.** Builder : tous les `SET_TYPES` + lier 2+ exos en superset. Champs drop / tempo / iso / cluster / myo. | Le jour de plan dit *comment* logger, pas seulement 3×10. |
 | **UX99** | P2 | 14b | À construire | Logger = champs du type. Drop = N charges / **une** série. Superset = tour A puis B, repos après le couple. | On ne « simule » pas un drop ou un superset avec des working. |
 | **UX100** | P2 | 14c | À construire | Séance `program_day_id` : plus de `hevySimple`. Seed = prescription. Coaché : pas d’exo hors plan. | Le client logge ce que le plan a prescrit. |

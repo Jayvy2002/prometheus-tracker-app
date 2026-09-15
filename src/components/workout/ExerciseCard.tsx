@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2, Check } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2, Check, Info } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -21,6 +21,9 @@ import { optionLabel } from '../../lib/optionLabels';
 import { applySetPlaceholders } from '../../lib/workoutSetComplete';
 import { resolveRestSeconds } from '../../lib/restTimer';
 import { isPerformedSet } from '../../lib/performedSets';
+import { useExerciseStore } from '../../stores/exerciseStore';
+import { findCatalogExercise } from '../../lib/exerciseCatalog';
+import ExerciseMedia from './ExerciseMedia';
 
 export type OverloadSuggestionKind =
   | 'stagnant'
@@ -658,6 +661,10 @@ export default function ExerciseCard({
   const [localName, setLocalName] = useState(exercise.name);
   const [history, setHistory] = useState<ExerciseSession[]>([]);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [showMedia, setShowMedia] = useState(false);
+  const catalogExercises = useExerciseStore(s => s.exercises);
+  const fetchExercises = useExerciseStore(s => s.fetchExercises);
+  const catalog = findCatalogExercise(catalogExercises, exercise.name);
 
   useEffect(() => {
     initExerciseDraft(exercise.id, exercise.notes || '');
@@ -669,6 +676,10 @@ export default function ExerciseCard({
   useEffect(() => {
     return () => { clearExerciseDraft(exercise.id); };
   }, [exercise.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    void fetchExercises();
+  }, [fetchExercises]);
 
   useEffect(() => {
     if (!user || !currentWorkout) return;
@@ -779,6 +790,16 @@ export default function ExerciseCard({
             )}
           </div>
         )}
+        {catalog && (
+          <button
+            type="button"
+            onClick={() => setShowMedia(v => !v)}
+            className={`p-1 transition-colors ${showMedia ? 'text-rose-400 hover:text-rose-300' : 'text-neutral-600 hover:text-rose-400'}`}
+            aria-label={t('workout.exercisePicker.form')}
+          >
+            <Info size={16} />
+          </button>
+        )}
         <button
           onClick={() => setShowNotes(!showNotes)}
           className={`p-1 transition-colors ${showNotes || localNotes ? 'text-blue-400 hover:text-blue-300' : 'text-neutral-600 hover:text-neutral-400'}`}
@@ -801,6 +822,12 @@ export default function ExerciseCard({
         </button>
         )}
       </div>
+
+      {showMedia && catalog && (
+        <div className="px-4 pb-3 animate-fade-in">
+          <ExerciseMedia exercise={catalog} compact />
+        </div>
+      )}
 
       {/* Previous session info + overload suggestion */}
       {prevPerformed.length > 0 && (

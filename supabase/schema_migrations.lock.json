@@ -439,6 +439,10 @@
     {
       "version": "20260915133000",
       "name": "save_program"
+    },
+    {
+      "version": "20260915180000",
+      "name": "exercise_video_url"
     }
   ]
 }

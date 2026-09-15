@@ -552,6 +552,11 @@ const en = {
       details: 'Details',
       instructions: 'Instructions',
       tips: 'Tips',
+      videoTitle: 'Execution video — {{name}}',
+      noVideo: 'No execution video yet.',
+      form: 'Execution',
+      primaryRed: 'Red = primary muscles',
+      secondaryRed: 'Pink = secondary muscles',
       equipment: {
         barbell: 'Barbell',
         dumbbell: 'Dumbbell',

@@ -175,6 +175,7 @@ export interface Exercise {
   verified: boolean;
   created_by: string | null;
   created_at: string;
+  video_url: string | null;
 }
 
 export type ExerciseRequestStatus = 'pending' | 'processing' | 'approved' | 'rejected';

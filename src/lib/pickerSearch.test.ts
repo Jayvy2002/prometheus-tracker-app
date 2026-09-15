@@ -49,6 +49,7 @@ function exercise(partial: Partial<Exercise> & { name: string }): Exercise {
     verified: true,
     created_by: null,
     created_at: '',
+    video_url: partial.video_url ?? null,
   };
 }
 
