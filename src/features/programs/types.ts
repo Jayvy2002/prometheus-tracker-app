@@ -134,6 +134,7 @@ export interface WorkoutTemplateExercise {
   set_type?: SetType;
   superset_group?: string | null;
   drop_count?: number | null;
+  drop_segments?: Array<{ weight_kg: number; reps: number }>;
   tempo?: string | null;
   isometric_seconds?: number | null;
   cluster_rest_seconds?: number | null;

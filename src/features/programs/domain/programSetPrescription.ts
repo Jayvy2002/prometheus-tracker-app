@@ -65,9 +65,11 @@ export function toWorkoutTemplateExercise(
   ex: ProgramExerciseDraft & { order_index?: number },
   orderIndex: number,
 ): WorkoutTemplateExercise {
+  const setType = normalizeProgramSetType(ex.set_type);
   return {
     ...programExerciseRpcFields(ex),
     order_index: ex.order_index ?? orderIndex,
+    drop_segments: setType === 'drop' ? emptyDropSegments(ex.drop_count ?? 2) : undefined,
   };
 }
 

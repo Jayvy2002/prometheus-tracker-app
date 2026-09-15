@@ -18,7 +18,7 @@ export default function SupersetGroup({ exercises, onStartRestTimer }: Props) {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" data-superset="true">
       {/* Group label */}
       <div className="flex items-center gap-2 mb-2 px-1">
         <div className="flex items-center gap-1.5 text-green-400">
