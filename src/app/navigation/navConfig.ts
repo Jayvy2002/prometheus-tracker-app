@@ -49,6 +49,7 @@ export type QuickAddDef = {
   path: string;
   labelKey: string;
   icon: LucideIcon;
+  state?: { offPlan?: boolean };
 };
 
 const today: NavItemDef = { id: 'today', path: '/dashboard', labelKey: 'nav.today', icon: LayoutDashboard, end: true };
@@ -170,10 +171,19 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
   ]);
 }
 
-export function quickAddActions(tracking: NavTracking): QuickAddDef[] {
+export function quickAddActions(
+  tracking: NavTracking,
+  opts?: { programDayDue?: boolean },
+): QuickAddDef[] {
   return [
     ...(tracking.track_workouts
-      ? [{ id: 'newWorkout', path: '/workout/new', labelKey: 'nav.newWorkout', icon: Dumbbell }]
+      ? [{
+          id: 'newWorkout',
+          path: '/workout/new',
+          labelKey: opts?.programDayDue ? 'nav.addWorkoutOffPlan' : 'nav.newWorkout',
+          icon: Dumbbell,
+          state: opts?.programDayDue ? { offPlan: true } : undefined,
+        }]
       : []),
     ...(tracking.track_checkins
       ? [{ id: 'checkin', path: '/checkin', labelKey: 'nav.addCheckin', icon: ClipboardCheck }]

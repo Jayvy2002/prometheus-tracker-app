@@ -38,8 +38,14 @@ test('waiting for a program goes to Messages; a due plan day is labelled hors pr
   const fab = src('src/app/layout/FAB.tsx');
   assert.match(fab, /isProgramDayDue/);
   assert.match(fab, /nav\.addWorkoutOffPlan/);
+  assert.match(fab, /offPlan: true/);
+
+  const side = src('src/app/layout/SideNav.tsx');
+  assert.match(side, /useProgramDayDue/);
+  assert.match(side, /programDayDue/);
 
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /addWorkoutOffPlan: 'Séance hors programme'/);
   assert.match(fr, /nothingToday: 'Rien de prescrit aujourd’hui\.'/);
+  assert.match(src('src/i18n/locales/fr/workout.ts'), /offPlanNotice/);
 });

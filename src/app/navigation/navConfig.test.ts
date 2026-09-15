@@ -41,6 +41,17 @@ test('coached mobile tabs keep messages and check-in, not photos', () => {
   assert.equal(paths.includes('/exercise-progress'), false);
 });
 
+test('UX84 quick add names an off-plan session when a program day is due', () => {
+  const due = quickAddActions(trackingOn, { programDayDue: true });
+  const rest = quickAddActions(trackingOn, { programDayDue: false });
+  const workoutDue = due.find(action => action.id === 'newWorkout');
+  const workoutRest = rest.find(action => action.id === 'newWorkout');
+  assert.equal(workoutDue?.labelKey, 'nav.addWorkoutOffPlan');
+  assert.deepEqual(workoutDue?.state, { offPlan: true });
+  assert.equal(workoutRest?.labelKey, 'nav.newWorkout');
+  assert.equal(workoutRest?.state, undefined);
+});
+
 test('UX111 coached nutrition stays off the tab bar (FAB + profile + desktop)', () => {
   const tabs = mobileTabs('coached', trackingOn);
   assert.equal(tabs.length, 5);
