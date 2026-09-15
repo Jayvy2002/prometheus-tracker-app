@@ -66,7 +66,7 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
-Ceci est l’**arbre actuel** (lots 18–22a livrés). La matrice et la suite (22b–23) sont dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c). `lib/types.ts` réexporte `shared/types` + `features/*/types` (lot 22a). i18n reste entier jusqu’au lot 22b.
+Ceci est l’**arbre actuel** (lots 18–22b livrés). La matrice et la suite (lot 23) sont dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c). `lib/types.ts` réexporte `shared/types` + `features/*/types` (lot 22a). i18n : `locales/{fr,en}/*.ts` + barils (lot 22b).
 
 ```text
 src/
@@ -80,7 +80,7 @@ src/
 ├── components/                     Écrans métier ; ui/ et layout/ = réexports
 ├── stores/                         Zustand ; coachingStore = façade (lot 21c)
 ├── lib/                            Métier + réexports (`types.ts` = baril 22a) ; tests `*.test.ts`
-└── i18n/locales/{fr,en}.ts         Textes visibles (lot 22b pour découper)
+└── i18n/locales/{fr,en}/           Textes par domaine + barils fr.ts / en.ts (22b)
 
 supabase/
 ├── migrations/                     Historique DB immuable

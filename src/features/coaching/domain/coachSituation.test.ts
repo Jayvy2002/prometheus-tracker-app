@@ -12,6 +12,7 @@ import {
 import { parseVisibleTabs } from './coachSettings';
 import { resolveClientTab } from './coachRecovery';
 import type { ClientLiftProgress } from '../../../lib/types';
+import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 
 const TODAY = '2026-08-29';
 
@@ -116,7 +117,7 @@ test('i18n defaults to French, not English navigator fallback', () => {
   const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
   assert.match(html, /lang="fr"/);
 
-  const fr = readFileSync(resolve(process.cwd(), 'src/i18n/locales/fr.ts'), 'utf8');
+  const fr = i18nLocaleSource('fr');
   assert.match(fr, /today:\s*"Aujourd'hui"/);
   assert.match(fr, /programs:\s*'Programmes'/);
   assert.match(fr, /overview:\s*'Vue d’ensemble'/);

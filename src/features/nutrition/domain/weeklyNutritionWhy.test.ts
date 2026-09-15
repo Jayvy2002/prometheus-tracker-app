@@ -8,8 +8,11 @@ import {
   WEEKLY_WHY_ADJUST_REASONS,
   weeklyNutritionWhyKey,
 } from './weeklyNutritionWhy';
+import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 
 function src(rel: string): string {
+  if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
+  if (rel === 'src/i18n/locales/en.ts') return i18nLocaleSource('en');
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
