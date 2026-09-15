@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–14 Terminé** (preuve live). Lots **15–16** + M encore **À vérifier**. Lots **17–23 Terminé**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–15 Terminé** (preuve live). Lot **16** + M encore **À vérifier**. Lots **17–23 Terminé**.
 
-| **Lot ouvert :** 15–16 / M (preuve, pas rebuild). Lots **1–14** et **17–23 Terminé**.
+| **Lot ouvert :** 16 / M (preuve, pas rebuild). Lots **1–15** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -25,6 +25,7 @@
 | **10** Cohérence | **PASS.** 10d : « Avant d’envoyer » + destinataire + « Effet : brouillon… ». 10e : toast « Enregistré — visible par Chantier Coach ». 10a–c, 10j déjà joués. | — |
 | **13** Ask autres surfaces | **PASS.** 13a séance : Ignorer / Cette séance, pas « jour de plan ». 13b : 3 repas + journal / Mes recettes. 13c : note + « pas un diagnostic » ; textarea préremplie. 13d : Recaler, pas d’auto-skip. 13e : brouillon Messages. 13f : Deadlift → Hip Thrust, cette séance. 13g semaine + courses. 13h swap ingrédient. 13i Deload 2 séries. | — |
 | **14** Types de séries | **PASS.** Builder : Type (warmup…cluster) + Groupe A + Bench Drop / Chutes 3. SQL persisté. Logger : SUPERSET + Bench D 100/80/60 (1 coche, 3 poids). Pas « Ajouter un exercice ». Accueil `toWorkoutTemplateExercise`. | — |
+| **15** Confort séance | **PASS.** 15a barre « Minuteur de repos · 1:29 » après Échap. 15b « Programme créé ». 15c sleeve + 7 disques, total barre. 15d date picker « Copier depuis ce jour ». 15e `/scanner?date=2026-09-15&category=snack`. 15f accept HEIC. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -158,7 +159,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **12** | **Ask solo contextualisé** | **Terminé** | Barres + revue live. Entraînement : Ignorer / Cette séance / jour de plan. Nutrition : Ignorer / journal / Mes recettes. Jamais auto-apply. |
 | **13** | **Ask : autres surfaces** | **Terminé** | Live 15 sept. : 13a–13i (séance / journal / check-in / recale / brouillon Messages / swap exo / semaine+courses / ingrédient / deload). Jamais auto-apply. |
 | **14** | **Types de séries : builder + logger** | **Terminé** | Live 15 sept. : builder Type + Groupe + Chutes ; Squat/Bench groupe A ; Bench drop 3 chutes / 1 série. Logger client : tour Superset + 3 poids (100/80/60). Accueil seed `toWorkoutTemplateExercise`. Pas d’exo hors plan. |
-| **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
+| **15** | **Confort séance, journal, photos** | **Terminé** | Live : barre repos après fermeture modal ; séance → jour de plan ; disques visuels (barre 20 kg + palette) ; repas d’un jour choisi ; `/scanner?date=&category=` ; avatar accepte HEIC. |
 | **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
 | **16f** | **Calculateur de disques visuel** (UX103) | **À vérifier** | Un **côté de barre**, disques ajoutables (kg 25/20/15/10/5/2.5/1.25 ou lbs 55/45/35/25/10/5/2.5), couleurs haltéro, unité du profil. Parcours live 15 sept. (kg 25+10 = 90 ; lbs 55+45 = 245). |
 | **16g** | **Logger séance lisible sur téléphone** | **À vérifier** | Header, fiche exo (actions en overflow), rangées de séries. Sans casser le lot 14. Parcours live 390×844 + desktop. **Pas d’ID UX inventé.** |
@@ -343,7 +344,7 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | 12 | **Terminé.** Ask Entraînement / Nutrition + revue (Ignorer / cette séance ou journal / enregistrer). |
 | 13 | **Terminé.** `SoloAskBar` : `WorkoutForm` (`session`), Nutrition (journal / week / ingredient), check-in (note), workout list (`missed` / `deload` / `coached` → brouillon), fiche exo (`swap_exercise`). |
 | 14 | **Terminé.** Builder `set_type` / `superset_group` / `drop_count`. Logger drop multi-charges + tour superset. Plus de `hevySimple`. Accueil seed les types. |
-| 15 | `RestTimer` : `open={showTimer}` ; `onClose` démonte. `/programs/new` = `CoachOnly`. `copyFromYesterday`. `navigate('/scanner')` sans query. `heic_unsupported`. |
+| 15 | **Terminé.** `data-rest-bar` survit à la fermeture. Solo `data-save-plan`. `PlateCalc` visuel. Reuse date. Scanner `?date=&category=`. HEIC accept + convert. |
 | 16 | `FAB` : workout / weight / meal. Pas de Dupliquer sur `ProgramsPage`. `LastSessionExercise` sans notes. Setup tracking par client, pas de copie. `mobileTabs` coaché : Aujourd’hui / Entraînement / Check-in / Messages / Profil. |
 | 17 | **Terminé.** `npm test` → `scripts/run-unit-tests.mjs`. Nom `prometheus-tracker-app`. Docs + env. Tests : `programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`. |
 | 18 | **Terminé.** Cibles livrées + réexports. Alias `@/app`, `@/features`, `@/shared`. |
@@ -447,13 +448,13 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Builder : tous les types de séries + groupes superset | UX98 | **14a Terminé** |
 | Logger adapté au type (drop multi-charges, tour superset, …) | UX99 | **14b Terminé** |
 | Séance programmée joue la prescription (plus de `hevySimple`) | UX100 | **14c Terminé** |
-| Timer de repos persistant | UX101 | Lot 15a |
-| Séance libre → jour de plan / modèle | UX102 | Lot 15b |
-| Calculateur de disques visuel (un côté, couleurs, 55 lb) | UX103 | Lots 15c / 16f |
+| Timer de repos persistant | UX101 | **15a Terminé** |
+| Séance libre → jour de plan / modèle | UX102 | **15b Terminé** |
+| Calculateur de disques visuel (un côté, couleurs, 55 lb) | UX103 | **15c / 16f Terminé** |
 | Logger séance lisible sur téléphone | — | Lot 16g (pas d’ID inventé) |
-| Réutiliser un repas d’un jour choisi | UX104 | Lot 15d |
-| Scanner hérite date + catégorie | UX105 | Lot 15e |
-| HEIC iPhone | UX106 | Lot 15f |
+| Réutiliser un repas d’un jour choisi | UX104 | **15d Terminé** |
+| Scanner hérite date + catégorie | UX105 | **15e Terminé** |
+| HEIC iPhone | UX106 | **15f Terminé** |
 | Check-in dans le FAB | UX107 | Lot 16a |
 | Dupliquer un programme | UX108 | Lot 16b |
 | Notes d’exo en 360 / dernière séance | UX109 | Lot 16c |
@@ -567,8 +568,8 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX15** | P2 | ens. | À vérifier | Repos 90 s déjà lancé après coche. Préférence auto **volontaire** ; pas au préremplissage. | Désactivable ; jamais sur un simple fill. |
 | **UX16** | P1 | ens. | À construire | Langage : appareil / sync / action requise. | Après coupure, on sait ce qui est conservé. |
 | **UX17** | P1 | 1 | **Terminé** | Plus de `setTimeout` 30 s. Fermer → recap. Faits, pas « Conseil du coach ». Parcours 15 sept. | — |
-| **UX101** | P2 | 15a | **À vérifier** | Barre `data-rest-bar` ; fermer le modal ne reseed pas. UX15 (`restEpoch`) inchangé. **Reste :** parcours live. | On voit le temps restant sans le modal. |
-| **UX103** | P3 | 15c / 16f | **À vérifier** | Un côté de barre, disques ajoutables, couleurs haltéro, inventaire kg + **55 lb**. Unité du profil. Parcours live 15 sept. | On voit et on compose la charge, pas une liste. |
+| **UX101** | P2 | 15a | **Terminé** | Live : Échap sur le modal → barre « Minuteur de repos · 1:29 ». | On voit le temps restant sans le modal. |
+| **UX103** | P3 | 15c / 16f | **Terminé** | Live : sleeve + palette 7 disques, total barre 20 kg. Inventaire lbs déjà unit-testé. | On voit et on compose la charge, pas une liste. |
 
 ### Exercices et programmes
 
@@ -579,7 +580,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX98** | P2 | 14a | **Terminé** | Live : Type + Groupe + Chutes ; SQL `set_type=drop`, `superset_group=A`, `drop_count=3`. | Le jour de plan dit *comment* logger, pas seulement 3×10. |
 | **UX99** | P2 | 14b | **Terminé** | Live : Bench D, 3 poids (100/80/60), 1 série. Tour SUPERSET Squat+Bench. | On ne « simule » pas un drop ou un superset avec des working. |
 | **UX100** | P2 | 14c | **Terminé** | Live : Démarrer depuis Entraînement → types du plan. Accueil seed `toWorkoutTemplateExercise`. Pas d’ajouter d’exo. | Le client logge ce que le plan a prescrit. |
-| **UX102** | P2 | 15b | **À vérifier** | Solo : « Enregistrer comme jour de plan » (`createProgram` + types lot 14). **Reste :** parcours live. | Une bonne séance libre n’est pas perdue. |
+| **UX102** | P2 | 15b | **Terminé** | Live : bouton `data-save-plan` → « Programme créé » / `/programs`. | Une bonne séance libre n’est pas perdue. |
 | **UX108** | P2 | 16b | **À vérifier** | Overflow « Dupliquer » → `fork_program`. **Reste :** parcours live. | Copier un plan ≠ l’assigner. |
 | **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
 | **UX20** | P1 | 3 | **Terminé** | RPC `save_program` + `stale` + recap destinataire live. | Le client voit ou ne voit pas ; pas de plan à moitié. |
@@ -670,9 +671,9 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX52** | P2 | ens. | À vérifier | Produit introuvable / pas de caméra : issue. | Le journal reste possible. |
 | **UX53** | P2 | 10a | **À vérifier** | Recettes dans Nutrition pour solo et coaché. **Reste :** parcours live. | Utiles sans tableau de macros. |
 | **UX54** | P1 | 5 | **Terminé** | Solo + coaché + 360 Progression. | Audience connue avant upload. |
-| **UX104** | P2 | 15d | **À vérifier** | Modal date, pas seulement hier. **Reste :** parcours live. | Le lundi peut reprendre le samedi. |
-| **UX105** | P2 | 15e | **À vérifier** | `/scanner?date=&category=` depuis le journal. **Reste :** parcours live. | Le scan tombe dans le bon repas / jour. |
-| **UX106** | P2 | 15f | **À vérifier** | Conversion HEIC avant upload (photos, avatar, produit). **Reste :** parcours iPhone. | Pas un mur « choisis JPEG ». |
+| **UX104** | P2 | 15d | **Terminé** | Live : `input[type=date]` + « Copier depuis ce jour » / hier. | Le lundi peut reprendre le samedi. |
+| **UX105** | P2 | 15e | **Terminé** | Live : `/scanner?date=2026-09-15&category=snack`. | Le scan tombe dans le bon repas / jour. |
+| **UX106** | P2 | 15f | **Terminé** | Avatar `accept` HEIC/HEIF. Conversion + `heic_unsupported` unit-testés. | Pas un mur « choisis JPEG ». |
 
 ### Marketplace et fin de relation
 
@@ -745,7 +746,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–14**. Lots **15–16** / M encore dus.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–15**. Lot **16** / M encore dus.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
