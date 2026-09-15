@@ -26,7 +26,7 @@ test('workspace switcher is display-only; CoachOnly still uses server capability
   assert.match(app, /capabilities\.coach/);
   assert.match(app, /personalToolsAvailable/);
   assert.doesNotMatch(app, /activeWorkspace === 'coaching'.*CoachOnly/);
-  const switcher = src('src/components/layout/WorkspaceSwitcher.tsx');
+  const switcher = src('src/app/layout/WorkspaceSwitcher.tsx');
   assert.match(switcher, /selectAccountWorkspace/);
   assert.doesNotMatch(switcher, /setCoachingRole/);
   const ci = src('.github/workflows/ci.yml');

@@ -55,7 +55,7 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
   assert.match(profile, /coachQuestionnaire\.myTitle/);
   assert.match(profile, /to="\/intake"/);
 
-  const layout = src('src/components/layout/AppLayout.tsx');
+  const layout = src('src/app/layout/AppLayout.tsx');
   assert.match(layout, /AssignedQuestionnaireBanner/);
 
   const banner = src('src/components/onboarding/AssignedQuestionnaireBanner.tsx');

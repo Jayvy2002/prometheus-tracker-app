@@ -51,7 +51,7 @@ test('D06: OFF full-text via cgi, explicit only, budgeted', () => {
   assert.match(off, /OFF_MAX_CALLS_PER_MINUTE/);
   assert.match(off, /OffSearchError/);
   assert.match(off, /country\?: string/);
-  const hook = src('src/lib/useFoodCatalogSearch.ts');
+  const hook = src('src/features/nutrition/hooks/useFoodCatalogSearch.ts');
   assert.match(hook, /offStatus/);
   assert.match(hook, /AbortController/);
 });

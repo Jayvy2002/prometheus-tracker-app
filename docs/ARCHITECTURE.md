@@ -1,30 +1,33 @@
 # Architecture frontend — actuel vs cible
 
-> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Ce fichier **n’autorise pas** un déplacement : le lot **17** documente ; les lots **18–23** bougent, un domaine ou une ligne à la fois.
+> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Le lot **18** a créé `app` / `features` / `shared` et les alias `@/`. Les lots **19–23** bougent encore, un domaine ou une ligne à la fois.
 >
 > **Invariants :** zéro changement de parcours dans une PR de structure (sauf lot 19 : mêmes écrans, tokens). `coachingStore` : **pas** de découpage avant le lot **21c** (façade obligatoire). `coachFleet.ts` et `supabase/functions/coach-fleet-round` restent jumelés. Migrations appliquées immuables.
 
 ---
 
-## Arbre actuel (ne pas inventer l’autre)
+## Arbre actuel (après lot 18)
 
 ```text
 src/
-├── App.tsx                 Routes, gardes, bootstrap session / offline / onboarding
-├── main.tsx
-├── index.css
-├── vite-env.d.ts
-├── components/             Écrans et blocs par domaine (chemins relatifs)
-│   ├── auth/ calendar/ checkin/ coaching/ dashboard/
+├── App.tsx                 Routes, gardes, bootstrap — encore ici (lot 21a)
+├── app/
 │   ├── layout/             AppLayout, BottomNav, SideNav, FAB
-│   ├── marketplace/ nutrition/ onboarding/ profile/ programs/
-│   ├── routines/ scanner/ solo/ stats/ ui/ weight/ workout/
-│   └── ErrorBoundary.tsx
-├── hooks/                  Aujourd’hui : usePageTitle.ts seulement
+│   └── navigation/         navConfig + test
+├── features/
+│   ├── account/hooks/      useAccountContext
+│   ├── coaching/hooks/     useClientTracking  (coach*.ts encore dans lib/ — lot 20)
+│   └── nutrition/hooks/    useFoodCatalogSearch
+├── shared/
+│   ├── api/supabase/       client
+│   ├── hooks/              useOnline, usePageTitle
+│   └── ui/                 primitives (tokens : lot 19)
+├── components/             Écrans métier ; ui/ et layout/ = réexports temporaires
+├── hooks/                  réexport usePageTitle
 ├── i18n/locales/{fr,en}.ts
-├── lib/                    Logique, contrats, hooks mal placés, **tous les tests unitaires**
-├── navigation/             navConfig + test
-└── stores/                 Zustand, un fichier par domaine (coachingStore = gros)
+├── lib/                    Métier + réexports hooks / supabase
+├── navigation/             réexport navConfig
+└── stores/                 Zustand (coachingStore intact jusqu’au 21c)
 
 supabase/
 ├── migrations/ + schema_migrations.lock.json
@@ -32,7 +35,7 @@ supabase/
 └── tests/                  SQL RLS / RPC (pas des `*.test.ts` Vite)
 ```
 
-Imports : chemins relatifs dans `src/`. **Pas d’alias `@/`** tant que le lot **18** n’est pas livré.
+Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `coach*.ts`, `App.tsx`, `stores/`, `types.ts`, i18n : **pas** déplacés.
 
 Convention d’accès données **cible** (à écrire ici, à faire respecter aux lots 20 puis 23) :
 
@@ -64,14 +67,14 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | Si tu crées / touches… | Aujourd’hui | Cible | Lot qui déplace |
 |---|---|---|---|
 | Route, garde, bootstrap session | `App.tsx` | `app/router`, `app/guards`, `app/bootstrap` | **21a** |
-| Layout, nav, FAB | `components/layout/*`, `navigation/*` | `app/layout/`, `app/navigation/` | **18** |
-| Primitive UI (`Button`, `Card`, …) | `components/ui/*` | `shared/ui/` | **18** |
-| Client Supabase | `lib/supabase.ts` | `shared/api/supabase/` | **18** |
-| `useOnline.ts` | `lib/` | `shared/hooks/` | **18** |
-| `usePageTitle.ts` | `hooks/` | `shared/hooks/` | **18** |
-| `useAccountContext.ts` | `lib/` | `features/account/hooks/` | **18** |
-| `useClientTracking.ts` | `lib/` | `features/coaching/hooks/` | **18** |
-| `useFoodCatalogSearch.ts` | `lib/` | `features/nutrition/hooks/` | **18** |
+| Layout, nav, FAB | `app/layout/`, `app/navigation/` (+ réexports) | idem | **18 livré** |
+| Primitive UI (`Button`, `Card`, …) | `shared/ui/` (+ réexports) | idem | **18 livré** |
+| Client Supabase | `shared/api/supabase/` (+ réexport `lib/supabase.ts`) | idem | **18 livré** |
+| `useOnline.ts` | `shared/hooks/` | idem | **18 livré** |
+| `usePageTitle.ts` | `shared/hooks/` | idem | **18 livré** |
+| `useAccountContext.ts` | `features/account/hooks/` | idem | **18 livré** |
+| `useClientTracking.ts` | `features/coaching/hooks/` | idem | **18 livré** |
+| `useFoodCatalogSearch.ts` | `features/nutrition/hooks/` | idem | **18 livré** |
 | `coach*.ts` (agent, fleet, ask, …) | `lib/coach*.ts` | `features/coaching/` | **20** — **pas 18** |
 | Autre domaine dans `lib/` | `lib/<domaine>` | `features/<domaine>/` | **20** (une PR / domaine) |
 | Utils transverses, télémétrie, offline | `lib/` | `shared/lib/` | **20** quand ce n’est plus du domaine |
@@ -80,7 +83,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | Store Zustand (sauf coaching) | `stores/*Store.ts` | `features/*/model/` | progressif, **pas 18** |
 | `coachingStore.ts` | `stores/coachingStore.ts` | modules + **façade** du même nom | **21c** seulement |
 | Écran métier | `components/<domaine>/` | `features/<domaine>/components/` | avec le domaine (20–21), pas un bang |
-| Test unitaire | `src/**/*.test.ts` | reste à côté du module testé | **17b** = découverte ; **17e** = renommer `auditLot*` plus tard |
+| Test unitaire | `src/**/*.test.ts` | reste à côté du module testé | **17b** = découverte ; **17e** livré |
 | Edge Function | `supabase/functions/<nom>/` | inchangé | — |
 | Migration SQL | `supabase/migrations/` | inchangé ; **jamais** réécrire l’historique | — |
 

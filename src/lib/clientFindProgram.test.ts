@@ -32,7 +32,7 @@ test('waiting for a program goes to Messages; a due plan day is labelled hors pr
   assert.match(dash, /to="\/messages"/);
   assert.match(dash, /dashboard\.nothingToday/);
 
-  const fab = src('src/components/layout/FAB.tsx');
+  const fab = src('src/app/layout/FAB.tsx');
   assert.match(fab, /isProgramDayDue/);
   assert.match(fab, /nav\.addWorkoutOffPlan/);
 

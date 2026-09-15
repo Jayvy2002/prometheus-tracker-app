@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { parseAccountSnapshot, resolveAccountContext } from '../lib/accountContext';
+import { parseAccountSnapshot, resolveAccountContext } from '../../lib/accountContext';
 import { desktopSections, mobileTabs, navPersona, pathMatchesItem, quickAddActions, tabIndexForPath } from './navConfig';
 
 const trackingOn = {

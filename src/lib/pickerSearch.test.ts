@@ -138,7 +138,7 @@ test('token score needs every word when the whole query is not a substring', () 
 test('FoodForm and IngredientPicker search as you type and never skip Open Food Facts', () => {
   const food = src('src/components/nutrition/FoodForm.tsx');
   const ing = src('src/components/nutrition/IngredientPicker.tsx');
-  const hook = src('src/lib/useFoodCatalogSearch.ts');
+  const hook = src('src/features/nutrition/hooks/useFoodCatalogSearch.ts');
   const sql = src('supabase/migrations/20260907222909_food_search_rank.sql');
   assert.match(food, /useFoodCatalogSearch/);
   assert.match(ing, /useFoodCatalogSearch/);

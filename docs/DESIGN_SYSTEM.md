@@ -31,9 +31,9 @@ Ne pas inventer un second fichier de tokens. Une fois le lot 19 passé, les prim
 
 ---
 
-## Primitives (`src/components/ui/`)
+## Primitives (`src/shared/ui/`)
 
-Cible lot **18** : ce dossier devient `shared/ui/`. **Ne pas déplacer ici.**
+Lot **18** livré : le dossier canonique est `shared/ui/`. `src/components/ui/` réexporte. Tokens : lot **19**.
 
 | Fichier | Rôle |
 |---|---|

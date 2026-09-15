@@ -13,6 +13,12 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@/app/*": ["src/app/*"],
+      "@/features/*": ["src/features/*"],
+      "@/shared/*": ["src/shared/*"]
+    },
 
     /* Linting */
     "strict": true,

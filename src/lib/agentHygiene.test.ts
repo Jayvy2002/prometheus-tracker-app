@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { test } from 'node:test';
 
@@ -75,6 +75,41 @@ test('17a: architecture and design-system docs exist', () => {
   assert.match(design, /bg-surface|surface/);
   assert.match(design, /Button\.tsx/);
   assert.match(design, /lot 19/);
+});
+
+test('18: app / features / shared exist, aliases are wired, old paths re-export', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const rel of [
+    'src/app/layout/AppLayout.tsx',
+    'src/app/navigation/navConfig.ts',
+    'src/shared/ui/Button.tsx',
+    'src/shared/api/supabase/index.ts',
+    'src/shared/hooks/useOnline.ts',
+    'src/shared/hooks/usePageTitle.ts',
+    'src/features/account/hooks/useAccountContext.ts',
+    'src/features/coaching/hooks/useClientTracking.ts',
+    'src/features/nutrition/hooks/useFoodCatalogSearch.ts',
+  ]) {
+    assert.ok(existsSync(at(rel)), rel);
+  }
+  assert.ok(existsSync(at('src/lib/coachFleet.ts')), 'lot 18 must not move coach*.ts');
+  assert.ok(existsSync(at('src/App.tsx')), 'lot 18 must not split App.tsx');
+  assert.ok(existsSync(at('src/stores/coachingStore.ts')), 'lot 18 must not split coachingStore');
+  assert.ok(existsSync(at('src/lib/types.ts')), 'lot 18 must not split types.ts');
+
+  const vite = readFileSync(at('vite.config.ts'), 'utf8');
+  assert.match(vite, /'@\/app'/);
+  assert.match(vite, /'@\/features'/);
+  assert.match(vite, /'@\/shared'/);
+  const ts = readFileSync(at('tsconfig.app.json'), 'utf8');
+  assert.match(ts, /"@\/app\/\*"/);
+  assert.match(ts, /"@\/features\/\*"/);
+  assert.match(ts, /"@\/shared\/\*"/);
+
+  assert.match(readFileSync(at('src/lib/supabase.ts'), 'utf8'), /shared\/api\/supabase/);
+  assert.match(readFileSync(at('src/components/ui/Button.tsx'), 'utf8'), /shared\/ui\/Button/);
+  assert.match(readFileSync(at('src/components/layout/AppLayout.tsx'), 'utf8'), /app\/layout\/AppLayout/);
+  assert.match(readFileSync(at('src/navigation/navConfig.ts'), 'utf8'), /app\/navigation\/navConfig/);
 });
 
 test('17d: one env convention — public Vite keys only, never service_role', () => {

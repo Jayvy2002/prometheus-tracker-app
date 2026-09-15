@@ -250,12 +250,12 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   const auth = src('src/components/auth/AuthPage.tsx');
   assert.match(auth, /pressOnly/);
 
-  const layout = src('src/components/layout/AppLayout.tsx');
+  const layout = src('src/app/layout/AppLayout.tsx');
   assert.match(layout, /hideFab/);
   assert.match(layout, /startsWith\('\/messages'\)/);
   assert.match(layout, /startsWith\('\/checkin'\)/);
 
-  const fab = src('src/components/layout/FAB.tsx');
+  const fab = src('src/app/layout/FAB.tsx');
   assert.match(fab, /isProgramDayDue/);
   assert.match(fab, /nav\.addWorkoutOffPlan/);
 });

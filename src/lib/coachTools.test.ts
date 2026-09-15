@@ -8,11 +8,11 @@ function src(rel: string): string {
 }
 
 test('UX107 FAB offers check-in when the module is on', () => {
-  const fab = src('src/components/layout/FAB.tsx');
+  const fab = src('src/app/layout/FAB.tsx');
   assert.match(fab, /track_checkins/);
   assert.match(fab, /nav\.addCheckin/);
   assert.match(fab, /navigate\('\/checkin'\)/);
-  const nav = src('src/navigation/navConfig.ts');
+  const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /labelKey: 'nav\.addCheckin'/);
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /addCheckin: 'Check-in'/);
@@ -44,13 +44,13 @@ test('UX110 setup copies tracking from another client into the form', () => {
 });
 
 test('UX111 coached mobile stays at 5 tabs; nutrition is profile + FAB', () => {
-  const nav = src('src/navigation/navConfig.ts');
+  const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /UX111/);
   assert.match(nav, /Pas de 6ᵉ onglet/);
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.match(profile, /to="\/nutrition"/);
-  const fab = src('src/components/layout/FAB.tsx');
+  const fab = src('src/app/layout/FAB.tsx');
   assert.match(fab, /nav\.addMeal/);
-  const tabs = src('src/navigation/navConfig.test.ts');
+  const tabs = src('src/app/navigation/navConfig.test.ts');
   assert.match(tabs, /paths\.length, 5/);
 });

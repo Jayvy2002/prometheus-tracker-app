@@ -97,18 +97,18 @@ test('10f: exercise progress uses profile weight units', () => {
 });
 
 test('10g: OverflowMenu Escape + first item focus; nav aria-current', () => {
-  const menu = src('src/components/ui/OverflowMenu.tsx');
+  const menu = src('src/shared/ui/OverflowMenu.tsx');
   assert.match(menu, /Escape/);
   assert.match(menu, /\[role="menuitem"\]/);
   assert.match(menu, /items\?\.\[0\]\?\.focus/);
-  const bottom = src('src/components/layout/BottomNav.tsx');
-  const side = src('src/components/layout/SideNav.tsx');
+  const bottom = src('src/app/layout/BottomNav.tsx');
+  const side = src('src/app/layout/SideNav.tsx');
   assert.match(bottom, /aria-current="page"/);
   assert.match(side, /aria-current="page"/);
 });
 
 test('10h: PageTransition resets tab index when persona changes', () => {
-  const trans = src('src/components/ui/PageTransition.tsx');
+  const trans = src('src/shared/ui/PageTransition.tsx');
   assert.match(trans, /previousPersona/);
   assert.match(trans, /previousTabIndex = -1/);
   assert.match(trans, /navPersona\(context\)/);

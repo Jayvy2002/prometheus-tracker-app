@@ -31,7 +31,7 @@ test('client Mon programme is the assigned plan; coached stays read-only, solo e
 });
 
 test('client sidebar has Photos + Mon programme', () => {
-  const nav = src('src/navigation/navConfig.ts');
+  const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /path: '\/photos'/);
   assert.match(nav, /labelKey: 'nav\.photos'/);
   assert.match(nav, /labelKey: 'nav\.myProgram'/);

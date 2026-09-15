@@ -119,11 +119,11 @@ test('reduced motion does not leave delayed sidebar items at opacity 0', () => {
 });
 
 test('daily-driver items use ListRow, PageHeader and 44px Button chrome', () => {
-  const row = src('src/components/ui/ListRow.tsx');
+  const row = src('src/shared/ui/ListRow.tsx');
   assert.match(row, /min-h-11/);
   assert.match(row, /rounded-2xl/);
   assert.match(row, /ListRowTone/);
-  assert.match(src('src/components/ui/Button.tsx'), /min-h-11/);
+  assert.match(src('src/shared/ui/Button.tsx'), /min-h-11/);
   const dash = src('src/components/dashboard/Dashboard.tsx');
   assert.match(dash, /ListRow/);
   assert.doesNotMatch(dash, /violet-500/);
@@ -137,9 +137,9 @@ test('daily-driver items use ListRow, PageHeader and 44px Button chrome', () => 
 });
 
 test('mobile and desktop nav share Aujourd’hui via navConfig and use NavLink', () => {
-  const config = src('src/navigation/navConfig.ts');
-  const bottom = src('src/components/layout/BottomNav.tsx');
-  const side = src('src/components/layout/SideNav.tsx');
+  const config = src('src/app/navigation/navConfig.ts');
+  const bottom = src('src/app/layout/BottomNav.tsx');
+  const side = src('src/app/layout/SideNav.tsx');
   assert.match(config, /labelKey: 'nav\.today'/);
   assert.match(bottom, /NavLink/);
   assert.match(bottom, /mobileTabs/);
