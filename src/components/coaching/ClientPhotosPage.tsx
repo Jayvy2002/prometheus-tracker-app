@@ -13,6 +13,7 @@ import EmptyState from '../ui/EmptyState';
 import OverflowMenu from '../ui/OverflowMenu';
 import { formatDate } from '../../lib/utils';
 import { toast } from '../ui/Toast';
+import { athletePhotoAudience, athletePhotoSubtitleKey } from '../../lib/photoAudience';
 
 const KINDS: ProgressPhotoKind[] = ['front', 'side', 'back'];
 
@@ -20,8 +21,9 @@ export default function ClientPhotosPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const progressPhotosEpoch = useCoachingStore(s => s.progressPhotosEpoch);
+  const myCoach = useCoachingStore(s => s.myCoach);
   const {
-    fetchProgressPhotos, uploadProgressPhoto, deleteProgressPhoto, signProgressPhotoUrls,
+    fetchProgressPhotos, uploadProgressPhoto, deleteProgressPhoto, signProgressPhotoUrls, fetchMyCoach,
   } = useCoachingStore();
   const [photos, setPhotos] = useState<ProgressPhoto[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -36,6 +38,10 @@ export default function ClientPhotosPage() {
     setPhotos(rows);
     setUrls(await signProgressPhotoUrls(rows));
   };
+
+  useEffect(() => {
+    void fetchMyCoach();
+  }, [fetchMyCoach]);
 
   useEffect(() => {
     if (!user) return;
@@ -100,7 +106,11 @@ export default function ClientPhotosPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-28">
         <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.photos.title')}</h1>
-        <p className="text-sm text-neutral-500 mb-4">{t('coaching.photos.subtitle')}</p>
+        <p className="text-sm text-neutral-500 mb-4">
+          {t(athletePhotoSubtitleKey(athletePhotoAudience(!!myCoach)), {
+            name: myCoach?.full_name?.trim() || t('coaching.invite.aCoach'),
+          })}
+        </p>
 
         <Card className="space-y-3 mb-4">
           <div className="flex gap-1">

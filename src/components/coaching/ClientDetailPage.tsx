@@ -962,8 +962,11 @@ export default function ClientDetailPage() {
                 onAskAgent={() => { void handleAskCalories(); }}
               />
             )}
-            {photos.length > 0 && (
+            <p className="text-sm text-neutral-500">{t('coaching.photos.coachSeesHistory')}</p>
+            {photos.length > 0 ? (
               <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+            ) : (
+              <p className="text-sm text-neutral-500">{t('coaching.photos.emptyCoach')}</p>
             )}
           </div>
         ) : tab === 'checkins' ? (
