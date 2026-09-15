@@ -1,12 +1,12 @@
 # Architecture frontend — actuel vs cible
 
-> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Lots **18–21c** livrés. Les lots **22–23** bougent encore, une ligne à la fois.
+> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Lots **18–23** livrés (23 = garde-fous ESLint progressifs).
 >
 > **Invariants :** zéro changement de parcours dans une PR de structure (sauf lot 19 : mêmes écrans, tokens). `coachingStore` : façade `stores/coachingStore.ts` + modules `features/coaching/model` (lot **21c**). `coachFleet.ts` et `supabase/functions/coach-fleet-round` restent jumelés. Migrations appliquées immuables.
 
 ---
 
-## Arbre actuel (après lot 21c)
+## Arbre actuel (après lot 23)
 
 ```text
 src/
@@ -15,7 +15,7 @@ src/
 │   ├── router/             AppRoutes (public / authentifié)
 │   ├── guards/             CoachOnly, CoachTrackerRedirect, CoachedAthleteRedirect
 │   ├── bootstrap/          useAuthenticatedSession
-│   ├── layout/             AppLayout, BottomNav, SideNav, FAB
+│   ├── layout/             AppLayout, BottomNav, SideNav, FAB, PageTransition
 │   └── navigation/         navConfig + test
 ├── features/
 │   ├── account/hooks/      useAccountContext
@@ -32,7 +32,7 @@ src/
 │   ├── api/supabase/       client
 │   ├── hooks/              useOnline, usePageTitle
 │   ├── types.ts            contrats transversaux (lot 22a)
-│   └── ui/                 primitives (tokens lot 19)
+│   └── ui/                 primitives (tokens lot 19) ; PageTransition = réexport
 ├── components/             Écrans métier ; ui/ et layout/ = réexports temporaires
 ├── hooks/                  réexport usePageTitle
 ├── i18n/locales/{fr,en}.ts + {fr,en}/*.ts  (lot 22b)
@@ -46,13 +46,13 @@ supabase/
 └── tests/                  SQL RLS / RPC (pas des `*.test.ts` Vite)
 ```
 
-Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `lib/types.ts` = réexport (22a). i18n : `locales/{fr,en}/*.ts` + barils (22b).
+Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `lib/types.ts` = réexport (22a). i18n : `locales/{fr,en}/*.ts` + barils (22b). Lot **23** : overlays ESLint `shared` ↛ `features` / stores ; `features/A` ↛ `features/B` ; `PageTransition` dans `app/layout`.
 
-Convention d’accès données **cible** (à écrire ici, à faire respecter aux lots 20 puis 23) :
+Convention d’accès données **cible** :
 
 `composant → hook / model → API → Supabase`
 
-Un écran ne devrait pas appeler `supabase.from(...)`. Aujourd’hui certains le font encore (`Dashboard`, etc.). **Ne pas « nettoyer » dans cette PR.**
+Un écran ne devrait pas appeler `supabase.from(...)`. Aujourd’hui certains le font encore (`Dashboard`, `WorkoutForm`, …). La couche ESLint correspondante **n’est pas** activée (lot 23 progressif).
 
 ---
 
@@ -78,7 +78,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | Si tu crées / touches… | Aujourd’hui | Cible | Lot qui déplace |
 |---|---|---|---|
 | Route, garde, bootstrap session | `app/router`, `app/guards`, `app/bootstrap` (+ `App.tsx` assembleur) | idem | **21a livré** |
-| Layout, nav, FAB | `app/layout/`, `app/navigation/` (+ réexports) | idem | **18 livré** |
+| Layout, nav, FAB, `PageTransition` | `app/layout/`, `app/navigation/` (+ réexports) | idem | **18** ; `PageTransition` **23** |
 | Primitive UI (`Button`, `Card`, …) | `shared/ui/` (+ réexports) | idem | **18 livré** |
 | Client Supabase | `shared/api/supabase/` (+ réexport `lib/supabase.ts`) | idem | **18 livré** |
 | `useOnline.ts` | `shared/hooks/` | idem | **18 livré** |
