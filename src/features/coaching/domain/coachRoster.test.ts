@@ -22,6 +22,7 @@ import type {
   LiftSessionSnapshot,
   NutritionLogSnapshot,
 } from '../../../lib/types';
+import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 
 const TODAY = '2026-08-29';
 
@@ -254,7 +255,7 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   assert.match(detail, /navigate\(rosterBack\)/);
   assert.doesNotMatch(detail, /navigate\('\/clients'\)/);
 
-  const fr = readFileSync(resolve(process.cwd(), 'src/i18n/locales/fr.ts'), 'utf8');
+  const fr = i18nLocaleSource('fr');
   assert.match(fr, /noProgram:\s*'Pas de programme'/);
   assert.match(fr, /goalCut:\s*'Sèche'/);
   assert.match(fr, /goalPerf:\s*'Perf'/);

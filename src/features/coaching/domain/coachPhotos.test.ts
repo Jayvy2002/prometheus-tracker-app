@@ -15,6 +15,7 @@ import {
   hasPhotosBeforeLink,
 } from '../../../lib/photoAudience';
 import type { ProgressPhoto } from '../../../lib/types';
+import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 
 function photo(id: string, takenAt: string, kind: ProgressPhoto['kind'] = 'front'): ProgressPhoto {
   return {
@@ -80,8 +81,8 @@ test('photos page and consent copy tell the real audience, including history bef
   const dossier = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
   assert.match(dossier, /coaching\.photos\.coachSeesHistory/);
 
-  const fr = readFileSync(resolve(process.cwd(), 'src/i18n/locales/fr.ts'), 'utf8');
-  const en = readFileSync(resolve(process.cwd(), 'src/i18n/locales/en.ts'), 'utf8');
+  const fr = i18nLocaleSource('fr');
+  const en = i18nLocaleSource('en');
   const photosFr = fr.slice(fr.indexOf('photos: {'), fr.indexOf('settings: {', fr.indexOf('photos: {')));
   assert.match(photosFr, /subtitleSolo:/);
   assert.match(photosFr, /subtitleCoached:/);

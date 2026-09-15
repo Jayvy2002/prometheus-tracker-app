@@ -3,8 +3,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { compactLoopContext } from '../../supabase/functions/_shared/coachAgent.ts';
+import { i18nLocaleSource } from './i18nLocaleSource';
 
 function src(rel: string): string {
+  if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
+  if (rel === 'src/i18n/locales/en.ts') return i18nLocaleSource('en');
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

@@ -15,10 +15,13 @@ import {
   shouldShowDaysSinceReminder,
   statsCalorieSummary,
 } from './clientHome';
+import { i18nLocaleSource } from './i18nLocaleSource';
 
 const NOW = new Date('2026-08-30T12:00:00.000Z');
 
 function src(rel: string): string {
+  if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
+  if (rel === 'src/i18n/locales/en.ts') return i18nLocaleSource('en');
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

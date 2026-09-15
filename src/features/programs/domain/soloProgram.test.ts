@@ -12,8 +12,11 @@ import {
 } from './soloProgram';
 import { muscleLabel } from '../../../lib/muscleLabels';
 import type { CoachIntervention } from '../../../lib/types';
+import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 
 function src(rel: string): string {
+  if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
+  if (rel === 'src/i18n/locales/en.ts') return i18nLocaleSource('en');
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

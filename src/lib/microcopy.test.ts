@@ -2,9 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { i18nLocaleSource } from './i18nLocaleSource';
 
-const locale = (language: 'fr' | 'en') =>
-  readFileSync(resolve(process.cwd(), `src/i18n/locales/${language}.ts`), 'utf8');
+const locale = (language: 'fr' | 'en') => i18nLocaleSource(language);
 
 test('user-facing copy avoids internal implementation jargon', () => {
   const copy = `${locale('fr')}\n${locale('en')}`;

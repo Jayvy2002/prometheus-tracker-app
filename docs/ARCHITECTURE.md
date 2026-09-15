@@ -35,7 +35,7 @@ src/
 │   └── ui/                 primitives (tokens lot 19)
 ├── components/             Écrans métier ; ui/ et layout/ = réexports temporaires
 ├── hooks/                  réexport usePageTitle
-├── i18n/locales/{fr,en}.ts
+├── i18n/locales/{fr,en}.ts + {fr,en}/*.ts  (lot 22b)
 ├── lib/                    Métier + réexports (`types.ts` baril 22a)
 ├── navigation/             réexport navConfig
 └── stores/                 Zustand ; coachingStore = façade (21c)
@@ -46,7 +46,7 @@ supabase/
 └── tests/                  SQL RLS / RPC (pas des `*.test.ts` Vite)
 ```
 
-Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `lib/types.ts` = réexport (22a). i18n : **pas** découpé (lot 22b).
+Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `lib/types.ts` = réexport (22a). i18n : `locales/{fr,en}/*.ts` + barils (22b).
 
 Convention d’accès données **cible** (à écrire ici, à faire respecter aux lots 20 puis 23) :
 
@@ -90,7 +90,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | Autre domaine dans `lib/` | `features/<domaine>/domain/` (+ réexports) | idem | **20 livré** |
 | Utils transverses, télémétrie, offline | `lib/` | `shared/lib/` | **20** quand ce n’est plus du domaine |
 | `types.ts` | réexport `lib/types.ts` + `shared/types` + `features/*/types` | idem | **22a livré** |
-| i18n | `i18n/locales/fr.ts`, `en.ts` | `i18n/locales/{fr,en}/*.ts` | **22b** |
+| i18n | `i18n/locales/{fr,en}.ts` + `{fr,en}/*.ts` | idem | **22b livré** |
 | Fetch / orchestration écrans listés | hooks `features/*/hooks` + `workout/data` | idem | **21b livré** |
 | Store Zustand (sauf coaching) | `stores/*Store.ts` | `features/*/model/` | progressif, **pas 18** |
 | `coachingStore.ts` | façade `stores/coachingStore.ts` + `features/coaching/model` | idem | **21c livré** |

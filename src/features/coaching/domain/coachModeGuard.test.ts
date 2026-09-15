@@ -9,9 +9,12 @@ import {
 } from './coachModeGuard';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
 import { coachingStoreSource } from '../../../lib/coachingStoreSource';
+import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 
 function src(rel: string): string {
   if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
+  if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
+  if (rel === 'src/i18n/locales/en.ts') return i18nLocaleSource('en');
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

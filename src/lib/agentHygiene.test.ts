@@ -299,6 +299,21 @@ test('22a: types live by domain; lib/types.ts re-exports', () => {
   assert.match(readFileSync(at('src/features/coaching/types.ts'), 'utf8'), /export interface CoachIntervention /);
 });
 
+test('22b: i18n locales are split by domain and reassembled', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const locale of ['fr', 'en'] as const) {
+    assert.ok(existsSync(at(`src/i18n/locales/${locale}.ts`)), locale);
+    for (const part of ['common', 'navigation', 'coaching', 'workout', 'nutrition', 'programs', 'marketplace']) {
+      assert.ok(existsSync(at(`src/i18n/locales/${locale}/${part}.ts`)), `${locale}/${part}`);
+    }
+    const barrel = readFileSync(at(`src/i18n/locales/${locale}.ts`), 'utf8');
+    assert.match(barrel, new RegExp(`from '\\./${locale}/common'`));
+    assert.match(barrel, new RegExp(`from '\\./${locale}/coaching'`));
+    assert.doesNotMatch(barrel, /save: '/);
+  }
+  assert.match(readFileSync(at('src/i18n/index.ts'), 'utf8'), /from '\.\/locales\/fr'/);
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

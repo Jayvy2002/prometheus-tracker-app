@@ -6,8 +6,11 @@ import {
   isIncompleteAssignedQuestionnaire,
   shouldSkipKinesiologyForAssignedQuestionnaire,
 } from './assignedQuestionnaire';
+import { i18nLocaleSource } from './i18nLocaleSource';
 
 function src(rel: string): string {
+  if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
+  if (rel === 'src/i18n/locales/en.ts') return i18nLocaleSource('en');
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
