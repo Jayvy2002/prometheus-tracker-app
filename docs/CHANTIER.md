@@ -4,11 +4,11 @@
 >
 > Ordre des travaux, décisions, défauts à corriger, fonctionnalités à construire, critères de fin.
 >
-> **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
+> **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git (empilement). Lots 8–10 : Git (empilés). File : lots **11–16** après preuve live 2–10. Lots 2–3 : SQL prod lu. Lots 2–10 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). File produit : lots **11–16** après preuve live 2–10. File structure : lots **17–23** **après 16** (gravité croissante). Lots 2–3 : SQL prod lu. Lots 2–10 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
 
-**Lot ouvert : preuve live lots 2–10**, puis file **11**. Lot 1 : Terminé. Lots 2–10 : À vérifier.
+**Lot ouvert : preuve live lots 2–10**, puis file **11**. Lot 1 : Terminé. Lots 2–10 : À vérifier. Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène, zéro écran, si un test nouveau doit être lancé).
 
 **Vérif code 15 sept. lots 5–7** (`npm test` 536/0 sur l’empilement) — pas un parcours live :
 
@@ -42,7 +42,7 @@
 
 **Règle d’arbitrage.** Un défaut qui **ment sur un résultat**, **verrouille l’app** ou **détruit un accès coach** se traite **maintenant**, même si un lot M n’est pas « Terminé ». Ne pas reconstruire un lot M dont le code existe : le **vérifier**, documenter la preuve, puis le retirer. Ne pas attendre M8 pour corriger un bilan de séance faux.
 
-**Une PR = une capacité observable** (un lot de la file, ou un item numéroté du lot 10). Accessibilité du parcours **dans** le lot, pas un cosmétique final.
+**Une PR = une capacité observable** (un lot de la file, un item numéroté 10 / 12–16 / 17–23, ou **un domaine** du lot 20). Accessibilité du parcours **dans** le lot produit, pas un cosmétique final. Lots 17–23 : **zéro changement de comportement** visé (sauf le lot 19, visuel tokens = même UI, autres couleurs).
 
 ---
 
@@ -57,7 +57,7 @@
 | Lots A–D du rapport UX (§11) | Diagnostic d’usage, **mauvais ordre** (progression coaché avant vérité des séries, confirm à chaque séance libre, « transmis ») |
 | Journal CI / typecheck / smoke perdu | Git, pas ici |
 
-IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
+IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83. Série structure : **ARCH** (lots 17–23). Ne pas réutiliser les `S01` de `CARTE_PRODUIT.md`.
 
 ---
 
@@ -74,6 +74,9 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
 - Simplifier en **nommant** et en mettant l’action principale devant — pas en interdisant séance libre, recettes ou FAB entier.
 - Accueil = prochaine action **utile** ou **vide honnête**.
 - Accessibilité bloquante : dans le lot du parcours.
+- Frontend cible : `src/app` / `src/features/<domaine>` / `src/shared` + alias `@/`. Aujourd’hui le code n’y est pas — lots 17–23, **pas** 11–16.
+- Données : composant → hook / model → API → Supabase. Pas de `supabase.from()` dans l’UI une fois 23 livré.
+- Primitives UI = tokens sémantiques (`surface`, `ink`, `line`, `primary`, …), pas un second système `blue-600` / `neutral-*` (lot 19).
 
 ### Interdit (propositions tranchées)
 
@@ -93,6 +96,11 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
 | Recettes coupées au coaché « parce qu’il a un coach » | Trancher utilité + contrat de suivi, pas l’autonomie. **Lot 10a** (UX53, UX77). |
 | Déclarer nav / accueil / 0C « terminés » | `navConfig` existe ; trouvabilité et chiffres mentent encore |
 | Confondre lock questionnaire coach et intake kiné | Kiné (7 écrans, 0B) = sécurité médicale. UX80 = questionnaire **prise en charge** incomplet |
+| Une PR « refactor architecture » 300 fichiers + comportement | PR de **structure pures**, un domaine, tests verts entre chaque |
+| Injecter `app` / `features` / `shared` dans les lots 11–16 | File **17–23 après 16**. 11–16 = produit |
+| Découper `coachingStore` dans un nettoyage | Façade d’abord (**21c**). `CLAUDE.md` tient jusqu’à cette PR |
+| Supprimer les 2 migrations `notify_onboarding_signed_ping` | Lock immuable (ARCH11) |
+| « Passer tout TypeScript en strict » d’un coup | `tsconfig.app.json` a **déjà** `"strict": true`. Pas de flags extra bang (ARCH10) |
 
 ---
 
@@ -124,7 +132,7 @@ Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer 
 
 ## File d’exécution — ce qu’il reste à faire maintenant
 
-Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses sont le contrat du catalogue. Un ID **absent de cette file** ne se commence pas tant que les lots 1–10 ne sont pas verts (sauf P1 nouveau du même type : ment / verrouille / détruit un accès).
+Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses sont le contrat du catalogue. Un ID **absent de cette file** ne se commence pas tant que les lots 1–10 ne sont pas verts (sauf P1 nouveau du même type : ment / verrouille / détruit un accès). Lots **11–16** = produit. Lots **17–23** = structure (`AUDIT_ARCHITECTURE.md`) **après 16**, gravité croissante — **pas** mélangés aux PR biblio / Ask / types de séries.
 
 | # | Lot | Statut | Preuve de fin |
 |---|---|---|---|
@@ -144,6 +152,13 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
 | **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
 | **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
+| **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | À construire **après 16** (tirable **pendant** 11–16 si un test nouveau) | `ARCHITECTURE.md` + `DESIGN_SYSTEM.md` ; aligner `CLAUDE.md` ; `npm test` = `**/*.test.ts` ; nom package ; une convention `.env`. **Zéro écran.** |
+| **18** | **Socle dossiers + alias** (ARCH02 évidents) | À construire **après 17** | Créer `app` / `features` / `shared` + alias `@/`. Déplacer **seulement** hooks mal placés, client Supabase, `ui`, layout, nav. Pas `coach*.ts`, pas `App.tsx`, pas les stores. |
+| **19** | **Tokens sémantiques sur primitives** (ARCH06) | À construire **après 18** | `Button` / `Card` / `Input` / `Select` / etc. = `bg-primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` **dans les primitives**. Relie premium lot 1. |
+| **20** | **Migrer `src/lib` par domaine** (ARCH01) | À construire **après 18** | Une PR **par** domaine, zéro comportement. Coaching d’abord (`coach*.ts` → `features/coaching/`), puis marketplace, workout, nutrition, programs. |
+| **21** | **Découper les mini-apps** (ARCH03, ARCH04) | À construire **après 20** | 21a `App.tsx` → router / guards / bootstrap ; 21b gros composants ; 21c `coachingStore` **avec façade**. |
+| **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | À construire **après 20** | `types.ts` puis `fr.ts`/`en.ts` découpés ; réexport de transition. Hotspots merge : PR courtes. |
+| **23** | **Garde-fous CI** (ARCH10, ARCH05) | À construire **après 18** et au fil de 20–22 | `shared` ↛ `features` ; pas de deep-import inter-features ; UI sans `supabase.from()` ; `shared/ui` sans Supabase/Zustand. **Pas** un bang TypeScript extra. |
 
 ### Lot 10 — contrat 10a–10j (livré en une PR)
 
@@ -212,11 +227,87 @@ Le logger **libre** a déjà des types (`SET_TYPES` dans `ExerciseCard`). Le **b
 | 16d | Copier le **setup de suivi** d’un client vers un autre (tracking). Pas de copie aujourd’hui. | UX110 |
 | 16e | Coaché mobile : **Nutrition** joignable **sans 6ᵉ onglet**. Même carte que desktop (Profil / FAB). Contrat onglet Check-in vs Nutrition : **à trancher dans la PR** (pas les deux + Messages + Profil). | UX111 |
 
-**Après le lot 16 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, capteurs santé (UX112), billing.
+### Lots 17–23 — structure (après 16, gravité croissante)
+
+Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md) (`new-JV` @ `2222e11`, ~6,5/10). **N’ordonne pas.** Ne pas reconstruire le produit. Ne pas ouvrir 18–23 pendant les lots 11–16 (conflits sur `App.tsx`, `lib`, i18n, primitives).
+
+| Gravité | Lots | Pourquoi cet ordre |
+|---|---|---|
+| Minimale | **17** | Docs, `npm test`, nom npm, `.env`. Zéro écran. Débloque les agents qui ajoutent un test. |
+| Faible | **18** | Dossiers + alias + 4–5 déplacements évidents. Zéro métier. |
+| Moyenne | **19** | Primitives → tokens. Risque visuel, pas de routes. Après 18 pour travailler dans `shared/ui`. |
+| Haute | **20**, **22** | Beaucoup de fichiers / hotspots merge. Zéro comportement visé. 20 avant 21 (bouger avant de splitter). 22 après 20 (types suivent le domaine). |
+| Très haute | **21** | `App.tsx`, gros composants, `coachingStore`. Façade obligatoire. |
+| Après la cible | **23** | Règles ESLint/CI **une fois** que `shared` / `features` existent. Au fil de 20–22, pas un bang final isolé si les imports interdits sont encore partout. |
+
+**Exception étroite — lot 17 pendant 11–16 :** uniquement hygiène (surtout autodiscovery des tests) si un agent crée un `.test.ts`. Pas d’excuse pour tirer 18–23 en parallèle d’une PR Ask / builder.
+
+### Lot 17 — une PR (ou 17a–17d si trop large)
+
+| # | Contenu | IDs |
+|---|---|---|
+| 17a | `docs/ARCHITECTURE.md` : matrice « tel fichier va ici » (arbre cible `app` / `features` / `shared`). `docs/DESIGN_SYSTEM.md` : tokens + primitives. Aligner `CLAUDE.md` (arbre **actuel** vs cible ; plus de contradiction `.env` ; `coachingStore` inchangé jusqu’au 21c). | ARCH01 |
+| 17b | `npm test` : découverte `**/*.test.ts` (ou équivalent `tsx --test`). Un test hors `src/lib` n’est plus invisible. Jusqu’ici : tout nouveau test **dans** la liste `package.json`. | ARCH09 |
+| 17c | `"name": "prometheus-tracker-app"` (plus `vite-react-typescript-starter`). | ARCH09 |
+| 17d | **Une** convention env : `.env.example` (placeholders) + vars Netlify, **ou** `.env.production` versionné **uniquement** pour clés **publiques** frontend, dit dans `CLAUDE.md`. Jamais `service_role`. | ARCH12 |
+| 17e | Renommer **progressivement** `auditLot*.test.ts` / `uxPremium.test.ts` d’après le comportement protégé. Pas un rename massif dans la même PR que 17b. | ARCH09 |
+
+### Lot 18 — socle, zéro comportement
+
+Créer les dossiers et les alias Vite/TS (`@/app/*`, `@/features/*`, `@/shared/*`). Déplacer **seulement** :
+
+| Actuel | Cible |
+|---|---|
+| `lib/useOnline.ts` | `shared/hooks/` |
+| `lib/useAccountContext.ts` | `features/account/hooks/` |
+| `lib/useClientTracking.ts` | `features/coaching/hooks/` |
+| `lib/useFoodCatalogSearch.ts` | `features/nutrition/hooks/` |
+| `lib/supabase.ts` | `shared/api/supabase/` |
+| `components/ui/*` | `shared/ui/` |
+| `components/layout/*` | `app/layout/` |
+| `navigation/*` | `app/navigation/` |
+| `hooks/usePageTitle.ts` | `shared/hooks/` |
+
+**Interdit dans 18 :** `coach*.ts`, `App.tsx` split, `stores/`, `types.ts`, i18n, gros composants. Réexports temporaires OK pour ne pas casser les imports.
+
+### Lot 19 — primitives = tokens
+
+`Button`, `Card`, `Input`, `Select`, `Modal`, `PageHeader`, `EmptyState`, `ErrorState`, `TabList`, `IconButton` : `bg-primary`, `bg-surface`, `bg-elevated`, `text-ink`, `text-ink-muted`, `border-line`, `text-danger`, `bg-warning`. Plus de `bg-blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**.
+
+Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visualisations seulement. Relie premium **1**. Screenshots avant/après des primitives.
+
+### Lot 20 — `src/lib` domaine par domaine
+
+Une PR par domaine, tests du domaine verts, **aucun** changement de copie / RPC / UI. Ordre : **coaching** (`coach*.ts` → `features/coaching/domain` ou `api`) → marketplace → workout → nutrition → programs. Le reste de `lib` (utils transverses, télémétrie, offline) → `shared/lib` quand ce n’est plus du domaine.
+
+`coachFleet.ts` reste jumelé à l’edge `coach-fleet-round` (`CLAUDE.md`) : même logique, deux implémentations ; le déplacement ne casse pas ce verrou.
+
+### Lot 21 — une PR par ligne
+
+| # | Contenu | IDs |
+|---|---|---|
+| 21a | `App.tsx` assemble `app/router/` (public / authenticated), `app/guards/` (`CoachOnly`, `TrackingGate`, …), `app/bootstrap/` (session, offline, onboarding). | ARCH03 |
+| 21b | Gros composants : `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `ProgramSessionEditor`, `workoutStore` — extraire fetch / orchestration. Même écran. | ARCH04 |
+| 21c | `coachingStore` : modules (`clients`, `messages`, `questionnaires`, `interventions`, `tracking`) + **façade** `coachingStore.ts` pour les imports existants. Pas de split sans façade. | ARCH04 |
+
+### Lot 22 — une PR types, une PR i18n (ou par domaine si conflit)
+
+| # | Contenu | IDs |
+|---|---|---|
+| 22a | Contrats transversaux → `shared/types`. Reste → `features/<domaine>/types.ts`. `lib/types.ts` **réexporte** le temps de la migration. | ARCH07 |
+| 22b | `i18n/locales/fr/` et `en/` : `common`, `navigation`, `coaching`, `workout`, `nutrition`, `programs`, `marketplace`. i18next inchangé. | ARCH08 |
+
+### Lot 23 — règles, pas un nouveau style de code
+
+Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / ARCH05. Ne **pas** activer d’un coup des flags TS absents (`noUncheckedIndexedAccess`, etc.). `strict` est déjà `true`.
+
+**Après les lots 17–23 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, capteurs santé (UX112), billing.
+
+**Après le lot 16 :** d’abord la file structure **17–23** (ci-dessus), puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
 ---
 
-## Ancres code (lot 1–16) — ne pas chercher à l’aveugle
+## Ancres code (lot 1–23) — ne pas chercher à l’aveugle
 
 | Lot | Où ça ment / casse aujourd’hui |
 |---|---|
@@ -235,6 +326,13 @@ Le logger **libre** a déjà des types (`SET_TYPES` dans `ExerciseCard`). Le **b
 | 14 | `ProgramDayExercise` / `ProgramExerciseDraft` : sets, reps, rir, rest, poids. `SET_TYPES` + drop/myo/tempo/iso/cluster **seulement** dans `ExerciseCard` si `!program_day_id`. `hevySimple = !!program_day_id`. Superset = `superset_group_id` à la volée, pas au plan. Drop = **autre ligne** `set_type: drop`, un poids. |
 | 15 | `RestTimer` : `open={showTimer}` ; `onClose` démonte. `/programs/new` = `CoachOnly`. `copyFromYesterday`. `navigate('/scanner')` sans query. `heic_unsupported`. |
 | 16 | `FAB` : workout / weight / meal. Pas de Dupliquer sur `ProgramsPage`. `LastSessionExercise` sans notes. Setup tracking par client, pas de copie. `mobileTabs` coaché : Aujourd’hui / Entraînement / Check-in / Messages / Profil. |
+| 17 | `package.json` `"test"` = liste manuelle ; `"name": "vite-react-typescript-starter"`. Pas de `docs/ARCHITECTURE.md` ni `DESIGN_SYSTEM.md`. `CLAUDE.md` vs `.env.production` versionné (clés publiques frontend). Tests `auditLot*.test.ts`. |
+| 18 | `src/hooks/usePageTitle.ts` seul. `useOnline` / `useAccountContext` / `useClientTracking` / `useFoodCatalogSearch` dans `lib/`. `lib/supabase.ts`. `components/ui`, `components/layout`, `src/navigation`. Pas d’alias `@/`. |
+| 19 | Primitives : `bg-blue-600`, `neutral-*`, `rose-*`. Tokens `page` / `surface` / `ink` / `line` / `primary` dans `tailwind.config.js` sous-employés. |
+| 20 | `src/lib/coach*.ts`, `marketplace*.ts`, logique workout/nutrition/programs encore dans `lib/`. |
+| 21 | `App.tsx` : session + guards + routes. `stores/coachingStore.ts` ~89 KB. `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `ProgramSessionEditor`, `workoutStore`. |
+| 22 | `src/lib/types.ts` ~26 KB. `i18n/locales/fr.ts` / `en.ts` ~87–95 KB. |
+| 23 | ESLint standard, pas de frontières `shared`/`features`. `Dashboard.tsx` (et d’autres) : `supabase.from` dans l’UI. `tsconfig.app.json` : `"strict": true` **déjà**. |
 
 ---
 
@@ -286,7 +384,9 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 
 ---
 
-## Après la file 1–10 (lots 11–16 et catalogue — ne pas commencer avant)
+## Après la file 1–10 (lots 11–23 et catalogue — ne pas commencer 11–16 avant live 2–10 ; 17–23 après 16)
+
+| Thème | IDs | Statut |
 
 | Thème | IDs | Statut |
 |---|---|---|
@@ -341,9 +441,22 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Notes d’exo en 360 / dernière séance | UX109 | Lot 16c |
 | Copier le setup tracking | UX110 | Lot 16d |
 | Nutrition coaché sans 6ᵉ onglet | UX111 | Lot 16e |
-| Capteurs santé (Apple Health / Garmin, …) | UX112 | Après 16, à concevoir |
+| Capteurs santé (Apple Health / Garmin, …) | UX112 | Après 16 **et 17–23**, à concevoir |
+| Matrice fichiers + design tokens documentés | ARCH01 | Lot 17a |
+| Autodiscovery tests + nom package + rename progressif | ARCH09 | Lot 17b–e |
+| Une convention `.env` / Netlify | ARCH12 | Lot 17d |
+| Dossiers `app`/`features`/`shared` + alias `@/` + déplacements évidents | ARCH02 | Lot 18 |
+| Primitives = tokens sémantiques | ARCH06 | Lot 19 |
+| `src/lib` → features par domaine | ARCH01 | Lot 20 |
+| Composant → hook → API → Supabase | ARCH05 | Lots 17 (convention), 20–21 (déplacer), 23 (CI) |
+| Découper `App.tsx` | ARCH03 | Lot 21a |
+| Gros fichiers / `coachingStore` façade | ARCH04 | Lot 21b–c |
+| `types.ts` par domaine (réexport) | ARCH07 | Lot 22a |
+| i18n par domaine | ARCH08 | Lot 22b |
+| Garde-fous ESLint/CI (pas de bang `strict`) | ARCH10 | Lot 23 |
+| Migrations ping dupliquées | ARCH11 | **Ne pas** « nettoyer » |
 
-Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un défaut mesuré : écran interne télémétrie ; policies SELECT après preuve RLS ; protection Auth mots de passe compromis ; `pg_trgm` / `pg_net` hors `public` (staging + mesure) ; perf fondée sur des mesures (lot premium 15).
+Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un défaut mesuré : écran interne télémétrie ; policies SELECT après preuve RLS ; protection Auth mots de passe compromis ; `pg_trgm` / `pg_net` hors `public` (staging + mesure) ; perf fondée sur des mesures (lot premium 15). **Exception :** lots **17–23** (structure) sont une file dédiée, pas un nettoyage opportuniste pendant 11–16.
 
 ---
 
@@ -356,6 +469,8 @@ Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un déf
 - Télémétrie : `docs/TELEMETRY.md` dans le même commit.
 - Migration appliquée : jamais réécrite.
 - Proposition IA : validation humaine.
+- Jusqu’au lot **17b** : tout nouveau `*.test.ts` **dans** la liste `package.json` `"test"`.
+- Lots 17–23 : PR de structure **sans** changement de parcours, sauf 19 (mêmes écrans, tokens). Une PR = un domaine (20) ou une ligne (21, 22).
 
 ---
 
@@ -368,7 +483,7 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **0A** i18n options | À vérifier | Toasts / intake / unités encore hors clés (ex. `"… deleted"`). |
 | **0B** auth / intention / invite | À vérifier | Lock questionnaire prise en charge retiré (lot 4 Git). Intake kiné : 7 écrans **conservés**. Parcours invite dû. |
 | **0C** vérité produit | **Partiel** | Cibles macros : corrigé. Terminer n’écrit plus `completed` sur le reste. Affichage = séries cochées ; parcours 15 sept. (bilan, recap, 360). UX49 jours ≠ séances : Git lot 6. |
-| **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu Échap + focus (Git 10g). |
+| **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu Échap + focus (Git 10g). Primitives encore `blue-600` / `neutral-*` (lot **19**). |
 | **2** accessibilité | À vérifier | Cibles 44 px présentes ; `aria-current` onglets (Git 10g). Clavier / zoom / lecteur restants. |
 | **3** navigation | **Partiel** | `navConfig`, 5 onglets, Copilote hors tab, switcher Profil. Recettes Nutrition (Git 10a). `PageTransition` persona (Git 10h). Trouvabilité live due. |
 | **4** dashboard | **Partiel** | Un hero ; proposition IA = notice (#91). Message + check-in + reminder peuvent coexister. `waiting_program` inerte. |
@@ -393,7 +508,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 
 **Base :** `C` constat code ; `H` hypothèse ; `F` cible d’un chantier pas encore prouvé. **Portée :** `I` interface ; `I+D` état durable.
 
-**Colonne File :** lot de la file, `M*`, `ens.` (après 1–10), `rep.`, `chaque`, `fait`.
+**Colonne File :** lot de la file, `M*`, `ens.` (après 1–10), `rep.`, `chaque`, `fait`, `17–23` (structure).
 
 ### Entrée et questionnaire
 
@@ -566,6 +681,25 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX70** | P2 | cont. | Continu | Mesurer réussite de tâche, pas le temps passé. | Sans contenu de messages / photos. |
 | **UX112** | P3 | ens. | À concevoir | **Après 16.** Apple Health / Garmin / etc. Aujourd’hui : saisie manuelle, pas de `/health`. | Un chantier capteurs dédié ; pas dans 14–16. |
 
+### Structure et agents (ARCH)
+
+IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). File : lots **17–23**.
+
+| ID | P | File | Statut | Travail restant | Critère de fin |
+|---|---|---|---|---|---|
+| **ARCH01** | P2 | 17+20 | À construire | `lib/` = 2ᵉ `src` (`coach*.ts`, etc.). Docs d’abord (17a), migration domaine par domaine (20). | Un agent sait où créer un fichier sans explorer le repo. |
+| **ARCH02** | P2 | 18 | À construire | Hooks dans `lib/` ; `src/hooks` presque vide ; `ui` / layout / nav / `supabase.ts` à déplacer. | Les cas **évidents** sont au bon endroit. Pas tout `lib` d’un coup. |
+| **ARCH03** | P2 | 21a | À construire | `App.tsx` = session + guards + routes + bootstrap. | Une PR onboarding et une PR router ne se marchent plus dessus. |
+| **ARCH04** | P2 | 21b–c | À construire | `coachingStore` ~89 KB, `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `workoutStore`, `coachFleet`, `ProgramSessionEditor`. | Façade store ; composants = écran, pas mini-app. |
+| **ARCH05** | P2 | 17+23 | À construire | `Dashboard` (et d’autres) : `supabase.from` dans l’UI. | Composant → hook/model → API → Supabase. CI refuse l’inverse. |
+| **ARCH06** | P2 | 19 | À construire | Primitives en `blue-600` / `neutral-*` alors que les tokens existent. | `<Button variant="primary">` = tokens. Pas deux systèmes. |
+| **ARCH07** | P2 | 22a | À construire | `types.ts` ~26 KB hotspot. | Transversal / domaine + réexport de transition. |
+| **ARCH08** | P2 | 22b | À construire | `fr.ts` / `en.ts` ~90 KB. | Un agent nutrition ne touche plus un fichier de 100 KB. |
+| **ARCH09** | P1 | 17 | À construire | `npm test` liste manuelle ; nom package starter ; tests `auditLot*`. | Un `.test.ts` est lancé sans éditer `package.json`. |
+| **ARCH10** | P2 | 23 | À construire | Pas de frontières ESLint. Audit source **faux** sur `strict: false`. | Règles `shared`/`features`/`ui`. **Pas** de bang TS extra (`strict` déjà true). |
+| **ARCH11** | P1 | — | **Terminé** (ne pas toucher) | 2 migrations ping identiques dans le lock. | Historique appliqué immuable. |
+| **ARCH12** | P2 | 17d | À construire | `CLAUDE.md` « jamais `.env` » vs `.env.production` versionné (clés **publiques**). | Une convention. Pas de `service_role` dans Git. |
+
 ---
 
 ## Décisions de cadrage (conservées)
@@ -585,6 +719,9 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | Actions groupées coach | P3. UX38. |
 | 6ᵉ onglet / Copilote tab / switcher chrome | Non. |
 | Logger plat sur séance programmée (`hevySimple`) | Non une fois lot 14. Types + groupes viennent du plan. Coaché : pas d’exo hors plan. |
+| Refactor `app`/`features`/`shared` pendant 11–16 | Non. File 17–23 après 16. Lot 17 hygiène seulement si un test nouveau. |
+| Une PR architecture + comportement | Non. Structure pure, un domaine. |
+| Split `coachingStore` sans façade | Non. Lot 21c. |
 
 ---
 
