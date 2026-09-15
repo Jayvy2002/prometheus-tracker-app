@@ -1,4 +1,6 @@
+import { useTranslation } from 'react-i18next';
 import { Clock, Database, Globe, Star } from 'lucide-react';
+import { foodProvenanceKey, foodProvenanceKind } from '../../lib/foodProvenance';
 import type { RankedFoodHit } from '../../lib/pickerSearch';
 
 interface Props {
@@ -14,6 +16,7 @@ function SourceIcon({ source }: { source: RankedFoodHit['_source'] }) {
 }
 
 export default function FoodSearchHits({ results, onSelect }: Props) {
+  const { t } = useTranslation();
   return (
     <div className="bg-neutral-900 border border-neutral-800 rounded-xl max-h-52 overflow-y-auto">
       {results.map((p, i) => (
@@ -34,7 +37,9 @@ export default function FoodSearchHits({ results, onSelect }: Props) {
             <span className="text-xs text-neutral-500 whitespace-nowrap">{Math.round(p.calories_per_100g)} cal</span>
           </div>
           <div className="text-[11px] text-neutral-600 mt-0.5 pl-[18px]">
-            P: {Math.round(p.protein_per_100g)}g | C: {Math.round(p.carbs_per_100g)}g | F: {Math.round(p.fat_per_100g)}g per 100g
+            {t(foodProvenanceKey(foodProvenanceKind(p)))}
+            {' · '}
+            P: {Math.round(p.protein_per_100g)}g | C: {Math.round(p.carbs_per_100g)}g | F: {Math.round(p.fat_per_100g)}g / 100g
           </div>
         </button>
       ))}

@@ -18,6 +18,7 @@ import RecipeForm from './RecipeForm';
 import FoodSearchHits from './FoodSearchHits';
 import { useFoodCatalogSearch } from '../../lib/useFoodCatalogSearch';
 import { kcalFromEnergyValue, productLogDraft, rescaleNutritionMacros } from '../../lib/foodEnergy';
+import { foodProvenanceKey, foodProvenanceKind } from '../../lib/foodProvenance';
 import { optionLabel } from '../../lib/optionLabels';
 
 type Tab = 'search' | 'recent' | 'favorites' | 'recipes';
@@ -475,9 +476,19 @@ export default function FoodForm({ category, date, onClose, prefill }: Props) {
                 <div>
                   <p className="text-xs font-medium text-neutral-400 mb-1.5">{t('nutrition.foodForm.foodName')}</p>
                   <p className="px-3 py-2 rounded-xl bg-neutral-900/60 border border-neutral-800/50 text-white text-sm truncate">{name}</p>
+                  <p className="text-[11px] text-neutral-500 mt-1">
+                    {t(foodProvenanceKey(foodProvenanceKind(selectedProduct)))}
+                  </p>
                 </div>
               ) : (
-                <Input label={t('nutrition.foodForm.foodName')} value={name} onChange={e => setName(e.target.value)} placeholder={t('options.placeholders.foodName')} />
+                <>
+                  <Input label={t('nutrition.foodForm.foodName')} value={name} onChange={e => setName(e.target.value)} placeholder={t('options.placeholders.foodName')} />
+                  {name.trim() && (
+                    <p className="text-[11px] text-neutral-500 mt-1">
+                      {t(foodProvenanceKey('manual'))}
+                    </p>
+                  )}
+                </>
               )}
             </div>
             {selectedProduct?.id && (
