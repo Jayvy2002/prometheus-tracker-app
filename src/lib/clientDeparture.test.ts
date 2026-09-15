@@ -35,7 +35,7 @@ test('the athlete can leave from Profil; the coach sees a private notice; dossie
   assert.match(profile, /ClientCoachRelationshipPanel/);
   assert.match(profile, /coached && myCoach/);
 
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /ActiveRelationshipBoundary/);
   assert.match(app, /returningFromCoaching/);
   assert.match(app, /path="\/clients\/:id"/);

@@ -81,7 +81,7 @@ test('D07: workout mutations go through the queue with stable client ids', () =>
   assert.match(form, /peekDeadLetterOps/);
   assert.match(form, /workout\.syncDeadLetter/);
   assert.match(form, /workout\.syncQuota/);
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /syncOfflineQueue\(\)/);
   assert.match(app, /window\.addEventListener\('online'/);
   const mig = latestMigrationContaining('workouts_client_op_uidx').sql;

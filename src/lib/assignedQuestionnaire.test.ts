@@ -36,7 +36,7 @@ test('kinesiology wall is skipped for an assigned questionnaire, load, or fetch 
 });
 
 test('coach questionnaire no longer prisons the app; kiné lock stays', () => {
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.doesNotMatch(app, /activeAssignment\?\.response && !activeAssignment\.response\.completed_at/);
   assert.doesNotMatch(app, /path="\*" element=\{<div className="p-4 max-w-2xl mx-auto">/);
   assert.match(app, /shouldSkipKinesiologyForAssignedQuestionnaire/);

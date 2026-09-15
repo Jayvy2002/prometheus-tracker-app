@@ -106,7 +106,11 @@ test('i18n defaults to French, not English navigator fallback', () => {
   assert.match(i18n, /lng:\s*'fr'/);
   assert.doesNotMatch(i18n, /fallbackLng:\s*'en'/);
   assert.doesNotMatch(i18n, /'navigator'/);
-  const app = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
+  const app = [
+    readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8'),
+    readFileSync(resolve(process.cwd(), 'src/app/bootstrap/useAuthenticatedSession.ts'), 'utf8'),
+    readFileSync(resolve(process.cwd(), 'src/app/router/AppRoutes.tsx'), 'utf8'),
+  ].join('\n');
   assert.doesNotMatch(app, /changeLanguage\(profile/);
 
   const html = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');

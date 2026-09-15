@@ -501,7 +501,12 @@ describe('kinesiologyIntake wiring', () => {
   });
 
   it('gates coached invite clients on this intake, not the tracker calorie onboarding', () => {
-    const app = readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8');
+    const app = [
+      readFileSync(resolve(process.cwd(), 'src/App.tsx'), 'utf8'),
+      readFileSync(resolve(process.cwd(), 'src/app/bootstrap/useAuthenticatedSession.ts'), 'utf8'),
+      readFileSync(resolve(process.cwd(), 'src/app/guards/RouteGuards.tsx'), 'utf8'),
+      readFileSync(resolve(process.cwd(), 'src/app/router/AppRoutes.tsx'), 'utf8'),
+    ].join('\n');
     assert.match(app, /KinesiologyIntakeFlow/);
     assert.match(app, /shouldForceKinesiologyIntake/);
     assert.match(app, /intakeGateNeedsUsageProbe/);

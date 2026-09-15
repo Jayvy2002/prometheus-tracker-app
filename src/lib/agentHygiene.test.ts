@@ -94,8 +94,8 @@ test('18: app / features / shared exist, aliases are wired, old paths re-export'
   }
   assert.match(readFileSync(at('src/lib/coachFleet.ts'), 'utf8'), /features\/coaching\/domain\/coachFleet/, 'lot 20: lib/coachFleet.ts re-exports');
   assert.ok(existsSync(at('src/features/coaching/domain/coachFleet.ts')), 'lot 20: coachFleet lives in features/coaching');
-  assert.ok(existsSync(at('src/App.tsx')), 'lot 18 must not split App.tsx');
-  assert.ok(existsSync(at('src/stores/coachingStore.ts')), 'lot 18 must not split coachingStore');
+  assert.ok(existsSync(at('src/App.tsx')), 'App.tsx remains the assembler');
+  assert.ok(existsSync(at('src/stores/coachingStore.ts')), 'lot 18/21a must not split coachingStore');
   assert.ok(existsSync(at('src/lib/types.ts')), 'lot 18 must not split types.ts');
 
   const vite = readFileSync(at('vite.config.ts'), 'utf8');
@@ -185,6 +185,33 @@ test('20 programs: program modules live in features/programs/domain', () => {
     assert.ok(existsSync(at(`src/features/programs/domain/${name}`)), name);
     assert.match(readFileSync(at(`src/lib/${name}`), 'utf8'), /features\/programs\/domain\//);
   }
+});
+
+test('21a: App.tsx assembles router, guards and session bootstrap', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const rel of [
+    'src/App.tsx',
+    'src/app/router/AppRoutes.tsx',
+    'src/app/guards/RouteGuards.tsx',
+    'src/app/bootstrap/useAuthenticatedSession.ts',
+  ]) {
+    assert.ok(existsSync(at(rel)), rel);
+  }
+  const app = readFileSync(at('src/App.tsx'), 'utf8');
+  assert.match(app, /from '\.\/app\/router\/AppRoutes'/);
+  assert.doesNotMatch(app, /function CoachOnly/);
+  assert.doesNotMatch(app, /path="\/programs"/);
+  const routes = readFileSync(at('src/app/router/AppRoutes.tsx'), 'utf8');
+  assert.match(routes, /path="\/programs"/);
+  assert.match(routes, /TrackingGate/);
+  const guards = readFileSync(at('src/app/guards/RouteGuards.tsx'), 'utf8');
+  assert.match(guards, /export function CoachOnly/);
+  assert.match(guards, /export function CoachTrackerRedirect/);
+  assert.match(guards, /export function CoachedAthleteRedirect/);
+  const boot = readFileSync(at('src/app/bootstrap/useAuthenticatedSession.ts'), 'utf8');
+  assert.match(boot, /refreshPendingOps/);
+  assert.match(boot, /shouldForceKinesiologyIntake/);
+  assert.ok(existsSync(at('src/stores/coachingStore.ts')), '21a must not split coachingStore');
 });
 
 test('17d: one env convention — public Vite keys only, never service_role', () => {

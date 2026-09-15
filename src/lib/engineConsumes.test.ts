@@ -63,7 +63,7 @@ test('coach learned screen reads lessons + fleet rounds (RLS coach_id = uid)', (
   assert.match(page, /from\('coach_agent_lessons'\)/);
   assert.match(page, /from\('coach_ai_rounds'\)/);
   assert.match(page, /coaching\.learned\.title/);
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /path="\/coach\/learned" element=\{<CoachOnly>/);
   const settings = src('src/components/coaching/CoachSettingsPanel.tsx');
   assert.match(settings, /to="\/coach\/learned"/);

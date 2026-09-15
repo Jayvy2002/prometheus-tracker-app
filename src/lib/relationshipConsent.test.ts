@@ -49,7 +49,7 @@ test('InvitePage records versioned consent; the store no longer calls the 1-arg 
   assert.match(fr, /progress_photos: 'Photos de progression — y compris celles déjà enregistrées avant ce suivi'/);
   assert.match(en, /progress_photos: 'Progress photos — including those already saved before this coaching relationship'/);
 
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.doesNotMatch(app, /await acceptInvite\(token\)/);
   assert.match(app, /Consent is explicit/);
   assert.match(app, /\/invite\/\$\{pendingInvite\}/);

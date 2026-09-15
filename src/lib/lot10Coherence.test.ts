@@ -9,7 +9,7 @@ function src(rel: string): string {
 }
 
 test('10a: recipes live in AppLayout Nutrition chrome, not FullPageLayout / SessionShell', () => {
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   const layoutBlock = app.slice(
     app.indexOf('<Route element={<AppLayout />}>'),
     app.indexOf('<Route path="/workout/new"'),

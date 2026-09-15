@@ -24,7 +24,7 @@ test('login is identity-only; intention is chosen after auth', () => {
   const page = src('src/components/auth/AuthPage.tsx');
   assert.doesNotMatch(page, /setIntendedCoachingRole\(/);
   assert.match(page, /clearIntendedCoachingRole/);
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /EntryIntentionPage/);
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /choose_account_intent/);

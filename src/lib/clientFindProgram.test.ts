@@ -8,7 +8,7 @@ function src(rel: string): string {
 }
 
 test('coached athlete can open Mon programme and exercise-progress in read-only, not stats or calendar', () => {
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /path="\/exercise-progress" element=\{<CoachTrackerRedirect><ExerciseProgressPage/);
   assert.doesNotMatch(app, /path="\/exercise-progress" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
   assert.match(app, /path="\/stats" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
