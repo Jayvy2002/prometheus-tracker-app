@@ -51,6 +51,19 @@ test('17b: npm test discovers src/**/*.test.ts instead of a manual list', () => 
   );
 });
 
+test('17e: historical auditLot* / uxPremium tests are named after the lock they protect', () => {
+  const tests = collectSrcTests(resolve(root, 'src'));
+  const names = tests.map(f => f.split('/').pop() ?? '');
+  for (const banned of ['auditLot2.test.ts', 'auditLot3.test.ts', 'auditLot5.test.ts', 'auditLot7.test.ts', 'uxPremium.test.ts']) {
+    assert.ok(!names.includes(banned), `${banned} must be renamed after the protected behaviour`);
+  }
+  assert.ok(names.includes('programAtomicWrites.test.ts'));
+  assert.ok(names.includes('reviewWindowAndPortions.test.ts'));
+  assert.ok(names.includes('clientDossierRealtime.test.ts'));
+  assert.ok(names.includes('programRevisionsAndIntake.test.ts'));
+  assert.ok(names.includes('honestTargetsAndFirstRun.test.ts'));
+});
+
 test('17a: architecture and design-system docs exist', () => {
   const arch = readFileSync(resolve(root, 'docs/ARCHITECTURE.md'), 'utf8');
   const design = readFileSync(resolve(root, 'docs/DESIGN_SYSTEM.md'), 'utf8');

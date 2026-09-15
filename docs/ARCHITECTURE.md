@@ -100,7 +100,7 @@ Hors de ce runner (volontaire, besoin d’un navigateur / Postgres local) :
 
 Ne pas y coller un test unitaire : il resterait invisible pour un agent qui ne lance que `npm test` si on le met uniquement dans le workflow.
 
-Noms `auditLot*.test.ts` / `uxPremium.test.ts` : **lot 17e**, un rename progressif, pas dans la même PR que la découverte.
+Noms historiques `auditLot*` / `uxPremium` : **lot 17e** — renommés d’après le verrou (`programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`).
 
 ---
 

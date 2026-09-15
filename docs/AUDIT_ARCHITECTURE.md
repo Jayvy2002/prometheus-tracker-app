@@ -115,9 +115,7 @@ Cible : les primitives **sont** la source de vérité et n’utilisent que les t
 
 ### ARCH09 — `npm test` liste manuelle
 
-`package.json` → `"test"` = liste de fichiers. Un `foo.test.ts` hors liste n’est jamais lancé. Passer à `**/*.test.ts` (ou équivalent du runner `tsx --test`). Noms historiques (`auditLot2.test.ts`, `uxPremium.test.ts`) : les renommer **progressivement** d’après le comportement protégé, pas d’un coup. **Lot 17.**
-
-Jusqu’au lot 17 : tout nouveau test **doit** être ajouté à la liste `package.json`.
+`npm test` découvre `src/**/*.test.ts` (lot **17b**). Noms historiques `auditLot*` / `uxPremium` : renommés au lot **17e** d’après le verrou (`programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`).
 
 ### ARCH10 — Pas de garde-fous d’architecture
 
