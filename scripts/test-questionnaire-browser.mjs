@@ -72,6 +72,7 @@ try {
  await page.getByRole('button',{name:'Add a question',exact:true}).click();
  await page.getByLabel('Question (FR)',{exact:true}).fill('Comment préfères-tu échanger ?');
  await page.getByLabel('Question (EN)',{exact:true}).fill('How do you prefer to communicate?');
+ await page.locator('summary').filter({hasText:'Advanced settings'}).click();
  await page.getByLabel('Required',{exact:true}).check();
  await page.getByRole('button',{name:'Publish this version',exact:true}).click();
  await page.getByRole('button',{name:'Use for future invitations',exact:true}).click();
