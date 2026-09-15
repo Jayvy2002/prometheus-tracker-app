@@ -162,9 +162,9 @@ const fr: FleetCopy = {
     observationGhost: (idleDays) => `Pas de séance, check-in ni nutrition depuis plus de ${idleDays} jours.`,
     observationMissed: (done, expected, windowDays) => `Séances ${done}/${expected} sur ${windowDays} jours.`,
     causeGhost: "Client ghost — Relancer, pas de nutrition inventée, pas de chiffres de récup.",
-    causeMissed: "Séances manquées — Relancer, pas un nouveau programme.",
+    causeMissed: "Pas assez de séances loggées — Relancer, pas un nouveau programme.",
     titleGhost: (name) => `${name} a disparu`,
-    titleMissed: (name) => `${name} ne suit pas les séances`,
+    titleMissed: (name) => `${name} : séances non loggées`,
   },
   tooFast: {
     observation: (delta, windowDays, target, avg) =>
@@ -260,9 +260,9 @@ const en: FleetCopy = {
     observationGhost: (idleDays) => `No session, check-in or nutrition for more than ${idleDays} days.`,
     observationMissed: (done, expected, windowDays) => `Sessions ${done}/${expected} over ${windowDays} days.`,
     causeGhost: "Ghost client — follow up, no invented nutrition, no made-up recovery numbers.",
-    causeMissed: "Missed sessions — follow up, not a new program.",
+    causeMissed: "Sessions not logged — follow up, not a new program.",
     titleGhost: (name) => `${name} has gone quiet`,
-    titleMissed: (name) => `${name} isn’t keeping up with sessions`,
+    titleMissed: (name) => `${name}: sessions not logged`,
   },
   tooFast: {
     observation: (delta, windowDays, target, avg) =>

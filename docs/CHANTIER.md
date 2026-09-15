@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -39,6 +39,7 @@
 | **UX09** Enchaîner les fiches | **PASS.** Roster → Invitee `1 / 2` → Client `2 / 2` sans reliste. Check-ins conservé au précédent. Retour liste filtrée. | — |
 | **UX13** Reprendre les valeurs | **PASS.** 3 séries ; raccourci remplit la 2ᵉ (80/5/2) ; pas de 4ᵉ rangée. | — |
 | **UX16** Offline langage | **PASS.** Bandeau « Hors ligne — tes modifications sont conservées sur cet appareil. » File séances seulement. | — |
+| **UX28** Manque ≠ faute | **PASS.** Settings : « séance non loggée » + « Séances non loggées » / « Check-ins en attente ». File : Pas de programme / Séance faite, pas « a manqué ». Ask : « log(s) manquant(s) ». Relance : « comment se passent tes séances ? ». | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -334,7 +335,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX28, …), capteurs santé (UX112), billing (**M6 Reporté**).
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX28 Terminé**. Reste catalogue ens. (À concevoir / À vérifier / À construire), capteurs santé (UX112), billing (**M6 Reporté**).
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -385,7 +386,7 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | **M4** Offres opt-in | **Terminé** | Coach sans publier ; publication / retrait. | Live : Chantier Coach a un roster **sans** `coach_profiles`. `/coach/profile` : compte ≠ offre. Coach2 publié puis retiré ; l’annuaire suit. |
 | **M5** Annuaire, comparaison, demandes | **Terminé** | Filtres exacts ; pas de dossier prospect ; empty honnête. | Live : déjà lié → explication, pas de formulaire. Acceptation Coach2 × Intent : copy « pas un paiement » ; SQL `accepted` + lien `active`. Filtres exacts déjà en code. Matching riche / avis : hors lot. |
 | **M6** Paiement / accord commercial | **Reporté** | Une RPC d’activation **déjà** utilisée à l’acceptation et à l’invitation. M6 = encaissement, pas ré-activer le lien. | Chantier 3 fermé. |
-| **M7** Accueils et suite d’objectif | **Conçu** | Trois parcours jusqu’au bilan ; coach autorité du plan. | Contrat ci-dessous. Construction = écart encore listé (UX28). Lots 1, 4, 8, 9 déjà verts. UX07 / UX10 **Terminé**. |
+| **M7** Accueils et suite d’objectif | **Conçu** | Trois parcours jusqu’au bilan ; coach autorité du plan. | Contrat ci-dessous. Écart copy **UX28** livré (file **#153**). Lots 1, 4, 8, 9 déjà verts. UX07 / UX10 **Terminé**. Pas de rebuild produit. |
 | **M8** Ouverture graduelle | **Conçu** | Pas de lancement large sur CI seule. | Contrat ci-dessous. Billing reste fermé. |
 
 ### M7 — contrat des trois accueils (conçu 15 sept. 2026)
@@ -400,7 +401,7 @@ Un moteur, trois suites. Le bilan = faits (séries cochées, check-in enregistr�
 
 **Bilan.** Solo : recap de séance + hub. Coaché : même recap côté client ; 360 côté coach (pas de second logger). Coach : « depuis quand » + dernière séance cochée, pas un dump.
 
-**Écarts encore À construire** (ne pas les fondre dans M7) : UX28 (manque ≠ faute). UX07 / UX10 **Terminé**.
+**Écarts encore À construire** (ne pas les fondre dans M7) : plus d’écart listé. UX07 / UX10 / UX28 **Terminé**.
 
 ### M8 — contrat d’ouverture (conçu 15 sept. 2026)
 
@@ -459,7 +460,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Historique visuel des révisions | UX23 | À concevoir / transversal |
 | Check-in : champs vraiment utilisés | UX25 | À construire |
 | Relier réponse coach au bilan | UX27 | À concevoir |
-| Manque ≠ faute ; relances | UX28 | À construire |
+| Manque ≠ faute ; relances | UX28 | **Terminé** |
 | Lier séance / check-in dans le fil | UX32 | Après lot 7 |
 | Filtres roster visibles | UX36 | À construire |
 | Builder questionnaire (modèle, preview, publication) | UX39–41 | À construire |
@@ -640,7 +641,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX25** | P2 | ens. | À construire | Champs vraiment utilisés ; cœur vs détails. | Chaque champ explicable. |
 | **UX26** | P1 | 10e | **Terminé** | Toast live « Enregistré — visible par Chantier Coach ». | Succès ≠ lu. |
 | **UX27** | P2 | ens. | À concevoir | Relier réponse coach / adaptation au bilan. | Le coaché voit à quoi ça a servi. |
-| **UX28** | P1 | ens. | À construire | Manque ≠ faute. Relances respectueuses. | Pas d’interprétation santé automatique. |
+| **UX28** | P1 | ens. | **Terminé** | Live : cutoff « séance non loggée » ; templates « Séances non loggées » / « Check-ins en attente » ; Ask « log(s) manquant(s) » ; relance sans faute. `fleetCopy` jumelé. | Pas d’interprétation santé automatique. |
 
 ### Messagerie
 
@@ -789,7 +790,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**. **M7–M8 conçus** (contrats dans Chantier 2). Catalogue ens. encore dû.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**. **M7–M8 conçus** (contrats dans Chantier 2). Catalogue ens. encore dû.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -822,6 +823,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Coaché | Accueil : séance due + message non lu | **Joué (UX07).** Hero séance seul. Repos : une carte message. Waiting : hero seul. |
 | Coach | Roster → fiche → suivante / précédente | **Joué (UX09).** `1 / 2` → `2 / 2` ; onglet Check-ins conservé ; retour liste. |
 | Solo | Reprendre les valeurs d’une série | **Joué (UX13).** 3 rangées restent 3 ; 2ᵉ = 80/5/2. |
+| Coach | File / settings / Ask / relance | **Joué (UX28).** « non loggée » / « en attente » / « manquant(s) » ; relance « comment se passent tes séances ? ». |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
