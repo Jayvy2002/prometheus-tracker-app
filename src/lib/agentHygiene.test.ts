@@ -155,6 +155,14 @@ test('20 coaching: coach*.ts implementations live in features/coaching/domain', 
   assert.ok(existsSync(at('src/lib/types.ts')));
 });
 
+test('20 marketplace: marketplace modules live in features/marketplace/domain', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const name of ['marketplace.ts', 'marketplaceApi.ts']) {
+    assert.ok(existsSync(at(`src/features/marketplace/domain/${name}`)), name);
+    assert.match(readFileSync(at(`src/lib/${name}`), 'utf8'), /features\/marketplace\/domain\//);
+  }
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

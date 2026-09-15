@@ -17,7 +17,8 @@ src/
 ├── features/
 │   ├── account/hooks/      useAccountContext
 │   ├── coaching/hooks/     useClientTracking
-│   └── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
+│   ├── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
+│   ├── marketplace/domain/ marketplace*.ts (lot 20)
 │   └── nutrition/hooks/    useFoodCatalogSearch
 ├── shared/
 │   ├── api/supabase/       client

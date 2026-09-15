@@ -72,7 +72,7 @@ Ceci est l’**arbre actuel** (lot 18 livré). La matrice et la suite (19–23) 
 src/
 ├── App.tsx                         Routes, gardes, bootstrap (lot 21a pour découper)
 ├── app/layout/                     Chrome ; app/navigation/ = navConfig
-├── features/                       account / coaching (hooks + domain coach*) / nutrition
+├── features/                       account / coaching (hooks + domain) / marketplace / nutrition
 ├── shared/                         api/supabase, hooks, ui (tokens lot 19)
 ├── components/                     Écrans métier ; ui/ et layout/ = réexports
 ├── stores/                         Zustand par domaine — coachingStore intact jusqu’au 21c
