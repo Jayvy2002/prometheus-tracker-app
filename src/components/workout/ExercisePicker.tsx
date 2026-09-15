@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle, XCircle, Info } from 'lucide-react';
+import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle, XCircle, Info, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useExerciseStore } from '../../stores/exerciseStore';
+import { useWorkoutStore } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
 import { waitForRowChange } from '../../lib/realtimeWait';
 import { functionsErrorBody, functionsHttpStatus } from '../../lib/supabaseFunctions';
@@ -17,6 +18,15 @@ import {
 import type { Exercise } from '../../lib/types';
 import { muscleLabel } from '../../lib/muscleLabels';
 import { displayExerciseName, exerciseSearchFields, isExactExerciseMatch, scoreAgainstQuery } from '../../lib/pickerSearch';
+import {
+  composeExercisePicker,
+  isRecentExercise,
+  loadRecentExerciseNames,
+  mergeRecentNames,
+  namesFromWorkouts,
+  pickerRowTestId,
+  rememberExerciseName,
+} from '../../lib/exercisePicker';
 import ExerciseMedia from './ExerciseMedia';
 
 interface Props {
@@ -28,7 +38,9 @@ interface Props {
 export default function ExercisePicker({ open, onClose, onSelect }: Props) {
   const { t, i18n } = useTranslation();
   const { exercises, loading, fetchExercises, searchExercises } = useExerciseStore();
+  const workouts = useWorkoutStore(s => s.workouts);
   const [search, setSearch] = useState('');
+  const [equipment, setEquipment] = useState<string | 'all'>('all');
   const [showNewForm, setShowNewForm] = useState(false);
   const [detail, setDetail] = useState<Exercise | null>(null);
 
@@ -36,21 +48,87 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
     if (open) fetchExercises();
   }, [open, fetchExercises]);
 
-  const filtered = search.trim() ? searchExercises(search, i18n.language) : exercises;
+  const recentNames = mergeRecentNames(loadRecentExerciseNames(), namesFromWorkouts(workouts));
+  const model = composeExercisePicker({
+    catalog: exercises,
+    query: search,
+    recentNames,
+    equipment,
+    lang: i18n.language,
+  });
+  const ranked = search.trim() ? searchExercises(search, i18n.language) : exercises;
   const hasExactMatch = exercises.some(e => isExactExerciseMatch(search, e));
-  const topHit = filtered[0];
+  const topHit = ranked[0];
   const hasStrongMatch = !!search.trim() && !!topHit
     && scoreAgainstQuery(search, exerciseSearchFields(topHit, i18n.language)) >= 72;
+  const visibleCount = model.sections.reduce((n, section) => n + section.exercises.length, 0);
 
   const handleSelect = (exercise: Exercise) => {
+    rememberExerciseName(exercise.name);
     onSelect(exercise.name);
     setSearch('');
+    setEquipment('all');
   };
 
   const handleClose = () => {
     setSearch('');
+    setEquipment('all');
     setShowNewForm(false);
     onClose();
+  };
+
+  const renderRow = (ex: Exercise, keyPrefix: string) => {
+    const title = displayExerciseName(ex, i18n.language);
+    const recent = isRecentExercise(ex, recentNames);
+    return (
+      <div
+        key={`${keyPrefix}-${ex.id}`}
+        data-testid={pickerRowTestId(ex)}
+        data-equipment={ex.equipment}
+        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-neutral-800 transition-colors group flex items-center gap-2"
+      >
+        <button
+          type="button"
+          onClick={() => handleSelect(ex)}
+          className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
+        >
+          <div className="w-8 h-8 rounded-lg bg-neutral-900 group-hover:bg-neutral-800 flex items-center justify-center shrink-0">
+            {recent ? <Clock size={14} className="text-blue-400" /> : <Dumbbell size={14} className="text-blue-400" />}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-medium text-neutral-200 truncate">{title}</p>
+              <span className="text-[10px] font-medium text-neutral-100 bg-neutral-800 px-1.5 py-0.5 rounded shrink-0">
+                {t(`workout.exercisePicker.equipment.${ex.equipment}`, { defaultValue: ex.equipment })}
+              </span>
+            </div>
+            {title !== ex.name && (
+              <p className="text-[10px] text-neutral-500 truncate">{ex.name}</p>
+            )}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              {recent && (
+                <span className="text-[10px] text-blue-300 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                  {t('workout.exercisePicker.recent')}
+                </span>
+              )}
+              {ex.primary_muscles.slice(0, 2).map(m => (
+                <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                  {muscleLabel(m, i18n.language)}
+                </span>
+              ))}
+            </div>
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setDetail(ex)}
+          className="p-1.5 text-neutral-600 hover:text-blue-400 shrink-0"
+          aria-label={t('workout.exercisePicker.details')}
+        >
+          <Info size={14} />
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -63,8 +141,44 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
             onChange={e => setSearch(e.target.value)}
             placeholder={t('workout.exercisePicker.searchPlaceholder')}
             className="pl-10"
+            data-testid="exercise-picker-search"
           />
         </div>
+        <p className="text-[11px] text-neutral-500 -mt-2">{t('workout.exercisePicker.variantHint')}</p>
+
+        {model.equipmentOptions.length > 1 && (
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-thin pb-0.5" data-testid="exercise-picker-equipment">
+            <button
+              type="button"
+              data-testid="exercise-picker-equipment-all"
+              aria-pressed={equipment === 'all'}
+              onClick={() => setEquipment('all')}
+              className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                equipment === 'all'
+                  ? 'bg-blue-600/20 border-blue-500/40 text-blue-200'
+                  : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+              }`}
+            >
+              {t('workout.exercisePicker.equipmentAll')}
+            </button>
+            {model.equipmentOptions.map(item => (
+              <button
+                key={item}
+                type="button"
+                data-testid={`exercise-picker-equipment-${item}`}
+                aria-pressed={equipment === item}
+                onClick={() => setEquipment(item)}
+                className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border ${
+                  equipment === item
+                    ? 'bg-blue-600/20 border-blue-500/40 text-blue-200'
+                    : 'bg-neutral-900 border-neutral-800 text-neutral-400'
+                }`}
+              >
+                {t(`workout.exercisePicker.equipment.${item}`, { defaultValue: item })}
+              </button>
+            ))}
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-8">
@@ -72,52 +186,43 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
           </div>
         ) : (
           <>
-            <div className="max-h-60 overflow-y-auto space-y-1 scrollbar-thin">
-              {filtered.length === 0 && search.trim() && (
+            <div className="max-h-72 overflow-y-auto space-y-3 scrollbar-thin">
+              {visibleCount === 0 && (search.trim() || equipment !== 'all') && (
                 <p className="text-sm text-neutral-500 text-center py-4">
-                  {t('workout.exercisePicker.noResults', { query: search })}
+                  {t('workout.exercisePicker.noResults', { query: search.trim() || equipment })}
                 </p>
               )}
-              {filtered.map(ex => {
-                const title = displayExerciseName(ex, i18n.language);
+              {model.sections.map(section => {
+                if (section.kind === 'recents') {
+                  return (
+                    <div key="recents" data-testid="exercise-picker-recents" className="space-y-1">
+                      <p className="px-1 text-[11px] uppercase tracking-wider text-neutral-500">
+                        {t('workout.exercisePicker.recents')}
+                      </p>
+                      {section.exercises.map(ex => renderRow(ex, 'recents'))}
+                    </div>
+                  );
+                }
+                if (section.kind === 'family') {
+                  return (
+                    <div
+                      key={section.family}
+                      data-testid={`exercise-picker-family-${section.family}`}
+                      className="space-y-1"
+                    >
+                      <p className="px-1 text-[11px] uppercase tracking-wider text-neutral-500">
+                        {t('workout.exercisePicker.variants', {
+                          family: t(`workout.exercisePicker.family.${section.family}`),
+                        })}
+                      </p>
+                      {section.exercises.map(ex => renderRow(ex, section.family))}
+                    </div>
+                  );
+                }
                 return (
-                <div
-                  key={ex.id}
-                  className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-neutral-800 transition-colors group flex items-center gap-2"
-                >
-                  <button
-                    onClick={() => handleSelect(ex)}
-                    className="flex items-center gap-2.5 flex-1 min-w-0 text-left"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-neutral-900 group-hover:bg-neutral-800 flex items-center justify-center shrink-0">
-                      <Dumbbell size={14} className="text-blue-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-neutral-200 truncate">{title}</p>
-                      {title !== ex.name && (
-                        <p className="text-[10px] text-neutral-500 truncate">{ex.name}</p>
-                      )}
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        {ex.primary_muscles.slice(0, 2).map(m => (
-                          <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                            {muscleLabel(m, i18n.language)}
-                          </span>
-                        ))}
-                        <span className="text-[10px] text-neutral-500">
-                          {t(`workout.exercisePicker.equipment.${ex.equipment}`, { defaultValue: ex.equipment })}
-                        </span>
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDetail(ex)}
-                    className="p-1.5 text-neutral-600 hover:text-blue-400 shrink-0"
-                    aria-label={t('workout.exercisePicker.details')}
-                  >
-                    <Info size={14} />
-                  </button>
-                </div>
+                  <div key="rest" className="space-y-1">
+                    {section.exercises.map(ex => renderRow(ex, 'rest'))}
+                  </div>
                 );
               })}
             </div>
@@ -177,6 +282,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
             onClose();
           }}
           onSelect={(name) => {
+            rememberExerciseName(name);
             setShowNewForm(false);
             onSelect(name);
             handleClose();
