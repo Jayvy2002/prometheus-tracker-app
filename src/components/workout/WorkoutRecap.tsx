@@ -5,6 +5,7 @@ import { formatDate, formatDuration } from '../../lib/utils';
 import { optionLabel } from '../../lib/optionLabels';
 import { isCompletedSet, isPerformedSet, isWarmupSet } from '../../lib/performedSets';
 import type { Workout } from '../../lib/types';
+import ReminderPermissionPrompt from '../profile/ReminderPermissionPrompt';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import IconButton from '../ui/IconButton';
@@ -38,6 +39,8 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
           <Clock size={14} /> {formatDuration(workout.duration_seconds)}
         </div>
       )}
+
+      <ReminderPermissionPrompt />
 
       <div className="space-y-3">
         {(workout.exercises ?? []).map(ex => {
