@@ -55,6 +55,7 @@ test('UX66 wires profile panel, export fetch, and honest delete recap', () => {
   assert.match(page, /deleteConfirmToken/);
   assert.match(page, /data-delete-open/);
   assert.match(page, /data-delete-confirm/);
+  assert.match(page, /data-delete-confirm-submit/);
   const panel = src('src/components/profile/DataControlPanel.tsx');
   assert.match(panel, /data-control-panel/);
   assert.match(panel, /data-audience/);

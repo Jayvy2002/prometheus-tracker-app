@@ -401,6 +401,7 @@ export default function ProfilePage() {
               onClick={handleDeleteAccount}
               className="flex-1 !bg-rose-600 hover:!bg-rose-700"
               disabled={deleteConfirmText !== confirmWord || deleting}
+              data-testid="data-delete-confirm-submit"
             >
               <Trash2 size={14} />
               {deleting ? t('profile.deleteModal.deleting') : t('profile.deleteModal.title')}
