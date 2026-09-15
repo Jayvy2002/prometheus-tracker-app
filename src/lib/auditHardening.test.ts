@@ -66,7 +66,7 @@ test('fetchAllRows pages past the PostgREST 1000-row cap', async () => {
 test('auth refresh keeps the same user object; logout wipes session stores', () => {
   const auth = src('src/stores/authStore.ts');
   assert.match(auth, /session\.user\.id === get\(\)\.user\?\.id/);
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /resetSessionStores\(\)/);
   assert.match(app, /timezoneWriteFor/);
   assert.match(app, /silent: existing\?\.id === userId/);

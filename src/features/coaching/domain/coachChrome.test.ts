@@ -103,7 +103,7 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   assert.match(profile, /!coached && !inCoaching && \(/);
   assert.match(profile, /coaching\.coachMode/);
 
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /CoachedAthleteRedirect/);
   assert.match(app, /ProgramsHome/);
   assert.match(app, /path="\/programs"/);

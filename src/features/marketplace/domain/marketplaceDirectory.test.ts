@@ -35,7 +35,7 @@ test('directory writes go through RPCs; coach accept activates the coaching link
 });
 
 test('the directory is reachable without a 6th bottom tab and skips intake, not the assigned questionnaire', () => {
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   const marketplaceRoute = app.indexOf('path="/coaches"');
   const intake = app.indexOf('<KinesiologyIntakeFlow />');
   assert.doesNotMatch(app, /activeAssignment\?\.response && !activeAssignment\.response\.completed_at/);

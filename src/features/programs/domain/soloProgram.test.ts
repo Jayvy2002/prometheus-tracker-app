@@ -86,7 +86,7 @@ test('JWT self-coach is an explicit case before is_coach_of; coached stays 403',
 });
 
 test('solo home and /programs show the proposal; refuse is not auto-apply', () => {
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /function ProgramsHome/);
   assert.doesNotMatch(app, /Navigate to="\/workout"/);
   const dash = src('src/components/dashboard/Dashboard.tsx');

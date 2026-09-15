@@ -19,7 +19,7 @@ test('client Mon programme is the assigned plan; coached stays read-only, solo e
   assert.doesNotMatch(page, /navigate\('\/routines'\)/);
   assert.doesNotMatch(page, /coaching\.coachMode/);
 
-  const app = src('src/App.tsx');
+  const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /function ProgramsHome/);
   assert.match(app, /ClientProgramPage/);
   assert.match(app, /path="\/programs" element=\{<ProgramsHome/);

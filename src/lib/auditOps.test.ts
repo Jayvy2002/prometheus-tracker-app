@@ -60,10 +60,10 @@ test('Q06: migrations stay additive and RLS-safe', () => {
 });
 
 test('Q05: routes are code-split; programs load embedded; workouts paginate', () => {
-  const app = src('src/App.tsx');
-  assert.match(app, /lazy\(\(\) => import\('\.\/components\/workout\/WorkoutPage'\)\)/);
-  assert.match(app, /lazy\(\(\) => import\('\.\/components\/scanner\/ScannerPage'\)\)/);
-  assert.match(app, /lazy\(\(\) => import\('\.\/components\/stats\/StatsPage'\)\)/);
+  const app = src('src/App.tsx') + src('src/app/router/AppRoutes.tsx') + src('src/app/guards/RouteGuards.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts');
+  assert.match(app, /lazy\(\(\) => import\('(?:\.\.\/)*components\/workout\/WorkoutPage'\)\)/);
+  assert.match(app, /lazy\(\(\) => import\('(?:\.\.\/)*components\/scanner\/ScannerPage'\)\)/);
+  assert.match(app, /lazy\(\(\) => import\('(?:\.\.\/)*components\/stats\/StatsPage'\)\)/);
   assert.match(app, /<Suspense fallback={<RouteFallback \/>}>/);
   const programs = src('src/stores/programStore.ts');
   assert.match(programs, /program_days\(\*, program_day_exercises\(\*\)\)/);

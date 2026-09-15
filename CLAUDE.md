@@ -66,11 +66,14 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
-Ceci est l’**arbre actuel** (lot 18 livré). La matrice et la suite (19–23) sont dans `docs/ARCHITECTURE.md`. **Ne pas déplacer** `coach*.ts`, `App.tsx`, `stores/`, `types.ts` ni i18n avant le lot qui le dit. `coachingStore` reste un seul fichier jusqu’au lot **21c** (façade obligatoire).
+Ceci est l’**arbre actuel** (lots 18–21a livrés). La matrice et la suite (21b–23) sont dans `docs/ARCHITECTURE.md`. **Ne pas découper** `stores/coachingStore.ts` avant le lot **21c** (façade obligatoire). `types.ts` et i18n restent entiers jusqu’au lot 22.
 
 ```text
 src/
-├── App.tsx                         Routes, gardes, bootstrap (lot 21a pour découper)
+├── App.tsx                         Assembleur (router + provider)
+├── app/router/                     AppRoutes (arbre public / authentifié)
+├── app/guards/                     CoachOnly, CoachTrackerRedirect, CoachedAthleteRedirect
+├── app/bootstrap/                  Session, offline, langue, intake
 ├── app/layout/                     Chrome ; app/navigation/ = navConfig
 ├── features/                       account / coaching / marketplace / workout / nutrition / programs
 ├── shared/                         api/supabase, hooks, ui (tokens lot 19)

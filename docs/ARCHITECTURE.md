@@ -1,17 +1,20 @@
 # Architecture frontend — actuel vs cible
 
-> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Le lot **18** a créé `app` / `features` / `shared` et les alias `@/`. Le lot **19** a aligné les primitives sur les tokens. Les lots **20–23** bougent encore, un domaine ou une ligne à la fois.
+> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Lots **18–21a** livrés. Les lots **21b–23** bougent encore, une ligne à la fois.
 >
 > **Invariants :** zéro changement de parcours dans une PR de structure (sauf lot 19 : mêmes écrans, tokens). `coachingStore` : **pas** de découpage avant le lot **21c** (façade obligatoire). `coachFleet.ts` et `supabase/functions/coach-fleet-round` restent jumelés. Migrations appliquées immuables.
 
 ---
 
-## Arbre actuel (après lot 18)
+## Arbre actuel (après lot 21a)
 
 ```text
 src/
-├── App.tsx                 Routes, gardes, bootstrap — encore ici (lot 21a)
+├── App.tsx                 Assembleur BrowserRouter + AppRoutes
 ├── app/
+│   ├── router/             AppRoutes (public / authentifié)
+│   ├── guards/             CoachOnly, CoachTrackerRedirect, CoachedAthleteRedirect
+│   ├── bootstrap/          useAuthenticatedSession
 │   ├── layout/             AppLayout, BottomNav, SideNav, FAB
 │   └── navigation/         navConfig + test
 ├── features/
@@ -39,7 +42,7 @@ supabase/
 └── tests/                  SQL RLS / RPC (pas des `*.test.ts` Vite)
 ```
 
-Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `coach*.ts`, `App.tsx`, `stores/`, `types.ts`, i18n : **pas** déplacés.
+Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts`, `types.ts`, i18n : **pas** découpés (21c / 22).
 
 Convention d’accès données **cible** (à écrire ici, à faire respecter aux lots 20 puis 23) :
 
@@ -70,7 +73,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 
 | Si tu crées / touches… | Aujourd’hui | Cible | Lot qui déplace |
 |---|---|---|---|
-| Route, garde, bootstrap session | `App.tsx` | `app/router`, `app/guards`, `app/bootstrap` | **21a** |
+| Route, garde, bootstrap session | `app/router`, `app/guards`, `app/bootstrap` (+ `App.tsx` assembleur) | idem | **21a livré** |
 | Layout, nav, FAB | `app/layout/`, `app/navigation/` (+ réexports) | idem | **18 livré** |
 | Primitive UI (`Button`, `Card`, …) | `shared/ui/` (+ réexports) | idem | **18 livré** |
 | Client Supabase | `shared/api/supabase/` (+ réexport `lib/supabase.ts`) | idem | **18 livré** |
