@@ -17,6 +17,7 @@ import {
 import type { Exercise } from '../../lib/types';
 import { muscleLabel } from '../../lib/muscleLabels';
 import { displayExerciseName, exerciseSearchFields, isExactExerciseMatch, scoreAgainstQuery } from '../../lib/pickerSearch';
+import ExerciseMedia from './ExerciseMedia';
 
 interface Props {
   open: boolean;
@@ -108,16 +109,14 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
                       </div>
                     </div>
                   </button>
-                  {(ex.instructions || ex.tips) && (
-                    <button
-                      type="button"
-                      onClick={() => setDetail(ex)}
-                      className="p-1.5 text-neutral-600 hover:text-blue-400 shrink-0"
-                      aria-label={t('workout.exercisePicker.details')}
-                    >
-                      <Info size={14} />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => setDetail(ex)}
+                    className="p-1.5 text-neutral-600 hover:text-blue-400 shrink-0"
+                    aria-label={t('workout.exercisePicker.details')}
+                  >
+                    <Info size={14} />
+                  </button>
                 </div>
                 );
               })}
@@ -149,13 +148,7 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
           <div className="fixed inset-0 bg-black/70" onClick={() => setDetail(null)} />
           <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-white mb-2">{displayExerciseName(detail, i18n.language)}</h3>
-            <div className="flex flex-wrap gap-1.5 mb-3">
-              {detail.primary_muscles.map(m => (
-                <span key={m} className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
-                  {muscleLabel(m, i18n.language)}
-                </span>
-              ))}
-            </div>
+            <ExerciseMedia exercise={detail} compact />
             {detail.instructions && (
               <div className="mb-3">
                 <p className="text-[11px] uppercase tracking-wider text-neutral-500 mb-1">{t('workout.exercisePicker.instructions')}</p>

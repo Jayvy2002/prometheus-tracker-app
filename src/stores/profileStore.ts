@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { applyNutritionTargets } from '../lib/clientLive';
 import type { UserProfile } from '../lib/types';
 import { captureSession } from '../lib/sessionScope';
+import { imageFileForUpload } from '../lib/heicConvert';
 
 let profileGeneration = 0;
 let profileRead = 0;
@@ -96,6 +97,12 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     if (!current() || get().uploadingAvatar) return null;
     set({ uploadingAvatar: true });
     try {
+    const prepared = await imageFileForUpload(file);
+    if ('error' in prepared) {
+      set({ uploadingAvatar: false });
+      return null;
+    }
+    file = prepared.file;
     const ext = file.name.split('.').pop() || 'jpg';
     const filePath = `${userId}/avatar.${ext}`;
 

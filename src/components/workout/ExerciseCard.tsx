@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronUp, StickyNote, History, TrendingUp, Award, Copy, Link2, Check } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronUp, History, TrendingUp, Award, Copy, Check, MoreVertical, Weight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -7,7 +7,7 @@ import { usePreferencesStore } from '../../stores/preferencesStore';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { formatExercisePrescription, showTrainingField } from '../../lib/clientTracking';
 import { showLoggingRir } from '../../lib/clientGym';
-import { isCoachedAthlete } from '../../lib/coachRole';
+import { isCoachedAthlete, isSoloAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
 import type { WorkoutExercise, WorkoutSet, SetType } from '../../lib/types';
 import type { ExerciseSession } from '../../stores/workoutStore';
@@ -19,8 +19,16 @@ import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
 import { applySetPlaceholders } from '../../lib/workoutSetComplete';
-import { resolveRestSeconds } from '../../lib/restTimer';
 import { isPerformedSet } from '../../lib/performedSets';
+import { resolveRestSeconds } from '../../lib/restTimer';
+import { parseDropSegments, emptyDropSegments } from '../../lib/programSetPrescription';
+import { useExerciseStore } from '../../stores/exerciseStore';
+import { findCatalogExercise } from '../../lib/exerciseCatalog';
+import ExerciseMedia from './ExerciseMedia';
+import PlateCalc from './PlateCalc';
+import SoloAskBar from '../solo/SoloAskBar';
+import { soloAskFromProfile } from '../../lib/soloAskDefaults';
+import OverflowMenu, { type OverflowAction } from '../ui/OverflowMenu';
 
 export type OverloadSuggestionKind =
   | 'stagnant'
@@ -149,6 +157,59 @@ function SetTypePicker({ currentType, onChange, onClose }: { currentType: string
   );
 }
 
+function SetRowMenu({
+  onDuplicate,
+  onDelete,
+}: {
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={menuRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label={t('workout.exerciseCard.setActions')}
+        aria-expanded={open}
+        onClick={() => setOpen(v => !v)}
+        className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-lg text-neutral-500 hover:text-white hover:bg-neutral-800"
+      >
+        <MoreVertical size={16} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-50 mt-1 min-w-[10rem] rounded-xl border border-neutral-700/50 bg-neutral-950 p-1 shadow-xl">
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onDuplicate(); }}
+            className="flex w-full min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-white hover:bg-neutral-800"
+          >
+            <Copy size={14} /> {t('workout.exerciseCard.duplicateSet')}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onDelete(); }}
+            className="flex w-full min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-rose-300 hover:bg-rose-500/10"
+          >
+            <Trash2 size={14} /> {t('common.delete')}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Set Row ---
 
 function SetRow({
@@ -158,7 +219,6 @@ function SetRow({
   showLoad,
   showReps,
   showSets,
-  hevySimple,
   suggestedWeight,
   prevSet,
   previousSet,
@@ -173,7 +233,6 @@ function SetRow({
   showLoad: boolean;
   showReps: boolean;
   showSets: boolean;
-  hevySimple: boolean;
   suggestedWeight?: number | null;
   prevSet?: { weight_kg: number; reps: number; rir: number } | null;
   previousSet?: WorkoutSet | null;
@@ -197,6 +256,10 @@ function SetRow({
   const [localClusterBurst, setLocalClusterBurst] = useState('');
   const [localType, setLocalType] = useState(set.set_type);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [segments, setSegments] = useState(() => {
+    const parsed = parseDropSegments(set.drop_segments);
+    return parsed.length >= 2 ? parsed : emptyDropSegments(2);
+  });
 
   const isIsometric = localType === 'isometric';
   const isTempo = localType === 'tempo';
@@ -301,6 +364,12 @@ function SetRow({
         updates.weight_kg = dropWeightKg;
       }
     }
+    if (newType === 'drop') {
+      const parsed = parseDropSegments(set.drop_segments);
+      const next = parsed.length >= 2 ? parsed : emptyDropSegments(2);
+      setSegments(next);
+      updates.drop_segments = next;
+    }
     updateSet(set.id, updates);
   };
 
@@ -330,6 +399,14 @@ function SetRow({
       repsPlaceholder,
     });
     const updates: Partial<WorkoutSet> = { completed: true };
+    if (isDrop) {
+      updates.drop_segments = segments;
+      updates.weight_kg = segments[0]?.weight_kg ?? 0;
+      updates.reps = segments.reduce((sum, row) => sum + (row.reps || 0), 0);
+      updateSet(set.id, updates);
+      onSetComplete();
+      return;
+    }
     if (filled.weight !== localWeight) {
       setLocalWeight(filled.weight);
       updateSetDraft(set.id, 'weight_kg', filled.weight);
@@ -346,7 +423,9 @@ function SetRow({
     onSetComplete();
   };
 
-  const isFilled = !!localWeight && (isIsometric ? !!localDuration : !!localReps);
+  const isFilled = isDrop
+    ? segments.every(row => row.weight_kg > 0 && row.reps > 0)
+    : !!localWeight && (isIsometric ? !!localDuration : !!localReps);
 
   // Drop percentage badge (ratio — computed in display units consistently)
   const prevDisplay = previousSet && previousSet.weight_kg > 0 ? toDisplay(previousSet.weight_kg) : 0;
@@ -356,26 +435,32 @@ function SetRow({
 
   // Myo activation badge
   const isMyoActivation = isMyo && set.myo_is_activation;
+  const inputCount = [showLoad && !isDrop, showReps && !isDrop, showRir].filter(Boolean).length;
+  const inputGrid =
+    inputCount >= 3
+      ? 'grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_3.5rem]'
+      : inputCount === 2
+        ? 'grid-cols-2'
+        : 'grid-cols-1';
 
   return (
-    <div className={`relative rounded-xl transition-all
+    <div
+      data-set-row="true"
+      className={`relative rounded-xl transition-all
       ${set.completed ? 'bg-emerald-950/30 ring-1 ring-emerald-500/30' : isFilled ? 'bg-neutral-900/80 ring-1 ring-emerald-500/20' : 'bg-neutral-900/60'}
       ${isDrop && index > 0 ? '-mt-0.5' : ''}
     `}>
       <div className="flex items-center gap-1.5 p-2">
-        {/* Index */}
         {showSets && (
-        <div className="w-5 text-center text-[11px] text-neutral-600 font-semibold shrink-0">
+        <div className="w-6 text-center text-xs text-neutral-500 font-semibold shrink-0">
           {index + 1}
         </div>
         )}
 
-        {/* Type chip — hidden on program sessions (Hevy-simple) */}
-        {!hevySimple && (
         <div className="relative shrink-0">
           <button
             onClick={() => setShowTypePicker(!showTypePicker)}
-            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold tracking-wide uppercase transition-all
+            className={`min-h-11 min-w-11 flex items-center justify-center rounded-lg text-[11px] font-bold tracking-wide uppercase transition-all
               ${typeInfo.bgColor} ${typeInfo.color} hover:brightness-125`}
           >
             {typeInfo.shortLabel}
@@ -388,135 +473,148 @@ function SetRow({
             />
           )}
         </div>
-        )}
 
-        {/* Drop % badge */}
-        {!hevySimple && isDrop && dropPct != null && dropPct > 0 && (
+        {isDrop && dropPct != null && dropPct > 0 && (
           <span className="text-[9px] font-bold text-sky-400/70 shrink-0">-{dropPct}%</span>
         )}
-
-        {/* Myo activation badge */}
-        {!hevySimple && isMyoActivation && (
+        {isMyoActivation && (
           <span className="text-[9px] font-bold text-rose-400/70 shrink-0">{t('workout.exerciseCard.act')}</span>
         )}
-        {!hevySimple && isMyo && !isMyoActivation && (
+        {isMyo && !isMyoActivation && (
           <span className="text-[9px] font-medium text-rose-400/50 shrink-0">{t('workout.exerciseCard.mini')}</span>
         )}
 
-        {/* Weight */}
-        {showLoad && (
-        <div className="flex-1 min-w-0">
-          <input
-            type="number"
-            inputMode="decimal"
-            value={localWeight}
-            onChange={e => {
-              setLocalWeight(e.target.value);
-              updateSetDraft(set.id, 'weight_kg', e.target.value);
-            }}
-            onFocus={e => e.target.select()}
-            onBlur={() => {
-              const w = parseFloat(localWeight);
-              updateSet(set.id, { weight_kg: isNaN(w) ? 0 : toStorage(w) });
-            }}
-            className={`w-full min-h-11 rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
-              ${suggestedWeight && !localWeight && !set.weight_kg ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-neutral-800/80 border border-transparent'}`}
-            placeholder={weightPlaceholder}
-          />
-        </div>
-        )}
-
-        {/* Reps or Duration */}
-        {showReps && (
-        <div className="flex-1 min-w-0">
-          {isIsometric ? (
+        <div className={`flex-1 min-w-0 grid gap-1.5 ${inputGrid}`}>
+          {showLoad && !isDrop && (
+          <div className="min-w-0">
             <input
               type="number"
-              inputMode="numeric"
-              value={localDuration}
+              inputMode="decimal"
+              value={localWeight}
               onChange={e => {
-                setLocalDuration(e.target.value);
-                updateSetDraft(set.id, 'duration_seconds', e.target.value);
+                setLocalWeight(e.target.value);
+                updateSetDraft(set.id, 'weight_kg', e.target.value);
               }}
               onFocus={e => e.target.select()}
-              onBlur={handleDurationBlur}
-              className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-orange-500"
-              placeholder="sec"
-            />
-          ) : (
-            <input
-              type="number"
-              inputMode="numeric"
-              value={localReps}
-              onChange={e => {
-                setLocalReps(e.target.value);
-                updateSetDraft(set.id, 'reps', e.target.value);
+              onBlur={() => {
+                const w = parseFloat(localWeight);
+                updateSet(set.id, { weight_kg: isNaN(w) ? 0 : toStorage(w) });
               }}
-              onFocus={e => e.target.select()}
-              onBlur={handleRepsBlur}
-              className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder={repsPlaceholder}
-            />
-          )}
-        </div>
-        )}
-
-        {/* RIR */}
-        {showRir && (
-          <div className="w-12 shrink-0">
-            <input
-              type="number"
-              inputMode="numeric"
-              value={localRir}
-              onChange={e => {
-                setLocalRir(e.target.value);
-                updateSetDraft(set.id, 'rir', e.target.value);
-              }}
-              onFocus={e => e.target.select()}
-              onBlur={handleRirBlur}
-              className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-2 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder="RIR"
+              className={`w-full min-h-11 rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
+                ${suggestedWeight && !localWeight && !set.weight_kg ? 'bg-blue-500/10 border border-blue-500/30' : 'bg-neutral-800/80 border border-transparent'}`}
+              placeholder={weightPlaceholder}
             />
           </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex items-center gap-0.5 shrink-0">
-          {!hevySimple && (
-            <>
-              <button
-                type="button"
-                onClick={onDuplicate}
-                className="p-1 text-neutral-700 hover:text-blue-400 transition-colors"
-                title={t('workout.exerciseCard.duplicateSet')}
-              >
-                <Copy size={11} />
-              </button>
-              <button
-                type="button"
-                onClick={onDelete}
-                className="p-1 text-neutral-700 hover:text-rose-400 transition-colors"
-                title={t('workout.exerciseCard.setRemoved')}
-              >
-                <Trash2 size={11} />
-              </button>
-            </>
           )}
-          <button
-            type="button"
-            onClick={() => void handleToggleComplete()}
-            aria-pressed={set.completed}
-            aria-label={t(set.completed ? 'workout.exerciseCard.uncompleteSet' : 'workout.exerciseCard.completeSet')}
-            className={`min-h-11 min-w-11 flex items-center justify-center rounded-lg transition-colors ${
-              set.completed
-                ? 'bg-emerald-600 text-white'
-                : 'bg-neutral-800 text-neutral-500 hover:text-emerald-400'
-            }`}
-          >
-            <Check size={16} />
-          </button>
+
+          {showReps && !isDrop && (
+          <div className="min-w-0">
+            {isIsometric ? (
+              <input
+                type="number"
+                inputMode="numeric"
+                value={localDuration}
+                onChange={e => {
+                  setLocalDuration(e.target.value);
+                  updateSetDraft(set.id, 'duration_seconds', e.target.value);
+                }}
+                onFocus={e => e.target.select()}
+                onBlur={handleDurationBlur}
+                className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-orange-500"
+                placeholder="sec"
+              />
+            ) : (
+              <input
+                type="number"
+                inputMode="numeric"
+                value={localReps}
+                onChange={e => {
+                  setLocalReps(e.target.value);
+                  updateSetDraft(set.id, 'reps', e.target.value);
+                }}
+                onFocus={e => e.target.select()}
+                onBlur={handleRepsBlur}
+                className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder={repsPlaceholder}
+              />
+            )}
+          </div>
+          )}
+
+          {showRir && (
+            <div className="min-w-0">
+              <input
+                type="number"
+                inputMode="numeric"
+                value={localRir}
+                onChange={e => {
+                  setLocalRir(e.target.value);
+                  updateSetDraft(set.id, 'rir', e.target.value);
+                }}
+                onFocus={e => e.target.select()}
+                onBlur={handleRirBlur}
+                className="w-full min-h-11 bg-neutral-800/80 border border-transparent rounded-lg px-1 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="RIR"
+              />
+            </div>
+          )}
         </div>
+
+        <SetRowMenu onDuplicate={onDuplicate} onDelete={onDelete} />
+        <button
+          type="button"
+          onClick={() => void handleToggleComplete()}
+          aria-pressed={set.completed}
+          aria-label={t(set.completed ? 'workout.exerciseCard.uncompleteSet' : 'workout.exerciseCard.completeSet')}
+          className={`min-h-11 min-w-11 shrink-0 flex items-center justify-center rounded-lg transition-colors ${
+            set.completed
+              ? 'bg-emerald-600 text-white'
+              : 'bg-neutral-800 text-neutral-500 hover:text-emerald-400'
+          }`}
+        >
+          <Check size={16} />
+        </button>
       </div>
+
+      {isDrop && (
+        <div className="px-2 pb-2 space-y-1" data-drop-segments="true">
+          {segments.map((row, i) => (
+            <div key={i} className="flex items-center gap-1.5 pl-6">
+              <span className="text-[10px] text-sky-400/70 w-4">{i + 1}</span>
+              {showLoad && (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={row.weight_kg ? String(toDisplay(row.weight_kg)) : ''}
+                  onChange={e => {
+                    const w = parseFloat(e.target.value);
+                    const next = segments.map((s, j) => j === i ? { ...s, weight_kg: isNaN(w) ? 0 : toStorage(w) } : s);
+                    setSegments(next);
+                  }}
+                  onBlur={() => updateSet(set.id, { drop_segments: segments, weight_kg: segments[0]?.weight_kg ?? 0 })}
+                  className="flex-1 min-h-11 rounded-lg px-2 py-2 text-sm text-white text-center bg-neutral-800/80"
+                  placeholder={weightPlaceholder}
+                />
+              )}
+              {showReps && (
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={row.reps ? String(row.reps) : ''}
+                  onChange={e => {
+                    const r = parseInt(e.target.value, 10);
+                    const next = segments.map((s, j) => j === i ? { ...s, reps: isNaN(r) ? 0 : r } : s);
+                    setSegments(next);
+                  }}
+                  onBlur={() => updateSet(set.id, { drop_segments: segments, reps: segments.reduce((sum, s) => sum + s.reps, 0) })}
+                  className="flex-1 min-h-11 rounded-lg px-2 py-2 text-sm text-white text-center bg-neutral-800/80"
+                  placeholder={repsPlaceholder}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tempo row */}
       {isTempo && (
@@ -629,10 +727,12 @@ export default function ExerciseCard({
   exercise,
   onStartRestTimer,
   isInSuperset = false,
+  restAfterComplete = true,
 }: {
   exercise: WorkoutExercise;
   onStartRestTimer: (overrideDuration?: number) => void;
   isInSuperset?: boolean;
+  restAfterComplete?: boolean;
 }) {
   const { t } = useTranslation();
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, updateSet, currentWorkout, fetchExerciseHistory } = useWorkoutStore();
@@ -645,12 +745,13 @@ export default function ExerciseCard({
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const hasCoach = isCoachedAthlete(coachingRole, myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
   const showRir = showLoggingRir(showTrainingField(tracking, 'rir'), prefRir, hasCoach);
   const showLoad = showTrainingField(tracking, 'load');
   const showReps = showTrainingField(tracking, 'reps') || showTrainingField(tracking, 'reps_range');
   const showSets = showTrainingField(tracking, 'sets');
   const restOn = showTrainingField(tracking, 'rest');
-  const hevySimple = !!currentWorkout?.program_day_id;
+  const planLocked = !!currentWorkout?.program_day_id;
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft, clearExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
@@ -658,6 +759,12 @@ export default function ExerciseCard({
   const [localName, setLocalName] = useState(exercise.name);
   const [history, setHistory] = useState<ExerciseSession[]>([]);
   const [showLinkPicker, setShowLinkPicker] = useState(false);
+  const [showMedia, setShowMedia] = useState(false);
+  const [plateOpen, setPlateOpen] = useState(false);
+  const [showAsk, setShowAsk] = useState(false);
+  const catalogExercises = useExerciseStore(s => s.exercises);
+  const fetchExercises = useExerciseStore(s => s.fetchExercises);
+  const catalog = findCatalogExercise(catalogExercises, exercise.name);
 
   useEffect(() => {
     initExerciseDraft(exercise.id, exercise.notes || '');
@@ -669,6 +776,10 @@ export default function ExerciseCard({
   useEffect(() => {
     return () => { clearExerciseDraft(exercise.id); };
   }, [exercise.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    void fetchExercises();
+  }, [fetchExercises]);
 
   useEffect(() => {
     if (!user || !currentWorkout) return;
@@ -703,6 +814,7 @@ export default function ExerciseCard({
 
   const handleSetComplete = () => {
     if (!restOn) return;
+    if (isInSuperset && !restAfterComplete) return;
     onStartRestTimer(resolveRestSeconds(exercise.prescribed_rest_seconds) ?? 90);
   };
 
@@ -719,92 +831,152 @@ export default function ExerciseCard({
 
   const completedCount = exercise.sets?.filter(s => s.completed).length ?? 0;
   const totalSets = exercise.sets?.length ?? 0;
+  const plateKg = exercise.sets?.find(s => s.weight_kg > 0)?.weight_kg
+    ?? exercise.prescribed_weight_kg
+    ?? 0;
+  const plateLoad = weightUnit === 'lbs' ? kgToLbs(plateKg) : Math.round(plateKg * 10) / 10;
 
   // Myo-rep total reps counter
   const myoSets = exercise.sets?.filter(s => s.set_type === 'myo') ?? [];
   const myoTotalReps = myoSets.reduce((sum, s) => sum + (s.reps || 0), 0);
 
+  const overflowActions: OverflowAction[] = [
+    ...(catalog ? [{
+      id: 'media',
+      label: t('workout.exercisePicker.form'),
+      onSelect: () => setShowMedia(v => !v),
+    }] : []),
+    {
+      id: 'notes',
+      label: t('workout.exerciseCard.notes'),
+      onSelect: () => setShowNotes(v => !v),
+    },
+    ...(!isInSuperset && !exercise.superset_group_id ? [{
+      id: 'link',
+      label: t('workout.exerciseCard.linkWith'),
+      onSelect: () => setShowLinkPicker(true),
+    }] : []),
+    ...(solo ? [{
+      id: 'ask',
+      label: t('workout.exerciseCard.ask'),
+      onSelect: () => setShowAsk(v => !v),
+    }] : []),
+    ...(!planLocked ? [{
+      id: 'delete',
+      label: t('common.delete'),
+      onSelect: () => {
+        const exerciseSnapshot = { ...exercise, sets: [...(exercise.sets ?? [])] };
+        const workoutId = currentWorkout?.id;
+        deleteExercise(exercise.id);
+        toastWithUndo(t('workout.exerciseCard.exerciseRemoved'), () => {
+          if (workoutId) restoreExercise(workoutId, exerciseSnapshot);
+        });
+      },
+      danger: true,
+    }] : []),
+  ];
+
   return (
     <Card padding={false} className="animate-fade-in-up">
-      <div className="flex items-center gap-3 p-4 pb-2">
-        <button onClick={() => setExpanded(!expanded)} className="text-neutral-400 hover:text-white">
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+      <div className="flex items-start gap-2 p-3 sm:p-4 pb-2">
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="min-h-11 min-w-11 shrink-0 inline-flex items-center justify-center text-neutral-400 hover:text-white"
+          aria-expanded={expanded}
+        >
+          {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </button>
-        <input
-          value={localName}
-          onChange={e => setLocalName(e.target.value)}
-          className="flex-1 bg-transparent text-white font-semibold focus:outline-none"
-          placeholder={t('workout.exerciseCard.exerciseNamePlaceholder')}
-          readOnly
-        />
-        {exercise.prescribed_sets || exercise.prescribed_reps ? (
-          <span className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded whitespace-nowrap">
-            {formatExercisePrescription({
-              default_sets: exercise.prescribed_sets ?? 0,
-              default_reps: exercise.prescribed_reps ?? 0,
-              default_reps_min: exercise.prescribed_reps_min,
-              default_rir: exercise.prescribed_rir,
-              default_rest_seconds: exercise.prescribed_rest_seconds,
-              default_weight_kg: exercise.prescribed_weight_kg,
-            }, tracking, weightUnit) || t('workout.prescribedShort', { sets: exercise.prescribed_sets ?? 0, reps: exercise.prescribed_reps ?? 0 })}
-            {' → '}{completedCount}
-          </span>
-        ) : null}
-        {isPR && (
-          <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5 font-bold">
-            <Award size={10} />
-            PR
-          </span>
-        )}
-        {totalSets > 0 && (
-          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${completedCount === totalSets ? 'text-emerald-400 bg-emerald-400/10' : 'text-neutral-500 bg-neutral-800/50'}`}>
-            {completedCount}/{totalSets}
-          </span>
-        )}
-        {/* Superset link button -- only if not already in a superset */}
-        {!hevySimple && !isInSuperset && !exercise.superset_group_id && (
-          <div className="relative">
-            <button
-              onClick={() => setShowLinkPicker(!showLinkPicker)}
-              className="p-1 text-neutral-600 hover:text-green-400 transition-colors"
-              title="Link superset"
-            >
-              <Link2 size={14} />
-            </button>
-            {showLinkPicker && (
-              <SupersetLinkPicker
-                currentExerciseId={exercise.id}
-                onClose={() => setShowLinkPicker(false)}
-              />
+        <div className="flex-1 min-w-0 pt-2">
+          <p className="text-white font-semibold truncate">{localName || t('workout.exerciseCard.exerciseNamePlaceholder')}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-1">
+            {exercise.prescribed_sets || exercise.prescribed_reps ? (
+              <span className="text-[10px] text-blue-400/80 bg-blue-500/10 px-1.5 py-0.5 rounded">
+                {formatExercisePrescription({
+                  default_sets: exercise.prescribed_sets ?? 0,
+                  default_reps: exercise.prescribed_reps ?? 0,
+                  default_reps_min: exercise.prescribed_reps_min,
+                  default_rir: exercise.prescribed_rir,
+                  default_rest_seconds: exercise.prescribed_rest_seconds,
+                  default_weight_kg: exercise.prescribed_weight_kg,
+                }, tracking, weightUnit) || t('workout.prescribedShort', { sets: exercise.prescribed_sets ?? 0, reps: exercise.prescribed_reps ?? 0 })}
+                {' → '}{completedCount}
+              </span>
+            ) : null}
+            {isPR && (
+              <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 rounded px-1.5 py-0.5 font-bold">
+                <Award size={10} />
+                PR
+              </span>
+            )}
+            {totalSets > 0 && (
+              <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${completedCount === totalSets ? 'text-emerald-400 bg-emerald-400/10' : 'text-neutral-500 bg-neutral-800/50'}`}>
+                {completedCount}/{totalSets}
+              </span>
             )}
           </div>
-        )}
-        <button
-          onClick={() => setShowNotes(!showNotes)}
-          className={`p-1 transition-colors ${showNotes || localNotes ? 'text-blue-400 hover:text-blue-300' : 'text-neutral-600 hover:text-neutral-400'}`}
-        >
-          <StickyNote size={16} />
-        </button>
-        {!hevySimple && (
-        <button
-          onClick={() => {
-            const exerciseSnapshot = { ...exercise, sets: [...(exercise.sets ?? [])] };
-            const workoutId = currentWorkout?.id;
-            deleteExercise(exercise.id);
-            toastWithUndo(t('workout.exerciseCard.exerciseRemoved'), () => {
-              if (workoutId) restoreExercise(workoutId, exerciseSnapshot);
-            });
-          }}
-          className="p-1 text-neutral-600 hover:text-rose-400 transition-colors"
-        >
-          <Trash2 size={16} />
-        </button>
-        )}
+        </div>
+        <div className="relative shrink-0 flex items-center">
+          {showLinkPicker && (
+            <SupersetLinkPicker
+              currentExerciseId={exercise.id}
+              onClose={() => setShowLinkPicker(false)}
+            />
+          )}
+          {showLoad && (
+            <button
+              type="button"
+              data-plates-open="true"
+              onClick={() => setPlateOpen(true)}
+              className="min-h-11 min-w-11 inline-flex items-center justify-center rounded-xl text-neutral-400 hover:text-white hover:bg-neutral-800"
+              aria-label={t('workout.plates.title')}
+            >
+              <Weight size={18} />
+            </button>
+          )}
+          <OverflowMenu label={t('workout.exerciseCard.moreActions')} actions={overflowActions} />
+        </div>
       </div>
+
+      {showMedia && catalog && (
+        <div className="px-3 sm:px-4 pb-3 animate-fade-in">
+          <ExerciseMedia exercise={catalog} compact />
+        </div>
+      )}
+
+      {solo && showAsk && (
+        <div className="px-3">
+          <SoloAskBar
+            compact
+            context={soloAskFromProfile('exercise', profile, {
+              currentExerciseName: exercise.name,
+              catalog: catalogExercises.map(ex => ({
+                name: ex.name,
+                primary_muscles: ex.primary_muscles,
+                secondary_muscles: ex.secondary_muscles,
+                equipment: ex.equipment,
+              })),
+              lastWeightKg: (exercise.sets ?? []).filter(isPerformedSet).slice(-1)[0]?.weight_kg
+                ?? prevPerformed.slice(-1)[0]?.weight_kg
+                ?? null,
+              lastReps: (exercise.sets ?? []).filter(isPerformedSet).slice(-1)[0]?.reps
+                ?? prevPerformed.slice(-1)[0]?.reps
+                ?? null,
+              lastRestSeconds: exercise.prescribed_rest_seconds ?? null,
+            })}
+            onApplyOnce={async (proposal) => {
+              if (proposal.kind !== 'swap_exercise' || !proposal.swapTo) return;
+              await updateExercise(exercise.id, { name: proposal.swapTo });
+              setLocalName(proposal.swapTo);
+            }}
+            onSave={() => undefined}
+          />
+        </div>
+      )}
 
       {/* Previous session info + overload suggestion */}
       {prevPerformed.length > 0 && (
-        <div className="px-4 pb-1 animate-fade-in">
+        <div className="px-3 sm:px-4 pb-1 animate-fade-in">
           <div className="flex items-start gap-1.5 flex-wrap">
             <div className="flex items-center gap-1 text-neutral-600 mt-0.5">
               <History size={11} />
@@ -863,7 +1035,7 @@ export default function ExerciseCard({
       )}
 
       {showNotes && (
-        <div className="px-4 pb-2 animate-fade-in">
+        <div className="px-3 sm:px-4 pb-2 animate-fade-in">
           <textarea
             value={localNotes}
             onChange={e => {
@@ -879,21 +1051,28 @@ export default function ExerciseCard({
       )}
 
       {expanded && (
-        <div className="px-4 pb-4 animate-fade-in">
-          {/* Column headers */}
+        <div className="px-3 sm:px-4 pb-4 animate-fade-in">
           {(exercise.sets?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-[10px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
-              {showSets && <div className="w-5 text-center">#</div>}
-              {!hevySimple && <div className="shrink-0 w-8">{t('workout.exerciseCard.type')}</div>}
-              {showLoad && <div className="flex-1 text-center">{t(weightUnit === 'lbs' ? 'workout.exerciseCard.weightLbs' : 'workout.exerciseCard.weight')}</div>}
-              {showReps && (
-                <div className="flex-1 text-center">
-                  {exercise.sets?.some(s => s.set_type === 'isometric') ? t('workout.exerciseCard.reps') + '/s' : t('workout.exerciseCard.reps')}
-                </div>
-              )}
-              {showRir && <div className="w-12 text-center">{t('workout.exerciseCard.rir')}</div>}
-              {!hevySimple && <div className="w-12" />}
-              <div className="w-11" />
+              {showSets && <div className="w-6 text-center">#</div>}
+              <div className="w-11 text-center shrink-0">{t('workout.exerciseCard.type')}</div>
+              <div className={`flex-1 min-w-0 grid gap-1.5 ${
+                [showLoad, showReps, showRir].filter(Boolean).length >= 3
+                  ? 'grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_3.5rem]'
+                  : [showLoad, showReps, showRir].filter(Boolean).length === 2
+                    ? 'grid-cols-2'
+                    : 'grid-cols-1'
+              }`}>
+                {showLoad && <div className="text-center">{t(weightUnit === 'lbs' ? 'workout.exerciseCard.weightLbs' : 'workout.exerciseCard.weight')}</div>}
+                {showReps && (
+                  <div className="text-center">
+                    {exercise.sets?.some(s => s.set_type === 'isometric') ? t('workout.exerciseCard.reps') + '/s' : t('workout.exerciseCard.reps')}
+                  </div>
+                )}
+                {showRir && <div className="text-center">{t('workout.exerciseCard.rir')}</div>}
+              </div>
+              <div className="w-11 shrink-0" />
+              <div className="w-11 shrink-0" />
             </div>
           )}
 
@@ -910,7 +1089,6 @@ export default function ExerciseCard({
                   showLoad={showLoad}
                   showReps={showReps}
                   showSets={showSets}
-                  hevySimple={hevySimple}
                   weightUnit={weightUnit}
                   suggestedWeight={suggestion?.suggestedWeight}
                   prevSet={matchingPrev}
@@ -947,6 +1125,12 @@ export default function ExerciseCard({
           )}
         </div>
       )}
+      <PlateCalc
+        open={plateOpen}
+        onClose={() => setPlateOpen(false)}
+        load={plateLoad}
+        unit={weightUnit}
+      />
     </Card>
   );
 }

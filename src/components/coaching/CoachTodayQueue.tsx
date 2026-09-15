@@ -12,6 +12,8 @@ import {
   primaryQueueAction,
   queueActionHref,
   queueItemLabelKey,
+  queueSinceCopy,
+  queueSinceDays,
   visibleQueueItems,
 } from '../../lib/coachQueue';
 import { todayStr } from '../../lib/utils';
@@ -20,6 +22,7 @@ import type { CoachPrioritySeverity, CoachQueueClientGroup } from '../../lib/typ
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import ListRow from '../ui/ListRow';
+import { toastWithUndo } from '../ui/Toast';
 
 const SEVERITY_CLASS: Record<CoachPrioritySeverity, string> = {
   red: 'bg-rose-500/15 text-rose-300',
@@ -32,6 +35,7 @@ export default function CoachTodayQueue() {
   const navigate = useNavigate();
   const {
     priorities, pendingInterventions, clients, queueDismissedIds, sentMessages, dismissQueueItems,
+    restoreQueueItems,
   } = useCoachingStore();
 
   const groups = useMemo(() => {
@@ -74,7 +78,10 @@ export default function CoachTodayQueue() {
             featured={index === 0}
             lastMessage={lastMessageForClient(sentMessages, group.clientId)?.body}
             onOpen={href => navigate(href)}
-            onSkip={() => dismissQueueItems(group.items.map(item => item.id))}
+            onSkip={ids => {
+              dismissQueueItems(ids);
+              toastWithUndo(t('coaching.queue.skipped'), () => restoreQueueItems(ids));
+            }}
           />
         ))}
       </div>
@@ -93,7 +100,7 @@ function QueueClientRow({
   featured: boolean;
   lastMessage: string | undefined;
   onOpen: (href: string) => void;
-  onSkip: () => void;
+  onSkip: (ids: string[]) => void;
 }) {
   const { t } = useTranslation();
   const pending = useCoachingStore(s => s.pendingInterventions);
@@ -101,6 +108,8 @@ function QueueClientRow({
   const href = queueActionHref(item, action);
   const draft = matchingPendingIntervention(item, pending);
   const extra = group.items.length - 1;
+  const since = queueSinceCopy(queueSinceDays(item.sinceIso, todayStr()));
+  const sinceLabel = since ? t(since.key, since.params) : null;
   const headline = (
     <>
       {t(queueItemLabelKey(item), item.headlineParams)}
@@ -125,7 +134,7 @@ function QueueClientRow({
           </>
         )}
         title={group.clientName}
-        subtitle={headline}
+        subtitle={sinceLabel ? <>{headline} · {sinceLabel}</> : headline}
         onClick={() => onOpen(href)}
       />
     );
@@ -145,6 +154,9 @@ function QueueClientRow({
             <p className="text-sm font-medium text-white truncate">{group.clientName}</p>
           </div>
           <p className="text-sm text-neutral-300">{headline}</p>
+          {sinceLabel ? (
+            <p className="text-xs text-neutral-500 mt-1">{sinceLabel}</p>
+          ) : null}
           {extra > 0 ? (
             <p className="text-xs text-neutral-500 mt-1">{t('coaching.queue.moreSignals', { count: extra })}</p>
           ) : null}
@@ -158,7 +170,7 @@ function QueueClientRow({
         <Button size="sm" onClick={() => onOpen(href)}>
           {t(action.ctaKey)}
         </Button>
-        <Button variant="ghost" size="sm" onClick={onSkip}>
+        <Button variant="ghost" size="sm" onClick={() => onSkip([item.id])}>
           {t('coaching.queue.skip')}
         </Button>
         <Button variant="secondary" size="sm" onClick={() => onOpen(clientFileHref(group.clientId))}>

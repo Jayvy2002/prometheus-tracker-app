@@ -18,12 +18,19 @@ import EditFoodModal from './EditFoodModal';
 import WaterTracker from './WaterTracker';
 import StepsTracker from './StepsTracker';
 import PageTransition from '../ui/PageTransition';
+import CardLink from '../ui/CardLink';
+import Button from '../ui/Button';
+import Modal from '../ui/Modal';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
-import { isCoachedAthlete } from '../../lib/coachRole';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
-import { useCoachingStore } from '../../stores/coachingStore';
 import { optionLabel } from '../../lib/optionLabels';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { useRecipeStore } from '../../stores/recipeStore';
+import { isSoloAthlete } from '../../lib/coachRole';
+import SoloAskBar from '../solo/SoloAskBar';
+import type { SoloAskContext } from '../../lib/soloAsk';
+import { saveGroceryList } from '../../lib/groceryList';
 
 export default function NutritionPage() {
   const { t, i18n } = useTranslation();
@@ -35,11 +42,15 @@ export default function NutritionPage() {
   const tracking = useClientTracking();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
-  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
+  const createRecipe = useRecipeStore(s => s.createRecipe);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
   const [editingLog, setEditingLog] = useState<NutritionLog | null>(null);
+  const [reuseOpen, setReuseOpen] = useState(false);
+  const [reuseCategory, setReuseCategory] = useState('breakfast');
+  const [reuseDate, setReuseDate] = useState(() => addDaysToDateStr(todayStr(), -1));
 
   useEffect(() => {
     if (user) {
@@ -69,6 +80,34 @@ export default function NutritionPage() {
   const isToday = selectedDate === todayStr();
   const dateLabel = isToday ? t('common.today') : formatWeekdayShort(selectedDate, i18n.language);
 
+  const askContext: Omit<SoloAskContext, 'question'> = {
+    surface: 'nutrition',
+    injuries: profile?.injuries_limitations ?? '',
+    experience: profile?.training_experience ?? '',
+    frequency: profile?.training_frequency ?? 0,
+    focus: profile?.training_focus ?? '',
+    programName: null,
+    programExercises: [],
+    recentLiftNames: [],
+    calorieTarget: profile?.daily_calorie_target ?? 0,
+    proteinTarget: profile?.protein_target ?? 0,
+    carbsTarget: profile?.carbs_target ?? 0,
+    fatTarget: profile?.fat_target ?? 0,
+    consumedCalories: logs.reduce((s, l) => s + l.calories, 0),
+    consumedProtein: logs.reduce((s, l) => s + l.protein, 0),
+    consumedCarbs: logs.reduce((s, l) => s + l.carbs, 0),
+    consumedFat: logs.reduce((s, l) => s + l.fat, 0),
+    allergies: profile?.food_allergies ?? [],
+    dietType: profile?.diet_type ?? 'omnivore',
+    currentExerciseName: null,
+    catalog: [],
+    lastWeightKg: null,
+    lastReps: null,
+    lastRestSeconds: null,
+    missedWeekday: null,
+    coachName: null,
+  };
+
   const getTimeBasedCategory = () => {
     const hour = new Date().getHours();
     if (hour < 11) return 'breakfast';
@@ -82,9 +121,13 @@ export default function NutritionPage() {
     setShowAdd(true);
   };
 
-  const handleReuseCategory = async (category: string) => {
+  const handleReuseCategory = async (category: string, fromDate?: string) => {
     if (!user) return;
-    const prevStr = addDaysToDateStr(selectedDate, -1);
+    const prevStr = fromDate || addDaysToDateStr(selectedDate, -1);
+    if (prevStr === selectedDate) {
+      toast(t('nutrition.nothingLoggedYesterday'));
+      return;
+    }
 
     const { data } = await supabase
       .from('nutrition_logs')
@@ -116,6 +159,15 @@ export default function NutritionPage() {
     toast(t('nutrition.itemsCopied', { count: data.length }));
   };
 
+  const openReuse = (category: string) => {
+    setReuseCategory(category);
+    setReuseDate(addDaysToDateStr(selectedDate, -1));
+    setReuseOpen(true);
+  };
+
+  const scannerHref = (category: string) =>
+    `/scanner?date=${encodeURIComponent(selectedDate)}&category=${encodeURIComponent(category)}`;
+
   return (
     <PageTransition>
     <div className="px-4 pt-6">
@@ -138,23 +190,75 @@ export default function NutritionPage() {
               <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleQuickAdd(); }}>
                 {t('nutrition.addFood')}
               </button>
-              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/scanner'); }}>
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate(scannerHref(getTimeBasedCategory())); }}>
                 <ScanLine size={16} className="inline mr-2" />{t('nutrition.foodForm.openScanner')}
               </button>
-              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleReuseCategory(getTimeBasedCategory()); }}>
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); openReuse(getTimeBasedCategory()); }}>
                 {t('nutrition.reuseMeal')}
               </button>
-              {!coached && (
-                <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/recipes'); }}>
-                  <ChefHat size={16} className="inline mr-2" />{t('nav.recipes')}
-                </button>
-              )}
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/recipes'); }}>
+                <ChefHat size={16} className="inline mr-2" />{t('nav.recipes')}
+              </button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      {solo && user && (
+        <SoloAskBar
+          context={askContext}
+          onApplyOnce={async (proposal) => {
+            const meals = proposal.recipes.length > 0
+              ? proposal.recipes
+              : (proposal.recipe ? [proposal.recipe] : []);
+            if (meals.length === 0) return;
+            for (const meal of meals) {
+              const result = await addLog({
+                user_id: user.id,
+                name: meal.name,
+                calories: meal.calories,
+                protein: meal.protein,
+                carbs: meal.carbs,
+                fat: meal.fat,
+                category: meal.category,
+                quantity: 1,
+                unit: 'serving',
+                logged_at: selectedDate,
+              });
+              if (result.error) return;
+            }
+            toast(t('nutrition.itemsCopied', { count: meals.length }));
+          }}
+          onSave={async (proposal) => {
+            const meals = proposal.recipes.length > 0
+              ? proposal.recipes
+              : (proposal.recipe ? [proposal.recipe] : []);
+            if (meals.length === 0 && proposal.grocery.length === 0) return;
+            for (const meal of meals) {
+              const saved = await createRecipe({
+                user_id: user.id,
+                name: meal.name,
+                description: meal.description,
+                servings: 1,
+                calories_per_serving: meal.calories,
+                protein_per_serving: meal.protein,
+                carbs_per_serving: meal.carbs,
+                fat_per_serving: meal.fat,
+              });
+              if (!saved) {
+                toast(t('errors.saveFailed'), 'error');
+                return;
+              }
+            }
+            if (proposal.grocery.length > 0) {
+              saveGroceryList(user.id, proposal.grocery);
+            }
+            toast(t(proposal.kind === 'meal_week' ? 'soloAsk.saveWeek' : 'nutrition.recipes.saved'));
+          }}
+        />
+      )}
+
+      <div className="flex items-center justify-between mb-4">
         <button onClick={() => shiftDate(-1)} className="p-2 text-neutral-400 hover:text-white">
           <ChevronLeft size={20} />
         </button>
@@ -163,6 +267,14 @@ export default function NutritionPage() {
           <ChevronRight size={20} className={isToday ? 'opacity-30' : ''} />
         </button>
       </div>
+
+      <CardLink to="/recipes" className="mb-4">
+        <p className="text-sm font-medium text-white flex items-center gap-2">
+          <ChefHat size={16} className="text-blue-400" />
+          {t('nutrition.recipes.title')}
+        </p>
+        <p className="text-xs text-neutral-500 mt-1">{t('nutrition.recipes.chromeHint')}</p>
+      </CardLink>
 
       {anyMacroField(tracking) && showTargets && (
       <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale">
@@ -218,7 +330,7 @@ export default function NutritionPage() {
                 logs={logs.filter(l => l.category === cat.value)}
                 onAdd={() => { setAddCategory(cat.value); setShowAdd(true); }}
                 onEdit={(log) => setEditingLog(log)}
-                onReuse={() => handleReuseCategory(cat.value)}
+                onReuse={() => openReuse(cat.value)}
               />
             </div>
           ))
@@ -236,6 +348,41 @@ export default function NutritionPage() {
       {editingLog && (
         <EditFoodModal log={editingLog} onClose={() => setEditingLog(null)} />
       )}
+
+      <Modal open={reuseOpen} onClose={() => setReuseOpen(false)} title={t('nutrition.reuseMeal')}>
+        <p className="text-sm text-neutral-400 mb-3">{t('nutrition.reuseFromDate')}</p>
+        <input
+          type="date"
+          data-reuse-date="true"
+          max={selectedDate}
+          value={reuseDate}
+          onChange={e => setReuseDate(e.target.value)}
+          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white mb-3"
+        />
+        <Button
+          type="button"
+          className="w-full mb-2"
+          onClick={() => {
+            void handleReuseCategory(reuseCategory, reuseDate);
+            setReuseOpen(false);
+          }}
+        >
+          {t('nutrition.reuseFromDate')}
+        </Button>
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full"
+          onClick={() => {
+            const yesterday = addDaysToDateStr(selectedDate, -1);
+            setReuseDate(yesterday);
+            void handleReuseCategory(reuseCategory, yesterday);
+            setReuseOpen(false);
+          }}
+        >
+          {t('nutrition.copyFromYesterday')}
+        </Button>
+      </Modal>
     </div>
     </PageTransition>
   );

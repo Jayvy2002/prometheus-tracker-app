@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseAccountSnapshot, resolveAccountContext } from '../lib/accountContext';
-import { desktopSections, mobileTabs, navPersona, pathMatchesItem, tabIndexForPath } from './navConfig';
+import { desktopSections, mobileTabs, navPersona, pathMatchesItem, quickAddActions, tabIndexForPath } from './navConfig';
 
 const trackingOn = {
   track_workouts: true,
@@ -35,7 +35,29 @@ test('coach mobile tabs put account in chrome and keep copilot off the tab bar',
 test('coached mobile tabs keep messages and check-in, not photos', () => {
   const paths = mobileTabs('coached', trackingOn).map(item => item.path);
   assert.deepEqual(paths, ['/dashboard', '/workout', '/checkin', '/messages', '/profile']);
+  assert.equal(paths.length, 5);
   assert.equal(paths.includes('/photos'), false);
+  assert.equal(paths.includes('/nutrition'), false);
+  assert.equal(paths.includes('/exercise-progress'), false);
+});
+
+test('UX111 coached nutrition stays off the tab bar (FAB + profile + desktop)', () => {
+  const tabs = mobileTabs('coached', trackingOn);
+  assert.equal(tabs.length, 5);
+  const desktop = desktopSections('coached', trackingOn).flatMap(s => s.items.map(i => i.path));
+  assert.equal(desktop.includes('/nutrition'), true);
+  const fab = quickAddActions(trackingOn).map(a => a.path);
+  assert.equal(fab.includes('/nutrition?add=1'), true);
+  assert.equal(fab.includes('/checkin'), true);
+});
+
+test('coached desktop train lists program and progress, not stats or calendar', () => {
+  const sections = desktopSections('coached', trackingOn);
+  const train = sections.find(section => section.id === 'train')?.items.map(item => item.path);
+  assert.deepEqual(train, ['/workout', '/programs', '/exercise-progress']);
+  const all = sections.flatMap(section => section.items.map(item => item.path));
+  assert.equal(all.includes('/stats'), false);
+  assert.equal(all.includes('/calendar'), false);
 });
 
 test('desktop coaching lists copilot and marketplace as secondary sections', () => {

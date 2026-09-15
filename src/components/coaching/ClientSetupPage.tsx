@@ -22,6 +22,7 @@ import { parseOnboardingPlanDraft, type CalorieDraft } from '../../lib/coachInte
 import { editedProgramPayload } from '../../lib/coachDraftSend';
 import {
   ALL_ON_TRACKING,
+  cloneTrackingConfig,
   mergeTrackingOverlay,
   parseCoachTrackingDefaults,
   parseResolvedTracking,
@@ -103,6 +104,8 @@ export default function ClientSetupPage() {
   const [draftRow, setDraftRow] = useState<CoachIntervention | null>(null);
   const [asking, setAsking] = useState(false);
   const [step, setStep] = useState(0);
+  const [copyFromId, setCopyFromId] = useState('');
+  const [copyingTracking, setCopyingTracking] = useState(false);
 
   const client = clients.find(c => c.id === id);
   const issn = useMemo(() => (profile ? issnTargetsFromProfile(profile) : null), [profile]);
@@ -393,6 +396,47 @@ export default function ClientSetupPage() {
     <Card className="mb-4 space-y-2">
       <p className="text-sm font-medium text-white">{t('coaching.setup.tracking')}</p>
       <p className="text-sm text-neutral-500">{t('coaching.setup.trackingHint')}</p>
+      {clients.filter(c => c.id !== id).length > 0 && (
+        <div className="space-y-2 rounded-xl border border-neutral-800 p-3">
+          <p className="text-sm font-medium text-white">{t('coaching.setup.copyTracking')}</p>
+          <p className="text-xs text-neutral-500">{t('coaching.setup.copyTrackingHint')}</p>
+          <select
+            data-copy-tracking="true"
+            value={copyFromId}
+            onChange={e => setCopyFromId(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+            aria-label={t('coaching.setup.copyTrackingFrom')}
+          >
+            <option value="">{t('coaching.setup.copyTrackingFrom')}</option>
+            {clients.filter(c => c.id !== id).map(c => (
+              <option key={c.id} value={c.id}>{c.full_name || c.email}</option>
+            ))}
+          </select>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="w-full"
+            loading={copyingTracking}
+            disabled={!copyFromId}
+            onClick={async () => {
+              if (!copyFromId) return;
+              setCopyingTracking(true);
+              const row = await fetchTrackingConfig(copyFromId);
+              setCopyingTracking(false);
+              if (!row) {
+                toast(t('coaching.setup.copyTrackingEmpty'), 'error');
+                return;
+              }
+              const cloned = cloneTrackingConfig(parseResolvedTracking(row));
+              setTracking(prev => ({ ...cloned, setup_completed_at: prev.setup_completed_at }));
+              toast(t('coaching.setup.copiedTracking'));
+            }}
+          >
+            {t('coaching.setup.copyTrackingApply')}
+          </Button>
+        </div>
+      )}
       <TrackingVarsEditor value={tracking} onChange={setTracking} />
       <Input
         label={t('coaching.setup.workoutFocus')}
@@ -553,7 +597,8 @@ export default function ClientSetupPage() {
 
   const reviewStep = (
     <Card className="mb-4 space-y-3">
-      <p className="text-sm font-medium text-white">{t('coaching.setup.wizard.receives', { name: clientName })}</p>
+      <p className="text-sm font-medium text-white">{t('coaching.setup.wizard.clientWillSee')}</p>
+      <p className="text-sm text-neutral-400">{t('coaching.setup.wizard.receives', { name: clientName })}</p>
       <ul className="space-y-2 text-sm text-neutral-200">
         <li>{programLabel ? t('coaching.setup.wizard.receivesProgram', { name: programLabel }) : t('coaching.setup.wizard.noProgram')}</li>
         {tracking.track_checkins && <li>{t('coaching.setup.wizard.receivesFreq')}</li>}

@@ -10,7 +10,7 @@ import {
   parseCheckinQuery,
   relanceHrefForCheckin,
 } from './coachCheckins';
-import { buildCoachPriorities } from './coachPriorities';
+import { buildCoachPriorities, inferPrioritySinceIso } from './coachPriorities';
 import type {
   ClientOpsRow,
   CoachClientSummary,
@@ -200,4 +200,19 @@ test('check-in scores: new 0–10 show /10; legacy 1–5 show the stored number'
   assert.equal(formatCheckinScore(3.0), '3');
   assert.equal(formatCheckinScore(3.3), '3.3');
   assert.equal(formatCheckinScore(null), '—');
+});
+
+test('queue “depuis quand” is last check-in / session, else the coaching link', () => {
+  const row = ops(client('marie-id', 'Marie'));
+  const empty = signals([]);
+  assert.equal(inferPrioritySinceIso({ kind: 'onboarding_incomplete' }, row, empty), '2026-08-01T00:00:00Z');
+  assert.equal(inferPrioritySinceIso({ kind: 'missed_workout' }, row, empty), '2026-08-01T00:00:00Z');
+  assert.equal(
+    inferPrioritySinceIso(
+      { kind: 'missed_checkin' },
+      row,
+      signals([checkin({ id: 'ck', user_id: 'marie-id', checked_at: '2026-08-20T08:00:00Z' })]),
+    ),
+    '2026-08-20',
+  );
 });

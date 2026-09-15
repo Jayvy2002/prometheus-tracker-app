@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { imageFileForUpload } from '../lib/heicConvert';
 import type {
   ClientOpsRow,
   ClientTrackingConfig,
@@ -42,6 +43,7 @@ import {
 import { COACH_AGENT_FUNCTION, parseCoachAgentResponse } from '../lib/coachAgent';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { mapCoachMessage } from '../lib/coachQueue';
+import { confirmedReadIds } from '../lib/messageDrafts';
 import {
   liveMessageState,
   nutritionTargetsFromProfileRow,
@@ -391,6 +393,7 @@ interface CoachingState {
   signProgressPhotoUrls: (photos: ProgressPhoto[]) => Promise<Record<string, string>>;
   dismissQueueItem: (id: string) => void;
   dismissQueueItems: (ids: string[]) => void;
+  restoreQueueItems: (ids: string[]) => void;
   fetchIntervention: (id: string) => Promise<CoachIntervention | null>;
   fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
   resolveIntervention: (
@@ -1230,7 +1233,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   markCoachMessageRead: async (id) => {
     const iso = new Date().toISOString();
-    await supabase.from('coach_messages').update({ read_at: iso }).eq('id', id);
+    const { data, error } = await supabase.from('coach_messages').update({ read_at: iso }).eq('id', id).select('id');
+    const confirmed = confirmedReadIds(data);
+    if (error || !confirmed.includes(id)) return;
     set(s => ({
       latestCoachMessage: s.latestCoachMessage?.id === id ? null : s.latestCoachMessage,
       sentMessages: s.sentMessages.map(m => (m.id === id ? { ...m, read_at: iso } : m)),
@@ -1244,20 +1249,22 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const iso = new Date().toISOString();
     const unread = get().sentMessages.filter(m => m.client_id === clientId && m.sender_id !== user.id && !m.read_at);
     if (unread.length === 0) return;
-    await supabase
+    const { data, error } = await supabase
       .from('coach_messages')
       .update({ read_at: iso })
-      .in('id', unread.map(m => m.id));
+      .in('id', unread.map(m => m.id))
+      .select('id');
+    if (error) return;
+    const confirmed = new Set(confirmedReadIds(data));
+    if (confirmed.size === 0) return;
     set(s => ({
       sentMessages: s.sentMessages.map(m => (
-        m.client_id === clientId && m.sender_id !== user.id && !m.read_at
-          ? { ...m, read_at: iso }
-          : m
+        confirmed.has(m.id) ? { ...m, read_at: iso } : m
       )),
-      latestCoachMessage: s.latestCoachMessage && unread.some(m => m.id === s.latestCoachMessage?.id)
+      latestCoachMessage: s.latestCoachMessage && confirmed.has(s.latestCoachMessage.id)
         ? null
         : s.latestCoachMessage,
-      unreadMessageCount: Math.max(0, s.unreadMessageCount - unread.length),
+      unreadMessageCount: Math.max(0, s.unreadMessageCount - confirmed.size),
     }));
   },
 
@@ -1365,11 +1372,13 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
   uploadProgressPhoto: async ({ file, takenAt, kind, notes }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
-    // Q02 : validation réelle avant envoi (le accept= du input n'est qu'indicatif).
-    const lower = file.name.toLowerCase();
-    if (lower.endsWith('.heic') || lower.endsWith('.heif') || file.type.toLowerCase().includes('heic') || file.type.toLowerCase().includes('heif')) {
-      return { error: 'heic_unsupported' };
+    const prepared = await imageFileForUpload(file);
+    if ('error' in prepared) {
+      if (prepared.error === 'heic_unsupported') return { error: 'heic_unsupported' };
+      return { error: prepared.error };
     }
+    file = prepared.file;
+    const lower = file.name.toLowerCase();
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     const extOk = ['.jpg', '.jpeg', '.png', '.webp'].some(e => lower.endsWith(e));
     if (!allowed.includes(file.type.toLowerCase()) && !extOk) {
@@ -1440,6 +1449,16 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
           next.push(id);
         }
       }
+      saveQueueDismissed(next);
+      return { queueDismissedIds: next };
+    });
+  },
+
+  restoreQueueItems: (ids) => {
+    if (ids.length === 0) return;
+    const drop = new Set(ids);
+    set(s => {
+      const next = s.queueDismissedIds.filter(id => !drop.has(id));
       saveQueueDismissed(next);
       return { queueDismissedIds: next };
     });

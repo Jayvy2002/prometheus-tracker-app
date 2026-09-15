@@ -255,3 +255,42 @@ export function answerCoachAsk(
 export function clientsFilterHref(filter: CoachAskFilter): string {
   return `/clients?filter=${filter}`;
 }
+
+export type AskSendPreview = {
+  whoKey: string;
+  whoParams: Record<string, string>;
+  effectKey: string;
+  sendsAgent: boolean;
+};
+
+/** Who + effect shown before any Ask agent call (UX42, UX43). Roster stays a local filter. */
+export function describeAskSend(input: {
+  roster: boolean;
+  routeKind: string;
+  clientName: string | null;
+  hasProgram: boolean;
+}): AskSendPreview {
+  if (input.roster) {
+    return {
+      whoKey: 'coaching.ask.preview.whoRoster',
+      whoParams: {},
+      effectKey: 'coaching.ask.preview.effectFilter',
+      sendsAgent: false,
+    };
+  }
+  const whoKey = input.clientName
+    ? 'coaching.ask.preview.whoClient'
+    : input.hasProgram
+      ? 'coaching.ask.preview.whoProgram'
+      : 'coaching.ask.preview.whoUnspecified';
+  let effectKey = 'coaching.ask.preview.effectReplyDraft';
+  if (input.routeKind === 'onboarding_plan') effectKey = 'coaching.ask.preview.effectProgramDraft';
+  else if (input.routeKind === 'program_nl_edit') effectKey = 'coaching.ask.preview.effectPlanEdit';
+  return {
+    whoKey,
+    whoParams: { name: input.clientName ?? '' },
+    effectKey,
+    sendsAgent: true,
+  };
+}
+

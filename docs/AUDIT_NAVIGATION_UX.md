@@ -1,6 +1,6 @@
 # Audit — Navigation, IA et structure front-end
 
-> **Rôle de ce document** — diagnostic et architecture cible de la navigation Prometheus (mobile + desktop) et de la structure du frontend. Ce n’est pas un backlog. Les statuts et la file d’exécution restent dans [`CHANTIER.md`](CHANTIER.md). La destination produit reste [`VISION.md`](VISION.md). Les parcours cibles restent [`CARTE_PRODUIT.md`](CARTE_PRODUIT.md). L’inventaire des fonctionnalités par persona est dans [`RAPPORT_UX_FONCTIONNALITES.md`](RAPPORT_UX_FONCTIONNALITES.md).
+> **Rôle de ce document** — diagnostic et architecture cible de la navigation Prometheus (mobile + desktop) et de la structure du frontend. Ce n’est pas un backlog. Les statuts et la file d’exécution restent dans [`CHANTIER.md`](CHANTIER.md). La destination produit reste [`VISION.md`](VISION.md). Les parcours cibles restent [`CARTE_PRODUIT.md`](CARTE_PRODUIT.md). L’inventaire des fonctionnalités par persona est dans [`RAPPORT_UX_FONCTIONNALITES.md`](RAPPORT_UX_FONCTIONNALITES.md). L’organisation des dossiers / `lib` / stores / tests est dans [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md) (file Chantier **17–23**).
 >
 > **Preuve** : revue du code au 14 septembre 2026, puis alignement sur la refonte premium du PR 87 (`cursor/ux-premium-425e`). Pas de smoke authentifié dans cet environnement. Chaque constat cite un fichier.
 >

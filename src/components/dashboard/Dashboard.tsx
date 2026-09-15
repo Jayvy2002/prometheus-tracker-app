@@ -29,6 +29,7 @@ import {
 } from '../../lib/clientHome';
 import { resolveClientGymCard } from '../../lib/clientGym';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
+import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
 import { supabase } from '../../lib/supabase';
 import ProgressRing from '../ui/ProgressRing';
@@ -66,11 +67,12 @@ export default function Dashboard() {
   const { streak, fetchStreak } = useStreakStore();
   const { routines, fetchRoutines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, checkins, fetchToday, fetchRecent, loading: checkinLoading } = useCheckinStore();
-  const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount, fetchMyCoach, markCoachMessageRead } = useCoachingStore();
+  const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount, fetchMyCoach } = useCoachingStore();
   const { assignment, fetchMyAssignment } = useProgramStore();
   const tracking = useClientTracking();
   const [startingRoutine, setStartingRoutine] = useState(false);
   const [dismissedReminders, setDismissedReminders] = useState<string[]>([]);
+  const [homeDismissTick, setHomeDismissTick] = useState(0);
   const [nutritionHistoryCount, setNutritionHistoryCount] = useState<number | null>(null);
   const [assignmentReady, setAssignmentReady] = useState(false);
 
@@ -242,13 +244,18 @@ export default function Dashboard() {
   const showRoutineHero = !showGymHero && !!nextRoutine && showModule(tracking, 'workouts');
   const showNextActionHero = !activityPending && !showGymHero && !showRoutineHero && nextAction !== null;
   const showCheckinStrip = !firstRun && showModule(tracking, 'checkins') && !todayCheckin && !activityPending;
-  const showUnreadCoachMessage = !!myCoach && unreadMessageCount > 0;
+  const showUnreadCoachMessage = !!myCoach && unreadMessageCount > 0
+    && homeDismissTick >= 0
+    && !isHomeMessageDismissed(user?.id, latestCoachMessage?.id);
   const todayReminder = pickTodayReminder({
     deload: showDeloadSuggestion,
     meal: showNutritionField(tracking, 'calories') && showMealReminder,
     water: showNutritionField(tracking, 'water') && showWaterReminder,
     weight: showModule(tracking, 'weight') && showWeightReminder,
   }, dismissedReminders);
+
+  const showEmptyToday = !activityPending && !showGymHero && !showRoutineHero && !showNextActionHero
+    && !showCheckinStrip && !showUnreadCoachMessage && todayReminder === null;
 
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;
@@ -375,8 +382,14 @@ export default function Dashboard() {
             title={t('dashboard.firstRun.firstSession')}
             to="/workout"
           />
-        ) : showNextActionHero && nextAction ? (
-          <ListRow className="mb-4" title={t(clientHomeNextActionKey(nextAction))} />
+        ) : showNextActionHero && nextAction === 'waiting_program' ? (
+          <ListRow
+            className="mb-4"
+            title={t(clientHomeNextActionKey(nextAction))}
+            to="/messages"
+          />
+        ) : showEmptyToday ? (
+          <ListRow className="mb-4" title={t('dashboard.nothingToday')} />
         ) : null}
 
         {showUnreadCoachMessage && (
@@ -389,7 +402,8 @@ export default function Dashboard() {
             subtitle={latestCoachMessage?.body || t('coaching.messages.openInbox')}
             to="/messages"
             onDismiss={() => {
-              if (latestCoachMessage) void markCoachMessageRead(latestCoachMessage.id);
+              dismissHomeMessage(user?.id, latestCoachMessage?.id);
+              setHomeDismissTick(n => n + 1);
             }}
             dismissLabel={t('common.dismiss')}
           />

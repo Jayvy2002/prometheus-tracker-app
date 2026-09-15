@@ -27,7 +27,7 @@ export default function ProgramsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { programs, programsError, loading, fetchPrograms, createProgram, deleteProgram, assignProgram } = useProgramStore();
+  const { programs, programsError, loading, fetchPrograms, createProgram, deleteProgram, assignProgram, duplicateProgram } = useProgramStore();
   const { routines, fetchRoutines } = useRoutineStore();
   const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
   const isCoach = coachingRole === 'coach';
@@ -170,6 +170,12 @@ export default function ProgramsPage() {
                       label={t('programs.moreActions')}
                       actions={[
                         { id: 'open', label: t('common.edit'), onSelect: () => navigate(`/programs/${p.id}`) },
+                        { id: 'duplicate', label: t('programs.duplicate'), onSelect: () => {
+                          void duplicateProgram(p.id).then(result => {
+                            if (result.error) toast(t('programs.duplicateFailed'), 'error');
+                            else toast(t('programs.duplicated'));
+                          });
+                        } },
                         { id: 'assign', label: t('programs.assign'), onSelect: () => { setAssigningId(p.id); setAssignClient(''); } },
                         { id: 'delete', label: t('common.delete'), danger: true, onSelect: () => {
                           void deleteProgram(p.id).then(result => {

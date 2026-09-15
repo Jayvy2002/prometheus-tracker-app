@@ -5,6 +5,7 @@ import { test } from 'node:test';
 import {
   isTodayOrYesterday,
   lastSessionFromLifts,
+  lastSessionFromWorkout,
   loggedSessionForQueue,
   readableSets,
   sessionContextPayload,
@@ -299,4 +300,48 @@ test('trainingSessionHref is ?tab=training&workout= and empty query stays empty'
   assert.equal(isTodayOrYesterday('2026-08-29', TODAY), true);
   assert.equal(isTodayOrYesterday('2026-08-28', TODAY), true);
   assert.equal(isTodayOrYesterday('2026-08-27', TODAY), false);
+});
+
+test('UX109 last session from a workout keeps exercise notes', () => {
+  const view = lastSessionFromWorkout({
+    id: 'w1',
+    user_id: 'u1',
+    name: 'Upper',
+    date: '2026-09-15T10:00:00Z',
+    duration_seconds: 0,
+    notes: '',
+    completed: true,
+    created_at: '',
+    updated_at: '',
+    exercises: [{
+      id: 'e1',
+      workout_id: 'w1',
+      name: 'Bench',
+      order_index: 0,
+      notes: 'pause 2s',
+      superset_group_id: null,
+      created_at: '',
+      sets: [{
+        id: 's1',
+        exercise_id: 'e1',
+        set_type: 'working',
+        weight_kg: 80,
+        reps: 5,
+        rir: 1,
+        completed: true,
+        order_index: 0,
+        duration_seconds: null,
+        tempo: null,
+        cluster_rest_seconds: null,
+        cluster_reps_per_burst: null,
+        myo_is_activation: false,
+        drop_percentage: null,
+        created_at: '',
+      }],
+    }],
+  });
+  assert.equal(view.exercises[0]?.notes, 'pause 2s');
+  assert.ok(sessionExerciseLines(view).some(line => line.includes('pause 2s')));
+  const ctx = sessionContextPayload(view);
+  assert.equal((ctx.exercises as { notes: string | null }[])[0]?.notes, 'pause 2s');
 });

@@ -270,6 +270,21 @@ export function serializeTrackingVars(cfg: ResolvedTrackingConfig): {
   };
 }
 
+/** Copie modules + variables pour un autre client. La date de setup du destinataire reste à part. */
+export function cloneTrackingConfig(source: ResolvedTrackingConfig): ResolvedTrackingConfig {
+  return {
+    track_workouts: source.track_workouts,
+    track_checkins: source.track_checkins,
+    track_nutrition: source.track_nutrition,
+    track_weight: source.track_weight,
+    workout_focus: source.workout_focus,
+    training: { ...source.training },
+    nutrition: { ...source.nutrition },
+    checkin: { ...source.checkin },
+    setup_completed_at: source.setup_completed_at,
+  };
+}
+
 /** Coach-level defaults stored on coach_settings.default_tracking. */
 export function parseCoachTrackingDefaults(raw: unknown): ResolvedTrackingConfig {
   const src = asRecord(raw);

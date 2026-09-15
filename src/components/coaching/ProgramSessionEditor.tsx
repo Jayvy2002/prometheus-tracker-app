@@ -23,6 +23,8 @@ import { track } from '../../lib/telemetryClient';
 import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
+import { SET_TYPES } from '../../lib/constants';
+import { PROGRAM_SET_TYPES } from '../../lib/programSetPrescription';
 import Card from '../ui/Card';
 import Input from '../ui/Input';
 
@@ -52,7 +54,22 @@ function emptyDay(weekday: number): AiProgramDayDraft {
 }
 
 function emptyEx(): ProgramExerciseDraft {
-  return { name: '', default_sets: 3, default_reps: 10, default_reps_min: 6, default_rir: 2, default_rest_seconds: 90 };
+  return {
+    name: '',
+    default_sets: 3,
+    default_reps: 10,
+    default_reps_min: 6,
+    default_rir: 2,
+    default_rest_seconds: 90,
+    set_type: 'working',
+    superset_group: '',
+    drop_count: 2,
+    tempo: '',
+    isometric_seconds: null,
+    cluster_rest_seconds: 20,
+    cluster_reps_per_burst: null,
+    myo_activation: false,
+  };
 }
 
 export default function ProgramSessionEditor({
@@ -608,6 +625,98 @@ export default function ProgramSessionEditor({
                             onChange={e => updateExercise(ei, { default_rest_seconds: Math.max(0, +e.target.value || 0) })}
                             className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
                           />
+                        </label>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-1">
+                      <label className="text-[10px] text-neutral-500">
+                        {t('workout.exerciseCard.type')}
+                        <select
+                          value={ex.set_type ?? 'working'}
+                          onChange={e => updateExercise(ei, { set_type: e.target.value as ProgramExerciseDraft['set_type'] })}
+                          className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                        >
+                          {SET_TYPES.filter(st => PROGRAM_SET_TYPES.includes(st.value as typeof PROGRAM_SET_TYPES[number])).map(st => (
+                            <option key={st.value} value={st.value}>{st.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-[10px] text-neutral-500">
+                        {t('coaching.programEditor.supersetGroup')}
+                        <input
+                          value={ex.superset_group ?? ''}
+                          onChange={e => updateExercise(ei, { superset_group: e.target.value || null })}
+                          placeholder="A"
+                          className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                        />
+                      </label>
+                      {(ex.set_type ?? 'working') === 'drop' && (
+                        <label className="text-[10px] text-neutral-500">
+                          {t('coaching.programEditor.dropCount')}
+                          <input
+                            type="number"
+                            min={2}
+                            max={6}
+                            value={ex.drop_count ?? 2}
+                            onChange={e => updateExercise(ei, { drop_count: Math.max(2, +e.target.value || 2) })}
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                      {(ex.set_type ?? 'working') === 'tempo' && (
+                        <label className="text-[10px] text-neutral-500">
+                          Tempo
+                          <input
+                            value={ex.tempo ?? ''}
+                            onChange={e => updateExercise(ei, { tempo: e.target.value || null })}
+                            placeholder="3-1-2-0"
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                      {(ex.set_type ?? 'working') === 'isometric' && (
+                        <label className="text-[10px] text-neutral-500">
+                          {t('coaching.programEditor.isoSeconds')}
+                          <input
+                            type="number"
+                            value={ex.isometric_seconds ?? 20}
+                            onChange={e => updateExercise(ei, { isometric_seconds: Math.max(1, +e.target.value || 1) })}
+                            className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                          />
+                        </label>
+                      )}
+                      {(ex.set_type ?? 'working') === 'cluster' && (
+                        <>
+                          <label className="text-[10px] text-neutral-500">
+                            {t('coaching.programEditor.clusterRest')}
+                            <input
+                              type="number"
+                              value={ex.cluster_rest_seconds ?? 20}
+                              onChange={e => updateExercise(ei, { cluster_rest_seconds: Math.max(0, +e.target.value || 0) })}
+                              className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            />
+                          </label>
+                          <label className="text-[10px] text-neutral-500">
+                            {t('coaching.programEditor.clusterBurst')}
+                            <input
+                              type="number"
+                              value={ex.cluster_reps_per_burst ?? ''}
+                              onChange={e => updateExercise(ei, {
+                                cluster_reps_per_burst: e.target.value === '' ? null : Math.max(1, +e.target.value || 1),
+                              })}
+                              className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
+                            />
+                          </label>
+                        </>
+                      )}
+                      {(ex.set_type ?? 'working') === 'myo' && (
+                        <label className="text-[10px] text-neutral-500 flex items-center gap-2 mt-4">
+                          <input
+                            type="checkbox"
+                            checked={!!ex.myo_activation}
+                            onChange={e => updateExercise(ei, { myo_activation: e.target.checked })}
+                          />
+                          {t('coaching.programEditor.myoActivation')}
                         </label>
                       )}
                     </div>

@@ -16,6 +16,7 @@ interface OverflowMenuProps {
 export default function OverflowMenu({ label, actions }: OverflowMenuProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
 
   useEffect(() => {
@@ -27,9 +28,25 @@ export default function OverflowMenu({ label, actions }: OverflowMenuProps) {
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+    const items = rootRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]');
+    items?.[0]?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={triggerRef}
         type="button"
         aria-label={label}
         aria-expanded={open}
@@ -44,7 +61,7 @@ export default function OverflowMenu({ label, actions }: OverflowMenuProps) {
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 z-20 mt-1 min-w-[10rem] rounded-xl border border-neutral-800 bg-neutral-950 p-1 shadow-xl"
+          className="absolute right-0 z-50 mt-1 min-w-[10rem] rounded-xl border border-neutral-800 bg-neutral-950 p-1 shadow-xl"
         >
           {actions.map(action => (
             <button

@@ -10,7 +10,6 @@ import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
 import ErrorState from '../ui/ErrorState';
 import IconButton from '../ui/IconButton';
-import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import { PageSkeleton } from '../ui/PageSkeleton';
 import PageHeader from '../ui/PageHeader';
@@ -29,6 +28,7 @@ import WorkoutRecap from './WorkoutRecap';
 import SessionTimer from './SessionTimer';
 import { useRoutineStore } from '../../stores/routineStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { toWorkoutTemplateExercise, workoutExerciseToPlanDraft } from '../../lib/programSetPrescription';
 import {
   loadSessionTimer, saveSessionTimer, clearSessionTimer,
   currentElapsedMs, startTimer, pauseTimer, emptyTimer,
@@ -39,6 +39,15 @@ import { useClientTracking } from '../../lib/useClientTracking';
 import { showTrainingField } from '../../lib/clientTracking';
 import { useOnline } from '../../lib/useOnline';
 import { peekDeadLetterOps } from '../../lib/offlineQueue';
+import { isSoloAthlete } from '../../lib/coachRole';
+import { isPerformedSet } from '../../lib/performedSets';
+import { soloAskFromProfile } from '../../lib/soloAskDefaults';
+import SoloAskBar from '../solo/SoloAskBar';
+import { useProfileStore } from '../../stores/profileStore';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { useExerciseStore } from '../../stores/exerciseStore';
+import { useProgramStore } from '../../stores/programStore';
+import { shiftProgramWeekdays } from '../../lib/soloAsk';
 
 interface LocationState {
   routineId?: string;
@@ -57,9 +66,19 @@ function WorkoutFormInner() {
   const routineId = state.routineId;
   const { user } = useAuthStore();
   const {
-    currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, setCurrentWorkout,
+    currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, updateSet, setCurrentWorkout,
     pendingOps, deadOps, syncOfflineQueue, retryDeadLetter,
   } = useWorkoutStore();
+  const { profile } = useProfileStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
+  const catalogExercises = useExerciseStore(s => s.exercises);
+  const fetchExercises = useExerciseStore(s => s.fetchExercises);
+  const assignment = useProgramStore(s => s.assignment);
+  const saveProgram = useProgramStore(s => s.saveProgram);
+  const createProgram = useProgramStore(s => s.createProgram);
+  const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const online = useOnline();
   const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
   const tracking = useClientTracking();
@@ -104,7 +123,7 @@ function WorkoutFormInner() {
               .select('*')
               .eq('program_day_id', state.programDayId)
               .order('order_index');
-            exercises = (data ?? []).map((ex, i) => ({
+            exercises = (data ?? []).map((ex, i) => toWorkoutTemplateExercise({
               name: ex.name as string,
               default_sets: (ex.default_sets as number) ?? 3,
               default_reps: (ex.default_reps as number) ?? 10,
@@ -112,8 +131,15 @@ function WorkoutFormInner() {
               default_rir: (ex.default_rir as number | null) ?? null,
               default_rest_seconds: (ex.default_rest_seconds as number) ?? 90,
               default_weight_kg: (ex.default_weight_kg as number | null) ?? null,
-              order_index: (ex.order_index as number) ?? i,
-            }));
+              set_type: (ex.set_type as WorkoutTemplateExercise['set_type']) ?? 'working',
+              superset_group: (ex.superset_group as string | null) ?? null,
+              drop_count: (ex.drop_count as number | null) ?? null,
+              tempo: (ex.tempo as string | null) ?? null,
+              isometric_seconds: (ex.isometric_seconds as number | null) ?? null,
+              cluster_rest_seconds: (ex.cluster_rest_seconds as number | null) ?? null,
+              cluster_reps_per_burst: (ex.cluster_reps_per_burst as number | null) ?? null,
+              myo_activation: Boolean(ex.myo_activation),
+            }, i));
             if (!name) {
               const { data: day } = await supabase.from('program_days').select('name').eq('id', state.programDayId).maybeSingle();
               name = (day?.name as string) || t('workout.title');
@@ -164,6 +190,14 @@ function WorkoutFormInner() {
       fetchWorkout(id);
     }
   }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (user) void fetchMyAssignment(user.id);
+  }, [user, fetchMyAssignment]);
+
+  useEffect(() => {
+    void fetchExercises();
+  }, [fetchExercises]);
 
   useEffect(() => {
     if (!currentWorkout || !routineId || routineAppliedRef.current || !isNew) return;
@@ -420,31 +454,126 @@ function WorkoutFormInner() {
   }
 
   return (
-    <div className="px-4 pt-4 pb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <IconButton label={t('common.back')} onClick={handleBack} className="-ml-2">
+    <div className="px-3 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4" data-workout-logger="true">
+      <div className="flex items-center gap-1 mb-3">
+        <IconButton label={t('common.back')} onClick={handleBack} className="-ml-1 shrink-0">
           <ArrowLeft size={20} />
         </IconButton>
         {isProgramSession ? (
-          <p className="flex-1 text-lg font-semibold text-white truncate">{workoutName || t('workout.title')}</p>
+          <p className="flex-1 min-w-0 text-base sm:text-lg font-semibold text-white truncate">{workoutName || t('workout.title')}</p>
         ) : (
-        <Input
+        <input
           value={workoutName}
           onChange={e => setWorkoutName(e.target.value)}
           placeholder={t('workout.workoutName')}
-          className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
+          className="flex-1 min-w-0 bg-transparent border-0 px-1 text-base sm:text-lg font-semibold text-white placeholder-neutral-500 focus:outline-none focus:ring-0"
         />
         )}
-        <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
-        {restEnabled && (
-        <IconButton
-          label={t('workout.restTimer.title')}
-          onClick={() => handleStartRestTimer()}
-        >
-          <Timer size={18} />
-        </IconButton>
-        )}
+        <div className="flex items-center shrink-0">
+          <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
+          {restEnabled && (
+          <IconButton
+            label={t('workout.restTimer.title')}
+            onClick={() => handleStartRestTimer()}
+          >
+            <Timer size={18} />
+          </IconButton>
+          )}
+        </div>
       </div>
+
+      {solo && user && currentWorkout && !currentWorkout.completed && (
+        <SoloAskBar
+          compact
+          context={soloAskFromProfile('session', profile, {
+            programName: currentWorkout.name || assignment?.program?.name || null,
+            programExercises: (currentWorkout.exercises ?? []).map(ex => ex.name),
+            recentLiftNames: (currentWorkout.exercises ?? []).map(ex => ex.name),
+            currentExerciseName: (currentWorkout.exercises ?? []).find(ex =>
+              (ex.sets ?? []).some(s => !s.completed),
+            )?.name ?? currentWorkout.exercises?.slice(-1)[0]?.name ?? null,
+            catalog: catalogExercises.map(ex => ({
+              name: ex.name,
+              primary_muscles: ex.primary_muscles,
+              secondary_muscles: ex.secondary_muscles,
+              equipment: ex.equipment,
+            })),
+            lastWeightKg: (currentWorkout.exercises ?? [])
+              .flatMap(ex => (ex.sets ?? []).filter(isPerformedSet))
+              .slice(-1)[0]?.weight_kg ?? null,
+            lastReps: (currentWorkout.exercises ?? [])
+              .flatMap(ex => (ex.sets ?? []).filter(isPerformedSet))
+              .slice(-1)[0]?.reps ?? null,
+            missedWeekday: new Date().getDay(),
+          })}
+          onApplyOnce={async (proposal) => {
+            if (proposal.kind === 'swap_exercise') return;
+            for (const idea of proposal.exercises) {
+              const idx = useWorkoutStore.getState().currentWorkout?.exercises?.length ?? 0;
+              const ex = await addExercise(currentWorkout.id, idea.name, idx, {
+                prescribed_sets: idea.default_sets,
+                prescribed_reps: idea.default_reps,
+                prescribed_rir: idea.default_rir,
+                prescribed_rest_seconds: idea.default_rest_seconds,
+                prescribed_weight_kg: proposal.params.last && typeof proposal.params.last === 'string'
+                  ? null
+                  : null,
+              });
+              if (!ex) continue;
+              const last = (currentWorkout.exercises ?? [])
+                .flatMap(row => (row.sets ?? []).filter(isPerformedSet))
+                .slice(-1)[0];
+              for (let i = 0; i < idea.default_sets; i++) {
+                const set = await addSet(ex.id, i);
+                if (set && last) {
+                  await updateSet(set.id, {
+                    weight_kg: last.weight_kg,
+                    reps: idea.default_reps,
+                    rir: idea.default_rir,
+                  });
+                }
+              }
+            }
+          }}
+          onSave={async (proposal) => {
+            if (proposal.kind !== 'plan_shift' || proposal.shiftWeekday == null) return;
+            const program = assignment?.program;
+            if (!program || !user) {
+              toast(t('programs.createFailed'), 'error');
+              return;
+            }
+            const from = new Date().getDay();
+            const days = shiftProgramWeekdays(
+              (program.days ?? []).map(d => ({
+                weekday: d.weekday,
+                name: d.name,
+                exercises: (d.exercises ?? []).map(ex => ({
+                  name: ex.name,
+                  default_sets: ex.default_sets,
+                  default_reps: ex.default_reps,
+                  default_reps_min: ex.default_reps_min,
+                  default_rir: ex.default_rir,
+                  default_rest_seconds: ex.default_rest_seconds,
+                  default_weight_kg: ex.default_weight_kg,
+                })),
+              })),
+              from,
+              proposal.shiftWeekday,
+            );
+            const { error } = await saveProgram(program.id, {
+              name: program.name,
+              description: program.description ?? '',
+              duration_weeks: program.duration_weeks,
+            }, days, program.updated_at);
+            if (error) {
+              toast(error, 'error');
+              return;
+            }
+            toast(t('programs.created'));
+            await fetchMyAssignment(user.id);
+          }}
+        />
+      )}
 
       {(!online || pendingOps > 0) && (
         <div
@@ -555,6 +684,39 @@ function WorkoutFormInner() {
         <Button onClick={requestFinish} disabled={saving} className="w-full">
           <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
+        {solo && user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full"
+            data-save-plan="true"
+            onClick={async () => {
+              const name = (workoutName || t('soloAsk.namedDay')).trim();
+              const id = await createProgram({
+                owner_id: user.id,
+                name,
+                description: '',
+                duration_weeks: 1,
+              }, [{
+                weekday: new Date().getDay(),
+                name,
+                routine_id: null,
+                order_index: 0,
+                exercises: (currentWorkout.exercises ?? []).map((ex, i) =>
+                  toWorkoutTemplateExercise(workoutExerciseToPlanDraft(ex), i),
+                ),
+              }]);
+              if (!id) {
+                toast(t('programs.createFailed'), 'error');
+                return;
+              }
+              toast(t('programs.created'));
+              navigate('/programs');
+            }}
+          >
+            {t('soloAsk.savePlan')}
+          </Button>
+        )}
       </div>
 
       {restEnabled && (
@@ -562,6 +724,7 @@ function WorkoutFormInner() {
         key={restEpoch}
         open={showTimer}
         onClose={() => setShowTimer(false)}
+        onReopen={() => setShowTimer(true)}
         initialSeconds={restDuration}
         autoStart={restAutoStart}
       />

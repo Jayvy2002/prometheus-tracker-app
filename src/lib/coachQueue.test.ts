@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
   composeItemsInGroup,
@@ -8,6 +10,8 @@ import {
   nextClientNames,
   parseNudgeQuery,
   queueItemLabelKey,
+  queueSinceCopy,
+  queueSinceDays,
   relanceHrefForGroup,
   relanceThreadHref,
   primaryQueueAction,
@@ -303,4 +307,19 @@ test('drafts for unknown clients or non-pending rows never enter the queue', () 
     pendingDraft({ id: 'app-wide', client_id: null, kind: 'ask_prometheus' }),
   ];
   assert.deepEqual(draftQueueItems(rows, [], clients), []);
+});
+
+test('queue since copy is today vs N days; skip dismisses one signal with undo', () => {
+  assert.equal(queueSinceDays('2026-08-26T12:00:00Z', '2026-08-29'), 3);
+  assert.equal(queueSinceDays('2026-08-29', '2026-08-29'), 0);
+  assert.equal(queueSinceDays(null, '2026-08-29'), null);
+  assert.deepEqual(queueSinceCopy(0), { key: 'coaching.queue.sinceToday' });
+  assert.deepEqual(queueSinceCopy(4), { key: 'coaching.queue.sinceDays', params: { n: 4 } });
+
+  const ui = readFileSync(resolve(process.cwd(), 'src/components/coaching/CoachTodayQueue.tsx'), 'utf8');
+  assert.match(ui, /onSkip\(\[item\.id\]\)/);
+  assert.match(ui, /restoreQueueItems/);
+  assert.match(ui, /toastWithUndo/);
+  assert.match(ui, /queueSinceCopy/);
+  assert.doesNotMatch(ui, /group\.items\.map\(item => item\.id\)/);
 });

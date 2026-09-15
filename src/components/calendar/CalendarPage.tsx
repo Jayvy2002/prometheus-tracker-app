@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Dumbbell, Apple, Scale, Flame, CalendarDays, CalendarRange } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,7 @@ import { correctNutritionLogEnergy } from '../../lib/foodEnergy';
 import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
+import { calendarDayWeights, calendarDayWorkouts, responsesHaveError } from '../../lib/progressSearch';
 
 interface DayData {
   date: string;
@@ -23,10 +24,10 @@ interface DayData {
 }
 
 interface DaySummary {
-  workout: { name: string; exerciseCount: number } | null;
+  workouts: { id: string; name: string; exerciseCount: number }[];
   nutrition: { totalCals: number; protein: number; carbs: number; fat: number } | null;
   nutritionCount: number;
-  weight: number | null;
+  weights: number[];
 }
 
 type ViewMode = 'week' | 'month';
@@ -94,6 +95,9 @@ export default function CalendarPage() {
   const [allNutritionDates, setAllNutritionDates] = useState<Set<string>>(new Set());
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState(false);
+  const [summaryRetry, setSummaryRetry] = useState(0);
+  const summarySeq = useRef(0);
   const unit = profile?.unit_weight ?? 'kg';
 
   useEffect(() => {
@@ -129,16 +133,17 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (!user || !selectedDate) return;
+    const seq = ++summarySeq.current;
     setSummaryLoading(true);
+    setSummaryError(false);
 
     Promise.all([
       supabase
         .from('workouts')
-        .select('id, name')
+        .select('id, name, workout_exercises(id)')
         .eq('user_id', user.id)
         .gte('date', selectedDate)
-        .lt('date', selectedDate + 'T23:59:59')
-        .maybeSingle(),
+        .lt('date', selectedDate + 'T23:59:59'),
       supabase
         .from('nutrition_logs')
         .select('calories, protein, carbs, fat, quantity, unit')
@@ -148,52 +153,38 @@ export default function CalendarPage() {
         .from('weight_measurements')
         .select('weight_kg')
         .eq('user_id', user.id)
-        .eq('measured_at', selectedDate)
-        .maybeSingle(),
+        .eq('measured_at', selectedDate),
     ]).then(([workoutRes, nutritionRes, weightRes]) => {
-      if (workoutRes.data) {
-        supabase
-          .from('workout_exercises')
-          .select('id', { count: 'exact', head: true })
-          .eq('workout_id', workoutRes.data.id)
-          .then(({ count }) => {
-            const nutritionLogs = ((nutritionRes.data ?? []) as Array<{
-              calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string;
-            }>).map(correctNutritionLogEnergy);
-            const totalNutrition = nutritionLogs.length > 0 ? {
-              totalCals: Math.round(nutritionLogs.reduce((s, l) => s + l.calories, 0)),
-              protein: Math.round(nutritionLogs.reduce((s, l) => s + l.protein, 0)),
-              carbs: Math.round(nutritionLogs.reduce((s, l) => s + l.carbs, 0)),
-              fat: Math.round(nutritionLogs.reduce((s, l) => s + l.fat, 0)),
-            } : null;
-            setDaySummary({
-              workout: workoutRes.data ? { name: workoutRes.data.name || t('workout.unnamed'), exerciseCount: count ?? 0 } : null,
-              nutrition: totalNutrition,
-              nutritionCount: nutritionLogs.length,
-              weight: weightRes.data ? weightRes.data.weight_kg : null,
-            });
-            setSummaryLoading(false);
-          });
-      } else {
-        const nutritionLogs = ((nutritionRes.data ?? []) as Array<{
-          calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string;
-        }>).map(correctNutritionLogEnergy);
-        const totalNutrition = nutritionLogs.length > 0 ? {
-          totalCals: Math.round(nutritionLogs.reduce((s, l) => s + l.calories, 0)),
-          protein: Math.round(nutritionLogs.reduce((s, l) => s + l.protein, 0)),
-          carbs: Math.round(nutritionLogs.reduce((s, l) => s + l.carbs, 0)),
-          fat: Math.round(nutritionLogs.reduce((s, l) => s + l.fat, 0)),
-        } : null;
-        setDaySummary({
-          workout: null,
-          nutrition: totalNutrition,
-          nutritionCount: nutritionLogs.length,
-          weight: weightRes.data ? weightRes.data.weight_kg : null,
-        });
+      if (seq !== summarySeq.current) return;
+      if (responsesHaveError([workoutRes, nutritionRes, weightRes])) {
+        setSummaryError(true);
+        setDaySummary(null);
         setSummaryLoading(false);
+        return;
       }
+      const nutritionLogs = ((nutritionRes.data ?? []) as Array<{
+        calories: number; protein: number; carbs: number; fat: number; quantity?: number; unit?: string;
+      }>).map(correctNutritionLogEnergy);
+      const totalNutrition = nutritionLogs.length > 0 ? {
+        totalCals: Math.round(nutritionLogs.reduce((s, l) => s + l.calories, 0)),
+        protein: Math.round(nutritionLogs.reduce((s, l) => s + l.protein, 0)),
+        carbs: Math.round(nutritionLogs.reduce((s, l) => s + l.carbs, 0)),
+        fat: Math.round(nutritionLogs.reduce((s, l) => s + l.fat, 0)),
+      } : null;
+      setDaySummary({
+        workouts: calendarDayWorkouts(workoutRes.data ?? [], t('workout.unnamed')),
+        nutrition: totalNutrition,
+        nutritionCount: nutritionLogs.length,
+        weights: calendarDayWeights(weightRes.data ?? []),
+      });
+      setSummaryLoading(false);
+    }).catch(() => {
+      if (seq !== summarySeq.current) return;
+      setSummaryError(true);
+      setDaySummary(null);
+      setSummaryLoading(false);
     });
-  }, [user, selectedDate, t]);
+  }, [user, selectedDate, t, summaryRetry]);
 
   const workoutDateSet = useMemo(() => {
     return new Set(workouts.map(w => dateToStr(parseDate(w.date))));
@@ -363,19 +354,19 @@ export default function CalendarPage() {
       <div className="grid grid-cols-3 gap-2 mb-4 animate-fade-in-up stagger-2">
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
           <p className="text-lg font-bold text-blue-400">
-            {summaryLoading ? '–' : daySummary?.workout ? 1 : 0}
+            {summaryLoading || summaryError ? '–' : daySummary?.workouts.length ?? 0}
           </p>
           <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.workouts')}</p>
         </div>
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
           <p className="text-lg font-bold text-emerald-400">
-            {summaryLoading ? '–' : daySummary?.nutritionCount ?? 0}
+            {summaryLoading || summaryError ? '–' : daySummary?.nutritionCount ?? 0}
           </p>
           <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.meals')}</p>
         </div>
         <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-xl px-3 py-2.5 text-center">
           <p className="text-lg font-bold text-amber-400">
-            {summaryLoading ? '–' : daySummary?.weight ? 1 : 0}
+            {summaryLoading || summaryError ? '–' : daySummary?.weights.length ?? 0}
           </p>
           <p className="text-[10px] text-neutral-500">{t('calendar.daySummary.weighIns')}</p>
         </div>
@@ -385,7 +376,18 @@ export default function CalendarPage() {
         <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider mb-1">{selectedDateLabel}</h2>
       </div>
 
-      {summaryLoading ? (
+      {summaryError ? (
+        <div className="space-y-3 mb-4">
+          <p role="alert" className="text-sm text-rose-300">{t('calendar.loadError')}</p>
+          <button
+            type="button"
+            onClick={() => setSummaryRetry(n => n + 1)}
+            className="min-h-11 px-4 rounded-xl bg-neutral-800 text-white text-sm"
+          >
+            {t('errors.retry')}
+          </button>
+        </div>
+      ) : summaryLoading ? (
         <div className="space-y-3 animate-pulse">
           {[1, 2, 3].map(i => (
             <div key={i} className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4">
@@ -401,21 +403,24 @@ export default function CalendarPage() {
         </div>
       ) : (
         <div className="space-y-3 animate-fade-in-up stagger-3">
-          {daySummary?.workout ? (
-            <Card
-              className="flex items-center gap-3 cursor-pointer hover:border-neutral-700/70 active:scale-[0.98] transition-all"
-              onClick={() => navigate('/workout')}
-            >
-              <div className="w-9 h-9 rounded-xl bg-blue-600/20 flex items-center justify-center shrink-0">
-                <Dumbbell size={16} className="text-blue-400" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white">{daySummary.workout.name}</p>
-                <p className="text-xs text-neutral-500">
-                  {daySummary.workout.exerciseCount} {daySummary.workout.exerciseCount !== 1 ? t('calendar.day.exercises') : t('calendar.day.exercise')}
-                </p>
-              </div>
-            </Card>
+          {daySummary && daySummary.workouts.length > 0 ? (
+            daySummary.workouts.map(workout => (
+              <Card
+                key={workout.id}
+                className="flex items-center gap-3 cursor-pointer hover:border-neutral-700/70 active:scale-[0.98] transition-all"
+                onClick={() => navigate(`/workout/${workout.id}`)}
+              >
+                <div className="w-9 h-9 rounded-xl bg-blue-600/20 flex items-center justify-center shrink-0">
+                  <Dumbbell size={16} className="text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-white">{workout.name}</p>
+                  <p className="text-xs text-neutral-500">
+                    {workout.exerciseCount} {workout.exerciseCount !== 1 ? t('calendar.day.exercises') : t('calendar.day.exercise')}
+                  </p>
+                </div>
+              </Card>
+            ))
           ) : (
             <Card className="flex items-center gap-3 opacity-40">
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
@@ -478,19 +483,22 @@ export default function CalendarPage() {
             </Card>
           )}
 
-          {daySummary?.weight ? (
-            <Card
-              className="flex items-center gap-3 cursor-pointer hover:border-neutral-700/70 active:scale-[0.98] transition-all"
-              onClick={() => navigate('/weight')}
-            >
-              <div className="w-9 h-9 rounded-xl bg-amber-600/20 flex items-center justify-center shrink-0">
-                <Scale size={16} className="text-amber-400" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-white">{formatWeight(daySummary.weight, unit)}</p>
-                <p className="text-xs text-neutral-500">{t('calendar.day.weightLogged')}</p>
-              </div>
-            </Card>
+          {daySummary && daySummary.weights.length > 0 ? (
+            daySummary.weights.map((weight, index) => (
+              <Card
+                key={`${weight}-${index}`}
+                className="flex items-center gap-3 cursor-pointer hover:border-neutral-700/70 active:scale-[0.98] transition-all"
+                onClick={() => navigate('/weight')}
+              >
+                <div className="w-9 h-9 rounded-xl bg-amber-600/20 flex items-center justify-center shrink-0">
+                  <Scale size={16} className="text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{formatWeight(weight, unit)}</p>
+                  <p className="text-xs text-neutral-500">{t('calendar.day.weightLogged')}</p>
+                </div>
+              </Card>
+            ))
           ) : (
             <Card className="flex items-center gap-3 opacity-40">
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">

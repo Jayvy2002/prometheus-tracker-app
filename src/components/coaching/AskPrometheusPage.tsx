@@ -4,9 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, Search } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
-import { answerCoachAsk, clientsFilterHref, isRosterAsk, parseCoachAsk, resolveAskClientId, rosterHitsForFilter } from '../../lib/coachAsk';
+import { answerCoachAsk, clientsFilterHref, describeAskSend, isRosterAsk, parseCoachAsk, resolveAskClientId, rosterHitsForFilter, type AskSendPreview } from '../../lib/coachAsk';
 import { openDraftHref } from '../../lib/coachInterventions';
 import { routeCoachSecondRequest } from '../../lib/coachSecond';
+import { displayName } from '../../lib/coachText';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
@@ -49,6 +50,7 @@ export default function AskPrometheusPage() {
   const [query, setQuery] = useState(searchParams.get('q') || '');
   const [history, setHistory] = useState<string[]>(loadHistory);
   const [sending, setSending] = useState(false);
+  const [pending, setPending] = useState<{ q: string; preview: AskSendPreview } | null>(null);
 
   useEffect(() => {
     const q = searchParams.get('q') || '';
@@ -120,8 +122,31 @@ export default function AskPrometheusPage() {
     if (!q) return;
     setQuery(q);
     remember(q);
-    if (isRosterAsk(q)) return;
-    void sendToAgent(q);
+    if (isRosterAsk(q)) {
+      setPending(null);
+      return;
+    }
+    const clientHint = searchParams.get('client');
+    const intent = parseCoachAsk(q);
+    const clientId = resolveAskClientId(intent, opsRows, q, clientHint);
+    const row = clientId ? opsRows.find(r => r.client.id === clientId) : undefined;
+    const onboarded = row?.client.onboarding_completed;
+    const route = routeCoachSecondRequest(q, {
+      onboarded: onboarded !== false,
+      hasProgram: !!searchParams.get('program'),
+    });
+    const kind = route.kind === 'roster' || (route.kind === 'onboarding_plan' && !clientId)
+      ? 'ask_prometheus'
+      : route.kind;
+    setPending({
+      q,
+      preview: describeAskSend({
+        roster: false,
+        routeKind: kind,
+        clientName: row ? displayName(row.client) : null,
+        hasProgram: !!searchParams.get('program'),
+      }),
+    });
   };
 
   const askChips = useMemo(() => {
@@ -170,6 +195,36 @@ export default function AskPrometheusPage() {
           </div>
           <Button type="submit" size="sm" loading={sending}>{t('coaching.ask.run')}</Button>
         </form>
+
+        {pending && (
+          <Card className="mb-5 space-y-3">
+            <p className="text-[11px] uppercase tracking-wider text-blue-300">{t('coaching.ask.preview.title')}</p>
+            <p className="text-sm text-white">{t(pending.preview.whoKey, pending.preview.whoParams)}</p>
+            <p className="text-sm text-neutral-300">{t(pending.preview.effectKey)}</p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setPending(null)}
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                loading={sending}
+                onClick={() => {
+                  const q = pending.q;
+                  setPending(null);
+                  void sendToAgent(q);
+                }}
+              >
+                {t('coaching.ask.confirmSend')}
+              </Button>
+            </div>
+          </Card>
+        )}
 
         {askChips.length > 0 && (
           <div className="flex flex-wrap gap-2 mb-5">

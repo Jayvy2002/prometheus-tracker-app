@@ -1,14 +1,18 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
+import { useCoachingStore } from '../../stores/coachingStore';
 import { supabase } from '../../lib/supabase';
-import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort } from '../../lib/utils';
+import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort, formatWeight, kgToLbs } from '../../lib/utils';
 import {
   aggregateExerciseProgress,
   isRecordAtIndex,
   type ExerciseProgressSummary,
 } from '../../lib/performedSets';
+import { listedProgressMatches } from '../../lib/progressSearch';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { useProfileStore } from '../../stores/profileStore';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
@@ -17,40 +21,68 @@ import PageTransition from '../ui/PageTransition';
 export default function ExerciseProgressPage() {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const unit = useProfileStore(s => s.profile?.unit_weight) ?? 'kg';
+  const showKg = (kg: number) => formatWeight(kg, unit);
+  const chartKg = (kg: number) => (unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10);
 
   const [allData, setAllData] = useState<ExerciseProgressSummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [retry, setRetry] = useState(0);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const loadSeq = useRef(0);
+  const appliedUser = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+    const seq = ++loadSeq.current;
     setLoading(true);
+    setLoadError(false);
 
-    supabase
-      .from('workout_exercises')
-      .select(`
+    void Promise.resolve(
+      supabase
+        .from('workout_exercises')
+        .select(`
         name,
         workout_sets(weight_kg, reps, set_type, completed),
         workouts!inner(user_id, date, completed)
       `)
-      .eq('workouts.user_id', user.id)
-      .then(({ data }) => {
-        if (!data) { setLoading(false); return; }
-
-        const summaries = aggregateExerciseProgress(
-          data as unknown as Array<{
-            name: string;
-            workout_sets: { weight_kg: number; reps: number; set_type: string; completed: boolean }[];
-            workouts: { date: string };
-          }>,
-          iso => toLocalDateStr(parseDate(iso)),
-        ).sort((a, b) => b.totalSessions - a.totalSessions);
-
-        setAllData(summaries);
+        .eq('workouts.user_id', user.id),
+    ).then(({ data, error }) => {
+      if (seq !== loadSeq.current) return;
+      if (error) {
+        setLoadError(true);
         setLoading(false);
-      });
-  }, [user]);
+        return;
+      }
+      if (!data) {
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
+
+      const summaries = aggregateExerciseProgress(
+        data as unknown as Array<{
+          name: string;
+          workout_sets: { weight_kg: number; reps: number; set_type: string; completed: boolean }[];
+          workouts: { date: string };
+        }>,
+        iso => toLocalDateStr(parseDate(iso)),
+      ).sort((a, b) => b.totalSessions - a.totalSessions);
+
+      setAllData(summaries);
+      appliedUser.current = user.id;
+      setLoading(false);
+    }).catch(() => {
+      if (seq !== loadSeq.current) return;
+      setLoadError(true);
+      setLoading(false);
+    });
+  }, [user, retry]);
 
   const topExercises = useMemo(() => allData.slice(0, 5), [allData]);
 
@@ -60,12 +92,17 @@ export default function ExerciseProgressPage() {
     return allData.filter(e => e.name.toLowerCase().includes(q));
   }, [allData, searchQuery]);
 
+  const searching = searchQuery.trim().length > 0;
+  const listedExercises = useMemo(
+    () => listedProgressMatches(filteredExercises, searchQuery),
+    [filteredExercises, searchQuery],
+  );
   const detail = selectedExercise ? allData.find(e => e.name === selectedExercise) : null;
 
   if (selectedExercise && detail) {
     const chartData = detail.entries.slice(-20).map(e => ({
       date: formatChartDate(e.date, i18n.language),
-      '1RM': e.estimated1RM,
+      '1RM': chartKg(e.estimated1RM),
       volume: e.totalVolume,
     }));
     const isNewPR = isRecordAtIndex(detail.entries, detail.entries.length - 1);
@@ -84,8 +121,8 @@ export default function ExerciseProgressPage() {
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-5 mb-4 text-center animate-fade-in-up">
             <p className="text-xs text-neutral-500 mb-1">{t('progress.estimated1RM')}</p>
             <div className="flex items-center justify-center gap-2">
-              <span className="text-4xl font-bold text-white">{detail.latest1RM}</span>
-              <span className="text-lg text-neutral-500">kg</span>
+              <span className="text-4xl font-bold text-white">{chartKg(detail.latest1RM)}</span>
+              <span className="text-lg text-neutral-500">{unit}</span>
               {isNewPR && (
                 <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold ml-2">
                   <Trophy size={12} /> PR
@@ -100,7 +137,7 @@ export default function ExerciseProgressPage() {
               </div>
             )}
             <div className="flex items-center justify-center gap-4 mt-3 text-xs text-neutral-500">
-              <span>{t('progress.bestEver')}: <span className="text-amber-400 font-semibold">{detail.best1RM} kg</span></span>
+              <span>{t('progress.bestEver')}: <span className="text-amber-400 font-semibold">{showKg(detail.best1RM)}</span></span>
               <span>{detail.totalSessions} {t('progress.sessions')}</span>
             </div>
           </div>
@@ -136,8 +173,8 @@ export default function ExerciseProgressPage() {
                       <p className="text-xs text-neutral-500">{e.sets} sets</p>
                     </div>
                     <div className="text-right space-y-0.5">
-                      <p className="text-xs font-medium text-blue-400">{e.estimated1RM} kg <span className="text-neutral-600">1RM</span></p>
-                      <p className="text-[11px] text-neutral-500">{e.maxWeight} kg max | {e.totalVolume} vol</p>
+                      <p className="text-xs font-medium text-blue-400">{showKg(e.estimated1RM)} <span className="text-neutral-600">1RM</span></p>
+                      <p className="text-[11px] text-neutral-500">{showKg(e.maxWeight)} max | {e.totalVolume} vol</p>
                     </div>
                     {isRecordAtIndex(detail.entries, detail.entries.indexOf(e)) && (
                       <Trophy size={12} className="text-amber-400 shrink-0" />
@@ -160,21 +197,36 @@ export default function ExerciseProgressPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-6">
-          <CardLink to="/stats">
-            <p className="text-sm font-medium text-white flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />{t('nav.progressSummary')}</p>
-          </CardLink>
+          {!coached && (
+            <CardLink to="/stats">
+              <p className="text-sm font-medium text-white flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />{t('nav.progressSummary')}</p>
+            </CardLink>
+          )}
           <CardLink to="/exercise-progress">
             <p className="text-sm font-medium text-white flex items-center gap-2"><Dumbbell size={16} className="text-blue-400" />{t('nav.progressTraining')}</p>
           </CardLink>
           <CardLink to="/weight">
             <p className="text-sm font-medium text-white flex items-center gap-2"><Scale size={16} className="text-blue-400" />{t('nav.progressMeasures')}</p>
           </CardLink>
-          <CardLink to="/calendar">
-            <p className="text-sm font-medium text-white flex items-center gap-2"><CalendarDays size={16} className="text-blue-400" />{t('nav.progressHistory')}</p>
-          </CardLink>
+          {!coached && (
+            <CardLink to="/calendar">
+              <p className="text-sm font-medium text-white flex items-center gap-2"><CalendarDays size={16} className="text-blue-400" />{t('nav.progressHistory')}</p>
+            </CardLink>
+          )}
         </div>
 
-        {loading ? (
+        {loadError && appliedUser.current !== user?.id ? (
+          <Card className="text-center py-12 space-y-3">
+            <p role="alert" className="text-neutral-300">{t('progress.loadError')}</p>
+            <button
+              type="button"
+              onClick={() => setRetry(n => n + 1)}
+              className="min-h-11 px-4 rounded-xl bg-neutral-800 text-white text-sm"
+            >
+              {t('errors.retry')}
+            </button>
+          </Card>
+        ) : loading ? (
           <div className="text-center py-16 text-neutral-500">{t('common.loading')}</div>
         ) : allData.length === 0 ? (
           <Card className="text-center py-12">
@@ -184,7 +236,20 @@ export default function ExerciseProgressPage() {
           </Card>
         ) : (
           <>
-            {/* Top exercises */}
+            {loadError && (
+              <div className="mb-4 space-y-2">
+                <p role="alert" className="text-sm text-rose-300">{t('progress.loadError')}</p>
+                <button
+                  type="button"
+                  onClick={() => setRetry(n => n + 1)}
+                  className="min-h-11 px-4 rounded-xl bg-neutral-800 text-white text-sm"
+                >
+                  {t('errors.retry')}
+                </button>
+              </div>
+            )}
+            {!searching && (
+              <>
             <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide mb-3 animate-fade-in-up">{t('progress.topExercises')}</h2>
             <div className="space-y-3 mb-6">
               {topExercises.map((ex, i) => {
@@ -207,8 +272,8 @@ export default function ExerciseProgressPage() {
                         </div>
                         <div className="text-right shrink-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-lg font-bold text-white">{ex.latest1RM}</span>
-                            <span className="text-xs text-neutral-500">kg</span>
+                            <span className="text-lg font-bold text-white">{chartKg(ex.latest1RM)}</span>
+                            <span className="text-xs text-neutral-500">{unit}</span>
                             {isNewPR && <Trophy size={12} className="text-amber-400" />}
                           </div>
                           {ex.trend !== 0 && (
@@ -224,16 +289,18 @@ export default function ExerciseProgressPage() {
                 );
               })}
             </div>
+            </>
+            )}
 
-            {/* All exercises with search */}
-            {allData.length > 5 && (
+            {(allData.length > 5 || searching) && (
               <>
+                {!searching && (
                 <div className="flex items-center gap-2 mb-3">
                   <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wide">{t('progress.allExercises')}</h2>
                   <span className="text-[10px] text-neutral-600 bg-neutral-800 px-1.5 py-0.5 rounded">{allData.length}</span>
                 </div>
+                )}
 
-                {/* Search */}
                 <div className="relative mb-3">
                   <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
                   <input
@@ -246,7 +313,9 @@ export default function ExerciseProgressPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {filteredExercises.slice(5).map(ex => (
+                  {listedExercises.length === 0 ? (
+                    <p className="text-sm text-neutral-500">{t('progress.noMatches')}</p>
+                  ) : listedExercises.map(ex => (
                     <button
                       key={ex.name}
                       onClick={() => setSelectedExercise(ex.name)}
@@ -257,7 +326,7 @@ export default function ExerciseProgressPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white truncate">{ex.name}</p>
                           </div>
-                          <span className="text-sm font-semibold text-neutral-300">{ex.latest1RM} kg</span>
+                          <span className="text-sm font-semibold text-neutral-300">{showKg(ex.latest1RM)}</span>
                           <ChevronRight size={14} className="text-neutral-600 shrink-0" />
                         </div>
                       </Card>

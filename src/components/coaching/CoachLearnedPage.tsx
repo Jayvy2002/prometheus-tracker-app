@@ -15,13 +15,25 @@ function asRecord(value: unknown): Record<string, unknown> {
   return {};
 }
 
-function snapLabel(snap: unknown): string {
+function snapBody(snap: unknown): string {
   const o = asRecord(snap);
-  const body = [o.body, o.notes, o.answer, o.suggestion]
+  const body = [o.body, o.notes, o.answer, o.suggestion, o.title]
     .find(v => typeof v === 'string' && v.trim()) as string | undefined;
-  if (body?.trim()) return body.trim().slice(0, 180);
-  const keys = Object.keys(o).filter(k => k !== 'kind');
-  return keys.length ? keys.slice(0, 6).join(', ') : '—';
+  return body?.trim().slice(0, 180) ?? '';
+}
+
+function lessonKindKey(kind: string): string {
+  const known = [
+    'keep_in_touch',
+    'calorie_adjustment',
+    'adherence_nutrition',
+    'adherence_training',
+    'onboarding_plan',
+    'ask_prometheus',
+    'program_nl_edit',
+    'program_adjustment',
+  ];
+  return known.includes(kind) ? `coaching.learned.kinds.${kind}` : 'coaching.learned.kinds.other';
 }
 
 function formatWhen(iso: string, locale: string): string {
@@ -120,9 +132,12 @@ export default function CoachLearnedPage() {
                   {lessons.map(row => (
                     <Card key={row.id} className={`space-y-1.5 ${row.disabled ? 'opacity-60' : ''}`}>
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-medium text-white">{snapLabel(row.accepted) || snapLabel(row.proposed)}</p>
+                        <p className="text-sm font-medium text-white">{t(lessonKindKey(row.kind))}</p>
                         <p className="text-xs text-neutral-500">{formatWhen(row.created_at, loc)}</p>
                       </div>
+                      {snapBody(row.accepted) || snapBody(row.proposed) ? (
+                        <p className="text-sm text-neutral-300">{snapBody(row.accepted) || snapBody(row.proposed)}</p>
+                      ) : null}
                       {row.note?.trim() ? (
                         <p className="text-xs text-amber-200/90">{row.note.trim()}</p>
                       ) : null}

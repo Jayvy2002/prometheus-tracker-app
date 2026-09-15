@@ -4,11 +4,15 @@ import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { todayStr } from '../../lib/utils';
 import { clampCheckinScore } from '../../lib/checkinScale';
 import { isSoloAthlete } from '../../lib/coachRole';
+import { displayName } from '../../lib/coachText';
 import { useClientTracking } from '../../lib/useClientTracking';
+import SoloAskBar from '../solo/SoloAskBar';
+import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 import {
   CHECKIN_CORE_VAR_KEYS,
   CHECKIN_SCALE_BY_VAR,
@@ -49,6 +53,7 @@ export default function CheckInPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { todayCheckin, checkins, loading, fetchToday, fetchRecent, upsertToday } = useCheckinStore();
+  const { profile } = useProfileStore();
   const tracking = useClientTracking();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
@@ -115,7 +120,9 @@ export default function CheckInPage() {
     const hours = sleepHours.trim() === '' ? null : Number(sleepHours);
     const payload: DailyCheckinInput = {
       checked_at: todayStr(),
-      notes: showCheckinField(tracking, 'notes') ? notes : (todayCheckin?.notes || ''),
+      notes: showCheckinField(tracking, 'notes') || notes.trim()
+        ? notes
+        : (todayCheckin?.notes || ''),
       sleep_hours: showCheckinField(tracking, 'sleep_hours')
         ? (hours != null && !Number.isNaN(hours) ? hours : null)
         : todayCheckin?.sleep_hours ?? null,
@@ -143,7 +150,9 @@ export default function CheckInPage() {
       toast(error, 'error');
       return;
     }
-    toast(t('checkin.saved'));
+    toast(myCoach
+      ? t('checkin.savedVisible', { coach: displayName(myCoach) })
+      : t('checkin.saved'));
     navigate('/dashboard');
   };
 
@@ -187,6 +196,18 @@ export default function CheckInPage() {
       <div className="px-4 pt-6 pb-8">
         <PageHeader title={t('checkin.title')} subtitle={solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')} />
         <p className="text-xs text-neutral-600 -mt-4 mb-6">{t('checkin.scaleHint')}</p>
+
+        <SoloAskBar
+          context={soloAskFromProfile('checkin', profile)}
+          onApplyOnce={() => undefined}
+          onSave={(proposal) => {
+            const note = proposal.sessionNote.trim();
+            if (!note) return;
+            setNotes(prev => prev.trim() ? `${prev.trim()}\n${note}` : note);
+            setMoreOpen(true);
+            toast(t('soloAsk.saveNote'));
+          }}
+        />
 
         <div className="space-y-5">
           {coreVars.includes('sleep_hours') && (

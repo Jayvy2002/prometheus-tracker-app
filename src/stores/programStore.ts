@@ -8,8 +8,11 @@ import type {
   ProgramAssignment,
   ProgramDay,
   ProgramDayExercise,
+  ProgramExerciseDraft,
   Routine,
+  SetType,
 } from '../lib/types';
+import { programExerciseRpcFields } from '../lib/programSetPrescription';
 
 type ProgramDayDraft = {
   weekday: number;
@@ -22,6 +25,14 @@ type ProgramDayDraft = {
     default_rir?: number | null;
     default_rest_seconds?: number;
     default_weight_kg?: number | null;
+    set_type?: SetType;
+    superset_group?: string | null;
+    drop_count?: number | null;
+    tempo?: string | null;
+    isometric_seconds?: number | null;
+    cluster_rest_seconds?: number | null;
+    cluster_reps_per_burst?: number | null;
+    myo_activation?: boolean;
   }>;
 };
 
@@ -31,13 +42,7 @@ function rpcDaysPayload(days: ProgramDayDraft[]) {
     name: draft.name,
     order_index: i,
     exercises: draft.exercises.map((ex, order_index) => ({
-      name: ex.name,
-      default_sets: ex.default_sets,
-      default_reps: ex.default_reps,
-      default_reps_min: ex.default_reps_min ?? null,
-      default_rir: ex.default_rir ?? null,
-      default_rest_seconds: ex.default_rest_seconds ?? 90,
-      default_weight_kg: ex.default_weight_kg ?? null,
+      ...programExerciseRpcFields(ex),
       order_index,
     })),
   }));
@@ -53,16 +58,7 @@ interface ProgramState {
   createProgram: (
     program: Partial<Program>,
     days: Array<Omit<ProgramDay, 'id' | 'program_id' | 'created_at' | 'exercises'> & {
-      exercises?: Array<{
-        name: string;
-        default_sets: number;
-        default_reps: number;
-        default_reps_min?: number | null;
-        default_rir?: number | null;
-        default_rest_seconds?: number;
-        default_weight_kg?: number | null;
-        order_index?: number;
-      }>;
+      exercises?: Array<ProgramExerciseDraft & { order_index?: number }>;
     }>,
     opts?: { assignClientId?: string; startDate?: string },
   ) => Promise<string | null>;
@@ -77,16 +73,7 @@ interface ProgramState {
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<{ error: string | null }>;
   setProgramDayExercises: (
     dayId: string,
-    exercises: Array<{
-      name: string;
-      default_sets: number;
-      default_reps: number;
-      default_reps_min?: number | null;
-      default_rir?: number | null;
-      default_rest_seconds?: number;
-      default_weight_kg?: number | null;
-      order_index: number;
-    }>,
+    exercises: Array<ProgramExerciseDraft & { order_index: number }>,
   ) => Promise<{ error: string | null }>;
   applyExercisePatch: (
     programId: string,
@@ -122,6 +109,7 @@ interface ProgramState {
   /** E01 : dernière révision (numéro + date) — le passé ne se réécrit pas. */
   fetchProgramRevisionInfo: (programId: string) => Promise<{ revision_no: number; created_at: string; count: number } | null>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
+  duplicateProgram: (programId: string) => Promise<{ error: string | null; programId?: string }>;
   pauseAssignment: (id: string) => Promise<void>;
   clear: () => void;
 }
@@ -203,13 +191,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         order_index: day.order_index ?? order_index,
         routine_id: day.routine_id ?? null,
         exercises: (day.exercises ?? []).map((ex, i) => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_reps_min: ex.default_reps_min ?? null,
-          default_rir: ex.default_rir ?? null,
-          default_rest_seconds: ex.default_rest_seconds ?? 90,
-          default_weight_kg: ex.default_weight_kg ?? null,
+          ...programExerciseRpcFields(ex),
           order_index: ex.order_index ?? i,
         })),
       })),
@@ -295,13 +277,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     const { error } = await supabase.rpc('save_program_day_exercises', {
       p_day_id: dayId,
       p_exercises: exercises.map(ex => ({
-        name: ex.name,
-        default_sets: ex.default_sets,
-        default_reps: ex.default_reps,
-        default_reps_min: ex.default_reps_min ?? null,
-        default_rir: ex.default_rir ?? null,
-        default_rest_seconds: ex.default_rest_seconds ?? 90,
-        default_weight_kg: ex.default_weight_kg ?? null,
+        ...programExerciseRpcFields(ex),
         order_index: ex.order_index,
       })),
     });
@@ -469,6 +445,17 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     if (error || !data) return null;
     const row = data as { revision_no: number; created_at: string };
     return { revision_no: row.revision_no, created_at: row.created_at, count: row.revision_no };
+  },
+
+  duplicateProgram: async (programId) => {
+    const { data, error } = await supabase.rpc('fork_program', {
+      p_program_id: programId,
+      p_name: null,
+    });
+    if (error || !data) return { error: error?.message ?? 'fork_failed' };
+    const program = await get().fetchProgram(data as string);
+    if (!program) return { error: 'fork_failed', programId: data as string };
+    return { error: null, programId: program.id };
   },
 
   assignProgram: async (programId, clientId, startDate) => {

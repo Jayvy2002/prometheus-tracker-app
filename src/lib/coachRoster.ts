@@ -129,6 +129,21 @@ export function buildRosterRow(client: CoachClientSummary, ctx: RosterContext): 
   };
 }
 
+export function rosterBackPath(filter: string | null | undefined): string {
+  if (!filter) return '/clients';
+  return `/clients?filter=${encodeURIComponent(filter)}`;
+}
+
+export function rosterFromLocationState(state: unknown): string {
+  if (state && typeof state === 'object' && 'from' in state) {
+    const from = (state as { from?: unknown }).from;
+    if (typeof from === 'string' && (from === '/clients' || from.startsWith('/clients?'))) {
+      return from;
+    }
+  }
+  return '/clients';
+}
+
 export function sortRosterClients(
   clients: CoachClientSummary[],
   ctx: RosterContext,

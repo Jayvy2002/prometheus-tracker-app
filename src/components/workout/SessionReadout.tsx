@@ -34,6 +34,9 @@ export default function SessionReadout({
             onClick={onExercise ? () => onExercise(ex.name) : undefined}
           >
             <p className="text-sm font-medium text-white mb-1">{ex.name}</p>
+            {ex.notes?.trim() ? (
+              <p className="text-xs text-neutral-500 mb-1" data-session-notes="true">{ex.notes.trim()}</p>
+            ) : null}
             {sets.length === 0 ? (
               <p className="text-xs text-neutral-600">—</p>
             ) : sets.map((s, i) => (

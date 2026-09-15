@@ -10,13 +10,19 @@ interface PageTransitionProps {
 }
 
 let previousTabIndex = -1;
+let previousPersona: ReturnType<typeof navPersona> | null = null;
 
 export default function PageTransition({ children, className = '' }: PageTransitionProps) {
   const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
   const context = useAccountContext();
   const tracking = useCoachingStore(s => s.myTrackingConfig);
-  const currentIndex = tabIndexForPath(location.pathname, mobileTabs(navPersona(context), tracking));
+  const persona = navPersona(context);
+  if (previousPersona !== null && previousPersona !== persona) {
+    previousTabIndex = -1;
+  }
+  previousPersona = persona;
+  const currentIndex = tabIndexForPath(location.pathname, mobileTabs(persona, tracking));
 
   let animClass = 'animate-fade-in-up';
   if (currentIndex !== -1 && previousTabIndex !== -1) {
