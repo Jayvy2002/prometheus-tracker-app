@@ -92,7 +92,8 @@ test('18: app / features / shared exist, aliases are wired, old paths re-export'
   ]) {
     assert.ok(existsSync(at(rel)), rel);
   }
-  assert.ok(existsSync(at('src/lib/coachFleet.ts')), 'lot 18 must not move coach*.ts');
+  assert.match(readFileSync(at('src/lib/coachFleet.ts'), 'utf8'), /features\/coaching\/domain\/coachFleet/, 'lot 20: lib/coachFleet.ts re-exports');
+  assert.ok(existsSync(at('src/features/coaching/domain/coachFleet.ts')), 'lot 20: coachFleet lives in features/coaching');
   assert.ok(existsSync(at('src/App.tsx')), 'lot 18 must not split App.tsx');
   assert.ok(existsSync(at('src/stores/coachingStore.ts')), 'lot 18 must not split coachingStore');
   assert.ok(existsSync(at('src/lib/types.ts')), 'lot 18 must not split types.ts');
@@ -139,6 +140,19 @@ test('19: listed primitives use semantic tokens, not blue-600 / neutral-* / rose
   const button = readFileSync(resolve(root, 'src/shared/ui/Button.tsx'), 'utf8');
   assert.match(button, /bg-primary/);
   assert.match(button, /bg-danger/);
+});
+
+test('20 coaching: coach*.ts implementations live in features/coaching/domain', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const name of ['coachFleet.ts', 'coachRole.ts', 'coachAgent.ts', 'coachAsk.ts', 'coachQuestionnaire.ts']) {
+    assert.ok(existsSync(at(`src/features/coaching/domain/${name}`)), name);
+    assert.match(readFileSync(at(`src/lib/${name}`), 'utf8'), /features\/coaching\/domain\//);
+  }
+  const fleet = readFileSync(at('src/features/coaching/domain/coachFleet.ts'), 'utf8');
+  assert.match(fleet, /supabase\/functions\/_shared\/fleetCopy/);
+  assert.ok(existsSync(at('src/App.tsx')));
+  assert.ok(existsSync(at('src/stores/coachingStore.ts')));
+  assert.ok(existsSync(at('src/lib/types.ts')));
 });
 
 test('17d: one env convention — public Vite keys only, never service_role', () => {

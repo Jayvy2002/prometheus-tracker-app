@@ -69,7 +69,7 @@ test('single coach-agent invoke — no ask-second alias, no suggest-client-plan'
   assert.match(store, /COACH_AGENT_FUNCTION/);
   assert.doesNotMatch(store, /ask-second/);
   assert.doesNotMatch(store, /suggest-client-plan/);
-  const agent = src('src/lib/coachAgent.ts');
+  const agent = src('src/features/coaching/domain/coachAgent.ts');
   assert.doesNotMatch(agent, /COACH_AGENT_ALIAS_FUNCTION/);
   const ask = src('supabase/functions/ask-second/index.ts');
   assert.match(ask, /status: 410/);

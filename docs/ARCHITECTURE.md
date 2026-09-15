@@ -16,7 +16,8 @@ src/
 │   └── navigation/         navConfig + test
 ├── features/
 │   ├── account/hooks/      useAccountContext
-│   ├── coaching/hooks/     useClientTracking  (coach*.ts encore dans lib/ — lot 20)
+│   ├── coaching/hooks/     useClientTracking
+│   └── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
 │   └── nutrition/hooks/    useFoodCatalogSearch
 ├── shared/
 │   ├── api/supabase/       client
@@ -75,7 +76,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | `useAccountContext.ts` | `features/account/hooks/` | idem | **18 livré** |
 | `useClientTracking.ts` | `features/coaching/hooks/` | idem | **18 livré** |
 | `useFoodCatalogSearch.ts` | `features/nutrition/hooks/` | idem | **18 livré** |
-| `coach*.ts` (agent, fleet, ask, …) | `lib/coach*.ts` | `features/coaching/` | **20** — **pas 18** |
+| `coach*.ts` (agent, fleet, ask, …) | `features/coaching/domain/` (+ réexports `lib/`) | idem | **20 coaching livré** |
 | Autre domaine dans `lib/` | `lib/<domaine>` | `features/<domaine>/` | **20** (une PR / domaine) |
 | Utils transverses, télémétrie, offline | `lib/` | `shared/lib/` | **20** quand ce n’est plus du domaine |
 | `types.ts` | `lib/types.ts` | `shared/types` + `features/*/types` + réexport | **22a** |

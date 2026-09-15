@@ -3,7 +3,7 @@
  * (title, observation, cause, rationale, prepared Relancer message), in the coach's language.
  *
  * Pure module, no Deno / browser globals: imported by the Edge Function
- * (`coach-fleet-round`) and by the app-side mirror (`src/lib/coachFleet.ts`) so the
+ * (`coach-fleet-round`) and by the app-side mirror (`src/features/coaching/domain/coachFleet.ts`) so the
  * two never drift on copy.
  */
 

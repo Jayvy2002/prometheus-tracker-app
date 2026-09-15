@@ -72,7 +72,7 @@ Ceci est l’**arbre actuel** (lot 18 livré). La matrice et la suite (19–23) 
 src/
 ├── App.tsx                         Routes, gardes, bootstrap (lot 21a pour découper)
 ├── app/layout/                     Chrome ; app/navigation/ = navConfig
-├── features/                       account / coaching / nutrition — hooks évidents seulement
+├── features/                       account / coaching (hooks + domain coach*) / nutrition
 ├── shared/                         api/supabase, hooks, ui (tokens lot 19)
 ├── components/                     Écrans métier ; ui/ et layout/ = réexports
 ├── stores/                         Zustand par domaine — coachingStore intact jusqu’au 21c
@@ -111,7 +111,7 @@ supabase/
 
 Ces règles décrivent le comportement actuel. Les modifier exige une décision produit explicite, les tests concernés et, lorsque nécessaire, la matrice RLS.
 
-- **Tournée hebdomadaire.** `src/lib/coachFleet.ts` et `supabase/functions/coach-fleet-round/index.ts` portent la même logique ; `fleetCopy.ts` porte les textes. Une règle modifiée doit être répercutée dans les deux implémentations et leurs tests. La fenêtre est de 14 jours. L’assiduité et la qualité des données sont vérifiées avant toute proposition chiffrée ; sinon l’action attendue est une relance, pas une modification arbitraire des cibles.
+- **Tournée hebdomadaire.** `src/features/coaching/domain/coachFleet.ts` (réexport `src/lib/coachFleet.ts`) et `supabase/functions/coach-fleet-round/index.ts` portent la même logique ; `fleetCopy.ts` porte les textes. Une règle modifiée doit être répercutée dans les deux implémentations et leurs tests. La fenêtre est de 14 jours. L’assiduité et la qualité des données sont vérifiées avant toute proposition chiffrée ; sinon l’action attendue est une relance, pas une modification arbitraire des cibles.
 - **Recherche d’aliments.** La recherche locale répond pendant la frappe. Open Food Facts est déclenché explicitement par l’utilisateur, avec budget, annulation et délai maximal ; ne pas transformer la recherche distante en requête à chaque caractère. `pickerSearch.ts` centralise le classement partagé.
 - **Exercices.** Les alias FR/EN servent la recherche ; le nom canonique en base reste stable et l’affichage est localisé.
 - **Portions.** `productLogDraft` est le contrat commun pour recherche, récents, favoris, recettes et préremplissage. Ne pas réintroduire de conversion implicite ×100 entre valeur par portion et valeur par masse.
