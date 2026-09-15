@@ -200,7 +200,7 @@ test('invite leftovers: banner without coach name, explicit consent after login,
   assert.match(invite, /ToastContainer/);
   const setup = src('src/components/coaching/ClientSetupPage.tsx');
   assert.match(setup, /void fetchCoachOps\(\)/);
-  const toastSrc = src('src/components/ui/Toast.tsx');
+  const toastSrc = src('src/shared/ui/Toast.tsx');
   assert.match(toastSrc, /setToasts\(\[\.\.\.toastQueue\]\)/);
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /authBannerNoName: 'Ton coach t’invite sur Prometheus/);

@@ -43,11 +43,11 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.match(app, /entry_intent === 'find_coach'/);
   assert.match(app, /mode="directory"/);
 
-  const bottom = src('src/components/layout/BottomNav.tsx');
+  const bottom = src('src/app/layout/BottomNav.tsx');
   assert.doesNotMatch(bottom, /\/coaches/);
   assert.doesNotMatch(bottom, /\/coach\/profile/);
 
-  const nav = src('src/navigation/navConfig.ts');
+  const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /path: '\/coaches'/);
   assert.match(nav, /path: '\/coach\/profile'/);
   assert.match(nav, /path: '\/coaching-requests'/);

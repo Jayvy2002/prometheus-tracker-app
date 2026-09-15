@@ -76,7 +76,7 @@ test('Q05: routes are code-split; programs load embedded; workouts paginate', ()
 });
 
 test('Q04: dialog and switches are accessible primitives', () => {
-  const modal = src('src/components/ui/Modal.tsx');
+  const modal = src('src/shared/ui/Modal.tsx');
   assert.match(modal, /role="dialog"/);
   assert.match(modal, /aria-modal="true"/);
   assert.match(modal, /aria-labelledby/);
@@ -88,16 +88,16 @@ test('Q04: dialog and switches are accessible primitives', () => {
   const units = src('src/components/profile/UnitsForm.tsx');
   assert.match(units, /role="switch"/);
 
-  const button = src('src/components/ui/Button.tsx');
+  const button = src('src/shared/ui/Button.tsx');
   assert.match(button, /aria-busy=\{loading \|\| undefined\}/);
   assert.match(button, /aria-hidden="true" focusable="false"/);
 
-  const toast = src('src/components/ui/Toast.tsx');
+  const toast = src('src/shared/ui/Toast.tsx');
   assert.match(toast, /role=\{t\.type === 'error' \? 'alert' : 'status'\}/);
   assert.match(toast, /aria-label=\{translate\('common\.close'\)\}/);
   assert.match(toast, /translate\('common\.undo'\)/);
 
-  const input = src('src/components/ui/Input.tsx');
+  const input = src('src/shared/ui/Input.tsx');
   assert.match(input, /htmlFor=\{inputId\}/);
   assert.match(input, /aria-describedby=\{descriptionIds\}/);
   assert.match(input, /aria-invalid=\{error \? true : ariaInvalid\}/);

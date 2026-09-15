@@ -1,0 +1,73 @@
+import { type ButtonHTMLAttributes, type ReactNode } from 'react';
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg';
+  loading?: boolean;
+  /** No :hover styles — first tap on touch must fire click, not "stick" on hover. */
+  pressOnly?: boolean;
+  children: ReactNode;
+}
+
+const variants = {
+  primary: {
+    base: 'bg-blue-600 text-white',
+    hover: 'hover:bg-blue-500',
+  },
+  secondary: {
+    base: 'bg-neutral-800 text-neutral-200 border border-neutral-700/80',
+    hover: 'hover:bg-neutral-700 hover:border-neutral-600',
+  },
+  ghost: {
+    base: 'bg-transparent text-neutral-300',
+    hover: 'hover:bg-neutral-800/80',
+  },
+  danger: {
+    base: 'bg-rose-600 text-white shadow-lg shadow-rose-900/20',
+    hover: 'hover:bg-rose-500',
+  },
+};
+
+const sizes = {
+  sm: 'min-h-11 px-3 text-sm',
+  md: 'min-h-11 px-4 text-sm',
+  lg: 'min-h-12 px-6 text-base',
+};
+
+export default function Button({
+  variant = 'primary',
+  size = 'md',
+  loading,
+  pressOnly = false,
+  children,
+  className = '',
+  disabled,
+  ...props
+}: ButtonProps) {
+  const palette = variants[variant];
+  return (
+    <button
+      {...props}
+      className={`inline-flex items-center justify-center gap-2 font-medium rounded-xl
+        transition-all duration-200 ease-out touch-manipulation
+        ${palette.base} ${pressOnly ? '' : palette.hover} ${sizes[size]}
+        ${disabled || loading
+          ? 'opacity-50 cursor-not-allowed'
+          : pressOnly
+            ? 'active:opacity-90'
+            : 'active:opacity-90'
+        }
+        ${className}`}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+    >
+      {loading && (
+        <svg aria-hidden="true" focusable="false" className="animate-spin h-4 w-4 shrink-0" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+      )}
+      {children}
+    </button>
+  );
+}

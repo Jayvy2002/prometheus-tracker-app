@@ -16,7 +16,7 @@ test('profile initials use first letters, fallback when empty', () => {
 });
 
 test('mobile coach chrome: profile is a tab, no 6th bottom-nav tab', () => {
-  const layout = src('src/components/layout/AppLayout.tsx');
+  const layout = src('src/app/layout/AppLayout.tsx');
   assert.doesNotMatch(layout, /CoachProfileButton/);
   assert.doesNotMatch(layout, /WorkspaceSwitcher/);
   assert.doesNotMatch(layout, /h-0 pointer-events-none/);
@@ -26,12 +26,12 @@ test('mobile coach chrome: profile is a tab, no 6th bottom-nav tab', () => {
   const profile = src('src/components/profile/ProfilePage.tsx');
   assert.match(profile, /WorkspaceSwitcher/);
 
-  const nav = src('src/navigation/navConfig.ts');
+  const nav = src('src/app/navigation/navConfig.ts');
   const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
   assert.match(mobileFn, /return \[today, clients, messages, programs, profile\]/);
   assert.doesNotMatch(mobileFn, /\bcopilot\b/);
 
-  const side = src('src/components/layout/SideNav.tsx');
+  const side = src('src/app/layout/SideNav.tsx');
   assert.match(side, /desktopSections/);
   assert.match(side, /hidden md:flex/);
 });
@@ -113,11 +113,11 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   assert.match(app, /TrackingGate module="nutrition"/);
   assert.match(app, /path="\/clients" element=\{<CoachOnly>/);
 
-  const nav = src('src/navigation/navConfig.ts');
+  const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /labelKey: 'nav\.myProgram'/);
   assert.match(nav, /path: '\/photos'/);
 
-  const bottom = src('src/components/layout/BottomNav.tsx');
+  const bottom = src('src/app/layout/BottomNav.tsx');
   assert.match(bottom, /mobileTabs/);
   assert.doesNotMatch(bottom, /path: '\/photos'/);
   const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
@@ -136,14 +136,14 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
 });
 
 test('Coach chrome labels come from i18n; 360 default tab is overview with named empty states', () => {
-  const nav = src('src/navigation/navConfig.ts');
+  const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /labelKey: 'nav\.today'/);
   assert.match(nav, /labelKey: 'nav\.clients'/);
   assert.match(nav, /labelKey: 'nav\.programs'/);
   assert.match(nav, /labelKey: 'nav\.messages'/);
   assert.match(nav, /labelKey: 'nav\.copilot'/);
 
-  const bottom = src('src/components/layout/BottomNav.tsx');
+  const bottom = src('src/app/layout/BottomNav.tsx');
   assert.match(bottom, /t\(tab\.labelKey\)/);
 
   const detail = src('src/components/coaching/ClientDetailPage.tsx');

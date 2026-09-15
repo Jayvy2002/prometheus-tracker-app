@@ -64,7 +64,7 @@ test('telemetry table is insert-only for the app and cascades on account deletio
 });
 
 test('track() is wired on the loops that matter (coach, client, solo)', () => {
-  const layout = src('src/components/layout/AppLayout.tsx');
+  const layout = src('src/app/layout/AppLayout.tsx');
   assert.match(layout, /trackScreen\(location\.pathname\)/);
   const intake = src('src/components/onboarding/KinesiologyIntakeFlow.tsx');
   assert.match(intake, /track\('intake_completed'/);

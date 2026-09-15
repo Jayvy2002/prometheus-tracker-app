@@ -66,22 +66,17 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
-Ceci est l’**arbre actuel**. La cible `app` / `features` / `shared` et la matrice « tel fichier va ici » sont dans `docs/ARCHITECTURE.md`. **Ne pas déplacer** de dossiers avant le lot du Chantier qui le dit (18+). `coachingStore` reste un seul fichier jusqu’au lot **21c** (façade obligatoire).
+Ceci est l’**arbre actuel** (lot 18 livré). La matrice et la suite (19–23) sont dans `docs/ARCHITECTURE.md`. **Ne pas déplacer** `coach*.ts`, `App.tsx`, `stores/`, `types.ts` ni i18n avant le lot qui le dit. `coachingStore` reste un seul fichier jusqu’au lot **21c** (façade obligatoire).
 
 ```text
 src/
 ├── App.tsx                         Routes, gardes, bootstrap (lot 21a pour découper)
-├── components/
-│   ├── coaching/                   Console coach, fiche client 360, messages
-│   ├── programs/                   Programmes coach et client
-│   ├── dashboard/                  Accueil client/solo et revue hebdomadaire
-│   ├── onboarding/                 Questionnaire standard et reprise
-│   ├── layout/                     Chrome (lot 18 → app/layout)
-│   ├── ui/                         Primitives (lot 18 → shared/ui ; tokens : lot 19)
-│   └── workout|nutrition|checkin/  Tracker athlète
+├── app/layout/                     Chrome ; app/navigation/ = navConfig
+├── features/                       account / coaching / nutrition — hooks évidents seulement
+├── shared/                         api/supabase, hooks, ui (tokens : lot 19)
+├── components/                     Écrans métier ; ui/ et layout/ = réexports
 ├── stores/                         Zustand par domaine — coachingStore intact jusqu’au 21c
-├── lib/                            Logique, contrats, hooks encore ici, tests `*.test.ts`
-├── navigation/                     navConfig (lot 18 → app/navigation)
+├── lib/                            Métier + réexports ; tests `*.test.ts`
 └── i18n/locales/{fr,en}.ts         Textes visibles (lot 22b pour découper)
 
 supabase/

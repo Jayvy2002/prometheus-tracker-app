@@ -37,7 +37,7 @@ test('D06: full-text goes through cgi/search.pl (v2 is structured search), never
   assert.match(off, /OFF_SEARCH_TIMEOUT_MS/);
   assert.match(off, /consumeOffBudget/);
   assert.match(off, /country/);
-  const hook = src('src/lib/useFoodCatalogSearch.ts');
+  const hook = src('src/features/nutrition/hooks/useFoodCatalogSearch.ts');
   // OFF only on explicit searchNow — the debounced effect stays local.
   assert.match(hook, /searchOpenFoodFacts\(q, \{ lang, country/);
   assert.match(hook, /Explicite \(bouton\/Entrée\)/);
@@ -47,7 +47,7 @@ test('D06: full-text goes through cgi/search.pl (v2 is structured search), never
 test('FoodForm and IngredientPicker use the shared OFF search', () => {
   const food = src('src/components/nutrition/FoodForm.tsx');
   const ing = src('src/components/nutrition/IngredientPicker.tsx');
-  const hook = src('src/lib/useFoodCatalogSearch.ts');
+  const hook = src('src/features/nutrition/hooks/useFoodCatalogSearch.ts');
   assert.match(food, /useFoodCatalogSearch/);
   assert.match(ing, /useFoodCatalogSearch/);
   assert.match(hook, /searchOpenFoodFacts/);
