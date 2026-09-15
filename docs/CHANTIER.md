@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX51 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 / UX44 / UX51 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28 / UX36** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28 / UX36 / UX44** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -41,7 +41,8 @@
 | **UX16** Offline langage | **PASS.** Bandeau « Hors ligne — tes modifications sont conservées sur cet appareil. » File séances seulement. | — |
 | **UX28** Manque ≠ faute | **PASS.** Settings : « séance non loggée » + « Séances non loggées » / « Check-ins en attente ». File : Pas de programme / Séance faite, pas « a manqué ». Ask : « log(s) manquant(s) ». Relance : « comment se passent tes séances ? ». | — |
 | **UX36** Filtres roster | **PASS.** Puces Tous / Check-in / … ; « Filtre : Check-in · 1 client(s) » (Invitee) ; Effacer → les deux clients. | — |
-| **UX51** Provenance alimentaire | **PASS.** Hit Banana : « Catalogue interne — non certifié ». Saisie « Yaourt nature » : « Saisie manuelle — non certifié ». | — |
+| **UX51** Provenance alimentaire | **PASS.** Hit Banana : « Catalogue interne — non certifié ». Saisie « Yaourt nature » : « Saisie manuelle — non certifié ». |
+| **UX44** Attente IA quittable | **PASS.** Solo `/scanner` : lookup « Recherche du produit » + « Tu peux quitter. Le journal reste possible. » + Annuler → `/nutrition` (journal utilisable, pas de produit appliqué). | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -484,7 +485,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Lier séance / check-in dans le fil | UX32 | **Conçu** |
 | Filtres roster visibles | UX36 | **Terminé** |
 | Builder questionnaire (modèle, preview, publication) | UX39–41 | À construire |
-| Attente IA quittable | UX44 | À construire |
+| Attente IA quittable | UX44 | **Terminé** |
 | Calendrier : prévu / commencé / terminé | UX47 | **Conçu** |
 | Du point de courbe vers la séance | UX50 | **Conçu** |
 | Provenance alimentaire en mots | UX51 | **Terminé** |
@@ -703,7 +704,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 |---|---|---|---|---|---|
 | **UX42** | P1 | 10d | **Terminé** | Carte « Avant d’envoyer » : destinataire + effet (brouillon, rien d’envoyé). Filtre roster = autre chemin. | Pas d’ambiguïté de destinataire. |
 | **UX43** | P1 | 10d | **Terminé** | Live : « Effet : brouillon de réponse. Rien n’est envoyé tant que tu ne confirmes pas. » | « Envoyer » ne cache pas un changement de plan. |
-| **UX44** | P2 | ens. | À construire | Attente IA quittable. | L’app reste utilisable. |
+| **UX44** | P2 | ens. | **Terminé** | Live Solo `/scanner` : overlay lookup + hint + Annuler → journal Nutrition. `cancelledRef` bloque `onResult` après départ. | L’app reste utilisable. |
 | **UX45** | P2 | 10b | **À vérifier** | Revue = 3 chiffres (kcal / delta / séances). Notice Accueil gardée. **Reste :** parcours live. | Aucune application sans choix. |
 | **UX46** | P2 | 10c | **À vérifier** | Learned : kinds FR/EN, pas de clés JSON. Onglet 360 **Récupération**. **Reste :** parcours live. | Désactivation sans clés techniques. |
 | **UX87** | P2 | 12a | **Terminé** | Revue live : Ignorer / Cette séance / Enregistrer comme jour de plan. | La réponse est actionnable et durable, jamais auto-appliquée. |
@@ -810,7 +811,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX51**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**, **UX44**, **UX51**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|

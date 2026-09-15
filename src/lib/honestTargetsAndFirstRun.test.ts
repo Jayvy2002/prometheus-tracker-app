@@ -100,6 +100,7 @@ test('UX44: barcode and AI waits are dismissible without applying a result', () 
   assert.match(scanner, /cancelledRef/);
   assert.match(scanner, /scanner\.waitQuitHint/);
   assert.match(scanner, /onClose\(\)/);
+  assert.match(scanner, /data-testid="scanner-wait-cancel"/);
   const fr = src('src/i18n/locales/fr/nutrition.ts');
   assert.match(fr, /Le journal reste possible/);
 });

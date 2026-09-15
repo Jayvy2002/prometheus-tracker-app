@@ -308,7 +308,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
 
   if (phase === 'searching') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6">
+      <div data-testid="scanner-wait" className="flex flex-col items-center justify-center min-h-[60vh] px-6">
         <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center mb-5">
           <Loader2 size={28} className="text-blue-400 animate-spin" />
         </div>
@@ -319,7 +319,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         )}
         <p className="text-white font-semibold">{t('scanner.lookingUp')}</p>
         <p className="text-sm text-neutral-500 text-center max-w-xs mt-2">{t('scanner.waitQuitHint')}</p>
-        <Button type="button" variant="secondary" className="mt-6" onClick={dismissWait}>
+        <Button type="button" variant="secondary" className="mt-6" data-testid="scanner-wait-cancel" onClick={dismissWait}>
           {t('common.cancel')}
         </Button>
       </div>
@@ -328,7 +328,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
 
   if (phase === 'ai_analyzing') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6">
+      <div data-testid="scanner-wait" className="flex flex-col items-center justify-center min-h-[60vh] px-6">
         <div className="w-20 h-20 rounded-full bg-neutral-900 flex items-center justify-center mb-6">
           <Loader2 size={32} className="text-blue-400 animate-spin" />
         </div>
@@ -342,7 +342,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
             <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '65%' }} />
           </div>
         </div>
-        <Button type="button" variant="secondary" className="mt-6" onClick={dismissWait}>
+        <Button type="button" variant="secondary" className="mt-6" data-testid="scanner-wait-cancel" onClick={dismissWait}>
           {t('common.cancel')}
         </Button>
       </div>
@@ -673,12 +673,14 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           onChange={e => setManualCode(e.target.value)}
           placeholder={t('scanner.typeBarcode')}
           className="flex-1"
+          data-testid="scanner-barcode-input"
           onKeyDown={e => { if (e.key === 'Enter' && manualCode.trim()) lookupBarcode(manualCode.trim()); }}
         />
         <Button
           onClick={() => { if (manualCode.trim()) lookupBarcode(manualCode.trim()); }}
           variant="secondary"
           disabled={!manualCode.trim()}
+          data-testid="scanner-barcode-lookup"
         >
           <SearchIcon size={16} />
         </Button>
