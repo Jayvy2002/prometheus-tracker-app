@@ -163,6 +163,14 @@ test('20 marketplace: marketplace modules live in features/marketplace/domain', 
   }
 });
 
+test('20 workout: workout modules live in features/workout/domain', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const name of ['startWorkout.ts', 'performedSets.ts', 'exerciseCatalog.ts', 'plateMath.ts']) {
+    assert.ok(existsSync(at(`src/features/workout/domain/${name}`)), name);
+    assert.match(readFileSync(at(`src/lib/${name}`), 'utf8'), /features\/workout\/domain\//);
+  }
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

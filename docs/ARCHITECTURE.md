@@ -19,6 +19,7 @@ src/
 │   ├── coaching/hooks/     useClientTracking
 │   ├── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
 │   ├── marketplace/domain/ marketplace*.ts (lot 20)
+│   ├── workout/domain/     séances, exos, disques (lot 20)
 │   └── nutrition/hooks/    useFoodCatalogSearch
 ├── shared/
 │   ├── api/supabase/       client

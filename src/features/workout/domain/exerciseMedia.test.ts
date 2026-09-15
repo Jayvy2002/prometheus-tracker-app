@@ -13,7 +13,7 @@ import {
   muscleTone,
 } from './exerciseMannequin';
 import { exerciseVideoKind, youtubeEmbedUrl, youtubeIdFromUrl } from './exerciseVideo';
-import type { Exercise } from './types';
+import type { Exercise } from '../../../lib/types';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -96,7 +96,7 @@ test('picker and session card mount ExerciseMedia', () => {
   const media = src('src/components/workout/ExerciseMedia.tsx');
   assert.match(media, /ExerciseMuscleMannequin/);
   assert.match(media, /youtubeEmbedUrl/);
-  const video = src('src/lib/exerciseVideo.ts');
+  const video = src('src/features/workout/domain/exerciseVideo.ts');
   assert.match(video, /youtube-nocookie/);
   const mannequin = src('src/components/workout/ExerciseMuscleMannequin.tsx');
   assert.match(mannequin, /data-muscle-id/);
