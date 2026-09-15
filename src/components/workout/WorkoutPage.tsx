@@ -8,11 +8,15 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
-import { isCoachedAthlete } from '../../lib/coachRole';
+import { isCoachedAthlete, isSoloAthlete } from '../../lib/coachRole';
 import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
+import { useProfileStore } from '../../stores/profileStore';
+import { isPerformedSet } from '../../lib/performedSets';
+import SoloAskBar from '../solo/SoloAskBar';
+import type { SoloAskContext } from '../../lib/soloAsk';
 
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
@@ -31,7 +35,10 @@ export default function WorkoutPage() {
   const myCoach = useCoachingStore(s => s.myCoach);
   const assignment = useProgramStore(s => s.assignment);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
+  const createProgram = useProgramStore(s => s.createProgram);
+  const { profile } = useProfileStore();
   const coached = isCoachedAthlete(coachingRole, myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -60,6 +67,37 @@ export default function WorkoutPage() {
 
   const lastCompleted = lastCompletedWorkout(workouts, todayStr());
   const lastCompletedId = lastCompleted?.id ?? '';
+  const lastPerformed = (lastFull?.exercises ?? [])
+    .flatMap(ex => (ex.sets ?? []).filter(isPerformedSet))
+    .slice(-1)[0];
+
+  const askContext: Omit<SoloAskContext, 'question'> = {
+    surface: 'workout',
+    injuries: profile?.injuries_limitations ?? '',
+    experience: profile?.training_experience ?? '',
+    frequency: profile?.training_frequency ?? 0,
+    focus: profile?.training_focus ?? '',
+    programName: assignment?.program?.name ?? null,
+    programExercises: (assignment?.program?.days ?? []).flatMap(d => (d.exercises ?? []).map(e => e.name)),
+    recentLiftNames: workouts.slice(0, 5).map(w => w.name),
+    calorieTarget: profile?.daily_calorie_target ?? 0,
+    proteinTarget: profile?.protein_target ?? 0,
+    carbsTarget: profile?.carbs_target ?? 0,
+    fatTarget: profile?.fat_target ?? 0,
+    consumedCalories: 0,
+    consumedProtein: 0,
+    consumedCarbs: 0,
+    consumedFat: 0,
+    allergies: profile?.food_allergies ?? [],
+    dietType: profile?.diet_type ?? 'omnivore',
+    currentExerciseName: null,
+    catalog: [],
+    lastWeightKg: lastPerformed?.weight_kg ?? null,
+    lastReps: lastPerformed?.reps ?? null,
+    lastRestSeconds: null,
+    missedWeekday: null,
+    coachName: null,
+  };
 
   useEffect(() => {
     if (!lastCompletedId) {
@@ -184,6 +222,45 @@ export default function WorkoutPage() {
           <Plus size={16} /> {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('common.new')}
         </Button>
       </div>
+
+      {solo && user && (
+        <SoloAskBar
+          context={askContext}
+          onApplyOnce={async (proposal) => {
+            const workoutId = await startWorkoutFromTemplate({
+              userId: user.id,
+              name: proposal.dayName || t('workout.title'),
+              exercises: proposal.exercises,
+            });
+            if (!workoutId) {
+              toast(t('workout.startRoutineFailed'), 'error');
+              return;
+            }
+            navigate(`/workout/${workoutId}`);
+          }}
+          onSave={async (proposal) => {
+            const name = proposal.dayName.trim() || t('soloAsk.namedDay');
+            const id = await createProgram({
+              owner_id: user.id,
+              name,
+              description: '',
+              duration_weeks: 1,
+            }, [{
+              weekday: new Date().getDay(),
+              name,
+              routine_id: null,
+              order_index: 0,
+              exercises: proposal.exercises,
+            }]);
+            if (!id) {
+              toast(t('programs.createFailed'), 'error');
+              return;
+            }
+            toast(t('programs.created'));
+            navigate('/programs');
+          }}
+        />
+      )}
 
       {(coached || !assignment?.program) && (
         <CardLink to="/programs" className="mb-4 flex items-center gap-3">
