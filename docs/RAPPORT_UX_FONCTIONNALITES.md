@@ -193,9 +193,9 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 
 | | |
 |---|---|
-| **Quoi** | `/checkin`. Cœur : sommeil, qualité, énergie, stress. « Plus de détails » : humeur, faim, fatigue, douleur, adhérence, notes — selon `checkin_vars`. Historique 14 j. Tab mobile si module on. |
-| **Marche** | Court par défaut. Champs réellement allumés par le coach. Pas de sous-titre « auto-coaching » solo. |
-| **Ne va pas** | Boucle fermée absente (à quoi a servi le bilan — UX27 conçu). Échelles 0–10 sans mots-ancres. Cœur vs détails encore à resserrer (UX25). |
+| **Quoi** | `/checkin`. Cœur : sommeil, qualité, énergie, stress. « Plus de détails (N) » : humeur, faim, fatigue, douleur, plan suivi, notes — selon `checkin_vars`. Historique 14 j = scores **remplis**. Tab mobile si module on. |
+| **Marche** | Court par défaut (UX25). Échelles 0–10 avec mots-ancres. Setup coach : Essentiels / Détails. |
+| **Ne va pas** | Boucle fermée absente (à quoi a servi le bilan — UX27 conçu). |
 | **Changer** | Toast UX26 déjà là (« Enregistré — visible par {coach} »). Relier la réponse coach au bilan (UX27). Ne pas inventer une date de revue. |
 
 ### 3.5 Messages
@@ -295,8 +295,8 @@ Même moteur que le coaché, plus : séance libre naturelle, lien « Mon program
 
 Hors 5 tabs (sauf poids via hub Progression). Check-in via Dashboard + SideNav. Photos via SoloHub.
 
-| **Ne va pas** | Trop d’endroits. Check-in solo a **tous** les champs possibles (pas le sous-ensemble coach) — long si on n’ouvre pas « plus de détails » (le cœur existe, à garder). |
-| **Changer** | Même pattern coaché : cœur court, détails à la demande. Photos : audience = **toi** (solo) ; le dire. Poids déjà dans Progression : bien. |
+| **Ne va pas** | Trop d’endroits (Dashboard + SideNav + onglet). Photos : audience déjà dite (UX54). |
+| **Changer** | Cœur vs détails **livré** (UX25). Photos : audience = **toi** (solo) ; le dire. Poids déjà dans Progression : bien. |
 
 ### 4.7 Copilote solo
 
