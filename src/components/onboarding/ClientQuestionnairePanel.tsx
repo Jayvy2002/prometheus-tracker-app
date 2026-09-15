@@ -64,7 +64,6 @@ function ResponseForm({initial,readOnly,onCompleted}:{initial:QuestionnaireRespo
   {!definition&&!error&&<p role="status">{t('common.loading')}</p>}
   {definition&&<>
    <h2 className="font-semibold">{definition.name[i18n.language.startsWith('fr')?'fr':'en']} · v{definition.version}</h2>
-   <p className="text-sm text-neutral-400">{t('coachQuestionnaire.audience')}</p>
    <CoachQuestionnaireFields definition={definition} answers={answers}
     onChange={v=>{setAnswers(v);setSaved(false);}}
     issues={issues} disabled={readOnly||busy||!!response.completed_at}/>
@@ -81,6 +80,7 @@ export default function ClientQuestionnairePanel({clientId,responseId,onComplete
  const myCoach=useCoachingStore(s=>s.myCoach);
  const {t}=useTranslation();
  const owner=clientId??user?.id;
+ const viewingOwn=!clientId||clientId===user?.id;
  const [responses,setResponses]=useState<QuestionnaireResponse[]>([]);
  const [error,setError]=useState('');
  const [loading,setLoading]=useState(true);
@@ -96,7 +96,7 @@ export default function ClientQuestionnairePanel({clientId,responseId,onComplete
  },[owner,user?.id,retry]);
  if(!loading&&!error&&!responses.length&&emptyFallback!==undefined)return <>{emptyFallback}</>;
  return <div className="space-y-4">
-  <h1 className="text-xl font-semibold">{t('coachQuestionnaire.title')}</h1>
+  <h1 className="text-xl font-semibold">{t(viewingOwn?'coachQuestionnaire.myTitle':'coachQuestionnaire.title')}</h1>
   {loading&&<p role="status">{t('common.loading')}</p>}
   {error&&<div role="alert"><p>{t(error)}</p><Button onClick={()=>setRetry(v=>v+1)}>{t('errors.retry')}</Button></div>}
   {!loading&&!error&&!responses.length&&<p>{t('coachQuestionnaire.empty')}</p>}

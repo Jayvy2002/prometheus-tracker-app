@@ -164,6 +164,9 @@ export default function ProfilePage() {
               <Scale size={16} className="text-blue-400" /> {t('nav.weight')}
             </Link>
           )}
+          <Link to="/questionnaire" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <ClipboardList size={16} className="text-blue-400" /> {t('coachQuestionnaire.myTitle')}
+          </Link>
           {!isIntakeAlreadyFilled(profile) && (
             <Link to="/intake" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
               <ClipboardList size={16} className="text-blue-400" /> {t('intake.completeLater')}

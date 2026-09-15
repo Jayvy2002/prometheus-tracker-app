@@ -36,11 +36,10 @@ test('directory writes go through RPCs; coach accept activates the coaching link
 
 test('the directory is reachable without a 6th bottom tab and skips intake, not the assigned questionnaire', () => {
   const app = src('src/App.tsx');
-  const firstQuestionnaire = app.indexOf('ClientQuestionnairePanel');
   const marketplaceRoute = app.indexOf('path="/coaches"');
   const intake = app.indexOf('<KinesiologyIntakeFlow />');
-  assert.ok(firstQuestionnaire > 0 && marketplaceRoute > firstQuestionnaire, 'questionnaire gate must precede marketplace');
-  assert.ok(intake > marketplaceRoute, 'marketplace must skip kinesiology intake');
+  assert.doesNotMatch(app, /activeAssignment\?\.response && !activeAssignment\.response\.completed_at/);
+  assert.ok(marketplaceRoute > 0 && intake > marketplaceRoute, 'marketplace must skip kinesiology intake');
   assert.match(app, /entry_intent === 'find_coach'/);
   assert.match(app, /mode="directory"/);
 

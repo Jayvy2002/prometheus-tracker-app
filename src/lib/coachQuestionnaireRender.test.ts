@@ -63,3 +63,32 @@ test('preview can disable all answer controls', async () => {
   assert.match(html, /<textarea[^>]*disabled=""/);
   assert.match(html, /<select[^>]*disabled=""/);
 });
+
+test('audience and the health notice appear before the first medical question', async () => {
+  const withMedical: CoachQuestionnaire = {
+    ...definition,
+    sections: [
+      definition.sections[0],
+      {
+        id: 's-health',
+        label: { fr: 'Santé', en: 'Health' },
+        questions: [{
+          id: 'custom_pain', type: 'text',
+          label: { fr: 'Douleur', en: 'Pain' },
+          required: false, medical: true,
+        }],
+      },
+    ],
+  };
+  const instance = createInstance();
+  await instance.init({ lng: 'fr', resources: { fr: { translation: fr }, en: { translation: en } } });
+  const html = renderToStaticMarkup(createElement(I18nextProvider, { i18n: instance },
+    createElement(CoachQuestionnaireFields, {
+      definition: withMedical, answers: {}, onChange: () => undefined,
+    })));
+  const audienceAt = html.indexOf('Ces réponses sont accessibles');
+  const noticeAt = html.indexOf('Les questions suivantes concernent ta santé');
+  const painAt = html.indexOf('Douleur');
+  assert.ok(audienceAt >= 0 && noticeAt > audienceAt && painAt > noticeAt);
+  assert.match(html, /role="note"/);
+});

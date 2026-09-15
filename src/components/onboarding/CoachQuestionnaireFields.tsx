@@ -29,7 +29,9 @@ export default function CoachQuestionnaireFields({
       .format(new Date(Date.UTC(2024, 0, n + 1))),
   }));
   const control = 'w-full rounded-lg border border-neutral-700 bg-neutral-900 px-3 py-2 text-white';
+  const firstMedicalId = definition.sections.flatMap(s => s.questions).find(q => q.medical)?.id;
   return <div className="space-y-6">
+    <p className="text-sm text-neutral-400">{t('coachQuestionnaire.audience')}</p>
     {definition.sections.map(section => <section key={section.id} aria-labelledby={prefix + section.id}>
       <h2 id={prefix + section.id} className="text-lg font-semibold mb-4">{section.label[language]}</h2>
       <div className="space-y-5">
@@ -44,6 +46,9 @@ export default function CoachQuestionnaireFields({
           } as const;
           const multiple = q.type === 'multi' || q.type === 'weekdays';
           return <div key={q.id}>
+            {q.id === firstMedicalId && (
+              <p role="note" className="text-sm text-neutral-400 mb-4">{t('coachQuestionnaire.sensitiveNotice')}</p>
+            )}
             {multiple ? <fieldset disabled={disabled} aria-describedby={descriptionId} aria-invalid={!!error}>
               <legend className="text-sm font-medium mb-2">
                 {q.label[language]}{q.required ? ' *' : ''}
