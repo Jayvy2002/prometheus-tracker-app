@@ -73,6 +73,11 @@ test('hub link, banner, draft, and audience-before-medical are wired', () => {
   assert.match(fields, /coachQuestionnaire\.sensitiveNotice/);
   assert.match(fields, /firstMedicalId/);
 
+  const browser = src('scripts/test-questionnaire-browser.mjs');
+  assert.match(browser, /Advanced settings/);
+  assert.match(browser, /incomplete questionnaire must not prison the home/);
+  assert.match(browser, /goto\(origin\+'\/questionnaire'\)/);
+
   const fr = src('src/i18n/locales/fr.ts');
   const en = src('src/i18n/locales/en.ts');
   assert.match(fr, /myTitle: 'Mon questionnaire'/);
