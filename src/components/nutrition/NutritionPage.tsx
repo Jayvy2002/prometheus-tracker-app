@@ -28,6 +28,7 @@ import { useRecipeStore } from '../../stores/recipeStore';
 import { isSoloAthlete } from '../../lib/coachRole';
 import SoloAskBar from '../solo/SoloAskBar';
 import type { SoloAskContext } from '../../lib/soloAsk';
+import { saveGroceryList } from '../../lib/groceryList';
 
 export default function NutritionPage() {
   const { t, i18n } = useTranslation();
@@ -189,41 +190,52 @@ export default function NutritionPage() {
         <SoloAskBar
           context={askContext}
           onApplyOnce={async (proposal) => {
-            const meal = proposal.recipe;
-            if (!meal) return;
-            const result = await addLog({
-              user_id: user.id,
-              name: meal.name,
-              calories: meal.calories,
-              protein: meal.protein,
-              carbs: meal.carbs,
-              fat: meal.fat,
-              category: meal.category,
-              quantity: 1,
-              unit: 'serving',
-              logged_at: selectedDate,
-            });
-            if (result.error) return;
-            toast(t('nutrition.itemsCopied', { count: 1 }));
+            const meals = proposal.recipes.length > 0
+              ? proposal.recipes
+              : (proposal.recipe ? [proposal.recipe] : []);
+            if (meals.length === 0) return;
+            for (const meal of meals) {
+              const result = await addLog({
+                user_id: user.id,
+                name: meal.name,
+                calories: meal.calories,
+                protein: meal.protein,
+                carbs: meal.carbs,
+                fat: meal.fat,
+                category: meal.category,
+                quantity: 1,
+                unit: 'serving',
+                logged_at: selectedDate,
+              });
+              if (result.error) return;
+            }
+            toast(t('nutrition.itemsCopied', { count: meals.length }));
           }}
           onSave={async (proposal) => {
-            const meal = proposal.recipe;
-            if (!meal) return;
-            const saved = await createRecipe({
-              user_id: user.id,
-              name: meal.name,
-              description: meal.description,
-              servings: 1,
-              calories_per_serving: meal.calories,
-              protein_per_serving: meal.protein,
-              carbs_per_serving: meal.carbs,
-              fat_per_serving: meal.fat,
-            });
-            if (!saved) {
-              toast(t('errors.saveFailed'), 'error');
-              return;
+            const meals = proposal.recipes.length > 0
+              ? proposal.recipes
+              : (proposal.recipe ? [proposal.recipe] : []);
+            if (meals.length === 0 && proposal.grocery.length === 0) return;
+            for (const meal of meals) {
+              const saved = await createRecipe({
+                user_id: user.id,
+                name: meal.name,
+                description: meal.description,
+                servings: 1,
+                calories_per_serving: meal.calories,
+                protein_per_serving: meal.protein,
+                carbs_per_serving: meal.carbs,
+                fat_per_serving: meal.fat,
+              });
+              if (!saved) {
+                toast(t('errors.saveFailed'), 'error');
+                return;
+              }
             }
-            toast(t('nutrition.recipes.saved'));
+            if (proposal.grocery.length > 0) {
+              saveGroceryList(user.id, proposal.grocery);
+            }
+            toast(t(proposal.kind === 'meal_week' ? 'soloAsk.saveWeek' : 'nutrition.recipes.saved'));
           }}
         />
       )}

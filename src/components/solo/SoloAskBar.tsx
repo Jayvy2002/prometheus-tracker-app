@@ -10,9 +10,10 @@ interface Props {
   context: Omit<SoloAskContext, 'question'>;
   onApplyOnce: (proposal: SoloAskProposal) => Promise<void> | void;
   onSave: (proposal: SoloAskProposal) => Promise<void> | void;
+  compact?: boolean;
 }
 
-export default function SoloAskBar({ context, onApplyOnce, onSave }: Props) {
+export default function SoloAskBar({ context, onApplyOnce, onSave, compact = false }: Props) {
   const { t } = useTranslation();
   const [question, setQuestion] = useState('');
   const [proposal, setProposal] = useState<SoloAskProposal | null>(null);
@@ -31,7 +32,7 @@ export default function SoloAskBar({ context, onApplyOnce, onSave }: Props) {
   };
 
   return (
-    <div className="mb-4 rounded-2xl border border-neutral-800 bg-neutral-950/80 p-3" data-solo-ask="true">
+    <div className={`${compact ? 'mt-2 mb-1' : 'mb-4'} rounded-2xl border border-neutral-800 bg-neutral-950/80 p-3`} data-solo-ask="true">
       <label className="mb-1.5 flex items-center gap-1.5 text-[11px] uppercase tracking-wider text-neutral-500">
         <Sparkles size={12} className="text-blue-400" />
         {t('soloAsk.label')}
@@ -58,10 +59,28 @@ export default function SoloAskBar({ context, onApplyOnce, onSave }: Props) {
               ))}
             </ul>
           )}
-          {proposal.recipe && (
+          {proposal.recipes.length > 1 && (
+            <ul className="space-y-1 text-xs text-neutral-400" data-solo-ask-recipes="true">
+              {proposal.recipes.map(meal => (
+                <li key={meal.name}>{meal.name} · {meal.calories} kcal · P {meal.protein}</li>
+              ))}
+            </ul>
+          )}
+          {proposal.recipes.length <= 1 && proposal.recipe && (
             <p className="text-xs text-neutral-400">
               {proposal.recipe.calories} kcal · P {proposal.recipe.protein} / C {proposal.recipe.carbs} / F {proposal.recipe.fat}
             </p>
+          )}
+          {proposal.grocery.length > 0 && (
+            <p className="text-xs text-neutral-500" data-solo-ask-grocery="true">
+              {t('soloAsk.grocery')}: {proposal.grocery.join(', ')}
+            </p>
+          )}
+          {proposal.messageDraft && (
+            <p className="text-xs text-neutral-400 whitespace-pre-wrap" data-solo-ask-draft="true">{proposal.messageDraft}</p>
+          )}
+          {proposal.sessionNote && (
+            <p className="text-xs text-neutral-400" data-solo-ask-note="true">{proposal.sessionNote}</p>
           )}
           {proposal.actions.includes('save') && proposal.kind === 'workout_adjust' && (
             <Input

@@ -17,6 +17,8 @@ import { useProfileStore } from '../../stores/profileStore';
 import { isPerformedSet } from '../../lib/performedSets';
 import SoloAskBar from '../solo/SoloAskBar';
 import type { SoloAskContext } from '../../lib/soloAsk';
+import { shiftProgramWeekdays } from '../../lib/soloAsk';
+import { loadMessageDraft, saveMessageDraft } from '../../lib/messageDrafts';
 
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
@@ -36,6 +38,7 @@ export default function WorkoutPage() {
   const assignment = useProgramStore(s => s.assignment);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const createProgram = useProgramStore(s => s.createProgram);
+  const saveProgram = useProgramStore(s => s.saveProgram);
   const { profile } = useProfileStore();
   const coached = isCoachedAthlete(coachingRole, myCoach);
   const solo = isSoloAthlete(coachingRole, myCoach);
@@ -95,8 +98,8 @@ export default function WorkoutPage() {
     lastWeightKg: lastPerformed?.weight_kg ?? null,
     lastReps: lastPerformed?.reps ?? null,
     lastRestSeconds: null,
-    missedWeekday: null,
-    coachName: null,
+    missedWeekday: new Date().getDay(),
+    coachName: myCoach?.full_name ?? null,
   };
 
   useEffect(() => {
@@ -239,6 +242,42 @@ export default function WorkoutPage() {
             navigate(`/workout/${workoutId}`);
           }}
           onSave={async (proposal) => {
+            if (proposal.kind === 'plan_shift') {
+              const program = assignment?.program;
+              if (!program || proposal.shiftWeekday == null) {
+                toast(t('programs.createFailed'), 'error');
+                return;
+              }
+              const days = shiftProgramWeekdays(
+                (program.days ?? []).map(d => ({
+                  weekday: d.weekday,
+                  name: d.name,
+                  exercises: (d.exercises ?? []).map(ex => ({
+                    name: ex.name,
+                    default_sets: ex.default_sets,
+                    default_reps: ex.default_reps,
+                    default_reps_min: ex.default_reps_min,
+                    default_rir: ex.default_rir,
+                    default_rest_seconds: ex.default_rest_seconds,
+                    default_weight_kg: ex.default_weight_kg,
+                  })),
+                })),
+                askContext.missedWeekday ?? new Date().getDay(),
+                proposal.shiftWeekday,
+              );
+              const { error } = await saveProgram(program.id, {
+                name: program.name,
+                description: program.description ?? '',
+                duration_weeks: program.duration_weeks,
+              }, days, program.updated_at);
+              if (error) {
+                toast(error, 'error');
+                return;
+              }
+              toast(t('programs.created'));
+              await fetchMyAssignment(user.id);
+              return;
+            }
             const name = proposal.dayName.trim() || t('soloAsk.namedDay');
             const id = await createProgram({
               owner_id: user.id,
@@ -258,6 +297,23 @@ export default function WorkoutPage() {
             }
             toast(t('programs.created'));
             navigate('/programs');
+          }}
+        />
+      )}
+
+      {coached && user && myCoach && (
+        <SoloAskBar
+          context={{ ...askContext, surface: 'coached', coachName: myCoach.full_name }}
+          onApplyOnce={() => undefined}
+          onSave={(proposal) => {
+            const prev = loadMessageDraft(user.id, myCoach.id);
+            saveMessageDraft(
+              user.id,
+              myCoach.id,
+              [prev, proposal.messageDraft].filter(Boolean).join('\n\n'),
+            );
+            toast(t('soloAsk.saveDraft'));
+            navigate('/messages');
           }}
         />
       )}

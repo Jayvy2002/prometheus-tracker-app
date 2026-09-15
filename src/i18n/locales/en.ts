@@ -2333,6 +2333,7 @@ const en = {
     saveNote: 'Save the note',
     saveShift: 'Reschedule the plan',
     saveWeek: 'Save the week',
+    grocery: 'Groceries',
     swapOnce: 'Swap this session',
     placeholder: {
       workout: 'Ask about training, PRs, today’s session…',

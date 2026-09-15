@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
-import { proposeSoloAsk, remainingMacros, type SoloAskContext } from './soloAsk';
+import { proposeSoloAsk, remainingMacros, shiftProgramWeekdays, type SoloAskContext } from './soloAsk';
+import { loadGroceryList, saveGroceryList } from './groceryList';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -106,4 +107,54 @@ test('swap uses same muscles and equipment; Ask bar is not /prometheus', () => {
   const nutrition = src('src/components/nutrition/NutritionPage.tsx');
   assert.match(nutrition, /SoloAskBar/);
   assert.doesNotMatch(nutrition, /\/prometheus/);
+});
+
+test('session ask never saves the plan; missed day is a reviewable shift', () => {
+  const session = proposeSoloAsk(ctx({ surface: 'session', question: 'ajouter un exo pecs' }));
+  assert.ok(session);
+  assert.deepEqual(session!.actions, ['ignore', 'apply_once']);
+  const missed = proposeSoloAsk(ctx({ surface: 'workout', question: 'jour raté cette semaine' }));
+  assert.equal(missed?.kind, 'plan_shift');
+  assert.equal(missed!.actions.includes('save'), true);
+  assert.equal(missed!.actions.includes('apply_once'), false);
+  assert.equal(missed!.shiftWeekday, 2);
+  const shifted = shiftProgramWeekdays([{ weekday: 1, name: 'Push' }, { weekday: 3, name: 'Pull' }], 1, 2);
+  assert.deepEqual(shifted.map(d => d.weekday), [2, 3]);
+});
+
+test('journal remaining macros yields several meals; week stores a grocery list', () => {
+  const journal = proposeSoloAsk(ctx({ surface: 'nutrition', question: 'idées de repas avec le reste' }));
+  assert.equal(journal?.kind, 'recipe');
+  assert.ok((journal?.recipes.length ?? 0) >= 2);
+  const week = proposeSoloAsk(ctx({ surface: 'nutrition', question: 'plan de la semaine et courses' }));
+  assert.equal(week?.kind, 'meal_week');
+  assert.ok(week!.grocery.length > 0);
+  const storage = new Map<string, string>();
+  const mem = {
+    getItem: (k: string) => storage.get(k) ?? null,
+    setItem: (k: string, v: string) => { storage.set(k, v); },
+    removeItem: (k: string) => { storage.delete(k); },
+  };
+  saveGroceryList('u1', week!.grocery, mem);
+  assert.deepEqual(loadGroceryList('u1', mem), week!.grocery);
+});
+
+test('check-in is a note not a diagnosis; wiring stays off /prometheus', () => {
+  const note = proposeSoloAsk(ctx({ surface: 'checkin', question: 'fatigue et courbatures' }));
+  assert.equal(note?.kind, 'session_note');
+  assert.match(note!.sessionNote, /technique|série|séance/i);
+  assert.doesNotMatch(note!.sessionNote, /diagnostic|médical|patholog/i);
+  const form = src('src/components/workout/WorkoutForm.tsx');
+  const checkin = src('src/components/checkin/CheckInPage.tsx');
+  const card = src('src/components/workout/ExerciseCard.tsx');
+  const page = src('src/components/workout/WorkoutPage.tsx');
+  assert.match(form, /SoloAskBar/);
+  assert.match(form, /soloAskFromProfile\('session'/);
+  assert.match(checkin, /SoloAskBar/);
+  assert.match(checkin, /sessionNote/);
+  assert.match(card, /swap_exercise/);
+  assert.match(page, /saveMessageDraft/);
+  assert.match(page, /surface: 'coached'/);
+  assert.doesNotMatch(form, /\/prometheus/);
+  assert.doesNotMatch(checkin, /\/prometheus/);
 });

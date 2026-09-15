@@ -39,6 +39,15 @@ import { useClientTracking } from '../../lib/useClientTracking';
 import { showTrainingField } from '../../lib/clientTracking';
 import { useOnline } from '../../lib/useOnline';
 import { peekDeadLetterOps } from '../../lib/offlineQueue';
+import { isSoloAthlete } from '../../lib/coachRole';
+import { isPerformedSet } from '../../lib/performedSets';
+import { soloAskFromProfile } from '../../lib/soloAskDefaults';
+import SoloAskBar from '../solo/SoloAskBar';
+import { useProfileStore } from '../../stores/profileStore';
+import { useCoachingStore } from '../../stores/coachingStore';
+import { useExerciseStore } from '../../stores/exerciseStore';
+import { useProgramStore } from '../../stores/programStore';
+import { shiftProgramWeekdays } from '../../lib/soloAsk';
 
 interface LocationState {
   routineId?: string;
@@ -57,9 +66,18 @@ function WorkoutFormInner() {
   const routineId = state.routineId;
   const { user } = useAuthStore();
   const {
-    currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, setCurrentWorkout,
+    currentWorkout, fetchWorkout, createWorkout, updateWorkout, deleteWorkout, addExercise, addSet, updateSet, setCurrentWorkout,
     pendingOps, deadOps, syncOfflineQueue, retryDeadLetter,
   } = useWorkoutStore();
+  const { profile } = useProfileStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
+  const catalogExercises = useExerciseStore(s => s.exercises);
+  const fetchExercises = useExerciseStore(s => s.fetchExercises);
+  const assignment = useProgramStore(s => s.assignment);
+  const saveProgram = useProgramStore(s => s.saveProgram);
+  const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
   const online = useOnline();
   const { getAllSetDrafts, getAllExerciseDrafts, persistNow } = useDraftContext();
   const tracking = useClientTracking();
@@ -164,6 +182,14 @@ function WorkoutFormInner() {
       fetchWorkout(id);
     }
   }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (user) void fetchMyAssignment(user.id);
+  }, [user, fetchMyAssignment]);
+
+  useEffect(() => {
+    void fetchExercises();
+  }, [fetchExercises]);
 
   useEffect(() => {
     if (!currentWorkout || !routineId || routineAppliedRef.current || !isNew) return;
@@ -445,6 +471,98 @@ function WorkoutFormInner() {
         </IconButton>
         )}
       </div>
+
+      {solo && user && currentWorkout && !currentWorkout.completed && (
+        <SoloAskBar
+          context={soloAskFromProfile('session', profile, {
+            programName: currentWorkout.name || assignment?.program?.name || null,
+            programExercises: (currentWorkout.exercises ?? []).map(ex => ex.name),
+            recentLiftNames: (currentWorkout.exercises ?? []).map(ex => ex.name),
+            currentExerciseName: (currentWorkout.exercises ?? []).find(ex =>
+              (ex.sets ?? []).some(s => !s.completed),
+            )?.name ?? currentWorkout.exercises?.slice(-1)[0]?.name ?? null,
+            catalog: catalogExercises.map(ex => ({
+              name: ex.name,
+              primary_muscles: ex.primary_muscles,
+              secondary_muscles: ex.secondary_muscles,
+              equipment: ex.equipment,
+            })),
+            lastWeightKg: (currentWorkout.exercises ?? [])
+              .flatMap(ex => (ex.sets ?? []).filter(isPerformedSet))
+              .slice(-1)[0]?.weight_kg ?? null,
+            lastReps: (currentWorkout.exercises ?? [])
+              .flatMap(ex => (ex.sets ?? []).filter(isPerformedSet))
+              .slice(-1)[0]?.reps ?? null,
+            missedWeekday: new Date().getDay(),
+          })}
+          onApplyOnce={async (proposal) => {
+            if (proposal.kind === 'swap_exercise') return;
+            for (const idea of proposal.exercises) {
+              const idx = useWorkoutStore.getState().currentWorkout?.exercises?.length ?? 0;
+              const ex = await addExercise(currentWorkout.id, idea.name, idx, {
+                prescribed_sets: idea.default_sets,
+                prescribed_reps: idea.default_reps,
+                prescribed_rir: idea.default_rir,
+                prescribed_rest_seconds: idea.default_rest_seconds,
+                prescribed_weight_kg: proposal.params.last && typeof proposal.params.last === 'string'
+                  ? null
+                  : null,
+              });
+              if (!ex) continue;
+              const last = (currentWorkout.exercises ?? [])
+                .flatMap(row => (row.sets ?? []).filter(isPerformedSet))
+                .slice(-1)[0];
+              for (let i = 0; i < idea.default_sets; i++) {
+                const set = await addSet(ex.id, i);
+                if (set && last) {
+                  await updateSet(set.id, {
+                    weight_kg: last.weight_kg,
+                    reps: idea.default_reps,
+                    rir: idea.default_rir,
+                  });
+                }
+              }
+            }
+          }}
+          onSave={async (proposal) => {
+            if (proposal.kind !== 'plan_shift' || proposal.shiftWeekday == null) return;
+            const program = assignment?.program;
+            if (!program || !user) {
+              toast(t('programs.createFailed'), 'error');
+              return;
+            }
+            const from = new Date().getDay();
+            const days = shiftProgramWeekdays(
+              (program.days ?? []).map(d => ({
+                weekday: d.weekday,
+                name: d.name,
+                exercises: (d.exercises ?? []).map(ex => ({
+                  name: ex.name,
+                  default_sets: ex.default_sets,
+                  default_reps: ex.default_reps,
+                  default_reps_min: ex.default_reps_min,
+                  default_rir: ex.default_rir,
+                  default_rest_seconds: ex.default_rest_seconds,
+                  default_weight_kg: ex.default_weight_kg,
+                })),
+              })),
+              from,
+              proposal.shiftWeekday,
+            );
+            const { error } = await saveProgram(program.id, {
+              name: program.name,
+              description: program.description ?? '',
+              duration_weeks: program.duration_weeks,
+            }, days, program.updated_at);
+            if (error) {
+              toast(error, 'error');
+              return;
+            }
+            toast(t('programs.created'));
+            await fetchMyAssignment(user.id);
+          }}
+        />
+      )}
 
       {(!online || pendingOps > 0) && (
         <div

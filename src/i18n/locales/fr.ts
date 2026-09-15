@@ -2333,6 +2333,7 @@ const fr = {
     saveNote: 'Enregistrer la note',
     saveShift: 'Recaler le plan',
     saveWeek: 'Enregistrer la semaine',
+    grocery: 'Courses',
     swapOnce: 'Remplacer cette séance',
     placeholder: {
       workout: 'Question sur l’entraînement, les perfs, une séance…',

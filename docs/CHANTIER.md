@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod (`phyuijjekxtjvipjtdfv`) — voir tableau ci-dessous. File produit ouverte : lots **11–16**. File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026 (nuit).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–13** : code Git (PRs). File produit ouverte : lots **14–16**. File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 11** (bibliothèque exo — code Git, apply prod + parcours encore dus). Lots 2–10 : plus « tous à vérifier » — **2 Terminé** ; **3–10 Partiel** (parcours joués, restes listés). Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène, zéro écran, si un test nouveau doit être lancé).
+| **Lot ouvert : 14** (builder + logger types de séries). Lots 11–13 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**. Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène si un test nouveau).
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -627,17 +627,17 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX44** | P2 | ens. | À construire | Attente IA quittable. | L’app reste utilisable. |
 | **UX45** | P2 | 10b | **À vérifier** | Revue = 3 chiffres (kcal / delta / séances). Notice Accueil gardée. **Reste :** parcours live. | Aucune application sans choix. |
 | **UX46** | P2 | 10c | **À vérifier** | Learned : kinds FR/EN, pas de clés JSON. Onglet 360 **Récupération**. **Reste :** parcours live. | Désactivation sans clés techniques. |
-| **UX87** | P2 | 12a | À construire | **Après 10. Solo.** Barre Ask Entraînement. Contexte : perfs, programme, blessures / limites, expérience. Ajustement proposé → revue : ignorer / cette séance / plan nommé. | La réponse est actionnable et durable, jamais auto-appliquée. |
-| **UX88** | P2 | 12b | À construire | **Après 10. Solo.** Barre Ask Nutrition. Contexte : cibles kcal/macros, allergies, type d’alimentation, consommé aujourd’hui. Recette → revue : ignorer / une fois au journal / Mes recettes. | Recette proposée = enregistrable **au choix**, jamais forcée. |
-| **UX89** | P2 | 13a | À construire | **Après 12. Solo.** Ask dans `WorkoutForm`. Contexte : séries cochées, exo courant. | N’écrit le plan que si on enregistre. |
-| **UX90** | P2 | 13b | À construire | **Après 12. Solo.** Restes du jour → idées de repas. | Même choix qu’UX88. |
-| **UX91** | P2 | 13c | À construire | **Après 12.** Check-in → note de séance. Pas d’interprétation santé. | Proposition ≠ diagnostic. |
-| **UX92** | P2 | 13d | À construire | **Après 12.** Semaine / jour loupé → recaler. | Pas d’auto-skip. |
-| **UX93** | P2 | 13e | À construire | **Après 12. Coaché.** Ask = brouillon Messages. Jamais d’envoi. Recette perso ≠ plan coach. | Le coach lit ce que le client envoie. |
-| **UX94** | P2 | 13f | À construire | **Après 11 et 12.** Alternatives depuis la fiche exo (muscles, matériel). | Swap cette séance après revue. |
-| **UX95** | P2 | 13g | À construire | **Après 12. Solo.** Semaine + courses. | Enregistrable, pas auto-appliqué. |
-| **UX96** | P2 | 13h | À construire | **Après 12. Solo.** Swap ingrédient (allergie / stock). | Cibles conservées. |
-| **UX97** | P2 | 13i | À construire | **Après 12. Solo.** Deload / charges et repos dernière fois. | Revue avant écriture. |
+| **UX87** | P2 | 12a | **À vérifier** | Barre Ask Entraînement. **Reste :** parcours live. | La réponse est actionnable et durable, jamais auto-appliquée. |
+| **UX88** | P2 | 12b | **À vérifier** | Barre Ask Nutrition. **Reste :** parcours live. | Recette proposée = enregistrable **au choix**, jamais forcée. |
+| **UX89** | P2 | 13a | **À vérifier** | Ask dans `WorkoutForm` (surface `session`) : apply = cette séance, pas de save plan. **Reste :** parcours live. | N’écrit le plan que si on enregistre. |
+| **UX90** | P2 | 13b | **À vérifier** | Restes du jour → 2–3 idées (`recipes`). **Reste :** parcours live. | Même choix qu’UX88. |
+| **UX91** | P2 | 13c | **À vérifier** | Check-in → note de séance préremplie. **Reste :** parcours live. | Proposition ≠ diagnostic. |
+| **UX92** | P2 | 13d | **À vérifier** | Jour loupé → `plan_shift` (save seulement, pas d’auto-skip). **Reste :** parcours live. | Pas d’auto-skip. |
+| **UX93** | P2 | 13e | **À vérifier** | Coaché : Ask = `saveMessageDraft` + `/messages`. **Reste :** parcours live. | Le coach lit ce que le client envoie. |
+| **UX94** | P2 | 13f | **À vérifier** | Alternative depuis la fiche (`swap_exercise` cette séance). **Reste :** parcours live. | Swap cette séance après revue. |
+| **UX95** | P2 | 13g | **À vérifier** | Semaine + courses (`groceryList`). **Reste :** parcours live. | Enregistrable, pas auto-appliqué. |
+| **UX96** | P2 | 13h | **À vérifier** | Swap ingrédient depuis Nutrition. **Reste :** parcours live. | Cibles conservées. |
+| **UX97** | P2 | 13i | **À vérifier** | Deload / dernière charge dans la proposition. **Reste :** parcours live. | Revue avant écriture. |
 
 ### Calendrier et indicateurs
 

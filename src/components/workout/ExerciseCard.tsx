@@ -7,7 +7,7 @@ import { usePreferencesStore } from '../../stores/preferencesStore';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { formatExercisePrescription, showTrainingField } from '../../lib/clientTracking';
 import { showLoggingRir } from '../../lib/clientGym';
-import { isCoachedAthlete } from '../../lib/coachRole';
+import { isCoachedAthlete, isSoloAthlete } from '../../lib/coachRole';
 import { useCoachingStore } from '../../stores/coachingStore';
 import type { WorkoutExercise, WorkoutSet, SetType } from '../../lib/types';
 import type { ExerciseSession } from '../../stores/workoutStore';
@@ -24,6 +24,8 @@ import { isPerformedSet } from '../../lib/performedSets';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { findCatalogExercise } from '../../lib/exerciseCatalog';
 import ExerciseMedia from './ExerciseMedia';
+import SoloAskBar from '../solo/SoloAskBar';
+import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 
 export type OverloadSuggestionKind =
   | 'stagnant'
@@ -648,6 +650,7 @@ export default function ExerciseCard({
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const hasCoach = isCoachedAthlete(coachingRole, myCoach);
+  const solo = isSoloAthlete(coachingRole, myCoach);
   const showRir = showLoggingRir(showTrainingField(tracking, 'rir'), prefRir, hasCoach);
   const showLoad = showTrainingField(tracking, 'load');
   const showReps = showTrainingField(tracking, 'reps') || showTrainingField(tracking, 'reps_range');
@@ -826,6 +829,36 @@ export default function ExerciseCard({
       {showMedia && catalog && (
         <div className="px-4 pb-3 animate-fade-in">
           <ExerciseMedia exercise={catalog} compact />
+        </div>
+      )}
+
+      {solo && (
+        <div className="px-3">
+          <SoloAskBar
+            compact
+            context={soloAskFromProfile('exercise', profile, {
+              currentExerciseName: exercise.name,
+              catalog: catalogExercises.map(ex => ({
+                name: ex.name,
+                primary_muscles: ex.primary_muscles,
+                secondary_muscles: ex.secondary_muscles,
+                equipment: ex.equipment,
+              })),
+              lastWeightKg: (exercise.sets ?? []).filter(isPerformedSet).slice(-1)[0]?.weight_kg
+                ?? prevPerformed.slice(-1)[0]?.weight_kg
+                ?? null,
+              lastReps: (exercise.sets ?? []).filter(isPerformedSet).slice(-1)[0]?.reps
+                ?? prevPerformed.slice(-1)[0]?.reps
+                ?? null,
+              lastRestSeconds: exercise.prescribed_rest_seconds ?? null,
+            })}
+            onApplyOnce={async (proposal) => {
+              if (proposal.kind !== 'swap_exercise' || !proposal.swapTo) return;
+              await updateExercise(exercise.id, { name: proposal.swapTo });
+              setLocalName(proposal.swapTo);
+            }}
+            onSave={() => undefined}
+          />
         </div>
       )}
 

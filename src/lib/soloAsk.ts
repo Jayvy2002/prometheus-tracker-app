@@ -187,7 +187,15 @@ export function proposeSoloAsk(ctx: SoloAskContext): SoloAskProposal | null {
   const question = ctx.question.trim();
   if (!question) return null;
   const q = foldText(question);
-  const surface = ctx.surface;
+  let surface = ctx.surface;
+  if (surface === 'nutrition' || surface === 'journal') {
+    if (/semaine|courses|grocery|\bweek\b/.test(q)) surface = 'week';
+    else if (/ingredient|allergie|remplac/.test(q)) surface = 'ingredient';
+    else if (/reste|idees|plusieurs/.test(q)) surface = 'journal';
+  }
+  if (surface === 'workout' || surface === 'session') {
+    if (/loupe|skipped|manque|missed day|jour rate/.test(q)) surface = 'missed';
+  }
 
   if (surface === 'coached') {
     return emptyProposal({
@@ -336,7 +344,16 @@ export function proposeSoloAsk(ctx: SoloAskContext): SoloAskProposal | null {
     exercises: asIdeas(names.slice(0, 5), sets),
     applyLabelKey: 'soloAsk.applySession',
     saveLabelKey: 'soloAsk.savePlan',
+    actions: ctx.surface === 'session' ? ['ignore', 'apply_once'] : ['ignore', 'apply_once', 'save'],
   });
+}
+
+export function shiftProgramWeekdays<T extends { weekday: number }>(
+  days: T[],
+  fromWeekday: number,
+  toWeekday: number,
+): T[] {
+  return days.map(day => day.weekday === fromWeekday ? { ...day, weekday: toWeekday } : day);
 }
 
 export function remainingMacros(ctx: Pick<SoloAskContext, 'calorieTarget' | 'proteinTarget' | 'carbsTarget' | 'fatTarget' | 'consumedCalories' | 'consumedProtein' | 'consumedCarbs' | 'consumedFat'>) {
