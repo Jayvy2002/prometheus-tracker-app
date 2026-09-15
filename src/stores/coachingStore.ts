@@ -392,6 +392,7 @@ interface CoachingState {
   signProgressPhotoUrls: (photos: ProgressPhoto[]) => Promise<Record<string, string>>;
   dismissQueueItem: (id: string) => void;
   dismissQueueItems: (ids: string[]) => void;
+  restoreQueueItems: (ids: string[]) => void;
   fetchIntervention: (id: string) => Promise<CoachIntervention | null>;
   fetchOnboardingPlanDraft: (clientId: string) => Promise<CoachIntervention | null>;
   resolveIntervention: (
@@ -1445,6 +1446,16 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
           next.push(id);
         }
       }
+      saveQueueDismissed(next);
+      return { queueDismissedIds: next };
+    });
+  },
+
+  restoreQueueItems: (ids) => {
+    if (ids.length === 0) return;
+    const drop = new Set(ids);
+    set(s => {
+      const next = s.queueDismissedIds.filter(id => !drop.has(id));
       saveQueueDismissed(next);
       return { queueDismissedIds: next };
     });

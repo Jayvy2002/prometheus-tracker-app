@@ -14,6 +14,7 @@ import {
 } from './coachRecovery';
 import { pickDefaultLift, trainingFocusHref } from './coachTraining';
 import { todayStr } from './utils';
+import { lastCheckinDate, lastLoggedSessionDate } from './coachSituation';
 import type {
   ClientAlertKind,
   ClientLiftProgress,
@@ -146,6 +147,59 @@ function fromAlert(
   };
 }
 
+/** When the signal started: last session, last check-in, or the coaching link. */
+export function inferPrioritySinceIso(
+  item: Pick<CoachPriority, 'kind' | 'exerciseName' | 'checkinId'>,
+  row: ClientOpsRow,
+  signals: CoachRosterSignals,
+): string | null {
+  const id = row.client.id;
+  const linked = row.client.linked_at || null;
+  const lifts = liftsForClient(signals.lifts, id);
+  const sessionAt = lastLoggedSessionDate([], lifts);
+  const named = item.exerciseName
+    ? lifts.find(l => l.displayName === item.exerciseName || l.exerciseName === item.exerciseName)
+    : null;
+  const namedAt = named
+    ? lastLoggedSessionDate([], [named])
+    : null;
+  const checkinAt = lastCheckinDate(signals.checkins.filter(c => c.user_id === id));
+  const nutritionAt = signals.nutritionLogs
+    .filter(n => n.user_id === id)
+    .map(n => n.logged_at)
+    .sort()
+    .at(-1) ?? null;
+  const weightAt = signals.weights
+    .filter(w => w.user_id === id)
+    .map(w => w.measured_at)
+    .sort()
+    .at(-1) ?? null;
+
+  switch (item.kind) {
+    case 'missed_workout':
+    case 'session_logged':
+      return sessionAt ?? linked;
+    case 'stalled_lift':
+    case 'program_adapt':
+      return namedAt ?? sessionAt ?? linked;
+    case 'missed_checkin':
+    case 'new_pain':
+    case 'low_sleep':
+    case 'high_stress':
+    case 'low_mood':
+    case 'high_hunger':
+    case 'dropped_adherence':
+      return checkinAt ?? linked;
+    case 'missed_nutrition':
+    case 'nutrition_stall':
+      return nutritionAt ?? linked;
+    case 'weight_off_trajectory':
+      return weightAt ?? linked;
+    default:
+      return linked;
+  }
+}
+
 /** `today` is injectable so fixtures with fixed dates stay green regardless of the wall clock. */
 export function buildCoachPriorities(
   opsRows: ClientOpsRow[],
@@ -240,13 +294,20 @@ export function buildCoachPriorities(
   }
 
   const seen = new Set<string>();
+  const byClient = new Map(opsRows.map(row => [row.client.id, row]));
   return items
     .filter(p => {
       if (seen.has(p.id)) return false;
       seen.add(p.id);
       return true;
     })
-    .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.clientName.localeCompare(b.clientName));
+    .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity] || a.clientName.localeCompare(b.clientName))
+    .map(p => {
+      if (p.sinceIso) return p;
+      const row = byClient.get(p.clientId);
+      if (!row) return p;
+      return { ...p, sinceIso: inferPrioritySinceIso(p, row, signals) };
+    });
 }
 
 export function commandStats(

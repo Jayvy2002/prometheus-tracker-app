@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git (empilement). File : lots **11–16** après 10. Lots 2–3 : SQL prod lu. Lots 2–8 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git (empilement). File : lots **11–16** après 10. Lots 2–3 : SQL prod lu. Lots 2–9 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
 
-**Lot ouvert : 9 — file coach et continuité.** Lot 1 : Terminé. Lots 2–8 : À vérifier.
+**Lot ouvert : 10 — cohérence restante.** Lot 1 : Terminé. Lots 2–9 : À vérifier.
 
 **Vérif code 15 sept. lots 5–7** (`npm test` 536/0 sur l’empilement) — pas un parcours live :
 
@@ -136,7 +136,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **6** | **Calendrier, recherche, erreur ≠ vide** (UX48, UX49, UX63) | **À vérifier** | Plusieurs séances (et pesées) le même jour listées. Recherche progression : **tous** les matchs. Stats / progression : erreur + réessai, pas un historique fantôme. **Reste :** parcours live. |
 | **7** | **Messages : brouillon et lu** (UX29–31, UX85) | **À vérifier** | Brouillon par compte × conversation, restauré au retour. Relance préremplie n’écrase pas un brouillon perso. Écarter une carte Accueil ≠ marquer lu. `read_at` seulement si le serveur a confirmé l’id. **Reste :** parcours live. |
 | **8** | **Trouver programme et progression** (UX08, UX10, UX81, UX84, UX07 athlète) | **À vérifier** | Coaché : lien lecture « Mon programme » depuis Entraînement. `/exercise-progress` ouvert en lecture — **pas** `/stats` ni calendrier. `waiting_program` → Messages. FAB / Nouveau : « séance hors programme » si jour dû. Accueil : vide honnête. Desktop coaché : Progression dans train (pas de 6ᵉ onglet). **Reste :** parcours live. |
-| **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | À construire | Chaque carte : pourquoi, **depuis quand**, une action. « Passer » = **un** signal, annulable. Contexte roster conservé au retour. 360 : « depuis ta dernière visite » ; dernière séance = définition lot 1. |
+| **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | **À vérifier** | File : pourquoi + **depuis quand** ; Passer = **un** signal, annulable. Roster `?filter=` conservé au retour fiche. 360 « depuis ta dernière visite » déjà là ; dernière séance = lot 1. **Reste :** parcours live. |
 | **10** | **Cohérence restante** | À construire | Une PR par ligne ci-dessous. |
 | **11** | **Bibliothèque d’exercices** (UX86) | À construire **après 10** | Catalogue **complet** : chaque exo a une **vidéo d’exécution** et un **mannequin blanc** dont les muscles travaillés sont en **rouge** (`primary_muscles` / `secondary_muscles`, ids `muscleLabels`). Picker et fiche séance s’en servent. Une PR. |
 | **12** | **Ask solo contextualisé** | À construire **après 10** | Solo seulement. Bouton IA sur Entraînement et Nutrition → barre de question. Pas d’onglet, pas `/prometheus`. Proposition **revue** : ignorer / appliquer une fois / enregistrer. Jamais auto-apply. Une PR par ligne. |
@@ -228,7 +228,7 @@ Le logger **libre** a déjà des types (`SET_TYPES` dans `ExerciseCard`). Le **b
 | 6 | **Corrigé (Git).** Plus de `maybeSingle()` séance / pesée du jour. Recherche : tous les matchs. Stats / progression : erreur + réessai. **Reste :** parcours live. |
 | 7 | **Corrigé (Git).** Brouillon `localStorage` compte × conversation. Relance n’écrase pas. Dismiss Accueil = session locale. `read_at` si `.select('id')` confirme. **Reste :** parcours live. |
 | 8 | **Corrigé (Git).** `WorkoutPage` : « Mon programme » si coaché ou sans plan ; lien `/exercise-progress`. Route progression sans `CoachedAthleteRedirect`. `waiting_program` → Messages. FAB / Nouveau : `addWorkoutOffPlan` si jour dû. Accueil : `nothingToday`. Desktop coaché : Progression. **Reste :** parcours live. |
-| 9 | `CoachTodayQueue` `onSkip` → `dismissQueueItems(group.items.map(...))` (tout le groupe). Pas d’ancienneté sur la carte. |
+| 9 | **Corrigé (Git).** Passer = `item.id` du signal primaire, `restoreQueueItems` + undo. `sinceIso` via dernière séance / check-in / lien. Roster : `state.from` = `/clients?filter=`. **Reste :** parcours live. |
 | 11 | Table `exercises` : nom, muscles, consignes. **Pas** de `video_url` / mannequin. Picker : `ExercisePicker`. |
 | 12 | `/prometheus` = `CoachOnly`. Solo : revue hebdo Accueil (`soloCopilot`), pas de barre Ask sur `/workout` ni `/nutrition`. Recettes = `recipeStore`. |
 | 13 | `WorkoutForm` : pas d’Ask in-session. Check-in : champs, pas de note proposée. Coaché : Ask n’existe pas ; Messages = texte. Picker : pas d’alternatives muscle/matériel. |

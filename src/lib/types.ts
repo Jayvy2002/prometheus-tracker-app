@@ -426,6 +426,8 @@ export interface CoachPriority {
   checkinId?: string;
   workoutId?: string;
   interventionId?: string;
+  /** ISO date/time of the last relevant signal (session, check-in, link). */
+  sinceIso?: string | null;
 }
 
 export type CheckinReviewKind = 'unread' | 'new_pain' | 'dropped_adherence' | 'missed_checkin';

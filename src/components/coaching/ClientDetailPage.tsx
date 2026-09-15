@@ -1,6 +1,6 @@
 import ClientQuestionnairePanel from '../onboarding/ClientQuestionnairePanel';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
@@ -33,6 +33,7 @@ import {
   resolveClientTab,
 } from '../../lib/coachRecovery';
 import { displayName } from '../../lib/coachText';
+import { rosterFromLocationState } from '../../lib/coachRoster';
 import { liftsForClient } from '../../lib/coachLifts';
 import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
@@ -156,6 +157,8 @@ export default function ClientDetailPage() {
   const { id } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const rosterBack = rosterFromLocationState(location.state);
   const { user } = useAuthStore();
   const {
     clients, fetchClients, fetchClientWorkouts, fetchClientWorkout,
@@ -535,7 +538,7 @@ export default function ClientDetailPage() {
     }
     toast(t('coaching.removeClient.removed', { name: displayName(client, t('coaching.unnamed')) }));
     setRemoveOpen(false);
-    navigate('/clients');
+    navigate(rosterBack);
   };
 
   const progressionLabel = kpis?.progression === 'up' ? t('coaching.kpis.up')
@@ -563,7 +566,7 @@ export default function ClientDetailPage() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8 md:px-6">
-        <button onClick={() => navigate('/clients')} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
+        <button onClick={() => navigate(rosterBack)} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
           <ArrowLeft size={18} /> {t('coaching.clientsTitle')}
         </button>
 

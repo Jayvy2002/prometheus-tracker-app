@@ -201,6 +201,24 @@ export function queueItemLabelKey(item: Pick<CoachPriority, 'kind' | 'headlineKe
   return item.kind === 'draft_pending' ? item.headlineKey : `coaching.queue.items.${item.kind}`;
 }
 
+/** Calendar days between a signal timestamp and today (today = 0). */
+export function queueSinceDays(sinceIso: string | null | undefined, today: string): number | null {
+  if (!sinceIso || !today) return null;
+  const day = sinceIso.slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !/^\d{4}-\d{2}-\d{2}$/.test(today)) return null;
+  const from = Date.parse(`${day}T00:00:00`);
+  const to = Date.parse(`${today}T00:00:00`);
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
+  const days = Math.round((to - from) / 86_400_000);
+  return days < 0 ? 0 : days;
+}
+
+export function queueSinceCopy(days: number | null): { key: string; params?: { n: number } } | null {
+  if (days == null) return null;
+  if (days <= 0) return { key: 'coaching.queue.sinceToday' };
+  return { key: 'coaching.queue.sinceDays', params: { n: days } };
+}
+
 function worstSeverity(items: CoachPriority[]): CoachPrioritySeverity {
   return items.reduce<CoachPrioritySeverity>((worst, item) => (
     SEVERITY_RANK[item.severity] < SEVERITY_RANK[worst] ? item.severity : worst
@@ -344,6 +362,7 @@ export function draftQueueItems(
         detailKey: '',
         href: interventionHref(row, { from: 'today' }),
         interventionId: row.id,
+        sinceIso: row.created_at || row.updated_at || null,
       };
     });
 }

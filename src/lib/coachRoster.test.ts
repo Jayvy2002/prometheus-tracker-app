@@ -7,6 +7,8 @@ import {
   ROSTER_RANK,
   buildRosterRow,
   compareRosterName,
+  rosterBackPath,
+  rosterFromLocationState,
   rosterGoalStatus,
   rosterKcalHint,
   sortRosterClients,
@@ -242,11 +244,26 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   assert.match(page, /forceSetup &&/);
   assert.match(page, /shouldOpenSetup|forceSetup/);
   assert.match(page, /clientFileHref/);
+  assert.match(page, /rosterBackPath/);
+  assert.match(page, /state: \{ from: rosterFrom \}/);
   assert.doesNotMatch(page, /lastMessageForClient/);
   assert.doesNotMatch(page, /navigate\('\/programs'\)/);
+
+  const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8');
+  assert.match(detail, /rosterFromLocationState/);
+  assert.match(detail, /navigate\(rosterBack\)/);
+  assert.doesNotMatch(detail, /navigate\('\/clients'\)/);
 
   const fr = readFileSync(resolve(process.cwd(), 'src/i18n/locales/fr.ts'), 'utf8');
   assert.match(fr, /noProgram:\s*'Pas de programme'/);
   assert.match(fr, /goalCut:\s*'Sèche'/);
   assert.match(fr, /goalPerf:\s*'Perf'/);
+});
+
+test('roster back path keeps the filter; unknown state falls back to /clients', () => {
+  assert.equal(rosterBackPath(null), '/clients');
+  assert.equal(rosterBackPath('pain'), '/clients?filter=pain');
+  assert.equal(rosterFromLocationState({ from: '/clients?filter=stalled' }), '/clients?filter=stalled');
+  assert.equal(rosterFromLocationState({ from: 'https://evil.example/clients' }), '/clients');
+  assert.equal(rosterFromLocationState(null), '/clients');
 });
