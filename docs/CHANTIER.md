@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–4 dans Git. Preuves live lots 1–2 (comptes jetables, puis supprimés). Lots 2–3 : apply prod SQL encore dû. Lots 3–4 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans Git. File : lots **11–12** inscrits après 10 (biblio exo, Ask solo). Lots 2–3 : apply prod SQL encore dû. Lots 3–4 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
 
 **Lot ouvert : 5 — photos et audience.** Lot 1 : Terminé. Lots 2–4 : À vérifier.
 
@@ -80,6 +80,8 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83.
 | Photos = 5ᵉ interrupteur tracking | Suivi proposé / conservation / partage (UX54) |
 | « Enregistré » → « Transmis au coach » | « Enregistré — visible par {coach} » après succès serveur (UX26) |
 | Fusionner Messages, brouillons et Prometheus | Relier les parcours ; trois jobs distincts |
+| Ask solo = chat `/prometheus` (coach) | Barre **sur** Entraînement / Nutrition. Solo seulement. Lots 12a–12b |
+| Enregistrer recette ou réécrire le plan sans tap | Carte avant/après, puis confirmation. Jamais d’auto-apply |
 | Recettes coupées au coaché « parce qu’il a un coach » | Trancher utilité + contrat de suivi, pas l’autonomie |
 | Déclarer nav / accueil / 0C « terminés » | `navConfig` existe ; trouvabilité et chiffres mentent encore |
 | Confondre lock questionnaire coach et intake kiné | Kiné (7 écrans, 0B) = sécurité médicale. UX80 = questionnaire **prise en charge** incomplet |
@@ -106,6 +108,7 @@ Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer 
 | Inputs séance agrandis, cibles 44 px (#91) | OverflowMenu clavier (lot 10) |
 | RPC `client_end_coach_link` + UI Profil + tests | Preuve prod, notif, sérialisation, copy 3 listes (M2a) |
 | Annuaire / offre / demandes en code | Copy « accepté = suivi actif » (M5) |
+| Table `exercises` + `primary_muscles` / `muscleLabels` + picker | **Pas** de vidéo ni mannequin. Lot 11 étend, ne recrée pas |
 | `accountContext`, espaces Personnel / Coaching | SQL `none` si roster `coach_id` actif : **apply prod dû** (lot 2) |
 | Questionnaire prise en charge : plus de `path="*"` ; bannière + lien `/questionnaire` | Parcours invite live dû (lot 4) |
 
@@ -127,6 +130,8 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **8** | **Trouver programme et progression** (UX08, UX10, UX81, UX84, UX07 athlète) | À construire **après 1** | Coaché : lien **lecture** « Mon programme » depuis Entraînement (aujourd’hui `!coached`). Puis `/exercise-progress` en lecture — **pas** `/stats` ni calendrier dans le même PR. `waiting_program` → Messages (aujourd’hui `ListRow` sans `to`). FAB / **Nouveau** : pas « nouvelle séance » en doublon du jour dû ; libeller hors programme. Accueil : vide honnête si rien à faire. |
 | **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | À construire | Chaque carte : pourquoi, **depuis quand**, une action. « Passer » = **un** signal, annulable. Contexte roster conservé au retour. 360 : « depuis ta dernière visite » ; dernière séance = définition lot 1. |
 | **10** | **Cohérence restante** | À construire | Une PR par ligne ci-dessous. |
+| **11** | **Bibliothèque d’exercices** (UX86) | À construire **après 10** | Catalogue **complet** : chaque exo a une **vidéo d’exécution** et un **mannequin blanc** dont les muscles travaillés sont en **rouge** (`primary_muscles` / `secondary_muscles`, ids `muscleLabels`). Picker et fiche séance s’en servent. Une PR. |
+| **12** | **Ask solo contextualisé** | À construire **après 10** | Solo seulement. Bouton IA sur Entraînement et Nutrition → barre de question. Pas d’onglet, pas `/prometheus`. Contexte envoyé + proposition **enregistrable**. Une PR par ligne. |
 
 ### Lot 10 — une PR par ligne
 
@@ -143,11 +148,18 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | 10i | Vocabulaire séance / programme / modèle. Plus de « routine » zombie | UX11 |
 | 10j | Preview setup : ce que le client **verra** | UX37 |
 
-**Ensuite seulement :** preuve prod des lots M encore « À vérifier », M7 (accueils / suite d’objectif), confort P2/P3 du catalogue, billing.
+### Lot 12 — une PR par ligne
+
+| # | Contenu | IDs |
+|---|---|---|
+| 12a | Barre Ask **Entraînement** : question + perfs, programme actuel, blessures / limites, expérience, fréquence, focus. Proposition d’ajustement **revue puis enregistrée** (cette séance et/ou le plan, nommé). Réutilisable. | UX87 |
+| 12b | Barre Ask **Nutrition** : question + cibles kcal/macros, allergies, type d’alimentation, déjà consommé **aujourd’hui**. Recette proposée → **enregistrer** dans Mes recettes, réutiliser au journal. | UX88 |
+
+**Après le lot 12 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, billing.
 
 ---
 
-## Ancres code (lot 1–9) — ne pas chercher à l’aveugle
+## Ancres code (lot 1–12) — ne pas chercher à l’aveugle
 
 | Lot | Où ça ment / casse aujourd’hui |
 |---|---|
@@ -160,6 +172,8 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | 7 | Brouillon local au composant. `Dashboard` `onDismiss` → `markCoachMessageRead`. Store : `update({ read_at })` **sans** check `error`, puis état local optimiste. |
 | 8 | `WorkoutPage` : `CardLink` programmes si `!coached && !assignment?.program`. `CoachedAthleteRedirect` bloque `/exercise-progress`. `waiting_program` : `ListRow` sans `to`. FAB `nav.addWorkout` → `/workout/new`. |
 | 9 | `CoachTodayQueue` `onSkip` → `dismissQueueItems(group.items.map(...))` (tout le groupe). Pas d’ancienneté sur la carte. |
+| 11 | Table `exercises` : nom, muscles, consignes. **Pas** de `video_url` / mannequin. Picker : `ExercisePicker`. |
+| 12 | `/prometheus` = `CoachOnly`. Solo : revue hebdo Accueil (`soloCopilot`), pas de barre Ask sur `/workout` ni `/nutrition`. Recettes = `recipeStore`. |
 
 ---
 
@@ -211,7 +225,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 
 ---
 
-## Après la file 1–10 (ne pas commencer avant)
+## Après la file 1–10 (lots 11–12 et catalogue — ne pas commencer avant)
 
 | Thème | IDs | Statut |
 |---|---|---|
@@ -240,6 +254,9 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Silhouette vs liste | UX06 | Reporté P3 |
 | Actions groupées coach | UX38 | Reporté P3 |
 | Télémétrie utilité | UX70 | Continu, pas un projet préalable |
+| Bibliothèque exo : vidéo + mannequin muscles | UX86 | Lot 11, après 10 |
+| Ask solo Entraînement + enregistrement d’ajustement | UX87 | Lot 12a, après 10 |
+| Ask solo Nutrition + enregistrement recette | UX88 | Lot 12b, après 10 |
 
 Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un défaut mesuré : écran interne télémétrie ; policies SELECT après preuve RLS ; protection Auth mots de passe compromis ; `pg_trgm` / `pg_net` hors `public` (staging + mesure) ; perf fondée sur des mesures (lot premium 15).
 
@@ -336,6 +353,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX18** | P2 | ens. | À construire | Variantes / matériel / récents. | Bonne variante avant sélection. |
+| **UX86** | P2 | 11 | À construire | **Après 10.** Vidéo d’exécution + mannequin blanc, muscles travaillés en rouge. Étendre `exercises`, pas un second catalogue. | On voit le mouvement et les muscles avant de choisir. |
 | **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
 | **UX20** | P1 | 3 | **À vérifier** | RPC `save_program` (Git) : atomique + version. **Reste :** apply prod + parcours. | Le client voit ou ne voit pas ; pas de plan à moitié. |
 | **UX21** | P1 | 3 | **À vérifier** | Plus de premier client auto. Recap destinataire / date dans le modal. Parcours dû. | Parcours bibliothèque sans destinataire accidentel. |
@@ -394,6 +412,8 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX44** | P2 | ens. | À construire | Attente IA quittable. | L’app reste utilisable. |
 | **UX45** | P2 | 10b | À construire | Solo : aide sur programme / séance, pas un chat `/prometheus`. Notice Accueil : **garder**. Revue = 3 chiffres. | Aucune application sans choix. |
 | **UX46** | P2 | 10c | À vérifier | Learned en langage humain. | Désactivation sans clés techniques. |
+| **UX87** | P2 | 12a | À construire | **Après 10. Solo.** Barre Ask Entraînement. Contexte : perfs, programme, blessures / limites, expérience. Ajustement proposé → revue → enregistrer (séance et/ou plan, nommé). Réutiliser. | La réponse est actionnable et durable, jamais auto-appliquée. |
+| **UX88** | P2 | 12b | À construire | **Après 10. Solo.** Barre Ask Nutrition. Contexte : cibles kcal/macros, allergies, type d’alimentation, consommé aujourd’hui. Recette → Mes recettes → journal. | Recette proposée = enregistrable et réutilisable. |
 
 ### Calendrier et indicateurs
 
@@ -447,7 +467,8 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | Silhouette | P3. UX06. |
 | Accusé de check-in | Oui. Date seulement si réelle. Pas « transmis ». UX26. |
 | Empty sans programme | Oui, avec contact. UX10. |
-| Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43. |
+| Cartes avant/après IA | Oui, avec portée. UX20, UX23, UX43, UX87–88. |
+| Ask solo | Barre sur Entraînement / Nutrition. Pas d’onglet, pas `/prometheus`. Solo seulement. |
 | Équivalence alimentaire « compensation » | Non. UX51–53. |
 | Mode simple / avancé parallèle | Non : disclosure progressive. |
 | Repos auto | Volontaire, après coche. UX15. |
