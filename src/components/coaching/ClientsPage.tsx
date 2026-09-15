@@ -9,7 +9,7 @@ import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
 import { displayName } from '../../lib/coachText';
 import { todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
-import { rosterBackPath, sortRosterClients, type RosterGoalStatus } from '../../lib/coachRoster';
+import { rosterBackPath, rosterChainState, sortRosterClients, type RosterGoalStatus } from '../../lib/coachRoster';
 import type { CoachClientSummary } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
@@ -120,7 +120,8 @@ export default function ClientsPage() {
   });
   const rosterBusy = loading || opsLoading;
   const rosterFrom = rosterBackPath(rosterFilter);
-  const openClient = (href: string) => navigate(href, { state: { from: rosterFrom } });
+  const rosterIds = roster.map(row => row.client.id);
+  const openClient = (href: string) => navigate(href, { state: rosterChainState(rosterFrom, rosterIds) });
 
   return (
     <PageTransition>
@@ -217,7 +218,7 @@ export default function ClientsPage() {
                   type="button"
                   onClick={e => {
                     e.stopPropagation();
-                    navigate(`/clients/${c.id}/setup`, { state: { from: rosterFrom } });
+                    navigate(`/clients/${c.id}/setup`, { state: rosterChainState(rosterFrom, rosterIds) });
                   }}
                   className="text-[11px] text-blue-400 hover:text-blue-300 shrink-0"
                 >

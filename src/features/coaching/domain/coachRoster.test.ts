@@ -8,7 +8,10 @@ import {
   buildRosterRow,
   compareRosterName,
   rosterBackPath,
+  rosterChainState,
   rosterFromLocationState,
+  rosterIdsFromLocationState,
+  rosterNeighbors,
   rosterGoalStatus,
   rosterKcalHint,
   sortRosterClients,
@@ -246,12 +249,14 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   assert.match(page, /shouldOpenSetup|forceSetup/);
   assert.match(page, /clientFileHref/);
   assert.match(page, /rosterBackPath/);
-  assert.match(page, /state: \{ from: rosterFrom \}/);
+  assert.match(page, /rosterChainState/);
   assert.doesNotMatch(page, /lastMessageForClient/);
   assert.doesNotMatch(page, /navigate\('\/programs'\)/);
 
   const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
   assert.match(detail, /rosterFromLocationState/);
+  assert.match(detail, /rosterNeighbors/);
+  assert.match(detail, /setSearchParams\(params, \{ replace: true, state: location\.state \}\)/);
   assert.match(detail, /navigate\(rosterBack\)/);
   assert.doesNotMatch(detail, /navigate\('\/clients'\)/);
 
@@ -259,12 +264,35 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   assert.match(fr, /noProgram:\s*'Pas de programme'/);
   assert.match(fr, /goalCut:\s*'Sèche'/);
   assert.match(fr, /goalPerf:\s*'Perf'/);
+  assert.match(fr, /prevFile:\s*'Fiche précédente'/);
+  assert.match(fr, /nextFile:\s*'Fiche suivante'/);
 });
 
 test('roster back path keeps the filter; unknown state falls back to /clients', () => {
   assert.equal(rosterBackPath(null), '/clients');
   assert.equal(rosterBackPath('pain'), '/clients?filter=pain');
   assert.equal(rosterFromLocationState({ from: '/clients?filter=stalled' }), '/clients?filter=stalled');
+  assert.equal(rosterFromLocationState({ from: '/dashboard' }), '/dashboard');
   assert.equal(rosterFromLocationState({ from: 'https://evil.example/clients' }), '/clients');
   assert.equal(rosterFromLocationState(null), '/clients');
+});
+
+test('roster chain walks the filtered list without rebuilding it', () => {
+  const ids = ['invitee-id', 'client-id', 'third-id'];
+  assert.deepEqual(rosterNeighbors(ids, 'invitee-id'), {
+    prevId: null, nextId: 'client-id', index: 0, total: 3,
+  });
+  assert.deepEqual(rosterNeighbors(ids, 'client-id'), {
+    prevId: 'invitee-id', nextId: 'third-id', index: 1, total: 3,
+  });
+  assert.deepEqual(rosterNeighbors(ids, 'third-id'), {
+    prevId: 'client-id', nextId: null, index: 2, total: 3,
+  });
+  assert.deepEqual(rosterNeighbors(ids, 'unknown'), {
+    prevId: null, nextId: null, index: -1, total: 3,
+  });
+  assert.deepEqual(rosterIdsFromLocationState({ rosterIds: ids, from: '/clients' }), ids);
+  assert.deepEqual(rosterIdsFromLocationState({ rosterIds: ['ok', '/evil'] }), ['ok']);
+  assert.deepEqual(rosterIdsFromLocationState({ rosterIds: 'nope' }), []);
+  assert.deepEqual(rosterChainState('/clients?filter=checkin', ids).rosterIds, ids);
 });

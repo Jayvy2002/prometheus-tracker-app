@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import {
   ArrowLeft,
   CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Dumbbell,
   MessageSquare,
   Scale,
@@ -33,7 +35,13 @@ import {
   resolveClientTab,
 } from '../../lib/coachRecovery';
 import { displayName } from '../../lib/coachText';
-import { rosterFromLocationState } from '../../lib/coachRoster';
+import {
+  rosterChainState,
+  rosterFromLocationState,
+  rosterIdsFromLocationState,
+  rosterNeighbors,
+} from '../../lib/coachRoster';
+import { clientFileHref } from '../../lib/coachSituation';
 import { liftsForClient } from '../../lib/coachLifts';
 import { parseExerciseQuery, parseWorkoutQuery, pickDefaultLift } from '../../lib/coachTraining';
 import { clientKpis, programWeekLabel, sinceLastVisit, summarizeCheckin } from '../../lib/coachInsight';
@@ -151,6 +159,9 @@ export default function ClientDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const rosterBack = rosterFromLocationState(location.state);
+  const rosterIds = rosterIdsFromLocationState(location.state);
+  const chain = rosterNeighbors(rosterIds, id);
+  const chainState = rosterChainState(rosterBack, rosterIds);
   const { user } = useAuthStore();
   const {
     fetchClientWorkout,
@@ -185,6 +196,12 @@ export default function ClientDetailPage() {
 
   const checkinId = parseCheckinQuery(searchParams.get('checkin'));
   const tab = resolveClientTab(searchParams.get('tab'), checkinId);
+  const openNeighbor = (neighborId: string) => {
+    const href = tab === 'overview'
+      ? clientFileHref(neighborId)
+      : `/clients/${neighborId}?tab=${encodeURIComponent(tab)}`;
+    navigate(href, { state: chainState });
+  };
   const exerciseHint = parseExerciseQuery(searchParams.get('exercise'));
   const workoutQuery = parseWorkoutQuery(searchParams.get('workout'));
   const [workspaceOpen, setWorkspaceOpen] = useState(false);
@@ -211,7 +228,7 @@ export default function ClientDetailPage() {
         else params.delete(k);
       }
     }
-    setSearchParams(params, { replace: true });
+    setSearchParams(params, { replace: true, state: location.state });
     setWorkspaceOpen(false);
   };
 
@@ -219,8 +236,8 @@ export default function ClientDetailPage() {
     if (searchParams.get('tab') || checkinId) return;
     const params = new URLSearchParams(searchParams);
     params.set('tab', 'overview');
-    setSearchParams(params, { replace: true });
-  }, [searchParams, checkinId, setSearchParams]);
+    setSearchParams(params, { replace: true, state: location.state });
+  }, [searchParams, checkinId, setSearchParams, location.state]);
 
   const lifts = useMemo(() => {
     if (progressLifts && progressLifts.length > 0) return progressLifts;
@@ -453,9 +470,36 @@ export default function ClientDetailPage() {
   return (
     <PageTransition>
       <div className="px-4 pt-6 pb-8 md:px-6">
-        <button onClick={() => navigate(rosterBack)} className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4">
-          <ArrowLeft size={18} /> {t('coaching.clientsTitle')}
-        </button>
+        <div className="flex items-center gap-2 mb-4">
+          <button onClick={() => navigate(rosterBack)} className="flex items-center gap-2 text-neutral-400 hover:text-white min-h-11">
+            <ArrowLeft size={18} /> {t('coaching.clientsTitle')}
+          </button>
+          {chain.total > 1 && chain.index >= 0 && (
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                type="button"
+                disabled={!chain.prevId}
+                onClick={() => chain.prevId && openNeighbor(chain.prevId)}
+                className="min-h-11 min-w-11 rounded-xl border border-neutral-800 text-neutral-300 disabled:opacity-30 inline-flex items-center justify-center"
+                aria-label={t('coaching.client360.prevFile')}
+              >
+                <ChevronLeft size={18} />
+              </button>
+              <span className="text-xs text-neutral-500 tabular-nums px-1" aria-live="polite">
+                {t('coaching.client360.filePosition', { current: chain.index + 1, total: chain.total })}
+              </span>
+              <button
+                type="button"
+                disabled={!chain.nextId}
+                onClick={() => chain.nextId && openNeighbor(chain.nextId)}
+                className="min-h-11 min-w-11 rounded-xl border border-neutral-800 text-neutral-300 disabled:opacity-30 inline-flex items-center justify-center"
+                aria-label={t('coaching.client360.nextFile')}
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-3 mb-2">
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-blue-600/20 flex items-center justify-center text-blue-400 font-bold">

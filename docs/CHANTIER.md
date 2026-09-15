@@ -6,7 +6,7 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX10 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 Terminé**. **M7–M8 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
 | **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)** et **17–23 Terminé**.
 
@@ -36,6 +36,7 @@
 | **M5** Annuaire / demandes | **PASS.** Déjà lié : « suivi actif… formulaire n’est pas ouvert ». Accepté = « le suivi est actif (pas un paiement) ». SQL : `accepted` + lien `active`. | — |
 | **UX10** Empty sans programme | **PASS.** Invitee Accueil : « Ton coach va t’envoyer un programme » → `/messages`. | — |
 | **UX07** Une carte Accueil | **PASS.** Séance due = seul hero (message/check-in masqués). `waiting_program` = seul hero. Jour de repos = un strip message. | — |
+| **UX09** Enchaîner les fiches | **PASS.** Roster → Invitee `1 / 2` → Client `2 / 2` sans reliste. Check-ins conservé au précédent. Retour liste filtrée. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -163,7 +164,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **6** | **Calendrier, recherche, erreur ≠ vide** (UX48, UX49, UX63) | **Terminé** | Recherche progression live. Deux séances / unique pesée déjà tranchés. |
 | **7** | **Messages : brouillon et lu** (UX29–31, UX85) | **Terminé** | Dismiss Accueil ≠ `read_at`. Brouillon déjà prouvé. |
 | **8** | **Trouver programme et progression** (UX08, UX81) | **Terminé** | Lecture programme coaché live. Hub solo déjà prouvé. |
-| **9** | **File coach et continuité** (UX09, UX33, UX34) | **Terminé** | Filtre roster `?filter=` live. Depuis quand + Passer déjà prouvés. |
+| **9** | **File coach et continuité** (UX09, UX33, UX34) | **Terminé** | Filtre roster live. UX09 : enchaîner les fiches `n / N`. |
 | **10** | **Cohérence restante** | **Terminé** | 10d recap Ask + 10e check-in coaché live. 10a–c, 10j déjà prouvés. |
 | **11** | **Bibliothèque d’exercices** (UX86) | **Terminé** | Apply prod `20260915180000`. Picker live : Squat listé + iframe YouTube (`youtube-nocookie`) + muscles (quadriceps / fessiers). |
 | **12** | **Ask solo contextualisé** | **Terminé** | Barres + revue live. Entraînement : Ignorer / Cette séance / jour de plan. Nutrition : Ignorer / journal / Mes recettes. Jamais auto-apply. |
@@ -331,7 +332,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX09, UX13, UX16, UX28, …), capteurs santé (UX112), billing (**M6 Reporté**).
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**. Reste catalogue ens. (UX13, UX16, UX28, …), capteurs santé (UX112), billing (**M6 Reporté**).
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -587,7 +588,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 |---|---|---|---|---|---|
 | **UX07** | P1 | 8+9 | **Terminé** | Live : séance due seule ; waiting seul ; repos = un message, pas de check-in empilé. | Prochaine action évidente **ou** absence honnête. |
 | **UX08** | P2 | 8 | Partiel | Hub Progression solo : oui. Programme trop Profil / desktop. Coaché : lecture lot 8. | Programme / historique sans deviner Profil. |
-| **UX09** | P1 | 9 | À construire | Filtres, position, client courant. | Enchaîner des fiches sans reconstruire la liste. |
+| **UX09** | P1 | 9 | **Terminé** | Live : `1 / 2` Invitee → `2 / 2` Client ; précédent garde `tab=checkins` ; retour liste. | Enchaîner des fiches sans reconstruire la liste. |
 | **UX10** | P1 | 8 | **Terminé** | Live invitee : « Ton coach va t’envoyer un programme » → `/messages`. | On sait quoi faire maintenant. |
 | **UX11** | P2 | 10i | **À vérifier** | Séance / programme / modèle. Copy « routine » retirée. **Reste :** parcours live. | Un nom = une action. |
 | **UX74** | P1 | 10h | **À vérifier** | `navConfig` + reset `PageTransition` au changement de persona. **Reste :** parcours dual-rôle live. | Un ajout de destination = un endroit. |
@@ -786,7 +787,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX10**. **M7–M8 conçus** (contrats dans Chantier 2). Catalogue ens. encore dû.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**. **M7–M8 conçus** (contrats dans Chantier 2). Catalogue ens. encore dû.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -817,6 +818,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Coach | Offre opt-in | **Joué (M4).** Sans publier = roster OK. Publier / retirer = annuaire. |
 | Coaché / chercheur | Annuaire + acceptation | **Joué (M5).** Déjà lié = explication. Accepté = suivi actif, pas un paiement. |
 | Coaché | Accueil : séance due + message non lu | **Joué (UX07).** Hero séance seul. Repos : une carte message. Waiting : hero seul. |
+| Coach | Roster → fiche → suivante / précédente | **Joué (UX09).** `1 / 2` → `2 / 2` ; onglet Check-ins conservé ; retour liste. |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
