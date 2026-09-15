@@ -26,10 +26,11 @@ import {
   clientHomeNextActionKey,
   daysSinceActivity,
   isClientFirstRun,
+  pickClientHomeStrip,
   pickTodayReminder,
   shouldShowDaysSinceReminder,
 } from '../../lib/clientHome';
-import { resolveClientGymCard } from '../../lib/clientGym';
+import { isProgramDayDue, resolveClientGymCard } from '../../lib/clientGym';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
@@ -219,10 +220,13 @@ export default function Dashboard() {
   }));
   const showDeloadSuggestion = !hasCoach && weeksWithWorkouts.size >= 4 && recentCompletedWorkouts.length >= 12;
   const showGymHero = hasGymCard && !!assignment?.program;
+  const dueGymHero = showGymHero && isProgramDayDue(gymCard);
+  const restGymCard = showGymHero && !dueGymHero;
   const showRoutineHero = !showGymHero && !!nextRoutine && showModule(tracking, 'workouts');
   const showNextActionHero = !activityPending && !showGymHero && !showRoutineHero && nextAction !== null;
-  const showCheckinStrip = !firstRun && showModule(tracking, 'checkins') && !todayCheckin && !activityPending;
-  const showUnreadCoachMessage = !!myCoach && unreadMessageCount > 0
+  const hasPrimaryHero = dueGymHero || showRoutineHero || showNextActionHero;
+  const checkinDue = !firstRun && showModule(tracking, 'checkins') && !todayCheckin && !activityPending;
+  const unreadMessage = !!myCoach && unreadMessageCount > 0
     && homeDismissTick >= 0
     && !isHomeMessageDismissed(user?.id, latestCoachMessage?.id);
   const todayReminder = pickTodayReminder({
@@ -231,9 +235,15 @@ export default function Dashboard() {
     water: showNutritionField(tracking, 'water') && showWaterReminder,
     weight: showModule(tracking, 'weight') && showWeightReminder,
   }, dismissedReminders);
+  const homeStrip = pickClientHomeStrip({
+    hasPrimaryHero,
+    unreadMessage,
+    checkinDue,
+    reminder: todayReminder,
+  });
 
-  const showEmptyToday = !activityPending && !showGymHero && !showRoutineHero && !showNextActionHero
-    && !showCheckinStrip && !showUnreadCoachMessage && todayReminder === null;
+  const showRestGym = restGymCard && homeStrip === null;
+  const showEmptyToday = !activityPending && !hasPrimaryHero && !showRestGym && homeStrip === null;
 
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;
@@ -281,7 +291,7 @@ export default function Dashboard() {
 
         <LinkEndedBanner />
 
-        {showGymHero && assignment?.program && (
+        {(dueGymHero || showRestGym) && assignment?.program && (
           <ClientGymCard
             card={gymCard}
             programName={assignment.program.name}
@@ -361,7 +371,7 @@ export default function Dashboard() {
           <ListRow className="mb-4" title={t('dashboard.nothingToday')} />
         ) : null}
 
-        {showUnreadCoachMessage && (
+        {homeStrip === 'unread_message' && (
           <ListRow
             className="mb-4"
             tone="info"
@@ -378,7 +388,7 @@ export default function Dashboard() {
           />
         )}
 
-        {showCheckinStrip && (
+        {homeStrip === 'checkin_due' && (
           <ListRow
             className="mb-4"
             tone="info"
@@ -389,7 +399,7 @@ export default function Dashboard() {
           />
         )}
 
-        {todayReminder === 'deload' && (
+        {homeStrip === 'deload' && (
           <ListRow
             className="mb-4"
             tone="warning"
@@ -400,7 +410,7 @@ export default function Dashboard() {
             dismissLabel={t('common.dismiss')}
           />
         )}
-        {todayReminder === 'meal' && (
+        {homeStrip === 'meal' && (
           <ListRow
             className="mb-4"
             tone="warning"
@@ -411,7 +421,7 @@ export default function Dashboard() {
             dismissLabel={t('common.dismiss')}
           />
         )}
-        {todayReminder === 'water' && (
+        {homeStrip === 'water' && (
           <ListRow
             className="mb-4"
             tone="info"
@@ -422,7 +432,7 @@ export default function Dashboard() {
             dismissLabel={t('common.dismiss')}
           />
         )}
-        {todayReminder === 'weight' && (
+        {homeStrip === 'weight' && (
           <ListRow
             className="mb-4"
             tone="info"
