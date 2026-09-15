@@ -11,7 +11,7 @@ import {
   daysSinceActivity,
   isClientFirstRun,
   parseActivityTime,
-  pickClientHomeStrip,
+  clientHomeAttention,
   pickTodayReminder,
   shouldShowDaysSinceReminder,
   statsCalorieSummary,
@@ -195,44 +195,35 @@ test('Today shows at most one reminder, in a fixed urgency order', () => {
   }, []), null);
 });
 
-test('Accueil shows one companion strip: hero wins, then message, check-in, reminder', () => {
-  assert.equal(pickClientHomeStrip({
-    hasPrimaryHero: true,
+test('Dashboard keeps message and check-in next to the priority; one reminder at most', () => {
+  assert.deepEqual(clientHomeAttention({
     unreadMessage: true,
     checkinDue: true,
     reminder: 'weight',
-  }), null);
-  assert.equal(pickClientHomeStrip({
-    hasPrimaryHero: false,
-    unreadMessage: true,
-    checkinDue: true,
-    reminder: 'meal',
-  }), 'unread_message');
-  assert.equal(pickClientHomeStrip({
-    hasPrimaryHero: false,
+  }), { unreadMessage: true, checkinDue: true, reminder: null });
+  assert.deepEqual(clientHomeAttention({
     unreadMessage: false,
     checkinDue: true,
     reminder: 'water',
-  }), 'checkin_due');
-  assert.equal(pickClientHomeStrip({
-    hasPrimaryHero: false,
+  }), { unreadMessage: false, checkinDue: true, reminder: null });
+  assert.deepEqual(clientHomeAttention({
     unreadMessage: false,
     checkinDue: false,
     reminder: 'deload',
-  }), 'deload');
-  assert.equal(pickClientHomeStrip({
-    hasPrimaryHero: false,
+  }), { unreadMessage: false, checkinDue: false, reminder: 'deload' });
+  assert.deepEqual(clientHomeAttention({
     unreadMessage: false,
     checkinDue: false,
     reminder: null,
-  }), null);
+  }), { unreadMessage: false, checkinDue: false, reminder: null });
 
   const dash = src('src/components/dashboard/Dashboard.tsx');
-  assert.match(dash, /pickClientHomeStrip/);
+  assert.match(dash, /clientHomeAttention/);
   assert.match(dash, /isProgramDayDue/);
-  assert.match(dash, /homeStrip === 'unread_message'/);
-  assert.match(dash, /homeStrip === 'checkin_due'/);
-  assert.doesNotMatch(dash, /\{showUnreadCoachMessage &&/);
-  assert.doesNotMatch(dash, /\{showCheckinStrip &&/);
+  assert.match(dash, /attention\.unreadMessage/);
+  assert.match(dash, /attention\.checkinDue/);
+  assert.match(dash, /DashboardWeightCard/);
+  assert.match(dash, /dashboard\.overviewTitle/);
+  assert.doesNotMatch(dash, /pickClientHomeStrip/);
   assert.doesNotMatch(dash, /\{todayReminder === 'deload' &&/);
 });

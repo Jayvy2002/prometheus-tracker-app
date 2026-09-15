@@ -190,6 +190,7 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /resolveClientGymCard/);
   assert.match(dash, /ClientGymCard/);
+  assert.match(dash, /DashboardWeightCard/);
   const gymIdx = dash.indexOf('<ClientGymCard');
   const ringsIdx = dash.indexOf("t('dashboard.todaySummary')");
   const proposalIdx = dash.indexOf('<SoloProgramProposal');
