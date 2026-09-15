@@ -1125,6 +1125,17 @@ const fr = {
     coachModeOn: 'Mode coach activé',
     coachMode: 'Mode coach',
     coachModeHint: 'Inviter des clients et suivre leur entraînement.',
+    disableMode: {
+      title: 'Désactiver le mode coach ?',
+      bodyZero: 'Aucun client actif. Tes outils coach seront masqués. Tu pourras le réactiver plus tard.',
+      confirmZero: 'Désactiver',
+      blockedTitle: 'Des clients sont encore liés',
+      blockedBody: '{{count}} client(s) actif(s). Termine le suivi avant de désactiver le mode coach — sinon leur accès coach disparaîtrait.',
+      seeClients: 'Voir mes clients',
+      understood: 'Compris',
+      errorCount: 'Impossible de vérifier tes clients. Réessaie.',
+      errorBlocked: 'Le mode coach reste actif tant que des clients sont liés.',
+    },
     coachedBy: 'Coaché par {{name}}',
     leave: {
       title: 'Relation de coaching',

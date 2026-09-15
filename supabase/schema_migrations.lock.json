@@ -431,6 +431,10 @@
     {
       "version": "20260913235158",
       "name": "marketplace_audit_hardening"
+    },
+    {
+      "version": "20260914221500",
+      "name": "set_coaching_role_protect_roster"
     }
   ]
 }

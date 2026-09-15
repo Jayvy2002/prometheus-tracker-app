@@ -1125,6 +1125,17 @@ const en = {
     coachModeOn: 'Coach mode enabled',
     coachMode: 'Coach mode',
     coachModeHint: 'Invite clients and review their training.',
+    disableMode: {
+      title: 'Turn off coach mode?',
+      bodyZero: 'No active clients. Coach tools will be hidden. You can turn this back on later.',
+      confirmZero: 'Turn off',
+      blockedTitle: 'Clients are still linked',
+      blockedBody: '{{count}} active client(s). End those relationships before turning off coach mode — otherwise they would lose their coach.',
+      seeClients: 'View my clients',
+      understood: 'Got it',
+      errorCount: 'Could not check your clients. Try again.',
+      errorBlocked: 'Coach mode stays on while clients are still linked.',
+    },
     coachedBy: 'Coached by {{name}}',
     leave: {
       title: 'Coaching relationship',
