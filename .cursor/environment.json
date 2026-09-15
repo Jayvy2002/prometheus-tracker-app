@@ -7,5 +7,5 @@
       "command": "npm run dev -- --host"
     }
   ],
-  "ports": [5173]
+  "ports": [{ "name": "vite-dev", "port": 5173 }]
 }
