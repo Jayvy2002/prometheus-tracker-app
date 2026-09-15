@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lot 5 : code Git (audience photos). Lot 6 : code Git (calendrier / recherche / erreur). Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git. Une CI verte ne clôt pas une ligne UX.
 
-**Lot ouvert : 7 — messages : brouillon et lu.** Lot 1 : Terminé. Lots 2–6 : À vérifier.
+**Lot ouvert : 8 — trouver programme et progression.** Lot 1 : Terminé. Lots 2–7 : À vérifier.
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -123,7 +123,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **4** | **Questionnaire sans prison** (UX80, UX02, UX03, UX04) | **À vérifier** | Plus de `path="*"` sur questionnaire **prise en charge** incomplet, ni mur sur échec de fetch. Bannière + lien Profil « Mon questionnaire » (`/questionnaire`). Brouillon conservé. Audience puis notice santé avant les questions `medical`. Durée « 60 secondes » retirée. Intake kiné (7 écrans, `path="*"`) inchangé. **Reste :** parcours live (invite → Aujourd’hui / messages / compte). |
 | **5** | **Photos et audience** (UX54) | **À vérifier** | Solo : « visible seulement par toi ». Coaché : audience = coach actuel, y compris l’historique antérieur au lien. Consentement invite / marketplace : `progress_photos` = phrase d’acceptation. Coach 360 : dit que l’historique avant le lien est visible. Pas un 5ᵉ module tracking. **Reste :** parcours live. |
 | **6** | **Calendrier, recherche, erreur ≠ vide** (UX48, UX49, UX63) | **À vérifier** | Plusieurs séances (et pesées) le même jour listées. Recherche progression : **tous** les matchs. Stats / progression : erreur + réessai, pas un historique fantôme. **Reste :** parcours live. |
-| **7** | **Messages : brouillon et lu** (UX29–31, UX85) | À construire | Brouillon par compte × conversation, restauré au retour. Relance préremplie n’écrase pas un brouillon perso. Écarter une carte Accueil ≠ marquer lu. `read_at` seulement si le serveur a réussi. Pas d’accusé « lu » sans preuve. |
+| **7** | **Messages : brouillon et lu** (UX29–31, UX85) | **À vérifier** | Brouillon par compte × conversation, restauré au retour. Relance préremplie n’écrase pas un brouillon perso. Écarter une carte Accueil ≠ marquer lu. `read_at` seulement si le serveur a confirmé l’id. **Reste :** parcours live. |
 | **8** | **Trouver programme et progression** (UX08, UX10, UX81, UX84, UX07 athlète) | À construire **après 1** | Coaché : lien **lecture** « Mon programme » depuis Entraînement (aujourd’hui `!coached`). Puis `/exercise-progress` en lecture — **pas** `/stats` ni calendrier dans le même PR. `waiting_program` → Messages (aujourd’hui `ListRow` sans `to`). FAB / **Nouveau** : pas « nouvelle séance » en doublon du jour dû ; libeller hors programme. Accueil : vide honnête si rien à faire. |
 | **9** | **File coach et continuité** (UX09, UX33, UX34, UX07 coach, UX35) | À construire | Chaque carte : pourquoi, **depuis quand**, une action. « Passer » = **un** signal, annulable. Contexte roster conservé au retour. 360 : « depuis ta dernière visite » ; dernière séance = définition lot 1. |
 | **10** | **Cohérence restante** | À construire | Une PR par ligne ci-dessous. |
@@ -157,7 +157,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | 4 | **Corrigé (Git).** Plus de `path="*"` sur questionnaire prise en charge. Fetch fail = bannière + réessai. Lien `/questionnaire`. Audience avant les questions `medical`. Kiné inchangé. **Reste :** parcours live. |
 | 5 | **Corrigé (Git).** `subtitleSolo` / `subtitleCoached` selon `myCoach`. Scope `progress_photos` = phrase d’acceptation. Coach 360 : historique avant le lien visible. **Reste :** parcours live. |
 | 6 | **Corrigé (Git).** Plus de `maybeSingle()` séance / pesée du jour. Recherche : tous les matchs. Stats / progression : erreur + réessai. **Reste :** parcours live. |
-| 7 | Brouillon local au composant. `Dashboard` `onDismiss` → `markCoachMessageRead`. Store : `update({ read_at })` **sans** check `error`, puis état local optimiste. |
+| 7 | **Corrigé (Git).** Brouillon `localStorage` compte × conversation. Relance n’écrase pas. Dismiss Accueil = session locale. `read_at` si `.select('id')` confirme. **Reste :** parcours live. |
 | 8 | `WorkoutPage` : `CardLink` programmes si `!coached && !assignment?.program`. `CoachedAthleteRedirect` bloque `/exercise-progress`. `waiting_program` : `ListRow` sans `to`. FAB `nav.addWorkout` → `/workout/new`. |
 | 9 | `CoachTodayQueue` `onSkip` → `dismissQueueItems(group.items.map(...))` (tout le groupe). Pas d’ancienneté sur la carte. |
 
@@ -273,7 +273,7 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **5** Coach Today | **Partiel** | Empty + sévérité texte + featured. Pas de « depuis quand ». Passer écarte **tous** les signaux du client. |
 | **6** Client 360 | À vérifier | Dernière séance = séries cochées (parcours 15 sept.). Onglet « health » à renommer (10c). « Depuis ta dernière visite » (lot 9). |
 | **7** Setup 4 étapes | À vérifier | Preview écrans client encore faible (10j). |
-| **8** Messages / Prometheus | **Partiel** | Retry / safe-area. Brouillon non durable ; lu local trop optimiste (lot 7). |
+| **8** Messages / Prometheus | **Partiel** | Retry / safe-area. Brouillon + lu : Git (lot 7). |
 | **9** Marketplace vitrine | À vérifier | Pas de faux prix. Acceptation = **lien actif**. Copy à aligner. |
 | **10** Programmes builder | **Partiel** | Pas de premier client auto. Recap destinataire (code). `save_program` Git ; delete / fetch honnêtes. Apply prod + parcours (lot 3). |
 | **11** Nutrition / séance / scanner | À vérifier | Recettes hors chrome (10a). UX15 = auto **optionnel** après coche. |
@@ -358,10 +358,10 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX29** | P1 | 7 | À vérifier | Ancrage au chargement de l’historique. | Page ancienne ≠ saut en bas. |
-| **UX30** | P1 | 7 | À construire | Brouillon durable hors du composant. | Changer de fil restaure le bon texte. |
-| **UX31** | P1 | 7 | À construire | États serveur. Pas de lu local si l’update a échoué. | Pas de doublon ; pas de faux lu. |
+| **UX30** | P1 | 7 | **À vérifier** | Brouillon `localStorage` compte × conversation. Relance n’écrase pas. **Reste :** parcours live. | Changer de fil restaure le bon texte. |
+| **UX31** | P1 | 7 | **À vérifier** | `read_at` seulement si `.select('id')` confirme. **Reste :** parcours live. | Pas de doublon ; pas de faux lu. |
 | **UX32** | P2 | ens. | À concevoir | Lier séance / check-in (résumé). Après le socle 7. | Objet identifiable dans le fil. |
-| **UX85** | P1 | 7 | À construire | Dismiss carte Accueil ≠ `markCoachMessageRead`. | Masquer un rappel ne marque pas lu. |
+| **UX85** | P1 | 7 | **À vérifier** | Dismiss Accueil = session locale, pas `markCoachMessageRead`. **Reste :** parcours live. | Masquer un rappel ne marque pas lu. |
 
 Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, recherche, présence : **après** le socle. Pas de E2E promis.
 
@@ -467,7 +467,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (comptes jetables, puis sup
 | Coaché | Invite → questionnaire incomplet | Code Git : Aujourd’hui / messages / compte plus prison. Bannière + `/questionnaire`. **Reste :** parcours live. |
 | Solo | Photos | Code Git : aucun « ton coach voit » en solo. **Reste :** parcours live. |
 | Coaché / solo | Deux séances le même jour dans le calendrier | Code Git : les deux listées. **Reste :** parcours live. |
-| Coach / coaché | Texte dans un fil, changer de conversation, revenir | Brouillon intact ; dismiss Accueil ≠ lu |
+| Coach / coaché | Texte dans un fil, changer de conversation, revenir | Code Git : brouillon intact ; dismiss Accueil ≠ lu. **Reste :** parcours live. |
 | Coaché | Entraînement sans éditer le plan | « Mon programme » lecture ; courbes d’exo **après** vérité des séries |
 | Coach | File : deux signaux, Passer | Un seul écarté ; ancienneté visible |
 | Coach | Assigner un programme depuis la bibliothèque | Recap nom + destinataire + date avant confirm. Pas de premier client auto. |

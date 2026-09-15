@@ -67,6 +67,8 @@ export default function ClientMessagesPage() {
         ) : (
           <MessageThread
             key={`${user?.id}:${myCoach.id}`}
+            accountId={user?.id}
+            peerId={myCoach.id}
             messages={sentMessages.filter(m => m.client_id === user?.id && m.coach_id === myCoach.id)}
             currentUserId={user?.id ?? ''}
             sending={sending}

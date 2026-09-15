@@ -42,6 +42,7 @@ import {
 import { COACH_AGENT_FUNCTION, parseCoachAgentResponse } from '../lib/coachAgent';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { mapCoachMessage } from '../lib/coachQueue';
+import { confirmedReadIds } from '../lib/messageDrafts';
 import {
   liveMessageState,
   nutritionTargetsFromProfileRow,
@@ -1230,7 +1231,9 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   markCoachMessageRead: async (id) => {
     const iso = new Date().toISOString();
-    await supabase.from('coach_messages').update({ read_at: iso }).eq('id', id);
+    const { data, error } = await supabase.from('coach_messages').update({ read_at: iso }).eq('id', id).select('id');
+    const confirmed = confirmedReadIds(data);
+    if (error || !confirmed.includes(id)) return;
     set(s => ({
       latestCoachMessage: s.latestCoachMessage?.id === id ? null : s.latestCoachMessage,
       sentMessages: s.sentMessages.map(m => (m.id === id ? { ...m, read_at: iso } : m)),
@@ -1244,20 +1247,22 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
     const iso = new Date().toISOString();
     const unread = get().sentMessages.filter(m => m.client_id === clientId && m.sender_id !== user.id && !m.read_at);
     if (unread.length === 0) return;
-    await supabase
+    const { data, error } = await supabase
       .from('coach_messages')
       .update({ read_at: iso })
-      .in('id', unread.map(m => m.id));
+      .in('id', unread.map(m => m.id))
+      .select('id');
+    if (error) return;
+    const confirmed = new Set(confirmedReadIds(data));
+    if (confirmed.size === 0) return;
     set(s => ({
       sentMessages: s.sentMessages.map(m => (
-        m.client_id === clientId && m.sender_id !== user.id && !m.read_at
-          ? { ...m, read_at: iso }
-          : m
+        confirmed.has(m.id) ? { ...m, read_at: iso } : m
       )),
-      latestCoachMessage: s.latestCoachMessage && unread.some(m => m.id === s.latestCoachMessage?.id)
+      latestCoachMessage: s.latestCoachMessage && confirmed.has(s.latestCoachMessage.id)
         ? null
         : s.latestCoachMessage,
-      unreadMessageCount: Math.max(0, s.unreadMessageCount - unread.length),
+      unreadMessageCount: Math.max(0, s.unreadMessageCount - confirmed.size),
     }));
   },
 

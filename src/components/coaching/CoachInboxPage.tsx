@@ -138,6 +138,8 @@ export default function CoachInboxPage() {
           <div className="flex-1 min-h-0">
             <MessageThread
               key={`${user?.id}:${clientId}`}
+              accountId={user?.id}
+              peerId={clientId}
               messages={threadMessages}
               currentUserId={user?.id ?? ''}
               sending={sending}
