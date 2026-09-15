@@ -1,0 +1,11 @@
+{
+  "name": "Prometheus",
+  "install": "npm ci && (test -f .env || cp .env.production .env)",
+  "terminals": [
+    {
+      "name": "vite-dev",
+      "command": "npm run dev -- --host"
+    }
+  ],
+  "ports": [5173]
+}
