@@ -63,6 +63,17 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.match(page, /track\('coaching_request_accepted'/);
   assert.match(page, /navigate\(`\/clients\/\$\{/);
   assert.doesNotMatch(page, /agreementOnly/);
+  assert.match(page, /marketplace\.acceptActivatesFollow/);
+  assert.match(page, /marketplace\.already_coached/);
+
+  const fr = src('src/i18n/locales/fr/marketplace.ts');
+  assert.match(fr, /pas un paiement/);
+  assert.match(fr, /suivi est actif/);
+  assert.match(fr, /formulaire n’est pas ouvert/);
+  const en = src('src/i18n/locales/en/marketplace.ts');
+  assert.match(en, /not a payment/);
+  assert.match(en, /coaching is active/);
+  assert.match(en, /form stays closed/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /coach_marketplace\.sql/);

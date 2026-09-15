@@ -102,6 +102,9 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.client_id === owner ? row.coach_name || t('marketplace.coachUnavailableName') : row.public_name}</h2>
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
       <p className="text-sm text-neutral-300">{t(`marketplace.${row.status}`)}</p>
+      {row.status === 'pending' && row.coach_id === owner && (
+        <p className="text-sm text-neutral-400">{t('marketplace.acceptActivatesFollow')}</p>
+      )}
       <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
       {row.status === 'accepted' && row.relationship_state === 'active' && (
         <div className="space-y-3">
