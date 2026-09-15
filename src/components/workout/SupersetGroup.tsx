@@ -41,7 +41,7 @@ export default function SupersetGroup({ exercises, onStartRestTimer }: Props) {
         <div className="absolute left-0 top-4 bottom-4 w-0.5 rounded-full bg-gradient-to-b from-green-500/60 via-green-400/40 to-green-500/60" />
 
         <div className="space-y-2">
-          {exercises.map(ex => (
+          {exercises.map((ex, i) => (
             <ExerciseCard
               key={ex.id}
               exercise={ex}

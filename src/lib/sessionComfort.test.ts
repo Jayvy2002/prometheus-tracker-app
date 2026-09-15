@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { imageFileForUpload, isHeicLike } from './heicConvert';
-import { platesForLoad, standardBarKg } from './plateMath';
+import { platesForLoad, plateInventory, plateStyle, standardBarKg, totalFromSleeve } from './plateMath';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -29,19 +29,46 @@ test('UX102 free session saves as a plan day with lot 14 types', () => {
   assert.doesNotMatch(form, /navigate\('\/programs\/new'\)/);
 });
 
-test('UX103 plate calculator uses profile units and a standard bar', () => {
+test('UX103 plate calculator uses profile units and a visual sleeve', () => {
   assert.equal(standardBarKg('kg'), 20);
   assert.equal(standardBarKg('lbs'), 45);
+  assert.deepEqual(plateInventory('kg'), [25, 20, 15, 10, 5, 2.5, 1.25]);
+  assert.deepEqual(plateInventory('lbs'), [55, 45, 35, 25, 10, 5, 2.5]);
+  assert.equal(plateStyle(25, 'kg').bg, 'bg-red-600');
+  assert.equal(plateStyle(20, 'kg').bg, 'bg-blue-600');
+  assert.equal(plateStyle(15, 'kg').bg, 'bg-yellow-400');
+  assert.equal(plateStyle(10, 'kg').bg, 'bg-green-600');
+  assert.equal(plateStyle(5, 'kg').bg, 'bg-white');
+  assert.equal(plateStyle(55, 'lbs').bg, 'bg-red-600');
+  assert.equal(plateStyle(45, 'lbs').bg, 'bg-blue-600');
   const kg = platesForLoad(100, 'kg');
   assert.deepEqual(kg.perSide, [{ plate: 25, count: 1 }, { plate: 15, count: 1 }]);
   assert.equal(kg.leftover, 0);
+  assert.equal(totalFromSleeve([25, 15], 20), 100);
   const lbs = platesForLoad(225, 'lbs');
-  assert.deepEqual(lbs.perSide, [{ plate: 45, count: 2 }]);
+  assert.deepEqual(lbs.perSide, [{ plate: 55, count: 1 }, { plate: 35, count: 1 }]);
+  assert.deepEqual(platesForLoad(135, 'lbs').perSide, [{ plate: 45, count: 1 }]);
   const card = src('src/components/workout/ExerciseCard.tsx');
   assert.match(card, /data-plates-open="true"/);
   assert.match(card, /<PlateCalc/);
   assert.match(card, /unit=\{weightUnit\}/);
   assert.match(card, /import \{ isPerformedSet \} from '..\/..\/lib\/performedSets'/);
+  const calc = src('src/components/workout/PlateCalc.tsx');
+  assert.match(calc, /data-plate-sleeve="true"/);
+  assert.match(calc, /data-plate-palette="true"/);
+  assert.match(calc, /data-plate-add=/);
+  assert.match(calc, /data-plate-total="true"/);
+});
+
+test('16g session logger stays usable on a phone', () => {
+  const form = src('src/components/workout/WorkoutForm.tsx');
+  assert.match(form, /data-workout-logger="true"/);
+  assert.match(form, /min-w-0/);
+  const card = src('src/components/workout/ExerciseCard.tsx');
+  assert.match(card, /data-set-row="true"/);
+  assert.match(card, /OverflowMenu/);
+  assert.match(card, /SetRowMenu/);
+  assert.match(card, /min-h-11 min-w-11/);
 });
 
 test('UX104 reuse a meal from a chosen day, not only yesterday', () => {

@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (nuit).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–16** : code Git (PRs). File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026 (matin).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–16** : code Git (PRs). **16f–16g** (disques visuels + logger téléphone) = produit demandé, **avant** la file structure 17–23. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 17** (hygiène structure — seulement si un test nouveau hors liste, sinon **après** parcours 11–16). Lots 11–16 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**. Lots 18–23 : ne pas commencer pendant la preuve 11–16.
+| **Lot ouvert : 16f–16g** (calculateur de disques visuel + séance lisible sur téléphone). Lots 17–23 : hygiène structure **après** ce produit. Lots 11–16 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -158,7 +158,9 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
 | **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
 | **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
-| **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | À construire **après 16** (tirable **pendant** 11–16 si un test nouveau) | `ARCHITECTURE.md` + `DESIGN_SYSTEM.md` ; aligner `CLAUDE.md` ; `npm test` = `**/*.test.ts` ; nom package ; une convention `.env`. **Zéro écran.** |
+| **16f** | **Calculateur de disques visuel** (UX103) | À construire | Un **côté de barre**, disques ajoutables (kg 25/20/15/10/5/2.5/1.25 ou lbs 55/45/35/25/10/5/2.5), couleurs haltéro, unité du profil. |
+| **16g** | **Logger séance lisible sur téléphone** | À construire | Header, fiche exo (actions en overflow), rangées de séries. Sans casser le lot 14. **Pas d’ID UX inventé.** |
+| **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | À construire **après 16f–16g** (tirable **pendant** 11–16 si un test nouveau) | `ARCHITECTURE.md` + `DESIGN_SYSTEM.md` ; aligner `CLAUDE.md` ; `npm test` = `**/*.test.ts` ; nom package ; une convention `.env`. **Zéro écran.** |
 | **18** | **Socle dossiers + alias** (ARCH02 évidents) | À construire **après 17** | Créer `app` / `features` / `shared` + alias `@/`. Déplacer **seulement** hooks mal placés, client Supabase, `ui`, layout, nav. Pas `coach*.ts`, pas `App.tsx`, pas les stores. |
 | **19** | **Tokens sémantiques sur primitives** (ARCH06) | À construire **après 18** | `Button` / `Card` / `Input` / `Select` / etc. = `bg-primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` **dans les primitives**. Relie premium lot 1. |
 | **20** | **Migrer `src/lib` par domaine** (ARCH01) | À construire **après 18** | Une PR **par** domaine, zéro comportement. Coaching d’abord (`coach*.ts` → `features/coaching/`), puis marketplace, workout, nutrition, programs. |
@@ -218,7 +220,7 @@ Le logger **libre** a déjà des types (`SET_TYPES` dans `ExerciseCard`). Le **b
 |---|---|---|
 | 15a | Timer de repos : **persistant** pendant la séance (barre), pas seulement un modal qui meurt à la fermeture. UX15 (auto après coche) inchangé. **Code Git** — reste parcours. | UX101 |
 | 15b | Séance **libre** → enregistrer comme jour de plan / modèle (solo). `/programs/new` aujourd’hui `CoachOnly`. Les types du lot 14 suivent. **Code Git** — reste parcours. | UX102 |
-| 15c | Calculateur de disques (barre + plaques) depuis une charge, unités du profil. **Code Git** — reste parcours. | UX103 |
+| 15c | Calculateur de disques **visuel** : un côté de barre, disques ajoutables, couleurs haltéro, unités du profil (kg 25…1.25 / lbs **55**…2.5). Liste texte = insuffisant. | UX103 |
 | 15d | Réutiliser un repas : **n’importe quel jour**, pas seulement hier (`copyFromYesterday`). **Code Git** — reste parcours. | UX104 |
 | 15e | Scanner : hériter **date + catégorie** du journal. `NutritionPage` passe `?date=&category=` ; `ScannerPage` les lit. **Code Git** — reste parcours. | UX105 |
 | 15f | Photos / avatar / produit : **HEIC** iPhone (convertir via bitmap, sinon `heic_unsupported`). **Code Git** — reste parcours. | UX106 |
@@ -232,6 +234,15 @@ Le logger **libre** a déjà des types (`SET_TYPES` dans `ExerciseCard`). Le **b
 | 16c | Notes d’exo de séance visibles en 360 / dernière séance. `LastSessionView` emporte `notes`. **Code Git** — reste parcours. | UX109 |
 | 16d | Copier le **setup de suivi** d’un client vers un autre (tracking). Pas de copie aujourd’hui. **Code Git** — reste parcours. | UX110 |
 | 16e | Coaché mobile : **Nutrition** joignable **sans 6ᵉ onglet**. **Tranché :** Check-in reste en tab ; Nutrition = FAB repas + carte Profil + desktop. | UX111 |
+
+### Lot 16f–16g — logger séance (demande live, avant 17)
+
+Produit demandé après 16, **pas** de la file structure. **Pas d’ID UX inventé** (UX112 reste capteurs santé).
+
+| # | Contenu | IDs |
+|---|---|---|
+| 16f | Un **côté de barre**. On ajoute / retire des disques : **kg** 25, 20, 15, 10, 5, 2.5, 1.25 ou **lbs** 55, 45, 35, 25, 10, 5, 2.5 selon `unit_weight`. Couleurs haltéro (rouge / bleu / jaune / vert / blanc / noir / chrome). Total = barre + 2 × le côté. | UX103 |
+| 16g | Page séance **lisible sur téléphone** : header (nom + chrono) sans overflow, fiche exo (actions secondaires en overflow), rangées KG / REPS / RIR + coche 44 px. Types / drop / superset du lot 14 inchangés. | — |
 
 ### Lots 17–23 — structure (après 16, gravité croissante)
 
@@ -309,7 +320,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 
 **Après les lots 17–23 :** preuve prod des lots M encore « À vérifier », M7, confort P2/P3 restant, capteurs santé (UX112), billing.
 
-**Après le lot 16 :** d’abord la file structure **17–23** (ci-dessus), puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
+**Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
 ---
 
@@ -436,7 +447,8 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Séance programmée joue la prescription (plus de `hevySimple`) | UX100 | Lot 14c, après 10 |
 | Timer de repos persistant | UX101 | Lot 15a |
 | Séance libre → jour de plan / modèle | UX102 | Lot 15b |
-| Calculateur de disques | UX103 | Lot 15c |
+| Calculateur de disques visuel (un côté, couleurs, 55 lb) | UX103 | Lots 15c / 16f |
+| Logger séance lisible sur téléphone | — | Lot 16g (pas d’ID inventé) |
 | Réutiliser un repas d’un jour choisi | UX104 | Lot 15d |
 | Scanner hérite date + catégorie | UX105 | Lot 15e |
 | HEIC iPhone | UX106 | Lot 15f |
@@ -554,7 +566,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX16** | P1 | ens. | À construire | Langage : appareil / sync / action requise. | Après coupure, on sait ce qui est conservé. |
 | **UX17** | P1 | 1 | **Terminé** | Plus de `setTimeout` 30 s. Fermer → recap. Faits, pas « Conseil du coach ». Parcours 15 sept. | — |
 | **UX101** | P2 | 15a | **À vérifier** | Barre `data-rest-bar` ; fermer le modal ne reseed pas. UX15 (`restEpoch`) inchangé. **Reste :** parcours live. | On voit le temps restant sans le modal. |
-| **UX103** | P3 | 15c | **À vérifier** | `PlateCalc` depuis la fiche exo, unités du profil. **Reste :** parcours live. | On sait quelles plaques mettre. |
+| **UX103** | P3 | 15c / 16f | **À construire** | Un côté de barre, disques ajoutables, couleurs haltéro, inventaire kg + **55 lb**. Unité du profil. | On voit et on compose la charge, pas une liste. |
 
 ### Exercices et programmes
 

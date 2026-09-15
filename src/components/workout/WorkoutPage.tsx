@@ -210,10 +210,10 @@ export default function WorkoutPage() {
 
   return (
     <PageTransition>
-    <div className="px-4 pt-6">
-      <div className="flex items-center justify-between mb-6 animate-fade-in-down">
-        <h1 className="text-2xl font-bold text-white">{t('workout.title')}</h1>
-        <Button onClick={() => navigate('/workout/new')} size="sm">
+    <div className="px-3 pt-5 sm:px-4 sm:pt-6">
+      <div className="flex items-center justify-between gap-3 mb-6 animate-fade-in-down">
+        <h1 className="text-2xl font-bold text-white min-w-0 truncate">{t('workout.title')}</h1>
+        <Button onClick={() => navigate('/workout/new')} size="sm" className="shrink-0">
           <Plus size={16} /> {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('common.new')}
         </Button>
       </div>
@@ -359,14 +359,14 @@ export default function WorkoutPage() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h2 className="text-sm font-semibold text-neutral-400 uppercase tracking-wider">{t('workout.history')}</h2>
         <div className="flex gap-1.5">
           {(['all', 'completed', 'incomplete'] as const).map(f => (
             <button
               key={f}
               onClick={() => { setFilter(f); setDisplayCount(PAGE_SIZE); }}
-              className={`px-2.5 py-1 rounded-md text-xs font-medium capitalize transition-colors
+              className={`min-h-11 px-3 rounded-lg text-xs font-medium capitalize transition-colors
                 ${filter === f ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400 hover:text-neutral-300'}`}
             >
               {filterLabels[f]}

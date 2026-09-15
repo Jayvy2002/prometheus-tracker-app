@@ -61,7 +61,7 @@ export default function OverflowMenu({ label, actions }: OverflowMenuProps) {
         <div
           id={menuId}
           role="menu"
-          className="absolute right-0 z-20 mt-1 min-w-[10rem] rounded-xl border border-neutral-800 bg-neutral-950 p-1 shadow-xl"
+          className="absolute right-0 z-50 mt-1 min-w-[10rem] rounded-xl border border-neutral-800 bg-neutral-950 p-1 shadow-xl"
         >
           {actions.map(action => (
             <button

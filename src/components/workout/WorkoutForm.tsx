@@ -10,7 +10,6 @@ import Button from '../ui/Button';
 import EmptyState from '../ui/EmptyState';
 import ErrorState from '../ui/ErrorState';
 import IconButton from '../ui/IconButton';
-import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import { PageSkeleton } from '../ui/PageSkeleton';
 import PageHeader from '../ui/PageHeader';
@@ -455,34 +454,37 @@ function WorkoutFormInner() {
   }
 
   return (
-    <div className="px-4 pt-4 pb-6">
-      <div className="flex items-center gap-3 mb-4">
-        <IconButton label={t('common.back')} onClick={handleBack} className="-ml-2">
+    <div className="px-3 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-4" data-workout-logger="true">
+      <div className="flex items-center gap-1 mb-3">
+        <IconButton label={t('common.back')} onClick={handleBack} className="-ml-1 shrink-0">
           <ArrowLeft size={20} />
         </IconButton>
         {isProgramSession ? (
-          <p className="flex-1 text-lg font-semibold text-white truncate">{workoutName || t('workout.title')}</p>
+          <p className="flex-1 min-w-0 text-base sm:text-lg font-semibold text-white truncate">{workoutName || t('workout.title')}</p>
         ) : (
-        <Input
+        <input
           value={workoutName}
           onChange={e => setWorkoutName(e.target.value)}
           placeholder={t('workout.workoutName')}
-          className="text-lg font-semibold bg-transparent border-0 px-0 focus:ring-0"
+          className="flex-1 min-w-0 bg-transparent border-0 px-1 text-base sm:text-lg font-semibold text-white placeholder-neutral-500 focus:outline-none focus:ring-0"
         />
         )}
-        <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
-        {restEnabled && (
-        <IconButton
-          label={t('workout.restTimer.title')}
-          onClick={() => handleStartRestTimer()}
-        >
-          <Timer size={18} />
-        </IconButton>
-        )}
+        <div className="flex items-center shrink-0">
+          <SessionTimer elapsedSeconds={elapsedSeconds} running={timer.running} onToggle={toggleSessionTimer} />
+          {restEnabled && (
+          <IconButton
+            label={t('workout.restTimer.title')}
+            onClick={() => handleStartRestTimer()}
+          >
+            <Timer size={18} />
+          </IconButton>
+          )}
+        </div>
       </div>
 
       {solo && user && currentWorkout && !currentWorkout.completed && (
         <SoloAskBar
+          compact
           context={soloAskFromProfile('session', profile, {
             programName: currentWorkout.name || assignment?.program?.name || null,
             programExercises: (currentWorkout.exercises ?? []).map(ex => ex.name),
