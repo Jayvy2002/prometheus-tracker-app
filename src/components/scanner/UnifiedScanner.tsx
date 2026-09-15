@@ -67,6 +67,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
   const cameraNutritionRef = useRef<HTMLInputElement>(null);
   const galleryNutritionRef = useRef<HTMLInputElement>(null);
   const mountedRef = useRef(true);
+  const cancelledRef = useRef(false);
   const foundRef = useRef(false);
   const streamRef = useRef<MediaStream | null>(null);
   const scanIntervalRef = useRef<number | null>(null);
@@ -80,9 +81,16 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
 
   useEffect(() => {
     mountedRef.current = true;
+    cancelledRef.current = false;
     if (user && showRecent) fetchRecentProducts(user.id);
     return () => { mountedRef.current = false; stopCamera(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dismissWait = () => {
+    cancelledRef.current = true;
+    reset();
+    onClose();
+  };
 
   // -------------------------------------------------------------------
   // Barcode lookup: DB → OpenFoodFacts → AI capture
@@ -95,7 +103,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     try {
       // 1. Local database
       const dbProduct = await findByBarcode(code.trim());
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || cancelledRef.current) return;
       if (dbProduct) { onResult(dbProduct); return; }
 
       // 2. Open Food Facts (v2, with 6-second timeout)
@@ -109,7 +117,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         );
         clearTimeout(timer);
         const data = await res.json();
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || cancelledRef.current) return;
         if (data.status === 1 && data.product) {
           const p = data.product;
           const n = (p.nutriments ?? {}) as Record<string, unknown>;
@@ -128,17 +136,17 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           };
           const saved = await createProduct(productData);
           const finalProduct: FoodProduct = saved ?? { id: '', created_at: '', ...productData };
-          if (!mountedRef.current) return;
+          if (!mountedRef.current || cancelledRef.current) return;
           onResult(finalProduct);
           return;
         }
       } catch { /* timeout or network error → fallthrough to AI */ }
 
       // 3. Not found anywhere → AI identification
-      if (mountedRef.current) setPhase('ai_capture');
+      if (mountedRef.current && !cancelledRef.current) setPhase('ai_capture');
     } catch {
       // Unexpected error → still bring user to AI capture rather than leaving stuck
-      if (mountedRef.current) setPhase('ai_capture');
+      if (mountedRef.current && !cancelledRef.current) setPhase('ai_capture');
     }
   }, [findByBarcode, createProduct, user?.id, onResult, stopCamera]);
 
@@ -253,7 +261,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
     }
 
     const result = await analyzeProductRequest(request.id);
-    if (!mountedRef.current) return;
+    if (!mountedRef.current || cancelledRef.current) return;
 
     if ('product' in result) {
       onResult(result.product, result.confidence);
@@ -300,7 +308,7 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
 
   if (phase === 'searching') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6">
+      <div data-testid="scanner-wait" className="flex flex-col items-center justify-center min-h-[60vh] px-6">
         <div className="w-16 h-16 rounded-full bg-neutral-900 flex items-center justify-center mb-5">
           <Loader2 size={28} className="text-blue-400 animate-spin" />
         </div>
@@ -310,13 +318,17 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           </p>
         )}
         <p className="text-white font-semibold">{t('scanner.lookingUp')}</p>
+        <p className="text-sm text-neutral-500 text-center max-w-xs mt-2">{t('scanner.waitQuitHint')}</p>
+        <Button type="button" variant="secondary" className="mt-6" data-testid="scanner-wait-cancel" onClick={dismissWait}>
+          {t('common.cancel')}
+        </Button>
       </div>
     );
   }
 
   if (phase === 'ai_analyzing') {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6">
+      <div data-testid="scanner-wait" className="flex flex-col items-center justify-center min-h-[60vh] px-6">
         <div className="w-20 h-20 rounded-full bg-neutral-900 flex items-center justify-center mb-6">
           <Loader2 size={32} className="text-blue-400 animate-spin" />
         </div>
@@ -324,11 +336,15 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
         <p className="text-sm text-neutral-400 text-center max-w-xs">
           {t('scanner.aiAnalyzingDesc')}
         </p>
+        <p className="text-sm text-neutral-500 text-center max-w-xs mt-3">{t('scanner.waitQuitHint')}</p>
         <div className="mt-8 w-48">
           <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
             <div className="h-full bg-blue-500 rounded-full animate-pulse" style={{ width: '65%' }} />
           </div>
         </div>
+        <Button type="button" variant="secondary" className="mt-6" data-testid="scanner-wait-cancel" onClick={dismissWait}>
+          {t('common.cancel')}
+        </Button>
       </div>
     );
   }
@@ -657,12 +673,14 @@ export default function UnifiedScanner({ onResult, onClose, showRecent = true }:
           onChange={e => setManualCode(e.target.value)}
           placeholder={t('scanner.typeBarcode')}
           className="flex-1"
+          data-testid="scanner-barcode-input"
           onKeyDown={e => { if (e.key === 'Enter' && manualCode.trim()) lookupBarcode(manualCode.trim()); }}
         />
         <Button
           onClick={() => { if (manualCode.trim()) lookupBarcode(manualCode.trim()); }}
           variant="secondary"
           disabled={!manualCode.trim()}
+          data-testid="scanner-barcode-lookup"
         >
           <SearchIcon size={16} />
         </Button>

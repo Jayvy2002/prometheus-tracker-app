@@ -125,6 +125,7 @@ const nutrition = {
     typeBarcode: 'Type barcode...',
     recentlyLogged: 'Recently logged',
     lookingUp: 'Looking up product…',
+    waitQuitHint: 'You can leave. The journal stays available.',
     checkingDb: 'Looking up product…',
     checkingOff: 'Looking up product…',
     notFoundHuman: 'Product not found',
