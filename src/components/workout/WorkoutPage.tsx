@@ -298,6 +298,10 @@ export default function WorkoutPage() {
       )}
 
       {coached && user && myCoach && (
+        <>
+        <p className="text-xs text-neutral-500 mb-2" data-testid="ux19-assigned-plan-untouched">
+          {t('coaching.ux19.assignedPlanUntouched')}
+        </p>
         <SoloAskBar
           context={{ ...askContext, surface: 'coached', coachName: myCoach.full_name }}
           onApplyOnce={() => undefined}
@@ -312,6 +316,7 @@ export default function WorkoutPage() {
             navigate('/messages');
           }}
         />
+        </>
       )}
 
       <CardLink to="/programs" className="mb-4 flex items-center gap-3" data-testid="workout-program">

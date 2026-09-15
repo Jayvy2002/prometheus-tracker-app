@@ -547,7 +547,12 @@ const coaching = {
       askAdjustHint: 'Prometheus prepares an editable adjustment from this session.',
       relanceIfNeeded: 'Nudge (if you need to talk)',
       older: 'Older sessions',
-      askAdjustPrompt: '{{name}} logged {{session}} on {{date}}.\n{{lifts}}\nSuggest a light adjustment if needed. Apply nothing — the coach edits then sends.',
+      askAdjustPrompt: '{{name}} logged {{session}} on {{date}}.\n{{lifts}}\nPropose a replacement or adjustment for the assigned plan. Draft only — the coach confirms the recap. Do not apply to following weeks.',
+    },
+    ux19: {
+      proposeToPlan: 'Propose to the plan',
+      proposeHint: 'Ask draft — you confirm the recap. No automatic apply to following weeks.',
+      assignedPlanUntouched: 'The plan your coach assigned does not change from here. A substitution is proposed to the coach, who confirms.',
     },
     sessionReview: {
       title: 'Sessions to review',

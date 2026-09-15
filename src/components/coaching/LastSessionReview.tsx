@@ -72,8 +72,14 @@ export default function LastSessionReview({
       <SessionReadout session={session} onExercise={onExercise} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant="secondary" loading={asking} onClick={() => { void askAdjust(); }}>
-          <Sparkles size={14} /> {t('coaching.lastSession.askAdjust')}
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={asking}
+          data-testid="ux19-propose-to-plan"
+          onClick={() => { void askAdjust(); }}
+        >
+          <Sparkles size={14} /> {t('coaching.ux19.proposeToPlan')}
         </Button>
         {showRelance && (
           <Button size="sm" variant="ghost" onClick={() => navigate(relanceHref)}>
@@ -81,7 +87,7 @@ export default function LastSessionReview({
           </Button>
         )}
       </div>
-      <p className="text-[11px] text-neutral-600">{t('coaching.lastSession.askAdjustHint')}</p>
+      <p className="text-[11px] text-neutral-600">{t('coaching.ux19.proposeHint')}</p>
     </div>
   );
 }

@@ -547,7 +547,12 @@ const coaching = {
       askAdjustHint: 'Prometheus prépare un ajustement modifiable à partir de cette séance.',
       relanceIfNeeded: 'Relancer (si tu dois parler)',
       older: 'Séances plus anciennes',
-      askAdjustPrompt: '{{name}} a loggé {{session}} le {{date}}.\n{{lifts}}\nPropose un ajustement léger si besoin. N’applique rien — le coach édite puis envoie.',
+      askAdjustPrompt: '{{name}} a loggé {{session}} le {{date}}.\n{{lifts}}\nPropose un remplacement ou un ajustement pour le plan assigné. Brouillon seulement — le coach confirme le recap. N’applique rien aux semaines suivantes.',
+    },
+    ux19: {
+      proposeToPlan: 'Proposer au plan',
+      proposeHint: 'Brouillon Ask — tu confirmes le recap. Pas d’application automatique aux semaines suivantes.',
+      assignedPlanUntouched: 'Le plan que ton coach a assigné ne change pas depuis ici. Un remplacement se propose au coach, il confirme.',
     },
     sessionReview: {
       title: 'Séances à relire',

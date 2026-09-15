@@ -185,7 +185,7 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 | | |
 |---|---|
 | **Quoi** | `/programs` → `ClientProgramPage` lecture : nom, semaine, jour du jour, jours d’entraînement, archives. Pas d’éditeur. Carte « Mon programme » sur Dashboard et Entraînement (nom du plan). Desktop + Profil restent des accès secondaires. |
-| **Marche** | Le coaché ne peut pas réécrire le plan du coach. Empty « pas encore assigné » / waiting → Messages. Trouvable sans Profil (UX08). |
+| **Marche** | Le coaché ne peut pas réécrire le plan du coach. Empty « pas encore assigné » / waiting → Messages. Trouvable sans Profil (UX08). Notice UX19 : un remplacement se propose au coach. |
 | **Ne va pas** | Pas de « pourquoi ce programme » ni de consignes du coach en tête. Demander un changement = message libre, pas une demande structurée. |
 | **Changer** | Un tap = semaine ; un second = détail d’un exercice. « Demander un ajustement » préremplit un message (sans créer un second copilote). |
 
@@ -353,7 +353,7 @@ SoloHub mobile : Recettes · Photos · Annuaire · Demandes. Toggle « passer co
 | | |
 |---|---|
 | **Quoi** | Onglets : overview, profile, training, progress, checkins, health, notes — filtrés par `visible_tabs`. Header Message. « Depuis ta dernière visite ». 1 reco max. Setup, intervention, Ask scopé, retirer le lien. |
-| **Marche** | Lot 6 : dossier derrière détails, reco limitée. Realtime dossier. Notes privées **coach**. |
+| **Marche** | Lot 6 : dossier derrière détails, reco limitée. Realtime dossier. Notes privées **coach**. UX19 : **Proposer au plan** depuis la dernière séance = brouillon Ask + recap. |
 | **Ne va pas** | Encore un dossier clinique. Overview peut empiler intake + questionnaire + timeline + KPIs. Onglet « health » = recovery check-in, **pas** Apple Health — nom trompeur. |
 | **Changer** | Vue par défaut = **ce qui a changé** + prochain geste. Le reste en sections. Renommer health → Récupération. Profondeur (tout l’historique) à un tap, pour le client *en cours*, pas pour tous. |
 
