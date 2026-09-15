@@ -15,8 +15,9 @@ export function foodProvenanceKind(input: {
   if (input._source === 'recent') return 'recent';
   if (input._source === 'recipe') return 'recipe';
   if (input._source === 'openfoodfacts' || input.data_source === 'openfoodfacts') return 'openfoodfacts';
+  if (input._source === 'db') return 'catalog';
   if (input.data_source === 'user') return 'manual';
-  if (input._source === 'db' || input.data_source) return 'catalog';
+  if (input.data_source) return 'catalog';
   return 'manual';
 }
 

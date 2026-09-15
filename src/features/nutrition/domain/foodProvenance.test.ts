@@ -8,6 +8,7 @@ test('provenance names the source and never claims a certification', () => {
   assert.equal(foodProvenanceKind({ _source: 'openfoodfacts' }), 'openfoodfacts');
   assert.equal(foodProvenanceKind({ data_source: 'openfoodfacts' }), 'openfoodfacts');
   assert.equal(foodProvenanceKind({ _source: 'db', data_source: 'foundation' }), 'catalog');
+  assert.equal(foodProvenanceKind({ _source: 'db', data_source: 'user' }), 'catalog');
   assert.equal(foodProvenanceKind({ _source: 'favorite' }), 'favorite');
   assert.equal(foodProvenanceKind({ _source: 'recent' }), 'recent');
   assert.equal(foodProvenanceKind({ data_source: 'user' }), 'manual');
