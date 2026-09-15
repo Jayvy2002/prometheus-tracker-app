@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Dumbbell, Scale, Flame, X } from 'lucide-react';
+import { Plus, Dumbbell, Scale, Flame, X, ClipboardCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { useProgramStore } from '../../stores/programStore';
@@ -35,6 +35,11 @@ export default function FAB() {
       label: gymDue ? t('nav.addWorkoutOffPlan') : t('nav.addWorkout'),
       icon: Dumbbell,
       onClick: () => { navigate('/workout/new'); setOpen(false); },
+    }] : []),
+    ...(tracking.track_checkins ? [{
+      label: t('nav.addCheckin'),
+      icon: ClipboardCheck,
+      onClick: () => { navigate('/checkin'); setOpen(false); },
     }] : []),
     ...(tracking.track_weight ? [{ label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } }] : []),
     ...(tracking.track_nutrition ? [{ label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } }] : []),

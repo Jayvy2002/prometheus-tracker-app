@@ -108,6 +108,7 @@ interface ProgramState {
   /** E01 : dernière révision (numéro + date) — le passé ne se réécrit pas. */
   fetchProgramRevisionInfo: (programId: string) => Promise<{ revision_no: number; created_at: string; count: number } | null>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
+  duplicateProgram: (programId: string) => Promise<{ error: string | null; programId?: string }>;
   pauseAssignment: (id: string) => Promise<void>;
   clear: () => void;
 }
@@ -443,6 +444,17 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     if (error || !data) return null;
     const row = data as { revision_no: number; created_at: string };
     return { revision_no: row.revision_no, created_at: row.created_at, count: row.revision_no };
+  },
+
+  duplicateProgram: async (programId) => {
+    const { data, error } = await supabase.rpc('fork_program', {
+      p_program_id: programId,
+      p_name: null,
+    });
+    if (error || !data) return { error: error?.message ?? 'fork_failed' };
+    const program = await get().fetchProgram(data as string);
+    if (!program) return { error: 'fork_failed', programId: data as string };
+    return { error: null, programId: program.id };
   },
 
   assignProgram: async (programId, clientId, startDate) => {

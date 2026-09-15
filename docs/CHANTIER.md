@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (nuit).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–15** : code Git (PRs). File produit ouverte : lot **16**. File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026 (nuit).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–16** : code Git (PRs). File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 16** (outillage coach / chrome coaché). Lots 11–15 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**. Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène si un test nouveau).
+| **Lot ouvert : 17** (hygiène structure — seulement si un test nouveau hors liste, sinon **après** parcours 11–16). Lots 11–16 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**. Lots 18–23 : ne pas commencer pendant la preuve 11–16.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -227,11 +227,11 @@ Le logger **libre** a déjà des types (`SET_TYPES` dans `ExerciseCard`). Le **b
 
 | # | Contenu | IDs |
 |---|---|---|
-| 16a | FAB : **check-in** si `track_checkins` (aujourd’hui séance / poids / repas seulement). | UX107 |
-| 16b | **Dupliquer** un programme dans la bibliothèque. `fork_program` existe pour l’assignation, pas de bouton liste. | UX108 |
-| 16c | Notes d’exo de séance visibles en 360 / dernière séance. `LastSessionView` = nom + séries, **sans** `exercise.notes`. | UX109 |
-| 16d | Copier le **setup de suivi** d’un client vers un autre (tracking). Pas de copie aujourd’hui. | UX110 |
-| 16e | Coaché mobile : **Nutrition** joignable **sans 6ᵉ onglet**. Même carte que desktop (Profil / FAB). Contrat onglet Check-in vs Nutrition : **à trancher dans la PR** (pas les deux + Messages + Profil). | UX111 |
+| 16a | FAB : **check-in** si `track_checkins` (aujourd’hui séance / poids / repas seulement). **Code Git** — reste parcours. | UX107 |
+| 16b | **Dupliquer** un programme dans la bibliothèque. `fork_program` existe pour l’assignation, pas de bouton liste. **Code Git** — reste parcours. | UX108 |
+| 16c | Notes d’exo de séance visibles en 360 / dernière séance. `LastSessionView` emporte `notes`. **Code Git** — reste parcours. | UX109 |
+| 16d | Copier le **setup de suivi** d’un client vers un autre (tracking). Pas de copie aujourd’hui. **Code Git** — reste parcours. | UX110 |
+| 16e | Coaché mobile : **Nutrition** joignable **sans 6ᵉ onglet**. **Tranché :** Check-in reste en tab ; Nutrition = FAB repas + carte Profil + desktop. | UX111 |
 
 ### Lots 17–23 — structure (après 16, gravité croissante)
 
@@ -540,8 +540,8 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX76** | P2 | 10g | **À vérifier** | `aria-current="page"` BottomNav / SideNav. Badge unread. **Reste :** zoom 200 % live. | Onglet actif identifiable clavier / lecteur. |
 | **UX77** | P2 | 10a | **À vérifier** | Recettes dans AppLayout / Nutrition. Plus de `FullPageLayout`. **Reste :** parcours live (solo + coaché). | Recettes ≠ session ; séance a une sortie. |
 | **UX84** | P1 | 8 | À construire | FAB + Nouveau `/workout` : pas de doublon vs jour dû. | Hors programme **nommé** ; pas d’interdiction. |
-| **UX107** | P2 | 16a | À construire | FAB : check-in si le module est on. | Check-in sans chercher l’onglet. |
-| **UX111** | P2 | 16e | À concevoir | Coaché mobile : Nutrition sans 6ᵉ onglet. Trancher Check-in vs Nutrition dans la tab bar. | Nutrition = même carte mobile/desktop. |
+| **UX107** | P2 | 16a | **À vérifier** | FAB + `quickAddActions` : check-in si le module est on. **Reste :** parcours live. | Check-in sans chercher l’onglet. |
+| **UX111** | P2 | 16e | **À vérifier** | Tranché : Check-in en tab ; Nutrition via FAB + Profil + desktop. Pas de 6ᵉ onglet. **Reste :** parcours coaché mobile. | Nutrition = même carte mobile/desktop. |
 
 ### Séance
 
@@ -566,7 +566,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX99** | P2 | 14b | **À vérifier** | Logger : drop = N charges / une coche ; repos superset après le dernier exo du groupe. **Reste :** parcours live. | On ne « simule » pas un drop ou un superset avec des working. |
 | **UX100** | P2 | 14c | **À vérifier** | Plus de `hevySimple`. Seed `start_workout_from_template` joue la prescription. Coaché : toujours pas d’exo hors plan. **Reste :** apply prod. | Le client logge ce que le plan a prescrit. |
 | **UX102** | P2 | 15b | **À vérifier** | Solo : « Enregistrer comme jour de plan » (`createProgram` + types lot 14). **Reste :** parcours live. | Une bonne séance libre n’est pas perdue. |
-| **UX108** | P2 | 16b | À construire | Dupliquer dans la bibliothèque (`fork_program` déjà là pour l’assign). | Copier un plan ≠ l’assigner. |
+| **UX108** | P2 | 16b | **À vérifier** | Overflow « Dupliquer » → `fork_program`. **Reste :** parcours live. | Copier un plan ≠ l’assigner. |
 | **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
 | **UX20** | P1 | 3 | **Partiel** | RPC `save_program` + `stale` live. | Le client voit ou ne voit pas ; pas de plan à moitié. |
 | **UX21** | P1 | 3 | **Partiel** | Plus de premier client auto. Recap destinataire **pas** prouvé UI live. | Parcours bibliothèque sans destinataire accidentel. |
@@ -607,8 +607,8 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX37** | P2 | 10j | **À vérifier** | Titre preview « Ce que le client verra ». **Reste :** parcours setup live. | Pas de surprise d’onglets / champs. |
 | **UX38** | P3 | rep. | Reporté | Actions groupées limitées. | Seulement si gain prouvé. |
 | **UX78** | P1 | 2 | **Terminé** | RPC live + UI Personnel N>0 (chiffre, « Voir mes clients », pas d’RPC). | Dual-rôle Personnel ne peut pas couper le roster en prod. |
-| **UX109** | P2 | 16c | À construire | Notes d’exo (`WorkoutExercise.notes`) dans 360 / `LastSessionView`. | Le coach lit ce que l’athlète a noté sur le mouvement. |
-| **UX110** | P2 | 16d | À construire | Copier tracking (modules + champs) d’un client vers un autre. | Pas de setup à retaper à l’identique. |
+| **UX109** | P2 | 16c | **À vérifier** | `LastSessionExercise.notes` + `SessionReadout`. **Reste :** parcours 360. | Le coach lit ce que l’athlète a noté sur le mouvement. |
+| **UX110** | P2 | 16d | **À vérifier** | Setup : copier modules + vars d’un autre client dans le formulaire. **Reste :** parcours live. | Pas de setup à retaper à l’identique. |
 
 ### Questionnaire coach (builder)
 

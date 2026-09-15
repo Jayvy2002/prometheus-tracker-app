@@ -81,6 +81,8 @@ export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemD
     return [today, clients, messages, programs, profile];
   }
   if (persona === 'coached') {
+    // UX111 : 5 onglets. Check-in reste en tab si le module est on.
+    // Nutrition : desktop + carte Profil + FAB repas. Pas de 6ᵉ onglet.
     return [
       today,
       ...(tracking.track_workouts ? [workout] : []),
@@ -172,6 +174,9 @@ export function quickAddActions(tracking: NavTracking): QuickAddDef[] {
   return [
     ...(tracking.track_workouts
       ? [{ id: 'newWorkout', path: '/workout/new', labelKey: 'nav.newWorkout', icon: Dumbbell }]
+      : []),
+    ...(tracking.track_checkins
+      ? [{ id: 'checkin', path: '/checkin', labelKey: 'nav.addCheckin', icon: ClipboardCheck }]
       : []),
     ...(tracking.track_weight
       ? [{ id: 'logWeight', path: '/weight?log=1', labelKey: 'nav.logWeight', icon: Scale }]

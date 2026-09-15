@@ -578,6 +578,7 @@ export interface LiftSetSnapshot {
 /** One completed workout, readable as sets — not a dump of all history. */
 export interface LastSessionExercise {
   name: string;
+  notes?: string;
   sets: LiftSetSnapshot[];
 }
 

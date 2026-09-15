@@ -11,6 +11,7 @@ import {
   mergeTrackingOverlay,
   CORE_CHECKIN_VARS,
   DEFAULT_COACH_TRACKING,
+  cloneTrackingConfig,
   parseCoachTrackingDefaults,
   parseResolvedTracking,
   repsInputMode,
@@ -249,4 +250,22 @@ test('new coach defaults keep check-in to the core four, extras opt-in', () => {
   const empty = parseCoachTrackingDefaults(EMPTY_COACH_SETTINGS.default_tracking);
   assert.equal(empty.checkin.mood, false);
   assert.equal(empty.checkin.sleep_quality, true);
+});
+
+test('UX110 clone tracking copies modules and vars without sharing objects', () => {
+  const source = parseResolvedTracking({
+    track_workouts: true,
+    track_nutrition: false,
+    track_checkins: true,
+    track_weight: false,
+    workout_focus: 'squat',
+    training_vars: { sets: true, reps: false, rir: true, load: true, rest: false, reps_range: false },
+  });
+  const cloned = cloneTrackingConfig(source);
+  cloned.workout_focus = 'bench';
+  cloned.training.reps = true;
+  assert.equal(source.workout_focus, 'squat');
+  assert.equal(source.training.reps, false);
+  assert.equal(cloned.track_nutrition, false);
+  assert.equal(cloned.track_checkins, true);
 });

@@ -37,7 +37,8 @@ export function sessionExerciseLines(session: LastSessionView): string[] {
     .map(ex => {
       const sets = readableSets(ex.sets);
       if (sets.length === 0) return '';
-      return `${ex.name}: ${sets.map(setLine).join(', ')}`;
+      const notes = ex.notes?.trim() ? ` — ${ex.notes.trim()}` : '';
+      return `${ex.name}: ${sets.map(setLine).join(', ')}${notes}`;
     })
     .filter(Boolean);
 }
@@ -49,6 +50,7 @@ export function sessionContextPayload(session: LastSessionView): Record<string, 
     name: session.name,
     exercises: session.exercises.map(ex => ({
       name: ex.name,
+      notes: ex.notes?.trim() || null,
       sets: readableSets(ex.sets).map(s => ({
         weight_kg: s.weight_kg,
         reps: s.reps,
@@ -138,6 +140,7 @@ export function lastSessionFromWorkout(workout: Workout): LastSessionView {
     name: workout.name || '',
     exercises: (workout.exercises ?? []).map(ex => ({
       name: ex.name,
+      notes: (ex.notes || '').trim() || undefined,
       sets: (ex.sets ?? []).map(s => ({
         weight_kg: s.weight_kg,
         reps: s.reps,
