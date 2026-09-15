@@ -250,6 +250,10 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   assert.match(page, /clientFileHref/);
   assert.match(page, /rosterBackPath/);
   assert.match(page, /rosterChainState/);
+  assert.match(page, /ROSTER_FILTERS/);
+  assert.match(page, /parseRosterFilter/);
+  assert.match(page, /setRosterFilter/);
+  assert.match(page, /aria-pressed/);
   assert.doesNotMatch(page, /lastMessageForClient/);
   assert.doesNotMatch(page, /navigate\('\/programs'\)/);
 
@@ -266,6 +270,9 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   assert.match(fr, /goalPerf:\s*'Perf'/);
   assert.match(fr, /prevFile:\s*'Fiche précédente'/);
   assert.match(fr, /nextFile:\s*'Fiche suivante'/);
+  assert.match(fr, /checkin:\s*'Check-in'/);
+  assert.match(fr, /missed:\s*'Logs manquants'/);
+  assert.match(fr, /filterWhy:/);
 });
 
 test('roster back path keeps the filter; unknown state falls back to /clients', () => {

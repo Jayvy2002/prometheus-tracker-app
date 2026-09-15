@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX07 / UX09 / UX10 / UX13 / UX16 / UX28 / UX36 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX28 / UX36** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -40,6 +40,7 @@
 | **UX13** Reprendre les valeurs | **PASS.** 3 séries ; raccourci remplit la 2ᵉ (80/5/2) ; pas de 4ᵉ rangée. | — |
 | **UX16** Offline langage | **PASS.** Bandeau « Hors ligne — tes modifications sont conservées sur cet appareil. » File séances seulement. | — |
 | **UX28** Manque ≠ faute | **PASS.** Settings : « séance non loggée » + « Séances non loggées » / « Check-ins en attente ». File : Pas de programme / Séance faite, pas « a manqué ». Ask : « log(s) manquant(s) ». Relance : « comment se passent tes séances ? ». | — |
+| **UX36** Filtres roster | **PASS.** Puces Tous / Check-in / … ; « Filtre : Check-in · 1 client(s) » (Invitee) ; Effacer → les deux clients. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -480,7 +481,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Relier réponse coach au bilan | UX27 | **Conçu** |
 | Manque ≠ faute ; relances | UX28 | **Terminé** |
 | Lier séance / check-in dans le fil | UX32 | **Conçu** |
-| Filtres roster visibles | UX36 | À construire |
+| Filtres roster visibles | UX36 | **Terminé** |
 | Builder questionnaire (modèle, preview, publication) | UX39–41 | À construire |
 | Attente IA quittable | UX44 | À construire |
 | Calendrier : prévu / commencé / terminé | UX47 | **Conçu** |
@@ -680,7 +681,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX33** | P1 | 9 | **Terminé** | Depuis quand déjà live. Filtre `/clients?filter=` live. | Priorité compréhensible sans ouvrir la fiche. |
 | **UX34** | P2 | 9 | **Partiel** | Passer = un signal, toast Annuler live. | Pas d’écartement en bloc. |
 | **UX35** | P2 | 9+10c | À vérifier | « Depuis ta dernière visite ». Dernière séance = UX12. | Répondre sans relire tout le dossier. |
-| **UX36** | P2 | ens. | À construire | Filtres visibles, éditables, effaçables. | On sait pourquoi un client est dans la liste. |
+| **UX36** | P2 | ens. | **Terminé** | Live : puces + « Filtre : Check-in · 1 client(s) » (Invitee) ; Effacer rend Client + Invitee. | On sait pourquoi un client est dans la liste. |
 | **UX37** | P2 | 10j | **À vérifier** | Titre preview « Ce que le client verra ». **Reste :** parcours setup live. | Pas de surprise d’onglets / champs. |
 | **UX38** | P3 | rep. | Reporté | Actions groupées limitées. | Seulement si gain prouvé. |
 | **UX78** | P1 | 2 | **Terminé** | RPC live + UI Personnel N>0 (chiffre, « Voir mes clients », pas d’RPC). | Dual-rôle Personnel ne peut pas couper le roster en prod. |
@@ -808,7 +809,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX07**, **UX09**, **UX10**, **UX13**, **UX16**, **UX28**, **UX36**. **M7–M8** et contrats catalogue **UX19 / 22 / 23 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -842,6 +843,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Coach | Roster → fiche → suivante / précédente | **Joué (UX09).** `1 / 2` → `2 / 2` ; onglet Check-ins conservé ; retour liste. |
 | Solo | Reprendre les valeurs d’une série | **Joué (UX13).** 3 rangées restent 3 ; 2ᵉ = 80/5/2. |
 | Coach | File / settings / Ask / relance | **Joué (UX28).** « non loggée » / « en attente » / « manquant(s) » ; relance « comment se passent tes séances ? ». |
+| Coach | Filtres roster | **Joué (UX36).** Puces ; Check-in = Invitee seul ; Effacer = les deux. |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
