@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Flame, Droplets, Dumbbell, Footprints, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare } from 'lucide-react';
+import { Flame, Droplets, Dumbbell, ChevronRight, Play, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -17,9 +17,8 @@ import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
-import { showModule, showNutritionField } from '../../lib/clientTracking';
+import { anyMacroField, showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
 import { nutritionTargetsFromProfile, targetRatio } from '../../lib/nutritionTargets';
 import {
   clientHomeAttention,
@@ -34,12 +33,12 @@ import { isProgramDayDue, resolveClientGymCard } from '../../lib/clientGym';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
-import ProgressRing from '../ui/ProgressRing';
 import PageTransition from '../ui/PageTransition';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
 import ListRow from '../ui/ListRow';
+import NutritionRings from '../nutrition/NutritionRings';
 import ClientGymCard from './ClientGymCard';
 import DashboardWeightCard from './DashboardWeightCard';
 import SoloWeeklyReview from './SoloWeeklyReview';
@@ -64,7 +63,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { profile } = useProfileStore();
-  const { logs, waterLogs, stepsLog } = useNutritionStore();
+  const { logs, waterLogs } = useNutritionStore();
   const { measurements } = useWeightStore();
   const { workouts, loading: workoutsLoading } = useWorkoutStore();
   const { streak } = useStreakStore();
@@ -90,29 +89,11 @@ export default function Dashboard() {
   // Daily metrics — never invent a target the user or coach did not set.
   const nutritionTargets = nutritionTargetsFromProfile(profile);
   const calorieTarget = nutritionTargets.calories ?? 0;
-  const showHomeRings = showModule(tracking, 'nutrition') && hasSentNutritionTarget(profile);
   const consumed = logs.reduce((sum, l) => sum + l.calories, 0);
-  const caloriePct = targetRatio(consumed, nutritionTargets.calories);
 
   const waterTarget = nutritionTargets.waterMl;
   const waterConsumed = waterLogs.reduce((sum, l) => sum + l.amount_ml, 0);
   const waterPct = targetRatio(waterConsumed, waterTarget);
-
-  const proteinTarget = nutritionTargets.protein;
-  const proteinConsumed = logs.reduce((sum, l) => sum + l.protein, 0);
-  const proteinPct = targetRatio(proteinConsumed, proteinTarget);
-
-  const carbsTarget = nutritionTargets.carbs;
-  const carbsConsumed = logs.reduce((sum, l) => sum + (l.carbs ?? 0), 0);
-  const carbsPct = targetRatio(carbsConsumed, carbsTarget);
-
-  const fatTarget = nutritionTargets.fat;
-  const fatConsumed = logs.reduce((sum, l) => sum + (l.fat ?? 0), 0);
-  const fatPct = targetRatio(fatConsumed, fatTarget);
-
-  const stepsTarget = nutritionTargets.steps;
-  const stepsConsumed = stepsLog?.logged_at === todayStr() ? stepsLog.steps : 0;
-  const stepsPct = targetRatio(stepsConsumed, stepsTarget);
 
   // Weekly workout goal
   const weekDates = getWeekDates();
@@ -252,7 +233,7 @@ export default function Dashboard() {
   const weightDeltaDisplay = weightDelta === null
     ? null
     : +(weightUnit === 'lbs' ? weightDelta * 2.20462 : weightDelta).toFixed(1);
-  const showNutritionLogged = showModule(tracking, 'nutrition') && !showHomeRings && !activityPending;
+  const showNutritionRings = anyMacroField(tracking) && !activityPending;
 
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;
@@ -482,134 +463,10 @@ export default function Dashboard() {
         )}
 
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
-        {showNutritionLogged && (
+        {showNutritionRings && (
           <CardLink to="/nutrition" className="mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame size={16} className="text-orange-400" />
-                <div>
-                  <p className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</p>
-                  <p className="text-[11px] text-neutral-500">
-                    {consumed === 0 ? t('dashboard.notLoggedYet') : `${Math.round(consumed)} kcal`}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-neutral-600" />
-            </div>
+            <NutritionRings />
           </CardLink>
-        )}
-        {showHomeRings && !activityPending && (
-        <Card className="mb-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-white">{t('dashboard.todaySummary')}</h2>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/nutrition')}>
-              {t('common.details')}
-              <ChevronRight size={14} />
-            </Button>
-          </div>
-
-          <div className="flex items-start gap-5">
-            {/* Calorie ring — larger, central */}
-            {showNutritionField(tracking, 'calories') && (
-            <button onClick={() => navigate('/nutrition')} className="flex flex-col items-center gap-1 flex-shrink-0">
-              <ProgressRing
-                progress={caloriePct}
-                size={80}
-                strokeWidth={6}
-                color={calorieTarget > 0 && caloriePct >= 95 && caloriePct <= 105 ? '#60a5fa' : '#2563eb'}
-              >
-                <Flame size={20} className="text-orange-400" />
-              </ProgressRing>
-              <p className="text-sm font-bold text-white mt-1">{consumed === 0 ? '—' : Math.round(consumed)}</p>
-              <p className="text-xs text-neutral-500">{consumed === 0 ? t('dashboard.notLoggedYet') : calorieTarget > 0 ? `/ ${calorieTarget} kcal` : t('common.noTarget')}</p>
-            </button>
-            )}
-
-            {/* Macros + Water */}
-            <div className="flex-1 space-y-3 pt-1">
-              {showNutritionField(tracking, 'protein') && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-neutral-300">{t('common.protein')}</span>
-                  <span className="text-sm text-neutral-400">{consumed === 0 ? '—' : proteinTarget == null ? `${Math.round(proteinConsumed)}g · ${t('common.noTarget')}` : `${Math.round(proteinConsumed)}g / ${proteinTarget}g`}</span>
-                </div>
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${proteinTarget == null ? 0 : proteinPct}%`, backgroundColor: '#38bdf8' }}
-                  />
-                </div>
-              </div>
-              )}
-
-              {showNutritionField(tracking, 'carbs') && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-neutral-300">{t('common.carbs')}</span>
-                  <span className="text-sm text-neutral-400">{consumed === 0 ? '—' : carbsTarget == null ? `${Math.round(carbsConsumed)}g · ${t('common.noTarget')}` : `${Math.round(carbsConsumed)}g / ${carbsTarget}g`}</span>
-                </div>
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${carbsTarget == null ? 0 : carbsPct}%`, backgroundColor: '#fbbf24' }}
-                  />
-                </div>
-              </div>
-              )}
-
-              {showNutritionField(tracking, 'fat') && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-neutral-300">{t('common.fat')}</span>
-                  <span className="text-sm text-neutral-400">{consumed === 0 ? '—' : fatTarget == null ? `${Math.round(fatConsumed)}g · ${t('common.noTarget')}` : `${Math.round(fatConsumed)}g / ${fatTarget}g`}</span>
-                </div>
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${fatTarget == null ? 0 : fatPct}%`, backgroundColor: '#a78bfa' }}
-                  />
-                </div>
-              </div>
-              )}
-
-              {showNutritionField(tracking, 'water') && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-neutral-300 flex items-center gap-1">
-                    <Droplets size={10} className="text-cyan-400" />
-                    {t('coaching.water')}
-                  </span>
-                  <span className="text-sm text-neutral-400">{waterTarget == null ? `${(waterConsumed / 1000).toFixed(1)}L · ${t('common.noTarget')}` : `${(waterConsumed / 1000).toFixed(1)}L / ${(waterTarget / 1000).toFixed(1)}L`}</span>
-                </div>
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${waterTarget == null ? 0 : waterPct}%`, backgroundColor: '#22d3ee' }}
-                  />
-                </div>
-              </div>
-              )}
-
-              {showNutritionField(tracking, 'steps') && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-neutral-300 flex items-center gap-1">
-                    <Footprints size={10} className="text-emerald-400" />
-                    {t('nutrition.steps.title')}
-                  </span>
-                  <span className="text-sm text-neutral-400">{stepsTarget == null ? `${stepsConsumed.toLocaleString()} · ${t('common.noTarget')}` : `${stepsConsumed.toLocaleString()} / ${stepsTarget.toLocaleString()}`}</span>
-                </div>
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${stepsTarget == null ? 0 : stepsPct}%`, backgroundColor: '#34d399' }}
-                  />
-                </div>
-              </div>
-              )}
-            </div>
-          </div>
-        </Card>
         )}
 
         {showModule(tracking, 'weight') && !activityPending && (
