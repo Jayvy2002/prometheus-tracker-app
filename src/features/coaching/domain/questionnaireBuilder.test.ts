@@ -167,7 +167,7 @@ test('builder page starts from the short template and recaps who must complete',
   assert.match(page, /previewLanguage/);
   const fields = src('src/components/onboarding/CoachQuestionnaireFields.tsx');
   assert.match(fields, /previewLanguage/);
-  const sql = src('supabase/migrations/20260915210000_assign_questionnaire_complements.sql');
+  const sql = src('supabase/migrations/20260915201731_assign_questionnaire_complements.sql');
   assert.match(sql, /assign_questionnaire_complements/);
   assert.match(sql, /in_progress/);
   assert.match(sql, /questionnaire_responses_client_version_uidx/);
