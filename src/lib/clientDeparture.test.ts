@@ -47,8 +47,20 @@ test('the athlete can leave from Profil; the coach sees a private notice; dossie
 
   const leave = src('src/components/coaching/ClientCoachRelationshipPanel.tsx');
   assert.match(leave, /coaching\.leave\.kept/);
+  assert.match(leave, /coaching\.leave\.stopped/);
+  assert.match(leave, /coaching\.leave\.paused/);
+  assert.match(leave, /coaching\.leave\.notTransferred/);
   assert.doesNotMatch(leave, /billing/);
   assert.doesNotMatch(leave, /stripe/i);
+
+  const fr = src('src/i18n/locales/fr/coaching.ts');
+  assert.match(fr, /Tu gardes/);
+  assert.match(fr, /Ça s’arrête/);
+  assert.match(fr, /Ça ne se transmet pas/);
+  const en = src('src/i18n/locales/en/coaching.ts');
+  assert.match(en, /You keep/);
+  assert.match(en, /This stops/);
+  assert.match(en, /This is not transferred/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /supabase\/tests\/client_departure\.sql/);
