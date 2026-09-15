@@ -9,8 +9,8 @@ import {
   isPerformedSet,
   isRecordAtIndex,
 } from './performedSets';
-import { readableSets } from './coachLastSession';
-import { buildClientLifts } from './coachLifts';
+import { readableSets } from '../../../lib/coachLastSession';
+import { buildClientLifts } from '../../../lib/coachLifts';
 
 test('a prefilled unchecked set is not performed', () => {
   const filled = { completed: false, set_type: 'working', weight_kg: 80, reps: 5 };

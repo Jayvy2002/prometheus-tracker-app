@@ -10,7 +10,7 @@ import {
   rankExercises,
   scoreAgainstQuery,
 } from './pickerSearch';
-import type { Exercise, FoodFavorite, FoodProduct } from './types';
+import type { Exercise, FoodFavorite, FoodProduct } from '../../../lib/types';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');

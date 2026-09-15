@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–19** + **20 coaching/marketplace** dans `new-JV`. File ouverte : **lot 20 workout**. Lots 21–23 après. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–19** + **20 coaching/marketplace/workout** dans `new-JV`. File ouverte : **lot 20 nutrition**. Lots 21–23 après. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 20** (reste workout → nutrition → programs). Lots **17–19** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
+| **Lot ouvert : 20** (reste nutrition → programs). Lots **17–19** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -163,7 +163,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | **Terminé** (17a–17e) | Docs + découverte `src/**/*.test.ts` + nom package + convention env + rename `auditLot*` / `uxPremium`. **Zéro écran.** |
 | **18** | **Socle dossiers + alias** (ARCH02 évidents) | **Terminé** | `app` / `features` / `shared` + alias `@/`. Hooks évidents, client Supabase, `ui`, layout, nav. Réexports aux anciens chemins. |
 | **19** | **Tokens sémantiques sur primitives** (ARCH06) | **Terminé** | `Button` / `Card` / `Input` / `Select` / `Modal` / `PageHeader` / `EmptyState` / `ErrorState` / `TabList` / `IconButton` = `primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**. Écrans métier inchangés. |
-| **20** | **Migrer `src/lib` par domaine** (ARCH01) | **Partiel** | Coaching + marketplace livrés. **Reste :** workout, nutrition, programs. |
+| **20** | **Migrer `src/lib` par domaine** (ARCH01) | **Partiel** | Coaching + marketplace + workout livrés. **Reste :** nutrition, programs. |
 | **21** | **Découper les mini-apps** (ARCH03, ARCH04) | À construire **après 20** | 21a `App.tsx` → router / guards / bootstrap ; 21b gros composants ; 21c `coachingStore` **avec façade**. |
 | **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | À construire **après 20** | `types.ts` puis `fr.ts`/`en.ts` découpés ; réexport de transition. Hotspots merge : PR courtes. |
 | **23** | **Garde-fous CI** (ARCH10, ARCH05) | À construire **après 18** et au fil de 20–22 | `shared` ↛ `features` ; pas de deep-import inter-features ; UI sans `supabase.from()` ; `shared/ui` sans Supabase/Zustand. **Pas** un bang TypeScript extra. |
@@ -346,7 +346,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 17 | **Terminé.** `npm test` → `scripts/run-unit-tests.mjs`. Nom `prometheus-tracker-app`. Docs + env. Tests : `programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`. |
 | 18 | **Terminé.** Cibles livrées + réexports. Alias `@/app`, `@/features`, `@/shared`. |
 | 19 | **Terminé.** Primitives listées = tokens. `primary` / `success` / `warning` / `danger` dans `tailwind.config.js`. |
-| 20 | **Coaching + marketplace livrés.** Reste workout / nutrition / programs dans `lib/`. |
+| 20 | **Coaching + marketplace + workout livrés.** Reste nutrition / programs dans `lib/`. |
 | 21 | `App.tsx` : session + guards + routes. `stores/coachingStore.ts` ~89 KB. `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `ProgramSessionEditor`, `workoutStore`. |
 | 22 | `src/lib/types.ts` ~26 KB. `i18n/locales/fr.ts` / `en.ts` ~87–95 KB. |
 | 23 | ESLint standard, pas de frontières `shared`/`features`. `Dashboard.tsx` (et d’autres) : `supabase.from` dans l’UI. `tsconfig.app.json` : `"strict": true` **déjà**. |
