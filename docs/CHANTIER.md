@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 14 septembre 2026.** Recalé sur `new-JV` `3233932` (PRs #91–#92) et la contre-expertise code du même jour. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans Git. Preuves live lots 1–2 (comptes jetables, puis supprimés). Lots 2–3 : apply prod SQL encore dû. Lots 3–4 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
 
-**Prochain lot à ouvrir : 1 — vérité des séries réalisées.**
+**Lot ouvert : 5 — photos et audience.** Lot 1 : Terminé. Lots 2–4 : À vérifier.
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -99,13 +99,15 @@ Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer 
 | Heroes d’accueil exclusifs | Vide honnête un jour sans tâche |
 | File coach : empty, sévérité **texte**, une carte featured | « Depuis quand » ; Passer = tout le groupe (lot 9) |
 | Ancres check-in haut/bas (#91) | Accusé « visible par {coach} » (lot 10) |
-| `Terminer` **n’écrit plus** `completed` sur les séries restantes | L’**affichage** les compte encore (lot 1) |
+| `Terminer` **n’écrit plus** `completed` sur les séries restantes | — |
+| Affichage = séries **cochées** (`isPerformedSet` / `readableSets`) | Parcours 15 sept. : bilan + recap + 360 (1 cochée, 1 non cochée) |
 | Repos 90 s lancé après coche | Préférence auto **volontaire** (UX15) |
-| Assign programme : plus de premier client auto | Recap destinataire à rejouer (UX21) |
+| Assign programme : plus de premier client auto | Recap destinataire dans le modal (parcours dû, UX21) |
 | Inputs séance agrandis, cibles 44 px (#91) | OverflowMenu clavier (lot 10) |
 | RPC `client_end_coach_link` + UI Profil + tests | Preuve prod, notif, sérialisation, copy 3 listes (M2a) |
 | Annuaire / offre / demandes en code | Copy « accepté = suivi actif » (M5) |
-| `accountContext`, espaces Personnel / Coaching | Trou : `set_coaching_role('none')` (lot 2) |
+| `accountContext`, espaces Personnel / Coaching | SQL `none` si roster `coach_id` actif : **apply prod dû** (lot 2) |
+| Questionnaire prise en charge : plus de `path="*"` ; bannière + lien `/questionnaire` | Parcours invite live dû (lot 4) |
 
 ---
 
@@ -115,10 +117,10 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 
 | # | Lot | Statut | Preuve de fin |
 |---|---|---|---|
-| **1** | **Vérité des séries réalisées** (UX12, UX17, UX49) | À construire | Une série non cochée n’est **jamais** une performance. Même définition dans bilan, graphes, **dernière séance 360** (`readableSets`). Auto-close 30 s retiré ; bilan retrouvable. Tips génériques ≠ « Conseil du coach ». `prCount` mort : supprimer. |
-| **2** | **Désactivation mode coach** (UX78) | À construire | `set_coaching_role('none')` refusé tant qu’un lien **actif** `coach_id = auth.uid()` existe. UI : confirmation avec le **nombre** de clients. Pas de roster orphelin. |
-| **3** | **Programmes : écriture honnête** (UX20, UX21, UX63) | À construire | Sauvegarde solo **une** opération (métadonnées + jours) avec version ; échec ≠ plan à moitié. `deleteProgram` n’ôte la liste **qu’après** succès. `fetchPrograms` en erreur ≠ `[]`. Assign : destinataire choisi (code : à vérifier en parcours). |
-| **4** | **Questionnaire sans prison** (UX80, UX02, UX03, UX04) | À construire | Plus de `path="*"` sur questionnaire **prise en charge** incomplet, ni mur sur échec de fetch. Aujourd’hui, messages et compte restent accessibles. Bannière + **lien** « Mon questionnaire » (`/questionnaire` n’a aucun `Link` dans `src/`). Brouillon conservé. Audience avant questions sensibles. Retirer « 60 secondes » non mesuré. **Ne pas** casser l’intake kiné. |
+| **1** | **Vérité des séries réalisées** (UX12, UX17, UX49) | **Terminé** | Parcours 15 sept. : 1 série cochée + 1 non cochée → bilan (volume / 1RM / fait « non cochée(s) »), recap, 360 coach (`readableSets` : seule la cochée). Auto-close 30 s retiré ; `prCount` mort retiré ; plus de « Conseil du coach ». UX49 « jours ≠ séances » → lot 6. |
+| **2** | **Désactivation mode coach** (UX78) | **À vérifier** | SQL `20260914221500` : `none` refuse si lien **actif** `coach_id = moi`. UI Profil : N=0 confirme et désactive ; N>0 bloque (chiffre, « Voir mes clients », **pas** d’RPC). Parcours Personnel 15 sept. (0 et 1 client réel). **Reste :** apply prod — la fonction live n’a pas encore le garde. |
+| **3** | **Programmes : écriture honnête** (UX20, UX21, UX63) | **À vérifier** | SQL `20260915133000` : `save_program` = métadonnées + `sync_program_days` + révision ; `stale` si version. UI : éditeur / solo = une RPC ; `deleteProgram` n’ôte la liste qu’après succès ; `fetchPrograms` conserve la liste + réessai ; assign = recap destinataire / date. **Reste :** apply prod + parcours live. |
+| **4** | **Questionnaire sans prison** (UX80, UX02, UX03, UX04) | **À vérifier** | Plus de `path="*"` sur questionnaire **prise en charge** incomplet, ni mur sur échec de fetch. Bannière + lien Profil « Mon questionnaire » (`/questionnaire`). Brouillon conservé. Audience puis notice santé avant les questions `medical`. Durée « 60 secondes » retirée. Intake kiné (7 écrans, `path="*"`) inchangé. **Reste :** parcours live (invite → Aujourd’hui / messages / compte). |
 | **5** | **Photos et audience** (UX54) | À construire | Solo ne lit plus « Ton coach les voit ». Texte = audience réelle. Consentement marketplace (`progress_photos` dans le paquet) = phrase d’acceptation. Coach actuel : dire si l’historique antérieur au lien est visible. Pas un 5ᵉ module unique. |
 | **6** | **Calendrier, recherche, erreur ≠ vide** (UX48, UX49, UX63) | À construire | Plusieurs séances (et pesées) le même jour listées. Recherche progression : **tous** les matchs — `filteredExercises.slice(5)` saute les 5 premiers **après filtre**. Stats / progression : erreur avec réessai, pas un historique fantôme. |
 | **7** | **Messages : brouillon et lu** (UX29–31, UX85) | À construire | Brouillon par compte × conversation, restauré au retour. Relance préremplie n’écrase pas un brouillon perso. Écarter une carte Accueil ≠ marquer lu. `read_at` seulement si le serveur a réussi. Pas d’accusé « lu » sans preuve. |
@@ -149,10 +151,10 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 
 | Lot | Où ça ment / casse aujourd’hui |
 |---|---|
-| 1 | `WorkoutSummaryScreen.computeStats` : ignore `completed` (sauf échauffement). `useEffect` 30 s. Titre i18n `workout.summary.coaching.title` = « Conseil du coach ». `prCount = 0` jamais rendu. `ExerciseProgressPage` : `if (!s.completed && !ex.workouts.completed) continue` — séance `completed` ⇒ séries non cochées comptées. `readableSets` : `completed \|\| weight \|\| reps \|\| duration`. |
-| 2 | SQL `set_coaching_role` (`20260831235414`) : si `p_role = 'none'`, protège seulement `client_id = moi`. Un coach en Personnel (`ProfilePage` toggle, `!coached && !inCoaching`) peut passer à `'none'` avec un roster actif. |
-| 3 | `ProgramEditorPage` : `updateProgram` puis `syncProgramDays`. `deleteProgram` : delete puis retire la liste **sans** `error`. `fetchPrograms` `catch` → `programs: []`. |
-| 4 | `App.tsx` ~324–332 : `activeAssignment.response && !completed_at` → `path="*"`. Échec fetch : écran retry (mieux) mais toujours un mur. Route `/questionnaire` sans aucun lien. |
+| 1 | **Corrigé + parcours 15 sept.** `isPerformedSet` ; `readableSets` = `completed`. Bilan / recap / 360 : 1 cochée + 1 non cochée. |
+| 2 | **Corrigé (Git).** `set_coaching_role('none')` → `coach_has_active_clients` si lien actif `coach_id = moi`. UI : modal chiffrée ; N>0 sans RPC. **Prod : fonction encore ancienne** — apply dû. |
+| 3 | **Corrigé (Git).** `save_program` enveloppe métadonnées + `sync_program_days`. `deleteProgram` attend le succès. `fetchPrograms` conserve la liste + `programsError`. Recap assign. **Prod : RPC absente** — apply dû. |
+| 4 | **Corrigé (Git).** Plus de `path="*"` sur questionnaire prise en charge. Fetch fail = bannière + réessai. Lien `/questionnaire`. Audience avant les questions `medical`. Kiné inchangé. **Reste :** parcours live. |
 | 5 | `coaching.photos.subtitle` inconditionnel. `DIRECT_INVITE_CONSENT_SCOPES` inclut `progress_photos`. `is_coach_of` exige `status = 'active'` (pas « sans statut ») ; le trou est l’**audience affichée** et l’historique vu par le coach **actuel**. |
 | 6 | `CalendarPage` : `workouts` et `weight_measurements` du jour en `.maybeSingle()`. Recherche : `filteredExercises.slice(5)` **après** le filtre. |
 | 7 | Brouillon local au composant. `Dashboard` `onDismiss` → `markCoachMessageRead`. Store : `update({ read_at })` **sans** check `error`, puis état local optimiste. |
@@ -170,7 +172,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | Lot | Statut | Conditions de fin | Reste réel |
 |---|---|---|---|
 | **M0** Inventaire rôles / policies vs carte | À vérifier | Scénarios solo, coaché, coach, coach-athlète. Aucun changement de droits. | Revues UX 14 sept. = UI ; confirmer vs policies live, puis retirer. |
-| **M1** Capacités + espaces Personnel/Coaching | À vérifier | Backfill coachs ; aucun auto-lien ; rollback UI sans drop de colonnes. | `accountContext` existe. Prouver droits serveur ≠ espace affiché, dual-rôle. **Lot 2 (UX78) est un trou de cette projection.** `user_roles` reste l’écriture tant que la bascule n’est pas prouvée. |
+| **M1** Capacités + espaces Personnel/Coaching | À vérifier | Backfill coachs ; aucun auto-lien ; rollback UI sans drop de colonnes. | `accountContext` existe. Prouver droits serveur ≠ espace affiché, dual-rôle. **Lot 2 (UX78) : UI + SQL Git ; apply prod encore dû.** `user_roles` reste l’écriture. |
 | **M2a** Départ client autonome | À vérifier | RPC `client_end_coach_link` ; même `transition_client_to_solo` que le coach ; historique conservé ; notes privées non transférées ; notif minimale coach ; sérialisation vs adaptation en cours. | RPC + UI + tests présents (`20260913184325`, Profil). Manquent preuve prod, notif, sérialisation, copy « tu gardes / ça s’arrête / ça ne se transmet pas » (UX57–58). **Ne pas reconstruire la RPC.** |
 | **M2b** Invitation + consentement versionné | À vérifier | Acceptation explicite ; ancienne RPC révoquée après bascule. | Consentement versionné en code. Vérifier révocation de l’ancienne signature et cas expiré / mauvais compte (UX02). |
 | **M3** Intention après identité | À vérifier | Login direct ; pas de rôle avant le formulaire ; OAuth plus tard. | `EntryIntentionPage` existe. Parcours `find_coach` : Personnel utilisable. Ne pas fusionner intake / onboarding **avant** d’avoir testé chaque chemin. |
@@ -262,21 +264,21 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | Lot | Statut | Reste |
 |---|---|---|
 | **0A** i18n options | À vérifier | Toasts / intake / unités encore hors clés (ex. `"… deleted"`). |
-| **0B** auth / intention / invite | À vérifier | Lock questionnaire après invite (lot 4). Intake kiné : 7 écrans **conservés**. |
-| **0C** vérité produit | **Partiel** | Cibles macros : corrigé. **Terminer n’écrit plus** `completed` sur le reste : corrigé. **Le bilan et les graphes comptent encore les séries non cochées** → lot 1. |
+| **0B** auth / intention / invite | À vérifier | Lock questionnaire prise en charge retiré (lot 4 Git). Intake kiné : 7 écrans **conservés**. Parcours invite dû. |
+| **0C** vérité produit | **Partiel** | Cibles macros : corrigé. Terminer n’écrit plus `completed` sur le reste. Affichage = séries cochées ; parcours 15 sept. (bilan, recap, 360). UX49 jours ≠ séances → lot 6. |
 | **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu clavier (10g). |
 | **2** accessibilité | À vérifier | Cibles 44 px présentes ; clavier / zoom / lecteur restants. |
 | **3** navigation | **Partiel** | `navConfig`, 5 onglets, Copilote hors tab, switcher Profil. Trouvabilité ; recettes ; `PageTransition` (lots 8, 10). |
 | **4** dashboard | **Partiel** | Un hero ; proposition IA = notice (#91). Message + check-in + reminder peuvent coexister. `waiting_program` inerte. |
 | **5** Coach Today | **Partiel** | Empty + sévérité texte + featured. Pas de « depuis quand ». Passer écarte **tous** les signaux du client. |
-| **6** Client 360 | À vérifier | Structure en code ; « ce qui a changé » et dernière séance **fausse** tant que lot 1 n’est pas fait. Onglet « health » à renommer (10c). |
+| **6** Client 360 | À vérifier | Dernière séance = séries cochées (parcours 15 sept.). Onglet « health » à renommer (10c). « Depuis ta dernière visite » (lot 9). |
 | **7** Setup 4 étapes | À vérifier | Preview écrans client encore faible (10j). |
 | **8** Messages / Prometheus | **Partiel** | Retry / safe-area. Brouillon non durable ; lu local trop optimiste (lot 7). |
 | **9** Marketplace vitrine | À vérifier | Pas de faux prix. Acceptation = **lien actif**. Copy à aligner. |
-| **10** Programmes builder | **Partiel** | Pas de premier client auto. Sauvegarde solo non atomique ; delete ignore l’erreur (lot 3). |
+| **10** Programmes builder | **Partiel** | Pas de premier client auto. Recap destinataire (code). `save_program` Git ; delete / fetch honnêtes. Apply prod + parcours (lot 3). |
 | **11** Nutrition / séance / scanner | À vérifier | Recettes hors chrome (10a). UX15 = auto **optionnel** après coche. |
-| **12** Progression / photos | **Partiel** | Hub solo. Coaché bloqué. Calculs faux (lots 1, 6). Sous-titre photos menteur (lot 5). |
-| **13** Profil | **Partiel** | Groupes OK. Toggle mode coach dangereux (lot 2). SoloHub encore un tiroir mobile. |
+| **12** Progression / photos | **Partiel** | Hub solo. Coaché bloqué (lot 8). Séries cochées : lot 1. Calendrier / `slice(5)` : lot 6. Sous-titre photos menteur (lot 5). |
+| **13** Profil | **Partiel** | Groupes OK. Toggle mode coach : N=0 / N>0 joués 15 sept. Apply prod SQL (lot 2). SoloHub encore un tiroir mobile. |
 | **14** PWA / offline | À vérifier | File = séances seulement. |
 | **15** Performance | À vérifier | Mesure live. |
 | **16** Polish | À vérifier | Revue visuelle live. |
@@ -296,12 +298,12 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX01** | P2 | M3 | À vérifier | Connexion directe / intention à l’inscription. | Habitué → son espace sans redéfinir un rôle. |
-| **UX02** | P1 | 4 | Partiel | Invitation : contexte OK en code. Après accept : **plus de lock**. | Aucune invite invalide sans issue ; rattachement clair. |
-| **UX03** | P2 | 4 | À construire | Complément au moment utile. **Pas** « 3 questions ». Retirer durée non mesurée. | On sait pourquoi maintenant ; reprise sans ressaisie. |
-| **UX04** | P1 | 4 | À construire | Audience et facultatif avant les questions sensibles. | Destinataire et conséquence d’un refus connus. |
+| **UX02** | P1 | 4 | **À vérifier** | Invitation : contexte OK en code. Lock `path="*"` retiré (Git). **Reste :** parcours invite. | Aucune invite invalide sans issue ; rattachement clair. |
+| **UX03** | P2 | 4 | **À vérifier** | Complément au moment utile. Durée « 60 secondes » retirée. **Reste :** parcours reprise brouillon. | On sait pourquoi maintenant ; reprise sans ressaisie. |
+| **UX04** | P1 | 4 | **À vérifier** | Audience en tête de formulaire ; notice santé (facultatif, destinataire, refus ≠ mur) avant la première question `medical`. **Reste :** parcours live. | Destinataire et conséquence d’un refus connus. |
 | **UX05** | P2 | ens. | À construire | Résumé + correction par rubrique ; nouvelle version = complément. | Pas de parcours entier à refaire. |
 | **UX06** | P3 | rep. | Reporté | Silhouette facultative vs liste. | Seulement si un test le justifie. |
-| **UX80** | P1 | 4 | À construire | Bannière, pas `path="*"`. Hub « Mon questionnaire ». Brouillon. Échec fetch ≠ mur. | Messages / Aujourd’hui / compte accessibles ; réponses conservées. |
+| **UX80** | P1 | 4 | **À vérifier** | Bannière + hub « Mon questionnaire ». Plus de `path="*"`. Brouillon. Échec fetch ≠ mur. **Reste :** parcours live. | Messages / Aujourd’hui / compte accessibles ; réponses conservées. |
 
 ### Accueil et navigation
 
@@ -322,12 +324,12 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **UX12** | P1 | 1 | **Partiel** | L’écriture ne coche plus le reste. Le **calcul d’affichage** ignore `completed`. Une définition unique « réalisé ». | Séries non cochées absentes du volume / 1RM / dernière séance coach. |
+| **UX12** | P1 | 1 | **Terminé** | Seule une série **cochée** compte (`isPerformedSet` / `readableSets`). Parcours 15 sept. : bilan, recap, 360. | — |
 | **UX13** | P2 | ens. | À construire | Reprendre les valeurs ≠ ajouter une série. | Pas de série en trop par raccourci. |
 | **UX14** | P2 | 10f | À vérifier | Inputs séance agrandis. Unités partout. | Édition conservée ; unité du profil. |
 | **UX15** | P2 | ens. | À vérifier | Repos 90 s déjà lancé après coche. Préférence auto **volontaire** ; pas au préremplissage. | Désactivable ; jamais sur un simple fill. |
 | **UX16** | P1 | ens. | À construire | Langage : appareil / sync / action requise. | Après coupure, on sait ce qui est conservé. |
-| **UX17** | P1 | 1 | À construire | Plus de `setTimeout` 30 s. Bilan retrouvable. Faits, pas leçon. | Fermeture volontaire seulement. |
+| **UX17** | P1 | 1 | **Terminé** | Plus de `setTimeout` 30 s. Fermer → recap. Faits, pas « Conseil du coach ». Parcours 15 sept. | — |
 
 ### Exercices et programmes
 
@@ -335,8 +337,8 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 |---|---|---|---|---|---|
 | **UX18** | P2 | ens. | À construire | Variantes / matériel / récents. | Bonne variante avant sélection. |
 | **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |
-| **UX20** | P1 | 3 | À construire | Brouillon / enregistré / actif **et** sauvegarde solo atomique + version. | Le client voit ou ne voit pas ; pas de plan à moitié. |
-| **UX21** | P1 | 3 | À vérifier | Plus de premier client auto. Recap destinataire / date. | Parcours bibliothèque sans destinataire accidentel. |
+| **UX20** | P1 | 3 | **À vérifier** | RPC `save_program` (Git) : atomique + version. **Reste :** apply prod + parcours. | Le client voit ou ne voit pas ; pas de plan à moitié. |
+| **UX21** | P1 | 3 | **À vérifier** | Plus de premier client auto. Recap destinataire / date dans le modal. Parcours dû. | Parcours bibliothèque sans destinataire accidentel. |
 | **UX22** | P2 | ens. | À concevoir | Athlète = séance ; coach = structure. | Séance identifiable après report. |
 | **UX23** | P1 | ens. | À concevoir | Diff avant/après, auteur, date d’effet. | Restaurer ≠ réécrire le passé. |
 | **UX81** | P1 | 8 | À construire | **Après UX12.** Progression **lecture** coaché (`/exercise-progress`). Pas stats/calendrier dans le même PR. | Tendances d’exo accessibles ; plan non éditable. |
@@ -373,7 +375,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX36** | P2 | ens. | À construire | Filtres visibles, éditables, effaçables. | On sait pourquoi un client est dans la liste. |
 | **UX37** | P2 | 10j | À construire | Preview de ce que le client **verra**. | Pas de surprise d’onglets / champs. |
 | **UX38** | P3 | rep. | Reporté | Actions groupées limitées. | Seulement si gain prouvé. |
-| **UX78** | P1 | 2 | À construire | SQL `coach_id` + confirmation chiffrée. | Dual-rôle Personnel ne peut pas couper le roster. |
+| **UX78** | P1 | 2 | **À vérifier** | SQL Git + modal chiffrée. Parcours Personnel 15 sept. : N=0 désactive ; N>0 bloque sans RPC, roster joignable. **Reste :** apply prod. | Dual-rôle Personnel ne peut pas couper le roster en prod. |
 
 ### Questionnaire coach (builder)
 
@@ -399,7 +401,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 |---|---|---|---|---|---|
 | **UX47** | P2 | ens. | À concevoir | Prévu / commencé / terminé ; report expliqué. | Le passé ne disparaît pas. |
 | **UX48** | P1 | 6 | À construire | Plus de `maybeSingle()` séance (ni pesée) du jour. Fenêtre = période vue. Requête périmée ignorée. | Deux séances le même jour visibles. |
-| **UX49** | P2 | 1+6 | À construire | Manque ≠ 0. Record égalé ≠ battu. Jours ≠ séances. | Pas de conclusion sur données insuffisantes. |
+| **UX49** | P2 | 1+6 | **Partiel** | Lot 1 : manque ≠ 0 sur une journée sans série cochée ; record égalé ≠ battu. **Reste lot 6 :** jours ≠ séances. | Pas de conclusion sur données insuffisantes. |
 | **UX50** | P2 | ens. | À concevoir | Du point de courbe vers la séance. | Origine retrouvable. |
 
 ### Nutrition, recettes, photos
@@ -426,7 +428,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX62** | P1 | chaque | Partiel | Dans chaque lot. OverflowMenu : Échap + focus (10g). | Parcours essentiels sans souris, zoom 200 %. |
-| **UX63** | P1 | 3+6 | À construire | `fetchPrograms` / stats / progression : erreur ≠ vide. | Données déjà là conservées + réessai. |
+| **UX63** | P1 | 3+6 | **Partiel** | `fetchPrograms` : erreur conserve la liste + réessai. **Reste lot 6 :** stats / progression. | Données déjà là conservées + réessai. |
 | **UX64** | P2 | ens. | À construire | Permission au bon moment ; rappel = objet encore vrai. | Pas de relance d’une tâche finie. |
 | **UX65** | P2 | 10f | Partiel | FR/EN clés ≠ UI. Progression en kg collé. Fuseau lisible. | Changer d’unité ne change pas la donnée. |
 | **UX66** | P2 | ens. | À construire | Audience, export éventuel, delete, liens. | Contrôle sans écrire au support. |
@@ -456,18 +458,20 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (comptes jetables, puis supprimés) : séance 1 cochée + 1 non cochée (bilan, recap, 360) ; dual-rôle Personnel N=0 et N>0. Lots 3–4 : code Git ; apply prod (lots 2–3) et parcours live (lots 3–4) encore dus.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
-| Solo / coaché | Séance : 1 série cochée, 1 préremplie non cochée, Terminer | Bilan, historique, graphes, 360 coach : **une** série réalisée |
-| Coach dual-rôle | Personnel → Profil → Mode coach OFF avec clients actifs | Refus ou confirmation chiffrée ; roster encore joignable |
-| Coaché | Invite → questionnaire incomplet | Aujourd’hui + messages accessibles ; bannière ; reprise |
+| Solo / coaché | Séance : 1 série cochée, 1 préremplie non cochée, Terminer | **Joué.** Bilan / recap / 360 : **une** série réalisée. Graphe `/exercise-progress` : même agrégateur, pas un écran dédié rejoué. |
+| Coach dual-rôle | Personnel → Profil → Mode coach OFF avec clients actifs | **Joué (UI).** N>0 : refus chiffré, « Voir mes clients », pas d’RPC, roster intact. N=0 : désactive. Apply prod SQL encore dû. |
+| Coaché | Invite → questionnaire incomplet | Code Git : Aujourd’hui / messages / compte plus prison. Bannière + `/questionnaire`. **Reste :** parcours live. |
 | Solo | Photos | Aucun texte « ton coach voit » |
 | Coaché / solo | Deux séances le même jour dans le calendrier | Les deux listées |
 | Coach / coaché | Texte dans un fil, changer de conversation, revenir | Brouillon intact ; dismiss Accueil ≠ lu |
 | Coaché | Entraînement sans éditer le plan | « Mon programme » lecture ; courbes d’exo **après** vérité des séries |
 | Coach | File : deux signaux, Passer | Un seul écarté ; ancienneté visible |
+| Coach | Assigner un programme depuis la bibliothèque | Recap nom + destinataire + date avant confirm. Pas de premier client auto. |
+| Coach / solo | Enregistrer un programme (nom + un jour) | Une écriture ; échec = rien changé. Liste encore là si le chargement rate. |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).

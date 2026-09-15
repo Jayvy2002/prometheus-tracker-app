@@ -891,6 +891,8 @@ export type ProductEventName =
   | 'fleet_round_run'
   | 'agent_asked'
   | 'program_assigned'
+  | 'program_saved'
+  | 'program_deleted'
   | 'program_adopted'
   | 'workout_completed'
   | 'checkin_saved'

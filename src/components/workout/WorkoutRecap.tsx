@@ -3,9 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Clock, Pencil } from 'lucide-react';
 import { formatDate, formatDuration } from '../../lib/utils';
 import { optionLabel } from '../../lib/optionLabels';
+import { isCompletedSet, isPerformedSet, isWarmupSet } from '../../lib/performedSets';
 import type { Workout } from '../../lib/types';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
+import IconButton from '../ui/IconButton';
 
 interface Props {
   workout: Workout;
@@ -19,9 +21,9 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
   return (
     <div className="px-4 pt-4 pb-8">
       <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => navigate('/workout')} className="p-2 -ml-2 text-neutral-400 hover:text-white">
+        <IconButton label={t('common.back')} onClick={() => navigate('/workout')} className="-ml-2">
           <ArrowLeft size={20} />
-        </button>
+        </IconButton>
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-white truncate">{workout.name || t('workout.title')}</h1>
           <p className="text-xs text-neutral-500">{formatDate(workout.date, i18n.language)}</p>
@@ -39,7 +41,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
 
       <div className="space-y-3">
         {(workout.exercises ?? []).map(ex => {
-          const logged = (ex.sets ?? []).filter(s => s.set_type !== 'warmup' && (s.weight_kg > 0 || s.reps > 0)).length;
+          const logged = (ex.sets ?? []).filter(isPerformedSet).length;
           return (
             <Card key={ex.id} padding={false} className="p-3">
               <div className="flex items-baseline justify-between gap-2 mb-2">
@@ -54,13 +56,20 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
                 ) : null}
               </div>
               <div className="space-y-1">
-                {(ex.sets ?? []).map((s, i) => (
-                  <p key={s.id} className="text-xs text-neutral-400 tabular-nums">
-                    {i + 1}. {s.weight_kg} kg × {s.set_type === 'isometric' ? `${s.duration_seconds ?? 0}s` : s.reps}
-                    {s.rir ? ` · RIR ${s.rir}` : ''}
-                    {s.set_type && s.set_type !== 'working' ? ` · ${optionLabel(t, 'setTypes', s.set_type)}` : ''}
-                  </p>
-                ))}
+                {(ex.sets ?? []).map((s, i) => {
+                  const done = isCompletedSet(s);
+                  return (
+                    <p
+                      key={s.id}
+                      className={`text-xs tabular-nums ${done ? 'text-neutral-400' : 'text-neutral-600'}`}
+                    >
+                      {i + 1}. {s.weight_kg} kg × {s.set_type === 'isometric' ? `${s.duration_seconds ?? 0}s` : s.reps}
+                      {s.rir ? ` · RIR ${s.rir}` : ''}
+                      {s.set_type && s.set_type !== 'working' ? ` · ${optionLabel(t, 'setTypes', s.set_type)}` : ''}
+                      {!done && !isWarmupSet(s) ? ` · ${t('workout.recap.skippedSet')}` : ''}
+                    </p>
+                  );
+                })}
               </div>
               {ex.notes && <p className="text-xs text-neutral-500 mt-2">{ex.notes}</p>}
             </Card>

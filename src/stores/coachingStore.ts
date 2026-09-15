@@ -85,6 +85,7 @@ import { addDaysToDateStr, todayStr } from '../lib/utils';
 import { compareRosterName } from '../lib/coachRoster';
 import { fetchAllRows } from '../lib/postgrestPage';
 import { getSessionOwner } from '../lib/sessionScope';
+import { COACH_HAS_ACTIVE_CLIENTS, mapCoachingRoleError } from '../lib/coachModeGuard';
 import { directInviteConsentArgs } from '../lib/relationshipConsent';
 import {
   loadAccountWorkspace,
@@ -339,6 +340,7 @@ interface CoachingState {
   applyIntendedCoachingRole: () => Promise<void>;
   enableCoachMode: () => Promise<{ error: string | null }>;
   disableCoachMode: () => Promise<{ error: string | null }>;
+  countActiveCoachLinks: () => Promise<{ count: number | null; error: string | null }>;
   fetchClients: () => Promise<void>;
   fetchCoachOps: () => Promise<void>;
   fetchClientProfile: (clientId: string) => Promise<UserProfile | null>;
@@ -588,7 +590,7 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   setCoachingRole: async (role) => {
     const { data, error } = await supabase.rpc('set_coaching_role', { p_role: role });
-    if (error) return { error: error.message };
+    if (error) return { error: mapCoachingRoleError(error.message) };
     const accountId = getSessionOwner();
     if (accountId) {
       await get().fetchMyRole(accountId);
@@ -614,7 +616,25 @@ export const useCoachingStore = create<CoachingState>((set, get) => ({
 
   enableCoachMode: async () => get().setCoachingRole('coach'),
 
-  disableCoachMode: async () => get().setCoachingRole('none'),
+  countActiveCoachLinks: async () => {
+    const accountId = getSessionOwner();
+    if (!accountId) return { count: null, error: 'not_authenticated' };
+    const { count, error } = await supabase
+      .from('coach_client_links')
+      .select('id', { count: 'exact', head: true })
+      .eq('coach_id', accountId)
+      .eq('status', 'active');
+    if (getSessionOwner() !== accountId) return { count: null, error: 'session_changed' };
+    if (error) return { count: null, error: error.message };
+    return { count: count ?? 0, error: null };
+  },
+
+  disableCoachMode: async () => {
+    const counted = await get().countActiveCoachLinks();
+    if (counted.error) return { error: counted.error };
+    if ((counted.count ?? 0) > 0) return { error: COACH_HAS_ACTIVE_CLIENTS };
+    return get().setCoachingRole('none');
+  },
 
   fetchClients: async () => {
     set({ loading: true });

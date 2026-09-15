@@ -72,6 +72,7 @@ try {
  await page.getByRole('button',{name:'Add a question',exact:true}).click();
  await page.getByLabel('Question (FR)',{exact:true}).fill('Comment préfères-tu échanger ?');
  await page.getByLabel('Question (EN)',{exact:true}).fill('How do you prefer to communicate?');
+ await page.locator('summary').filter({hasText:'Advanced settings'}).click();
  await page.getByLabel('Required',{exact:true}).check();
  await page.getByRole('button',{name:'Publish this version',exact:true}).click();
  await page.getByRole('button',{name:'Use for future invitations',exact:true}).click();
@@ -87,6 +88,11 @@ try {
  await clientPage.goto(origin+'/dashboard');
  await clientPage.getByRole('button').first().waitFor();
  await passIntentionIfShown(clientPage,'Train on my own');
+ await clientPage.getByText('Questionnaire from your coach').waitFor();
+ assert.equal(await clientPage.getByLabel('How do you prefer to communicate?',{exact:false}).count(),0,'incomplete questionnaire must not prison the home');
+ await clientPage.goto(origin+'/messages');
+ assert.equal(await clientPage.getByRole('button',{name:'Finish and send',exact:true}).count(),0,'messages stay reachable');
+ await clientPage.goto(origin+'/questionnaire');
  const answer=clientPage.getByLabel('How do you prefer to communicate?',{exact:false});
  await answer.fill('Messages in the morning');
  await clientPage.getByRole('button',{name:'Save draft',exact:true}).click();

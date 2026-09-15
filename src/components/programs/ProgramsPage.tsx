@@ -17,15 +17,17 @@ import PageTransition from '../ui/PageTransition';
 import OverflowMenu from '../ui/OverflowMenu';
 import EmptyState from '../ui/EmptyState';
 import { ListSkeleton } from '../ui/PageSkeleton';
+import ErrorState from '../ui/ErrorState';
 import { toast } from '../ui/Toast';
+import { assignStartLabel } from '../../lib/programWrite';
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0]; // Mon-first for display, Sunday=0 stored
 
 export default function ProgramsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { programs, loading, fetchPrograms, createProgram, deleteProgram, assignProgram } = useProgramStore();
+  const { programs, programsError, loading, fetchPrograms, createProgram, deleteProgram, assignProgram } = useProgramStore();
   const { routines, fetchRoutines } = useRoutineStore();
   const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
   const isCoach = coachingRole === 'coach';
@@ -110,6 +112,11 @@ export default function ProgramsPage() {
 
         {loading ? (
           <ListSkeleton count={2} />
+        ) : programsError && programs.length === 0 ? (
+          <ErrorState
+            title={t('errors.loadPrograms')}
+            onRetry={() => { if (user) void fetchPrograms(user.id); }}
+          />
         ) : programs.length === 0 ? (
           <EmptyState
             title={coached ? t('programs.clientLocked') : t('programs.empty')}
@@ -120,6 +127,12 @@ export default function ProgramsPage() {
           />
         ) : (
           <div className="space-y-3">
+            {programsError && (
+              <ErrorState
+                title={t('errors.loadPrograms')}
+                onRetry={() => { if (user) void fetchPrograms(user.id); }}
+              />
+            )}
             {programs.map(p => {
               const exerciseCount = (p.days ?? []).reduce((n, d) => n + (d.exercises?.length ?? 0), 0);
               const sessionCount = (p.days ?? []).filter(d => d.name).length;
@@ -158,7 +171,12 @@ export default function ProgramsPage() {
                       actions={[
                         { id: 'open', label: t('common.edit'), onSelect: () => navigate(`/programs/${p.id}`) },
                         { id: 'assign', label: t('programs.assign'), onSelect: () => { setAssigningId(p.id); setAssignClient(''); } },
-                        { id: 'delete', label: t('common.delete'), danger: true, onSelect: () => { void deleteProgram(p.id); } },
+                        { id: 'delete', label: t('common.delete'), danger: true, onSelect: () => {
+                          void deleteProgram(p.id).then(result => {
+                            if (result.error) toast(t('programs.deleteFailed'), 'error');
+                            else toast(t('programs.deleted'));
+                          });
+                        } },
                       ]}
                     />
                   )}
@@ -234,6 +252,17 @@ export default function ProgramsPage() {
             onChange={e => setAssignDate(e.target.value)}
             className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
           />
+          {assignClient && assigningId && (
+            <p className="text-sm text-neutral-300">
+              {t('programs.assignRecap', {
+                program: programs.find(p => p.id === assigningId)?.name ?? t('programs.title'),
+                client: clients.find(c => c.id === assignClient)?.full_name
+                  || clients.find(c => c.id === assignClient)?.email
+                  || t('programs.pickClientFirst'),
+                date: assignStartLabel(assignDate, i18n.language),
+              })}
+            </p>
+          )}
           <Button onClick={handleAssign} disabled={!assignClient} className="w-full">{t('programs.assign')}</Button>
         </div>
       </Modal>

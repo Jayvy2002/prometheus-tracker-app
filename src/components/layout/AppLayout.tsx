@@ -8,6 +8,7 @@ import CoachCommandPalette from '../coaching/CoachCommandPalette';
 import { trackScreen } from '../../lib/telemetryClient';
 import { useEffect } from 'react';
 import { useAccountContext } from '../../lib/useAccountContext';
+import AssignedQuestionnaireBanner from '../onboarding/AssignedQuestionnaireBanner';
 
 export default function AppLayout() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
@@ -49,6 +50,7 @@ export default function AppLayout() {
 
       <main className="flex-1 min-w-0 pb-24 md:pb-8 md:ml-64">
         <div className={`mx-auto w-full ${isCoach ? 'max-w-6xl' : 'max-w-3xl'}`}>
+          <AssignedQuestionnaireBanner />
           <Outlet />
         </div>
       </main>

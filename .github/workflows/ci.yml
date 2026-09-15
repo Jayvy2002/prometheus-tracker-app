@@ -105,6 +105,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_capabilities.sql | tee /tmp/account-capabilities-db-results.txt
+      - name: Test set_coaching_role roster guard
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/set_coaching_role_roster.sql | tee /tmp/set-coaching-role-roster-db-results.txt
+      - name: Test save_program atomic write
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/save_program.sql | tee /tmp/save-program-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

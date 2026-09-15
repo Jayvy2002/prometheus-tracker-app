@@ -9,6 +9,8 @@ import { isIntakeAlreadyFilled } from '../../lib/kinesiologyIntake';
 import { useAccountContext } from '../../lib/useAccountContext';
 import { toast } from '../ui/Toast';
 import { setAppLanguage } from '../../i18n';
+import { userFacingError } from '../../lib/userFacingError';
+import { COACH_HAS_ACTIVE_CLIENTS } from '../../lib/coachModeGuard';
 
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -70,7 +72,9 @@ export default function ProfilePage() {
   const navigate = useNavigate();
   const { signOut, deleteAccount, user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const { myCoach, enableCoachMode, disableCoachMode, myTrackingConfig: tracking } = useCoachingStore();
+  const {
+    myCoach, enableCoachMode, disableCoachMode, countActiveCoachLinks, selectAccountWorkspace, myTrackingConfig: tracking,
+  } = useCoachingStore();
   const context = useAccountContext();
   const inCoaching = context.activeWorkspace === 'coaching';
   const canCoach = context.capabilities.coach;
@@ -81,6 +85,8 @@ export default function ProfilePage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [coachModeDialog, setCoachModeDialog] = useState<{ count: number } | null>(null);
+  const [coachModeBusy, setCoachModeBusy] = useState(false);
 
 
 
@@ -114,6 +120,48 @@ export default function ProfilePage() {
 
   const toggle = (section: Section) => {
     setOpenSection(prev => prev === section ? null : section);
+  };
+
+  const handleCoachModeToggle = async () => {
+    if (coachModeBusy) return;
+    if (!canCoach) {
+      setCoachModeBusy(true);
+      const result = await enableCoachMode();
+      setCoachModeBusy(false);
+      if (result.error) toast(userFacingError(result.error, t('errors.generic')), 'error');
+      else toast(t('coaching.coachModeOn'), 'success');
+      return;
+    }
+    setCoachModeBusy(true);
+    const counted = await countActiveCoachLinks();
+    setCoachModeBusy(false);
+    if (counted.error || counted.count == null) {
+      toast(t('coaching.disableMode.errorCount'), 'error');
+      return;
+    }
+    setCoachModeDialog({ count: counted.count });
+  };
+
+  const confirmDisableCoachMode = async () => {
+    if (coachModeBusy || (coachModeDialog?.count ?? 0) > 0) return;
+    setCoachModeBusy(true);
+    const result = await disableCoachMode();
+    setCoachModeBusy(false);
+    if (result.error === COACH_HAS_ACTIVE_CLIENTS) {
+      toast(t('coaching.disableMode.errorBlocked'), 'error');
+      return;
+    }
+    if (result.error) {
+      toast(userFacingError(result.error, t('errors.generic')), 'error');
+      return;
+    }
+    setCoachModeDialog(null);
+  };
+
+  const openCoachRoster = () => {
+    selectAccountWorkspace('coaching');
+    setCoachModeDialog(null);
+    navigate('/clients');
   };
 
   return (
@@ -164,6 +212,9 @@ export default function ProfilePage() {
               <Scale size={16} className="text-blue-400" /> {t('nav.weight')}
             </Link>
           )}
+          <Link to="/questionnaire" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <ClipboardList size={16} className="text-blue-400" /> {t('coachQuestionnaire.myTitle')}
+          </Link>
           {!isIntakeAlreadyFilled(profile) && (
             <Link to="/intake" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
               <ClipboardList size={16} className="text-blue-400" /> {t('intake.completeLater')}
@@ -258,10 +309,8 @@ export default function ProfilePage() {
           </div>
           <button
             type="button"
-            onClick={async () => {
-              const result = canCoach ? await disableCoachMode() : await enableCoachMode();
-              if (result.error) toast(result.error, 'error');
-            }}
+            onClick={() => { void handleCoachModeToggle(); }}
+            disabled={coachModeBusy}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium ${
               canCoach ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-300'
             }`}
@@ -287,6 +336,38 @@ export default function ProfilePage() {
       >
         {t('profile.deleteAccount')}
       </button>
+
+      <Modal
+        open={coachModeDialog != null}
+        onClose={() => setCoachModeDialog(null)}
+        title={coachModeDialog && coachModeDialog.count > 0
+          ? t('coaching.disableMode.blockedTitle')
+          : t('coaching.disableMode.title')}
+      >
+        {coachModeDialog && (
+          <div className="space-y-4">
+            <p className="text-sm text-neutral-300">
+              {coachModeDialog.count > 0
+                ? t('coaching.disableMode.blockedBody', { count: coachModeDialog.count })
+                : t('coaching.disableMode.bodyZero')}
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant="secondary" onClick={() => setCoachModeDialog(null)} className="flex-1" disabled={coachModeBusy}>
+                {coachModeDialog.count > 0 ? t('coaching.disableMode.understood') : t('common.cancel')}
+              </Button>
+              {coachModeDialog.count > 0 ? (
+                <Button onClick={openCoachRoster} className="flex-1">
+                  {t('coaching.disableMode.seeClients')}
+                </Button>
+              ) : (
+                <Button onClick={() => { void confirmDisableCoachMode(); }} className="flex-1" disabled={coachModeBusy} loading={coachModeBusy}>
+                  {t('coaching.disableMode.confirmZero')}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={showDeleteModal} onClose={() => setShowDeleteModal(false)} title={t('profile.deleteModal.title')}>
         <div className="space-y-4">

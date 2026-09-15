@@ -1,4 +1,5 @@
 import { datePrefix, foldText } from './coachText';
+import { isPerformedSet } from './performedSets';
 import type { ClientLiftProgress, LiftSessionSnapshot, LiftSetSnapshot } from './types';
 
 export interface RawWorkoutRow {
@@ -29,18 +30,22 @@ function sessionFromSets(
   name: string,
   sets: LiftSetSnapshot[],
 ): LiftSessionSnapshot | null {
-  const working = sets.filter(s => s.completed && s.weight_kg > 0);
-  const pool = working.length > 0 ? working : sets.filter(s => s.weight_kg > 0);
+  const pool = sets.filter(isPerformedSet);
   if (pool.length === 0) return null;
-  const maxWeight = Math.max(...pool.map(s => s.weight_kg));
-  const best = pool.reduce((a, b) => (b.weight_kg > a.weight_kg || (b.weight_kg === a.weight_kg && b.reps > a.reps) ? b : a));
+  const loaded = pool.filter(s => s.weight_kg > 0);
+  const maxWeight = loaded.length > 0 ? Math.max(...loaded.map(s => s.weight_kg)) : 0;
+  const best = (loaded.length > 0 ? loaded : pool).reduce((a, b) => (
+    b.weight_kg > a.weight_kg || (b.weight_kg === a.weight_kg && b.reps > a.reps) ? b : a
+  ));
   const rirs = pool.map(s => s.rir).filter(r => r > 0);
   return {
     date: datePrefix(workout.date),
     workoutId: workout.id,
     workoutName: workout.name || name,
     maxWeight,
-    bestSet: `${best.weight_kg}kg × ${best.reps}`,
+    bestSet: best.weight_kg > 0 || best.reps > 0
+      ? `${best.weight_kg}kg × ${best.reps}`
+      : `${best.duration_seconds ?? 0}s`,
     avgRir: rirs.length ? Math.round((rirs.reduce((a, b) => a + b, 0) / rirs.length) * 10) / 10 : null,
     volume: pool.reduce((s, x) => s + x.weight_kg * x.reps, 0),
     sets,
@@ -86,6 +91,7 @@ export function buildClientLifts(
       reps: s.reps,
       rir: s.rir,
       completed: s.completed,
+      set_type: s.set_type,
     });
     setsByEx.set(s.exercise_id, list);
   }

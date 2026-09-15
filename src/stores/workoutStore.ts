@@ -93,7 +93,10 @@ async function guardedMutation(
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return queueIt();
   try {
     const { error } = await send();
-    if (!error) return { error: null, queued: false };
+    if (!error) {
+      applyLocal();
+      return { error: null, queued: false };
+    }
     if (isTransportError(error)) return queueIt();
     return { error: error.message ?? 'Request failed', queued: false };
   } catch (err) {
