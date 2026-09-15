@@ -3,8 +3,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { resolvePatchTargets } from './programPatch';
-import type { Program } from './types';
-import { latestMigrationContaining } from './migrationScan';
+import type { Program } from '../../../lib/types';
+import { latestMigrationContaining } from '../../../lib/migrationScan';
 
 function program(): Program {
   return {

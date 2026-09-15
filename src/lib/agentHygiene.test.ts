@@ -179,6 +179,14 @@ test('20 nutrition: nutrition modules live in features/nutrition/domain', () => 
   }
 });
 
+test('20 programs: program modules live in features/programs/domain', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const name of ['programWrite.ts', 'programPatch.ts', 'programNl.ts', 'soloProgram.ts']) {
+    assert.ok(existsSync(at(`src/features/programs/domain/${name}`)), name);
+    assert.match(readFileSync(at(`src/lib/${name}`), 'utf8'), /features\/programs\/domain\//);
+  }
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

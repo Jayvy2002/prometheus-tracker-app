@@ -20,7 +20,8 @@ src/
 │   ├── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
 │   ├── marketplace/domain/ marketplace*.ts (lot 20)
 │   ├── workout/domain/     séances, exos, disques (lot 20)
-│   └── nutrition/          hooks + domain (cibles, OFF, courses)
+│   ├── nutrition/          hooks + domain (cibles, OFF, courses)
+│   └── programs/domain/    écriture / patch / solo (lot 20)
 ├── shared/
 │   ├── api/supabase/       client
 │   ├── hooks/              useOnline, usePageTitle
@@ -79,7 +80,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | `useClientTracking.ts` | `features/coaching/hooks/` | idem | **18 livré** |
 | `useFoodCatalogSearch.ts` | `features/nutrition/hooks/` | idem | **18 livré** |
 | `coach*.ts` (agent, fleet, ask, …) | `features/coaching/domain/` (+ réexports `lib/`) | idem | **20 coaching livré** |
-| Autre domaine dans `lib/` | `lib/<domaine>` | `features/<domaine>/` | **20** (une PR / domaine) |
+| Autre domaine dans `lib/` | `features/<domaine>/domain/` (+ réexports) | idem | **20 livré** |
 | Utils transverses, télémétrie, offline | `lib/` | `shared/lib/` | **20** quand ce n’est plus du domaine |
 | `types.ts` | `lib/types.ts` | `shared/types` + `features/*/types` + réexport | **22a** |
 | i18n | `i18n/locales/fr.ts`, `en.ts` | `i18n/locales/{fr,en}/*.ts` | **22b** |
