@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { isRosterAsk, parseCoachAsk, resolveAskClientId } from './coachAsk';
+import { isRosterAsk, parseCoachAsk, parseRosterFilter, resolveAskClientId, ROSTER_FILTERS } from './coachAsk';
 import type { ClientOpsRow } from '../../../lib/types';
+
+test('roster URL filters are a closed list, never a raw query string', () => {
+  assert.deepEqual([...ROSTER_FILTERS], ['checkin', 'missed', 'pain', 'stalled', 'adherence', 'weight']);
+  assert.equal(parseRosterFilter('checkin'), 'checkin');
+  assert.equal(parseRosterFilter('pain'), 'pain');
+  assert.equal(parseRosterFilter('foo'), null);
+  assert.equal(parseRosterFilter(null), null);
+});
 
 test('roster questions stay local filters, not the copilot agent', () => {
   assert.equal(isRosterAsk('Qui stagne depuis 3 semaines ?'), true);

@@ -5,7 +5,7 @@ import { Copy, Link2, Users, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
-import { rosterHitsForFilter, type CoachAskFilter } from '../../lib/coachAsk';
+import { parseRosterFilter, rosterHitsForFilter, ROSTER_FILTERS } from '../../lib/coachAsk';
 import { displayName } from '../../lib/coachText';
 import { todayStr } from '../../lib/utils';
 import { clientFileHref } from '../../lib/coachSituation';
@@ -35,7 +35,7 @@ export default function ClientsPage() {
     endClientLink,
   } = useCoachingStore();
   const [searchParams] = useSearchParams();
-  const rosterFilter = searchParams.get('filter');
+  const rosterFilter = parseRosterFilter(searchParams.get('filter'));
   const [creating, setCreating] = useState(false);
   const [maxUses, setMaxUses] = useState(1);
   const [copied, setCopied] = useState<string | null>(null);
@@ -105,10 +105,11 @@ export default function ClientsPage() {
   }
 
   const activeInvites = invites.filter(i => new Date(i.expires_at) > new Date() && i.use_count < i.max_uses);
-  const rosterKey = (rosterFilter === 'pain' || rosterFilter === 'stalled' || rosterFilter === 'adherence'
-    || rosterFilter === 'missed' || rosterFilter === 'weight' || rosterFilter === 'checkin')
-    ? rosterFilter as CoachAskFilter
-    : null;
+  const rosterKey = rosterFilter;
+  const filterLabel = rosterKey ? t(`coaching.rosterList.filters.${rosterKey}`) : t('coaching.rosterList.filters.all');
+  const setRosterFilter = (next: typeof rosterKey) => {
+    navigate(next ? `/clients?filter=${next}` : '/clients');
+  };
   const filteredIds = rosterKey
     ? new Set(rosterHitsForFilter(rosterKey, opsRows, priorities, rosterSignals).map(h => h.clientId))
     : null;
@@ -129,11 +130,11 @@ export default function ClientsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold text-white">{t('coaching.clientsTitle')}</h1>
-            {rosterFilter && (
+            {rosterKey && (
               <p className="text-xs text-blue-300 mt-1">
-                {t('coaching.ask.filterActive', { filter: rosterFilter, n: roster.length })}
+                {t('coaching.ask.filterActive', { filter: filterLabel, n: roster.length })}
                 {' · '}
-                <button type="button" className="underline" onClick={() => navigate('/clients')}>
+                <button type="button" className="underline" onClick={() => setRosterFilter(null)}>
                   {t('coaching.ask.clearFilter')}
                 </button>
               </p>
@@ -143,6 +144,38 @@ export default function ClientsPage() {
             <Plus size={14} /> {t('coaching.invite.cta')}
           </Button>
         </div>
+
+        {clients.length > 0 && (
+          <div
+            className="flex flex-wrap gap-2 mb-4"
+            role="group"
+            aria-label={t('coaching.ask.rosterFilter')}
+          >
+            <button
+              type="button"
+              aria-pressed={!rosterKey}
+              onClick={() => setRosterFilter(null)}
+              className={`min-h-11 px-3 rounded-full text-xs font-medium ${
+                !rosterKey ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'
+              }`}
+            >
+              {t('coaching.rosterList.filters.all')}
+            </button>
+            {ROSTER_FILTERS.map(key => (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={rosterKey === key}
+                onClick={() => setRosterFilter(key)}
+                className={`min-h-11 px-3 rounded-full text-xs font-medium ${
+                  rosterKey === key ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'
+                }`}
+              >
+                {t(`coaching.rosterList.filters.${key}`)}
+              </button>
+            ))}
+          </div>
+        )}
 
         {rosterBusy ? (
           <div className="space-y-2">
@@ -161,6 +194,9 @@ export default function ClientsPage() {
         ) : roster.length === 0 ? (
           <Card className="text-center py-10">
             <p className="text-neutral-400">{t('coaching.ask.roster.empty')}</p>
+            {rosterKey && (
+              <p className="text-xs text-neutral-500 mt-2">{t('coaching.rosterList.filterWhy', { filter: filterLabel })}</p>
+            )}
           </Card>
         ) : (
           <div className="space-y-2">

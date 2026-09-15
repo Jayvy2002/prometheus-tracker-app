@@ -13,6 +13,14 @@ import type {
 
 export type CoachAskFilter = 'pain' | 'stalled' | 'adherence' | 'missed' | 'weight' | 'checkin';
 
+export const ROSTER_FILTERS: readonly CoachAskFilter[] = [
+  'checkin', 'missed', 'pain', 'stalled', 'adherence', 'weight',
+];
+
+export function parseRosterFilter(value: string | null): CoachAskFilter | null {
+  return ROSTER_FILTERS.includes(value as CoachAskFilter) ? value as CoachAskFilter : null;
+}
+
 export type CoachAskIntent =
   | { type: 'roster'; filter: CoachAskFilter; weeks: number; raw: string }
   | { type: 'client_lift'; clientHint: string; liftHint: string; raw: string }
