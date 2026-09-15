@@ -158,8 +158,8 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
 | **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
 | **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
-| **16f** | **Calculateur de disques visuel** (UX103) | À construire | Un **côté de barre**, disques ajoutables (kg 25/20/15/10/5/2.5/1.25 ou lbs 55/45/35/25/10/5/2.5), couleurs haltéro, unité du profil. |
-| **16g** | **Logger séance lisible sur téléphone** | À construire | Header, fiche exo (actions en overflow), rangées de séries. Sans casser le lot 14. **Pas d’ID UX inventé.** |
+| **16f** | **Calculateur de disques visuel** (UX103) | **À vérifier** | Un **côté de barre**, disques ajoutables (kg 25/20/15/10/5/2.5/1.25 ou lbs 55/45/35/25/10/5/2.5), couleurs haltéro, unité du profil. Parcours live 15 sept. (kg 25+10 = 90 ; lbs 55+45 = 245). |
+| **16g** | **Logger séance lisible sur téléphone** | **À vérifier** | Header, fiche exo (actions en overflow), rangées de séries. Sans casser le lot 14. Parcours live 390×844 + desktop. **Pas d’ID UX inventé.** |
 | **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | À construire **après 16f–16g** (tirable **pendant** 11–16 si un test nouveau) | `ARCHITECTURE.md` + `DESIGN_SYSTEM.md` ; aligner `CLAUDE.md` ; `npm test` = `**/*.test.ts` ; nom package ; une convention `.env`. **Zéro écran.** |
 | **18** | **Socle dossiers + alias** (ARCH02 évidents) | À construire **après 17** | Créer `app` / `features` / `shared` + alias `@/`. Déplacer **seulement** hooks mal placés, client Supabase, `ui`, layout, nav. Pas `coach*.ts`, pas `App.tsx`, pas les stores. |
 | **19** | **Tokens sémantiques sur primitives** (ARCH06) | À construire **après 18** | `Button` / `Card` / `Input` / `Select` / etc. = `bg-primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` **dans les primitives**. Relie premium lot 1. |
@@ -566,7 +566,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX16** | P1 | ens. | À construire | Langage : appareil / sync / action requise. | Après coupure, on sait ce qui est conservé. |
 | **UX17** | P1 | 1 | **Terminé** | Plus de `setTimeout` 30 s. Fermer → recap. Faits, pas « Conseil du coach ». Parcours 15 sept. | — |
 | **UX101** | P2 | 15a | **À vérifier** | Barre `data-rest-bar` ; fermer le modal ne reseed pas. UX15 (`restEpoch`) inchangé. **Reste :** parcours live. | On voit le temps restant sans le modal. |
-| **UX103** | P3 | 15c / 16f | **À construire** | Un côté de barre, disques ajoutables, couleurs haltéro, inventaire kg + **55 lb**. Unité du profil. | On voit et on compose la charge, pas une liste. |
+| **UX103** | P3 | 15c / 16f | **À vérifier** | Un côté de barre, disques ajoutables, couleurs haltéro, inventaire kg + **55 lb**. Unité du profil. Parcours live 15 sept. | On voit et on compose la charge, pas une liste. |
 
 ### Exercices et programmes
 
