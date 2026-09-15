@@ -21,7 +21,7 @@ const KG_STYLE: Record<number, PlateStyle> = {
   15: { bg: 'bg-yellow-400', text: 'text-neutral-950', ring: 'ring-yellow-200/50' },
   10: { bg: 'bg-green-600', text: 'text-white', ring: 'ring-green-300/40' },
   5: { bg: 'bg-white', text: 'text-neutral-950', ring: 'ring-neutral-300' },
-  2.5: { bg: 'bg-neutral-950', text: 'text-white', ring: 'ring-neutral-500' },
+  2.5: { bg: 'bg-neutral-800', text: 'text-white', ring: 'ring-2 ring-neutral-400' },
   1.25: { bg: 'bg-neutral-400', text: 'text-neutral-950', ring: 'ring-neutral-200' },
 };
 
@@ -30,8 +30,8 @@ const LBS_STYLE: Record<number, PlateStyle> = {
   45: { bg: 'bg-blue-600', text: 'text-white', ring: 'ring-blue-300/40' },
   35: { bg: 'bg-yellow-400', text: 'text-neutral-950', ring: 'ring-yellow-200/50' },
   25: { bg: 'bg-green-600', text: 'text-white', ring: 'ring-green-300/40' },
-  10: { bg: 'bg-white', text: 'text-neutral-950', ring: 'ring-neutral-300' },
-  5: { bg: 'bg-neutral-950', text: 'text-white', ring: 'ring-neutral-500' },
+  10: { bg: 'bg-white', text: 'text-neutral-950', ring: 'ring-2 ring-neutral-400' },
+  5: { bg: 'bg-neutral-800', text: 'text-white', ring: 'ring-2 ring-neutral-400' },
   2.5: { bg: 'bg-neutral-400', text: 'text-neutral-950', ring: 'ring-neutral-200' },
 };
 

@@ -39,6 +39,7 @@ test('UX103 plate calculator uses profile units and a visual sleeve', () => {
   assert.equal(plateStyle(15, 'kg').bg, 'bg-yellow-400');
   assert.equal(plateStyle(10, 'kg').bg, 'bg-green-600');
   assert.equal(plateStyle(5, 'kg').bg, 'bg-white');
+  assert.equal(plateStyle(2.5, 'kg').bg, 'bg-neutral-800');
   assert.equal(plateStyle(55, 'lbs').bg, 'bg-red-600');
   assert.equal(plateStyle(45, 'lbs').bg, 'bg-blue-600');
   const kg = platesForLoad(100, 'kg');
