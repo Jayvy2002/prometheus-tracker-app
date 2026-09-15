@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M4 Terminé**. Lot **M5** encore **À vérifier**. Lots **17–23 Terminé**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. Lots **17–23 Terminé**. **M6 Reporté**. **M7–M8** encore à concevoir.
 
-| **Lot ouvert :** M5 (preuve + copy). Lots **1–16**, **M0–M4** et **17–23 Terminé**.
+| **Lot ouvert :** M7 (concevoir). Lots **1–16**, **M0–M5** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -33,6 +33,7 @@
 | **M2b** Invite + consentement | **PASS.** Ancienne `accept_coach_invite(text)` : `authenticated` sans EXECUTE. Expiré / épuisé → « Invitation indisponible » + Retour. Déjà lié → « Tu as déjà un coach ». Self → « Tu ne peux pas accepter ta propre invitation ». | — |
 | **M3** Intention | **PASS.** `/auth` email+mdp, pas de rôle. Intention après login. `find_coach` → `/coaches` ; Accueil + Entraînement utilisables. Rôle reste `none`. | — |
 | **M4** Offre opt-in | **PASS.** Roster sans profil public. Copy « gérer tes clients sans publier ». Publier Coach2 → visible annuaire ; dépublier → retiré. | — |
+| **M5** Annuaire / demandes | **PASS.** Déjà lié : « suivi actif… formulaire n’est pas ouvert ». Accepté = « le suivi est actif (pas un paiement) ». SQL : `accepted` + lien `active`. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -139,7 +140,7 @@ Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer 
 | Assign programme : plus de premier client auto | Recap destinataire dans le modal (parcours dû, UX21) |
 | Inputs séance agrandis, cibles 44 px (#91) | OverflowMenu Échap + focus (Git lot 10g). `aria-current` onglets. |
 | RPC `client_end_coach_link` + UI Profil + tests | Preuve prod, notif, sérialisation, copy 3 listes (M2a) |
-| Annuaire / offre / demandes en code | Copy « accepté = suivi actif » (M5) |
+| Annuaire / offre / demandes en code | Copy « accepté = suivi actif » live (M5 **Terminé**) |
 | Table `exercises` + `primary_muscles` / `muscleLabels` + picker | **Pas** de vidéo ni mannequin. Lot 11 étend, ne recrée pas |
 | `accountContext`, espaces Personnel / Coaching | SQL + RPC live lot 2 : `none` refusé si roster actif (`coach_has_active_clients`) |
 | Questionnaire prise en charge : plus de `path="*"` ; bannière + lien `/questionnaire` | Parcours invite encore dû (lot 4, pas de 3ᵉ compte) |
@@ -328,7 +329,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** preuve prod du lot **M5** encore « À vérifier » (M0–M4 **Terminé**), M7, confort P2/P3 restant, capteurs santé (UX112), billing.
+**Après les lots 17–23 :** lots **M0–M5 Terminé**. Reste **M7–M8** (concevoir), confort P2/P3, capteurs santé (UX112), billing (**M6 Reporté**).
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -377,7 +378,7 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | **M2b** Invitation + consentement versionné | **Terminé** | Acceptation explicite ; ancienne RPC révoquée après bascule. | Prod : `accept_coach_invite(text)` **sans** EXECUTE `authenticated` ; nouvelle signature (version + scopes) oui. Live : expiré / used = issue + Retour ; autre coach = « déjà un coach » ; self = refus. Happy-path lot 4. |
 | **M3** Intention après identité | **Terminé** | Login direct ; pas de rôle avant le formulaire ; OAuth plus tard. | Live : `/auth` sans picker de rôle / OAuth. `chantier-intent-1515` voit « Pourquoi es-tu ici ? ». `find_coach` → `/coaches` puis Accueil / Entraînement personnels. `choose_account_intent` ne change pas le rôle (reste `none`). |
 | **M4** Offres opt-in | **Terminé** | Coach sans publier ; publication / retrait. | Live : Chantier Coach a un roster **sans** `coach_profiles`. `/coach/profile` : compte ≠ offre. Coach2 publié puis retiré ; l’annuaire suit. |
-| **M5** Annuaire, comparaison, demandes | À vérifier | Filtres exacts ; pas de dossier prospect ; empty honnête. | Vitrine en code. **Accepté = suivi actif**, pas un paiement. L’UI doit le dire (UX56). Annuaire si déjà lié : expliquer, pas un formulaire qui échoue. Matching riche / modération / avis : **pas** dans M4–M5. |
+| **M5** Annuaire, comparaison, demandes | **Terminé** | Filtres exacts ; pas de dossier prospect ; empty honnête. | Live : déjà lié → explication, pas de formulaire. Acceptation Coach2 × Intent : copy « pas un paiement » ; SQL `accepted` + lien `active`. Filtres exacts déjà en code. Matching riche / avis : hors lot. |
 | **M6** Paiement / accord commercial | **Reporté** | Une RPC d’activation **déjà** utilisée à l’acceptation et à l’invitation. M6 = encaissement, pas ré-activer le lien. | Chantier 3 fermé. |
 | **M7** Accueils et suite d’objectif | À concevoir | Trois parcours jusqu’au bilan ; coach autorité du plan. | Après lots 1, 4, 8, 9. |
 | **M8** Ouverture graduelle | À concevoir | Pas de lancement large sur CI seule. | |
@@ -517,7 +518,7 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **6** Client 360 | À vérifier | Dernière séance = séries cochées (parcours 15 sept.). Onglet **Récupération** (Git 10c). « Depuis ta dernière visite » (lot 9). |
 | **7** Setup 4 étapes | À vérifier | Titre preview « Ce que le client verra » (Git 10j). Parcours live dû. |
 | **8** Messages / Prometheus | **Partiel** | Retry / safe-area. Brouillon + lu : Git (lot 7). |
-| **9** Marketplace vitrine | À vérifier | Pas de faux prix. Acceptation = **lien actif**. Copy à aligner. |
+| **9** Marketplace vitrine | **Terminé** | Pas de faux prix. Acceptation = **lien actif**. Copy live M5. |
 | **10** Programmes builder | **Partiel** | Pas de premier client auto. Recap destinataire (code). `save_program` Git ; delete / fetch honnêtes. Apply prod + parcours (lot 3). Types de séries / supersets de plan : lot 14. |
 | **11** Nutrition / séance / scanner | À vérifier | Recettes dans Nutrition (Git 10a). UX15 = auto **optionnel** après coche. Logger plat séance programmée + types : lot 14. Timer / HEIC / scanner date : lot 15. |
 | **12** Progression / photos | **Partiel** | Hub solo. Coaché bloqué (lot 8). Séries cochées : lot 1. Calendrier / recherche / erreur : Git (lot 6). Audience photos : Git (lot 5). |
@@ -686,8 +687,8 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **UX55** | P2 | M5 | À vérifier | Filtres exacts en code. Pas de % inventé. | On sait ce qu’on demande. |
-| **UX56** | P1 | M5 | Partiel | États pending/… existent. **Copy :** accepté = **suivi actif**, pas un paiement. | Pas de 2ᵉ demande identique ; effet compris. |
+| **UX55** | P2 | M5 | **Terminé** | Filtres exacts (discipline / langue / format). Pas de % inventé. | On sait ce qu’on demande. |
+| **UX56** | P1 | M5 | **Terminé** | Copy live : accepté = suivi actif, pas un paiement. Déjà lié = explication. SQL lien `active`. | Effet compris ; pas de formulaire qui échoue. |
 | **UX57** | P1 | M2a | **Terminé** | Modal live : Tu gardes / Ça s’arrête / pause / Ça ne se transmet pas. | Accès après départ anticipé. |
 | **UX58** | P1 | M2a | **Terminé** | Reprise solo + bandeau ; séance conservée ; note coach intacte ; programme `paused`. | Pas d’histoire effacée ni dossier transféré. |
 | **UX59–61** | P1 | M6 | Reporté | Billing fermé. | Quand chantier 3 s’ouvre. |
@@ -753,7 +754,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16** et **M0–M4**. Lot **M5** encore dû.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16** et **M0–M5**. **M7–M8** encore dus.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -782,6 +783,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Solo / coaché / coach | Invite expiré, used, déjà lié, self | **Joué (M2b).** Issue + Retour ; « déjà un coach » ; pas sa propre invite. |
 | Nouveau compte | `/auth` puis intention `find_coach` | **Joué (M3).** Annuaire puis Accueil / Entraînement personnels. |
 | Coach | Offre opt-in | **Joué (M4).** Sans publier = roster OK. Publier / retirer = annuaire. |
+| Coaché / chercheur | Annuaire + acceptation | **Joué (M5).** Déjà lié = explication. Accepté = suivi actif, pas un paiement. |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
 
 Références a11y : [formulaires multi-pages W3C](https://www.w3.org/WAI/tutorials/forms/multi-page/), [cibles WCAG 2.2](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html), [messages de statut](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
