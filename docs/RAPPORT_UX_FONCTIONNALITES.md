@@ -230,7 +230,7 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 | | |
 |---|---|
 | **Quoi** | Avatar, objectifs (oui en Personnel), unités, langue, notifs, mdp, feedback, delete. Hub : photos, programme, nutrition?, poids?, intake?. Fin de relation. Annuaire + demandes : **demande bloquée** si déjà coaché (`already_coached`) ; on peut retirer une demande pending. |
-| **Marche** | Un seul coach actif. Marketplace ne force pas un second lien. |
+| **Marche** | Un seul coach actif. Marketplace ne force pas un second lien. Permission notif après la séance (UX64), pas à l’inscription. |
 | **Ne va pas** | Profil = tiroir fourre-tout. Toggle « trouver un autre coach » absent (volontaire tant que lié) mais l’annuaire reste visible : on parcourt sans pouvoir demander — frustration. |
 | **Changer** | Profil = compte + relation + préférences. Raccourcis modules **nommés comme dans la nav**. Annuaire : si déjà coaché, expliquer *pourquoi* on ne peut pas demander, et pointer « mettre fin à la relation » plutôt qu’un formulaire qui échoue. |
 
