@@ -6,9 +6,17 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md` et `AUDIT_NAVIGATION_UX.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git. File : lots **11–16** après 10. Lots 2–3 : SQL prod lu. Lots 3–7 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–4 dans `new-JV` (#98). Lots 5–7 : code Git (empilement). File : lots **11–16** après 10. Lots 2–3 : SQL prod lu. Lots 2–7 : parcours live encore dus. Une CI verte ne clôt pas une ligne UX.
 
 **Lot ouvert : 8 — trouver programme et progression.** Lot 1 : Terminé. Lots 2–7 : À vérifier.
+
+**Vérif code 15 sept. lots 5–7** (`npm test` 536/0 sur l’empilement) — pas un parcours live :
+
+| Lot | Preuve Git | Pas encore |
+|---|---|---|
+| **5** Photos (UX54) | `photoAudience.ts` : solo vs coach actuel ; historique antérieur au lien ; consentement `progress_photos` = phrase. Tests `coachPhotos.test.ts`. | Compte solo + coaché + 360 coach |
+| **6** Calendrier / recherche (UX48, UX49, UX63) | Plus de `.maybeSingle()` séances/pesées du jour ; `listedProgressMatches` ; stats/progression : erreur + réessai. | Deux séances le même jour ; recherche ; coupure réseau |
+| **7** Messages (UX29–31, UX85) | `messageDrafts.ts` : brouillon `localStorage` compte×fil ; dismiss Accueil = `sessionStorage` ≠ `read_at` ; `confirmedReadIds` après `.select('id')`. | Aller-retour fil ; écarter Accueil puis ouvrir le fil |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
