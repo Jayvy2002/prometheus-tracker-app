@@ -230,8 +230,8 @@ export default function CoachQuestionnairePage() {
           <p className="text-sm text-neutral-400">{t('coachQuestionnaire.fromShortHint')}</p>
           {versions.map(v => (
             <div key={v.id} className="border border-neutral-800 rounded p-3 space-y-2">
-              <p>{v.definition.name.fr} / {v.definition.name.en} · v{v.definition.version}{defaultId === v.id ? ' ✓' : ''}</p>
-              <Button disabled={busy} onClick={() => {
+              <p data-testid={`questionnaire-card-${v.id}`}>{v.definition.name.fr} / {v.definition.name.en} · v{v.definition.version}{defaultId === v.id ? ' ✓' : ''}</p>
+              <Button data-testid={`questionnaire-edit-${v.id}`} disabled={busy} onClick={() => {
                 const d = structuredClone(v.definition);
                 d.version = nextVersion(versions, d.id);
                 setSelected(d);
