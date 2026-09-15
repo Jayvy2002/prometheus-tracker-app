@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (nuit).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–13** : code Git (PRs). File produit ouverte : lots **14–16**. File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026 (nuit).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–14** : code Git (PRs). File produit ouverte : lots **15–16**. File structure : lots **17–23** **après 16**. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 14** (builder + logger types de séries). Lots 11–13 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**. Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène si un test nouveau).
+| **Lot ouvert : 15** (confort séance / journal / photos). Lots 11–14 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**. Lots 17–23 : ne pas commencer pendant 11–16 (sauf **17** hygiène si un test nouveau).
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -562,9 +562,9 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 |---|---|---|---|---|---|
 | **UX18** | P2 | ens. | À construire | Variantes / matériel / récents. | Bonne variante avant sélection. |
 | **UX86** | P2 | 11 | **À vérifier** | Vidéo + mannequin dans picker et fiche. Seed 31 URLs. **Reste :** apply prod + parcours. | On voit le mouvement et les muscles avant de choisir. |
-| **UX98** | P2 | 14a | À construire | **Après 10.** Builder : tous les `SET_TYPES` + lier 2+ exos en superset. Champs drop / tempo / iso / cluster / myo. | Le jour de plan dit *comment* logger, pas seulement 3×10. |
-| **UX99** | P2 | 14b | À construire | Logger = champs du type. Drop = N charges / **une** série. Superset = tour A puis B, repos après le couple. | On ne « simule » pas un drop ou un superset avec des working. |
-| **UX100** | P2 | 14c | À construire | Séance `program_day_id` : plus de `hevySimple`. Seed = prescription. Coaché : pas d’exo hors plan. | Le client logge ce que le plan a prescrit. |
+| **UX98** | P2 | 14a | **À vérifier** | Builder : type + groupe superset + champs drop/tempo/iso/cluster/myo sur `program_day_exercises`. **Reste :** apply prod + parcours. | Le jour de plan dit *comment* logger, pas seulement 3×10. |
+| **UX99** | P2 | 14b | **À vérifier** | Logger : drop = N charges / une coche ; repos superset après le dernier exo du groupe. **Reste :** parcours live. | On ne « simule » pas un drop ou un superset avec des working. |
+| **UX100** | P2 | 14c | **À vérifier** | Plus de `hevySimple`. Seed `start_workout_from_template` joue la prescription. Coaché : toujours pas d’exo hors plan. **Reste :** apply prod. | Le client logge ce que le plan a prescrit. |
 | **UX102** | P2 | 15b | À construire | Libre → modèle / jour de plan (solo). Types du 14 inclus. | Une bonne séance libre n’est pas perdue. |
 | **UX108** | P2 | 16b | À construire | Dupliquer dans la bibliothèque (`fork_program` déjà là pour l’assign). | Copier un plan ≠ l’assigner. |
 | **UX19** | P2 | ens. | À concevoir | Remplacement « cette séance » vs « proposer au plan ». | Pas de réécriture silencieuse du futur. |

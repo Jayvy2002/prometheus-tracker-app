@@ -29,6 +29,7 @@ import WorkoutRecap from './WorkoutRecap';
 import SessionTimer from './SessionTimer';
 import { useRoutineStore } from '../../stores/routineStore';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import {
   loadSessionTimer, saveSessionTimer, clearSessionTimer,
   currentElapsedMs, startTimer, pauseTimer, emptyTimer,
@@ -122,7 +123,7 @@ function WorkoutFormInner() {
               .select('*')
               .eq('program_day_id', state.programDayId)
               .order('order_index');
-            exercises = (data ?? []).map((ex, i) => ({
+            exercises = (data ?? []).map((ex, i) => toWorkoutTemplateExercise({
               name: ex.name as string,
               default_sets: (ex.default_sets as number) ?? 3,
               default_reps: (ex.default_reps as number) ?? 10,
@@ -130,8 +131,15 @@ function WorkoutFormInner() {
               default_rir: (ex.default_rir as number | null) ?? null,
               default_rest_seconds: (ex.default_rest_seconds as number) ?? 90,
               default_weight_kg: (ex.default_weight_kg as number | null) ?? null,
-              order_index: (ex.order_index as number) ?? i,
-            }));
+              set_type: (ex.set_type as WorkoutTemplateExercise['set_type']) ?? 'working',
+              superset_group: (ex.superset_group as string | null) ?? null,
+              drop_count: (ex.drop_count as number | null) ?? null,
+              tempo: (ex.tempo as string | null) ?? null,
+              isometric_seconds: (ex.isometric_seconds as number | null) ?? null,
+              cluster_rest_seconds: (ex.cluster_rest_seconds as number | null) ?? null,
+              cluster_reps_per_burst: (ex.cluster_reps_per_burst as number | null) ?? null,
+              myo_activation: Boolean(ex.myo_activation),
+            }, i));
             if (!name) {
               const { data: day } = await supabase.from('program_days').select('name').eq('id', state.programDayId).maybeSingle();
               name = (day?.name as string) || t('workout.title');

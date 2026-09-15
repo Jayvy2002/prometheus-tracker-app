@@ -223,7 +223,9 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
 
   const card = src('src/components/workout/ExerciseCard.tsx');
   assert.match(card, /showLoggingRir/);
-  assert.match(card, /hevySimple/);
+  assert.doesNotMatch(card, /hevySimple/);
+  assert.match(card, /planLocked/);
+  assert.match(card, /data-drop-segments/);
   assert.match(card, /showTrainingField\(tracking, 'sets'\)/);
   assert.match(card, /showTrainingField\(tracking, 'load'\)/);
   assert.match(card, /showTrainingField\(tracking, 'rest'\)/);

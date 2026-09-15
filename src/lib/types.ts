@@ -98,6 +98,7 @@ export interface WorkoutSet {
   cluster_reps_per_burst: number | null;
   myo_is_activation: boolean;
   drop_percentage: number | null;
+  drop_segments?: Array<{ weight_kg: number; reps: number }> | null;
   created_at: string;
 }
 
@@ -646,6 +647,14 @@ export interface ProgramExerciseDraft {
   default_rir?: number | null;
   default_rest_seconds?: number;
   default_weight_kg?: number | null;
+  set_type?: SetType;
+  superset_group?: string | null;
+  drop_count?: number | null;
+  tempo?: string | null;
+  isometric_seconds?: number | null;
+  cluster_rest_seconds?: number | null;
+  cluster_reps_per_burst?: number | null;
+  myo_activation?: boolean;
 }
 
 export interface AiProgramDayDraft {
@@ -1007,6 +1016,14 @@ export interface ProgramDayExercise {
   default_rir?: number | null;
   default_rest_seconds: number;
   default_weight_kg?: number | null;
+  set_type?: string;
+  superset_group?: string | null;
+  drop_count?: number | null;
+  tempo?: string | null;
+  isometric_seconds?: number | null;
+  cluster_rest_seconds?: number | null;
+  cluster_reps_per_burst?: number | null;
+  myo_activation?: boolean;
   order_index: number;
   created_at: string;
 }
@@ -1031,6 +1048,14 @@ export interface WorkoutTemplateExercise {
   default_rir?: number | null;
   default_rest_seconds?: number;
   default_weight_kg?: number | null;
+  set_type?: SetType;
+  superset_group?: string | null;
+  drop_count?: number | null;
+  tempo?: string | null;
+  isometric_seconds?: number | null;
+  cluster_rest_seconds?: number | null;
+  cluster_reps_per_burst?: number | null;
+  myo_activation?: boolean;
   order_index: number;
 }
 

@@ -20,7 +20,7 @@ import { toastWithUndo } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
 import { applySetPlaceholders } from '../../lib/workoutSetComplete';
 import { resolveRestSeconds } from '../../lib/restTimer';
-import { isPerformedSet } from '../../lib/performedSets';
+import { parseDropSegments, emptyDropSegments } from '../../lib/programSetPrescription';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { findCatalogExercise } from '../../lib/exerciseCatalog';
 import ExerciseMedia from './ExerciseMedia';
@@ -163,7 +163,6 @@ function SetRow({
   showLoad,
   showReps,
   showSets,
-  hevySimple,
   suggestedWeight,
   prevSet,
   previousSet,
@@ -178,7 +177,6 @@ function SetRow({
   showLoad: boolean;
   showReps: boolean;
   showSets: boolean;
-  hevySimple: boolean;
   suggestedWeight?: number | null;
   prevSet?: { weight_kg: number; reps: number; rir: number } | null;
   previousSet?: WorkoutSet | null;
@@ -202,6 +200,10 @@ function SetRow({
   const [localClusterBurst, setLocalClusterBurst] = useState('');
   const [localType, setLocalType] = useState(set.set_type);
   const [showTypePicker, setShowTypePicker] = useState(false);
+  const [segments, setSegments] = useState(() => {
+    const parsed = parseDropSegments(set.drop_segments);
+    return parsed.length >= 2 ? parsed : emptyDropSegments(2);
+  });
 
   const isIsometric = localType === 'isometric';
   const isTempo = localType === 'tempo';
@@ -306,6 +308,12 @@ function SetRow({
         updates.weight_kg = dropWeightKg;
       }
     }
+    if (newType === 'drop') {
+      const parsed = parseDropSegments(set.drop_segments);
+      const next = parsed.length >= 2 ? parsed : emptyDropSegments(2);
+      setSegments(next);
+      updates.drop_segments = next;
+    }
     updateSet(set.id, updates);
   };
 
@@ -335,6 +343,14 @@ function SetRow({
       repsPlaceholder,
     });
     const updates: Partial<WorkoutSet> = { completed: true };
+    if (isDrop) {
+      updates.drop_segments = segments;
+      updates.weight_kg = segments[0]?.weight_kg ?? 0;
+      updates.reps = segments.reduce((sum, row) => sum + (row.reps || 0), 0);
+      updateSet(set.id, updates);
+      onSetComplete();
+      return;
+    }
     if (filled.weight !== localWeight) {
       setLocalWeight(filled.weight);
       updateSetDraft(set.id, 'weight_kg', filled.weight);
@@ -351,7 +367,9 @@ function SetRow({
     onSetComplete();
   };
 
-  const isFilled = !!localWeight && (isIsometric ? !!localDuration : !!localReps);
+  const isFilled = isDrop
+    ? segments.every(row => row.weight_kg > 0 && row.reps > 0)
+    : !!localWeight && (isIsometric ? !!localDuration : !!localReps);
 
   // Drop percentage badge (ratio — computed in display units consistently)
   const prevDisplay = previousSet && previousSet.weight_kg > 0 ? toDisplay(previousSet.weight_kg) : 0;
@@ -375,8 +393,7 @@ function SetRow({
         </div>
         )}
 
-        {/* Type chip — hidden on program sessions (Hevy-simple) */}
-        {!hevySimple && (
+        {/* Type chip — always visible; program sessions seed the type from the plan */}
         <div className="relative shrink-0">
           <button
             onClick={() => setShowTypePicker(!showTypePicker)}
@@ -393,23 +410,22 @@ function SetRow({
             />
           )}
         </div>
-        )}
 
         {/* Drop % badge */}
-        {!hevySimple && isDrop && dropPct != null && dropPct > 0 && (
+        {isDrop && dropPct != null && dropPct > 0 && (
           <span className="text-[9px] font-bold text-sky-400/70 shrink-0">-{dropPct}%</span>
         )}
 
         {/* Myo activation badge */}
-        {!hevySimple && isMyoActivation && (
+        {isMyoActivation && (
           <span className="text-[9px] font-bold text-rose-400/70 shrink-0">{t('workout.exerciseCard.act')}</span>
         )}
-        {!hevySimple && isMyo && !isMyoActivation && (
+        {isMyo && !isMyoActivation && (
           <span className="text-[9px] font-medium text-rose-400/50 shrink-0">{t('workout.exerciseCard.mini')}</span>
         )}
 
         {/* Weight */}
-        {showLoad && (
+        {showLoad && !isDrop && (
         <div className="flex-1 min-w-0">
           <input
             type="number"
@@ -432,7 +448,7 @@ function SetRow({
         )}
 
         {/* Reps or Duration */}
-        {showReps && (
+        {showReps && !isDrop && (
         <div className="flex-1 min-w-0">
           {isIsometric ? (
             <input
@@ -487,8 +503,6 @@ function SetRow({
 
         {/* Actions */}
         <div className="flex items-center gap-0.5 shrink-0">
-          {!hevySimple && (
-            <>
               <button
                 type="button"
                 onClick={onDuplicate}
@@ -505,8 +519,6 @@ function SetRow({
               >
                 <Trash2 size={11} />
               </button>
-            </>
-          )}
           <button
             type="button"
             onClick={() => void handleToggleComplete()}
@@ -522,6 +534,46 @@ function SetRow({
           </button>
         </div>
       </div>
+
+      {isDrop && (
+        <div className="px-2 pb-2 space-y-1" data-drop-segments="true">
+          {segments.map((row, i) => (
+            <div key={i} className="flex items-center gap-1.5 pl-6">
+              <span className="text-[10px] text-sky-400/70 w-4">{i + 1}</span>
+              {showLoad && (
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={row.weight_kg ? String(toDisplay(row.weight_kg)) : ''}
+                  onChange={e => {
+                    const w = parseFloat(e.target.value);
+                    const next = segments.map((s, j) => j === i ? { ...s, weight_kg: isNaN(w) ? 0 : toStorage(w) } : s);
+                    setSegments(next);
+                  }}
+                  onBlur={() => updateSet(set.id, { drop_segments: segments, weight_kg: segments[0]?.weight_kg ?? 0 })}
+                  className="flex-1 min-h-11 rounded-lg px-2 py-2 text-sm text-white text-center bg-neutral-800/80"
+                  placeholder={weightPlaceholder}
+                />
+              )}
+              {showReps && (
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  value={row.reps ? String(row.reps) : ''}
+                  onChange={e => {
+                    const r = parseInt(e.target.value, 10);
+                    const next = segments.map((s, j) => j === i ? { ...s, reps: isNaN(r) ? 0 : r } : s);
+                    setSegments(next);
+                  }}
+                  onBlur={() => updateSet(set.id, { drop_segments: segments, reps: segments.reduce((sum, s) => sum + s.reps, 0) })}
+                  className="flex-1 min-h-11 rounded-lg px-2 py-2 text-sm text-white text-center bg-neutral-800/80"
+                  placeholder={repsPlaceholder}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tempo row */}
       {isTempo && (
@@ -634,10 +686,12 @@ export default function ExerciseCard({
   exercise,
   onStartRestTimer,
   isInSuperset = false,
+  restAfterComplete = true,
 }: {
   exercise: WorkoutExercise;
   onStartRestTimer: (overrideDuration?: number) => void;
   isInSuperset?: boolean;
+  restAfterComplete?: boolean;
 }) {
   const { t } = useTranslation();
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, updateSet, currentWorkout, fetchExerciseHistory } = useWorkoutStore();
@@ -656,7 +710,7 @@ export default function ExerciseCard({
   const showReps = showTrainingField(tracking, 'reps') || showTrainingField(tracking, 'reps_range');
   const showSets = showTrainingField(tracking, 'sets');
   const restOn = showTrainingField(tracking, 'rest');
-  const hevySimple = !!currentWorkout?.program_day_id;
+  const planLocked = !!currentWorkout?.program_day_id;
   const { initExerciseDraft, getExerciseDraft, updateExerciseDraft, clearExerciseDraft } = useDraftContext();
   const [expanded, setExpanded] = useState(true);
   const [showNotes, setShowNotes] = useState(!!exercise.notes);
@@ -717,6 +771,7 @@ export default function ExerciseCard({
 
   const handleSetComplete = () => {
     if (!restOn) return;
+    if (isInSuperset && !restAfterComplete) return;
     onStartRestTimer(resolveRestSeconds(exercise.prescribed_rest_seconds) ?? 90);
   };
 
@@ -776,7 +831,7 @@ export default function ExerciseCard({
           </span>
         )}
         {/* Superset link button -- only if not already in a superset */}
-        {!hevySimple && !isInSuperset && !exercise.superset_group_id && (
+        {!isInSuperset && !exercise.superset_group_id && (
           <div className="relative">
             <button
               onClick={() => setShowLinkPicker(!showLinkPicker)}
@@ -809,7 +864,7 @@ export default function ExerciseCard({
         >
           <StickyNote size={16} />
         </button>
-        {!hevySimple && (
+        {!planLocked && (
         <button
           onClick={() => {
             const exerciseSnapshot = { ...exercise, sets: [...(exercise.sets ?? [])] };
@@ -944,7 +999,7 @@ export default function ExerciseCard({
           {(exercise.sets?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-[10px] text-neutral-600 font-medium uppercase tracking-wider mb-2 px-1">
               {showSets && <div className="w-5 text-center">#</div>}
-              {!hevySimple && <div className="shrink-0 w-8">{t('workout.exerciseCard.type')}</div>}
+              <div className="shrink-0 w-8">{t('workout.exerciseCard.type')}</div>
               {showLoad && <div className="flex-1 text-center">{t(weightUnit === 'lbs' ? 'workout.exerciseCard.weightLbs' : 'workout.exerciseCard.weight')}</div>}
               {showReps && (
                 <div className="flex-1 text-center">
@@ -952,7 +1007,7 @@ export default function ExerciseCard({
                 </div>
               )}
               {showRir && <div className="w-12 text-center">{t('workout.exerciseCard.rir')}</div>}
-              {!hevySimple && <div className="w-12" />}
+              <div className="w-12" />
               <div className="w-11" />
             </div>
           )}
@@ -970,7 +1025,6 @@ export default function ExerciseCard({
                   showLoad={showLoad}
                   showReps={showReps}
                   showSets={showSets}
-                  hevySimple={hevySimple}
                   weightUnit={weightUnit}
                   suggestedWeight={suggestion?.suggestedWeight}
                   prevSet={matchingPrev}

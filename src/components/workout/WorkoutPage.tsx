@@ -8,6 +8,7 @@ import { useWorkoutStore } from '../../stores/workoutStore';
 import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
+import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { isCoachedAthlete, isSoloAthlete } from '../../lib/coachRole';
 import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
 import type { ProgramDay, Workout } from '../../lib/types';
@@ -185,16 +186,7 @@ export default function WorkoutPage() {
         name: day.name || assignment.program.name,
         programAssignmentId: assignment.id,
         programDayId: day.id,
-        exercises: (day.exercises ?? []).map(ex => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_reps_min: ex.default_reps_min,
-          default_rir: ex.default_rir,
-          default_rest_seconds: ex.default_rest_seconds,
-          default_weight_kg: ex.default_weight_kg,
-          order_index: ex.order_index,
-        })),
+        exercises: (day.exercises ?? []).map((ex, i) => toWorkoutTemplateExercise(ex, i)),
       });
       if (!workoutId) {
         toast(t('workout.startRoutineFailed'), 'error');

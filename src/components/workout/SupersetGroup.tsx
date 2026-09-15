@@ -47,6 +47,7 @@ export default function SupersetGroup({ exercises, onStartRestTimer }: Props) {
               exercise={ex}
               onStartRestTimer={onStartRestTimer}
               isInSuperset
+              restAfterComplete={i === exercises.length - 1}
             />
           ))}
         </div>

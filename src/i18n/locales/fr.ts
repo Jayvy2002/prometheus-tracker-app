@@ -1955,6 +1955,12 @@ const fr = {
       volumeWarn: 'Volume élevé sur {{muscle}} cette séance ({{n}} séries).',
       noAuto: 'Enregistre pour appliquer les modifications.',
       saveHint: 'Les clients assignés verront le programme enregistré à leur prochaine séance.',
+      supersetGroup: 'Groupe (A, B…)',
+      dropCount: 'Chutes',
+      isoSeconds: 'Durée s',
+      clusterRest: 'Repos intra s',
+      clusterBurst: 'Reps / burst',
+      myoActivation: 'Activation',
     },
     programNl: {
       placeholder: 'ex. passe le développé incliné à 2×6-10 RIR1 à partir de lundi',

@@ -1955,6 +1955,12 @@ const en = {
       volumeWarn: 'High volume on {{muscle}} this session ({{n}} sets).',
       noAuto: 'Save to apply your changes.',
       saveHint: 'Assigned clients will see the saved program in their next session.',
+      supersetGroup: 'Group (A, B…)',
+      dropCount: 'Drops',
+      isoSeconds: 'Hold s',
+      clusterRest: 'Intra rest s',
+      clusterBurst: 'Reps / burst',
+      myoActivation: 'Activation',
     },
     programNl: {
       placeholder: 'e.g. set incline bench to 2×6-10 RIR1 starting Monday',

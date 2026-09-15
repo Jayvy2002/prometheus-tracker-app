@@ -8,8 +8,10 @@ import type {
   ProgramAssignment,
   ProgramDay,
   ProgramDayExercise,
+  ProgramExerciseDraft,
   Routine,
 } from '../lib/types';
+import { programExerciseRpcFields } from '../lib/programSetPrescription';
 
 type ProgramDayDraft = {
   weekday: number;
@@ -22,6 +24,14 @@ type ProgramDayDraft = {
     default_rir?: number | null;
     default_rest_seconds?: number;
     default_weight_kg?: number | null;
+    set_type?: string;
+    superset_group?: string | null;
+    drop_count?: number | null;
+    tempo?: string | null;
+    isometric_seconds?: number | null;
+    cluster_rest_seconds?: number | null;
+    cluster_reps_per_burst?: number | null;
+    myo_activation?: boolean;
   }>;
 };
 
@@ -31,13 +41,7 @@ function rpcDaysPayload(days: ProgramDayDraft[]) {
     name: draft.name,
     order_index: i,
     exercises: draft.exercises.map((ex, order_index) => ({
-      name: ex.name,
-      default_sets: ex.default_sets,
-      default_reps: ex.default_reps,
-      default_reps_min: ex.default_reps_min ?? null,
-      default_rir: ex.default_rir ?? null,
-      default_rest_seconds: ex.default_rest_seconds ?? 90,
-      default_weight_kg: ex.default_weight_kg ?? null,
+      ...programExerciseRpcFields(ex),
       order_index,
     })),
   }));
@@ -53,16 +57,7 @@ interface ProgramState {
   createProgram: (
     program: Partial<Program>,
     days: Array<Omit<ProgramDay, 'id' | 'program_id' | 'created_at' | 'exercises'> & {
-      exercises?: Array<{
-        name: string;
-        default_sets: number;
-        default_reps: number;
-        default_reps_min?: number | null;
-        default_rir?: number | null;
-        default_rest_seconds?: number;
-        default_weight_kg?: number | null;
-        order_index?: number;
-      }>;
+      exercises?: Array<ProgramExerciseDraft & { order_index?: number }>;
     }>,
     opts?: { assignClientId?: string; startDate?: string },
   ) => Promise<string | null>;
@@ -77,16 +72,7 @@ interface ProgramState {
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<{ error: string | null }>;
   setProgramDayExercises: (
     dayId: string,
-    exercises: Array<{
-      name: string;
-      default_sets: number;
-      default_reps: number;
-      default_reps_min?: number | null;
-      default_rir?: number | null;
-      default_rest_seconds?: number;
-      default_weight_kg?: number | null;
-      order_index: number;
-    }>,
+    exercises: Array<ProgramExerciseDraft & { order_index: number }>,
   ) => Promise<{ error: string | null }>;
   applyExercisePatch: (
     programId: string,
@@ -203,13 +189,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         order_index: day.order_index ?? order_index,
         routine_id: day.routine_id ?? null,
         exercises: (day.exercises ?? []).map((ex, i) => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_reps_min: ex.default_reps_min ?? null,
-          default_rir: ex.default_rir ?? null,
-          default_rest_seconds: ex.default_rest_seconds ?? 90,
-          default_weight_kg: ex.default_weight_kg ?? null,
+          ...programExerciseRpcFields(ex),
           order_index: ex.order_index ?? i,
         })),
       })),
@@ -295,13 +275,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     const { error } = await supabase.rpc('save_program_day_exercises', {
       p_day_id: dayId,
       p_exercises: exercises.map(ex => ({
-        name: ex.name,
-        default_sets: ex.default_sets,
-        default_reps: ex.default_reps,
-        default_reps_min: ex.default_reps_min ?? null,
-        default_rir: ex.default_rir ?? null,
-        default_rest_seconds: ex.default_rest_seconds ?? 90,
-        default_weight_kg: ex.default_weight_kg ?? null,
+        ...programExerciseRpcFields(ex),
         order_index: ex.order_index,
       })),
     });
