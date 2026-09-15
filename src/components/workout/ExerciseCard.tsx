@@ -16,7 +16,7 @@ import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 import { isPerformedSet } from '../../lib/performedSets';
 import { nextBlankSetId } from '../../lib/workoutSetComplete';
-import { resolveRestSeconds } from '../../lib/restTimer';
+import { resolveRestSeconds, shouldAutoStartRest } from '../../lib/restTimer';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { findCatalogExercise } from '../../lib/exerciseCatalog';
 import ExerciseMedia from './ExerciseMedia';
@@ -44,7 +44,7 @@ export default function ExerciseCard({
 }) {
   const { t } = useTranslation();
   const { addSet, deleteSet, restoreSet, deleteExercise, restoreExercise, updateExercise, updateSet, currentWorkout } = useWorkoutStore();
-  const { showRir: prefRir } = usePreferencesStore();
+  const { showRir: prefRir, autoStartRest } = usePreferencesStore();
   const { profile } = useProfileStore();
   /** Q03 : kg canoniques en base, affichage selon la préférence (jamais l'inverse). */
   const weightUnit: 'kg' | 'lbs' = profile?.unit_weight === 'lbs' ? 'lbs' : 'kg';
@@ -119,8 +119,12 @@ export default function ExerciseCard({
   };
 
   const handleSetComplete = () => {
-    if (!restOn) return;
-    if (isInSuperset && !restAfterComplete) return;
+    if (!shouldAutoStartRest({
+      preferenceOn: autoStartRest,
+      restModuleOn: restOn,
+      afterCompletedSet: true,
+      restAfterThisSet: !(isInSuperset && !restAfterComplete),
+    })) return;
     onStartRestTimer(resolveRestSeconds(exercise.prescribed_rest_seconds) ?? 90);
   };
 

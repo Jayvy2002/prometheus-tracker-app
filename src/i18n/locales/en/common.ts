@@ -374,6 +374,8 @@ const common = {
       workoutDisplay: 'Workout Display',
       showRir: 'Show RIR column',
       rirDescription: 'Reps In Reserve — advanced training metric',
+      autoStartRest: 'Start rest after a completed set',
+      autoStartRestHint: 'Never on a simple fill. You can still open the timer yourself.',
       savePreferences: 'Save Preferences',
     },
     password: {
