@@ -8,6 +8,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { todayStr } from '../../lib/utils';
 import { clampCheckinScore } from '../../lib/checkinScale';
 import { isSoloAthlete } from '../../lib/coachRole';
+import { displayName } from '../../lib/coachText';
 import { useClientTracking } from '../../lib/useClientTracking';
 import {
   CHECKIN_CORE_VAR_KEYS,
@@ -143,7 +144,9 @@ export default function CheckInPage() {
       toast(error, 'error');
       return;
     }
-    toast(t('checkin.saved'));
+    toast(myCoach
+      ? t('checkin.savedVisible', { coach: displayName(myCoach) })
+      : t('checkin.saved'));
     navigate('/dashboard');
   };
 

@@ -8,7 +8,6 @@ import type { Recipe } from '../../lib/types';
 import { toast } from '../ui/Toast';
 import PageTransition from '../ui/PageTransition';
 import RecipeForm from './RecipeForm';
-import FullPageLayout from '../layout/FullPageLayout';
 
 
 export default function RecipesPage() {
@@ -46,29 +45,24 @@ export default function RecipesPage() {
 
   if (showNew) {
     return (
-      <FullPageLayout>
-        <RecipeForm
-          onClose={() => setShowNew(false)}
-          onSaved={handleSaved}
-        />
-      </FullPageLayout>
+      <RecipeForm
+        onClose={() => setShowNew(false)}
+        onSaved={handleSaved}
+      />
     );
   }
 
   if (editing) {
     return (
-      <FullPageLayout>
-        <RecipeForm
-          recipe={editing}
-          onClose={() => setEditing(null)}
-          onSaved={handleSaved}
-        />
-      </FullPageLayout>
+      <RecipeForm
+        recipe={editing}
+        onClose={() => setEditing(null)}
+        onSaved={handleSaved}
+      />
     );
   }
 
   return (
-    <FullPageLayout>
     <PageTransition>
       <div className="px-4 pt-6 pb-24">
         <div className="flex items-center gap-3 mb-6">
@@ -216,6 +210,5 @@ export default function RecipesPage() {
         </div>
       )}
     </PageTransition>
-    </FullPageLayout>
   );
 }

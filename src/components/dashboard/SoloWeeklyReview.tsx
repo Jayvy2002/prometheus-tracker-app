@@ -162,39 +162,20 @@ export default function SoloWeeklyReview() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-white leading-snug whitespace-pre-line">{message}</p>
-          {draft && (
-            <div className="mt-3 grid grid-cols-4 gap-2">
-              <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-                <p className="text-[10px] text-neutral-500 flex items-center gap-1"><Flame size={10} className="text-orange-400" /> kcal</p>
-                <p className="text-sm font-bold text-white">{draft.calories}</p>
-              </div>
-              <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-                <p className="text-[10px] text-neutral-500">{t('common.protein')}</p>
-                <p className="text-sm font-bold text-sky-300">{draft.protein}<span className="text-[10px] text-neutral-500 ml-0.5">g</span></p>
-              </div>
-              <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-                <p className="text-[10px] text-neutral-500">{t('common.carbs')}</p>
-                <p className="text-sm font-bold text-amber-300">{draft.carbs}<span className="text-[10px] text-neutral-500 ml-0.5">g</span></p>
-              </div>
-              <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
-                <p className="text-[10px] text-neutral-500">{t('common.fat')}</p>
-                <p className="text-sm font-bold text-rose-300">{draft.fat}<span className="text-[10px] text-neutral-500 ml-0.5">g</span></p>
-              </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
+              <p className="text-[10px] text-neutral-500 flex items-center gap-1"><Flame size={10} className="text-orange-400" /> {t('soloReview.statKcal')}</p>
+              <p className="text-sm font-bold text-white">{draft?.calories ?? evidence.avgCalories}</p>
             </div>
-          )}
-          {review.status === 'ready' && (
-            <p className="text-[11px] text-neutral-500 mt-2">
-              {t('soloReview.evidence', {
-                weighIns: evidence.weighIns,
-                start: evidence.weightStart?.toFixed(1) ?? '—',
-                end: evidence.weightEnd?.toFixed(1) ?? '—',
-                loggedDays: evidence.loggedDays,
-                window: SOLO_REVIEW_WINDOW_DAYS,
-                avg: evidence.avgCalories,
-                workouts: evidence.workouts,
-              })}
-            </p>
-          )}
+            <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
+              <p className="text-[10px] text-neutral-500">{t('soloReview.statWeight')}</p>
+              <p className="text-sm font-bold text-white">{deltaLabel}</p>
+            </div>
+            <div className="rounded-lg bg-neutral-900 border border-neutral-800 p-2">
+              <p className="text-[10px] text-neutral-500">{t('soloReview.statSessions')}</p>
+              <p className="text-sm font-bold text-white">{evidence.workouts}</p>
+            </div>
+          </div>
           <p className="text-[11px] text-neutral-500 mt-1">{t('soloReview.nothingAuto')}</p>
         </div>
       </div>

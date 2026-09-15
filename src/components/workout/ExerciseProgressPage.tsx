@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { supabase } from '../../lib/supabase';
-import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort } from '../../lib/utils';
+import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort, formatWeight, kgToLbs } from '../../lib/utils';
 import {
   aggregateExerciseProgress,
   isRecordAtIndex,
@@ -12,6 +12,7 @@ import {
 } from '../../lib/performedSets';
 import { listedProgressMatches } from '../../lib/progressSearch';
 import { isCoachedAthlete } from '../../lib/coachRole';
+import { useProfileStore } from '../../stores/profileStore';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
@@ -23,6 +24,9 @@ export default function ExerciseProgressPage() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const coached = isCoachedAthlete(coachingRole, myCoach);
+  const unit = useProfileStore(s => s.profile?.unit_weight) ?? 'kg';
+  const showKg = (kg: number) => formatWeight(kg, unit);
+  const chartKg = (kg: number) => (unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10);
 
   const [allData, setAllData] = useState<ExerciseProgressSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +102,7 @@ export default function ExerciseProgressPage() {
   if (selectedExercise && detail) {
     const chartData = detail.entries.slice(-20).map(e => ({
       date: formatChartDate(e.date, i18n.language),
-      '1RM': e.estimated1RM,
+      '1RM': chartKg(e.estimated1RM),
       volume: e.totalVolume,
     }));
     const isNewPR = isRecordAtIndex(detail.entries, detail.entries.length - 1);
@@ -117,8 +121,8 @@ export default function ExerciseProgressPage() {
           <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-5 mb-4 text-center animate-fade-in-up">
             <p className="text-xs text-neutral-500 mb-1">{t('progress.estimated1RM')}</p>
             <div className="flex items-center justify-center gap-2">
-              <span className="text-4xl font-bold text-white">{detail.latest1RM}</span>
-              <span className="text-lg text-neutral-500">kg</span>
+              <span className="text-4xl font-bold text-white">{chartKg(detail.latest1RM)}</span>
+              <span className="text-lg text-neutral-500">{unit}</span>
               {isNewPR && (
                 <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-400 text-xs font-bold ml-2">
                   <Trophy size={12} /> PR
@@ -133,7 +137,7 @@ export default function ExerciseProgressPage() {
               </div>
             )}
             <div className="flex items-center justify-center gap-4 mt-3 text-xs text-neutral-500">
-              <span>{t('progress.bestEver')}: <span className="text-amber-400 font-semibold">{detail.best1RM} kg</span></span>
+              <span>{t('progress.bestEver')}: <span className="text-amber-400 font-semibold">{showKg(detail.best1RM)}</span></span>
               <span>{detail.totalSessions} {t('progress.sessions')}</span>
             </div>
           </div>
@@ -169,8 +173,8 @@ export default function ExerciseProgressPage() {
                       <p className="text-xs text-neutral-500">{e.sets} sets</p>
                     </div>
                     <div className="text-right space-y-0.5">
-                      <p className="text-xs font-medium text-blue-400">{e.estimated1RM} kg <span className="text-neutral-600">1RM</span></p>
-                      <p className="text-[11px] text-neutral-500">{e.maxWeight} kg max | {e.totalVolume} vol</p>
+                      <p className="text-xs font-medium text-blue-400">{showKg(e.estimated1RM)} <span className="text-neutral-600">1RM</span></p>
+                      <p className="text-[11px] text-neutral-500">{showKg(e.maxWeight)} max | {e.totalVolume} vol</p>
                     </div>
                     {isRecordAtIndex(detail.entries, detail.entries.indexOf(e)) && (
                       <Trophy size={12} className="text-amber-400 shrink-0" />
@@ -268,8 +272,8 @@ export default function ExerciseProgressPage() {
                         </div>
                         <div className="text-right shrink-0">
                           <div className="flex items-center gap-1.5">
-                            <span className="text-lg font-bold text-white">{ex.latest1RM}</span>
-                            <span className="text-xs text-neutral-500">kg</span>
+                            <span className="text-lg font-bold text-white">{chartKg(ex.latest1RM)}</span>
+                            <span className="text-xs text-neutral-500">{unit}</span>
                             {isNewPR && <Trophy size={12} className="text-amber-400" />}
                           </div>
                           {ex.trend !== 0 && (
@@ -322,7 +326,7 @@ export default function ExerciseProgressPage() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white truncate">{ex.name}</p>
                           </div>
-                          <span className="text-sm font-semibold text-neutral-300">{ex.latest1RM} kg</span>
+                          <span className="text-sm font-semibold text-neutral-300">{showKg(ex.latest1RM)}</span>
                           <ChevronRight size={14} className="text-neutral-600 shrink-0" />
                         </div>
                       </Card>

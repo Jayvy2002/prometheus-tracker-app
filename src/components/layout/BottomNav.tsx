@@ -19,6 +19,7 @@ export default function BottomNav() {
             key={tab.id}
             to={tab.path}
             end={tab.end}
+            aria-current="page"
             aria-label={
               tab.badge === 'unreadMessages' && unreadMessageCount > 0
                 ? t('nav.messagesUnread', { count: unreadMessageCount })

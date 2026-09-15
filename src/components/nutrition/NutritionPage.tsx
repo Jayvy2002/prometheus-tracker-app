@@ -18,11 +18,10 @@ import EditFoodModal from './EditFoodModal';
 import WaterTracker from './WaterTracker';
 import StepsTracker from './StepsTracker';
 import PageTransition from '../ui/PageTransition';
+import CardLink from '../ui/CardLink';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showNutritionField } from '../../lib/clientTracking';
-import { isCoachedAthlete } from '../../lib/coachRole';
 import { hasSentNutritionTarget } from '../../lib/coachOwnedTargets';
-import { useCoachingStore } from '../../stores/coachingStore';
 import { optionLabel } from '../../lib/optionLabels';
 
 export default function NutritionPage() {
@@ -33,9 +32,6 @@ export default function NutritionPage() {
   const { profile } = useProfileStore();
   const { logs, selectedDate, setSelectedDate, fetchLogs, fetchWaterLogs, fetchOrCreateSteps, addLog, loading: nutritionLoading } = useNutritionStore();
   const tracking = useClientTracking();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  const coached = isCoachedAthlete(coachingRole, myCoach);
   const [showAdd, setShowAdd] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const [addCategory, setAddCategory] = useState<string>('breakfast');
@@ -144,17 +140,15 @@ export default function NutritionPage() {
               <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); handleReuseCategory(getTimeBasedCategory()); }}>
                 {t('nutrition.reuseMeal')}
               </button>
-              {!coached && (
-                <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/recipes'); }}>
-                  <ChefHat size={16} className="inline mr-2" />{t('nav.recipes')}
-                </button>
-              )}
+              <button type="button" className="w-full text-left min-h-11 px-3 rounded-lg text-sm text-white hover:bg-neutral-800" onClick={() => { setShowAddMenu(false); navigate('/recipes'); }}>
+                <ChefHat size={16} className="inline mr-2" />{t('nav.recipes')}
+              </button>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <button onClick={() => shiftDate(-1)} className="p-2 text-neutral-400 hover:text-white">
           <ChevronLeft size={20} />
         </button>
@@ -163,6 +157,14 @@ export default function NutritionPage() {
           <ChevronRight size={20} className={isToday ? 'opacity-30' : ''} />
         </button>
       </div>
+
+      <CardLink to="/recipes" className="mb-4">
+        <p className="text-sm font-medium text-white flex items-center gap-2">
+          <ChefHat size={16} className="text-blue-400" />
+          {t('nutrition.recipes.title')}
+        </p>
+        <p className="text-xs text-neutral-500 mt-1">{t('nutrition.recipes.chromeHint')}</p>
+      </CardLink>
 
       {anyMacroField(tracking) && showTargets && (
       <div className="bg-neutral-900/60 border border-neutral-800/50 rounded-2xl p-4 mb-4 animate-fade-in-scale">

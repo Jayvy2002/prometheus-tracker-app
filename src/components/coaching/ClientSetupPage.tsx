@@ -553,7 +553,8 @@ export default function ClientSetupPage() {
 
   const reviewStep = (
     <Card className="mb-4 space-y-3">
-      <p className="text-sm font-medium text-white">{t('coaching.setup.wizard.receives', { name: clientName })}</p>
+      <p className="text-sm font-medium text-white">{t('coaching.setup.wizard.clientWillSee')}</p>
+      <p className="text-sm text-neutral-400">{t('coaching.setup.wizard.receives', { name: clientName })}</p>
       <ul className="space-y-2 text-sm text-neutral-200">
         <li>{programLabel ? t('coaching.setup.wizard.receivesProgram', { name: programLabel }) : t('coaching.setup.wizard.noProgram')}</li>
         {tracking.track_checkins && <li>{t('coaching.setup.wizard.receivesFreq')}</li>}
