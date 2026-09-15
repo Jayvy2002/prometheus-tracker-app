@@ -256,6 +256,7 @@ test('Clients page uses the roster sort and row facts, Setup only if not configu
   const detail = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
   assert.match(detail, /rosterFromLocationState/);
   assert.match(detail, /rosterNeighbors/);
+  assert.match(detail, /setSearchParams\(params, \{ replace: true, state: location\.state \}\)/);
   assert.match(detail, /navigate\(rosterBack\)/);
   assert.doesNotMatch(detail, /navigate\('\/clients'\)/);
 

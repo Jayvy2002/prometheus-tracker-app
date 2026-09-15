@@ -228,7 +228,7 @@ export default function ClientDetailPage() {
         else params.delete(k);
       }
     }
-    setSearchParams(params, { replace: true });
+    setSearchParams(params, { replace: true, state: location.state });
     setWorkspaceOpen(false);
   };
 
@@ -236,8 +236,8 @@ export default function ClientDetailPage() {
     if (searchParams.get('tab') || checkinId) return;
     const params = new URLSearchParams(searchParams);
     params.set('tab', 'overview');
-    setSearchParams(params, { replace: true });
-  }, [searchParams, checkinId, setSearchParams]);
+    setSearchParams(params, { replace: true, state: location.state });
+  }, [searchParams, checkinId, setSearchParams, location.state]);
 
   const lifts = useMemo(() => {
     if (progressLifts && progressLifts.length > 0) return progressLifts;
