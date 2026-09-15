@@ -66,7 +66,7 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
-Ceci est l’**arbre actuel** (lots 18–21b livrés). La matrice et la suite (21c–23) sont dans `docs/ARCHITECTURE.md`. **Ne pas découper** `stores/coachingStore.ts` avant le lot **21c** (façade obligatoire). `types.ts` et i18n restent entiers jusqu’au lot 22.
+Ceci est l’**arbre actuel** (lots 18–21c livrés). La matrice et la suite (22–23) sont dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c) ; l’implémentation vit dans `features/coaching/model`. `types.ts` et i18n restent entiers jusqu’au lot 22.
 
 ```text
 src/
@@ -75,10 +75,10 @@ src/
 ├── app/guards/                     CoachOnly, CoachTrackerRedirect, CoachedAthleteRedirect
 ├── app/bootstrap/                  Session, offline, langue, intake
 ├── app/layout/                     Chrome ; app/navigation/ = navConfig
-├── features/                       account / coaching / marketplace / workout / nutrition / programs
+├── features/                       account / coaching (domain + model 21c) / marketplace / workout / nutrition / programs
 ├── shared/                         api/supabase, hooks, ui (tokens lot 19)
 ├── components/                     Écrans métier ; ui/ et layout/ = réexports
-├── stores/                         Zustand par domaine — coachingStore intact jusqu’au 21c
+├── stores/                         Zustand ; coachingStore = façade (lot 21c)
 ├── lib/                            Métier + réexports ; tests `*.test.ts`
 └── i18n/locales/{fr,en}.ts         Textes visibles (lot 22b pour découper)
 
@@ -142,7 +142,7 @@ Les noms de tables, RPC et routes proposés dans `docs/CHANTIER.md` sont un poin
 - Zustand pour l’état partagé.
 - Tailwind pour le style ; tokens et primitives : `docs/DESIGN_SYSTEM.md`. Pas de nouvelle bibliothèque UI sans besoin démontré.
 - PascalCase pour les composants, camelCase pour les fonctions, snake_case pour PostgreSQL.
-- Ne pas découper `coachingStore` avant le lot **21c** (modules + façade du même nom). Pas un « nettoyage ».
+- `coachingStore` : garder la **façade** `stores/coachingStore.ts` (lot 21c). Les modules sont dans `features/coaching/model`. Ne pas importer les slices depuis l’UI.
 - `npm test` découvre `src/**/*.test.ts` (`scripts/run-unit-tests.mjs`). Ne plus ajouter chaque fichier à `package.json`.
 - **Env (une convention).** `.env` = local, gitignoré. `.env.example` = placeholders. `.env.production` = **uniquement** clés publiques frontend déjà dans le bundle (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`). Agents cloud : `cp .env.production .env` s’il manque. Jamais `service_role`, token serveur, ni secret VAPID privé dans Git. Netlify : les mêmes variables publiques, pas de clé serveur.
 

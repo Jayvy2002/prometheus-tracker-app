@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { coachingStoreSource } from './coachingStoreSource';
 
 /**
  * Guards for 20260905135151_lock_link_message_assignment_writes.
@@ -54,7 +55,9 @@ function policiesOn(table: string): Map<string, string> {
 
 /** Column keys written by every `.from('<table>').update({ … })` in a source file. */
 function updatedColumns(file: string, table: string): Set<string> {
-  const src = readFileSync(resolve(process.cwd(), file), 'utf8');
+  const src = file === 'src/stores/coachingStore.ts'
+    ? coachingStoreSource()
+    : readFileSync(resolve(process.cwd(), file), 'utf8');
   const re = new RegExp(`from\\('${table}'\\)\\s*\\.update\\(\\s*\\{([^}]*)\\}`, 'g');
   const cols = new Set<string>();
   for (const m of src.matchAll(re)) {

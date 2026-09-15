@@ -15,8 +15,10 @@ import {
 } from './coachAgent';
 import { classifyFleetDossier, buildFleetCard } from './coachFleet';
 import type { CoachFleetDossier } from '../../../lib/types';
+import { coachingStoreSource } from '../../../lib/coachingStoreSource';
 
 function source(rel: string): string {
+  if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

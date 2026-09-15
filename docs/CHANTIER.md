@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–21b** dans `new-JV`. File ouverte : **lot 21c** (`coachingStore` + façade). Lots 22–23 après. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026.** Lots 1–16 + 16f–16g + **17–21c** dans `new-JV`. File ouverte : **lot 22** (types + i18n). Lots 23 après. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 21c**. Lots **17–21b** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
+| **Lot ouvert : 22**. Lots **17–21c** dans `new-JV`. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -164,7 +164,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **18** | **Socle dossiers + alias** (ARCH02 évidents) | **Terminé** | `app` / `features` / `shared` + alias `@/`. Hooks évidents, client Supabase, `ui`, layout, nav. Réexports aux anciens chemins. |
 | **19** | **Tokens sémantiques sur primitives** (ARCH06) | **Terminé** | `Button` / `Card` / `Input` / `Select` / `Modal` / `PageHeader` / `EmptyState` / `ErrorState` / `TabList` / `IconButton` = `primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` / `rose-*` **dans ces fichiers**. Écrans métier inchangés. |
 | **20** | **Migrer `src/lib` par domaine** (ARCH01) | **Terminé** | Coaching, marketplace, workout, nutrition, programs → `features/<domaine>/domain` + réexports `lib/`. |
-| **21** | **Découper les mini-apps** (ARCH03, ARCH04) | **21a–b Terminé** ; 21c à construire | 21a router / guards / bootstrap. 21b fetch hors écrans. 21c `coachingStore` **avec façade**. |
+| **21** | **Découper les mini-apps** (ARCH03, ARCH04) | **Terminé** | 21a router / guards / bootstrap. 21b fetch hors écrans. 21c `coachingStore` modules + **façade**. |
 | **22** | **Types et i18n par domaine** (ARCH07, ARCH08) | À construire **après 20** | `types.ts` puis `fr.ts`/`en.ts` découpés ; réexport de transition. Hotspots merge : PR courtes. |
 | **23** | **Garde-fous CI** (ARCH10, ARCH05) | À construire **après 18** et au fil de 20–22 | `shared` ↛ `features` ; pas de deep-import inter-features ; UI sans `supabase.from()` ; `shared/ui` sans Supabase/Zustand. **Pas** un bang TypeScript extra. |
 
@@ -305,7 +305,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 |---|---|---|
 | 21a | **Terminé.** `App.tsx` assemble `app/router/AppRoutes.tsx`, `app/guards/RouteGuards.tsx` (`CoachOnly`, `CoachTrackerRedirect`, `CoachedAthleteRedirect` ; `TrackingGate` reste le composant existant), `app/bootstrap/useAuthenticatedSession.ts`. | ARCH03 |
 | 21b | **Terminé.** Fetch / orchestration extraits : `useClientDossier`, `useDashboardBootstrap`, `useProgramEditorTracking` / `useProgramNlEdit`, `useExerciseHistory`, `SetRow`, `loadFullWorkout` / `replayOfflineOp`. Mêmes écrans. | ARCH04 |
-| 21c | `coachingStore` : modules (`clients`, `messages`, `questionnaires`, `interventions`, `tracking`) + **façade** `coachingStore.ts` pour les imports existants. Pas de split sans façade. | ARCH04 |
+| 21c | **Terminé.** `coachingStore` : modules (`clients`, `messages`, `questionnaires`, `interventions`, `tracking`, + rôle / invites / realtime / lifecycle) + **façade** `stores/coachingStore.ts`. Imports existants inchangés. | ARCH04 |
 
 ### Lot 22 — une PR types, une PR i18n (ou par domaine si conflit)
 
@@ -347,7 +347,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 18 | **Terminé.** Cibles livrées + réexports. Alias `@/app`, `@/features`, `@/shared`. |
 | 19 | **Terminé.** Primitives listées = tokens. `primary` / `success` / `warning` / `danger` dans `tailwind.config.js`. |
 | 20 | **Terminé.** Domaines métier dans `features/*/domain`. Réexports `lib/`. Transverse (utils, types, i18n) reste pour 22. |
-| 21 | **21a–b livrés.** Reste **21c** : `stores/coachingStore.ts` + façade. |
+| 21 | **Terminé.** 21a router / gardes. 21b fetch hors écrans. 21c façade `stores/coachingStore.ts` + `features/coaching/model`. |
 | 22 | `src/lib/types.ts` ~26 KB. `i18n/locales/fr.ts` / `en.ts` ~87–95 KB. |
 | 23 | ESLint standard, pas de frontières `shared`/`features`. `Dashboard.tsx` (et d’autres) : `supabase.from` dans l’UI. `tsconfig.app.json` : `"strict": true` **déjà**. |
 
@@ -466,7 +466,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | `src/lib` → features par domaine | ARCH01 | Lot 20 |
 | Composant → hook → API → Supabase | ARCH05 | Lots 17 (convention), 20–21 (déplacer), 23 (CI) |
 | Découper `App.tsx` | ARCH03 | **21a Terminé** |
-| Gros fichiers / `coachingStore` façade | ARCH04 | **21b Terminé** ; 21c façade |
+| Gros fichiers / `coachingStore` façade | ARCH04 | **21c Terminé** |
 | `types.ts` par domaine (réexport) | ARCH07 | Lot 22a |
 | i18n par domaine | ARCH08 | Lot 22b |
 | Garde-fous ESLint/CI (pas de bang `strict`) | ARCH10 | Lot 23 |
@@ -706,7 +706,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 | **ARCH01** | P2 | 17+20 | **Terminé** (17a + 20) | Matrice + domaines dans `features/*/domain`. | Un agent sait où créer un fichier sans explorer le repo. |
 | **ARCH02** | P2 | 18 | **Terminé** | Dossiers + alias + déplacements évidents + réexports. | Les cas **évidents** sont au bon endroit. Pas tout `lib` d’un coup. |
 | **ARCH03** | P2 | 21a | **Terminé** | `App.tsx` assembleur ; routes / gardes / session extraits. | Une PR onboarding et une PR router ne se marchent plus dessus. |
-| **ARCH04** | P2 | 21b–c | **21b Terminé** ; 21c à construire | Fetch hors écrans. Reste : `coachingStore` + façade. | Façade store ; composants = écran, pas mini-app. |
+| **ARCH04** | P2 | 21b–c | **Terminé** | Fetch hors écrans. `coachingStore` = modules + façade. | Façade store ; composants = écran, pas mini-app. |
 | **ARCH05** | P2 | 17+23 | À construire | `Dashboard` (et d’autres) : `supabase.from` dans l’UI. | Composant → hook/model → API → Supabase. CI refuse l’inverse. |
 | **ARCH06** | P2 | 19 | **Terminé** | Primitives listées = tokens. Écrans métier encore `blue-600` (hors lot). | `<Button variant="primary">` = tokens. Pas deux systèmes dans les primitives. |
 | **ARCH07** | P2 | 22a | À construire | `types.ts` ~26 KB hotspot. | Transversal / domaine + réexport de transition. |

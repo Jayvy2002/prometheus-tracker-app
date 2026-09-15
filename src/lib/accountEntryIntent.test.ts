@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { latestMigrationContaining } from './migrationScan';
+import { coachingStoreSource } from './coachingStoreSource';
 
 function src(rel: string): string {
+  if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

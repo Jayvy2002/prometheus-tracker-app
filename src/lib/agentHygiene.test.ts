@@ -241,7 +241,36 @@ test('21b: fetch/orchestration extracted; screens and coachingStore stay', () =>
   assert.match(readFileSync(at('src/components/dashboard/Dashboard.tsx'), 'utf8'), /useDashboardBootstrap/);
   assert.doesNotMatch(readFileSync(at('src/components/dashboard/Dashboard.tsx'), 'utf8'), /from\('nutrition_logs'\)/);
   assert.match(readFileSync(at('src/stores/workoutStore.ts'), 'utf8'), /from '\.\.\/features\/workout\/data\/replayOfflineOp'/);
-  assert.ok(existsSync(at('src/stores/coachingStore.ts')), '21b must not split coachingStore');
+  assert.ok(existsSync(at('src/stores/coachingStore.ts')), '21b keeps the coachingStore path');
+});
+
+test('21c: coachingStore is a façade over features/coaching/model', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const rel of [
+    'src/stores/coachingStore.ts',
+    'src/features/coaching/model/coachingShared.ts',
+    'src/features/coaching/model/sessionTokens.ts',
+    'src/features/coaching/model/roleSlice.ts',
+    'src/features/coaching/model/clientsSlice.ts',
+    'src/features/coaching/model/messagesSlice.ts',
+    'src/features/coaching/model/questionnairesSlice.ts',
+    'src/features/coaching/model/interventionsSlice.ts',
+    'src/features/coaching/model/trackingSlice.ts',
+    'src/features/coaching/model/realtimeSlice.ts',
+    'src/features/coaching/model/invitesSlice.ts',
+    'src/features/coaching/model/lifecycleSlice.ts',
+  ]) {
+    assert.ok(existsSync(at(rel)), rel);
+  }
+  const facade = readFileSync(at('src/stores/coachingStore.ts'), 'utf8');
+  assert.match(facade, /createRoleSlice/);
+  assert.match(facade, /createClientsSlice/);
+  assert.match(facade, /createMessagesSlice/);
+  assert.match(facade, /createQuestionnairesSlice/);
+  assert.match(facade, /createInterventionsSlice/);
+  assert.match(facade, /createTrackingSlice/);
+  assert.doesNotMatch(facade, /fetchMyRole: async/);
+  assert.match(facade, /from '\.\.\/features\/coaching\/model\/sessionTokens'/);
 });
 
 test('17d: one env convention — public Vite keys only, never service_role', () => {
