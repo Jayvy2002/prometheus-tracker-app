@@ -92,6 +92,8 @@ try {
  await clientPage.goto(origin+'/messages');
  assert.equal(await clientPage.getByRole('button',{name:'Finish and send',exact:true}).count(),0,'messages stay reachable');
  await clientPage.goto(origin+'/questionnaire');
+ await clientPage.getByTestId('questionnaire-summary').waitFor();
+ await clientPage.getByTestId('questionnaire-edit-section_1').click();
  const answer=clientPage.getByLabel('How do you prefer to communicate?',{exact:false});
  await answer.fill('Messages in the morning');
  await clientPage.getByRole('button',{name:'Save draft',exact:true}).click();
@@ -99,7 +101,9 @@ try {
  const savedRows=check(await athlete.client.from('client_questionnaire_responses').select('answers'));
  assert.deepEqual(Object.values(savedRows[0].answers),['Messages in the morning'],'Draft must be persisted before navigation');
  await clientPage.reload();
- await clientPage.waitForFunction(()=>Array.from(document.querySelectorAll('textarea')).some(input=>input.value==='Messages in the morning'));
+ await clientPage.getByTestId('questionnaire-summary').waitFor();
+ await clientPage.getByText('Messages in the morning',{exact:true}).waitFor();
+ await clientPage.getByTestId('questionnaire-edit-section_1').click();
  assert.equal(await answer.inputValue(),'Messages in the morning');
  console.log('PASS: builder, invitation, assigned questionnaire, draft reload');
  // Publish revision two while the athlete keeps answering the first revision.
@@ -108,13 +112,16 @@ try {
  await page.getByRole('button',{name:'Publish this version',exact:true}).click();
  await page.getByText(/v2/).first().waitFor();
  await clientPage.reload();
- await clientPage.waitForFunction(()=>Array.from(document.querySelectorAll('textarea')).some(input=>input.value==='Messages in the morning'));
- assert.equal(await answer.inputValue(),'Messages in the morning');
+ await clientPage.getByTestId('questionnaire-summary').waitFor();
+ await clientPage.getByText('Messages in the morning',{exact:true}).waitFor();
+ assert.ok(await clientPage.getByText('How do you prefer to communicate?').count(),'pinned revision keeps the original question');
+ assert.equal(await clientPage.getByText('Updated question').count(),0,'v2 must not reset the in-progress response');
  await clientPage.getByRole('button',{name:'Finish and send',exact:true}).click();
  await clientPage.getByRole('button',{name:'Finish and send',exact:true}).waitFor({state:'hidden'});
  await clientPage.goto(origin+'/questionnaire');
  await clientPage.getByText('Answers sent',{exact:true}).waitFor();
- assert.equal(await answer.isDisabled(),true);
+ assert.equal(await clientPage.getByTestId('questionnaire-edit-section_1').count(),0,'completed answers stay on the summary');
+ assert.equal(await clientPage.getByLabel('How do you prefer to communicate?',{exact:false}).count(),0,'completed answers are not a live form');
  const responses=check(await athlete.client.from('client_questionnaire_responses').select('*'));
  assert.equal(responses.length,1);
  assert.ok(responses[0].completed_at);
