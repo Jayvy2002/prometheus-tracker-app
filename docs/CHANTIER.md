@@ -35,7 +35,7 @@
 | **M4** Offre opt-in | **PASS.** Roster sans profil public. Copy « gérer tes clients sans publier ». Publier Coach2 → visible annuaire ; dépublier → retiré. | — |
 | **M5** Annuaire / demandes | **PASS.** Déjà lié : « suivi actif… formulaire n’est pas ouvert ». Accepté = « le suivi est actif (pas un paiement) ». SQL : `accepted` + lien `active`. | — |
 | **UX10** Empty sans programme | **PASS.** Invitee Accueil : « Ton coach va t’envoyer un programme » → `/messages`. | — |
-| **UX07** Une carte Accueil | **PASS.** Séance due = seul hero (message/check-in masqués). `waiting_program` = seul hero. Jour de repos = un strip message. | — |
+| **UX07** Dashboard vue d’ensemble | **PASS.** Priorité + « Ta journée » : nutrition / poids (courbe) / semaine / check-in / suivi. Message et check-in restent visibles à côté d’une séance due. Onglet **Dashboard**. | — |
 | **UX09** Enchaîner les fiches | **PASS.** Roster → Invitee `1 / 2` → Client `2 / 2` sans reliste. Check-ins conservé au précédent. Retour liste filtrée. | — |
 | **UX13** Reprendre les valeurs | **PASS.** 3 séries ; raccourci remplit la 2ᵉ (80/5/2) ; pas de 4ᵉ rangée. | — |
 | **UX16** Offline langage | **PASS.** Bandeau « Hors ligne — tes modifications sont conservées sur cet appareil. » File séances seulement. | — |
@@ -99,7 +99,7 @@ IDs **jamais attribués** (ne pas les inventer) : UX71–73, UX79, UX82, UX83. S
 - Billing **fermé** : pas de Stripe, paywall, commission.
 - L’espace affiché n’accorde aucun droit.
 - Simplifier en **nommant** et en mettant l’action principale devant — pas en interdisant séance libre, recettes ou FAB entier.
-- Accueil = prochaine action **utile** ou **vide honnête**.
+- Accueil (**Dashboard**) = une **priorité claire** + une **vue d’ensemble** de la journée (entraînement, nutrition, poids, check-in, coaching selon les modules). Pas une page réduite à un seul verbe.
 - Accessibilité bloquante : dans le lot du parcours.
 - Frontend cible : `src/app` / `src/features/<domaine>` / `src/shared` + alias `@/`. Aujourd’hui le code n’y est pas — lots 17–23, **pas** 11–16.
 - Données : composant → hook / model → API → Supabase. Pas de `supabase.from()` dans l’UI une fois 23 livré.
@@ -140,7 +140,7 @@ Preuve = revue `3233932`. **Parcours live souvent manquant** → ne pas marquer 
 | Notice proposition programme solo (plus de mur Accueil) | — |
 | `navConfig` unique, 5 onglets, Copilote hors tab, switcher Profil, 5ᵉ onglet Compte coach | Trouvabilité mobile ≠ desktop (lots 8, 10) |
 | Cibles macros inventées (150/250/65) retirées | — |
-| 1 reminder / jour (deload/repas/eau masqués si coaché) | UX07 **Terminé** : un strip (message → check-in → rappel) |
+| 1 reminder / jour (deload/repas/eau masqués si coaché) | UX07 : message + check-in visibles avec la priorité ; un rappel à la fois |
 | Heroes d’accueil exclusifs | Vide honnête un jour sans tâche. Séance due / waiting / first-run = le hero. |
 | File coach : empty, sévérité **texte**, une carte featured | Live 15 sept. : depuis quand + Passer un signal. Filtre roster `?filter=` encore dû. |
 | Ancres check-in haut/bas (#91) | Accusé « visible par {coach} » (Git lot 10e). Live : check-in solo seulement. |
@@ -571,7 +571,7 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu Échap + focus (Git 10g). Primitives listées = tokens (lot **19**). Écrans métier encore bruts. |
 | **2** accessibilité | À vérifier | Cibles 44 px présentes ; `aria-current` onglets (Git 10g). Clavier / zoom / lecteur restants. |
 | **3** navigation | **Partiel** | `navConfig`, 5 onglets, Copilote hors tab, switcher Profil. Recettes Nutrition (Git 10a). `PageTransition` persona (Git 10h). Trouvabilité live due. |
-| **4** dashboard | **Partiel** | Un hero (UX07 Terminé). Proposition IA = notice. `waiting_program` → Messages (UX10). Trouvabilité / a11y encore dues. |
+| **4** dashboard | **Partiel** | UX07 : priorité + vue d’ensemble + courbe de poids. Proposition IA = notice. `waiting_program` → Messages (UX10). Trouvabilité / a11y encore dues. |
 | **5** Coach Today | **Partiel** | Empty + sévérité texte + featured. « Depuis quand » + Passer un signal (Git lot 9). Parcours live dû. |
 | **6** Client 360 | À vérifier | Dernière séance = séries cochées (parcours 15 sept.). Onglet **Récupération** (Git 10c). « Depuis ta dernière visite » (lot 9). |
 | **7** Setup 4 étapes | À vérifier | Titre preview « Ce que le client verra » (Git 10j). Parcours live dû. |
@@ -611,7 +611,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **UX07** | P1 | 8+9 | **Terminé** | Live : séance due seule ; waiting seul ; repos = un message, pas de check-in empilé. | Prochaine action évidente **ou** absence honnête. |
+| **UX07** | P1 | 8+9 | **Terminé** | Vision 15 sept. soir : priorité + vue d’ensemble (plus « une carte exclusive »). Onglet **Dashboard**. Graphique poids. Message / check-in restent visibles à côté de la séance due. | On sait quoi faire **et** où on en est. |
 | **UX08** | P2 | 8 | Partiel | Hub Progression solo : oui. Programme trop Profil / desktop. Coaché : lecture lot 8. | Programme / historique sans deviner Profil. |
 | **UX09** | P1 | 9 | **Terminé** | Live : `1 / 2` Invitee → `2 / 2` Client ; précédent garde `tab=checkins` ; retour liste. | Enchaîner des fiches sans reconstruire la liste. |
 | **UX10** | P1 | 8 | **Terminé** | Live invitee : « Ton coach va t’envoyer un programme » → `/messages`. | On sait quoi faire maintenant. |
@@ -842,7 +842,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Nouveau compte | `/auth` puis intention `find_coach` | **Joué (M3).** Annuaire puis Accueil / Entraînement personnels. |
 | Coach | Offre opt-in | **Joué (M4).** Sans publier = roster OK. Publier / retirer = annuaire. |
 | Coaché / chercheur | Annuaire + acceptation | **Joué (M5).** Déjà lié = explication. Accepté = suivi actif, pas un paiement. |
-| Coaché | Accueil : séance due + message non lu | **Joué (UX07).** Hero séance seul. Repos : une carte message. Waiting : hero seul. |
+| Coaché | Accueil : séance due + message / check-in + poids | **Joué (UX07).** Priorité + vue d’ensemble. Waiting reste une priorité claire vers Messages. |
 | Coach | Roster → fiche → suivante / précédente | **Joué (UX09).** `1 / 2` → `2 / 2` ; onglet Check-ins conservé ; retour liste. |
 | Solo | Reprendre les valeurs d’une série | **Joué (UX13).** 3 rangées restent 3 ; 2ᵉ = 80/5/2. |
 | Coach | File / settings / Ask / relance | **Joué (UX28).** « non loggée » / « en attente » / « manquant(s) » ; relance « comment se passent tes séances ? ». |

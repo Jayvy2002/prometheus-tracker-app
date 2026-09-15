@@ -29,7 +29,7 @@ const navigation = {
     myProgram: 'Mon programme',
     photos: 'Photos',
     recipes: 'Recettes',
-    today: "Aujourd'hui",
+    today: 'Dashboard',
     messages: 'Messages',
     messagesUnread: '{{count}} messages non lus',
     prometheus: 'Prometheus',
@@ -42,7 +42,7 @@ const navigation = {
   },
 
   pages: {
-    today: 'Aujourd’hui',
+    today: 'Dashboard',
     workout: 'Entraînement',
     nutrition: 'Nutrition',
     progress: 'Progression',

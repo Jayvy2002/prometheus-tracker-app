@@ -49,7 +49,7 @@ La carte des parcours, écrans et contrats d’architecture est dans [CARTE_PROD
 | | Coach | Client coaché | Solo |
 |---|---|---|---|
 | Entrée | Configuration de son activité et publication volontaire de son offre | Questionnaire de recherche, choix du coach et demande acceptée, ou invitation directe | Inscription libre, sans recherche de coach obligatoire |
-| Accueil | Clients à traiter et prochaine décision utile | Prochaine action, programme, échanges et suivi convenu | Prochaine action, programme et outils personnels |
+| Accueil | Clients à traiter et prochaine décision utile | Priorité du jour + vue d’ensemble (programme, nutrition, poids, check-in, échanges) | Priorité du jour + vue d’ensemble (séance, nutrition, poids, outils personnels) |
 | Programme | Construit, adapte, assigne et publie | Consulte et exécute le programme assigné | Construit ou valide une proposition |
 | Suivi | Choisit avec le client les informations utiles | Partage les informations convenues | Choisit ses propres outils |
 | Copilote | Prépare analyses, brouillons et propositions | Le coach reste responsable des décisions | Prépare des propositions pour l’athlète |

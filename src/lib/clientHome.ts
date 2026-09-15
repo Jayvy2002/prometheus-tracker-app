@@ -125,20 +125,23 @@ export function pickTodayReminder(
 }
 
 /**
- * One companion card when today has no due session / waiting / first-run hero.
- * A rest-day “next session” preview is not a hero — message or check-in can take the slot.
- * Message, check-in and reminder never stack. Kind is `checkin_due` (not a first-run nextAction).
+ * Attention on Dashboard: message and check-in stay visible next to the priority.
+ * One reminder at most, and only when nothing more urgent is open.
  */
-export type ClientHomeStripKind = 'unread_message' | 'checkin_due' | TodayReminderKind;
-
-export function pickClientHomeStrip(input: {
-  hasPrimaryHero: boolean;
+export function clientHomeAttention(input: {
   unreadMessage: boolean;
   checkinDue: boolean;
   reminder: TodayReminderKind | null;
-}): ClientHomeStripKind | null {
-  if (input.hasPrimaryHero) return null;
-  if (input.unreadMessage) return 'unread_message';
-  if (input.checkinDue) return 'checkin_due';
-  return input.reminder;
+}): {
+  unreadMessage: boolean;
+  checkinDue: boolean;
+  reminder: TodayReminderKind | null;
+} {
+  const unreadMessage = input.unreadMessage;
+  const checkinDue = input.checkinDue;
+  return {
+    unreadMessage,
+    checkinDue,
+    reminder: unreadMessage || checkinDue ? null : input.reminder,
+  };
 }
