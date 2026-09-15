@@ -11,6 +11,7 @@ import {
   daysSinceActivity,
   isClientFirstRun,
   parseActivityTime,
+  pickClientHomeStrip,
   pickTodayReminder,
   shouldShowDaysSinceReminder,
   statsCalorieSummary,
@@ -192,4 +193,46 @@ test('Today shows at most one reminder, in a fixed urgency order', () => {
   assert.equal(pickTodayReminder({
     deload: false, meal: false, water: false, weight: false,
   }, []), null);
+});
+
+test('Accueil shows one companion strip: hero wins, then message, check-in, reminder', () => {
+  assert.equal(pickClientHomeStrip({
+    hasPrimaryHero: true,
+    unreadMessage: true,
+    checkinDue: true,
+    reminder: 'weight',
+  }), null);
+  assert.equal(pickClientHomeStrip({
+    hasPrimaryHero: false,
+    unreadMessage: true,
+    checkinDue: true,
+    reminder: 'meal',
+  }), 'unread_message');
+  assert.equal(pickClientHomeStrip({
+    hasPrimaryHero: false,
+    unreadMessage: false,
+    checkinDue: true,
+    reminder: 'water',
+  }), 'checkin_due');
+  assert.equal(pickClientHomeStrip({
+    hasPrimaryHero: false,
+    unreadMessage: false,
+    checkinDue: false,
+    reminder: 'deload',
+  }), 'deload');
+  assert.equal(pickClientHomeStrip({
+    hasPrimaryHero: false,
+    unreadMessage: false,
+    checkinDue: false,
+    reminder: null,
+  }), null);
+
+  const dash = src('src/components/dashboard/Dashboard.tsx');
+  assert.match(dash, /pickClientHomeStrip/);
+  assert.match(dash, /isProgramDayDue/);
+  assert.match(dash, /homeStrip === 'unread_message'/);
+  assert.match(dash, /homeStrip === 'checkin_due'/);
+  assert.doesNotMatch(dash, /\{showUnreadCoachMessage &&/);
+  assert.doesNotMatch(dash, /\{showCheckinStrip &&/);
+  assert.doesNotMatch(dash, /\{todayReminder === 'deload' &&/);
 });

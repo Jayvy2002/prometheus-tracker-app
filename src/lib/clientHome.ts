@@ -123,3 +123,22 @@ export function pickTodayReminder(
   const hidden = new Set(dismissed);
   return TODAY_REMINDER_ORDER.find(kind => flags[kind] && !hidden.has(kind)) ?? null;
 }
+
+/**
+ * One companion card when today has no due session / waiting / first-run hero.
+ * A rest-day “next session” preview is not a hero — message or check-in can take the slot.
+ * Message, check-in and reminder never stack. Kind is `checkin_due` (not a first-run nextAction).
+ */
+export type ClientHomeStripKind = 'unread_message' | 'checkin_due' | TodayReminderKind;
+
+export function pickClientHomeStrip(input: {
+  hasPrimaryHero: boolean;
+  unreadMessage: boolean;
+  checkinDue: boolean;
+  reminder: TodayReminderKind | null;
+}): ClientHomeStripKind | null {
+  if (input.hasPrimaryHero) return null;
+  if (input.unreadMessage) return 'unread_message';
+  if (input.checkinDue) return 'checkin_due';
+  return input.reminder;
+}
