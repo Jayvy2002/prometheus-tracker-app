@@ -37,7 +37,7 @@ test('I04: declared signals only, tracked modules only, guarded profiles', () =>
 });
 
 test('D04: single product→draft contract, basis-preserving recents', () => {
-  const energy = src('src/lib/foodEnergy.ts');
+  const energy = src('src/features/nutrition/domain/foodEnergy.ts');
   assert.match(energy, /export function productLogDraft/);
   assert.match(energy, /export function normalizePerServingKcal/);
   assert.match(energy, /export function isServingBasis/);
@@ -47,7 +47,7 @@ test('D04: single product→draft contract, basis-preserving recents', () => {
 });
 
 test('D06: OFF full-text via cgi, explicit only, budgeted', () => {
-  const off = src('src/lib/openFoodFacts.ts');
+  const off = src('src/features/nutrition/domain/openFoodFacts.ts');
   assert.match(off, /OFF_MAX_CALLS_PER_MINUTE/);
   assert.match(off, /OffSearchError/);
   assert.match(off, /country\?: string/);

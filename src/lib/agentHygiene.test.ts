@@ -171,6 +171,14 @@ test('20 workout: workout modules live in features/workout/domain', () => {
   }
 });
 
+test('20 nutrition: nutrition modules live in features/nutrition/domain', () => {
+  const at = (rel: string) => resolve(root, rel);
+  for (const name of ['nutritionTargets.ts', 'foodEnergy.ts', 'openFoodFacts.ts', 'groceryList.ts']) {
+    assert.ok(existsSync(at(`src/features/nutrition/domain/${name}`)), name);
+    assert.match(readFileSync(at(`src/lib/${name}`), 'utf8'), /features\/nutrition\/domain\//);
+  }
+});
+
 test('17d: one env convention — public Vite keys only, never service_role', () => {
   const example = readFileSync(resolve(root, '.env.example'), 'utf8');
   const production = readFileSync(resolve(root, '.env.production'), 'utf8');

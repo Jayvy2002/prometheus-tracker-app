@@ -20,7 +20,7 @@ src/
 │   ├── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
 │   ├── marketplace/domain/ marketplace*.ts (lot 20)
 │   ├── workout/domain/     séances, exos, disques (lot 20)
-│   └── nutrition/hooks/    useFoodCatalogSearch
+│   └── nutrition/          hooks + domain (cibles, OFF, courses)
 ├── shared/
 │   ├── api/supabase/       client
 │   ├── hooks/              useOnline, usePageTitle
