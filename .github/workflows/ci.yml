@@ -26,6 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # 17b : npm test = tous les src/**/*.test.ts (sessionScope y compris).
       - run: npm test
       - name: Session generation regression
         run: node --import tsx --test src/lib/sessionScope.test.ts

@@ -117,13 +117,13 @@ git switch new-JV
 npm install
 ```
 
-Créer un fichier `.env` local non commité :
+Le fichier `.env` local n’est jamais commité. Pour ce dépôt :
 
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your-publishable-or-anon-key
-VITE_VAPID_PUBLIC_KEY=your-vapid-public-key
+```bash
+cp .env.production .env
 ```
+
+`.env.production` ne contient que des clés **publiques** frontend (URL Supabase, anon, VAPID public). Pour un autre projet, copier `.env.example` et remplir les placeholders. Jamais de `service_role` dans Git.
 
 Puis :
 

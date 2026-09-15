@@ -30,6 +30,8 @@ Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition
 | État des Edge Functions | `supabase/functions.deployed.lock.json` |
 | Télémétrie autorisée | `docs/TELEMETRY.md` |
 | Types applicatifs | `src/lib/types.ts` |
+| Où va un fichier (actuel vs cible) | `docs/ARCHITECTURE.md` |
+| Tokens et primitives UI | `docs/DESIGN_SYSTEM.md` |
 | Configuration JWT des fonctions | `supabase/config.toml` |
 
 En cas de contradiction, déterminer quelle source porte le sujet puis corriger le document périmé dans le même changement.
@@ -64,18 +66,23 @@ Les tests peuvent verrouiller la source de composants et les contrats produit. S
 
 ## Architecture utile
 
+Ceci est l’**arbre actuel**. La cible `app` / `features` / `shared` et la matrice « tel fichier va ici » sont dans `docs/ARCHITECTURE.md`. **Ne pas déplacer** de dossiers avant le lot du Chantier qui le dit (18+). `coachingStore` reste un seul fichier jusqu’au lot **21c** (façade obligatoire).
+
 ```text
 src/
-├── App.tsx                         Routes et gardes de rôle
+├── App.tsx                         Routes, gardes, bootstrap (lot 21a pour découper)
 ├── components/
 │   ├── coaching/                   Console coach, fiche client 360, messages
 │   ├── programs/                   Programmes coach et client
 │   ├── dashboard/                  Accueil client/solo et revue hebdomadaire
 │   ├── onboarding/                 Questionnaire standard et reprise
+│   ├── layout/                     Chrome (lot 18 → app/layout)
+│   ├── ui/                         Primitives (lot 18 → shared/ui ; tokens : lot 19)
 │   └── workout|nutrition|checkin/  Tracker athlète
-├── stores/                         État Zustand par domaine
-├── lib/                            Logique pure, contrats, helpers et tests
-└── i18n/locales/{fr,en}.ts         Textes visibles
+├── stores/                         Zustand par domaine — coachingStore intact jusqu’au 21c
+├── lib/                            Logique, contrats, hooks encore ici, tests `*.test.ts`
+├── navigation/                     navConfig (lot 18 → app/navigation)
+└── i18n/locales/{fr,en}.ts         Textes visibles (lot 22b pour découper)
 
 supabase/
 ├── migrations/                     Historique DB immuable
@@ -135,10 +142,11 @@ Les noms de tables, RPC et routes proposés dans `docs/CHANTIER.md` sont un poin
 - TypeScript strict ; types partagés dans `src/lib/types.ts`.
 - Composants fonctionnels, logique testable dans `src/lib/`.
 - Zustand pour l’état partagé.
-- Tailwind pour le style ; pas de nouvelle bibliothèque UI sans besoin démontré.
+- Tailwind pour le style ; tokens et primitives : `docs/DESIGN_SYSTEM.md`. Pas de nouvelle bibliothèque UI sans besoin démontré.
 - PascalCase pour les composants, camelCase pour les fonctions, snake_case pour PostgreSQL.
-- Ne pas découper `coachingStore` dans un simple nettoyage.
-- Ne jamais commiter un fichier `.env`, un token ou un secret.
+- Ne pas découper `coachingStore` avant le lot **21c** (modules + façade du même nom). Pas un « nettoyage ».
+- `npm test` découvre `src/**/*.test.ts` (`scripts/run-unit-tests.mjs`). Ne plus ajouter chaque fichier à `package.json`.
+- **Env (une convention).** `.env` = local, gitignoré. `.env.example` = placeholders. `.env.production` = **uniquement** clés publiques frontend déjà dans le bundle (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`). Agents cloud : `cp .env.production .env` s’il manque. Jamais `service_role`, token serveur, ni secret VAPID privé dans Git. Netlify : les mêmes variables publiques, pas de clé serveur.
 
 ## Priorité actuelle
 

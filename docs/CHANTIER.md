@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (matin).** Lots 1–4 dans `new-JV` (#98). Lots 5–10 : code Git (empilement). **Preuve live 2–10** jouée en prod. Lots **11–16** : code Git (PRs). **16f–16g** (disques visuels + logger téléphone) = produit demandé, **avant** la file structure 17–23. Une CI verte ne clôt pas une ligne UX.
+**Mis à jour : 15 septembre 2026 (matin).** Lots 1–16 + 16f–16g dans `new-JV`. File ouverte : **lot 17** (hygiène agents). Lots 18–23 après 17. Une CI verte ne clôt pas une ligne UX.
 
-| **Lot ouvert : 16f–16g** (calculateur de disques visuel + séance lisible sur téléphone). Lots 17–23 : hygiène structure **après** ce produit. Lots 11–16 : code Git, apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
+| **Lot ouvert : 17** (docs d’architecture, découverte `npm test`, nom package, convention `.env`). **17e** (rename `auditLot*`) = PR suivante, pas celle de 17b. Lots 11–16 : apply prod + parcours encore dus. Lots 2–10 : **2 Terminé** ; **3–10 Partiel**.
 
 **Preuve live 15 sept. (lots 2–10)** — comptes jetables coach + solo ; client ghost SQL (signup 429, pas de 3ᵉ compte loggable). Vite `127.0.0.1:5174`. Chrome headless (computerUse indisponible). RPC via JWT prod.
 
@@ -160,7 +160,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
 | **16f** | **Calculateur de disques visuel** (UX103) | **À vérifier** | Un **côté de barre**, disques ajoutables (kg 25/20/15/10/5/2.5/1.25 ou lbs 55/45/35/25/10/5/2.5), couleurs haltéro, unité du profil. Parcours live 15 sept. (kg 25+10 = 90 ; lbs 55+45 = 245). |
 | **16g** | **Logger séance lisible sur téléphone** | **À vérifier** | Header, fiche exo (actions en overflow), rangées de séries. Sans casser le lot 14. Parcours live 390×844 + desktop. **Pas d’ID UX inventé.** |
-| **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | À construire **après 16f–16g** (tirable **pendant** 11–16 si un test nouveau) | `ARCHITECTURE.md` + `DESIGN_SYSTEM.md` ; aligner `CLAUDE.md` ; `npm test` = `**/*.test.ts` ; nom package ; une convention `.env`. **Zéro écran.** |
+| **17** | **Hygiène agents** (ARCH01 docs, ARCH09 tests, ARCH12 env) | **Code Git** (17a–17d). **17e** à part | Docs + découverte `src/**/*.test.ts` + nom package + convention env. **Zéro écran.** Rename `auditLot*` = 17e. |
 | **18** | **Socle dossiers + alias** (ARCH02 évidents) | À construire **après 17** | Créer `app` / `features` / `shared` + alias `@/`. Déplacer **seulement** hooks mal placés, client Supabase, `ui`, layout, nav. Pas `coach*.ts`, pas `App.tsx`, pas les stores. |
 | **19** | **Tokens sémantiques sur primitives** (ARCH06) | À construire **après 18** | `Button` / `Card` / `Input` / `Select` / etc. = `bg-primary`, `surface`, `ink`, `line`, `danger`. Plus de `blue-600` / `neutral-*` **dans les primitives**. Relie premium lot 1. |
 | **20** | **Migrer `src/lib` par domaine** (ARCH01) | À construire **après 18** | Une PR **par** domaine, zéro comportement. Coaching d’abord (`coach*.ts` → `features/coaching/`), puis marketplace, workout, nutrition, programs. |
@@ -343,7 +343,7 @@ Quand `shared` / `features` existent : ESLint (ou équivalent CI) pour ARCH10 / 
 | 14 | `ProgramDayExercise` / `ProgramExerciseDraft` : sets, reps, rir, rest, poids. `SET_TYPES` + drop/myo/tempo/iso/cluster **seulement** dans `ExerciseCard` si `!program_day_id`. `hevySimple = !!program_day_id`. Superset = `superset_group_id` à la volée, pas au plan. Drop = **autre ligne** `set_type: drop`, un poids. |
 | 15 | `RestTimer` : `open={showTimer}` ; `onClose` démonte. `/programs/new` = `CoachOnly`. `copyFromYesterday`. `navigate('/scanner')` sans query. `heic_unsupported`. |
 | 16 | `FAB` : workout / weight / meal. Pas de Dupliquer sur `ProgramsPage`. `LastSessionExercise` sans notes. Setup tracking par client, pas de copie. `mobileTabs` coaché : Aujourd’hui / Entraînement / Check-in / Messages / Profil. |
-| 17 | `package.json` `"test"` = liste manuelle ; `"name": "vite-react-typescript-starter"`. Pas de `docs/ARCHITECTURE.md` ni `DESIGN_SYSTEM.md`. `CLAUDE.md` vs `.env.production` versionné (clés publiques frontend). Tests `auditLot*.test.ts`. |
+| 17 | `npm test` → `scripts/run-unit-tests.mjs` (`src/**/*.test.ts`). Nom `prometheus-tracker-app`. Docs `ARCHITECTURE.md` + `DESIGN_SYSTEM.md`. Env : `.env` / `.env.example` / `.env.production` (public). **Reste 17e :** `auditLot*.test.ts` / `uxPremium.test.ts`. |
 | 18 | `src/hooks/usePageTitle.ts` seul. `useOnline` / `useAccountContext` / `useClientTracking` / `useFoodCatalogSearch` dans `lib/`. `lib/supabase.ts`. `components/ui`, `components/layout`, `src/navigation`. Pas d’alias `@/`. |
 | 19 | Primitives : `bg-blue-600`, `neutral-*`, `rose-*`. Tokens `page` / `surface` / `ink` / `line` / `primary` dans `tailwind.config.js` sous-employés. |
 | 20 | `src/lib/coach*.ts`, `marketplace*.ts`, logique workout/nutrition/programs encore dans `lib/`. |
@@ -485,7 +485,7 @@ Travaux techniques **seulement** s’ils débloquent un lot ci-dessus ou un déf
 - Télémétrie : `docs/TELEMETRY.md` dans le même commit.
 - Migration appliquée : jamais réécrite.
 - Proposition IA : validation humaine.
-- Jusqu’au lot **17b** : tout nouveau `*.test.ts` **dans** la liste `package.json` `"test"`.
+- Depuis le lot **17b** : `npm test` découvre `src/**/*.test.ts`. Ne plus tenir une liste dans `package.json`. **17e** : renommer `auditLot*` / `uxPremium` progressivement, pas dans la PR de découverte.
 - Lots 17–23 : PR de structure **sans** changement de parcours, sauf 19 (mêmes écrans, tokens). Une PR = un domaine (20) ou une ligne (21, 22).
 
 ---
@@ -703,7 +703,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **ARCH01** | P2 | 17+20 | À construire | `lib/` = 2ᵉ `src` (`coach*.ts`, etc.). Docs d’abord (17a), migration domaine par domaine (20). | Un agent sait où créer un fichier sans explorer le repo. |
+| **ARCH01** | P2 | 17+20 | **17a Code Git.** Migration = 20 | Matrice dans `docs/ARCHITECTURE.md`. `lib/` reste un 2ᵉ `src` jusqu’au lot 20. | Un agent sait où créer un fichier sans explorer le repo. |
 | **ARCH02** | P2 | 18 | À construire | Hooks dans `lib/` ; `src/hooks` presque vide ; `ui` / layout / nav / `supabase.ts` à déplacer. | Les cas **évidents** sont au bon endroit. Pas tout `lib` d’un coup. |
 | **ARCH03** | P2 | 21a | À construire | `App.tsx` = session + guards + routes + bootstrap. | Une PR onboarding et une PR router ne se marchent plus dessus. |
 | **ARCH04** | P2 | 21b–c | À construire | `coachingStore` ~89 KB, `ClientDetailPage`, `ExerciseCard`, `Dashboard`, `workoutStore`, `coachFleet`, `ProgramSessionEditor`. | Façade store ; composants = écran, pas mini-app. |
@@ -711,10 +711,10 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 | **ARCH06** | P2 | 19 | À construire | Primitives en `blue-600` / `neutral-*` alors que les tokens existent. | `<Button variant="primary">` = tokens. Pas deux systèmes. |
 | **ARCH07** | P2 | 22a | À construire | `types.ts` ~26 KB hotspot. | Transversal / domaine + réexport de transition. |
 | **ARCH08** | P2 | 22b | À construire | `fr.ts` / `en.ts` ~90 KB. | Un agent nutrition ne touche plus un fichier de 100 KB. |
-| **ARCH09** | P1 | 17 | À construire | `npm test` liste manuelle ; nom package starter ; tests `auditLot*`. | Un `.test.ts` est lancé sans éditer `package.json`. |
+| **ARCH09** | P1 | 17 | **17b–17c Code Git.** **17e** à faire | Découverte `src/**/*.test.ts` ; nom `prometheus-tracker-app`. | Un `.test.ts` est lancé sans éditer `package.json`. Rename `auditLot*` progressif (17e). |
 | **ARCH10** | P2 | 23 | À construire | Pas de frontières ESLint. Audit source **faux** sur `strict: false`. | Règles `shared`/`features`/`ui`. **Pas** de bang TS extra (`strict` déjà true). |
 | **ARCH11** | P1 | — | **Terminé** (ne pas toucher) | 2 migrations ping identiques dans le lock. | Historique appliqué immuable. |
-| **ARCH12** | P2 | 17d | À construire | `CLAUDE.md` « jamais `.env` » vs `.env.production` versionné (clés **publiques**). | Une convention. Pas de `service_role` dans Git. |
+| **ARCH12** | P2 | 17d | **Code Git** | `.env` local ; `.env.example` placeholders ; `.env.production` = clés publiques frontend seulement. | Une convention. Pas de `service_role` dans Git. |
 
 ---
 
