@@ -314,13 +314,11 @@ export default function WorkoutPage() {
         />
       )}
 
-      {(coached || !assignment?.program) && (
-        <CardLink to="/programs" className="mb-4 flex items-center gap-3">
-          <CalendarRange size={16} className="text-blue-400 shrink-0" />
-          <span className="text-sm font-medium text-white flex-1">{t('nav.myProgram')}</span>
-          <ChevronRight size={16} className="text-neutral-600" />
-        </CardLink>
-      )}
+      <CardLink to="/programs" className="mb-4 flex items-center gap-3" data-testid="workout-program">
+        <CalendarRange size={16} className="text-blue-400 shrink-0" />
+        <span className="text-sm font-medium text-white flex-1">{t('nav.myProgram')}</span>
+        <ChevronRight size={16} className="text-neutral-600" />
+      </CardLink>
 
       <CardLink to="/exercise-progress" className="mb-4 flex items-center gap-3">
         <TrendingUp size={16} className="text-blue-400 shrink-0" />

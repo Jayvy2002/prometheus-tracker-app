@@ -236,6 +236,7 @@ const common = {
     statsDesc: 'Bilans et tendances',
     viewProgress: 'Progression',
     progressDesc: 'Records et perfs',
+    programHint: 'Tes plans et modèles',
     reminders: {
       weight: "Dernière pesée il y a {{days}} jours.",
       meal: "Déjeuner non renseigné.",
