@@ -24,6 +24,7 @@ import {
   toggleGroup,
   visibleCheckinFields,
   CHECKIN_CORE_VAR_KEYS,
+  CHECKIN_EXTRA_VAR_KEYS,
   CHECKIN_VAR_KEYS,
   NUTRITION_VAR_KEYS,
   TRAINING_VAR_KEYS,
@@ -233,6 +234,10 @@ test('solo check-in core is sleep + energy + stress, not the full slider wall', 
   for (const key of CHECKIN_CORE_VAR_KEYS) {
     assert.ok(CHECKIN_VAR_KEYS.includes(key));
   }
+  assert.ok(!CHECKIN_EXTRA_VAR_KEYS.includes('sleep_hours'));
+  assert.ok(CHECKIN_EXTRA_VAR_KEYS.includes('mood'));
+  assert.ok(CHECKIN_EXTRA_VAR_KEYS.includes('notes'));
+  assert.equal(CHECKIN_CORE_VAR_KEYS.length + CHECKIN_EXTRA_VAR_KEYS.length, CHECKIN_VAR_KEYS.length);
 });
 
 test('new coach defaults keep check-in to the core four, extras opt-in', () => {

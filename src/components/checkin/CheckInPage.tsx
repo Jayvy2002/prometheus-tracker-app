@@ -210,31 +210,41 @@ export default function CheckInPage() {
         />
 
         <div className="space-y-5">
-          {coreVars.includes('sleep_hours') && (
-            <Input
-              type="number"
-              inputMode="decimal"
-              min={0}
-              max={24}
-              step={0.5}
-              value={sleepHours}
-              onChange={e => setSleepHours(e.target.value)}
-              placeholder="7.5"
-              label={t('checkin.sleepHours')}
-            />
-          )}
+          <div className="space-y-5" data-testid="checkin-core">
+            {coreVars.includes('sleep_hours') && (
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={24}
+                step={0.5}
+                value={sleepHours}
+                onChange={e => setSleepHours(e.target.value)}
+                placeholder="7.5"
+                label={t('checkin.sleepHours')}
+              />
+            )}
 
-          {coreVars.filter(key => key !== 'sleep_hours').map(renderSlider)}
+            {coreVars.filter(key => key !== 'sleep_hours').map(renderSlider)}
+          </div>
 
           {extraCount > 0 && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => setMoreOpen(o => !o)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setMoreOpen(o => !o)}
+              data-testid="checkin-more-details"
+              aria-expanded={showExtras}
+            >
               <ChevronDown size={16} className={showExtras ? 'rotate-180 transition-transform' : 'transition-transform'} />
-              {t('checkin.moreDetails')}
+              {t('checkin.moreDetailsCount', { count: extraCount })}
             </Button>
           )}
 
           {showExtras && (
-            <div className="space-y-5">
+            <div className="space-y-5" data-testid="checkin-extra">
+              <p className="text-xs text-neutral-500">{t('checkin.extraHint')}</p>
               {extraVars.map(renderSlider)}
               {showCheckinField(tracking, 'notes') && (
                 <div>

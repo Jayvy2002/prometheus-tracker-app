@@ -96,6 +96,11 @@ test('client check-in form uses 0–10 sliders, not a button grid', () => {
   assert.match(page, /CHECKIN_CORE_VAR_KEYS/);
   assert.match(page, /checkin\.subtitleSolo/);
   assert.match(page, /checkin\.moreDetails/);
+  assert.match(page, /checkin\.moreDetailsCount/);
+  assert.match(page, /checkin\.extraHint/);
+  assert.match(page, /data-testid="checkin-more-details"/);
+  assert.match(page, /data-testid="checkin-core"/);
+  assert.match(page, /data-testid="checkin-extra"/);
   assert.match(page, /extraCount > 0/);
   assert.match(page, /showExtras = moreOpen;/);
   assert.doesNotMatch(page, /!solo \|\| moreOpen/);
@@ -106,4 +111,10 @@ test('client check-in form uses 0–10 sliders, not a button grid', () => {
   assert.match(slider, /role="slider"/);
   assert.match(slider, /scoreFromTrackRatio/);
   assert.match(slider, /w-7 h-7/);
+  const editor = src('src/components/coaching/TrackingVarsEditor.tsx');
+  assert.match(editor, /checkinCore/);
+  assert.match(editor, /CHECKIN_EXTRA_VAR_KEYS/);
+  assert.match(editor, /data-testid="checkin-vars-editor"/);
+  assert.match(src('src/components/coaching/CheckinReviewPanel.tsx'), /CheckinFilledScores/);
+  assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /CheckinFilledScores/);
 });

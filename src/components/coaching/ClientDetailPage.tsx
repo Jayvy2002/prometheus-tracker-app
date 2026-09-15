@@ -66,6 +66,7 @@ import TabList from '../ui/TabList';
 import { toast } from '../ui/Toast';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
+import CheckinFilledScores from '../checkin/CheckinFilledScores';
 import ClientLiftChart from './ClientLiftChart';
 import LastSessionReview from './LastSessionReview';
 import RecoverySnapshotPanel from './RecoverySnapshotPanel';
@@ -938,14 +939,7 @@ export default function ClientDetailPage() {
               ) : checkins.map(c => (
                 <Card key={c.id}>
                   <p className="text-sm font-medium text-white mb-2">{c.checked_at}</p>
-                  <div className="grid grid-cols-2 gap-2 text-[11px] text-neutral-400">
-                    {([
-                      'energy_level', 'sleep_quality', 'stress', 'motivation', 'fatigue',
-                      'mood', 'muscle_soreness', 'joint_pain', 'adherence_training', 'adherence_nutrition',
-                    ] as const).map(key => (
-                      <span key={key}>{t(`checkin.fields.${key}`)}: {formatCheckinScore(c[key], c)}</span>
-                    ))}
-                  </div>
+                  <CheckinFilledScores row={c} />
                   {c.notes && <p className="text-xs text-neutral-500 mt-2">{c.notes}</p>}
                 </Card>
               ))
