@@ -65,6 +65,8 @@ test('Q01: notification status is real; reminders respect tracking and language'
   const edge = src('supabase/functions/send-daily-reminders/index.ts');
   assert.match(edge, /track_workouts/);
   assert.match(edge, /startsWith\(['"]fr['"]\)/);
+  assert.match(edge, /shouldSendDailyReminder/);
+  assert.match(edge, /program_assignments/);
   assert.doesNotMatch(edge, /\.\.\/_shared\/clock/);
   const cron = src('supabase/cron/schedule_daily_reminders.sql');
   assert.match(cron, /invoke_send_daily_reminders/);

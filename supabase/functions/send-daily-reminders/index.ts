@@ -71,6 +71,40 @@ function hhmmInTimeZone(now: Date, timeZone: string | null | undefined): string 
   }
 }
 
+/** Inlined from features/account/domain/reminderDue.ts (UX64). */
+function weekdayInTimeZone(now: Date, timeZone: string | null | undefined): number {
+  const tz = (timeZone ?? '').trim() || 'UTC';
+  try {
+    const day = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: tz }).format(now);
+    const idx = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(day);
+    return idx >= 0 ? idx : now.getUTCDay();
+  } catch {
+    return now.getUTCDay();
+  }
+}
+
+function isProgramTrainingWeekday(
+  days: Array<{ weekday: number; name?: string | null; exerciseCount?: number }>,
+  weekday: number,
+): boolean {
+  const training = days.filter(day => (day.name ?? '').trim().length > 0 || (day.exerciseCount ?? 0) > 0);
+  if (training.length === 0) return false;
+  return training.some(day => day.weekday === weekday);
+}
+
+function shouldSendDailyReminder(facts: {
+  kind: 'workout' | 'nutrition';
+  trackingOn: boolean;
+  loggedToday: boolean;
+  hasAssignedProgram: boolean;
+  todayIsTrainingDay: boolean;
+}): boolean {
+  if (!facts.trackingOn) return false;
+  if (facts.loggedToday) return false;
+  if (facts.kind === 'workout' && facts.hasAssignedProgram && !facts.todayIsTrainingDay) return false;
+  return true;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -348,16 +382,54 @@ Deno.serve(async (req) => {
 
     for (const { id: userId, timezone, language } of users) {
       const today = todayInTimeZone(now, timezone);
-      // Skip if user already logged the activity today
+      let loggedToday = false;
       if (type === 'workout') {
         const { count } = await admin.from('workouts').select('id', { count: 'exact', head: true })
           .eq('user_id', userId).gte('date', today).lte('date', today + 'T23:59:59');
-        if ((count ?? 0) > 0) continue;
+        loggedToday = (count ?? 0) > 0;
       } else {
         const { count } = await admin.from('nutrition_logs').select('id', { count: 'exact', head: true })
           .eq('user_id', userId).eq('logged_at', today);
-        if ((count ?? 0) > 0) continue;
+        loggedToday = (count ?? 0) > 0;
       }
+
+      let hasAssignedProgram = false;
+      let todayIsTrainingDay = false;
+      if (type === 'workout') {
+        const { data: asg } = await admin.from('program_assignments')
+          .select('program_id')
+          .eq('client_id', userId)
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+        if (asg?.program_id) {
+          hasAssignedProgram = true;
+          const { data: days } = await admin.from('program_days')
+            .select('weekday, name, program_day_exercises(id)')
+            .eq('program_id', asg.program_id);
+          const rows = (days ?? []) as Array<{
+            weekday: number;
+            name: string | null;
+            program_day_exercises?: { id: string }[] | null;
+          }>;
+          todayIsTrainingDay = isProgramTrainingWeekday(
+            rows.map(row => ({
+              weekday: row.weekday,
+              name: row.name,
+              exerciseCount: row.program_day_exercises?.length ?? 0,
+            })),
+            weekdayInTimeZone(now, timezone),
+          );
+        }
+      }
+
+      if (!shouldSendDailyReminder({
+        kind: type,
+        trackingOn: true,
+        loggedToday,
+        hasAssignedProgram,
+        todayIsTrainingDay,
+      })) continue;
 
       // Get push subscriptions for this user
       const { data: subs } = await admin
