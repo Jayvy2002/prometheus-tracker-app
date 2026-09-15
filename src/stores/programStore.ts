@@ -11,8 +11,41 @@ import type {
   Routine,
 } from '../lib/types';
 
+type ProgramDayDraft = {
+  weekday: number;
+  name: string;
+  exercises: Array<{
+    name: string;
+    default_sets: number;
+    default_reps: number;
+    default_reps_min?: number | null;
+    default_rir?: number | null;
+    default_rest_seconds?: number;
+    default_weight_kg?: number | null;
+  }>;
+};
+
+function rpcDaysPayload(days: ProgramDayDraft[]) {
+  return days.map((draft, i) => ({
+    weekday: draft.weekday,
+    name: draft.name,
+    order_index: i,
+    exercises: draft.exercises.map((ex, order_index) => ({
+      name: ex.name,
+      default_sets: ex.default_sets,
+      default_reps: ex.default_reps,
+      default_reps_min: ex.default_reps_min ?? null,
+      default_rir: ex.default_rir ?? null,
+      default_rest_seconds: ex.default_rest_seconds ?? 90,
+      default_weight_kg: ex.default_weight_kg ?? null,
+      order_index,
+    })),
+  }));
+}
+
 interface ProgramState {
   programs: Program[];
+  programsError: string | null;
   assignment: ProgramAssignment | null;
   loading: boolean;
   fetchPrograms: (ownerId: string) => Promise<void>;
@@ -34,7 +67,13 @@ interface ProgramState {
     opts?: { assignClientId?: string; startDate?: string },
   ) => Promise<string | null>;
   updateProgram: (id: string, data: Partial<Program>) => Promise<{ error: string | null }>;
-  deleteProgram: (id: string) => Promise<void>;
+  saveProgram: (
+    programId: string,
+    meta: { name: string; description: string; duration_weeks: number },
+    days: ProgramDayDraft[],
+    expectedUpdatedAt?: string | null,
+  ) => Promise<{ error: string | null }>;
+  deleteProgram: (id: string) => Promise<{ error: string | null }>;
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<{ error: string | null }>;
   setProgramDayExercises: (
     dayId: string,
@@ -75,19 +114,7 @@ interface ProgramState {
   ) => Promise<{ error: string | null; programId?: string; forked?: boolean }>;
   syncProgramDays: (
     programId: string,
-    days: Array<{
-      weekday: number;
-      name: string;
-      exercises: Array<{
-        name: string;
-        default_sets: number;
-        default_reps: number;
-        default_reps_min?: number | null;
-        default_rir?: number | null;
-        default_rest_seconds?: number;
-        default_weight_kg?: number | null;
-      }>;
-    }>,
+    days: ProgramDayDraft[],
   ) => Promise<{ error: string | null }>;
   fetchMyAssignment: (clientId: string) => Promise<ProgramAssignment | null>;
   /** C04 : attributions en pause avec programme (archives consultables). */
@@ -117,11 +144,12 @@ function mapProgramWithDays(row: ProgramRow): Program {
 
 export const useProgramStore = create<ProgramState>((set, get) => ({
   programs: [],
+  programsError: null,
   assignment: null,
   loading: false,
 
   fetchPrograms: async (ownerId) => {
-    set({ loading: true });
+    set({ loading: true, programsError: null });
     try {
       // Q05 : programmes + jours + exercices en UNE requête (plus de N+1).
       const { data, error } = await supabase
@@ -130,9 +158,14 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         .eq('owner_id', ownerId)
         .order('created_at', { ascending: false });
       if (error) throw error;
-      set({ programs: ((data ?? []) as ProgramRow[]).map(mapProgramWithDays) });
-    } catch {
-      set({ programs: [] });
+      set({
+        programs: ((data ?? []) as ProgramRow[]).map(mapProgramWithDays),
+        programsError: null,
+      });
+    } catch (err) {
+      // UX63 : une erreur n'efface pas la liste déjà là.
+      const message = err instanceof Error ? err.message : 'load_failed';
+      set({ programsError: message });
     } finally {
       set({ loading: false });
     }
@@ -203,9 +236,30 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     return { error: null };
   },
 
+  saveProgram: async (programId, meta, days, expectedUpdatedAt) => {
+    // UX20 : une RPC (métadonnées + jours + révision). Pas d'update puis sync.
+    const { error } = await supabase.rpc('save_program', {
+      p_program_id: programId,
+      p_name: meta.name,
+      p_description: meta.description ?? '',
+      p_duration_weeks: meta.duration_weeks,
+      p_days: rpcDaysPayload(days),
+      p_expected_updated_at: expectedUpdatedAt ?? null,
+    });
+    if (error) return { error: error.message };
+    track('program_saved', { days: days.length, weeks: meta.duration_weeks });
+    await get().fetchProgram(programId);
+    return { error: null };
+  },
+
   deleteProgram: async (id) => {
-    await supabase.from('programs').delete().eq('id', id);
+    // UX20 : ne retire du store qu'après suppression serveur confirmée.
+    const { data, error } = await supabase.from('programs').delete().eq('id', id).select('id');
+    if (error) return { error: error.message };
+    if (!data?.length) return { error: 'not_found' };
     set(s => ({ programs: s.programs.filter(p => p.id !== id) }));
+    track('program_deleted');
+    return { error: null };
   },
 
   setProgramDayFromRoutine: async (dayId, routine) => {
@@ -346,21 +400,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     // D01 : réconciliation jours + exercices en une seule transaction serveur.
     const { error } = await supabase.rpc('sync_program_days', {
       p_program_id: programId,
-      p_days: days.map((draft, i) => ({
-        weekday: draft.weekday,
-        name: draft.name,
-        order_index: i,
-        exercises: draft.exercises.map((ex, order_index) => ({
-          name: ex.name,
-          default_sets: ex.default_sets,
-          default_reps: ex.default_reps,
-          default_reps_min: ex.default_reps_min ?? null,
-          default_rir: ex.default_rir ?? null,
-          default_rest_seconds: ex.default_rest_seconds ?? 90,
-          default_weight_kg: ex.default_weight_kg ?? null,
-          order_index,
-        })),
-      })),
+      p_days: rpcDaysPayload(days),
     });
     if (error) return { error: error.message };
     await get().fetchProgram(programId);
@@ -459,5 +499,5 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     }));
   },
 
-  clear: () => set({ programs: [], assignment: null }),
+  clear: () => set({ programs: [], programsError: null, assignment: null }),
 }));

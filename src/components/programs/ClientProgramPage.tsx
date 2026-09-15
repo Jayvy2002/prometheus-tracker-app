@@ -16,6 +16,7 @@ import PageTransition from '../ui/PageTransition';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import SoloProgramProposal from '../dashboard/SoloProgramProposal';
 import { toast } from '../ui/Toast';
+import { mapProgramWriteError } from '../../lib/programWrite';
 
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -29,7 +30,7 @@ function repsLabel(ex: ProgramDayExercise): string {
 export default function ClientProgramPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { assignment, fetchMyAssignment, fetchPausedAssignments, loading, updateProgram, syncProgramDays } = useProgramStore();
+  const { assignment, fetchMyAssignment, fetchPausedAssignments, loading, saveProgram } = useProgramStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
@@ -105,20 +106,22 @@ export default function ClientProgramPage() {
       toast(t('programs.selfAssigned'));
       return;
     }
-    const updated = await updateProgram(program.id, {
-      name: outline.name,
-      description: outline.description,
-      duration_weeks: outline.duration_weeks,
-    });
-    if (updated.error) {
-      setSaving(false);
-      toast(updated.error, 'error');
-      return;
-    }
-    const synced = await syncProgramDays(program.id, outline.days);
+    const saved = await saveProgram(
+      program.id,
+      {
+        name: outline.name,
+        description: outline.description,
+        duration_weeks: outline.duration_weeks,
+      },
+      outline.days,
+      program.updated_at,
+    );
     setSaving(false);
-    if (synced.error) {
-      toast(synced.error, 'error');
+    if (saved.error) {
+      toast(mapProgramWriteError(saved.error, {
+        stale: t('programs.stale'),
+        fallback: t('programs.saveFailed'),
+      }), 'error');
       return;
     }
     await fetchMyAssignment(user.id);

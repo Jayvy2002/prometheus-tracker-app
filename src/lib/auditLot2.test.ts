@@ -10,6 +10,7 @@ test('D01: program saves go through atomic server RPCs, no silent fallback', () 
   const store = src('src/stores/programStore.ts');
   assert.match(store, /rpc\('save_program_day_exercises'/);
   assert.match(store, /rpc\('sync_program_days'/);
+  assert.match(store, /rpc\('save_program'/);
   assert.match(store, /rpc\('create_program_complete'/);
   assert.match(store, /rpc\('assign_program_secure'/);
   assert.doesNotMatch(store, /from\('program_day_exercises'\)\.delete\(\)/);
