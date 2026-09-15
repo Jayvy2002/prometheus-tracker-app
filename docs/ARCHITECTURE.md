@@ -1,12 +1,12 @@
 # Architecture frontend — actuel vs cible
 
-> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Lots **18–21a** livrés. Les lots **21b–23** bougent encore, une ligne à la fois.
+> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Lots **18–21c** livrés. Les lots **22–23** bougent encore, une ligne à la fois.
 >
-> **Invariants :** zéro changement de parcours dans une PR de structure (sauf lot 19 : mêmes écrans, tokens). `coachingStore` : **pas** de découpage avant le lot **21c** (façade obligatoire). `coachFleet.ts` et `supabase/functions/coach-fleet-round` restent jumelés. Migrations appliquées immuables.
+> **Invariants :** zéro changement de parcours dans une PR de structure (sauf lot 19 : mêmes écrans, tokens). `coachingStore` : façade `stores/coachingStore.ts` + modules `features/coaching/model` (lot **21c**). `coachFleet.ts` et `supabase/functions/coach-fleet-round` restent jumelés. Migrations appliquées immuables.
 
 ---
 
-## Arbre actuel (après lot 21a)
+## Arbre actuel (après lot 21c)
 
 ```text
 src/
@@ -19,8 +19,9 @@ src/
 │   └── navigation/         navConfig + test
 ├── features/
 │   ├── account/hooks/      useAccountContext
-│   ├── coaching/hooks/     useClientTracking
+│   ├── coaching/hooks/     useClientTracking, useClientDossier
 │   ├── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
+│   ├── coaching/model/     slices coachingStore (lot 21c)
 │   ├── marketplace/domain/ marketplace*.ts (lot 20)
 │   ├── workout/domain/     séances, exos, disques (lot 20)
 │   ├── nutrition/          hooks + domain (cibles, OFF, courses)
@@ -34,7 +35,7 @@ src/
 ├── i18n/locales/{fr,en}.ts
 ├── lib/                    Métier + réexports hooks / supabase
 ├── navigation/             réexport navConfig
-└── stores/                 Zustand (coachingStore intact jusqu’au 21c)
+└── stores/                 Zustand ; coachingStore = façade (21c)
 
 supabase/
 ├── migrations/ + schema_migrations.lock.json
@@ -42,7 +43,7 @@ supabase/
 └── tests/                  SQL RLS / RPC (pas des `*.test.ts` Vite)
 ```
 
-Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts`, `types.ts`, i18n : **pas** découpés (21c / 22).
+Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `types.ts` et i18n : **pas** découpés (lot 22).
 
 Convention d’accès données **cible** (à écrire ici, à faire respecter aux lots 20 puis 23) :
 
@@ -89,7 +90,7 @@ Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
 | i18n | `i18n/locales/fr.ts`, `en.ts` | `i18n/locales/{fr,en}/*.ts` | **22b** |
 | Fetch / orchestration écrans listés | hooks `features/*/hooks` + `workout/data` | idem | **21b livré** |
 | Store Zustand (sauf coaching) | `stores/*Store.ts` | `features/*/model/` | progressif, **pas 18** |
-| `coachingStore.ts` | `stores/coachingStore.ts` | modules + **façade** du même nom | **21c** seulement |
+| `coachingStore.ts` | façade `stores/coachingStore.ts` + `features/coaching/model` | idem | **21c livré** |
 | Écran métier | `components/<domaine>/` | `features/<domaine>/components/` | avec le domaine (20–21), pas un bang |
 | Test unitaire | `src/**/*.test.ts` | reste à côté du module testé | **17b** = découverte ; **17e** livré |
 | Edge Function | `supabase/functions/<nom>/` | inchangé | — |

@@ -8,8 +8,10 @@ import {
   mapCoachingRoleError,
 } from './coachModeGuard';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
+import { coachingStoreSource } from '../../../lib/coachingStoreSource';
 
 function src(rel: string): string {
+  if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

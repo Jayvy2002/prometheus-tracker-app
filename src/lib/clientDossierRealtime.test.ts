@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { latestMigrationContaining, migrationsSql } from './migrationScan';
+import { coachingStoreSource } from './coachingStoreSource';
 
-const src = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
+const src = (p: string) => p === 'src/stores/coachingStore.ts' ? coachingStoreSource() : readFileSync(resolve(process.cwd(), p), 'utf8');
 
 test('C01: observation tables are realtime-published; the 360 reloads on change', () => {
   const mig = migrationsSql();

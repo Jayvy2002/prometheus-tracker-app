@@ -4,8 +4,10 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { imageFileForUpload, isHeicLike } from './heicConvert';
 import { platesForLoad, plateInventory, plateStyle, standardBarKg, totalFromSleeve } from './plateMath';
+import { coachingStoreSource } from './coachingStoreSource';
 
 function src(rel: string): string {
+  if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

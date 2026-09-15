@@ -11,8 +11,10 @@ import {
   messageDraftKey,
   saveMessageDraft,
 } from './messageDrafts';
+import { coachingStoreSource } from './coachingStoreSource';
 
 function src(rel: string): string {
+  if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 

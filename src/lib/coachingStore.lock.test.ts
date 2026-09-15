@@ -2,8 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { coachingStoreSource } from './coachingStoreSource';
 
 function src(rel: string): string {
+  if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
@@ -84,4 +86,20 @@ test('an active coach link survives a missing coach-card RPC', () => {
   assert.match(fn, /previous\?\.full_name/);
   assert.match(fn, /link\.coach_id/);
   assert.doesNotMatch(fn.slice(0, 800), /myCoach: null/);
+});
+
+test('21c: façade assembles slices and no longer owns method bodies', () => {
+  const facade = readFileSync(resolve(process.cwd(), 'src/stores/coachingStore.ts'), 'utf8');
+  assert.match(facade, /createRoleSlice/);
+  assert.match(facade, /createClientsSlice/);
+  assert.match(facade, /createMessagesSlice/);
+  assert.match(facade, /createQuestionnairesSlice/);
+  assert.match(facade, /createInterventionsSlice/);
+  assert.match(facade, /createTrackingSlice/);
+  assert.doesNotMatch(facade, /fetchMyRole: async/);
+  assert.match(facade, /from '\.\.\/features\/coaching\/model\/sessionTokens'/);
+  const store = src('src/stores/coachingStore.ts');
+  assert.match(store, /fetchMyRole: async/);
+  assert.match(store, /sendCoachMessage: async/);
+  assert.match(store, /applyIntervention: async/);
 });

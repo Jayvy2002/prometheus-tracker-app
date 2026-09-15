@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { latestMigrationContaining } from './migrationScan';
+import { coachingStoreSource } from './coachingStoreSource';
 
-const src = (p: string) => readFileSync(resolve(process.cwd(), p), 'utf8');
+const src = (p: string) => p === 'src/stores/coachingStore.ts' ? coachingStoreSource() : readFileSync(resolve(process.cwd(), p), 'utf8');
 
 test('D01: create_program_complete is the only create path and snapshots', () => {
   const mig = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.create_program_complete').sql;

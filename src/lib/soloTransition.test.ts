@@ -4,8 +4,10 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { linkEndedNotice, profileLinkEndedChanged, SOLO_TRIAL_DAYS } from './soloTransition';
 import { latestMigrationContaining } from './migrationScan';
+import { coachingStoreSource } from './coachingStoreSource';
 
 function src(rel: string): string {
+  if (rel === 'src/stores/coachingStore.ts') return coachingStoreSource();
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
