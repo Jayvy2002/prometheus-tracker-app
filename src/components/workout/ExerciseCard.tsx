@@ -19,6 +19,7 @@ import { useDraftContext } from './WorkoutDraftContext';
 import { toastWithUndo } from '../ui/Toast';
 import { optionLabel } from '../../lib/optionLabels';
 import { applySetPlaceholders } from '../../lib/workoutSetComplete';
+import { isPerformedSet } from '../../lib/performedSets';
 import { resolveRestSeconds } from '../../lib/restTimer';
 import { parseDropSegments, emptyDropSegments } from '../../lib/programSetPrescription';
 import { useExerciseStore } from '../../stores/exerciseStore';

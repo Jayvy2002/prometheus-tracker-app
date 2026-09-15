@@ -41,6 +41,7 @@ test('UX103 plate calculator uses profile units and a standard bar', () => {
   assert.match(card, /data-plates-open="true"/);
   assert.match(card, /<PlateCalc/);
   assert.match(card, /unit=\{weightUnit\}/);
+  assert.match(card, /import \{ isPerformedSet \} from '..\/..\/lib\/performedSets'/);
 });
 
 test('UX104 reuse a meal from a chosen day, not only yesterday', () => {
