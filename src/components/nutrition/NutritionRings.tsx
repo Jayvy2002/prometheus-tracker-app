@@ -30,7 +30,7 @@ export default function NutritionRings({ className = '' }: NutritionRingsProps) 
           <div className="text-center">
             <div className="text-sm font-bold text-white leading-tight">{Math.round(totalCals)}</div>
             <div className="text-xs text-neutral-500 leading-tight">
-              {targets.calories != null ? `/ ${targets.calories}` : t('common.noTarget')}
+              {targets.calories != null ? `/ ${targets.calories}` : '—'}
             </div>
             <div className="text-xs text-neutral-400">{t('common.kcal')}</div>
           </div>
