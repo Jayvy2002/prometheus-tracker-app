@@ -130,6 +130,7 @@ const fr = {
     logWeight: 'Peser',
     addMeal: 'Ajouter un repas',
     addWorkout: 'Nouvelle séance',
+    addWorkoutOffPlan: 'Séance hors programme',
     addWeight: 'Peser',
     checkin: 'Check-in',
     clients: 'Clients',
@@ -407,6 +408,7 @@ const fr = {
       deload: "Quatre semaines d’entraînement enregistrées. Vérifie si une semaine plus légère serait utile.",
     },
     coachMessageTitle: 'Message de ton coach',
+    nothingToday: 'Rien de prescrit aujourd’hui.',
     firstRun: {
       waitingProgram: 'Ton coach va t’envoyer un programme',
       firstSession: 'Première séance quand tu es prêt',

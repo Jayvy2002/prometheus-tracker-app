@@ -130,6 +130,7 @@ const en = {
     logWeight: 'Log Weight',
     addMeal: 'Add Meal',
     addWorkout: 'New Workout',
+    addWorkoutOffPlan: 'Off-program session',
     addWeight: 'Log Weight',
     checkin: 'Check-in',
     clients: 'Clients',
@@ -407,6 +408,7 @@ const en = {
       deload: "Four weeks of training recorded. Check whether a lighter week would be useful.",
     },
     coachMessageTitle: 'Message from your coach',
+    nothingToday: 'Nothing prescribed today.',
     firstRun: {
       waitingProgram: 'Your coach will send you a program',
       firstSession: 'First session when you are ready',

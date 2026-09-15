@@ -123,6 +123,11 @@ export function resolveClientGymCard(input: ClientGymInput): ClientGymCard {
   };
 }
 
+/** Prescribed day is due now — continue an open log, or start today's assigned day. */
+export function isProgramDayDue(card: Pick<ClientGymCard, 'kind' | 'isToday'>): boolean {
+  return card.kind === 'continue' || (card.kind === 'start' && card.isToday);
+}
+
 /** Coach tracking vars win for coached athletes; solo still honors the local RIR pref. */
 export function showLoggingRir(
   rirEnabled: boolean,

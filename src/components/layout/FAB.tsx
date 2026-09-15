@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Dumbbell, Scale, Flame, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useClientTracking } from '../../lib/useClientTracking';
+import { useProgramStore } from '../../stores/programStore';
+import { useWorkoutStore } from '../../stores/workoutStore';
+import { isProgramDayDue, resolveClientGymCard } from '../../lib/clientGym';
+import { todayStr } from '../../lib/utils';
 
 interface FABAction {
   label: string;
@@ -15,9 +19,23 @@ export default function FAB() {
   const navigate = useNavigate();
   const tracking = useClientTracking();
   const [open, setOpen] = useState(false);
+  const assignment = useProgramStore(s => s.assignment);
+  const workouts = useWorkoutStore(s => s.workouts);
+  const gymDue = isProgramDayDue(resolveClientGymCard({
+    hasActiveProgram: assignment?.status === 'active' && !!assignment.program,
+    days: assignment?.program?.days,
+    workouts,
+    todayWeekday: new Date().getDay(),
+    todayDate: todayStr(),
+    assignmentId: assignment?.id,
+  }));
 
   const actions: FABAction[] = [
-    ...(tracking.track_workouts ? [{ label: t('nav.addWorkout'), icon: Dumbbell, onClick: () => { navigate('/workout/new'); setOpen(false); } }] : []),
+    ...(tracking.track_workouts ? [{
+      label: gymDue ? t('nav.addWorkoutOffPlan') : t('nav.addWorkout'),
+      icon: Dumbbell,
+      onClick: () => { navigate('/workout/new'); setOpen(false); },
+    }] : []),
     ...(tracking.track_weight ? [{ label: t('nav.addWeight'), icon: Scale, onClick: () => { navigate('/weight?log=1'); setOpen(false); } }] : []),
     ...(tracking.track_nutrition ? [{ label: t('nav.addMeal'), icon: Flame, onClick: () => { navigate('/nutrition?add=1'); setOpen(false); } }] : []),
   ];

@@ -141,6 +141,8 @@ test('Jade next action: waiting for program or first session — never a forced 
   assert.equal(clientHomeNextActionKey('first_session'), 'dashboard.firstRun.firstSession');
   const dash = src('src/components/dashboard/Dashboard.tsx');
   assert.match(dash, /clientHomeNextActionKey\(nextAction\)/);
+  assert.match(dash, /to="\/messages"/);
+  assert.match(dash, /dashboard\.nothingToday/);
   assert.doesNotMatch(dash, /dashboard\.firstRun\.\$\{nextAction\}/);
 });
 
@@ -148,6 +150,7 @@ test('client home copy is FR tutoiement; Dashboard never uses a 999 sentinel', (
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /waitingProgram: 'Ton coach va t’envoyer un programme'/);
   assert.match(fr, /firstSession: 'Première séance quand tu es prêt'/);
+  assert.match(fr, /nothingToday:/);
 
   const dash = src('src/components/dashboard/Dashboard.tsx');
   assert.doesNotMatch(dash, /:\s*999/);

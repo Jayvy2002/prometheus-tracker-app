@@ -36,6 +36,16 @@ test('coached mobile tabs keep messages and check-in, not photos', () => {
   const paths = mobileTabs('coached', trackingOn).map(item => item.path);
   assert.deepEqual(paths, ['/dashboard', '/workout', '/checkin', '/messages', '/profile']);
   assert.equal(paths.includes('/photos'), false);
+  assert.equal(paths.includes('/exercise-progress'), false);
+});
+
+test('coached desktop train lists program and progress, not stats or calendar', () => {
+  const sections = desktopSections('coached', trackingOn);
+  const train = sections.find(section => section.id === 'train')?.items.map(item => item.path);
+  assert.deepEqual(train, ['/workout', '/programs', '/exercise-progress']);
+  const all = sections.flatMap(section => section.items.map(item => item.path));
+  assert.equal(all.includes('/stats'), false);
+  assert.equal(all.includes('/calendar'), false);
 });
 
 test('desktop coaching lists copilot and marketplace as secondary sections', () => {

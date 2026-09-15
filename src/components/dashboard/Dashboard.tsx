@@ -254,6 +254,9 @@ export default function Dashboard() {
     weight: showModule(tracking, 'weight') && showWeightReminder,
   }, dismissedReminders);
 
+  const showEmptyToday = !activityPending && !showGymHero && !showRoutineHero && !showNextActionHero
+    && !showCheckinStrip && !showUnreadCoachMessage && todayReminder === null;
+
   const startProgramDay = async (day: ProgramDay) => {
     if (!user || startingRoutine || !assignment?.program) return;
     setStartingRoutine(true);
@@ -379,8 +382,14 @@ export default function Dashboard() {
             title={t('dashboard.firstRun.firstSession')}
             to="/workout"
           />
-        ) : showNextActionHero && nextAction ? (
-          <ListRow className="mb-4" title={t(clientHomeNextActionKey(nextAction))} />
+        ) : showNextActionHero && nextAction === 'waiting_program' ? (
+          <ListRow
+            className="mb-4"
+            title={t(clientHomeNextActionKey(nextAction))}
+            to="/messages"
+          />
+        ) : showEmptyToday ? (
+          <ListRow className="mb-4" title={t('dashboard.nothingToday')} />
         ) : null}
 
         {showUnreadCoachMessage && (

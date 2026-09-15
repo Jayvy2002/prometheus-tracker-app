@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Clock, ChevronRight, Dumbbell, Trash2, CalendarRange } from 'lucide-react';
+import { TrendingUp, Plus, Clock, ChevronRight, Dumbbell, Trash2, CalendarRange } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
@@ -9,7 +9,7 @@ import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../l
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { isCoachedAthlete } from '../../lib/coachRole';
-import { resolveClientGymCard } from '../../lib/clientGym';
+import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
@@ -181,17 +181,23 @@ export default function WorkoutPage() {
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
         <h1 className="text-2xl font-bold text-white">{t('workout.title')}</h1>
         <Button onClick={() => navigate('/workout/new')} size="sm">
-          <Plus size={16} /> {t('common.new')}
+          <Plus size={16} /> {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('common.new')}
         </Button>
       </div>
 
-      {!coached && !assignment?.program && (
+      {(coached || !assignment?.program) && (
         <CardLink to="/programs" className="mb-4 flex items-center gap-3">
           <CalendarRange size={16} className="text-blue-400 shrink-0" />
           <span className="text-sm font-medium text-white flex-1">{t('nav.myProgram')}</span>
           <ChevronRight size={16} className="text-neutral-600" />
         </CardLink>
       )}
+
+      <CardLink to="/exercise-progress" className="mb-4 flex items-center gap-3">
+        <TrendingUp size={16} className="text-blue-400 shrink-0" />
+        <span className="text-sm font-medium text-white flex-1">{t('nav.exerciseProgress')}</span>
+        <ChevronRight size={16} className="text-neutral-600" />
+      </CardLink>
 
       {assignment?.program && gymCard.kind !== 'none' && (
         <ClientGymCard
@@ -263,7 +269,9 @@ export default function WorkoutPage() {
         <Card className="text-center py-12">
           <Dumbbell className="mx-auto mb-3 text-neutral-600" size={32} />
           <p className="text-neutral-400 mb-4">{t('workout.noWorkoutsYet')}</p>
-          <Button onClick={() => navigate('/workout/new')} size="sm">{t('workout.startFirstWorkout')}</Button>
+          <Button onClick={() => navigate('/workout/new')} size="sm">
+            {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('workout.startFirstWorkout')}
+          </Button>
         </Card>
       ) : (
         <div className="space-y-2">

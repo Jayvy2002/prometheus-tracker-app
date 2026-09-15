@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
+import { useCoachingStore } from '../../stores/coachingStore';
 import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort } from '../../lib/utils';
 import {
@@ -10,6 +11,7 @@ import {
   type ExerciseProgressSummary,
 } from '../../lib/performedSets';
 import { listedProgressMatches } from '../../lib/progressSearch';
+import { isCoachedAthlete } from '../../lib/coachRole';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
@@ -18,6 +20,9 @@ import PageTransition from '../ui/PageTransition';
 export default function ExerciseProgressPage() {
   const { t, i18n } = useTranslation();
   const { user } = useAuthStore();
+  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const myCoach = useCoachingStore(s => s.myCoach);
+  const coached = isCoachedAthlete(coachingRole, myCoach);
 
   const [allData, setAllData] = useState<ExerciseProgressSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -188,18 +193,22 @@ export default function ExerciseProgressPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-6">
-          <CardLink to="/stats">
-            <p className="text-sm font-medium text-white flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />{t('nav.progressSummary')}</p>
-          </CardLink>
+          {!coached && (
+            <CardLink to="/stats">
+              <p className="text-sm font-medium text-white flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />{t('nav.progressSummary')}</p>
+            </CardLink>
+          )}
           <CardLink to="/exercise-progress">
             <p className="text-sm font-medium text-white flex items-center gap-2"><Dumbbell size={16} className="text-blue-400" />{t('nav.progressTraining')}</p>
           </CardLink>
           <CardLink to="/weight">
             <p className="text-sm font-medium text-white flex items-center gap-2"><Scale size={16} className="text-blue-400" />{t('nav.progressMeasures')}</p>
           </CardLink>
-          <CardLink to="/calendar">
-            <p className="text-sm font-medium text-white flex items-center gap-2"><CalendarDays size={16} className="text-blue-400" />{t('nav.progressHistory')}</p>
-          </CardLink>
+          {!coached && (
+            <CardLink to="/calendar">
+              <p className="text-sm font-medium text-white flex items-center gap-2"><CalendarDays size={16} className="text-blue-400" />{t('nav.progressHistory')}</p>
+            </CardLink>
+          )}
         </div>
 
         {loadError && appliedUser.current !== user?.id ? (

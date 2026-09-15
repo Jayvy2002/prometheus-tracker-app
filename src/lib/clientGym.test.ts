@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
+  isProgramDayDue,
   isProgramTrainingDay,
   pickNextTrainingDay,
   resolveClientGymCard,
@@ -133,6 +134,42 @@ test('no program → no gym card (PR 34 first-run empty stays)', () => {
   assert.equal(card.kind, 'none');
 });
 
+test('program day is due only for continue or today’s start, not a future weekday', () => {
+  const monday = resolveClientGymCard({
+    hasActiveProgram: true,
+    days: hugoDays,
+    workouts: [],
+    todayWeekday: 1,
+    todayDate: '2026-08-31',
+  });
+  const sunday = resolveClientGymCard({
+    hasActiveProgram: true,
+    days: hugoDays,
+    workouts: [],
+    todayWeekday: 0,
+    todayDate: '2026-08-30',
+  });
+  const continueCard = resolveClientGymCard({
+    hasActiveProgram: true,
+    days: hugoDays,
+    assignmentId: 'asg',
+    workouts: [{
+      id: 'w1',
+      date: '2026-08-31T12:00:00',
+      completed: false,
+      program_day_id: 'mon',
+      program_assignment_id: 'asg',
+    }],
+    todayWeekday: 1,
+    todayDate: '2026-08-31',
+  });
+  assert.equal(isProgramDayDue(monday), true);
+  assert.equal(isProgramDayDue(sunday), false);
+  assert.equal(isProgramDayDue(continueCard), true);
+  assert.equal(isProgramDayDue({ kind: 'done_next', isToday: true }), false);
+  assert.equal(isProgramDayDue({ kind: 'none', isToday: false }), false);
+});
+
 test('pickNext wraps; workoutOnDate matches local timestamps', () => {
   assert.equal(pickNextTrainingDay(hugoDays, 6, false)?.name, 'Push');
   assert.equal(workoutOnDate('2026-08-30T12:00:00', '2026-08-30'), true);
@@ -177,6 +214,10 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(workoutPage, /ClientGymCard/);
   assert.match(workoutPage, /startProgramDay/);
   assert.match(workoutPage, /to="\/programs"/);
+  assert.match(workoutPage, /coached \|\| !assignment\?\.program/);
+  assert.match(workoutPage, /to="\/exercise-progress"/);
+  assert.match(workoutPage, /isProgramDayDue/);
+  assert.match(workoutPage, /nav\.addWorkoutOffPlan/);
   assert.doesNotMatch(workoutPage, /ProgramEditorPage/);
   assert.doesNotMatch(workoutPage, /workout\.myRoutines/);
 
@@ -211,4 +252,8 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(layout, /hideFab/);
   assert.match(layout, /startsWith\('\/messages'\)/);
   assert.match(layout, /startsWith\('\/checkin'\)/);
+
+  const fab = src('src/components/layout/FAB.tsx');
+  assert.match(fab, /isProgramDayDue/);
+  assert.match(fab, /nav\.addWorkoutOffPlan/);
 });

@@ -120,6 +120,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
         labelKey: 'nav.sectionTrain',
         items: [
           ...(tracking.track_workouts ? [workout, myProgram] : []),
+          progress,
         ],
       },
       {
