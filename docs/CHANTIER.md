@@ -6,11 +6,11 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–12 Terminé** (preuve live). Lots **13–16** + M encore **À vérifier**. Lots **17–23 Terminé**.
+**Mis à jour : 15 septembre 2026 (soir).** Lots **1–13 Terminé** (preuve live). Lots **14–16** + M encore **À vérifier**. Lots **17–23 Terminé**.
 
-| **Lot ouvert :** 13–16 / M (preuve, pas rebuild). Lots **1–12** et **17–23 Terminé**.
+| **Lot ouvert :** 14–16 / M (preuve, pas rebuild). Lots **1–13** et **17–23 Terminé**.
 
-**Preuve live 15 sept. soir (restes 3–10)** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
+**Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
 | Lot | Joué live | Reste (ne pas reconstruire) |
 |---|---|---|
@@ -23,6 +23,7 @@
 | **8** Programme coaché | **PASS.** `/programs` coaché : « Plan Chantier Force », Squat 3×5, Bench 3×8, semaine 1/8. Lecture seule. | — |
 | **9** File / roster | **PASS.** `/clients?filter=checkin` : « Filtre : checkin · N client(s) · Effacer le filtre ». | — |
 | **10** Cohérence | **PASS.** 10d : « Avant d’envoyer » + destinataire + « Effet : brouillon… ». 10e : toast « Enregistré — visible par Chantier Coach ». 10a–c, 10j déjà joués. | — |
+| **13** Ask autres surfaces | **PASS.** 13a séance : Ignorer / Cette séance, pas « jour de plan ». 13b : 3 repas + journal / Mes recettes. 13c : note + « pas un diagnostic » ; textarea préremplie. 13d : Recaler, pas d’auto-skip. 13e : brouillon Messages. 13f : Deadlift → Hip Thrust, cette séance. 13g semaine + courses. 13h swap ingrédient. 13i Deload 2 séries. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -154,7 +155,7 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 | **10** | **Cohérence restante** | **Terminé** | 10d recap Ask + 10e check-in coaché live. 10a–c, 10j déjà prouvés. |
 | **11** | **Bibliothèque d’exercices** (UX86) | **Terminé** | Apply prod `20260915180000`. Picker live : Squat listé + iframe YouTube (`youtube-nocookie`) + muscles (quadriceps / fessiers). |
 | **12** | **Ask solo contextualisé** | **Terminé** | Barres + revue live. Entraînement : Ignorer / Cette séance / jour de plan. Nutrition : Ignorer / journal / Mes recettes. Jamais auto-apply. |
-| **13** | **Ask : autres surfaces** | À construire **après 12** | Même contrat (contexte de page, validation humaine). Séance en cours, journal / macros restants, check-in, jour loupé, coaché = brouillon Messages, alternatives d’exo (après 11), plan semaine + courses, swap d’ingrédient, deload. Une PR par ligne. |
+| **13** | **Ask : autres surfaces** | **Terminé** | Live 15 sept. : 13a–13i (séance / journal / check-in / recale / brouillon Messages / swap exo / semaine+courses / ingrédient / deload). Jamais auto-apply. |
 | **14** | **Types de séries : builder + logger** | À construire **après 10** | Le plan prescrit **tous** les `SET_TYPES` ; le logger **change de saisie** selon le type (drop = N charges / une série ; superset = les 2+ exos du tour). Séance programmée joue la prescription. Coaché : pas d’exo hors plan. Une PR par ligne. |
 | **15** | **Confort séance, journal, photos** | À construire **après 14** | Timer de repos persistant ; séance libre → modèle ; disques ; repas d’un jour choisi ; scanner hérite date/repas ; HEIC. Une PR par ligne. Recettes coaché = **10a**, pas ici. |
 | **16** | **Outillage coach et chrome coaché** | À construire **après 15** | FAB check-in ; dupliquer un programme ; notes d’exo au 360 ; copier le setup tracking ; Nutrition coaché sans 6ᵉ onglet. Une PR par ligne. |
@@ -338,8 +339,8 @@ ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛
 | 8 | **Terminé.** Lecture programme coaché. |
 | 9 | **Terminé.** `?filter=checkin` live. |
 | 11 | **Terminé.** `video_url` prod + picker live (iframe + mannequin). |
-| 12 | `/prometheus` = `CoachOnly`. Solo : revue hebdo Accueil (`soloCopilot`), pas de barre Ask sur `/workout` ni `/nutrition`. Recettes = `recipeStore`. |
-| 13 | `WorkoutForm` : pas d’Ask in-session. Check-in : champs, pas de note proposée. Coaché : Ask n’existe pas ; Messages = texte. Picker : pas d’alternatives muscle/matériel. |
+| 12 | **Terminé.** Ask Entraînement / Nutrition + revue (Ignorer / cette séance ou journal / enregistrer). |
+| 13 | **Terminé.** `SoloAskBar` : `WorkoutForm` (`session`), Nutrition (journal / week / ingredient), check-in (note), workout list (`missed` / `deload` / `coached` → brouillon), fiche exo (`swap_exercise`). |
 | 14 | `ProgramDayExercise` / `ProgramExerciseDraft` : sets, reps, rir, rest, poids. `SET_TYPES` + drop/myo/tempo/iso/cluster **seulement** dans `ExerciseCard` si `!program_day_id`. `hevySimple = !!program_day_id`. Superset = `superset_group_id` à la volée, pas au plan. Drop = **autre ligne** `set_type: drop`, un poids. |
 | 15 | `RestTimer` : `open={showTimer}` ; `onClose` démonte. `/programs/new` = `CoachOnly`. `copyFromYesterday`. `navigate('/scanner')` sans query. `heic_unsupported`. |
 | 16 | `FAB` : workout / weight / meal. Pas de Dupliquer sur `ProgramsPage`. `LastSessionExercise` sans notes. Setup tracking par client, pas de copie. `mobileTabs` coaché : Aujourd’hui / Entraînement / Check-in / Messages / Profil. |
@@ -433,15 +434,15 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Bibliothèque exo : vidéo + mannequin muscles | UX86 | Lot 11, après 10 |
 | Ask solo Entraînement + choix ignorer / cette séance / plan nommé | UX87 | Lot 12a, après 10 |
 | Ask solo Nutrition + choix ignorer / une fois / Mes recettes | UX88 | Lot 12b, après 10 |
-| Ask pendant la séance | UX89 | Lot 13a, après 12 |
-| Reste macros / journal → idées repas | UX90 | Lot 13b, après 12 |
-| Check-in → note de séance (pas diagnostic) | UX91 | Lot 13c, après 12 |
-| Jour loupé → recaler le plan | UX92 | Lot 13d, après 12 |
-| Ask coaché = brouillon Messages | UX93 | Lot 13e, après 12 |
-| Alternatives d’exo depuis la fiche | UX94 | Lot 13f, après 11 et 12 |
-| Plan repas semaine + liste courses | UX95 | Lot 13g, après 12 |
-| Swap d’ingrédient | UX96 | Lot 13h, après 12 |
-| Deload / charges-repos dernière fois | UX97 | Lot 13i, après 12 |
+| Ask pendant la séance | UX89 | **13a Terminé** |
+| Reste macros / journal → idées repas | UX90 | **13b Terminé** |
+| Check-in → note de séance (pas diagnostic) | UX91 | **13c Terminé** |
+| Jour loupé → recaler le plan | UX92 | **13d Terminé** |
+| Ask coaché = brouillon Messages | UX93 | **13e Terminé** |
+| Alternatives d’exo depuis la fiche | UX94 | **13f Terminé** |
+| Plan repas semaine + liste courses | UX95 | **13g Terminé** |
+| Swap d’ingrédient | UX96 | **13h Terminé** |
+| Deload / charges-repos dernière fois | UX97 | **13i Terminé** |
 | Builder : tous les types de séries + groupes superset | UX98 | Lot 14a, après 10 |
 | Logger adapté au type (drop multi-charges, tour superset, …) | UX99 | Lot 14b, après 10 |
 | Séance programmée joue la prescription (plus de `hevySimple`) | UX100 | Lot 14c, après 10 |
@@ -641,15 +642,15 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX46** | P2 | 10c | **À vérifier** | Learned : kinds FR/EN, pas de clés JSON. Onglet 360 **Récupération**. **Reste :** parcours live. | Désactivation sans clés techniques. |
 | **UX87** | P2 | 12a | **Terminé** | Revue live : Ignorer / Cette séance / Enregistrer comme jour de plan. | La réponse est actionnable et durable, jamais auto-appliquée. |
 | **UX88** | P2 | 12b | **Terminé** | Revue live : Ignorer / Ajouter au journal / Mes recettes. | Recette proposée = enregistrable **au choix**, jamais forcée. |
-| **UX89** | P2 | 13a | **À vérifier** | Ask dans `WorkoutForm` (surface `session`) : apply = cette séance, pas de save plan. **Reste :** parcours live. | N’écrit le plan que si on enregistre. |
-| **UX90** | P2 | 13b | **À vérifier** | Restes du jour → 2–3 idées (`recipes`). **Reste :** parcours live. | Même choix qu’UX88. |
-| **UX91** | P2 | 13c | **À vérifier** | Check-in → note de séance préremplie. **Reste :** parcours live. | Proposition ≠ diagnostic. |
-| **UX92** | P2 | 13d | **À vérifier** | Jour loupé → `plan_shift` (save seulement, pas d’auto-skip). **Reste :** parcours live. | Pas d’auto-skip. |
-| **UX93** | P2 | 13e | **À vérifier** | Coaché : Ask = `saveMessageDraft` + `/messages`. **Reste :** parcours live. | Le coach lit ce que le client envoie. |
-| **UX94** | P2 | 13f | **À vérifier** | Alternative depuis la fiche (`swap_exercise` cette séance). **Reste :** parcours live. | Swap cette séance après revue. |
-| **UX95** | P2 | 13g | **À vérifier** | Semaine + courses (`groceryList`). **Reste :** parcours live. | Enregistrable, pas auto-appliqué. |
-| **UX96** | P2 | 13h | **À vérifier** | Swap ingrédient depuis Nutrition. **Reste :** parcours live. | Cibles conservées. |
-| **UX97** | P2 | 13i | **À vérifier** | Deload / dernière charge dans la proposition. **Reste :** parcours live. | Revue avant écriture. |
+| **UX89** | P2 | 13a | **Terminé** | Live : Ignorer / Cette séance ; pas « Enregistrer comme jour de plan ». | N’écrit le plan que si on enregistre. |
+| **UX90** | P2 | 13b | **Terminé** | Live : 3 idées + Ignorer / journal / Mes recettes. | Même choix qu’UX88. |
+| **UX91** | P2 | 13c | **Terminé** | Live : note + « pas un diagnostic médical » ; textarea préremplie. | Proposition ≠ diagnostic. |
+| **UX92** | P2 | 13d | **Terminé** | Live : Recaler le jour loupé ; pas d’auto-skip. | Pas d’auto-skip. |
+| **UX93** | P2 | 13e | **Terminé** | Live : brouillon pour Chantier Coach ; texte sur `/messages`. | Le coach lit ce que le client envoie. |
+| **UX94** | P2 | 13f | **Terminé** | Live : Deadlift → Hip Thrust (glutes + barre), cette séance seulement. | Swap cette séance après revue. |
+| **UX95** | P2 | 13g | **Terminé** | Live : 3 repas + liste Courses ; jamais auto-appliqué. | Enregistrable, pas auto-appliqué. |
+| **UX96** | P2 | 13h | **Terminé** | Live : swap qui garde les cibles. | Cibles conservées. |
+| **UX97** | P2 | 13i | **Terminé** | Live : Deload 2 séries, revue avant écriture. | Revue avant écriture. |
 
 ### Calendrier et indicateurs
 
@@ -743,7 +744,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (jetables puis SQL `chantier-*-1515`) : lots **1–10**. Lots **11–16** / M encore dus.
+Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–13**. Lots **14–16** / M encore dus.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -760,6 +761,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (jetables puis SQL `chantie
 | Coach | Assigner un programme depuis la bibliothèque | **Joué.** Recap nom + destinataire + date. |
 | Coach | Ask avant envoi | **Joué.** « Avant d’envoyer » + effet brouillon. |
 | Coaché | Check-in | **Joué.** « Enregistré — visible par {coach} ». |
+| Solo / coaché | Ask 13a–13i | **Joué.** Séance / journal / note / recale / brouillon / swap / semaine / ingrédient / deload. |
 | Coach / solo | Enregistrer un programme (nom + un jour) | Une écriture ; échec = rien changé. Liste encore là si le chargement rate. |
 | Coach → client | Jour avec squat + développé en **superset**, et un développé avec **drop** 100→80→60 | Builder : les 2 exos liés ; drop = 3 charges / 1 série. Logger client : tour A puis B ; une coche drop avec 3 poids. Pas une séance « tout en working ». |
 | Tous | Petit écran, clavier, FR/EN, zoom | Lot concerné toujours faisable |
