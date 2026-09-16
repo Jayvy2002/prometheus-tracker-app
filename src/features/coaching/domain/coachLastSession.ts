@@ -204,7 +204,7 @@ export function sessionReviewRows(
       clientName: displayName(ops.client),
       avatarUrl: ops.client.avatar_url,
       href: trainingSessionHref(ops.client.id, session.workoutId),
-      relanceHref: relanceThreadHref(ops.client.id, 'general_followup'),
+      relanceHref: relanceThreadHref(ops.client.id, 'general_followup', { workoutId: session.workoutId }),
       session,
     });
   }

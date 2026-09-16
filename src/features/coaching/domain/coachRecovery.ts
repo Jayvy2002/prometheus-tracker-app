@@ -252,8 +252,14 @@ export function highHungerPriority(
   return scorePriority('high_hunger', clientId, name, avatar, latest, latest.hunger as number);
 }
 
-export function relanceHrefForRecovery(clientId: string, hasSnapshot: boolean): string {
-  return relanceThreadHref(clientId, hasSnapshot ? 'general_followup' : 'missed_checkins');
+export function relanceHrefForRecovery(
+  clientId: string,
+  hasSnapshot: boolean,
+  checkinId?: string | null,
+): string {
+  return relanceThreadHref(clientId, hasSnapshot ? 'general_followup' : 'missed_checkins', {
+    checkinId: hasSnapshot ? checkinId : null,
+  });
 }
 
 export function painPriority(

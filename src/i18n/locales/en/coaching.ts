@@ -793,6 +793,10 @@ const coaching = {
       noCoach: 'No coach linked',
       noCoachBody: 'Messages show up here when a coach is working with you.',
       openInbox: 'Open the conversation',
+      aboutWorkout: 'About your session {{name}} · {{date}}',
+      aboutCheckin: 'About your check-in on {{date}}',
+      composeAboutWorkout: 'This message will be linked to session {{name}} · {{date}}.',
+      composeAboutCheckin: 'This message will be linked to the check-in on {{date}}.',
     },
     progress: {
       weightTitle: 'Weight',

@@ -76,8 +76,9 @@ export function relanceTemplateForCheckinKind(kind: CheckinReviewKind | CoachPri
 export function relanceHrefForCheckin(
   clientId: string,
   kind: CheckinReviewKind | CoachPriorityKind,
+  checkinId?: string | null,
 ): string {
-  return relanceThreadHref(clientId, relanceTemplateForCheckinKind(kind));
+  return relanceThreadHref(clientId, relanceTemplateForCheckinKind(kind), { checkinId });
 }
 
 export function flagKindForClient(
@@ -117,7 +118,7 @@ export function checkinReviewRows(
         ? recoveryFocusHref(ops.client.id, latest.id)
         : checkinFocusHref(ops.client.id, latest.id),
       kind,
-      relanceHref: relanceHrefForCheckin(ops.client.id, kind),
+      relanceHref: relanceHrefForCheckin(ops.client.id, kind, latest.id),
     });
   }
   const order: Record<CheckinReviewKind, number> = {
