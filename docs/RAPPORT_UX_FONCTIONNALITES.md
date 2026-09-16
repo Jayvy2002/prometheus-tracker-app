@@ -278,8 +278,8 @@ Même moteur que le coaché, plus : séance libre naturelle, lien « Mon program
 | | |
 |---|---|
 | **Quoi** | Onglet `/exercise-progress` : hub 2×2 Résumé `/stats`, Entraînement, Mesures `/weight`, Historique `/calendar`. 1RM estimé, tendances, graphes. Tap d’un point / d’une séance → `/workout/:id` (UX50). |
-| **Marche** | Le solo *complet* de la vision a enfin un onglet « comprendre » — plus besoin de deviner Profil. Origine d’un point retrouvable. |
-| **Ne va pas** | Stats encore capables d’interpréter un manque de données. Calendrier : plusieurs séances le même jour / fenêtre de dates à vérifier. Desktop duplique (sidebar Comprendre **et** onglet). |
+| **Marche** | Le solo *complet* de la vision a enfin un onglet « comprendre » — plus besoin de deviner Profil. Origine d’un point retrouvable. UX47 : jour de plan prévu / commencé / terminé ; un dû non loggé reste visible. |
+| **Ne va pas** | Stats encore capables d’interpréter un manque de données. Desktop duplique (sidebar Comprendre **et** onglet). |
 | **Changer** | Hub = porte. Chaque tuile = une question (« Est-ce que je progresse au développé ? ») pas un export Excel. Donnée manquante ≠ 0. Ne pas ajouter Stats comme 6ᵉ tab. |
 
 ### 4.5 Nutrition, eau, pas, recettes, scanner
