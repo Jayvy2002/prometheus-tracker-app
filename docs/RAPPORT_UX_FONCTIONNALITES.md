@@ -194,18 +194,18 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 | | |
 |---|---|
 | **Quoi** | `/checkin`. Cœur : sommeil, qualité, énergie, stress. « Plus de détails (N) » : humeur, faim, fatigue, douleur, plan suivi, notes — selon `checkin_vars`. Historique 14 j = scores **remplis**. Tab mobile si module on. |
-| **Marche** | Court par défaut (UX25). Échelles 0–10 avec mots-ancres. Setup coach : Essentiels / Détails. |
-| **Ne va pas** | Boucle fermée absente (à quoi a servi le bilan — UX27 conçu). |
-| **Changer** | Toast UX26 déjà là (« Enregistré — visible par {coach} »). Relier la réponse coach au bilan (UX27). Ne pas inventer une date de revue. |
+| **Marche** | Court par défaut (UX25). Échelles 0–10 avec mots-ancres. Setup coach : Essentiels / Détails. Toast UX26. Relance check-in → phrase « À propos de ton check-in… » dans Messages (UX27). |
+| **Ne va pas** | Pas de carte résumé cliquable vers la fiche (UX32). Pas de date de revue inventée. |
+| **Changer** | UX32 : carte nom + date, ouverture = recap / fiche, pas un logger dans le chat. |
 
 ### 3.5 Messages
 
 | | |
 |---|---|
 | **Quoi** | `/messages` fil 1:1 avec le coach. Badge non-lus. FAB masqué. Plein écran conversation. |
-| **Marche** | Canal unique humain. Relances coach = messages éditables, pas d’auto-send. |
-| **Ne va pas** | Brouillon par conversation encore fragile. Pas de pièce jointe (séance / photo) dans le fil. « Lu » non prouvé. |
-| **Changer** | Fiabiliser le socle (conserver le texte, pas de doublon). Ensuite : lier un message à une séance ou un check-in (résumé, pas un dump). Pas de 6ᵉ onglet. |
+| **Marche** | Canal unique humain. Relances coach = messages éditables, pas d’auto-send. UX27 : phrase séance / check-in sous le message (coach + coaché), FK `workout_id` / `checkin_id`. |
+| **Ne va pas** | Pas de carte résumé ni d’ouverture recap (UX32). Pièces / vocaux hors scope. |
+| **Changer** | UX32 : carte nom + date, tap = fiche / recap. Pas de 6ᵉ onglet. « Lu » seulement si `read_at` confirmé. |
 
 ### 3.6 Nutrition, scanner, poids, photos
 

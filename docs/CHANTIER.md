@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 15 septembre 2026 (soir).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX15 / UX16 / UX18 / UX19 / UX23 / UX25 / UX28 / UX36 / UX39–41 / UX44 / UX51 / UX64 / UX66 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX22 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 16 septembre 2026 (nuit).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX15 / UX16 / UX18 / UX19 / UX23 / UX25 / UX27 / UX28 / UX36 / UX39–41 / UX44 / UX51 / UX64 / UX66 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX22 / 32 / 47 / 50 / 67 / 112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX05 / UX07 / UX08 / UX15 / UX18 / UX19 / UX23 / UX25 / UX28 / UX36 / UX39–41 / UX44 / UX64 / UX66 / UX84** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX05 / UX07 / UX08 / UX15 / UX18 / UX19 / UX23 / UX25 / UX27 / UX28 / UX36 / UX39–41 / UX44 / UX64 / UX66 / UX84** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -52,6 +52,7 @@
 | **UX66** Contrôle des données | **PASS.** Solo : photos « seulement par toi » ; export JSON 10 séances / 5 poids / 1 check-in (`energy_level`) ; mot **SUPPRIMER** (DELETE refusé) ; modal fermée sans delete. Client : « Chantier Coach » + séances/check-ins/nutrition/poids ; lien « sans écrire au support ». RLS `coach_notes` vide. | — |
 | **UX19** Proposer au plan | **PASS.** Client `/workout` : notice « le plan assigné ne change pas » ; pas d’édition plan. Coach 360 Entraînement : « Proposer au plan » → brouillon `program_nl_edit` + recap avant/après (Squat 3×5 RIR2 → 3×5 RIR3). Pas d’envoi. | — |
 | **UX23** Historique révisions | **PASS.** Duplicata (pas Force) : badge → liste avant/après + auteur. Save = rév. 2 (Haut du corps → Haut du corps UX23). Restaurer rév. 1 = rév. 3, jour d’origine, 2 workouts Client inchangés. Force reste rév. 1. | — |
+| **UX27** Réponse ↔ bilan | **PASS.** Coach 360 Entraînement : Relancer → `/messages/…?nudge=missed_training&workout=` (Séance squat chantier). Check-ins : Relancer → `?checkin=`. Phrase coach + Client `/messages` (« À propos de ta séance… » / « À propos de ton check-in… »). `read_at` seulement après ouverture du fil. Force rév. 1. Pas de 2ᵉ inbox, pas d’ouverture recap (UX32). | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -347,7 +348,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX05 / UX18 / UX19 / UX23 / UX25 / UX28 / UX36 / UX39–41 / UX44 / UX64 / UX66 / UX84 Terminé**. Contrats **UX22 / 27 / 32 / 47 / 50 / 67 / 112 Conçu**. Reste À vérifier / À construire. Billing (**M6 Reporté**). Capteurs = chantier dédié.
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX05 / UX18 / UX19 / UX23 / UX25 / UX27 / UX28 / UX36 / UX39–41 / UX44 / UX64 / UX66 / UX84 Terminé**. Contrats **UX22 / 32 / 47 / 50 / 67 / 112 Conçu**. Reste À vérifier / À construire. Billing (**M6 Reporté**). Capteurs = chantier dédié.
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -447,7 +448,7 @@ Ne pas reconstruire ce qui existe (lots 6, 7, 12–13, snapshots programmes). Un
 | **UX67** Aide | Copy inline (notices santé UX04, audience photos UX54). | Une phrase à côté du contrôle, au premier usage ou en disclosure. | Centre d’aide. 6ᵉ onglet. Dump de parcours. |
 | **UX112** Capteurs | Saisie manuelle. Onglet 360 « Récupération » = check-ins, pas un wearable. | Chantier dédié **après** cette file : source nommée, consentement, conflit saisie vs capteur. | Route `/health`, Apple Health / Garmin / Fitbit **maintenant**. |
 
-**Construction.** UX27 / UX32 / UX47 / UX50 = PRs séparées sur l’existant. UX22 = pas de moteur neuf. UX67 = copy, pas un produit aide. UX112 = hors file.
+**Construction.** UX32 / UX47 / UX50 = PRs séparées sur l’existant. UX22 = pas de moteur neuf. UX67 = copy, pas un produit aide. UX112 = hors file.
 
 ### Livraison chantier 2
 
@@ -489,7 +490,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Cycles / phases / prescriptions hors reps | UX22 | **Conçu** |
 | Historique visuel des révisions | UX23 | **Terminé** |
 | Check-in : champs vraiment utilisés | UX25 | **Terminé** |
-| Relier réponse coach au bilan | UX27 | **Conçu** |
+| Relier réponse coach au bilan | UX27 | **Terminé** |
 | Manque ≠ faute ; relances | UX28 | **Terminé** |
 | Lier séance / check-in dans le fil | UX32 | **Conçu** |
 | Filtres roster visibles | UX36 | **Terminé** |
@@ -670,7 +671,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX24** | P2 | fait | À vérifier | Ancres bas/haut livrées (#91). | Historique comparable. |
 | **UX25** | P2 | ens. | **Terminé** | Live Solo : cœur + « Plus de détails (9) » ; historique = scores remplis seulement. Setup Essentiels/Détails. 360 : Qualité 8/10 + Énergie 7/10. | Chaque champ explicable. |
 | **UX26** | P1 | 10e | **Terminé** | Toast live « Enregistré — visible par Chantier Coach ». | Succès ≠ lu. |
-| **UX27** | P2 | ens. | **Conçu** | Contrat ci-dessous. Toast UX26 déjà là. Construction = lien visible, pas un 2ᵉ inbox. | Le coaché voit à quoi ça a servi. |
+| **UX27** | P2 | ens. | **Terminé** | Live : Relancer 360 pose `?workout=` / `?checkin=` ; phrase dans le fil coach + Client ; `read_at` après ouverture. Toast UX26 déjà là. | Le coaché voit à quoi ça a servi. |
 | **UX28** | P1 | ens. | **Terminé** | Live : cutoff « séance non loggée » ; templates « Séances non loggées » / « Check-ins en attente » ; Ask « log(s) manquant(s) » ; relance sans faute. `fleetCopy` jumelé. | Pas d’interprétation santé automatique. |
 
 ### Messagerie
@@ -820,7 +821,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX05**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX15**, **UX16**, **UX18**, **UX19**, **UX23**, **UX25**, **UX28**, **UX36**, **UX39–41**, **UX44**, **UX51**, **UX64**, **UX66**, **UX84**. **M7–M8** et contrats catalogue **UX22 / 27 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15–16 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX05**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX15**, **UX16**, **UX18**, **UX19**, **UX23**, **UX25**, **UX27**, **UX28**, **UX36**, **UX39–41**, **UX44**, **UX51**, **UX64**, **UX66**, **UX84**. **M7–M8** et contrats catalogue **UX22 / 32 / 47 / 50 / 67 / 112 conçus**. Reste À vérifier / À construire.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
@@ -833,6 +834,7 @@ Comptes de test, pas la CI seule. **Joué 15 sept.** (SQL `chantier-*-1515`) : l
 | Solo / Coaché | Profil → données, export, delete | **Joué (UX66).** Solo : seulement toi ; Client : Chantier Coach + modules ; JSON sans notes coach ; **SUPPRIMER** ; Annuler. |
 | Coaché / Coach | Swap séance vs proposer au plan | **Joué (UX19).** Client : notice plan inchangé. Coach : Proposer au plan → brouillon + recap. Pas d’envoi. |
 | Coach | Historique révisions + restaurer | **Joué (UX23).** Duplicata : avant/après ; restaurer rév. 1 = nouvelle entrée ; Force et logs Client inchangés. |
+| Coach / coaché | Réponse liée au bilan | **Joué (UX27).** Relancer séance/check-in → query + phrase dans Messages. Client voit la même puce. `read_at` après ouverture. Pas de 2ᵉ inbox. |
 | Coaché | Photos + 360 | **Joué.** Audience coach nommé ; 360 « Tu vois toutes les photos… ». |
 | Coaché / solo | Deux séances le même jour dans le calendrier | **Joué.** Les deux listées. Unique pesée/jour = contrainte prod. |
 | Coaché | Recherche progression | **Joué.** `/exercise-progress` filtre « Squat ». |

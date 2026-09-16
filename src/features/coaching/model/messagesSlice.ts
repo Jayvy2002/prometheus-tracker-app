@@ -6,6 +6,10 @@ import {
   mapCoachMessage,
 } from '../../../lib/coachQueue';
 import {
+  bilanInsertFields,
+  normalizeBilanRef,
+} from '../../../lib/messageBilan';
+import {
   confirmedReadIds,
 } from '../../../lib/messageDrafts';
 import {
@@ -85,7 +89,7 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
     set({ unreadMessageCount: total });
   },
 
-  sendCoachMessage: async (clientId, body, templateKey, clientMsgId) => {
+  sendCoachMessage: async (clientId, body, templateKey, clientMsgId, bilan) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
     const trimmed = body.trim();
@@ -101,6 +105,7 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
         body: trimmed,
         template_key: templateKey,
         client_msg_id: msgId,
+        ...bilanInsertFields(normalizeBilanRef(bilan)),
       })
       .select()
       .maybeSingle();

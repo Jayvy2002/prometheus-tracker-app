@@ -451,6 +451,10 @@
     {
       "version": "20260915201731",
       "name": "assign_questionnaire_complements"
+    },
+    {
+      "version": "20260915234946",
+      "name": "ux27_message_bilan"
     }
   ]
 }

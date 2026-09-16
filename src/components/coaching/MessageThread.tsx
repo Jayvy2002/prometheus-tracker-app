@@ -9,6 +9,8 @@ import {
   loadMessageDraft,
   saveMessageDraft,
 } from '../../lib/messageDrafts';
+import { formatBilanDate } from '../../lib/messageBilan';
+import { useMessageBilanLabels } from '../../features/coaching/hooks/useMessageBilanLabels';
 
 export default function MessageThread({
   messages,
@@ -55,6 +57,7 @@ export default function MessageThread({
   };
   const ordered = useMemo(() => [...messages].sort((a, b) =>
     a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [messages]);
+  const bilanLabels = useMessageBilanLabels(ordered);
 
   useEffect(() => {
     const personal = loadMessageDraft(accountId, peerId);
@@ -145,6 +148,18 @@ export default function MessageThread({
                   mine ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-100 border border-neutral-800'
                 }`}>
                   <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.body}</p>
+                  {bilanLabels[msg.id] ? (
+                    <p data-testid="ux27-bilan-chip" className={`text-[11px] mt-1 ${mine ? 'text-blue-100' : 'text-neutral-400'}`}>
+                      {bilanLabels[msg.id].kind === 'workout'
+                        ? t('coaching.messages.aboutWorkout', {
+                          name: bilanLabels[msg.id].name || t('workout.unnamed'),
+                          date: formatBilanDate(bilanLabels[msg.id].date, i18n.language),
+                        })
+                        : t('coaching.messages.aboutCheckin', {
+                          date: formatBilanDate(bilanLabels[msg.id].date, i18n.language),
+                        })}
+                    </p>
+                  ) : null}
                   <p className={`text-xs mt-1 ${mine ? 'text-blue-100' : 'text-neutral-500'}`}>
                     {formatMessageTime(msg.created_at, i18n.language)}
                   </p>
@@ -181,7 +196,7 @@ export default function MessageThread({
       )}
       <div className="pt-2 pb-2 border-t border-neutral-800 shrink-0">
         {draftHint ? (
-          <p className="text-sm text-neutral-500 mb-2">{draftHint}</p>
+          <p data-testid="ux27-compose-hint" className="text-sm text-neutral-500 mb-2">{draftHint}</p>
         ) : null}
         {sendError ? (
           <div className="mb-2 flex items-center gap-2" role="alert">

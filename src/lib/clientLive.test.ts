@@ -20,6 +20,8 @@ function msg(partial: Partial<CoachMessage> & Pick<CoachMessage, 'id'>): CoachMe
     template_key: 'missed_training',
     created_at: '2026-08-29T10:00:00Z',
     read_at: null,
+    workout_id: null,
+    checkin_id: null,
     ...partial,
   };
 }

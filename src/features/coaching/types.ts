@@ -205,6 +205,8 @@ export interface CoachMessage {
   template_key: CoachMessageTemplateKey;
   created_at: string;
   read_at: string | null;
+  workout_id: string | null;
+  checkin_id: string | null;
 }
 
 export interface CoachMessageThread {
