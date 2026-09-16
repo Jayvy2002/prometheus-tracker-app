@@ -62,7 +62,7 @@ export default function LastSessionReview({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="ux32-session-review">
       <div>
         <p className="text-[11px] uppercase tracking-wider text-blue-300">{t('coaching.lastSession.title')}</p>
         <h2 className="text-lg font-semibold text-white">{session.name || t('workout.title')}</h2>

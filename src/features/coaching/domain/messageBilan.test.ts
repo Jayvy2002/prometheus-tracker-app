@@ -3,11 +3,18 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { coachingStoreSource } from '../../../lib/coachingStoreSource';
+import { checkinFocusHref } from './coachCheckins';
+import { trainingSessionHref } from './coachTraining';
 import {
   appendBilanSearch,
+  athleteCheckinHref,
+  athleteWorkoutHref,
   bilanInsertFields,
+  bilanOpenHref,
+  bilanViewerFor,
   hasBilan,
   normalizeBilanRef,
+  parseAthleteCheckinQuery,
   parseBilanQuery,
   parseBilanUuid,
 } from './messageBilan';
@@ -72,4 +79,53 @@ test('UX27 wires message FKs, 360 relance, chip — not a second inbox or read_a
   const fr = src('src/i18n/locales/fr/coaching.ts');
   assert.match(fr, /aboutWorkout:/);
   assert.match(fr, /aboutCheckin:/);
+});
+
+test('UX32 card opens recap or fiche — not a logger in the thread', () => {
+  const coachId = 'a1515001-0000-4000-8000-000000000001';
+  const clientId = 'a1515001-0000-4000-8000-000000000002';
+  const msg = { coach_id: coachId, client_id: clientId };
+  assert.equal(bilanViewerFor(coachId, msg), 'coach');
+  assert.equal(bilanViewerFor(clientId, msg), 'athlete');
+  assert.equal(bilanViewerFor('other', msg), null);
+
+  assert.equal(
+    bilanOpenHref({ viewer: 'coach', clientId, workoutId: WORKOUT }),
+    trainingSessionHref(clientId, WORKOUT),
+  );
+  assert.equal(
+    bilanOpenHref({ viewer: 'athlete', clientId, workoutId: WORKOUT }),
+    athleteWorkoutHref(WORKOUT),
+  );
+  assert.equal(
+    bilanOpenHref({ viewer: 'coach', clientId, checkinId: CHECKIN }),
+    checkinFocusHref(clientId, CHECKIN),
+  );
+  assert.equal(
+    bilanOpenHref({ viewer: 'athlete', clientId, checkinId: CHECKIN }),
+    athleteCheckinHref(CHECKIN),
+  );
+  assert.equal(bilanOpenHref({ viewer: 'athlete', clientId, workoutId: 'not-a-uuid' }), null);
+  assert.equal(parseAthleteCheckinQuery(new URLSearchParams(`id=${CHECKIN}`)), CHECKIN);
+
+  const thread = src('src/components/coaching/MessageThread.tsx');
+  assert.match(thread, /ux32-bilan-card/);
+  assert.match(thread, /bilanOpenHref/);
+  assert.match(thread, /<Link/);
+  assert.doesNotMatch(thread, /data-workout-logger/);
+  assert.doesNotMatch(thread, /WhatsApp/);
+
+  const page = src('src/components/checkin/CheckInPage.tsx');
+  assert.match(page, /parseAthleteCheckinQuery/);
+  assert.match(page, /ux32-checkin-fiche/);
+  assert.match(page, /ux32-checkin-gone/);
+  assert.match(src('src/components/checkin/CheckinHistoryList.tsx'), /ux32-checkin-row/);
+
+  assert.match(src('src/components/coaching/LastSessionReview.tsx'), /ux32-session-review/);
+  assert.match(src('src/components/coaching/CheckinReviewPanel.tsx'), /ux32-checkin-review/);
+
+  const fr = src('src/i18n/locales/fr/coaching.ts');
+  assert.match(fr, /openWorkoutRecap:/);
+  assert.match(fr, /openCheckinFiche:/);
+  assert.match(fr, /ficheGone:/);
 });

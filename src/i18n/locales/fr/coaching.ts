@@ -96,6 +96,8 @@ const coaching = {
     disabled: 'Ton coach n’a pas activé le check-in pour toi.',
     historyTitle: 'Tes derniers check-ins',
     historyEmpty: 'Aucun check-in précédent.',
+    ficheGone: 'Ce check-in n’est plus là.',
+    ficheGoneHint: 'Il a été supprimé, ou tu n’y as plus accès. Rien n’a été inventé.',
     fields: {
       sleep_quality: 'Qualité du sommeil',
       energy_level: 'Énergie',
@@ -797,6 +799,8 @@ const coaching = {
       aboutCheckin: 'À propos de ton check-in du {{date}}',
       composeAboutWorkout: 'Ce message sera lié à la séance {{name}} · {{date}}.',
       composeAboutCheckin: 'Ce message sera lié au check-in du {{date}}.',
+      openWorkoutRecap: 'Voir le recap',
+      openCheckinFiche: 'Voir la fiche',
     },
     progress: {
       weightTitle: 'Poids',
