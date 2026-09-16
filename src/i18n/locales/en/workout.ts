@@ -57,6 +57,8 @@ const workout = {
     },
     addExercise: 'Add Exercise',
     emptySession: 'This session has no exercises yet.',
+    sessionGone: 'This session is no longer here.',
+    sessionGoneHint: 'It was deleted, or you no longer have access. Nothing was invented.',
     finishWorkout: 'Finish Workout',
     createFailed: 'Failed to create workout. Please try again.',
     goBack: 'Go Back',
