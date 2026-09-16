@@ -395,6 +395,7 @@ const common = {
       rirDescription: 'Reps In Reserve — advanced training metric',
       autoStartRest: 'Start rest after a completed set',
       autoStartRestHint: 'Never on a simple fill. You can still open the timer yourself.',
+      displayOnlyHint: 'Changing unit changes the display, not the stored value.',
       savePreferences: 'Save Preferences',
     },
     password: {

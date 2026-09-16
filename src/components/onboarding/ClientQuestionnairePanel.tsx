@@ -154,6 +154,7 @@ function ResponseForm({
             </>
           ) : (
             <div className="space-y-4" data-testid="questionnaire-summary">
+              <p className="text-sm text-neutral-400" data-testid="ux67-inline-hint">{t('coachQuestionnaire.audience')}</p>
               <p className="text-sm text-neutral-400">{t('coachQuestionnaire.summaryTitle')}</p>
               {definition.sections.map(section => {
                 const incomplete = sectionHasMissingRequired(section, answers);

@@ -395,6 +395,7 @@ const common = {
       rirDescription: 'Reps In Reserve — métrique avancée d\'entraînement',
       autoStartRest: 'Lancer le repos après une série cochée',
       autoStartRestHint: 'Jamais au préremplissage. Tu peux toujours ouvrir le minuteur à la main.',
+      displayOnlyHint: 'Changer d’unité change l’affichage, pas ce qui est enregistré.',
       savePreferences: 'Enregistrer les préférences',
     },
     password: {

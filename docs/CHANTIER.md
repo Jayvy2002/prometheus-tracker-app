@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 16 septembre 2026 (nuit).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX15 / UX16 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX51 / UX64 / UX66 / UX84 Terminé**. **M7–M8 Conçu**. Contrats catalogue **UX67 / UX112 Conçu**. Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 16 septembre 2026 (nuit).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX15 / UX16 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX51 / UX64 / UX66 / UX67 / UX84 Terminé**. **M7–M8 Conçu**. Contrat **UX112 Conçu** (hors file). Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (catalogue Après 1–10). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX05 / UX07 / UX08 / UX15 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX64 / UX66 / UX84** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (À vérifier P1). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX05 / UX07 / UX08 / UX15 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX64 / UX66 / UX67 / UX84** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -57,6 +57,7 @@
 | **UX32** Objet dans le fil | **PASS.** Client `/messages` : cartes séance + check-in. Tap séance → recap « Séance squat chantier ». Tap check-in → fiche 8/10 · 7/10. UUID inconnu → « Ce check-in n’est plus là. » Coach : cartes → 360 Dernière séance / check-in. Pas de logger dans le chat. Force rév. 1. | — |
 | **UX47** Calendrier d’états | **PASS.** Solo `/calendar` : mardi 15 = point **Prévu** « Mardi force » malgré logs hors programme ; mercredi 16 = pas de jour inventé. Recale expliqué sur la carte. Force rév. 1. | — |
 | **UX22** Séance nommée | **PASS.** Solo Accueil : « Mar · Mardi force ». Client Accueil : « Lun · Haut du corps ». Coach `/programs` : chips weekday · nom, copy sans mésocycle. Recale conserve le nom (verrou `shiftProgramWeekdays`). Force rév. 1. | — |
+| **UX67** Aide inline | **PASS.** Solo : `/help` → Accueil ; 5 onglets, pas d’Aide. Unités : « affichage, pas ce qui est enregistré ». Photos : « seulement par toi ». Client questionnaire : audience coach ; Profil 5 onglets, « Chantier Coach les voit ». | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -352,7 +353,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX05 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX64 / UX66 / UX84 Terminé**. Contrats **UX67 / 112 Conçu**. Reste À vérifier / À construire. Billing (**M6 Reporté**). Capteurs = chantier dédié.
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX05 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX64 / UX66 / UX67 / UX84 Terminé**. Contrat **UX112 Conçu** (hors file). Reste **À vérifier** P1. Billing (**M6 Reporté**). Capteurs = chantier dédié.
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -452,7 +453,7 @@ Ne pas reconstruire ce qui existe (lots 6, 7, 12–13, snapshots programmes). Un
 | **UX67** Aide | Copy inline (notices santé UX04, audience photos UX54). | Une phrase à côté du contrôle, au premier usage ou en disclosure. | Centre d’aide. 6ᵉ onglet. Dump de parcours. |
 | **UX112** Capteurs | Saisie manuelle. Onglet 360 « Récupération » = check-ins, pas un wearable. | Chantier dédié **après** cette file : source nommée, consentement, conflit saisie vs capteur. | Route `/health`, Apple Health / Garmin / Fitbit **maintenant**. |
 
-**Construction.** UX22 **Terminé** (pas de moteur neuf). UX67 = copy, pas un produit aide. UX112 = hors file.
+**Construction.** UX22 **Terminé** (pas de moteur neuf). UX67 **Terminé** (copy inline, pas un produit aide). UX112 = hors file.
 
 ### Livraison chantier 2
 
@@ -506,7 +507,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Scanner : issue si pas de caméra / produit | UX52 | À vérifier |
 | Permission notif au bon moment | UX64 | **Terminé** |
 | Audience, export, delete compte | UX66 | **Terminé** |
-| Aide contextuelle | UX67 | **Conçu** |
+| Aide contextuelle | UX67 | **Terminé** |
 | Stabilité chargement / double submit | UX68 | À vérifier |
 | Raccourcis Accueil | UX69 | Reporté P3 |
 | Silhouette vs liste | UX06 | Reporté P3 |
@@ -773,7 +774,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | **UX64** | P2 | ens. | **Terminé** | Live Solo recap : permission après la séance ; Accueil sans prompt ; dismiss persiste. Cron : skip log déjà fait / module off / jour de repos (Client = lundi seulement). | Pas de relance d’une tâche finie. |
 | **UX65** | P2 | 10f | **À vérifier** | Progression : unité du profil. FR/EN clés ≠ UI encore ailleurs. Fuseau lisible. | Changer d’unité ne change pas la donnée. |
 | **UX66** | P2 | ens. | **Terminé** | Live Solo + Client : audience nommée, export JSON journaux (pas notes coach / intake), delete **SUPPRIMER**, lien de suivi plus haut. | Contrôle sans écrire au support. |
-| **UX67** | P2 | ens. | **Conçu** | Contrat ci-dessous. Copy inline déjà le défaut. Pas de centre d’aide, pas de 6ᵉ onglet. | Pas de dump de parcours. |
+| **UX67** | P2 | ens. | **Terminé** | Live : phrase à côté des unités / photos / questionnaire / Tes données. `/help` n’existe pas. 5 onglets, pas d’Aide. | Pas de dump de parcours. |
 | **UX68** | P1 | ens. | À vérifier | Stabilité chargement ; pas de double submit. | Action prise en compte tout de suite. |
 | **UX69** | P3 | rep. | Reporté | Raccourcis Accueil seulement si la nav par défaut échoue. | Test comparatif. |
 | **UX70** | P2 | cont. | Continu | Mesurer réussite de tâche, pas le temps passé. | Sans contenu de messages / photos. |
@@ -825,7 +826,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15–16 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX05**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX15**, **UX16**, **UX18**, **UX19**, **UX22**, **UX23**, **UX25**, **UX27**, **UX28**, **UX32**, **UX36**, **UX39–41**, **UX44**, **UX47**, **UX50**, **UX51**, **UX64**, **UX66**, **UX84**. **M7–M8** et contrat **UX67 / UX112 conçus**. Reste À vérifier / À construire.
+Comptes de test, pas la CI seule. **Joué 15–16 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX05**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX15**, **UX16**, **UX18**, **UX19**, **UX22**, **UX23**, **UX25**, **UX27**, **UX28**, **UX32**, **UX36**, **UX39–41**, **UX44**, **UX47**, **UX50**, **UX51**, **UX64**, **UX66**, **UX67**, **UX84**. **M7–M8 conçus**. **UX112** hors file. Reste **À vérifier** P1.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
