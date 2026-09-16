@@ -4,6 +4,7 @@ import { ArrowLeft, Clock, Pencil } from 'lucide-react';
 import { formatDate, formatDuration } from '../../lib/utils';
 import { optionLabel } from '../../lib/optionLabels';
 import { isCompletedSet, isPerformedSet, isWarmupSet } from '../../lib/performedSets';
+import { usePlanSessionLabel } from '../../features/programs/hooks/usePlanSessionLabel';
 import type { Workout } from '../../lib/types';
 import ReminderPermissionPrompt from '../profile/ReminderPermissionPrompt';
 import Button from '../ui/Button';
@@ -18,6 +19,7 @@ interface Props {
 export default function WorkoutRecap({ workout, onEdit }: Props) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const sessionLabel = usePlanSessionLabel(workout.program_day_id, workout.name || t('workout.title'));
 
   return (
     <div className="px-4 pt-4 pb-8" data-testid="workout-recap">
@@ -26,7 +28,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
           <ArrowLeft size={20} />
         </IconButton>
         <div className="flex-1 min-w-0">
-          <h1 className="text-lg font-bold text-white truncate">{workout.name || t('workout.title')}</h1>
+          <h1 className="text-lg font-bold text-white truncate" data-testid="ux22-session-label">{sessionLabel}</h1>
           <p className="text-xs text-neutral-500">{formatDate(workout.date, i18n.language)}</p>
         </div>
         <Button size="sm" variant="secondary" onClick={onEdit}>

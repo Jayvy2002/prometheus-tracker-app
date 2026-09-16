@@ -48,6 +48,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { useProgramStore } from '../../stores/programStore';
 import { shiftProgramWeekdays } from '../../lib/soloAsk';
+import { usePlanSessionLabel } from '../../features/programs/hooks/usePlanSessionLabel';
 
 interface LocationState {
   routineId?: string;
@@ -92,6 +93,10 @@ function WorkoutFormInner() {
   const [showExercisePicker, setShowExercisePicker] = useState(false);
   const [workoutName, setWorkoutName] = useState('');
   const [workoutDate, setWorkoutDate] = useState('');
+  const planSessionLabel = usePlanSessionLabel(
+    currentWorkout?.program_day_id,
+    workoutName || currentWorkout?.name || t('workout.title'),
+  );
   const [saving, setSaving] = useState(false);
   const [finishConfirmOpen, setFinishConfirmOpen] = useState(false);
   const [summaryWorkout, setSummaryWorkout] = useState<Workout | null>(null);
@@ -481,7 +486,9 @@ function WorkoutFormInner() {
           <ArrowLeft size={20} />
         </IconButton>
         {isProgramSession ? (
-          <p className="flex-1 min-w-0 text-base sm:text-lg font-semibold text-white truncate">{workoutName || t('workout.title')}</p>
+          <p className="flex-1 min-w-0 text-base sm:text-lg font-semibold text-white truncate" data-testid="ux22-session-label">
+            {planSessionLabel}
+          </p>
         ) : (
         <input
           value={workoutName}

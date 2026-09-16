@@ -4,6 +4,7 @@ import { CalendarRange, Dumbbell } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
+import { namedSessionLine } from '../../features/programs/domain/namedSession';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
 import { isSoloAthlete } from '../../lib/coachRole';
 import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
@@ -200,9 +201,8 @@ export default function ClientProgramPage() {
             {todayDay && (
               <Card className="border-blue-500/30" glow="blue">
                 <p className="text-[11px] font-medium text-blue-300 mb-1">{t('programs.todayBadge')}</p>
-                <p className="text-sm font-semibold text-white">
-                  {weekdayLabel(todayDay.weekday)}
-                  {todayDay.name ? ` · ${todayDay.name}` : ''}
+                <p className="text-sm font-semibold text-white" data-testid="ux22-program-today">
+                  {namedSessionLine(weekdayLabel(todayDay.weekday), todayDay.name)}
                 </p>
                 <ExerciseList exercises={todayDay.exercises ?? []} emptyLabel={t('programs.noExercises')} />
               </Card>
@@ -247,7 +247,7 @@ export default function ClientProgramPage() {
                     </p>
                     {(a.program?.days ?? []).filter(isProgramTrainingDay).map(d => (
                       <div key={d.id} className="mt-2">
-                        <p className="text-xs text-neutral-400">{weekdayLabel(d.weekday)}{d.name ? ` · ${d.name}` : ''}</p>
+                        <p className="text-xs text-neutral-400">{namedSessionLine(weekdayLabel(d.weekday), d.name)}</p>
                         <ExerciseList exercises={d.exercises ?? []} emptyLabel={t('programs.noExercises')} />
                       </div>
                     ))}
@@ -279,7 +279,7 @@ function DayCard({
     <Card className={isToday ? 'border-blue-500/20' : undefined}>
       <div className="flex items-center gap-2 mb-1">
         <p className="text-sm font-semibold text-white">
-          {label}{day.name ? ` · ${day.name}` : ''}
+          {namedSessionLine(label, day.name)}
         </p>
         {isToday && (
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600/20 text-blue-300">{todayLabel}</span>
