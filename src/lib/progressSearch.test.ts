@@ -49,6 +49,14 @@ test('calendar, progress and stats treat a failed fetch as an error with retry',
   assert.doesNotMatch(progress, /filteredExercises\.slice\(5\)/);
   assert.match(progress, /progress\.loadError/);
   assert.match(progress, /errors\.retry/);
+  assert.match(progress, /progressSessionHref/);
+  assert.match(progress, /ux50-session-row/);
+  assert.match(progress, /ux50-progress-chart/);
+  assert.doesNotMatch(progress, /\/workout\/0/);
+
+  const form = src('src/components/workout/WorkoutForm.tsx');
+  assert.match(form, /ux50-session-gone/);
+  assert.match(form, /workout\.sessionGone/);
 
   const stats = src('src/components/stats/StatsPage.tsx');
   assert.match(stats, /stats\.loadError/);

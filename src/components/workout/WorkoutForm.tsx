@@ -97,6 +97,7 @@ function WorkoutFormInner() {
   const [summaryWorkout, setSummaryWorkout] = useState<Workout | null>(null);
   const [summaryDuration, setSummaryDuration] = useState(0);
   const [initError, setInitError] = useState(false);
+  const [lookupDone, setLookupDone] = useState(false);
   const [timer, setTimer] = useState<SessionTimerState>(emptyTimer());
   const [elapsedTick, setElapsedTick] = useState(0);
   const createdRef = useRef(false);
@@ -189,7 +190,8 @@ function WorkoutFormInner() {
 
       seed().catch(() => setInitError(true));
     } else if (id) {
-      fetchWorkout(id);
+      setLookupDone(false);
+      void fetchWorkout(id).finally(() => setLookupDone(true));
     }
   }, [user, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -443,7 +445,24 @@ function WorkoutFormInner() {
   }
 
   if (!currentWorkout) {
+    if (!isNew && lookupDone) {
+      return (
+        <div className="px-4 pt-6" data-testid="ux50-session-gone">
+          <PageHeader title={t('workout.title')} backTo="/exercise-progress" />
+          <EmptyState title={t('workout.sessionGone')} body={t('workout.sessionGoneHint')} />
+        </div>
+      );
+    }
     return <PageSkeleton />;
+  }
+
+  if (lookupDone && id && currentWorkout.id !== id) {
+    return (
+      <div className="px-4 pt-6" data-testid="ux50-session-gone">
+        <PageHeader title={t('workout.title')} backTo="/exercise-progress" />
+        <EmptyState title={t('workout.sessionGone')} body={t('workout.sessionGoneHint')} />
+      </div>
+    );
   }
 
   if (currentWorkout.completed && !forceEdit) {

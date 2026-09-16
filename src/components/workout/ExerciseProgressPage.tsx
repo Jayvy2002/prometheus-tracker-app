@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, CalendarDays, BarChart2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { supabase } from '../../lib/supabase';
@@ -8,6 +9,7 @@ import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort, formatW
 import {
   aggregateExerciseProgress,
   isRecordAtIndex,
+  progressSessionHref,
   type ExerciseProgressSummary,
 } from '../../lib/performedSets';
 import { listedProgressMatches } from '../../lib/progressSearch';
@@ -20,6 +22,7 @@ import PageTransition from '../ui/PageTransition';
 
 export default function ExerciseProgressPage() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
@@ -49,7 +52,7 @@ export default function ExerciseProgressPage() {
         .select(`
         name,
         workout_sets(weight_kg, reps, set_type, completed),
-        workouts!inner(user_id, date, completed)
+        workouts!inner(id, user_id, date, completed)
       `)
         .eq('workouts.user_id', user.id),
     ).then(({ data, error }) => {
@@ -69,7 +72,7 @@ export default function ExerciseProgressPage() {
         data as unknown as Array<{
           name: string;
           workout_sets: { weight_kg: number; reps: number; set_type: string; completed: boolean }[];
-          workouts: { date: string };
+          workouts: { id: string; date: string };
         }>,
         iso => toLocalDateStr(parseDate(iso)),
       ).sort((a, b) => b.totalSessions - a.totalSessions);
@@ -102,6 +105,7 @@ export default function ExerciseProgressPage() {
   if (selectedExercise && detail) {
     const chartData = detail.entries.slice(-20).map(e => ({
       date: formatChartDate(e.date, i18n.language),
+      workoutId: e.workoutId,
       '1RM': chartKg(e.estimated1RM),
       volume: e.totalVolume,
     }));
@@ -146,13 +150,23 @@ export default function ExerciseProgressPage() {
           {chartData.length > 1 && (
             <Card className="mb-4 animate-fade-in-up stagger-2">
               <h3 className="text-xs font-medium text-neutral-400 mb-3">{t('progress.progressionChart')}</h3>
-              <div className="h-40">
+              <div className="h-40" data-testid="ux50-progress-chart">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={chartData}>
+                  <LineChart
+                    data={chartData}
+                    style={{ cursor: 'pointer' }}
+                    onClick={state => {
+                      const idx = typeof state.activeIndex === 'number'
+                        ? state.activeIndex
+                        : Number.parseInt(String(state.activeIndex ?? ''), 10);
+                      const href = Number.isInteger(idx) ? progressSessionHref(chartData[idx]?.workoutId) : null;
+                      if (href) navigate(href);
+                    }}
+                  >
                     <XAxis dataKey="date" tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} />
                     <YAxis domain={['dataMin - 5', 'dataMax + 5']} tick={{ fontSize: 9, fill: '#737373' }} axisLine={false} tickLine={false} width={35} />
                     <Tooltip contentStyle={{ background: '#0a0a0a', border: '1px solid #262626', borderRadius: '12px', fontSize: 11 }} />
-                    <Line type="monotone" dataKey="1RM" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: '#2563eb' }} />
+                    <Line type="monotone" dataKey="1RM" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -162,9 +176,10 @@ export default function ExerciseProgressPage() {
           {/* Session history */}
           <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2 animate-fade-in-up stagger-3">{t('progress.recentSessions')}</h3>
           <div className="space-y-2">
-            {[...detail.entries].reverse().slice(0, 10).map((e, i) => (
-              <div key={e.date} className="animate-fade-in-up" style={{ animationDelay: `${i * 30}ms` }}>
-                <Card>
+            {[...detail.entries].reverse().slice(0, 10).map((e, i) => {
+              const href = progressSessionHref(e.workoutId);
+              const inner = (
+                <Card className={href ? 'hover:border-neutral-700 transition-colors' : undefined}>
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
                       <p className="text-sm font-medium text-white">
@@ -179,10 +194,26 @@ export default function ExerciseProgressPage() {
                     {isRecordAtIndex(detail.entries, detail.entries.indexOf(e)) && (
                       <Trophy size={12} className="text-amber-400 shrink-0" />
                     )}
+                    {href ? <ChevronRight size={14} className="text-neutral-600 shrink-0" /> : null}
                   </div>
                 </Card>
-              </div>
-            ))}
+              );
+              return (
+                <div key={e.workoutId ?? `${e.date}-${i}`} className="animate-fade-in-up" style={{ animationDelay: `${i * 30}ms` }}>
+                  {href ? (
+                    <button
+                      type="button"
+                      data-testid="ux50-session-row"
+                      data-workout-id={e.workoutId ?? undefined}
+                      onClick={() => navigate(href)}
+                      className="w-full text-left"
+                    >
+                      {inner}
+                    </button>
+                  ) : inner}
+                </div>
+              );
+            })}
           </div>
         </div>
       </PageTransition>

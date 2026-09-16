@@ -8,6 +8,7 @@ import {
   isCompletedSet,
   isPerformedSet,
   isRecordAtIndex,
+  progressSessionHref,
 } from './performedSets';
 import { readableSets } from '../../../lib/coachLastSession';
 import { buildClientLifts } from '../../../lib/coachLifts';
@@ -88,6 +89,32 @@ test('progress charts skip unchecked sets even if the workout is completed', () 
   assert.equal(rows[0]?.entries[0]?.sets, 1);
   assert.equal(rows[0]?.entries[0]?.maxWeight, 60);
   assert.equal(rows[0]?.latest1RM, 70);
+  assert.equal(rows[0]?.entries[0]?.workoutId, null);
+});
+
+test('two same-day sessions stay two origins, never a invented workout id', () => {
+  const a = 'b44ddf37-cddf-42b4-9666-143f8893995a';
+  const b = 'b1515001-0000-4000-8000-000000000051';
+  const rows = aggregateExerciseProgress([
+    {
+      name: 'Squat',
+      workouts: { id: a, date: '2026-09-15T08:00:00' },
+      workout_sets: [{ weight_kg: 80, reps: 5, set_type: 'working', completed: true }],
+    },
+    {
+      name: 'Squat',
+      workouts: { id: b, date: '2026-09-15T18:00:00' },
+      workout_sets: [{ weight_kg: 100, reps: 5, set_type: 'working', completed: true }],
+    },
+  ], iso => iso.slice(0, 10));
+  assert.equal(rows[0]?.entries.length, 2);
+  assert.deepEqual(
+    [...new Set(rows[0]?.entries.map(e => e.workoutId))].sort(),
+    [a, b].sort(),
+  );
+  assert.equal(progressSessionHref(a), `/workout/${a}`);
+  assert.equal(progressSessionHref('not-a-uuid'), null);
+  assert.equal(progressSessionHref('0'), null);
 });
 
 test('a tied 1RM is not a beaten record', () => {
