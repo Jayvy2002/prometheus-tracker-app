@@ -43,6 +43,11 @@ test('UX67 phrases sit beside the control (photos, questionnaire, units, data)',
   assert.match(fields, /coachQuestionnaire\.sensitiveNotice/);
   assert.match(fields, /data-testid="ux67-inline-hint"/);
 
+  const panel = src('src/components/onboarding/ClientQuestionnairePanel.tsx');
+  assert.match(panel, /data-testid="questionnaire-summary"/);
+  assert.match(panel, /coachQuestionnaire\.audience/);
+  assert.match(panel, /data-testid="ux67-inline-hint"/);
+
   const units = src('src/components/profile/UnitsForm.tsx');
   assert.match(units, /profile\.units\.displayOnlyHint/);
   assert.match(units, /profile\.units\.autoStartRestHint/);
