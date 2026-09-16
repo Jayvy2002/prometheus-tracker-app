@@ -51,7 +51,7 @@ export function formatBilanDate(iso: string, locale: string): string {
   const day = iso.slice(0, 10);
   const parsed = new Date(`${day}T12:00:00`);
   if (Number.isNaN(parsed.getTime())) return day;
-  return parsed.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
+  return parsed.toLocaleDateString(locale, { day: 'numeric', month: 'short' }).replace(/\.$/, '');
 }
 
 export function bilanInsertFields(ref: MessageBilanRef): {
