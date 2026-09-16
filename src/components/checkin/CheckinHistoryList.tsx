@@ -7,9 +7,11 @@ import CheckinFilledScores from './CheckinFilledScores';
 export default function CheckinHistoryList({
   checkins,
   today,
+  focusId,
 }: {
   checkins: DailyCheckin[];
   today: string;
+  focusId?: string | null;
 }) {
   const { t, i18n } = useTranslation();
   const rows = previousCheckins(checkins, today);
@@ -27,14 +29,22 @@ export default function CheckinHistoryList({
               month: 'short',
               day: 'numeric',
             });
+            const focused = Boolean(focusId && row.id === focusId);
             return (
-              <Card key={row.id}>
-                <p className="text-sm font-medium text-white mb-2">{label}</p>
-                <CheckinFilledScores row={row} />
-                {row.notes ? (
-                  <p className="text-xs text-neutral-500 mt-2">{row.notes}</p>
-                ) : null}
-              </Card>
+              <div
+                key={row.id}
+                data-testid="ux32-checkin-row"
+                data-checkin-id={row.id}
+                data-focused={focused ? 'true' : undefined}
+              >
+                <Card className={focused ? 'ring-1 ring-primary/60' : undefined}>
+                  <p className="text-sm font-medium text-white mb-2">{label}</p>
+                  <CheckinFilledScores row={row} />
+                  {row.notes ? (
+                    <p className="text-xs text-neutral-500 mt-2">{row.notes}</p>
+                  ) : null}
+                </Card>
+              </div>
             );
           })}
         </div>

@@ -34,7 +34,7 @@ export default function CheckinReviewPanel({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="ux32-checkin-review">
       <CheckinSummaryCard summary={summary} hideSeeAnswers />
       <Card>
         <CheckinFilledScores row={checkin} />

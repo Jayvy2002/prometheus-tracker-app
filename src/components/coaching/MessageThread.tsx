@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import type { CoachMessage } from '../../lib/types';
@@ -9,8 +10,8 @@ import {
   loadMessageDraft,
   saveMessageDraft,
 } from '../../lib/messageDrafts';
-import { formatBilanDate } from '../../lib/messageBilan';
-import { useMessageBilanLabels } from '../../features/coaching/hooks/useMessageBilanLabels';
+import { bilanOpenHref, bilanViewerFor, formatBilanDate } from '../../lib/messageBilan';
+import { useMessageBilanLabels, type MessageBilanChip } from '../../features/coaching/hooks/useMessageBilanLabels';
 
 export default function MessageThread({
   messages,
@@ -149,16 +150,12 @@ export default function MessageThread({
                 }`}>
                   <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{msg.body}</p>
                   {bilanLabels[msg.id] ? (
-                    <p data-testid="ux27-bilan-chip" className={`text-[11px] mt-1 ${mine ? 'text-blue-100' : 'text-neutral-400'}`}>
-                      {bilanLabels[msg.id].kind === 'workout'
-                        ? t('coaching.messages.aboutWorkout', {
-                          name: bilanLabels[msg.id].name || t('workout.unnamed'),
-                          date: formatBilanDate(bilanLabels[msg.id].date, i18n.language),
-                        })
-                        : t('coaching.messages.aboutCheckin', {
-                          date: formatBilanDate(bilanLabels[msg.id].date, i18n.language),
-                        })}
-                    </p>
+                    <BilanCard
+                      chip={bilanLabels[msg.id]}
+                      message={msg}
+                      currentUserId={currentUserId}
+                      mine={mine}
+                    />
                   ) : null}
                   <p className={`text-xs mt-1 ${mine ? 'text-blue-100' : 'text-neutral-500'}`}>
                     {formatMessageTime(msg.created_at, i18n.language)}
@@ -227,5 +224,56 @@ export default function MessageThread({
         </div>
       </div>
     </div>
+  );
+}
+
+function BilanCard({
+  chip,
+  message,
+  currentUserId,
+  mine,
+}: {
+  chip: MessageBilanChip;
+  message: CoachMessage;
+  currentUserId: string;
+  mine: boolean;
+}) {
+  const { t, i18n } = useTranslation();
+  const label = chip.kind === 'workout'
+    ? t('coaching.messages.aboutWorkout', {
+      name: chip.name || t('workout.unnamed'),
+      date: formatBilanDate(chip.date, i18n.language),
+    })
+    : t('coaching.messages.aboutCheckin', {
+      date: formatBilanDate(chip.date, i18n.language),
+    });
+  const href = bilanOpenHref({
+    viewer: bilanViewerFor(currentUserId, message),
+    clientId: message.client_id,
+    workoutId: message.workout_id,
+    checkinId: message.checkin_id,
+  });
+  const openLabel = chip.kind === 'workout'
+    ? t('coaching.messages.openWorkoutRecap')
+    : t('coaching.messages.openCheckinFiche');
+  const chipClass = `text-[11px] ${mine ? 'text-blue-100' : 'text-neutral-300'}`;
+  if (!href) {
+    return <p data-testid="ux27-bilan-chip" className={`mt-1 ${chipClass}`}>{label}</p>;
+  }
+  return (
+    <Link
+      to={href}
+      data-testid="ux32-bilan-card"
+      data-bilan-kind={chip.kind}
+      aria-label={`${label}. ${openLabel}`}
+      className={`mt-2 block rounded-xl px-2.5 py-2 ${
+        mine ? 'bg-white/10 hover:bg-white/15' : 'bg-neutral-800 hover:bg-neutral-700'
+      }`}
+    >
+      <p data-testid="ux27-bilan-chip" className={`font-medium ${chipClass}`}>{label}</p>
+      <p className={`text-[10px] mt-0.5 ${mine ? 'text-blue-100/80' : 'text-neutral-500'}`}>
+        {openLabel}
+      </p>
+    </Link>
   );
 }
