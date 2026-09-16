@@ -313,6 +313,12 @@ const workout = {
       weight: 'Weight',
       streak: '{{n}} day streak',
     },
+    plan: {
+      scheduled: 'Scheduled',
+      started: 'Started',
+      done: 'Done',
+      dueHint: 'Plan day due, not logged yet. A reschedule names it elsewhere; this due stays visible.',
+    },
     weekSummary: {
       workouts: 'Workouts',
       daysLogged: 'Days logged',

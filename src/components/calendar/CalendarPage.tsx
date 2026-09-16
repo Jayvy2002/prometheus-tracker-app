@@ -14,6 +14,8 @@ import { useProfileStore } from '../../stores/profileStore';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { calendarDayWeights, calendarDayWorkouts, responsesHaveError } from '../../lib/progressSearch';
+import { planMarkForDate, type PlanCalendarMark } from '../../features/programs/domain/planCalendar';
+import { useProgramStore } from '../../stores/programStore';
 
 interface DayData {
   date: string;
@@ -77,6 +79,8 @@ export default function CalendarPage() {
   const { workouts, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts } = useWorkoutStore();
   const { measurements, fetchMeasurements } = useWeightStore();
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
+  const assignment = useProgramStore(s => s.assignment);
+  const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
 
   const DAY_LABELS = [
     t('calendar.days.mon'),
@@ -104,6 +108,7 @@ export default function CalendarPage() {
     if (!user) return;
     fetchWorkouts(user.id);
     fetchMeasurements(user.id);
+    void fetchMyAssignment(user.id);
   }, [user]);
 
   // Q05 : en naviguant vers le passé, charge les pages plus anciennes.
@@ -230,6 +235,25 @@ export default function CalendarPage() {
 
   const today = dateToStr(new Date());
 
+  const planByDate = useMemo(() => {
+    const dates = viewMode === 'week' ? weekDates : monthDates.map(m => m.date);
+    const map = new Map<string, PlanCalendarMark | null>();
+    for (const d of dates) {
+      const ds = dateToStr(d);
+      map.set(ds, planMarkForDate({
+        date: ds,
+        days: assignment?.program?.days,
+        workouts,
+        assignmentId: assignment?.id,
+        startDate: assignment?.start_date,
+        unnamed: t('workout.unnamed'),
+      }));
+    }
+    return map;
+  }, [viewMode, weekDates, monthDates, assignment, workouts, t]);
+
+  const selectedPlan = planByDate.get(selectedDate) ?? null;
+
   const buildDayData = (dates: Date[], inMonthFn?: (d: Date) => boolean): DayData[] =>
     dates.map(d => {
       const ds = dateToStr(d);
@@ -258,6 +282,12 @@ export default function CalendarPage() {
     const isSelected = day.date === selectedDate;
     const isFuture = day.date > today;
     const dimmed = day.inCurrentPeriod === false;
+    const plan = planByDate.get(day.date) ?? null;
+    const planDotClass = plan?.status === 'done'
+      ? (isSelected ? 'bg-white/80' : 'bg-violet-400')
+      : plan?.status === 'started'
+        ? (isSelected ? 'border-white/80 bg-white/40' : 'border-violet-400 bg-violet-400/40')
+        : (isSelected ? 'border-white/80' : 'border-violet-400');
 
     return (
       <button
@@ -271,6 +301,14 @@ export default function CalendarPage() {
           {parseDateStr(day.date).getDate()}
         </span>
         <div className="flex gap-0.5">
+          {plan ? (
+            <div
+              data-testid="ux47-plan-dot"
+              data-plan-status={plan.status}
+              data-date={day.date}
+              className={`w-1.5 h-1.5 rounded-full ${plan.status === 'scheduled' || plan.status === 'started' ? 'border' : ''} ${planDotClass}`}
+            />
+          ) : null}
           {day.hasWorkout && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/80' : 'bg-blue-400'}`} />}
           {day.hasNutrition && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/80' : 'bg-emerald-400'}`} />}
           {day.hasWeight && <div className={`w-1 h-1 rounded-full ${isSelected ? 'bg-white/80' : 'bg-amber-400'}`} />}
@@ -329,7 +367,19 @@ export default function CalendarPage() {
           }
         </div>
 
-        <div className="flex items-center gap-4 mt-4 pt-3 border-t border-neutral-800">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-neutral-800">
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+            <div className="w-1.5 h-1.5 rounded-full border border-violet-400" />
+            {t('calendar.plan.scheduled')}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+            <div className="w-1.5 h-1.5 rounded-full border border-violet-400 bg-violet-400/40" />
+            {t('calendar.plan.started')}
+          </div>
+          <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
+            <div className="w-1.5 h-1.5 rounded-full bg-violet-400" />
+            {t('calendar.plan.done')}
+          </div>
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
             <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
             {t('calendar.legend.workout')}
@@ -403,6 +453,22 @@ export default function CalendarPage() {
         </div>
       ) : (
         <div className="space-y-3 animate-fade-in-up stagger-3">
+          {selectedPlan ? (
+            <Card
+              className={selectedPlan.workoutId ? 'cursor-pointer hover:border-neutral-700/70' : ''}
+              onClick={selectedPlan.workoutId ? () => navigate(`/workout/${selectedPlan.workoutId}`) : undefined}
+            >
+              <div data-testid="ux47-plan-card" data-plan-status={selectedPlan.status}>
+                <p className="text-[11px] uppercase tracking-wider text-violet-300">
+                  {t(`calendar.plan.${selectedPlan.status}`)}
+                </p>
+                <p className="text-sm font-semibold text-white">{selectedPlan.dayName}</p>
+                {selectedPlan.status === 'scheduled' ? (
+                  <p className="text-xs text-neutral-500 mt-1">{t('calendar.plan.dueHint')}</p>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
           {daySummary && daySummary.workouts.length > 0 ? (
             daySummary.workouts.map(workout => (
               <Card
@@ -421,7 +487,7 @@ export default function CalendarPage() {
                 </div>
               </Card>
             ))
-          ) : (
+          ) : selectedPlan?.status === 'scheduled' ? null : (
             <Card className="flex items-center gap-3 opacity-40">
               <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center shrink-0">
                 <Dumbbell size={16} className="text-neutral-500" />
