@@ -37,7 +37,7 @@ export default function CoachQuestionnaireFields({
     ? definition.sections.filter(section => section.id === onlySectionId)
     : definition.sections;
   return <div className="space-y-6">
-    <p className="text-sm text-neutral-400">{tx('coachQuestionnaire.audience')}</p>
+    <p className="text-sm text-neutral-400" data-testid="ux67-inline-hint">{tx('coachQuestionnaire.audience')}</p>
     {sections.map(section => <section key={section.id} aria-labelledby={prefix + section.id}>
       <h2 id={prefix + section.id} className="text-lg font-semibold mb-4">{section.label[language]}</h2>
       <div className="space-y-5">
@@ -53,7 +53,7 @@ export default function CoachQuestionnaireFields({
           const multiple = q.type === 'multi' || q.type === 'weekdays';
           return <div key={q.id}>
             {q.id === firstMedicalId && (
-              <p role="note" className="text-sm text-neutral-400 mb-4">{tx('coachQuestionnaire.sensitiveNotice')}</p>
+              <p role="note" className="text-sm text-neutral-400 mb-4" data-testid="ux67-inline-hint">{tx('coachQuestionnaire.sensitiveNotice')}</p>
             )}
             {multiple ? <fieldset disabled={disabled} aria-describedby={descriptionId} aria-invalid={!!error}>
               <legend className="text-sm font-medium mb-2">

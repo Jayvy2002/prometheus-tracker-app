@@ -48,6 +48,9 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
         <UnitToggle label={t('profile.units.weight')} value={unitWeight} options={['kg', 'lbs']} onChange={(v) => setUnitWeight(v as 'kg' | 'lbs')} />
         <UnitToggle label={t('profile.units.distance')} value={unitDistance} options={['km', 'mi']} onChange={(v) => setUnitDistance(v as 'km' | 'mi')} />
         <UnitToggle label={t('profile.units.height')} value={unitHeight} options={['cm', 'in']} onChange={(v) => setUnitHeight(v as 'cm' | 'in')} />
+        <p className="text-[11px] text-neutral-500 mt-2" data-testid="ux67-inline-hint">
+          {t('profile.units.displayOnlyHint')}
+        </p>
 
         <div className="pt-3 mt-1 border-t border-neutral-800/60">
           <p className="text-[11px] font-semibold text-neutral-600 uppercase tracking-wider mb-3">{t('profile.units.workoutDisplay')}</p>
@@ -72,7 +75,7 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
           <div className="flex items-center justify-between py-1 mt-3">
             <div>
               <span className="text-sm text-neutral-300">{t('profile.units.autoStartRest')}</span>
-              <p className="text-[11px] text-neutral-600 mt-0.5">{t('profile.units.autoStartRestHint')}</p>
+              <p className="text-[11px] text-neutral-600 mt-0.5" data-testid="ux67-inline-hint">{t('profile.units.autoStartRestHint')}</p>
             </div>
             <button
               type="button"

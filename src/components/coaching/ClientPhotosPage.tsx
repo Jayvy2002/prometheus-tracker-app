@@ -106,7 +106,7 @@ export default function ClientPhotosPage() {
     <PageTransition>
       <div className="px-4 pt-6 pb-28">
         <h1 className="text-2xl font-bold text-white mb-1">{t('coaching.photos.title')}</h1>
-        <p className="text-sm text-neutral-500 mb-4">
+        <p className="text-sm text-neutral-500 mb-4" data-testid="ux67-inline-hint">
           {t(athletePhotoSubtitleKey(athletePhotoAudience(!!myCoach)), {
             name: myCoach?.full_name?.trim() || t('coaching.invite.aCoach'),
           })}

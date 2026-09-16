@@ -51,7 +51,7 @@ export default function DataControlPanel({ hasCoach, coachName, tracking }: Prop
           </div>
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink">{t('profile.dataControl.title')}</p>
-            <p className="text-xs text-ink-muted mt-1" data-testid="data-audience">
+            <p className="text-xs text-ink-muted mt-1" data-testid="data-audience" data-ux67="inline-hint">
               {audience.photos === 'self'
                 ? t('profile.dataControl.photosSelf')
                 : t('profile.dataControl.photosCoach', { name: audience.coachName ?? t('coaching.invite.aCoach') })}
