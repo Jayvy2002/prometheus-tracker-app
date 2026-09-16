@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 16 septembre 2026 (nuit).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX15 / UX16 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX51 / UX64 / UX66 / UX67 / UX84 Terminé**. **M7–M8 Conçu**. Contrat **UX112 Conçu** (hors file). Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 16 septembre 2026 (nuit).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX04 / UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX13 / UX15 / UX16 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX29 / UX31 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX51 / UX63 / UX64 / UX66 / UX67 / UX68 / UX74 / UX75 / UX84 Terminé**. **M7–M8 Conçu**. Contrat **UX112 Conçu** (hors file). Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** ens. (À vérifier P1). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX05 / UX07 / UX08 / UX15 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX64 / UX66 / UX67 / UX84** et **17–23 Terminé**.
+| **Lot ouvert :** ens. (À vérifier P2). Lots **1–16**, **M0–M5**, **M7–M8 (conçu)**, **UX04 / UX05 / UX07 / UX08 / UX15 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX29 / UX31 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX63 / UX64 / UX66 / UX67 / UX68 / UX74 / UX75 / UX84** et **17–23 Terminé**.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -58,6 +58,12 @@
 | **UX47** Calendrier d’états | **PASS.** Solo `/calendar` : mardi 15 = point **Prévu** « Mardi force » malgré logs hors programme ; mercredi 16 = pas de jour inventé. Recale expliqué sur la carte. Force rév. 1. | — |
 | **UX22** Séance nommée | **PASS.** Solo Accueil : « Mar · Mardi force ». Client Accueil : « Lun · Haut du corps ». Coach `/programs` : chips weekday · nom, copy sans mésocycle. Recale conserve le nom (verrou `shiftProgramWeekdays`). Force rév. 1. | — |
 | **UX67** Aide inline | **PASS.** Solo : `/help` → Accueil ; 5 onglets, pas d’Aide. Unités : « affichage, pas ce qui est enregistré ». Photos : « seulement par toi ». Client questionnaire : audience coach ; Profil 5 onglets, « Chantier Coach les voit ». | — |
+| **UX04** Notice santé | **PASS.** Client `/questionnaire` : audience en tête du résumé. Coach aperçu (question `medical`) : notice facultatif / destinataire coach / refus ≠ mur **avant** le champ. Pas de publication. | — |
+| **UX74 / UX75** Dual-rôle | **PASS.** Switcher **uniquement** dans Profil. Coaching : 5 onglets Dashboard / Clients / Messages / Programmes / Profil ; Objectifs absents, Préférences coach présentes. Personnel : Entraînement / Progression / Nutrition ; Objectifs visibles. Copilote hors tab bar. | — |
+| **UX29** Ancrage fil | **PASS.** Client `/messages` : « Charger les messages précédents » en haut ; scrollTop reste en haut, pas de saut en bas. | — |
+| **UX31** `read_at` confirmé | **PASS.** PATCH `read_at` bloqué → SQL reste NULL. Sans blocage → `select('id')` confirme puis horodatage. Force rév. 1. | — |
+| **UX63** Erreur ≠ vide | **PASS.** Programmes : erreur + Réessayer **et** liste (Force + duplicatas). Progression / stats : erreur + « pas un historique vide » + Réessayer, pas un empty. Réessai progression restaure Squat. | — |
+| **UX68** Double submit | **PASS.** Triple clic Envoyer → **un** seul POST `coach_messages` (intercepté, rien persisté). | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -179,11 +185,11 @@ Travailler **un lot à la fois**, dans cet ordre. Les IDs entre parenthèses son
 |---|---|---|---|
 | **1** | **Vérité des séries réalisées** (UX12, UX17, UX49) | **Terminé** | Parcours 15 sept. : 1 série cochée + 1 non cochée → bilan (volume / 1RM / fait « non cochée(s) »), recap, 360 coach (`readableSets` : seule la cochée). Auto-close 30 s retiré ; `prCount` mort retiré ; plus de « Conseil du coach ». UX49 « jours ≠ séances » → lot 6. |
 | **2** | **Désactivation mode coach** (UX78) | **Terminé** | SQL prod + RPC live : `none` OK si roster vide ; `coach_has_active_clients` si lien actif. UI Personnel : N>0 bloque (chiffre, « Voir mes clients », **pas** d’RPC). Parcours 15 sept. soir. |
-| **3** | **Programmes : écriture honnête** (UX20, UX21, UX63) | **Terminé** | Recap destinataire live (Assigner → client + date). RPC `save_program` / `stale` déjà prouvés. |
+| **3** | **Programmes : écriture honnête** (UX20, UX21, UX63) | **Terminé** | Recap destinataire live. UX63 : erreur conserve la liste (Force + duplicatas + Réessayer). |
 | **4** | **Questionnaire sans prison** (UX80, UX02) | **Terminé** | Invite consentie live ; Aujourd’hui / Messages / Profil / questionnaire accessibles. |
 | **5** | **Photos et audience** (UX54) | **Terminé** | Solo + coaché + 360 Progression. |
-| **6** | **Calendrier, recherche, erreur ≠ vide** (UX48, UX49, UX63) | **Terminé** | Recherche progression live. Deux séances / unique pesée déjà tranchés. |
-| **7** | **Messages : brouillon et lu** (UX29–31, UX85) | **Terminé** | Dismiss Accueil ≠ `read_at`. Brouillon déjà prouvé. |
+| **6** | **Calendrier, recherche, erreur ≠ vide** (UX48, UX49, UX63) | **Terminé** | Recherche progression live. UX63 : stats/progression erreur + Réessayer, pas un vide fantôme. |
+| **7** | **Messages : brouillon et lu** (UX29–31, UX85) | **Terminé** | Dismiss Accueil ≠ `read_at`. UX29 ancrage live. UX31 : `read_at` seulement après `select('id')`. Brouillon déjà prouvé. |
 | **8** | **Trouver programme et progression** (UX08, UX81) | **Terminé** | Lecture programme coaché live. Hub solo déjà prouvé. |
 | **9** | **File coach et continuité** (UX09, UX33, UX34) | **Terminé** | Filtre roster live. UX09 : enchaîner les fiches `n / N`. |
 | **10** | **Cohérence restante** | **Terminé** | 10d recap Ask + 10e check-in coaché live. 10a–c, 10j déjà prouvés. |
@@ -353,7 +359,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX05 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX64 / UX66 / UX67 / UX84 Terminé**. Contrat **UX112 Conçu** (hors file). Reste **À vérifier** P1. Billing (**M6 Reporté**). Capteurs = chantier dédié.
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, **UX04 / UX05 / UX18 / UX19 / UX22 / UX23 / UX25 / UX27 / UX28 / UX29 / UX31 / UX32 / UX36 / UX39–41 / UX44 / UX47 / UX50 / UX63 / UX64 / UX66 / UX67 / UX68 / UX74 / UX75 / UX84 Terminé**. Contrat **UX112 Conçu** (hors file). Reste **À vérifier** P2. Billing (**M6 Reporté**). Capteurs = chantier dédié.
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -508,7 +514,7 @@ UX59–61 restent le contrat **le jour où** le billing s’ouvre. D’ici là :
 | Permission notif au bon moment | UX64 | **Terminé** |
 | Audience, export, delete compte | UX66 | **Terminé** |
 | Aide contextuelle | UX67 | **Terminé** |
-| Stabilité chargement / double submit | UX68 | À vérifier |
+| Stabilité chargement / double submit | UX68 | **Terminé** |
 | Raccourcis Accueil | UX69 | Reporté P3 |
 | Silhouette vs liste | UX06 | Reporté P3 |
 | Actions groupées coach | UX38 | Reporté P3 |
@@ -616,7 +622,7 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX01** | P2 | M3 | **Terminé** | Login email+mdp ; intention après identité ; habitué (solo/coaché) ne revoit pas le picker. | Habitué → son espace sans redéfinir un rôle. |
 | **UX02** | P1 | 4 | **Terminé** | Invite live : preview, consentement, scopes, acceptation → lien actif. | Aucune invite invalide sans issue ; rattachement clair. |
 | **UX03** | P2 | 4 | **À vérifier** | Complément au moment utile. Durée « 60 secondes » retirée. **Reste :** parcours reprise brouillon. | On sait pourquoi maintenant ; reprise sans ressaisie. |
-| **UX04** | P1 | 4 | **À vérifier** | Audience en tête de formulaire ; notice santé (facultatif, destinataire, refus ≠ mur) avant la première question `medical`. **Reste :** parcours live. | Destinataire et conséquence d’un refus connus. |
+| **UX04** | P1 | 4 | **Terminé** | Live Client : audience en tête du résumé. Coach aperçu : notice santé (facultatif, destinataire, refus ≠ mur) avant la question `medical`. Pas de publication. | Destinataire et conséquence d’un refus connus. |
 | **UX05** | P2 | ens. | **Terminé** | Live Client : résumé par rubrique ; Compléter / Corriger une seule ; v2 = complément (carry-forward). SQL `completed` non déverrouillé. | Pas de parcours entier à refaire. |
 | **UX06** | P3 | rep. | Reporté | Silhouette facultative vs liste. | Seulement si un test le justifie. |
 | **UX80** | P1 | 4 | **Terminé** | Après acceptation : Aujourd’hui / Messages / Profil / `/questionnaire` (vide honnête). Pas de mur. | Messages / Aujourd’hui / compte accessibles ; réponses conservées. |
@@ -630,8 +636,8 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 | **UX09** | P1 | 9 | **Terminé** | Live : `1 / 2` Invitee → `2 / 2` Client ; précédent garde `tab=checkins` ; retour liste. | Enchaîner des fiches sans reconstruire la liste. |
 | **UX10** | P1 | 8 | **Terminé** | Live invitee : « Ton coach va t’envoyer un programme » → `/messages`. | On sait quoi faire maintenant. |
 | **UX11** | P2 | 10i | **À vérifier** | Séance / programme / modèle. Copy « routine » retirée. **Reste :** parcours live. | Un nom = une action. |
-| **UX74** | P1 | 10h | **À vérifier** | `navConfig` + reset `PageTransition` au changement de persona. **Reste :** parcours dual-rôle live. | Un ajout de destination = un endroit. |
-| **UX75** | P1 | 10h | À vérifier | Switcher Profil, 5ᵉ onglet Compte. Dual-rôle : Objectifs selon **espace**. | Changer d’espace change Profil et onglets. |
+| **UX74** | P1 | 10h | **Terminé** | Live dual-rôle : Coaching = Clients / Messages / Programmes ; Personnel = Entraînement / Progression / Nutrition. `navConfig` unique ; reset `PageTransition` au switch. | Un ajout de destination = un endroit. |
+| **UX75** | P1 | 10h | **Terminé** | Switcher uniquement Profil. 5ᵉ onglet Profil (Compte). Coaching : Préférences coach, pas Objectifs. Personnel : Objectifs & cibles. Copilote hors tab bar. | Changer d’espace change Profil et onglets. |
 | **UX76** | P2 | 10g | **À vérifier** | `aria-current="page"` BottomNav / SideNav. Badge unread. **Reste :** zoom 200 % live. | Onglet actif identifiable clavier / lecteur. |
 | **UX77** | P2 | 10a | **À vérifier** | Recettes dans AppLayout / Nutrition. Plus de `FullPageLayout`. **Reste :** parcours live (solo + coaché). | Recettes ≠ session ; séance a une sortie. |
 | **UX84** | P1 | 8 | **Terminé** | Live : jour dû = « Séance hors programme » (FAB, header, Ajout rapide) + nom + notice. Jour de repos = « Nouvelle séance » / « Nouveau ». `/workout/new` reste ouvert. | Hors programme **nommé** ; pas d’interdiction. |
@@ -683,9 +689,9 @@ Les constats « 11 septembre » sont **périmés** là où le statut dit autre c
 
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
-| **UX29** | P1 | 7 | À vérifier | Ancrage au chargement de l’historique. | Page ancienne ≠ saut en bas. |
+| **UX29** | P1 | 7 | **Terminé** | Live : charger l’historique plus ancien garde le haut du fil (pas de saut en bas). | Page ancienne ≠ saut en bas. |
 | **UX30** | P1 | 7 | **Partiel** | Brouillon restauré live (aller-retour dashboard). **Reste :** plusieurs fils / relance. | Changer de fil restaure le bon texte. |
-| **UX31** | P1 | 7 | **À vérifier** | `read_at` seulement si `.select('id')` confirme. **Reste :** parcours live. | Pas de doublon ; pas de faux lu. |
+| **UX31** | P1 | 7 | **Terminé** | Live : PATCH bloqué → `read_at` reste NULL. Confirmé par `.select('id')` → horodatage. | Pas de doublon ; pas de faux lu. |
 | **UX32** | P2 | ens. | **Terminé** | Live Client : cartes séance/check-in ; tap → recap `/workout/:id` / fiche `/checkin?id=` ; UUID inconnu = vide honnête. Coach : 360 séance / check-in. Pas de logger dans le chat. | Objet identifiable dans le fil. |
 | **UX85** | P1 | 7 | **Terminé** | Dismiss live ; `read_at` reste NULL. | Masquer un rappel ne marque pas lu. |
 
@@ -770,12 +776,12 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX62** | P1 | chaque | Partiel | Dans chaque lot. OverflowMenu : Échap + focus (Git 10g). | Parcours essentiels sans souris, zoom 200 %. |
-| **UX63** | P1 | 3+6 | **À vérifier** | Programmes : erreur conserve la liste. Stats / progression : erreur + réessai, pas un vide fantôme. **Reste :** parcours live. | Données déjà là conservées + réessai. |
+| **UX63** | P1 | 3+6 | **Terminé** | Live : programmes conservent Force + duplicatas sous l’erreur. Stats / progression : erreur + Réessayer, pas un vide fantôme. | Données déjà là conservées + réessai. |
 | **UX64** | P2 | ens. | **Terminé** | Live Solo recap : permission après la séance ; Accueil sans prompt ; dismiss persiste. Cron : skip log déjà fait / module off / jour de repos (Client = lundi seulement). | Pas de relance d’une tâche finie. |
 | **UX65** | P2 | 10f | **À vérifier** | Progression : unité du profil. FR/EN clés ≠ UI encore ailleurs. Fuseau lisible. | Changer d’unité ne change pas la donnée. |
 | **UX66** | P2 | ens. | **Terminé** | Live Solo + Client : audience nommée, export JSON journaux (pas notes coach / intake), delete **SUPPRIMER**, lien de suivi plus haut. | Contrôle sans écrire au support. |
 | **UX67** | P2 | ens. | **Terminé** | Live : phrase à côté des unités / photos / questionnaire / Tes données. `/help` n’existe pas. 5 onglets, pas d’Aide. | Pas de dump de parcours. |
-| **UX68** | P1 | ens. | À vérifier | Stabilité chargement ; pas de double submit. | Action prise en compte tout de suite. |
+| **UX68** | P1 | ens. | **Terminé** | Live : triple clic Envoyer → un seul POST. `busyRef` + bouton `loading`. | Action prise en compte tout de suite. |
 | **UX69** | P3 | rep. | Reporté | Raccourcis Accueil seulement si la nav par défaut échoue. | Test comparatif. |
 | **UX70** | P2 | cont. | Continu | Mesurer réussite de tâche, pas le temps passé. | Sans contenu de messages / photos. |
 | **UX112** | P3 | ens. | **Conçu** | Contrat ci-dessous. Saisie manuelle seulement. **Pas** dans cette file. | Un chantier capteurs dédié ; pas dans 14–16. |
@@ -826,7 +832,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15–16 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX05**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX15**, **UX16**, **UX18**, **UX19**, **UX22**, **UX23**, **UX25**, **UX27**, **UX28**, **UX32**, **UX36**, **UX39–41**, **UX44**, **UX47**, **UX50**, **UX51**, **UX64**, **UX66**, **UX67**, **UX84**. **M7–M8 conçus**. **UX112** hors file. Reste **À vérifier** P1.
+Comptes de test, pas la CI seule. **Joué 15–16 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX04**, **UX05**, **UX07** (vue d’ensemble + rings), **UX08**, **UX09**, **UX10**, **UX13**, **UX15**, **UX16**, **UX18**, **UX19**, **UX22**, **UX23**, **UX25**, **UX27**, **UX28**, **UX29**, **UX31**, **UX32**, **UX36**, **UX39–41**, **UX44**, **UX47**, **UX50**, **UX51**, **UX63**, **UX64**, **UX66**, **UX67**, **UX68**, **UX74**, **UX75**, **UX84**. **M7–M8 conçus**. **UX112** hors file. Reste **À vérifier** P2.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
