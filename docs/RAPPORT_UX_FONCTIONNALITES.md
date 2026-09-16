@@ -194,18 +194,18 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 | | |
 |---|---|
 | **Quoi** | `/checkin`. Cœur : sommeil, qualité, énergie, stress. « Plus de détails (N) » : humeur, faim, fatigue, douleur, plan suivi, notes — selon `checkin_vars`. Historique 14 j = scores **remplis**. Tab mobile si module on. |
-| **Marche** | Court par défaut (UX25). Échelles 0–10 avec mots-ancres. Setup coach : Essentiels / Détails. Toast UX26. Relance check-in → phrase « À propos de ton check-in… » dans Messages (UX27). |
-| **Ne va pas** | Pas de carte résumé cliquable vers la fiche (UX32). Pas de date de revue inventée. |
-| **Changer** | UX32 : carte nom + date, ouverture = recap / fiche, pas un logger dans le chat. |
+| **Marche** | Court par défaut (UX25). Échelles 0–10 avec mots-ancres. Setup coach : Essentiels / Détails. Toast UX26. Relance check-in → phrase « À propos de ton check-in… » dans Messages (UX27). Tap de la carte → fiche des scores (UX32). |
+| **Ne va pas** | Pas de date de revue inventée. |
+| **Changer** | Garder l’ouverture fiche, pas un éditeur dans le chat. |
 
 ### 3.5 Messages
 
 | | |
 |---|---|
 | **Quoi** | `/messages` fil 1:1 avec le coach. Badge non-lus. FAB masqué. Plein écran conversation. |
-| **Marche** | Canal unique humain. Relances coach = messages éditables, pas d’auto-send. UX27 : phrase séance / check-in sous le message (coach + coaché), FK `workout_id` / `checkin_id`. |
-| **Ne va pas** | Pas de carte résumé ni d’ouverture recap (UX32). Pièces / vocaux hors scope. |
-| **Changer** | UX32 : carte nom + date, tap = fiche / recap. Pas de 6ᵉ onglet. « Lu » seulement si `read_at` confirmé. |
+| **Marche** | Canal unique humain. Relances coach = messages éditables, pas d’auto-send. UX27 : phrase séance / check-in. UX32 : carte nom + date, tap = recap `/workout/:id` ou fiche check-in (coach = 360). FK `workout_id` / `checkin_id`. |
+| **Ne va pas** | Pièces / vocaux hors scope. |
+| **Changer** | Pas de 6ᵉ onglet. « Lu » seulement si `read_at` confirmé. Pas de logger dans le chat. |
 
 ### 3.6 Nutrition, scanner, poids, photos
 
