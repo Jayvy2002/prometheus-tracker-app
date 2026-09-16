@@ -14,6 +14,7 @@ import { muscleLabel } from '../../lib/muscleLabels';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { interventionDraftError, isInterventionDrafting } from '../../lib/coachSecond';
 import { nextProgramWeekday } from '../../lib/kinesiologyIntake';
+import { namedSessionLine } from '../../features/programs/domain/namedSession';
 import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
@@ -182,7 +183,7 @@ export default function ProgramSessionEditor({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-[1fr_88px] gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_88px] gap-2" data-testid="ux22-cycle-fields">
           <Input label={t('programs.name')} value={name} onChange={e => onNameChange(e.target.value)} />
           <Input
             label={t('programs.durationWeeks')}
@@ -194,7 +195,7 @@ export default function ProgramSessionEditor({
       )}
 
       {athlete ? (
-        <details className="group rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3 py-2">
+        <details className="group rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3 py-2" data-testid="ux22-cycle-fields">
           <summary className="flex items-center justify-between cursor-pointer list-none text-sm text-neutral-300">
             {t('programs.cycleDetails')}
             <ChevronDown size={16} className="text-neutral-500 group-open:rotate-180 transition-transform" />
@@ -308,7 +309,9 @@ export default function ProgramSessionEditor({
                   {t(`programs.weekdays.${d.weekday}`)}
                   {isToday ? ` · ${t('programs.todayBadge')}` : ''}
                 </p>
-                <p className="text-xs font-semibold text-white truncate mt-0.5">{d.name.trim() || t('programs.sessionFallback')}</p>
+                <p className="text-xs font-semibold text-white truncate mt-0.5" data-testid={active || isToday ? 'ux22-session-label' : undefined}>
+                  {d.name.trim() || t('programs.sessionFallback')}
+                </p>
                 <p className="text-[10px] text-neutral-500 mt-0.5">{t('programs.sessionLifts', { n: count })}</p>
               </button>
             );
@@ -322,7 +325,7 @@ export default function ProgramSessionEditor({
                 active ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
               }`}
             >
-              {t(`programs.weekdays.${d.weekday}`)}{d.name ? ` · ${d.name}` : ''}
+              {namedSessionLine(t(`programs.weekdays.${d.weekday}`), d.name)}
             </button>
           );
         })}

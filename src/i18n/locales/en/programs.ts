@@ -2,7 +2,7 @@ const programs = {
 
   programs: {
     title: 'Programs',
-    subtitle: 'A mesocycle of templates mapped to weekdays, assigned with a start date.',
+    subtitle: 'Named sessions mapped to weekdays, assigned with a start date.',
     empty: 'No programs yet',
     emptyBody: 'Create a first program to assign it to your clients.',
     moreActions: 'Program actions',

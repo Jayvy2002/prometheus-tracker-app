@@ -1,5 +1,6 @@
 import { Check, ChevronRight, Dumbbell, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { namedSessionLine } from '../../features/programs/domain/namedSession';
 import type { ClientGymCard as GymCard } from '../../lib/clientGym';
 import type { ProgramDay, ProgramDayExercise } from '../../lib/types';
 import Button from '../ui/Button';
@@ -47,7 +48,9 @@ export default function ClientGymCard({
           tone="success"
           icon={<Check size={18} />}
           title={t('dashboard.gym.done')}
-          subtitle={card.doneDay ? (card.doneDay.name || programName) : undefined}
+          subtitle={card.doneDay
+            ? namedSessionLine(t(`programs.weekdays.${card.doneDay.weekday}`), card.doneDay.name || programName)
+            : undefined}
         />
         {card.nextDay && (
           <SessionPreview
@@ -122,9 +125,8 @@ function SessionPreview({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs text-blue-300 font-medium">{eyebrow}</p>
-          <p className="text-sm font-semibold text-white truncate">
-            {t(`programs.weekdays.${day.weekday}`)}
-            {day.name ? ` · ${day.name}` : ''}
+          <p className="text-sm font-semibold text-white truncate" data-testid="ux22-session-label">
+            {namedSessionLine(t(`programs.weekdays.${day.weekday}`), day.name)}
             {count > 0 ? ` · ${t('dashboard.gym.exercises', { n: count })}` : ''}
           </p>
           <p className="text-xs text-neutral-500 mt-0.5 truncate">{weekLabel}</p>

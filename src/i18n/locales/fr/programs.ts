@@ -2,7 +2,7 @@ const programs = {
 
   programs: {
     title: 'Programmes',
-    subtitle: 'Un mésocycle de modèles par jour de la semaine, assigné avec une date de début.',
+    subtitle: 'Séances nommées par jour de la semaine, assignées avec une date de début.',
     empty: 'Aucun programme',
     emptyBody: 'Crée un premier programme pour l’assigner à tes clients.',
     moreActions: 'Actions du programme',
