@@ -98,10 +98,24 @@ export function computeWorkoutSummaryStats(
 
 export interface ExerciseProgressEntry {
   date: string;
+  workoutId: string | null;
   maxWeight: number;
   totalVolume: number;
   estimated1RM: number;
   sets: number;
+}
+
+const WORKOUT_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function workoutOriginId(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  if (!WORKOUT_ID_RE.test(trimmed)) return null;
+  return trimmed;
+}
+
+export function progressSessionHref(workoutId: string | null | undefined): string | null {
+  const id = workoutOriginId(workoutId);
+  return id ? `/workout/${id}` : null;
 }
 
 export interface ExerciseProgressSummary {
@@ -122,11 +136,13 @@ export function aggregateExerciseProgress(
       set_type: string;
       completed: boolean;
     }>;
-    workouts: { date: string };
+    workouts: { id?: string | null; date: string };
   }>,
   dateKey: (iso: string) => string,
 ): ExerciseProgressSummary[] {
   const byExercise: Record<string, Record<string, {
+    date: string;
+    workoutId: string | null;
     maxWeight: number;
     totalVolume: number;
     best1RM: number;
@@ -136,9 +152,11 @@ export function aggregateExerciseProgress(
   for (const ex of rows) {
     const name = ex.name;
     if (!byExercise[name]) byExercise[name] = {};
-    const key = dateKey(ex.workouts.date);
+    const date = dateKey(ex.workouts.date);
+    const workoutId = workoutOriginId(ex.workouts.id);
+    const key = workoutId ?? `date:${date}`;
     if (!byExercise[name][key]) {
-      byExercise[name][key] = { maxWeight: 0, totalVolume: 0, best1RM: 0, sets: 0 };
+      byExercise[name][key] = { date, workoutId, maxWeight: 0, totalVolume: 0, best1RM: 0, sets: 0 };
     }
     const bucket = byExercise[name][key];
     for (const s of ex.workout_sets ?? []) {
@@ -153,12 +171,13 @@ export function aggregateExerciseProgress(
   }
 
   return Object.entries(byExercise)
-    .map(([name, dates]) => {
-      const entries: ExerciseProgressEntry[] = Object.entries(dates)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .filter(([, d]) => d.sets > 0)
-        .map(([date, d]) => ({
-          date,
+    .map(([name, buckets]) => {
+      const entries: ExerciseProgressEntry[] = Object.values(buckets)
+        .filter(d => d.sets > 0)
+        .sort((a, b) => a.date.localeCompare(b.date) || (a.workoutId ?? '').localeCompare(b.workoutId ?? ''))
+        .map(d => ({
+          date: d.date,
+          workoutId: d.workoutId,
           maxWeight: Math.round(d.maxWeight * 10) / 10,
           totalVolume: Math.round(d.totalVolume),
           estimated1RM: d.best1RM,

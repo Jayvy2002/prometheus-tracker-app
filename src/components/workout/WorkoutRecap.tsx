@@ -20,7 +20,7 @@ export default function WorkoutRecap({ workout, onEdit }: Props) {
   const navigate = useNavigate();
 
   return (
-    <div className="px-4 pt-4 pb-8">
+    <div className="px-4 pt-4 pb-8" data-testid="workout-recap">
       <div className="flex items-center gap-3 mb-4">
         <IconButton label={t('common.back')} onClick={() => navigate('/workout')} className="-ml-2">
           <ArrowLeft size={20} />

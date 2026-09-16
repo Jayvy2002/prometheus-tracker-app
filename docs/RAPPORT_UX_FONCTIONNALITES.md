@@ -221,7 +221,7 @@ Un coach qui s’entraîne n’est pas « un client de lui-même ». Un coaché 
 | | |
 |---|---|
 | **Quoi** | `/exercise-progress` **ouvert** en lecture (recherche d’exo). `/stats` et `/calendar` restent redirigés. Lien depuis Entraînement. Le coach voit aussi lifts / poids / photos dans le 360. |
-| **Marche** | L’athlète voit *sa* courbe d’exo sans éditer le plan. Pas de 6ᵉ onglet. |
+| **Marche** | L’athlète voit *sa* courbe d’exo sans éditer le plan. Pas de 6ᵉ onglet. UX50 : une ligne / un point ouvre `/workout/:id` ; séance absente = vide honnête. |
 | **Ne va pas** | Pas de calendrier / stats complets côté coaché. Hub moins riche que le solo. |
 | **Changer** | Ne pas refermer `/exercise-progress`. Ne pas ouvrir l’édition du plan. Calendrier / stats : seulement si un lot le décide, en lecture. |
 
@@ -277,8 +277,8 @@ Même moteur que le coaché, plus : séance libre naturelle, lien « Mon program
 
 | | |
 |---|---|
-| **Quoi** | Onglet `/exercise-progress` : hub 2×2 Résumé `/stats`, Entraînement, Mesures `/weight`, Historique `/calendar`. 1RM estimé, tendances, graphes. |
-| **Marche** | Le solo *complet* de la vision a enfin un onglet « comprendre » — plus besoin de deviner Profil. |
+| **Quoi** | Onglet `/exercise-progress` : hub 2×2 Résumé `/stats`, Entraînement, Mesures `/weight`, Historique `/calendar`. 1RM estimé, tendances, graphes. Tap d’un point / d’une séance → `/workout/:id` (UX50). |
+| **Marche** | Le solo *complet* de la vision a enfin un onglet « comprendre » — plus besoin de deviner Profil. Origine d’un point retrouvable. |
 | **Ne va pas** | Stats encore capables d’interpréter un manque de données. Calendrier : plusieurs séances le même jour / fenêtre de dates à vérifier. Desktop duplique (sidebar Comprendre **et** onglet). |
 | **Changer** | Hub = porte. Chaque tuile = une question (« Est-ce que je progresse au développé ? ») pas un export Excel. Donnée manquante ≠ 0. Ne pas ajouter Stats comme 6ᵉ tab. |
 
