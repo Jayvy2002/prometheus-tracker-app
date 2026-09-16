@@ -313,6 +313,12 @@ const workout = {
       weight: 'Poids',
       streak: '{{n}} jours de suite',
     },
+    plan: {
+      scheduled: 'Prévu',
+      started: 'Commencé',
+      done: 'Terminé',
+      dueHint: 'Jour de plan dû, pas encore loggé. Un recale le nomme ailleurs ; ce dû reste visible.',
+    },
     weekSummary: {
       workouts: 'Entraînements',
       daysLogged: 'Jours enregistrés',
