@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Check, ChevronDown } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { formatBilanDate, parseAthleteCheckinQuery } from '../../lib/messageBilan';
 import { useAuthStore } from '../../stores/authStore';
 import { useCheckinStore } from '../../stores/checkinStore';
 import { useProfileStore } from '../../stores/profileStore';
@@ -25,12 +27,14 @@ import {
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import PageHeader from '../ui/PageHeader';
+import Card from '../ui/Card';
 import EmptyState from '../ui/EmptyState';
 import { PageSkeleton } from '../ui/PageSkeleton';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import type { DailyCheckinInput } from '../../lib/types';
+import type { DailyCheckin, DailyCheckinInput } from '../../lib/types';
 import ScoreSlider from './ScoreSlider';
+import CheckinFilledScores from './CheckinFilledScores';
 import CheckinHistoryList from './CheckinHistoryList';
 import { adherencePercentFromScore, adherenceScoreFromPercent } from '../../lib/checkinScale';
 
@@ -49,8 +53,12 @@ const SCALE_COPY: Record<CheckinScaleKey, { field: string; low: string; high: st
 };
 
 export default function CheckInPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const focusId = parseAthleteCheckinQuery(searchParams);
+  const [focused, setFocused] = useState<DailyCheckin | null>(null);
+  const [ficheGone, setFicheGone] = useState(false);
   const { user } = useAuthStore();
   const { todayCheckin, checkins, loading, fetchToday, fetchRecent, upsertToday } = useCheckinStore();
   const { profile } = useProfileStore();
@@ -90,6 +98,33 @@ export default function CheckInPage() {
     fetchToday(user.id);
     fetchRecent(user.id, 14);
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!focusId) {
+      setFocused(null);
+      setFicheGone(false);
+      return;
+    }
+    const local = [todayCheckin, ...checkins].find(row => row?.id === focusId) ?? null;
+    if (local) {
+      setFocused(local);
+      setFicheGone(false);
+      return;
+    }
+    void (async () => {
+      const { data } = await supabase.from('daily_checkins').select('*').eq('id', focusId).maybeSingle();
+      if (cancelled) return;
+      if (data) {
+        setFocused(data as DailyCheckin);
+        setFicheGone(false);
+        return;
+      }
+      setFocused(null);
+      setFicheGone(true);
+    })();
+    return () => { cancelled = true; };
+  }, [focusId, todayCheckin, checkins]);
 
   useEffect(() => {
     if (!todayCheckin) return;
@@ -197,6 +232,25 @@ export default function CheckInPage() {
         <PageHeader title={t('checkin.title')} subtitle={solo ? t('checkin.subtitleSolo') : t('checkin.subtitle')} />
         <p className="text-xs text-neutral-600 -mt-4 mb-6">{t('checkin.scaleHint')}</p>
 
+        {ficheGone ? (
+          <div className="mb-6" data-testid="ux32-checkin-gone">
+            <EmptyState title={t('checkin.ficheGone')} body={t('checkin.ficheGoneHint')} />
+          </div>
+        ) : null}
+        {focused ? (
+          <div className="mb-6" data-testid="ux32-checkin-fiche">
+            <Card>
+              <p className="text-sm font-medium text-white mb-2">
+                {t('coaching.messages.aboutCheckin', { date: formatBilanDate(focused.checked_at, i18n.language) })}
+              </p>
+              <CheckinFilledScores row={focused} />
+              {focused.notes ? (
+                <p className="text-xs text-neutral-500 mt-2">{focused.notes}</p>
+              ) : null}
+            </Card>
+          </div>
+        ) : null}
+
         <SoloAskBar
           context={soloAskFromProfile('checkin', profile)}
           onApplyOnce={() => undefined}
@@ -269,7 +323,7 @@ export default function CheckInPage() {
           </Button>
         </div>
 
-        <CheckinHistoryList checkins={checkins} today={todayStr()} />
+        <CheckinHistoryList checkins={checkins} today={todayStr()} focusId={focusId} />
       </div>
     </PageTransition>
   );

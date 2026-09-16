@@ -96,6 +96,8 @@ const coaching = {
     disabled: 'Your coach has not enabled check-ins for you.',
     historyTitle: 'Your recent check-ins',
     historyEmpty: 'No previous check-ins.',
+    ficheGone: 'This check-in is no longer here.',
+    ficheGoneHint: 'It was deleted, or you no longer have access. Nothing was invented.',
     fields: {
       sleep_quality: 'Sleep quality',
       energy_level: 'Energy',
@@ -797,6 +799,8 @@ const coaching = {
       aboutCheckin: 'About your check-in on {{date}}',
       composeAboutWorkout: 'This message will be linked to session {{name}} · {{date}}.',
       composeAboutCheckin: 'This message will be linked to the check-in on {{date}}.',
+      openWorkoutRecap: 'Open recap',
+      openCheckinFiche: 'Open the check-in',
     },
     progress: {
       weightTitle: 'Weight',
