@@ -284,7 +284,15 @@ const common = {
     deleteConfirm: 'Es-tu sûr(e) de vouloir supprimer cette mesure de poids ?',
     errors: {
       invalid: 'Poids invalide',
+      invalidRange: 'Poids invalide ({{min}}–{{max}} {{unit}}).',
     },
+    periods: {
+      '7d': '7 j',
+      '30d': '30 j',
+      '3m': '3 mois',
+      all: 'Tout',
+    },
+    goalLine: 'Objectif',
     toasts: {
       updated: 'Poids mis à jour',
       saved: 'Poids enregistré',
@@ -383,6 +391,9 @@ const common = {
         waterInvalid: 'Objectif eau invalide',
         stepsInvalid: 'Objectif pas invalide',
         weightInvalid: 'Poids cible invalide',
+        waterInvalidRange: 'Objectif eau invalide ({{min}}–{{max}} ml).',
+        stepsInvalidRange: 'Objectif pas invalide ({{min}}–{{max}}).',
+        weightInvalidRange: 'Poids cible invalide ({{min}}–{{max}} {{unit}}).',
       },
     },
     units: {

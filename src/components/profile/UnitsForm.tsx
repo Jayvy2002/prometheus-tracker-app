@@ -7,6 +7,7 @@ import { usePreferencesStore } from '../../stores/preferencesStore';
 import Button from '../ui/Button';
 import UnitToggle from '../ui/UnitToggle';
 import { toast } from '../ui/Toast';
+import { userFacingError } from '../../lib/userFacingError';
 
 export default function UnitsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { t } = useTranslation();
@@ -28,7 +29,7 @@ export default function UnitsForm({ onBack, inline }: { onBack: () => void; inli
     });
     setSaving(false);
     if (result.error) {
-      toast(result.error, 'error');
+      toast(userFacingError(result.error, t('errors.generic')), 'error');
       return;
     }
     onBack();

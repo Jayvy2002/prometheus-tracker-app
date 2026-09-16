@@ -148,7 +148,7 @@ export default function WorkoutPage() {
       await deleteWorkout(deleteTarget);
 
       if (targetWorkout) {
-        toastWithUndo(`"${targetWorkout.name}" deleted`, async () => {
+        toastWithUndo(t('workout.deletedNamed', { name: targetWorkout.name }), async () => {
           if (!user) return;
           const restoredId = await createWorkout({
             user_id: user.id,

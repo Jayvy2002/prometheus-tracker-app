@@ -25,6 +25,7 @@ const workout = {
     deleteFailed: "Impossible de supprimer l'entraînement. Réessaie.",
     restored: 'Entraînement restauré',
     deleted: 'Entraînement supprimé',
+    deletedNamed: '« {{name}} » supprimé',
     exercise: 'exercice',
     exercises: 'exercices',
     startRoutineFailed: 'Impossible de démarrer la séance. Réessaie.',

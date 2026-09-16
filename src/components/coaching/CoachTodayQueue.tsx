@@ -173,7 +173,7 @@ function QueueClientRow({
         <Button size="sm" onClick={() => onOpen(href)}>
           {t(action.ctaKey)}
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => onSkip([item.id])}>
+        <Button variant="ghost" size="sm" data-testid="ux34-skip" onClick={() => onSkip([item.id])}>
           {t('coaching.queue.skip')}
         </Button>
         <Button variant="secondary" size="sm" onClick={() => onOpen(clientFileHref(group.clientId))}>

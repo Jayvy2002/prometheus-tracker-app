@@ -116,10 +116,11 @@ export function ToastContainer() {
             className={`max-w-sm w-full flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-xl pointer-events-auto animate-fade-in-down ${colors[t.type]}`}
           >
             <Icon aria-hidden="true" size={16} className={`shrink-0 ${iconColors[t.type]}`} />
-            <span className="flex-1 min-w-0 text-sm text-white font-medium [overflow-wrap:anywhere]">{t.message}</span>
+            <span className="flex-1 min-w-0 text-sm text-white font-medium [overflow-wrap:anywhere]" data-testid="toast-message">{t.message}</span>
             {t.onUndo && (
               <button
                 type="button"
+                data-testid="toast-undo"
                 onClick={t.onUndo}
                 className="min-h-11 min-w-11 flex items-center justify-center gap-1 text-sm font-semibold text-blue-400 hover:text-blue-300 transition-colors shrink-0 border border-blue-500/30 rounded-lg px-2 py-1"
               >

@@ -284,7 +284,15 @@ const common = {
     deleteConfirm: 'Are you sure you want to delete this weight measurement?',
     errors: {
       invalid: 'Invalid weight',
+      invalidRange: 'Invalid weight ({{min}}–{{max}} {{unit}}).',
     },
+    periods: {
+      '7d': '7D',
+      '30d': '30D',
+      '3m': '3M',
+      all: 'All',
+    },
+    goalLine: 'Goal',
     toasts: {
       updated: 'Weight updated',
       saved: 'Weight saved',
@@ -383,6 +391,9 @@ const common = {
         waterInvalid: 'Invalid water goal',
         stepsInvalid: 'Invalid steps goal',
         weightInvalid: 'Invalid target weight',
+        waterInvalidRange: 'Invalid water goal ({{min}}–{{max}} ml).',
+        stepsInvalidRange: 'Invalid steps goal ({{min}}–{{max}}).',
+        weightInvalidRange: 'Invalid target weight ({{min}}–{{max}} {{unit}}).',
       },
     },
     units: {
