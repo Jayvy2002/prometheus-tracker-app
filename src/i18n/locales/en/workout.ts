@@ -25,6 +25,7 @@ const workout = {
     deleteFailed: 'Failed to delete workout. Please try again.',
     restored: 'Workout restored',
     deleted: 'Workout deleted',
+    deletedNamed: '“{{name}}” deleted',
     exercise: 'exercise',
     exercises: 'exercises',
     startRoutineFailed: 'Could not start this session. Please try again.',

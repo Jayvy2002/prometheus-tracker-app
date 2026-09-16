@@ -72,3 +72,33 @@ test('visible workout fallbacks and meal labels come from i18n, not English cons
   assert.match(recap, /optionLabel\(t, 'setTypes'/);
   assert.match(wall, /auth\.signOut/);
 });
+
+test('0A leftover toasts and unit ranges come from i18n keys, not English fragments', () => {
+  const workout = src('src/components/workout/WorkoutPage.tsx');
+  const meals = src('src/components/nutrition/MealSection.tsx');
+  const weight = src('src/components/weight/WeightPage.tsx');
+  const goals = src('src/components/profile/GoalsForm.tsx');
+  const units = src('src/components/profile/UnitsForm.tsx');
+  const intake = src('src/components/onboarding/KinesiologyIntakeFlow.tsx');
+  const fr = src('src/i18n/locales/fr.ts');
+  const en = src('src/i18n/locales/en.ts');
+
+  assert.match(workout, /workout\.deletedNamed/);
+  assert.doesNotMatch(workout, /deleted`/);
+  assert.match(meals, /nutrition\.itemRemoved/);
+  assert.doesNotMatch(meals, /removedFromMeal/);
+  assert.match(weight, /weight\.errors\.invalidRange/);
+  assert.match(weight, /weight\.periods\.\$\{p\}/);
+  assert.match(weight, /weight\.goalLine/);
+  assert.doesNotMatch(weight, /label: 'All'/);
+  assert.doesNotMatch(weight, /value: 'Goal'/);
+  assert.match(goals, /profile\.goals\.errors\.waterInvalidRange/);
+  assert.match(goals, /profile\.goals\.errors\.weightInvalidRange/);
+  assert.doesNotMatch(goals, /500–10 000 ml/);
+  assert.match(units, /userFacingError/);
+  assert.match(intake, /userFacingError/);
+  assert.match(fr, /deletedNamed: '« \{\{name\}\} » supprimé'/);
+  assert.match(en, /deletedNamed: '“\{\{name\}\}” deleted'/);
+  assert.match(fr, /itemRemoved: '\{\{name\}\} supprimé'/);
+  assert.match(en, /itemRemoved: '\{\{name\}\} removed'/);
+});

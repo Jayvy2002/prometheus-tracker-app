@@ -20,12 +20,7 @@ import { showModule } from '../../lib/clientTracking';
 
 type Period = '7d' | '30d' | '3m' | 'all';
 
-const PERIODS: { value: Period; label: string }[] = [
-  { value: '7d', label: '7D' },
-  { value: '30d', label: '30D' },
-  { value: '3m', label: '3M' },
-  { value: 'all', label: 'All' },
-];
+const PERIODS: Period[] = ['7d', '30d', '3m', 'all'];
 
 function filterByPeriod(measurements: Array<{ weight_kg: number; measured_at: string }>, period: Period) {
   if (period === 'all') return measurements;
@@ -73,7 +68,7 @@ export default function WeightPage() {
     const minVal = unit === 'lbs' ? 44 : 20;
     const maxVal = unit === 'lbs' ? 660 : 300;
     if (isNaN(val) || val < minVal || val > maxVal) {
-      toast(`${t('weight.errors.invalid')} (${minVal}–${maxVal} ${unit}).`, 'error');
+      toast(t('weight.errors.invalidRange', { min: minVal, max: maxVal, unit }), 'error');
       return;
     }
     const kg = unit === 'lbs' ? val / 2.20462 : val;
@@ -180,12 +175,12 @@ export default function WeightPage() {
             <div className="flex gap-1">
               {PERIODS.map(p => (
                   <button
-                    key={p.value}
-                    onClick={() => setPeriod(p.value)}
+                    key={p}
+                    onClick={() => setPeriod(p)}
                     className={`px-2 py-1 rounded-md text-xs font-medium transition-colors
-                      ${period === p.value ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-300'}`}
+                      ${period === p ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-300'}`}
                   >
-                    {p.label}
+                    {t(`weight.periods.${p}`)}
                   </button>
                 ))}
             </div>
@@ -204,7 +199,7 @@ export default function WeightPage() {
                     y={unit === 'lbs' ? +(targetKg * 2.20462).toFixed(1) : +targetKg.toFixed(1)}
                     stroke="#f59e0b"
                     strokeDasharray="4 4"
-                    label={{ value: 'Goal', fill: '#f59e0b', fontSize: 10 }}
+                    label={{ value: t('weight.goalLine'), fill: '#f59e0b', fontSize: 10 }}
                   />
                 )}
                 <Line type="monotone" dataKey="weight" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: '#2563eb' }} />

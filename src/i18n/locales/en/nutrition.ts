@@ -11,6 +11,7 @@ const nutrition = {
     itemsCopied: '{{count}} item(s) copied',
     reuseFromDate: 'Copy from this day',
     removedFromMeal: 'removed',
+    itemRemoved: '{{name}} removed',
     copyFromYesterday: 'Copy from yesterday',
     foodForm: {
       title: 'Add Food',

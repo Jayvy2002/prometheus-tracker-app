@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Droplets, Flame } from 'lucide-react';
 import WallSignOut from '../auth/WallSignOut';
 import { toast } from '../ui/Toast';
+import { userFacingError } from '../../lib/userFacingError';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -649,7 +650,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
     const saved = await updateProfile(user.id, patch as Partial<UserProfile>);
     if (saved.error) {
       setSaving(false);
-      toast(saved.error, 'error');
+      toast(userFacingError(saved.error, t('errors.generic')), 'error');
       return;
     }
     const kg = Number(intake.poidsApproxKg);

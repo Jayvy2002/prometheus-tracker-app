@@ -35,13 +35,13 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
 
     const water = +waterTarget;
     const steps = +stepsTarget;
-    if (water < 500 || water > 10000) { toast(`${t('profile.goals.errors.waterInvalid')} (500–10 000 ml).`, 'error'); return; }
-    if (steps < 0 || steps > 100000) { toast(`${t('profile.goals.errors.stepsInvalid')} (0–100 000).`, 'error'); return; }
+    if (water < 500 || water > 10000) { toast(t('profile.goals.errors.waterInvalidRange', { min: 500, max: '10 000' }), 'error'); return; }
+    if (steps < 0 || steps > 100000) { toast(t('profile.goals.errors.stepsInvalidRange', { min: 0, max: '100 000' }), 'error'); return; }
     if (targetWeight) {
       const minW = profile.unit_weight === 'lbs' ? 66 : 30;
       const maxW = profile.unit_weight === 'lbs' ? 660 : 300;
       const tw = +targetWeight;
-      if (isNaN(tw) || tw < minW || tw > maxW) { toast(`${t('profile.goals.errors.weightInvalid')} (${minW}–${maxW} ${profile.unit_weight ?? 'kg'}).`, 'error'); return; }
+      if (isNaN(tw) || tw < minW || tw > maxW) { toast(t('profile.goals.errors.weightInvalidRange', { min: minW, max: maxW, unit: profile.unit_weight ?? 'kg' }), 'error'); return; }
     }
 
     setSaving(true);

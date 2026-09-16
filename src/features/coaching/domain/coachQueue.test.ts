@@ -324,6 +324,7 @@ test('queue since copy is today vs N days; skip dismisses one signal with undo',
   assert.match(ui, /onSkip\(\[item\.id\]\)/);
   assert.match(ui, /restoreQueueItems/);
   assert.match(ui, /toastWithUndo/);
+  assert.match(ui, /data-testid="ux34-skip"/);
   assert.match(ui, /queueSinceCopy/);
   assert.doesNotMatch(ui, /group\.items\.map\(item => item\.id\)/);
 });

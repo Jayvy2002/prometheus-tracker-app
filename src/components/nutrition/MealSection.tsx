@@ -29,7 +29,7 @@ export default function MealSection({ category, label, logs, onAdd, onEdit, onRe
   const handleDelete = async (log: NutritionLog) => {
     const snapshot = { ...log };
     await deleteLog(snapshot.id);
-    toastWithUndo(`${snapshot.name} ${t('nutrition.removedFromMeal')}`, () =>
+    toastWithUndo(t('nutrition.itemRemoved', { name: snapshot.name }), () =>
       addLog({
         user_id: snapshot.user_id,
         name: snapshot.name,

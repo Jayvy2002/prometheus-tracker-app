@@ -6,9 +6,9 @@
 >
 > **Instruction agents :** un élément sort uniquement après **preuve de code + parcours réel**, ou après abandon produit noté ici. Ne pas en faire un journal de PR. Git garde l’historique ; `README.md` décrit l’app actuelle ; `VISION.md` la destination ; `RAPPORT_UX_FONCTIONNALITES.md`, `AUDIT_NAVIGATION_UX.md` et `AUDIT_ARCHITECTURE.md` diagnostiquent — **ils n’ordonnent pas**. Si un diagnostic contredit ce fichier, **ce fichier gagne**.
 
-**Mis à jour : 16 septembre 2026 (nuit).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX03 / UX04 / UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX11 / UX13 / UX14 / UX15 / UX16 / UX18 / UX19 / UX22 / UX23 / UX24 / UX25 / UX27 / UX28 / UX29 / UX30 / UX31 / UX32 / UX35 / UX36 / UX37 / UX39–41 / UX44 / UX45 / UX46 / UX47 / UX49 / UX50 / UX51 / UX52 / UX53 / UX62 / UX63 / UX64 / UX65 / UX66 / UX67 / UX68 / UX74 / UX75 / UX76 / UX77 / UX84 Terminé**. **M7–M8 Conçu**. Contrat **UX112 Conçu** (hors file). Lots **17–23 Terminé**. **M6 Reporté**.
+**Mis à jour : 16 septembre 2026 (nuit).** Lots **1–16 Terminé**. **M0–M5 Terminé**. **UX03 / UX04 / UX05 / UX07** (Dashboard + rings) **/ UX08 / UX09 / UX10 / UX11 / UX13 / UX14 / UX15 / UX16 / UX18 / UX19 / UX22 / UX23 / UX24 / UX25 / UX27 / UX28 / UX29 / UX30 / UX31 / UX32 / UX34 / UX35 / UX36 / UX37 / UX39–41 / UX44 / UX45 / UX46 / UX47 / UX49 / UX50 / UX51 / UX52 / UX53 / UX62 / UX63 / UX64 / UX65 / UX66 / UX67 / UX68 / UX74 / UX75 / UX76 / UX77 / UX84 Terminé**. Extras **0A / 0B / 1 / 14 / 15 / 16 Terminé**. **M7–M8 Conçu**. Contrat **UX112 Conçu** (hors file). Lots **17–23 Terminé**. **M6 Reporté**.
 
-| **Lot ouvert :** extras (0A/0B) + **UX34 Partiel**. Lots **1–16**, **M0–M5**, **M7–M8 (conçu)** et file **À vérifier P2 Terminé**. **UX112** hors file. **M6 Reporté**.
+| **Lot ouvert :** aucun (file extras close). **M7–M8 Conçu**. **UX112** hors file. **M6 Reporté**. Partiel hors file : 0C / nav / dashboard / messages / builder / progression / profil.
 
 **Preuve live 15 sept. soir** — comptes SQL `chantier-*-1515@invalid.local` (signup 429 contourné). Vite `127.0.0.1:5174`. Chrome headed + session JWT. Prod `phyuijjekxtjvipjtdfv`.
 
@@ -75,6 +75,10 @@
 | **UX52** Scanner issue | **PASS.** « Aucune caméra détectée ». Code inconnu → « Produit introuvable » + photo. Retour `/nutrition` possible. | — |
 | **UX53 / UX77** Recettes | **PASS.** Solo Nutrition → `/recipes` dans AppLayout (5 onglets). Client `/nutrition` : lien Recettes. | — |
 | **UX76 / UX62** Nav + zoom | **PASS.** `aria-current="page"` seulement sur l’onglet actif. Zoom CSS 200 % : 5 onglets, hauteur ≥ 44 px. | — |
+| **0A** i18n leftover | **PASS.** Solo : toast « « Séance 0A leftover » supprimé » + Annuler (pas `"… deleted"`). Poids 1 kg → « Poids invalide (20–300 kg). » Périodes 7 j / Tout. | — |
+| **UX34** Passer un signal | **PASS.** Coach Accueil : Passer → « Signal écarté » + Annuler. Invitee reste, Client encore dans la file (pas d’écartement en bloc). Undo restaure Passer. | — |
+| **0B** invite / intake | **PASS.** Invitee Accueil sans mur questionnaire (3 onglets TrackingGate). `/invite` expiré : « Invitation indisponible » + Retour. Solo `/intake` : **étape 1 sur 7** + Plus tard. | — |
+| **1 / 14 / 15 / 16** extras | **PASS.** OverflowMenu Échap + 44 px. Hors ligne séances : « conservées sur cet appareil ». Accueil Solo 448 ms nav / overview visible. 5 onglets, Copilote hors tab. | — |
 
 **Principe d’écran :** dire vrai sur ce qui a été fait, enregistré, qui voit, et quelle est la prochaine action — y compris « rien aujourd’hui ».
 
@@ -370,7 +374,7 @@ Les écrans métier : pas un restyle total ici. Couleurs brutes : graphes / visu
 
 ESLint overlays (`eslint.config.js`) : `shared` (hors `shared/api/supabase`) ↛ `features` / `stores` / `zustand` ; `shared/ui` ↛ Supabase ; `features/A` ↛ `features/B`. `noUncheckedIndexedAccess` **non** activé. Couche « UI sans `supabase.from()` » **reportée** (écrans encore couplés). `PageTransition` (Zustand + persona) vit dans `src/app/layout/` ; `shared/ui` et `components/ui` réexportent.
 
-**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, file **À vérifier P2 Terminé**. Contrat **UX112 Conçu** (hors file). Reste extras **0A/0B** + **UX34 Partiel**. Billing (**M6 Reporté**). Capteurs = chantier dédié.
+**Après les lots 17–23 :** lots **M0–M5 Terminé**, **M7–M8 Conçu**, file extras **0A/0B** + **UX34 Terminé**. Contrat **UX112 Conçu** (hors file). Billing (**M6 Reporté**). Capteurs = chantier dédié.
 
 **Après le lot 16 :** d’abord **16f–16g** (disques visuels + logger téléphone) si demandés, puis la file structure **17–23**, puis M / UX112 / billing. Ne pas « nettoyer » Supabase (ARCH11).
 
@@ -596,14 +600,14 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 
 | Lot | Statut | Reste |
 |---|---|---|
-| **0A** i18n options | À vérifier | Toasts / intake / unités encore hors clés (ex. `"… deleted"`). |
-| **0B** auth / intention / invite | À vérifier | Lock questionnaire prise en charge retiré (lot 4 Git). Intake kiné : 7 écrans **conservés**. Parcours invite dû. |
+| **0A** i18n options | **Terminé** | Live : toast nommé FR + Annuler ; plage poids interpolée. Intake / unités : plus de fragment `"… deleted"`. |
+| **0B** auth / intention / invite | **Terminé** | Lock questionnaire retiré. Intake kiné : 7 écrans + Plus tard. Invite expiré : indisponible + Retour. Invitee Accueil sans mur. |
 | **0C** vérité produit | **Partiel** | Cibles macros : corrigé. Terminer n’écrit plus `completed` sur le reste. Affichage = séries cochées ; parcours 15 sept. (bilan, recap, 360). UX49 jours ≠ séances : Git lot 6. |
-| **1** design system | À vérifier | `ListRow` / 44 px (#91). OverflowMenu Échap + focus (Git 10g). Primitives listées = tokens (lot **19**). Écrans métier encore bruts. |
+| **1** design system | **Terminé** | OverflowMenu Échap + focus 44 px live. `ListRow` 44 px. Primitives = tokens (lot 19). Écrans métier encore mixés (hors file). |
 | **2** accessibilité | **Terminé** | Cibles 44 px ; `aria-current` un seul onglet ; zoom 200 % live. |
 | **3** navigation | **Partiel** | `navConfig`, 5 onglets, Copilote hors tab, switcher Profil. Recettes Nutrition (Git 10a). `PageTransition` persona (Git 10h). Trouvabilité live due. |
 | **4** dashboard | **Partiel** | UX07 : priorité + vue d’ensemble + rings nutrition + courbe de poids. Proposition IA = notice. `waiting_program` → Messages (UX10). Trouvabilité / a11y encore dues. |
-| **5** Coach Today | **Partiel** | Empty + sévérité texte + featured. « Depuis quand » + Passer un signal (Git lot 9). Parcours live dû. |
+| **5** Coach Today | **Terminé** | Empty + sévérité texte + featured. « Depuis quand » live. UX34 : Passer = un signal + toast Annuler. |
 | **6** Client 360 | **Terminé** | Dernière séance = séries cochées. Onglet **Récupération** live. « Depuis ma dernière visite » live. |
 | **7** Setup 4 étapes | **Terminé** | Live étape 4 : « Ce que le client verra ». |
 | **8** Messages / Prometheus | **Partiel** | Retry / safe-area. Brouillon + lu : Git (lot 7). |
@@ -612,9 +616,9 @@ Ne pas reconstruire. Recaler le statut quand un trou UX est **prouvé**.
 | **11** Nutrition / séance / scanner | **Terminé** | Recettes dans Nutrition (solo + coaché). Scanner : pas de caméra / produit introuvable. UX15 / logger / HEIC déjà lots 14–15. |
 | **12** Progression / photos | **Partiel** | Hub solo. Coaché bloqué (lot 8). Séries cochées : lot 1. Calendrier / recherche / erreur : Git (lot 6). Audience photos : Git (lot 5). |
 | **13** Profil | **Partiel** | Groupes OK. Toggle mode coach : N=0 / N>0 joués 15 sept. Apply prod SQL (lot 2). SoloHub encore un tiroir mobile. |
-| **14** PWA / offline | À vérifier | File = séances seulement. |
-| **15** Performance | À vérifier | Mesure live. |
-| **16** Polish | À vérifier | Revue visuelle live. |
+| **14** PWA / offline | **Terminé** | Live logger : « Hors ligne — tes modifications sont conservées sur cet appareil. » File = séances seulement. |
+| **15** Performance | **Terminé** | Live Solo Accueil : navigation ~448 ms ; `dashboard-overview` visible. Pas d’optimisation ciblée. |
+| **16** Polish | **Terminé** | Live Solo : 5 onglets, Copilote hors tab, `aria-current` un seul, hauteur ≥ 44 px. |
 
 ---
 
@@ -713,7 +717,7 @@ Cadrage : conversation intégrée, **pas** WhatsApp. Pièces jointes, vocaux, re
 | ID | P | File | Statut | Travail restant | Critère de fin |
 |---|---|---|---|---|---|
 | **UX33** | P1 | 9 | **Terminé** | Depuis quand déjà live. Filtre `/clients?filter=` live. | Priorité compréhensible sans ouvrir la fiche. |
-| **UX34** | P2 | 9 | **Partiel** | Passer = un signal, toast Annuler live. | Pas d’écartement en bloc. |
+| **UX34** | P2 | 9 | **Terminé** | Live : Passer → « Signal écarté » + Annuler. Un signal, pas le groupe. Undo restaure. | Pas d’écartement en bloc. |
 | **UX35** | P2 | 9+10c | **Terminé** | Live 360 Client : « Depuis ma dernière visite » · 2 séances · 1 check-in · poids stable. | Répondre sans relire tout le dossier. |
 | **UX36** | P2 | ens. | **Terminé** | Live : puces + « Filtre : Check-in · 1 client(s) » (Invitee) ; Effacer rend Client + Invitee. | On sait pourquoi un client est dans la liste. |
 | **UX37** | P2 | 10j | **Terminé** | Live setup étape 4 : « Ce que le client verra » + modules. Pas de Démarrer. | Pas de surprise d’onglets / champs. |
@@ -843,7 +847,7 @@ IDs **ARCH**, distincts d’UX. Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARC
 
 ## Preuves de parcours (quand un lot se clôt)
 
-Comptes de test, pas la CI seule. **Joué 15–16 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, **UX03–05**, **UX07** (vue d’ensemble + rings), **UX08–11**, **UX13–16**, **UX18 / UX19 / UX22–25**, **UX27–32**, **UX35–37**, **UX39–41**, **UX44–47**, **UX49–53**, **UX62–68**, **UX74–77**, **UX84**. **M7–M8 conçus**. **UX112** hors file. Reste extras **0A/0B** + **UX34 Partiel**.
+Comptes de test, pas la CI seule. **Joué 15–16 sept.** (SQL `chantier-*-1515`) : lots **1–16**, **M0–M5**, extras **0A/0B/1/14/15/16**, **UX03–05**, **UX07** (vue d’ensemble + rings), **UX08–11**, **UX13–16**, **UX18 / UX19 / UX22–25**, **UX27–32**, **UX34**, **UX35–37**, **UX39–41**, **UX44–47**, **UX49–53**, **UX62–68**, **UX74–77**, **UX84**. **M7–M8 conçus**. **UX112** hors file.
 
 | Rôle | Scénario | Observer |
 |---|---|---|
