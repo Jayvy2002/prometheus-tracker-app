@@ -115,6 +115,20 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 Le prochain travail produit est **P1.1 — faire de la capacité Coach une vraie capacité indépendante**.
 
+## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
+
+Le 17 septembre 2026, les advisors Supabase production ont été relus avant le départ agent.
+
+- aucune alerte advisor de niveau ERROR/critique bloquante ;
+- certaines tables internes ont RLS activé sans policy cliente : **ne pas ajouter une policy permissive uniquement pour faire disparaître le warning** ; vérifier d’abord les grants et l’usage service/backend ;
+- plusieurs RPC `SECURITY DEFINER` sont volontairement exposées aux rôles qui les utilisent : toute RPC touchée doit conserver des contrôles explicites d’identité, ownership et relation, avec tests RLS ;
+- `get_coach_invite_preview` est un cas anon sensible : préserver strictement le périmètre minimal de données exposées ;
+- les extensions `pg_trgm` / `pg_net` dans `public` sont une dette d’infrastructure à traiter séparément, pas pendant un chantier produit sans plan de migration ;
+- la protection Supabase contre les mots de passe compromis est un réglage administrateur recommandé ;
+- la CI bloque désormais toute vulnérabilité npm de niveau **critical**.
+
+Les warnings de performance (indexes peu utilisés, policies permissives multiples) sont des pistes d’optimisation, pas une autorisation à supprimer index/policy sans mesure et tests.
+
 ---
 
 # P1 — Contrats fondamentaux de compte et relation
