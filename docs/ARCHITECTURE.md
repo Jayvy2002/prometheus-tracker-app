@@ -1,124 +1,455 @@
-# Architecture frontend — actuel vs cible
+# Architecture — Prometheus
 
-> **Rôle** — matrice « tel fichier va ici ». Diagnostic : [`AUDIT_ARCHITECTURE.md`](AUDIT_ARCHITECTURE.md). Ordre : [`CHANTIER.md`](CHANTIER.md) lots **17–23**. Lots **18–23** livrés (23 = garde-fous ESLint progressifs).
+> **RÔLE — CONTRAT TECHNIQUE DURABLE**
 >
-> **Invariants :** zéro changement de parcours dans une PR de structure (sauf lot 19 : mêmes écrans, tokens). `coachingStore` : façade `stores/coachingStore.ts` + modules `features/coaching/model` (lot **21c**). `coachFleet.ts` et `supabase/functions/coach-fleet-round` restent jumelés. Migrations appliquées immuables.
+> Ce document décrit comment organiser le code pour servir `docs/VISION.md` sans dériver vers trois applications séparées, des permissions fragiles ou des écrans monolithiques.
+>
+> `docs/CHANTIER.md` définit l’ordre de migration. Ne pas lancer une refonte globale hors de cet ordre.
+
+**Référence architecture : 17 septembre 2026.**
 
 ---
 
-## Arbre actuel (après lot 23)
+## 1. Décision structurante
+
+Prometheus reste un **monolithe modulaire React + Supabase**.
+
+Aucune justification actuelle pour :
+
+- microservices ;
+- deuxième backend ;
+- deuxième moteur de séances ;
+- deuxième moteur de programmes ;
+- Redux ou remplacement massif de Zustand ;
+- séparation physique Solo/Coaché/Coach.
+
+L’architecture doit exprimer :
+
+```text
+un compte
++ un moteur de données personnelles
++ des capacités indépendantes
++ des relations explicites
++ des workspaces UI
+```
+
+---
+
+## 2. Architecture frontend cible
 
 ```text
 src/
-├── App.tsx                 Assembleur BrowserRouter + AppRoutes
 ├── app/
-│   ├── router/             AppRoutes (public / authentifié)
-│   ├── guards/             CoachOnly, CoachTrackerRedirect, CoachedAthleteRedirect
-│   ├── bootstrap/          useAuthenticatedSession
-│   ├── layout/             AppLayout, BottomNav, SideNav, FAB, PageTransition
-│   └── navigation/         navConfig + test
+│   ├── router/
+│   ├── guards/
+│   ├── bootstrap/
+│   ├── layout/
+│   └── navigation/
 ├── features/
-│   ├── account/hooks/      useAccountContext
-│   ├── coaching/hooks/     useClientTracking, useClientDossier
-│   ├── coaching/domain/    coach*.ts (lot 20) — réexports dans lib/
-│   ├── coaching/model/     slices coachingStore (lot 21c)
-│   ├── coaching/types.ts   contrats coaching (lot 22a)
-│   ├── marketplace/domain/ marketplace*.ts (lot 20)
-│   ├── workout/domain/     séances, exos, disques (lot 20)
-│   ├── workout/types.ts    contrats séance (lot 22a)
-│   ├── nutrition/          hooks + domain + types (lot 22a)
-│   └── programs/           domain + types (lot 22a)
+│   ├── account/
+│   ├── coaching/
+│   ├── marketplace/
+│   ├── workout/
+│   ├── programs/
+│   ├── nutrition/
+│   ├── checkin/
+│   ├── goals/
+│   ├── imports/
+│   └── profile/
 ├── shared/
-│   ├── api/supabase/       client
-│   ├── hooks/              useOnline, usePageTitle
-│   ├── types.ts            contrats transversaux (lot 22a)
-│   └── ui/                 primitives (tokens lot 19) ; PageTransition = réexport
-├── components/             Écrans métier ; ui/ et layout/ = réexports temporaires
-├── hooks/                  réexport usePageTitle
-├── i18n/locales/{fr,en}.ts + {fr,en}/*.ts  (lot 22b)
-├── lib/                    Métier + réexports (`types.ts` baril 22a)
-├── navigation/             réexport navConfig
-└── stores/                 Zustand ; coachingStore = façade (21c)
-
-supabase/
-├── migrations/ + schema_migrations.lock.json
-├── functions/              coach-agent, coach-fleet-round, …
-└── tests/                  SQL RLS / RPC (pas des `*.test.ts` Vite)
+│   ├── api/
+│   ├── hooks/
+│   ├── lib/
+│   ├── types/
+│   └── ui/
+├── i18n/
+└── legacy façades/réexports temporaires
 ```
 
-Alias livrés : `@/app/*`, `@/features/*`, `@/shared/*` (Vite + `tsconfig.app.json`). Les anciens chemins réexportent. `stores/coachingStore.ts` = façade (21c). `lib/types.ts` = réexport (22a). i18n : `locales/{fr,en}/*.ts` + barils (22b). Lot **23** : overlays ESLint `shared` ↛ `features` / stores ; `features/A` ↛ `features/B` ; `PageTransition` dans `app/layout`.
-
-Convention d’accès données **cible** :
-
-`composant → hook / model → API → Supabase`
-
-Un écran ne devrait pas appeler `supabase.from(...)`. Aujourd’hui certains le font encore (`Dashboard`, `WorkoutForm`, …). La couche ESLint correspondante **n’est pas** activée (lot 23 progressif).
+Le dépôt actuel possède déjà une partie de cette structure. La migration reste progressive.
 
 ---
 
-## Arbre cible (lots 18–23)
+## 3. Flux de dépendances
+
+Convention cible :
 
 ```text
-src/
-├── app/          router, guards, bootstrap, layout, navigation
-├── features/     coaching, workout, nutrition, programs, marketplace,
-│                 onboarding, checkin, profile, account
-│                 chacun : api / components / domain / hooks / model / types
-├── shared/       api/supabase, hooks, lib, types, ui
-├── i18n/
-└── main.tsx
+UI
+→ hook / use case / model
+→ API du domaine
+→ Supabase / RPC
 ```
 
-Alias (lot **18**) : `@/app/*`, `@/features/*`, `@/shared/*`.
+Un écran ne devrait pas devenir un mini-backend.
+
+### Nouveau code
+
+Pour une nouvelle capacité :
+
+- éviter `supabase.from(...)` directement dans un gros composant ;
+- mettre les règles métier testables dans le domaine ;
+- utiliser une API/hook clair pour l’orchestration ;
+- garder les primitives UI sans logique métier.
+
+### Code historique
+
+Ne pas déplacer des centaines de fichiers uniquement pour respecter l’arbre cible.
+
+Lorsqu’un gros composant historique est touché pour une vraie fonctionnalité, extraire la partie concernée si cela réduit réellement les risques.
 
 ---
 
-## Matrice « où va un fichier »
+## 4. Modèle account/capabilities
 
-| Si tu crées / touches… | Aujourd’hui | Cible | Lot qui déplace |
-|---|---|---|---|
-| Route, garde, bootstrap session | `app/router`, `app/guards`, `app/bootstrap` (+ `App.tsx` assembleur) | idem | **21a livré** |
-| Layout, nav, FAB, `PageTransition` | `app/layout/`, `app/navigation/` (+ réexports) | idem | **18** ; `PageTransition` **23** |
-| Primitive UI (`Button`, `Card`, …) | `shared/ui/` (+ réexports) | idem | **18 livré** |
-| Client Supabase | `shared/api/supabase/` (+ réexport `lib/supabase.ts`) | idem | **18 livré** |
-| `useOnline.ts` | `shared/hooks/` | idem | **18 livré** |
-| `usePageTitle.ts` | `shared/hooks/` | idem | **18 livré** |
-| `useAccountContext.ts` | `features/account/hooks/` | idem | **18 livré** |
-| `useClientTracking.ts` | `features/coaching/hooks/` | idem | **18 livré** |
-| `useFoodCatalogSearch.ts` | `features/nutrition/hooks/` | idem | **18 livré** |
-| `coach*.ts` (agent, fleet, ask, …) | `features/coaching/domain/` (+ réexports `lib/`) | idem | **20 coaching livré** |
-| Autre domaine dans `lib/` | `features/<domaine>/domain/` (+ réexports) | idem | **20 livré** |
-| Utils transverses, télémétrie, offline | `lib/` | `shared/lib/` | **20** quand ce n’est plus du domaine |
-| `types.ts` | réexport `lib/types.ts` + `shared/types` + `features/*/types` | idem | **22a livré** |
-| i18n | `i18n/locales/{fr,en}.ts` + `{fr,en}/*.ts` | idem | **22b livré** |
-| Fetch / orchestration écrans listés | hooks `features/*/hooks` + `workout/data` | idem | **21b livré** |
-| Store Zustand (sauf coaching) | `stores/*Store.ts` | `features/*/model/` | progressif, **pas 18** |
-| `coachingStore.ts` | façade `stores/coachingStore.ts` + `features/coaching/model` | idem | **21c livré** |
-| Écran métier | `components/<domaine>/` | `features/<domaine>/components/` | avec le domaine (20–21), pas un bang |
-| Test unitaire | `src/**/*.test.ts` | reste à côté du module testé | **17b** = découverte ; **17e** livré |
-| Edge Function | `supabase/functions/<nom>/` | inchangé | — |
-| Migration SQL | `supabase/migrations/` | inchangé ; **jamais** réécrire l’historique | — |
+L’ancien `coaching_role = none/client/coach` est une compatibilité historique, pas le modèle cible.
 
-**Interdit dans le lot 18** (rappel) : `coach*.ts`, split `App.tsx`, `stores/`, `types.ts`, i18n, gros composants.
+Contrat conceptuel :
 
----
+```ts
+type AccountContext = {
+  personalCoaching: 'solo' | 'coached';
+  capabilities: {
+    coach: boolean;
+  };
+  activeWorkspace: 'personal' | 'coaching';
+  activeCoachId: string | null;
+  marketplacePublished: boolean;
+  entitlements: unknown;
+}
+```
 
-## Tests
+Les noms exacts peuvent évoluer.
 
-`npm test` lance `scripts/run-unit-tests.mjs`, qui collecte **tous** les `src/**/*.test.ts` (plus seulement `src/lib`). Un fichier `src/navigation/foo.test.ts` ou `src/components/.../foo.test.ts` est visible sans éditer `package.json`.
+### Règles
 
-Hors de ce runner (volontaire, besoin d’un navigateur / Postgres local) :
-
-- `scripts/test-profile-session.mjs`, `scripts/test-service-worker.mjs`
-- `npm run test:rls` et les `.sql` sous `supabase/tests/`
-- `scripts/test-questionnaire-browser.mjs` (CI `rls-matrix`)
-
-Ne pas y coller un test unitaire : il resterait invisible pour un agent qui ne lance que `npm test` si on le met uniquement dans le workflow.
-
-Noms historiques `auditLot*` / `uxPremium` : **lot 17e** — renommés d’après le verrou (`programAtomicWrites`, `reviewWindowAndPortions`, `clientDossierRealtime`, `programRevisionsAndIntake`, `honestTargetsAndFirstRun`).
+- `coachCapability` ne doit pas rester éternellement déduit du legacy role ;
+- `activeWorkspace` est local/UI et ne donne aucun droit ;
+- `personalCoaching` dépend d’une relation active réelle ;
+- publication marketplace indépendante ;
+- entitlement commercial indépendant.
 
 ---
 
-## Environnement
+## 5. Autorisations
 
-Voir `CLAUDE.md` (convention unique, lot 17d) et [`DESIGN_SYSTEM.md`](DESIGN_SYSTEM.md) pour les tokens. Jamais `service_role` dans Git.
+### Mauvais pattern
+
+```ts
+if (persona === 'coached') denyEntireFeature();
+```
+
+### Pattern cible
+
+Décider selon :
+
+```text
+actor
+resource owner
+relationship
+requested action
+server-side rule
+```
+
+Exemples :
+
+- un Coaché lit son calendrier ;
+- un Coaché logge sa séance ;
+- un Coaché ne modifie pas directement le programme assigné ;
+- un Coach peut modifier les programmes dont il est propriétaire ou qu’il gère pour un client actif ;
+- un Coach ne lit pas le dossier complet d’un simple prospect.
+
+RLS/RPC reste la source de vérité de sécurité.
+
+---
+
+## 6. Backend Supabase
+
+### Tables exposées
+
+RLS obligatoire.
+
+### UPDATE
+
+Vérifier à la fois :
+
+- droit de toucher la ligne actuelle ;
+- validité des nouvelles valeurs.
+
+### RPC privilégiées
+
+Pour `SECURITY DEFINER` :
+
+- `auth.uid()` obligatoire ;
+- cible validée ;
+- état précédent validé ;
+- transition autorisée ;
+- `search_path` contrôlé ;
+- droits `EXECUTE` explicites ;
+- idempotence lorsque retry plausible.
+
+### Migrations
+
+Une migration appliquée est immuable.
+
+Ne jamais corriger l’histoire en modifiant une vieille migration : créer une nouvelle migration.
+
+---
+
+## 7. Machines d’état explicites
+
+Les domaines critiques doivent avoir des transitions nommées.
+
+### Marketplace
+
+```text
+pending
+→ coach_accepted
+→ athlete_confirmed
+→ relationship active
+```
+
+Ne pas confondre avec :
+
+- paiement ;
+- entitlement ;
+- publication profil ;
+- tracking configuration.
+
+### Programme
+
+```text
+draft
+→ saved revision
+→ active
+→ superseded/archived
+```
+
+### Objectif
+
+```text
+active
+→ reached | maintenance | replaced | paused | abandoned
+```
+
+Des états métier différents ne doivent pas être représentés par un même booléen si cela rend les transitions ambiguës.
+
+---
+
+## 8. Moteur entraînement/programmes
+
+Le moteur actuel est à conserver.
+
+### Prescriptions existantes à préserver
+
+- sets/reps ;
+- RIR ;
+- repos ;
+- warmup/working ;
+- drop ;
+- myo ;
+- tempo ;
+- isometric ;
+- cluster ;
+- supersets ;
+- charge prescrite ;
+- snapshots/révisions.
+
+### Extension cible
+
+```text
+Program
+→ Phase/Block
+→ Cycle optionnel
+→ SessionTemplate
+→ ExercisePrescription
+```
+
+Scheduling :
+
+- calendrier ;
+- séquence.
+
+Tous deux créent des séances dans le même moteur.
+
+---
+
+## 9. IA / Copilote
+
+Ne pas créer un nouveau bot par client/Coach.
+
+Le système cible repose sur :
+
+```text
+agrégats déterministes
+→ signaux persistants
+→ hypothèses/mémoire
+→ génération contextualisée si utile
+→ décision humaine
+```
+
+Réutiliser/converger les briques `solo_weekly_reviews`, fleet, interventions et `coach-agent`.
+
+### Source de vérité
+
+Une génération IA n’est jamais l’état métier final.
+
+L’état final est une écriture contrôlée : proposition persistée, décision humaine et effets confirmés.
+
+---
+
+## 10. Offline
+
+Priorité : **workout**.
+
+Principes :
+
+- IDs stables ;
+- queue namespacée par compte ;
+- retry idempotent ;
+- dead-letter pour erreurs durables ;
+- ne jamais afficher le cache d’un autre utilisateur ;
+- purge adaptée au logout.
+
+Étendre à d’autres domaines uniquement si le besoin UX est réel.
+
+---
+
+## 11. Marketplace et prospects
+
+Les prospects doivent être un domaine de relation pré-coaching, pas un faux client actif.
+
+Avant activation :
+
+- accès limité ;
+- pas de `is_coach_of` implicite ;
+- conversation possible selon contrat ;
+- pas d’accès aux photos/check-ins/historique complet.
+
+L’activation atomique doit vérifier qu’aucun autre Coach actif n’existe.
+
+---
+
+## 12. Commercial
+
+Le modèle `free/premium` historique doit être considéré comme transitoire.
+
+Cible : entitlements séparés par capacité/service.
+
+```text
+solo_entitlement
+coach_entitlement
+tier/client_limit
+trial
+grace
+beta_access
+billing_status
+```
+
+Stripe met à jour le commercial ; il ne définit pas directement la relation Coach ou l’identité.
+
+---
+
+## 13. Import
+
+L’import spreadsheet/CSV doit être une pipeline, pas une série d’INSERT depuis le client.
+
+```text
+parse
+→ normalize
+→ map
+→ validate
+→ preview
+→ confirm
+→ transactional apply
+```
+
+Pour les gros imports, conserver un identifiant d’import, provenance et état afin de pouvoir reprendre/diagnostiquer.
+
+---
+
+## 14. Bibliothèque exercices
+
+Un exercice canonique possède plusieurs alias.
+
+Ne pas utiliser le texte du nom comme seule identité durable lorsque les performances historiques y sont attachées.
+
+Une fusion de doublons doit réaffecter les références sans perdre l’histoire.
+
+---
+
+## 15. Télémétrie et coûts
+
+Produit : respecter `docs/TELEMETRY.md`.
+
+Coûts bêta : mesurer métadonnées économiques sans recopier le contenu sensible.
+
+Exemples sûrs selon contexte :
+
+- feature ;
+- model/provider ;
+- token counts ;
+- duration ;
+- success/failure ;
+- estimated cost ;
+- user pseudonymous/server id selon politique interne.
+
+Pas de prompt complet, message privé ou note santé uniquement pour calculer le coût.
+
+---
+
+## 16. Tests par couche
+
+### Domaine
+
+Tests unitaires pour règles pures : matching, permissions dérivées, conversions, transitions, scheduling.
+
+### DB
+
+Tests RLS/RPC pour :
+
+- isolation ;
+- transitions relation ;
+- capacité Coach ;
+- activation marketplace ;
+- programme atomique ;
+- fin de relation.
+
+### Parcours
+
+Browser/E2E sur les 4 états essentiels :
+
+- Solo ;
+- Coaché ;
+- Coach + Solo personnel ;
+- Coach + lui-même Coaché.
+
+### CI
+
+Une tâche normale ne peut être considérée terminée avec CI rouge.
+
+---
+
+## 17. Garde-fous de dépendances
+
+Conserver et renforcer progressivement les règles :
+
+- `shared` ne dépend pas d’un domaine métier ;
+- un domaine ne doit pas importer arbitrairement les internals d’un autre ;
+- utiliser une API publique de feature lorsque deux domaines collaborent ;
+- éviter les cycles ;
+- conserver les façades temporaires tant qu’elles facilitent une migration sûre.
+
+---
+
+## 18. Règle de refactor
+
+Refactoriser lorsqu’au moins un de ces critères est vrai :
+
+- la fonctionnalité ne peut pas être implémentée sûrement dans la structure actuelle ;
+- la logique est dupliquée ;
+- les tests sont impossibles à écrire ;
+- une permission/règle critique est enfouie dans l’UI ;
+- le même domaine est régulièrement cassé par sa taille/couplage.
+
+Ne pas refactoriser uniquement pour obtenir un arbre plus élégant.
