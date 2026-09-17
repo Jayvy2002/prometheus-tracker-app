@@ -38,8 +38,11 @@ test('coach-agent paths stay on the synchronous in-app OpenAI path', () => {
   assert.doesNotMatch(fleet, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /api\.x\.ai/);
   assert.doesNotMatch(fleet, /OPENAI_API_KEY|openaiJson/);
+});
+
+test('README documents human authority and the existing coaching engines', () => {
   const readme = source('README.md');
-  assert.match(readme, /L’IA prépare ; l’humain décide/);
+  assert.match(readme, /l’IA prépare ; l’humain décide/);
   assert.match(readme, /Copilote `coach-agent` et analyse déterministe `coach-fleet-round`/);
 });
 

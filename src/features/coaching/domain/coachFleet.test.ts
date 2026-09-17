@@ -851,7 +851,7 @@ test('architecture lock: weekly review stays deterministic and in-app', () => {
   assert.match(loop, /planWrite\(d, today, ctx\?\.locale \?\? "fr"\)/);
   const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
   assert.match(readme, /analyse déterministe `coach-fleet-round`/);
-  assert.match(readme, /L’IA prépare ; l’humain décide/);
+  assert.match(readme, /l’IA prépare ; l’humain décide/);
   assert.doesNotMatch(readme, /XAI_API_KEY/);
   const cron = readFileSync(resolve(process.cwd(), 'supabase/cron/schedule_coach_fleet_round.sql'), 'utf8');
   assert.match(cron, /FLEET_CRON_SECRET/);

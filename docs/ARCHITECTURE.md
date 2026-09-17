@@ -55,6 +55,8 @@ src/
 
 **Contrat de compatibilité documentaire :** les répertoires `components/`, `stores/` et `lib/` existent encore. Ne pas les supprimer d’un document ou d’une PR uniquement parce que la cible est plus propre ; leur migration est progressive et doit être prouvée par le code.
 
+Exemple actuel : `src/stores/coachingStore.ts` assemble le store Zustand à partir des slices de `src/features/coaching/model/`. Les règles de domaine résident dans `src/features/coaching/domain/`. Conserver ce point d’entrée compatible pendant la migration progressive.
+
 ### Arbre cible
 
 ```text

@@ -247,6 +247,8 @@ Une CI rouge n’est pas un état acceptable pour poursuivre un chantier normal.
 
 ## Sécurité et production
 
+Convention d’environnement : `.env.example` décrit les variables avec des placeholders ; `.env.production` contient uniquement les clés publiques frontend (URL Supabase, clé anon, clé VAPID publique). Pour travailler sur ce dépôt, copier `.env.production` vers `.env`, qui reste local et ignoré par Git. Aucun `service_role` ni secret serveur dans ces fichiers.
+
 - aucun secret serveur dans Git ou frontend ;
 - aucun test destructif sur prod ;
 - confirmer explicitement toute action destructive ;

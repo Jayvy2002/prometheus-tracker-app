@@ -62,8 +62,7 @@ Le dépôt possède déjà une base importante, notamment :
 - programmes, copies, attribution et révisions ;
 - messagerie ;
 - notes/interventions ;
-- `coach-agent` ;
-- triage/fleet hebdomadaire.
+- Copilote `coach-agent` et analyse déterministe `coach-fleet-round` : le copilote prépare des brouillons via un appel OpenAI synchrone dans l’application ; le triage/fleet hebdomadaire reste sans appel LLM. Leurs propositions nécessitent une décision humaine avant application.
 
 ### Marketplace
 

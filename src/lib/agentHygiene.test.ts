@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { test } from 'node:test';
 
 const root = process.cwd();
@@ -53,7 +53,7 @@ test('17b: npm test discovers src/**/*.test.ts instead of a manual list', () => 
 
 test('17e: historical auditLot* / uxPremium tests are named after the lock they protect', () => {
   const tests = collectSrcTests(resolve(root, 'src'));
-  const names = tests.map(f => f.split('/').pop() ?? '');
+  const names = tests.map(f => basename(f));
   for (const banned of ['auditLot2.test.ts', 'auditLot3.test.ts', 'auditLot5.test.ts', 'auditLot7.test.ts', 'uxPremium.test.ts']) {
     assert.ok(!names.includes(banned), `${banned} must be renamed after the protected behaviour`);
   }
