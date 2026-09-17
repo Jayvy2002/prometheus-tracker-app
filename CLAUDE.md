@@ -1,153 +1,271 @@
 # CLAUDE.md — Prometheus
 
-> **RÔLE DE CE DOCUMENT — RÈGLES OBLIGATOIRES POUR LES AGENTS ET DÉVELOPPEURS**
+> **RÈGLES OBLIGATOIRES POUR LES AGENTS ET DÉVELOPPEURS**
 >
-> À lire au début de chaque tâche. Ce fichier définit les sources de vérité, invariants, règles de sécurité et conventions de travail.
+> Lire ce fichier au début de toute tâche. Lire ensuite `docs/VISION.md`, `docs/CHANTIER.md` et les fichiers du domaine touché.
 >
-> **Instruction pour les agents :** ne pas y recopier le backlog, un état live daté ou un journal de PR. Lire `README.md` pour comprendre le projet actuel, `docs/VISION.md` pour la destination produit, `docs/CARTE_PRODUIT.md` pour les parcours cibles et `docs/CHANTIER.md` pour l’ordre complet des travaux. Ne pas modifier le rôle de ces documents.
-
-## Produit
-
-Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, disponible en français et en anglais.
-
-Trois rôles sont officiels :
-
-- **Coach** : gère ses clients, leurs programmes, leur suivi et les propositions préparées par Prometheus.
-- **Client coaché** : suit le programme et les modules autorisés par son coach.
-- **Solo** : utilise le tracker complet et valide lui-même les propositions du copilote.
-
-Principe d’autorité : **l’IA prépare, un humain décide**. Une proposition n’est jamais appliquée automatiquement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
-
-Accueil athlète = **Dashboard** : une priorité claire **et** une vue d’ensemble du jour (entraînement, rings nutrition, poids, check-in, coaching selon les modules). Pas une page réduite à un seul verbe.
+> `AGENTS.md` porte le même contrat pour les agents qui le détectent automatiquement. En cas de contradiction, corriger les documents dans le même changement plutôt que choisir silencieusement une interprétation.
 
 ## Sources de vérité
 
 | Sujet | Source |
 |---|---|
-| Présentation et utilisation du projet actuel | `README.md` |
-| Destination, rôles et principes produit | `docs/VISION.md` |
-| Parcours et contrats d’architecture cible | `docs/CARTE_PRODUIT.md` |
-| Priorités et totalité du travail restant | `docs/CHANTIER.md` |
-| Schéma et ordre des migrations | `supabase/migrations/` + `supabase/schema_migrations.lock.json` |
-| État des Edge Functions | `supabase/functions.deployed.lock.json` |
-| Télémétrie autorisée | `docs/TELEMETRY.md` |
-| Types applicatifs | `src/lib/types.ts` |
-| Où va un fichier (actuel vs cible) | `docs/ARCHITECTURE.md` |
-| Tokens et primitives UI | `docs/DESIGN_SYSTEM.md` |
-| Configuration JWT des fonctions | `supabase/config.toml` |
+| Destination produit et invariants | `docs/VISION.md` |
+| Ordre du travail restant | `docs/CHANTIER.md` |
+| Parcours, permissions et architecture fonctionnelle cible | `docs/CARTE_PRODUIT.md` |
+| Architecture frontend et frontières de domaines | `docs/ARCHITECTURE.md` |
+| État actuel et commandes | `README.md` |
+| Migrations | `supabase/migrations/` + lock |
+| Edge Functions déployées | `supabase/functions.deployed.lock.json` |
+| Design | `docs/DESIGN_SYSTEM.md` |
+| Télémétrie | `docs/TELEMETRY.md` |
 
-En cas de contradiction, déterminer quelle source porte le sujet puis corriger le document périmé dans le même changement.
+## Contrat produit fondamental
 
-### Hygiène documentaire
+Prometheus = **marketplace de coaching + moteur commun de suivi de performance + système d’exploitation du coaching**.
 
-- Ne pas supprimer un chantier non terminé parce qu’il est ancien, partiellement présent ou supposé dans une réflexion.
-- Retirer un élément de `docs/CHANTIER.md` seulement avec une preuve d’implémentation et de validation, ou une décision produit explicite.
-- Une capacité utilisateur livrée peut être ajoutée au README ; ses détails d’implémentation restent dans le code et les documents spécialisés.
-- Une décision durable modifie la Vision. Une tâche, un nom de table proposé ou un ordre d’exécution modifie le Chantier.
-- Les numéros de versions live appartiennent aux fichiers lock. Les migrations appliquées appartiennent au lock et à `docs/MIGRATIONS.md`.
-- Git et les pull requests conservent l’historique : ne pas accumuler un journal des anciens agents dans les documents actifs.
+Ne jamais construire trois produits séparés.
 
-## Commandes de vérification
+Modèle cible :
+
+```text
+Utilisateur
+├── espace personnel
+│   ├── Solo : aucun Coach actif
+│   └── Coaché : relation Coach active
+├── capacité Coach indépendante : oui/non
+├── workspace affiché : Personal/Coaching
+├── publication marketplace : oui/non
+└── entitlements commerciaux séparés
+```
+
+### Invariants absolus
+
+- Solo/Coaché est un **état personnel** ; Coach est une **capacité professionnelle indépendante**.
+- Un Coach peut s’entraîner personnellement et peut lui-même être coaché.
+- Un client ne possède qu’un Coach actif à la fois.
+- Le workspace affiché n’accorde aucun droit.
+- Permissions = **ressource + propriétaire + relation + action**, pas simplement persona.
+- IA : **prépare uniquement**. Solo ou Coach valide explicitement les changements.
+- L’absence de donnée ne signifie ni faute ni mauvaise adhérence.
+- Les données personnelles restent liées à l’utilisateur à travers Solo ↔ Coaché.
+- Une demande marketplace n’est pas une relation active.
+- Après acceptation du Coach, **l’athlète confirme finalement** avant activation marketplace.
+- Dashboard = priorité + vue d’ensemble du jour.
+- Calendrier personnel = Solo + Coaché, passé + futur.
+- Programmes versionnés ; ne jamais réécrire silencieusement le passé réalisé.
+- Pas d’avis/étoiles Coach sans décision produit explicite.
+- Essai Solo = **14 jours**.
+- Grâce Coach = **7 jours**.
+- Les prix définitifs ne sont **pas décidés** : ne jamais en inventer.
+- La bêta peut bypasser le paiement mais doit mesurer l’usage et les coûts.
+- Séance offline prioritaire.
+- FR/EN, mobile, accessibilité, états vide/erreur/reprise font partie de « terminé ».
+
+## Avant de coder une capacité
+
+L’agent doit pouvoir répondre avant l’implémentation :
+
+1. Quel domaine possède la capacité ?
+2. Qui possède les données ?
+3. Qui peut lire ?
+4. Qui peut écrire ?
+5. Quelle relation/capacité/entitlement est réellement nécessaire ?
+6. Quelle règle doit être garantie côté DB/RPC ?
+7. Quelle primitive existante peut être réutilisée ?
+8. Quel état est la source de vérité ?
+9. Quel comportement offline est nécessaire ?
+10. Quel comportement pour Solo / Coaché / Coach / Coach lui-même coaché ?
+11. Que devient la donnée à la fin d’une relation ?
+12. Quels tests prouvent la fin ?
+
+Si une réponse est inconnue, inspecter le code et les docs. Ne pas inventer une architecture locale pour faire passer l’écran.
+
+## Discipline d’implémentation
+
+### Réutiliser avant de créer
+
+Avant toute nouvelle table, store, RPC, Edge Function ou écran :
+
+- rechercher les primitives existantes ;
+- vérifier les migrations les plus récentes, pas seulement une migration historique ;
+- vérifier si le comportement existe mais n’est simplement pas raccordé ;
+- éviter tout moteur parallèle par persona.
+
+Exemples :
+
+- entraînement : réutiliser le moteur commun de séances ;
+- programmes : étendre modèle/version/révision, ne pas créer un « coach program engine » séparé ;
+- IA : faire converger les briques weekly review/fleet plutôt qu’ajouter un troisième moteur ;
+- messages : prolonger la conversation de relation plutôt qu’ajouter une inbox prospect indépendante si ce n’est pas nécessaire.
+
+### Frontend
+
+Direction cible :
+
+```text
+UI
+→ hook / use case / model
+→ API du domaine
+→ Supabase
+```
+
+Les nouvelles fonctionnalités ne doivent pas mettre de logique métier ou d’orchestration Supabase directement dans un gros composant d’écran.
+
+Pas de refactor global pour la beauté. Lorsqu’un domaine est touché, améliorer sa frontière progressivement.
+
+### Backend
+
+Toute règle critique d’autorisation, d’unicité, d’activation ou de transition doit être garantie côté base/RPC, pas uniquement par masquage UI.
+
+RLS sur les tables exposées. RPC `SECURITY DEFINER` étroites avec contrôle `auth.uid()`, cible, état précédent et droits `EXECUTE` explicites.
+
+Les migrations appliquées sont immuables. Toujours ajouter une nouvelle migration.
+
+### États métier explicites
+
+Ne pas fusionner des états qui ont un sens différent.
+
+Exemples :
+
+- demande marketplace ≠ Coach accepté ≠ Athlète confirmé ≠ relation active ;
+- relation active ≠ abonnement payé ;
+- brouillon ≠ sauvegardé ≠ publié ≠ actif ;
+- notification envoyée ≠ message enregistré/livré/lu ;
+- donnée absente ≠ valeur zéro ≠ erreur de chargement.
+
+## IA et mémoire
+
+Le moteur cible suit :
+
+```text
+observations
+→ signaux
+→ hypothèses
+→ preuves pour/contre
+→ confiance
+→ attendre / proposer / clôturer
+→ décision humaine
+→ mémoire
+```
+
+Une revue hebdomadaire existe pour chaque athlète et analyse uniquement les modules pertinents.
+
+Ne pas transformer une analyse en action automatique. Ne pas générer de diagnostic médical.
+
+Les refus/ajustements humains doivent pouvoir influencer les revues suivantes au lieu de repartir de zéro.
+
+## Marketplace
+
+- Profil Coach = opt-in.
+- Capacité Coach ≠ publication marketplace.
+- Matching : exigences bloquantes puis préférences ; expliquer les correspondances.
+- Pas de pourcentage de compatibilité arbitraire.
+- Qualifications : déclarées / en vérification / vérifiées / rejetées-expirées si besoin.
+- Coach sans qualification vérifiée autorisé sans badge.
+- Pas d’avis/étoiles.
+- Avant activation : accès limité aux données explicitement consenties pour la prospection.
+- Activation marketplace nécessite confirmation finale de l’athlète.
+
+## Programme et entraînement
+
+Conserver le moteur existant : prescriptions, types de séries, supersets, révisions, fork, attribution.
+
+Évolution cible :
+
+```text
+Programme
+→ phases/blocs
+→ cycles
+→ séances/templates
+→ exercices/prescriptions
+```
+
+Supporter progressivement calendrier **et** séquence A→B→C. Ne pas remplacer le logger.
+
+Une modification future ne change jamais une séance historique réalisée.
+
+## Données personnelles
+
+Le Coach peut accéder aux données autorisées de ses clients actifs ; il ne devient jamais propriétaire de leurs données personnelles.
+
+Fin de relation :
+
+- lien fermé ;
+- permissions retirées ;
+- programme coaché archivé/mis en pause selon contrat ;
+- notes privées Coach privées ;
+- historique personnel utilisateur conservé ;
+- utilisateur Solo si aucun Coach actif.
+
+## Commercial et bêta
+
+Commercial séparé de l’identité.
+
+Représenter les entitlements indépendamment des rôles et relations.
+
+Décisions actuelles :
+
+- essai Solo 14 jours ;
+- grâce Coach 7 jours ;
+- paliers Coach susceptibles de dépendre des clients actifs ;
+- prix non décidés ;
+- bêta = accès bypass possible + consommation toujours mesurée.
+
+Ne jamais faire dépendre `coachCapability` d’un simple paramètre de retour Stripe.
+
+## Import et intégrations
+
+Priorité adoption Coach : import spreadsheet/CSV intelligent avant la multiplication des wearables.
+
+Import = analyse → mapping → ambiguïtés → preview → corrections → confirmation → transaction.
+
+Aucune ambiguïté importée silencieusement.
+
+Health/Garmin/etc. alimentent le moteur commun et gardent provenance + timestamp + unité.
+
+## Commandes obligatoires
+
+Avant de considérer une tâche terminée :
 
 ```bash
 npm test
 npm run typecheck
 npm run lint
 npm run build
-npm run verify:edges
 npm run verify:migrations
+npm run verify:edges
 ```
 
-Pour un changement RLS ou RPC sensible, exécuter aussi :
+Pour RLS/RPC sensible :
 
 ```bash
 npm run test:rls
 ```
 
-Les tests peuvent verrouiller la source de composants et les contrats produit. Si un comportement change volontairement, mettre à jour son test dans le même commit ; ne pas contourner le verrou.
+Une CI rouge n’est pas un état acceptable pour poursuivre un chantier normal.
 
-## Architecture utile
+## Sécurité et production
 
-Ceci est l’**arbre actuel** (lots 18–23 livrés). La matrice est dans `docs/ARCHITECTURE.md`. `stores/coachingStore.ts` est une **façade** (lot 21c). `lib/types.ts` réexporte `shared/types` + `features/*/types` (lot 22a). i18n : `locales/{fr,en}/*.ts` + barils (lot 22b). Lot 23 : overlays ESLint `shared`/`features` ; `PageTransition` dans `app/layout`.
+- aucun secret serveur dans Git ou frontend ;
+- aucun test destructif sur prod ;
+- confirmer explicitement toute action destructive ;
+- writes atomiques/idempotents lorsque les retries sont possibles ;
+- ne jamais signaler succès avant write confirmée ;
+- protéger les données privées dans la télémétrie.
 
-```text
-src/
-├── App.tsx                         Assembleur (router + provider)
-├── app/router/                     AppRoutes (arbre public / authentifié)
-├── app/guards/                     CoachOnly, CoachTrackerRedirect, CoachedAthleteRedirect
-├── app/bootstrap/                  Session, offline, langue, intake
-├── app/layout/                     Chrome (PageTransition inclus) ; app/navigation/ = navConfig
-├── features/                       account / coaching (domain + model 21c) / marketplace / workout / nutrition / programs
-├── shared/                         api/supabase, hooks, ui (tokens lot 19)
-├── components/                     Écrans métier ; ui/ et layout/ = réexports
-├── stores/                         Zustand ; coachingStore = façade (lot 21c)
-├── lib/                            Métier + réexports (`types.ts` = baril 22a) ; tests `*.test.ts`
-└── i18n/locales/{fr,en}/           Textes par domaine + barils fr.ts / en.ts (22b)
+## Conventions du repo
 
-supabase/
-├── migrations/                     Historique DB immuable
-├── cron/                           Planification des tâches
-└── functions/
-    ├── coach-agent/                Copilote IA synchrone
-    ├── coach-fleet-round/          Analyse déterministe du roster
-    ├── notify-onboarding-complete/ Déclencheur de proposition initiale
-    ├── send-daily-reminders/       Notifications Web Push
-    └── autres fonctions métier
-```
+- TypeScript strict.
+- React + Zustand existants ; pas de Redux sans nécessité démontrée.
+- Supabase reste le backend ; pas de microservices par défaut.
+- Tailwind + design system existant ; pas de nouvelle UI library sans justification.
+- `src/features/<domain>` pour le métier ; `shared` ne dépend pas de features.
+- Respecter les overlays ESLint et les alias existants.
+- Le code historique peut conserver des façades/réexports ; ne pas faire de migration massive sans bénéfice fonctionnel.
 
-## Invariants produit
+## Règle finale
 
-- **Propositions uniquement.** `coach-agent` et `coach-fleet-round` préparent des brouillons. L’application explicite du coach ou du solo est obligatoire.
-- **Isolation coach-client.** Un coach ne voit et ne modifie que ses clients actifs. Toute écriture privilégiée vérifie la cible avant les effets.
-- **Un client, un coach actif maximum.**
-- **Fin de coaching = retour solo.** Historique et cibles conservés, programme mis en pause, tracking coach retiré.
-- **Programmes atomiques et versionnés.** Utiliser les RPC de sauvegarde/création/fork/adoption. Un échec ne laisse pas de programme partiel.
-- **Interventions idempotentes.** Claim → effets → finalize ; un rejeu ne duplique ni message ni note.
-- **Données honnêtes.** Une réussite affichée correspond à une écriture persistée. Les erreurs et les actions à réessayer restent visibles.
-- **Hors ligne.** La file de séances survit au changement de compte et rejoue sans doublon ; les éléments en échec durable vont en dead-letter.
-- **Tracking coaché.** `client_tracking_config` décide quels modules sont actifs. Un module désactivé ne génère ni rappel ni jugement.
-- **Nutrition.** Les cibles d’un coaché sont coach-only ; l’historique est daté. Les portions passent par le contrat `productLogDraft`.
-- **Analyse hebdomadaire.** Fenêtre cohérente de 14 jours, cibles effectives datées, signaux déclarés et profils protégés.
-- **Questionnaire.** `STANDARD_INTAKE_IDS`, `INTAKE_SEMANTIC_MAP` et `INTAKE_VERSION` forment le contrat stable. Les champs inconnus vont dans `custom`.
-- **Bilingue.** Tout texte visible passe par l’i18n, avec parité FR/EN.
-- **Télémétrie minimale.** Aucun nom, e-mail, texte libre, réponse d’intake, note, message ou signal médical dans `product_events`.
+Une PR doit livrer **une capacité observable ou une correction cohérente**, avec ses tests et sa documentation lorsque le contrat durable change.
 
-## Verrous techniques anti-régression
-
-Ces règles décrivent le comportement actuel. Les modifier exige une décision produit explicite, les tests concernés et, lorsque nécessaire, la matrice RLS.
-
-- **Tournée hebdomadaire.** `src/features/coaching/domain/coachFleet.ts` (réexport `src/lib/coachFleet.ts`) et `supabase/functions/coach-fleet-round/index.ts` portent la même logique ; `fleetCopy.ts` porte les textes. Une règle modifiée doit être répercutée dans les deux implémentations et leurs tests. La fenêtre est de 14 jours. L’assiduité et la qualité des données sont vérifiées avant toute proposition chiffrée ; sinon l’action attendue est une relance, pas une modification arbitraire des cibles.
-- **Recherche d’aliments.** La recherche locale répond pendant la frappe. Open Food Facts est déclenché explicitement par l’utilisateur, avec budget, annulation et délai maximal ; ne pas transformer la recherche distante en requête à chaque caractère. `pickerSearch.ts` centralise le classement partagé.
-- **Exercices.** Les alias FR/EN servent la recherche ; le nom canonique en base reste stable et l’affichage est localisé.
-- **Portions.** `productLogDraft` est le contrat commun pour recherche, récents, favoris, recettes et préremplissage. Ne pas réintroduire de conversion implicite ×100 entre valeur par portion et valeur par masse.
-- **Programmes.** Utiliser les RPC atomiques de sauvegarde, synchronisation, création, fork et adoption. Les patchs ciblent les identifiants via `resolvePatchTargets` ; l’aperçu et l’application doivent résoudre la même cible. Respecter le contrôle de version `expectedUpdatedAt` et les révisions immuables.
-- **Caches par compte.** Les données locales sont namespacées par `sessionScope.ts`. Le logout purge les caches du compte, sauf la file hors ligne qui doit pouvoir reprendre pour le même utilisateur. Toute lecture de séance valide l’identité avant d’afficher un cache.
-- **Transitions de rôle.** Un client coaché entre par une invitation ou, lorsque le chantier correspondant sera livré, par une demande explicitement acceptée. La fin du lien réutilise la transition commune vers le solo ; ne pas créer une voie parallèle incomplète.
-- **Télémétrie.** Tout nouvel événement exige la mise à jour simultanée de `ProductEventName`, de l’appel `track()` et de `docs/TELEMETRY.md`.
-
-Les noms de tables, RPC et routes proposés dans `docs/CHANTIER.md` sont un point de départ, pas la preuve qu’ils existent déjà. Avant d’implémenter, inspecter le schéma et le code actuels, puis créer une nouvelle migration sans modifier les migrations appliquées.
-
-## Sécurité et base de données
-
-- RLS activé sur toutes les tables exposées.
-- Une policy UPDATE doit contrôler à la fois l’accès à la ligne et les nouvelles valeurs.
-- Les RPC `SECURITY DEFINER` restent étroites, vérifient `auth.uid()` et ont des droits `EXECUTE` explicites.
-- La clé `service_role` et les secrets serveur ne vont jamais dans le client ni dans Git.
-- Les migrations déjà appliquées sont immuables. Ajouter une nouvelle migration, ne jamais réécrire l’historique.
-- Avant toute action destructive sur la production : identifier précisément la cible et demander confirmation.
-- Aucun test destructif sur la base de production.
-
-## Conventions
-
-- TypeScript strict ; types dans `shared/types` + `features/*/types`, réexportés par `src/lib/types.ts`.
-- Composants fonctionnels, logique testable dans `src/lib/`.
-- Zustand pour l’état partagé.
-- Tailwind pour le style ; tokens et primitives : `docs/DESIGN_SYSTEM.md`. Pas de nouvelle bibliothèque UI sans besoin démontré.
-- PascalCase pour les composants, camelCase pour les fonctions, snake_case pour PostgreSQL.
-- `coachingStore` : garder la **façade** `stores/coachingStore.ts` (lot 21c). Les modules sont dans `features/coaching/model`. Ne pas importer les slices depuis l’UI.
-- `npm test` découvre `src/**/*.test.ts` (`scripts/run-unit-tests.mjs`). Ne plus ajouter chaque fichier à `package.json`.
-- **Env (une convention).** `.env` = local, gitignoré. `.env.example` = placeholders. `.env.production` = **uniquement** clés publiques frontend déjà dans le bundle (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY`). Agents cloud : `cp .env.production .env` s’il manque. Jamais `service_role`, token serveur, ni secret VAPID privé dans Git. Netlify : les mêmes variables publiques, pas de clé serveur.
-
-## Priorité actuelle
-
-Lire `docs/CHANTIER.md`, qui est l’unique source de l’ordre complet et du travail restant. Ne pas lancer un chantier transversal sans instruction ou sans démontrer qu’il soutient cet ordre ou corrige un problème bloquant.
+Ne jamais optimiser localement au prix de la Vision globale.
