@@ -35,7 +35,27 @@ un compte
 
 ---
 
-## 2. Architecture frontend cible
+## 2. Arbre frontend actuel et cible
+
+Le dépôt est **déjà en transition** vers une architecture par domaines. Les chemins historiques restent présents comme façades, écrans métier ou stores. Cette réalité doit rester documentée car les agents et les tests de garde s’en servent pour ne pas inventer une seconde structure en parallèle.
+
+### Arbre actuel
+
+```text
+src/
+├── App.tsx                 Assembleur BrowserRouter + routes/providers
+├── app/                    Router, guards, bootstrap, layout, navigation
+├── features/               Domaines progressivement extraits
+├── shared/                 API Supabase, hooks, types et primitives UI
+├── components/             Écrans métier historiques / réexports temporaires
+├── stores/                 Zustand ; façades et stores encore actifs
+├── lib/                    Métier, utilitaires et réexports de compatibilité
+└── i18n/                   Locales FR/EN
+```
+
+**Contrat de compatibilité documentaire :** les répertoires `components/`, `stores/` et `lib/` existent encore. Ne pas les supprimer d’un document ou d’une PR uniquement parce que la cible est plus propre ; leur migration est progressive et doit être prouvée par le code.
+
+### Arbre cible
 
 ```text
 src/
@@ -63,10 +83,10 @@ src/
 │   ├── types/
 │   └── ui/
 ├── i18n/
-└── legacy façades/réexports temporaires
+└── façades/réexports temporaires jusqu’à migration sûre
 ```
 
-Le dépôt actuel possède déjà une partie de cette structure. La migration reste progressive.
+Le dépôt actuel possède déjà une partie de cette structure. La migration reste progressive : **pas de big-bang de dossiers**.
 
 ---
 
@@ -90,7 +110,8 @@ Pour une nouvelle capacité :
 - éviter `supabase.from(...)` directement dans un gros composant ;
 - mettre les règles métier testables dans le domaine ;
 - utiliser une API/hook clair pour l’orchestration ;
-- garder les primitives UI sans logique métier.
+- garder les primitives UI sans logique métier ;
+- réutiliser les primitives existantes avant d’ajouter store/table/RPC/Edge Function.
 
 ### Code historique
 
@@ -119,7 +140,7 @@ type AccountContext = {
 }
 ```
 
-Les noms exacts peuvent évoluer.
+Les noms exacts peuvent évoluer ; la séparation des concepts, elle, ne doit pas disparaître.
 
 ### Règles
 
@@ -127,11 +148,12 @@ Les noms exacts peuvent évoluer.
 - `activeWorkspace` est local/UI et ne donne aucun droit ;
 - `personalCoaching` dépend d’une relation active réelle ;
 - publication marketplace indépendante ;
-- entitlement commercial indépendant.
+- entitlement commercial indépendant ;
+- un Coach peut utiliser le tracker personnel et peut lui-même être Coaché.
 
 ---
 
-## 5. Autorisations
+## 5. Autorisations : ressource + action, pas persona globale
 
 ### Mauvais pattern
 
@@ -155,11 +177,12 @@ Exemples :
 
 - un Coaché lit son calendrier ;
 - un Coaché logge sa séance ;
+- un Coaché corrige ses propres données historiques ;
 - un Coaché ne modifie pas directement le programme assigné ;
-- un Coach peut modifier les programmes dont il est propriétaire ou qu’il gère pour un client actif ;
+- un Coach peut modifier ses modèles et les attributions qu’il gère pour un client actif ;
 - un Coach ne lit pas le dossier complet d’un simple prospect.
 
-RLS/RPC reste la source de vérité de sécurité.
+RLS/RPC reste la source de vérité de sécurité. Une garde React améliore l’UX, elle ne remplace pas l’autorisation serveur.
 
 ---
 
@@ -192,7 +215,7 @@ Pour `SECURITY DEFINER` :
 
 Une migration appliquée est immuable.
 
-Ne jamais corriger l’histoire en modifiant une vieille migration : créer une nouvelle migration.
+Ne jamais corriger l’histoire en modifiant une vieille migration : créer une nouvelle migration et mettre à jour les tests/locks associés.
 
 ---
 
@@ -209,7 +232,9 @@ pending
 → relationship active
 ```
 
-Ne pas confondre avec :
+Une acceptation du Coach ne doit jamais activer seule la relation. Le dernier consentement appartient à l’athlète.
+
+Ne pas confondre cette machine d’état avec :
 
 - paiement ;
 - entitlement ;
@@ -238,7 +263,7 @@ Des états métier différents ne doivent pas être représentés par un même b
 
 ## 8. Moteur entraînement/programmes
 
-Le moteur actuel est à conserver.
+Le moteur actuel est une fondation à conserver.
 
 ### Prescriptions existantes à préserver
 
@@ -270,31 +295,35 @@ Scheduling :
 - calendrier ;
 - séquence.
 
-Tous deux créent des séances dans le même moteur.
+Les deux créent des séances dans le **même** moteur de workout.
+
+Le logger décrit ce qui a réellement été fait. Le programme décrit ce qui était planifié. Une substitution ponctuelle ne réécrit pas automatiquement le programme futur.
 
 ---
 
 ## 9. IA / Copilote
 
-Ne pas créer un nouveau bot par client/Coach.
+Ne pas créer un bot séparé par client ou par Coach.
 
-Le système cible repose sur :
+Le système cible converge les briques existantes : `solo_weekly_reviews`, fleet, interventions et `coach-agent`.
 
 ```text
 agrégats déterministes
 → signaux persistants
-→ hypothèses/mémoire
-→ génération contextualisée si utile
+→ hypothèses / preuves pour et contre
+→ confiance
+→ proposition éventuelle
 → décision humaine
+→ mémoire pour la prochaine revue
 ```
-
-Réutiliser/converger les briques `solo_weekly_reviews`, fleet, interventions et `coach-agent`.
 
 ### Source de vérité
 
 Une génération IA n’est jamais l’état métier final.
 
 L’état final est une écriture contrôlée : proposition persistée, décision humaine et effets confirmés.
+
+La revue hebdomadaire est fixe ; les analyses événementielles la complètent. Le système doit pouvoir conclure « attendre davantage de données ».
 
 ---
 
@@ -309,30 +338,32 @@ Principes :
 - retry idempotent ;
 - dead-letter pour erreurs durables ;
 - ne jamais afficher le cache d’un autre utilisateur ;
-- purge adaptée au logout.
+- purge adaptée au logout ;
+- aucun succès affiché avant écriture ou mise en queue fiable.
 
-Étendre à d’autres domaines uniquement si le besoin UX est réel.
+Étendre à d’autres domaines uniquement si le besoin UX est réel. Marketplace et IA peuvent rester online-only.
 
 ---
 
 ## 11. Marketplace et prospects
 
-Les prospects doivent être un domaine de relation pré-coaching, pas un faux client actif.
+Les prospects sont un domaine de relation **pré-coaching**, pas de faux clients actifs.
 
 Avant activation :
 
-- accès limité ;
+- accès dossier limité ;
 - pas de `is_coach_of` implicite ;
 - conversation possible selon contrat ;
-- pas d’accès aux photos/check-ins/historique complet.
+- pas d’accès aux photos/check-ins/historique complet ;
+- aucune modification de programme du prospect.
 
-L’activation atomique doit vérifier qu’aucun autre Coach actif n’existe.
+L’activation atomique doit vérifier qu’aucun autre Coach actif n’existe et que l’athlète a donné sa confirmation finale.
 
 ---
 
 ## 12. Commercial
 
-Le modèle `free/premium` historique doit être considéré comme transitoire.
+Le modèle historique `free/premium` est transitoire.
 
 Cible : entitlements séparés par capacité/service.
 
@@ -348,11 +379,18 @@ billing_status
 
 Stripe met à jour le commercial ; il ne définit pas directement la relation Coach ou l’identité.
 
+Règles durables :
+
+- essai Solo après perte du Coach : **14 jours** ;
+- grâce Coach en cas de défaut de paiement : **7 jours** ;
+- prix et quotas définitifs : **non décidés** ;
+- pendant la bêta, l’accès peut être ouvert via `beta_access`, sans cesser de mesurer les coûts.
+
 ---
 
 ## 13. Import
 
-L’import spreadsheet/CSV doit être une pipeline, pas une série d’INSERT depuis le client.
+L’import spreadsheet/CSV est une pipeline, pas une série d’`INSERT` depuis le client.
 
 ```text
 parse
@@ -360,21 +398,26 @@ parse
 → map
 → validate
 → preview
+→ human correction
 → confirm
 → transactional apply
 ```
 
 Pour les gros imports, conserver un identifiant d’import, provenance et état afin de pouvoir reprendre/diagnostiquer.
 
+Si le client n’a pas encore de compte, le Coach prépare un dossier provisoire ; le rattachement définitif requiert le compte et le consentement de l’athlète.
+
 ---
 
 ## 14. Bibliothèque exercices
 
-Un exercice canonique possède plusieurs alias.
+Un exercice canonique possède plusieurs alias FR/EN et variantes clairement distinguées.
 
 Ne pas utiliser le texte du nom comme seule identité durable lorsque les performances historiques y sont attachées.
 
 Une fusion de doublons doit réaffecter les références sans perdre l’histoire.
+
+Avant de créer un nouvel exercice, rechercher les concepts proches. Une incertitude doit rester explicite plutôt que créer un faux doublon automatiquement.
 
 ---
 
@@ -382,19 +425,19 @@ Une fusion de doublons doit réaffecter les références sans perdre l’histoir
 
 Produit : respecter `docs/TELEMETRY.md`.
 
-Coûts bêta : mesurer métadonnées économiques sans recopier le contenu sensible.
+Coûts bêta : mesurer les métadonnées économiques sans recopier le contenu sensible.
 
 Exemples sûrs selon contexte :
 
-- feature ;
+- feature/action ;
 - model/provider ;
 - token counts ;
 - duration ;
 - success/failure ;
-- estimated cost ;
-- user pseudonymous/server id selon politique interne.
+- estimated/actual cost ;
+- stockage ou unité facturable.
 
-Pas de prompt complet, message privé ou note santé uniquement pour calculer le coût.
+Pas de prompt complet, message privé, note libre sensible, photo ou réponse santé simplement pour calculer le coût.
 
 ---
 
@@ -417,7 +460,7 @@ Tests RLS/RPC pour :
 
 ### Parcours
 
-Browser/E2E sur les 4 états essentiels :
+Browser/E2E sur les quatre états essentiels :
 
 - Solo ;
 - Coaché ;
@@ -426,7 +469,7 @@ Browser/E2E sur les 4 états essentiels :
 
 ### CI
 
-Une tâche normale ne peut être considérée terminée avec CI rouge.
+Une tâche normale ne peut être considérée terminée avec CI rouge. Les tests de garde documentaire sont des contrats : si un document change volontairement, garder les informations encore vraies ou mettre à jour le test dans le même changement lorsque le contrat lui-même évolue.
 
 ---
 
