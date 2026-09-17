@@ -1,210 +1,717 @@
 # Vision produit — Prometheus
 
-> **RÔLE DE CE DOCUMENT — DESTINATION PRODUIT DURABLE**
+> **SOURCE DE VÉRITÉ PRODUIT — À LIRE AVANT TOUTE DÉCISION FONCTIONNELLE**
 >
-> Ce document définit ce que Prometheus veut devenir, pour qui le produit existe, quelle expérience il doit offrir et quels principes ne doivent pas être compromis.
+> Ce document décrit la destination durable de Prometheus : ce que le produit doit devenir, pour qui il existe, quels principes sont non négociables et comment ses grandes capacités doivent se comporter.
 >
-> **Instruction pour les agents :** ne pas transformer cette vision en inventaire du code, backlog, journal de PR, état de production ou plan d’implémentation. Une fonctionnalité décrite ici peut représenter la destination finale sans être encore livrée. Tout travail restant appartient à `docs/CHANTIER.md` ; l’état et l’usage actuels du dépôt appartiennent au `README.md` et aux sources techniques.
-
-**Direction produit : marketplace de coaching avec continuité solo — 15 septembre 2026.**
-
-## Promesse
-
-Prometheus veut devenir la marketplace de référence pour trouver un coach adapté et recevoir son accompagnement dans une même application, en français et en anglais, avec un espace solo complet pour pratiquer en autonomie. Le public initial reste celui de la musculation, du bodybuilding et du powerlifting.
-
-L’image « Uber du coaching » exprime la simplicité de la rencontre entre offre et demande. Elle ne promet ni disponibilité immédiate, ni attribution automatique, ni coachs interchangeables : la qualité d’une relation durable prime.
-
-> Trouver l’accompagnement qui convient, commencer simplement et faire évoluer sa pratique sans perdre son histoire.
+> Il ne décrit ni l’état exact du code, ni l’ordre des tâches. Pour l’exécution : `docs/CHANTIER.md`. Pour les parcours et responsabilités : `docs/CARTE_PRODUIT.md`. Pour les règles techniques : `docs/ARCHITECTURE.md` et `AGENTS.md` / `CLAUDE.md`.
 >
-> En solo, l’athlète valide. Avec un coach, Prometheus prépare et le coach valide.
+> **Règle agents :** si une implémentation paraît plus simple mais contredit ce document, l’implémentation est mauvaise. Ne pas adapter la Vision à une limitation héritée sans décision produit explicite.
 
-Prometheus relie quatre capacités :
+**Vision de référence : 17 septembre 2026.**
 
-1. **Mettre en relation** : comprendre le service recherché, présenter des coachs compatibles et permettre un choix mutuel éclairé.
+---
 
-2. **Comprendre** : rassembler les objectifs, préférences, contraintes et informations de suivi utiles.
-3. **Construire** : produire un programme cohérent, compréhensible et modifiable.
-4. **Adapter** : repérer les changements, expliquer une proposition et laisser la personne responsable décider.
+## 1. Promesse
 
-Le produit vise d’abord les coachs et pratiquants de musculation, bodybuilding et powerlifting. Son avantage recherché associe acquisition de clients pour les coachs, choix d’un accompagnement adapté pour les pratiquants et suivi individualisé simple à utiliser, soutenu par l’IA et contrôlé par l’humain.
+Prometheus doit devenir la plateforme de référence pour la musculation, le bodybuilding et le powerlifting qui réunit dans un même produit :
 
-## Un moteur, plusieurs expériences
+1. **un système complet de suivi de performance personnel** ;
+2. **une plateforme professionnelle de coaching** ;
+3. **une marketplace permettant de trouver un coach adapté** ;
+4. **un copilote intelligent qui aide à détecter, comprendre et adapter sans retirer l’autorité humaine**.
 
-**Prometheus = marketplace de coaching + plateforme commune de suivi de performance + système d’exploitation du coaching.**
+La formule interne « Uber du coaching » décrit la fluidité recherchée pour mettre l’offre et la demande en relation. Elle ne signifie ni coaching instantané, ni attribution automatique, ni coachs interchangeables.
 
-Les données personnelles appartiennent au compte et suivent toute son histoire sportive. Solo et coaché sont des situations d’accompagnement ; coach est une capacité professionnelle qui peut coexister avec l’usage personnel. L’espace affiché ne confère aucun droit.
+La proposition de valeur peut être résumée ainsi :
 
-Un coach peut utiliser les outils pour son entraînement personnel et inviter ses clients existants sans publier de profil marketplace. Aucun second moteur de séances, de programmes ou de progression ne doit être construit pour un rôle.
+> **Prometheus = marketplace de coaching + moteur de suivi de performance + système d’exploitation du coaching.**
 
-L’entrée cible crée le compte, puis demande l’intention : « M’entraîner seul », « Trouver un coach » ou « Je suis coach ». Un utilisateur qui revient retrouve son contexte ; une invitation garde sa destination. Chaque parcours demande ensuite seulement les informations utiles à sa première action.
+Le produit doit permettre à une même personne de progresser seule, d’être coachée, de coacher d’autres personnes, ou de combiner ces usages sans changer de compte et sans perdre son historique.
 
-Le Solo privilégie logging, historique, routines et progression. L’IA est facultative et informative ; elle ne tente pas de devenir en permanence son coach. La marketplace reste un accès discret et volontaire.
+---
 
-La boucle commune est objectif → plan → action → suivi → analyse → adaptation. Le solo décide pour lui-même ; avec un coach, le coach interprète et valide les adaptations. Le bilan mène à un nouvel objectif, au maintien ou à un changement volontaire de mode, sans supprimer l’histoire.
+## 2. Un seul compte, un seul moteur, plusieurs capacités
 
-La carte des parcours, écrans et contrats d’architecture est dans [CARTE_PRODUIT.md](CARTE_PRODUIT.md). Elle décrit une cible et ses écarts avec le code ; le statut des travaux reste dans le Chantier.
+Prometheus ne doit jamais devenir trois applications séparées.
 
-## Les trois expériences
+Le modèle cible est :
 
-| | Coach | Client coaché | Solo |
-|---|---|---|---|
-| Entrée | Configuration de son activité et publication volontaire de son offre | Questionnaire de recherche, choix du coach et demande acceptée, ou invitation directe | Inscription libre, sans recherche de coach obligatoire |
-| Accueil | Clients à traiter et prochaine décision utile | Dashboard : priorité du jour + vue d’ensemble (programme, rings nutrition, poids, check-in, échanges) | Dashboard : priorité du jour + vue d’ensemble (séance, rings nutrition, poids, outils personnels) |
-| Programme | Construit, adapte, assigne et publie | Consulte et exécute le programme assigné | Construit ou valide une proposition |
-| Suivi | Choisit avec le client les informations utiles | Partage les informations convenues | Choisit ses propres outils |
-| Copilote | Prépare analyses, brouillons et propositions | Le coach reste responsable des décisions | Prépare des propositions pour l’athlète |
-| Autorité finale | Coach pour le service qu’il fournit | Coach pour le plan de coaching ; client pour ses saisies et choix personnels | Athlète |
+```text
+Compte utilisateur
+├── espace personnel
+│   ├── Solo si aucun coach actif
+│   └── Coaché si une relation active existe
+├── capacité Coach : oui / non
+├── espace professionnel Coaching si capacité Coach
+├── publication marketplace : oui / non
+├── entitlements commerciaux
+└── historique personnel durable
+```
 
-Un compte conserve son histoire personnelle lorsqu’il passe de solo à coaché, change de coach ou revient au mode solo.
+### 2.1 Solo et Coaché sont des états personnels
 
-## Expérience recherchée
+Un utilisateur est **Solo** lorsqu’il n’a pas de coach actif.
 
-### Pour le coach
+Un utilisateur est **Coaché** lorsqu’une relation de coaching active existe.
 
-Prometheus doit l’aider à être découvert par des clients dont les attentes correspondent à son offre, à maîtriser sa disponibilité et à accepter les demandes pertinentes. Aucune acquisition de clients ni revenu n’est garanti.
+La fin d’une relation de coaching le ramène donc naturellement en Solo. Elle ne supprime ni son compte, ni ses séances, ni ses mesures, ni son historique autorisé.
 
-Prometheus doit lui permettre de suivre davantage de clients sans rendre la prise en charge impersonnelle. Il voit ce qui demande son attention, comprend pourquoi, consulte le contexte nécessaire, prend une décision et passe au client suivant sans perdre le fil.
+### 2.2 Coach est une capacité professionnelle indépendante
 
-Les informations détaillées restent disponibles, mais l’interface met d’abord en avant ce qui a changé, la prochaine action et l’effet de la décision envisagée.
+Être Coach ne remplace pas l’identité personnelle.
 
-### Pour le client coaché
+Un Coach peut :
 
-Prometheus doit aider à choisir un service clair : ce qui est inclus, les modalités de suivi, la disponibilité et le prix lorsqu’il s’applique. Le client choisit son coach ; une recommandation ne crée jamais un engagement.
+- utiliser Prometheus pour son propre entraînement ;
+- être lui-même coaché par un autre Coach ;
+- gérer ses clients ;
+- inviter ses clients existants ;
+- publier ou non son offre sur la marketplace.
 
-Prometheus doit rendre son accompagnement clair. Le client sait ce qui lui est demandé, pourquoi cette information est utile, ce que son coach a reçu et ce qui change à la suite de leurs échanges.
+Le produit doit pouvoir représenter ces situations sans hacks de rôle exclusif.
 
-L’application soutient la relation avec le coach. Elle ne crée pas d’obligations, de rappels ou de conclusions en dehors du suivi réellement convenu.
+### 2.3 L’espace affiché ne donne aucun droit
 
-### Pour le solo
+Le switch **Personnel / Coaching** est uniquement une préférence d’interface.
 
-Prometheus doit être un produit complet. Le solo est un choix d’autonomie, pas une récompense réservée aux experts ni une version dégradée destinée à pousser vers un coach. Un débutant peut choisir le solo et un pratiquant expérimenté peut souhaiter un accompagnement. Le solo trouve son programme, comprend les consignes, enregistre son activité, retrouve son historique et demande une adaptation sans devoir maîtriser l’organisation interne de la plateforme.
+Il ne doit jamais accorder ou retirer une permission serveur.
 
-Le copilote l’aide à décider. Les fonctions avancées restent disponibles au moment utile et ne transforment pas le démarrage en configuration interminable.
+Les permissions dépendent de la ressource, de son propriétaire, de la relation active et de l’action demandée.
 
-## Rencontre et accompagnement dans un même parcours
+---
 
-Le parcours cible relie une intention simple à un service réel : choisir l’autonomie ou chercher un coach, préciser ses attentes, comparer une sélection pertinente, envoyer une demande, obtenir une acceptation explicite puis démarrer le suivi dans Prometheus. Une invitation directe reste possible sans détour imposé par la marketplace.
+## 3. Les trois expériences
 
-### Un questionnaire court pour orienter
+### 3.1 Solo
 
-Le questionnaire de recherche sert à préciser discipline, expérience, accompagnement souhaité, langue, modalités à distance ou locales, disponibilités et budget lorsque les offres tarifées existent. Ne demander que ce qui modifie réellement les résultats. Les réponses peuvent être corrigées et reprises.
+Le Solo est un produit complet, pas une version dégradée destinée à pousser vers un Coach.
 
-Il est distinct du questionnaire de prise en charge choisi par le coach après la mise en relation. Réutiliser les réponses pertinentes avec confirmation évite de tout ressaisir ; le dossier détaillé n’est pas envoyé à tous les coachs consultés.
+Il doit pouvoir :
 
-### Une compatibilité expliquée et un choix libre
+- créer, importer ou générer un programme ;
+- modifier librement son plan ;
+- enregistrer ses séances ;
+- suivre performances, poids, mensurations, photos et habitudes activées ;
+- enregistrer et analyser sa nutrition ;
+- consulter son calendrier et son historique ;
+- recevoir des analyses et propositions de Prometheus ;
+- accepter, modifier ou refuser ces propositions ;
+- chercher un Coach s’il le souhaite, sans pression artificielle.
 
-La sélection distingue les exigences indispensables des préférences. Elle explique les correspondances et les informations manquantes, sans pourcentage de compatibilité arbitraire ni promesse de résultat. Les préférences peuvent être ajustées ; une exigence n’est jamais élargie silencieusement.
+Un débutant peut choisir Solo. Un pratiquant avancé peut choisir un Coach. Le produit ne doit pas attribuer une valeur morale à ce choix.
 
-L’utilisateur peut explorer l’annuaire et modifier ses filtres. Si aucun coach ne convient, l’app le dit, conserve ses réponses et propose une modification volontaire des critères ou la poursuite en solo. Elle ne fabrique pas de recommandation pour remplir l’écran.
+### 3.2 Client coaché
 
-### Une offre lisible et une relation choisie
+Le Coaché conserve son espace personnel mais certaines décisions de planification sont pilotées par son Coach.
 
-Un profil présente le service, les spécialités déclarées, les langues, les modalités, la disponibilité et les conditions applicables. Une qualification déclarée reste distincte d’une vérification réellement effectuée. La visibilité dépend du choix du coach et de sa capacité à accueillir des clients.
+Il doit pouvoir :
 
-Le client choisit à qui adresser sa demande ; le coach accepte explicitement. Le suivi convenu, les messages, le programme et les adaptations vivent ensuite dans l’app. Les sollicitations répétées, le démarchage non consenti et les promesses de réponse fictives n’ont pas leur place.
+- consulter son programme et ses prescriptions ;
+- exécuter et logger ses séances ;
+- voir son historique et sa progression ;
+- consulter son calendrier passé et futur ;
+- enregistrer ses propres données personnelles ;
+- effectuer les check-ins demandés ;
+- communiquer avec son Coach ;
+- voir ce qui a changé dans son suivi ;
+- demander ou proposer une modification ;
+- quitter la relation de coaching selon les règles applicables.
 
-### La confiance fait partie du service
+Il ne modifie pas silencieusement le programme futur que son Coach lui a assigné.
 
-Les utilisateurs doivent pouvoir signaler un profil ou un comportement problématique et obtenir une issue compréhensible. Les éventuels avis reposent sur une relation réelle et des règles de modération. Une visibilité commerciale éventuelle est identifiée et ne se fait pas passer pour une meilleure adéquation.
+### 3.3 Coach
 
-L’accueil athlète (**Dashboard**) doit répondre à deux questions en même temps : *quoi faire maintenant* (priorité) et *où j’en suis aujourd’hui* (entraînement, nutrition, activité, check-in, progression, coaching — seulement les modules réellement actifs). Ce n’est ni un seul verbe qui cache le reste, ni une pile de widgets.
+Le Coach utilise Prometheus comme système d’exploitation de son activité.
 
-## Contrat UX
+Il doit pouvoir :
 
-- Une priorité claire à chaque étape ; les détails apparaissent lorsqu’ils aident à décider. Sur le Dashboard, la priorité coexiste avec la vue d’ensemble du jour.
-- Des textes courts et concrets, sans commentaires internes ni répétitions ; conserver les conséquences, destinataires et erreurs utiles.
-- Aucun questionnaire redemandé sans nécessité, aucune saisie perdue après erreur ou interruption.
-- Un choix de coach reste libre ; pas de pression artificielle, de fausse urgence ou de promesse de disponibilité.
-- Demande, acceptation, démarrage du suivi et paiement éventuel sont des états distincts.
-- La qualité UX minimale fait partie de chaque fonctionnalité : mobile, accessibilité, FR/EN, chargement, vide, erreur et reprise. Les optimisations plus larges gardent leur place dans le chantier UX.
-- La réussite se mesure à la capacité de trouver un accompagnement pertinent et de réaliser son suivi, pas au nombre d’écrans visités.
+- gérer ses clients actifs ;
+- suivre les informations pertinentes sans être noyé dans les données ;
+- créer et réutiliser des modèles de programmes ;
+- individualiser un programme sans casser les modèles partagés ;
+- configurer le suivi par client ;
+- créer des questionnaires ;
+- recevoir et traiter des prospects ;
+- publier volontairement une offre marketplace ;
+- utiliser Prometheus pour préparer des analyses et interventions ;
+- garder l’autorité finale sur les adaptations qu’il applique à ses clients.
 
-## Principes produit
+Prometheus doit permettre au Coach d’augmenter sa capacité de suivi **sans rendre son coaching impersonnel**.
 
-### Chaque fonctionnalité doit rendre un service identifiable
+---
 
-Une information n’est demandée que si elle permet une action, une décision ou une restitution utile. Ajouter des écrans, des alertes ou des indicateurs sans bénéfice observable augmente la friction et ne constitue pas une amélioration.
+## 4. Le principe central : l’IA prépare, l’humain décide
 
-### L’IA prépare, l’humain décide
+Prometheus n’est pas un système d’auto-coaching opaque.
 
-Toute proposition présente le changement, sa justification, sa cible, sa date d’effet et les actions accepter, modifier ou refuser. Elle ne s’applique jamais automatiquement.
+### 4.1 Autorité
 
-Une réponse informative, un brouillon, une modification de programme et un message sont des effets distincts. L’interface indique précisément lesquels seront exécutés.
+En Solo : **l’athlète décide**.
 
-### Le programme reste vivant
+En coaching : **le Coach décide pour le plan de coaching** ; l’athlète reste propriétaire de ses saisies, choix personnels et consentements.
 
-Le plan évolue avec les disponibilités, objectifs, préférences et contraintes de l’athlète. Les changements sont prévisualisés et enregistrés comme révisions. L’utilisateur distingue le brouillon, la version enregistrée et la version active.
+L’IA peut :
 
-Une modification future ne réinterprète pas silencieusement les séances déjà réalisées.
+- détecter un changement ;
+- résumer les preuves disponibles ;
+- formuler une hypothèse ;
+- proposer une adaptation ;
+- préparer un message ;
+- préparer un brouillon de programme ;
+- suggérer d’attendre davantage de données.
 
-### Le suivi est individualisé et proportionné
+L’IA ne doit pas :
 
-Le coach et son client choisissent les modules utiles. Le solo choisit ses propres outils. Un module désactivé ne produit ni rappel, ni reproche, ni conclusion.
+- appliquer une modification sans action humaine ;
+- inventer une certitude lorsque les données sont faibles ;
+- traiter l’absence de saisie comme une faute ;
+- masquer les preuves qui ont conduit à une recommandation ;
+- transformer automatiquement un prospect en client ;
+- produire un diagnostic médical.
 
-Un manque de saisie ne prouve ni une difficulté ni un défaut d’engagement. L’application distingue ce qui est déclaré, ce qui est observé et ce qui manque.
+### 4.2 Mémoire intelligente
 
-### Les actions et leur état restent compréhensibles
+Le copilote doit progressivement devenir un système qui se souvient non seulement de ce qui s’est passé, mais aussi **de ce qu’il croyait et pourquoi**.
 
-L’utilisateur sait ce qui est conservé sur son appareil, enregistré, synchronisé, partagé ou encore en brouillon. Une réussite affichée correspond à une écriture réelle. Une erreur conserve le travail et propose une reprise.
+Le modèle cible est :
 
-Les libellés envoyé, reçu, examiné, publié et actif ne sont utilisés que lorsque l’application peut prouver l’état correspondant.
+```text
+Données observées
+→ signaux
+→ hypothèses
+→ éléments pour / contre
+→ niveau de confiance
+→ décision : attendre / proposer / clôturer
+→ proposition éventuelle
+→ décision humaine
+→ mémoire pour la prochaine revue
+```
 
-### Les transitions de rôle sont continues et réversibles
+Exemple :
 
-Un client a au maximum un coach actif. À la fin d’une relation :
+- semaine 1 : fatigue élevée, peu de preuves → observation ;
+- semaine 2 : fatigue persistante + baisse de performance → confiance renforcée ;
+- Prometheus propose une adaptation ;
+- l’humain refuse parce qu’une cause temporaire est connue ;
+- la prochaine revue doit connaître ce refus et son contexte plutôt que recommencer à zéro.
 
-- le lien de coaching prend fin ;
-- le suivi configuré par le coach est retiré ;
-- le programme assigné est mis en pause ;
-- les données personnelles et l’historique permis restent disponibles ;
-- le compte revient au mode solo.
+La mémoire doit rester corrigeable et explicable.
 
-Un changement de coach protège les notes privées de l’ancien coach et rend explicite ce qui sera partagé avec le nouveau.
+---
 
-### Le bilingue est natif
+## 5. La revue hebdomadaire est une boucle produit fondamentale
 
-Les parcours, messages et propositions existent en français et en anglais. La langue de l’utilisateur détermine l’affichage et la langue des brouillons.
+Chaque athlète possède une **revue hebdomadaire Prometheus**.
 
-### La confidentialité est visible
+Elle ne doit pas dépendre d’un bouton facultatif caché. Les notifications peuvent être désactivées, mais l’existence de la revue dans le système ne l’est pas.
 
-Les accès suivent la relation coach-client et les règles de la base. Pour une information sensible, l’utilisateur comprend pourquoi elle est demandée, qui la verra et ce qui se passe s’il choisit de ne pas la fournir.
+Elle analyse uniquement les domaines pertinents et activés :
 
-La télémétrie mesure l’utilité des parcours sans enregistrer les réponses sensibles, textes libres, messages ou photos.
+- entraînement ;
+- progression ;
+- nutrition ;
+- poids/mensurations ;
+- check-ins ;
+- habitudes ;
+- objectif ;
+- contraintes déclarées.
 
-### L’accessibilité fait partie du fonctionnement
+La revue peut conclure :
 
-Les parcours essentiels doivent rester utilisables sur téléphone, avec le clavier, un lecteur d’écran, du texte agrandi et un réseau contraint. Une action inaccessible est une fonctionnalité incomplète.
+- rien à changer ;
+- continuer à observer ;
+- demander une information ;
+- préparer une proposition ;
+- signaler un élément qui mérite une attention humaine.
 
-### L’utilité se mesure par la tâche accomplie
+En Solo, la proposition arrive à l’athlète.
 
-Le succès du produit ne se résume pas au temps passé dans l’application. Prometheus mesure si une personne parvient à comprendre, agir, reprendre après une interruption et corriger une erreur.
+En Coaché, elle nourrit la file du Coach et ne remplace pas son jugement.
 
-## Principes commerciaux
+Des analyses événementielles peuvent exister en parallèle lorsqu’un événement important survient avant la prochaine revue.
 
-L’accès au logiciel Prometheus et l’achat éventuel d’une prestation de coaching sont deux objets distincts. Le client doit comprendre qui fournit le service, ce qu’il achète, à qui il paie et les effets d’un départ ou d’un changement de coach.
+---
 
-**Aucune facturation n’est en place tant que le produit n’est pas prêt à ouvrir.** Tant que le chantier Billing n’est pas ouvert, une mise en relation n’implique ni paiement, ni abonnement, ni commission.
+## 6. Dashboard et Calendrier ont des rôles différents
 
-La marketplace ne fixe pas à elle seule un modèle de commission ou de reversement. L’hypothèse antérieure — abonnement solo, abonnement coach et accès logiciel du coaché inclus — reste une piste à réévaluer, pas une décision définitive. Les arbitrages figurent dans le chantier Billing.
+### Dashboard = aujourd’hui
 
-Les prix, limites, dates d’effet et conditions doivent être visibles avant engagement. Les transitions évitent une double facturation injustifiée de l’accès logiciel et préservent un accès prévisible aux données.
+L’accueil personnel répond simultanément à deux questions :
 
-## Invariants
+1. **Qu’est-ce qui mérite mon attention maintenant ?**
+2. **Où en est ma journée ?**
 
-- Un seul coach actif par client.
-- L’IA ne s’auto-applique jamais.
-- Un client coaché ne modifie pas directement les éléments gérés par son coach.
-- Un coach ne peut agir que sur ses propres clients.
-- Le mode solo reste un produit complet.
-- Les données personnelles suivent l’athlète lors des transitions autorisées.
-- Les notes privées d’un coach ne sont pas transmises à un autre coach.
-- Une séance partielle reste une séance partielle ; les données prévues ne deviennent pas des réalisations.
-- Une action indique son destinataire et ses effets avant validation.
-- Une erreur ne transforme pas silencieusement un écran en état vide ou en nouveau document.
-- Les tables exposées sont protégées et les écritures privilégiées sont testées.
-- Le français et l’anglais couvrent toute l’interface.
-- Les migrations appliquées restent immuables.
-- Les erreurs importantes sont visibles et récupérables.
-- Les fonctionnalités facultatives ou sensibles ne bloquent pas les parcours essentiels.
+Il peut afficher selon les modules disponibles :
 
-L’ordre d’implémentation, les décisions ouvertes et les critères de fin se trouvent uniquement dans `docs/CHANTIER.md`. Un diagnostic de l’expérience **livrée** (trois personae) est dans `docs/RAPPORT_UX_FONCTIONNALITES.md` ; il ne remplace pas cette vision.
+- séance prévue ou en cours ;
+- nutrition ;
+- poids ;
+- check-in ;
+- messages/coaching ;
+- résumé de progression ;
+- raccourcis utiles.
+
+Il ne doit être ni une page « un seul verbe », ni un mur de widgets.
+
+### Calendrier = le temps
+
+Le Calendrier personnel appartient au Solo **et** au Coaché.
+
+Il permet de parcourir passé et futur afin de comprendre :
+
+- séances prévues et réalisées ;
+- nutrition enregistrée ;
+- mesures ;
+- check-ins ;
+- habitudes/événements lorsque pertinents ;
+- changements de programme et planification future.
+
+Le fait qu’un Coaché ne puisse pas modifier son plan ne justifie jamais de lui cacher son calendrier ou son historique.
+
+---
+
+## 7. Entraînement : profondeur professionnelle, utilisation simple
+
+Prometheus doit être capable de représenter des prescriptions avancées tout en gardant un logger rapide.
+
+Le moteur doit prendre en charge notamment :
+
+- séries de chauffe et de travail ;
+- RIR/RPE lorsqu’utilisé ;
+- plages de répétitions ;
+- charge prescrite ;
+- repos ;
+- tempo ;
+- supersets ;
+- drop sets ;
+- myo-reps ;
+- isométriques ;
+- clusters ;
+- notes et consignes.
+
+### 7.1 Ne pas confondre calendrier et séquence
+
+Un programme peut être :
+
+- **calendaire** : certaines séances associées à des jours ;
+- **séquentiel** : A → B → C, indépendamment du jour de la semaine.
+
+Le produit doit pouvoir gérer les deux sans dupliquer le moteur de séance.
+
+### 7.2 Structure de programmation cible
+
+La profondeur cible comprend :
+
+```text
+Programme
+→ phases / blocs
+→ cycles
+→ séances / templates
+→ exercices
+→ prescriptions
+```
+
+Selon le besoin :
+
+- microcycles ;
+- mésocycles ;
+- macrocycles ;
+- deloads ;
+- taper ;
+- variations planifiées de volume/intensité.
+
+Cette profondeur doit apparaître progressivement dans l’interface. Un utilisateur ne doit pas devoir comprendre la terminologie de périodisation pour commencer une séance.
+
+### 7.3 Histoire immuable
+
+Une modification future ne réécrit jamais silencieusement ce qui a réellement été réalisé.
+
+Les programmes sont versionnés ; les modifications importantes créent une nouvelle révision identifiable.
+
+---
+
+## 8. Objectifs comme objets vivants
+
+Un objectif ne doit pas être un simple champ écrasé dans un profil.
+
+Le cycle cible est :
+
+- `active` ;
+- `reached` ;
+- `maintenance` ;
+- `replaced` ;
+- `paused` ;
+- `abandoned`.
+
+Chaque transition conserve :
+
+- dates ;
+- contexte ;
+- raison ;
+- objectif suivant éventuel.
+
+Programme, analyses et recommandations doivent pouvoir se rattacher à l’objectif pertinent à la période concernée.
+
+---
+
+## 9. Nutrition
+
+La nutrition doit être rapide à logger et honnête sur la provenance des données.
+
+Ordre de recherche cible :
+
+1. catalogue interne Prometheus ;
+2. Open Food Facts ou source externe pertinente ;
+3. saisie/photo d’étiquette ;
+4. assistance IA ;
+5. validation utilisateur ;
+6. enrichissement éventuel du catalogue interne.
+
+La provenance et le niveau de confiance doivent rester traçables.
+
+Les recettes, favoris, récents et produits doivent partager un contrat de portions cohérent.
+
+Les cibles nutritionnelles sont datées afin de ne pas réinterpréter le passé avec une cible actuelle.
+
+---
+
+## 10. Bibliothèque d’exercices
+
+Prometheus vise une bibliothèque d’exercices commune, multilingue et durable.
+
+Chaque exercice possède un concept canonique. Les différentes façons de le nommer sont des alias, pas nécessairement de nouveaux exercices.
+
+La cible comprend :
+
+- nom canonique ;
+- traductions ;
+- alias/synonymes ;
+- équipement ;
+- muscles ;
+- variantes ;
+- instructions utiles ;
+- provenance ;
+- statut de vérification ;
+- fusion contrôlée de doublons.
+
+Lorsqu’un utilisateur propose un nouvel exercice, Prometheus doit d’abord chercher les concepts proches.
+
+Une fusion de doublons ne doit jamais casser l’historique de performances existant.
+
+---
+
+## 11. Marketplace : trouver un Coach adapté, pas produire un score opaque
+
+### 11.1 Profil Coach opt-in
+
+Un Coach peut utiliser Prometheus sans publier de profil.
+
+Le profil public peut contenir :
+
+- nom public ;
+- présentation ;
+- méthode ;
+- disciplines ;
+- langues ;
+- online / présentiel / hybride ;
+- zone géographique si nécessaire ;
+- modalités de suivi ;
+- disponibilité ;
+- qualifications déclarées et éventuellement vérifiées.
+
+### 11.2 Qualifications
+
+Une qualification peut être :
+
+- déclarée ;
+- en vérification ;
+- vérifiée par Prometheus ;
+- refusée/expirée si nécessaire.
+
+Un Coach sans qualification vérifiée peut exister sur la plateforme. Il ne reçoit simplement pas le badge correspondant.
+
+**Aucun système public d’étoiles ou d’avis Coach n’est prévu à ce stade.** Ne pas l’ajouter sans décision produit explicite.
+
+### 11.3 Matching
+
+Le matching doit distinguer :
+
+1. **exigences bloquantes** ;
+2. **préférences importantes** ;
+3. **préférences secondaires**.
+
+Exemples : objectif, discipline, expérience, FR/EN, online/présentiel, zone, budget lorsque pertinent, disponibilité, fréquence de contact, autonomie, style de coaching, matériel et contraintes.
+
+Le résultat n’est pas « 94 % compatible ».
+
+Il explique plutôt :
+
+- pourquoi ce Coach correspond ;
+- quelles préférences sont couvertes ;
+- ce qui reste inconnu ;
+- pourquoi certains Coachs sont exclus.
+
+Afficher moins de résultats est préférable à afficher un Coach qui ne respecte pas une exigence.
+
+---
+
+## 12. Une demande marketplace n’est pas encore une relation de coaching
+
+Le lifecycle cible est explicite :
+
+```text
+Athlète envoie une demande
+→ Coach accepte de poursuivre / discuter
+→ conversation prospect
+→ Athlète confirme qu’il veut démarrer avec ce Coach
+→ relation de coaching active
+```
+
+États de fermeture possibles : refus du Coach, retrait de l’athlète, indisponibilité, expiration selon future décision.
+
+### Invariant
+
+**Une action du Coach seule ne peut jamais transformer un prospect en client Coaché.**
+
+L’athlète donne la confirmation finale.
+
+Un utilisateur ne peut avoir qu’un Coach actif à la fois. Une activation réussie clôt proprement les autres demandes incompatibles.
+
+Avant activation, le Coach n’obtient accès qu’aux informations explicitement partagées pour la demande/prospection, pas au dossier sportif complet.
+
+---
+
+## 13. Messagerie
+
+Une relation Coach–athlète possède une conversation principale continue.
+
+La même relation conversationnelle peut commencer pendant la phase prospect puis continuer après activation, sans créer artificiellement plusieurs inbox parallèles.
+
+Les messages peuvent contextualiser des objets Prometheus :
+
+- séance ;
+- exercice ;
+- série ;
+- check-in ;
+- programme/révision ;
+- mesure ;
+- proposition.
+
+Les pièces jointes pertinentes peuvent inclure images, fichiers et vidéo technique selon les règles de stockage et de confidentialité.
+
+Une notification n’est jamais la source de vérité d’un message.
+
+---
+
+## 14. Imports : réduire drastiquement la friction de migration
+
+L’un des objectifs majeurs d’adoption Coach est de pouvoir migrer un historique existant sans tout ressaisir.
+
+Le parcours cible pour un spreadsheet/CSV est :
+
+```text
+upload
+→ détection de structure
+→ proposition de mapping
+→ ambiguïtés explicites
+→ aperçu
+→ corrections humaines
+→ confirmation
+→ import transactionnel
+```
+
+L’IA peut aider au mapping mais ne doit pas importer silencieusement des données ambiguës.
+
+Pour un athlète qui n’a pas encore de compte :
+
+```text
+Coach prépare un dossier provisoire
+→ invitation
+→ athlète crée / connecte son compte
+→ aperçu des données à rattacher
+→ consentement
+→ rattachement
+```
+
+La propriété finale reste celle de l’athlète pour ses données personnelles.
+
+---
+
+## 15. Intégrations santé et wearables
+
+Health Connect, Apple Health, Garmin et autres intégrations sont des extensions futures du moteur commun, pas des silos séparés.
+
+Toute donnée importée doit conserver :
+
+- sa provenance ;
+- son horodatage ;
+- son unité ;
+- les règles de déduplication ;
+- les permissions utilisateur.
+
+Priorité d’adoption : l’import Coach depuis spreadsheets passe avant la multiplication des intégrations wearables.
+
+---
+
+## 16. Offline
+
+La séance d’entraînement est la priorité offline absolue.
+
+L’utilisateur doit pouvoir poursuivre une séance même avec un réseau instable, puis synchroniser sans doublon.
+
+Peuvent ensuite être étendus progressivement :
+
+- consultation de données déjà chargées ;
+- nutrition connue localement ;
+- brouillons/messages en attente.
+
+Marketplace, paiement et analyses IA peuvent rester online-only.
+
+---
+
+## 17. Modèle commercial cible
+
+L’architecture commerciale doit rester séparée du modèle d’identité et des permissions métier.
+
+Les concepts à représenter sont au minimum :
+
+- entitlement Solo ;
+- entitlement Coach ;
+- limites/paliers Coach basés notamment sur le nombre de clients actifs ;
+- période d’essai Solo ;
+- période de grâce Coach ;
+- accès bêta ;
+- statut commercial courant.
+
+### Décisions actuelles
+
+- **Essai Solo : 14 jours.**
+- **Grâce Coach : 7 jours** lorsque le contrat commercial nécessite une régularisation.
+- Les paliers Coach pourront dépendre du nombre de clients actifs.
+- **Les prix définitifs ne sont pas encore décidés.**
+- Ne jamais hardcoder des prix inventés dans le produit ou la documentation.
+
+Le fait d’être Coach, Solo ou Coaché ne doit pas être déduit d’un simple retour de checkout.
+
+Le démarrage d’une relation Coaché et la facturation sont deux événements distincts.
+
+---
+
+## 18. Bêta : accès ouvert, économie mesurée
+
+Pendant la bêta, Prometheus doit pouvoir laisser les capacités ouvertes tout en mesurant ce qu’elles coûteraient réellement.
+
+L’architecture cible utilise un **bypass bêta explicite** plutôt que de détruire le modèle commercial.
+
+Exemple conceptuel :
+
+```text
+entitlement réel calculable
++ beta_access = true
+→ accès autorisé pendant la bêta
+→ consommation toujours mesurée
+```
+
+Mesurer par fonction et contexte :
+
+- appels IA ;
+- tokens/units ;
+- stockage ;
+- services tiers ;
+- volumes d’usage pertinents.
+
+Ne pas stocker inutilement le contenu privé pour mesurer le coût.
+
+Ces données servent à définir plus tard les quotas et tarifs, pas à justifier des limites arbitraires maintenant.
+
+---
+
+## 19. Contrat UX
+
+Prometheus doit rester profond **sans paraître complexe**.
+
+Principes :
+
+- une priorité claire par écran ;
+- détails progressifs ;
+- aucun jargon interne visible par défaut ;
+- aucun champ demandé sans usage identifié ;
+- aucun succès affiché avant confirmation réelle ;
+- chargement, vide, erreur et reprise sont des états différents ;
+- les erreurs conservent le travail autant que possible ;
+- mobile d’abord, desktop efficace ;
+- navigation stable ;
+- FR/EN de niveau équivalent ;
+- accessibilité et zoom font partie de la définition de « terminé ».
+
+La navigation mobile reste volontairement limitée ; une nouvelle fonctionnalité ne mérite pas automatiquement un nouvel onglet.
+
+---
+
+## 20. Confidentialité, propriété et confiance
+
+Les données personnelles appartiennent à l’utilisateur.
+
+Une relation de coaching donne un accès limité et explicable ; elle ne transfère pas la propriété.
+
+À la fin d’une relation :
+
+- le lien actif prend fin ;
+- les permissions liées au Coach disparaissent ;
+- le programme coaché peut être archivé/mis en pause selon son contrat ;
+- l’historique personnel permis reste disponible ;
+- les notes privées du Coach restent privées ;
+- l’utilisateur revient en Solo s’il n’a plus de Coach actif.
+
+Lors d’un changement de Coach, aucune donnée privée de l’ancien Coach n’est transférée silencieusement.
+
+La télémétrie produit ne doit pas contenir messages privés, notes libres sensibles, photos ou réponses de santé détaillées.
+
+---
+
+## 21. Invariants non négociables
+
+1. **Un compte utilisateur, pas trois produits séparés.**
+2. **Solo/Coaché = état personnel ; Coach = capacité professionnelle indépendante.**
+3. **Un athlète ne peut avoir qu’un Coach actif à la fois.**
+4. **L’espace Personnel/Coaching ne donne aucun droit serveur.**
+5. **L’IA prépare ; un humain décide.**
+6. **Aucune adaptation automatique silencieuse.**
+7. **Une absence de donnée n’est pas une faute.**
+8. **Une demande marketplace n’est pas une relation active.**
+9. **La confirmation finale d’une nouvelle relation marketplace appartient à l’athlète.**
+10. **Les données personnelles suivent l’utilisateur à travers Solo ↔ Coaché.**
+11. **Un Coach peut aussi utiliser son espace personnel et peut lui-même être coaché.**
+12. **Le Dashboard résume aujourd’hui ; le Calendrier représente le temps.**
+13. **Le Calendrier personnel appartient au Solo et au Coaché.**
+14. **Les programmes sont versionnés ; le passé réalisé n’est pas réécrit.**
+15. **Un module désactivé ne produit ni rappel, ni reproche, ni conclusion.**
+16. **La séance doit rester robuste hors ligne.**
+17. **FR/EN, mobile, accessibilité, vide/erreur/reprise font partie de la fonctionnalité.**
+18. **Pas d’avis/étoiles Coach sans nouvelle décision produit.**
+19. **Essai Solo = 14 jours ; grâce Coach = 7 jours.**
+20. **Prix Coach/Solo non décidés : ne pas en inventer.**
+21. **La bêta contourne le paiement sans contourner la mesure des coûts.**
+22. **Aucune nouvelle fonctionnalité ne doit recréer un moteur parallèle pour Solo, Coaché ou Coach.**
+
+---
+
+## 22. Comment décider lorsqu’une nouvelle fonctionnalité est proposée
+
+Avant d’implémenter, répondre explicitement :
+
+1. À quel domaine appartient cette capacité ?
+2. Qui possède la donnée ?
+3. Qui peut la lire ?
+4. Qui peut la modifier ?
+5. Quelle relation ou entitlement est réellement nécessaire ?
+6. Quelle règle doit être garantie côté DB/RPC plutôt que seulement dans l’UI ?
+7. Existe-t-il déjà une primitive Prometheus qui couvre une partie du besoin ?
+8. Quel état fait foi ?
+9. Que se passe-t-il si le réseau coupe ?
+10. Que voit un Solo, un Coaché, un Coach et un Coach lui-même coaché ?
+11. Que se passe-t-il à la fin d’une relation ?
+12. Quels tests prouvent que le comportement correspond à cette Vision ?
+
+Si ces réponses ne sont pas claires, la tâche n’est pas prête à être codée.
