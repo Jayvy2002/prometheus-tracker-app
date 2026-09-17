@@ -1,117 +1,125 @@
 # Prometheus
 
-> **RÔLE DE CE DOCUMENT — PORTE D’ENTRÉE DU DÉPÔT**
+> **PORTE D’ENTRÉE DU DÉPÔT**
 >
-> Ce README explique ce qu’est Prometheus aujourd’hui, comment le projet est organisé et comment le lancer, le vérifier et le déployer.
->
-> **Instruction pour les agents :** conserver ce document court, factuel et à jour. Ne pas y placer la feuille de route, des idées futures, un journal de chantier, des numéros de PR ou des versions live recopiées. La direction produit appartient à `docs/VISION.md`, tout ce qui reste à faire à `docs/CHANTIER.md`, et les états techniques détaillés à leurs fichiers de référence.
+> Ce README décrit le projet actuel et indique où trouver les sources de vérité. Il ne remplace ni la Vision ni le Chantier.
 
-Prometheus est une plateforme de coaching pour la musculation, le bodybuilding et le powerlifting, en français et en anglais. La destination (marketplace de coaching avec continuité solo) est dans `docs/VISION.md` ; elle n’est pas encore livrée.
+Prometheus est une plateforme FR/EN pour la musculation, le bodybuilding et le powerlifting.
 
-Prometheus sert trois profils :
+Sa destination est :
 
-- **Coach** : suit ses clients et valide les propositions préparées par l’application.
-- **Client coaché** : exécute son programme et utilise les modules activés par son coach.
-- **Solo** : utilise le tracker complet et valide lui-même les propositions du copilote.
+> **marketplace de coaching + moteur commun de suivi de performance + système d’exploitation du coaching.**
 
-Principe central : **L’IA prépare ; l’humain décide**. Une adaptation n’est jamais appliquée silencieusement. En solo, l’athlète valide pour lui-même ; en coaching, le coach valide pour son client.
+Le produit repose sur **un compte utilisateur et un moteur commun**, pas sur trois applications séparées.
 
-## Fonctionnalités principales
+Un utilisateur possède :
 
-### Coach
+- un espace personnel : Solo ou Coaché selon l’existence d’une relation Coach active ;
+- éventuellement une capacité Coach indépendante ;
+- éventuellement un profil marketplace publié ;
+- des entitlements commerciaux séparés de ces états.
 
-- Command Center et file des clients à traiter.
-- Invitations et fiche client 360.
-- Builder de questionnaires FR/EN, versions publiées et questionnaire par défaut des invitations.
-- Configuration du suivi et des cibles.
-- Création, copie, versionnage et assignation des programmes.
-- Messages, notes et propositions d’intervention.
-- Copilote `coach-agent` et analyse déterministe `coach-fleet-round`.
+Principe central : **l’IA prépare ; l’humain décide.**
 
-### Client coaché
-
-- Dashboard : priorité du jour et vue d’ensemble (séance, rings nutrition, poids, check-in, messages).
-- Programme assigné, joignable depuis le Dashboard et Entraînement.
-- Check-ins, messages et photos.
-- Questionnaire choisi par le coach, brouillon reprenable et réponses rattachées à la version remplie.
-- Modules de suivi sélectionnés par le coach.
-- Cibles gérées dans le cadre de la relation de coaching.
-- Continuité des données lors du retour au mode solo.
-
-### Solo
-
-- Dashboard : priorité du jour et vue d’ensemble (séance, rings nutrition, poids, programme, progression).
-- Séances, programme (Dashboard + Entraînement), progression, statistiques et calendrier.
-- Nutrition, recherche d’aliments, scanner et recettes.
-- Questionnaire initial, cibles et proposition de programme.
-- Revue et modifications proposées par le copilote.
-- Reprise hors ligne des séances.
-
-## Architecture fonctionnelle
-
-Le frontend React affiche les parcours des trois rôles. Supabase fournit l’authentification, PostgreSQL, les règles d’accès, le stockage, le temps réel et les Edge Functions. Les fonctions intelligentes préparent des propositions ; leur validation et leurs effets restent explicites dans l’interface.
-
-```text
-Utilisateur
-   ↓
-Application React / PWA
-   ↓
-Supabase Auth + PostgreSQL + Storage + Realtime
-   ↓
-Edge Functions et copilote
-   ↓
-Proposition visible → validation humaine → écriture persistée
-```
-
-## Organisation du dépôt
-
-```text
-src/
-├── App.tsx                         Assembleur (router + session)
-├── app/                            Routes, gardes, chrome, navConfig
-├── features/                       Domaines (coaching, workout, nutrition, …)
-├── shared/                         UI, types transversaux, client Supabase
-├── components/                     Écrans métier (dashboard, séance, nutrition, …)
-├── stores/                         État Zustand par domaine
-├── lib/                            Contrats + réexports
-└── i18n/locales/{fr,en}/           Textes par domaine
-
-supabase/
-├── migrations/                     Historique de base immuable
-├── cron/                           Tâches planifiées
-└── functions/                      Edge Functions métier et IA
-```
-
-## Documentation
+## Lire avant de modifier le projet
 
 | Besoin | Source |
 |---|---|
-| Règles obligatoires pour les agents et développeurs | [`CLAUDE.md`](CLAUDE.md) |
-| Destination, rôles et principes produit | [`docs/VISION.md`](docs/VISION.md) |
-| Parcours et contrats cibles | [`docs/CARTE_PRODUIT.md`](docs/CARTE_PRODUIT.md) |
-| Ordre des travaux et tout ce qui reste à faire | [`docs/CHANTIER.md`](docs/CHANTIER.md) |
-| Arbre frontend actuel vs cible | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| Tokens et primitives UI | [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) |
-| Diagnostic navigation (peut être daté) | [`docs/AUDIT_NAVIGATION_UX.md`](docs/AUDIT_NAVIGATION_UX.md) |
-| Procédure et historique des migrations | [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) |
-| Télémétrie autorisée | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) |
-| État déployé des Edge Functions | [`supabase/functions.deployed.lock.json`](supabase/functions.deployed.lock.json) |
+| Contrat obligatoire pour tout agent | [`AGENTS.md`](AGENTS.md) |
+| Règles détaillées agents/dev | [`CLAUDE.md`](CLAUDE.md) |
+| Destination produit | [`docs/VISION.md`](docs/VISION.md) |
+| Travail restant et ordre d’exécution | [`docs/CHANTIER.md`](docs/CHANTIER.md) |
+| Parcours, propriété et permissions cible | [`docs/CARTE_PRODUIT.md`](docs/CARTE_PRODUIT.md) |
+| Architecture technique | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Design system | [`docs/DESIGN_SYSTEM.md`](docs/DESIGN_SYSTEM.md) |
+| Migrations | [`docs/MIGRATIONS.md`](docs/MIGRATIONS.md) |
+| Télémétrie | [`docs/TELEMETRY.md`](docs/TELEMETRY.md) |
 
-En cas de contradiction, `CLAUDE.md` définit les règles de travail, `docs/VISION.md` définit la décision produit et `docs/CHANTIER.md` définit ce qui reste à faire.
+Les audits dans `docs/AUDIT_*` et les anciens rapports UX sont des diagnostics historiques. Ils ne prennent jamais le pas sur Vision → Chantier → Carte produit → Architecture.
+
+## Capacités déjà présentes
+
+Le dépôt possède déjà une base importante, notamment :
+
+### Expérience personnelle
+
+- Dashboard avec priorité + vue d’ensemble ;
+- séances et historique ;
+- programme ;
+- progression/statistiques ;
+- nutrition, recherche, scanner, recettes ;
+- poids/photos/check-ins ;
+- calendrier Solo ;
+- offline séance ;
+- propositions Solo partielles.
+
+### Coaching
+
+- console Coach ;
+- roster et fiche client ;
+- questionnaires versionnés ;
+- tracking configurable ;
+- programmes, copies, attribution et révisions ;
+- messagerie ;
+- notes/interventions ;
+- `coach-agent` ;
+- triage/fleet hebdomadaire.
+
+### Marketplace
+
+- profil Coach opt-in ;
+- annuaire ;
+- comparaison ;
+- demandes de coaching ;
+- base de lifecycle à faire évoluer selon `docs/CHANTIER.md`.
+
+Ne pas reconstruire ces moteurs sans démontrer une impossibilité structurelle.
+
+## Architecture
+
+```text
+src/
+├── app/            router, guards, bootstrap, layout, navigation
+├── features/       domaines métier
+├── shared/         primitives transversales
+├── components/     écrans historiques / migration progressive
+├── stores/         Zustand et façades historiques
+├── lib/            contrats/réexports/utilitaires
+└── i18n/           FR/EN
+
+supabase/
+├── migrations/     historique DB immuable
+├── functions/      Edge Functions
+├── tests/          tests SQL/RLS
+└── cron/           tâches planifiées
+```
+
+Direction pour le nouveau code :
+
+```text
+UI
+→ hook / use case / model
+→ API du domaine
+→ Supabase / RPC
+```
+
+Voir `docs/ARCHITECTURE.md` pour les règles détaillées.
 
 ## Stack
 
-- React 18, TypeScript 5.5 et Vite 5.
-- React Router, Zustand et Tailwind CSS.
-- Supabase : PostgreSQL, Auth, Storage, Realtime et Edge Functions.
-- i18next pour le français et l’anglais.
-- PWA avec Service Worker.
+- React 18 ;
+- TypeScript ;
+- Vite ;
+- React Router ;
+- Zustand ;
+- Tailwind CSS ;
+- Supabase Auth/PostgreSQL/Storage/Realtime/Edge Functions ;
+- i18next ;
+- PWA / Service Worker.
 
-Les versions exactes des dépendances sont dans `package.json` et `package-lock.json`.
+Les versions exactes sont dans `package.json` et `package-lock.json`.
 
-## Démarrage local
-
-Prérequis : Node.js 20+ et une configuration Supabase de développement.
+## Installation locale
 
 ```bash
 git clone https://github.com/Jayvy2002/prometheus-tracker-app.git
@@ -120,15 +128,17 @@ git switch new-JV
 npm install
 ```
 
-Le fichier `.env` local n’est jamais commité. Pour ce dépôt :
+Puis configurer `.env`.
+
+Pour l’environnement du dépôt actuel :
 
 ```bash
 cp .env.production .env
 ```
 
-`.env.production` ne contient que des clés **publiques** frontend (URL Supabase, anon, VAPID public). Pour un autre projet, copier `.env.example` et remplir les placeholders. Jamais de `service_role` dans Git.
+`.env.production` ne doit contenir que les clés publiques frontend. Aucun `service_role` ou secret serveur dans Git.
 
-Puis :
+Démarrage :
 
 ```bash
 npm run dev
@@ -136,50 +146,47 @@ npm run dev
 
 ## Vérifications
 
+Avant de considérer un changement terminé :
+
 ```bash
 npm test
 npm run typecheck
 npm run lint
 npm run build
-npm run verify:edges
 npm run verify:migrations
+npm run verify:edges
 ```
 
-Les changements de policies RLS ou de RPC sensibles doivent aussi passer :
+Pour un changement RLS/RPC sensible :
 
 ```bash
 npm run test:rls
 ```
 
+Une fonctionnalité normale n’est pas considérée terminée avec la CI pertinente rouge.
+
 ## Déploiement
 
-`new-JV` est la branche de production du frontend. Un merge sur cette branche déclenche le déploiement Netlify de [tracker.prometheus-fit.com](https://tracker.prometheus-fit.com). `main` correspond à l’ancienne application et ne reçoit pas les développements actuels.
+`new-JV` est la branche active de développement/production frontend.
 
-### Base de données
+Les migrations Supabase sont append-only. Lire `docs/MIGRATIONS.md` avant modification.
 
-Les migrations sont dans `supabase/migrations/`. Lire `docs/MIGRATIONS.md` avant toute modification. Une migration appliquée ne doit jamais être réécrite.
+Les secrets serveur restent dans les secrets Supabase/plateforme et ne sont jamais commités.
 
-### Edge Functions
+## Règles produit à connaître immédiatement
 
-La configuration JWT est dans `supabase/config.toml`. L’état live connu est enregistré dans `supabase/functions.deployed.lock.json`.
-
-Le canal normal de déploiement depuis Git est la CLI Supabase depuis la racine du dépôt afin de résoudre les dépendances partagées :
-
-```bash
-supabase functions deploy coach-fleet-round --project-ref phyuijjekxtjvipjtdfv --no-verify-jwt
-supabase functions deploy coach-agent --project-ref phyuijjekxtjvipjtdfv
-```
-
-Les secrets serveur restent dans Supabase Edge Function Secrets et ne sont jamais ajoutés au dépôt.
-
-## Sécurité
-
-- RLS sur les tables exposées.
-- RPC privilégiées limitées et testées.
-- Clés serveur uniquement côté serveur.
-- Sauvegardes critiques atomiques et opérations idempotentes.
-- Fichiers utilisateurs validés.
-- Aucune donnée sensible dans la télémétrie produit.
+- Solo/Coaché = état personnel ; Coach = capacité indépendante.
+- Un Coach peut lui-même être Coaché.
+- Un client : un seul Coach actif maximum.
+- Workspace Personal/Coaching ≠ permission.
+- IA = propositions, jamais auto-application.
+- Dashboard = aujourd’hui ; Calendrier = passé/futur et doit servir Solo + Coaché.
+- Demande marketplace ≠ relation active ; confirmation finale = athlète.
+- Programmes versionnés ; historique réalisé immuable.
+- Pas d’étoiles/avis Coach dans la Vision actuelle.
+- Essai Solo = 14 jours ; grâce Coach = 7 jours.
+- Prix définitifs non décidés.
+- Bêta : accès éventuellement bypassé, consommation/coûts mesurés.
 
 ## Licence
 
