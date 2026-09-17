@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-13T23:53:37.349Z",
-  "strategy": "Git migrations are deployed from new-JV by the Supabase GitHub integration. Every filename timestamp MUST equal schema_migrations.version in production. Never repair or restamp applied history.",
+  "captured_at": "2026-09-17T23:18:45Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production on 2026-09-17. Never repair or restamp applied history.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
