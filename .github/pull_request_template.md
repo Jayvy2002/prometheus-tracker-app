@@ -40,6 +40,7 @@ Lister explicitement les sujets proches laissés hors scope afin d’éviter le 
 
 ## Preuves
 
+- [ ] `npm audit --audit-level=critical`
 - [ ] `npm test`
 - [ ] `npm run typecheck`
 - [ ] `npm run lint`
