@@ -1,88 +1,98 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-12T04:18:34Z",
-  "comment": "Inventaire live vérifié après le déploiement automatique de la PR #74 par l’intégration GitHub Supabase. coach-agent v27 et notify-onboarding-complete v22 sont ACTIVE ; JWT conforme, import maps conservées et preflights CORS vérifiés à 200.",
+  "captured_at": "2026-09-17T23:18:45Z",
+  "comment": "Inventaire live vérifié directement contre Supabase le 17 septembre 2026. Le lock documente les fonctions actives, leur JWT et la version observée; après tout redéploiement Edge, rafraîchir ce fichier avant de considérer le déploiement vérifié.",
   "functions": [
     {
       "slug": "analyze-product",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 14
+      "version": 118,
+      "ezbr_sha256": "1c89605a151efffa084da46ba7788845fcef10a8f9a10d7f155989e61061a30a"
     },
     {
       "slug": "ask-second",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 7
+      "version": 10,
+      "ezbr_sha256": "d9890125f10dfbc3b1e728d86fae4ab70dc5b785f8e103b89e091b365970df72"
     },
     {
       "slug": "batch-verify-exercises",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 7
+      "version": 10,
+      "ezbr_sha256": "3c64fe982f1a39f20a9bffbaa0fb4bfe384ef698f330f0ae5f58b4a1d9313906"
     },
     {
       "slug": "coach-agent",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 27,
-      "ezbr_sha256": "c2402a8ceead0af7be721c801dbfe509e738e5384bc7974b24604452f27cae81"
+      "version": 129,
+      "ezbr_sha256": "4c88a2ce269a903397db77097f6ed2ca2ee14e03fb5e8057eb812042e3d6b333"
     },
     {
       "slug": "coach-fleet-round",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 32,
-      "ezbr_sha256": "b902f8524779cc2c6232e3846c223368b9a55c76f3eb266ea08f79d1c054fe2e"
+      "version": 136,
+      "ezbr_sha256": "aa949e7deebc36d68e514ceb9c634af012fffa58960374da567fd4ad7a4dc894"
     },
     {
       "slug": "create-checkout-session",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 6
+      "version": 9,
+      "ezbr_sha256": "98e87be05eb227be6615a164d71f6c9160eaed8c20ff1314a4c7117f7321db1e"
     },
     {
       "slug": "create-portal-session",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 6
+      "version": 9,
+      "ezbr_sha256": "1de858d7a31ec5f7335a12b4ad118132a1b9f279783d7eb9c86ad5e3dc836b88"
     },
     {
       "slug": "delete-account",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 8
+      "version": 11,
+      "ezbr_sha256": "1550fcc69f5d65f92b599dba7301e004c9e11b4c05048412725d23698ce85f81"
     },
     {
       "slug": "notify-onboarding-complete",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 22,
-      "ezbr_sha256": "0b9267b3bef5fd9172597305981d7f281ebe34e43f17894319084ab7e5e7ee5d"
+      "version": 125,
+      "ezbr_sha256": "0fcc724ed7a391044b56b6bb019de92725c3c443d9d904261106c106b9fde116"
     },
     {
       "slug": "send-daily-reminders",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 10
+      "version": 114,
+      "ezbr_sha256": "ed4e1deaf5a3c130fb7b85bc1980e9eab111b26dd1e440b9deca4eb04fe48239"
     },
     {
       "slug": "stripe-webhook",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 6
+      "version": 9,
+      "ezbr_sha256": "0c05ba71ad26b3a9a5bf2f3611fbff00d8b02342927d81a91301f4bcc5d75180"
     },
     {
       "slug": "suggest-client-plan",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 8
+      "version": 11,
+      "ezbr_sha256": "725d8962d82188f48f3a0058e9de19fa85264b9aecb20896c99f8abad3d8ee0e"
     },
     {
       "slug": "verify-exercise",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 12
+      "version": 115,
+      "ezbr_sha256": "5bacb49f2b9900cef6db8514c8eeffdfdbf29a1abd893c44a7a4368b38636373"
     }
   ]
 }

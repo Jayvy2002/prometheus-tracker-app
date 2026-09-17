@@ -15,6 +15,25 @@
 
 Historical audit documents are diagnostic references only. They do **not** override the files above.
 
+## Branch and PR protocol — mandatory
+
+`new-JV` is the stable integration branch. Coding agents must **not implement features directly on it**.
+
+For every coherent subtask:
+
+1. start from the latest green `new-JV`;
+2. create `agent/pX-Y-short-description`;
+3. implement one coherent scope only;
+4. update tests and durable docs when the contract changes;
+5. update `docs/CHANTIER.md` with status/evidence;
+6. open a PR to `new-JV` using `.github/pull_request_template.md`;
+7. merge only when required checks are green;
+8. start the next subtask from the newly updated `new-JV`.
+
+Do not force-push or rewrite `new-JV`. Do not bundle unrelated roadmap items into one PR. Native GitHub branch protection is an administrative reinforcement; this repository policy applies even when that setting is unavailable.
+
+**Current roadmap start: `P1.1`.** Do not jump to P2–P7 when they depend on unfinished P1 contracts.
+
 ## Product model that must not be violated
 
 ```text

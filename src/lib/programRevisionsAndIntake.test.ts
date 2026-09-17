@@ -73,14 +73,19 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /account_entry_intent\.sql/);
   assert.match(ci, /coach_marketplace\.sql/);
   assert.match(ci, /save_program\.sql/);
-  assert.match(ci, /deploy-audit-edges/);
   assert.match(ci, /2\.117\.0/);
   assert.match(ci, /steps\.token\.outputs\.present == 'true'/);
   assert.ok(
-    [...ci.matchAll(/steps\.token\.outputs\.present == 'true'/g)].length >= 2,
-    'prod CLI proof and deploy-edges must both gate on token output, not secrets-in-if',
+    [...ci.matchAll(/steps\.token\.outputs\.present == 'true'/g)].length >= 1,
+    'prod CLI proof must gate on token output, not secrets-in-if',
   );
-  assert.match(ci, /github\.head_ref == 'cursor\/audit-securisation-425e'/);
+  assert.doesNotMatch(
+    ci,
+    /deploy-audit-edges|cursor\/audit-securisation-425e/,
+    'CI must not keep an obsolete Edge deploy job tied to a historical branch',
+  );
+  assert.match(ci, /concurrency:/);
+  assert.match(ci, /cancel-in-progress: true/);
   assert.doesNotMatch(
     ci,
     /if:.*secrets\.SUPABASE_ACCESS_TOKEN/,

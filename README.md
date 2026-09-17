@@ -124,7 +124,7 @@ Les versions exactes sont dans `package.json` et `package-lock.json`.
 git clone https://github.com/Jayvy2002/prometheus-tracker-app.git
 cd prometheus-tracker-app
 git switch new-JV
-npm install
+npm ci
 ```
 
 Puis configurer `.env`.
@@ -163,6 +163,22 @@ npm run test:rls
 ```
 
 Une fonctionnalité normale n’est pas considérée terminée avec la CI pertinente rouge.
+
+## Workflow de contribution
+
+`new-JV` doit rester le point d’intégration stable. Pour chaque sous-chantier :
+
+```text
+new-JV vert
+→ agent/pX-Y-description
+→ implémentation + tests + mise à jour CHANTIER
+→ PR vers new-JV
+→ CI verte
+→ merge
+→ nouvelle branche depuis new-JV
+```
+
+Le template `.github/pull_request_template.md` est obligatoire pour les changements fonctionnels.
 
 ## Déploiement
 

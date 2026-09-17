@@ -20,6 +20,22 @@
 | Design | `docs/DESIGN_SYSTEM.md` |
 | Télémétrie | `docs/TELEMETRY.md` |
 
+## Discipline de branche et PR
+
+`new-JV` est la branche d’intégration stable. Pour une capacité fonctionnelle :
+
+- partir du dernier `new-JV` vert ;
+- créer `agent/pX-Y-description-courte` ;
+- une PR = une sous-tâche cohérente ;
+- utiliser `.github/pull_request_template.md` ;
+- mettre `docs/CHANTIER.md` à jour dans la même PR lorsqu’un statut change ;
+- ne merger qu’avec les checks pertinents verts ;
+- repartir ensuite du nouveau `new-JV`.
+
+Aucun agent ne doit pousser directement une implémentation sur `new-JV`, réécrire son historique ou regrouper plusieurs chantiers dépendants simplement pour aller plus vite.
+
+**Point de départ actuel : P1.1.**
+
 ## Contrat produit fondamental
 
 Prometheus = **marketplace de coaching + moteur commun de suivi de performance + système d’exploitation du coaching**.

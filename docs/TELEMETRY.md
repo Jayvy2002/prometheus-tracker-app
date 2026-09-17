@@ -28,7 +28,7 @@ Aucune lecture cliente. Lecture : SQL editor / service role (admin produit).
 | `intake_completed` | `revisit`, `targets_computed`, `questionnaire_id`, `questionnaire_version` (ces deux derniers uniquement pour un questionnaire coach) | fin de questionnaire (AUCUN contenu d'intake, AUCUN signal santé) |
 | `invite_created` | `days`, `max_uses` | invitations coach |
 | `invite_accepted` | — | activation coaché |
-| `coaching_request_accepted` | — | activation via l’annuaire |
+| `coaching_request_accepted` | — | **événement legacy actuel** : acceptation de la demande côté Coach. Après P1.4, il ne doit plus être interprété comme activation de la relation ; l’activation nécessite la confirmation finale de l’athlète et la télémétrie devra être mise à jour dans la même PR. |
 | `intervention_resolved` | `kind`, `source`, `status`, `edited` | boucle coach (propose → valide) |
 | `coach_message_sent` | `template_key` | relances (jamais le corps) |
 | `client_reply_sent` | — | réponses client |
@@ -61,9 +61,7 @@ Un signal nécessaire au produit mais sensible (ex. accusé médical) reste un
 - Suppression de compte : `user_id ON DELETE CASCADE` — les événements partent
   avec le compte, sans action supplémentaire. Vérifié par le test `auditOps`
   (FK cascade) — pas de purge manuelle à maintenir.
-- Export utilisateur : journaux personnels (séances, nutrition, poids, check-ins,
-  photos) ; les notes privées d'un coach et les brouillons d'intervention ne
-  sont ni exportés ni transférés.
+- **Aucun export complet n’est une fonctionnalité produit prévue dans la Vision actuelle.** Si une procédure de portabilité légale ou administrative est ajoutée ultérieurement, elle doit rester distincte du produit et respecter les mêmes frontières de confidentialité : jamais de notes privées Coach ou de brouillons internes transférés à un autre Coach.
 
 ## Évolutions
 
