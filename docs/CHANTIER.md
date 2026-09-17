@@ -32,18 +32,36 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
+## Protocole d’exécution obligatoire
+
+À partir de ce baseline, l’agent travaille **par sous-chantier séquentiel**, jamais en implémentation massive parallèle.
+
+1. partir du dernier `new-JV` vert ;
+2. créer une branche dédiée nommée `agent/pX-Y-description-courte` ;
+3. inspecter l’existant avant de créer une nouvelle primitive ;
+4. implémenter une seule capacité cohérente ;
+5. ajouter/adapter les tests nécessaires ;
+6. mettre à jour ce fichier avec le statut et les preuves durables ;
+7. ouvrir une PR vers `new-JV` ;
+8. ne merger qu’avec les checks pertinents verts ;
+9. repartir du nouveau `new-JV` pour la sous-tâche suivante.
+
+**Interdit :** pousser directement une fonctionnalité sur `new-JV`, lancer plusieurs migrations concurrentes sur le même contrat, commencer P2/P3 sur une primitive P1 encore en transition, ou modifier la Vision pour simplifier une implémentation.
+
+Le template `.github/pull_request_template.md` fait partie de la Definition of Done.
+
 ## Priorités globales
 
-| Priorité | Chantier | But |
-|---|---|---|
-| **P0** | Stabilité dépôt | CI verte + garde-fous de branche |
-| **P1** | Identité, capacités, permissions, lifecycle | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | Phases/cycles + séquence de séances |
-| **P4** | Marketplace complète | Matching, qualifications, prospect → confirmation athlète |
-| **P5** | Adoption Coach | Imports, bibliothèque exercices, admin ciblé |
-| **P6** | Bêta économique | Entitlements, essais, grâce, mesure coûts |
-| **P7** | Intégrations et polish | Health/wearables, offline secondaire, E2E final |
+| Priorité | Chantier | Statut | But |
+|---|---|---|---|
+| **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
+| **P1** | Identité, capacités, permissions, lifecycle | **PROCHAIN** | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
+| **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
+| **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
+| **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
+| **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
 Aucun agent ne doit sauter directement à P3–P7 si P0/P1 contient un blocage qui affecte le même domaine.
 
@@ -51,49 +69,51 @@ Aucun agent ne doit sauter directement à P3–P7 si P0/P1 contient un blocage q
 
 # P0 — Remettre le dépôt sous contrôle
 
-## P0.1 — CI verte sur `new-JV`
+## P0.1 — CI verte sur `new-JV` — ✅ TERMINÉ
 
-### Problème
+### Preuve vérifiée le 17 septembre 2026
 
-Le dernier audit a trouvé la CI rouge dès l’installation des dépendances. Tant que `npm ci` échoue, lint, typecheck, tests et build ne prouvent rien.
+Baseline : commit `cb4b12e5e4fb7fcff749238a7c966a4e32f7b307`, workflow CI run #510.
 
-### À faire
+Vert :
 
-- aligner `package.json` et `package-lock.json` ;
-- restaurer `npm ci` ;
-- lancer :
-  - `npm test` ;
-  - `npm run typecheck` ;
-  - `npm run lint` ;
-  - `npm run build` ;
-  - `npm run verify:migrations` ;
-  - `npm run verify:edges` ;
-  - `npm run test:rls` si nécessaire ;
-- corriger le job browser du workflow s’il échoue à l’installation.
+- `npm ci` ;
+- lint ;
+- typecheck ;
+- tous les tests unitaires ;
+- régressions session/profile/service worker ;
+- `verify:migrations` ;
+- `verify:edges` ;
+- build ;
+- replay local Supabase PostgreSQL 17 ;
+- matrice RLS ;
+- tests relation/consentement/capacités/marketplace/programmes/questionnaires ;
+- parcours navigateur questionnaire.
 
-### Terminé quand
+Le lock des migrations a aussi été comparé directement à Supabase production : **112/112 versions alignées**.
 
-- workflow `verify` vert ;
-- workflow RLS/staging-like vert ;
-- aucune étape critique skipped à cause d’un échec antérieur.
+### Règle durable
 
-## P0.2 — Protéger `new-JV`
+P0.1 ne doit pas redevenir un chantier historique. Si la CI casse plus tard, la PR responsable corrige la régression avant de poursuivre.
 
-### À faire
+## P0.2 — Gouvernance de `new-JV` — 🟡 GARDE-FOUS REPO EN PLACE
 
-Configurer la branche de production pour empêcher un merge direct qui contourne les checks essentiels.
+Le dépôt impose désormais le protocole PR dans `AGENTS.md`, `CLAUDE.md` et le template de PR. `new-JV` est la branche d’intégration stable ; les agents doivent travailler sur `agent/pX-Y-...`.
 
-### Attendu
+### Renforcement GitHub recommandé
 
-Au minimum :
+La protection native de branche doit être activée dans les réglages GitHub lorsque l’accès administrateur le permet :
 
-- PR ou workflow contrôlé ;
-- checks CI requis ;
-- interdiction de merge si checks requis rouges.
+- PR obligatoire vers `new-JV` ;
+- checks CI requis : `verify` et `rls-matrix (staging-like)` lorsque le changement touche le backend/sécurité ;
+- interdiction de merge avec checks rouges ;
+- pas de force-push sur `new-JV`.
 
-### Terminé quand
+Cette configuration est un **contrôle administrateur GitHub**, pas une modification de code. Elle ne bloque pas le démarrage de P1 si le protocole PR ci-dessus est respecté.
 
-Un agent ne peut plus casser la production simplement en poussant un commit non vérifié.
+### Point de départ agent
+
+Le prochain travail produit est **P1.1 — faire de la capacité Coach une vraie capacité indépendante**.
 
 ---
 
