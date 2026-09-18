@@ -1,5 +1,5 @@
-import { buildSync } from 'esbuild';
 #!/usr/bin/env node
+import { buildSync } from 'esbuild';
 /**
  * Q06 — inventaire Edge Functions.
  * Compare : manifeste attendu, répertoires locaux, JWT config.toml,
@@ -162,3 +162,4 @@ if (failedBundle > 0) {
 if (process.exitCode && process.exitCode !== 0) {
   process.exit(process.exitCode);
 }
+
