@@ -531,7 +531,11 @@ Le journal conserve :
 - raison humaine facultative ;
 - effet réellement appliqué.
 
-Un refus ou un ignoré empêche `runAthleteWeeklyReview` de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé (seuils fleet : kcal ±150, séances ±2). Le signal continue d’être suivi. Aucune auto-application : la RPC n’écrit que le journal.
+Un refus ou un ignoré empêche `runAthleteWeeklyReview`, la carte Solo
+(`computeSoloWeeklyReview`) et le round fleet (`planFleetRoundCard` / Edge `planWrite`)
+de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé
+(seuils fleet : kcal ±150, séances ±2). Le signal continue d’être suivi. Aucune
+auto-application : la RPC n’écrit que le journal. L’écriture journal est best-effort.
 
 ### Invariant
 

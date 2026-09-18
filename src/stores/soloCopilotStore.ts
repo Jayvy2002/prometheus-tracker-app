@@ -4,7 +4,7 @@ import { track } from '../lib/telemetryClient';
 import { useProfileStore } from './profileStore';
 import type { SoloReviewDecision, SoloWeeklyReview } from '../lib/soloCopilot';
 import type { SoloWeeklyReviewRow } from '../lib/types';
-import { recordAthleteDecision } from '../features/signals/domain/decisionLogApi';
+import { recordAthleteDecisionBestEffort } from '../features/signals/domain/decisionLogApi';
 import { mapSoloProposalTarget, mapSoloReviewDecision } from '../features/signals/domain/decisionLog';
 
 interface SoloCopilotState {
@@ -89,7 +89,7 @@ export const useSoloCopilotStore = create<SoloCopilotState>((set) => ({
     if (error) return { error: error.message };
     const target = mapSoloProposalTarget(review.proposal.action, review.proposal.reason);
     const human = mapSoloReviewDecision(decision);
-    await recordAthleteDecision({
+    recordAthleteDecisionBestEffort({
       athleteId: userId,
       domain: target.domain,
       type: target.type,

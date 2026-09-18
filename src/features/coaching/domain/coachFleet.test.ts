@@ -19,7 +19,7 @@ import {
   WEEKLY_SMALL_KCAL,
 } from './coachFleet';
 import { parseCalorieDraft as parseCalories } from './coachInterventions';
-import type { CoachFleetDossier } from '../../../lib/types';
+import type { AthleteDecisionLog, CoachFleetDossier } from '../../../lib/types';
 
 const TODAY = '2026-08-29';
 
@@ -571,6 +571,55 @@ test('another week of 3100 vs 2200 after dismiss is new evidence, same snapshot 
   assert.equal(planFleetRoundCard(nextWeek, TODAY).action, 'insert');
 });
 
+test('P2.3: journal refusal skips after 7-day cooldown if evidence is unchanged', () => {
+  const marc = dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 10,
+    avg_calories: 3100,
+    avg_adherence_nutrition: 2,
+    weight_delta_kg: 0.4,
+  });
+  const handled = [{
+    kind: 'adherence_nutrition' as const,
+    flag: 'adherence_nutrition',
+    status: 'dismissed',
+    handled_at: '2026-08-18',
+    evidence: fleetEvidenceFromDossier(marc),
+  }];
+  const afterCooldown = dossier({ ...marc, fleet_handled: handled });
+  assert.equal(planFleetRoundCard(afterCooldown, TODAY).action, 'insert');
+
+  const refused: AthleteDecisionLog[] = [{
+    id: 'dec-fleet',
+    athlete_id: 'marc-id',
+    actor_id: 'coach-id',
+    actor_role: 'coach',
+    domain: 'nutrition',
+    type: 'not_following',
+    decision: 'refused',
+    proposal: { kind: 'adherence_nutrition' },
+    why: 'adherence_nutrition',
+    data_used: {
+      avg_calories: 3100,
+      calorie_target: 2200,
+      workout_count: afterCooldown.workout_count,
+      logged_nutrition_days: 10,
+      weight_delta_kg: 0.4,
+    },
+    human_reason: null,
+    applied_effect: {},
+    source: 'coach_interventions',
+    source_id: null,
+    created_at: '2026-08-18T00:00:00Z',
+  }];
+  assert.equal(planFleetRoundCard(afterCooldown, TODAY, 'fr', refused).action, 'skip');
+
+  const moved = dossier({ ...afterCooldown, avg_calories: 3400 });
+  assert.equal(planFleetRoundCard(moved, TODAY, 'fr', refused).action, 'insert');
+});
+
 test('upsert SQL never reopens sent/dismissed fleet rows', () => {
   const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829134034_fleet_handled_cooldown.sql'), 'utf8');
   assert.match(sql, /AND status = 'pending'/);
@@ -582,6 +631,8 @@ test('upsert SQL never reopens sent/dismissed fleet rows', () => {
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   assert.match(fleet, /planWrite/);
   assert.match(fleet, /FLEET_HANDLE_COOLDOWN_DAYS/);
+  assert.match(fleet, /athlete_decision_log/);
+  assert.match(fleet, /isProposalSuppressed/);
 });
 
 /**

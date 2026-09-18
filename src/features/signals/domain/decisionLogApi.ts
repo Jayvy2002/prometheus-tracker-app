@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabase';
-import type { AthleteHumanDecision, AthleteSignalDomain } from '../types';
+import type { AthleteDecisionLog, AthleteHumanDecision, AthleteSignalDomain } from '../types';
 
 export interface RecordAthleteDecisionInput {
   athleteId: string;
@@ -32,6 +32,11 @@ export async function recordAthleteDecision(input: RecordAthleteDecisionInput) {
   });
 }
 
+/** Human write already succeeded. Journal failure must not roll it back (candidate not in prod). */
+export function recordAthleteDecisionBestEffort(input: RecordAthleteDecisionInput): void {
+  void recordAthleteDecision(input).then(() => undefined, () => undefined);
+}
+
 export async function listAthleteDecisionLog(athleteId: string) {
   return supabase
     .from('athlete_decision_log')
@@ -39,4 +44,11 @@ export async function listAthleteDecisionLog(athleteId: string) {
     .eq('athlete_id', athleteId)
     .order('created_at', { ascending: false })
     .limit(50);
+}
+
+/** Table missing or offline: next review continues without journal context. */
+export async function listAthleteDecisionLogBestEffort(athleteId: string): Promise<AthleteDecisionLog[]> {
+  const { data, error } = await listAthleteDecisionLog(athleteId);
+  if (error || !Array.isArray(data)) return [];
+  return data as AthleteDecisionLog[];
 }

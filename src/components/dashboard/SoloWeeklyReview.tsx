@@ -20,6 +20,8 @@ import {
   soloReviewMessageKey,
   type SoloReviewDecision,
 } from '../../lib/soloCopilot';
+import { listAthleteDecisionLogBestEffort } from '../../features/signals/domain/decisionLogApi';
+import type { AthleteDecisionLog } from '../../lib/types';
 import { addDaysToDateStr, todayStr } from '../../lib/utils';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
@@ -43,6 +45,7 @@ export default function SoloWeeklyReview() {
   const { decidedWeek, decidedFor, fetchDecision, decide } = useSoloCopilotStore();
   const [logs, setLogs] = useState<Array<{ logged_at: string; calories: number }> | null>(null);
   const [targetHistory, setTargetHistory] = useState<Array<{ effective_from: string; calories: number }>>([]);
+  const [decisions, setDecisions] = useState<AthleteDecisionLog[] | null>(null);
   const [deciding, setDeciding] = useState<SoloReviewDecision | null>(null);
 
   const solo = !coached;
@@ -75,13 +78,16 @@ export default function SoloWeeklyReview() {
             .map(r => ({ effective_from: r.effective_from.slice(0, 10), calories: Number(r.calories) })));
         }
       });
+    void listAthleteDecisionLogBestEffort(user.id).then(rows => {
+      if (!cancelled) setDecisions(rows);
+    });
     return () => {
       cancelled = true;
     };
   }, [user?.id, solo, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const review = useMemo(() => {
-    if (!solo || !profile || !logs) return null;
+    if (!solo || !profile || !logs || !decisions) return null;
     return computeSoloWeeklyReview({
       today,
       goal: profile.goal ?? 'maintain',
@@ -99,8 +105,9 @@ export default function SoloWeeklyReview() {
       // I04 : accompagnement général pour ces profils, jamais d'objectif auto.
       isMinor: !!profile.date_of_birth && getAge(profile.date_of_birth) < 18,
       hasMedicalFlags: profileHasMedicalFlags(profile.kinesiology_intake),
+      recentDecisions: decisions,
     });
-  }, [solo, profile, logs, measurements, workouts, checkins, targetHistory, today]);
+  }, [solo, profile, logs, decisions, measurements, workouts, checkins, targetHistory, today]);
 
   useEffect(() => {
     if (!user || !review) return;
@@ -182,7 +189,7 @@ export default function SoloWeeklyReview() {
 
       {review.status === 'ready' && (
         <div className="mt-3 flex flex-wrap justify-end gap-2">
-          {draft ? (
+          {draft && !review.suppressedByDecision ? (
             <>
               <Button variant="secondary" size="sm" loading={deciding === 'kept'} onClick={() => void onDecide('kept')}>
                 {t('soloReview.keepMine')}

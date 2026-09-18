@@ -12,7 +12,10 @@ Ce n’est pas un journal append-only partagé avec le Solo.
 Une table dédiée n’est donc pas redondante. Les deux chemins existants **restent**
 (carte nutrition Solo, drafts fleet) et **enregistrent** une ligne après le tap humain
 déjà réussi. L’échec du journal ne rollback pas l’écriture humaine (candidate absente
-en production).
+en production) : écriture **best-effort**.
+
+La carte Solo (`computeSoloWeeklyReview`) et le round fleet (`planFleetRoundCard`,
+Edge `planWrite`) **lisent** le journal. Table absente → fail-open (`[]`).
 
 ## Contrat
 
@@ -30,8 +33,9 @@ proposition + pourquoi + données utilisées
 - Lecture : athlète propriétaire ou Coach avec relation **active**.
 - `refused` / `ignored` exigent `applied_effect = {}`.
 - Agrégats uniquement — les logs bruts sont rejetés (`raw_logs_forbidden`).
-- Un refus / ignoré du même `(domain, type)` empêche `propose` tant que les preuves
-  n’ont pas bougé (kcal ±150, séances ±2, jours nutrition +3, delta poids ±0.4 kg).
+- Un refus / ignoré du même `(domain, type)` empêche `propose` (moteur universel,
+  carte Solo, round fleet) tant que les preuves n’ont pas bougé (kcal ±150,
+  séances ±2, jours nutrition +3, delta poids ±0.4 kg).
 - Le signal continue d’être upserté ; seule la décision `propose` est retenue.
 - Mapping Solo : `accepted` → accepted, `kept` → ignored, `dismissed` → refused.
 - Mapping intervention : `sent` → accepted (payload édité → modified), `kept` → ignored,

@@ -29,9 +29,10 @@ import {
   type InterventionEffects,
 } from '../../../lib/interventionEffects';
 import {
-  recordAthleteDecision,
+  recordAthleteDecisionBestEffort,
 } from '../../signals/domain/decisionLogApi';
 import {
+  evidenceFromProposalPayload,
   mapInterventionDecision,
   mapInterventionKind,
 } from '../../signals/domain/decisionLog';
@@ -42,17 +43,7 @@ import {
   saveQueueDismissed,
 } from './coachingShared';
 
-function evidenceFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
-  return {
-    avg_calories: payload.avg_calories,
-    calorie_target: payload.target_avg_kcal ?? payload.calorie_target,
-    workout_count: payload.workout_count,
-    logged_nutrition_days: payload.logged_nutrition_days,
-    weight_delta_kg: payload.weight_delta_kg,
-  };
-}
-
-async function journalInterventionDecision(
+function journalInterventionDecision(
   row: CoachIntervention | undefined,
   status: 'sent' | 'kept' | 'dismissed',
   edited: boolean,
@@ -61,7 +52,7 @@ async function journalInterventionDecision(
   if (!row?.client_id) return;
   const human = mapInterventionDecision(status, edited);
   const target = mapInterventionKind(row.kind);
-  await recordAthleteDecision({
+  recordAthleteDecisionBestEffort({
     athleteId: row.client_id,
     domain: target.domain,
     type: target.type,
@@ -73,7 +64,7 @@ async function journalInterventionDecision(
       payload: row.payload,
     },
     why: row.rationale || row.kind,
-    dataUsed: evidenceFromPayload(row.payload),
+    dataUsed: evidenceFromProposalPayload(row.payload),
     appliedEffect: human === 'refused' || human === 'ignored' ? {} : effectsToJson(effects ?? {}),
     source: 'coach_interventions',
     sourceId: row.id,
@@ -170,7 +161,7 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
       edited: !!payload,
     });
     if (status === 'sent' || status === 'kept' || status === 'dismissed') {
-      await journalInterventionDecision(resolved, status, !!payload);
+      journalInterventionDecision(resolved, status, !!payload);
     }
     set(s => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
@@ -215,7 +206,7 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
           edited: !!payload,
         });
         if (status === 'sent' || status === 'kept' || status === 'dismissed') {
-          await journalInterventionDecision(resolved, status, !!payload, effects);
+          journalInterventionDecision(resolved, status, !!payload, effects);
         }
       }
       set(s => ({

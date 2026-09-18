@@ -1050,6 +1050,7 @@ const coaching = {
     statWeight: 'kg',
     statSessions: 'séances',
     nothingAuto: 'Rien ne change sans ton accord.',
+    refusedWait: 'Tu as déjà écarté cette piste. On attend que les données bougent avant de reproposer.',
     guarded: 'Aucun ajustement automatique n’est proposé. Demande l’avis d’un professionnel pour interpréter ces données.',
     apply: 'Appliquer {{n}} kcal',
     keepMine: 'Garder mes cibles',

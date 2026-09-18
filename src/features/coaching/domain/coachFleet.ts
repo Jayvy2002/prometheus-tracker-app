@@ -22,6 +22,11 @@ import type {
   CoachNudgeTemplateKey,
 } from '../../../lib/types';
 import { runAthleteWeeklyReview, weeklyReviewInputFromFleet } from '../../signals/domain/weeklyReview';
+import {
+  isProposalSuppressed,
+  mapInterventionKind,
+  weeklyReviewAggregatesFromCounts,
+} from '../../signals/domain/decisionLog';
 
 export const FLEET_SOURCE = 'fleet';
 export const FLEET_WINDOW_DAYS = 14;
@@ -432,11 +437,13 @@ export function planAthleteWeeklyReview(
 /**
  * Upsert-or-skip: pending → refresh in place. Handled same signal within ~7d
  * with unchanged facts → skip (never reopen sent/dismissed). New evidence → insert.
+ * P2.3: a journal refusal/ignored of the same (domain, type) skips until evidence moves.
  */
 export function planFleetRoundCard(
   d: CoachFleetDossier,
   today: string,
   locale: FleetLocale = 'fr',
+  recentDecisions: AthleteDecisionLog[] = [],
 ): { action: FleetWriteAction; card: CoachFleetCard | null } {
   const raw = buildFleetCardInner(d, today, locale);
   if (!raw) return { action: 'skip', card: null };
@@ -448,6 +455,21 @@ export function planFleetRoundCard(
     if (!fleetEvidenceChanged(prev.evidence, next, card.flag)) {
       return { action: 'skip', card: null };
     }
+  }
+  const target = mapInterventionKind(card.kind);
+  if (isProposalSuppressed(
+    recentDecisions,
+    target.domain,
+    target.type,
+    weeklyReviewAggregatesFromCounts({
+      avgCalories: Math.round(d.avg_calories),
+      calorieTarget: effectiveCalorieTarget(d),
+      workoutCount: d.workout_count,
+      loggedNutritionDays: d.logged_nutrition_days,
+      weightDeltaKg: d.weight_delta_kg,
+    }),
+  )) {
+    return { action: 'skip', card: null };
   }
   return { action: 'insert', card };
 }

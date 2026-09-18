@@ -10,7 +10,10 @@ après un tap humain. Ce n’est pas la boucle système.
 `athlete_signals`.
 
 Le moteur commun n’est donc pas redondant. Les deux chemins existants restent : carte
-nutrition Solo et drafts fleet. Ils **appellent** `runAthleteWeeklyReview`.
+nutrition Solo (`computeSoloWeeklyReview`) et drafts fleet (`planFleetRoundCard` /
+Edge `coach-fleet-round`). Des adaptateurs (`computeAthleteWeeklyReviewForSolo`,
+`planAthleteWeeklyReview`) **appellent** `runAthleteWeeklyReview` pour `athlete_signals`.
+La carte nutrition et le round fleet **ne sont pas remplacés**.
 
 ## Contrat
 

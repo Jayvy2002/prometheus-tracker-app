@@ -17,6 +17,11 @@ import {
   runAthleteWeeklyReview,
   weeklyReviewInputFromSolo,
 } from '../features/signals/domain/weeklyReview';
+import {
+  isProposalSuppressed,
+  mapSoloProposalTarget,
+  weeklyReviewAggregatesFromCounts,
+} from '../features/signals/domain/decisionLog';
 
 /**
  * Solo copilot — weekly kcal / macros review (docs/VISION.md, points 6 and 7).
@@ -46,6 +51,8 @@ export interface SoloReviewInputs {
   /** I04 : profil protégé — accompagnement général, jamais d'objectif auto. */
   isMinor?: boolean;
   hasMedicalFlags?: boolean;
+  /** P2.3: last human refusals/ignored suppress the same proposal until evidence moves. */
+  recentDecisions?: AthleteDecisionLog[];
 }
 
 export interface SoloReviewEvidence {
@@ -82,6 +89,8 @@ export interface SoloWeeklyReview {
   proposal: WeeklyNutritionProposal;
   evidence: SoloReviewEvidence;
   relanceDetail: SoloRelanceDetail | null;
+  /** True when a prior refused/ignored journal row blocks this same proposal. */
+  suppressedByDecision?: boolean;
 }
 
 export type SoloReviewDecision = 'accepted' | 'kept' | 'dismissed';
@@ -304,6 +313,27 @@ export function computeSoloWeeklyReview(inputs: SoloReviewInputs): SoloWeeklyRev
     };
   }
   const proposal = proposeWeeklyNutrition(buildSoloDossier(inputs, evidence));
+  if (proposal.action === 'calorie_adjustment' || proposal.action === 'relance') {
+    const target = mapSoloProposalTarget(proposal.action, proposal.reason);
+    const aggregates = weeklyReviewAggregatesFromCounts({
+      avgCalories: evidence.avgCalories,
+      calorieTarget: evidence.targetAvg,
+      workoutCount: evidence.workouts,
+      loggedNutritionDays: evidence.loggedDays,
+      weightDeltaKg: evidence.deltaKg,
+    });
+    if (isProposalSuppressed(inputs.recentDecisions ?? [], target.domain, target.type, aggregates)) {
+      return {
+        weekStart,
+        status: 'ready',
+        currentCalories,
+        proposal: { action: 'keep', reason: 'keep', draft: null },
+        evidence,
+        relanceDetail: null,
+        suppressedByDecision: true,
+      };
+    }
+  }
   return {
     weekStart,
     status: 'ready',
@@ -317,6 +347,7 @@ export function computeSoloWeeklyReview(inputs: SoloReviewInputs): SoloWeeklyRev
 /** i18n key of the sentence the copilot shows — the « why », never a bare number. */
 export function soloReviewMessageKey(review: SoloWeeklyReview): string {
   if (review.status === 'insufficient') return 'soloReview.insufficient';
+  if (review.suppressedByDecision) return 'soloReview.refusedWait';
   const { proposal } = review;
   // I04 : profil protégé — accompagnement général, pas d'injonction chiffrée.
   if (proposal.guarded) return 'soloReview.guarded';

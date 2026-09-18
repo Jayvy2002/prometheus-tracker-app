@@ -599,10 +599,135 @@ function evidenceChanged(prev: FleetEvidence | null | undefined, next: FleetEvid
   return false;
 }
 
+interface DecisionLogRow {
+  athlete_id: string;
+  domain: string;
+  type: string;
+  decision: string;
+  data_used: Record<string, unknown>;
+  created_at: string;
+}
+
+function asFiniteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function firstNumber(row: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const n = asFiniteNumber(row[key]);
+    if (n != null) return n;
+  }
+  return null;
+}
+
+function journalEvidenceChanged(
+  prev: Record<string, unknown> | null | undefined,
+  next: {
+    avgCalories: number;
+    calorieTarget: number;
+    workoutCount: number;
+    loggedNutritionDays: number;
+    weightDeltaKg: number | null;
+  },
+): boolean {
+  if (!prev) return false;
+  const prevCal = firstNumber(prev, ["avg_calories", "avgCalories"]);
+  if (prevCal != null && Math.abs(next.avgCalories - prevCal) >= 150) return true;
+  const prevTarget = firstNumber(prev, ["calorie_target", "calorieTarget", "target_avg_kcal"]);
+  if (prevTarget != null && Math.abs(next.calorieTarget - prevTarget) >= 150) return true;
+  const prevWorkouts = firstNumber(prev, ["workout_count", "workoutCount"]);
+  if (prevWorkouts != null && Math.abs(next.workoutCount - prevWorkouts) >= 2) return true;
+  const prevLogs = firstNumber(prev, ["logged_nutrition_days", "loggedNutritionDays"]);
+  if (prevLogs != null && next.loggedNutritionDays - prevLogs >= 3) return true;
+  const prevDelta = firstNumber(prev, ["weight_delta_kg", "weightDeltaKg"]);
+  if (
+    prevDelta != null
+    && next.weightDeltaKg != null
+    && Math.abs(next.weightDeltaKg - prevDelta) >= 0.4
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function mapInterventionKind(kind: string): { domain: string; type: string } {
+  if (kind === "calorie_adjustment" || kind === "adherence_nutrition") {
+    return { domain: "nutrition", type: "not_following" };
+  }
+  if (kind === "adherence_training" || kind === "program_adjustment") {
+    return { domain: "training", type: "missed_sessions" };
+  }
+  if (kind === "keep_in_touch") return { domain: "adherence", type: "keep_in_touch" };
+  if (kind === "onboarding_plan") return { domain: "goal", type: "onboarding" };
+  return { domain: "goal", type: kind || "other" };
+}
+
+function isProposalSuppressed(
+  recent: DecisionLogRow[],
+  domain: string,
+  type: string,
+  next: {
+    avgCalories: number;
+    calorieTarget: number;
+    workoutCount: number;
+    loggedNutritionDays: number;
+    weightDeltaKg: number | null;
+  },
+): boolean {
+  let last: DecisionLogRow | null = null;
+  for (const row of recent) {
+    if (row.domain !== domain || row.type !== type) continue;
+    if (!last || row.created_at > last.created_at) last = row;
+  }
+  if (!last) return false;
+  if (last.decision !== "refused" && last.decision !== "ignored") return false;
+  return !journalEvidenceChanged(last.data_used, next);
+}
+
+async function loadDecisionLogs(
+  admin: SupabaseClient,
+  athleteIds: string[],
+): Promise<Map<string, DecisionLogRow[]>> {
+  const byAthlete = new Map<string, DecisionLogRow[]>();
+  if (athleteIds.length === 0) return byAthlete;
+  const { data, error } = await admin
+    .from("athlete_decision_log")
+    .select("athlete_id, domain, type, decision, data_used, created_at")
+    .in("athlete_id", athleteIds)
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error || !Array.isArray(data)) return byAthlete;
+  for (const raw of data) {
+    const row = asObject(raw);
+    const athleteId = str(row.athlete_id);
+    if (!athleteId) continue;
+    const list = byAthlete.get(athleteId) ?? [];
+    const dataUsed = row.data_used && typeof row.data_used === "object" && !Array.isArray(row.data_used)
+      ? row.data_used as Record<string, unknown>
+      : {};
+    list.push({
+      athlete_id: athleteId,
+      domain: str(row.domain) ?? "",
+      type: str(row.type) ?? "",
+      decision: str(row.decision) ?? "",
+      data_used: dataUsed,
+      created_at: str(row.created_at) ?? "",
+    });
+    byAthlete.set(athleteId, list);
+  }
+  return byAthlete;
+}
+
 function planWrite(
   d: Dossier,
   today: string,
   locale: FleetLocale,
+  recentDecisions: DecisionLogRow[] = [],
 ): { action: "skip" | "upsert" | "insert"; card: FleetCard | null } {
   const raw = buildCard(d, today, locale);
   if (!raw) return { action: "skip", card: null };
@@ -614,6 +739,16 @@ function planWrite(
     if (!evidenceChanged(prev.evidence, evidenceFromDossier(d), card.flag)) {
       return { action: "skip", card: null };
     }
+  }
+  const target = mapInterventionKind(card.kind);
+  if (isProposalSuppressed(recentDecisions, target.domain, target.type, {
+    avgCalories: Math.round(d.avg_calories),
+    calorieTarget: effectiveCalorieTarget(d),
+    workoutCount: d.workout_count,
+    loggedNutritionDays: d.logged_nutrition_days,
+    weightDeltaKg: d.weight_delta_kg,
+  })) {
+    return { action: "skip", card: null };
   }
   return { action: "insert", card };
 }
@@ -1030,6 +1165,7 @@ Deno.serve(async (req: Request) => {
 
     const now = new Date();
     const ctxByCoach = await fetchCoachContext(admin, dossiers.map((d) => d.coach_id));
+    const decisionLogs = await loadDecisionLogs(admin, dossiers.map((d) => d.client_id));
 
     let flagged = 0;
     let skipped = 0;
@@ -1038,7 +1174,7 @@ Deno.serve(async (req: Request) => {
     for (const d of dossiers) {
       const ctx = ctxByCoach.get(d.coach_id);
       const today = todayInTimeZone(now, ctx?.timezone ?? DEFAULT_FLEET_TIMEZONE);
-      const plan = planWrite(d, today, ctx?.locale ?? "fr");
+      const plan = planWrite(d, today, ctx?.locale ?? "fr", decisionLogs.get(d.client_id) ?? []);
       if (plan.action === "skip" || !plan.card) {
         skipped += 1;
         continue;

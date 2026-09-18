@@ -108,7 +108,33 @@ export function latestAthleteDecision(
 }
 
 function asNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+export function compactEvidence(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (value !== undefined && value !== null) out[key] = value;
+  }
+  return out;
+}
+
+export function evidenceFromProposalPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  const nested = payload.evidence && typeof payload.evidence === 'object' && !Array.isArray(payload.evidence)
+    ? payload.evidence as Record<string, unknown>
+    : {};
+  return compactEvidence({
+    avg_calories: payload.avg_calories ?? nested.avg_calories,
+    calorie_target: payload.target_avg_kcal ?? payload.calorie_target ?? nested.target_avg_kcal ?? nested.calorie_target,
+    workout_count: payload.workout_count ?? nested.workout_count,
+    logged_nutrition_days: payload.logged_nutrition_days ?? nested.logged_nutrition_days,
+    weight_delta_kg: payload.weight_delta_kg ?? nested.weight_delta_kg,
+  });
 }
 
 function firstNumber(row: Record<string, unknown>, keys: string[]): number | null {
@@ -159,11 +185,37 @@ export function isProposalSuppressed(
 }
 
 export function snapshotReviewAggregates(agg: WeeklyReviewAggregates): Record<string, unknown> {
-  return {
+  return compactEvidence({
     avg_calories: agg.avgCalories,
     calorie_target: agg.calorieTarget,
     workout_count: agg.workoutCount,
     logged_nutrition_days: agg.loggedNutritionDays,
     weight_delta_kg: agg.weightDeltaKg,
+  });
+}
+
+export function weeklyReviewAggregatesFromCounts(input: {
+  avgCalories: number;
+  calorieTarget: number;
+  workoutCount: number;
+  loggedNutritionDays: number;
+  weightDeltaKg: number | null;
+}): WeeklyReviewAggregates {
+  return {
+    windowStart: '',
+    windowEnd: '',
+    loggedNutritionDays: input.loggedNutritionDays,
+    avgCalories: input.avgCalories,
+    calorieTarget: input.calorieTarget,
+    workoutCount: input.workoutCount,
+    expectedWorkouts: 0,
+    weighIns: 0,
+    weightDeltaKg: input.weightDeltaKg,
+    weightStartKg: null,
+    weightSpanDays: null,
+    checkinCount: 0,
+    avgFatigue: null,
+    avgEnergy: null,
+    goal: '',
   };
 }

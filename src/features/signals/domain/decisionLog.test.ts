@@ -11,7 +11,9 @@ import {
   DECISION_EVIDENCE_WORKOUT_DELTA,
   canReadAthleteDecisionLog,
   canRecordAthleteDecision,
+  compactEvidence,
   decisionEvidenceChanged,
+  evidenceFromProposalPayload,
   isAthleteHumanDecision,
   isProposalSuppressed,
   latestAthleteDecision,
@@ -122,6 +124,22 @@ test('evidence thresholds match the fleet snapshot', () => {
   assert.match(fleet, new RegExp(`>= ${DECISION_EVIDENCE_WEIGHT_DELTA_KG}`));
 });
 
+test('nested payload evidence and numeric strings feed suppression', () => {
+  const nested = evidenceFromProposalPayload({
+    evidence: {
+      avg_calories: '2800',
+      target_avg_kcal: '2000',
+      workout_count: '1',
+      logged_nutrition_days: '10',
+      weight_delta_kg: '-0.6',
+    },
+  });
+  assert.deepEqual(compactEvidence({ a: 1, b: null, c: undefined }), { a: 1 });
+  assert.equal(nested.avg_calories, '2800');
+  assert.equal(decisionEvidenceChanged(nested, aggregates()), false);
+  assert.equal(decisionEvidenceChanged(nested, aggregates({ avgCalories: 2500 })), true);
+});
+
 test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () => {
   const latest = latestMigrationContaining('CREATE TABLE public.athlete_decision_log');
   assert.equal(latest.file, '20260918201237_athlete_decision_log.sql');
@@ -150,6 +168,8 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
 
   const api = src('src/features/signals/domain/decisionLogApi.ts');
   assert.match(api, /rpc\('record_athlete_decision'/);
+  assert.match(api, /recordAthleteDecisionBestEffort/);
+  assert.match(api, /listAthleteDecisionLogBestEffort/);
   assert.doesNotMatch(api, /from\('athlete_decision_log'\)\.insert/);
 
   const sqlTest = src('supabase/tests/athlete_decision_log.sql');
@@ -172,9 +192,30 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"name": "athlete_decision_log"/);
 
   const soloStore = src('src/stores/soloCopilotStore.ts');
-  assert.match(soloStore, /recordAthleteDecision/);
+  assert.match(soloStore, /recordAthleteDecisionBestEffort/);
+  assert.doesNotMatch(soloStore, /await recordAthleteDecision\(/);
   assert.match(soloStore, /mapSoloReviewDecision/);
   const slice = src('src/features/coaching/model/interventionsSlice.ts');
   assert.match(slice, /journalInterventionDecision/);
-  assert.match(slice, /recordAthleteDecision/);
+  assert.match(slice, /recordAthleteDecisionBestEffort/);
+  assert.match(slice, /evidenceFromProposalPayload/);
+  assert.doesNotMatch(slice, /await recordAthleteDecision\(/);
+  assert.doesNotMatch(slice, /await journalInterventionDecision/);
+
+  const soloEngine = src('src/lib/soloCopilot.ts');
+  assert.match(soloEngine, /isProposalSuppressed/);
+  assert.match(soloEngine, /recentDecisions/);
+  const card = src('src/components/dashboard/SoloWeeklyReview.tsx');
+  assert.match(card, /listAthleteDecisionLogBestEffort/);
+  assert.match(card, /recentDecisions: decisions/);
+  assert.match(src('src/i18n/locales/fr/coaching.ts'), /refusedWait:/);
+  assert.match(src('src/i18n/locales/en/coaching.ts'), /refusedWait:/);
+
+  const fleet = src('src/features/coaching/domain/coachFleet.ts');
+  assert.match(fleet, /isProposalSuppressed/);
+  assert.match(fleet, /recentDecisions: AthleteDecisionLog\[\] = \[\]/);
+  const edge = src('supabase/functions/coach-fleet-round/index.ts');
+  assert.match(edge, /athlete_decision_log/);
+  assert.match(edge, /loadDecisionLogs/);
+  assert.match(edge, /isProposalSuppressed/);
 });
