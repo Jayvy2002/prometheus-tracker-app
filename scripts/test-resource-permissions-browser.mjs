@@ -144,6 +144,7 @@ try {
   await group.getByRole('button', { name: 'Coaching', exact: true, pressed: true }).waitFor();
   await dualPage.goto(origin + '/clients');
   await dualPage.getByText('p12-roster', { exact: true }).first().waitFor();
+  assert.equal(await dualPage.getByText('p12-dual', { exact: true }).count(), 0);
   await dualPage.screenshot({
     path: 'artifacts/p12/coach-coached-roster.png',
     fullPage: true,

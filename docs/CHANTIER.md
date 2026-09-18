@@ -222,6 +222,7 @@ Inventaire, contrat et câblage : [P1.2 — permissions ressource/action](P1_2_R
 - `/stats` (lire son historique) n’est plus masqué parce que la persona est Coachée.
 - Programme assigné : lecture Coaché, écriture Solo uniquement ; proposition existante conservée.
 - Dossier client : capacité Coach + relation active, jamais soi-même.
+- Roster : `fetchClients` filtre `coach_id` de l’acteur ; un Coach Coaché ne s’y liste pas.
 - Workspace UI jamais utilisé comme grant.
 - `/calendar` reste bloqué (P1.3). Aucune migration nouvelle.
 

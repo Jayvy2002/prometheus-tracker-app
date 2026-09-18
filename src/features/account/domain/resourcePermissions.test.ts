@@ -181,4 +181,8 @@ test('stats is a personal history surface; calendar and routines stay persona-ga
   assert.match(program, /canUpdateOwnAssignedProgram/);
   assert.match(program, /canProposeAssignedProgramChange/);
   assert.doesNotMatch(program, /isSoloAthlete/);
+  const roster = src('src/features/coaching/model/clientsSlice.ts');
+  assert.match(roster, /\.eq\('coach_id', coachId\)/);
+  assert.match(roster, /\.neq\('client_id', coachId\)/);
+  assert.match(src('src/components/coaching/ClientsPage.tsx'), /canReadClientDossier/);
 });

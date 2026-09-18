@@ -83,6 +83,11 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
   return {
   fetchClients: async () => {
     set({ loading: true });
+    const coachId = getSessionOwner();
+    if (!coachId) {
+      set({ clients: [], loading: false, clientsFetchError: null });
+      return;
+    }
     type LinkRow = {
       client_id: string;
       created_at: string;
@@ -93,17 +98,23 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
     const withNudge = await supabase
       .from('coach_client_links')
       .select('client_id, created_at, last_visited_at, last_nudged_at')
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .eq('coach_id', coachId)
+      .neq('client_id', coachId);
     if (withNudge.error) {
       const withVisit = await supabase
         .from('coach_client_links')
         .select('client_id, created_at, last_visited_at')
-        .eq('status', 'active');
+        .eq('status', 'active')
+        .eq('coach_id', coachId)
+        .neq('client_id', coachId);
       if (withVisit.error) {
         const fallback = await supabase
           .from('coach_client_links')
           .select('client_id, created_at')
-          .eq('status', 'active');
+          .eq('status', 'active')
+          .eq('coach_id', coachId)
+          .neq('client_id', coachId);
         if (fallback.error) {
           set({ loading: false, clientsFetchError: fallback.error.message });
           toast(i18n.t('errors.loadOps'), 'error');
@@ -121,10 +132,14 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
       links = (withNudge.data ?? []) as LinkRow[];
     }
     if (!links.length) {
-      set({ clients: [], loading: false });
+      set({ clients: [], loading: false, clientsFetchError: null });
       return;
     }
-    const ids = links.map(l => l.client_id as string);
+    const ids = [...new Set(links.map(l => l.client_id as string).filter(id => id !== coachId))];
+    if (!ids.length) {
+      set({ clients: [], loading: false, clientsFetchError: null });
+      return;
+    }
     const { data: profiles } = await supabase
       .from('user_profiles')
       .select('id, full_name, email, avatar_url, onboarding_completed, goal, training_frequency, target_weight_kg, weight_kg, daily_calorie_target, protein_target, carbs_target, fat_target, kinesiology_intake')

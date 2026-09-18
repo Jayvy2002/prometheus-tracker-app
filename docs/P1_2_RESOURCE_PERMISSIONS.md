@@ -35,6 +35,7 @@ son propre plan en lecture dans l’espace Personnel.
 - Programme assigné : édition seulement si `canUpdateOwnAssignedProgram` ; sinon lecture +
   proposition existante (Ask → message Coach).
 - Dossier client : `CoachOnly` = capacité ; `ActiveRelationshipBoundary` = relation active.
+- Roster Coaching : uniquement `coach_id = acteur` et jamais soi-même (`canReadClientDossier`). Un Coach lui-même Coaché ne se voit plus dans sa liste clients.
 
 ## Serveur déjà en place (non modifié dans cette PR)
 
