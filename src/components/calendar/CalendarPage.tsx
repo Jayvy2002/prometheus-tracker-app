@@ -246,6 +246,11 @@ export default function CalendarPage() {
         workouts,
         assignmentId: assignment?.id,
         startDate: assignment?.start_date,
+        durationWeeks: assignment?.program?.duration_weeks,
+        assignmentStatus: assignment?.status,
+        endedAt: assignment?.status === 'paused' || assignment?.status === 'completed'
+          ? assignment.updated_at
+          : null,
         unnamed: t('workout.unnamed'),
       }));
     }

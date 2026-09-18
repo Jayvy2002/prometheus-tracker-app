@@ -290,7 +290,8 @@ Inventaire et câblage : [P1.3 — calendrier personnel](P1_3_PERSONAL_CALENDAR.
 - `/calendar` n’est plus derrière `CoachedAthleteRedirect` ; `CoachTrackerRedirect` (outils personnels) suffit.
 - Desktop Coaché : Calendrier à côté de Stats / progression.
 - Hub progression et profil Coaché : lien Calendrier.
-- Consultation du futur : un jour à venir est sélectionnable ; les états prévu / commencé / réalisé restent visibles.
+- Consultation du futur : un jour à venir est sélectionnable ; un jour **prescrit** apparaît en prévu avec son nom.
+- Fenêtre du plan : `start_date` + `duration_weeks` ; une attribution `paused` ne génère plus de prévu après sa fin.
 - Pas d’édition du plan Coach depuis le calendrier (`saveProgram` / éditeur absents).
 - `/routines` reste bloqué.
 
