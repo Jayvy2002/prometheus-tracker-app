@@ -44,11 +44,11 @@ fi
 printf '%s\n' "$LINKED_REF" > /tmp/prometheus-mig/linked-project-ref.txt
 
 echo "=== supabase migration list (linked production) ==="
-"${SUPABASE[@]}" --agent no migration list | tee /tmp/prometheus-mig/migration-list.txt
+"${SUPABASE[@]}" --agent no migration list 2>&1 | tee /tmp/prometheus-mig/migration-list.txt
 node scripts/assert-migration-list.mjs /tmp/prometheus-mig/migration-list.txt
 
 echo "=== supabase db push --dry-run (linked production) ==="
-"${SUPABASE[@]}" --agent no db push --dry-run | tee /tmp/prometheus-mig/db-push-dry-run.txt
+"${SUPABASE[@]}" --agent no db push --dry-run 2>&1 | tee /tmp/prometheus-mig/db-push-dry-run.txt
 node scripts/assert-db-push-dry-run.mjs /tmp/prometheus-mig/db-push-dry-run.txt
 
 echo "prod-migration-sync OK — production vérifiée sans appliquer de migration."
