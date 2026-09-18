@@ -35,3 +35,10 @@ de séances prévues dans le futur.
 
 Check-ins, habitudes, événements utiles et changements planifiés dans le calendrier (étape
 suivante du chantier). P1.4 marketplace. Édition du plan Coach.
+
+## Livré
+
+PR [#187](https://github.com/Jayvy2002/prometheus-tracker-app/pull/187) squash `e171b3268e304fc09367b3504e3d43d0146645c1` dans `new-JV`.
+CI post-merge [35345640894](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35345640894) : 691 tests, leftover `ROLLBACK` + echo + grep du `tee`, PASS P1.3 `assigned Upper pull scheduled, paused hides future scheduled`.
+Aucune migration. Production inchangée à 115 versions (`20260918103748_program_write_coached_owner`).
+P1.3 est clôturé. P1.4 n’est pas commencé.

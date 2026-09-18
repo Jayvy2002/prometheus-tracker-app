@@ -64,5 +64,5 @@ Après merge de la PR [#185](https://github.com/Jayvy2002/prometheus-tracker-app
 
 ## Hors scope
 
-P1.3 calendrier Coaché (en cours), P1.4 confirmation marketplace, P1.5 durées commerciales,
+P1.3 calendrier Coaché (clôturé), P1.4 confirmation marketplace, P1.5 durées commerciales,
 refonte IA, facturation. P1.2 est clôturé.

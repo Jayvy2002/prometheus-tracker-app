@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P1.3 : Calendrier personnel pour Solo + Coaché.**
+> **CURRENT IMPLEMENTATION GATE — P1.4 : Lifecycle marketplace avec confirmation finale Athlète.**
 >
-> P1.1 et P1.2 sont clôturés. P1.3 est en cours. Un agent ne commence que cette tâche, s’arrête à la PR verte, et attend le feu vert explicite de Jean-Vincent avant merge et avant P1.4. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1, P1.2 et P1.3 sont terminés, mergés et vérifiés. P1.3 n’a ajouté aucune migration. P1.4 n’a pas commencé. Un agent ne commence P1.4 qu’après le feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 et P1.2 clôturés ; P1.3 PR ouverte, pas de P1.4 sans feu vert** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1, P1.2 et P1.3 terminés ; P1.4 attend feu vert** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.3 est en cours. Le lifecycle marketplace (P1.4) reste le chantier suivant, uniquement après merge et feu vert.
+P1.3 est clôturé. Le lifecycle marketplace (P1.4) reste le chantier suivant, uniquement après feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -247,7 +247,7 @@ Supabase avec **les mêmes timestamps**. Aucune migration historique modifiée.
 - **13 Edge Functions ACTIVE**, dont `coach-agent` v134 et `coach-fleet-round` v141 au moment du contrôle ;
 - locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
 
-**Arrêt : P1.2 est clôturé.** Le GATE courant est P1.3.
+**Arrêt : P1.2 est clôturé.**
 
 ### Problème
 
@@ -283,7 +283,21 @@ Le fait d’être Coaché ne masque plus arbitrairement ses propres données ou 
 
 ### État actuel
 
-**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.4.**
+**✅ TERMINÉ — mergé et vérifié. Aucune migration SQL.**
+
+PR [#187](https://github.com/Jayvy2002/prometheus-tracker-app/pull/187) mergée dans `new-JV`.
+Commit de merge : `e171b3268e304fc09367b3504e3d43d0146645c1`.
+CI post-merge réellement verte (logs inspectés, pas seulement `conclusion=success`) :
+[run 35345640894](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35345640894)
+(`verify` 57s ; `rls-matrix` 3m55s ; `Supabase Preview` success).
+
+- `npm test` : **691 pass / 0 fail** ;
+- leftover : `ROLLBACK` puis `save_program coached leftover owner guard passed` (stdout **et** grep du fichier `tee`) ;
+- Playwright P1.3 : `assigned Upper pull scheduled, paused hides future scheduled` ;
+- greps P1.2 + P1.3 des fichiers `PASS` réellement exécutés ;
+- `rls-matrix` en `bash -eo pipefail` ;
+- `verify:migrations` : 115 lock, pending 0 ;
+- production `phyuijjekxtjvipjtdfv` : toujours **115** versions, dernière `20260918103748_program_write_coached_owner`.
 
 Inventaire et câblage : [P1.3 — calendrier personnel](P1_3_PERSONAL_CALENDAR.md).
 
@@ -294,6 +308,8 @@ Inventaire et câblage : [P1.3 — calendrier personnel](P1_3_PERSONAL_CALENDAR.
 - Fenêtre du plan : `start_date` + `duration_weeks` ; une attribution `paused` ne génère plus de prévu après sa fin.
 - Pas d’édition du plan Coach depuis le calendrier (`saveProgram` / éditeur absents).
 - `/routines` reste bloqué.
+
+**Arrêt : P1.3 est clôturé. Aucun P1.4 sans le feu vert explicite de Jean-Vincent.**
 
 ### À faire
 
