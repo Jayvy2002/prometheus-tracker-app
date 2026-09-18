@@ -31,13 +31,13 @@ If documents conflict, do not silently choose the easiest interpretation. Stop, 
 
 ## Current execution gate
 
-P1.1 is complete, merged and deployed.
+Read the **CURRENT IMPLEMENTATION GATE** block near the top of `docs/CHANTIER.md`.
 
-The next implementation task is **P1.2 — permissions by resource/action**.
+That block is the only authoritative pointer to the next allowed implementation task. Do not infer a later task from an old chat, model memory, branch name or stale documentation.
 
 Work on **one subtask only**.
 
-Do not start P1.3, P2 or any later task until Jean-Vincent explicitly approves the next step.
+After the PR is green, stop and wait for Jean-Vincent before merge or any next task.
 
 ## Branch / PR discipline
 
