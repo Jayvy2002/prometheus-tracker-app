@@ -186,7 +186,7 @@ Exemples :
 
 RLS/RPC reste la source de vérité de sécurité. Une garde React améliore l’UX, elle ne remplace pas l’autorisation serveur.
 
-Les décisions P1.2 vivent dans `src/features/account/domain/resourcePermissions.ts`. Les écrans et gardes de routes les consultent ; le workspace UI n’y figure pas comme condition d’octroi.
+Les décisions P1.2 vivent dans `src/features/account/domain/resourcePermissions.ts`. Les écrans et gardes de routes les consultent ; le workspace UI n’y figure pas comme condition d’octroi. `save_program` refuse aussi un Coaché qui possède encore le plan qui lui est assigné.
 
 ---
 

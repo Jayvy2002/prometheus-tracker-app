@@ -17,6 +17,8 @@ export interface PermissionActor {
 export interface AssignedProgramResource {
   ownerId?: string | null;
   clientId?: string | null;
+  /** Required when the client is not the actor. Missing/false fails closed. */
+  hasActiveRelationship?: boolean;
 }
 
 export interface ClientDossierResource {
@@ -70,8 +72,24 @@ export function canUpdateCoachOwnedTargets(actor: PermissionActor): boolean {
   return canUpdateOwnPersonalData(actor) && actor.personalCoaching === 'solo';
 }
 
-export function canReadAssignedProgram(actor: PermissionActor): boolean {
-  return canUsePersonalTools(actor) || canActAsCoach(actor);
+export function canReadAssignedProgram(
+  actor: PermissionActor,
+  resource: AssignedProgramResource = {},
+): boolean {
+  if (!isAuthenticated(actor)) return false;
+  const clientId = resource.clientId ?? actor.userId;
+  if (!clientId) return false;
+
+  if (clientId === actor.userId) {
+    return canUsePersonalTools(actor);
+  }
+
+  if (!canActAsCoach(actor)) return false;
+  return resource.hasActiveRelationship === true;
+}
+
+export function canReadOwnAssignedProgram(actor: PermissionActor): boolean {
+  return canReadAssignedProgram(actor, { ownerId: actor.userId, clientId: actor.userId });
 }
 
 export function canUpdateAssignedProgram(
@@ -90,6 +108,7 @@ export function canUpdateAssignedProgram(
   }
 
   if (!canActAsCoach(actor)) return false;
+  if (resource.hasActiveRelationship !== true) return false;
   return ownerId === actor.userId;
 }
 

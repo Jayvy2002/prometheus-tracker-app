@@ -9,6 +9,7 @@ import {
   canProposeAssignedProgramChange,
   canReadAssignedProgram,
   canReadClientDossier,
+  canReadOwnAssignedProgram,
   canReadOwnCalendar,
   canReadOwnHistory,
   canUpdateAssignedProgram,
@@ -32,7 +33,9 @@ export function useResourcePermissions() {
     canLogOwnSession: canLogOwnSession(actor),
     canUpdateOwnPersonalData: canUpdateOwnPersonalData(actor),
     canUpdateCoachOwnedTargets: canUpdateCoachOwnedTargets(actor),
-    canReadAssignedProgram: canReadAssignedProgram(actor),
+    canReadOwnAssignedProgram: canReadOwnAssignedProgram(actor),
+    canReadAssignedProgram: (resource?: AssignedProgramResource) =>
+      canReadAssignedProgram(actor, resource),
     canUpdateOwnAssignedProgram: canUpdateOwnAssignedProgram(actor),
     canProposeAssignedProgramChange: canProposeAssignedProgramChange(actor),
     canReadOwnCalendar: canReadOwnCalendar(actor),

@@ -38,12 +38,13 @@ test('assign recap date stays on the local calendar day', () => {
   assert.match(label, /9|09|Sep/i);
 });
 
-test('latest save_program wraps metadata + sync_program_days and refuses stale', () => {
+test('latest save_program wraps metadata + sync_program_days, refuses stale, and blocks coached leftover owners', () => {
   const found = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
-  assert.equal(found.file, '20260915133000_save_program.sql');
+  assert.equal(found.file, '20260918102103_save_program_coached_owner.sql');
   assert.match(found.sql, /SECURITY DEFINER/);
   assert.match(found.sql, /SET search_path = public/);
   assert.match(found.sql, /RAISE EXCEPTION 'stale'/);
+  assert.match(found.sql, /Coached client cannot edit assigned program/);
   assert.match(found.sql, /v_days := public\.sync_program_days\(p_program_id, p_days\)/);
   assert.match(found.sql, /GRANT EXECUTE ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz\) TO authenticated/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz\) FROM PUBLIC, anon/);
@@ -78,5 +79,7 @@ test('editor and solo save go through saveProgram; delete waits for the server',
   assert.match(src('src/i18n/locales/fr.ts'), /assignRecap:/);
   assert.match(src('src/i18n/locales/en.ts'), /assignRecap:/);
   assert.match(src('.github/workflows/ci.yml'), /save_program\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /save_program_coached\.sql/);
   assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260915133000"/);
+  assert.match(src('supabase/migrations.pending.json'), /"version": "20260918102103"/);
 });

@@ -223,8 +223,10 @@ Inventaire, contrat et câblage : [P1.2 — permissions ressource/action](P1_2_R
 - Programme assigné : lecture Coaché, écriture Solo uniquement ; proposition existante conservée.
 - Dossier client : capacité Coach + relation active, jamais soi-même.
 - Roster : `fetchClients` filtre `coach_id` de l’acteur ; un Coach Coaché ne s’y liste pas.
+- `canUpdateAssignedProgram` / `canReadAssignedProgram` exigent `hasActiveRelationship` pour un client tiers (fail-closed si absent).
+- `save_program` refuse un Coaché propriétaire d’un leftover Solo encore assigné (migration pending `20260918102103_save_program_coached_owner`).
 - Workspace UI jamais utilisé comme grant.
-- `/calendar` reste bloqué (P1.3). Aucune migration nouvelle.
+- `/calendar` reste bloqué (P1.3).
 
 ### Problème
 

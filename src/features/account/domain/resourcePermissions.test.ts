@@ -19,6 +19,7 @@ import {
   canProposeAssignedProgramChange,
   canReadAssignedProgram,
   canReadClientDossier,
+  canReadOwnAssignedProgram,
   canReadOwnCalendar,
   canReadOwnHistory,
   canUpdateAssignedProgram,
@@ -76,6 +77,7 @@ test('P1.2 matrix: own history, session log and personal data stay with the athl
     assert.equal(canReadOwnHistory(person), true);
     assert.equal(canLogOwnSession(person), true);
     assert.equal(canUpdateOwnPersonalData(person), true);
+    assert.equal(canReadOwnAssignedProgram(person), true);
     assert.equal(canReadAssignedProgram(person), true);
     assert.equal(canReadOwnCalendar(person), true);
   }
@@ -101,19 +103,25 @@ test('P1.2 matrix: assigned-plan write vs propose, including Coach who is coache
 
 test('P1.2 matrix: a Coach edits a client dossier, never their own, and workspace does not grant', () => {
   const client = { clientId: 'C', hasActiveRelationship: true };
+  const clientPlan = { ownerId: 'A', clientId: 'C', hasActiveRelationship: true };
   for (const person of [coachSolo(), coachSolo('coaching'), coachCoached(), coachCoached('coaching')]) {
     assert.equal(canReadClientDossier(person, client), true);
     assert.equal(canEditClientDossier(person, client), true);
     assert.equal(canReadClientDossier(person, { clientId: 'A', hasActiveRelationship: true }), false);
     assert.equal(canReadClientDossier(person, { clientId: 'C', hasActiveRelationship: false }), false);
-    assert.equal(canUpdateAssignedProgram(person, { ownerId: 'A', clientId: 'C' }), true);
+    assert.equal(canReadAssignedProgram(person, clientPlan), true);
+    assert.equal(canUpdateAssignedProgram(person, clientPlan), true);
+    assert.equal(canUpdateAssignedProgram(person, { ownerId: 'A', clientId: 'C' }), false);
+    assert.equal(canUpdateAssignedProgram(person, { ownerId: 'A', clientId: 'C', hasActiveRelationship: false }), false);
+    assert.equal(canReadAssignedProgram(person, { clientId: 'C', hasActiveRelationship: false }), false);
   }
 
   assert.equal(canReadClientDossier(coached(), client), false);
   assert.equal(canReadClientDossier(solo(), client), false);
   assert.equal(canActAsCoach(coached()), false);
   assert.equal(canActAsCoach(coachSolo('personal')), true);
-  assert.equal(canUpdateAssignedProgram(coached(), { ownerId: 'B', clientId: 'A' }), false);
+  assert.equal(canReadAssignedProgram(coached(), clientPlan), false);
+  assert.equal(canUpdateAssignedProgram(coached(), { ownerId: 'B', clientId: 'A', hasActiveRelationship: true }), false);
 });
 
 test('workspace preference is ignored when deciding grants', () => {
@@ -151,9 +159,11 @@ test('calendar resource read is allowed; the route stays deferred for coached un
   assert.equal(canOpenPersonalCalendarRoute(coachCoached()), false);
 });
 
-test('server already enforces owner writes, coached self-assign, nutrition targets and dossier isolation', () => {
+test('server enforces owner writes, leftover coached save_program, nutrition targets and dossier isolation', () => {
   const save = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
+  assert.equal(save.file, '20260918102103_save_program_coached_owner.sql');
   assert.match(save.sql, /Not program owner/);
+  assert.match(save.sql, /Coached client cannot edit assigned program/);
   const assign = latestMigrationContaining('Coached client cannot self-assign');
   assert.match(assign.sql, /Coached client cannot self-assign/);
   const targets = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.protect_coach_nutrition_targets');

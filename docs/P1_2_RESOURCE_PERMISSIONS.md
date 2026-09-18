@@ -18,7 +18,7 @@ la source de vérité serveur.
 | Lire son historique | oui | oui | oui (espace perso) | oui (espace perso) |
 | Logger sa séance | oui | oui (module tracking) | oui | oui |
 | Modifier ses données personnelles | oui | oui, hors cibles Coach | oui | oui, hors cibles Coach |
-| Lire le programme assigné | oui | oui | oui | oui |
+| Lire le programme assigné | oui (soi) | oui (soi) | soi ; client si relation active | soi ; client si relation active |
 | Modifier le programme assigné | oui (plan perso) | non | oui (plan perso) | non (son plan coaché) |
 | Proposer un changement de plan | n/a (il édite) | oui | n/a | oui (son plan coaché) |
 | Lire / éditer un dossier client | non | non | oui si relation active, jamais soi-même | oui si relation active, jamais soi-même |
@@ -34,18 +34,23 @@ son propre plan en lecture dans l’espace Personnel.
 - `/calendar` et `/routines` restent derrière `CoachedAthleteRedirect` jusqu’à P1.3.
 - Programme assigné : édition seulement si `canUpdateOwnAssignedProgram` ; sinon lecture +
   proposition existante (Ask → message Coach).
+- `canReadAssignedProgram(actor, resource)` / `canUpdateAssignedProgram(actor, resource)` :
+  un Coach n’obtient le droit sur un client que si `hasActiveRelationship === true`
+  (absent ou false → refus). `canReadOwnAssignedProgram` / `canUpdateOwnAssignedProgram`
+  restent les raccourcis pour le plan personnel.
 - Dossier client : `CoachOnly` = capacité ; `ActiveRelationshipBoundary` = relation active.
 - Roster Coaching : uniquement `coach_id = acteur` et jamais soi-même (`canReadClientDossier`). Un Coach lui-même Coaché ne se voit plus dans sa liste clients.
 
-## Serveur déjà en place (non modifié dans cette PR)
+## Serveur
 
-- `save_program` refuse le non-propriétaire.
+- `save_program` refuse le non-propriétaire **et** refuse un Coaché qui possède encore son plan Solo assigné
+  (`Coached client cannot edit assigned program`). Migration pending
+  `20260918102103_save_program_coached_owner`.
 - `assign_program_secure` refuse l’auto-attribution d’un Coaché.
 - `protect_coach_nutrition_targets` conserve kcal / macros / eau / pas.
 - `is_self_coach` / `is_coach_of` : pas de dossier sur soi-même ; accès relationnel.
 
-Aucune nouvelle migration. TrackingGate reste un overlay de modules de la relation,
-pas un déni de persona.
+TrackingGate reste un overlay de modules de la relation, pas un déni de persona.
 
 ## Hors scope
 
