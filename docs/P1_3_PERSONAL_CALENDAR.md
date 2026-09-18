@@ -34,7 +34,7 @@ de séances prévues dans le futur.
 ## Hors scope
 
 Check-ins, habitudes, événements utiles et changements planifiés dans le calendrier (étape
-suivante du chantier). P1.4 marketplace (en cours). Édition du plan Coach.
+suivante du chantier). P1.4 marketplace (clôturé). Édition du plan Coach.
 
 ## Livraison
 

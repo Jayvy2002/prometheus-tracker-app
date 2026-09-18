@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-18T11:16:28Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P1.2 deployment on 2026-09-18. Never repair or restamp applied history.",
+  "captured_at": "2026-09-18T18:10:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P1.4 deployment on 2026-09-18. Never repair or restamp applied history.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -467,6 +467,10 @@
     {
       "version": "20260918103748",
       "name": "program_write_coached_owner"
+    },
+    {
+      "version": "20260918130232",
+      "name": "marketplace_athlete_confirm"
     }
   ]
 }

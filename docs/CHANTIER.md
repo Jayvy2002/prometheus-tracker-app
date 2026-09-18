@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P1.4 : Lifecycle marketplace avec confirmation finale Athlète.**
+> **CURRENT IMPLEMENTATION GATE — P1.5 : Règles commerciales constantes.**
 >
-> P1.1, P1.2 et P1.3 sont clôturés. P1.4 est en cours. Un agent ne commence que cette tâche, s’arrête à la PR verte, et attend le feu vert explicite de Jean-Vincent avant merge et avant P1.5. La conversation prospect (P4.3) n’est pas dans cette sous-tâche. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1, P1.2, P1.3 et P1.4 sont clôturés, mergés, déployés et vérifiés. La prochaine tâche est P1.5. Un agent ne commence P1.5 qu’après le feu vert explicite de Jean-Vincent. Pas de Stripe, pas d’entitlements P6, pas de prix inventés. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1–P1.3 clôturés ; P1.4 PR ouverte, pas de P1.5 sans feu vert** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1–P1.4 clôturés ; P1.5 prochaine, pas sans feu vert** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.4 est en cours. Un agent s’arrête à la PR verte et n’enchaîne pas P1.5 sans le feu vert explicite de Jean-Vincent.
+P1.4 est clôturé. Un agent n’enchaîne pas P1.5 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -328,13 +328,19 @@ Solo et Coaché peuvent consulter passé et futur sans élargir indûment les dr
 
 ### État actuel
 
-**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.5.**
+**✅ TERMINÉ — mergé, déployé et vérifié en production.**
+
+PR [#189](https://github.com/Jayvy2002/prometheus-tracker-app/pull/189) mergée dans `new-JV`.
+Commit de merge : `ced733516a4351eed5bed629794fe8ff3de87621`.
+CI post-merge entièrement verte : [run 35376871845](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35376871845)
+(`verify` 1m14s ; `rls-matrix` 3m47s). Le job `verify` exige désormais les secrets
+production et exécute `migration list` + `db push --dry-run` en fail-closed.
 
 Inventaire : [P1.4 — lifecycle marketplace](P1_4_MARKETPLACE_LIFECYCLE.md).
 
 - `respond_coaching_request(..., 'accepted')` pose `coach_accepted` : prospect, pas de `coach_client_links.active`, pas de consentement dossier.
 - Seul `respond_coaching_request(..., 'confirmed')` (athlète, depuis `coach_accepted`) appelle `activate_coaching_relationship`.
-- `activate_coaching_relationship` reste interne (REVOKE authenticated/anon).
+- `activate_coaching_relationship` reste interne (REVOKE authenticated/anon ; execute live = `postgres` + `service_role` uniquement).
 - Demandes `pending` / `coach_accepted` incompatibles retirées après confirmation.
 - Replay d’une confirmation historique après départ : pas de réactivation.
 - Les lignes leftover `accepted` (ancien contrat : acceptation Coach = activation) restent
@@ -343,7 +349,20 @@ Inventaire : [P1.4 — lifecycle marketplace](P1_4_MARKETPLACE_LIFECYCLE.md).
   (pas dans le consentement).
 - `athlete_confirmed` décrit l’événement historique ; l’état actif/terminé est affiché à part.
 - Télémétrie : `coaching_request_accepted` = poursuite Coach ; `marketplace_athlete_confirmed` = activation.
-- Conversation prospect (messagerie sans dossier) : **P4.3**, hors de cette PR.
+- Conversation prospect (messagerie sans dossier) : **P4.3**, hors de cette sous-tâche.
+
+Migration append-only `20260918130232_marketplace_athlete_confirm` appliquée en production
+avec **le même timestamp**. Aucune migration historique modifiée.
+
+État production vérifié après merge :
+- **116 migrations** appliquées, dernière = `20260918130232_marketplace_athlete_confirm` ;
+- CHECK `coach_join_requests_status_check` = `pending | accepted | coach_accepted | athlete_confirmed | declined | withdrawn` ;
+- `activate_coaching_relationship` non exécutable par `anon` ni `authenticated` ;
+- dry-run CI : `Remote database is up to date` / `aucune migration à pousser` ;
+- **13 Edge Functions ACTIVE** (P1.4 n’a pas modifié les edges) ;
+- locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
+
+**Arrêt : P1.4 est clôturé. Aucun P1.5 sans le feu vert explicite de Jean-Vincent.**
 
 ### Contrat cible
 
@@ -376,6 +395,10 @@ Avant activation, le Coach ne voit que les informations explicitement consenties
 Aucune action Coach seule ne peut créer `coach_client_links.active` pour une demande marketplace.
 
 ## P1.5 — Règles commerciales constantes
+
+### État actuel
+
+**À FAIRE — prochaine tâche. Ne pas commencer sans feu vert.**
 
 Centraliser les décisions actuelles :
 
