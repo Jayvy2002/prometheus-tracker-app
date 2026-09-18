@@ -325,9 +325,10 @@ Le système cible converge les briques existantes : `solo_weekly_reviews`, fleet
 agrégats déterministes
 → signaux persistants (`athlete_signals`)
 → revue hebdomadaire universelle (`athlete_weekly_reviews`, P2.2)
+→ journal des décisions humaines (`athlete_decision_log`, P2.3)
 → hypothèses / preuves pour et contre
 → confiance qualitative
-→ proposition éventuelle (`coach_interventions` / Solo copilot — P2.3+)
+→ proposition éventuelle (`coach_interventions` / Solo copilot)
 → décision humaine
 → mémoire pour la prochaine revue
 ```

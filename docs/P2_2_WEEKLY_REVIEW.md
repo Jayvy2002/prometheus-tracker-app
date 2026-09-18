@@ -36,7 +36,7 @@ agrégats autorisés
 
 ## Hors scope
 
-P2.3 journal des propositions et décisions humaines (`accepted` / `modifié` / `refusé`).
+P2.3 journal des propositions et décisions humaines — **dans la même PR #190**.
 P2.4 écran « Ce que Prometheus surveille ». Stripe / P6. Pas d’application production.
 
 ## Livraison

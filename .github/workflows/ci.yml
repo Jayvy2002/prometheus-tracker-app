@@ -137,6 +137,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'weekly review: universal engine, wait is valid, no auto-apply' /tmp/athlete-weekly-reviews-db-results.txt
+      - name: Test athlete decision log
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_decision_log.sql | tee /tmp/athlete-decision-log-db-results.txt
+      - name: Confirm athlete decision log echo
+        run: |
+          set -euo pipefail
+          grep -F 'decision log: human refusal shapes the next review, no auto-apply' /tmp/athlete-decision-log-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

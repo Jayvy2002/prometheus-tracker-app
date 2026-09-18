@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P2.2 : Revue hebdomadaire universelle.**
+> **CURRENT IMPLEMENTATION GATE — P2.3 : Journal des propositions et décisions humaines.**
 >
-> P1.1–P2.1 sont implémentés (P1.5, P2.1 et P2.2 dans la PR #190). P2.2 unifie la revue hebdo Solo et la fleet Coach : agrégats autorisés, qualité des données, signaux persistants, décision attendre / demander info / proposer / clôturer. Une semaine sans modification est un résultat valide. Aucune auto-application. Pas de journal des décisions humaines (P2.3), pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.3 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1–P2.2 sont implémentés (P1.5–P2.3 dans la PR #190). P2.3 journalise la proposition, le pourquoi, les données utilisées, qui a décidé, accepté / modifié / refusé / ignoré, la raison humaine facultative et l’effet réellement appliqué. Un refus ou un ignoré empêche de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé. Aucune auto-application. Pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.4 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -61,7 +61,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.5 livré dans #190 (merge en attente)** | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **EN COURS — P2.2 en cours (PR #190)** | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P2** | Cerveau Prometheus | **EN COURS — P2.3 en cours (PR #190)** | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P2.2 est en cours dans la PR #190. Un agent n’enchaîne pas P2.3 sans le feu vert explicite de Jean-Vincent.
+P2.3 est en cours dans la PR #190. Un agent n’enchaîne pas P2.4 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -411,7 +411,7 @@ Inventaire : [P1.5 — règles commerciales](P1_5_COMMERCIAL_TERMS.md).
 - Les migrations historiques 30 jours restent inchangées.
 - Pas de colonne `coach_grace_ends_at`, pas de mur de paiement.
 
-**Arrêt : P1.5 est implémenté dans la PR #190 (non mergée). P2.1 et P2.2 continuent dans la même PR. Pas de P2.3 sans feu vert.**
+**Arrêt : P1.5 est implémenté dans la PR #190 (non mergée). P2.1–P2.3 continuent dans la même PR. Pas de P2.4 sans feu vert.**
 
 ### Cible
 
@@ -451,7 +451,7 @@ Inventaire : [P2.1 — signaux persistants](P2_1_ATHLETE_SIGNALS.md).
 - Lecture : athlète propriétaire ou Coach avec relation active. Le workspace n’accorde aucun droit.
 - Aucune auto-application (pas d’écriture programmes / cibles / logs).
 
-**Arrêt : P2.1 est livré dans la PR #190 (non mergée). P2.2 continue dans la même PR. Pas de P2.3 sans feu vert.**
+**Arrêt : P2.1 est livré dans la PR #190 (non mergée). P2.2 et P2.3 continuent dans la même PR. Pas de P2.4 sans feu vert.**
 
 ### Cible
 
@@ -489,7 +489,7 @@ Le schéma exact doit être déterminé après audit des tables d’intervention
 
 ### État actuel
 
-**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
 
 Inventaire : [P2.2 — revue hebdomadaire](P2_2_WEEKLY_REVIEW.md).
 
@@ -509,11 +509,19 @@ La revue commune :
 
 Une semaine sans modification est un résultat valide. Un signal faible attend. Les modules désactivés n’alimentent pas de jugement. Aucune auto-application.
 
-**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.3.**
+**Arrêt : P2.2 est livré dans la PR #190 (non mergée). P2.3 continue dans la même PR. Pas de P2.4 sans feu vert.**
 
 ## P2.3 — Journal des propositions et décisions humaines
 
-Conserver :
+### État actuel
+
+**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
+
+Inventaire : [P2.3 — journal des décisions](P2_3_DECISION_LOG.md).
+
+Audit : `solo_weekly_reviews` (`accepted` / `kept` / `dismissed`) et `coach_interventions` (`pending` / `sent` / `kept` / `dismissed`) ne couvrent pas `modified`, la raison humaine facultative, l’effet réellement appliqué, ni la consommation par la revue suivante. Table dédiée `athlete_decision_log` (candidate `20260918201237`).
+
+Le journal conserve :
 
 - ce qui était proposé ;
 - pourquoi ;
@@ -523,7 +531,13 @@ Conserver :
 - raison humaine facultative ;
 - effet réellement appliqué.
 
-La revue suivante doit pouvoir exploiter ce contexte.
+Un refus ou un ignoré empêche `runAthleteWeeklyReview` de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé (seuils fleet : kcal ±150, séances ±2). Le signal continue d’être suivi. Aucune auto-application : la RPC n’écrit que le journal.
+
+### Invariant
+
+La revue suivante exploite ce contexte. Un refus n’est pas un bouton sans mémoire.
+
+**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.4.**
 
 ## P2.4 — Explicabilité et correction
 

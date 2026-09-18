@@ -26,13 +26,59 @@ import {
 } from '../../../lib/idempotencyKeys';
 import {
   effectsToJson,
+  type InterventionEffects,
 } from '../../../lib/interventionEffects';
+import {
+  recordAthleteDecision,
+} from '../../signals/domain/decisionLogApi';
+import {
+  mapInterventionDecision,
+  mapInterventionKind,
+} from '../../signals/domain/decisionLog';
 import {
   CoachingGet,
   CoachingSet,
   CoachingState,
   saveQueueDismissed,
 } from './coachingShared';
+
+function evidenceFromPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  return {
+    avg_calories: payload.avg_calories,
+    calorie_target: payload.target_avg_kcal ?? payload.calorie_target,
+    workout_count: payload.workout_count,
+    logged_nutrition_days: payload.logged_nutrition_days,
+    weight_delta_kg: payload.weight_delta_kg,
+  };
+}
+
+async function journalInterventionDecision(
+  row: CoachIntervention | undefined,
+  status: 'sent' | 'kept' | 'dismissed',
+  edited: boolean,
+  effects?: InterventionEffects,
+) {
+  if (!row?.client_id) return;
+  const human = mapInterventionDecision(status, edited);
+  const target = mapInterventionKind(row.kind);
+  await recordAthleteDecision({
+    athleteId: row.client_id,
+    domain: target.domain,
+    type: target.type,
+    decision: human,
+    proposal: {
+      kind: row.kind,
+      title: row.title,
+      rationale: row.rationale,
+      payload: row.payload,
+    },
+    why: row.rationale || row.kind,
+    dataUsed: evidenceFromPayload(row.payload),
+    appliedEffect: human === 'refused' || human === 'ignored' ? {} : effectsToJson(effects ?? {}),
+    source: 'coach_interventions',
+    sourceId: row.id,
+  });
+}
 
 export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchPendingInterventions' | 'dismissQueueItem' | 'dismissQueueItems' | 'restoreQueueItems' | 'fetchIntervention' | 'resolveIntervention' | 'claimIntervention' | 'applyIntervention' | 'releaseIntervention' | 'finalizeIntervention' | 'askCoachAgent' | 'runFleetRound' | 'createIntervention' > {
   return {
@@ -123,6 +169,9 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
       status,
       edited: !!payload,
     });
+    if (status === 'sent' || status === 'kept' || status === 'dismissed') {
+      await journalInterventionDecision(resolved, status, !!payload);
+    }
     set(s => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
     }));
@@ -165,6 +214,9 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
           status,
           edited: !!payload,
         });
+        if (status === 'sent' || status === 'kept' || status === 'dismissed') {
+          await journalInterventionDecision(resolved, status, !!payload, effects);
+        }
       }
       set(s => ({
         pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),

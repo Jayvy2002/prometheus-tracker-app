@@ -10,6 +10,7 @@ import {
 } from '../../../../supabase/functions/_shared/fleetCopy.ts';
 import { normalizeGoal, OVEREAT_RATIO, MIN_NUTRITION_LOG_DAYS, CUT_STALL_MIN_DELTA_KG } from './coachNutrition';
 import type {
+  AthleteDecisionLog,
   AthleteSignal,
   CoachFleetCard,
   CoachFleetDossier,
@@ -423,8 +424,9 @@ export function planAthleteWeeklyReview(
   d: CoachFleetDossier,
   today: string,
   existingSignals: AthleteSignal[] = [],
+  recentDecisions: AthleteDecisionLog[] = [],
 ) {
-  return runAthleteWeeklyReview(weeklyReviewInputFromFleet(d, today, existingSignals));
+  return runAthleteWeeklyReview(weeklyReviewInputFromFleet(d, today, existingSignals, recentDecisions));
 }
 
 /**

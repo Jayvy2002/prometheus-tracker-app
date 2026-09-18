@@ -4,6 +4,8 @@ import { track } from '../lib/telemetryClient';
 import { useProfileStore } from './profileStore';
 import type { SoloReviewDecision, SoloWeeklyReview } from '../lib/soloCopilot';
 import type { SoloWeeklyReviewRow } from '../lib/types';
+import { recordAthleteDecision } from '../features/signals/domain/decisionLogApi';
+import { mapSoloProposalTarget, mapSoloReviewDecision } from '../features/signals/domain/decisionLog';
 
 interface SoloCopilotState {
   /** week_start of the review the solo already decided on (null = nothing yet this week). */
@@ -85,6 +87,37 @@ export const useSoloCopilotStore = create<SoloCopilotState>((set) => ({
       to_kcal: draft?.calories ?? null,
     });
     if (error) return { error: error.message };
+    const target = mapSoloProposalTarget(review.proposal.action, review.proposal.reason);
+    const human = mapSoloReviewDecision(decision);
+    await recordAthleteDecision({
+      athleteId: userId,
+      domain: target.domain,
+      type: target.type,
+      decision: human,
+      proposal: {
+        action: review.proposal.action,
+        reason: review.proposal.reason,
+        draft: draft ?? {},
+        week_start: review.weekStart,
+      },
+      why: review.proposal.reason,
+      dataUsed: {
+        avg_calories: review.evidence.avgCalories,
+        calorie_target: review.evidence.targetAvg,
+        workout_count: review.evidence.workouts,
+        logged_nutrition_days: review.evidence.loggedDays,
+        weight_delta_kg: review.evidence.deltaKg,
+      },
+      appliedEffect: human === 'accepted' && draft
+        ? {
+          daily_calorie_target: draft.calories,
+          protein_target: draft.protein,
+          carbs_target: draft.carbs,
+          fat_target: draft.fat,
+        }
+        : {},
+      source: 'solo_weekly_reviews',
+    });
     set({ decidedWeek: review.weekStart, decidedFor: userId });
     return { error: null };
   },

@@ -110,3 +110,31 @@ export interface AthleteWeeklyReview {
   created_at: string;
   updated_at: string;
 }
+
+/** P2.3 human decision journal — Vision §8.6. Append-only. Never auto-applies. */
+
+export const ATHLETE_HUMAN_DECISIONS = ['accepted', 'modified', 'refused', 'ignored'] as const;
+
+export type AthleteHumanDecision = (typeof ATHLETE_HUMAN_DECISIONS)[number];
+
+export const ATHLETE_DECISION_ACTOR_ROLES = ['athlete', 'coach'] as const;
+
+export type AthleteDecisionActorRole = (typeof ATHLETE_DECISION_ACTOR_ROLES)[number];
+
+export interface AthleteDecisionLog {
+  id: string;
+  athlete_id: string;
+  actor_id: string | null;
+  actor_role: AthleteDecisionActorRole;
+  domain: AthleteSignalDomain;
+  type: string;
+  decision: AthleteHumanDecision;
+  proposal: Record<string, unknown>;
+  why: string;
+  data_used: Record<string, unknown>;
+  human_reason: string | null;
+  applied_effect: Record<string, unknown>;
+  source: string | null;
+  source_id: string | null;
+  created_at: string;
+}

@@ -3,9 +3,11 @@
  * Same loop for Solo and Coach fleet: authorized aggregates → data quality →
  * athlete_signals → wait | request_info | propose | close.
  * A week without modification is valid. Weak signals wait. Nothing is auto-applied.
+ * P2.3: recent human refusals/ignored suppress the same (domain, type) until evidence moves.
  */
 
 import type {
+  AthleteDecisionLog,
   AthleteSignal,
   AthleteSignalConfidence,
   AthleteSignalDomain,
@@ -18,6 +20,7 @@ import type {
   WeeklyReviewTracking,
 } from '../types';
 import { isOpenAthleteSignalStatus } from './athleteSignals';
+import { isProposalSuppressed } from './decisionLog';
 
 /** Same 14-date window as the fleet / Solo copilot (I03). */
 export const WEEKLY_REVIEW_WINDOW_DAYS = 14;
@@ -38,6 +41,7 @@ export interface WeeklyReviewInput {
   tracking: WeeklyReviewTracking;
   aggregates: WeeklyReviewAggregates;
   existingSignals: AthleteSignal[];
+  recentDecisions?: AthleteDecisionLog[];
   guarded?: boolean;
 }
 
@@ -347,7 +351,13 @@ function summaryFor(
   authority: WeeklyReviewAuthority,
   decision: WeeklyReviewDecision,
   dataQuality: WeeklyReviewDataQuality,
+  suppressed = false,
 ): string {
+  if (suppressed && decision === 'wait') {
+    return authority === 'coach'
+      ? 'Une proposition récente a été refusée ou ignorée. Pas de nouvelle proposition tant que les preuves n’ont pas changé.'
+      : 'Une proposition récente a été refusée. Prometheus attend un nouvel élément. Rien n’a été appliqué.';
+  }
   if (authority === 'coach') {
     if (decision === 'wait') {
       return dataQuality === 'adequate'
@@ -380,6 +390,7 @@ export function weeklyReviewInputFromFleet(
   dossier: WeeklyReviewFleetLike,
   today: string,
   existingSignals: AthleteSignal[] = [],
+  recentDecisions: AthleteDecisionLog[] = [],
 ): WeeklyReviewInput {
   const tracking = trackingOf(dossier.tracking);
   const target = dossier.avg_effective_target && dossier.avg_effective_target > 0
@@ -396,6 +407,7 @@ export function weeklyReviewInputFromFleet(
     tracking,
     guarded: dossier.is_minor === true || dossier.has_medical_flags === true,
     existingSignals,
+    recentDecisions,
     aggregates: {
       windowStart: addUtcDays(today, -(WEEKLY_REVIEW_WINDOW_DAYS - 1)),
       windowEnd: today,
@@ -421,6 +433,7 @@ export function weeklyReviewInputFromSolo(
   evidence: WeeklyReviewSoloEvidenceLike,
   existingSignals: AthleteSignal[] = [],
   athleteId = 'self',
+  recentDecisions: AthleteDecisionLog[] = [],
 ): WeeklyReviewInput {
   return {
     athleteId,
@@ -429,6 +442,7 @@ export function weeklyReviewInputFromSolo(
     tracking: trackingOf(inputs.tracking),
     guarded: inputs.isMinor === true || inputs.hasMedicalFlags === true,
     existingSignals,
+    recentDecisions,
     aggregates: {
       windowStart: evidence.windowStart,
       windowEnd: evidence.windowEnd,
@@ -462,6 +476,8 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
   let upsertedWaiting = 0;
   let upsertedOpen = 0;
   let proposeWorthyOpen = 0;
+  let suppressedPropose = 0;
+  const recentDecisions = input.recentDecisions ?? [];
 
   for (const candidate of candidates) {
     const prev = findOpen(input.existingSignals, candidate.domain, candidate.type);
@@ -470,7 +486,11 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
     if (status === 'waiting') upsertedWaiting += 1;
     else upsertedOpen += 1;
     if (candidate.proposeWorthy && status === 'open' && (confidence === 'medium' || confidence === 'high')) {
-      proposeWorthyOpen += 1;
+      if (isProposalSuppressed(recentDecisions, candidate.domain, candidate.type, input.aggregates)) {
+        suppressedPropose += 1;
+      } else {
+        proposeWorthyOpen += 1;
+      }
     }
     actions.push({
       op: 'upsert',
@@ -515,7 +535,7 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
     authority,
     dataQuality,
     decision,
-    summary: summaryFor(authority, decision, dataQuality),
+    summary: summaryFor(authority, decision, dataQuality, suppressedPropose > 0),
     signalActions: actions,
     aggregates: input.aggregates,
     tracking,

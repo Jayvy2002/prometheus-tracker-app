@@ -301,6 +301,7 @@ test('22a: types live by domain; lib/types.ts re-exports', () => {
   assert.match(readFileSync(at('src/features/coaching/types.ts'), 'utf8'), /export interface CoachIntervention /);
   assert.match(readFileSync(at('src/features/signals/types.ts'), 'utf8'), /export interface AthleteSignal /);
   assert.match(readFileSync(at('src/features/signals/types.ts'), 'utf8'), /export interface AthleteWeeklyReview /);
+  assert.match(readFileSync(at('src/features/signals/types.ts'), 'utf8'), /export interface AthleteDecisionLog /);
 });
 
 test('22b: i18n locales are split by domain and reassembled', () => {

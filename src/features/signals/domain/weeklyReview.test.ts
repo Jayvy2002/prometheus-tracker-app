@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { FLEET_WINDOW_DAYS } from '../../coaching/domain/coachFleet';
 import { MIN_NUTRITION_LOG_DAYS } from '../../coaching/domain/coachNutrition';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
-import type { AthleteSignal } from '../types';
+import type { AthleteDecisionLog, AthleteSignal } from '../types';
 import {
   WEEKLY_REVIEW_WINDOW_DAYS,
   isoWeekStart,
@@ -72,6 +72,27 @@ function signal(partial: Partial<AthleteSignal> = {}): AthleteSignal {
     resolution_reason: null,
     created_at: '2026-08-25T00:00:00Z',
     updated_at: '2026-08-25T00:00:00Z',
+    ...partial,
+  };
+}
+
+function decision(partial: Partial<AthleteDecisionLog> = {}): AthleteDecisionLog {
+  return {
+    id: 'dec-1',
+    athlete_id: 'athlete-1',
+    actor_id: 'athlete-1',
+    actor_role: 'athlete',
+    domain: 'training',
+    type: 'missed_sessions',
+    decision: 'refused',
+    proposal: { type: 'missed_sessions' },
+    why: 'Moins de séances loggées que prévu',
+    data_used: { avg_calories: 2000, calorie_target: 2000, workout_count: 1 },
+    human_reason: null,
+    applied_effect: {},
+    source: 'solo_weekly_reviews',
+    source_id: null,
+    created_at: '2026-08-27T00:00:00Z',
     ...partial,
   };
 }
@@ -151,6 +172,25 @@ test('weak new signal waits; confidence rises across weeks then proposes; recove
   assert.equal(week4.decision, 'close');
   assert.equal(week4.signalActions[0]?.op, 'resolve');
   assert.equal(week4.signalActions[0]?.id, 'sig-1');
+});
+
+test('human refusal waits instead of re-proposing until evidence changes', () => {
+  const missedAgg = aggregates({ workoutCount: 1, expectedWorkouts: 6, loggedNutritionDays: 10 });
+  const refused = runAthleteWeeklyReview(input({
+    aggregates: missedAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [decision({ data_used: { avg_calories: 2000, calorie_target: 2000, workout_count: 1 } })],
+  }));
+  assert.equal(refused.decision, 'wait');
+  assert.match(refused.summary, /refusée|n’ont pas changé|nouvel élément/);
+  assert.equal(refused.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+
+  const moved = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 0, expectedWorkouts: 6, loggedNutritionDays: 10, avgCalories: 2000 }),
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [decision({ data_used: { avg_calories: 2000, calorie_target: 2000, workout_count: 3 } })],
+  }));
+  assert.equal(moved.decision, 'propose');
 });
 
 test('guarded profile never proposes a calorie/weight change', () => {

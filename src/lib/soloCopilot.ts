@@ -11,7 +11,7 @@ import { weeklyNutritionWhyKey } from './weeklyNutritionWhy';
 import { MIN_NUTRITION_LOG_DAYS, OVEREAT_RATIO } from './coachNutrition';
 import { isLegacyFiveScaleCheckin, scoreOnTen } from './checkinScale';
 import { addDaysToDateStr } from './utils';
-import type { AthleteSignal, CoachFleetDossier, DailyCheckin } from './types';
+import type { AthleteDecisionLog, AthleteSignal, CoachFleetDossier, DailyCheckin } from './types';
 import {
   isoWeekStart,
   runAthleteWeeklyReview,
@@ -94,9 +94,10 @@ export function computeAthleteWeeklyReviewForSolo(
   inputs: SoloReviewInputs,
   existingSignals: AthleteSignal[] = [],
   athleteId = 'self',
+  recentDecisions: AthleteDecisionLog[] = [],
 ) {
   return runAthleteWeeklyReview(
-    weeklyReviewInputFromSolo(inputs, buildSoloEvidence(inputs), existingSignals, athleteId),
+    weeklyReviewInputFromSolo(inputs, buildSoloEvidence(inputs), existingSignals, athleteId, recentDecisions),
   );
 }
 

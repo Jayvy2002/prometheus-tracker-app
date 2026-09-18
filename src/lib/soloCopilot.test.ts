@@ -194,6 +194,7 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   assert.match(decide, /from\('solo_weekly_reviews'\)/);
   assert.match(decide, /onConflict: 'user_id,week_start'/);
   assert.match(decide, /track\('solo_review_decided'/);
+  assert.match(decide, /recordAthleteDecision/);
 
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /\{!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview \/>\}/);
