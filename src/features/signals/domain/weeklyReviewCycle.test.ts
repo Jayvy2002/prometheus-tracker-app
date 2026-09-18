@@ -75,4 +75,13 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /drain_athlete_decision_outbox/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /triage_eligible_solo_weekly/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /outbox_athlete_mismatch/);
+  assert.doesNotMatch(
+    src('supabase/migrations/20260918232507_athlete_decision_durability.sql'),
+    /p_source_id uuid DEFAULT NULL,\s*p_idempotency_key text,/,
+  );
+  assert.doesNotMatch(
+    src('supabase/migrations/20260918232507_athlete_decision_durability.sql'),
+    /p_applied_effect jsonb DEFAULT '\{\}'::jsonb,\s*p_idempotency_key text/,
+  );
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /42P13/);
 });

@@ -56,9 +56,9 @@ $$;
 ALTER TABLE public.athlete_decision_log
   ADD COLUMN IF NOT EXISTS idempotency_key text;
 
+DROP INDEX IF EXISTS public.athlete_decision_log_one_idempotency;
 CREATE UNIQUE INDEX IF NOT EXISTS athlete_decision_log_one_idempotency
-  ON public.athlete_decision_log (athlete_id, idempotency_key)
-  WHERE idempotency_key IS NOT NULL;
+  ON public.athlete_decision_log (athlete_id, idempotency_key);
 
 CREATE OR REPLACE FUNCTION public.prometheus_effects_are_material(p jsonb)
 RETURNS boolean
@@ -206,7 +206,10 @@ REVOKE ALL ON FUNCTION public.prometheus_map_intervention_kind(text, text) FROM 
 REVOKE ALL ON FUNCTION public.prometheus_map_intervention_decision(text, boolean, boolean) FROM PUBLIC, anon, authenticated;
 
 DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid);
+DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid);
 
+-- 13-arg form has no DEFAULT: PG 42P13 forbids a required arg after a default,
+-- and defaults here would make the 11-arg wrapper ambiguous.
 CREATE OR REPLACE FUNCTION public.record_athlete_decision(
   p_athlete_id uuid,
   p_domain text,
@@ -214,11 +217,11 @@ CREATE OR REPLACE FUNCTION public.record_athlete_decision(
   p_decision text,
   p_proposal jsonb,
   p_why text,
-  p_data_used jsonb DEFAULT '{}'::jsonb,
-  p_human_reason text DEFAULT NULL,
-  p_applied_effect jsonb DEFAULT '{}'::jsonb,
-  p_source text DEFAULT NULL,
-  p_source_id uuid DEFAULT NULL,
+  p_data_used jsonb,
+  p_human_reason text,
+  p_applied_effect jsonb,
+  p_source text,
+  p_source_id uuid,
   p_idempotency_key text,
   p_actor_id uuid
 )
@@ -321,7 +324,7 @@ BEGIN
     v_proposal, trim(p_why), v_data, v_reason, v_effect, v_source, p_source_id,
     v_key, clock_timestamp()
   )
-  ON CONFLICT (athlete_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+  ON CONFLICT (athlete_id, idempotency_key)
   DO UPDATE SET why = public.athlete_decision_log.why
   RETURNING * INTO v_row;
 
@@ -766,7 +769,9 @@ END;
 $$;
 
 DROP FUNCTION IF EXISTS public.commit_solo_weekly_review_decision(date, text, text, jsonb, jsonb, text, text, text, jsonb, text, jsonb, jsonb);
+DROP FUNCTION IF EXISTS public.commit_solo_weekly_review_decision(date, text, text, jsonb, jsonb, text, text, text, jsonb, text, jsonb, jsonb, text);
 
+-- 13-arg form has no DEFAULT (42P13 + unique 12-arg wrapper).
 CREATE OR REPLACE FUNCTION public.commit_solo_weekly_review_decision(
   p_week_start date,
   p_action text,
@@ -778,8 +783,8 @@ CREATE OR REPLACE FUNCTION public.commit_solo_weekly_review_decision(
   p_type text,
   p_proposal jsonb,
   p_why text,
-  p_data_used jsonb DEFAULT '{}'::jsonb,
-  p_applied_effect jsonb DEFAULT '{}'::jsonb,
+  p_data_used jsonb,
+  p_applied_effect jsonb,
   p_idempotency_key text
 )
 RETURNS public.athlete_decision_log

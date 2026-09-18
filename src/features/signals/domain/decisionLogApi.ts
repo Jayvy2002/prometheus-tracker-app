@@ -52,6 +52,7 @@ export async function recordAthleteDecision(input: RecordAthleteDecisionInput) {
   return supabase.rpc('record_athlete_decision', {
     ...journalRpcArgs(input),
     p_idempotency_key: decisionIdempotencyKey(input),
+    p_actor_id: null,
   });
 }
 

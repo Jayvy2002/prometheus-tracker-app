@@ -261,5 +261,26 @@ begin
   end if;
 end $$;
 
+do $$
+declare
+  rec_defaults int;
+  commit_defaults int;
+begin
+  select pronargdefaults into rec_defaults
+    from pg_proc
+    where oid = 'public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid,text,uuid)'::regprocedure;
+  if rec_defaults <> 0 then
+    raise exception 'record_athlete_decision 13-arg must not use DEFAULT (42P13)';
+  end if;
+  select pronargdefaults into commit_defaults
+    from pg_proc
+    where oid = 'public.commit_solo_weekly_review_decision(date,text,text,jsonb,jsonb,text,text,text,jsonb,text,jsonb,jsonb,text)'::regprocedure;
+  if commit_defaults <> 0 then
+    raise exception 'commit_solo 13-arg must not use DEFAULT (42P13)';
+  end if;
+  perform 'public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)'::regprocedure;
+  perform 'public.commit_solo_weekly_review_decision(date,text,text,jsonb,jsonb,text,text,text,jsonb,text,jsonb,jsonb)'::regprocedure;
+end $$;
+
 rollback;
 \echo 'decision durability: outbox isolation, drain replay, solo without dashboard'
