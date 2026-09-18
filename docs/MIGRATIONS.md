@@ -8,9 +8,9 @@
 
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
-- **112 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
-- **112 migrations** observées en production, dans le même ordre ;
-- dernière version : `20260915234946_ux27_message_bilan` ;
+- **113 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
+- **113 migrations** observées en production, dans le même ordre ;
+- dernière version : `20260917235400_independent_coach_capability` ;
 - replay local PostgreSQL 17 validé par la CI ;
 - matrice RLS/staging-like verte sur le baseline de départ agent.
 
@@ -70,9 +70,9 @@ L’inventaire machine-readable est `supabase/functions.deployed.lock.json`.
 
 État live vérifié directement le 17 septembre 2026 : **13 fonctions ACTIVE**. Exemples importants :
 
-- `coach-agent` : v129, `verify_jwt=true` ;
-- `coach-fleet-round` : v136, `verify_jwt=false` ;
-- `notify-onboarding-complete` : v125, `verify_jwt=false`.
+- `coach-agent` : v131, `verify_jwt=true` ;
+- `coach-fleet-round` : v138, `verify_jwt=false` ;
+- `notify-onboarding-complete` : v127, `verify_jwt=false`.
 
 Les numéros de version Supabase sont volatils et augmentent lors des redéploiements. Après toute modification d’Edge Function :
 
