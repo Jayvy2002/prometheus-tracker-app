@@ -4,7 +4,7 @@
 >
 > Lire ce fichier au début de toute tâche. Lire ensuite `docs/VISION.md`, `docs/CHANTIER.md` et les fichiers du domaine touché.
 >
-> `AGENTS.md` porte le même contrat pour les agents qui le détectent automatiquement. En cas de contradiction, corriger les documents dans le même changement plutôt que choisir silencieusement une interprétation.
+> `AGENTS.md` porte le même contrat pour les agents qui le détectent automatiquement. Cursor charge aussi la règle projet Always Apply dans `.cursor/rules/prometheus.mdc`. En cas de contradiction, corriger les documents dans le même changement plutôt que choisir silencieusement une interprétation.
 
 ## Sources de vérité
 
@@ -27,14 +27,16 @@
 - partir du dernier `new-JV` vert ;
 - créer `agent/pX-Y-description-courte` ;
 - une PR = une sous-tâche cohérente ;
+- inspecter l’existant avant de créer une nouvelle primitive ;
 - utiliser `.github/pull_request_template.md` ;
 - mettre `docs/CHANTIER.md` à jour dans la même PR lorsqu’un statut change ;
-- ne merger qu’avec les checks pertinents verts ;
-- repartir ensuite du nouveau `new-JV`.
+- attendre tous les checks pertinents verts ;
+- relire le diff final et produire le compte rendu ;
+- **s’arrêter avant merge et avant le chantier suivant jusqu’au feu vert explicite de Jean-Vincent.**
 
 Aucun agent ne doit pousser directement une implémentation sur `new-JV`, réécrire son historique ou regrouper plusieurs chantiers dépendants simplement pour aller plus vite.
 
-**Point de départ actuel : P1.1.**
+**Point de départ actuel : P1.2 — permissions par ressource/action. P1.1 est terminé, mergé et déployé.**
 
 ## Contrat produit fondamental
 
