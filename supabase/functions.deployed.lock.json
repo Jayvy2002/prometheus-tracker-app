@@ -1,14 +1,14 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-17T23:18:45Z",
-  "comment": "Inventaire live vérifié directement contre Supabase le 17 septembre 2026. Le lock documente les fonctions actives, leur JWT et la version observée; après tout redéploiement Edge, rafraîchir ce fichier avant de considérer le déploiement vérifié.",
+  "captured_at": "2026-09-18T02:29:00Z",
+  "comment": "Inventaire live vérifié directement contre Supabase après le merge P1.1. Rafraîchir ce fichier après tout redéploiement Edge et ne jamais considérer un job skipped comme preuve de déploiement.",
   "functions": [
     {
       "slug": "analyze-product",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 118,
-      "ezbr_sha256": "1c89605a151efffa084da46ba7788845fcef10a8f9a10d7f155989e61061a30a"
+      "version": 120,
+      "ezbr_sha256": "a01789fed130cc144990ef0f2fdf17cf0bfc347925ce97d2e12e891a629c45d1"
     },
     {
       "slug": "ask-second",
@@ -28,15 +28,15 @@
       "slug": "coach-agent",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 129,
-      "ezbr_sha256": "4c88a2ce269a903397db77097f6ed2ca2ee14e03fb5e8057eb812042e3d6b333"
+      "version": 131,
+      "ezbr_sha256": "6c44bdfb4cac1c1dd1fc0e58a2218619c5187731071c2924d2c8fd27f8acb846"
     },
     {
       "slug": "coach-fleet-round",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 136,
-      "ezbr_sha256": "aa949e7deebc36d68e514ceb9c634af012fffa58960374da567fd4ad7a4dc894"
+      "version": 138,
+      "ezbr_sha256": "8b15c4586413e1f7e6a9f4b2a483f33e6eb2384643d7c4f777ad2f8de6691f45"
     },
     {
       "slug": "create-checkout-session",
@@ -63,15 +63,15 @@
       "slug": "notify-onboarding-complete",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 125,
-      "ezbr_sha256": "0fcc724ed7a391044b56b6bb019de92725c3c443d9d904261106c106b9fde116"
+      "version": 127,
+      "ezbr_sha256": "53f6228f5cc78b187aedcac1b531df4153df425a14b7fb58c1b7e443df80f2c4"
     },
     {
       "slug": "send-daily-reminders",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 114,
-      "ezbr_sha256": "ed4e1deaf5a3c130fb7b85bc1980e9eab111b26dd1e440b9deca4eb04fe48239"
+      "version": 116,
+      "ezbr_sha256": "8e25a5e000fcd2fb9687522bf3f1752df322d191690c394197e243d3d419bd8c"
     },
     {
       "slug": "stripe-webhook",
@@ -91,8 +91,8 @@
       "slug": "verify-exercise",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 115,
-      "ezbr_sha256": "5bacb49f2b9900cef6db8514c8eeffdfdbf29a1abd893c44a7a4368b38636373"
+      "version": 117,
+      "ezbr_sha256": "7a531977d5749b7792f26c83e4cd6a40b4a1c328e37e02569fb1d26aadba462c"
     }
   ]
 }
