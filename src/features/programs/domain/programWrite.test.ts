@@ -69,7 +69,7 @@ test('legacy program RPCs, owner RLS and assignment Data API share the leftover 
   assert.match(found.sql, /Owners manage program day exercises/);
   assert.match(found.sql, /Assigner inserts assignments/);
   assert.match(found.sql, /actor_owns_program/);
-  assert.match(src('supabase/migrations.pending.json'), /"version": "20260918103748"/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260918103748"/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /sync_program_days/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /save_program_day_exercises/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /self-assign INSERT/);
@@ -109,6 +109,7 @@ test('editor and solo save go through saveProgram; delete waits for the server',
   assert.match(src('.github/workflows/ci.yml'), /save_program\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /save_program_coached\.sql/);
   assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260915133000"/);
-  assert.match(src('supabase/migrations.pending.json'), /"version": "20260918102103"/);
-  assert.match(src('supabase/migrations.pending.json'), /"version": "20260918103748"/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260918102103"/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260918103748"/);
+  assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260918102103|20260918103748/);
 });

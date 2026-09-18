@@ -1,14 +1,14 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-18T02:29:00Z",
-  "comment": "Inventaire live vérifié directement contre Supabase après le merge P1.1. Rafraîchir ce fichier après tout redéploiement Edge et ne jamais considérer un job skipped comme preuve de déploiement.",
+  "captured_at": "2026-09-18T11:16:28Z",
+  "comment": "Inventaire live vérifié directement contre Supabase après le merge P1.2. Rafraîchir ce fichier après tout redéploiement Edge et ne jamais considérer un job skipped comme preuve de déploiement.",
   "functions": [
     {
       "slug": "analyze-product",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 120,
-      "ezbr_sha256": "a01789fed130cc144990ef0f2fdf17cf0bfc347925ce97d2e12e891a629c45d1"
+      "version": 123,
+      "ezbr_sha256": "b2dcbc7e5b33c539293f67f19c373fa55164bec567faf98b32efa3301f425163"
     },
     {
       "slug": "ask-second",
@@ -28,15 +28,15 @@
       "slug": "coach-agent",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 131,
-      "ezbr_sha256": "6c44bdfb4cac1c1dd1fc0e58a2218619c5187731071c2924d2c8fd27f8acb846"
+      "version": 134,
+      "ezbr_sha256": "e1b41b012fe1a5cff58955f8af5f5cabf755a088e6da4f4386761aca0ebf6107"
     },
     {
       "slug": "coach-fleet-round",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 138,
-      "ezbr_sha256": "8b15c4586413e1f7e6a9f4b2a483f33e6eb2384643d7c4f777ad2f8de6691f45"
+      "version": 141,
+      "ezbr_sha256": "8cc4879d76f9852056e497db8d670f742bfc062fb06f3718d8dac89a2f3c07ed"
     },
     {
       "slug": "create-checkout-session",
@@ -63,15 +63,15 @@
       "slug": "notify-onboarding-complete",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 127,
-      "ezbr_sha256": "53f6228f5cc78b187aedcac1b531df4153df425a14b7fb58c1b7e443df80f2c4"
+      "version": 130,
+      "ezbr_sha256": "1bb9378c6a524cddd801b106f8c85299b9ea23fa7dcf671b0a2749c0795340e6"
     },
     {
       "slug": "send-daily-reminders",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 116,
-      "ezbr_sha256": "8e25a5e000fcd2fb9687522bf3f1752df322d191690c394197e243d3d419bd8c"
+      "version": 119,
+      "ezbr_sha256": "c26ccf9a7bb4cd70a1ff5effffee0729f84e43fd64ab14fd9304ff655355f89b"
     },
     {
       "slug": "stripe-webhook",
@@ -91,8 +91,8 @@
       "slug": "verify-exercise",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 117,
-      "ezbr_sha256": "7a531977d5749b7792f26c83e4cd6a40b4a1c328e37e02569fb1d26aadba462c"
+      "version": 120,
+      "ezbr_sha256": "dacf8ec8eefea4985bd40c3524ced66f1cd0bb92189346d1d55f2a059805e81e"
     }
   ]
 }

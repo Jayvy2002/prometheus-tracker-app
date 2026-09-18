@@ -4,15 +4,15 @@
 >
 > Les migrations SQL sont append-only. Les inventaires dans Git doivent rester cohérents avec Supabase production. Ce document décrit le contrat et l’état vérifié ; les fichiers lock contiennent le détail machine-readable.
 
-## État vérifié — 17 septembre 2026
+## État vérifié — 18 septembre 2026
 
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
-- **113 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
-- **113 migrations** observées en production, dans le même ordre ;
-- dernière version : `20260917235400_independent_coach_capability` ;
+- **115 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
+- **115 migrations** observées en production, dans le même ordre ;
+- dernière version : `20260918103748_program_write_coached_owner` ;
 - replay local PostgreSQL 17 validé par la CI ;
-- matrice RLS/staging-like verte sur le baseline de départ agent.
+- matrice RLS/staging-like verte sur `new-JV` après le merge P1.2.
 
 Le lock a été rafraîchi après cette vérification. Une future différence Git/lock/production doit être traitée comme un blocage de migration, pas réparée artificiellement.
 
@@ -68,11 +68,11 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 
 L’inventaire machine-readable est `supabase/functions.deployed.lock.json`.
 
-État live vérifié directement le 17 septembre 2026 : **13 fonctions ACTIVE**. Exemples importants :
+État live vérifié directement le 18 septembre 2026 après le merge P1.2 : **13 fonctions ACTIVE**. Exemples importants :
 
-- `coach-agent` : v131, `verify_jwt=true` ;
-- `coach-fleet-round` : v138, `verify_jwt=false` ;
-- `notify-onboarding-complete` : v127, `verify_jwt=false`.
+- `coach-agent` : v134, `verify_jwt=true` ;
+- `coach-fleet-round` : v141, `verify_jwt=false` ;
+- `notify-onboarding-complete` : v130, `verify_jwt=false`.
 
 Les numéros de version Supabase sont volatils et augmentent lors des redéploiements. Après toute modification d’Edge Function :
 

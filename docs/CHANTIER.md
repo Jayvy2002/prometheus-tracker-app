@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P1.2 : Permissions par ressource/action.**
+> **CURRENT IMPLEMENTATION GATE — P1.3 : Calendrier personnel pour Solo + Coaché.**
 >
-> P1.1 est terminé, mergé, déployé et vérifié. P1.2 est en cours (PR ouverte, en attente du feu vert de Jean-Vincent). Un agent ne commence que la tâche indiquée dans ce bloc, puis s’arrête à la PR verte jusqu’au feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1 et P1.2 sont terminés, mergés, déployés et vérifiés. La prochaine tâche est P1.3. Un agent ne commence P1.3 qu’après le feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 terminé ; P1.2 PR ouverte, pas de P1.3 sans feu vert** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 et P1.2 terminés ; P1.3 attend feu vert** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.2 est en cours. Le calendrier Coaché (P1.3) reste le chantier suivant, uniquement après merge et feu vert.
+P1.2 est clôturé. Le calendrier Coaché (P1.3) reste le chantier suivant, uniquement après feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -214,7 +214,12 @@ Aucune fonctionnalité nouvelle n’a besoin de l’ancien rôle exclusif pour s
 
 ### État actuel
 
-**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.3.**
+**✅ TERMINÉ — mergé, déployé et vérifié en production.**
+
+PR [#185](https://github.com/Jayvy2002/prometheus-tracker-app/pull/185) mergée dans `new-JV`.
+Commit de merge : `94b92ba34af5c64a7ddb8940ed6d1f78cf93bbe5`.
+CI post-merge entièrement verte : [run 35338478368](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35338478368)
+(`verify` 59s ; `rls-matrix` 3m20s ; `Supabase Preview` success).
 
 Inventaire, contrat et câblage : [P1.2 — permissions ressource/action](P1_2_RESOURCE_PERMISSIONS.md).
 
@@ -225,10 +230,24 @@ Inventaire, contrat et câblage : [P1.2 — permissions ressource/action](P1_2_R
 - Roster : `fetchClients` filtre `coach_id` de l’acteur ; un Coach Coaché ne s’y liste pas.
 - `canUpdateAssignedProgram` / `canReadAssignedProgram` exigent `hasActiveRelationship` pour un client tiers (fail-closed si absent).
 - `save_program` refuse un Coaché propriétaire d’un leftover Solo encore assigné.
-- Les RPC legacy, les RLS owner et l’auto-attribution Data API sont fermés par la même règle
-  (migrations pending `20260918102103_save_program_coached_owner`, `20260918103748_program_write_coached_owner`).
+- Les RPC legacy, les RLS owner et l’auto-attribution Data API sont fermés par la même règle.
 - Workspace UI jamais utilisé comme grant.
 - `/calendar` reste bloqué (P1.3).
+
+Migrations append-only `20260918102103_save_program_coached_owner.sql` et
+`20260918103748_program_write_coached_owner.sql` appliquées en production via l’intégration
+Supabase avec **les mêmes timestamps**. Aucune migration historique modifiée.
+
+État production vérifié après merge :
+- **115 migrations** appliquées, dernière = `20260918103748_program_write_coached_owner` ;
+- helpers plpgsql `actor_is_actively_coached()`, `coached_client_cannot_edit_program(uuid)`,
+  `actor_owns_program(uuid)` présents (`SECURITY DEFINER`) ;
+- `save_program` / `sync_program_days` / `save_program_day_exercises` conservent le RAISE leftover ;
+- RLS owner d’écriture et writes Data API `program_assignments` ferment le leftover ;
+- **13 Edge Functions ACTIVE**, dont `coach-agent` v134 et `coach-fleet-round` v141 au moment du contrôle ;
+- locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
+
+**Arrêt : P1.2 est clôturé. Aucun P1.3 sans le feu vert explicite de Jean-Vincent.**
 
 ### Problème
 
