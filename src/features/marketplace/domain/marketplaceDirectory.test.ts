@@ -122,6 +122,10 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.match(ci, /legacy accepted stays accepted/);
   assert.match(ci, /historical confirmation does not reactivate/);
   assert.match(ci, /concurrent confirmation/);
+  const browser = src('scripts/test-questionnaire-browser.mjs');
+  assert.match(browser, /Athlete confirmation recorded/);
+  assert.match(browser, /This coaching relationship has ended/);
+  assert.doesNotMatch(browser, /Confirmed — coaching is active/);
   const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
   const lock = src('supabase/schema_migrations.lock.json');
   const pending = src('supabase/migrations.pending.json');

@@ -171,10 +171,13 @@ try {
  assert.equal(links.length,1);
  assert.equal(links[0].coach_id,[coach,other][winner].id);
  await visitorRequests.reload();
- await visitorRequests.getByText('Confirmed — coaching is active (not a payment)').waitFor();
+ await visitorRequests.getByText('Athlete confirmation recorded.').waitFor();
  await visitorRequests.getByText('Coaching with this coach is now active. This is not a payment.').waitFor();
  await visitorRequests.screenshot({path:'artifacts/questionnaire/marketplace-confirmed.png',fullPage:true});
  assert.equal(check(await visitor.client.rpc('client_end_coach_link')).ok,true);
+ await visitorRequests.reload();
+ await visitorRequests.getByText('Athlete confirmation recorded.').waitFor();
+ await visitorRequests.getByText('This coaching relationship has ended.').waitFor();
  check(await visitor.client.rpc('respond_coaching_request',{p_request:requests[winner].id,p_status:'confirmed'}));
  assert.equal(check(await admin.from('coach_client_links').select('id').eq('client_id',visitor.id).eq('status','active')).length,0,'Retry cannot reactivate departed client');
  console.log('PASS: responsive directory, concurrent confirmation, departure and historical retry');
