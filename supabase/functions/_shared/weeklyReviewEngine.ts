@@ -2,7 +2,8 @@
  * P2.2 — universal weekly review engine (docs/VISION.md §8.2–8.4).
  * Shared by the app and Deno `coach-fleet-round`. No I/O.
  * Wait is valid. Weak signals wait. Nothing is auto-applied.
- * Confidence is idempotent on the same evidence window/fingerprint.
+ * Confidence is idempotent on the same evidence fingerprint (metrics only).
+ * Window dates alone must not raise confidence.
  */
 
 import { isProposalSuppressed, type ProposalMemoryDecision } from "./proposalMemory.ts";
@@ -123,6 +124,7 @@ export interface WeeklyReviewFleetLike {
   weight_span_days?: number | null;
   avg_fatigue?: number | null;
   avg_energy?: number | null;
+  weigh_ins?: number | null;
   tracking?: WeeklyReviewTracking;
   is_minor?: boolean;
   has_medical_flags?: boolean;
@@ -249,32 +251,46 @@ function evidence(kind: string, summary: string): EngineEvidenceItem {
   return { kind, summary };
 }
 
+const FINGERPRINT_WINDOW_KEYS = new Set(["window_start", "window_end"]);
+
+export function normalizeFingerprint(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return raw;
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (FINGERPRINT_WINDOW_KEYS.has(key)) continue;
+      out[key] = value;
+    }
+    return JSON.stringify(out);
+  } catch {
+    return raw;
+  }
+}
+
 export function evidenceFingerprint(
   domain: string,
   type: string,
   agg: WeeklyReviewAggregates,
 ): string {
-  const window = { window_start: agg.windowStart, window_end: agg.windowEnd };
   let metrics: Record<string, unknown>;
   if (domain === "training" || type === "missed_sessions" || type === "program_adjustment") {
-    metrics = { ...window, workout_count: agg.workoutCount, expected_workouts: agg.expectedWorkouts };
+    metrics = { workout_count: agg.workoutCount, expected_workouts: agg.expectedWorkouts };
   } else if (domain === "weight" || type === "stall" || type === "too_fast") {
     metrics = {
-      ...window,
       weigh_ins: agg.weighIns,
       weight_delta_kg: agg.weightDeltaKg,
       weight_start_kg: agg.weightStartKg,
     };
   } else if (domain === "recovery" || type === "fatigue") {
     metrics = {
-      ...window,
       avg_fatigue: agg.avgFatigue,
       avg_energy: agg.avgEnergy,
       checkin_count: agg.checkinCount,
     };
   } else {
     metrics = {
-      ...window,
       logged_nutrition_days: agg.loggedNutritionDays,
       avg_calories: agg.avgCalories,
       calorie_target: agg.calorieTarget,
@@ -295,8 +311,9 @@ export function nextSignalConfidence(
 ): EngineSignalConfidence {
   if (!supported) return prev?.confidence ?? "low";
   if (!prev) return "low";
-  const previous = fingerprintFromEvidence(prev.evidence_for);
-  if (!previous || previous === fingerprint) return prev.confidence;
+  const previous = normalizeFingerprint(fingerprintFromEvidence(prev.evidence_for));
+  const current = normalizeFingerprint(fingerprint);
+  if (!previous || previous === current) return prev.confidence;
   if (prev.confidence === "low") return "medium";
   return "high";
 }
@@ -510,6 +527,7 @@ export function weeklyReviewInputFromFleet(
   today: string,
   existingSignals: EngineSignal[] = [],
   recentDecisions: ProposalMemoryDecision[] = [],
+  identity: "solo" | "coached" = "coached",
 ): WeeklyReviewInput {
   const tracking = trackingOf(dossier.tracking);
   const target = dossier.avg_effective_target && dossier.avg_effective_target > 0
@@ -519,10 +537,13 @@ export function weeklyReviewInputFromFleet(
   const expectedWorkouts = Math.round(freq * (WEEKLY_REVIEW_WINDOW_DAYS / 7));
   const hasWeightPair = dossier.weight_delta_kg != null
     || (dossier.weight_start_kg != null && (dossier.weight_end_kg != null || dossier.weight_kg > 0));
+  const weighIns = dossier.weigh_ins != null && dossier.weigh_ins > 0
+    ? dossier.weigh_ins
+    : hasWeightPair ? MIN_WEIGH_INS : 0;
   return {
     athleteId: dossier.client_id,
     today,
-    identity: "coached",
+    identity,
     tracking,
     guarded: dossier.is_minor === true || dossier.has_medical_flags === true,
     existingSignals,
@@ -535,7 +556,7 @@ export function weeklyReviewInputFromFleet(
       calorieTarget: target,
       workoutCount: dossier.workout_count,
       expectedWorkouts,
-      weighIns: hasWeightPair ? MIN_WEIGH_INS : 0,
+      weighIns,
       weightDeltaKg: dossier.weight_delta_kg,
       weightStartKg: dossier.weight_start_kg ?? dossier.weight_kg,
       weightSpanDays: dossier.weight_span_days ?? WEEKLY_REVIEW_WINDOW_DAYS,

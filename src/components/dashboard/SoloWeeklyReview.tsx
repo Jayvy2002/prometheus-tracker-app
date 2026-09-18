@@ -111,11 +111,40 @@ export default function SoloWeeklyReview() {
     });
   }, [solo, profile, logs, decisions, measurements, workouts, checkins, targetHistory, today]);
 
+  const persistVersion = [
+    user?.id,
+    solo,
+    profile?.goal,
+    profile?.daily_calorie_target,
+    profile?.training_frequency,
+    profile?.protein_target,
+    profile?.carbs_target,
+    profile?.fat_target,
+    review?.weekStart,
+    review?.evidence.windowStart,
+    review?.evidence.windowEnd,
+    review?.evidence.loggedDays,
+    review?.evidence.avgCalories,
+    review?.evidence.targetAvg,
+    review?.evidence.workouts,
+    review?.evidence.expectedWorkouts,
+    review?.evidence.weighIns,
+    review?.evidence.deltaKg,
+    review?.evidence.avgFatigue,
+    review?.evidence.avgEnergy,
+    measurements.length,
+    workouts.length,
+    checkins.length,
+    logs?.length ?? 0,
+    targetHistory.length,
+    decisions?.length ?? 0,
+  ].join('|');
+
   useEffect(() => {
     if (!user || !review) return;
     if (decidedFor === user.id && decidedWeek === review.weekStart) return;
     void fetchDecision(user.id, review.weekStart);
-  }, [user?.id, review?.weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, review?.weekStart, decidedFor, decidedWeek, fetchDecision]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!user || !solo || !profile || !review) return;
@@ -123,7 +152,7 @@ export default function SoloWeeklyReview() {
     void (async () => {
       const memory = await loadWeeklyReviewMemory(user.id);
       if (cancelled) return;
-      await persistAthleteWeeklyReviewCycle(weeklyReviewInputFromSolo(
+      const result = await persistAthleteWeeklyReviewCycle(weeklyReviewInputFromSolo(
         {
           today,
           goal: profile.goal ?? 'maintain',
@@ -131,6 +160,7 @@ export default function SoloWeeklyReview() {
           trainingFrequency: profile.training_frequency ?? 0,
           isMinor: !!profile.date_of_birth && getAge(profile.date_of_birth) < 18,
           hasMedicalFlags: profileHasMedicalFlags(profile.kinesiology_intake),
+          tracking: { nutrition: true, workouts: true, weight: true, checkins: true },
         },
         {
           windowStart: review.evidence.windowStart,
@@ -146,16 +176,19 @@ export default function SoloWeeklyReview() {
           expectedWorkouts: review.evidence.expectedWorkouts,
           avgFatigue: review.evidence.avgFatigue,
           avgEnergy: review.evidence.avgEnergy,
+          checkinCount: checkins.filter(row => row.checked_at.slice(0, 10) >= windowStart).length,
         },
         memory.existingSignals,
         user.id,
         memory.recentDecisions,
       ));
+      if (cancelled) return;
+      if (result.error) toast(t('soloReview.persistFailed'), 'error');
     })();
     return () => {
       cancelled = true;
     };
-  }, [user?.id, solo, review?.weekStart, review?.evidence.windowEnd, review?.evidence.avgCalories, review?.evidence.workouts, review?.evidence.loggedDays]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [persistVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user || !solo || !review) return null;
   if (decidedFor === user.id && decidedWeek === review.weekStart) return null;

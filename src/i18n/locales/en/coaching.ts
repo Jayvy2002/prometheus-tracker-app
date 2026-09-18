@@ -1056,6 +1056,7 @@ const coaching = {
     keepMine: 'Keep my targets',
     gotIt: 'Got it',
     applied: 'Targets updated: {{n}} kcal.',
+    persistFailed: 'The review could not be saved. Try again later.',
   },
 
   weeklyWhy: {

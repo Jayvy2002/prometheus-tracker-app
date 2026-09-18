@@ -14,6 +14,7 @@ export interface RecordAthleteDecisionInput {
   appliedEffect?: Record<string, unknown>;
   source?: string | null;
   sourceId?: string | null;
+  idempotencyKey?: string | null;
 }
 
 function journalRpcArgs(input: RecordAthleteDecisionInput) {
@@ -32,35 +33,77 @@ function journalRpcArgs(input: RecordAthleteDecisionInput) {
   };
 }
 
-/** Writes go through SECURITY DEFINER RPC. Direct table inserts are revoked. */
-export async function recordAthleteDecision(input: RecordAthleteDecisionInput) {
-  return supabase.rpc('record_athlete_decision', journalRpcArgs(input));
-}
-
-export async function enqueueAthleteDecisionOutbox(input: RecordAthleteDecisionInput) {
-  const key = [
+export function decisionIdempotencyKey(input: RecordAthleteDecisionInput): string {
+  if (input.idempotencyKey && input.idempotencyKey.trim()) {
+    return input.idempotencyKey.trim().slice(0, 200);
+  }
+  return [
     input.athleteId,
     input.source ?? 'unknown',
     input.sourceId ?? '',
     input.decision,
     input.domain,
     input.type,
-  ].join(':');
+  ].join(':').slice(0, 200);
+}
+
+/** Writes go through SECURITY DEFINER RPC. Direct table inserts are revoked. */
+export async function recordAthleteDecision(input: RecordAthleteDecisionInput) {
+  return supabase.rpc('record_athlete_decision', {
+    ...journalRpcArgs(input),
+    p_idempotency_key: decisionIdempotencyKey(input),
+  });
+}
+
+export async function enqueueAthleteDecisionOutbox(input: RecordAthleteDecisionInput) {
   return supabase.rpc('enqueue_athlete_decision_outbox', {
-    p_idempotency_key: key.slice(0, 200),
+    p_idempotency_key: decisionIdempotencyKey(input),
     ...journalRpcArgs(input),
   });
 }
 
+export async function queueAndRecordAthleteDecision(input: RecordAthleteDecisionInput) {
+  return supabase.rpc('queue_and_record_athlete_decision', {
+    p_idempotency_key: decisionIdempotencyKey(input),
+    ...journalRpcArgs(input),
+  });
+}
+
+export async function drainAthleteDecisionOutbox(limit = 25) {
+  return supabase.rpc('drain_athlete_decision_outbox', { p_limit: limit });
+}
+
+export async function drainAthleteDecisionOutboxBestEffort(limit = 25): Promise<number> {
+  const { data, error } = await drainAthleteDecisionOutbox(limit);
+  if (error) return 0;
+  return typeof data === 'number' ? data : 0;
+}
+
+export type DurableDecisionResult = { persisted: boolean; error: string | null };
+
 /**
- * Durable journal write: record, then persist an outbox row if the journal RPC
- * fails for a reason other than “candidate not in production”.
+ * Durable journal write: enqueue the intent and record in one RPC.
+ * Missing candidate → fail-open. Other errors are returned, not swallowed.
  */
-export async function recordAthleteDecisionDurable(input: RecordAthleteDecisionInput): Promise<void> {
-  const { error } = await recordAthleteDecision(input);
-  if (!error) return;
-  if (isMissingBackendContract(error)) return;
-  await enqueueAthleteDecisionOutbox(input).then(() => undefined, () => undefined);
+export async function recordAthleteDecisionDurable(
+  input: RecordAthleteDecisionInput,
+): Promise<DurableDecisionResult> {
+  const queued = await queueAndRecordAthleteDecision(input);
+  if (!queued.error) {
+    await drainAthleteDecisionOutboxBestEffort();
+    return { persisted: true, error: null };
+  }
+  if (isMissingBackendContract(queued.error)) {
+    const recorded = await supabase.rpc('record_athlete_decision', journalRpcArgs(input));
+    if (!recorded.error) return { persisted: true, error: null };
+    if (isMissingBackendContract(recorded.error)) return { persisted: false, error: null };
+    const boxed = await enqueueAthleteDecisionOutbox(input);
+    if (boxed.error && !isMissingBackendContract(boxed.error)) {
+      return { persisted: false, error: boxed.error.message };
+    }
+    return { persisted: false, error: recorded.error.message };
+  }
+  return { persisted: false, error: queued.error.message };
 }
 
 /** @deprecated use recordAthleteDecisionDurable — kept as the awaited durable path. */

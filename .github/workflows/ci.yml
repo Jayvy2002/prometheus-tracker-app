@@ -153,6 +153,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'review integrity: atomic upsert, wait persisted, mismatch blocked, latest per key' /tmp/athlete-review-integrity-db-results.txt
+      - name: Test athlete decision durability
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_decision_durability.sql | tee /tmp/athlete-decision-durability-db-results.txt
+      - name: Confirm athlete decision durability echo
+        run: |
+          set -euo pipefail
+          grep -F 'decision durability: outbox isolation, drain replay, solo without dashboard' /tmp/athlete-decision-durability-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

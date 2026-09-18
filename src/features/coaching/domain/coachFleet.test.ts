@@ -901,6 +901,9 @@ test('architecture lock: weekly review stays deterministic and in-app', () => {
   const loop = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
   assert.match(loop, /persistWeeklyReview/);
   assert.match(loop, /planWrite\(d, today, ctx\?\.locale \?\? "fr", decisionLogs\.get\(d\.client_id\) \?\? \[\]\)/);
+  assert.match(fleet, /triage_eligible_solo_weekly/);
+  assert.match(fleet, /drain_athlete_decision_outbox/);
+  assert.match(fleet, /persistEligibleSoloReviews/);
   const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
   assert.match(readme, /analyse déterministe `coach-fleet-round`/);
   assert.match(readme, /l’IA prépare ; l’humain décide/);

@@ -223,7 +223,11 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   const store = src('src/stores/soloCopilotStore.ts');
   const decide = store.slice(store.indexOf('decide: async'));
   assert.match(decide, /if \(decision === 'accepted' && draft\)/);
-  assert.match(decide, /updateProfile\(userId, \{\s*daily_calorie_target: draft\.calories/);
+  const rpcIdx = decide.indexOf('commit_solo_weekly_review_decision');
+  const profileIdx = decide.indexOf('updateProfile');
+  assert.ok(rpcIdx >= 0 && profileIdx > rpcIdx);
+  assert.match(decide, /p_idempotency_key/);
+  assert.match(decide, /applyRemoteTargets/);
   assert.match(decide, /commit_solo_weekly_review_decision/);
   assert.match(decide, /from\('solo_weekly_reviews'\)/);
   assert.match(decide, /onConflict: 'user_id,week_start'/);

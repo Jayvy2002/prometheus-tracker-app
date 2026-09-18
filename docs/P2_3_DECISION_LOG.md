@@ -12,10 +12,12 @@ Ce n’est pas un journal append-only partagé avec le Solo.
 Une table dédiée n’est donc pas redondante. Les deux chemins existants **restent**
 (carte nutrition Solo, drafts fleet) et **enregistrent** une ligne après le tap humain.
 
-Solo : `commit_solo_weekly_review_decision` écrit la carte ISO et le journal dans
-la même transaction. Coach : fetch de l’intervention si le cache est vide, mapping
-`edited` par diff métier, `kept` avec effet réel → accepted/modified, puis
-`record_athlete_decision` ; échec non « table absente » → file `athlete_decision_outbox`.
+Solo : `commit_solo_weekly_review_decision` écrit cibles (si accepté), carte ISO
+et journal dans la même transaction, avec clé d’idempotence. Coach :
+`apply_intervention` journalise dans la même TX (snapshot initial vs effets métier,
+sans identifiants de routage) ; un trigger reprend les UPDATE de statut. File
+`athlete_decision_outbox` unique par `(athlète, clé)` ; collision inter-comptes
+refusée. `drain_athlete_decision_outbox` rejoue sans doublon et conserve l’auteur.
 Table/RPC absente en production → fail-open.
 
 La carte Solo et le round fleet **lisent** la dernière décision par
@@ -58,6 +60,7 @@ Ne pas faire évoluer `solo_weekly_reviews` ni `coach_interventions` en journal.
 ## Livraison
 
 PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
-Candidate `20260918201237_athlete_decision_log` et
-`20260918224935_athlete_review_integrity` dans `migrations.pending.json`.
+Candidate `20260918201237_athlete_decision_log`,
+`20260918224935_athlete_review_integrity` et
+`20260918232507_athlete_decision_durability` dans `migrations.pending.json`.
 Le lock production reste à 116 versions.

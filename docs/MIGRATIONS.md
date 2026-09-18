@@ -27,7 +27,8 @@ PR #190 déclare dans `migrations.pending.json` :
 - `20260918185709_athlete_signals` (P2.1) ;
 - `20260918194013_athlete_weekly_reviews` (P2.2) ;
 - `20260918201237_athlete_decision_log` (P2.3) ;
-- `20260918224935_athlete_review_integrity` (upsert atomique, match athlète, JSON borné, lecture par clé, journal composite).
+- `20260918224935_athlete_review_integrity` (upsert atomique, match athlète, JSON borné, lecture par clé, journal composite) ;
+- `20260918232507_athlete_decision_durability` (outbox par athlète, drain, TX Solo complète, triage Solo serveur).
 
 Le lock production reste à **116** versions (`20260918130232`). Ne pas transférer ces
 versions dans le lock avant application réelle et vérification live.

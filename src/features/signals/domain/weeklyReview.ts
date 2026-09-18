@@ -14,6 +14,7 @@ export {
   fingerprintFromEvidence,
   isoWeekStart,
   nextSignalConfidence,
+  normalizeFingerprint,
   runAthleteWeeklyReview,
   weeklyReviewActionsToRpcPayload,
   weeklyReviewInputFromFleet,
@@ -55,6 +56,7 @@ export interface WeeklyReviewSoloEvidenceLike {
   expectedWorkouts: number;
   avgFatigue: number | null;
   avgEnergy: number | null;
+  checkinCount?: number;
 }
 
 export function weeklyReviewInputFromSolo(
@@ -89,7 +91,7 @@ export function weeklyReviewInputFromSolo(
       weightDeltaKg: evidence.deltaKg,
       weightStartKg: evidence.weightStart,
       weightSpanDays: evidence.weightSpanDays,
-      checkinCount: 0,
+      checkinCount: evidence.checkinCount ?? 0,
       avgFatigue: evidence.avgFatigue,
       avgEnergy: evidence.avgEnergy,
       goal: inputs.goal,

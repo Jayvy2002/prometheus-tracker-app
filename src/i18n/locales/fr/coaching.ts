@@ -1056,6 +1056,7 @@ const coaching = {
     keepMine: 'Garder mes cibles',
     gotIt: 'OK, compris',
     applied: 'Cibles mises à jour : {{n}} kcal.',
+    persistFailed: 'Le bilan n’a pas pu être enregistré. Réessaie plus tard.',
   },
 
   weeklyWhy: {

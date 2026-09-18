@@ -16,7 +16,9 @@ Edge `coach-fleet-round`). Ils **ne sont pas remplacés**.
 L’orchestration P2.2 (`persistAthleteWeeklyReviewCycle` / Edge `persistWeeklyReview`)
 charge les signaux ouverts et la dernière décision par clé, exécute
 `runAthleteWeeklyReview`, puis persiste via `save_athlete_weekly_review`
-(y compris une semaine `wait`). Protection anti-doublon : `UNIQUE (athlete_id, week_start)`.
+(y compris une semaine `wait`). Le cron `coach-fleet-round` orchestre aussi les
+Solos éligibles (`triage_eligible_solo_weekly`) sans ouvrir le dashboard ; l’ouverture
+reste un rattrapage. Protection anti-doublon : `UNIQUE (athlete_id, week_start)`.
 Le moteur vit dans `supabase/functions/_shared/weeklyReviewEngine.ts` (app + Deno).
 
 ## Contrat
@@ -37,7 +39,9 @@ agrégats autorisés
 - Données insuffisantes pour un type évaluable : `waiting`, pas `resolved`.
 - `resolved` seulement si le moteur sait juger le type, le suivi est actif, les
   observations suffisent et le problème n’est plus présent. Types inconnus laissés ouverts.
-- Confiance qualitative idempotente : même fenêtre + même empreinte → pas de hausse.
+- Confiance qualitative idempotente : mêmes **preuves** (empreinte sans dates de
+  fenêtre) → pas de hausse. Avancer la fenêtre sans nouvelle observation ne
+  change pas la confiance.
 - Profil protégé : jamais `propose`.
 - Écritures : RPC `save_athlete_weekly_review` seulement (REVOKE INSERT/UPDATE/DELETE).
 - La RPC applique les actions signaux via les RPC P2.1 ; elle n’écrit pas programmes,
@@ -54,5 +58,6 @@ P2.4 écran « Ce que Prometheus surveille ». Stripe / P6. Pas d’application 
 
 PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
 Candidate `20260918194013_athlete_weekly_reviews` dans `migrations.pending.json`,
-plus `20260918224935_athlete_review_integrity`.
+plus `20260918224935_athlete_review_integrity` et
+`20260918232507_athlete_decision_durability`.
 Le lock production reste à 116 versions.

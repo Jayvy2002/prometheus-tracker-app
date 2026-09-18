@@ -13,6 +13,7 @@ import {
   weeklyReviewInputFromFleet,
   weeklyReviewSaveArgs,
   type EngineSignal,
+  type WeeklyReviewFleetLike,
 } from "../_shared/weeklyReviewEngine.ts";
 
 /**
@@ -704,16 +705,84 @@ async function loadOpenSignals(
   return byAthlete;
 }
 
+function isMissingContract(message: string): boolean {
+  return /could not find the function|does not exist|schema cache/i.test(message);
+}
+
 async function persistWeeklyReview(
   admin: SupabaseClient,
-  d: Dossier,
+  d: WeeklyReviewFleetLike,
   today: string,
   existingSignals: EngineSignal[],
   recentDecisions: DecisionLogRow[],
+  identity: "solo" | "coached" = "coached",
 ) {
-  const input = weeklyReviewInputFromFleet(d, today, existingSignals, recentDecisions);
+  const input = weeklyReviewInputFromFleet(d, today, existingSignals, recentDecisions, identity);
   const review = runAthleteWeeklyReview(input);
-  await admin.rpc("save_athlete_weekly_review", weeklyReviewSaveArgs(d.client_id, review));
+  const { error } = await admin.rpc("save_athlete_weekly_review", weeklyReviewSaveArgs(d.client_id, review));
+  if (error && !isMissingContract(error.message)) {
+    console.error("persist weekly review", d.client_id, error.message);
+  }
+}
+
+function mapSoloTriageRow(raw: Record<string, unknown>): WeeklyReviewFleetLike | null {
+  const dossier = asObject(raw.dossier);
+  const clientId = str(dossier.client_id) ?? str(raw.athlete_id);
+  if (!clientId) return null;
+  const trackingRaw = asObject(dossier.tracking);
+  return {
+    client_id: clientId,
+    goal: str(dossier.goal) ?? "",
+    training_frequency: num(dossier.training_frequency, 3),
+    calorie_target: num(dossier.calorie_target),
+    logged_nutrition_days: num(dossier.logged_nutrition_days),
+    avg_calories: num(dossier.avg_calories),
+    workout_count: num(dossier.workout_count),
+    checkin_count: num(dossier.checkin_count),
+    weight_delta_kg: dossier.weight_delta_kg == null ? null : num(dossier.weight_delta_kg),
+    weight_start_kg: dossier.weight_start_kg == null ? null : num(dossier.weight_start_kg),
+    weight_end_kg: dossier.weight_end_kg == null ? null : num(dossier.weight_end_kg),
+    weight_kg: num(dossier.weight_kg),
+    weight_span_days: dossier.weight_span_days == null ? null : num(dossier.weight_span_days),
+    weigh_ins: dossier.weigh_ins == null ? null : num(dossier.weigh_ins),
+    avg_fatigue: dossier.avg_fatigue == null ? null : num(dossier.avg_fatigue),
+    avg_energy: dossier.avg_energy == null ? null : num(dossier.avg_energy),
+    tracking: {
+      nutrition: trackingRaw.nutrition !== false,
+      workouts: trackingRaw.workouts !== false,
+      weight: trackingRaw.weight !== false,
+      checkins: trackingRaw.checkins !== false,
+    },
+    is_minor: dossier.is_minor === true,
+    has_medical_flags: dossier.has_medical_flags === true,
+  };
+}
+
+async function persistEligibleSoloReviews(admin: SupabaseClient, today: string) {
+  const { data, error } = await admin.rpc("triage_eligible_solo_weekly");
+  if (error) {
+    if (!isMissingContract(error.message)) {
+      console.error("triage eligible solo weekly", error.message);
+    }
+    return;
+  }
+  const rows = Array.isArray(data) ? data : [];
+  const dossiers = rows
+    .map((row) => mapSoloTriageRow(asObject(row)))
+    .filter((row): row is WeeklyReviewFleetLike => !!row);
+  const ids = dossiers.map((row) => row.client_id);
+  const decisionLogs = await loadDecisionLogs(admin, ids);
+  const openSignals = await loadOpenSignals(admin, ids);
+  for (const d of dossiers) {
+    await persistWeeklyReview(
+      admin,
+      d,
+      today,
+      openSignals.get(d.client_id) ?? [],
+      decisionLogs.get(d.client_id) ?? [],
+      "solo",
+    );
+  }
 }
 
 function planWrite(
@@ -1191,6 +1260,17 @@ Deno.serve(async (req: Request) => {
           action: plan.action,
         });
       }
+    }
+
+    if (isService && trigger === "cron") {
+      await persistEligibleSoloReviews(
+        admin,
+        todayInTimeZone(now, DEFAULT_FLEET_TIMEZONE),
+      );
+    }
+    const { error: drainError } = await admin.rpc("drain_athlete_decision_outbox", { p_limit: 50 });
+    if (drainError && !isMissingContract(drainError.message)) {
+      console.error("drain athlete decision outbox", drainError.message);
     }
 
     if (roundId) {

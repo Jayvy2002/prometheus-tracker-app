@@ -105,8 +105,16 @@ test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
   assert.equal(mapInterventionDecision('sent', false), 'accepted');
   assert.equal(proposalMateriallyEdited({ calories: 2000 }, { calories: 2000 }), false);
   assert.equal(proposalMateriallyEdited({ calories: 2000 }, { calories: 1800 }), true);
+  assert.equal(proposalMateriallyEdited({ calories: 2000 }, { calories: 2000, patch: { sets: 3 } }), true);
+  assert.equal(proposalMateriallyEdited({ calories: 2000 }, { assign_client_id: 'x' }), false);
+  assert.equal(proposalMateriallyEdited({ calories: 2000, assign_client_id: 'a' }, { calories: 2000, assign_client_id: 'b' }), false);
   assert.equal(effectsAreMaterial({ note: { body: 'ok' } }), true);
   assert.equal(effectsAreMaterial({}), false);
+  assert.equal(effectsAreMaterial({ assign_client_id: 'x' }), false);
+  assert.equal(effectsAreMaterial({ program: { assign_client_id: 'x' } }), false);
+  assert.equal(effectsAreMaterial({ assign_client_id: 'x', calories: { calories: 1800 } }), true);
+  assert.equal(mapInterventionDecision('kept', false, false), 'ignored');
+  assert.equal(mapInterventionDecision('sent', true, true), 'modified');
   assert.equal(canRecordAthleteDecision({ actorId: 'a', athleteId: 'a', isCoachOfAthlete: false }), true);
   assert.equal(canRecordAthleteDecision({ actorId: 'coach', athleteId: 'a', isCoachOfAthlete: true }), true);
   assert.equal(canReadAthleteDecisionLog({ actorId: 'other', athleteId: 'a', isCoachOfAthlete: false }), false);
@@ -195,6 +203,8 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   const api = src('src/features/signals/domain/decisionLogApi.ts');
   assert.match(api, /rpc\('record_athlete_decision'/);
   assert.match(api, /recordAthleteDecisionDurable/);
+  assert.match(api, /queue_and_record_athlete_decision/);
+  assert.match(api, /drain_athlete_decision_outbox/);
   assert.match(api, /listLatestAthleteDecisionsBestEffort/);
   assert.doesNotMatch(api, /from\('athlete_decision_log'\)\.insert/);
   assert.match(api, /enqueue_athlete_decision_outbox/);
@@ -219,7 +229,13 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"name": "athlete_decision_log"/);
 
   const soloStore = src('src/stores/soloCopilotStore.ts');
-  assert.match(soloStore, /commit_solo_weekly_review_decision|recordAthleteDecisionDurable/);
+  const decide = soloStore.slice(soloStore.indexOf('decide: async'));
+  assert.match(decide, /commit_solo_weekly_review_decision/);
+  assert.match(decide, /p_idempotency_key/);
+  assert.match(decide, /applyRemoteTargets/);
+  const rpcIdx = decide.indexOf('commit_solo_weekly_review_decision');
+  const profileIdx = decide.indexOf('updateProfile');
+  assert.ok(rpcIdx >= 0 && profileIdx > rpcIdx, 'profile write must be fallback after the composite RPC');
   assert.match(soloStore, /mapSoloReviewDecision/);
   const slice = src('src/features/coaching/model/interventionsSlice.ts');
   assert.match(slice, /journalInterventionDecision/);
@@ -227,6 +243,11 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.match(slice, /proposalMateriallyEdited/);
   assert.match(slice, /fetchIntervention/);
   assert.doesNotMatch(slice, /edited: !!payload/);
+  const applyFn = slice.slice(slice.indexOf('applyIntervention:'));
+  const fetchIdx = applyFn.indexOf('fetchIntervention');
+  const applyRpcIdx = applyFn.indexOf("rpc('apply_intervention'");
+  assert.ok(fetchIdx >= 0 && fetchIdx < applyRpcIdx, 'original snapshot must be loaded before apply');
+  assert.match(applyFn, /effectsToJson\(effects\)/);
 
   const soloEngine = src('src/lib/soloCopilot.ts');
   assert.match(soloEngine, /isProposalSuppressed/);

@@ -40,10 +40,16 @@ test('orchestration persists wait weeks through the shared engine', () => {
 
 test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate is pending', () => {
   assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistAthleteWeeklyReviewCycle/);
+  assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistVersion/);
+  assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistFailed/);
   assert.match(src('src/features/signals/domain/weeklyReviewCycle.ts'), /saveAthleteWeeklyReview/);
+  assert.match(src('src/features/signals/domain/weeklyReviewCycle.ts'), /drainAthleteDecisionOutboxBestEffort/);
   assert.match(src('supabase/functions/coach-fleet-round/index.ts'), /persistWeeklyReview/);
+  assert.match(src('supabase/functions/coach-fleet-round/index.ts'), /triage_eligible_solo_weekly/);
+  assert.match(src('supabase/functions/coach-fleet-round/index.ts'), /drain_athlete_decision_outbox/);
   assert.match(src('supabase/functions/coach-fleet-round/index.ts'), /runAthleteWeeklyReview/);
   assert.match(src('supabase/functions/_shared/weeklyReviewEngine.ts'), /nextSignalConfidence/);
+  assert.match(src('supabase/functions/_shared/weeklyReviewEngine.ts'), /normalizeFingerprint/);
   assert.match(src('supabase/functions/_shared/proposalMemory.ts'), /evidenceScope/);
 
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
@@ -58,4 +64,15 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /list_latest_athlete_decisions/);
   assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /commit_solo_weekly_review_decision/);
   assert.doesNotMatch(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /stripe/i);
+
+  assert.equal(pending.pending.some((row) => row.version === '20260918232507' && row.name === 'athlete_decision_durability'), true);
+  assert.match(src('.github/workflows/ci.yml'), /athlete_decision_durability\.sql/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /outbox collision returned another dossier/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain did not recover journal/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo replay duplicated journal/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /coached athlete in solo weekly loop/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /athlete_decision_outbox_athlete_key/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /drain_athlete_decision_outbox/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /triage_eligible_solo_weekly/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /outbox_athlete_mismatch/);
 });

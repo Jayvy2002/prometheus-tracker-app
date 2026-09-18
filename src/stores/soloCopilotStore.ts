@@ -98,18 +98,8 @@ export const useSoloCopilotStore = create<SoloCopilotState>((set) => ({
 
   decide: async (userId, review, decision) => {
     const draft = review.proposal.draft;
-    if (decision === 'accepted' && draft) {
-      // The only write path to the solo's targets from the copilot: his explicit tap.
-      // D03 : si les cibles n'ont pas été écrites, on n'enregistre PAS la décision.
-      const saved = await useProfileStore.getState().updateProfile(userId, {
-        daily_calorie_target: draft.calories,
-        protein_target: draft.protein,
-        carbs_target: draft.carbs,
-        fat_target: draft.fat,
-      });
-      if (saved.error) return { error: saved.error };
-    }
     const fields = journalFields(userId, review, decision);
+    const idempotencyKey = `solo_weekly_reviews:${userId}:${review.weekStart}`;
     const committed = await supabase.rpc('commit_solo_weekly_review_decision', {
       p_week_start: review.weekStart,
       p_action: review.proposal.action,
@@ -123,16 +113,26 @@ export const useSoloCopilotStore = create<SoloCopilotState>((set) => ({
       p_why: review.proposal.reason,
       p_data_used: fields.dataUsed,
       p_applied_effect: fields.appliedEffect,
+      p_idempotency_key: idempotencyKey,
     });
     if (committed.error && !isMissingBackendContract(committed.error)) {
       return { error: committed.error.message };
     }
     if (committed.error) {
+      if (decision === 'accepted' && draft) {
+        const saved = await useProfileStore.getState().updateProfile(userId, {
+          daily_calorie_target: draft.calories,
+          protein_target: draft.protein,
+          carbs_target: draft.carbs,
+          fat_target: draft.fat,
+        });
+        if (saved.error) return { error: saved.error };
+      }
       const { error } = await supabase
         .from('solo_weekly_reviews')
         .upsert(fields.soloRow, { onConflict: 'user_id,week_start' });
       if (error) return { error: error.message };
-      await recordAthleteDecisionDurable({
+      const journal = await recordAthleteDecisionDurable({
         athleteId: userId,
         domain: fields.target.domain,
         type: fields.target.type,
@@ -142,6 +142,15 @@ export const useSoloCopilotStore = create<SoloCopilotState>((set) => ({
         dataUsed: fields.dataUsed,
         appliedEffect: fields.appliedEffect,
         source: 'solo_weekly_reviews',
+        idempotencyKey,
+      });
+      if (journal.error) return { error: journal.error };
+    } else if (decision === 'accepted' && draft) {
+      useProfileStore.getState().applyRemoteTargets(userId, {
+        daily_calorie_target: draft.calories,
+        protein_target: draft.protein,
+        carbs_target: draft.carbs,
+        fat_target: draft.fat,
       });
     }
     track('solo_review_decided', {

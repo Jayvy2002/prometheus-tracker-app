@@ -34,7 +34,7 @@ Le travail restant n’est pas une reconstruction. Le principal enjeu est désor
 
 > **CURRENT IMPLEMENTATION GATE — P2.3 : Journal des propositions et décisions humaines.**
 >
-> P1.1–P2.3 sont implémentés dans la PR #190 (non mergée). La revue universelle est désormais orchestrée (charger agrégats/signaux/décisions → moteur → persister, y compris les semaines `wait`). Le journal est durable (transaction Solo + file Coach), les clés sémantiques et la lecture « dernière décision par clé » sont en place. Confiance idempotente ; absence de données ≠ résolution. Aucune auto-application. Pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.4 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1–P2.3 sont implémentés dans la PR #190 (non mergée). La revue universelle est orchestrée côté serveur (Coach + Solos éligibles via le cron fleet) avec rattrapage à l’ouverture. Le journal est durable : intention dans la transaction métier, outbox isolée par athlète, drain idempotent. La confiance ne monte que si les preuves changent, pas si la seule fenêtre datée avance. Aucune auto-application. Pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.4 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -535,7 +535,9 @@ Un refus ou un ignoré empêche `runAthleteWeeklyReview`, la carte Solo
 (`computeSoloWeeklyReview`) et le round fleet (`planFleetRoundCard` / Edge `planWrite`)
 de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé
 (seuils fleet : kcal ±150, séances ±2). Le signal continue d’être suivi. Aucune
-auto-application : la RPC n’écrit que le journal. L’écriture journal est best-effort.
+auto-application. L’intention de journal est enregistrée dans la transaction de
+l’action métier (`queue_and_record_athlete_decision`) ; `drain_athlete_decision_outbox`
+reprend les échecs sans doublon. L’outbox est unique par `(athlete_id, idempotency_key)`.
 
 ### Invariant
 

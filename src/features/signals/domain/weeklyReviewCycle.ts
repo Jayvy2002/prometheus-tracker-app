@@ -6,8 +6,7 @@
 
 import type { AthleteDecisionLog, AthleteSignal } from '../types';
 import { listOpenAthleteSignalsBestEffort } from './athleteSignalsApi';
-import { isMissingBackendContract } from './backendContract';
-import { listLatestAthleteDecisionsBestEffort } from './decisionLogApi';
+import { drainAthleteDecisionOutboxBestEffort, isMissingBackendContract, listLatestAthleteDecisionsBestEffort } from './decisionLogApi';
 import { runAthleteWeeklyReview, type WeeklyReviewInput, type WeeklyReviewResult } from './weeklyReview';
 import { saveAthleteWeeklyReview } from './weeklyReviewApi';
 
@@ -29,7 +28,10 @@ export async function persistAthleteWeeklyReviewCycle(input: WeeklyReviewInput):
 }> {
   const review = runAthleteWeeklyReview(input);
   const { error } = await saveAthleteWeeklyReview({ athleteId: input.athleteId, review });
-  if (!error) return { review, persisted: true, error: null };
+  if (!error) {
+    await drainAthleteDecisionOutboxBestEffort();
+    return { review, persisted: true, error: null };
+  }
   if (isMissingBackendContract(error)) return { review, persisted: false, error: null };
   return { review, persisted: false, error: error.message };
 }

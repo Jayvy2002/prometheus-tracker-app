@@ -56,9 +56,24 @@ export function mapSoloReviewDecision(decision: "accepted" | "kept" | "dismissed
   return "refused";
 }
 
+const ROUTING_KEYS = new Set(["assign_client_id", "for_client_id", "client_id", "coach_id"]);
+
+function stripRouting(value: unknown): unknown {
+  if (value == null) return value;
+  if (Array.isArray(value)) return value.map(stripRouting);
+  if (typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+    if (ROUTING_KEYS.has(key)) continue;
+    out[key] = stripRouting(nested);
+  }
+  return out;
+}
+
 export function effectsAreMaterial(effects: Record<string, unknown> | null | undefined): boolean {
   if (!effects) return false;
-  for (const value of Object.values(effects)) {
+  const stripped = stripRouting(effects) as Record<string, unknown>;
+  for (const value of Object.values(stripped)) {
     if (value == null) continue;
     if (typeof value === "object" && !Array.isArray(value)) {
       if (Object.keys(value as object).length === 0) continue;
@@ -325,6 +340,12 @@ const MATERIAL_KEYS = [
   "action",
   "reason",
   "flag",
+  "patch",
+  "program",
+  "note",
+  "message",
+  "tracking",
+  "assign_program_id",
 ] as const;
 
 function normalizeMaterial(value: unknown): unknown {
@@ -335,6 +356,7 @@ function normalizeMaterial(value: unknown): unknown {
   const out: Record<string, unknown> = {};
   const keys = Object.keys(row).sort();
   for (const key of keys) {
+    if (ROUTING_KEYS.has(key)) continue;
     if (key === "notes" || key === "messages" || key === "nutrition_logs" || key === "workouts" || key === "checkins" || key === "weights") {
       continue;
     }
@@ -359,5 +381,7 @@ export function proposalMateriallyEdited(
     }
     return out;
   };
-  return JSON.stringify(pick(original)) !== JSON.stringify(pick(submitted));
+  const submittedPick = pick(submitted);
+  if (Object.keys(submittedPick).length === 0) return false;
+  return JSON.stringify(pick(original)) !== JSON.stringify(submittedPick);
 }

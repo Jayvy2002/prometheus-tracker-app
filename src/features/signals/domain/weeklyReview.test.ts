@@ -144,7 +144,7 @@ test('sparse nutrition asks for info instead of blaming adherence', () => {
   assert.equal(sparse?.confidence, 'low');
 });
 
-test('same window and same data stay low; a moved window can raise confidence; recovery closes', () => {
+test('same metrics stay low even if the window dates move; new observations raise confidence; recovery closes', () => {
   const missedAgg = aggregates({ workoutCount: 1, expectedWorkouts: 6, loggedNutritionDays: 10 });
   const week1 = runAthleteWeeklyReview(input({ aggregates: missedAgg }));
   const missed1 = week1.signalActions.find((row) => row.type === 'missed_sessions');
@@ -162,8 +162,24 @@ test('same window and same data stay low; a moved window can raise confidence; r
   assert.equal(refresh.signalActions.find((row) => row.type === 'missed_sessions')?.confidence, 'low');
   assert.equal(refresh.decision, 'wait');
 
+  const week2WindowOnly = runAthleteWeeklyReview(input({
+    today: '2026-09-10',
+    aggregates: aggregates({
+      ...missedAgg,
+      windowStart: addUtcDays(missedAgg.windowStart, 7),
+      windowEnd: addUtcDays(missedAgg.windowEnd, 7),
+    }),
+    existingSignals: [signal({
+      confidence: 'low',
+      evidence_for: missed1?.evidenceFor ?? [],
+    })],
+  }));
+  assert.equal(week2WindowOnly.signalActions.find((row) => row.type === 'missed_sessions')?.confidence, 'low');
+  assert.equal(week2WindowOnly.decision, 'wait');
+
   const week2Agg = aggregates({
     ...missedAgg,
+    workoutCount: 0,
     windowStart: addUtcDays(missedAgg.windowStart, 7),
     windowEnd: addUtcDays(missedAgg.windowEnd, 7),
   });
@@ -181,6 +197,8 @@ test('same window and same data stay low; a moved window can raise confidence; r
 
   const week3Agg = aggregates({
     ...missedAgg,
+    workoutCount: 0,
+    expectedWorkouts: 8,
     windowStart: addUtcDays(missedAgg.windowStart, 14),
     windowEnd: addUtcDays(missedAgg.windowEnd, 14),
   });
@@ -244,7 +262,7 @@ test('unknown signal types stay open; engine does not auto-close them', () => {
   assert.equal(review.decision, 'wait');
 });
 
-test('nextSignalConfidence ignores a refresh of the same fingerprint', () => {
+test('nextSignalConfidence ignores a refresh of the same fingerprint, including old window dates', () => {
   assert.equal(nextSignalConfidence(null, true, '{"w":1}'), 'low');
   assert.equal(nextSignalConfidence(
     signal({ confidence: 'low', evidence_for: [{ kind: 'fingerprint', summary: '{"w":1}' }] }),
@@ -256,6 +274,14 @@ test('nextSignalConfidence ignores a refresh of the same fingerprint', () => {
     true,
     '{"w":2}',
   ), 'medium');
+  assert.equal(nextSignalConfidence(
+    signal({
+      confidence: 'low',
+      evidence_for: [{ kind: 'fingerprint', summary: '{"window_start":"2026-08-21","window_end":"2026-09-03","workout_count":1}' }],
+    }),
+    true,
+    '{"workout_count":1}',
+  ), 'low');
 });
 
 test('human refusal waits instead of re-proposing until evidence changes', () => {
