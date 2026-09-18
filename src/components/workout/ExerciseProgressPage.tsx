@@ -3,7 +3,6 @@ import { ArrowLeft, TrendingUp, Trophy, Search, ChevronRight, Dumbbell, Scale, C
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { useCoachingStore } from '../../stores/coachingStore';
 import { supabase } from '../../lib/supabase';
 import { parseDate, toLocalDateStr, formatChartDate, formatWeekdayShort, formatWeight, kgToLbs } from '../../lib/utils';
 import {
@@ -13,7 +12,7 @@ import {
   type ExerciseProgressSummary,
 } from '../../lib/performedSets';
 import { listedProgressMatches } from '../../lib/progressSearch';
-import { isCoachedAthlete } from '../../lib/coachRole';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { useProfileStore } from '../../stores/profileStore';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import Card from '../ui/Card';
@@ -24,9 +23,7 @@ export default function ExerciseProgressPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const { canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
   const unit = useProfileStore(s => s.profile?.unit_weight) ?? 'kg';
   const showKg = (kg: number) => formatWeight(kg, unit);
   const chartKg = (kg: number) => (unit === 'lbs' ? kgToLbs(kg) : Math.round(kg * 10) / 10);
@@ -228,7 +225,7 @@ export default function ExerciseProgressPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-2 mb-6">
-          {!coached && (
+          {canReadOwnHistory && (
             <CardLink to="/stats">
               <p className="text-sm font-medium text-white flex items-center gap-2"><BarChart2 size={16} className="text-blue-400" />{t('nav.progressSummary')}</p>
             </CardLink>
@@ -239,7 +236,7 @@ export default function ExerciseProgressPage() {
           <CardLink to="/weight">
             <p className="text-sm font-medium text-white flex items-center gap-2"><Scale size={16} className="text-blue-400" />{t('nav.progressMeasures')}</p>
           </CardLink>
-          {!coached && (
+          {canOpenPersonalCalendarRoute && (
             <CardLink to="/calendar">
               <p className="text-sm font-medium text-white flex items-center gap-2"><CalendarDays size={16} className="text-blue-400" />{t('nav.progressHistory')}</p>
             </CardLink>

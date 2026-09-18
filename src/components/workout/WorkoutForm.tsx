@@ -40,6 +40,7 @@ import { showTrainingField } from '../../lib/clientTracking';
 import { useOnline } from '../../lib/useOnline';
 import { offlineOpLabelKey, peekDeadLetterOps } from '../../lib/offlineQueue';
 import { isSoloAthlete } from '../../lib/coachRole';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { isPerformedSet } from '../../lib/performedSets';
 import { soloAskFromProfile } from '../../lib/soloAskDefaults';
 import SoloAskBar from '../solo/SoloAskBar';
@@ -75,6 +76,7 @@ function WorkoutFormInner() {
   const coachingRole = useCoachingStore(s => s.coachingRole);
   const myCoach = useCoachingStore(s => s.myCoach);
   const solo = isSoloAthlete(coachingRole, myCoach);
+  const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
   const catalogExercises = useExerciseStore(s => s.exercises);
   const fetchExercises = useExerciseStore(s => s.fetchExercises);
   const assignment = useProgramStore(s => s.assignment);
@@ -718,7 +720,7 @@ function WorkoutFormInner() {
         <Button onClick={requestFinish} disabled={saving} className="w-full">
           <Check size={16} /> {saving ? t('common.saving') : t('workout.finishWorkout')}
         </Button>
-        {solo && user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
+        {canEditOwnPlan && user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
           <Button
             type="button"
             variant="ghost"

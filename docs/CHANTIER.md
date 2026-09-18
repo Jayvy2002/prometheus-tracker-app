@@ -8,7 +8,7 @@
 >
 > **Règle agents :** ne pas reconstruire ce qui existe déjà. Avant chaque chantier, inspecter le code/migrations actuels et vérifier si le problème est réellement fonctionnel, architectural ou simplement non raccordé.
 
-**Mis à jour : 17 septembre 2026.**
+**Mis à jour : 18 septembre 2026.**
 
 ---
 
@@ -34,7 +34,7 @@ Le travail restant n’est pas une reconstruction. Le principal enjeu est désor
 
 > **CURRENT IMPLEMENTATION GATE — P1.2 : Permissions par ressource/action.**
 >
-> P1.1 est terminé, mergé, déployé et vérifié. Un agent ne commence que la tâche indiquée dans ce bloc, puis s’arrête à la PR verte jusqu’au feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1 est terminé, mergé, déployé et vérifié. P1.2 est en cours (PR ouverte, en attente du feu vert de Jean-Vincent). Un agent ne commence que la tâche indiquée dans ce bloc, puis s’arrête à la PR verte jusqu’au feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 terminé ; P1.2 est le prochain chantier autorisé après lancement explicite** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 terminé ; P1.2 PR ouverte, pas de P1.3 sans feu vert** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.1 est terminé. Le prochain travail produit est **P1.2 — permissions par ressource/action**. L’agent peut le démarrer uniquement lorsque Jean-Vincent lui donne explicitement le feu vert, puis doit s’arrêter à la PR verte.
+P1.2 est en cours. Le calendrier Coaché (P1.3) reste le chantier suivant, uniquement après merge et feu vert.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -211,6 +211,19 @@ user
 Aucune fonctionnalité nouvelle n’a besoin de l’ancien rôle exclusif pour savoir si un utilisateur peut coacher.
 
 ## P1.2 — Permissions par ressource/action
+
+### État actuel
+
+**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.3.**
+
+Inventaire, contrat et câblage : [P1.2 — permissions ressource/action](P1_2_RESOURCE_PERMISSIONS.md).
+
+- Module de décisions `src/features/account/domain/resourcePermissions.ts`.
+- `/stats` (lire son historique) n’est plus masqué parce que la persona est Coachée.
+- Programme assigné : lecture Coaché, écriture Solo uniquement ; proposition existante conservée.
+- Dossier client : capacité Coach + relation active, jamais soi-même.
+- Workspace UI jamais utilisé comme grant.
+- `/calendar` reste bloqué (P1.3). Aucune migration nouvelle.
 
 ### Problème
 

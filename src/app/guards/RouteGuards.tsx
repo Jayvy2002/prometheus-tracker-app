@@ -1,6 +1,7 @@
 import { type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAccountContext } from '../../lib/useAccountContext';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useAuthStore } from '../../stores/authStore';
@@ -22,19 +23,20 @@ export function RouteFallback() {
 }
 
 export function CoachOnly({ children }: { children: ReactNode }) {
-  const context = useAccountContext();
-  if (!context.ready) return <RouteFallback />;
-  if (!context.capabilities.coach) return <Navigate to="/dashboard" replace />;
+  const perms = useResourcePermissions();
+  if (!perms.actor.ready) return <RouteFallback />;
+  if (!perms.canActAsCoach) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
 export function CoachTrackerRedirect({ children }: { children: ReactNode }) {
-  const context = useAccountContext();
-  if (!context.ready) return <RouteFallback />;
-  if (!context.personalToolsAvailable) return <Navigate to="/dashboard" replace />;
+  const perms = useResourcePermissions();
+  if (!perms.actor.ready) return <RouteFallback />;
+  if (!perms.canUsePersonalTools) return <Navigate to="/dashboard" replace />;
   return <>{children}</>;
 }
 
+/** P1.3 still owns /calendar. Do not reuse this to hide authorized personal history. */
 export function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
   const context = useAccountContext();
   if (!context.ready) return <RouteFallback />;

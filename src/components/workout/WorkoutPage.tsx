@@ -9,7 +9,8 @@ import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../l
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
-import { isCoachedAthlete, isSoloAthlete } from '../../lib/coachRole';
+import { isCoachedAthlete } from '../../lib/coachRole';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -41,8 +42,8 @@ export default function WorkoutPage() {
   const createProgram = useProgramStore(s => s.createProgram);
   const saveProgram = useProgramStore(s => s.saveProgram);
   const { profile } = useProfileStore();
+  const { canUpdateOwnAssignedProgram: canEditOwnPlan, canProposeAssignedProgramChange } = useResourcePermissions();
   const coached = isCoachedAthlete(coachingRole, myCoach);
-  const solo = isSoloAthlete(coachingRole, myCoach);
 
   const [filter, setFilter] = useState<'all' | 'completed' | 'incomplete'>('all');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
@@ -222,7 +223,7 @@ export default function WorkoutPage() {
         </Button>
       </div>
 
-      {solo && user && (
+      {canEditOwnPlan && user && (
         <SoloAskBar
           context={askContext}
           onApplyOnce={async (proposal) => {
@@ -297,7 +298,7 @@ export default function WorkoutPage() {
         />
       )}
 
-      {coached && user && myCoach && (
+      {canProposeAssignedProgramChange && user && myCoach && (
         <>
         <p className="text-xs text-neutral-500 mb-2" data-testid="ux19-assigned-plan-untouched">
           {t('coaching.ux19.assignedPlanUntouched')}
@@ -340,7 +341,7 @@ export default function WorkoutPage() {
           starting={startingGym}
           onStart={startProgramDay}
           onContinue={workoutId => navigate(`/workout/${workoutId}`)}
-          onEditPlan={!coached ? () => navigate('/programs') : undefined}
+          onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
         />
       )}
 

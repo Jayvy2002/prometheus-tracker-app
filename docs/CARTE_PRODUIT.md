@@ -518,6 +518,7 @@ canManagePlan(actor, relationship)
 ```
 
 Les noms exacts de fonctions peuvent varier. Le principe ne varie pas.
+Les décisions actuelles sont dans `src/features/account/domain/resourcePermissions.ts`.
 
 ### Exemples
 
