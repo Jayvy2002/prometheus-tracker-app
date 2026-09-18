@@ -3,29 +3,34 @@
 -- owner RLS, and program_assignments Data API still trusted owner_id / self-assign.
 -- New version only. Do not restamp history.
 
+-- plpgsql + SECURITY DEFINER: SQL functions are inlined into RLS and would recurse
+-- when an assignment write checks programs, which then scanned program_assignments.
 CREATE OR REPLACE FUNCTION public.actor_is_actively_coached()
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT EXISTS (
+BEGIN
+  RETURN EXISTS (
     SELECT 1
     FROM public.coach_client_links l
     WHERE l.client_id = auth.uid()
       AND l.status = 'active'
   );
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.coached_client_cannot_edit_program(p_program_id uuid)
 RETURNS boolean
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT COALESCE(
+BEGIN
+  RETURN COALESCE(
     public.actor_is_actively_coached()
     AND EXISTS (
       SELECT 1
@@ -36,6 +41,7 @@ AS $$
     ),
     false
   );
+END;
 $$;
 
 COMMENT ON FUNCTION public.actor_is_actively_coached() IS
@@ -305,9 +311,24 @@ $$;
 REVOKE ALL ON FUNCTION public.sync_program_days(uuid, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.sync_program_days(uuid, jsonb) TO authenticated;
 
+-- SELECT/INSERT stay owner-only. Leftover lock is write-only so assignment
+-- WITH CHECK (EXISTS programs) does not re-enter program_assignments RLS.
 DROP POLICY IF EXISTS "Owners manage programs" ON public.programs;
-CREATE POLICY "Owners manage programs"
-  ON public.programs FOR ALL TO authenticated
+DROP POLICY IF EXISTS "Owners read own programs" ON public.programs;
+DROP POLICY IF EXISTS "Owners insert programs" ON public.programs;
+DROP POLICY IF EXISTS "Owners update programs" ON public.programs;
+DROP POLICY IF EXISTS "Owners delete programs" ON public.programs;
+
+CREATE POLICY "Owners read own programs"
+  ON public.programs FOR SELECT TO authenticated
+  USING (owner_id = (select auth.uid()));
+
+CREATE POLICY "Owners insert programs"
+  ON public.programs FOR INSERT TO authenticated
+  WITH CHECK (owner_id = (select auth.uid()));
+
+CREATE POLICY "Owners update programs"
+  ON public.programs FOR UPDATE TO authenticated
   USING (
     owner_id = (select auth.uid())
     AND NOT public.coached_client_cannot_edit_program(id)
@@ -317,9 +338,40 @@ CREATE POLICY "Owners manage programs"
     AND NOT public.coached_client_cannot_edit_program(id)
   );
 
+CREATE POLICY "Owners delete programs"
+  ON public.programs FOR DELETE TO authenticated
+  USING (
+    owner_id = (select auth.uid())
+    AND NOT public.coached_client_cannot_edit_program(id)
+  );
+
 DROP POLICY IF EXISTS "Owners manage program days" ON public.program_days;
-CREATE POLICY "Owners manage program days"
-  ON public.program_days FOR ALL TO authenticated
+DROP POLICY IF EXISTS "Owners read own program days" ON public.program_days;
+DROP POLICY IF EXISTS "Owners insert program days" ON public.program_days;
+DROP POLICY IF EXISTS "Owners update program days" ON public.program_days;
+DROP POLICY IF EXISTS "Owners delete program days" ON public.program_days;
+
+CREATE POLICY "Owners read own program days"
+  ON public.program_days FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.programs p
+      WHERE p.id = program_days.program_id AND p.owner_id = (select auth.uid())
+    )
+  );
+
+CREATE POLICY "Owners insert program days"
+  ON public.program_days FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.programs p
+      WHERE p.id = program_days.program_id AND p.owner_id = (select auth.uid())
+    )
+    AND NOT public.coached_client_cannot_edit_program(program_id)
+  );
+
+CREATE POLICY "Owners update program days"
+  ON public.program_days FOR UPDATE TO authenticated
   USING (
     EXISTS (
       SELECT 1 FROM public.programs p
@@ -328,6 +380,16 @@ CREATE POLICY "Owners manage program days"
     AND NOT public.coached_client_cannot_edit_program(program_id)
   )
   WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.programs p
+      WHERE p.id = program_days.program_id AND p.owner_id = (select auth.uid())
+    )
+    AND NOT public.coached_client_cannot_edit_program(program_id)
+  );
+
+CREATE POLICY "Owners delete program days"
+  ON public.program_days FOR DELETE TO authenticated
+  USING (
     EXISTS (
       SELECT 1 FROM public.programs p
       WHERE p.id = program_days.program_id AND p.owner_id = (select auth.uid())
@@ -336,8 +398,38 @@ CREATE POLICY "Owners manage program days"
   );
 
 DROP POLICY IF EXISTS "Owners manage program day exercises" ON public.program_day_exercises;
-CREATE POLICY "Owners manage program day exercises"
-  ON public.program_day_exercises FOR ALL TO authenticated
+DROP POLICY IF EXISTS "Owners read own program day exercises" ON public.program_day_exercises;
+DROP POLICY IF EXISTS "Owners insert program day exercises" ON public.program_day_exercises;
+DROP POLICY IF EXISTS "Owners update program day exercises" ON public.program_day_exercises;
+DROP POLICY IF EXISTS "Owners delete program day exercises" ON public.program_day_exercises;
+
+CREATE POLICY "Owners read own program day exercises"
+  ON public.program_day_exercises FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.program_days d
+      JOIN public.programs p ON p.id = d.program_id
+      WHERE d.id = program_day_exercises.program_day_id
+        AND p.owner_id = (select auth.uid())
+    )
+  );
+
+CREATE POLICY "Owners insert program day exercises"
+  ON public.program_day_exercises FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.program_days d
+      JOIN public.programs p ON p.id = d.program_id
+      WHERE d.id = program_day_exercises.program_day_id
+        AND p.owner_id = (select auth.uid())
+        AND NOT public.coached_client_cannot_edit_program(d.program_id)
+    )
+  );
+
+CREATE POLICY "Owners update program day exercises"
+  ON public.program_day_exercises FOR UPDATE TO authenticated
   USING (
     EXISTS (
       SELECT 1
@@ -349,6 +441,19 @@ CREATE POLICY "Owners manage program day exercises"
     )
   )
   WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.program_days d
+      JOIN public.programs p ON p.id = d.program_id
+      WHERE d.id = program_day_exercises.program_day_id
+        AND p.owner_id = (select auth.uid())
+        AND NOT public.coached_client_cannot_edit_program(d.program_id)
+    )
+  );
+
+CREATE POLICY "Owners delete program day exercises"
+  ON public.program_day_exercises FOR DELETE TO authenticated
+  USING (
     EXISTS (
       SELECT 1
       FROM public.program_days d

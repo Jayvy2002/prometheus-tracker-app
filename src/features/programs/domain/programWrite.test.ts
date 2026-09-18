@@ -60,6 +60,10 @@ test('legacy program RPCs, owner RLS and assignment Data API share the leftover 
   const day = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program_day_exercises\(/);
   assert.equal(day.file, '20260918103748_program_write_coached_owner.sql');
   assert.match(day.sql, /coached_client_cannot_edit_program/);
+  assert.match(found.sql, /LANGUAGE plpgsql/);
+  assert.match(found.sql, /Owners update programs/);
+  assert.match(found.sql, /Owners update program days/);
+  assert.match(found.sql, /Owners update program day exercises/);
   assert.match(found.sql, /Owners manage programs/);
   assert.match(found.sql, /Owners manage program days/);
   assert.match(found.sql, /Owners manage program day exercises/);
@@ -70,6 +74,7 @@ test('legacy program RPCs, owner RLS and assignment Data API share the leftover 
   assert.match(src('supabase/tests/save_program_coached.sql'), /save_program_day_exercises/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /self-assign INSERT/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /dual roster sync/);
+  assert.match(src('.github/workflows/ci.yml'), /bash -eo pipefail \{0\}/);
 });
 
 test('editor and solo save go through saveProgram; delete waits for the server', () => {
