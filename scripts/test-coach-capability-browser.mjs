@@ -33,14 +33,15 @@ const vite=spawn('npm',['run','dev','--','--host','127.0.0.1','--port','4174'],{
 const origin='http://127.0.0.1:4174';
 const browser=await chromium.launch();
 await mkdir('artifacts/p11',{recursive:true});
+const pages=[];
 try{
  for(let i=0;i<60;i++){if(await fetch(origin).then(r=>r.ok).catch(()=>false))break;await new Promise(r=>setTimeout(r,500));}
  for(const [label,a,capability,hasCoach] of [['solo',solo,false,false],['coached',coached,false,true],['coach-solo',coach,true,false],['coach-coached',dual,true,true]]){
   const context=await browser.newContext({viewport:{width:390,height:844}});
   await context.addInitScript(({session,key})=>{localStorage.setItem(key,JSON.stringify(session));localStorage.setItem('i18nextLng','en');},{session:a.session,key:'sb-'+new URL(url).hostname.split('.')[0]+'-auth-token'});
-  const page=await context.newPage();page.setDefaultTimeout(25000);
+  const page=await context.newPage();pages.push(page);page.setDefaultTimeout(25000);
   await page.goto(origin+'/profile');
-  await page.getByRole('button',{name:'Sign out',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Sign Out',exact:true}).waitFor();
   const ctx=check(await a.client.rpc('get_my_account_context'));
   assert.equal(ctx.coach_capability,capability);assert.equal(!!ctx.active_coach_id,hasCoach);
   const group=page.getByRole('group',{name:'Workspace'}).filter({visible:true});
@@ -50,8 +51,9 @@ try{
    await group.getByRole('button',{name:'Personal',exact:true,pressed:true}).waitFor();
    await page.screenshot({path:`artifacts/p11/${label}-personal.png`,fullPage:true});
    await group.getByRole('button',{name:'Coaching',exact:true}).click();
-   await page.goto(origin+'/clients');
+   await page.goto(origin+'/profile');
    await group.getByRole('button',{name:'Coaching',exact:true,pressed:true}).waitFor();
+   await page.goto(origin+'/clients');
    if(a===dual)await page.getByText('p11-roster',{exact:true}).first().waitFor();
    await page.screenshot({path:`artifacts/p11/${label}-coaching.png`,fullPage:true});
   }else{
@@ -71,6 +73,9 @@ try{
  const after=check(await dual.client.rpc('get_my_account_context'));assert.equal(after.coach_capability,true);assert.equal(after.active_coach_id,null);
  assert.equal(check(await dual.client.from('coach_client_links').select('client_id').eq('coach_id',dual.id).eq('status','active')).length,1);
  await writeFile('artifacts/p11/results.txt','PASS: four account combinations, mobile workspace switching, coached capability activation, roster and personal departure.\n');
+}catch(error){
+ for(const [i,page] of pages.entries())if(!page.isClosed())await page.screenshot({path:`artifacts/p11/failure-${i}.png`,fullPage:true}).catch(()=>{});
+ throw error;
 }finally{
  await browser.close();vite.kill();
  for(const id of actors)await admin.auth.admin.deleteUser(id);

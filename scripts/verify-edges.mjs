@@ -1,3 +1,4 @@
+import { buildSync } from 'esbuild';
 #!/usr/bin/env node
 /**
  * Q06 — inventaire Edge Functions.
@@ -144,11 +145,8 @@ let failedBundle = 0;
 for (const slug of dirs) {
   const entry = join(FN_DIR, slug, 'index.ts');
   try {
-    execFileSync(
-      process.execPath,
-      [resolve(ROOT, 'node_modules/esbuild/bin/esbuild'), entry, '--bundle', '--format=esm', '--platform=neutral', '--external:npm:*', '--external:jsr:*', `--outfile=${OUT}`, '--log-level=error'],
-      { stdio: 'inherit' },
-    );
+    buildSync({ entryPoints: [entry], bundle: true, format: 'esm', platform: 'neutral',
+      external: ['npm:*', 'jsr:*'], outfile: OUT, logLevel: 'error' });
     console.log(`edge OK: ${slug}`);
   } catch {
     console.error(`edge FAIL: ${slug}`);
