@@ -318,7 +318,7 @@ const workout = {
       scheduled: 'Prévu',
       started: 'Commencé',
       done: 'Terminé',
-      dueHint: 'Jour de plan dû, pas encore loggé. Un recale le nomme ailleurs ; ce dû reste visible.',
+      dueHint: 'Séance prévue. Elle n’a pas encore été commencée.',
     },
     weekSummary: {
       workouts: 'Entraînements',
