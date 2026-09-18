@@ -32,6 +32,10 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
+> **CURRENT IMPLEMENTATION GATE — P1.2 : Permissions par ressource/action.**
+>
+> P1.1 est terminé, mergé, déployé et vérifié. Un agent ne commence que la tâche indiquée dans ce bloc, puis s’arrête à la PR verte jusqu’au feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+
 ## Protocole d’exécution obligatoire
 
 À partir de ce baseline, l’agent travaille **par sous-chantier séquentiel**, jamais en implémentation massive parallèle.
@@ -43,8 +47,9 @@ Le travail restant n’est pas une reconstruction. Le principal enjeu est désor
 5. ajouter/adapter les tests nécessaires ;
 6. mettre à jour ce fichier avec le statut et les preuves durables ;
 7. ouvrir une PR vers `new-JV` ;
-8. ne merger qu’avec les checks pertinents verts ;
-9. repartir du nouveau `new-JV` pour la sous-tâche suivante.
+8. attendre que les checks pertinents soient verts ;
+9. faire une revue finale du diff ;
+10. **s’arrêter et attendre le feu vert de Jean-Vincent avant merge et avant toute sous-tâche suivante.**
 
 **Interdit :** pousser directement une fonctionnalité sur `new-JV`, lancer plusieurs migrations concurrentes sur le même contrat, commencer P2/P3 sur une primitive P1 encore en transition, ou modifier la Vision pour simplifier une implémentation.
 
@@ -55,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 terminé ; P1.2 attend feu vert** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 terminé ; P1.2 est le prochain chantier autorisé après lancement explicite** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -113,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.1 est terminé. Le prochain travail produit sera **P1.2 — permissions par ressource/action**, uniquement après feu vert explicite de Jean-Vincent.
+P1.1 est terminé. Le prochain travail produit est **P1.2 — permissions par ressource/action**. L’agent peut le démarrer uniquement lorsque Jean-Vincent lui donne explicitement le feu vert, puis doit s’arrêter à la PR verte.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 

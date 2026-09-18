@@ -173,12 +173,13 @@ new-JV vert
 → agent/pX-Y-description
 → implémentation + tests + mise à jour CHANTIER
 → PR vers new-JV
-→ CI verte
-→ merge
-→ nouvelle branche depuis new-JV
+→ CI verte + revue finale
+→ STOP / feu vert de Jean-Vincent
+→ merge explicite
+→ seulement ensuite nouvelle sous-tâche
 ```
 
-Le template `.github/pull_request_template.md` est obligatoire pour les changements fonctionnels.
+Le template `.github/pull_request_template.md` est obligatoire pour les changements fonctionnels. Dans Cursor, `.cursor/rules/prometheus.mdc` est une règle projet Always Apply qui force la lecture des sources de vérité avant le code.
 
 ## Déploiement
 
@@ -197,10 +198,15 @@ Les secrets serveur restent dans les secrets Supabase/plateforme et ne sont jama
 - IA = propositions, jamais auto-application.
 - Dashboard = aujourd’hui ; Calendrier = passé/futur et doit servir Solo + Coaché.
 - Demande marketplace ≠ relation active ; confirmation finale = athlète.
+- La relation de coaching n’a pas d’état pause : active ou ended après activation.
 - Programmes versionnés ; historique réalisé immuable.
+- Pas de score global de progression.
+- Photos de progression : jamais analysées par IA.
 - Pas d’étoiles/avis Coach dans la Vision actuelle.
 - Essai Solo = 14 jours ; grâce Coach = 7 jours.
 - Prix définitifs non décidés.
+- Prometheus facture le logiciel ; paiement de la prestation de coaching hors Prometheus.
+- Import prioritaire ; aucun export complet produit prévu actuellement.
 - Bêta : accès éventuellement bypassé, consommation/coûts mesurés.
 
 ## Licence

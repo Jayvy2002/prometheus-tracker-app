@@ -1,0 +1,116 @@
+---
+description: Prometheus product vision, roadmap and implementation gate for Cursor agents
+alwaysApply: true
+---
+
+# Prometheus — mandatory Cursor project rule
+
+Before proposing or modifying code, read these repository sources in this order:
+
+1. `AGENTS.md`
+2. `docs/VISION.md`
+3. `docs/CHANTIER.md`
+4. `docs/CARTE_PRODUIT.md`
+5. `docs/ARCHITECTURE.md`
+6. `CLAUDE.md`
+7. the domain-specific docs, latest migrations, tests and implementation files for the task
+
+Do not rely on memory from a previous Cursor chat. Re-read the current repository state.
+
+## Source-of-truth priority
+
+- Product destination and non-negotiable decisions: `docs/VISION.md`
+- Current execution order and next allowed task: `docs/CHANTIER.md`
+- Journeys, ownership and target permissions: `docs/CARTE_PRODUIT.md`
+- Technical boundaries: `docs/ARCHITECTURE.md`
+- Engineering discipline: `AGENTS.md` and `CLAUDE.md`
+
+Historical audits are evidence/context only. They never override the current Vision.
+
+If documents conflict, do not silently choose the easiest interpretation. Stop, identify the conflict, and fix the durable documentation in the same PR before relying on it.
+
+## Current execution gate
+
+Read the **CURRENT IMPLEMENTATION GATE** block near the top of `docs/CHANTIER.md`.
+
+That block is the only authoritative pointer to the next allowed implementation task. Do not infer a later task from an old chat, model memory, branch name or stale documentation.
+
+Work on **one subtask only**.
+
+After the PR is green, stop and wait for Jean-Vincent before merge or any next task.
+
+## Branch / PR discipline
+
+- Never implement a feature directly on `new-JV`.
+- Start from the latest green `new-JV`.
+- Create `agent/pX-Y-short-description`.
+- Inspect existing code, migrations, RPCs, RLS, tests and domain primitives before creating anything new.
+- Keep one coherent capability per PR.
+- Update `docs/CHANTIER.md` and any durable contract docs when the implementation state changes.
+- Run all relevant tests and CI.
+- Open a PR to `new-JV`.
+- Wait until the required checks are green.
+- Review the final diff.
+- Report what changed, migrations, tests, CI, remaining risks and the PR number.
+- **STOP. Do not merge and do not begin the next subtask without explicit user approval.**
+
+## Product invariants
+
+Never violate these to make implementation easier:
+
+- One account, one common data engine.
+- Solo/Coached is personal state; Coach is an independent professional capability.
+- A Coach can themselves be Coached.
+- Personal/Coaching workspace is UI context, never authorization.
+- Permissions depend on resource ownership, relationship and action.
+- Athlete owns their personal data.
+- One active Coach maximum per athlete.
+- Marketplace request is athlete-initiated; Coach acceptance alone does not activate coaching.
+- Final marketplace activation requires explicit athlete confirmation.
+- Coaching relationship has no paused state: pre-activation, active, or ended.
+- AI is proactive but never silently applies durable strategic changes.
+- Coached strategic adaptations go through the Coach.
+- Weekly AI review persists even if check-ins have another frequency.
+- Human accept/modify/refuse decisions become AI context.
+- Today-only adaptation never silently changes the future program.
+- Dashboard = today/overview. Calendar = separate temporal navigation for Solo + Coached.
+- Completed history is never silently rewritten.
+- No global progression score.
+- Progress photos are never analyzed by AI.
+- No public Coach star/review system unless Vision changes explicitly.
+- Coach without verified qualifications is allowed but receives no verified badge.
+- Imports require preview/correction/confirmation when ambiguous.
+- Full product export is not currently a planned feature.
+- Workout core remains robust offline.
+- Solo trial = 14 days.
+- Coach payment grace = 7 days.
+- Prometheus bills software, not the coaching service; coaching payment stays outside Prometheus.
+- Exact prices, Coach tiers and AI quotas are undecided. Never invent them.
+- Beta can bypass paywalls but must still measure cost/usage.
+- Current sport UX remains focused on strength/bodybuilding/powerlifting/hypertrophy until an explicit expansion project exists.
+
+## Completion standard
+
+A functional task is not complete unless relevant items are green:
+
+- `npm test`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+- `npm run verify:migrations`
+- `npm run verify:edges`
+- `npm run test:rls` for RLS/RPC/security-sensitive work
+- browser/E2E proof when the user journey requires it
+
+Also verify:
+
+- FR/EN parity when UI changes
+- mobile/desktop when UI changes
+- loading / empty / error / retry states
+- offline/network behavior
+- no private data leakage into telemetry
+- persistence confirmed before success UI
+- append-only database migrations
+- no weakened authorization just to make tests pass
+
+The goal is not to complete tickets quickly. The goal is to move the codebase toward `docs/VISION.md` without creating new architectural drift.
