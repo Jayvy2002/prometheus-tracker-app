@@ -145,6 +145,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'decision log: human refusal shapes the next review, no auto-apply' /tmp/athlete-decision-log-db-results.txt
+      - name: Test athlete review integrity
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_review_integrity.sql | tee /tmp/athlete-review-integrity-db-results.txt
+      - name: Confirm athlete review integrity echo
+        run: |
+          set -euo pipefail
+          grep -F 'review integrity: atomic upsert, wait persisted, mismatch blocked, latest per key' /tmp/athlete-review-integrity-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

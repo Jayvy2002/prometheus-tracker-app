@@ -87,6 +87,7 @@ test('historical 30-day stamps stay in applied migrations; pending carries the 1
   assert.match(chantier, /P1\.5.*Règles commerciales constantes/);
   assert.match(src('docs/P1_5_COMMERCIAL_TERMS.md'), /SOLO_TRIAL_DAYS = 14/);
   assert.match(src('docs/P1_5_COMMERCIAL_TERMS.md'), /COACH_GRACE_DAYS = 7/);
-  assert.match(src('docs/P1_5_COMMERCIAL_TERMS.md'), /Hors scope/);
-  assert.match(src('docs/P1_5_COMMERCIAL_TERMS.md'), /P6/);
+  assert.match(src('docs/P1_5_COMMERCIAL_TERMS.md'), /unique à vie/);
+  assert.match(src('docs/P1_5_COMMERCIAL_TERMS.md'), /y compris si elle est expirée/);
+  assert.match(sqlTest, /second coach departure rewrote expired solo trial/);
 });

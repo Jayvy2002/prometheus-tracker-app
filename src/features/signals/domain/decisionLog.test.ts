@@ -13,6 +13,7 @@ import {
   canRecordAthleteDecision,
   compactEvidence,
   decisionEvidenceChanged,
+  effectsAreMaterial,
   evidenceFromProposalPayload,
   isAthleteHumanDecision,
   isProposalSuppressed,
@@ -21,6 +22,7 @@ import {
   mapInterventionKind,
   mapSoloProposalTarget,
   mapSoloReviewDecision,
+  proposalMateriallyEdited,
 } from './decisionLog';
 
 function src(rel: string): string {
@@ -91,6 +93,20 @@ test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
     domain: 'training',
     type: 'missed_sessions',
   });
+  assert.deepEqual(mapInterventionKind('program_adjustment'), {
+    domain: 'training',
+    type: 'program_adjustment',
+  });
+  assert.deepEqual(mapInterventionKind('calorie_adjustment', 'stall_adherent'), {
+    domain: 'weight',
+    type: 'stall',
+  });
+  assert.equal(mapInterventionDecision('kept', false, true), 'accepted');
+  assert.equal(mapInterventionDecision('sent', false), 'accepted');
+  assert.equal(proposalMateriallyEdited({ calories: 2000 }, { calories: 2000 }), false);
+  assert.equal(proposalMateriallyEdited({ calories: 2000 }, { calories: 1800 }), true);
+  assert.equal(effectsAreMaterial({ note: { body: 'ok' } }), true);
+  assert.equal(effectsAreMaterial({}), false);
   assert.equal(canRecordAthleteDecision({ actorId: 'a', athleteId: 'a', isCoachOfAthlete: false }), true);
   assert.equal(canRecordAthleteDecision({ actorId: 'coach', athleteId: 'a', isCoachOfAthlete: true }), true);
   assert.equal(canReadAthleteDecisionLog({ actorId: 'other', athleteId: 'a', isCoachOfAthlete: false }), false);
@@ -114,6 +130,16 @@ test('refusal suppresses the same proposal until evidence moves', () => {
   ];
   assert.equal(latestAthleteDecision(laterAccept, 'nutrition', 'not_following')?.decision, 'accepted');
   assert.equal(isProposalSuppressed(laterAccept, 'nutrition', 'not_following', agg), false);
+
+  const trainingRefusal = [row({
+    domain: 'training',
+    type: 'missed_sessions',
+    data_used: { avg_calories: 2800, calorie_target: 2000, workout_count: 1 },
+  })];
+  const nutritionMoved = aggregates({ avgCalories: 2500, workoutCount: 1 });
+  assert.equal(decisionEvidenceChanged(trainingRefusal[0].data_used, nutritionMoved, 'training', 'missed_sessions'), false);
+  assert.equal(isProposalSuppressed(trainingRefusal, 'training', 'missed_sessions', nutritionMoved), true);
+  assert.equal(isProposalSuppressed(trainingRefusal, 'training', 'missed_sessions', aggregates({ workoutCount: 4 })), false);
 });
 
 test('evidence thresholds match the fleet snapshot', () => {
@@ -168,9 +194,10 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
 
   const api = src('src/features/signals/domain/decisionLogApi.ts');
   assert.match(api, /rpc\('record_athlete_decision'/);
-  assert.match(api, /recordAthleteDecisionBestEffort/);
-  assert.match(api, /listAthleteDecisionLogBestEffort/);
+  assert.match(api, /recordAthleteDecisionDurable/);
+  assert.match(api, /listLatestAthleteDecisionsBestEffort/);
   assert.doesNotMatch(api, /from\('athlete_decision_log'\)\.insert/);
+  assert.match(api, /enqueue_athlete_decision_outbox/);
 
   const sqlTest = src('supabase/tests/athlete_decision_log.sql');
   assert.match(sqlTest, /refused is not stored/);
@@ -192,30 +219,34 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"name": "athlete_decision_log"/);
 
   const soloStore = src('src/stores/soloCopilotStore.ts');
-  assert.match(soloStore, /recordAthleteDecisionBestEffort/);
-  assert.doesNotMatch(soloStore, /await recordAthleteDecision\(/);
+  assert.match(soloStore, /commit_solo_weekly_review_decision|recordAthleteDecisionDurable/);
   assert.match(soloStore, /mapSoloReviewDecision/);
   const slice = src('src/features/coaching/model/interventionsSlice.ts');
   assert.match(slice, /journalInterventionDecision/);
-  assert.match(slice, /recordAthleteDecisionBestEffort/);
-  assert.match(slice, /evidenceFromProposalPayload/);
-  assert.doesNotMatch(slice, /await recordAthleteDecision\(/);
-  assert.doesNotMatch(slice, /await journalInterventionDecision/);
+  assert.match(slice, /recordAthleteDecisionDurable/);
+  assert.match(slice, /proposalMateriallyEdited/);
+  assert.match(slice, /fetchIntervention/);
+  assert.doesNotMatch(slice, /edited: !!payload/);
 
   const soloEngine = src('src/lib/soloCopilot.ts');
   assert.match(soloEngine, /isProposalSuppressed/);
   assert.match(soloEngine, /recentDecisions/);
   const card = src('src/components/dashboard/SoloWeeklyReview.tsx');
-  assert.match(card, /listAthleteDecisionLogBestEffort/);
+  assert.match(card, /listAthleteDecisionLogBestEffort|listLatestAthleteDecisionsBestEffort/);
   assert.match(card, /recentDecisions: decisions/);
   assert.match(src('src/i18n/locales/fr/coaching.ts'), /refusedWait:/);
   assert.match(src('src/i18n/locales/en/coaching.ts'), /refusedWait:/);
 
+  const shared = src('supabase/functions/_shared/proposalMemory.ts');
+  assert.match(shared, /export function mapInterventionKind/);
+  assert.match(shared, /export function decisionEvidenceChanged/);
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /isProposalSuppressed/);
   assert.match(fleet, /recentDecisions: AthleteDecisionLog\[\] = \[\]/);
   const edge = src('supabase/functions/coach-fleet-round/index.ts');
-  assert.match(edge, /athlete_decision_log/);
-  assert.match(edge, /loadDecisionLogs/);
+  assert.match(edge, /proposalMemory/);
+  assert.match(edge, /list_latest_athlete_decisions_for_athletes/);
   assert.match(edge, /isProposalSuppressed/);
+  assert.doesNotMatch(edge, /function journalEvidenceChanged/);
+  assert.doesNotMatch(edge, /function mapInterventionKind/);
 });

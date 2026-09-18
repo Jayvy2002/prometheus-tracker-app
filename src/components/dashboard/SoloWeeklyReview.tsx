@@ -21,6 +21,8 @@ import {
   type SoloReviewDecision,
 } from '../../lib/soloCopilot';
 import { listAthleteDecisionLogBestEffort } from '../../features/signals/domain/decisionLogApi';
+import { loadWeeklyReviewMemory, persistAthleteWeeklyReviewCycle } from '../../features/signals/domain/weeklyReviewCycle';
+import { weeklyReviewInputFromSolo } from '../../features/signals/domain/weeklyReview';
 import type { AthleteDecisionLog } from '../../lib/types';
 import { addDaysToDateStr, todayStr } from '../../lib/utils';
 import Button from '../ui/Button';
@@ -114,6 +116,46 @@ export default function SoloWeeklyReview() {
     if (decidedFor === user.id && decidedWeek === review.weekStart) return;
     void fetchDecision(user.id, review.weekStart);
   }, [user?.id, review?.weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!user || !solo || !profile || !review) return;
+    let cancelled = false;
+    void (async () => {
+      const memory = await loadWeeklyReviewMemory(user.id);
+      if (cancelled) return;
+      await persistAthleteWeeklyReviewCycle(weeklyReviewInputFromSolo(
+        {
+          today,
+          goal: profile.goal ?? 'maintain',
+          calorieTarget: profile.daily_calorie_target ?? 0,
+          trainingFrequency: profile.training_frequency ?? 0,
+          isMinor: !!profile.date_of_birth && getAge(profile.date_of_birth) < 18,
+          hasMedicalFlags: profileHasMedicalFlags(profile.kinesiology_intake),
+        },
+        {
+          windowStart: review.evidence.windowStart,
+          windowEnd: review.evidence.windowEnd,
+          loggedDays: review.evidence.loggedDays,
+          avgCalories: review.evidence.avgCalories,
+          targetAvg: review.evidence.targetAvg,
+          weighIns: review.evidence.weighIns,
+          weightStart: review.evidence.weightStart,
+          deltaKg: review.evidence.deltaKg,
+          weightSpanDays: review.evidence.weightSpanDays,
+          workouts: review.evidence.workouts,
+          expectedWorkouts: review.evidence.expectedWorkouts,
+          avgFatigue: review.evidence.avgFatigue,
+          avgEnergy: review.evidence.avgEnergy,
+        },
+        memory.existingSignals,
+        user.id,
+        memory.recentDecisions,
+      ));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, solo, review?.weekStart, review?.evidence.windowEnd, review?.evidence.avgCalories, review?.evidence.workouts, review?.evidence.loggedDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user || !solo || !review) return null;
   if (decidedFor === user.id && decidedWeek === review.weekStart) return null;

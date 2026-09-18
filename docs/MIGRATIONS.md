@@ -19,14 +19,15 @@ Le lock a été rafraîchi après cette vérification. Une future différence Gi
 
 Les lignes production `accepted` restent `accepted` (état historique terminal) ; elles n’ont pas été réécrites en `athlete_confirmed`.
 
-## Candidats P1.5, P2.1, P2.2 et P2.3 (non appliqués)
+## Candidats P1.5, P2.1, P2.2, P2.3 et intégrité (non appliqués)
 
 PR #190 déclare dans `migrations.pending.json` :
 
 - `20260918182954_commercial_durations` (P1.5) ;
 - `20260918185709_athlete_signals` (P2.1) ;
 - `20260918194013_athlete_weekly_reviews` (P2.2) ;
-- `20260918201237_athlete_decision_log` (P2.3).
+- `20260918201237_athlete_decision_log` (P2.3) ;
+- `20260918224935_athlete_review_integrity` (upsert atomique, match athlète, JSON borné, lecture par clé, journal composite).
 
 Le lock production reste à **116** versions (`20260918130232`). Ne pas transférer ces
 versions dans le lock avant application réelle et vérification live.

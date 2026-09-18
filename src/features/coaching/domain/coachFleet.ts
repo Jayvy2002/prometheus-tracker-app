@@ -456,7 +456,7 @@ export function planFleetRoundCard(
       return { action: 'skip', card: null };
     }
   }
-  const target = mapInterventionKind(card.kind);
+  const target = mapInterventionKind(card.kind, card.flag);
   if (isProposalSuppressed(
     recentDecisions,
     target.domain,

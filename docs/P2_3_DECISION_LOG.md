@@ -10,12 +10,18 @@ pas d’effet réellement appliqué, pas de consommation par la revue universell
 Ce n’est pas un journal append-only partagé avec le Solo.
 
 Une table dédiée n’est donc pas redondante. Les deux chemins existants **restent**
-(carte nutrition Solo, drafts fleet) et **enregistrent** une ligne après le tap humain
-déjà réussi. L’échec du journal ne rollback pas l’écriture humaine (candidate absente
-en production) : écriture **best-effort**.
+(carte nutrition Solo, drafts fleet) et **enregistrent** une ligne après le tap humain.
 
-La carte Solo (`computeSoloWeeklyReview`) et le round fleet (`planFleetRoundCard`,
-Edge `planWrite`) **lisent** le journal. Table absente → fail-open (`[]`).
+Solo : `commit_solo_weekly_review_decision` écrit la carte ISO et le journal dans
+la même transaction. Coach : fetch de l’intervention si le cache est vide, mapping
+`edited` par diff métier, `kept` avec effet réel → accepted/modified, puis
+`record_athlete_decision` ; échec non « table absente » → file `athlete_decision_outbox`.
+Table/RPC absente en production → fail-open.
+
+La carte Solo et le round fleet **lisent** la dernière décision par
+`(athlète, domain, type)`, pas un plafond global de lignes. Un refus n’est levé
+que si les **preuves pertinentes** de cette proposition ont bougé. Mapping et
+comparaison vivent dans `supabase/functions/_shared/proposalMemory.ts`.
 
 ## Contrat
 
@@ -33,12 +39,15 @@ proposition + pourquoi + données utilisées
 - Lecture : athlète propriétaire ou Coach avec relation **active**.
 - `refused` / `ignored` exigent `applied_effect = {}`.
 - Agrégats uniquement — les logs bruts sont rejetés (`raw_logs_forbidden`).
-- Un refus / ignoré du même `(domain, type)` empêche `propose` (moteur universel,
-  carte Solo, round fleet) tant que les preuves n’ont pas bougé (kcal ±150,
-  séances ±2, jours nutrition +3, delta poids ±0.4 kg).
-- Le signal continue d’être upserté ; seule la décision `propose` est retenue.
+- Un refus / ignoré du même `(domain, type)` sémantique empêche `propose`
+  tant que les preuves **de cette proposition** n’ont pas bougé
+  (`program_adjustment` ≠ `missed_sessions` ; un kcal nutrition ne lève pas
+  un refus d’entraînement).
+- Lecture : `list_latest_athlete_decisions` (`DISTINCT ON` par clé), pas
+  `limit 50` / `limit 500` comme unique source de vérité.
 - Mapping Solo : `accepted` → accepted, `kept` → ignored, `dismissed` → refused.
-- Mapping intervention : `sent` → accepted (payload édité → modified), `kept` → ignored,
+- Mapping intervention : `sent` → accepted ou modified selon le diff métier ;
+  `kept` sans effet → ignored ; `kept` avec note/effet réel → accepted/modified ;
   `dismissed` → refused.
 
 ## Hors scope
@@ -49,5 +58,6 @@ Ne pas faire évoluer `solo_weekly_reviews` ni `coach_interventions` en journal.
 ## Livraison
 
 PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
-Candidate `20260918201237_athlete_decision_log` dans `migrations.pending.json`.
+Candidate `20260918201237_athlete_decision_log` et
+`20260918224935_athlete_review_integrity` dans `migrations.pending.json`.
 Le lock production reste à 116 versions.

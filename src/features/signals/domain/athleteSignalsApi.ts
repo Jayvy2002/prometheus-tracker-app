@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import type { AthleteSignal, AthleteSignalClosedStatus, AthleteSignalOpenStatus } from '../types';
+import { isMissingBackendContract } from './backendContract';
 
 export interface UpsertAthleteSignalInput {
   athleteId: string;
@@ -39,3 +40,15 @@ export async function resolveAthleteSignal(input: {
     p_reason: input.reason ?? null,
   });
 }
+
+export async function listOpenAthleteSignalsBestEffort(athleteId: string): Promise<AthleteSignal[]> {
+  const { data, error } = await supabase
+    .from('athlete_signals')
+    .select('*')
+    .eq('athlete_id', athleteId)
+    .in('status', ['open', 'waiting']);
+  if (error || !Array.isArray(data)) return [];
+  return data as AthleteSignal[];
+}
+
+export { isMissingBackendContract };

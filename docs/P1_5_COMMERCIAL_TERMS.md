@@ -9,6 +9,11 @@ Une seule définition métier pour chaque durée commerciale actuelle :
 - prix, quotas Coach et montants Stripe = **non décidés** (ne pas les inventer).
 
 Le tampon `user_profiles.solo_trial_ends_at` n’est jamais raccourci (`COALESCE`).
+**L’essai Solo est unique à vie :** un deuxième départ de Coach conserve la date
+déjà tamponnée, **y compris si elle est expirée**. Ce n’est pas un renouvellement
+automatique d’une période de transition. Ne pas remplacer `COALESCE` par une
+prolongation.
+
 Le mur de facturation, les entitlements et Stripe restent **P6**. Aucune colonne
 `coach_grace_ends_at` dans cette sous-tâche.
 

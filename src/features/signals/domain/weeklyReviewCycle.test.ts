@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { test } from 'node:test';
+import { runAthleteWeeklyReview, type WeeklyReviewInput } from './weeklyReview';
+
+function src(rel: string): string {
+  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+test('orchestration persists wait weeks through the shared engine', () => {
+  const input: WeeklyReviewInput = {
+    athleteId: 'athlete-1',
+    today: '2026-09-03',
+    identity: 'solo',
+    tracking: { nutrition: true, workouts: true, weight: true, checkins: true },
+    aggregates: {
+      windowStart: '2026-08-21',
+      windowEnd: '2026-09-03',
+      loggedNutritionDays: 10,
+      avgCalories: 2000,
+      calorieTarget: 2000,
+      workoutCount: 6,
+      expectedWorkouts: 6,
+      weighIns: 4,
+      weightDeltaKg: -0.6,
+      weightStartKg: 80,
+      weightSpanDays: 13,
+      checkinCount: 4,
+      avgFatigue: 4,
+      avgEnergy: 6,
+      goal: 'cut',
+    },
+    existingSignals: [],
+  };
+  const review = runAthleteWeeklyReview(input);
+  assert.equal(review.decision, 'wait');
+  assert.match(src('src/features/signals/domain/weeklyReviewCycle.ts'), /export async function persistAthleteWeeklyReviewCycle/);
+});
+
+test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate is pending', () => {
+  assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistAthleteWeeklyReviewCycle/);
+  assert.match(src('src/features/signals/domain/weeklyReviewCycle.ts'), /saveAthleteWeeklyReview/);
+  assert.match(src('supabase/functions/coach-fleet-round/index.ts'), /persistWeeklyReview/);
+  assert.match(src('supabase/functions/coach-fleet-round/index.ts'), /runAthleteWeeklyReview/);
+  assert.match(src('supabase/functions/_shared/weeklyReviewEngine.ts'), /nextSignalConfidence/);
+  assert.match(src('supabase/functions/_shared/proposalMemory.ts'), /evidenceScope/);
+
+  const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
+    pending: Array<{ version: string; name: string }>;
+  };
+  assert.equal(pending.pending.some((row) => row.version === '20260918224935' && row.name === 'athlete_review_integrity'), true);
+  assert.match(src('.github/workflows/ci.yml'), /athlete_review_integrity\.sql/);
+  assert.match(src('supabase/tests/athlete_review_integrity.sql'), /signal_athlete_mismatch/);
+  assert.match(src('supabase/tests/athlete_review_integrity.sql'), /atomic upsert missing/);
+  assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /ON CONFLICT \(athlete_id, domain, type\) WHERE status IN \('open', 'waiting'\)/);
+  assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /signal_athlete_mismatch/);
+  assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /list_latest_athlete_decisions/);
+  assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /commit_solo_weekly_review_decision/);
+  assert.doesNotMatch(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /stripe/i);
+});

@@ -11,9 +11,13 @@ après un tap humain. Ce n’est pas la boucle système.
 
 Le moteur commun n’est donc pas redondant. Les deux chemins existants restent : carte
 nutrition Solo (`computeSoloWeeklyReview`) et drafts fleet (`planFleetRoundCard` /
-Edge `coach-fleet-round`). Des adaptateurs (`computeAthleteWeeklyReviewForSolo`,
-`planAthleteWeeklyReview`) **appellent** `runAthleteWeeklyReview` pour `athlete_signals`.
-La carte nutrition et le round fleet **ne sont pas remplacés**.
+Edge `coach-fleet-round`). Ils **ne sont pas remplacés**.
+
+L’orchestration P2.2 (`persistAthleteWeeklyReviewCycle` / Edge `persistWeeklyReview`)
+charge les signaux ouverts et la dernière décision par clé, exécute
+`runAthleteWeeklyReview`, puis persiste via `save_athlete_weekly_review`
+(y compris une semaine `wait`). Protection anti-doublon : `UNIQUE (athlete_id, week_start)`.
+Le moteur vit dans `supabase/functions/_shared/weeklyReviewEngine.ts` (app + Deno).
 
 ## Contrat
 
@@ -29,7 +33,11 @@ agrégats autorisés
 - Autorité : athlète si Solo ; Coach si relation `coach_client_links.active`.
 - Une semaine sans modification (`wait`) est un résultat **valide** et persisté.
 - Un signal faible (confiance `low`) attend ; il ne propose pas.
-- Module de suivi désactivé : aucun jugement dans ce domaine.
+- Module de suivi désactivé : le signal connu passe en `not_relevant` (raison explicite).
+- Données insuffisantes pour un type évaluable : `waiting`, pas `resolved`.
+- `resolved` seulement si le moteur sait juger le type, le suivi est actif, les
+  observations suffisent et le problème n’est plus présent. Types inconnus laissés ouverts.
+- Confiance qualitative idempotente : même fenêtre + même empreinte → pas de hausse.
 - Profil protégé : jamais `propose`.
 - Écritures : RPC `save_athlete_weekly_review` seulement (REVOKE INSERT/UPDATE/DELETE).
 - La RPC applique les actions signaux via les RPC P2.1 ; elle n’écrit pas programmes,
@@ -45,5 +53,6 @@ P2.4 écran « Ce que Prometheus surveille ». Stripe / P6. Pas d’application 
 ## Livraison
 
 PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
-Candidate `20260918194013_athlete_weekly_reviews` dans `migrations.pending.json`.
+Candidate `20260918194013_athlete_weekly_reviews` dans `migrations.pending.json`,
+plus `20260918224935_athlete_review_integrity`.
 Le lock production reste à 116 versions.

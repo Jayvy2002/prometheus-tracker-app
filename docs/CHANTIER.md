@@ -34,7 +34,7 @@ Le travail restant n’est pas une reconstruction. Le principal enjeu est désor
 
 > **CURRENT IMPLEMENTATION GATE — P2.3 : Journal des propositions et décisions humaines.**
 >
-> P1.1–P2.2 sont implémentés (P1.5–P2.3 dans la PR #190). P2.3 journalise la proposition, le pourquoi, les données utilisées, qui a décidé, accepté / modifié / refusé / ignoré, la raison humaine facultative et l’effet réellement appliqué. Un refus ou un ignoré empêche de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé. Aucune auto-application. Pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.4 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1–P2.3 sont implémentés dans la PR #190 (non mergée). La revue universelle est désormais orchestrée (charger agrégats/signaux/décisions → moteur → persister, y compris les semaines `wait`). Le journal est durable (transaction Solo + file Coach), les clés sémantiques et la lecture « dernière décision par clé » sont en place. Confiance idempotente ; absence de données ≠ résolution. Aucune auto-application. Pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.4 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -61,7 +61,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.5 livré dans #190 (merge en attente)** | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **EN COURS — P2.3 en cours (PR #190)** | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P2** | Cerveau Prometheus | **EN COURS — P2.3 livré dans #190 (merge en attente)** | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P2.3 est en cours dans la PR #190. Un agent n’enchaîne pas P2.4 sans le feu vert explicite de Jean-Vincent.
+P2.3 est implémenté dans la PR #190 (non mergée). Un agent n’enchaîne pas P2.4 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -515,7 +515,7 @@ Une semaine sans modification est un résultat valide. Un signal faible attend. 
 
 ### État actuel
 
-**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
 
 Inventaire : [P2.3 — journal des décisions](P2_3_DECISION_LOG.md).
 

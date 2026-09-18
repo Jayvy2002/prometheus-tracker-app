@@ -1,6 +1,8 @@
 /**
  * Commercial durations (docs/VISION.md §28, P1.5).
  * Unique TypeScript source for Solo trial and Coach grace.
+ * Solo trial is unique for the athlete's lifetime: COALESCE keeps an existing
+ * `solo_trial_ends_at` even when it has already expired. Do not auto-extend.
  * Final prices are undecided — do not invent them. Billing wall / entitlements are P6.
  */
 

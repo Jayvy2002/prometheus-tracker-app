@@ -29,12 +29,14 @@ import {
   type InterventionEffects,
 } from '../../../lib/interventionEffects';
 import {
-  recordAthleteDecisionBestEffort,
+  recordAthleteDecisionDurable,
 } from '../../signals/domain/decisionLogApi';
 import {
+  effectsAreMaterial,
   evidenceFromProposalPayload,
   mapInterventionDecision,
   mapInterventionKind,
+  proposalMateriallyEdited,
 } from '../../signals/domain/decisionLog';
 import {
   CoachingGet,
@@ -43,16 +45,20 @@ import {
   saveQueueDismissed,
 } from './coachingShared';
 
-function journalInterventionDecision(
+async function journalInterventionDecision(
   row: CoachIntervention | undefined,
   status: 'sent' | 'kept' | 'dismissed',
-  edited: boolean,
+  submittedPayload?: Record<string, unknown> | null,
   effects?: InterventionEffects,
 ) {
   if (!row?.client_id) return;
-  const human = mapInterventionDecision(status, edited);
-  const target = mapInterventionKind(row.kind);
-  recordAthleteDecisionBestEffort({
+  const flag = typeof row.payload.flag === 'string' ? row.payload.flag : '';
+  const target = mapInterventionKind(row.kind, flag);
+  const edited = proposalMateriallyEdited(row.payload, submittedPayload ?? null);
+  const applied = effectsToJson(effects ?? {});
+  const hasEffect = effectsAreMaterial(applied);
+  const human = mapInterventionDecision(status, edited, hasEffect);
+  await recordAthleteDecisionDurable({
     athleteId: row.client_id,
     domain: target.domain,
     type: target.type,
@@ -61,11 +67,13 @@ function journalInterventionDecision(
       kind: row.kind,
       title: row.title,
       rationale: row.rationale,
-      payload: row.payload,
+      action: row.kind,
+      reason: flag,
+      flag,
     },
     why: row.rationale || row.kind,
     dataUsed: evidenceFromProposalPayload(row.payload),
-    appliedEffect: human === 'refused' || human === 'ignored' ? {} : effectsToJson(effects ?? {}),
+    appliedEffect: human === 'refused' || human === 'ignored' ? {} : applied,
     source: 'coach_interventions',
     sourceId: row.id,
   });
@@ -153,15 +161,18 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
       .maybeSingle();
     if (error) return { error: error.message };
     if (!data) return { error: 'already_resolved' };
-    const resolved = get().pendingInterventions.find(row => row.id === id);
+    const resolved = get().pendingInterventions.find(row => row.id === id)
+      ?? await get().fetchIntervention(id)
+      ?? undefined;
+    const edited = proposalMateriallyEdited(resolved?.payload, payload ?? null);
     track('intervention_resolved', {
       kind: resolved?.kind ?? null,
       source: resolved?.source ?? null,
       status,
-      edited: !!payload,
+      edited,
     });
     if (status === 'sent' || status === 'kept' || status === 'dismissed') {
-      journalInterventionDecision(resolved, status, !!payload);
+      await journalInterventionDecision(resolved, status, payload ?? null);
     }
     set(s => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
@@ -197,16 +208,19 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
     const outcome = data as { ok: boolean; reason?: string; replayed?: boolean } | null;
     if (!outcome?.ok) return { error: outcome?.reason ?? 'already_resolved' };
     if (id) {
-      const resolved = get().pendingInterventions.find(row => row.id === id);
+      const resolved = get().pendingInterventions.find(row => row.id === id)
+        ?? await get().fetchIntervention(id)
+        ?? undefined;
       if (!outcome.replayed) {
+        const edited = proposalMateriallyEdited(resolved?.payload, payload ?? null);
         track('intervention_resolved', {
           kind: resolved?.kind ?? null,
           source: resolved?.source ?? null,
           status,
-          edited: !!payload,
+          edited,
         });
         if (status === 'sent' || status === 'kept' || status === 'dismissed') {
-          journalInterventionDecision(resolved, status, !!payload, effects);
+          await journalInterventionDecision(resolved, status, payload ?? null, effects);
         }
       }
       set(s => ({
@@ -233,13 +247,19 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
     if (error) return { error: error.message };
     const outcome = data as { ok: boolean; reason?: string } | null;
     if (!outcome?.ok) return { error: outcome?.reason ?? 'already_resolved' };
-    const resolved = get().pendingInterventions.find(row => row.id === id);
+    const resolved = get().pendingInterventions.find(row => row.id === id)
+      ?? await get().fetchIntervention(id)
+      ?? undefined;
+    const edited = proposalMateriallyEdited(resolved?.payload, payload ?? null);
     track('intervention_resolved', {
       kind: resolved?.kind ?? null,
       source: resolved?.source ?? null,
       status,
-      edited: !!payload,
+      edited,
     });
+    if (status === 'sent' || status === 'kept' || status === 'dismissed') {
+      await journalInterventionDecision(resolved, status, payload ?? null);
+    }
     set(s => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
     }));

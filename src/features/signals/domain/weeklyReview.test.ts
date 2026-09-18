@@ -8,7 +8,9 @@ import { latestMigrationContaining } from '../../../lib/migrationScan';
 import type { AthleteDecisionLog, AthleteSignal } from '../types';
 import {
   WEEKLY_REVIEW_WINDOW_DAYS,
+  addUtcDays,
   isoWeekStart,
+  nextSignalConfidence,
   runAthleteWeeklyReview,
   weeklyReviewActionsToRpcPayload,
   weeklyReviewInputFromFleet,
@@ -142,7 +144,7 @@ test('sparse nutrition asks for info instead of blaming adherence', () => {
   assert.equal(sparse?.confidence, 'low');
 });
 
-test('weak new signal waits; confidence rises across weeks then proposes; recovery closes', () => {
+test('same window and same data stay low; a moved window can raise confidence; recovery closes', () => {
   const missedAgg = aggregates({ workoutCount: 1, expectedWorkouts: 6, loggedNutritionDays: 10 });
   const week1 = runAthleteWeeklyReview(input({ aggregates: missedAgg }));
   const missed1 = week1.signalActions.find((row) => row.type === 'missed_sessions');
@@ -150,17 +152,45 @@ test('weak new signal waits; confidence rises across weeks then proposes; recove
   assert.equal(missed1?.confidence, 'low');
   assert.equal(week1.decision, 'wait');
 
-  const week2 = runAthleteWeeklyReview(input({
+  const refresh = runAthleteWeeklyReview(input({
     aggregates: missedAgg,
-    existingSignals: [signal({ confidence: 'low' })],
+    existingSignals: [signal({
+      confidence: 'low',
+      evidence_for: missed1?.evidenceFor ?? [],
+    })],
+  }));
+  assert.equal(refresh.signalActions.find((row) => row.type === 'missed_sessions')?.confidence, 'low');
+  assert.equal(refresh.decision, 'wait');
+
+  const week2Agg = aggregates({
+    ...missedAgg,
+    windowStart: addUtcDays(missedAgg.windowStart, 7),
+    windowEnd: addUtcDays(missedAgg.windowEnd, 7),
+  });
+  const week2 = runAthleteWeeklyReview(input({
+    today: '2026-09-10',
+    aggregates: week2Agg,
+    existingSignals: [signal({
+      confidence: 'low',
+      evidence_for: missed1?.evidenceFor ?? [],
+    })],
   }));
   assert.equal(week2.signalActions.find((row) => row.type === 'missed_sessions')?.confidence, 'medium');
   assert.equal(week2.decision, 'propose');
   assert.match(week2.summary, /Rien n’a été appliqué|prête à examiner/);
 
+  const week3Agg = aggregates({
+    ...missedAgg,
+    windowStart: addUtcDays(missedAgg.windowStart, 14),
+    windowEnd: addUtcDays(missedAgg.windowEnd, 14),
+  });
   const week3 = runAthleteWeeklyReview(input({
-    aggregates: missedAgg,
-    existingSignals: [signal({ confidence: 'medium' })],
+    today: '2026-09-17',
+    aggregates: week3Agg,
+    existingSignals: [signal({
+      confidence: 'medium',
+      evidence_for: week2.signalActions.find((row) => row.type === 'missed_sessions')?.evidenceFor ?? [],
+    })],
   }));
   assert.equal(week3.signalActions.find((row) => row.type === 'missed_sessions')?.confidence, 'high');
   assert.equal(week3.decision, 'propose');
@@ -170,8 +200,62 @@ test('weak new signal waits; confidence rises across weeks then proposes; recove
     existingSignals: [signal({ confidence: 'high' })],
   }));
   assert.equal(week4.decision, 'close');
-  assert.equal(week4.signalActions[0]?.op, 'resolve');
-  assert.equal(week4.signalActions[0]?.id, 'sig-1');
+  const resolved = week4.signalActions.find((row) => row.op === 'resolve');
+  assert.equal(resolved?.id, 'sig-1');
+  assert.equal(resolved?.status, 'resolved');
+});
+
+test('disabled module suspends as not_relevant; missing data waits instead of resolving', () => {
+  const openNutrition = signal({
+    id: 'sig-nut',
+    domain: 'nutrition',
+    type: 'not_following',
+    confidence: 'medium',
+  });
+  const disabled = runAthleteWeeklyReview(input({
+    tracking: { nutrition: false, workouts: true, weight: true, checkins: true },
+    existingSignals: [openNutrition],
+  }));
+  const suspended = disabled.signalActions.find((row) => row.id === 'sig-nut');
+  assert.equal(suspended?.op, 'resolve');
+  assert.equal(suspended?.status, 'not_relevant');
+  assert.match(suspended?.reason ?? '', /désactivé/);
+
+  const missing = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ loggedNutritionDays: 0, avgCalories: 0, weighIns: 4 }),
+    existingSignals: [openNutrition],
+  }));
+  assert.equal(missing.decision, 'request_info');
+  const waiting = missing.signalActions.find((row) => row.type === 'not_following');
+  assert.equal(waiting?.op, 'upsert');
+  assert.equal(waiting?.status, 'waiting');
+  assert.equal(missing.signalActions.some((row) => row.op === 'resolve' && row.id === 'sig-nut'), false);
+});
+
+test('unknown signal types stay open; engine does not auto-close them', () => {
+  const custom = signal({
+    id: 'sig-custom',
+    domain: 'goal',
+    type: 'custom_coach_note',
+    confidence: 'low',
+  });
+  const review = runAthleteWeeklyReview(input({ existingSignals: [custom] }));
+  assert.equal(review.signalActions.some((row) => row.id === 'sig-custom'), false);
+  assert.equal(review.decision, 'wait');
+});
+
+test('nextSignalConfidence ignores a refresh of the same fingerprint', () => {
+  assert.equal(nextSignalConfidence(null, true, '{"w":1}'), 'low');
+  assert.equal(nextSignalConfidence(
+    signal({ confidence: 'low', evidence_for: [{ kind: 'fingerprint', summary: '{"w":1}' }] }),
+    true,
+    '{"w":1}',
+  ), 'low');
+  assert.equal(nextSignalConfidence(
+    signal({ confidence: 'low', evidence_for: [{ kind: 'fingerprint', summary: '{"w":1}' }] }),
+    true,
+    '{"w":2}',
+  ), 'medium');
 });
 
 test('human refusal waits instead of re-proposing until evidence changes', () => {
@@ -275,11 +359,21 @@ test('P2.2 source-lock: new table after audit, RPC writes, Solo+fleet share engi
   assert.match(api, /rpc\('save_athlete_weekly_review'/);
   assert.doesNotMatch(api, /from\('athlete_weekly_reviews'\)\.insert/);
 
+  const cycle = src('src/features/signals/domain/weeklyReviewCycle.ts');
+  assert.match(cycle, /persistAthleteWeeklyReviewCycle/);
+  assert.match(cycle, /saveAthleteWeeklyReview/);
+  assert.match(cycle, /loadWeeklyReviewMemory/);
+
   const solo = src('src/lib/soloCopilot.ts');
   assert.match(solo, /weeklyReviewInputFromSolo|runAthleteWeeklyReview/);
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /planAthleteWeeklyReview/);
   assert.match(fleet, /runAthleteWeeklyReview|weeklyReviewInputFromFleet/);
+  const card = src('src/components/dashboard/SoloWeeklyReview.tsx');
+  assert.match(card, /persistAthleteWeeklyReviewCycle/);
+  const edge = src('supabase/functions/coach-fleet-round/index.ts');
+  assert.match(edge, /save_athlete_weekly_review/);
+  assert.match(edge, /runAthleteWeeklyReview/);
 
   const sqlTest = src('supabase/tests/athlete_weekly_reviews.sql');
   assert.match(sqlTest, /wait is not stored/);

@@ -30,7 +30,7 @@ GRANT EXECUTE ON FUNCTION public.solo_trial_interval() TO service_role;
 GRANT EXECUTE ON FUNCTION public.coach_grace_interval() TO service_role;
 
 COMMENT ON COLUMN public.user_profiles.solo_trial_ends_at IS
-  'End of the solo trial started when a coaching link ended (14 days, never shortened by a later unlink). Billing gate is P6 — no hard wall until then.';
+  'End of the unique lifetime Solo trial started when a coaching link first ended (14 days). A later unlink keeps this timestamp, even if it already expired. Billing gate is P6 — no hard wall until then.';
 
 CREATE OR REPLACE FUNCTION public.transition_client_to_solo(p_coach_id uuid, p_client_id uuid)
 RETURNS jsonb

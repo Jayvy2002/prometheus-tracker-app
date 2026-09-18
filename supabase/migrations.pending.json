@@ -15,6 +15,10 @@
     {
       "version": "20260918201237",
       "name": "athlete_decision_log"
+    },
+    {
+      "version": "20260918224935",
+      "name": "athlete_review_integrity"
     }
   ]
 }
