@@ -36,7 +36,7 @@
 
 Aucun agent ne doit pousser directement une implémentation sur `new-JV`, réécrire son historique ou regrouper plusieurs chantiers dépendants simplement pour aller plus vite.
 
-**Point de départ actuel : P1.2 — permissions par ressource/action. P1.1 est terminé, mergé et déployé.**
+**Tâche autorisée actuelle : lire le bloc `CURRENT IMPLEMENTATION GATE` au début de `docs/CHANTIER.md`. C’est l’unique pointeur de prochaine sous-tâche ; ne pas en dupliquer le numéro dans ce fichier.**
 
 ## Contrat produit fondamental
 
