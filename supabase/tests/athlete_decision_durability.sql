@@ -83,7 +83,6 @@ select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-00000000
 do $$
 declare
   b public.athlete_decision_outbox;
-  a_id uuid;
 begin
   begin
     perform public.enqueue_athlete_decision_outbox(
@@ -117,32 +116,72 @@ begin
   if b.payload->>'why' <> 'from-b' then
     raise exception 'outbox collision leaked payload';
   end if;
-  select id into a_id from public.athlete_decision_outbox
-    where athlete_id='a1950000-0000-4000-8000-000000000002'
-    order by created_at desc limit 1;
-  if a_id is not null and a_id = b.id then
-    raise exception 'outbox collision reused foreign row';
-  end if;
 end $$;
 reset role;
 
-insert into public.athlete_decision_outbox (idempotency_key, athlete_id, actor_id, payload)
-values (
-  'a1950000-0000-4000-8000-000000000002:drain-replay',
-  'a1950000-0000-4000-8000-000000000002',
-  'a1950000-0000-4000-8000-000000000002',
-  jsonb_build_object(
-    'domain','training',
-    'type','missed_sessions',
-    'decision','accepted',
-    'proposal', jsonb_build_object('action','relance'),
-    'why','drain recovery',
-    'data_used', jsonb_build_object('workout_count',1),
-    'applied_effect', '{}'::jsonb,
-    'source','coach_interventions',
-    'actor_id','a1950000-0000-4000-8000-000000000002'
-  )
-);
+do $$
+declare
+  a_id uuid;
+  b_id uuid;
+  a_why text;
+  b_why text;
+begin
+  select id, payload->>'why' into a_id, a_why
+    from public.athlete_decision_outbox
+    where athlete_id='a1950000-0000-4000-8000-000000000002'
+    order by created_at desc limit 1;
+  select id, payload->>'why' into b_id, b_why
+    from public.athlete_decision_outbox
+    where athlete_id='a1950000-0000-4000-8000-000000000003'
+    order by created_at desc limit 1;
+  if a_id is null or b_id is null then
+    raise exception 'outbox rows missing after collision enqueue';
+  end if;
+  if a_id = b_id then
+    raise exception 'outbox collision reused foreign row';
+  end if;
+  if a_why <> 'from-a' then
+    raise exception 'solo A outbox payload replaced';
+  end if;
+  if b_why <> 'from-b' then
+    raise exception 'outbox collision leaked payload';
+  end if;
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  boxed public.athlete_decision_outbox;
+begin
+  boxed := public.enqueue_athlete_decision_outbox(
+    'drain-replay',
+    'a1950000-0000-4000-8000-000000000002',
+    'training',
+    'missed_sessions',
+    'accepted',
+    '{"action":"relance"}'::jsonb,
+    'drain recovery',
+    '{"workout_count":1}'::jsonb,
+    null,
+    '{}'::jsonb,
+    'coach_interventions',
+    null
+  );
+  if boxed.athlete_id <> 'a1950000-0000-4000-8000-000000000002' then
+    raise exception 'drain enqueue athlete mismatch';
+  end if;
+  if boxed.idempotency_key <> 'a1950000-0000-4000-8000-000000000002:drain-replay' then
+    raise exception 'drain enqueue key not derived';
+  end if;
+  if boxed.processed_at is not null then
+    raise exception 'enqueue recorded journal instead of queuing';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 declare
@@ -240,6 +279,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 declare

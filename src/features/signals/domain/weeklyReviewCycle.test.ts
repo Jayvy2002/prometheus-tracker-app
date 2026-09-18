@@ -84,4 +84,5 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
     /p_applied_effect jsonb DEFAULT '\{\}'::jsonb,\s*p_idempotency_key text/,
   );
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /42P13/);
+  assert.doesNotMatch(src('supabase/tests/athlete_decision_durability.sql'), /insert into public\.athlete_decision_outbox/i);
 });
