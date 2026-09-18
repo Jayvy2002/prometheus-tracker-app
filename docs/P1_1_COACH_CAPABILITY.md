@@ -51,7 +51,7 @@ de son propre plan coaché. Les primitives existantes sont réutilisées, sans n
 ## Migration et exploitation
 
 Migration append-only créée par CLI : `20260917235400_independent_coach_capability.sql`.
-Aucune migration historique modifiée. Aucun déploiement production dans cette PR.
+Aucune migration historique modifiée. La migration a été déployée après merge via l’intégration Supabase.
 La migration conserve les grants existants sur les fonctions remplacées et protège la
 nouvelle RPC par `auth.uid()`, `search_path` vide et EXECUTE authenticated uniquement.
 Le verrou utilisateur sérialise les changements avec les transitions personnelles.
@@ -60,14 +60,9 @@ une ancienne invitation ou une activation concurrente ne peut pas créer un rost
 une désactivation. Les réponses realtime tardives d'un autre workspace/compte sont ignorées.
 Un chargement de contexte en échec propose Réessayer sans ouvrir les fonctions professionnelles.
 
-`schema_migrations.lock.json` reste le constat production (112 versions).
-`migrations.pending.json` déclare séparément la migration candidate. Les vérificateurs
-exigent le baseline complet et n'acceptent que les versions candidates explicites, uniques
-et postérieures. Le replay local exige baseline + candidats. Après un déploiement autorisé,
-rafraîchir le lock avec l'état observé et retirer la ligne pending correspondante.
+`schema_migrations.lock.json` reflète désormais la production avec **113 versions**, dont `20260917235400_independent_coach_capability`. `migrations.pending.json` est vide après vérification du déploiement. Les vérificateurs continuent d’accepter uniquement des candidats explicites et postérieurs au baseline pour les futures PR.
 
-Les changements Edge (`coach-agent`/`ask-second` via shared, `coach-fleet-round`) nécessiteront
-un déploiement explicite après approbation. Le lock Edge n'est pas falsifié pour la PR.
+Les changements Edge ont été redéployés automatiquement après merge. L’inventaire live a été vérifié et `functions.deployed.lock.json` rafraîchi. Au contrôle post-merge : `coach-agent` v131 et `coach-fleet-round` v138 étaient ACTIVE.
 Rollback : migration corrective append-only ; ne pas supprimer une capacité acquise par
 un Coach lui-même Coaché. Les anciens clients utilisent toujours l'adaptateur legacy.
 
@@ -82,8 +77,7 @@ Tests : matrice de contexte exhaustive (capacité × lien × rôle legacy × wor
 `independent_coach_capability.sql`, tests de départ/consentement/RLS existants, parcours
 `test-coach-capability-browser.mjs` (quatre combinaisons, activation depuis Coaché, switch,
 roster et départ). 673 tests unitaires et CI complète verts sur `2301ded` ; résultats et liens dans `CHANTIER.md`.
-Les vérifications live/dry-run production sont ignorées faute de token en CI ; aucun
-déploiement effectué et aucune preuve de synchronisation production nouvelle revendiquée.
+Après merge, la production a été vérifiée directement : migration 20260917235400 présente, RPC/trigger P1.1 présents et fonctions Edge actives. Les locks ont été synchronisés sur cet état observé.
 
 Hors scope : P1.2 permissions générales, P1.3 calendrier Coaché, P1.4 confirmation marketplace,
 P1.5 durées commerciales, refonte IA et facturation.

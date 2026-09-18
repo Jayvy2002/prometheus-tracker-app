@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-17T23:18:45Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production on 2026-09-17. Never repair or restamp applied history.",
+  "captured_at": "2026-09-18T02:29:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P1.1 deployment on 2026-09-18. Never repair or restamp applied history.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -455,6 +455,10 @@
     {
       "version": "20260915234946",
       "name": "ux27_message_bilan"
+    },
+    {
+      "version": "20260917235400",
+      "name": "independent_coach_capability"
     }
   ]
 }

@@ -26,9 +26,17 @@ test('migration list allows reviewed candidates but rejects production drift and
   assert.equal(accepted('assert-migration-list.mjs', complete.join('\n').replace(`${applied[0].version} | ${applied[0].version}`, `${applied[0].version} | 20000101000000`)), false);
 });
 
-test('dry-run never accepts replaying an applied migration or an undeclared candidate', () => {
+test('dry-run accepts only declared candidates and rejects replaying applied or undeclared migrations', () => {
   assert.equal(accepted('assert-db-push-dry-run.mjs', 'Remote database is up to date'), true);
-  assert.equal(accepted('assert-db-push-dry-run.mjs', 'Would push: ' + pending.map(row => row.version).join('\n')), true);
+  if (pending.length > 0) {
+    assert.equal(accepted('assert-db-push-dry-run.mjs', 'Would push: ' + pending.map(row => row.version).join('\n')), true);
+  } else {
+    assert.equal(
+      accepted('assert-db-push-dry-run.mjs', 'Would push: '),
+      false,
+      'an empty pending manifest must not make an ambiguous “Would push” output look valid',
+    );
+  }
   assert.equal(accepted('assert-db-push-dry-run.mjs', 'Would push: ' + applied[0].version), false);
   assert.equal(accepted('assert-db-push-dry-run.mjs', 'Would push: 20990101000000'), false);
 });
