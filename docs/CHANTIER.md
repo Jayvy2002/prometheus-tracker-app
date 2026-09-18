@@ -337,6 +337,9 @@ Inventaire : [P1.4 — lifecycle marketplace](P1_4_MARKETPLACE_LIFECYCLE.md).
 - `activate_coaching_relationship` reste interne (REVOKE authenticated/anon).
 - Demandes `pending` / `coach_accepted` incompatibles retirées après confirmation.
 - Replay d’une confirmation historique après départ : pas de réactivation.
+- Les lignes leftover `accepted` (ancien contrat : acceptation Coach = activation) restent
+  `accepted`. Elles ne sont pas réécrites en `athlete_confirmed`, ne se rejouent pas, et
+  ne réactivent rien après départ. L’UI les lit via la relation réelle.
 - Télémétrie : `coaching_request_accepted` = poursuite Coach ; `marketplace_athlete_confirmed` = activation.
 - Conversation prospect (messagerie sans dossier) : **P4.3**, hors de cette PR.
 

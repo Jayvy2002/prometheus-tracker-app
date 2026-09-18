@@ -111,7 +111,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
       {requestActivatesFollow(row.status) && row.relationship_state === 'active' && (
         <div className="space-y-3">
-          <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? 'marketplace.coachingActiveCoach' : 'marketplace.coachingActive')}</p>
+          <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? (row.status === 'accepted' ? 'marketplace.coachingActiveCoachHistorical' : 'marketplace.coachingActiveCoach') : 'marketplace.coachingActive')}</p>
           {row.coach_id === owner && <Button onClick={() => navigate(`/clients/${row.client_id}`)}>{t('marketplace.openClient')}</Button>}
           {row.client_id === owner && <Button onClick={() => navigate('/dashboard')}>{t('marketplace.goDashboard')}</Button>}
         </div>

@@ -18,10 +18,12 @@ test('prospect and coach can only see actions corresponding to their side and cu
  assert.deepEqual(requestActions({...row,status:'athlete_confirmed'},'coach'),[]);
  assert.deepEqual(requestActions({...row,status:'athlete_confirmed'},'client'),[]);
  assert.deepEqual(requestActions({...row,status:'withdrawn'},'client'),[]);
- assert.deepEqual(requestActions({...row,status:normalizeJoinRequestStatus('accepted')},'client'),[]);
- assert.equal(normalizeJoinRequestStatus('accepted'),'athlete_confirmed');
+ assert.deepEqual(requestActions({...row,status:'accepted'},'coach'),[]);
+ assert.deepEqual(requestActions({...row,status:'accepted'},'client'),[]);
+ assert.equal(normalizeJoinRequestStatus('accepted'),'accepted');
  assert.equal(normalizeJoinRequestStatus('coach_accepted'),'coach_accepted');
  assert.equal(requestActivatesFollow('athlete_confirmed'),true);
+ assert.equal(requestActivatesFollow('accepted'),true);
  assert.equal(requestActivatesFollow('coach_accepted'),false);
  assert.throws(()=>normalizeJoinRequestStatus('nope'));
 });

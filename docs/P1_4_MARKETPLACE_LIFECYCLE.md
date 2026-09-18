@@ -22,8 +22,11 @@ La conversation prospect dans la messagerie est **P4.3**. P1.4 pose l’état
 Migration append-only `20260918130232_marketplace_athlete_confirm` (candidate,
 pas encore en production).
 
-- Statuts stockés : `pending | coach_accepted | athlete_confirmed | declined | withdrawn`.
-  Les anciennes lignes `accepted` deviennent `athlete_confirmed`.
+- Statuts stockés : `pending | accepted | coach_accepted | athlete_confirmed | declined | withdrawn`.
+  `accepted` est un état historique terminal de l’ancien contrat (acceptation Coach =
+  activation directe). La migration ne le réécrit pas en `athlete_confirmed` : cette
+  confirmation athlète n’a jamais eu lieu. Les nouvelles écritures ne produisent plus
+  `accepted` (`pending → coach_accepted → athlete_confirmed`).
 - Index unique ouvert : `(coach_id, client_id)` tant que `pending` ou `coach_accepted`.
 - `request_coaching` : réutilise une demande `pending` ou `coach_accepted` existante ;
   `already_coached` si un lien actif existe.
@@ -36,6 +39,8 @@ pas encore en production).
     consentement v2, retrait des autres `pending`/`coach_accepted`, statut
     `athlete_confirmed`.
   - Replay : si le statut vaut déjà la cible, retour sans ré-activer.
+  - Une ligne historique `accepted` reste `accepted` et lève `request_closed` (pas de
+    nouvelle relation, pas de réactivation après départ).
 - `activate_coaching_relationship` n’est pas GRANT à `authenticated` ni `anon`.
   Le verrou `user_roles` + l’index `coach_client_one_active_coach` empêchent deux
   suivis actifs.
@@ -45,6 +50,8 @@ pas encore en production).
 - Coach, demande `pending` : Accepter de poursuivre / Refuser + texte prospect.
 - Athlète, demande `coach_accepted` : Confirmer ce coach / Retirer ma demande.
 - Une demande `athlete_confirmed` avec consentement actif affiche le suivi (pas un paiement).
+- Une demande historique `accepted` est affichée selon la relation réelle (actif/terminé),
+  sans prétendre qu’une confirmation athlète a eu lieu.
 - Télémétrie : `coaching_request_accepted` au clic Coach ; `marketplace_athlete_confirmed`
   à la confirmation athlète.
 

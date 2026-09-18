@@ -17,12 +17,16 @@ INSERT INTO auth.users(id, email) VALUES
  ('a1780000-0000-4000-8000-000000000001', 'market-coach@example.test'),
  ('a1780000-0000-4000-8000-000000000002', 'market-other@example.test'),
  ('a1780000-0000-4000-8000-000000000003', 'market-client@example.test'),
- ('a1780000-0000-4000-8000-000000000004', 'market-stranger@example.test');
+ ('a1780000-0000-4000-8000-000000000004', 'market-stranger@example.test'),
+ ('a1780000-0000-4000-8000-000000000005', 'market-legacy-coach@example.test'),
+ ('a1780000-0000-4000-8000-000000000006', 'market-legacy-client@example.test');
 INSERT INTO public.user_roles(user_id, role, coaching_role) VALUES
  ('a1780000-0000-4000-8000-000000000001', 'free', 'coach'),
  ('a1780000-0000-4000-8000-000000000002', 'free', 'coach'),
  ('a1780000-0000-4000-8000-000000000003', 'free', 'none'),
- ('a1780000-0000-4000-8000-000000000004', 'free', 'none')
+ ('a1780000-0000-4000-8000-000000000004', 'free', 'none'),
+ ('a1780000-0000-4000-8000-000000000005', 'free', 'coach'),
+ ('a1780000-0000-4000-8000-000000000006', 'free', 'none')
 ON CONFLICT (user_id) DO UPDATE SET coaching_role = excluded.coaching_role;
 
 DO $$ BEGIN
@@ -245,5 +249,112 @@ DO $$ BEGIN
   END;
 END $$;
 RESET ROLE;
+DO $$
+DECLARE
+  v_request uuid := 'a1780000-0000-4000-8000-000000000020';
+  v_def text;
+BEGIN
+  SELECT pg_get_constraintdef(oid) INTO v_def
+  FROM pg_constraint
+  WHERE conrelid = 'public.coach_join_requests'::regclass
+    AND conname = 'coach_join_requests_status_check';
+  IF v_def IS NULL OR v_def NOT LIKE '%accepted%' THEN
+    RAISE EXCEPTION 'legacy accepted dropped from status check';
+  END IF;
+  INSERT INTO public.coach_join_requests (
+    id, coach_id, client_id, public_name, summary, sharing_version, client_request_id, status
+  ) VALUES (
+    v_request,
+    'a1780000-0000-4000-8000-000000000005',
+    'a1780000-0000-4000-8000-000000000006',
+    'Legacy client',
+    'Opened by coach accept under the previous contract',
+    2,
+    'a1780000-0000-4000-8000-000000000021',
+    'accepted'
+  );
+  INSERT INTO public.coach_client_links (coach_id, client_id, status)
+  VALUES ('a1780000-0000-4000-8000-000000000005', 'a1780000-0000-4000-8000-000000000006', 'active');
+  INSERT INTO public.coaching_relationship_consents (
+    coach_id, client_id, join_request_id, source, consent_version, scopes
+  ) VALUES (
+    'a1780000-0000-4000-8000-000000000005',
+    'a1780000-0000-4000-8000-000000000006',
+    v_request,
+    'directory_request',
+    2,
+    ARRAY['checkins','messages','nutrition','profile','program','progress_photos','questionnaire','workouts']
+  );
+  IF (SELECT status FROM public.coach_join_requests WHERE id = v_request) <> 'accepted' THEN
+    RAISE EXCEPTION 'legacy accepted rewritten as athlete_confirmed';
+  END IF;
+END $$;
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000005');
+DO $$ BEGIN
+  IF NOT public.is_coach_of('a1780000-0000-4000-8000-000000000006') THEN
+    RAISE EXCEPTION 'legacy accepted link not readable';
+  END IF;
+END $$;
+SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000006');
+DO $$ DECLARE r public.coach_join_requests; ended jsonb; nxt public.coach_join_requests; BEGIN
+  SELECT * INTO r FROM public.coach_join_requests WHERE id = 'a1780000-0000-4000-8000-000000000020';
+  IF r.status <> 'accepted' THEN RAISE EXCEPTION 'legacy accepted rewritten as athlete_confirmed'; END IF;
+  BEGIN
+    PERFORM public.respond_coaching_request(r.id, 'confirmed');
+    RAISE EXCEPTION 'legacy accepted replayed as athlete confirm';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'request_closed' THEN RAISE; END IF;
+  END;
+  PERFORM pg_temp.as_user('a1780000-0000-4000-8000-000000000005');
+  BEGIN
+    PERFORM public.respond_coaching_request(r.id, 'accepted');
+    RAISE EXCEPTION 'legacy accepted replayed as coach accept';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'request_closed' THEN RAISE; END IF;
+  END;
+  IF NOT public.is_coach_of('a1780000-0000-4000-8000-000000000006') THEN
+    RAISE EXCEPTION 'legacy accepted link not readable';
+  END IF;
+  PERFORM pg_temp.as_user('a1780000-0000-4000-8000-000000000006');
+  ended := public.client_end_coach_link();
+  IF ended->>'ok' IS DISTINCT FROM 'true' THEN RAISE EXCEPTION 'legacy accepted departure failed'; END IF;
+  IF (SELECT status FROM public.coach_join_requests WHERE id = r.id) <> 'accepted' THEN
+    RAISE EXCEPTION 'legacy accepted rewritten after relationship end';
+  END IF;
+  BEGIN
+    PERFORM public.respond_coaching_request(r.id, 'confirmed');
+    RAISE EXCEPTION 'legacy accepted replayed after relationship end';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'request_closed' THEN RAISE; END IF;
+  END;
+  IF (SELECT status FROM public.coach_join_requests WHERE id = r.id) <> 'accepted' THEN
+    RAISE EXCEPTION 'legacy accepted rewritten after replay';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.coach_client_links
+    WHERE client_id = 'a1780000-0000-4000-8000-000000000006' AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'legacy accepted reactivated';
+  END IF;
+  nxt := public.request_coaching(
+    'a1780000-0000-4000-8000-000000000002',
+    'Legacy client',
+    'New request after leftover follow ended',
+    2,
+    'a1780000-0000-4000-8000-000000000022'
+  );
+  IF nxt.status <> 'pending' THEN RAISE EXCEPTION 'new request after leftover accepted was not pending'; END IF;
+  PERFORM pg_temp.as_user('a1780000-0000-4000-8000-000000000002');
+  nxt := public.respond_coaching_request(nxt.id, 'accepted');
+  IF nxt.status <> 'coach_accepted' THEN RAISE EXCEPTION 'new request stored legacy accepted'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.coach_client_links
+    WHERE client_id = 'a1780000-0000-4000-8000-000000000006' AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'coach accept on new request created a coaching link';
+  END IF;
+END $$;
+RESET ROLE;
 ROLLBACK;
-\echo 'marketplace: publication, consent, isolation, athlete confirm activates coaching, departure restores a new request'
+\echo 'marketplace: publication, consent, isolation, athlete confirm activates coaching, legacy accepted stays accepted, departure restores a new request'

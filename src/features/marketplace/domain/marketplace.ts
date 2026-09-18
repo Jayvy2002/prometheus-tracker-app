@@ -11,7 +11,7 @@ export interface CoachingRequest {
   coach_name?: string | null;
   relationship_state?: 'active' | 'ended' | 'unknown';
   id: string; coach_id: string; client_id: string; public_name: string; summary: string;
-  sharing_version: number; status: 'pending' | 'coach_accepted' | 'athlete_confirmed' | 'declined' | 'withdrawn';
+  sharing_version: number; status: 'pending' | 'accepted' | 'coach_accepted' | 'athlete_confirmed' | 'declined' | 'withdrawn';
   created_at: string; updated_at: string;
 }
 export function marketFilters(params: URLSearchParams) {
@@ -19,15 +19,14 @@ export function marketFilters(params: URLSearchParams) {
   return { discipline: valid('discipline', MARKET_DISCIPLINES), language: valid('language', MARKET_LANGUAGES), format: valid('format', MARKET_FORMATS) };
 }
 export function normalizeJoinRequestStatus(status: string): CoachingRequest['status'] {
-  if (status === 'accepted') return 'athlete_confirmed';
-  if (status === 'pending' || status === 'coach_accepted' || status === 'athlete_confirmed' || status === 'declined' || status === 'withdrawn') {
+  if (status === 'pending' || status === 'accepted' || status === 'coach_accepted' || status === 'athlete_confirmed' || status === 'declined' || status === 'withdrawn') {
     return status;
   }
   throw new Error('invalid_request_status');
 }
 
 export function requestActivatesFollow(status: CoachingRequest['status']): boolean {
-  return status === 'athlete_confirmed';
+  return status === 'athlete_confirmed' || status === 'accepted';
 }
 
 export function requestActions(request: CoachingRequest, userId: string): Array<'accepted' | 'declined' | 'withdrawn' | 'confirmed'> {

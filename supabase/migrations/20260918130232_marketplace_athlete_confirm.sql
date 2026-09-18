@@ -15,30 +15,13 @@ ALTER TABLE public.coach_join_requests
     'withdrawn'
   ));
 
-UPDATE public.coach_join_requests
-SET status = 'athlete_confirmed'
-WHERE status = 'accepted';
-
-ALTER TABLE public.coach_join_requests
-  DROP CONSTRAINT coach_join_requests_status_check;
-
-ALTER TABLE public.coach_join_requests
-  ADD CONSTRAINT coach_join_requests_status_check
-  CHECK (status IN (
-    'pending',
-    'coach_accepted',
-    'athlete_confirmed',
-    'declined',
-    'withdrawn'
-  ));
-
 DROP INDEX IF EXISTS public.coach_join_requests_open_pair;
 CREATE UNIQUE INDEX coach_join_requests_open_pair
   ON public.coach_join_requests (coach_id, client_id)
   WHERE status IN ('pending', 'coach_accepted');
 
 COMMENT ON TABLE public.coach_join_requests IS
-  'Directory requests. coach_accepted is a prospect, not a coaching link. athlete_confirmed activates the link. Not a paid subscription.';
+  'Directory requests. accepted is a historical terminal status from coach-only activation; new writes never produce it. coach_accepted is a prospect. athlete_confirmed is the athlete confirmation. Not a paid subscription.';
 
 CREATE OR REPLACE FUNCTION public.request_coaching(
   p_coach uuid,
@@ -164,6 +147,10 @@ BEGIN
     RETURN v_result;
   END IF;
 
+  IF v_result.status = 'accepted' THEN
+    RAISE EXCEPTION 'request_closed';
+  END IF;
+
   IF p_status = 'accepted' THEN
     IF v_result.status <> 'pending' THEN
       RAISE EXCEPTION 'request_closed';
@@ -251,7 +238,7 @@ GRANT EXECUTE ON FUNCTION public.respond_coaching_request(uuid, text) TO authent
 COMMENT ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid) IS
   'Creates a directory request. sharing_version 2 is the request-time disclosure; activation still requires athlete confirmation.';
 COMMENT ON FUNCTION public.respond_coaching_request(uuid, text) IS
-  'Coach accepted continues a prospect. Athlete confirmed activates the coaching link via activate_coaching_relationship. No subscription, no payment.';
+  'Coach accepted continues a prospect (stored as coach_accepted). Historical accepted stays accepted and cannot replay. Athlete confirmed activates the coaching link. No subscription, no payment.';
 COMMENT ON FUNCTION public.activate_coaching_relationship(uuid, uuid) IS
   'Internal link activation. Marketplace uses it only after athlete confirmation. Not granted to authenticated or anon.';
 
