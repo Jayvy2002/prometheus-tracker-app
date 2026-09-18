@@ -25,8 +25,8 @@ test('workspace switcher is display-only; CoachOnly still uses server capability
   assert.match(store, /get_my_account_context/);
   assert.match(store, /selectAccountWorkspace/);
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
-  assert.match(app, /capabilities\.coach/);
-  assert.match(app, /personalToolsAvailable/);
+  assert.match(app, /canActAsCoach/);
+  assert.match(app, /canUsePersonalTools/);
   assert.doesNotMatch(app, /activeWorkspace === 'coaching'.*CoachOnly/);
   const switcher = src('src/app/layout/WorkspaceSwitcher.tsx');
   assert.match(switcher, /selectAccountWorkspace/);

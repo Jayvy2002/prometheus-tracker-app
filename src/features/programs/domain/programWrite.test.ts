@@ -38,15 +38,44 @@ test('assign recap date stays on the local calendar day', () => {
   assert.match(label, /9|09|Sep/i);
 });
 
-test('latest save_program wraps metadata + sync_program_days and refuses stale', () => {
+test('latest save_program wraps metadata + sync_program_days, refuses stale, and blocks coached leftover owners', () => {
   const found = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
-  assert.equal(found.file, '20260915133000_save_program.sql');
+  assert.equal(found.file, '20260918103748_program_write_coached_owner.sql');
   assert.match(found.sql, /SECURITY DEFINER/);
   assert.match(found.sql, /SET search_path = public/);
   assert.match(found.sql, /RAISE EXCEPTION 'stale'/);
+  assert.match(found.sql, /coached_client_cannot_edit_program/);
+  assert.match(found.sql, /Coached client cannot edit assigned program/);
   assert.match(found.sql, /v_days := public\.sync_program_days\(p_program_id, p_days\)/);
   assert.match(found.sql, /GRANT EXECUTE ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz\) TO authenticated/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz\) FROM PUBLIC, anon/);
+});
+
+test('legacy program RPCs, owner RLS and assignment Data API share the leftover coached lock', () => {
+  const found = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.coached_client_cannot_edit_program');
+  assert.equal(found.file, '20260918103748_program_write_coached_owner.sql');
+  const sync = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.sync_program_days\(/);
+  assert.equal(sync.file, '20260918103748_program_write_coached_owner.sql');
+  assert.match(sync.sql, /coached_client_cannot_edit_program/);
+  const day = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program_day_exercises\(/);
+  assert.equal(day.file, '20260918103748_program_write_coached_owner.sql');
+  assert.match(day.sql, /coached_client_cannot_edit_program/);
+  assert.match(found.sql, /LANGUAGE plpgsql/);
+  assert.match(found.sql, /Owners update programs/);
+  assert.match(found.sql, /Owners update program days/);
+  assert.match(found.sql, /Owners update program day exercises/);
+  assert.match(found.sql, /Owners manage programs/);
+  assert.match(found.sql, /Owners manage program days/);
+  assert.match(found.sql, /Owners manage program day exercises/);
+  assert.match(found.sql, /Assigner inserts assignments/);
+  assert.match(found.sql, /actor_owns_program/);
+  assert.match(src('supabase/migrations.pending.json'), /"version": "20260918103748"/);
+  assert.match(src('supabase/tests/save_program_coached.sql'), /sync_program_days/);
+  assert.match(src('supabase/tests/save_program_coached.sql'), /save_program_day_exercises/);
+  assert.match(src('supabase/tests/save_program_coached.sql'), /self-assign INSERT/);
+  assert.match(src('supabase/tests/save_program_coached.sql'), /user_capabilities/);
+  assert.match(src('supabase/tests/save_program_coached.sql'), /dual roster sync/);
+  assert.match(src('.github/workflows/ci.yml'), /bash -eo pipefail \{0\}/);
 });
 
 test('editor and solo save go through saveProgram; delete waits for the server', () => {
@@ -78,5 +107,8 @@ test('editor and solo save go through saveProgram; delete waits for the server',
   assert.match(src('src/i18n/locales/fr.ts'), /assignRecap:/);
   assert.match(src('src/i18n/locales/en.ts'), /assignRecap:/);
   assert.match(src('.github/workflows/ci.yml'), /save_program\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /save_program_coached\.sql/);
   assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260915133000"/);
+  assert.match(src('supabase/migrations.pending.json'), /"version": "20260918102103"/);
+  assert.match(src('supabase/migrations.pending.json'), /"version": "20260918103748"/);
 });

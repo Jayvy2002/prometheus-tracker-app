@@ -99,7 +99,7 @@ test('solo home and /programs show the proposal; refuse is not auto-apply', () =
   const page = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(page, /SoloProgramProposal/);
   assert.match(page, /ProgramSessionEditor/);
-  assert.match(page, /isSoloAthlete/);
+  assert.match(page, /canUpdateOwnAssignedProgram/);
   assert.match(page, /presentation="athlete"/);
   assert.match(page, /programs\.soloReadFirst/);
   const editor = src('src/components/coaching/ProgramSessionEditor.tsx') + src('src/features/programs/hooks/useProgramEditorTracking.ts') + src('src/features/programs/hooks/useProgramNlEdit.ts');

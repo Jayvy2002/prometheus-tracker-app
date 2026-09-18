@@ -101,7 +101,8 @@ test('program_assignments: only the assigner mutates; the coached client can rea
   assert.equal(bodies.some((p) => /FOR ALL/i.test(p)), false, 'FOR ALL policy is back (client could DELETE)');
   const del = bodies.filter((p) => /FOR DELETE/i.test(p));
   assert.equal(del.length, 1);
-  assert.match(del[0], /USING\s*\(\s*assigned_by\s*=\s*\(select auth\.uid\(\)\)\s*\)/i);
+  assert.match(del[0], /assigned_by\s*=\s*\(select auth\.uid\(\)\)/i);
+  assert.match(del[0], /actor_is_actively_coached/);
   const sel = bodies.filter((p) => /FOR SELECT/i.test(p));
   // C04 adds a second SELECT policy (coach reads active clients' history) — read-only.
   assert.equal(sel.length, 2);
@@ -111,8 +112,14 @@ test('program_assignments: only the assigner mutates; the coached client can rea
   assert.match(history as string, /is_coach_of\(client_id\)/i);
   const upd = bodies.filter((p) => /FOR UPDATE/i.test(p));
   assert.equal(upd.length, 1);
-  assert.match(upd[0], /USING\s*\(\s*assigned_by\s*=\s*\(select auth\.uid\(\)\)\s*\)/i);
+  assert.match(upd[0], /assigned_by\s*=\s*\(select auth\.uid\(\)\)/i);
   assert.match(upd[0], /is_coach_of\(client_id\)/);
+  assert.match(upd[0], /actor_owns_program/);
+  assert.match(upd[0], /actor_is_actively_coached/);
+  const ins = bodies.filter((p) => /FOR INSERT/i.test(p));
+  assert.equal(ins.length, 1);
+  assert.match(ins[0], /actor_is_actively_coached/);
+  assert.match(ins[0], /actor_owns_program/);
 });
 
 test('search_food_products is not callable with the anon key', () => {

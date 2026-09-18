@@ -65,6 +65,7 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /verify:edges/);
   assert.match(ci, /rls-matrix/);
+  assert.match(ci, /bash -eo pipefail \{0\}/);
   assert.match(ci, /run-rls-matrix/);
   assert.match(ci, /verify-local-migrations/);
   assert.match(ci, /client_departure\.sql/);

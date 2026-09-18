@@ -5,7 +5,7 @@ import { Dumbbell, Sparkles } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
-import { isSoloAthlete } from '../../lib/coachRole';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { outlineFromEdited, type EditedProgramDraft } from '../../lib/coachDraftSend';
 import {
   pendingSoloProgramDraft,
@@ -34,8 +34,6 @@ export default function SoloProgramProposal({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
   const resolveIntervention = useCoachingStore(s => s.resolveIntervention);
@@ -49,14 +47,14 @@ export default function SoloProgramProposal({
   const [weeks, setWeeks] = useState(8);
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
 
-  const solo = isSoloAthlete(coachingRole, myCoach);
+  const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
 
   useEffect(() => {
-    if (!user || !solo) return;
+    if (!user || !canEditOwnPlan) return;
     void fetchPendingInterventions();
-  }, [user?.id, solo]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, canEditOwnPlan]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const row = user && solo ? pendingSoloProgramDraft(pendingInterventions, user.id) : null;
+  const row = user && canEditOwnPlan ? pendingSoloProgramDraft(pendingInterventions, user.id) : null;
 
   useEffect(() => {
     if (!row) {
@@ -71,7 +69,7 @@ export default function SoloProgramProposal({
     setEditing(false);
   }, [row?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!user || !solo) return null;
+  if (!user || !canEditOwnPlan) return null;
   if (!row) return null;
 
   if (variant === 'notice') {

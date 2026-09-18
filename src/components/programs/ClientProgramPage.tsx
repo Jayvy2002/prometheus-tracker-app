@@ -6,7 +6,7 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { namedSessionLine } from '../../features/programs/domain/namedSession';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
-import { isSoloAthlete } from '../../lib/coachRole';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
 import { programWeekNumber } from '../../lib/utils';
 import { outlineFromEdited } from '../../lib/coachDraftSend';
@@ -32,12 +32,10 @@ export default function ClientProgramPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { assignment, fetchMyAssignment, fetchPausedAssignments, loading, saveProgram } = useProgramStore();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
   const pendingInterventions = useCoachingStore(s => s.pendingInterventions);
   const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
   const applyProgramOutline = useCoachingStore(s => s.applyProgramOutline);
-  const solo = isSoloAthlete(coachingRole, myCoach);
+  const { canUpdateOwnAssignedProgram: canEditOwnPlan, canProposeAssignedProgramChange } = useResourcePermissions();
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [archives, setArchives] = useState<Awaited<ReturnType<typeof fetchPausedAssignments>>>([]);
@@ -51,18 +49,17 @@ export default function ClientProgramPage() {
     if (!user) return;
     void fetchMyAssignment(user.id);
     void fetchPausedAssignments(user.id).then(setArchives);
-    if (solo) void fetchPendingInterventions();
-  }, [user, solo]); // eslint-disable-line react-hooks/exhaustive-deps
-
+    if (canEditOwnPlan) void fetchPendingInterventions();
+  }, [user, canEditOwnPlan]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pending = canEditOwnPlan ? pendingSoloProgramDraft(pendingInterventions, user?.id) : null;
   const program = assignment?.status === 'active' ? assignment.program : undefined;
-  const pending = solo ? pendingSoloProgramDraft(pendingInterventions, user?.id) : null;
   const training = trainingDays(program?.days);
   const todayWeekday = new Date().getDay();
   const week = program
     ? programWeekNumber(assignment!.start_date, program.duration_weeks)
     : null;
   const todayDay = training.find(d => d.weekday === todayWeekday) ?? null;
-  const showEditor = solo && (!!program || creating);
+  const showEditor = canEditOwnPlan && (!!program || creating);
 
   useEffect(() => {
     if (!program) return;
@@ -84,7 +81,7 @@ export default function ClientProgramPage() {
   };
 
   const handleSave = async () => {
-    if (!user || saving) return;
+    if (!user || saving || !canEditOwnPlan) return;
     const outline = outlineFromEdited({
       programName: name,
       programDesc: description,
@@ -134,10 +131,15 @@ export default function ClientProgramPage() {
       <div className="px-4 pt-6 pb-8">
         <h1 className="text-2xl font-bold text-white mb-1">{t('programs.mineTitle')}</h1>
         <p className="text-sm text-neutral-500 mb-5">
-          {solo ? t('programs.soloReadFirst') : t('programs.mineSubtitle')}
+          {canEditOwnPlan ? t('programs.soloReadFirst') : t('programs.mineSubtitle')}
         </p>
 
-        {solo && <SoloProgramProposal />}
+        {canEditOwnPlan && <SoloProgramProposal />}
+        {canProposeAssignedProgramChange && (
+          <p className="text-xs text-neutral-500 mb-4" data-testid="assigned-plan-read-only">
+            {t('coaching.ux19.assignedPlanUntouched')}
+          </p>
+        )}
 
         {loading && !program && !creating ? (
           <div className="space-y-2">{[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-neutral-900 animate-pulse" />)}</div>
@@ -167,8 +169,8 @@ export default function ClientProgramPage() {
           pending ? null : (
             <Card className="text-center py-10">
               <CalendarRange className="mx-auto mb-3 text-neutral-600" size={28} />
-              <p className="text-neutral-400 mb-4">{solo ? t('programs.soloEmpty') : t('programs.noAssignment')}</p>
-              {solo && (
+              <p className="text-neutral-400 mb-4">{canEditOwnPlan ? t('programs.soloEmpty') : t('programs.noAssignment')}</p>
+              {canEditOwnPlan && (
                 <Button type="button" size="sm" onClick={startBlank}>{t('programs.createMine')}</Button>
               )}
             </Card>

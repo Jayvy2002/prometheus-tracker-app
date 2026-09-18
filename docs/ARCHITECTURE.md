@@ -186,6 +186,8 @@ Exemples :
 
 RLS/RPC reste la source de vérité de sécurité. Une garde React améliore l’UX, elle ne remplace pas l’autorisation serveur.
 
+Les décisions P1.2 vivent dans `src/features/account/domain/resourcePermissions.ts`. Les écrans et gardes de routes les consultent ; le workspace UI n’y figure pas comme condition d’octroi. Côté serveur, `save_program`, `sync_program_days`, `save_program_day_exercises`, les RLS owner des tables programme et les writes Data API de `program_assignments` refusent un Coaché qui possède encore le plan qui lui est assigné. Un Coach lui-même Coaché continue de gérer les programmes de ses clients actifs.
+
 ---
 
 ## 6. Backend Supabase

@@ -1,4 +1,5 @@
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -28,6 +29,7 @@ function goalChipKey(status: RosterGoalStatus): 'coaching.rosterList.goalCut' | 
 
 export default function ClientsPage() {
   const canCoach = useAccountContext().capabilities.coach;
+  const { canReadClientDossier } = useResourcePermissions();
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -115,7 +117,10 @@ export default function ClientsPage() {
   const filteredIds = rosterKey
     ? new Set(rosterHitsForFilter(rosterKey, opsRows, priorities, rosterSignals).map(h => h.clientId))
     : null;
-  const visibleClients = filteredIds ? clients.filter(c => filteredIds.has(c.id)) : clients;
+  const ownedClients = clients.filter(c =>
+    canReadClientDossier({ clientId: c.id, hasActiveRelationship: true }),
+  );
+  const visibleClients = filteredIds ? ownedClients.filter(c => filteredIds.has(c.id)) : ownedClients;
   const roster = sortRosterClients(visibleClients, {
     opsRows,
     signals: rosterSignals,

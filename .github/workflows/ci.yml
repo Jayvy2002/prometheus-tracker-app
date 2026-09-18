@@ -73,6 +73,9 @@ jobs:
     name: rls-matrix (staging-like)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
@@ -124,6 +127,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/save_program.sql | tee /tmp/save-program-db-results.txt
+      - name: Test save_program coached leftover owner guard
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/save_program_coached.sql | tee /tmp/save-program-coached-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -155,12 +162,21 @@ jobs:
         run: node scripts/test-questionnaire-browser.mjs
       - name: Independent Coach capability browser journey
         run: node scripts/test-coach-capability-browser.mjs
+      - name: Resource/action permissions browser journey
+        run: node scripts/test-resource-permissions-browser.mjs
       - name: Upload Coach capability browser proof
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coach-capability-browser-proof
           path: artifacts/p11/
+          if-no-files-found: warn
+      - name: Upload resource permissions browser proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: resource-permissions-browser-proof
+          path: artifacts/p12/
           if-no-files-found: warn
       - name: Upload questionnaire browser proof
         if: always()

@@ -3,7 +3,6 @@ import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
-import { useCoachingStore } from '../../stores/coachingStore';
 import { GOALS } from '../../lib/constants';
 import { calculateBMR, calculateTDEE, calculateCalorieTarget, calculateMacros, getAge } from '../../lib/utils';
 import { toast } from '../ui/Toast';
@@ -11,16 +10,14 @@ import Button from '../ui/Button';
 import Input from '../ui/Input';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { showNutritionField } from '../../lib/clientTracking';
-import { isCoachedAthlete } from '../../lib/coachRole';
 import { stripSelfServeNutritionTargets } from '../../lib/coachOwnedTargets';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 
 export default function GoalsForm({ onBack, inline }: { onBack: () => void; inline?: boolean }) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { profile, updateProfile } = useProfileStore();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
-  const myCoach = useCoachingStore(s => s.myCoach);
-  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const { canUpdateCoachOwnedTargets } = useResourcePermissions();
   const tracking = useClientTracking();
   const [goal, setGoal] = useState(profile?.goal ?? 'maintain');
   const storedKg = profile?.target_weight_kg ?? 0;
@@ -35,8 +32,10 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
 
     const water = +waterTarget;
     const steps = +stepsTarget;
-    if (water < 500 || water > 10000) { toast(t('profile.goals.errors.waterInvalidRange', { min: 500, max: '10 000' }), 'error'); return; }
-    if (steps < 0 || steps > 100000) { toast(t('profile.goals.errors.stepsInvalidRange', { min: 0, max: '100 000' }), 'error'); return; }
+    if (canUpdateCoachOwnedTargets) {
+      if (water < 500 || water > 10000) { toast(t('profile.goals.errors.waterInvalidRange', { min: 500, max: '10 000' }), 'error'); return; }
+      if (steps < 0 || steps > 100000) { toast(t('profile.goals.errors.stepsInvalidRange', { min: 0, max: '100 000' }), 'error'); return; }
+    }
     if (targetWeight) {
       const minW = profile.unit_weight === 'lbs' ? 66 : 30;
       const maxW = profile.unit_weight === 'lbs' ? 660 : 300;
@@ -64,7 +63,7 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
       protein_target: macros.protein,
       carbs_target: macros.carbs,
       fat_target: macros.fat,
-    }, coached);
+    }, !canUpdateCoachOwnedTargets);
 
     const result = await updateProfile(user.id, updates);
     setSaving(false);
@@ -108,10 +107,10 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
           value={targetWeight}
           onChange={e => setTargetWeight(e.target.value)}
         />
-        {coached && (
+        {!canUpdateCoachOwnedTargets && (
           <p className="text-xs text-neutral-500">{t('profile.goals.coachOwnsTargets')}</p>
         )}
-        {showNutritionField(tracking, 'water') && (
+        {canUpdateCoachOwnedTargets && showNutritionField(tracking, 'water') && (
         <Input
           label={t('profile.goals.dailyWater')}
           type="number"
@@ -119,7 +118,7 @@ export default function GoalsForm({ onBack, inline }: { onBack: () => void; inli
           onChange={e => setWaterTarget(e.target.value)}
         />
         )}
-        {showNutritionField(tracking, 'steps') && (
+        {canUpdateCoachOwnedTargets && showNutritionField(tracking, 'steps') && (
         <Input
           label={t('profile.goals.dailySteps')}
           type="number"

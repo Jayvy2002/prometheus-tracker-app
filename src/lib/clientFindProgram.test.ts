@@ -10,11 +10,12 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-test('coached athlete can open Mon programme and exercise-progress in read-only, not stats or calendar', () => {
+test('coached athlete can open Mon programme, exercise-progress and stats in read-only, not calendar', () => {
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /path="\/exercise-progress" element=\{<CoachTrackerRedirect><ExerciseProgressPage/);
   assert.doesNotMatch(app, /path="\/exercise-progress" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
-  assert.match(app, /path="\/stats" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
+  assert.match(app, /path="\/stats" element=\{<CoachTrackerRedirect><StatsPage/);
+  assert.doesNotMatch(app, /path="\/stats" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
   assert.match(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
 
   const workout = src('src/components/workout/WorkoutPage.tsx');
@@ -24,8 +25,8 @@ test('coached athlete can open Mon programme and exercise-progress in read-only,
   assert.doesNotMatch(workout, /coached \|\| !assignment\?\.program/);
 
   const progress = src('src/components/workout/ExerciseProgressPage.tsx');
-  assert.match(progress, /isCoachedAthlete/);
-  assert.match(progress, /!coached && \(/);
+  assert.match(progress, /canReadOwnHistory/);
+  assert.match(progress, /canOpenPersonalCalendarRoute/);
   assert.match(progress, /to="\/stats"/);
   assert.match(progress, /to="\/calendar"/);
 });

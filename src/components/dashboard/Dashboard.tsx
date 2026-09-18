@@ -19,6 +19,7 @@ import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { nutritionTargetsFromProfile, targetRatio } from '../../lib/nutritionTargets';
 import {
   clientHomeAttention,
@@ -70,6 +71,7 @@ export default function Dashboard() {
   const { routines, fetchRoutineWithExercises } = useRoutineStore();
   const { todayCheckin, checkins, loading: checkinLoading } = useCheckinStore();
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount } = useCoachingStore();
+  const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
   const { assignment } = useProgramStore();
   const tracking = useClientTracking();
   const { nutritionHistoryCount, assignmentReady } = useDashboardBootstrap();
@@ -291,7 +293,7 @@ export default function Dashboard() {
             starting={startingRoutine}
             onStart={startProgramDay}
             onContinue={workoutId => navigate(`/workout/${workoutId}`)}
-            onEditPlan={!hasCoach ? () => navigate('/programs') : undefined}
+            onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
           />
         )}
 
@@ -458,7 +460,7 @@ export default function Dashboard() {
             starting={startingRoutine}
             onStart={startProgramDay}
             onContinue={workoutId => navigate(`/workout/${workoutId}`)}
-            onEditPlan={!hasCoach ? () => navigate('/programs') : undefined}
+            onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
           />
         )}
 

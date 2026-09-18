@@ -292,7 +292,7 @@ export default function StatsPage() {
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
             <ArrowLeft size={20} />
           </button>
-          <h1 className="text-xl font-bold text-white flex-1">{t('stats.title')}</h1>
+          <h1 className="text-xl font-bold text-white flex-1" data-testid="stats-page">{t('stats.title')}</h1>
         </div>
 
         {/* Period selector */}
