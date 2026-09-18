@@ -49,9 +49,11 @@ pas encore en production).
 
 - Coach, demande `pending` : Accepter de poursuivre / Refuser + texte prospect.
 - Athlète, demande `coach_accepted` : Confirmer ce coach / Retirer ma demande.
-- Une demande `athlete_confirmed` avec consentement actif affiche le suivi (pas un paiement).
-- Une demande historique `accepted` est affichée selon la relation réelle (actif/terminé),
-  sans prétendre qu’une confirmation athlète a eu lieu.
+- Une demande `athlete_confirmed` affiche l’événement historique, puis l’état courant lu
+  dans `coach_client_links` (actif / terminé / indisponible). Ce n’est pas un paiement.
+- Une demande historique `accepted` est affichée selon le lien réel
+  (`coach_id` + `client_id`), sans prétendre qu’une confirmation athlète a eu lieu.
+  Le consentement n’est pas la source de l’état courant.
 - Télémétrie : `coaching_request_accepted` au clic Coach ; `marketplace_athlete_confirmed`
   à la confirmation athlète.
 

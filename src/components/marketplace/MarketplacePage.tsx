@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
 import CoachDirectoryCard from './CoachDirectoryCard';
 import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
 import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
@@ -109,14 +109,20 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <p className="text-sm text-neutral-400">{t('marketplace.confirmActivatesFollow')}</p>
       )}
       <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
-      {requestActivatesFollow(row.status) && row.relationship_state === 'active' && (
-        <div className="space-y-3">
-          <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? (row.status === 'accepted' ? 'marketplace.coachingActiveCoachHistorical' : 'marketplace.coachingActiveCoach') : 'marketplace.coachingActive')}</p>
-          {row.coach_id === owner && <Button onClick={() => navigate(`/clients/${row.client_id}`)}>{t('marketplace.openClient')}</Button>}
-          {row.client_id === owner && <Button onClick={() => navigate('/dashboard')}>{t('marketplace.goDashboard')}</Button>}
-        </div>
-      )}
-      {requestActivatesFollow(row.status) && row.relationship_state !== 'active' && <p>{t(row.relationship_state === 'ended' ? 'marketplace.relationshipEnded' : 'marketplace.relationshipUnknown')}</p>}
+      {(() => {
+        const relationshipCopy = requestRelationshipCopyKey(row, owner);
+        if (!relationshipCopy) return null;
+        if (row.relationship_state === 'active') {
+          return (
+            <div className="space-y-3">
+              <p className="text-sm text-neutral-400">{t(relationshipCopy)}</p>
+              {row.coach_id === owner && <Button onClick={() => navigate(`/clients/${row.client_id}`)}>{t('marketplace.openClient')}</Button>}
+              {row.client_id === owner && <Button onClick={() => navigate('/dashboard')}>{t('marketplace.goDashboard')}</Button>}
+            </div>
+          );
+        }
+        return <p>{t(relationshipCopy)}</p>;
+      })()}
       {row.client_id === owner && !requestActivatesFollow(row.status) && <Link className="block min-h-11 inline-flex items-center text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
       <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant={action === 'accepted' || action === 'confirmed' ? 'primary' : 'secondary'} onClick={() => {
         const seq = sequence.current;

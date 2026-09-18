@@ -89,22 +89,32 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.doesNotMatch(page, /agreementOnly/);
   assert.match(page, /requestActivatesFollow/);
   assert.match(page, /normalizeJoinRequestStatus/);
+  assert.match(page, /requestRelationshipCopyKey/);
   assert.match(page, /marketplace\.acceptContinuesProspect/);
   assert.match(page, /marketplace\.confirmActivatesFollow/);
   assert.doesNotMatch(page, /acceptActivatesFollow/);
-  assert.match(page, /coachingActiveCoachHistorical/);
+  assert.doesNotMatch(page, /relationshipUnknownHistorical/);
   assert.match(page, /marketplace\.already_coached/);
+  const api = src('src/features/marketplace/domain/marketplaceApi.ts');
+  assert.match(api, /coach_client_links/);
+  assert.match(api, /resolveRelationshipState/);
+  assert.doesNotMatch(api, /coaching_relationship_consents/);
+  assert.doesNotMatch(api, /relationship_state: consent/);
 
   const fr = src('src/i18n/locales/fr/marketplace.ts');
   assert.match(fr, /pas un paiement/);
-  assert.match(fr, /suivi est actif/);
+  assert.match(fr, /Le suivi avec ce coach est actif/);
   assert.match(fr, /formulaire n’est pas ouvert/);
   assert.match(fr, /Suivi historique — ouvert à l’acceptation du coach/);
+  assert.match(fr, /Confirmation de l’athlète enregistrée/);
+  assert.match(fr, /Le statut actuel de ce suivi historique est indisponible/);
   const en = src('src/i18n/locales/en/marketplace.ts');
   assert.match(en, /not a payment/);
-  assert.match(en, /coaching is active/);
+  assert.match(en, /Coaching with this coach is now active/);
   assert.match(en, /form stays closed/);
   assert.match(en, /Historical follow — opened when the coach accepted/);
+  assert.match(en, /Athlete confirmation recorded/);
+  assert.match(en, /The current status of this historical coaching relationship is unavailable/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /coach_marketplace\.sql/);

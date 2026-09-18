@@ -339,7 +339,9 @@ Inventaire : [P1.4 — lifecycle marketplace](P1_4_MARKETPLACE_LIFECYCLE.md).
 - Replay d’une confirmation historique après départ : pas de réactivation.
 - Les lignes leftover `accepted` (ancien contrat : acceptation Coach = activation) restent
   `accepted`. Elles ne sont pas réécrites en `athlete_confirmed`, ne se rejouent pas, et
-  ne réactivent rien après départ. L’UI les lit via la relation réelle.
+  ne réactivent rien après départ. L’UI lit l’état courant dans `coach_client_links`
+  (pas dans le consentement).
+- `athlete_confirmed` décrit l’événement historique ; l’état actif/terminé est affiché à part.
 - Télémétrie : `coaching_request_accepted` = poursuite Coach ; `marketplace_athlete_confirmed` = activation.
 - Conversation prospect (messagerie sans dossier) : **P4.3**, hors de cette PR.
 
