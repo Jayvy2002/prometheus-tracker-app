@@ -81,7 +81,9 @@ inchangées. Aucun nouveau texte produit, FR/EN existants conservés.
 Tests : matrice de contexte exhaustive (capacité × lien × rôle legacy × workspace), SQL
 `independent_coach_capability.sql`, tests de départ/consentement/RLS existants, parcours
 `test-coach-capability-browser.mjs` (quatre combinaisons, activation depuis Coaché, switch,
-roster et départ). Résultats finaux et CI : voir `CHANTIER.md`.
+roster et départ). 673 tests unitaires et CI complète verts sur `2301ded` ; résultats et liens dans `CHANTIER.md`.
+Les vérifications live/dry-run production sont ignorées faute de token en CI ; aucun
+déploiement effectué et aucune preuve de synchronisation production nouvelle revendiquée.
 
 Hors scope : P1.2 permissions générales, P1.3 calendrier Coaché, P1.4 confirmation marketplace,
 P1.5 durées commerciales, refonte IA et facturation.
