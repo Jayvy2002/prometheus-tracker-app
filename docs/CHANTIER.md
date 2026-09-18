@@ -32,6 +32,10 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
+> **CURRENT IMPLEMENTATION GATE — P1.2 : Permissions par ressource/action.**
+>
+> P1.1 est terminé, mergé, déployé et vérifié. Un agent ne commence que la tâche indiquée dans ce bloc, puis s’arrête à la PR verte jusqu’au feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+
 ## Protocole d’exécution obligatoire
 
 À partir de ce baseline, l’agent travaille **par sous-chantier séquentiel**, jamais en implémentation massive parallèle.
