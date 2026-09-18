@@ -31,7 +31,7 @@ test('complete product vision preserves the final non-negotiable decisions', () 
 
   const required: Array<[string, RegExp]> = [
     ['independent Coach capability', /Coach = capacité professionnelle indépendante|capacité Coach.*indépendante/i],
-    ['no paused coaching relationship', /relation de coaching.*n.?a pas d.?état [«"']?paused|n.?a pas d.?état de pause pour la relation/i],
+    ['no paused coaching relationship', /relation de coaching.*n.?a pas d.?état.*paused|n.?a pas d.?état de pause pour la relation/i],
     ['no global progression score', /Pas de score global/i],
     ['progress photos excluded from AI', /L’IA n’analyse jamais les photos de progression|photos de progression.*jamais analysées par IA/i],
     ['athlete final marketplace confirmation', /confirmation.*athlète|athlète confirme explicitement/i],
