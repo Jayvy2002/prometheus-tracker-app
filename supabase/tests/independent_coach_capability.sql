@@ -76,5 +76,13 @@ do $$ declare ctx jsonb; begin
   perform public.triage_coach_fleet(); raise exception 'Solo accesses fleet';
  exception when others then if sqlerrm <> 'not_coach' then raise; end if; end;
 end $$;
+reset role;
+do $ begin
+ begin
+  insert into public.coach_client_links(coach_id,client_id,status) values
+    ('a1880000-0000-4000-8000-000000000004','a1880000-0000-4000-8000-000000000002','active');
+  raise exception 'a stale invite can create a roster without capability';
+ exception when others then if sqlerrm <> 'coach_capability_required' then raise; end if; end;
+end $;
 rollback;
 \echo 'P1.1: four combinations, activation, revocation, roster, departure and isolation passed'

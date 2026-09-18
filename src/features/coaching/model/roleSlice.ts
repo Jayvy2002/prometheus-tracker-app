@@ -20,6 +20,7 @@ import {
 } from '../../../stores/profileStore';
 import {
   getSessionOwner,
+  captureSession,
 } from '../../../lib/sessionScope';
 import {
   COACH_HAS_ACTIVE_CLIENTS,
@@ -48,6 +49,7 @@ import {
 export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchMyRole' | 'selectAccountWorkspace' | 'chooseEntryIntention' | 'setCoachingRole' | 'applyIntendedCoachingRole' | 'enableCoachMode' | 'countActiveCoachLinks' | 'disableCoachMode' > {
   return {
   fetchMyRole: async (userId) => {
+    const sessionCurrent = captureSession(userId);
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
     try {
       const { data, error, snapshot } = await readAccountRole(
@@ -55,7 +57,7 @@ export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<Coachi
         () => supabase.rpc('get_my_account_context'),
         () => supabase.from('user_roles').select('coaching_role').eq('user_id', userId).maybeSingle(),
       );
-      if (getSessionOwner() !== userId) return;
+      if (!sessionCurrent()) return;
       const outcome = nextRoleAfterFetch({
         previous,
         data: data as { coaching_role?: string | null } | null,
@@ -91,7 +93,7 @@ export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<Coachi
           : { myTrackingConfig: cloneTracking(ALL_ON_TRACKING), trackingReady: true }),
       });
     } catch {
-      if (getSessionOwner() !== userId) return;
+      if (!sessionCurrent()) return;
       set({
         coachingRole: previous,
         accountSnapshot: null,
@@ -132,10 +134,12 @@ export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<Coachi
   },
 
   setCoachingRole: async (role) => {
+    if (role !== 'coach' && role !== 'none') return { error: 'invalid_capability' };
+    const sessionCurrent = captureSession();
     const accountId = getSessionOwner();
     if (!accountId) return { error: 'not_authenticated' };
     const { data, error } = await supabase.rpc('set_coach_capability', { p_enabled: role === 'coach' });
-    if (getSessionOwner() !== accountId) return { error: 'session_changed' };
+    if (!sessionCurrent()) return { error: 'session_changed' };
     if (error) return { error: mapCoachingRoleError(error.message) };
     const snapshot = parseAccountSnapshot(data, accountId);
     if (!snapshot) return { error: 'invalid_account_context' };

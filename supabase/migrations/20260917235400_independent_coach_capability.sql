@@ -302,3 +302,23 @@ IF auth.uid() IS NOT NULL AND auth.uid() <> p_coach_id THEN
   RETURN v_id;
 END;
 $$;
+
+-- An outstanding invite must not reactivate a roster after capability revocation.
+-- Lock the same account row as set_coach_capability before checking the capability.
+-- This also serializes concurrent activation versus disable (both orders are safe).
+CREATE OR REPLACE FUNCTION public.require_active_coach_capability()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+BEGIN
+  IF NEW.status = 'active' THEN
+    PERFORM 1 FROM public.user_roles WHERE user_id = NEW.coach_id FOR UPDATE;
+    IF NOT EXISTS (
+      SELECT 1 FROM public.user_capabilities WHERE user_id = NEW.coach_id AND capability = 'coach'
+    ) THEN RAISE EXCEPTION 'coach_capability_required'; END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.require_active_coach_capability() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER require_active_coach_capability
+  BEFORE INSERT OR UPDATE OF status, coach_id ON public.coach_client_links
+  FOR EACH ROW EXECUTE FUNCTION public.require_active_coach_capability();

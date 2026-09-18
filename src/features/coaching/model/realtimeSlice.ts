@@ -1,3 +1,4 @@
+import { captureSession } from '../../../lib/sessionScope';
 import {
   supabase,
 } from '../../../lib/supabase';
@@ -45,8 +46,10 @@ import {
 export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'startCoachRealtime' | 'stopCoachRealtime' | 'startClientRealtime' | 'stopClientRealtime' | 'subscribeClientDossier' > {
   return {
   startCoachRealtime: async () => {
+    const sessionCurrent = captureSession();
+    const current = () => sessionCurrent() && get().accountWorkspace === 'coaching';
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user || !current()) return;
     if (!get().accountSnapshot?.coachCapability) return;
     void get().fetchCoachMessages();
     if (!coachingRuntime.coachRealtimeChannel) {
@@ -62,6 +65,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `coach_id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             const mapped = raw ? mapInterventionRow(raw) : null;
             if (!mapped) {
@@ -83,6 +87,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `coach_id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             const mapped = raw ? mapCoachMessage(raw) : null;
             if (!mapped) {
@@ -121,8 +126,10 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
   },
 
   startClientRealtime: async () => {
+    const sessionCurrent = captureSession();
+    const current = () => sessionCurrent() && get().accountWorkspace === 'personal';
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user || !current()) return;
     if (get().accountWorkspace === 'coaching') return;
     void get().fetchMyCoach().then(() => {
       void get().fetchCoachMessages();
@@ -142,6 +149,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `client_id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             const mapped = raw ? mapCoachMessage(raw) : null;
             if (!mapped) {
@@ -161,6 +169,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `client_id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             if (!shouldRefreshClientAssignment(payload.eventType, raw, user.id) && payload.eventType !== 'DELETE') {
               return;
@@ -177,6 +186,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             // The coach ended the link: role went back to 'none' server-side — reload role, coach
             // and profile so the athlete lands on the solo home without a reload (VISION point 4).
@@ -202,6 +212,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `client_id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             const isCoached = isCoachedAthlete(get().coachingRole, get().myCoach);
             if (payload.eventType === 'DELETE' || !raw) {
@@ -220,6 +231,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `client_id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             const mapped = raw ? mapInterventionRow(raw) : null;
             if (!mapped) {
@@ -240,6 +252,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             table: 'program_days',
           },
           payload => {
+            if (!current()) return;
             if (!shouldRefreshClientProgramContent(payload.eventType)) return;
             void useProgramStore.getState().fetchMyAssignment(user.id);
           },
@@ -252,6 +265,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             table: 'program_day_exercises',
           },
           payload => {
+            if (!current()) return;
             if (!shouldRefreshClientProgramContent(payload.eventType)) return;
             void useProgramStore.getState().fetchMyAssignment(user.id);
           },
@@ -265,6 +279,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
             filter: `user_id=eq.${user.id}`,
           },
           payload => {
+            if (!current()) return;
             const raw = (payload.new ?? payload.old) as Record<string, unknown> | undefined;
             if (!shouldRefreshProgressPhotos(payload.eventType, raw, user.id) && payload.eventType !== 'DELETE') {
               return;

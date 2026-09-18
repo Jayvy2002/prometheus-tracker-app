@@ -146,8 +146,12 @@ La capacité serveur est découplée du rôle exclusif par la migration candidat
 risques et procédure de déploiement : [P1.1](P1_1_COACH_CAPABILITY.md).
 
 Preuves locales : 671 tests unitaires verts ; build vert ; lint sans erreur (warnings
-historiques). Typecheck et vérifications finales en cours. DB/RLS et navigateur seront
-exécutés dans la CI isolée PostgreSQL 17 (Docker/psql indisponibles sur ce poste).
+historiques). Typecheck, verify:migrations et les 13 compilations Edge verts.
+Le run CI [35290060933](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35290060933)
+a validé le replay PostgreSQL 17, la matrice RLS, les tests SQL du domaine, les parcours
+questionnaire et P1.1. La revue a ensuite ajouté la garde des invitations après désactivation,
+l'isolation des réponses tardives et la reprise de chargement ; validation du HEAD final en cours.
+Docker/psql sont indisponibles sur ce poste, les preuves DB sont celles de la CI isolée.
 Le lock production reste inchangé : 112 migrations observées + 1 candidate explicite.
 
 **Arrêt obligatoire après CI verte et revue finale : aucun merge, aucun P1.2 sans le feu vert de Jean-Vincent.**

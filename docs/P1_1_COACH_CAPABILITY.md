@@ -55,6 +55,10 @@ Aucune migration historique modifiée. Aucun déploiement production dans cette 
 La migration conserve les grants existants sur les fonctions remplacées et protège la
 nouvelle RPC par `auth.uid()`, `search_path` vide et EXECUTE authenticated uniquement.
 Le verrou utilisateur sérialise les changements avec les transitions personnelles.
+Un trigger vérifie la capacité à chaque activation de lien, avec le même verrou côté Coach :
+une ancienne invitation ou une activation concurrente ne peut pas créer un roster après
+une désactivation. Les réponses realtime tardives d'un autre workspace/compte sont ignorées.
+Un chargement de contexte en échec propose Réessayer sans ouvrir les fonctions professionnelles.
 
 `schema_migrations.lock.json` reste le constat production (112 versions).
 `migrations.pending.json` déclare séparément la migration candidate. Les vérificateurs
