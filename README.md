@@ -198,10 +198,15 @@ Les secrets serveur restent dans les secrets Supabase/plateforme et ne sont jama
 - IA = propositions, jamais auto-application.
 - Dashboard = aujourd’hui ; Calendrier = passé/futur et doit servir Solo + Coaché.
 - Demande marketplace ≠ relation active ; confirmation finale = athlète.
+- La relation de coaching n’a pas d’état pause : active ou ended après activation.
 - Programmes versionnés ; historique réalisé immuable.
+- Pas de score global de progression.
+- Photos de progression : jamais analysées par IA.
 - Pas d’étoiles/avis Coach dans la Vision actuelle.
 - Essai Solo = 14 jours ; grâce Coach = 7 jours.
 - Prix définitifs non décidés.
+- Prometheus facture le logiciel ; paiement de la prestation de coaching hors Prometheus.
+- Import prioritaire ; aucun export complet produit prévu actuellement.
 - Bêta : accès éventuellement bypassé, consommation/coûts mesurés.
 
 ## Licence
