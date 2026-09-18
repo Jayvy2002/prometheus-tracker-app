@@ -189,12 +189,14 @@ Relation active
 active
 → ended
 → permissions Coach retirées
-→ attribution coachée archivée/pause selon contrat
+→ attribution coachée archivée ou rendue inactive selon son propre contrat
 → données personnelles conservées
 → utilisateur Solo
 ```
 
 Si l’utilisateur possède la capacité Coach, elle reste intacte.
+
+**La relation de coaching elle-même n’a pas d’état `paused`.** Si l’accompagnement s’arrête, la relation passe à `ended`. Une reprise ultérieure suit un nouveau cycle relationnel. Le mot « pause » peut exister pour une attribution/programme, jamais pour masquer l’état réel de la relation.
 
 ---
 
@@ -467,6 +469,8 @@ Coach prépare import provisoire
 
 Un import doit être idempotent ou disposer d’une clé de reprise claire.
 
+L’import est une priorité d’adoption. Un export complet de toutes les données n’est pas une fonctionnalité produit prévue actuellement ; une éventuelle portabilité légale reste un sujet distinct.
+
 ---
 
 ## 18. Commercial
@@ -489,7 +493,10 @@ Décisions :
 - Solo trial : 14 jours ;
 - Coach grace : 7 jours ;
 - prix non décidés ;
-- bêta mesurée même si accès offert.
+- bêta mesurée même si accès offert ;
+- Prometheus facture le logiciel, pas la prestation de coaching ;
+- le paiement Coach ↔ athlète reste hors Prometheus dans la Vision actuelle ;
+- un Coaché ne paie pas directement Prometheus pendant une relation active.
 
 ---
 
