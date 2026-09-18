@@ -8,6 +8,7 @@ const TYPE_FILES = [
   'src/features/nutrition/types.ts',
   'src/features/programs/types.ts',
   'src/features/coaching/types.ts',
+  'src/features/signals/types.ts',
 ] as const;
 
 /** Concatène le baril et les modules 22a — les verrous source lisent les contrats entiers. */

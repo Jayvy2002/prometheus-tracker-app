@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P1.5 : Règles commerciales constantes.**
+> **CURRENT IMPLEMENTATION GATE — P2.1 : Modèle de signaux persistants.**
 >
-> P1.5 est en cours dans la PR #190. Une seule définition métier : essai Solo **14 jours**, grâce Coach **7 jours**, prix non décidés. Pas de Stripe, pas d’entitlements P6, pas de prix inventés. **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1–P1.5 sont implémentés (P1.5 et P2.1 dans la PR #190). P2.1 pose `athlete_signals` : hypothèses longitudinales, aucune auto-application. Pas de revue hebdo universelle (P2.2), pas de journal de décisions (P2.3), pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.2 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,8 +60,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.5 en cours (PR #190)** | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P1** | Identité, capacités, permissions, lifecycle | **P1.5 livré dans #190 (merge en attente)** | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | **EN COURS — P2.1 en cours (PR #190)** | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5 est en cours dans la PR #190. Un agent n’enchaîne pas P2 sans le feu vert explicite de Jean-Vincent.
+P2.1 est en cours dans la PR #190. Un agent n’enchaîne pas P2.2 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -398,7 +398,7 @@ Aucune action Coach seule ne peut créer `coach_client_links.active` pour une de
 
 ### État actuel
 
-**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
 
 Feu vert de Jean-Vincent pour implémenter P1.5 dans la même PR que le lock-sync P1.4.
 Pas de Stripe, pas d’entitlements P6, pas de prix inventés.
@@ -411,7 +411,7 @@ Inventaire : [P1.5 — règles commerciales](P1_5_COMMERCIAL_TERMS.md).
 - Les migrations historiques 30 jours restent inchangées.
 - Pas de colonne `coach_grace_ends_at`, pas de mur de paiement.
 
-**Arrêt : ne pas merger sans feu vert explicite. Un agent n’enchaîne pas P2.**
+**Arrêt : P1.5 est implémenté dans la PR #190 (non mergée). P2.1 continue dans la même PR. Pas de P2.2 sans feu vert.**
 
 ### Cible
 
@@ -436,6 +436,24 @@ Une seule définition métier est utilisée et testée pour chaque durée. Merge
 Faire évoluer les briques IA actuelles vers un moteur commun qui apprend du contexte dans le temps sans auto-appliquer.
 
 ## P2.1 — Modèle de signaux persistants
+
+### État actuel
+
+**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
+
+Audit : `coach_interventions` est une inbox de propositions (`pending/sent/kept/dismissed`), pas une hypothèse suivie dans le temps. `solo_weekly_reviews` est une décision nutrition par semaine ISO. Une table dédiée est nécessaire.
+
+Inventaire : [P2.1 — signaux persistants](P2_1_ATHLETE_SIGNALS.md).
+
+- Table `athlete_signals` (candidate `20260918185709_athlete_signals`) : athlete_id, domain, type, hypothesis, evidence_for/against, confidence qualitative, status, first/last_seen, next_review, resolved.
+- Domaines : training, nutrition, recovery, weight, goal, adherence.
+- Écritures uniquement via `upsert_athlete_signal` / `resolve_athlete_signal` (REVOKE INSERT/UPDATE/DELETE authenticated).
+- Lecture : athlète propriétaire ou Coach avec relation active. Le workspace n’accorde aucun droit.
+- Aucune auto-application (pas d’écriture programmes / cibles / logs).
+
+**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.2.**
+
+### Cible
 
 Créer un modèle stable conceptuellement équivalent à :
 

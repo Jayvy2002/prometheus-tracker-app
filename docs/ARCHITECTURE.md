@@ -323,10 +323,10 @@ Le système cible converge les briques existantes : `solo_weekly_reviews`, fleet
 
 ```text
 agrégats déterministes
-→ signaux persistants
+→ signaux persistants (`athlete_signals`)
 → hypothèses / preuves pour et contre
-→ confiance
-→ proposition éventuelle
+→ confiance qualitative
+→ proposition éventuelle (`coach_interventions` / revue hebdo — P2.2+)
 → décision humaine
 → mémoire pour la prochaine revue
 ```
