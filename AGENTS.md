@@ -34,7 +34,7 @@ For every coherent subtask:
 
 Do not force-push or rewrite `new-JV`. Do not bundle unrelated roadmap items into one PR. Native GitHub branch protection is an administrative reinforcement; this repository policy applies even when that setting is unavailable.
 
-**Current roadmap start: `P1.2 — permissions by resource/action`. P1.1 is complete, merged and deployed.** Do not jump to P1.3 or P2–P7 without explicit approval after P1.2 is reviewed.
+**Current task:** read the `CURRENT IMPLEMENTATION GATE` block near the top of `docs/CHANTIER.md`. It is the only authoritative pointer to the next allowed subtask. Do not hardcode or infer a later task from memory.
 
 ## Product model that must not be violated
 
