@@ -13,7 +13,7 @@
 5. `CLAUDE.md` — detailed engineering rules and repository conventions.
 6. `README.md` — current project entry point and commands.
 
-Historical audit documents are diagnostic references only. They do **not** override the files above.
+Historical audit documents are diagnostic references only. They do **not** override the files above. Cursor project rules in `.cursor/rules/` reinforce this contract but never replace the product sources of truth.
 
 ## Branch and PR protocol — mandatory
 
@@ -23,16 +23,18 @@ For every coherent subtask:
 
 1. start from the latest green `new-JV`;
 2. create `agent/pX-Y-short-description`;
-3. implement one coherent scope only;
-4. update tests and durable docs when the contract changes;
-5. update `docs/CHANTIER.md` with status/evidence;
-6. open a PR to `new-JV` using `.github/pull_request_template.md`;
-7. merge only when required checks are green;
-8. start the next subtask from the newly updated `new-JV`.
+3. inspect the existing implementation before proposing new primitives;
+4. implement one coherent scope only;
+5. update tests and durable docs when the contract changes;
+6. update `docs/CHANTIER.md` with status/evidence;
+7. open a PR to `new-JV` using `.github/pull_request_template.md`;
+8. wait for all required checks to be green;
+9. review the final diff and report the result to Jean-Vincent;
+10. **STOP. Do not merge and do not begin the next subtask without explicit user approval.**
 
 Do not force-push or rewrite `new-JV`. Do not bundle unrelated roadmap items into one PR. Native GitHub branch protection is an administrative reinforcement; this repository policy applies even when that setting is unavailable.
 
-**Current roadmap start: `P1.1`.** Do not jump to P2–P7 when they depend on unfinished P1 contracts.
+**Current roadmap start: `P1.2 — permissions by resource/action`. P1.1 is complete, merged and deployed.** Do not jump to P1.3 or P2–P7 without explicit approval after P1.2 is reviewed.
 
 ## Product model that must not be violated
 
