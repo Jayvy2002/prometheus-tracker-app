@@ -43,7 +43,7 @@ Pour RLS/RPC :
 npm run test:rls
 ```
 
-Lorsque `SUPABASE_ACCESS_TOKEN` est disponible, la preuve distante compare également production et exécute le dry-run prévu par le dépôt. Une étape distante ignorée faute de token n’est jamais considérée comme une preuve de synchronisation ; la vérification directe via le connecteur Supabase peut être utilisée à la place.
+La preuve distante CI est **fail-closed** : elle exige les secrets dépôt `SUPABASE_ACCESS_TOKEN` et `SUPABASE_DB_PASSWORD`, lie explicitement la CLI au projet production `phyuijjekxtjvipjtdfv`, vérifie ce lien, exécute `supabase migration list` puis `supabase db push --dry-run`. Si un secret manque, si le projet lié n’est pas celui attendu, ou si l’une de ces commandes échoue, le job CI échoue. Une CI verte ne doit donc plus masquer une preuve production absente. Les secrets sont injectés uniquement dans les étapes qui en ont besoin.
 
 ## Migrations candidates en PR
 
