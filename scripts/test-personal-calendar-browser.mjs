@@ -182,6 +182,7 @@ try {
   await futureCard.waitFor();
   assert.equal(await futureCard.getAttribute('data-plan-status'), 'scheduled');
   await futureCard.getByText(dayName, { exact: true }).waitFor();
+  await futureCard.getByText("Scheduled workout. It hasn't been started yet.").waitFor();
   await coachedPage.screenshot({
     path: 'artifacts/p13/coached-calendar-future.png',
     fullPage: true,

@@ -34,4 +34,11 @@ de séances prévues dans le futur.
 ## Hors scope
 
 Check-ins, habitudes, événements utiles et changements planifiés dans le calendrier (étape
-suivante du chantier). P1.4 marketplace. Édition du plan Coach.
+suivante du chantier). P1.4 marketplace (en cours). Édition du plan Coach.
+
+## Livraison
+
+PR [#187](https://github.com/Jayvy2002/prometheus-tracker-app/pull/187) mergée dans `new-JV`
+(`e171b3268e304fc09367b3504e3d43d0146645c1`). Libellé carte prévue humanisé :
+FR `Séance prévue. Elle n’a pas encore été commencée.` /
+EN `Scheduled workout. It hasn't been started yet.`

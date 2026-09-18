@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P1.3 : Calendrier personnel pour Solo + Coaché.**
+> **CURRENT IMPLEMENTATION GATE — P1.4 : Lifecycle marketplace avec confirmation finale Athlète.**
 >
-> P1.1 et P1.2 sont clôturés. P1.3 est en cours. Un agent ne commence que cette tâche, s’arrête à la PR verte, et attend le feu vert explicite de Jean-Vincent avant merge et avant P1.4. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1, P1.2 et P1.3 sont clôturés. P1.4 est en cours. Un agent ne commence que cette tâche, s’arrête à la PR verte, et attend le feu vert explicite de Jean-Vincent avant merge et avant P1.5. La conversation prospect (P4.3) n’est pas dans cette sous-tâche. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 et P1.2 clôturés ; P1.3 PR ouverte, pas de P1.4 sans feu vert** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1–P1.3 clôturés ; P1.4 PR ouverte, pas de P1.5 sans feu vert** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.3 est en cours. Le lifecycle marketplace (P1.4) reste le chantier suivant, uniquement après merge et feu vert.
+P1.4 est en cours. Un agent s’arrête à la PR verte et n’enchaîne pas P1.5 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -247,7 +247,7 @@ Supabase avec **les mêmes timestamps**. Aucune migration historique modifiée.
 - **13 Edge Functions ACTIVE**, dont `coach-agent` v134 et `coach-fleet-round` v141 au moment du contrôle ;
 - locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
 
-**Arrêt : P1.2 est clôturé.** Le GATE courant est P1.3.
+**Arrêt : P1.2 est clôturé.**
 
 ### Problème
 
@@ -283,7 +283,16 @@ Le fait d’être Coaché ne masque plus arbitrairement ses propres données ou 
 
 ### État actuel
 
-**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.4.**
+**✅ TERMINÉ — mergé et vérifié. Aucune migration SQL.**
+
+PR [#187](https://github.com/Jayvy2002/prometheus-tracker-app/pull/187) mergée dans `new-JV`.
+Commit de merge : `e171b3268e304fc09367b3504e3d43d0146645c1`.
+CI post-merge réellement verte (logs inspectés, pas seulement `conclusion=success`) :
+[run 35345640894](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35345640894).
+
+- leftover : `ROLLBACK` puis `save_program coached leftover owner guard passed` ;
+- Playwright P1.3 : `assigned Upper pull scheduled, paused hides future scheduled` ;
+- production `phyuijjekxtjvipjtdfv` : toujours **115** versions après #187.
 
 Inventaire et câblage : [P1.3 — calendrier personnel](P1_3_PERSONAL_CALENDAR.md).
 
@@ -294,6 +303,9 @@ Inventaire et câblage : [P1.3 — calendrier personnel](P1_3_PERSONAL_CALENDAR.
 - Fenêtre du plan : `start_date` + `duration_weeks` ; une attribution `paused` ne génère plus de prévu après sa fin.
 - Pas d’édition du plan Coach depuis le calendrier (`saveProgram` / éditeur absents).
 - `/routines` reste bloqué.
+- Libellé carte prévue : FR `Séance prévue. Elle n’a pas encore été commencée.` / EN `Scheduled workout. It hasn't been started yet.`
+
+**Arrêt : P1.3 est clôturé.**
 
 ### À faire
 
@@ -314,6 +326,25 @@ Solo et Coaché peuvent consulter passé et futur sans élargir indûment les dr
 
 ## P1.4 — Lifecycle marketplace avec confirmation finale Athlète
 
+### État actuel
+
+**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.5.**
+
+Inventaire : [P1.4 — lifecycle marketplace](P1_4_MARKETPLACE_LIFECYCLE.md).
+
+- `respond_coaching_request(..., 'accepted')` pose `coach_accepted` : prospect, pas de `coach_client_links.active`, pas de consentement dossier.
+- Seul `respond_coaching_request(..., 'confirmed')` (athlète, depuis `coach_accepted`) appelle `activate_coaching_relationship`.
+- `activate_coaching_relationship` reste interne (REVOKE authenticated/anon).
+- Demandes `pending` / `coach_accepted` incompatibles retirées après confirmation.
+- Replay d’une confirmation historique après départ : pas de réactivation.
+- Les lignes leftover `accepted` (ancien contrat : acceptation Coach = activation) restent
+  `accepted`. Elles ne sont pas réécrites en `athlete_confirmed`, ne se rejouent pas, et
+  ne réactivent rien après départ. L’UI lit l’état courant dans `coach_client_links`
+  (pas dans le consentement).
+- `athlete_confirmed` décrit l’événement historique ; l’état actif/terminé est affiché à part.
+- Télémétrie : `coaching_request_accepted` = poursuite Coach ; `marketplace_athlete_confirmed` = activation.
+- Conversation prospect (messagerie sans dossier) : **P4.3**, hors de cette PR.
+
 ### Contrat cible
 
 ```text
@@ -331,7 +362,7 @@ Fermetures : `declined`, `withdrawn`, autres états seulement si besoin démontr
 - demande initiale créée par l’athlète ;
 - Coach peut accepter de poursuivre ou refuser ;
 - l’acceptation Coach n’active pas seule le coaching ;
-- conversation prospect possible après acceptation ;
+- conversation prospect possible après acceptation (état `coach_accepted` ; le fil de messages est P4.3) ;
 - activation uniquement après confirmation de l’athlète ;
 - vérifier qu’aucun autre Coach actif n’existe au moment transactionnel de l’activation ;
 - fermer proprement les demandes incompatibles après activation.

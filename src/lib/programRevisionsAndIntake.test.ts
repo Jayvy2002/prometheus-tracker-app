@@ -75,10 +75,16 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /coach_marketplace\.sql/);
   assert.match(ci, /save_program\.sql/);
   assert.match(ci, /2\.117\.0/);
-  assert.match(ci, /steps\.token\.outputs\.present == 'true'/);
-  assert.ok(
-    [...ci.matchAll(/steps\.token\.outputs\.present == 'true'/g)].length >= 1,
-    'prod CLI proof must gate on token output, not secrets-in-if',
+  assert.match(ci, /Require Supabase production proof credentials/);
+  assert.match(ci, /SUPABASE_ACCESS_TOKEN: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}/);
+  assert.match(ci, /SUPABASE_DB_PASSWORD: \$\{\{ secrets\.SUPABASE_DB_PASSWORD \}\}/);
+  assert.match(ci, /Production migration list \+ db push --dry-run/);
+  assert.match(ci, /Missing repository secret\(s\)/);
+  assert.match(ci, /exit 1/);
+  assert.doesNotMatch(
+    ci,
+    /steps\.token\.outputs\.present == 'true'/,
+    'prod CLI proof must no longer be optional or skipped behind a token-presence output',
   );
   assert.doesNotMatch(
     ci,
@@ -95,6 +101,6 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.doesNotMatch(
     ci,
     /SUPABASE_ACCESS_TOKEN absent[\s\S]{0,240}exit 0/,
-    'missing Management API token must skip or fail, never exit 0 as SUCCESS',
+    'missing Supabase production credentials must fail, never exit 0 as SUCCESS',
   );
 });

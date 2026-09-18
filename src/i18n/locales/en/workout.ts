@@ -318,7 +318,7 @@ const workout = {
       scheduled: 'Scheduled',
       started: 'Started',
       done: 'Done',
-      dueHint: 'Plan day due, not logged yet. A reschedule names it elsewhere; this due stays visible.',
+      dueHint: "Scheduled workout. It hasn't been started yet.",
     },
     weekSummary: {
       workouts: 'Workouts',

@@ -12,9 +12,12 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 - **115 migrations** observées en production, dans le même ordre ;
 - dernière version : `20260918103748_program_write_coached_owner` ;
 - replay local PostgreSQL 17 validé par la CI ;
-- matrice RLS/staging-like verte sur `new-JV` après le merge P1.2.
+- matrice RLS/staging-like verte sur `new-JV` après le merge P1.2 ;
+- inchangé après le merge P1.3 (#187) : aucune migration ajoutée ; production toujours 115.
 
 Le lock a été rafraîchi après cette vérification. Une future différence Git/lock/production doit être traitée comme un blocage de migration, pas réparée artificiellement.
+
+Candidate P1.4 (cette PR, **pas encore en production**) : `20260918130232_marketplace_athlete_confirm`, déclarée dans `supabase/migrations.pending.json`. Le lock reste à 115 versions jusqu’au déploiement autorisé et à la vérification live. Les lignes production `accepted` restent `accepted` (état historique terminal) ; elles ne sont pas réécrites en `athlete_confirmed`.
 
 ## Règles migrations
 
@@ -40,7 +43,7 @@ Pour RLS/RPC :
 npm run test:rls
 ```
 
-Lorsque `SUPABASE_ACCESS_TOKEN` est disponible, la preuve distante compare également production et exécute le dry-run prévu par le dépôt. Une étape distante ignorée faute de token n’est jamais considérée comme une preuve de synchronisation ; la vérification directe via le connecteur Supabase peut être utilisée à la place.
+La preuve distante CI est **fail-closed** : elle exige les secrets dépôt `SUPABASE_ACCESS_TOKEN` et `SUPABASE_DB_PASSWORD`, lie explicitement la CLI au projet production `phyuijjekxtjvipjtdfv`, vérifie ce lien, exécute `supabase migration list` puis `supabase db push --dry-run`. Si un secret manque, si le projet lié n’est pas celui attendu, ou si l’une de ces commandes échoue, le job CI échoue. Une CI verte ne doit donc plus masquer une preuve production absente. Les secrets sont injectés uniquement dans les étapes qui en ont besoin.
 
 ## Migrations candidates en PR
 

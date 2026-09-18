@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSession } from '../../../lib/sessionScope';
-import type { CoachPublicProfile, CoachingRequest } from './marketplace';
+import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachingRequest } from './marketplace';
 
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -29,21 +29,22 @@ export async function readRequests(owner: string, page = 0): Promise<CoachingReq
   if (error) throw error;
   const rows = data ?? [];
   if (!rows.length) return [];
-  const [profiles, consents] = await Promise.all([
-    supabase.from('coach_profiles').select('coach_id,public_name')
-      .in('coach_id', [...new Set(rows.map(row => row.coach_id))]),
-    supabase.from('coaching_relationship_consents').select('join_request_id,revoked_at')
-      .in('join_request_id', rows.map(row => row.id)),
+  const coachIds = [...new Set(rows.map(row => row.coach_id))];
+  const clientIds = [...new Set(rows.map(row => row.client_id))];
+  const [profiles, links] = await Promise.all([
+    supabase.from('coach_profiles').select('coach_id,public_name').in('coach_id', coachIds),
+    supabase.from('coach_client_links').select('coach_id,client_id,status,updated_at,created_at')
+      .in('coach_id', coachIds)
+      .in('client_id', clientIds),
   ]);
   if (!current()) throw Error('session_changed');
   if (profiles.error) throw profiles.error;
-  if (consents.error) throw consents.error;
-  return rows.map(row => {
-    const consent = consents.data?.find(item => item.join_request_id === row.id);
-    return {
-      ...row,
-      coach_name: profiles.data?.find(item => item.coach_id === row.coach_id)?.public_name ?? null,
-      relationship_state: consent ? (consent.revoked_at ? 'ended' : 'active') : 'unknown',
-    };
-  });
+  if (links.error) throw links.error;
+  const linkRows = links.data ?? [];
+  return rows.map(row => ({
+    ...row,
+    status: normalizeJoinRequestStatus(row.status),
+    coach_name: profiles.data?.find(item => item.coach_id === row.coach_id)?.public_name ?? null,
+    relationship_state: resolveRelationshipState(row.coach_id, row.client_id, linkRows),
+  }));
 }
