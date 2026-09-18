@@ -112,6 +112,15 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/client_departure.sql | tee /tmp/client-departure-db-results.txt
+      - name: Test commercial durations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/commercial_durations.sql | tee /tmp/commercial-durations-db-results.txt
+      - name: Confirm commercial durations echo
+        run: |
+          set -euo pipefail
+          grep -F 'commercial durations: solo trial 14 days and coach grace 7 days' /tmp/commercial-durations-db-results.txt
+          grep -F 'client departure: isolation, rollback, archives, revocation, role transition and repeat checks passed' /tmp/client-departure-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -64,7 +64,11 @@ test('the athlete can leave from Profil; the coach sees a private notice; dossie
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /supabase\/tests\/client_departure\.sql/);
+  assert.match(ci, /commercial_durations\.sql/);
   const lock = src('supabase/schema_migrations.lock.json');
   assert.match(lock, /"version": "20260913184325"/);
   assert.match(lock, /"name": "client_end_coach_link"/);
+  const departure = src('supabase/tests/client_departure.sql');
+  assert.match(departure, /solo trial not stamped to 14 days/);
+  assert.match(departure, /solo trial shortened or rewritten/);
 });

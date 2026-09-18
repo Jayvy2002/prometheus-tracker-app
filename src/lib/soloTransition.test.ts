@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { linkEndedNotice, profileLinkEndedChanged, SOLO_TRIAL_DAYS } from './soloTransition';
+import { SOLO_TRIAL_DAYS as COMMERCIAL_SOLO_TRIAL_DAYS } from './commercialTerms';
 import { latestMigrationContaining } from './migrationScan';
 import { coachingStoreSource } from './coachingStoreSource';
 
@@ -38,7 +39,8 @@ test('link-ended notice: shown to the solo once, hidden with a new coach or afte
   });
   assert.equal(expired.trialExpired, true);
   assert.equal(expired.trialDaysLeft, 0);
-  assert.equal(SOLO_TRIAL_DAYS, 30);
+  assert.equal(SOLO_TRIAL_DAYS, 14);
+  assert.equal(SOLO_TRIAL_DAYS, COMMERCIAL_SOLO_TRIAL_DAYS);
 });
 
 test('realtime: only a new coach_link_ended_at value triggers the role reload', () => {
@@ -55,6 +57,10 @@ test('end_coach_client_link and client_end_coach_link share the solo transition;
   assert.match(sql, /DELETE FROM public\.client_tracking_config/);
   assert.match(sql, /coach_link_ended_at = now\(\)/);
   assert.match(sql, /COALESCE\(solo_trial_ends_at, now\(\) \+ interval '30 days'\)/);
+  const live = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.transition_client_to_solo');
+  assert.match(live.file, /_commercial_durations\.sql$/);
+  assert.match(live.sql, /COALESCE\(solo_trial_ends_at, now\(\) \+ public\.solo_trial_interval\(\)\)/);
+  assert.doesNotMatch(live.sql, /interval '30 days'/);
   assert.match(sql, /SET status = 'paused'/);
   assert.doesNotMatch(sql, /DELETE FROM public\.(workouts|nutrition_logs|weight_measurements|daily_checkins|progress_photos|user_profiles)/);
   assert.doesNotMatch(sql, /daily_calorie_target/);

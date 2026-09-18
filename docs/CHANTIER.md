@@ -34,7 +34,7 @@ Le travail restant n’est pas une reconstruction. Le principal enjeu est désor
 
 > **CURRENT IMPLEMENTATION GATE — P1.5 : Règles commerciales constantes.**
 >
-> P1.1, P1.2, P1.3 et P1.4 sont clôturés, mergés, déployés et vérifiés. La prochaine tâche est P1.5. Un agent ne commence P1.5 qu’après le feu vert explicite de Jean-Vincent. Pas de Stripe, pas d’entitlements P6, pas de prix inventés. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.5 est en cours dans la PR #190. Une seule définition métier : essai Solo **14 jours**, grâce Coach **7 jours**, prix non décidés. Pas de Stripe, pas d’entitlements P6, pas de prix inventés. **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1–P1.4 clôturés ; P1.5 prochaine, pas sans feu vert** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.5 en cours (PR #190)** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.4 est clôturé. Un agent n’enchaîne pas P1.5 sans le feu vert explicite de Jean-Vincent.
+P1.5 est en cours dans la PR #190. Un agent n’enchaîne pas P2 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -362,7 +362,7 @@ avec **le même timestamp**. Aucune migration historique modifiée.
 - **13 Edge Functions ACTIVE** (P1.4 n’a pas modifié les edges) ;
 - locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
 
-**Arrêt : P1.4 est clôturé. Aucun P1.5 sans le feu vert explicite de Jean-Vincent.**
+**Arrêt : P1.4 est clôturé. P1.5 continue dans la PR #190. Pas de P2 sans feu vert.**
 
 ### Contrat cible
 
@@ -398,7 +398,22 @@ Aucune action Coach seule ne peut créer `coach_client_links.active` pour une de
 
 ### État actuel
 
-**À FAIRE — prochaine tâche. Ne pas commencer sans feu vert.**
+**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
+
+Feu vert de Jean-Vincent pour implémenter P1.5 dans la même PR que le lock-sync P1.4.
+Pas de Stripe, pas d’entitlements P6, pas de prix inventés.
+
+Inventaire : [P1.5 — règles commerciales](P1_5_COMMERCIAL_TERMS.md).
+
+- TypeScript unique : `src/lib/commercialTerms.ts` (`SOLO_TRIAL_DAYS = 14`, `COACH_GRACE_DAYS = 7`, `COMMERCIAL_PRICES.status = 'undecided'`).
+- SQL unique (candidate append-only `20260918182954_commercial_durations`) : `solo_trial_interval()` / `coach_grace_interval()`, `REVOKE` authenticated/anon.
+- `transition_client_to_solo` tamponne `COALESCE(..., now() + public.solo_trial_interval())` — jamais raccourci.
+- Les migrations historiques 30 jours restent inchangées.
+- Pas de colonne `coach_grace_ends_at`, pas de mur de paiement.
+
+**Arrêt : ne pas merger sans feu vert explicite. Un agent n’enchaîne pas P2.**
+
+### Cible
 
 Centraliser les décisions actuelles :
 
@@ -410,7 +425,7 @@ Centraliser les décisions actuelles :
 
 ### Terminé quand
 
-Une seule définition métier est utilisée et testée pour chaque durée.
+Une seule définition métier est utilisée et testée pour chaque durée. Merge et application production seulement après feu vert.
 
 ---
 

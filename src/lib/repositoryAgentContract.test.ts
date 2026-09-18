@@ -24,7 +24,13 @@ test('repository agent contract keeps one execution gate and an always-on Cursor
   const gates = [...chantier.matchAll(/CURRENT IMPLEMENTATION GATE/g)];
   assert.equal(gates.length, 1, 'docs/CHANTIER.md must contain exactly one authoritative current-task gate');
   assert.match(chantier, /P1\.5\s*:\s*Règles commerciales constantes/);
-  assert.match(chantier, /ne commence P1\.5/);
+  assert.match(chantier, /n.enchaîne pas P2|ne commence P2/i);
+  assert.match(chantier, /Pas de Stripe|pas d.entitlements P6/i);
+  const gate = chantier.slice(
+    chantier.indexOf('CURRENT IMPLEMENTATION GATE'),
+    chantier.indexOf('CURRENT IMPLEMENTATION GATE') + 900,
+  );
+  assert.doesNotMatch(gate, /ne commence P1\.5/);
 });
 
 test('complete product vision preserves the final non-negotiable decisions', () => {

@@ -19,6 +19,12 @@ Le lock a été rafraîchi après cette vérification. Une future différence Gi
 
 Les lignes production `accepted` restent `accepted` (état historique terminal) ; elles n’ont pas été réécrites en `athlete_confirmed`.
 
+## Candidat P1.5 (non appliqué)
+
+PR #190 déclare `20260918182954_commercial_durations` dans `migrations.pending.json`.
+Le lock production reste à **116** versions (`20260918130232`). Ne pas transférer cette
+version dans le lock avant application réelle et vérification live.
+
 ## Règles migrations
 
 - Un timestamp Git correspond à une version de production.

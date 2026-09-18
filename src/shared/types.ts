@@ -45,7 +45,7 @@ export interface UserProfile {
   coach_link_ended_at?: string | null;
   /** Presentation preference only. Not an authorization source. */
   entry_intent?: 'solo' | 'find_coach' | 'coach' | null;
-  /** Solo trial started by that unlink (30 days). No billing wall until that chantier opens. */
+  /** Solo trial started by that unlink (14 days). No billing wall until P6. */
   solo_trial_ends_at?: string | null;
   created_at: string;
   updated_at: string;

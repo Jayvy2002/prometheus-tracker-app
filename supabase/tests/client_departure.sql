@@ -83,7 +83,15 @@ do $$ begin
  raise exception 'solo role not restored'; end if;
  if not exists(select 1 from public.user_profiles where id='a1750000-0000-4000-8000-000000000002' and coach_link_ended_at is not null) then
  raise exception 'profile not preserved with departure date'; end if;
+ if not exists(
+  select 1 from public.user_profiles
+  where id='a1750000-0000-4000-8000-000000000002'
+    and solo_trial_ends_at is not null
+    and solo_trial_ends_at between now() + interval '13 days 12 hours'
+                               and now() + interval '14 days 12 hours'
+ ) then raise exception 'solo trial not stamped to 14 days'; end if;
 end $$;
+select set_config('test.solo_trial_ends_at',(select solo_trial_ends_at::text from public.user_profiles where id='a1750000-0000-4000-8000-000000000002'),true);
 
 do $$ begin
  if not exists(select 1 from public.program_assignments where id='a1750000-0000-4000-8000-000000000011' and status='paused') then raise exception 'program not paused'; end if;
@@ -152,6 +160,9 @@ reset role;
 do $$ begin
  if not exists(select 1 from public.user_roles where user_id='a1750000-0000-4000-8000-000000000002' and coaching_role='none') then raise exception 'coach departure did not restore solo'; end if;
  if (select count(*) from public.coach_relationship_notices where client_id='a1750000-0000-4000-8000-000000000002')<>2 then raise exception 'coach own action emitted unnecessary notice'; end if;
+ if (select solo_trial_ends_at::text from public.user_profiles where id='a1750000-0000-4000-8000-000000000002') is distinct from current_setting('test.solo_trial_ends_at') then
+  raise exception 'solo trial shortened or rewritten';
+ end if;
 end $$;
 
 -- Minimal end history remains available to participants, without dossier permissions.

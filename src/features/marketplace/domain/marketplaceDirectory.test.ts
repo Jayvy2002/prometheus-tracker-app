@@ -128,11 +128,11 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.doesNotMatch(browser, /Confirmed — coaching is active/);
   const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
   const lock = src('supabase/schema_migrations.lock.json');
-  const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: unknown[] };
+  const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
   const version = latest.file.slice(0, 14);
   assert.equal(latest.file, '20260918130232_marketplace_athlete_confirm.sql');
   assert.match(lock, new RegExp(`"version": "${version}"`));
-  assert.equal(pending.pending.length, 0);
+  assert.equal(pending.pending.some((row) => row.version === version), false);
   assert.match(lock, /"name": "coach_marketplace"/);
   assert.match(lock, /"name": "marketplace_activate_link"/);
   assert.match(lock, /"name": "marketplace_athlete_confirm"/);
