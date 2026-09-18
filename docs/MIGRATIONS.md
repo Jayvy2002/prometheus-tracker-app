@@ -16,6 +16,8 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 Le lock a été rafraîchi après cette vérification. Une future différence Git/lock/production doit être traitée comme un blocage de migration, pas réparée artificiellement.
 
+Candidate P1.4 (cette PR, **pas encore en production**) : `20260918130232_marketplace_athlete_confirm`, déclarée dans `supabase/migrations.pending.json`. Le lock reste à 115 versions jusqu’au déploiement autorisé et à la vérification live.
+
 ## Règles migrations
 
 - Un timestamp Git correspond à une version de production.

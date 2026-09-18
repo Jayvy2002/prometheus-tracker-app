@@ -28,7 +28,8 @@ Aucune lecture cliente. Lecture : SQL editor / service role (admin produit).
 | `intake_completed` | `revisit`, `targets_computed`, `questionnaire_id`, `questionnaire_version` (ces deux derniers uniquement pour un questionnaire coach) | fin de questionnaire (AUCUN contenu d'intake, AUCUN signal santé) |
 | `invite_created` | `days`, `max_uses` | invitations coach |
 | `invite_accepted` | — | activation coaché |
-| `coaching_request_accepted` | — | **événement legacy actuel** : acceptation de la demande côté Coach. Après P1.4, il ne doit plus être interprété comme activation de la relation ; l’activation nécessite la confirmation finale de l’athlète et la télémétrie devra être mise à jour dans la même PR. |
+| `coaching_request_accepted` | — | Le Coach accepte de poursuivre une demande d’annuaire (prospect). **N’active pas** la relation. |
+| `marketplace_athlete_confirmed` | — | L’athlète confirme ; active `coach_client_links`. Pas un paiement. |
 | `intervention_resolved` | `kind`, `source`, `status`, `edited` | boucle coach (propose → valide) |
 | `coach_message_sent` | `template_key` | relances (jamais le corps) |
 | `client_reply_sent` | — | réponses client |

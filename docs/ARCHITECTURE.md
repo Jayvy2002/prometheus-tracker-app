@@ -236,7 +236,7 @@ pending
 → relationship active
 ```
 
-Une acceptation du Coach ne doit jamais activer seule la relation. Le dernier consentement appartient à l’athlète.
+Une acceptation du Coach ne doit jamais activer seule la relation. Le dernier consentement appartient à l’athlète. La conversation prospect sans dossier (P4.3) n’est pas ouverte par cette transition.
 
 Ne pas confondre cette machine d’état avec :
 

@@ -153,16 +153,31 @@ try {
  const requests=[];
  for(const person of [coach,other]) requests.push(check(await visitor.client.rpc('request_coaching',{p_coach:person.id,p_public_name:'Directory Visitor',p_summary:'I would like to learn how your service works.',p_sharing_version:2,p_request_key:crypto.randomUUID()})));
  const outcomes=await Promise.all([coach,other].map((person,index)=>person.client.rpc('respond_coaching_request',{p_request:requests[index].id,p_status:'accepted'})));
- assert.equal(outcomes.filter(result=>!result.error).length,1,'Only one concurrent acceptance may succeed');
- assert.equal(outcomes.find(result=>result.error).error.message,'request_closed');
- const winner=outcomes.findIndex(result=>!result.error);
+ assert.equal(outcomes.filter(result=>!result.error).length,2,'Both coaches may continue a prospect');
+ assert.equal(check(await admin.from('coach_client_links').select('id').eq('client_id',visitor.id).eq('status','active')).length,0,'Coach accept must not create an active link');
+ const visitorRequests=await pageFor(visitor);
+ await visitorRequests.goto(origin+'/coaching-requests');
+ await passIntentionIfShown(visitorRequests,'Find a coach');
+ if(!visitorRequests.url().includes('/coaching-requests'))await visitorRequests.goto(origin+'/coaching-requests');
+ await visitorRequests.getByText('The coach agreed to continue. Coaching is not active yet.').first().waitFor();
+ await visitorRequests.getByRole('button',{name:'Confirm this coach'}).first().waitFor();
+ await visitorRequests.screenshot({path:'artifacts/questionnaire/marketplace-prospect.png',fullPage:true});
+ const confirms=await Promise.all(requests.map(row=>visitor.client.rpc('respond_coaching_request',{p_request:row.id,p_status:'confirmed'})));
+ assert.equal(confirms.filter(result=>!result.error).length,1,'Only one concurrent confirmation may succeed');
+ const confirmError=confirms.find(result=>result.error)?.error?.message;
+ assert.ok(confirmError==='already_coached'||confirmError==='request_closed',confirmError);
+ const winner=confirms.findIndex(result=>!result.error);
  const links=check(await admin.from('coach_client_links').select('coach_id').eq('client_id',visitor.id).eq('status','active'));
  assert.equal(links.length,1);
  assert.equal(links[0].coach_id,[coach,other][winner].id);
+ await visitorRequests.reload();
+ await visitorRequests.getByText('Confirmed — coaching is active (not a payment)').waitFor();
+ await visitorRequests.getByText('Coaching with this coach is now active. This is not a payment.').waitFor();
+ await visitorRequests.screenshot({path:'artifacts/questionnaire/marketplace-confirmed.png',fullPage:true});
  assert.equal(check(await visitor.client.rpc('client_end_coach_link')).ok,true);
- check(await [coach,other][winner].client.rpc('respond_coaching_request',{p_request:requests[winner].id,p_status:'accepted'}));
+ check(await visitor.client.rpc('respond_coaching_request',{p_request:requests[winner].id,p_status:'confirmed'}));
  assert.equal(check(await admin.from('coach_client_links').select('id').eq('client_id',visitor.id).eq('status','active')).length,0,'Retry cannot reactivate departed client');
- console.log('PASS: responsive directory, concurrent acceptance, departure and historical retry');
+ console.log('PASS: responsive directory, concurrent confirmation, departure and historical retry');
 } catch(error) {
  for (const page of pages) {
   console.error('Local test page:', page.url(), await page.locator('body').innerText().catch(()=>'unavailable'));

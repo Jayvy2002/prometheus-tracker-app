@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSession } from '../../../lib/sessionScope';
-import type { CoachPublicProfile, CoachingRequest } from './marketplace';
+import { normalizeJoinRequestStatus, type CoachPublicProfile, type CoachingRequest } from './marketplace';
 
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -42,6 +42,7 @@ export async function readRequests(owner: string, page = 0): Promise<CoachingReq
     const consent = consents.data?.find(item => item.join_request_id === row.id);
     return {
       ...row,
+      status: normalizeJoinRequestStatus(row.status),
       coach_name: profiles.data?.find(item => item.coach_id === row.coach_id)?.public_name ?? null,
       relationship_state: consent ? (consent.revoked_at ? 'ended' : 'active') : 'unknown',
     };

@@ -1,3 +1,8 @@
 {
-  "pending": []
+  "pending": [
+    {
+      "version": "20260918130232",
+      "name": "marketplace_athlete_confirm"
+    }
+  ]
 }

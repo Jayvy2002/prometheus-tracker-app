@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, marketFilters, matchingReasons, requestActions, type CoachPublicProfile, type CoachingRequest } from './marketplace';
+import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, marketFilters, matchingReasons, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, type CoachPublicProfile, type CoachingRequest } from './marketplace';
 test('search only accepts implemented criteria and keeps compatible URL filters', () => {
  assert.deepEqual(marketFilters(new URLSearchParams('discipline=unknown&language=en&format=online&score=99')), { discipline:'',language:'en',format:'online' });
 });
@@ -13,9 +13,17 @@ test('prospect and coach can only see actions corresponding to their side and cu
  assert.deepEqual(requestActions(row,'stranger'),[]);
  assert.deepEqual(requestActions(row,'client'),['withdrawn']);
  assert.deepEqual(requestActions(row,'coach'),['accepted','declined']);
- assert.deepEqual(requestActions({...row,status:'accepted'},'coach'),[]);
- assert.deepEqual(requestActions({...row,status:'accepted'},'client'),[]);
+ assert.deepEqual(requestActions({...row,status:'coach_accepted'},'coach'),[]);
+ assert.deepEqual(requestActions({...row,status:'coach_accepted'},'client'),['confirmed','withdrawn']);
+ assert.deepEqual(requestActions({...row,status:'athlete_confirmed'},'coach'),[]);
+ assert.deepEqual(requestActions({...row,status:'athlete_confirmed'},'client'),[]);
  assert.deepEqual(requestActions({...row,status:'withdrawn'},'client'),[]);
+ assert.deepEqual(requestActions({...row,status:normalizeJoinRequestStatus('accepted')},'client'),[]);
+ assert.equal(normalizeJoinRequestStatus('accepted'),'athlete_confirmed');
+ assert.equal(normalizeJoinRequestStatus('coach_accepted'),'coach_accepted');
+ assert.equal(requestActivatesFollow('athlete_confirmed'),true);
+ assert.equal(requestActivatesFollow('coach_accepted'),false);
+ assert.throws(()=>normalizeJoinRequestStatus('nope'));
 });
 
 test('request identifiers survive retries but remain isolated per account and coach', () => {

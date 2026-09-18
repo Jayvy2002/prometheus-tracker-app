@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, requestActions, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
 import CoachDirectoryCard from './CoachDirectoryCard';
 import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
 import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
@@ -70,7 +70,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         const found = await readRequests(owner, page);
         if (seq !== sequence.current) return;
         setRequests(found.slice(0, 50)); setMore(found.length > 50);
-        if (found.some(row => row.status === 'accepted' && row.client_id === owner)) {
+        if (found.some(row => requestActivatesFollow(row.status) && row.client_id === owner)) {
           void fetchMyRole(owner);
           void fetchMyCoach();
         }
@@ -103,27 +103,35 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
       <p className="text-sm text-neutral-300">{t(`marketplace.${row.status}`)}</p>
       {row.status === 'pending' && row.coach_id === owner && (
-        <p className="text-sm text-neutral-400">{t('marketplace.acceptActivatesFollow')}</p>
+        <p className="text-sm text-neutral-400">{t('marketplace.acceptContinuesProspect')}</p>
+      )}
+      {row.status === 'coach_accepted' && row.client_id === owner && (
+        <p className="text-sm text-neutral-400">{t('marketplace.confirmActivatesFollow')}</p>
       )}
       <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
-      {row.status === 'accepted' && row.relationship_state === 'active' && (
+      {requestActivatesFollow(row.status) && row.relationship_state === 'active' && (
         <div className="space-y-3">
           <p className="text-sm text-neutral-400">{t(row.coach_id === owner ? 'marketplace.coachingActiveCoach' : 'marketplace.coachingActive')}</p>
           {row.coach_id === owner && <Button onClick={() => navigate(`/clients/${row.client_id}`)}>{t('marketplace.openClient')}</Button>}
           {row.client_id === owner && <Button onClick={() => navigate('/dashboard')}>{t('marketplace.goDashboard')}</Button>}
         </div>
       )}
-      {row.status === 'accepted' && row.relationship_state !== 'active' && <p>{t(row.relationship_state === 'ended' ? 'marketplace.relationshipEnded' : 'marketplace.relationshipUnknown')}</p>}
-      {row.client_id === owner && row.status !== 'accepted' && <Link className="block min-h-11 inline-flex items-center text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
-      <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant={action === 'accepted' ? 'primary' : 'secondary'} onClick={() => {
+      {requestActivatesFollow(row.status) && row.relationship_state !== 'active' && <p>{t(row.relationship_state === 'ended' ? 'marketplace.relationshipEnded' : 'marketplace.relationshipUnknown')}</p>}
+      {row.client_id === owner && !requestActivatesFollow(row.status) && <Link className="block min-h-11 inline-flex items-center text-blue-400 underline" to={`/coaches/${row.coach_id}`}>{t('marketplace.viewCoach')}</Link>}
+      <div className="flex flex-wrap gap-3">{requestActions(row, owner).map(action => <Button key={action} disabled={busy} variant={action === 'accepted' || action === 'confirmed' ? 'primary' : 'secondary'} onClick={() => {
         const seq = sequence.current;
         void write(async () => {
           const updated = await marketRpc<CoachingRequest>('respond_coaching_request', { p_request: row.id, p_status: action }, owner);
-          if (seq === sequence.current) setRequests(rows => rows.map(r => r.id === updated.id ? { ...r, ...updated } : r));
+          const normalized = { ...updated, status: normalizeJoinRequestStatus(updated.status) };
+          if (seq === sequence.current) setRequests(rows => rows.map(r => r.id === normalized.id ? { ...r, ...normalized } : r));
           if (action === 'accepted') {
             track('coaching_request_accepted');
+          }
+          if (action === 'confirmed') {
+            track('marketplace_athlete_confirmed');
             await fetchClients();
             await fetchMyRole(owner);
+            await fetchMyCoach();
           }
           if (seq === sequence.current) setRevision(n => n + 1);
         });
@@ -178,7 +186,8 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         e.preventDefault(); if (!consent || !relationshipConsent) return; const seq = sequence.current;
         void write(async () => {
           const result = await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: MARKETPLACE_CONSENT_VERSION, p_request_key: coachingRequestKey(sessionStorage, owner, profile.coach_id) }, owner);
-          if (seq === sequence.current) { clearCoachingRequestKey(sessionStorage, owner, profile.coach_id); setNotice(t(result.status === 'pending' ? 'marketplace.sent' : `marketplace.${result.status}`)); setConsent(false); setRelationshipConsent(false); }
+          const status = normalizeJoinRequestStatus(result.status);
+          if (seq === sequence.current) { clearCoachingRequestKey(sessionStorage, owner, profile.coach_id); setNotice(t(status === 'pending' ? 'marketplace.sent' : `marketplace.${status}`)); setConsent(false); setRelationshipConsent(false); }
         });
       }}><fieldset disabled={busy} className="space-y-4">
         <Input required maxLength={100} label={t('marketplace.yourName')} value={name} onChange={e => setName(e.target.value)} />

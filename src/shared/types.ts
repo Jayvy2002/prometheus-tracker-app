@@ -131,6 +131,7 @@ export type ProductEventName =
   | 'invite_created'
   | 'invite_accepted'
   | 'coaching_request_accepted'
+  | 'marketplace_athlete_confirmed'
   | 'intervention_resolved'
   | 'coach_message_sent'
   | 'client_reply_sent'

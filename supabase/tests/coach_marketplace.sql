@@ -1,6 +1,6 @@
 -- M4–M5 + M4b — annuaire opt-in.
 -- Preuve : publication privée, concurrence, consentement, isolation,
--- et une demande acceptée active le lien de coaching sans paiement.
+-- et seule la confirmation athlète active le lien de coaching sans paiement.
 \set ON_ERROR_STOP on
 BEGIN;
 
@@ -104,7 +104,7 @@ DO $$ DECLARE a public.coach_join_requests; b public.coach_join_requests; BEGIN
     IF SQLERRM <> 'not_authorized' THEN RAISE; END IF;
   END;
   BEGIN
-    UPDATE public.coach_join_requests SET status = 'accepted';
+    UPDATE public.coach_join_requests SET status = 'coach_accepted';
     RAISE EXCEPTION 'direct status write allowed';
   EXCEPTION WHEN insufficient_privilege THEN
     NULL;
@@ -133,9 +133,43 @@ DO $$ DECLARE r public.coach_join_requests; BEGIN
   SELECT * INTO r FROM public.coach_join_requests WHERE coach_id = auth.uid() AND status = 'pending';
   PERFORM public.respond_coaching_request(r.id, 'accepted');
   PERFORM public.respond_coaching_request(r.id, 'accepted');
-  IF NOT public.is_coach_of(r.client_id) THEN RAISE EXCEPTION 'acceptance did not grant dossier access'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.coach_client_links WHERE client_id = r.client_id AND coach_id = auth.uid() AND status = 'active') THEN
-    RAISE EXCEPTION 'acceptance did not create a coaching link';
+  IF r.status IS NULL THEN RAISE EXCEPTION 'missing request'; END IF;
+  IF (SELECT status FROM public.coach_join_requests WHERE id = r.id) <> 'coach_accepted' THEN
+    RAISE EXCEPTION 'acceptance did not stay a prospect';
+  END IF;
+  IF public.is_coach_of(r.client_id) THEN RAISE EXCEPTION 'coach accept granted dossier access'; END IF;
+  IF EXISTS (SELECT 1 FROM public.coach_client_links WHERE client_id = r.client_id AND status = 'active') THEN
+    RAISE EXCEPTION 'coach accept created a coaching link';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.coaching_relationship_consents
+    WHERE join_request_id = r.id AND revoked_at IS NULL
+  ) THEN
+    RAISE EXCEPTION 'coach accept wrote directory consent';
+  END IF;
+END $$;
+SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000002');
+DO $$ DECLARE r public.coach_join_requests; BEGIN
+  SELECT * INTO r FROM public.coach_join_requests WHERE coach_id = auth.uid();
+  IF r.status <> 'pending' THEN RAISE EXCEPTION 'other pending request closed before athlete confirm'; END IF;
+  IF public.is_coach_of('a1780000-0000-4000-8000-000000000003') THEN
+    RAISE EXCEPTION 'other coach gained dossier access';
+  END IF;
+END $$;
+SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000003');
+DO $$ DECLARE r public.coach_join_requests; BEGIN
+  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid() AND status = 'coach_accepted';
+  BEGIN
+    PERFORM public.respond_coaching_request(r.id, 'accepted');
+    RAISE EXCEPTION 'client accepted own request after coach continue';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'not_authorized' THEN RAISE; END IF;
+  END;
+  r := public.respond_coaching_request(r.id, 'confirmed');
+  r := public.respond_coaching_request(r.id, 'confirmed');
+  IF r.status <> 'athlete_confirmed' THEN RAISE EXCEPTION 'athlete confirm did not close the request'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.coach_client_links WHERE client_id = r.client_id AND coach_id = r.coach_id AND status = 'active') THEN
+    RAISE EXCEPTION 'athlete confirm did not create a coaching link';
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.coaching_relationship_consents
@@ -145,9 +179,15 @@ DO $$ DECLARE r public.coach_join_requests; BEGIN
   END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.client_tracking_config
-    WHERE coach_id = auth.uid() AND client_id = r.client_id
+    WHERE coach_id = r.coach_id AND client_id = r.client_id
   ) THEN
     RAISE EXCEPTION 'tracking config missing';
+  END IF;
+END $$;
+SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000001');
+DO $$ BEGIN
+  IF NOT public.is_coach_of('a1780000-0000-4000-8000-000000000003') THEN
+    RAISE EXCEPTION 'athlete confirm did not grant dossier access';
   END IF;
 END $$;
 SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000002');
@@ -166,10 +206,10 @@ DO $$ DECLARE r public.coach_join_requests; BEGIN
 END $$;
 SELECT pg_temp.as_user('a1780000-0000-4000-8000-000000000003');
 DO $$ DECLARE r public.coach_join_requests; ended jsonb; BEGIN
-  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid() AND status = 'accepted';
+  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid() AND status = 'athlete_confirmed';
   BEGIN
     PERFORM public.respond_coaching_request(r.id, 'withdrawn');
-    RAISE EXCEPTION 'accepted request withdrawn without ending the link';
+    RAISE EXCEPTION 'confirmed request withdrawn without ending the link';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'request_closed' THEN RAISE; END IF;
   END;
@@ -206,4 +246,4 @@ DO $$ BEGIN
 END $$;
 RESET ROLE;
 ROLLBACK;
-\echo 'marketplace: publication, consent, isolation, acceptance activates coaching, departure restores a new request'
+\echo 'marketplace: publication, consent, isolation, athlete confirm activates coaching, departure restores a new request'

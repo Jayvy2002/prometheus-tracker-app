@@ -143,6 +143,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_marketplace.sql | tee /tmp/coach-marketplace-db-results.txt
+      - name: Confirm marketplace athlete-confirm echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete confirm activates coaching' /tmp/coach-marketplace-db-results.txt
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -161,9 +165,13 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: |
           set -euo pipefail
-          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/marketplace_audit_hardening.sql
+          psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/marketplace_audit_hardening.sql | tee /tmp/marketplace-audit-db-results.txt
+      - name: Confirm marketplace historical-confirm echo
+        run: |
+          set -euo pipefail
+          grep -F 'historical confirmation does not reactivate' /tmp/marketplace-audit-db-results.txt
       - name: Questionnaire browser journey (local Supabase only)
-        run: node scripts/test-questionnaire-browser.mjs
+        run: node scripts/test-questionnaire-browser.mjs | tee /tmp/questionnaire-browser-results.txt
       - name: Independent Coach capability browser journey
         run: node scripts/test-coach-capability-browser.mjs
       - name: Resource/action permissions browser journey
@@ -175,6 +183,7 @@ jobs:
           set -euo pipefail
           grep -F 'PASS: coached stats history' artifacts/p12/results.txt
           grep -F 'PASS: coached calendar past/future' artifacts/p13/results.txt
+          grep -F 'PASS: responsive directory, concurrent confirmation' /tmp/questionnaire-browser-results.txt
       - name: Upload Coach capability browser proof
         if: always()
         uses: actions/upload-artifact@v4
