@@ -68,7 +68,7 @@ test('legacy program RPCs, owner RLS and assignment Data API share the leftover 
   assert.match(found.sql, /Owners manage program days/);
   assert.match(found.sql, /Owners manage program day exercises/);
   assert.match(found.sql, /Assigner inserts assignments/);
-  assert.match(found.sql, /actor_is_actively_coached/);
+  assert.match(found.sql, /actor_owns_program/);
   assert.match(src('supabase/migrations.pending.json'), /"version": "20260918103748"/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /sync_program_days/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /save_program_day_exercises/);

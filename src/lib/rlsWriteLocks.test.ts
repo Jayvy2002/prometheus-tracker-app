@@ -114,10 +114,12 @@ test('program_assignments: only the assigner mutates; the coached client can rea
   assert.equal(upd.length, 1);
   assert.match(upd[0], /assigned_by\s*=\s*\(select auth\.uid\(\)\)/i);
   assert.match(upd[0], /is_coach_of\(client_id\)/);
+  assert.match(upd[0], /actor_owns_program/);
   assert.match(upd[0], /actor_is_actively_coached/);
   const ins = bodies.filter((p) => /FOR INSERT/i.test(p));
   assert.equal(ins.length, 1);
   assert.match(ins[0], /actor_is_actively_coached/);
+  assert.match(ins[0], /actor_owns_program/);
 });
 
 test('search_food_products is not callable with the anon key', () => {

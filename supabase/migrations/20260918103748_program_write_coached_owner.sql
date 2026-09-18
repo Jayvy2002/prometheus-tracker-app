@@ -44,15 +44,36 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.actor_owns_program(p_program_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM public.programs p
+    WHERE p.id = p_program_id
+      AND p.owner_id = auth.uid()
+  );
+END;
+$$;
+
 COMMENT ON FUNCTION public.actor_is_actively_coached() IS
   'P1.2: true when the caller has an active coach_client_links row as client.';
 COMMENT ON FUNCTION public.coached_client_cannot_edit_program(uuid) IS
   'P1.2: true when the caller is coached and this program is their active assignment.';
+COMMENT ON FUNCTION public.actor_owns_program(uuid) IS
+  'P1.2: owner check that bypasses programs RLS, so assignment writes do not re-enter program_assignments policies.';
 
 REVOKE ALL ON FUNCTION public.actor_is_actively_coached() FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.coached_client_cannot_edit_program(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.actor_owns_program(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.actor_is_actively_coached() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.coached_client_cannot_edit_program(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.actor_owns_program(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.save_program(
   p_program_id uuid,
@@ -473,10 +494,7 @@ CREATE POLICY "Assigner inserts assignments" ON public.program_assignments
       (client_id = (select auth.uid()) AND NOT (select public.actor_is_actively_coached()))
       OR public.is_coach_of(client_id)
     )
-    AND EXISTS (
-      SELECT 1 FROM public.programs p
-      WHERE p.id = program_id AND p.owner_id = (select auth.uid())
-    )
+    AND public.actor_owns_program(program_id)
   );
 
 DROP POLICY IF EXISTS "Assigner updates assignments" ON public.program_assignments;
@@ -495,10 +513,7 @@ CREATE POLICY "Assigner updates assignments" ON public.program_assignments
       (client_id = (select auth.uid()) AND NOT (select public.actor_is_actively_coached()))
       OR public.is_coach_of(client_id)
     )
-    AND EXISTS (
-      SELECT 1 FROM public.programs p
-      WHERE p.id = program_id AND p.owner_id = (select auth.uid())
-    )
+    AND public.actor_owns_program(program_id)
   );
 
 DROP POLICY IF EXISTS "Assigner deletes assignments" ON public.program_assignments;
