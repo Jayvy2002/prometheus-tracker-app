@@ -523,7 +523,7 @@ describe('kinesiologyIntake wiring', () => {
     assert.match(finish, /persistDraft\(intake\)/);
     assert.match(finish, /saveChain/);
     assert.match(finish, /draftState/);
-    assert.match(finish, /showTargets = !coached && coachingRole !== 'coach' && !profile\?\.onboarding_completed/);
+    assert.match(finish, /showTargets = !coached && !profile\?\.onboarding_completed/);
     assert.match(finish, /soloTargetsToProfilePatch\(targets\)/);
     assert.match(finish, /TARGETS_SCREEN_INDEX && <ScreenTargets/);
     assert.match(finish, /aria-checked/);

@@ -9,10 +9,9 @@ import { AssignedQuestionnaireContext } from './assignedQuestionnaireContext';
 export default function AssignedQuestionnaireProvider({ children }: { children: ReactNode }) {
   const userId = useAuthStore(s => s.user?.id ?? null);
   const myCoachId = useCoachingStore(s => s.myCoach?.id ?? null);
-  const coachingRole = useCoachingStore(s => s.coachingRole);
   const roleReady = useCoachingStore(s => s.roleReady);
   const onQuestionnaire = useLocation().pathname === '/questionnaire';
-  const assignmentScope = userId && myCoachId && coachingRole !== 'coach' ? `${userId}:${myCoachId}` : null;
+  const assignmentScope = userId && myCoachId ? `${userId}:${myCoachId}` : null;
   const [status, setStatus] = useState<AssignedQuestionnaireStatus>('idle');
   const [response, setResponse] = useState<QuestionnaireResponse | null>(null);
   const [retryCount, setRetryCount] = useState(0);

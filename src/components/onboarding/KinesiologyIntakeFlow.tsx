@@ -595,7 +595,7 @@ export default function KinesiologyIntakeFlow({ allowExit = false }: { allowExit
   const coached = isCoachedAthlete(coachingRole, myCoach);
   // Solo first run: the intake IS the onboarding, so it ends on computed targets.
   // A coached client never sees them (the coach decides); a solo revisiting keeps the targets he tuned.
-  const showTargets = !coached && coachingRole !== 'coach' && !profile?.onboarding_completed;
+  const showTargets = !coached && !profile?.onboarding_completed;
   const totalScreens = showTargets ? TOTAL_INTAKE_SCREENS + 1 : TOTAL_INTAKE_SCREENS;
   const lastScreen = showTargets ? TARGETS_SCREEN_INDEX : TOTAL_INTAKE_SCREENS - 1;
 

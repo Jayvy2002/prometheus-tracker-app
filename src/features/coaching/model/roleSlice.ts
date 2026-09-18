@@ -20,6 +20,7 @@ import {
 } from '../../../stores/profileStore';
 import {
   getSessionOwner,
+  captureSession,
 } from '../../../lib/sessionScope';
 import {
   COACH_HAS_ACTIVE_CLIENTS,
@@ -29,6 +30,7 @@ import {
   loadAccountWorkspace,
   persistAccountWorkspace,
   readAccountRole,
+  parseAccountSnapshot,
 } from '../../../lib/accountContext';
 import {
   coachingRuntime,
@@ -47,6 +49,7 @@ import {
 export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchMyRole' | 'selectAccountWorkspace' | 'chooseEntryIntention' | 'setCoachingRole' | 'applyIntendedCoachingRole' | 'enableCoachMode' | 'countActiveCoachLinks' | 'disableCoachMode' > {
   return {
   fetchMyRole: async (userId) => {
+    const sessionCurrent = captureSession(userId);
     const previous = previousRoleForFetch(get().coachingRole, loadRememberedCoachingRole(userId));
     try {
       const { data, error, snapshot } = await readAccountRole(
@@ -54,6 +57,7 @@ export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<Coachi
         () => supabase.rpc('get_my_account_context'),
         () => supabase.from('user_roles').select('coaching_role').eq('user_id', userId).maybeSingle(),
       );
+      if (!sessionCurrent()) return;
       const outcome = nextRoleAfterFetch({
         previous,
         data: data as { coaching_role?: string | null } | null,
@@ -75,16 +79,21 @@ export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<Coachi
       set({
         coachingRole: role,
         accountSnapshot: snapshot,
+        ...(snapshot ? { myCoach: snapshot.activeCoachId
+          ? get().myCoach?.id === snapshot.activeCoachId ? get().myCoach
+            : { id: snapshot.activeCoachId, full_name: '', avatar_url: '' }
+          : null } : {}),
         accountWorkspace: snapshot?.coachCapability
           ? loadAccountWorkspace(userId) ?? 'coaching'
           : 'personal',
         roleReady: true,
         coachingRoleError: null,
-        ...(role === 'client'
+        ...((snapshot ? !!snapshot.activeCoachId : role === 'client')
           ? { myTrackingConfig: cloneTracking(ALL_OFF_TRACKING), trackingReady: false }
           : { myTrackingConfig: cloneTracking(ALL_ON_TRACKING), trackingReady: true }),
       });
     } catch {
+      if (!sessionCurrent()) return;
       set({
         coachingRole: previous,
         accountSnapshot: null,
@@ -101,7 +110,7 @@ export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<Coachi
     const snapshot = get().accountSnapshot;
     if (!accountId || snapshot?.userId !== accountId || !snapshot.coachCapability) return;
     persistAccountWorkspace(accountId, workspace);
-    set({ accountWorkspace: workspace });
+    set({ accountWorkspace: workspace, sentMessages: [], unreadMessageCount: 0, threadExhausted: {} });
   },
 
   chooseEntryIntention: async (intent) => {
@@ -125,14 +134,19 @@ export function createRoleSlice(set: CoachingSet, get: CoachingGet): Pick<Coachi
   },
 
   setCoachingRole: async (role) => {
-    const { data, error } = await supabase.rpc('set_coaching_role', { p_role: role });
-    if (error) return { error: mapCoachingRoleError(error.message) };
+    if (role !== 'coach' && role !== 'none') return { error: 'invalid_capability' };
+    const sessionCurrent = captureSession();
     const accountId = getSessionOwner();
-    if (accountId) {
-      await get().fetchMyRole(accountId);
-    } else {
-      set({ coachingRole: (data as CoachingRole) || role });
-    }
+    if (!accountId) return { error: 'not_authenticated' };
+    const { data, error } = await supabase.rpc('set_coach_capability', { p_enabled: role === 'coach' });
+    if (!sessionCurrent()) return { error: 'session_changed' };
+    if (error) return { error: mapCoachingRoleError(error.message) };
+    const snapshot = parseAccountSnapshot(data, accountId);
+    if (!snapshot) return { error: 'invalid_account_context' };
+    persistRememberedCoachingRole(accountId, snapshot.legacyRole);
+    set({ coachingRole: snapshot.legacyRole, accountSnapshot: snapshot,
+      accountWorkspace: snapshot.coachCapability ? get().accountWorkspace : 'personal',
+      roleReady: true, coachingRoleError: null });
     return { error: null };
   },
 

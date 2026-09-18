@@ -139,7 +139,37 @@ C’est le chantier le plus important. Tant qu’il n’est pas terminé, les no
 
 ### État actuel
 
-La capacité Coach existe déjà dans le modèle applicatif, mais reste encore liée par compatibilité à l’ancien `coaching_role` exclusif.
+**✅ Implémenté et validé en PR — non mergé, feu vert de Jean-Vincent attendu.**
+
+PR [#182](https://github.com/Jayvy2002/prometheus-tracker-app/pull/182), branche
+`agent/p1-1-coach-capability`, base `new-JV`.
+Preuve du code `2301deddb3aca7cc682b0a2cc12f511c486cc1fd` :
+[CI 35290634384 entièrement verte](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35290634384).
+
+- 673 tests unitaires ; audit npm sans critical ; lint 0 erreur (19 warnings existants).
+- Typecheck, build, verify:migrations (112 appliquées + 1 candidate), 13 bundles Edge.
+- Replay PostgreSQL 17, matrice RLS, départ/consentement, capacités, garde roster,
+  programme atomique, intention, marketplace et questionnaires : verts.
+- Navigateur : questionnaire existant et P1.1 (Solo, Coaché, Coach+Solo, Coach+Coaché,
+  activation depuis Coaché, switch Personnel/Coaching, roster, départ personnel,
+  mobile/desktop, erreur contexte puis reprise) : verts. Captures dans l'artefact
+  `coach-capability-browser-proof` du run ; inspection visuelle effectuée.
+- Revue finale du diff : pas de blocage restant identifié. Le contrôle des anciennes
+  invitations/concurrence et l'isolation des réponses tardives ont été ajoutés et revalidés.
+
+Une seule migration candidate append-only :
+`20260917235400_independent_coach_capability.sql`. Aucune migration historique modifiée.
+Aucun déploiement production. Les contrôles live et le dry-run production sont **ignorés
+faute de SUPABASE_ACCESS_TOKEN en CI**, pas déclarés réussis. Les locks production sont
+inchangés. Le déploiement coordonné migration/Edge reste à autoriser après cette PR.
+Docker/psql étant absents du poste, les preuves DB sont celles de la CI isolée.
+
+Inventaire des usages classés, contrat, compatibilité et dettes restantes :
+[P1.1 — capacité Coach](P1_1_COACH_CAPABILITY.md).
+La télémétrie legacy et le déclencheur historique de notification d'onboarding restent
+explicitement documentés ; aucun chantier P1.2–P1.5 n'est inclus.
+
+**Arrêt : aucun merge et aucun P1.2 sans le feu vert explicite de Jean-Vincent.**
 
 ### Cible
 

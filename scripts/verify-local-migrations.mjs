@@ -11,7 +11,8 @@ const url = process.env.DATABASE_URL
   || process.env.POSTGRES_URL
   || 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 const lock = JSON.parse(readFileSync(resolve(process.cwd(), 'supabase/schema_migrations.lock.json'), 'utf8'));
-const required = lock.applied.map((row) => row.version);
+const pending = JSON.parse(readFileSync(resolve(process.cwd(), 'supabase/migrations.pending.json'), 'utf8')).pending;
+const required = [...lock.applied, ...pending].map((row) => row.version);
 
 const raw = execFileSync('psql', [url, '-At', '-c', 'select version from supabase_migrations.schema_migrations order by version'], {
   encoding: 'utf8',

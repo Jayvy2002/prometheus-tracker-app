@@ -1,3 +1,4 @@
+import { captureSession } from '../../../lib/sessionScope';
 import {
   supabase,
 } from '../../../lib/supabase';
@@ -27,19 +28,22 @@ import {
 export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchCoachMessages' | 'fetchThreadPage' | 'fetchUnreadCounts' | 'sendCoachMessage' | 'sendClientReply' | 'markCoachMessageRead' | 'markThreadRead' > {
   return {
   fetchCoachMessages: async () => {
+    const sessionCurrent = captureSession();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       set({ sentMessages: [], unreadMessageCount: 0 });
       return;
     }
-    const role = get().coachingRole;
+    const inCoaching = get().accountSnapshot?.coachCapability && get().accountWorkspace === 'coaching';
     let query = supabase
       .from('coach_messages')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(200);
-    query = role === 'coach' ? query.eq('coach_id', user.id) : query.eq('client_id', user.id);
+    query = inCoaching ? query.eq('coach_id', user.id) : query.eq('client_id', user.id);
+    const workspace = get().accountWorkspace;
     const { data, error } = await query;
+    if (!sessionCurrent() || get().accountWorkspace !== workspace) return;
     if (error || !data) {
       set({ sentMessages: [] });
       return;
@@ -81,11 +85,15 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
   },
 
   fetchUnreadCounts: async () => {
+    const sessionCurrent = captureSession();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const { data } = await supabase.rpc('count_unread_messages');
+    if (!sessionCurrent()) return;
     const rows = (data ?? []) as Array<{ client_id: string; unread_count: number }>;
-    const total = rows.reduce((sum, row) => sum + Number(row.unread_count ?? 0), 0);
+    const inCoaching = get().accountSnapshot?.coachCapability && get().accountWorkspace === 'coaching';
+    const total = rows.filter(row => inCoaching ? row.client_id !== user.id : row.client_id === user.id)
+      .reduce((sum, row) => sum + Number(row.unread_count ?? 0), 0);
     set({ unreadMessageCount: total });
   },
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { buildSync } from 'esbuild';
 /**
  * Q06 — inventaire Edge Functions.
  * Compare : manifeste attendu, répertoires locaux, JWT config.toml,
@@ -144,11 +145,8 @@ let failedBundle = 0;
 for (const slug of dirs) {
   const entry = join(FN_DIR, slug, 'index.ts');
   try {
-    execFileSync(
-      'npx',
-      ['esbuild', entry, '--bundle', '--format=esm', '--platform=neutral', '--external:npm:*', '--external:jsr:*', `--outfile=${OUT}`, '--log-level=error'],
-      { stdio: 'inherit' },
-    );
+    buildSync({ entryPoints: [entry], bundle: true, format: 'esm', platform: 'neutral',
+      external: ['npm:*', 'jsr:*'], outfile: OUT, logLevel: 'error' });
     console.log(`edge OK: ${slug}`);
   } catch {
     console.error(`edge FAIL: ${slug}`);
@@ -164,3 +162,4 @@ if (failedBundle > 0) {
 if (process.exitCode && process.exitCode !== 0) {
   process.exit(process.exitCode);
 }
+

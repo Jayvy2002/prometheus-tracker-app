@@ -1,3 +1,4 @@
+import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -72,13 +73,14 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function ClientSetupPage() {
+  const canCoach = useAccountContext().capabilities.coach;
   const { t } = useTranslation();
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
+     clients, fetchClients, fetchClientProfile, fetchTrackingConfig,
     fetchOnboardingPlanDraft, fetchIntervention, resolveIntervention,
     applyIntervention,
     pendingInterventions, askCoachAgent, fetchCoachSettings, fetchCoachOps,
@@ -325,7 +327,7 @@ export default function ClientSetupPage() {
     );
   }
 
-  if (coachingRole !== 'coach') {
+  if (!canCoach) {
     return <Navigate to="/dashboard" replace />;
   }
 

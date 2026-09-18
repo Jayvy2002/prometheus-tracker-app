@@ -18,7 +18,6 @@ export function parseAccountSnapshot(value: unknown, userId: string): AccountSna
   if (row.error || row.user_id !== userId || !userId
     || typeof row.coach_capability !== 'boolean'
     || !['none', 'client', 'coach'].includes(String(role))
-    || row.coach_capability !== (role === 'coach')
     || !(row.active_coach_id === null || (typeof row.active_coach_id === 'string' && row.active_coach_id.length > 0))
     || row.active_coach_id === userId) return null;
   return {
@@ -94,15 +93,16 @@ export function resolveAccountContext(
 ): AccountContext {
   const legacy = resolveLegacyAccountContext(role, myCoach, ready);
   if (!ready || !snapshot || snapshot.legacyRole !== role) return legacy;
-  const personalToolsAvailable = snapshot.coachCapability || !legacy.capabilities.coach;
+  const defaultWorkspace = snapshot.coachCapability ? 'coaching' : 'personal';
   const selected = parseAccountWorkspace(preferredWorkspace);
   const activeWorkspace = snapshot.coachCapability && selected
-    ? selected : legacy.defaultWorkspace;
+    ? selected : defaultWorkspace;
   return {
     ...legacy,
-    personalCoaching: snapshot.activeCoachId ? 'coached'
-      : role === 'client' ? 'unresolved' : 'solo',
-    personalToolsAvailable,
+    capabilities: { coach: snapshot.coachCapability },
+    personalCoaching: snapshot.activeCoachId ? 'coached' : 'solo',
+    defaultWorkspace,
+    personalToolsAvailable: true,
     activeWorkspace,
   };
 }

@@ -122,15 +122,15 @@ do $$ begin
 end $$;
 reset role;
 
--- Retirer le rôle coach retire la projection.
+-- Personal/legacy role changes must never revoke professional capability.
 update public.user_roles set coaching_role='none'
  where user_id='a1760000-0000-4000-8000-000000000003';
 do $$ begin
-  if exists (
+  if not exists (
     select 1 from public.user_capabilities
     where user_id='a1760000-0000-4000-8000-000000000003'
   ) then
-    raise exception 'capability survived role removal';
+    raise exception 'capability lost after legacy role change';
   end if;
 end $$;
 

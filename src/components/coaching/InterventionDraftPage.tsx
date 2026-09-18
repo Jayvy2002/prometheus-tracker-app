@@ -1,3 +1,4 @@
+import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -51,13 +52,14 @@ const EMPTY_TRACKING = {
 };
 
 export default function InterventionDraftPage() {
+  const canCoach = useAccountContext().capabilities.coach;
   const { t } = useTranslation();
   const { id, interventionId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, fetchClients, fetchIntervention, resolveIntervention,
+     clients, fetchClients, fetchIntervention, resolveIntervention,
     applyIntervention,
     pendingInterventions, askCoachAgent,
   } = useCoachingStore();
@@ -312,7 +314,7 @@ export default function InterventionDraftPage() {
     navigate(clientFileHref(targetClientId));
   };
 
-  if (coachingRole !== 'coach') {
+  if (!canCoach) {
     return <Navigate to="/dashboard" replace />;
   }
 

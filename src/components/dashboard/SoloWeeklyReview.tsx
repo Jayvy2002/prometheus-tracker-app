@@ -27,7 +27,7 @@ import { toast } from '../ui/Toast';
 /**
  * The solo's copilot, weekly: reads his own 14 days (logs, weigh-ins, sessions), applies the same
  * rules as the coach fleet, explains the why, and lets him accept or keep. Never shown to a
- * coached client (his coach receives the proposal) nor to a coach.
+ * coached client (their coach receives the proposal). Professional capability is independent.
  */
 export default function SoloWeeklyReview() {
   const { t } = useTranslation();
@@ -45,7 +45,7 @@ export default function SoloWeeklyReview() {
   const [targetHistory, setTargetHistory] = useState<Array<{ effective_from: string; calories: number }>>([]);
   const [deciding, setDeciding] = useState<SoloReviewDecision | null>(null);
 
-  const solo = !coached && coachingRole !== 'coach';
+  const solo = !coached;
   const today = todayStr();
   // I03 : 14 dates incluses comme la fleet (today-13..today).
   const windowStart = addDaysToDateStr(today, -(SOLO_REVIEW_WINDOW_DAYS - 1));

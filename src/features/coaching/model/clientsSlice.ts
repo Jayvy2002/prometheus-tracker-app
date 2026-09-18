@@ -551,7 +551,7 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
 
       get().stopClientRealtime();
       // Leaving personal coaching does not remove professional coach capability.
-      const role = get().coachingRole === 'coach' ? 'coach' : 'none';
+      const role = get().accountSnapshot?.coachCapability ? 'coach' : 'none';
       persistRememberedCoachingRole(accountId, role);
       if (typeof payload.ended_at === 'string') {
         useProfileStore.getState().applyCoachingDeparture(accountId, payload.ended_at);
