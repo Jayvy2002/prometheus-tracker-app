@@ -55,7 +55,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **PROCHAIN** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 terminé ; P1.2 attend feu vert** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -113,7 +113,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-Le prochain travail produit est **P1.1 — faire de la capacité Coach une vraie capacité indépendante**.
+P1.1 est terminé. Le prochain travail produit sera **P1.2 — permissions par ressource/action**, uniquement après feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -139,12 +139,11 @@ C’est le chantier le plus important. Tant qu’il n’est pas terminé, les no
 
 ### État actuel
 
-**✅ Implémenté et validé en PR — non mergé, feu vert de Jean-Vincent attendu.**
+**✅ TERMINÉ — mergé, déployé et vérifié en production.**
 
-PR [#182](https://github.com/Jayvy2002/prometheus-tracker-app/pull/182), branche
-`agent/p1-1-coach-capability`, base `new-JV`.
-Preuve du code `2301deddb3aca7cc682b0a2cc12f511c486cc1fd` :
-[CI 35290634384 entièrement verte](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35290634384).
+PR [#182](https://github.com/Jayvy2002/prometheus-tracker-app/pull/182) mergée dans `new-JV`.
+Commit de merge : `e310acd8677b7b7088206b07033187dc353df322`.
+La CI finale de PR était entièrement verte ; la CI post-merge est également exigée avant de passer à P1.2.
 
 - 673 tests unitaires ; audit npm sans critical ; lint 0 erreur (19 warnings existants).
 - Typecheck, build, verify:migrations (112 appliquées + 1 candidate), 13 bundles Edge.
@@ -157,19 +156,22 @@ Preuve du code `2301deddb3aca7cc682b0a2cc12f511c486cc1fd` :
 - Revue finale du diff : pas de blocage restant identifié. Le contrôle des anciennes
   invitations/concurrence et l'isolation des réponses tardives ont été ajoutés et revalidés.
 
-Une seule migration candidate append-only :
-`20260917235400_independent_coach_capability.sql`. Aucune migration historique modifiée.
-Aucun déploiement production. Les contrôles live et le dry-run production sont **ignorés
-faute de SUPABASE_ACCESS_TOKEN en CI**, pas déclarés réussis. Les locks production sont
-inchangés. Le déploiement coordonné migration/Edge reste à autoriser après cette PR.
-Docker/psql étant absents du poste, les preuves DB sont celles de la CI isolée.
+Migration append-only `20260917235400_independent_coach_capability.sql` appliquée en production via l’intégration Supabase avec **le même timestamp**. Aucune migration historique modifiée.
+
+État production vérifié après merge :
+- **113 migrations** appliquées, dernière = `20260917235400_independent_coach_capability` ;
+- RPC `set_coach_capability(boolean)` présente ;
+- `get_my_account_context()` présente ;
+- garde `require_active_coach_capability()` et son trigger présents ;
+- **13 Edge Functions ACTIVE**, dont `coach-agent` v131 et `coach-fleet-round` v138 au moment du contrôle ;
+- locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
 
 Inventaire des usages classés, contrat, compatibilité et dettes restantes :
 [P1.1 — capacité Coach](P1_1_COACH_CAPABILITY.md).
 La télémétrie legacy et le déclencheur historique de notification d'onboarding restent
 explicitement documentés ; aucun chantier P1.2–P1.5 n'est inclus.
 
-**Arrêt : aucun merge et aucun P1.2 sans le feu vert explicite de Jean-Vincent.**
+**Arrêt : P1.1 est clôturé. Aucun P1.2 sans le feu vert explicite de Jean-Vincent.**
 
 ### Cible
 
