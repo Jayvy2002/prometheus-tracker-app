@@ -49,15 +49,20 @@ son propre plan en lecture dans l’espace Personnel.
   `programs` / `program_days` / `program_day_exercises`, et les writes Data API de
   `program_assignments` partagent le même verrou leftover (`coached_client_cannot_edit_program`,
   `actor_is_actively_coached`). Un Coach lui-même Coaché continue d’écrire les plans de ses
-  clients actifs. Migrations pending `20260918102103_save_program_coached_owner` et
+  clients actifs. Migrations appliquées en production :
+  `20260918102103_save_program_coached_owner` et
   `20260918103748_program_write_coached_owner`.
+  `schema_migrations.lock.json` reflète cet état observé (115 versions) ;
+  `migrations.pending.json` est vide.
 - `assign_program_secure` refuse l’auto-attribution d’un Coaché.
 - `protect_coach_nutrition_targets` conserve kcal / macros / eau / pas.
 - `is_self_coach` / `is_coach_of` : pas de dossier sur soi-même ; accès relationnel.
 
 TrackingGate reste un overlay de modules de la relation, pas un déni de persona.
 
+Après merge de la PR [#185](https://github.com/Jayvy2002/prometheus-tracker-app/pull/185), la production a été vérifiée directement : les deux versions P1.2 sont présentes, les helpers plpgsql `actor_is_actively_coached` / `coached_client_cannot_edit_program` / `actor_owns_program` existent en `SECURITY DEFINER`, et `save_program` / `sync_program_days` / `save_program_day_exercises` conservent le RAISE leftover. Les locks ont été synchronisés sur cet état observé.
+
 ## Hors scope
 
 P1.3 calendrier Coaché, P1.4 confirmation marketplace, P1.5 durées commerciales,
-refonte IA, facturation.
+refonte IA, facturation. P1.2 est clôturé ; aucun P1.3 sans feu vert explicite.
