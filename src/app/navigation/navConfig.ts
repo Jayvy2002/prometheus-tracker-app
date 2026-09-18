@@ -125,6 +125,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
           ...(tracking.track_workouts ? [workout, myProgram] : []),
           progress,
           stats,
+          calendar,
         ],
       },
       {

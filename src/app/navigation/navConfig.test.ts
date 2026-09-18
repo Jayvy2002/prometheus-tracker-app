@@ -62,13 +62,13 @@ test('UX111 coached nutrition stays off the tab bar (FAB + profile + desktop)', 
   assert.equal(fab.includes('/checkin'), true);
 });
 
-test('coached desktop train lists program, progress and stats, not calendar', () => {
+test('coached desktop train lists program, progress, stats and calendar', () => {
   const sections = desktopSections('coached', trackingOn);
   const train = sections.find(section => section.id === 'train')?.items.map(item => item.path);
-  assert.deepEqual(train, ['/workout', '/programs', '/exercise-progress', '/stats']);
+  assert.deepEqual(train, ['/workout', '/programs', '/exercise-progress', '/stats', '/calendar']);
   const all = sections.flatMap(section => section.items.map(item => item.path));
   assert.equal(all.includes('/stats'), true);
-  assert.equal(all.includes('/calendar'), false);
+  assert.equal(all.includes('/calendar'), true);
 });
 
 test('desktop coaching lists copilot and marketplace as secondary sections', () => {

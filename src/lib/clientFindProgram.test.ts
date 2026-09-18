@@ -10,13 +10,14 @@ function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
 }
 
-test('coached athlete can open Mon programme, exercise-progress and stats in read-only, not calendar', () => {
+test('coached athlete can open Mon programme, exercise-progress, stats and calendar in read-only', () => {
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.match(app, /path="\/exercise-progress" element=\{<CoachTrackerRedirect><ExerciseProgressPage/);
   assert.doesNotMatch(app, /path="\/exercise-progress" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
   assert.match(app, /path="\/stats" element=\{<CoachTrackerRedirect><StatsPage/);
   assert.doesNotMatch(app, /path="\/stats" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
-  assert.match(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
+  assert.match(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CalendarPage/);
+  assert.doesNotMatch(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
 
   const workout = src('src/components/workout/WorkoutPage.tsx');
   assert.match(workout, /data-testid="workout-program"/);

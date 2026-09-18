@@ -34,7 +34,7 @@ Le travail restant n’est pas une reconstruction. Le principal enjeu est désor
 
 > **CURRENT IMPLEMENTATION GATE — P1.3 : Calendrier personnel pour Solo + Coaché.**
 >
-> P1.1 et P1.2 sont terminés, mergés, déployés et vérifiés. La prochaine tâche est P1.3. Un agent ne commence P1.3 qu’après le feu vert explicite de Jean-Vincent. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1 et P1.2 sont clôturés. P1.3 est en cours. Un agent ne commence que cette tâche, s’arrête à la PR verte, et attend le feu vert explicite de Jean-Vincent avant merge et avant P1.4. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,7 +60,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 et P1.2 terminés ; P1.3 attend feu vert** | Faire correspondre le modèle métier à la Vision |
+| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1 et P1.2 clôturés ; P1.3 PR ouverte, pas de P1.4 sans feu vert** | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.2 est clôturé. Le calendrier Coaché (P1.3) reste le chantier suivant, uniquement après feu vert explicite de Jean-Vincent.
+P1.3 est en cours. Le lifecycle marketplace (P1.4) reste le chantier suivant, uniquement après merge et feu vert.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -232,7 +232,7 @@ Inventaire, contrat et câblage : [P1.2 — permissions ressource/action](P1_2_R
 - `save_program` refuse un Coaché propriétaire d’un leftover Solo encore assigné.
 - Les RPC legacy, les RLS owner et l’auto-attribution Data API sont fermés par la même règle.
 - Workspace UI jamais utilisé comme grant.
-- `/calendar` reste bloqué (P1.3).
+- `/calendar` est un outil personnel (P1.3).
 
 Migrations append-only `20260918102103_save_program_coached_owner.sql` et
 `20260918103748_program_write_coached_owner.sql` appliquées en production via l’intégration
@@ -247,7 +247,7 @@ Supabase avec **les mêmes timestamps**. Aucune migration historique modifiée.
 - **13 Edge Functions ACTIVE**, dont `coach-agent` v134 et `coach-fleet-round` v141 au moment du contrôle ;
 - locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
 
-**Arrêt : P1.2 est clôturé. Aucun P1.3 sans le feu vert explicite de Jean-Vincent.**
+**Arrêt : P1.2 est clôturé.** Le GATE courant est P1.3.
 
 ### Problème
 
@@ -283,7 +283,17 @@ Le fait d’être Coaché ne masque plus arbitrairement ses propres données ou 
 
 ### État actuel
 
-Le calendrier existe mais est encore bloqué pour le Coaché.
+**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.4.**
+
+Inventaire et câblage : [P1.3 — calendrier personnel](P1_3_PERSONAL_CALENDAR.md).
+
+- `/calendar` n’est plus derrière `CoachedAthleteRedirect` ; `CoachTrackerRedirect` (outils personnels) suffit.
+- Desktop Coaché : Calendrier à côté de Stats / progression.
+- Hub progression et profil Coaché : lien Calendrier.
+- Consultation du futur : un jour à venir est sélectionnable ; un jour **prescrit** apparaît en prévu avec son nom.
+- Fenêtre du plan : `start_date` + `duration_weeks` ; une attribution `paused` ne génère plus de prévu après sa fin.
+- Pas d’édition du plan Coach depuis le calendrier (`saveProgram` / éditeur absents).
+- `/routines` reste bloqué.
 
 ### À faire
 

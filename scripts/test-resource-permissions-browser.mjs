@@ -111,10 +111,9 @@ try {
   });
 
   await coachedPage.goto(origin + '/calendar');
-  await coachedPage.waitForURL(/\/dashboard/);
-  assert.equal(await coachedPage.getByRole('heading', { name: 'Calendar', exact: true }).count(), 0);
+  await coachedPage.getByTestId('calendar-page').waitFor();
   await coachedPage.screenshot({
-    path: 'artifacts/p12/coached-calendar-redirect.png',
+    path: 'artifacts/p12/coached-calendar.png',
     fullPage: true,
     animations: 'disabled',
   });
@@ -153,7 +152,7 @@ try {
 
   await writeFile(
     'artifacts/p12/results.txt',
-    'PASS: coached stats history, assigned plan read-only, calendar still deferred, Coach+Coached personal stats and roster.\n',
+    'PASS: coached stats history, assigned plan read-only, calendar open, Coach+Coached personal stats and roster.\n',
   );
 } catch (error) {
   for (const [i, page] of pages.entries()) {
