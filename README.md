@@ -173,12 +173,13 @@ new-JV vert
 → agent/pX-Y-description
 → implémentation + tests + mise à jour CHANTIER
 → PR vers new-JV
-→ CI verte
-→ merge
-→ nouvelle branche depuis new-JV
+→ CI verte + revue finale
+→ STOP / feu vert de Jean-Vincent
+→ merge explicite
+→ seulement ensuite nouvelle sous-tâche
 ```
 
-Le template `.github/pull_request_template.md` est obligatoire pour les changements fonctionnels.
+Le template `.github/pull_request_template.md` est obligatoire pour les changements fonctionnels. Dans Cursor, `.cursor/rules/prometheus.mdc` est une règle projet Always Apply qui force la lecture des sources de vérité avant le code.
 
 ## Déploiement
 
