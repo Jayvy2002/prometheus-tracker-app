@@ -10,7 +10,6 @@ import {
 import { latestMigrationContaining } from '../../../lib/migrationScan';
 import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 import {
-  PERSONAL_CALENDAR_ROUTE_OPEN,
   actorFromAccount,
   canActAsCoach,
   canEditClientDossier,
@@ -151,12 +150,15 @@ test('unresolved or unready context fails closed', () => {
   assert.equal(canActAsCoach(legacyCoach), true);
 });
 
-test('calendar resource read is allowed; the route stays deferred for coached until P1.3', () => {
-  assert.equal(PERSONAL_CALENDAR_ROUTE_OPEN, false);
+test('calendar resource read and route are allowed for Solo and Coached personal tools', () => {
+  assert.equal(canReadOwnCalendar(solo()), true);
+  assert.equal(canReadOwnCalendar(coached()), true);
   assert.equal(canOpenPersonalCalendarRoute(solo()), true);
-  assert.equal(canOpenPersonalCalendarRoute(coached()), false);
+  assert.equal(canOpenPersonalCalendarRoute(coached()), true);
   assert.equal(canOpenPersonalCalendarRoute(coachSolo()), true);
-  assert.equal(canOpenPersonalCalendarRoute(coachCoached()), false);
+  assert.equal(canOpenPersonalCalendarRoute(coachCoached()), true);
+  const blocked = actorFromAccount(null, resolveAccountContext('none', null, true, null));
+  assert.equal(canOpenPersonalCalendarRoute(blocked), false);
 });
 
 test('server enforces owner writes, leftover coached save_program, nutrition targets and dossier isolation', () => {
@@ -174,11 +176,12 @@ test('server enforces owner writes, leftover coached save_program, nutrition tar
   assert.match(capability.sql, /client_id = auth\.uid\(\) AND status = 'active'/);
 });
 
-test('stats is a personal history surface; calendar and routines stay persona-gated until later chantiers', () => {
+test('stats and calendar are personal history surfaces; routines stay persona-gated', () => {
   const app = src('src/app/router/AppRoutes.tsx') + src('src/app/guards/RouteGuards.tsx');
   assert.match(app, /path="\/stats" element=\{<CoachTrackerRedirect><StatsPage/);
   assert.doesNotMatch(app, /path="\/stats" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
-  assert.match(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
+  assert.match(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CalendarPage/);
+  assert.doesNotMatch(app, /path="\/calendar" element=\{<CoachTrackerRedirect><CoachedAthleteRedirect>/);
   assert.match(app, /path="\/routines"[\s\S]*CoachedAthleteRedirect/);
   assert.match(src('src/app/guards/RouteGuards.tsx'), /canUsePersonalTools/);
   assert.match(src('src/app/guards/RouteGuards.tsx'), /canActAsCoach/);
@@ -188,6 +191,10 @@ test('stats is a personal history surface; calendar and routines stay persona-ga
   const nav = src('src/app/navigation/navConfig.ts');
   assert.match(nav, /persona === 'coached'/);
   assert.match(nav, /stats/);
+  assert.match(nav, /calendar/);
+  const profile = src('src/components/profile/ProfilePage.tsx');
+  assert.match(profile, /to="\/stats"/);
+  assert.match(profile, /to="\/calendar"/);
   const program = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(program, /canUpdateOwnAssignedProgram/);
   assert.match(program, /canProposeAssignedProgramChange/);

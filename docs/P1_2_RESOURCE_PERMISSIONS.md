@@ -29,9 +29,9 @@ son propre plan en lecture dans l’espace Personnel.
 ## Câblage UI
 
 - `/stats` n’est plus bloqué par la persona Coaché (`CoachTrackerRedirect` = outils personnels).
-- Navigation desktop Coaché : Stats à côté de la progression. Calendrier volontairement absent.
-- Hub progression et profil Coaché : lien Stats. Calendrier toujours masqué (P1.3).
-- `/calendar` et `/routines` restent derrière `CoachedAthleteRedirect` jusqu’à P1.3.
+- Navigation desktop Coaché : Stats à côté de la progression. Calendrier ouvert en P1.3.
+- Hub progression et profil Coaché : lien Stats. Calendrier ouvert en P1.3.
+- `/calendar` est un outil personnel (P1.3). `/routines` reste derrière `CoachedAthleteRedirect`.
 - Programme assigné : édition seulement si `canUpdateOwnAssignedProgram` ; sinon lecture +
   proposition existante (Ask → message Coach).
 - `canReadAssignedProgram(actor, resource)` / `canUpdateAssignedProgram(actor, resource)` :
@@ -64,5 +64,5 @@ Après merge de la PR [#185](https://github.com/Jayvy2002/prometheus-tracker-app
 
 ## Hors scope
 
-P1.3 calendrier Coaché, P1.4 confirmation marketplace, P1.5 durées commerciales,
-refonte IA, facturation. P1.2 est clôturé ; aucun P1.3 sans feu vert explicite.
+P1.3 calendrier Coaché (en cours), P1.4 confirmation marketplace, P1.5 durées commerciales,
+refonte IA, facturation. P1.2 est clôturé.

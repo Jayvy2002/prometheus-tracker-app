@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, Apple, Scale, ClipboardList, Inbox, Search, BarChart2 } from 'lucide-react';
+import { User, Target, Ruler, Lock, LogOut, ChevronDown, MessageSquare, Bell, Trash2, Globe, Users, SlidersHorizontal, Camera, CalendarRange, CalendarDays, Apple, Scale, ClipboardList, Inbox, Search, BarChart2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -201,6 +201,9 @@ export default function ProfilePage() {
           </Link>
           <Link to="/stats" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
             <BarChart2 size={16} className="text-blue-400" /> {t('nav.stats')}
+          </Link>
+          <Link to="/calendar" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">
+            <CalendarDays size={16} className="text-blue-400" /> {t('nav.calendar')}
           </Link>
           {tracking.track_nutrition && (
             <Link to="/nutrition" className="w-full flex items-center gap-3 px-1 py-2.5 text-left text-sm text-white">

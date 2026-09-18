@@ -292,10 +292,13 @@ export default function CalendarPage() {
     return (
       <button
         key={day.date}
-        onClick={() => !isFuture && setSelectedDate(day.date)}
-        className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-all active:scale-95
+        onClick={() => setSelectedDate(day.date)}
+        data-testid={`calendar-day-${day.date}`}
+        data-future={isFuture ? 'true' : 'false'}
+        data-selected={isSelected ? 'true' : 'false'}
+        className={`flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-all active:scale-95 cursor-pointer
           ${isSelected ? 'bg-blue-600 text-white' : isToday ? 'bg-neutral-800 text-white' : 'text-neutral-400 hover:bg-neutral-800/50'}
-          ${isFuture || dimmed ? 'opacity-30' : 'cursor-pointer'}`}
+          ${dimmed ? 'opacity-30' : isFuture && !isSelected ? 'opacity-70' : ''}`}
       >
         <span className={`font-semibold ${viewMode === 'month' ? 'text-[11px]' : 'text-xs'}`}>
           {parseDateStr(day.date).getDate()}
@@ -321,7 +324,7 @@ export default function CalendarPage() {
     <PageTransition>
     <div className="px-4 pt-6">
       <div className="flex items-center justify-between mb-6 animate-fade-in-down">
-        <h1 className="text-2xl font-bold text-white">{t('calendar.title')}</h1>
+        <h1 className="text-2xl font-bold text-white" data-testid="calendar-page">{t('calendar.title')}</h1>
         <div className="flex items-center gap-2">
           {streakCount > 0 && (
             <div className="flex items-center gap-1 bg-orange-500/15 border border-orange-500/25 rounded-xl px-2.5 py-1.5">
@@ -331,6 +334,7 @@ export default function CalendarPage() {
           )}
           <button
             onClick={() => setViewMode(viewMode === 'week' ? 'month' : 'week')}
+            data-testid="calendar-view-toggle"
             className="p-2 rounded-xl bg-neutral-900 text-neutral-400 hover:text-white transition-colors"
           >
             {viewMode === 'week' ? <CalendarRange size={18} /> : <CalendarDays size={18} />}
@@ -342,15 +346,17 @@ export default function CalendarPage() {
         <div className="flex items-center justify-between mb-3">
           <button
             onClick={() => viewMode === 'week' ? setWeekOffset(o => o - 1) : setMonthOffset(o => o - 1)}
+            data-testid="calendar-prev"
             className="p-2 text-neutral-400 hover:text-white transition-colors"
           >
             <ChevronLeft size={18} />
           </button>
-          <span className="text-sm font-semibold text-white">
+          <span className="text-sm font-semibold text-white" data-testid="calendar-period-label">
             {viewMode === 'week' ? weekLabel : monthLabel}
           </span>
           <button
             onClick={() => viewMode === 'week' ? setWeekOffset(o => o + 1) : setMonthOffset(o => o + 1)}
+            data-testid="calendar-next"
             className="p-2 text-neutral-400 hover:text-white transition-colors"
           >
             <ChevronRight size={18} />

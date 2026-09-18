@@ -36,7 +36,7 @@ export function CoachTrackerRedirect({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** P1.3 still owns /calendar. Do not reuse this to hide authorized personal history. */
+/** Remaining persona page-deny. Do not reuse this to hide authorized personal history. */
 export function CoachedAthleteRedirect({ children }: { children: ReactNode }) {
   const context = useAccountContext();
   if (!context.ready) return <RouteFallback />;

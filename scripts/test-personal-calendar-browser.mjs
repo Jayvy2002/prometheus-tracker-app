@@ -20,7 +20,7 @@ const admin = createClient(url, config.SERVICE_ROLE_KEY, {
 const actors = [];
 
 async function actor(name, capability) {
-  const password = 'Local-P12-' + crypto.randomUUID();
+  const password = 'Local-P13-' + crypto.randomUUID();
   const { user } = check(await admin.auth.admin.createUser({
     email: `${name}@example.test`,
     password,
@@ -49,17 +49,15 @@ function sessionKey() {
   return 'sb-' + new URL(url).hostname.split('.')[0] + '-auth-token';
 }
 
-const coach = await actor('p12-coach', true);
-const coached = await actor('p12-coached', false);
-const dual = await actor('p12-dual', true);
-const roster = await actor('p12-roster', false);
+const coach = await actor('p13-coach', true);
+const coached = await actor('p13-coached', false);
+const dual = await actor('p13-dual', true);
 check(await admin.from('coach_client_links').insert([
   { coach_id: coach.id, client_id: coached.id, status: 'active' },
   { coach_id: coach.id, client_id: dual.id, status: 'active' },
-  { coach_id: dual.id, client_id: roster.id, status: 'active' },
 ]));
 
-const vite = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '4175'], {
+const vite = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', '4176'], {
   env: {
     ...process.env,
     VITE_SUPABASE_URL: url,
@@ -67,9 +65,9 @@ const vite = spawn('npm', ['run', 'dev', '--', '--host', '127.0.0.1', '--port', 
   },
   stdio: 'ignore',
 });
-const origin = 'http://127.0.0.1:4175';
+const origin = 'http://127.0.0.1:4176';
 const browser = await chromium.launch();
-await mkdir('artifacts/p12', { recursive: true });
+await mkdir('artifacts/p13', { recursive: true });
 const pages = [];
 
 try {
@@ -91,32 +89,38 @@ try {
   }
 
   const coachedPage = await openAs(coached);
-  await coachedPage.goto(origin + '/stats');
-  await coachedPage.getByTestId('stats-page').waitFor();
-  await coachedPage.screenshot({
-    path: 'artifacts/p12/coached-stats.png',
-    fullPage: true,
-    animations: 'disabled',
-  });
-
-  await coachedPage.goto(origin + '/programs');
-  await coachedPage.getByRole('heading', { name: 'My program', exact: true }).waitFor();
-  await coachedPage.getByTestId('assigned-plan-read-only').waitFor();
-  assert.equal(await coachedPage.getByRole('button', { name: 'Save plan' }).count(), 0);
-  assert.equal(await coachedPage.getByRole('button', { name: 'Create my program' }).count(), 0);
-  await coachedPage.screenshot({
-    path: 'artifacts/p12/coached-program.png',
-    fullPage: true,
-    animations: 'disabled',
-  });
-
   await coachedPage.goto(origin + '/calendar');
   await coachedPage.getByTestId('calendar-page').waitFor();
+  await coachedPage.getByText('Scheduled', { exact: true }).waitFor();
+  await coachedPage.getByText('Started', { exact: true }).waitFor();
+  await coachedPage.getByText('Done', { exact: true }).waitFor();
+  assert.equal(await coachedPage.getByRole('button', { name: 'Save plan' }).count(), 0);
+  assert.equal(await coachedPage.getByRole('button', { name: 'Create my program' }).count(), 0);
+
+  await coachedPage.getByTestId('calendar-next').click();
+  const future = coachedPage.locator('[data-testid^="calendar-day-"][data-future="true"]').first();
+  await future.waitFor();
+  const futureId = await future.getAttribute('data-testid');
+  assert.ok(futureId?.startsWith('calendar-day-'));
+  await future.click();
+  await coachedPage.locator(`[data-testid="${futureId}"][data-selected="true"]`).waitFor();
+  await coachedPage.getByTestId('calendar-page').waitFor();
   await coachedPage.screenshot({
-    path: 'artifacts/p12/coached-calendar.png',
+    path: 'artifacts/p13/coached-calendar-future.png',
     fullPage: true,
     animations: 'disabled',
   });
+
+  await coachedPage.getByTestId('calendar-view-toggle').click();
+  await coachedPage.getByTestId('calendar-period-label').waitFor();
+  await coachedPage.screenshot({
+    path: 'artifacts/p13/coached-calendar-month.png',
+    fullPage: true,
+    animations: 'disabled',
+  });
+
+  await coachedPage.goto(origin + '/routines');
+  await coachedPage.waitForURL(/\/dashboard/);
 
   const dualPage = await openAs(dual, { width: 1440, height: 1000 });
   await dualPage.goto(origin + '/profile');
@@ -124,41 +128,23 @@ try {
   await group.getByRole('button', { name: 'Personal', exact: true }).click();
   await dualPage.goto(origin + '/profile');
   await group.getByRole('button', { name: 'Personal', exact: true, pressed: true }).waitFor();
-  await dualPage.goto(origin + '/stats');
-  await dualPage.getByTestId('stats-page').waitFor();
-  await dualPage.getByRole('link', { name: 'Stats', exact: true }).first().waitFor();
+  await dualPage.goto(origin + '/calendar');
+  await dualPage.getByTestId('calendar-page').waitFor();
+  await dualPage.getByRole('link', { name: 'Calendar', exact: true }).first().waitFor();
   await dualPage.screenshot({
-    path: 'artifacts/p12/coach-coached-personal-stats.png',
+    path: 'artifacts/p13/coach-coached-personal-calendar.png',
     fullPage: true,
     animations: 'disabled',
   });
 
-  await dualPage.goto(origin + '/programs');
-  await dualPage.getByTestId('assigned-plan-read-only').waitFor();
-  assert.equal(await dualPage.getByRole('button', { name: 'Save plan' }).count(), 0);
-
-  await dualPage.goto(origin + '/profile');
-  await group.getByRole('button', { name: 'Coaching', exact: true }).click();
-  await dualPage.goto(origin + '/profile');
-  await group.getByRole('button', { name: 'Coaching', exact: true, pressed: true }).waitFor();
-  await dualPage.goto(origin + '/clients');
-  await dualPage.getByText('p12-roster', { exact: true }).first().waitFor();
-  assert.equal(await dualPage.getByText('p12-dual', { exact: true }).count(), 0);
-  await dualPage.screenshot({
-    path: 'artifacts/p12/coach-coached-roster.png',
-    fullPage: true,
-    animations: 'disabled',
-  });
-
-  await writeFile(
-    'artifacts/p12/results.txt',
-    'PASS: coached stats history, assigned plan read-only, calendar open, Coach+Coached personal stats and roster.\n',
-  );
+  const pass = 'PASS: coached calendar past/future, plan legend, no plan editor, routines still deferred, Coach+Coached personal calendar.';
+  await writeFile('artifacts/p13/results.txt', pass + '\n');
+  console.log(pass);
 } catch (error) {
   for (const [i, page] of pages.entries()) {
     if (!page.isClosed()) {
       await page.screenshot({
-        path: `artifacts/p12/failure-${i}.png`,
+        path: `artifacts/p13/failure-${i}.png`,
         fullPage: true,
         animations: 'disabled',
       }).catch(() => {});

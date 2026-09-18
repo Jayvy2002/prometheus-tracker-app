@@ -237,7 +237,7 @@ export default function AppRoutes() {
         <Route path="/workout" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/nutrition" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><NutritionPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><WeightPage /></TrackingGate></CoachTrackerRedirect>} />
-        <Route path="/calendar" element={<CoachTrackerRedirect><CoachedAthleteRedirect><CalendarPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
+        <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
         <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />

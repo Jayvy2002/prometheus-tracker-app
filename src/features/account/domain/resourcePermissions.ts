@@ -26,9 +26,6 @@ export interface ClientDossierResource {
   hasActiveRelationship: boolean;
 }
 
-/** P1.3 owns calendar routing. Owner read is already allowed here. */
-export const PERSONAL_CALENDAR_ROUTE_OPEN = false;
-
 export function actorFromAccount(
   userId: string | null | undefined,
   context: AccountContext,
@@ -140,9 +137,7 @@ export function canReadOwnCalendar(actor: PermissionActor): boolean {
   return canUsePersonalTools(actor);
 }
 
-/** Solo keeps today's calendar route; coached waits for P1.3. */
+/** Calendar is a personal read surface. Writes stay on the assigned-plan contract. */
 export function canOpenPersonalCalendarRoute(actor: PermissionActor): boolean {
-  if (!canReadOwnCalendar(actor)) return false;
-  if (PERSONAL_CALENDAR_ROUTE_OPEN) return true;
-  return actor.personalCoaching !== 'coached';
+  return canReadOwnCalendar(actor);
 }

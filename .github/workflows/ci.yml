@@ -131,6 +131,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/save_program_coached.sql | tee /tmp/save-program-coached-db-results.txt
+      - name: Confirm leftover owner-guard echo
+        run: |
+          set -euo pipefail
+          grep -F 'save_program coached leftover owner guard passed' /tmp/save-program-coached-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -164,6 +168,13 @@ jobs:
         run: node scripts/test-coach-capability-browser.mjs
       - name: Resource/action permissions browser journey
         run: node scripts/test-resource-permissions-browser.mjs
+      - name: Personal calendar browser journey
+        run: node scripts/test-personal-calendar-browser.mjs
+      - name: Confirm browser PASS files
+        run: |
+          set -euo pipefail
+          grep -F 'PASS: coached stats history' artifacts/p12/results.txt
+          grep -F 'PASS: coached calendar past/future' artifacts/p13/results.txt
       - name: Upload Coach capability browser proof
         if: always()
         uses: actions/upload-artifact@v4
@@ -177,6 +188,13 @@ jobs:
         with:
           name: resource-permissions-browser-proof
           path: artifacts/p12/
+          if-no-files-found: warn
+      - name: Upload personal calendar browser proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-calendar-browser-proof
+          path: artifacts/p13/
           if-no-files-found: warn
       - name: Upload questionnaire browser proof
         if: always()
