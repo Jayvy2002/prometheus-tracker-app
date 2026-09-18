@@ -16,6 +16,10 @@ insert into public.user_roles(user_id,role,coaching_role) values
  ('a1890000-0000-4000-8000-000000000004','free','none'),
  ('a1890000-0000-4000-8000-000000000005','free','none')
 on conflict(user_id) do update set coaching_role=excluded.coaching_role;
+-- Dual (003) is Coach + later Coached: capability is independent of coaching_role.
+insert into public.user_capabilities(user_id, capability) values
+ ('a1890000-0000-4000-8000-000000000003','coach')
+on conflict do nothing;
 
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('a1890000-0000-4000-8000-000000000010','a1890000-0000-4000-8000-000000000001','Solo leftover','',8),

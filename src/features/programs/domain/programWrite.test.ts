@@ -73,6 +73,7 @@ test('legacy program RPCs, owner RLS and assignment Data API share the leftover 
   assert.match(src('supabase/tests/save_program_coached.sql'), /sync_program_days/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /save_program_day_exercises/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /self-assign INSERT/);
+  assert.match(src('supabase/tests/save_program_coached.sql'), /user_capabilities/);
   assert.match(src('supabase/tests/save_program_coached.sql'), /dual roster sync/);
   assert.match(src('.github/workflows/ci.yml'), /bash -eo pipefail \{0\}/);
 });
