@@ -161,9 +161,10 @@ test('calendar resource read is allowed; the route stays deferred for coached un
 
 test('server enforces owner writes, leftover coached save_program, nutrition targets and dossier isolation', () => {
   const save = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
-  assert.equal(save.file, '20260918102103_save_program_coached_owner.sql');
+  assert.equal(save.file, '20260918103748_program_write_coached_owner.sql');
   assert.match(save.sql, /Not program owner/);
   assert.match(save.sql, /Coached client cannot edit assigned program/);
+  assert.match(save.sql, /coached_client_cannot_edit_program/);
   const assign = latestMigrationContaining('Coached client cannot self-assign');
   assert.match(assign.sql, /Coached client cannot self-assign/);
   const targets = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.protect_coach_nutrition_targets');

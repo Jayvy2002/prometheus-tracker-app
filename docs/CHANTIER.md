@@ -224,7 +224,9 @@ Inventaire, contrat et câblage : [P1.2 — permissions ressource/action](P1_2_R
 - Dossier client : capacité Coach + relation active, jamais soi-même.
 - Roster : `fetchClients` filtre `coach_id` de l’acteur ; un Coach Coaché ne s’y liste pas.
 - `canUpdateAssignedProgram` / `canReadAssignedProgram` exigent `hasActiveRelationship` pour un client tiers (fail-closed si absent).
-- `save_program` refuse un Coaché propriétaire d’un leftover Solo encore assigné (migration pending `20260918102103_save_program_coached_owner`).
+- `save_program` refuse un Coaché propriétaire d’un leftover Solo encore assigné.
+- Les RPC legacy, les RLS owner et l’auto-attribution Data API sont fermés par la même règle
+  (migrations pending `20260918102103_save_program_coached_owner`, `20260918103748_program_write_coached_owner`).
 - Workspace UI jamais utilisé comme grant.
 - `/calendar` reste bloqué (P1.3).
 

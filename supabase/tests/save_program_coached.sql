@@ -51,6 +51,55 @@ begin
 end $$;
 reset role;
 
+-- Dual leftover is also a real assigned plan before coaching, so later RPC/RLS probes have rows.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1890000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"a1890000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_days int;
+begin
+  v_days := public.save_program(
+    'a1890000-0000-4000-8000-000000000012',
+    'Dual leftover saved',
+    '',
+    8,
+    '[{"weekday":1,"name":"Core","exercises":[{"name":"Plank","default_sets":3,"default_reps":30}]}]'::jsonb,
+    null
+  );
+  if v_days is distinct from 1 then
+    raise exception 'dual leftover solo save expected 1 day, got %', v_days;
+  end if;
+end $$;
+reset role;
+
+-- Solo leftover owner can still mutate assignment + tables via Data API before coaching.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1890000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"a1890000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_updated int;
+begin
+  update public.program_assignments
+     set start_date = current_date
+   where id = 'a1890000-0000-4000-8000-000000000020';
+  get diagnostics v_updated = row_count;
+  if v_updated is distinct from 1 then
+    raise exception 'solo leftover assignment Data API update expected 1 row, got %', v_updated;
+  end if;
+  update public.programs
+     set description = 'solo-ok'
+   where id = 'a1890000-0000-4000-8000-000000000010';
+  get diagnostics v_updated = row_count;
+  if v_updated is distinct from 1 then
+    raise exception 'solo leftover table update expected 1 row, got %', v_updated;
+  end if;
+end $$;
+reset role;
+
 -- Activation does not pause the leftover assignment (mirrors accept_coach_invite).
 insert into public.coach_client_links(coach_id,client_id,status) values
  ('a1890000-0000-4000-8000-000000000002','a1890000-0000-4000-8000-000000000001','active'),
@@ -177,12 +226,317 @@ reset role;
 
 do $$ begin
   if (select name from public.programs where id = 'a1890000-0000-4000-8000-000000000012')
-     is distinct from 'Dual leftover' then
+     is distinct from 'Dual leftover saved' then
     raise exception 'dual leftover name mutated';
   end if;
   if (select name from public.programs where id = 'a1890000-0000-4000-8000-000000000013')
      is distinct from 'Dual roster updated' then
     raise exception 'dual roster plan not saved';
+  end if;
+end $$;
+
+-- Legacy RPCs + table/RLS + Data API must not rewrite a leftover Coached plan.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1890000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"a1890000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_day uuid;
+  v_ex uuid;
+  v_touched int;
+begin
+  select d.id into v_day
+  from public.program_days d
+  where d.program_id = 'a1890000-0000-4000-8000-000000000010' and d.weekday = 1
+  limit 1;
+  if v_day is null then
+    raise exception 'leftover day missing after solo save';
+  end if;
+  select e.id into v_ex
+  from public.program_day_exercises e
+  where e.program_day_id = v_day
+  limit 1;
+
+  begin
+    perform public.sync_program_days(
+      'a1890000-0000-4000-8000-000000000010',
+      '[{"weekday":5,"name":"Hijack sync","exercises":[{"name":"Curl","default_sets":2,"default_reps":12}]}]'::jsonb
+    );
+    raise exception 'coached owner sync_program_days was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.save_program_day_exercises(
+      v_day,
+      '[{"name":"Hijack ex","default_sets":5,"default_reps":5}]'::jsonb
+    );
+    raise exception 'coached owner save_program_day_exercises was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+        raise;
+      end if;
+  end;
+
+  update public.programs
+     set name = 'Hijack table'
+   where id = 'a1890000-0000-4000-8000-000000000010';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then
+    raise exception 'coached owner programs UPDATE reached % rows', v_touched;
+  end if;
+
+  delete from public.programs
+   where id = 'a1890000-0000-4000-8000-000000000010';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then
+    raise exception 'coached owner programs DELETE reached % rows', v_touched;
+  end if;
+
+  update public.program_days
+     set name = 'Hijack day'
+   where id = v_day;
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then
+    raise exception 'coached owner program_days UPDATE reached % rows', v_touched;
+  end if;
+
+  if v_ex is not null then
+    update public.program_day_exercises
+       set name = 'Hijack ex row'
+     where id = v_ex;
+    get diagnostics v_touched = row_count;
+    if v_touched <> 0 then
+      raise exception 'coached owner program_day_exercises UPDATE reached % rows', v_touched;
+    end if;
+  end if;
+
+  begin
+    insert into public.program_assignments(program_id, client_id, assigned_by, start_date, status)
+    values (
+      'a1890000-0000-4000-8000-000000000010',
+      'a1890000-0000-4000-8000-000000000001',
+      'a1890000-0000-4000-8000-000000000001',
+      current_date,
+      'paused'
+    );
+    raise exception 'coached owner self-assign INSERT was allowed';
+  exception
+    when others then
+      if sqlerrm like '%self-assign INSERT was allowed%' then
+        raise;
+      end if;
+  end;
+
+  update public.program_assignments
+     set start_date = current_date + 3
+   where id = 'a1890000-0000-4000-8000-000000000020';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then
+    raise exception 'coached owner assignment UPDATE reached % rows', v_touched;
+  end if;
+
+  delete from public.program_assignments
+   where id = 'a1890000-0000-4000-8000-000000000020';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then
+    raise exception 'coached owner assignment DELETE reached % rows', v_touched;
+  end if;
+end $$;
+reset role;
+
+do $$ begin
+  if (select name from public.programs where id = 'a1890000-0000-4000-8000-000000000010')
+     is distinct from 'Solo leftover saved' then
+    raise exception 'legacy/table leftover name mutated';
+  end if;
+  if exists (
+    select 1 from public.program_days
+    where program_id = 'a1890000-0000-4000-8000-000000000010' and weekday = 5
+  ) then
+    raise exception 'legacy leftover days mutated';
+  end if;
+  if exists (
+    select 1
+    from public.program_days d
+    join public.program_day_exercises e on e.program_day_id = d.id
+    where d.program_id = 'a1890000-0000-4000-8000-000000000010' and e.name = 'Hijack ex'
+  ) then
+    raise exception 'legacy leftover exercises mutated';
+  end if;
+  if (select status from public.program_assignments
+      where id = 'a1890000-0000-4000-8000-000000000020') is distinct from 'active' then
+    raise exception 'leftover assignment status mutated';
+  end if;
+  if exists (
+    select 1 from public.program_assignments
+    where client_id = 'a1890000-0000-4000-8000-000000000001' and status = 'paused'
+  ) then
+    raise exception 'coached leftover self-assign insert persisted';
+  end if;
+end $$;
+
+-- Coach who is himself Coached: leftover RPCs/tables blocked; roster client writes still work.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1890000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"a1890000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_left_day uuid;
+  v_roster_day uuid;
+  v_days int;
+  v_count int;
+  v_touched int;
+  v_new_program uuid := 'a1890000-0000-4000-8000-000000000014';
+begin
+  select d.id into v_left_day
+  from public.program_days d
+  where d.program_id = 'a1890000-0000-4000-8000-000000000012' and d.weekday = 1
+  limit 1;
+  select d.id into v_roster_day
+  from public.program_days d
+  where d.program_id = 'a1890000-0000-4000-8000-000000000013' and d.weekday = 4
+  limit 1;
+  if v_left_day is null or v_roster_day is null then
+    raise exception 'dual leftover/roster days missing';
+  end if;
+
+  begin
+    perform public.sync_program_days(
+      'a1890000-0000-4000-8000-000000000012',
+      '[{"weekday":2,"name":"Dual hijack sync","exercises":[{"name":"X","default_sets":1,"default_reps":1}]}]'::jsonb
+    );
+    raise exception 'dual leftover sync_program_days was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.save_program_day_exercises(
+      v_left_day,
+      '[{"name":"Dual hijack ex","default_sets":2,"default_reps":2}]'::jsonb
+    );
+    raise exception 'dual leftover save_program_day_exercises was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+        raise;
+      end if;
+  end;
+
+  update public.programs
+     set name = 'Dual leftover table hijack'
+   where id = 'a1890000-0000-4000-8000-000000000012';
+  get diagnostics v_touched = row_count;
+  if v_touched <> 0 then
+    raise exception 'dual leftover programs UPDATE reached % rows', v_touched;
+  end if;
+
+  begin
+    insert into public.program_assignments(program_id, client_id, assigned_by, start_date, status)
+    values (
+      'a1890000-0000-4000-8000-000000000012',
+      'a1890000-0000-4000-8000-000000000003',
+      'a1890000-0000-4000-8000-000000000003',
+      current_date,
+      'paused'
+    );
+    raise exception 'dual leftover self-assign INSERT was allowed';
+  exception
+    when others then
+      if sqlerrm like '%self-assign INSERT was allowed%' then
+        raise;
+      end if;
+  end;
+
+  v_days := public.sync_program_days(
+    'a1890000-0000-4000-8000-000000000013',
+    '[{"weekday":4,"name":"Upper synced","exercises":[{"name":"Press","default_sets":4,"default_reps":6}]}]'::jsonb
+  );
+  if v_days is distinct from 1 then
+    raise exception 'dual roster sync expected 1 day, got %', v_days;
+  end if;
+
+  v_count := public.save_program_day_exercises(
+    v_roster_day,
+    '[{"name":"Press","default_sets":5,"default_reps":5}]'::jsonb
+  );
+  if v_count is distinct from 1 then
+    raise exception 'dual roster save_program_day_exercises expected 1, got %', v_count;
+  end if;
+
+  update public.programs
+     set description = 'roster-ok'
+   where id = 'a1890000-0000-4000-8000-000000000013';
+  get diagnostics v_touched = row_count;
+  if v_touched is distinct from 1 then
+    raise exception 'dual roster programs UPDATE expected 1 row, got %', v_touched;
+  end if;
+
+  update public.program_assignments
+     set start_date = current_date
+   where id = 'a1890000-0000-4000-8000-000000000023';
+  get diagnostics v_touched = row_count;
+  if v_touched is distinct from 1 then
+    raise exception 'dual roster assignment UPDATE expected 1 row, got %', v_touched;
+  end if;
+
+  insert into public.programs(id, owner_id, name, description, duration_weeks)
+  values (v_new_program, 'a1890000-0000-4000-8000-000000000003', 'Dual extra roster', '', 6);
+
+  insert into public.program_assignments(id, program_id, client_id, assigned_by, start_date, status)
+  values (
+    'a1890000-0000-4000-8000-000000000024',
+    v_new_program,
+    'a1890000-0000-4000-8000-000000000004',
+    'a1890000-0000-4000-8000-000000000003',
+    current_date,
+    'paused'
+  );
+end $$;
+reset role;
+
+do $$ begin
+  if (select name from public.programs where id = 'a1890000-0000-4000-8000-000000000012')
+     is distinct from 'Dual leftover saved' then
+    raise exception 'dual leftover name mutated after table/RPC probes';
+  end if;
+  if exists (
+    select 1 from public.program_days
+    where program_id = 'a1890000-0000-4000-8000-000000000012' and weekday = 2
+  ) then
+    raise exception 'dual leftover days mutated';
+  end if;
+  if (select description from public.programs where id = 'a1890000-0000-4000-8000-000000000013')
+     is distinct from 'roster-ok' then
+    raise exception 'dual roster table update missing';
+  end if;
+  if not exists (
+    select 1
+    from public.program_days d
+    join public.program_day_exercises e on e.program_day_id = d.id
+    where d.program_id = 'a1890000-0000-4000-8000-000000000013'
+      and e.name = 'Press' and e.default_sets = 5
+  ) then
+    raise exception 'dual roster exercises not saved';
+  end if;
+  if not exists (
+    select 1 from public.program_assignments
+    where id = 'a1890000-0000-4000-8000-000000000024'
+      and client_id = 'a1890000-0000-4000-8000-000000000004'
+      and status = 'paused'
+  ) then
+    raise exception 'dual roster extra assignment missing';
   end if;
 end $$;
 

@@ -44,8 +44,13 @@ son propre plan en lecture dans l’espace Personnel.
 ## Serveur
 
 - `save_program` refuse le non-propriétaire **et** refuse un Coaché qui possède encore son plan Solo assigné
-  (`Coached client cannot edit assigned program`). Migration pending
-  `20260918102103_save_program_coached_owner`.
+  (`Coached client cannot edit assigned program`).
+- Les RPC legacy `sync_program_days` / `save_program_day_exercises`, les RLS owner de
+  `programs` / `program_days` / `program_day_exercises`, et les writes Data API de
+  `program_assignments` partagent le même verrou leftover (`coached_client_cannot_edit_program`,
+  `actor_is_actively_coached`). Un Coach lui-même Coaché continue d’écrire les plans de ses
+  clients actifs. Migrations pending `20260918102103_save_program_coached_owner` et
+  `20260918103748_program_write_coached_owner`.
 - `assign_program_secure` refuse l’auto-attribution d’un Coaché.
 - `protect_coach_nutrition_targets` conserve kcal / macros / eau / pas.
 - `is_self_coach` / `is_coach_of` : pas de dossier sur soi-même ; accès relationnel.
