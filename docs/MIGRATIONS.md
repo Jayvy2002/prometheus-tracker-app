@@ -42,6 +42,15 @@ npm run test:rls
 
 Lorsque `SUPABASE_ACCESS_TOKEN` est disponible, la preuve distante compare également production et exécute le dry-run prévu par le dépôt. Une étape distante ignorée faute de token n’est jamais considérée comme une preuve de synchronisation ; la vérification directe via le connecteur Supabase peut être utilisée à la place.
 
+## Migrations candidates en PR
+
+Une migration non déployée est déclarée dans `supabase/migrations.pending.json`, séparément
+du lock des migrations réellement appliquées. Les vérifications exigent toutes les versions
+historiques et n'acceptent que ces candidats explicites, uniques et postérieurs au baseline.
+Le replay local applique historique + candidats. Après déploiement autorisé et vérification,
+transférer les versions réellement observées dans le lock et vider les candidats correspondants.
+Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploiement production.
+
 ## Procédure pour une nouvelle migration
 
 1. Lire `docs/VISION.md`, `docs/CARTE_PRODUIT.md` et la section du chantier concernée.

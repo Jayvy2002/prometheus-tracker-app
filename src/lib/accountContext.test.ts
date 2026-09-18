@@ -29,10 +29,10 @@ test('workspace choice is strict and only a server-confirmed coach can use it', 
   assert.equal(resolveAccountContext('none', null, true, null, 'coaching').activeWorkspace, 'personal');
 });
 
-test('context rejects another account, self-link, malformed or inconsistent capabilities', () => {
+test('context rejects another account, self-link, malformed capabilities', () => {
   for (const value of [null, [], {}, { ...coach, user_id: 'B' }, { ...coach, active_coach_id: 'A' },
     { ...coach, active_coach_id: 1 }, { ...coach, active_coach_id: '' }, { ...coach, coach_capability: 'true' },
-    { ...coach, legacy_coaching_role: 'none' }, { ...coach, error: 'denied' }]) {
+    { ...coach, error: 'denied' }]) {
     assert.equal(parseAccountSnapshot(value, 'A'), null);
   }
 });
@@ -66,4 +66,23 @@ test('an obsolete snapshot cannot override a newer role or an unresolved session
   const snapshot = parseAccountSnapshot(coach, 'A');
   assert.equal(resolveAccountContext('none', null, true, snapshot).capabilities.coach, false);
   assert.equal(resolveAccountContext('coach', null, false, snapshot).ready, false);
+});
+
+test('all four combinations use server capability independently of every legacy role', () => {
+  for (const capability of [false, true]) {
+    for (const activeCoachId of [null, 'B']) {
+      for (const legacyRole of ['none', 'client', 'coach'] as const) {
+        const snapshot = parseAccountSnapshot({ user_id: 'A', coach_capability: capability,
+          active_coach_id: activeCoachId, legacy_coaching_role: legacyRole }, 'A');
+        assert.ok(snapshot);
+        for (const workspace of ['personal', 'coaching'] as const) {
+          const ctx = resolveAccountContext(legacyRole, null, true, snapshot, workspace);
+          assert.equal(ctx.capabilities.coach, capability);
+          assert.equal(ctx.personalCoaching, activeCoachId ? 'coached' : 'solo');
+          assert.equal(ctx.activeWorkspace, capability ? workspace : 'personal');
+          assert.equal(ctx.personalToolsAvailable, true);
+        }
+      }
+    }
+  }
 });

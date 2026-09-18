@@ -180,7 +180,7 @@ test('bulk and maintain follow the fleet rules', () => {
 
 test('solo copilot lives on the solo home, writes targets only on an explicit accept, never for a coached client', () => {
   const card = src('src/components/dashboard/SoloWeeklyReview.tsx');
-  assert.match(card, /const solo = !coached && coachingRole !== 'coach'/);
+  assert.match(card, /const solo = !coached/);
   assert.match(card, /if \(!user \|\| !solo \|\| !review\) return null/);
   assert.match(card, /onDecide\('accepted'\)/);
   assert.match(card, /onDecide\('kept'\)/);

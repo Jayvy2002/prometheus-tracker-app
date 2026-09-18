@@ -1,3 +1,4 @@
+import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -31,8 +32,8 @@ export default function ProgramsPage() {
   const { programs, programsError, loading, fetchPrograms, createProgram, deleteProgram, assignProgram, duplicateProgram } = useProgramStore();
   const { routines, fetchRoutines } = useRoutineStore();
   const { clients, fetchClients, coachingRole, myCoach } = useCoachingStore();
-  const isCoach = coachingRole === 'coach';
-  const coached = isCoachedAthlete(coachingRole, myCoach);
+  const isCoach = useAccountContext().capabilities.coach;
+  const coached = !isCoach && isCoachedAthlete(coachingRole, myCoach);
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');

@@ -46,11 +46,11 @@ function row(partial: Partial<CoachIntervention>): CoachIntervention {
   };
 }
 
-test('solo athlete is role none with no coach; coached and coaches are out', () => {
+test('Solo includes professional coaches without a personal coach', () => {
   assert.equal(isSoloAthlete('none', null), true);
   assert.equal(isSoloAthlete('none', { id: 'c1' }), false);
   assert.equal(isSoloAthlete('client', null), false);
-  assert.equal(isSoloAthlete('coach', null), false);
+  assert.equal(isSoloAthlete('coach', null), true);
 });
 
 test('pending self-coach draft is the solo looking at their own onboarding_plan / nl edit', () => {
@@ -74,7 +74,7 @@ test('why + edited outline come from the agent payload, not a second generator',
 
 test('JWT self-coach is an explicit case before is_coach_of; coached stays 403', () => {
   const http = src('supabase/functions/_shared/coachAgent.ts');
-  assert.match(http, /coachingRole === "client"/);
+  assert.match(http, /account.active_coach_id !== null/);
   assert.match(http, /selfCoach/);
   assert.match(http, /kind !== "onboarding_plan" && kind !== "program_nl_edit"/);
   assert.match(http, /is_coach_of/);

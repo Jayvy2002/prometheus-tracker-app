@@ -1366,19 +1366,8 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
     } = await userClient.auth.getUser();
     if (!user) return json(401, { error: "unauthorized" });
 
-    const { data: roleRow } = await userClient
-      .from("user_roles")
-      .select("coaching_role")
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const coachingRole = asString(roleRow?.coaching_role) || "none";
-    // Coached athletes have no copilot (VISION 7). Solo (role none) may call the
-    // same agent as their own coach — only on themselves, program kinds only.
-    if (coachingRole === "client") {
-      return json(403, { error: "not_coach" });
-    }
-    const selfCoach = coachingRole !== "coach";
-    if (coachingRole !== "coach" && coachingRole !== "none") {
+    const { data: account, error: accountError } = await userClient.rpc("get_my_account_context");
+    if (accountError || account?.user_id !== user.id || typeof account?.coach_capability !== "boolean") {
       return json(403, { error: "not_coach" });
     }
 
@@ -1388,6 +1377,11 @@ export async function handleCoachAgentHttp(req: Request): Promise<Response> {
     const prompt = asString(body.prompt);
     if (!prompt) return json(400, { error: "prompt_required" });
     const clientId = asString(body.client_id) || null;
+    // Self-service depends on the personal relationship, professional requests on capability.
+    const selfCoach = clientId === user.id;
+    if (selfCoach ? account.active_coach_id !== null : !account.coach_capability) {
+      return json(403, { error: "not_coach" });
+    }
     const programId = asString(body.program_id) || null;
     const screen = asString(body.screen) || "unknown";
     const context = asObject(body.context);

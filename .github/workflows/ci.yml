@@ -112,6 +112,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/account_capabilities.sql | tee /tmp/account-capabilities-db-results.txt
+      - name: Test independent Coach capability
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/independent_coach_capability.sql
       - name: Test set_coaching_role roster guard
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -149,6 +153,15 @@ jobs:
           psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/marketplace_audit_hardening.sql
       - name: Questionnaire browser journey (local Supabase only)
         run: node scripts/test-questionnaire-browser.mjs
+      - name: Independent Coach capability browser journey
+        run: node scripts/test-coach-capability-browser.mjs
+      - name: Upload Coach capability browser proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coach-capability-browser-proof
+          path: artifacts/p11/
+          if-no-files-found: warn
       - name: Upload questionnaire browser proof
         if: always()
         uses: actions/upload-artifact@v4

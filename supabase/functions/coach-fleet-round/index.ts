@@ -980,12 +980,10 @@ Deno.serve(async (req: Request) => {
       });
       const { data: { user } } = await userClient.auth.getUser();
       if (!user) return json(401, { error: "unauthorized" });
-      const { data: roleRow } = await userClient
-        .from("user_roles")
-        .select("coaching_role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (roleRow?.coaching_role !== "coach") return json(403, { error: "not_coach" });
+      const { data: account, error: accountError } = await userClient.rpc("get_my_account_context");
+      if (accountError || account?.user_id !== user.id || account?.coach_capability !== true) {
+        return json(403, { error: "not_coach" });
+      }
       coachId = user.id;
     }
 

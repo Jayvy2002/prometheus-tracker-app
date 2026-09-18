@@ -8,8 +8,8 @@ test('coached clients never get coach chrome; solo can still enable coach mode',
   assert.equal(isCoachedAthlete('none', { id: 'coach-1' }), true);
   assert.equal(isCoachedAthlete('none', null), false);
   assert.equal(isCoachedAthlete('coach', null), false);
-  assert.equal(isCoachedAthlete('coach', { id: 'other' }), false);
+  assert.equal(isCoachedAthlete('coach', { id: 'other' }), true);
   assert.equal(isSoloAthlete('none', null), true);
   assert.equal(isSoloAthlete('client', null), false);
-  assert.equal(isSoloAthlete('coach', null), false);
+  assert.equal(isSoloAthlete('coach', null), true);
 });

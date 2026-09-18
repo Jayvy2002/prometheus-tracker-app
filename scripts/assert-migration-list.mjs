@@ -7,7 +7,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const lock = JSON.parse(readFileSync(resolve(process.cwd(), 'supabase/schema_migrations.lock.json'), 'utf8'));
-const lockVersions = lock.applied.map((row) => row.version);
+const pending = JSON.parse(readFileSync(resolve(process.cwd(), 'supabase/migrations.pending.json'), 'utf8')).pending.map(row => row.version);
+const lockVersions = [...lock.applied.map((row) => row.version), ...pending];
 const text = readFileSync(process.argv[2] || '/dev/stdin', 'utf8');
 
 function parseRows(raw) {
@@ -42,7 +43,7 @@ if (!rows.length) {
   process.exit(1);
 }
 
-const diverged = rows.filter((r) => !r.local || !r.remote || r.local !== r.remote);
+const diverged = rows.filter((r) => !r.local || (r.local !== r.remote && !(pending.includes(r.local) && !r.remote)));
 if (diverged.length) {
   console.error('divergence Local/Remote:');
   for (const r of diverged) console.error(`  local=${r.local || '∅'} remote=${r.remote || '∅'}`);
@@ -65,4 +66,4 @@ if (listed.length !== lockVersions.length) {
   process.exit(1);
 }
 
-console.log(`migration list: ${listed.length} versions, Local = Remote, = lock`);
+console.log(`migration list: ${listed.length} versions, production baseline + explicitly pending migrations`);

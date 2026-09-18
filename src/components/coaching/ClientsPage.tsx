@@ -1,3 +1,4 @@
+import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -26,11 +27,12 @@ function goalChipKey(status: RosterGoalStatus): 'coaching.rosterList.goalCut' | 
 }
 
 export default function ClientsPage() {
+  const canCoach = useAccountContext().capabilities.coach;
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const {
-    coachingRole, clients, invites, loading, opsLoading, opsRows, priorities, rosterSignals,
+     clients, invites, loading, opsLoading, opsRows, priorities, rosterSignals,
     fetchMyRole, fetchClients, fetchInvites, fetchCoachOps, fetchCoachMessages, createInvite, revokeInvite,
     endClientLink,
   } = useCoachingStore();
@@ -100,7 +102,7 @@ export default function ClientsPage() {
     setRemoveTarget(null);
   };
 
-  if (coachingRole !== 'coach') {
+  if (!canCoach) {
     return <Navigate to="/dashboard" replace />;
   }
 

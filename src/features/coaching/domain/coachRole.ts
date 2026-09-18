@@ -1,17 +1,17 @@
 import type { CoachingRole } from '../../../lib/types';
 
-/** Athlete with a coach: no coach-mode toggle, program create/assign, or coach library tools. */
+/** Personal relationship only; professional capability is an independent axis. */
 export function isCoachedAthlete(
   role: CoachingRole,
   myCoach: { id?: string } | null | undefined,
 ): boolean {
-  return role === 'client' || (!!myCoach && role !== 'coach');
+  return role === 'client' || !!myCoach;
 }
 
-/** Solo athlete: own copilot, no live coach. Coaches and coached athletes are out. */
+/** A professional coach can also train Solo. */
 export function isSoloAthlete(
   role: CoachingRole,
   myCoach: { id?: string } | null | undefined,
 ): boolean {
-  return role === 'none' && !myCoach;
+  return role !== 'client' && !myCoach;
 }

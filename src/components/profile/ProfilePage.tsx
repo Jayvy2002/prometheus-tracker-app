@@ -295,7 +295,7 @@ export default function ProfilePage() {
           <FeedbackForm />
         </AccordionSection>
 
-        {!coached && !inCoaching && (
+        {!inCoaching && (
         <Card className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-neutral-800 flex items-center justify-center text-neutral-300">
             <Users size={16} />

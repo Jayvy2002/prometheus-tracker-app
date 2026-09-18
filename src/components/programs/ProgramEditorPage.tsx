@@ -1,9 +1,9 @@
+import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
-import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import type { AiProgramDayDraft } from '../../lib/types';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
@@ -18,7 +18,7 @@ export default function ProgramEditorPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const coachingRole = useCoachingStore(s => s.coachingRole);
+  const canCoach = useAccountContext().capabilities.coach;
   const { fetchProgram, createProgram, saveProgram, fetchProgramRevisionInfo } = useProgramStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -120,7 +120,7 @@ export default function ProgramEditorPage() {
     toast(t('common.saveChanges'));
   };
 
-  if (coachingRole !== 'coach') return <Navigate to="/programs" replace />;
+  if (!canCoach) return <Navigate to="/programs" replace />;
 
   if (loading) {
     return (

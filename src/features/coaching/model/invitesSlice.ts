@@ -123,8 +123,7 @@ export function createInvitesSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
         avatar_url: (profile?.avatar_url as string) || previous?.avatar_url || '',
       },
       latestCoachMessage: unread[0] ?? null,
-      sentMessages: messages,
-      unreadMessageCount: unread.length,
+      ...(get().accountWorkspace === 'personal' ? { sentMessages: messages, unreadMessageCount: unread.length } : {}),
     });
     await get().fetchMyTrackingConfig();
   },

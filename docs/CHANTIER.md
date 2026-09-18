@@ -139,7 +139,18 @@ C’est le chantier le plus important. Tant qu’il n’est pas terminé, les no
 
 ### État actuel
 
-La capacité Coach existe déjà dans le modèle applicatif, mais reste encore liée par compatibilité à l’ancien `coaching_role` exclusif.
+**En cours — implémentation candidate, validation CI en attente, non mergée.**
+
+La capacité serveur est découplée du rôle exclusif par la migration candidate
+`20260917235400_independent_coach_capability.sql`. Inventaire catégorisé, contrat,
+risques et procédure de déploiement : [P1.1](P1_1_COACH_CAPABILITY.md).
+
+Preuves locales : 671 tests unitaires verts ; build vert ; lint sans erreur (warnings
+historiques). Typecheck et vérifications finales en cours. DB/RLS et navigateur seront
+exécutés dans la CI isolée PostgreSQL 17 (Docker/psql indisponibles sur ce poste).
+Le lock production reste inchangé : 112 migrations observées + 1 candidate explicite.
+
+**Arrêt obligatoire après CI verte et revue finale : aucun merge, aucun P1.2 sans le feu vert de Jean-Vincent.**
 
 ### Cible
 

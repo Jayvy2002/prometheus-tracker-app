@@ -5,6 +5,7 @@
  */
 import { readFileSync } from 'node:fs';
 
+const allowed = JSON.parse(readFileSync('supabase/migrations.pending.json', 'utf8')).pending.map(row => row.version);
 const text = readFileSync(process.argv[2] || '/dev/stdin', 'utf8');
 const lower = text.toLowerCase();
 
@@ -25,6 +26,10 @@ if (!unique.length) {
   process.exit(0);
 }
 
+if (unique.every(version => allowed.includes(version))) {
+  console.log('db push --dry-run: only explicitly pending migrations:', unique.join(', '));
+  process.exit(0);
+}
 console.error('db push --dry-run proposerait encore des migrations:', unique.join(', '));
 console.error(text.slice(0, 2000));
 process.exit(1);

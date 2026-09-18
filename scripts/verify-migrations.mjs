@@ -26,7 +26,12 @@ if (banned.length) {
 }
 
 const gitVersions = files.map((f) => f.slice(0, 14));
-const lockVersions = lock.applied.map((row) => row.version);
+const pending = JSON.parse(readFileSync(resolve(ROOT, 'supabase/migrations.pending.json'), 'utf8')).pending;
+const expected = [...lock.applied, ...pending];
+const lockVersions = expected.map((row) => row.version);
+if (new Set(lockVersions).size !== lockVersions.length || pending.some(row => row.version <= lock.applied.at(-1).version)) {
+  fail('pending migrations must be unique and newer than the production baseline');
+}
 
 if (gitVersions.length !== lockVersions.length) {
   fail(`Git ${gitVersions.length} fichiers ≠ lock ${lockVersions.length} versions`);
@@ -37,8 +42,8 @@ const lockOnly = lockVersions.filter((v) => !gitVersions.includes(v));
 if (gitOnly.length) fail(`Git-only (hors lock): ${gitOnly.join(', ')}`);
 if (lockOnly.length) fail(`lock-only (fichier Git manquant): ${lockOnly.join(', ')}`);
 
-for (let i = 0; i < lock.applied.length; i++) {
-  const row = lock.applied[i];
+for (let i = 0; i < expected.length; i++) {
+  const row = expected[i];
   const file = files[i];
   if (!file.startsWith(row.version + '_')) {
     fail(`ordre/timestamp: lock[${i}]=${row.version} vs Git ${file}`);
@@ -62,7 +67,7 @@ if (!lockVersions.includes('20260910160000')) {
 }
 
 console.log(`migrations Git: ${files.length} fichiers`);
-console.log(`lock prod: ${lockVersions.length} versions — timestamps identiques`);
+console.log(`lock prod: ${lock.applied.length}; pending: ${pending.length} — Git aligned`);
 
 if (!process.env.SUPABASE_ACCESS_TOKEN) {
   console.log('[skipped] live schema_migrations (SUPABASE_ACCESS_TOKEN absent) — Git vs lock toujours exigés');
@@ -82,7 +87,7 @@ if (!process.env.SUPABASE_ACCESS_TOKEN) {
       fail(`migrations live: réponse non-liste (${String(raw).slice(0, 200)})`);
     }
     const liveVersions = live.map((row) => String(row.version || '')).filter(Boolean);
-    const missingLive = lockVersions.filter((v) => !liveVersions.includes(v));
+    const missingLive = lock.applied.map(row => row.version).filter((v) => !liveVersions.includes(v));
     const extraLive = liveVersions.filter((v) => !lockVersions.includes(v));
     if (missingLive.length) fail(`live manque vs lock: ${missingLive.join(', ')}`);
     if (extraLive.length) fail(`live hors lock: ${extraLive.join(', ')}`);

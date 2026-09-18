@@ -28,9 +28,9 @@ test('maps the SQL exception to a stable client code', () => {
 
 test('latest set_coaching_role refuses none while coach_id links are active', () => {
   const found = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.set_coaching_role');
-  assert.equal(found.file, '20260914221500_set_coaching_role_protect_roster.sql');
+  assert.equal(found.file, '20260917235400_independent_coach_capability.sql');
   assert.match(found.sql, /SECURITY DEFINER/);
-  assert.match(found.sql, /SET search_path = public/);
+  assert.match(found.sql, /SET search_path = ''/);
   assert.match(found.sql, /RAISE EXCEPTION 'coach_has_active_clients'/);
   assert.match(found.sql, /coach_id = v_uid AND status = 'active'/);
   assert.match(found.sql, /GRANT EXECUTE ON FUNCTION public\.set_coaching_role\(text\) TO authenticated/);

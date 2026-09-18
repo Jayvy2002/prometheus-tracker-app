@@ -47,7 +47,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
   startCoachRealtime: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    if (get().coachingRole !== 'coach') return;
+    if (!get().accountSnapshot?.coachCapability) return;
     void get().fetchCoachMessages();
     if (!coachingRuntime.coachRealtimeChannel) {
       void get().fetchPendingInterventions();
@@ -123,7 +123,7 @@ export function createRealtimeSlice(set: CoachingSet, get: CoachingGet): Pick<Co
   startClientRealtime: async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    if (get().coachingRole === 'coach') return;
+    if (get().accountWorkspace === 'coaching') return;
     void get().fetchMyCoach().then(() => {
       void get().fetchCoachMessages();
       void get().fetchMyTrackingConfig();

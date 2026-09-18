@@ -145,8 +145,8 @@ for (const slug of dirs) {
   const entry = join(FN_DIR, slug, 'index.ts');
   try {
     execFileSync(
-      'npx',
-      ['esbuild', entry, '--bundle', '--format=esm', '--platform=neutral', '--external:npm:*', '--external:jsr:*', `--outfile=${OUT}`, '--log-level=error'],
+      process.execPath,
+      [resolve(ROOT, 'node_modules/esbuild/bin/esbuild'), entry, '--bundle', '--format=esm', '--platform=neutral', '--external:npm:*', '--external:jsr:*', `--outfile=${OUT}`, '--log-level=error'],
       { stdio: 'inherit' },
     );
     console.log(`edge OK: ${slug}`);
