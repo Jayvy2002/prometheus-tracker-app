@@ -243,6 +243,16 @@ Ne pas confondre cette machine d’état avec :
 - publication profil ;
 - tracking configuration.
 
+### Relation de coaching
+
+```text
+prospect/pending
+→ active
+→ ended
+```
+
+La relation n’a pas d’état `paused`. Une interruption est représentée par `ended`, avec possibilité d’un nouveau cycle ultérieur. Ne pas réutiliser un statut de programme/attribution pour masquer l’état relationnel.
+
 ### Programme
 
 ```text
@@ -386,7 +396,9 @@ Règles durables :
 - essai Solo après perte du Coach : **14 jours** ;
 - grâce Coach en cas de défaut de paiement : **7 jours** ;
 - prix et quotas définitifs : **non décidés** ;
-- pendant la bêta, l’accès peut être ouvert via `beta_access`, sans cesser de mesurer les coûts.
+- pendant la bêta, l’accès peut être ouvert via `beta_access`, sans cesser de mesurer les coûts ;
+- Prometheus facture son logiciel, pas la prestation Coach ↔ athlète ;
+- la plateforme ne doit pas introduire paiement/payout/commission de coaching sans nouvelle décision produit explicite.
 
 ---
 
@@ -408,6 +420,8 @@ parse
 Pour les gros imports, conserver un identifiant d’import, provenance et état afin de pouvoir reprendre/diagnostiquer.
 
 Si le client n’a pas encore de compte, le Coach prépare un dossier provisoire ; le rattachement définitif requiert le compte et le consentement de l’athlète.
+
+Le pipeline est conçu pour l’import. Ne pas ajouter un moteur d’export complet comme symétrie « naturelle » : ce n’est pas une capacité produit prévue par la Vision actuelle.
 
 ---
 
