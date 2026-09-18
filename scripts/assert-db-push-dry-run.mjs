@@ -15,7 +15,7 @@ if (/remote database is up to date/i.test(text) || /no new migrations/i.test(low
   process.exit(0);
 }
 
-const pending = [...text.matchAll(/\b(20\d{12})\b/g)].map((m) => m[1]);
+const pending = [...text.matchAll(/(?<!\d)(20\d{12})(?!\d)/g)].map((m) => m[1]);
 const unique = [...new Set(pending)];
 if (!unique.length) {
   console.error('dry-run illisible ou incomplet: aucune version et aucun marqueur explicite "up to date".');
