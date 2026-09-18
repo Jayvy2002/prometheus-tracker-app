@@ -11,7 +11,12 @@ import { weeklyNutritionWhyKey } from './weeklyNutritionWhy';
 import { MIN_NUTRITION_LOG_DAYS, OVEREAT_RATIO } from './coachNutrition';
 import { isLegacyFiveScaleCheckin, scoreOnTen } from './checkinScale';
 import { addDaysToDateStr } from './utils';
-import type { CoachFleetDossier, DailyCheckin } from './types';
+import type { AthleteSignal, CoachFleetDossier, DailyCheckin } from './types';
+import {
+  isoWeekStart,
+  runAthleteWeeklyReview,
+  weeklyReviewInputFromSolo,
+} from '../features/signals/domain/weeklyReview';
 
 /**
  * Solo copilot — weekly kcal / macros review (docs/VISION.md, points 6 and 7).
@@ -82,12 +87,17 @@ export interface SoloWeeklyReview {
 export type SoloReviewDecision = 'accepted' | 'kept' | 'dismissed';
 
 /** ISO Monday of the week containing `today` (YYYY-MM-DD). One review per week. */
-export function soloReviewWeekStart(today: string): string {
-  const ms = Date.parse(`${today}T00:00:00Z`);
-  if (!Number.isFinite(ms)) return today;
-  const day = new Date(ms).getUTCDay();
-  const back = (day + 6) % 7;
-  return addDaysToDateStr(today, -back);
+export const soloReviewWeekStart = isoWeekStart;
+
+/** Shared P2.2 weekly loop (signals + wait/propose). Nutrition card stays `computeSoloWeeklyReview`. */
+export function computeAthleteWeeklyReviewForSolo(
+  inputs: SoloReviewInputs,
+  existingSignals: AthleteSignal[] = [],
+  athleteId = 'self',
+) {
+  return runAthleteWeeklyReview(
+    weeklyReviewInputFromSolo(inputs, buildSoloEvidence(inputs), existingSignals, athleteId),
+  );
 }
 
 function inWindow(date: string, start: string, end: string): boolean {

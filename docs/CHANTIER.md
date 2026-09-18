@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P2.1 : Modèle de signaux persistants.**
+> **CURRENT IMPLEMENTATION GATE — P2.2 : Revue hebdomadaire universelle.**
 >
-> P1.1–P1.5 sont implémentés (P1.5 et P2.1 dans la PR #190). P2.1 pose `athlete_signals` : hypothèses longitudinales, aucune auto-application. Pas de revue hebdo universelle (P2.2), pas de journal de décisions (P2.3), pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.2 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1–P2.1 sont implémentés (P1.5, P2.1 et P2.2 dans la PR #190). P2.2 unifie la revue hebdo Solo et la fleet Coach : agrégats autorisés, qualité des données, signaux persistants, décision attendre / demander info / proposer / clôturer. Une semaine sans modification est un résultat valide. Aucune auto-application. Pas de journal des décisions humaines (P2.3), pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.3 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -61,7 +61,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.5 livré dans #190 (merge en attente)** | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **EN COURS — P2.1 en cours (PR #190)** | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P2** | Cerveau Prometheus | **EN COURS — P2.2 en cours (PR #190)** | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P2.1 est en cours dans la PR #190. Un agent n’enchaîne pas P2.2 sans le feu vert explicite de Jean-Vincent.
+P2.2 est en cours dans la PR #190. Un agent n’enchaîne pas P2.3 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -411,7 +411,7 @@ Inventaire : [P1.5 — règles commerciales](P1_5_COMMERCIAL_TERMS.md).
 - Les migrations historiques 30 jours restent inchangées.
 - Pas de colonne `coach_grace_ends_at`, pas de mur de paiement.
 
-**Arrêt : P1.5 est implémenté dans la PR #190 (non mergée). P2.1 continue dans la même PR. Pas de P2.2 sans feu vert.**
+**Arrêt : P1.5 est implémenté dans la PR #190 (non mergée). P2.1 et P2.2 continuent dans la même PR. Pas de P2.3 sans feu vert.**
 
 ### Cible
 
@@ -439,7 +439,7 @@ Faire évoluer les briques IA actuelles vers un moteur commun qui apprend du con
 
 ### État actuel
 
-**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
 
 Audit : `coach_interventions` est une inbox de propositions (`pending/sent/kept/dismissed`), pas une hypothèse suivie dans le temps. `solo_weekly_reviews` est une décision nutrition par semaine ISO. Une table dédiée est nécessaire.
 
@@ -451,7 +451,7 @@ Inventaire : [P2.1 — signaux persistants](P2_1_ATHLETE_SIGNALS.md).
 - Lecture : athlète propriétaire ou Coach avec relation active. Le workspace n’accorde aucun droit.
 - Aucune auto-application (pas d’écriture programmes / cibles / logs).
 
-**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.2.**
+**Arrêt : P2.1 est livré dans la PR #190 (non mergée). P2.2 continue dans la même PR. Pas de P2.3 sans feu vert.**
 
 ### Cible
 
@@ -487,24 +487,29 @@ Le schéma exact doit être déterminé après audit des tables d’intervention
 
 ## P2.2 — Revue hebdomadaire universelle
 
-Faire converger :
+### État actuel
 
-- revue hebdo Solo ;
-- fleet/triage Coach.
+**EN COURS — PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190).**
 
-La revue commune doit :
+Inventaire : [P2.2 — revue hebdomadaire](P2_2_WEEKLY_REVIEW.md).
 
-1. charger les agrégats autorisés ;
-2. évaluer la qualité des données ;
-3. mettre à jour les signaux existants ;
-4. créer de nouveaux signaux si nécessaire ;
-5. renforcer ou diminuer la confiance ;
-6. décider : attendre / demander info / proposer / clôturer ;
-7. produire un résumé adapté à l’autorité humaine.
+Audit : `solo_weekly_reviews` reste la décision nutrition Solo (tap humain). La fleet (`triage_coach_fleet` / `coach_interventions`) reste l’inbox Coach. Le moteur commun `runAthleteWeeklyReview` alimente `athlete_signals` et persiste `athlete_weekly_reviews` (candidate `20260918194013`).
+
+La revue commune :
+
+1. charge les agrégats autorisés (pas les logs bruts) ;
+2. évalue la qualité des données ;
+3. met à jour les signaux existants ;
+4. crée de nouveaux signaux si nécessaire ;
+5. renforce ou diminue la confiance qualitative ;
+6. décide : attendre / demander info / proposer / clôturer ;
+7. produit un résumé adapté à l’autorité (athlète Solo, Coach si relation active).
 
 ### Invariant
 
-Une semaine sans modification est un résultat valide.
+Une semaine sans modification est un résultat valide. Un signal faible attend. Les modules désactivés n’alimentent pas de jugement. Aucune auto-application.
+
+**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.3.**
 
 ## P2.3 — Journal des propositions et décisions humaines
 

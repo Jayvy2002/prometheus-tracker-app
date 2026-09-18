@@ -34,8 +34,10 @@ Domaines : `training`, `nutrition`, `recovery`, `weight`, `goal`, `adherence`.
 
 ## Hors scope
 
-P2.2 revue hebdomadaire universelle. P2.3 journal des décisions humaines. P2.4 écran
-« Ce que Prometheus surveille ». Fleet / `coach-agent`. Stripe / P6.
+P2.3 journal des décisions humaines. P2.4 écran
+« Ce que Prometheus surveille ». Fleet / `coach-agent` LLM. Stripe / P6.
+
+P2.2 (revue hebdomadaire universelle) est dans la même PR #190.
 
 ## Livraison
 

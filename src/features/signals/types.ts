@@ -56,3 +56,57 @@ export interface AthleteSignal {
   created_at: string;
   updated_at: string;
 }
+
+/** P2.2 universal weekly review — one ISO week, wait is a valid result. */
+
+export const WEEKLY_REVIEW_DECISIONS = ['wait', 'request_info', 'propose', 'close'] as const;
+
+export type WeeklyReviewDecision = (typeof WEEKLY_REVIEW_DECISIONS)[number];
+
+export const WEEKLY_REVIEW_AUTHORITIES = ['athlete', 'coach'] as const;
+
+export type WeeklyReviewAuthority = (typeof WEEKLY_REVIEW_AUTHORITIES)[number];
+
+export const WEEKLY_REVIEW_DATA_QUALITIES = ['insufficient', 'sparse', 'adequate'] as const;
+
+export type WeeklyReviewDataQuality = (typeof WEEKLY_REVIEW_DATA_QUALITIES)[number];
+
+export interface WeeklyReviewTracking {
+  nutrition: boolean;
+  workouts: boolean;
+  weight: boolean;
+  checkins: boolean;
+}
+
+export interface WeeklyReviewAggregates {
+  windowStart: string;
+  windowEnd: string;
+  loggedNutritionDays: number;
+  avgCalories: number;
+  calorieTarget: number;
+  workoutCount: number;
+  expectedWorkouts: number;
+  weighIns: number;
+  weightDeltaKg: number | null;
+  weightStartKg: number | null;
+  weightSpanDays: number | null;
+  checkinCount: number;
+  avgFatigue: number | null;
+  avgEnergy: number | null;
+  goal: string;
+}
+
+export interface AthleteWeeklyReview {
+  id: string;
+  athlete_id: string;
+  week_start: string;
+  authority: WeeklyReviewAuthority;
+  data_quality: WeeklyReviewDataQuality;
+  decision: WeeklyReviewDecision;
+  summary: string;
+  aggregates: Record<string, unknown>;
+  tracking: WeeklyReviewTracking;
+  signal_actions: unknown[];
+  created_at: string;
+  updated_at: string;
+}

@@ -129,6 +129,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'athlete signals: persistence, isolation, no auto-apply' /tmp/athlete-signals-db-results.txt
+      - name: Test athlete weekly reviews
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_weekly_reviews.sql | tee /tmp/athlete-weekly-reviews-db-results.txt
+      - name: Confirm athlete weekly reviews echo
+        run: |
+          set -euo pipefail
+          grep -F 'weekly review: universal engine, wait is valid, no auto-apply' /tmp/athlete-weekly-reviews-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

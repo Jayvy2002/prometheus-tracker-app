@@ -10,6 +10,7 @@ import {
 } from '../../../../supabase/functions/_shared/fleetCopy.ts';
 import { normalizeGoal, OVEREAT_RATIO, MIN_NUTRITION_LOG_DAYS, CUT_STALL_MIN_DELTA_KG } from './coachNutrition';
 import type {
+  AthleteSignal,
   CoachFleetCard,
   CoachFleetDossier,
   CoachFleetEvidence,
@@ -19,6 +20,7 @@ import type {
   CoachInterventionKind,
   CoachNudgeTemplateKey,
 } from '../../../lib/types';
+import { runAthleteWeeklyReview, weeklyReviewInputFromFleet } from '../../signals/domain/weeklyReview';
 
 export const FLEET_SOURCE = 'fleet';
 export const FLEET_WINDOW_DAYS = 14;
@@ -415,6 +417,15 @@ export function findHandledSignal(
 }
 
 export type FleetWriteAction = 'skip' | 'upsert' | 'insert';
+
+/** Shared P2.2 weekly loop for every active client. Does not write intervention drafts. */
+export function planAthleteWeeklyReview(
+  d: CoachFleetDossier,
+  today: string,
+  existingSignals: AthleteSignal[] = [],
+) {
+  return runAthleteWeeklyReview(weeklyReviewInputFromFleet(d, today, existingSignals));
+}
 
 /**
  * Upsert-or-skip: pending → refresh in place. Handled same signal within ~7d
