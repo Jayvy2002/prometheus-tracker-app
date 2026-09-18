@@ -49,13 +49,13 @@ try{
    await group.getByRole('button',{name:'Personal',exact:true}).click();
    await page.goto(origin+'/profile');
    await group.getByRole('button',{name:'Personal',exact:true,pressed:true}).waitFor();
-   await page.screenshot({path:`artifacts/p11/${label}-personal.png`,fullPage:true});
+   await page.screenshot({path:`artifacts/p11/${label}-personal.png`,fullPage:true,animations:'disabled'});
    await group.getByRole('button',{name:'Coaching',exact:true}).click();
    await page.goto(origin+'/profile');
    await group.getByRole('button',{name:'Coaching',exact:true,pressed:true}).waitFor();
    await page.goto(origin+'/clients');
-   if(a===dual)await page.getByText('p11-roster',{exact:true}).first().waitFor();
-   await page.screenshot({path:`artifacts/p11/${label}-coaching.png`,fullPage:true});
+   await page.getByText(a===dual?'p11-roster':'p11-coached',{exact:true}).first().waitFor();
+   await page.screenshot({path:`artifacts/p11/${label}-coaching.png`,fullPage:true,animations:'disabled'});
   }else{
    assert.equal(await page.getByRole('group',{name:'Workspace'}).count(),0);
    if(a===coached){
@@ -64,9 +64,22 @@ try{
     const enabled=check(await a.client.rpc('get_my_account_context'));
     assert.equal(enabled.coach_capability,true);assert.equal(enabled.active_coach_id,coach.id);
    }
-   await page.screenshot({path:`artifacts/p11/${label}.png`,fullPage:true});
+   await page.screenshot({path:`artifacts/p11/${label}.png`,fullPage:true,animations:'disabled'});
   }
   assert.equal(check(await a.client.rpc('get_my_account_context')).active_coach_id,ctx.active_coach_id);
+  if(a===dual){
+   await page.setViewportSize({width:1440,height:1000});
+   await page.goto(origin+'/profile');
+   await group.getByRole('button',{name:'Coaching',exact:true,pressed:true}).waitFor();
+   await page.screenshot({path:'artifacts/p11/coach-coached-desktop.png',fullPage:true,animations:'disabled'});
+   await page.route('**/rest/v1/rpc/get_my_account_context',route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'XX000',message:'test_unavailable'})}));
+   await page.goto(origin+'/dashboard');
+   await page.getByRole('button',{name:'Retry',exact:true}).waitFor();
+   await page.unroute('**/rest/v1/rpc/get_my_account_context');
+   await page.getByRole('button',{name:'Retry',exact:true}).click();
+   await page.goto(origin+'/profile');
+   await group.getByRole('button',{name:'Coaching',exact:true,pressed:true}).waitFor();
+  }
   await context.close();
  }
  const ended=check(await dual.client.rpc('client_end_coach_link'));assert.equal(ended.ok,true);
@@ -74,7 +87,7 @@ try{
  assert.equal(check(await dual.client.from('coach_client_links').select('client_id').eq('coach_id',dual.id).eq('status','active')).length,1);
  await writeFile('artifacts/p11/results.txt','PASS: four account combinations, mobile workspace switching, coached capability activation, roster and personal departure.\n');
 }catch(error){
- for(const [i,page] of pages.entries())if(!page.isClosed())await page.screenshot({path:`artifacts/p11/failure-${i}.png`,fullPage:true}).catch(()=>{});
+ for(const [i,page] of pages.entries())if(!page.isClosed())await page.screenshot({path:`artifacts/p11/failure-${i}.png`,fullPage:true,animations:'disabled'}).catch(()=>{});
  throw error;
 }finally{
  await browser.close();vite.kill();

@@ -145,7 +145,7 @@ La capacité serveur est découplée du rôle exclusif par la migration candidat
 `20260917235400_independent_coach_capability.sql`. Inventaire catégorisé, contrat,
 risques et procédure de déploiement : [P1.1](P1_1_COACH_CAPABILITY.md).
 
-Preuves locales : 671 tests unitaires verts ; build vert ; lint sans erreur (warnings
+Preuves locales : 673 tests unitaires verts ; build vert ; lint sans erreur (warnings
 historiques). Typecheck, verify:migrations et les 13 compilations Edge verts.
 Le run CI [35290060933](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35290060933)
 a validé le replay PostgreSQL 17, la matrice RLS, les tests SQL du domaine, les parcours
