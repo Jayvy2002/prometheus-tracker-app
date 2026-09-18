@@ -899,7 +899,7 @@ test('architecture lock: weekly review stays deterministic and in-app', () => {
   assert.doesNotMatch(fleet, /Deno\.env\.get\("[A-Z0-9_]*WEBHOOK_URL"\)/);
   assert.doesNotMatch(fleet, /XAI_API_KEY|api\.x\.ai/);
   const loop = fleet.slice(fleet.indexOf('for (const d of dossiers)'));
-  assert.match(loop, /planWrite\(d, today, ctx\?\.locale \?\? "fr"\)/);
+  assert.match(loop, /planWrite\(d, today, ctx\?\.locale \?\? "fr", decisionLogs\.get\(d\.client_id\) \?\? \[\]\)/);
   const readme = readFileSync(resolve(process.cwd(), 'README.md'), 'utf8');
   assert.match(readme, /analyse déterministe `coach-fleet-round`/);
   assert.match(readme, /l’IA prépare ; l’humain décide/);
