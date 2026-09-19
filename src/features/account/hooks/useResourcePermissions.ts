@@ -3,11 +3,13 @@ import { useAccountContext } from './useAccountContext';
 import {
   actorFromAccount,
   canActAsCoach,
+  canCorrectAthleteWatchContext,
   canEditClientDossier,
   canLogOwnSession,
   canOpenPersonalCalendarRoute,
   canProposeAssignedProgramChange,
   canReadAssignedProgram,
+  canReadAthleteWatch,
   canReadClientDossier,
   canReadOwnAssignedProgram,
   canReadOwnCalendar,
@@ -18,6 +20,7 @@ import {
   canUpdateOwnPersonalData,
   canUsePersonalTools,
   type AssignedProgramResource,
+  type AthleteWatchResource,
   type ClientDossierResource,
 } from '../domain/resourcePermissions';
 
@@ -46,5 +49,9 @@ export function useResourcePermissions() {
       canReadClientDossier(actor, resource),
     canEditClientDossier: (resource: ClientDossierResource) =>
       canEditClientDossier(actor, resource),
+    canReadAthleteWatch: (resource?: AthleteWatchResource) =>
+      canReadAthleteWatch(actor, resource),
+    canCorrectAthleteWatchContext: (resource?: AthleteWatchResource) =>
+      canCorrectAthleteWatchContext(actor, resource),
   };
 }

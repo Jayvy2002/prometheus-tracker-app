@@ -26,6 +26,12 @@ export interface ClientDossierResource {
   hasActiveRelationship: boolean;
 }
 
+/** P2.4 explainability surface: same truth for Solo home and Coach dossier. */
+export interface AthleteWatchResource {
+  athleteId?: string | null;
+  hasActiveRelationship?: boolean;
+}
+
 export function actorFromAccount(
   userId: string | null | undefined,
   context: AccountContext,
@@ -131,6 +137,40 @@ export function canEditClientDossier(
   resource: ClientDossierResource,
 ): boolean {
   return canReadClientDossier(actor, resource);
+}
+
+/**
+ * Read “what Prometheus is watching”: the athlete (Solo or coached) or an
+ * active Coach of that athlete. Workspace never grants this.
+ */
+export function canReadAthleteWatch(
+  actor: PermissionActor,
+  resource: AthleteWatchResource = {},
+): boolean {
+  if (!isAuthenticated(actor)) return false;
+  const athleteId = resource.athleteId ?? actor.userId;
+  if (!athleteId) return false;
+  if (athleteId === actor.userId) return canUsePersonalTools(actor);
+  if (!canActAsCoach(actor)) return false;
+  return resource.hasActiveRelationship === true;
+}
+
+/**
+ * Correcting an interpretation is not rewriting source logs.
+ * Solo (including a Coach on their own personal side) may correct own context.
+ * A coached athlete — including a Coach who is themselves coached — cannot take
+ * coaching-interpretation rights on their own dossier. The active Coach of the
+ * athlete can. Workspace never grants this.
+ */
+export function canCorrectAthleteWatchContext(
+  actor: PermissionActor,
+  resource: AthleteWatchResource = {},
+): boolean {
+  if (!canReadAthleteWatch(actor, resource)) return false;
+  const athleteId = resource.athleteId ?? actor.userId;
+  if (!athleteId) return false;
+  if (athleteId === actor.userId) return actor.personalCoaching === 'solo';
+  return canActAsCoach(actor) && resource.hasActiveRelationship === true;
 }
 
 export function canReadOwnCalendar(actor: PermissionActor): boolean {

@@ -51,4 +51,8 @@ export async function listOpenAthleteSignalsBestEffort(athleteId: string): Promi
   return data as AthleteSignal[];
 }
 
+export async function listAthleteSignalsForWatchBestEffort(athleteId: string): Promise<AthleteSignal[]> {
+  return listOpenAthleteSignalsBestEffort(athleteId);
+}
+
 export { isMissingBackendContract };

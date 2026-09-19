@@ -63,6 +63,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import TabList from '../ui/TabList';
+import PrometheusWatchPanel from '../dashboard/PrometheusWatchPanel';
 import { toast } from '../ui/Toast';
 import CheckinSummaryCard from './CheckinSummaryCard';
 import CheckinReviewPanel from './CheckinReviewPanel';
@@ -638,6 +639,14 @@ export default function ClientDetailPage() {
                   )}
                 </ul>
               </Card>
+            ) : null}
+
+            {id ? (
+              <PrometheusWatchPanel
+                athleteId={id}
+                viewer="coach"
+                hasActiveRelationship={Boolean(client)}
+              />
             ) : null}
 
             <SituationCards
