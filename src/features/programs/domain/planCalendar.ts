@@ -1,6 +1,7 @@
 /** UX47 — états de jour de plan au calendrier. Pas un nouveau calendrier ; le passé dû reste visible. */
 
 import { isProgramTrainingDay, trainingDays, workoutOnDate } from '../../../lib/clientGym';
+import { phaseNameForDay, resolveCurrentPhase, type ProgramPhase } from './programPhases';
 import { normalizeSessionOrganization, type SessionOrganization } from './sessionOrganization';
 
 export type PlanCalendarStatus = 'scheduled' | 'started' | 'done';
@@ -12,6 +13,7 @@ export type PlanCalendarMark = {
   dayName: string;
   dayId: string | null;
   workoutId: string | null;
+  phaseName?: string | null;
 };
 
 export type PlanCalendarWorkout = {
@@ -27,6 +29,7 @@ export type PlanCalendarDay = {
   id: string;
   weekday: number | null;
   name?: string | null;
+  phase_id?: string | null;
   exercises?: unknown[] | null;
 };
 
@@ -109,10 +112,24 @@ function forAssignment(
   );
 }
 
+function markPhaseName(
+  phases: ProgramPhase[] | null | undefined,
+  day: PlanCalendarDay | null | undefined,
+  date: string,
+  startDate?: string | null,
+): string | null {
+  return phaseNameForDay(phases, day)
+    ?? resolveCurrentPhase({ phases, startDate, today: date, nextDay: day })?.name
+    ?? null;
+}
+
 function markFromWorkout(
   workout: PlanCalendarWorkout,
   day: PlanCalendarDay | null,
   unnamed: string,
+  phases: ProgramPhase[] | null | undefined,
+  date: string,
+  startDate?: string | null,
 ): PlanCalendarMark {
   const dayName = (day?.name?.trim() || workout.name?.trim() || unnamed);
   return {
@@ -120,6 +137,7 @@ function markFromWorkout(
     dayName,
     dayId: day?.id ?? workout.program_day_id ?? null,
     workoutId: workout.id,
+    phaseName: markPhaseName(phases, day, date, startDate),
   };
 }
 
@@ -134,6 +152,7 @@ export function planMarkForDate(input: {
   endedAt?: string | null;
   unnamed?: string;
   sessionOrganization?: SessionOrganization | null;
+  phases?: ProgramPhase[] | null;
 }): PlanCalendarMark | null {
   const date = civilDay(input.date);
   if (!date) return null;
@@ -156,7 +175,7 @@ export function planMarkForDate(input: {
 
   if (chosen) {
     const day = pool.find(d => d.id === chosen.program_day_id) ?? template;
-    return markFromWorkout(chosen, day, unnamed);
+    return markFromWorkout(chosen, day, unnamed, input.phases, date, input.startDate);
   }
 
   if (template && isProgramTrainingDay(template) && planCanInventScheduled({
@@ -171,6 +190,7 @@ export function planMarkForDate(input: {
       dayName: template.name?.trim() || unnamed,
       dayId: template.id,
       workoutId: null,
+      phaseName: markPhaseName(input.phases, template, date, input.startDate),
     };
   }
   return null;

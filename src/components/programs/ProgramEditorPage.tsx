@@ -6,6 +6,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
 import type { AiProgramDayDraft, SessionOrganization } from '../../lib/types';
+import type { ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import ProgramRevisionHistory from './ProgramRevisionHistory';
 import Button from '../ui/Button';
@@ -28,6 +29,7 @@ export default function ProgramEditorPage() {
   const [weeks, setWeeks] = useState(8);
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
   const [organization, setOrganization] = useState<SessionOrganization>('fixed_days');
+  const [phases, setPhases] = useState<ProgramPhaseDraft[]>([]);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
   const [revision, setRevision] = useState<{ revision_no: number; created_at: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -50,12 +52,19 @@ export default function ProgramEditorPage() {
       setDescription(p.description);
       setWeeks(p.duration_weeks);
       setOrganization(normalizeSessionOrganization(p.session_organization));
+      setPhases((p.phases ?? []).map(phase => ({
+        id: phase.id,
+        name: phase.name,
+        description: phase.description,
+        duration_weeks: phase.duration_weeks ?? null,
+      })));
       setExpectedUpdatedAt(p.updated_at);
       const sorted = [...(p.days ?? [])].sort((a, b) => a.order_index - b.order_index);
       setDays(sorted.length > 0 ? sorted.map(d => ({
         id: d.id,
         weekday: d.weekday,
         name: d.name,
+        phase_id: d.phase_id ?? null,
         exercises: (d.exercises ?? []).map(ex => ({
           name: ex.name,
           default_sets: ex.default_sets,
@@ -84,9 +93,11 @@ export default function ProgramEditorPage() {
         description,
         duration_weeks: weeks,
         session_organization: organization,
+        phases: phases.filter(phase => phase.name.trim()),
       }, days.map((d, i) => ({
         weekday: d.weekday,
         name: d.name,
+        phase_id: d.phase_id ?? null,
         routine_id: null,
         order_index: i,
         exercises: days[i].exercises.map((ex, idx) => ({
@@ -109,6 +120,7 @@ export default function ProgramEditorPage() {
       { name: name.trim(), description, duration_weeks: weeks, session_organization: organization },
       days,
       expectedUpdatedAt,
+      phases.filter(phase => phase.name.trim()),
     );
     if (saved.error) {
       setSaving(false);
@@ -166,6 +178,8 @@ export default function ProgramEditorPage() {
           programId={isNew ? null : id}
           sessionOrganization={organization}
           onSessionOrganizationChange={setOrganization}
+          phases={phases}
+          onPhasesChange={setPhases}
           onNameChange={setName}
           onDescriptionChange={setDescription}
           onWeeksChange={setWeeks}
@@ -190,10 +204,18 @@ export default function ProgramEditorPage() {
                 setDescription(p.description);
                 setWeeks(p.duration_weeks);
                 setExpectedUpdatedAt(p.updated_at);
+                setOrganization(normalizeSessionOrganization(p.session_organization));
+                setPhases((p.phases ?? []).map(phase => ({
+                  id: phase.id,
+                  name: phase.name,
+                  description: phase.description,
+                  duration_weeks: phase.duration_weeks ?? null,
+                })));
                 const sorted = [...(p.days ?? [])].sort((a, b) => a.order_index - b.order_index);
                 setDays(sorted.map(d => ({
                   weekday: d.weekday,
                   name: d.name,
+                  phase_id: d.phase_id ?? null,
                   exercises: (d.exercises ?? []).map(ex => ({
                     name: ex.name,
                     default_sets: ex.default_sets,

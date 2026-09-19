@@ -208,7 +208,7 @@ test('calendar resource read and route are allowed for Solo and Coached personal
 
 test('server enforces owner writes, leftover coached save_program, nutrition targets and dossier isolation', () => {
   const save = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
-  assert.equal(save.file, '20260919194159_program_session_organization.sql');
+  assert.equal(save.file, '20260919225507_program_phases.sql');
   assert.match(save.sql, /Not program owner/);
   assert.match(save.sql, /Coached client cannot edit assigned program/);
   assert.match(save.sql, /coached_client_cannot_edit_program/);

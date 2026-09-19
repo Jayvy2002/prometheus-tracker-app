@@ -13,6 +13,8 @@ export interface Workout {
   session_started_at?: string | null;
   program_assignment_id?: string | null;
   program_day_id?: string | null;
+  program_phase_id?: string | null;
+  prescribed_phase_name?: string | null;
   exercises?: WorkoutExercise[];
   created_at: string;
   updated_at: string;

@@ -57,7 +57,7 @@ test('UX22 athlete surfaces show weekday + name; coach shows cycle structure', (
   assert.match(editor, /programs\.durationWeeks/);
   assert.match(editor, /data-testid="ux22-cycle-fields"/);
   assert.match(editor, /namedSessionLine/);
-  assert.doesNotMatch(editor, /phaseIndex|Mesocycle|PhasePicker|program_phases/);
+  assert.doesNotMatch(editor, /phaseIndex|Mesocycle|PhasePicker/);
 
   const programs = src('src/components/programs/ProgramsPage.tsx');
   assert.match(programs, /programSessionLabel/);
@@ -70,9 +70,9 @@ test('UX22 athlete surfaces show weekday + name; coach shows cycle structure', (
   assert.match(recap, /usePlanSessionLabel/);
 });
 
-test('UX22 is copy/UI — no phase or mesocycle engine', () => {
+test('UX22 is copy/UI — no mesocycle engine', () => {
   const sql = allMigrations();
-  assert.doesNotMatch(sql, /CREATE TABLE public\.(program_phases|mesocycles|program_cycles)\b/);
+  assert.doesNotMatch(sql, /CREATE TABLE public\.(mesocycles|program_cycles|macrocycles)\b/);
   const app = src('src/app/router/AppRoutes.tsx');
   assert.doesNotMatch(app, /\/phases|MesocycleEditor|PhaseEngine/);
   const fr = src('src/i18n/locales/fr.ts');

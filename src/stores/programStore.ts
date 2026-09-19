@@ -14,13 +14,15 @@ import type {
   SetType,
 } from '../lib/types';
 import { programExerciseRpcFields } from '../lib/programSetPrescription';
-import { snapshotToDayDrafts, parseRevisionOrganization, type ProgramRevisionRow } from '../lib/programRevisionDiff';
+import { snapshotToDayDrafts, parseRevisionOrganization, snapshotToPhaseDrafts, type ProgramRevisionRow } from '../lib/programRevisionDiff';
 import { normalizeSessionOrganization } from '../features/programs/domain/sessionOrganization';
+import type { ProgramPhase, ProgramPhaseDraft } from '../features/programs/domain/programPhases';
 
 type ProgramDayDraft = {
   id?: string;
   weekday: number | null;
   name: string;
+  phase_id?: string | null;
   exercises: Array<{
     name: string;
     default_sets: number;
@@ -45,11 +47,22 @@ function rpcDaysPayload(days: ProgramDayDraft[]) {
     id: draft.id ?? null,
     weekday: draft.weekday,
     name: draft.name,
+    phase_id: draft.phase_id ?? null,
     order_index: i,
     exercises: draft.exercises.map((ex, order_index) => ({
       ...programExerciseRpcFields(ex),
       order_index,
     })),
+  }));
+}
+
+function rpcPhasesPayload(phases: ProgramPhaseDraft[]) {
+  return phases.map((phase, order_index) => ({
+    id: phase.id ?? null,
+    name: phase.name,
+    description: phase.description ?? '',
+    duration_weeks: phase.duration_weeks,
+    order_index,
   }));
 }
 
@@ -61,7 +74,7 @@ interface ProgramState {
   fetchPrograms: (ownerId: string) => Promise<void>;
   fetchProgram: (programId: string) => Promise<Program | null>;
   createProgram: (
-    program: Partial<Program>,
+    program: Omit<Partial<Program>, 'phases'> & { phases?: ProgramPhaseDraft[] },
     days: Array<Omit<ProgramDay, 'id' | 'program_id' | 'created_at' | 'exercises'> & {
       exercises?: Array<ProgramExerciseDraft & { order_index?: number }>;
     }>,
@@ -73,6 +86,7 @@ interface ProgramState {
     meta: { name: string; description: string; duration_weeks: number; session_organization?: SessionOrganization | null },
     days: ProgramDayDraft[],
     expectedUpdatedAt?: string | null,
+    phases?: ProgramPhaseDraft[] | null,
   ) => Promise<{ error: string | null }>;
   deleteProgram: (id: string) => Promise<{ error: string | null }>;
   setProgramDayFromRoutine: (dayId: string, routine: Routine) => Promise<{ error: string | null }>;
@@ -126,8 +140,9 @@ interface ProgramState {
   clear: () => void;
 }
 
-type ProgramRow = Omit<Program, 'days'> & {
+type ProgramRow = Omit<Program, 'days' | 'phases'> & {
   program_days: Array<Omit<ProgramDay, 'exercises'> & { program_day_exercises: ProgramDayExercise[] }>;
+  program_phases?: ProgramPhase[] | null;
 };
 
 function mapProgramWithDays(row: ProgramRow): Program {
@@ -137,11 +152,14 @@ function mapProgramWithDays(row: ProgramRow): Program {
       ...d,
       exercises: [...(d.program_day_exercises ?? [])].sort((a, b) => a.order_index - b.order_index),
     }));
-  const { program_days: _omit, ...program } = row;
+  const phases = [...(row.program_phases ?? [])].sort((a, b) => a.order_index - b.order_index);
+  const { program_days: _omit, program_phases: _omitPhases, ...program } = row;
   void _omit;
+  void _omitPhases;
   return {
     ...(program as Program),
     session_organization: normalizeSessionOrganization((program as Program).session_organization),
+    phases,
     days,
   };
 }
@@ -158,7 +176,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       // Q05 : programmes + jours + exercices en UNE requête (plus de N+1).
       const { data, error } = await supabase
         .from('programs')
-        .select('*, program_days(*, program_day_exercises(*))')
+        .select('*, program_phases(*), program_days(*, program_day_exercises(*))')
         .eq('owner_id', ownerId)
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -179,7 +197,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     try {
       const { data, error } = await supabase
         .from('programs')
-        .select('*, program_days(*, program_day_exercises(*))')
+        .select('*, program_phases(*), program_days(*, program_day_exercises(*))')
         .eq('id', programId)
         .maybeSingle();
       if (error || !data) return null;
@@ -202,10 +220,17 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       p_description: program.description ?? '',
       p_duration_weeks: program.duration_weeks ?? 8,
       p_session_organization: normalizeSessionOrganization(program.session_organization),
+      p_phases: rpcPhasesPayload((program.phases ?? []).map(phase => ({
+        id: phase.id,
+        name: phase.name,
+        description: phase.description,
+        duration_weeks: phase.duration_weeks ?? null,
+      }))),
       p_days: days.map((day, order_index) => ({
         id: 'id' in day ? (day as { id?: string }).id ?? null : null,
         weekday: day.weekday,
         name: day.name,
+        phase_id: day.phase_id ?? null,
         order_index: day.order_index ?? order_index,
         routine_id: day.routine_id ?? null,
         exercises: (day.exercises ?? []).map((ex, i) => ({
@@ -236,7 +261,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     return { error: null };
   },
 
-  saveProgram: async (programId, meta, days, expectedUpdatedAt) => {
+  saveProgram: async (programId, meta, days, expectedUpdatedAt, phases) => {
     // UX20 : une RPC (métadonnées + jours + révision). Pas d'update puis sync.
     const { error } = await supabase.rpc('save_program', {
       p_program_id: programId,
@@ -248,6 +273,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       p_session_organization: meta.session_organization == null
         ? null
         : normalizeSessionOrganization(meta.session_organization),
+      p_phases: phases === undefined ? null : rpcPhasesPayload(phases ?? []),
     });
     if (error) return { error: error.message };
     track('program_saved', { days: days.length, weeks: meta.duration_weeks });
@@ -492,7 +518,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     return get().saveProgram(programId, {
       ...meta,
       session_organization: parseRevisionOrganization(snapshot),
-    }, days, expectedUpdatedAt);
+    }, days, expectedUpdatedAt, snapshotToPhaseDrafts(snapshot));
   },
 
   duplicateProgram: async (programId) => {

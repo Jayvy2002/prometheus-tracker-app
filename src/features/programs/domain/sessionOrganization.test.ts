@@ -147,16 +147,17 @@ test('programSessionLabel omits weekday when the session has none', () => {
   assert.equal(programSessionLabel({ weekday: null, name: 'Lower' }, () => 'Lun'), 'Lower');
 });
 
-test('P3.1 migration is the latest save_program / create_program_complete and UI stays jargon-free', () => {
+test('P3.1 organization stays on the shared engine after P3.2 phases', () => {
   const save = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
-  assert.equal(save.file, '20260919194159_program_session_organization.sql');
+  assert.equal(save.file, '20260919225507_program_phases.sql');
   assert.match(save.sql, /p_session_organization text DEFAULT NULL/);
+  assert.match(save.sql, /p_phases jsonb DEFAULT NULL/);
   assert.match(save.sql, /coached_client_cannot_edit_program/);
-  assert.match(save.sql, /GRANT EXECUTE ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz, text\) TO authenticated/);
+  assert.match(save.sql, /GRANT EXECUTE ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz, text, jsonb\) TO authenticated/);
   assert.doesNotMatch(save.sql, /apply_athlete_watch_minimum/);
 
   const create = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.create_program_complete');
-  assert.equal(create.file, '20260919194159_program_session_organization.sql');
+  assert.equal(create.file, '20260919225507_program_phases.sql');
   assert.match(create.sql, /p_session_organization text DEFAULT 'fixed_days'/);
   assert.match(create.sql, /Toute erreur annule tout/);
 

@@ -23,6 +23,7 @@ export function programDaysToDraft(days: ProgramDay[] | undefined | null): AiPro
     id: d.id,
     weekday: d.weekday,
     name: d.name,
+    phase_id: d.phase_id ?? null,
     exercises: [...(d.exercises ?? [])]
       .sort((a, b) => a.order_index - b.order_index)
       .map(ex => ({
