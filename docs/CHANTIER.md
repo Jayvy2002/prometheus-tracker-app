@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — Hotfix B — autorité primitives P2. Hotfix A clos en production (126 migrations, dernière `20260919202538_coach_client_link_immutability`). P3.1 clos. P2.1–P2.5 clos. Ne pas commencer les améliorations analytiques P2, P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
+> **CURRENT IMPLEMENTATION GATE — Hotfix B — autorité primitives P2 EN COURS. Candidate `20260919214423_p2_primitive_authority` (pending, pas en production). Hotfix A clos en production (126 migrations, dernière `20260919202538_coach_client_link_immutability`). P3.1 clos. P2.1–P2.5 clos. Ne pas merger/appliquer B sans feu vert. Ne pas commencer les améliorations analytiques P2, P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
 >
 > Hotfix A est mergé (`#197`) et **appliqué en production** avec le timestamp Git. P3.1 (`#195`/`#196`) et P1.5–P2.5 (`#190`–`#194`) restent clos. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -445,7 +445,11 @@ Un utilisateur authentifié ne peut pas transformer l’identité d’un lien ex
 
 ### État actuel
 
-**PROCHAINE TÂCHE.** Audit des primitives `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision`, `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. Réduire la surface publique sans casser Solo, Coach actif, service/backend, Watch, revue hebdomadaire, outbox ou moteurs d’effet historiques. Pas d’améliorations analytiques P2 avant close B.
+**EN COURS.** Candidate `20260919214423_p2_primitive_authority` (pending, hors lock). Inventaire : [autorité primitives P2](P2_PRIMITIVE_AUTHORITY.md).
+
+`authenticated` / `anon` / `PUBLIC` n’ont plus `EXECUTE` sur `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision` (11/13 args), `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. `service_role` conserve `EXECUTE`. Les RPC métier (`save_athlete_weekly_review`, `commit_solo_weekly_review_decision`, `apply_intervention`, Watch `correct`/`decide`) et `drain_athlete_decision_outbox` restent publiques. Le client ne journalise plus en parallèle. Une décision Solo qui change les cibles passe uniquement par `commit_solo_weekly_review_decision` : RPC absente → fail-closed, aucune mutation locale.
+
+**Arrêt : attendre le feu vert avant merge et apply production. Pas d’améliorations analytiques P2 avant close B.**
 
 ### Terminé quand
 

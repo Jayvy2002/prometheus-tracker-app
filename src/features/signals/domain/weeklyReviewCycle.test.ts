@@ -120,6 +120,9 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity and durabil
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /immutable intent accepted different proposal/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /coach reprise replaced stored author/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /stored outbox helper exposed to clients/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /enqueue exposed to clients/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /queue_and_record exposed to clients/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /authenticated queue_and_record allowed/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain locks outbox before try-advisory/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain order is not a total order/);
   assert.match(src('scripts/test-decision-drain-concurrency.sh'), /drain waited on occupied key/);

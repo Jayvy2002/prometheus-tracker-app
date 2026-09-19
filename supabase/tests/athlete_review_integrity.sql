@@ -22,15 +22,12 @@ begin
   end if;
 end $$;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1940000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"a1940000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$
 declare
   v public.athlete_signals;
   v2 public.athlete_signals;
-  latest public.athlete_decision_log;
-  n int;
 begin
   v := public.upsert_athlete_signal(
     'a1940000-0000-4000-8000-000000000002',
@@ -47,7 +44,16 @@ begin
     '[{"kind":"fingerprint","summary":"w2"},{"kind":"workouts","summary":"1/6"}]'::jsonb
   );
   if v2.id <> v.id then raise exception 'open signal duplicated'; end if;
+end $$;
 
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1940000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"a1940000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  latest public.athlete_decision_log;
+  n int;
+begin
   begin
     perform public.save_athlete_weekly_review(
       'a1940000-0000-4000-8000-000000000002',
@@ -63,7 +69,18 @@ begin
   exception when others then
     if sqlerrm <> 'not_authorized' then raise; end if;
   end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
+select set_config('request.jwt.claim.sub','a1940000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"a1940000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  latest public.athlete_decision_log;
+  n int;
+begin
   perform public.record_athlete_decision(
     'a1940000-0000-4000-8000-000000000002',
     'training',
@@ -133,7 +150,6 @@ begin
   end;
 end $$;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1940000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"a1940000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
@@ -146,6 +162,16 @@ begin
     'not_following',
     'Apports hors cible'
   );
+  perform set_config('prometheus.test_signal_b', sig_b.id::text, true);
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1940000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a1940000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  sig_b uuid := nullif(current_setting('prometheus.test_signal_b', true), '')::uuid;
+begin
   begin
     perform public.save_athlete_weekly_review(
       'a1940000-0000-4000-8000-000000000002',
@@ -157,7 +183,7 @@ begin
       '{"workouts":true}'::jsonb,
       jsonb_build_array(jsonb_build_object(
         'op', 'resolve',
-        'id', sig_b.id,
+        'id', sig_b,
         'status', 'resolved',
         'reason', 'wrong athlete'
       ))
@@ -166,7 +192,7 @@ begin
   exception when others then
     if sqlerrm <> 'signal_athlete_mismatch' then raise; end if;
   end;
-  if (select status from public.athlete_signals where id = sig_b.id) <> 'open' then
+  if (select status from public.athlete_signals where id = sig_b) <> 'open' then
     raise exception 'signal of other dossier was closed';
   end if;
 end $$;

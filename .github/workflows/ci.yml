@@ -207,6 +207,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'coach_client_links: identity immutable, status RPC-only, bookkeeping and métier RPCs still work' /tmp/coach-client-link-immutability-db-results.txt
+      - name: Test P2 primitive authority
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p2_primitive_authority.sql | tee /tmp/p2-primitive-authority-db-results.txt
+      - name: Confirm P2 primitive authority echo
+        run: |
+          set -euo pipefail
+          grep -F 'p2 primitives: Data API execute revoked, métier RPCs and service path still work' /tmp/p2-primitive-authority-db-results.txt
       - name: Test set_coaching_role roster guard
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

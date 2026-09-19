@@ -5,8 +5,9 @@
  */
 
 import type { AthleteDecisionLog, AthleteSignal } from '../types';
+import { isMissingBackendContract } from './backendContract';
 import { listOpenAthleteSignalsBestEffort } from './athleteSignalsApi';
-import { drainAthleteDecisionOutboxBestEffort, isMissingBackendContract, listLatestAthleteDecisionsBestEffort } from './decisionLogApi';
+import { drainAthleteDecisionOutboxBestEffort, listLatestAthleteDecisionsBestEffort } from './decisionLogApi';
 import { runAthleteWeeklyReview, type WeeklyReviewInput, type WeeklyReviewResult } from './weeklyReview';
 import { saveAthleteWeeklyReview } from './weeklyReviewApi';
 

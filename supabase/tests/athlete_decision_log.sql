@@ -13,6 +13,10 @@ do $$ begin
   if has_function_privilege('anon','public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)','execute') then
     raise exception 'anon record allowed';
   end if;
+  if has_function_privilege('authenticated','public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)','execute')
+     or has_function_privilege('authenticated','public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid,text,uuid)','execute') then
+    raise exception 'authenticated record execute allowed';
+  end if;
   if has_table_privilege('authenticated','public.athlete_decision_log','insert')
      or has_table_privilege('authenticated','public.athlete_decision_log','update')
      or has_table_privilege('authenticated','public.athlete_decision_log','delete') then
@@ -35,12 +39,29 @@ do $$ begin
     );
     raise exception 'stranger record allowed';
   exception when others then
-    if sqlerrm <> 'not_authorized' then raise; end if;
+    if sqlerrm !~* 'permission denied' then raise; end if;
   end;
 end $$;
 reset role;
 
-set local role authenticated;
+select set_config('request.jwt.claim.sub','a1930000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"a1930000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$ begin
+  begin
+    perform public.record_athlete_decision(
+      'a1930000-0000-4000-8000-000000000002',
+      'nutrition',
+      'not_following',
+      'refused',
+      '{}'::jsonb,
+      'Apports au-dessus de la cible'
+    );
+    raise exception 'stranger record allowed';
+  exception when others then
+    if sqlerrm <> 'not_authorized' then raise; end if;
+  end;
+end $$;
+
 select set_config('request.jwt.claim.sub','a1930000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"a1930000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$
@@ -145,13 +166,18 @@ insert into public.coach_client_links(coach_id,client_id,status) values
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1930000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"a1930000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$ begin
+  if (select count(*) from public.athlete_decision_log) <> 2 then
+    raise exception 'coach cannot read client decision log';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','a1930000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a1930000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
 declare
   v public.athlete_decision_log;
 begin
-  if (select count(*) from public.athlete_decision_log) <> 2 then
-    raise exception 'coach cannot read client decision log';
-  end if;
   v := public.record_athlete_decision(
     'a1930000-0000-4000-8000-000000000002',
     'training',
@@ -188,10 +214,27 @@ do $$ begin
     );
     raise exception 'former coach records decision';
   exception when others then
-    if sqlerrm <> 'not_authorized' then raise; end if;
+    if sqlerrm !~* 'permission denied' then raise; end if;
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','a1930000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a1930000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$ begin
+  begin
+    perform public.record_athlete_decision(
+      'a1930000-0000-4000-8000-000000000002',
+      'nutrition',
+      'not_following',
+      'ignored',
+      '{}'::jsonb,
+      'non'
+    );
+    raise exception 'former coach records decision';
+  exception when others then
+    if sqlerrm <> 'not_authorized' then raise; end if;
+  end;
+end $$;
 
 do $$
 declare

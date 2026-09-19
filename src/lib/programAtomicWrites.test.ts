@@ -52,7 +52,9 @@ test('D03: profile writes return errors; intake drafts are sequenced and visible
   assert.match(profile, /Promise<\{ error: string \| null \}>/);
   assert.match(profile, /if \(error\) return \{ error: error\.message \}/);
   const decide = src('src/stores/soloCopilotStore.ts');
-  assert.match(decide, /if \(saved\.error\) return \{ error: saved\.error \}/);
+  assert.match(decide, /if \(committed\.error\)/);
+  assert.match(decide, /commit_solo_weekly_review_decision_unavailable/);
+  assert.doesNotMatch(decide, /updateProfile/);
   const recipe = src('src/stores/recipeStore.ts');
   assert.match(recipe, /deleteRecipe: \(id: string\) => Promise<\{ error: string \| null \}>/);
   const fav = src('src/stores/nutritionStore.ts');

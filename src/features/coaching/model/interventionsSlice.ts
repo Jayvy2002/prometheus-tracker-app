@@ -26,16 +26,8 @@ import {
 } from '../../../lib/idempotencyKeys';
 import {
   effectsToJson,
-  type InterventionEffects,
 } from '../../../lib/interventionEffects';
 import {
-  recordAthleteDecisionDurable,
-} from '../../signals/domain/decisionLogApi';
-import {
-  effectsAreMaterial,
-  evidenceFromProposalPayload,
-  mapInterventionDecision,
-  mapInterventionKind,
   proposalMateriallyEdited,
 } from '../../signals/domain/decisionLog';
 import {
@@ -44,42 +36,6 @@ import {
   CoachingState,
   saveQueueDismissed,
 } from './coachingShared';
-
-async function journalInterventionDecision(
-  original: CoachIntervention | undefined,
-  status: 'sent' | 'kept' | 'dismissed',
-  submittedPayload?: Record<string, unknown> | null,
-  effects?: InterventionEffects,
-) {
-  if (!original?.client_id) return;
-  const flag = typeof original.payload.flag === 'string' ? original.payload.flag : '';
-  const target = mapInterventionKind(original.kind, flag);
-  const applied = effectsToJson(effects ?? {});
-  const edited = proposalMateriallyEdited(original.payload, submittedPayload ?? null)
-    || proposalMateriallyEdited(original.payload, applied);
-  const hasEffect = effectsAreMaterial(applied);
-  const human = mapInterventionDecision(status, edited, hasEffect);
-  await recordAthleteDecisionDurable({
-    athleteId: original.client_id,
-    domain: target.domain,
-    type: target.type,
-    decision: human,
-    proposal: {
-      kind: original.kind,
-      title: original.title,
-      rationale: original.rationale,
-      action: original.kind,
-      reason: flag,
-      flag,
-    },
-    why: original.rationale || original.kind,
-    dataUsed: evidenceFromProposalPayload(original.payload),
-    appliedEffect: human === 'refused' || human === 'ignored' ? {} : applied,
-    source: 'coach_interventions',
-    sourceId: original.id,
-    idempotencyKey: `coach_interventions:${original.id}:${status}`,
-  });
-}
 
 export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchPendingInterventions' | 'dismissQueueItem' | 'dismissQueueItems' | 'restoreQueueItems' | 'fetchIntervention' | 'resolveIntervention' | 'claimIntervention' | 'applyIntervention' | 'releaseIntervention' | 'finalizeIntervention' | 'askCoachAgent' | 'runFleetRound' | 'createIntervention' > {
   return {
@@ -173,9 +129,6 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
       status,
       edited,
     });
-    if (status === 'sent' || status === 'kept' || status === 'dismissed') {
-      await journalInterventionDecision(original, status, payload ?? null);
-    }
     set(s => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
     }));
@@ -224,9 +177,6 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
           status,
           edited,
         });
-        if (status === 'sent' || status === 'kept' || status === 'dismissed') {
-          await journalInterventionDecision(original, status, payload ?? null, effects);
-        }
       }
       set(s => ({
         pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
@@ -262,9 +212,6 @@ export function createInterventionsSlice(set: CoachingSet, get: CoachingGet): Pi
       status,
       edited,
     });
-    if (status === 'sent' || status === 'kept' || status === 'dismissed') {
-      await journalInterventionDecision(original, status, payload ?? null);
-    }
     set(s => ({
       pendingInterventions: s.pendingInterventions.filter(row => row.id !== id),
     }));

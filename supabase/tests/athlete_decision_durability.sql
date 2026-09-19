@@ -66,7 +66,6 @@ begin
   end if;
 end $$;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$
@@ -93,9 +92,7 @@ begin
     raise exception 'outbox key not scoped to athlete A';
   end if;
 end $$;
-reset role;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000003',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 do $$
@@ -135,7 +132,6 @@ begin
     raise exception 'outbox collision leaked payload';
   end if;
 end $$;
-reset role;
 
 do $$
 declare
@@ -166,7 +162,6 @@ begin
   end if;
 end $$;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$
@@ -197,7 +192,6 @@ begin
     raise exception 'enqueue recorded journal instead of queuing';
   end if;
 end $$;
-reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
@@ -241,7 +235,6 @@ begin
   end if;
 end $$;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$
@@ -287,7 +280,6 @@ begin
     if sqlerrm <> 'idempotency_conflict' then raise; end if;
   end;
 end $$;
-reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
@@ -662,6 +654,38 @@ begin
   ) then
     raise exception 'try-lock helper exposed to clients';
   end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.upsert_athlete_signal(uuid,text,text,text,jsonb,jsonb,text,text,timestamptz)',
+    'execute'
+  ) or has_function_privilege(
+    'authenticated',
+    'public.resolve_athlete_signal(uuid,text,text)',
+    'execute'
+  ) then
+    raise exception 'signal primitives exposed to clients';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.enqueue_athlete_decision_outbox(text,uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)',
+    'execute'
+  ) then
+    raise exception 'enqueue exposed to clients';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.queue_and_record_athlete_decision(text,uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)',
+    'execute'
+  ) then
+    raise exception 'queue_and_record exposed to clients';
+  end if;
+  if not has_function_privilege(
+    'authenticated',
+    'public.drain_athlete_decision_outbox(integer)',
+    'execute'
+  ) then
+    raise exception 'drain revoked from clients';
+  end if;
 end $$;
 
 insert into public.coach_interventions (
@@ -685,8 +709,6 @@ declare
   applied jsonb;
   proofs jsonb;
   n int;
-  stored_proposal jsonb;
-  stored_why text;
 begin
   applied := public.apply_intervention(
     'a1950000-0000-4000-8000-000000000010',
@@ -726,8 +748,9 @@ begin
       'coach_interventions',
       'a1950000-0000-4000-8000-000000000010'
     );
+    raise exception 'authenticated queue_and_record allowed';
   exception when others then
-    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+    if sqlerrm !~* 'permission denied' then raise; end if;
   end;
   select count(*) into n from public.athlete_decision_log
     where athlete_id='a1950000-0000-4000-8000-000000000004'
@@ -740,8 +763,20 @@ begin
   if coalesce((proofs->>'workout_count')::int, 0) <> 1 then
     raise exception 'frontend retry replaced stored proofs';
   end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
-  select proposal, why into stored_proposal, stored_why
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  proofs jsonb;
+  stored_proposal jsonb;
+  stored_why text;
+begin
+  select proposal, why, data_used into stored_proposal, stored_why, proofs
     from public.athlete_decision_log
     where athlete_id='a1950000-0000-4000-8000-000000000004'
       and source_id='a1950000-0000-4000-8000-000000000010';
@@ -764,8 +799,10 @@ begin
   exception when others then
     if sqlerrm <> 'idempotency_conflict' then raise; end if;
   end;
+  if coalesce((proofs->>'workout_count')::int, 0) <> 1 then
+    raise exception 'frontend retry replaced stored proofs';
+  end if;
 end $$;
-reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
@@ -790,7 +827,6 @@ begin
   end if;
 end $$;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000004',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000004","role":"authenticated"}',true);
 do $$
@@ -811,7 +847,6 @@ begin
     raise exception 'outbox actor not the athlete';
   end if;
 end $$;
-reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000001',true);
@@ -835,7 +870,6 @@ reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000004',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000004","role":"authenticated"}',true);
 do $$
@@ -871,9 +905,7 @@ begin
     if sqlerrm <> 'idempotency_conflict' then raise; end if;
   end;
 end $$;
-reset role;
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
@@ -917,7 +949,6 @@ begin
     raise exception 'coach reprise journaled a different why';
   end if;
 end $$;
-reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
@@ -934,7 +965,6 @@ insert into public.athlete_decision_outbox (
   0
 );
 
-set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000003',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000003","role":"authenticated"}',true);
 do $$
@@ -966,7 +996,6 @@ begin
     '{"workout_count":1}'::jsonb
   );
 end $$;
-reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
