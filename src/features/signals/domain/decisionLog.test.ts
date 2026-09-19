@@ -341,9 +341,14 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
 
   const api = src('src/features/signals/domain/decisionLogApi.ts');
   assert.doesNotMatch(api, /rpc\('record_athlete_decision'/);
-  assert.match(api, /recordAthleteDecisionDurable/);
+  assert.doesNotMatch(api, /recordAthleteDecisionDurable/);
+  assert.doesNotMatch(api, /recordAthleteDecisionBestEffort/);
+  assert.doesNotMatch(api, /RecordAthleteDecisionInput/);
+  assert.doesNotMatch(api, /decisionIdempotencyKey/);
   assert.doesNotMatch(api, /queue_and_record_athlete_decision/);
   assert.match(api, /drain_athlete_decision_outbox/);
+  assert.match(api, /drainAthleteDecisionOutboxBestEffort/);
+  assert.match(api, /Never a substitute for creating a journal/);
   assert.match(api, /listLatestAthleteDecisionsBestEffort/);
   assert.doesNotMatch(api, /from\('athlete_decision_log'\)\.insert/);
   assert.doesNotMatch(api, /enqueue_athlete_decision_outbox/);
@@ -373,9 +378,10 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.match(decide, /commit_solo_weekly_review_decision/);
   assert.match(decide, /p_idempotency_key/);
   assert.match(decide, /applyRemoteTargets/);
-  const rpcIdx = decide.indexOf('commit_solo_weekly_review_decision');
-  const profileIdx = decide.indexOf('updateProfile');
-  assert.ok(rpcIdx >= 0 && profileIdx > rpcIdx, 'profile write must be fallback after the composite RPC');
+  assert.ok(decide.indexOf('commit_solo_weekly_review_decision') >= 0);
+  assert.equal(decide.indexOf('updateProfile'), -1, 'missing RPC must not fall back to a profile write');
+  assert.doesNotMatch(decide, /isMissingBackendContract/);
+  assert.doesNotMatch(decide, /from\('solo_weekly_reviews'\)/);
   assert.match(soloStore, /mapSoloReviewDecision/);
   const slice = src('src/features/coaching/model/interventionsSlice.ts');
   assert.doesNotMatch(slice, /journalInterventionDecision/);

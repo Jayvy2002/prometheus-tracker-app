@@ -64,6 +64,20 @@ test('Hotfix B revokes Data API execute on P2 primitives and keeps métier RPCs'
   assert.doesNotMatch(api, /rpc\('queue_and_record_athlete_decision'/);
   assert.doesNotMatch(api, /rpc\('enqueue_athlete_decision_outbox'/);
   assert.match(api, /drain_athlete_decision_outbox/);
+  assert.doesNotMatch(api, /recordAthleteDecisionDurable/);
+  assert.doesNotMatch(api, /recordAthleteDecisionBestEffort/);
+  assert.doesNotMatch(api, /RecordAthleteDecisionInput/);
+  assert.doesNotMatch(api, /decisionIdempotencyKey/);
   assert.doesNotMatch(src('src/features/signals/domain/athleteSignalsApi.ts'), /rpc\('upsert_athlete_signal'/);
   assert.doesNotMatch(src('src/features/coaching/model/interventionsSlice.ts'), /journalInterventionDecision/);
+
+  const contract = src('src/features/signals/domain/backendContract.ts');
+  assert.doesNotMatch(contract, /Fail-open until P2 candidates are applied in production/);
+  assert.match(contract, /Never fail-open/);
+  assert.match(contract, /commit_solo_weekly_review_decision is the only/);
+
+  const solo = src('src/stores/soloCopilotStore.ts');
+  assert.doesNotMatch(solo, /isMissingBackendContract/);
+  assert.doesNotMatch(solo, /updateProfile/);
+  assert.doesNotMatch(solo, /recordAthleteDecision/);
 });

@@ -447,7 +447,7 @@ Un utilisateur authentifié ne peut pas transformer l’identité d’un lien ex
 
 **EN COURS.** Candidate `20260919214423_p2_primitive_authority` (pending, hors lock). Inventaire : [autorité primitives P2](P2_PRIMITIVE_AUTHORITY.md).
 
-`authenticated` / `anon` / `PUBLIC` n’ont plus `EXECUTE` sur `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision` (11/13 args), `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. `service_role` conserve `EXECUTE`. Les RPC métier (`save_athlete_weekly_review`, `commit_solo_weekly_review_decision`, `apply_intervention`, Watch `correct`/`decide`) et `drain_athlete_decision_outbox` restent publiques. Le client ne journalise plus en parallèle.
+`authenticated` / `anon` / `PUBLIC` n’ont plus `EXECUTE` sur `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision` (11/13 args), `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. `service_role` conserve `EXECUTE`. Les RPC métier (`save_athlete_weekly_review`, `commit_solo_weekly_review_decision`, `apply_intervention`, Watch `correct`/`decide`) et `drain_athlete_decision_outbox` restent publiques. Le client ne journalise plus en parallèle. Une décision Solo qui change les cibles passe uniquement par `commit_solo_weekly_review_decision` : RPC absente → fail-closed, aucune mutation locale.
 
 **Arrêt : attendre le feu vert avant merge et apply production. Pas d’améliorations analytiques P2 avant close B.**
 

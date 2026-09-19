@@ -1,6 +1,5 @@
 import { supabase } from '../../../lib/supabase';
 import type { AthleteSignal } from '../types';
-import { isMissingBackendContract } from './backendContract';
 import type { WatchQueryResult } from './watchQuery';
 
 export async function listOpenAthleteSignals(athleteId: string): Promise<WatchQueryResult<AthleteSignal[]>> {
@@ -21,5 +20,3 @@ export async function listOpenAthleteSignalsBestEffort(athleteId: string): Promi
 export async function listAthleteSignalsForWatch(athleteId: string): Promise<WatchQueryResult<AthleteSignal[]>> {
   return listOpenAthleteSignals(athleteId);
 }
-
-export { isMissingBackendContract };

@@ -43,6 +43,14 @@ Chemins **inchangés** (toujours `authenticated`) :
 Le panneau Watch n’appelle toujours pas les cinq primitives. Watch n’applique
 pas. Aucune auto-application.
 
+## Décision Solo
+
+`commit_solo_weekly_review_decision` est le seul chemin d’effet + journal +
+carte ISO. Si la RPC est indisponible, le client refuse : aucune
+`updateProfile`, aucun upsert `solo_weekly_reviews`, aucun faux journal, aucun
+succès UI. `drain_athlete_decision_outbox` reprend des intentions déjà créées
+côté serveur ; il ne crée pas le journal.
+
 ## Garanties serveur
 
 - `REVOKE ALL … FROM PUBLIC, anon, authenticated` sur les six signatures.

@@ -28,7 +28,9 @@ et Solo prennent le verrou advisory **avant** la ligne d’outbox, puis le journ
 Le drain ordonne par `(next_attempt_at, created_at, id)` et saute une clé occupée
 (`pg_try_advisory_xact_lock`). Une reprise sur un journal existant compare
 l’intention complète (`why`, `data_used`, `human_reason`, `source` inclus).
-Table/RPC absente côté client → fail-open. Les tables sont présentes en production.
+Lecture / analyse : table/RPC absente côté client → fail-open. Mutation Solo
+des cibles : fail-closed — `commit_solo_weekly_review_decision` uniquement,
+sinon aucune mutation. Les tables et cette RPC sont présentes en production.
 
 La carte Solo et le round fleet **lisent** la dernière décision par
 `(athlète, domain, type)`, pas un plafond global de lignes. Un refus n’est levé

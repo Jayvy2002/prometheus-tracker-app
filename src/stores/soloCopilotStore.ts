@@ -4,8 +4,6 @@ import { track } from '../lib/telemetryClient';
 import { useProfileStore } from './profileStore';
 import type { SoloReviewDecision, SoloWeeklyReview } from '../lib/soloCopilot';
 import type { SoloWeeklyReviewRow } from '../lib/types';
-import { isMissingBackendContract } from '../features/signals/domain/backendContract';
-import { recordAthleteDecisionDurable } from '../features/signals/domain/decisionLogApi';
 import { mapSoloProposalTarget, mapSoloReviewDecision } from '../features/signals/domain/decisionLog';
 
 interface SoloCopilotState {
@@ -24,7 +22,6 @@ function journalFields(userId: string, review: SoloWeeklyReview, decision: SoloR
   const human = mapSoloReviewDecision(decision);
   return {
     target,
-    human,
     proposal: {
       action: review.proposal.action,
       reason: review.proposal.reason,
@@ -115,37 +112,11 @@ export const useSoloCopilotStore = create<SoloCopilotState>((set) => ({
       p_applied_effect: fields.appliedEffect,
       p_idempotency_key: idempotencyKey,
     });
-    if (committed.error && !isMissingBackendContract(committed.error)) {
-      return { error: committed.error.message };
-    }
     if (committed.error) {
-      if (decision === 'accepted' && draft) {
-        const saved = await useProfileStore.getState().updateProfile(userId, {
-          daily_calorie_target: draft.calories,
-          protein_target: draft.protein,
-          carbs_target: draft.carbs,
-          fat_target: draft.fat,
-        });
-        if (saved.error) return { error: saved.error };
-      }
-      const { error } = await supabase
-        .from('solo_weekly_reviews')
-        .upsert(fields.soloRow, { onConflict: 'user_id,week_start' });
-      if (error) return { error: error.message };
-      const journal = await recordAthleteDecisionDurable({
-        athleteId: userId,
-        domain: fields.target.domain,
-        type: fields.target.type,
-        decision: fields.human,
-        proposal: fields.proposal,
-        why: review.proposal.reason,
-        dataUsed: fields.dataUsed,
-        appliedEffect: fields.appliedEffect,
-        source: 'solo_weekly_reviews',
-        idempotencyKey,
-      });
-      if (journal.error) return { error: journal.error };
-    } else if (decision === 'accepted' && draft) {
+      const message = committed.error.message?.trim();
+      return { error: message || 'commit_solo_weekly_review_decision_unavailable' };
+    }
+    if (decision === 'accepted' && draft) {
       useProfileStore.getState().applyRemoteTargets(userId, {
         daily_calorie_target: draft.calories,
         protein_target: draft.protein,

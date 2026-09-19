@@ -1,4 +1,10 @@
-/** Fail-open until P2 candidates are applied in production. */
+/**
+ * Detects a missing table or PostgREST RPC in the schema cache.
+ * P2 métier contracts are in production. Use this only on READ / analysis
+ * fallbacks (Watch list, persistAthleteWeeklyReviewCycle). Never fail-open
+ * a Solo target mutation: commit_solo_weekly_review_decision is the only
+ * write path, and a missing RPC must refuse without mutating anything.
+ */
 
 export function isMissingBackendContract(error: {
   message?: string;

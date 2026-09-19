@@ -223,16 +223,17 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   const store = src('src/stores/soloCopilotStore.ts');
   const decide = store.slice(store.indexOf('decide: async'));
   assert.match(decide, /if \(decision === 'accepted' && draft\)/);
-  const rpcIdx = decide.indexOf('commit_solo_weekly_review_decision');
-  const profileIdx = decide.indexOf('updateProfile');
-  assert.ok(rpcIdx >= 0 && profileIdx > rpcIdx);
+  assert.match(decide, /commit_solo_weekly_review_decision/);
   assert.match(decide, /p_idempotency_key/);
   assert.match(decide, /applyRemoteTargets/);
-  assert.match(decide, /commit_solo_weekly_review_decision/);
-  assert.match(decide, /from\('solo_weekly_reviews'\)/);
-  assert.match(decide, /onConflict: 'user_id,week_start'/);
   assert.match(decide, /track\('solo_review_decided'/);
-  assert.match(decide, /recordAthleteDecisionDurable/);
+  assert.match(decide, /if \(committed\.error\)/);
+  assert.doesNotMatch(decide, /updateProfile/);
+  assert.doesNotMatch(decide, /from\('solo_weekly_reviews'\)/);
+  assert.doesNotMatch(decide, /onConflict/);
+  assert.doesNotMatch(decide, /recordAthleteDecision/);
+  assert.doesNotMatch(decide, /isMissingBackendContract/);
+  assert.doesNotMatch(store, /updateProfile/);
 
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /\{!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview \/>\}/);
