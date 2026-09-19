@@ -12,7 +12,9 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 - **125 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
 - **125 migrations** observées en production, dans le même ordre ;
 - dernière version appliquée : `20260919194159_program_session_organization` ;
-- `migrations.pending.json` est vide ;
+- `migrations.pending.json` contient la candidate Hotfix A
+  `20260919202538_coach_client_link_immutability` jusqu’au merge et à l’application
+  avec le **même timestamp Git** ;
 - P3.1 a été appliqué avec le **même timestamp Git** `20260919194159` (aucun restamp) ;
 - les deux versions Git de P2.4/P2.5 restent présentes telles quelles :
   `20260919134856`, `20260919141146` ;
