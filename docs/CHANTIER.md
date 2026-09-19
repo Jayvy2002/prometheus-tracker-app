@@ -540,7 +540,8 @@ l’action métier (`queue_and_record_athlete_decision`) avec les preuves utiles
 `commit_solo` consulte l’outbox sous verrou avant toute mutation — une reprise
 ne termine que la journalisation. Le contenu d’une intention est immuable.
 `drain_athlete_decision_outbox` reprend les échecs sans doublon ni usurpation
-d’auteur, avec backoff. L’outbox est unique par `(athlete_id, idempotency_key)`.
+d’auteur, avec backoff. Advisory puis outbox puis journal, partout. L’outbox est
+unique par `(athlete_id, idempotency_key)`.
 
 ### Invariant
 

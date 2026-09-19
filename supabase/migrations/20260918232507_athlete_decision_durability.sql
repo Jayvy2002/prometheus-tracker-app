@@ -871,6 +871,8 @@ BEGIN
     END IF;
   END IF;
 
+  PERFORM public.prometheus_lock_decision_key(p_athlete_id, v_key);
+
   v_payload := public.prometheus_decision_outbox_payload(
     p_domain, p_type, p_decision,
     COALESCE(p_proposal, '{}'::jsonb),
@@ -963,6 +965,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_uid uuid := auth.uid();
+  v_candidate public.athlete_decision_outbox;
   v_box public.athlete_decision_outbox;
   v_n int := 0;
 BEGIN
@@ -973,7 +976,8 @@ BEGIN
     p_limit := 100;
   END IF;
 
-  FOR v_box IN
+  -- Peek without row locks, then for each key: advisory → outbox → journal.
+  FOR v_candidate IN
     SELECT *
     FROM public.athlete_decision_outbox
     WHERE processed_at IS NULL
@@ -985,9 +989,21 @@ BEGIN
         OR public.is_coach_of(athlete_id)
       )
     ORDER BY next_attempt_at, created_at
-    FOR UPDATE SKIP LOCKED
     LIMIT p_limit
   LOOP
+    PERFORM public.prometheus_lock_decision_key(
+      v_candidate.athlete_id, v_candidate.idempotency_key
+    );
+    SELECT * INTO v_box
+    FROM public.athlete_decision_outbox
+    WHERE id = v_candidate.id
+      AND processed_at IS NULL
+      AND failed_at IS NULL
+      AND next_attempt_at <= clock_timestamp()
+    FOR UPDATE;
+    IF NOT FOUND THEN
+      CONTINUE;
+    END IF;
     BEGIN
       PERFORM public.prometheus_record_stored_outbox(v_box);
       UPDATE public.athlete_decision_outbox
@@ -1312,6 +1328,10 @@ BEGIN
   END IF;
 
   PERFORM public.prometheus_lock_decision_key(v_uid, v_key);
+  SELECT * INTO v_box
+  FROM public.athlete_decision_outbox
+  WHERE athlete_id = v_uid AND idempotency_key = v_key
+  FOR UPDATE;
   SELECT * INTO v_row
   FROM public.athlete_decision_log
   WHERE athlete_id = v_uid AND idempotency_key = v_key
@@ -1332,11 +1352,7 @@ BEGIN
     RETURN v_row;
   END IF;
 
-  SELECT * INTO v_box
-  FROM public.athlete_decision_outbox
-  WHERE athlete_id = v_uid AND idempotency_key = v_key
-  FOR UPDATE;
-  IF FOUND THEN
+  IF v_box.id IS NOT NULL THEN
     IF NOT public.prometheus_outbox_intents_equal(
       v_box.payload,
       public.prometheus_decision_outbox_payload(
@@ -1551,7 +1567,7 @@ GRANT EXECUTE ON FUNCTION public.apply_intervention(uuid, text, text, text, json
   TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.drain_athlete_decision_outbox(integer) IS
-  'Idempotent outbox drain. Author is the stored outbox actor_id, not the executor. Backoff + dead-letter after 8 failures. Never auto-applies programs or targets.';
+  'Idempotent outbox drain. Advisory lock then outbox row then journal. Author is the stored actor_id. Backoff + dead-letter after 8 failures. Never auto-applies programs or targets.';
 COMMENT ON FUNCTION public.triage_eligible_solo_weekly(uuid) IS
   'Eligible Solo dossiers (no active coach). Bounded window, calendar age, PAR-Q medical flags. Server weekly loop; dashboard catch-up is optional.';
 COMMENT ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) IS

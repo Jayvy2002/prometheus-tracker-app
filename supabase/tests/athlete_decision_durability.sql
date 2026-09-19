@@ -919,5 +919,44 @@ begin
   end if;
 end $$;
 
+do $$
+declare
+  drain_src text;
+  enqueue_src text;
+  solo_src text;
+  lock_at int;
+  row_at int;
+  log_at int;
+begin
+  drain_src := lower(pg_get_functiondef('public.drain_athlete_decision_outbox(integer)'::regprocedure));
+  lock_at := position('prometheus_lock_decision_key' in drain_src);
+  row_at := position('for update' in drain_src);
+  if lock_at = 0 or row_at = 0 or lock_at > row_at then
+    raise exception 'drain locks outbox before advisory';
+  end if;
+  if position('for update skip locked' in drain_src) > 0 then
+    raise exception 'drain still locks outbox set before advisory';
+  end if;
+
+  enqueue_src := lower(pg_get_functiondef(
+    'public.enqueue_athlete_decision_outbox(text,uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)'::regprocedure
+  ));
+  lock_at := position('prometheus_lock_decision_key' in enqueue_src);
+  row_at := position('insert into public.athlete_decision_outbox' in enqueue_src);
+  if lock_at = 0 or row_at = 0 or lock_at > row_at then
+    raise exception 'enqueue locks outbox before advisory';
+  end if;
+
+  solo_src := lower(pg_get_functiondef(
+    'public.commit_solo_weekly_review_decision(date,text,text,jsonb,jsonb,text,text,text,jsonb,text,jsonb,jsonb,text)'::regprocedure
+  ));
+  lock_at := position('prometheus_lock_decision_key' in solo_src);
+  row_at := position('from public.athlete_decision_outbox' in solo_src);
+  log_at := position('from public.athlete_decision_log' in solo_src);
+  if lock_at = 0 or row_at = 0 or log_at = 0 or lock_at > row_at or row_at > log_at then
+    raise exception 'solo lock order is not advisory, outbox, journal';
+  end if;
+end $$;
+
 rollback;
 \echo 'decision durability: outbox isolation, drain replay, immutable intent, solo journal-fail reprise'

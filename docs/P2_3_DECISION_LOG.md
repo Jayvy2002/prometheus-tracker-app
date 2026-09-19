@@ -23,7 +23,8 @@ initial vs effets métier, sans identifiants de routage, **preuves** dans
 refusée. Le contenu d’une intention est immuable (`idempotency_conflict` si le
 contenu métier diffère) ; drain et rejeu n’utilisent que le payload stocké.
 Validation à l’enqueue, backoff, échec permanent. `drain_athlete_decision_outbox`
-rejoue sans doublon et conserve l’auteur stocké (pas l’exécuteur).
+rejoue sans doublon et conserve l’auteur stocké (pas l’exécuteur). Drain, enqueue
+et Solo prennent le verrou advisory **avant** la ligne d’outbox, puis le journal.
 Table/RPC absente en production → fail-open.
 
 La carte Solo et le round fleet **lisent** la dernière décision par
