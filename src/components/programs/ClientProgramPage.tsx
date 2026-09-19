@@ -4,13 +4,14 @@ import { CalendarRange, Dumbbell } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
-import { namedSessionLine } from '../../features/programs/domain/namedSession';
+import { namedSessionLine, programSessionLabel } from '../../features/programs/domain/namedSession';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
+import { normalizeSessionOrganization, sessionOrderLetter } from '../../features/programs/domain/sessionOrganization';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
 import { programWeekNumber } from '../../lib/utils';
 import { outlineFromEdited } from '../../lib/coachDraftSend';
-import type { AiProgramDayDraft, ProgramDay, ProgramDayExercise } from '../../lib/types';
+import type { AiProgramDayDraft, ProgramDay, ProgramDayExercise, SessionOrganization } from '../../lib/types';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
@@ -44,6 +45,7 @@ export default function ClientProgramPage() {
   const [description, setDescription] = useState('');
   const [weeks, setWeeks] = useState(8);
   const [days, setDays] = useState<AiProgramDayDraft[]>([emptyProgramDraftDay()]);
+  const [organization, setOrganization] = useState<SessionOrganization>('fixed_days');
 
   useEffect(() => {
     if (!user) return;
@@ -58,7 +60,8 @@ export default function ClientProgramPage() {
   const week = program
     ? programWeekNumber(assignment!.start_date, program.duration_weeks)
     : null;
-  const todayDay = training.find(d => d.weekday === todayWeekday) ?? null;
+  const inOrder = normalizeSessionOrganization(program?.session_organization ?? organization) === 'in_order';
+  const todayDay = inOrder ? null : training.find(d => d.weekday === todayWeekday) ?? null;
   const showEditor = canEditOwnPlan && (!!program || creating);
 
   useEffect(() => {
@@ -67,16 +70,20 @@ export default function ClientProgramPage() {
     setName(program.name);
     setDescription(program.description ?? '');
     setWeeks(program.duration_weeks);
+    setOrganization(normalizeSessionOrganization(program.session_organization));
     setDays(programDaysToDraft(program.days));
   }, [program?.id, program?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const weekdayLabel = (d: number) => t(`programs.weekdays.${d}`);
+  const weekdayLabel = (d: number | null | undefined) => (
+    typeof d === 'number' ? t(`programs.weekdays.${d}`) : ''
+  );
 
   const startBlank = () => {
     setCreating(true);
     setName(t('programs.mineTitle'));
     setDescription('');
     setWeeks(8);
+    setOrganization('fixed_days');
     setDays([emptyProgramDraftDay()]);
   };
 
@@ -95,7 +102,10 @@ export default function ClientProgramPage() {
     }
     setSaving(true);
     if (!program) {
-      const created = await applyProgramOutline(user.id, outline);
+      const created = await applyProgramOutline(user.id, {
+        ...outline,
+        session_organization: organization,
+      });
       setSaving(false);
       if (created.error) {
         toast(created.error, 'error');
@@ -110,6 +120,7 @@ export default function ClientProgramPage() {
         name: outline.name,
         description: outline.description,
         duration_weeks: outline.duration_weeks,
+        session_organization: organization,
       },
       outline.days,
       program.updated_at,
@@ -154,6 +165,8 @@ export default function ClientProgramPage() {
               programId={program?.id ?? null}
               presentation="athlete"
               currentWeek={week}
+              sessionOrganization={organization}
+              onSessionOrganizationChange={setOrganization}
               onNameChange={setName}
               onDescriptionChange={setDescription}
               onWeeksChange={setWeeks}
@@ -211,20 +224,23 @@ export default function ClientProgramPage() {
             )}
 
             <div className="space-y-2">
-              {WEEKDAY_ORDER.map(wd => {
-                const day = (program.days ?? []).find(d => d.weekday === wd);
-                if (!day || !isProgramTrainingDay(day)) return null;
-                return (
-                  <DayCard
-                    key={day.id}
-                    day={day}
-                    label={weekdayLabel(day.weekday)}
-                    isToday={day.weekday === todayWeekday}
-                    todayLabel={t('programs.todayBadge')}
-                    emptyLabel={t('programs.noExercises')}
-                  />
-                );
-              })}
+              {(inOrder
+                ? training
+                : WEEKDAY_ORDER
+                  .map(wd => (program.days ?? []).find(d => d.weekday === wd))
+                  .filter((day): day is ProgramDay => !!day && isProgramTrainingDay(day))
+              ).map((day, i) => (
+                <DayCard
+                  key={day.id}
+                  day={day}
+                  label={inOrder
+                    ? t('programs.sessionLetter', { letter: sessionOrderLetter(i) })
+                    : weekdayLabel(day.weekday)}
+                  isToday={!inOrder && day.weekday === todayWeekday}
+                  todayLabel={t('programs.todayBadge')}
+                  emptyLabel={t('programs.noExercises')}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -249,7 +265,7 @@ export default function ClientProgramPage() {
                     </p>
                     {(a.program?.days ?? []).filter(isProgramTrainingDay).map(d => (
                       <div key={d.id} className="mt-2">
-                        <p className="text-xs text-neutral-400">{namedSessionLine(weekdayLabel(d.weekday), d.name)}</p>
+                        <p className="text-xs text-neutral-400">{programSessionLabel(d, weekdayLabel)}</p>
                         <ExerciseList exercises={d.exercises ?? []} emptyLabel={t('programs.noExercises')} />
                       </div>
                     ))}

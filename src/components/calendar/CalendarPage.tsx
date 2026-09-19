@@ -252,6 +252,7 @@ export default function CalendarPage() {
           ? assignment.updated_at
           : null,
         unnamed: t('workout.unnamed'),
+        sessionOrganization: assignment?.program?.session_organization,
       }));
     }
     return map;

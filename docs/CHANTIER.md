@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P2.1–P2.5 actifs. Prochaine étape : P3.1 — Séparer séance et jour de semaine (en attente de feu vert).**
+> **CURRENT IMPLEMENTATION GATE — P3.1 en cours (organisation des séances, un seul moteur). P2.1–P2.5 clos en production (124 migrations, dernière `20260919141146`). Candidate `20260919194159_program_session_organization` dans pending jusqu’au merge. Après CI verte : merger P3.1, appliquer le timestamp Git, lock=prod, pending vide, puis P3.2. Ne pas commencer P4. Aucune auto-application. Watch n’applique pas.**
 >
-> P1.5–P2.5 sont mergés (`#190`–`#192`, HEAD `9b8a7ab`) et **actifs en production** (124 migrations, dernière `20260919141146_watch_proposal_decision`). P2 s’arrête à P2.5. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ne pas merger cette PR sans feu vert.** Un agent ne commence pas P3.1 sans feu vert explicite. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.5–P2.5 sont mergés (`#190`–`#192`, `#194`, HEAD `1737c74`) et **P2.1–P2.5 sont clos en production** (124 migrations, dernière `20260919141146_watch_proposal_decision`). P3.1 est en cours. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -62,7 +62,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (124 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (124 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **En attente de feu vert — prochaine étape P3.1** | Phases/cycles + séquence de séances |
+| **P3** | Planification avancée | **P3.1 en cours** | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#192`) et appliqués en production (124 migrations). P2 s’arrête à P2.5. Prochaine étape réelle : P3.1 — Séparer séance et jour de semaine, en attente de feu vert. Un agent ne commence pas P3.1 sans feu vert explicite.
+P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`) et appliqués en production (124 migrations). P2 s’arrête à P2.5. P3.1 est en cours. Ne pas commencer P4.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -636,16 +636,22 @@ humain (Solo ou Coach actif) + proposition courante concrète
 
 ### État actuel
 
-**EN ATTENTE DE FEU VERT.** Ne pas commencer sans instruction explicite.
+**EN COURS.** Inventaire : [P3.1 — organisation des séances](P3_1_SESSION_ORGANIZATION.md).
 
-Le moteur doit supporter :
+Un seul moteur `programs` → `program_days` → prescriptions → workouts.
 
-- `calendar` : séance associée à un jour/date ;
-- `sequence` : prochaine séance selon ordre A→B→C.
+- `programs.session_organization` : `fixed_days` (legacy) ou `in_order`.
+- `program_days.weekday` nullable ; unique seulement si renseigné.
+- Mode jours fixes : prochaine séance par jour de semaine.
+- Mode dans l’ordre : prochaine séance = suivante dans `order_index` après le dernier workout complété lié au `program_day_id`. S’entraîner un autre jour ne saute pas la séquence.
+- Calendrier : n’invente des dates « prévues » qu’en `fixed_days`. En `in_order`, passé réel seulement.
+- Un seul logger : `startWorkoutFromTemplate`.
+- Permissions P1.2 inchangées (leftover Coaché, owner, Coach actif).
+- Candidate `20260919194159_program_session_organization` (pending jusqu’au merge).
 
 ### À éviter
 
-Ne pas créer deux loggers.
+Ne pas créer deux loggers. Ne pas inventer P2.6/P2.7. Ne pas commencer P4.
 
 ## P3.2 — Phases et cycles
 

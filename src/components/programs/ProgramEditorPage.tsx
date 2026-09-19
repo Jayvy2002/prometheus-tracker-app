@@ -5,13 +5,14 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
-import type { AiProgramDayDraft } from '../../lib/types';
+import type { AiProgramDayDraft, SessionOrganization } from '../../lib/types';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import ProgramRevisionHistory from './ProgramRevisionHistory';
 import Button from '../ui/Button';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import { mapProgramWriteError } from '../../lib/programWrite';
+import { normalizeSessionOrganization } from '../../features/programs/domain/sessionOrganization';
 
 export default function ProgramEditorPage() {
   const { t, i18n } = useTranslation();
@@ -26,6 +27,7 @@ export default function ProgramEditorPage() {
   const [description, setDescription] = useState('');
   const [weeks, setWeeks] = useState(8);
   const [days, setDays] = useState<AiProgramDayDraft[]>([]);
+  const [organization, setOrganization] = useState<SessionOrganization>('fixed_days');
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
   const [revision, setRevision] = useState<{ revision_no: number; created_at: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -47,9 +49,11 @@ export default function ProgramEditorPage() {
       setName(p.name);
       setDescription(p.description);
       setWeeks(p.duration_weeks);
+      setOrganization(normalizeSessionOrganization(p.session_organization));
       setExpectedUpdatedAt(p.updated_at);
       const sorted = [...(p.days ?? [])].sort((a, b) => a.order_index - b.order_index);
       setDays(sorted.length > 0 ? sorted.map(d => ({
+        id: d.id,
         weekday: d.weekday,
         name: d.name,
         exercises: (d.exercises ?? []).map(ex => ({
@@ -79,6 +83,7 @@ export default function ProgramEditorPage() {
         name: name.trim(),
         description,
         duration_weeks: weeks,
+        session_organization: organization,
       }, days.map((d, i) => ({
         weekday: d.weekday,
         name: d.name,
@@ -101,7 +106,7 @@ export default function ProgramEditorPage() {
     }
     const saved = await saveProgram(
       id!,
-      { name: name.trim(), description, duration_weeks: weeks },
+      { name: name.trim(), description, duration_weeks: weeks, session_organization: organization },
       days,
       expectedUpdatedAt,
     );
@@ -159,6 +164,8 @@ export default function ProgramEditorPage() {
           durationWeeks={weeks}
           days={days}
           programId={isNew ? null : id}
+          sessionOrganization={organization}
+          onSessionOrganizationChange={setOrganization}
           onNameChange={setName}
           onDescriptionChange={setDescription}
           onWeeksChange={setWeeks}

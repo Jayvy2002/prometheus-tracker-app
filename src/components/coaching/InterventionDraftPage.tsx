@@ -527,7 +527,9 @@ export default function InterventionDraftPage() {
                           : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-blue-500'
                       }`}
                     >
-                      {p.target.dayName || t(`programs.weekdays.${p.target.dayWeekday}`)}
+                      {p.target.dayName || (typeof p.target.dayWeekday === 'number'
+                        ? t(`programs.weekdays.${p.target.dayWeekday}`)
+                        : '')}
                       {' · '}
                       {p.before} → {p.after}
                     </button>

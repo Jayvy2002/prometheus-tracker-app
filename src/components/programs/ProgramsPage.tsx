@@ -21,7 +21,7 @@ import { ListSkeleton } from '../ui/PageSkeleton';
 import ErrorState from '../ui/ErrorState';
 import { toast } from '../ui/Toast';
 import { assignStartLabel } from '../../lib/programWrite';
-import { namedSessionLine } from '../../features/programs/domain/namedSession';
+import { programSessionLabel } from '../../features/programs/domain/namedSession';
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0]; // Mon-first for display, Sunday=0 stored
 
@@ -157,7 +157,7 @@ export default function ProgramsPage() {
                     <div className="flex flex-wrap gap-1 mt-2">
                       {(p.days ?? []).filter(d => d.name).map(d => (
                         <span key={d.id} className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
-                          {namedSessionLine(weekdayLabel(d.weekday), d.name)}
+                          {programSessionLabel(d, weekdayLabel)}
                         </span>
                       ))}
                       {exerciseCount === 0 && (

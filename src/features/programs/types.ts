@@ -1,5 +1,8 @@
 /** Contrats programme / attribution / brouillons de plan — lot 22a. */
 import type { SetType } from '../../shared/types';
+import type { SessionOrganization } from './domain/sessionOrganization';
+
+export type { SessionOrganization };
 
 export interface ProgramExerciseDraft {
   name: string;
@@ -20,7 +23,8 @@ export interface ProgramExerciseDraft {
 }
 
 export interface AiProgramDayDraft {
-  weekday: number;
+  id?: string;
+  weekday: number | null;
   name: string;
   exercises: ProgramExerciseDraft[];
 }
@@ -73,6 +77,7 @@ export interface Program {
   name: string;
   description: string;
   duration_weeks: number;
+  session_organization?: SessionOrganization;
   days?: ProgramDay[];
   created_at: string;
   updated_at: string;
@@ -81,7 +86,7 @@ export interface Program {
 export interface ProgramDay {
   id: string;
   program_id: string;
-  weekday: number;
+  weekday: number | null;
   name: string;
   routine_id: string | null;
   order_index: number;

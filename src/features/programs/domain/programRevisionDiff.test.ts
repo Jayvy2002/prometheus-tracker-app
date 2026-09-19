@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
+  parseRevisionOrganization,
   parseRevisionSnapshot,
   restoreCreatesNewRevision,
   revisionBeforeAfter,
@@ -31,6 +32,17 @@ test('revision list shows before/after and restore is a new snapshot', () => {
   assert.match(next.after, /Incline Bench Press/);
   assert.equal(restoreCreatesNewRevision(), true);
   assert.equal(snapshotToDayDrafts(snapB)[0].exercises[1].name, 'Incline Bench Press');
+});
+
+test('wrapped revision snapshot keeps organization and null weekday', () => {
+  const wrapped = {
+    session_organization: 'in_order',
+    days: [{ weekday: null, name: 'A', exercises: [{ name: 'Squat' }] }],
+  };
+  assert.equal(parseRevisionOrganization(wrapped), 'in_order');
+  assert.equal(parseRevisionOrganization([{ weekday: 1, name: 'Upper', exercises: [] }]), 'fixed_days');
+  assert.equal(parseRevisionSnapshot(wrapped)[0].weekday, null);
+  assert.equal(snapshotToDayDrafts(wrapped)[0].name, 'A');
 });
 
 test('UX23 wires history UI and restore goes through save_program, not workouts', () => {

@@ -12,7 +12,7 @@ export interface RevisionExerciseSnap {
 }
 
 export interface RevisionDaySnap {
-  weekday: number;
+  weekday: number | null;
   name: string;
   order_index?: number;
   exercises: RevisionExerciseSnap[];
@@ -28,7 +28,7 @@ export interface ProgramRevisionRow {
 }
 
 export interface RevisionDayDraft {
-  weekday: number;
+  weekday: number | null;
   name: string;
   exercises: Array<{
     name: string;
@@ -42,16 +42,35 @@ export interface RevisionDayDraft {
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? value as Record<string, unknown> : null;
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function snapshotDaysRaw(snapshot: unknown): unknown[] {
+  if (Array.isArray(snapshot)) return snapshot;
+  const rec = asRecord(snapshot);
+  return Array.isArray(rec?.days) ? rec.days : [];
+}
+
+export function parseRevisionOrganization(snapshot: unknown): 'fixed_days' | 'in_order' {
+  if (Array.isArray(snapshot) || snapshot == null) return 'fixed_days';
+  const rec = asRecord(snapshot);
+  return rec?.session_organization === 'in_order' ? 'in_order' : 'fixed_days';
+}
+
+function parseWeekday(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 && n <= 6 ? n : null;
 }
 
 export function parseRevisionSnapshot(snapshot: unknown): RevisionDaySnap[] {
-  if (!Array.isArray(snapshot)) return [];
-  return snapshot.map((raw, index) => {
+  return snapshotDaysRaw(snapshot).map((raw, index) => {
     const rec = asRecord(raw) ?? {};
     const exercisesRaw = Array.isArray(rec.exercises) ? rec.exercises : [];
     return {
-      weekday: Number(rec.weekday) || 0,
+      weekday: parseWeekday(rec.weekday),
       name: typeof rec.name === 'string' ? rec.name : '',
       order_index: typeof rec.order_index === 'number' ? rec.order_index : index,
       exercises: exercisesRaw.map((ex, order) => {
@@ -75,7 +94,7 @@ export function summarizeRevisionDays(days: RevisionDaySnap[]): string {
   if (!days.length) return '';
   return days.map(day => {
     const lifts = day.exercises.map(ex => ex.name).filter(Boolean).join(', ');
-    const title = day.name.trim() || String(day.weekday);
+    const title = day.name.trim() || (day.weekday != null ? String(day.weekday) : '');
     return lifts ? `${title} · ${lifts}` : title;
   }).join(' | ');
 }

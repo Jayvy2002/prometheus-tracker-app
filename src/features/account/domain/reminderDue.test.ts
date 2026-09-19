@@ -31,6 +31,10 @@ test('assigned plan: rest day and empty plan are not a workout task', () => {
   assert.equal(isProgramTrainingWeekday(days, 2), false);
   assert.equal(isProgramTrainingWeekday(days, 5), false);
   assert.equal(isProgramTrainingWeekday([{ weekday: 2, name: '', exerciseCount: 0 }], 2), false);
+  assert.equal(isProgramTrainingWeekday([
+    { weekday: null, name: 'A', exerciseCount: 1 },
+    { weekday: null, name: 'B', exerciseCount: 1 },
+  ], 0), true);
 });
 
 test('shouldSendDailyReminder skips finished, off-module, and rest-day workout pings', () => {

@@ -22,12 +22,15 @@ export function weekdayInTimeZone(now: Date, timeZone: string | null | undefined
 }
 
 export function isProgramTrainingWeekday(
-  days: Array<{ weekday: number; name?: string | null; exerciseCount?: number }>,
+  days: Array<{ weekday: number | null; name?: string | null; exerciseCount?: number }>,
   weekday: number,
 ): boolean {
   const training = days.filter(day => (day.name ?? '').trim().length > 0 || (day.exerciseCount ?? 0) > 0);
   if (training.length === 0) return false;
-  return training.some(day => day.weekday === weekday);
+  const pinned = training.filter(day => typeof day.weekday === 'number');
+  // in_order: no weekday is prescribed — the next session is available any day.
+  if (pinned.length === 0) return true;
+  return pinned.some(day => day.weekday === weekday);
 }
 
 /** False = do not send. Rest day, finished log, or module off are not a task. */

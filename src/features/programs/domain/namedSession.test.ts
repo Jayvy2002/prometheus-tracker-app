@@ -43,10 +43,9 @@ test('UX22 recale keeps the day name and does not invent a plan day', () => {
 
 test('UX22 athlete surfaces show weekday + name; coach shows cycle structure', () => {
   const card = src('src/components/dashboard/ClientGymCard.tsx');
-  assert.match(card, /namedSessionLine/);
+  assert.match(card, /programSessionLabel/);
   assert.match(card, /data-testid="ux22-session-label"/);
   assert.match(card, /programs\.todaySession/);
-  assert.match(card, /programs\.weekdays\.\$\{day\.weekday\}/);
 
   const page = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(page, /namedSessionLine/);
@@ -61,7 +60,7 @@ test('UX22 athlete surfaces show weekday + name; coach shows cycle structure', (
   assert.doesNotMatch(editor, /phaseIndex|Mesocycle|PhasePicker|program_phases/);
 
   const programs = src('src/components/programs/ProgramsPage.tsx');
-  assert.match(programs, /namedSessionLine/);
+  assert.match(programs, /programSessionLabel/);
   assert.match(programs, /programs\.subtitle/);
 
   const form = src('src/components/workout/WorkoutForm.tsx');
@@ -84,6 +83,6 @@ test('UX22 is copy/UI — no phase or mesocycle engine', () => {
   assert.match(en, /cycleDetails: 'Name, duration, notes'/);
   assert.doesNotMatch(fr, /mésocycle/);
   assert.doesNotMatch(en, /mesocycle/);
-  assert.match(fr, /Séances nommées par jour de la semaine/);
-  assert.match(en, /Named sessions mapped to weekdays/);
+  assert.match(fr, /Séances nommées, organisées par jours fixes ou dans l’ordre/);
+  assert.match(en, /Named sessions, organized by fixed days or in order/);
 });

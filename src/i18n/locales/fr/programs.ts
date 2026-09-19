@@ -2,7 +2,7 @@ const programs = {
 
   programs: {
     title: 'Programmes',
-    subtitle: 'Séances nommées par jour de la semaine, assignées avec une date de début.',
+    subtitle: 'Séances nommées, organisées par jours fixes ou dans l’ordre, assignées avec une date de début.',
     empty: 'Aucun programme',
     emptyBody: 'Crée un premier programme pour l’assigner à tes clients.',
     moreActions: 'Actions du programme',
@@ -57,6 +57,13 @@ const programs = {
     sessionFallback: 'Séance',
     sessionLifts: '{{n}} exercices',
     splitLabel: '{{n}} séances',
+    organizationTitle: 'Organisation des séances',
+    organizationFixed: 'Jours fixes',
+    organizationFixedHint: 'Les séances sont prévues certains jours de la semaine.',
+    organizationInOrder: 'Dans l’ordre',
+    organizationInOrderHint: 'La prochaine séance suit simplement l’ordre du programme.',
+    sessionLetter: 'Séance {{letter}}',
+    nextSession: 'Prochaine séance : {{name}}',
     tapToEdit: 'Touche un exercice pour régler sets, reps, repos.',
     volumeThisSession: 'Cette séance',
     savePlan: 'Enregistrer le plan',

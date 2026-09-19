@@ -3,7 +3,7 @@ import type { Program, ProgramDay, ProgramDayExercise, ProgramExercisePatch } fr
 
 export interface PatchTarget {
   dayId: string;
-  dayWeekday: number;
+  dayWeekday: number | null;
   dayName: string;
   exerciseId: string;
   exercise: ProgramDayExercise;

@@ -14,3 +14,11 @@ test('profile frequency and product default remain safe fallbacks', () => {
   assert.equal(resolveTrainingFrequency(4, []), 4);
   assert.equal(resolveTrainingFrequency(0, null), 3);
 });
+
+test('in_order sessions without weekday still count as program frequency', () => {
+  assert.equal(resolveTrainingFrequency(5, [
+    { weekday: null },
+    { weekday: null },
+    { weekday: null },
+  ]), 3);
+});

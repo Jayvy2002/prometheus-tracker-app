@@ -14,5 +14,6 @@ export function useProgramDayDue(): boolean {
     todayWeekday: new Date().getDay(),
     todayDate: todayStr(),
     assignmentId: assignment?.id,
+    sessionOrganization: assignment?.program?.session_organization,
   }));
 }
