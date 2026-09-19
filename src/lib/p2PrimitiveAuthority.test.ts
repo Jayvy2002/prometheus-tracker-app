@@ -28,8 +28,8 @@ test('Hotfix B revokes Data API execute on P2 primitives and keeps métier RPCs'
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260919214423'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"version": "20260919214423"/);
+  assert.equal(pending.pending.some((row) => row.version === '20260919214423'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260919214423"/);
 
   const sqlTest = src('supabase/tests/p2_primitive_authority.sql');
   assert.match(sqlTest, /primitive % still has default PUBLIC execute/);

@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — Hotfix B — autorité primitives P2 EN COURS. Candidate `20260919214423_p2_primitive_authority` (pending, pas en production). Hotfix A clos en production (126 migrations, dernière `20260919202538_coach_client_link_immutability`). P3.1 clos. P2.1–P2.5 clos. Ne pas merger/appliquer B sans feu vert. Ne pas commencer les améliorations analytiques P2, P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
+> **CURRENT IMPLEMENTATION GATE — Hotfix B CLOS EN PRODUCTION (127 migrations, dernière `20260919214423_p2_primitive_authority`). Hotfix A clos. P3.1 clos. P2.1–P2.5 clos. Prochaine passe issue de l’audit P1/P2 : améliorations analytiques/produit (tracking Solo configurable, plus de fallback fictif à 3 séances/semaine, tendance de poids, fatigue/nutrition, mémoire des propositions modifiées, historique des runs si justifié, UX décision/application). Ne pas commencer P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
 >
-> Hotfix A est mergé (`#197`) et **appliqué en production** avec le timestamp Git. P3.1 (`#195`/`#196`) et P1.5–P2.5 (`#190`–`#194`) restent clos. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> Hotfix B est mergé (`#199`) et **appliqué en production** avec le timestamp Git. Hotfix A (`#197`), P3.1 (`#195`/`#196`) et P1.5–P2.5 (`#190`–`#194`) restent clos. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,8 +60,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (126 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (126 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (127 migrations) | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (127 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1 clos** — P3.2/P3.3 après audit P1/P2 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -445,11 +445,11 @@ Un utilisateur authentifié ne peut pas transformer l’identité d’un lien ex
 
 ### État actuel
 
-**EN COURS.** Candidate `20260919214423_p2_primitive_authority` (pending, hors lock). Inventaire : [autorité primitives P2](P2_PRIMITIVE_AUTHORITY.md).
+**CLOS EN PRODUCTION** (`#199`, lock 127, `20260919214423_p2_primitive_authority`). Inventaire : [autorité primitives P2](P2_PRIMITIVE_AUTHORITY.md).
 
-`authenticated` / `anon` / `PUBLIC` n’ont plus `EXECUTE` sur `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision` (11/13 args), `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. `service_role` conserve `EXECUTE`. Les RPC métier (`save_athlete_weekly_review`, `commit_solo_weekly_review_decision`, `apply_intervention`, Watch `correct`/`decide`) et `drain_athlete_decision_outbox` restent publiques. Le client ne journalise plus en parallèle. Une décision Solo qui change les cibles passe uniquement par `commit_solo_weekly_review_decision` : RPC absente → fail-closed, aucune mutation locale.
+`authenticated` / `anon` / `PUBLIC` n’ont plus `EXECUTE` sur `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision` (11/13 args), `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. `service_role` conserve `EXECUTE`. Les RPC métier (`save_athlete_weekly_review`, `commit_solo_weekly_review_decision`, `apply_intervention`, Watch `correct`/`decide`) et `drain_athlete_decision_outbox` restent publiques. Une décision Solo qui change les cibles passe uniquement par `commit_solo_weekly_review_decision` : RPC absente → fail-closed, aucune mutation locale.
 
-**Arrêt : attendre le feu vert avant merge et apply production. Pas d’améliorations analytiques P2 avant close B.**
+**Arrêt : Hotfix B est clos. Prochaine passe = améliorations analytiques/produit de l’audit P1/P2. Pas de P3.2 / P3.3 / P4.**
 
 ### Terminé quand
 
