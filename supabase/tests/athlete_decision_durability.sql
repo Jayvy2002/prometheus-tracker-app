@@ -245,6 +245,56 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$
+begin
+  begin
+    perform public.record_athlete_decision(
+      'a1950000-0000-4000-8000-000000000002',
+      'training',
+      'missed_sessions',
+      'accepted',
+      '{"action":"relance"}'::jsonb,
+      'drain recovery',
+      '{"workout_count":9}'::jsonb,
+      null,
+      '{}'::jsonb,
+      'coach_interventions',
+      null,
+      'a1950000-0000-4000-8000-000000000002:drain-replay',
+      null
+    );
+    raise exception 'journal replay with different data_used accepted';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+  begin
+    perform public.record_athlete_decision(
+      'a1950000-0000-4000-8000-000000000002',
+      'training',
+      'missed_sessions',
+      'accepted',
+      '{"action":"relance"}'::jsonb,
+      'drain recovery',
+      '{"workout_count":1}'::jsonb,
+      null,
+      '{}'::jsonb,
+      'other_source',
+      null,
+      'a1950000-0000-4000-8000-000000000002:drain-replay',
+      null
+    );
+    raise exception 'journal replay with different source accepted';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
 declare
   v public.athlete_decision_log;
   v2 public.athlete_decision_log;
@@ -315,6 +365,47 @@ begin
     where id='a1950000-0000-4000-8000-000000000002';
   if kcal <> 2000 then raise exception 'solo replay rewrote calorie targets'; end if;
   if v2.id <> v.id then raise exception 'solo replay after profile edit did not reuse journal'; end if;
+
+  begin
+    perform public.commit_solo_weekly_review_decision(
+      '2026-08-31',
+      'calorie_adjustment',
+      'not_following',
+      '{"calories":1800,"protein":140,"carbs":180,"fat":60}'::jsonb,
+      '{"logged_days":10}'::jsonb,
+      'accepted',
+      'nutrition',
+      'not_following',
+      '{"action":"calorie_adjustment","reason":"not_following","week_start":"2026-08-31"}'::jsonb,
+      'not_following',
+      '{"avg_calories":9999}'::jsonb,
+      '{"daily_calorie_target":1800}'::jsonb,
+      'solo_weekly_reviews:a1950000-0000-4000-8000-000000000002:2026-08-31'
+    );
+    raise exception 'solo replay with different data_used accepted';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+  begin
+    perform public.commit_solo_weekly_review_decision(
+      '2026-08-31',
+      'calorie_adjustment',
+      'not_following',
+      '{"calories":1800,"protein":140,"carbs":180,"fat":60}'::jsonb,
+      '{"logged_days":10}'::jsonb,
+      'accepted',
+      'nutrition',
+      'not_following',
+      '{"action":"calorie_adjustment","reason":"not_following","week_start":"2026-08-31"}'::jsonb,
+      'other_why',
+      '{"avg_calories":2200}'::jsonb,
+      '{"daily_calorie_target":1800}'::jsonb,
+      'solo_weekly_reviews:a1950000-0000-4000-8000-000000000002:2026-08-31'
+    );
+    raise exception 'solo replay with different why accepted';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
 
   begin
     perform public.commit_solo_weekly_review_decision(
@@ -564,6 +655,13 @@ begin
   ) then
     raise exception 'stored outbox helper exposed to clients';
   end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.prometheus_try_lock_decision_key(uuid,text)',
+    'execute'
+  ) then
+    raise exception 'try-lock helper exposed to clients';
+  end if;
 end $$;
 
 insert into public.coach_interventions (
@@ -587,6 +685,8 @@ declare
   applied jsonb;
   proofs jsonb;
   n int;
+  stored_proposal jsonb;
+  stored_why text;
 begin
   applied := public.apply_intervention(
     'a1950000-0000-4000-8000-000000000010',
@@ -640,6 +740,30 @@ begin
   if coalesce((proofs->>'workout_count')::int, 0) <> 1 then
     raise exception 'frontend retry replaced stored proofs';
   end if;
+
+  select proposal, why into stored_proposal, stored_why
+    from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000004'
+      and source_id='a1950000-0000-4000-8000-000000000010';
+  begin
+    perform public.queue_and_record_athlete_decision(
+      'coach_interventions:a1950000-0000-4000-8000-000000000010:dismissed',
+      'a1950000-0000-4000-8000-000000000004',
+      'training',
+      'missed_sessions',
+      'refused',
+      stored_proposal,
+      stored_why,
+      '{"workout_count":9}'::jsonb,
+      null,
+      '{}'::jsonb,
+      'coach_interventions',
+      'a1950000-0000-4000-8000-000000000010'
+    );
+    raise exception 'journal replay with different data_used accepted';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub','',true);
@@ -928,14 +1052,19 @@ declare
   row_at int;
   log_at int;
 begin
-  drain_src := lower(pg_get_functiondef('public.drain_athlete_decision_outbox(integer)'::regprocedure));
-  lock_at := position('prometheus_lock_decision_key' in drain_src);
+  drain_src := regexp_replace(
+    lower(pg_get_functiondef('public.drain_athlete_decision_outbox(integer)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  lock_at := position('prometheus_try_lock_decision_key' in drain_src);
   row_at := position('for update' in drain_src);
   if lock_at = 0 or row_at = 0 or lock_at > row_at then
-    raise exception 'drain locks outbox before advisory';
+    raise exception 'drain locks outbox before try-advisory';
   end if;
-  if position('for update skip locked' in drain_src) > 0 then
-    raise exception 'drain still locks outbox set before advisory';
+  if drain_src !~ 'order by next_attempt_at, created_at, id' then
+    raise exception 'drain order is not a total order';
   end if;
 
   enqueue_src := lower(pg_get_functiondef(
@@ -956,6 +1085,214 @@ begin
   if lock_at = 0 or row_at = 0 or log_at = 0 or lock_at > row_at or row_at > log_at then
     raise exception 'solo lock order is not advisory, outbox, journal';
   end if;
+end $$;
+
+create extension if not exists dblink;
+
+do $$
+declare
+  v_conn text;
+  drained int;
+  n int;
+  v_n1 int;
+  v_n2 int;
+  v_busy1 int;
+  v_busy2 int;
+  v_deadline timestamptz;
+  v_payload_a jsonb;
+  v_payload_b jsonb;
+begin
+  v_conn := format('dbname=%s user=postgres', current_database());
+  begin
+    perform dblink_connect('hold', v_conn);
+  exception when others then
+    v_conn := format(
+      'host=127.0.0.1 dbname=%s user=postgres password=postgres port=%s',
+      current_database(),
+      current_setting('port')
+    );
+    perform dblink_connect('hold', v_conn);
+  end;
+
+  v_payload_a := jsonb_build_object(
+    'domain','training','type','missed_sessions','decision','accepted',
+    'proposal', jsonb_build_object('action','relance'),
+    'why','concurrent-a','data_used', jsonb_build_object('workout_count',1),
+    'applied_effect', '{}'::jsonb,
+    'idempotency_key','a1950000-0000-4000-8000-000000000003:concurrent-a'
+  );
+  v_payload_b := jsonb_set(v_payload_a, '{why}', to_jsonb('concurrent-b'::text));
+  v_payload_b := jsonb_set(
+    v_payload_b,
+    '{idempotency_key}',
+    to_jsonb('a1950000-0000-4000-8000-000000000003:concurrent-b'::text)
+  );
+
+  insert into public.athlete_decision_outbox (
+    id, idempotency_key, athlete_id, actor_id, payload, created_at, next_attempt_at, attempts
+  ) values (
+    'a1950000-0000-4000-8000-0000000000c1',
+    'a1950000-0000-4000-8000-000000000003:concurrent-a',
+    'a1950000-0000-4000-8000-000000000003',
+    'a1950000-0000-4000-8000-000000000003',
+    v_payload_a,
+    timestamptz '2020-01-01 00:00:00+00',
+    timestamptz '2020-01-01 00:00:00+00',
+    0
+  ), (
+    'a1950000-0000-4000-8000-0000000000c2',
+    'a1950000-0000-4000-8000-000000000003:concurrent-b',
+    'a1950000-0000-4000-8000-000000000003',
+    'a1950000-0000-4000-8000-000000000003',
+    v_payload_b,
+    timestamptz '2020-01-01 00:00:00+00',
+    timestamptz '2020-01-01 00:00:00+00',
+    0
+  );
+
+  perform dblink_exec('hold', 'BEGIN');
+  perform dblink_exec(
+    'hold',
+    $sql$DO $lock$ BEGIN
+      PERFORM public.prometheus_lock_decision_key(
+        'a1950000-0000-4000-8000-000000000003'::uuid,
+        'a1950000-0000-4000-8000-000000000003:concurrent-a'
+      );
+    END $lock$;$sql$
+  );
+
+  perform set_config('statement_timeout', '1500', true);
+  begin
+    drained := public.drain_athlete_decision_outbox(2);
+  exception when query_canceled then
+    perform set_config('statement_timeout', '0', true);
+    perform dblink_exec('hold', 'ROLLBACK');
+    perform dblink_disconnect('hold');
+    raise exception 'drain waited on occupied key';
+  end;
+  perform set_config('statement_timeout', '0', true);
+
+  if drained <> 1 then
+    perform dblink_exec('hold', 'ROLLBACK');
+    perform dblink_disconnect('hold');
+    raise exception 'occupied-key drain should skip and process the other row: %', drained;
+  end if;
+  if exists (
+    select 1 from public.athlete_decision_log
+    where idempotency_key='a1950000-0000-4000-8000-000000000003:concurrent-a'
+  ) then
+    perform dblink_exec('hold', 'ROLLBACK');
+    perform dblink_disconnect('hold');
+    raise exception 'held key was journaled while occupied';
+  end if;
+  if not exists (
+    select 1 from public.athlete_decision_log
+    where idempotency_key='a1950000-0000-4000-8000-000000000003:concurrent-b'
+  ) then
+    perform dblink_exec('hold', 'ROLLBACK');
+    perform dblink_disconnect('hold');
+    raise exception 'second key not drained while first occupied';
+  end if;
+
+  perform dblink_exec('hold', 'ROLLBACK');
+  perform dblink_disconnect('hold');
+
+  drained := public.drain_athlete_decision_outbox(2);
+  if not exists (
+    select 1 from public.athlete_decision_log
+    where idempotency_key='a1950000-0000-4000-8000-000000000003:concurrent-a'
+  ) then
+    raise exception 'held key not drained after lock released';
+  end if;
+
+  perform dblink_connect('d1', v_conn);
+  perform dblink_connect('d2', v_conn);
+  perform dblink_exec(
+    'd1',
+    $sql$
+    insert into public.athlete_decision_outbox (
+      id, idempotency_key, athlete_id, actor_id, payload, created_at, next_attempt_at, attempts
+    ) values (
+      'a1950000-0000-4000-8000-0000000000d1',
+      'a1950000-0000-4000-8000-000000000003:concurrent-d1',
+      'a1950000-0000-4000-8000-000000000003',
+      'a1950000-0000-4000-8000-000000000003',
+      '{"domain":"training","type":"missed_sessions","decision":"accepted","proposal":{"action":"relance"},"why":"concurrent-d1","data_used":{"workout_count":1},"applied_effect":{},"idempotency_key":"a1950000-0000-4000-8000-000000000003:concurrent-d1"}'::jsonb,
+      timestamptz '2019-01-01 00:00:00+00',
+      timestamptz '2019-01-01 00:00:00+00',
+      0
+    ), (
+      'a1950000-0000-4000-8000-0000000000d2',
+      'a1950000-0000-4000-8000-000000000003:concurrent-d2',
+      'a1950000-0000-4000-8000-000000000003',
+      'a1950000-0000-4000-8000-000000000003',
+      '{"domain":"training","type":"missed_sessions","decision":"accepted","proposal":{"action":"relance"},"why":"concurrent-d2","data_used":{"workout_count":1},"applied_effect":{},"idempotency_key":"a1950000-0000-4000-8000-000000000003:concurrent-d2"}'::jsonb,
+      timestamptz '2019-01-01 00:00:00+00',
+      timestamptz '2019-01-01 00:00:00+00',
+      0
+    );
+    $sql$
+  );
+  perform dblink_send_query('d1', 'select public.drain_athlete_decision_outbox(25)');
+  perform dblink_send_query('d2', 'select public.drain_athlete_decision_outbox(25)');
+  v_deadline := clock_timestamp() + interval '3 seconds';
+  loop
+    v_busy1 := dblink_is_busy('d1');
+    v_busy2 := dblink_is_busy('d2');
+    exit when v_busy1 = 0 and v_busy2 = 0;
+    if clock_timestamp() > v_deadline then
+      raise exception 'concurrent drains deadlocked or stalled';
+    end if;
+    perform pg_sleep(0.05);
+  end loop;
+
+  select drain into v_n1 from dblink_get_result('d1') as t(drain int);
+  select drain into v_n2 from dblink_get_result('d2') as t(drain int);
+  begin
+    perform drain from dblink_get_result('d1') as t(drain int);
+  exception when others then
+    null;
+  end;
+  begin
+    perform drain from dblink_get_result('d2') as t(drain int);
+  exception when others then
+    null;
+  end;
+
+  if coalesce(v_n1, 0) + coalesce(v_n2, 0) <> 2 then
+    raise exception 'concurrent drains lost or duplicated work: % %', v_n1, v_n2;
+  end if;
+  select count(*) into n from public.athlete_decision_log
+    where idempotency_key in (
+      'a1950000-0000-4000-8000-000000000003:concurrent-d1',
+      'a1950000-0000-4000-8000-000000000003:concurrent-d2'
+    );
+  if n <> 2 then
+    raise exception 'concurrent drains did not journal both keys: %', n;
+  end if;
+
+  perform dblink_exec(
+    'd1',
+    $sql$
+    delete from public.athlete_decision_log
+      where idempotency_key in (
+        'a1950000-0000-4000-8000-000000000003:concurrent-d1',
+        'a1950000-0000-4000-8000-000000000003:concurrent-d2'
+      );
+    $sql$
+  );
+  perform dblink_exec(
+    'd1',
+    $sql$
+    delete from public.athlete_decision_outbox
+      where idempotency_key in (
+        'a1950000-0000-4000-8000-000000000003:concurrent-d1',
+        'a1950000-0000-4000-8000-000000000003:concurrent-d2'
+      );
+    $sql$
+  );
+  perform dblink_disconnect('d1');
+  perform dblink_disconnect('d2');
 end $$;
 
 rollback;

@@ -540,18 +540,46 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.prometheus_decision_lock_id(p_athlete_id uuid, p_key text)
+RETURNS bigint
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN p_athlete_id IS NULL OR NULLIF(trim(COALESCE(p_key, '')), '') IS NULL THEN NULL
+    ELSE ('x' || substr(md5(p_athlete_id::text || ':decision:' || trim(p_key)), 1, 16))::bit(64)::bigint
+  END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.prometheus_lock_decision_key(p_athlete_id uuid, p_key text)
 RETURNS void
 LANGUAGE plpgsql
 SET search_path = public
 AS $$
+DECLARE
+  v_lock bigint := public.prometheus_decision_lock_id(p_athlete_id, p_key);
 BEGIN
-  IF p_athlete_id IS NULL OR NULLIF(trim(COALESCE(p_key, '')), '') IS NULL THEN
+  IF v_lock IS NULL THEN
     RETURN;
   END IF;
-  PERFORM pg_advisory_xact_lock(
-    ('x' || substr(md5(p_athlete_id::text || ':decision:' || trim(p_key)), 1, 16))::bit(64)::bigint
-  );
+  PERFORM pg_advisory_xact_lock(v_lock);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_try_lock_decision_key(p_athlete_id uuid, p_key text)
+RETURNS boolean
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  v_lock bigint := public.prometheus_decision_lock_id(p_athlete_id, p_key);
+BEGIN
+  IF v_lock IS NULL THEN
+    RETURN false;
+  END IF;
+  RETURN pg_try_advisory_xact_lock(v_lock);
 END;
 $$;
 
@@ -663,6 +691,8 @@ REVOKE ALL ON FUNCTION public.prometheus_athlete_evidence_snapshot(uuid) FROM PU
 REVOKE ALL ON FUNCTION public.prometheus_resolve_decision_evidence(uuid, jsonb, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_assert_decision_payload(uuid, text, text, text, jsonb, text, jsonb, jsonb, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_lock_decision_key(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_try_lock_decision_key(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_decision_lock_id(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_decision_idempotency_key(uuid, text, text, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_outbox_record_failure(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_decision_outbox_payload(text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text) FROM PUBLIC, anon, authenticated;
@@ -716,11 +746,17 @@ BEGIN
     WHERE athlete_id = p_athlete_id AND idempotency_key = v_key
     FOR UPDATE;
     IF FOUND THEN
-      IF v_row.domain IS DISTINCT FROM p_domain
-         OR v_row.type IS DISTINCT FROM btrim(p_type)
-         OR v_row.decision IS DISTINCT FROM p_decision
-         OR v_row.proposal IS DISTINCT FROM v_proposal
-         OR v_row.applied_effect IS DISTINCT FROM v_effect THEN
+      IF NOT public.prometheus_outbox_intents_equal(
+        public.prometheus_decision_outbox_payload(
+          v_row.domain, v_row.type, v_row.decision, v_row.proposal, v_row.why,
+          COALESCE(v_row.data_used, '{}'::jsonb), v_row.human_reason, v_row.applied_effect,
+          v_row.source, v_row.source_id, v_row.idempotency_key
+        ),
+        public.prometheus_decision_outbox_payload(
+          p_domain, btrim(p_type), p_decision, v_proposal, trim(p_why),
+          v_data, v_reason, v_effect, v_source, p_source_id, v_key
+        )
+      ) THEN
         RAISE EXCEPTION 'idempotency_conflict';
       END IF;
       RETURN v_row;
@@ -976,7 +1012,8 @@ BEGIN
     p_limit := 100;
   END IF;
 
-  -- Peek without row locks, then for each key: advisory → outbox → journal.
+  -- Peek without row locks, then for each key: try-advisory → outbox → journal.
+  -- Total order (next_attempt_at, created_at, id). Skip occupied keys instead of waiting.
   FOR v_candidate IN
     SELECT *
     FROM public.athlete_decision_outbox
@@ -988,19 +1025,21 @@ BEGIN
         OR athlete_id = v_uid
         OR public.is_coach_of(athlete_id)
       )
-    ORDER BY next_attempt_at, created_at
+    ORDER BY next_attempt_at, created_at, id
     LIMIT p_limit
   LOOP
-    PERFORM public.prometheus_lock_decision_key(
+    IF NOT public.prometheus_try_lock_decision_key(
       v_candidate.athlete_id, v_candidate.idempotency_key
-    );
+    ) THEN
+      CONTINUE;
+    END IF;
     SELECT * INTO v_box
     FROM public.athlete_decision_outbox
     WHERE id = v_candidate.id
       AND processed_at IS NULL
       AND failed_at IS NULL
       AND next_attempt_at <= clock_timestamp()
-    FOR UPDATE;
+    FOR UPDATE SKIP LOCKED;
     IF NOT FOUND THEN
       CONTINUE;
     END IF;
@@ -1337,11 +1376,18 @@ BEGIN
   WHERE athlete_id = v_uid AND idempotency_key = v_key
   FOR UPDATE;
   IF FOUND THEN
-    IF v_row.domain IS DISTINCT FROM p_domain
-       OR v_row.type IS DISTINCT FROM btrim(p_type)
-       OR v_row.decision IS DISTINCT FROM v_human
-       OR v_row.proposal IS DISTINCT FROM v_proposal
-       OR v_row.applied_effect IS DISTINCT FROM v_effect THEN
+    IF NOT public.prometheus_outbox_intents_equal(
+      public.prometheus_decision_outbox_payload(
+        v_row.domain, v_row.type, v_row.decision, v_row.proposal, v_row.why,
+        COALESCE(v_row.data_used, '{}'::jsonb), v_row.human_reason, v_row.applied_effect,
+        v_row.source, v_row.source_id, v_row.idempotency_key
+      ),
+      public.prometheus_decision_outbox_payload(
+        p_domain, btrim(p_type), v_human, v_proposal, p_why,
+        COALESCE(p_data_used, '{}'::jsonb), NULL, v_effect,
+        'solo_weekly_reviews', NULL, v_key
+      )
+    ) THEN
       RAISE EXCEPTION 'idempotency_conflict';
     END IF;
     UPDATE public.athlete_decision_outbox
@@ -1553,6 +1599,8 @@ GRANT EXECUTE ON FUNCTION public.record_athlete_decision_replay(uuid, text, text
   TO service_role;
 GRANT EXECUTE ON FUNCTION public.prometheus_record_stored_outbox(public.athlete_decision_outbox)
   TO service_role;
+GRANT EXECUTE ON FUNCTION public.prometheus_try_lock_decision_key(uuid, text)
+  TO service_role;
 GRANT EXECUTE ON FUNCTION public.enqueue_athlete_decision_outbox(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid)
   TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.queue_and_record_athlete_decision(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid)
@@ -1567,7 +1615,7 @@ GRANT EXECUTE ON FUNCTION public.apply_intervention(uuid, text, text, text, json
   TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.drain_athlete_decision_outbox(integer) IS
-  'Idempotent outbox drain. Advisory lock then outbox row then journal. Author is the stored actor_id. Backoff + dead-letter after 8 failures. Never auto-applies programs or targets.';
+  'Idempotent outbox drain. Total order (next_attempt_at, created_at, id). Try-advisory then outbox then journal; skips occupied keys. Author is the stored actor_id. Backoff + dead-letter after 8 failures. Never auto-applies programs or targets.';
 COMMENT ON FUNCTION public.triage_eligible_solo_weekly(uuid) IS
   'Eligible Solo dossiers (no active coach). Bounded window, calendar age, PAR-Q medical flags. Server weekly loop; dashboard catch-up is optional.';
 COMMENT ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) IS

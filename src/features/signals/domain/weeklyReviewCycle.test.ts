@@ -86,6 +86,7 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_decision_outbox_payload/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_outbox_intents_equal/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_record_stored_outbox/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_try_lock_decision_key/);
   assert.doesNotMatch(
     src('supabase/migrations/20260918232507_athlete_decision_durability.sql'),
     /p_source_id uuid DEFAULT NULL,\s*p_idempotency_key text,/,
@@ -107,7 +108,13 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /immutable intent accepted different proposal/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /coach reprise replaced stored author/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /stored outbox helper exposed to clients/);
-  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain locks outbox before advisory/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain locks outbox before try-advisory/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain order is not a total order/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain waited on occupied key/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /concurrent drains deadlocked or stalled/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo replay with different data_used accepted/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /journal replay with different data_used accepted/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /journal replay with different source accepted/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo lock order is not advisory, outbox, journal/);
   {
     const mig = src('supabase/migrations/20260918232507_athlete_decision_durability.sql');
@@ -115,10 +122,10 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
       mig.indexOf('CREATE OR REPLACE FUNCTION public.drain_athlete_decision_outbox'),
       mig.indexOf('CREATE OR REPLACE FUNCTION public.coach_intervention_queue_decision'),
     );
-    const drainLock = drainFn.indexOf('prometheus_lock_decision_key');
+    const drainLock = drainFn.indexOf('prometheus_try_lock_decision_key');
     const drainRow = drainFn.indexOf('FOR UPDATE');
-    assert.ok(drainLock > 0 && drainLock < drainRow, 'drain must take advisory before FOR UPDATE');
-    assert.doesNotMatch(drainFn, /FOR UPDATE SKIP LOCKED/);
+    assert.ok(drainLock > 0 && drainLock < drainRow, 'drain must try-advisory before FOR UPDATE');
+    assert.match(drainFn, /ORDER BY next_attempt_at, created_at, id/);
     const enqueueFn = mig.slice(
       mig.indexOf('CREATE OR REPLACE FUNCTION public.enqueue_athlete_decision_outbox'),
       mig.indexOf('CREATE OR REPLACE FUNCTION public.queue_and_record_athlete_decision'),
