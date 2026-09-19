@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { useProfileStore } from '../../stores/profileStore';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { listAthleteSignalsForWatch } from '../../features/signals/domain/athleteSignalsApi';
 import { listLatestAthleteDecisionsForWatch } from '../../features/signals/domain/decisionLogApi';
@@ -9,8 +10,13 @@ import { listLatestAthleteWeeklyReviewForWatch } from '../../features/signals/do
 import { correctAthleteWatchContext } from '../../features/signals/domain/watchContextApi';
 import type { WatchContextCorrectionAction } from '../../features/signals/domain/watchContext';
 import { decideAthleteWatchProposal } from '../../features/signals/domain/watchProposalApi';
+import { applyAthleteWatchMinimum } from '../../features/signals/domain/watchMinimumApi';
+import {
+  calorieDraftFromDecisionProposal,
+} from '../../features/signals/domain/watchMinimum';
 import {
   isWatchProposalReviewId,
+  isWatchProposalWeekStart,
   watchProposalReasonRequired,
   type WatchProposalDecision,
 } from '../../features/signals/domain/watchProposal';
@@ -56,10 +62,19 @@ interface DecisionDraft {
   evidence: Record<string, unknown>;
 }
 
+interface ApplyDraft {
+  signalId: string;
+  headlineKey: string;
+  journalId: string;
+  weekStart: string;
+  proposal: Record<string, unknown>;
+  calories: number;
+}
+
 export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { canReadAthleteWatch, canCorrectAthleteWatchContext, canDecideAthleteWatchProposal } = useResourcePermissions();
+  const { canReadAthleteWatch, canCorrectAthleteWatchContext, canDecideAthleteWatchProposal, canApplyAthleteWatchMinimum } = useResourcePermissions();
   const resource = {
     athleteId,
     hasActiveRelationship: athleteId === user?.id ? undefined : hasActiveRelationship,
@@ -67,6 +82,7 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
   const allowed = canReadAthleteWatch(resource);
   const canCorrect = canCorrectAthleteWatchContext(resource);
   const canDecide = canDecideAthleteWatchProposal(resource);
+  const canApply = canApplyAthleteWatchMinimum(resource);
   const [load, setLoad] = useState<WatchLoadState>({ phase: 'loading' });
   const [retry, setRetry] = useState(0);
 
@@ -152,9 +168,11 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
               <WatchRow
                 key={item.id}
                 item={item}
+                athleteId={athleteId}
                 viewer={viewer}
                 canCorrect={canCorrect}
                 canDecide={canDecide}
+                canApply={canApply}
                 onReloaded={() => setRetry((n) => n + 1)}
               />
             ))}
@@ -167,20 +185,25 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
 
 function WatchRow({
   item,
+  athleteId,
   viewer,
   canCorrect,
   canDecide,
+  canApply,
   onReloaded,
 }: {
   item: PrometheusWatchItem;
+  athleteId: string;
   viewer: 'self' | 'coach';
   canCorrect: boolean;
   canDecide: boolean;
+  canApply: boolean;
   onReloaded: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState<CorrectionDraft | null>(null);
   const [decisionDraft, setDecisionDraft] = useState<DecisionDraft | null>(null);
+  const [applyDraft, setApplyDraft] = useState<ApplyDraft | null>(null);
   const period = item.periodStart && item.periodEnd
     ? `${formatDate(item.periodStart, i18n.language)} – ${formatDate(item.periodEnd, i18n.language)}`
     : null;
@@ -204,6 +227,19 @@ function WatchRow({
     && isWatchProposalReviewId(item.reviewId)
     && !!item.reviewUpdatedAt
     && !!item.currentProposal;
+  const applyCalories = calorieDraftFromDecisionProposal(item.lastProposal);
+  const applyWeek = typeof item.lastProposal?.week_start === 'string'
+    ? item.lastProposal.week_start
+    : '';
+  const showApply = canApply
+    && item.canApplyMinimum
+    && item.kind === 'current'
+    && !!item.lastJournalId
+    && isWatchProposalReviewId(item.lastJournalId)
+    && isWatchProposalWeekStart(applyWeek)
+    && applyWeek === item.reviewWeekStart
+    && !!item.lastProposal
+    && applyCalories != null;
 
   return (
     <li>
@@ -328,6 +364,25 @@ function WatchRow({
             </Button>
           </div>
         ) : null}
+        {showApply ? (
+          <div className="pb-3 flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              size="sm"
+              pressOnly
+              onClick={() => setApplyDraft({
+                signalId: item.id,
+                headlineKey: item.headlineKey,
+                journalId: item.lastJournalId ?? '',
+                weekStart: applyWeek,
+                proposal: item.lastProposal ?? {},
+                calories: applyCalories?.calories ?? 0,
+              })}
+            >
+              {t('prometheusWatch.apply.action')}
+            </Button>
+          </div>
+        ) : null}
         {showCorrection ? (
           <div className="pb-3 flex flex-col sm:flex-row gap-2">
             <Button
@@ -379,6 +434,18 @@ function WatchRow({
           onClose={() => setDecisionDraft(null)}
           onPersisted={() => {
             setDecisionDraft(null);
+            onReloaded();
+          }}
+        />
+      ) : null}
+      {applyDraft ? (
+        <WatchApplyModal
+          draft={applyDraft}
+          athleteId={athleteId}
+          viewer={viewer}
+          onClose={() => setApplyDraft(null)}
+          onPersisted={() => {
+            setApplyDraft(null);
             onReloaded();
           }}
         />
@@ -589,6 +656,99 @@ function WatchDecisionModal({
           onClick={() => void submit()}
         >
           {t('prometheusWatch.decide.confirm')}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function WatchApplyModal({
+  draft,
+  athleteId,
+  viewer,
+  onClose,
+  onPersisted,
+}: {
+  draft: ApplyDraft;
+  athleteId: string;
+  viewer: 'self' | 'coach';
+  onClose: () => void;
+  onPersisted: () => void;
+}) {
+  const { t } = useTranslation();
+  const { user } = useAuthStore();
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+
+  async function submit() {
+    if (saving) return;
+    setSaving(true);
+    setError(false);
+    const result = await applyAthleteWatchMinimum({
+      signalId: draft.signalId,
+      journalId: draft.journalId,
+      weekStart: draft.weekStart,
+      proposal: draft.proposal,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setError(true);
+      return;
+    }
+    if (viewer === 'self' && user?.id === athleteId) {
+      const effect = result.data.appliedEffect;
+      const calories = Number(effect.daily_calorie_target);
+      const protein = Number(effect.protein_target);
+      const carbs = Number(effect.carbs_target);
+      const fat = Number(effect.fat_target);
+      if ([calories, protein, carbs, fat].every((n) => Number.isFinite(n))) {
+        useProfileStore.getState().applyRemoteTargets(athleteId, {
+          daily_calorie_target: calories,
+          protein_target: protein,
+          carbs_target: carbs,
+          fat_target: fat,
+        });
+      }
+    }
+    onPersisted();
+  }
+
+  return (
+    <Modal
+      open
+      onClose={() => {
+        if (!saving) onClose();
+      }}
+      title={t('prometheusWatch.apply.title')}
+      size="sm"
+    >
+      <p className="text-sm text-neutral-300 mb-2">
+        {t(draft.headlineKey)}
+      </p>
+      <p className="text-sm text-white mb-3">
+        {t('prometheusWatch.proposal.draftCalories', { n: draft.calories })}
+      </p>
+      <p className="text-[12px] text-neutral-500 mb-4">
+        {t('prometheusWatch.apply.notice')}
+      </p>
+      {error ? (
+        <p role="alert" className="text-sm text-rose-300 mb-3">
+          {t('prometheusWatch.apply.error')}
+        </p>
+      ) : null}
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onClose}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          loading={saving}
+          disabled={saving}
+          onClick={() => void submit()}
+        >
+          {t('prometheusWatch.apply.confirm')}
         </Button>
       </div>
     </Modal>

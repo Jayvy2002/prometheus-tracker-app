@@ -26,6 +26,7 @@ import {
   watchProposalDraftCalories,
   WATCH_PROPOSAL_COPY_KEYS,
 } from './watchProposal';
+import { isWatchMinimumApplyEligible } from './watchMinimum';
 
 export const WATCH_SIGNAL_TYPES = [
   'missed_sessions',
@@ -85,6 +86,9 @@ export interface PrometheusWatchItem {
   currentEvidence: Record<string, unknown> | null;
   signalEvidence: Record<string, unknown> | null;
   signalUpdatedAt: string | null;
+  lastJournalId: string | null;
+  lastProposal: Record<string, unknown> | null;
+  canApplyMinimum: boolean;
   suppressed: boolean;
 }
 
@@ -518,6 +522,9 @@ function buildItem(input: {
     whyHiddenKey,
     reevaluateKey,
     reviewWeekStart: kind === 'current' ? review?.week_start ?? null : null,
+    lastJournalId: kind === 'current' ? decision?.id ?? null : null,
+    lastProposal: kind === 'current' ? decision?.proposal ?? null : null,
+    canApplyMinimum: kind === 'current' && isWatchMinimumApplyEligible(decision),
     suppressed,
   };
 }

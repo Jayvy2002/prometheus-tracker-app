@@ -405,8 +405,52 @@ test('a watch-panel accept or refuse hides the current proposal without inventin
   assert.equal(accepted[0].currentProposalKey, null);
   assert.equal(accepted[0].lastProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(accepted[0].lastDecisionKey, 'prometheusWatch.decision.accepted');
+  assert.equal(accepted[0].canApplyMinimum, false);
   assert.equal(accepted[0].whyHiddenKey, 'prometheusWatch.hidden.unchanged');
   assert.equal(accepted[0].reviewWeekStart, persisted.week_start);
+
+  const calorieAccepted = buildPrometheusWatchItems({
+    signals: [signalFromAction(action, { domain: 'weight', type: 'stall' })],
+    decisions: [decision({
+      id: 'c2500000-0000-4000-8000-000000000099',
+      domain: 'weight',
+      type: 'stall',
+      decision: 'accepted',
+      proposal: {
+        kind: 'watch_proposal_decision',
+        action: 'calorie_adjustment',
+        draft: { calories: 1900, protein: 145, carbs: 190, fat: 63 },
+        week_start: persisted.week_start,
+      },
+      source: 'prometheus_watch',
+      data_used: sameEvidence,
+      applied_effect: {},
+      human_reason: null,
+    })],
+    latestReview: persisted,
+  });
+  assert.equal(calorieAccepted[0].canApplyMinimum, true);
+  assert.equal(calorieAccepted[0].lastJournalId, 'c2500000-0000-4000-8000-000000000099');
+
+  const calorieApplied = buildPrometheusWatchItems({
+    signals: [signalFromAction(action, { domain: 'weight', type: 'stall' })],
+    decisions: [decision({
+      domain: 'weight',
+      type: 'stall',
+      decision: 'accepted',
+      proposal: {
+        kind: 'watch_minimum_apply',
+        action: 'calorie_adjustment',
+        draft: { calories: 1900, protein: 145, carbs: 190, fat: 63 },
+      },
+      source: 'prometheus_watch',
+      data_used: sameEvidence,
+      applied_effect: { daily_calorie_target: 1900 },
+      human_reason: null,
+    })],
+    latestReview: persisted,
+  });
+  assert.equal(calorieApplied[0].canApplyMinimum, false);
 
   const modified = buildPrometheusWatchItems({
     signals: [signalFromAction(action)],
@@ -636,6 +680,7 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
     assert.match(locale, /Record a change \(without applying it\)|Noter une modification \(sans l’appliquer\)/);
     assert.match(locale, /nutritionRelance/);
     assert.match(locale, /draftCalories/);
+    assert.match(locale, /apply:[\s\S]*Apply this minimum|Appliquer ce minimum/);
   }
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /PrometheusWatchPanel/);
   assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /PrometheusWatchPanel/);
@@ -643,8 +688,10 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
   assert.match(panel, /canReadAthleteWatch/);
   assert.match(panel, /canCorrectAthleteWatchContext\(/);
   assert.match(panel, /canDecideAthleteWatchProposal\(/);
+  assert.match(panel, /canApplyAthleteWatchMinimum\(/);
   assert.match(panel, /correctAthleteWatchContext/);
   assert.match(panel, /decideAthleteWatchProposal/);
+  assert.match(panel, /applyAthleteWatchMinimum/);
   assert.match(panel, /listAthleteSignalsForWatch\(/);
   assert.match(panel, /listLatestAthleteDecisionsForWatch\(/);
   assert.match(panel, /listLatestAthleteWeeklyReviewForWatch\(/);

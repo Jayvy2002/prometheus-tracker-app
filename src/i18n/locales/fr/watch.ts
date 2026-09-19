@@ -59,7 +59,7 @@ const watch = {
       program: 'Un ajustement de programme.',
       generic: 'Une proposition à décider.',
       nutritionRelance: 'Une relance nutrition.',
-      draftCalories: 'Cible proposée : {{n}} kcal. Elle n’est pas écrite depuis ce panneau.',
+      draftCalories: 'Cible proposée : {{n}} kcal. L’acceptation ne l’écrit pas toute seule.',
       detail: 'Contenu',
     },
     lastData: 'Données de la dernière décision',
@@ -78,6 +78,13 @@ const watch = {
       notice: 'Cette décision restera visible. Prometheus ne reproposera pas la même chose tant que les preuves n’auront pas changé. Les cibles, séances et programmes ne sont pas écrits depuis ce panneau.',
       confirm: 'Enregistrer la décision',
       error: 'La décision n’a pas pu être enregistrée. Rien n’a été modifié.',
+    },
+    apply: {
+      action: 'Appliquer ce minimum',
+      title: 'Appliquer uniquement cet ajustement',
+      notice: 'Prometheus n’écrit que cette cible (calories et macros). Le programme, les séances et les repas déjà loggés restent tels quels. Rien n’est appliqué tout seul.',
+      confirm: 'Appliquer cette cible',
+      error: 'La cible n’a pas pu être appliquée. Rien n’a été modifié.',
     },
     hidden: {
       unchanged: 'Cette proposition n’est plus affichée : rien de nouveau n’a changé dans les preuves.',

@@ -88,6 +88,27 @@ export function isCompleteCalorieDraft(draft: CalorieDraft | null | undefined): 
   return Math.abs(fromMacros - draft.calories) <= draft.calories * MACRO_KCAL_TOLERANCE;
 }
 
+function finiteNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+    return Number(value);
+  }
+  return null;
+}
+
+/** Parse a complete calorie draft from a JSON object. Incomplete or drifted macros return null. */
+export function calorieDraftFromUnknown(value: unknown): CalorieDraft | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const calories = finiteNumber(row.calories);
+  const protein = finiteNumber(row.protein);
+  const carbs = finiteNumber(row.carbs);
+  const fat = finiteNumber(row.fat);
+  if (calories == null || protein == null || carbs == null || fat == null) return null;
+  const draft: CalorieDraft = { calories, protein, carbs, fat };
+  return isCompleteCalorieDraft(draft) ? draft : null;
+}
+
 function calculateIssnMacros(calorieTarget: number, goal: string, weightKg?: number): {
   protein: number;
   fat: number;

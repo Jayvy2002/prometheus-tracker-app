@@ -1,3 +1,8 @@
 {
-  "pending": []
+  "pending": [
+    {
+      "version": "20260919181919",
+      "name": "watch_minimum_apply"
+    }
+  ]
 }
