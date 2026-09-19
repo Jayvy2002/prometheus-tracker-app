@@ -161,6 +161,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'decision durability: outbox isolation, drain replay, immutable intent, solo journal-fail reprise' /tmp/athlete-decision-durability-db-results.txt
+      - name: Test athlete decision drain concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-decision-drain-concurrency.sh | tee /tmp/athlete-decision-drain-concurrency.txt
+      - name: Confirm athlete decision drain concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'decision drain concurrency: skip occupied key, two sessions no deadlock' /tmp/athlete-decision-drain-concurrency.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

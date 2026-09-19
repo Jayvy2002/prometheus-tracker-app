@@ -68,6 +68,9 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.equal(pending.pending.some((row) => row.version === '20260918232507' && row.name === 'athlete_decision_durability'), true);
   assert.match(src('.github/workflows/ci.yml'), /athlete_decision_durability\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /immutable intent, solo journal-fail reprise/);
+  assert.match(src('.github/workflows/ci.yml'), /test-decision-drain-concurrency\.sh/);
+  assert.match(src('.github/workflows/ci.yml'), /skip occupied key, two sessions no deadlock/);
+  assert.match(src('scripts/test-decision-drain-concurrency.sh'), /pg_advisory_xact_lock/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /outbox collision returned another dossier/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain did not recover journal/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo replay duplicated journal/);
@@ -110,8 +113,8 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /stored outbox helper exposed to clients/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain locks outbox before try-advisory/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain order is not a total order/);
-  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain waited on occupied key/);
-  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /concurrent drains deadlocked or stalled/);
+  assert.match(src('scripts/test-decision-drain-concurrency.sh'), /drain waited on occupied key/);
+  assert.match(src('scripts/test-decision-drain-concurrency.sh'), /concurrent drains deadlocked or stalled/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo replay with different data_used accepted/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /journal replay with different data_used accepted/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /journal replay with different source accepted/);
