@@ -43,6 +43,12 @@ export interface ProposalEvidenceSnapshot {
   avgEnergy?: number | null;
   windowStart?: string;
   windowEnd?: string;
+  goal?: string;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  weightKg?: number;
+  weightStartKg?: number | null;
+  guarded?: boolean;
 }
 
 export type EvidenceScope = "nutrition" | "training" | "weight" | "recovery";
@@ -195,6 +201,13 @@ export function evidenceFromProposalPayload(payload: Record<string, unknown>): R
     avg_energy: payload.avg_energy ?? nested.avg_energy,
     window_start: payload.window_start ?? nested.window_start,
     window_end: payload.window_end ?? nested.window_end,
+    goal: payload.goal ?? nested.goal,
+    protein_target: payload.protein_target ?? nested.protein_target,
+    carbs_target: payload.carbs_target ?? nested.carbs_target,
+    fat_target: payload.fat_target ?? nested.fat_target,
+    weight_kg: payload.weight_kg ?? nested.weight_kg,
+    weight_start_kg: payload.weight_start_kg ?? nested.weight_start_kg,
+    guarded: payload.guarded ?? nested.guarded,
   });
 }
 
@@ -224,6 +237,27 @@ export function evidenceScope(domain?: string, type?: string): Set<EvidenceScope
   return "all";
 }
 
+function asBoolean(value: unknown): boolean | null {
+  if (typeof value === "boolean") return value;
+  return null;
+}
+
+function firstString(row: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function normalizeGoalKey(goal: string): string {
+  const g = goal.trim().toLowerCase();
+  if (g === "cut" || g === "lose" || g === "fat_loss" || g === "weight_loss") return "cut";
+  if (g === "bulk" || g === "gain" || g === "muscle") return "bulk";
+  if (g === "maintain" || g === "recomp") return "maintain";
+  return g;
+}
+
 export function decisionEvidenceChanged(
   prev: Record<string, unknown> | null | undefined,
   next: ProposalEvidenceSnapshot,
@@ -234,13 +268,30 @@ export function decisionEvidenceChanged(
   const scope = evidenceScope(domain, type);
   const allow = (key: EvidenceScope) => scope === "all" || scope.has(key);
 
+  const prevGoal = firstString(prev, ["goal"]);
+  if (prevGoal && next.goal && normalizeGoalKey(prevGoal) !== normalizeGoalKey(next.goal)) return true;
+  const prevInputTarget = firstNumber(prev, ["calorie_target", "calorieTarget", "target_avg_kcal"]);
+  if (prevInputTarget != null && next.calorieTarget !== prevInputTarget) return true;
+  const prevProtein = firstNumber(prev, ["protein_target", "proteinTarget"]);
+  if (prevProtein != null && next.proteinTarget != null && prevProtein !== next.proteinTarget) return true;
+  const prevCarbs = firstNumber(prev, ["carbs_target", "carbsTarget"]);
+  if (prevCarbs != null && next.carbsTarget != null && prevCarbs !== next.carbsTarget) return true;
+  const prevFat = firstNumber(prev, ["fat_target", "fatTarget"]);
+  if (prevFat != null && next.fatTarget != null && prevFat !== next.fatTarget) return true;
+  const prevWeightKg = firstNumber(prev, ["weight_kg", "weightKg"]);
+  if (
+    prevWeightKg != null
+    && next.weightKg != null
+    && Math.abs(next.weightKg - prevWeightKg) >= DECISION_EVIDENCE_WEIGHT_DELTA_KG
+  ) {
+    return true;
+  }
+  const prevGuarded = asBoolean(prev.guarded);
+  if (prevGuarded != null && next.guarded != null && prevGuarded !== next.guarded) return true;
+
   if (allow("nutrition")) {
     const prevCal = firstNumber(prev, ["avg_calories", "avgCalories"]);
     if (prevCal != null && Math.abs(next.avgCalories - prevCal) >= DECISION_EVIDENCE_KCAL_DELTA) return true;
-    const prevTarget = firstNumber(prev, ["calorie_target", "calorieTarget", "target_avg_kcal"]);
-    if (prevTarget != null && Math.abs(next.calorieTarget - prevTarget) >= DECISION_EVIDENCE_KCAL_DELTA) {
-      return true;
-    }
     const prevLogs = firstNumber(prev, ["logged_nutrition_days", "loggedNutritionDays"]);
     if (prevLogs != null && next.loggedNutritionDays - prevLogs >= DECISION_EVIDENCE_LOG_DAYS_DELTA) return true;
   }
@@ -327,6 +378,13 @@ export function snapshotReviewAggregates(agg: ProposalEvidenceSnapshot): Record<
     avg_energy: agg.avgEnergy,
     window_start: agg.windowStart,
     window_end: agg.windowEnd,
+    goal: agg.goal,
+    protein_target: agg.proteinTarget,
+    carbs_target: agg.carbsTarget,
+    fat_target: agg.fatTarget,
+    weight_kg: agg.weightKg,
+    weight_start_kg: agg.weightStartKg,
+    guarded: agg.guarded,
   });
 }
 
@@ -342,6 +400,13 @@ export function weeklyReviewAggregatesFromCounts(input: {
   avgEnergy?: number | null;
   windowStart?: string;
   windowEnd?: string;
+  goal?: string;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  fatTarget?: number;
+  weightKg?: number;
+  weightStartKg?: number | null;
+  guarded?: boolean;
 }): ProposalEvidenceSnapshot {
   return {
     avgCalories: input.avgCalories,
@@ -355,6 +420,13 @@ export function weeklyReviewAggregatesFromCounts(input: {
     avgEnergy: input.avgEnergy ?? null,
     windowStart: input.windowStart,
     windowEnd: input.windowEnd,
+    goal: input.goal,
+    proteinTarget: input.proteinTarget,
+    carbsTarget: input.carbsTarget,
+    fatTarget: input.fatTarget,
+    weightKg: input.weightKg,
+    weightStartKg: input.weightStartKg ?? null,
+    guarded: input.guarded,
   };
 }
 

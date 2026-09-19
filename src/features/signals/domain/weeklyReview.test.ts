@@ -18,6 +18,7 @@ import {
   type WeeklyReviewAggregates,
   type WeeklyReviewInput,
 } from './weeklyReview';
+import { proposeWeeklyNutrition } from '../../../../supabase/functions/_shared/weeklyNutritionProposal.ts';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -402,6 +403,85 @@ test('guarded profile never proposes a calorie/weight change', () => {
     existingSignals: [signal({ domain: 'weight', type: 'stall', confidence: 'high' })],
   }));
   assert.notEqual(review.decision, 'propose');
+  assert.equal(review.signalActions.find((row) => row.type === 'stall')?.proposal, undefined);
+});
+
+test('watch snapshot serializes the canonical nutrition proposal, including fatigue macros', () => {
+  const agg = aggregates({
+    avgFatigue: 8,
+    avgEnergy: 2,
+    proteinTarget: 160,
+    carbsTarget: 200,
+    fatTarget: 70,
+    weightKg: 80,
+    weightEndKg: 80,
+  });
+  const review = runAthleteWeeklyReview(input({
+    aggregates: agg,
+    existingSignals: [signal({
+      id: 'sig-fatigue',
+      domain: 'recovery',
+      type: 'fatigue',
+      confidence: 'medium',
+    })],
+  }));
+  const fatigue = review.signalActions.find((row) => row.type === 'fatigue');
+  const nutritionInput = {
+    goal: agg.goal,
+    calorie_target: agg.calorieTarget,
+    protein_target: 160,
+    carbs_target: 200,
+    fat_target: 70,
+    weight_kg: 80,
+    logged_nutrition_days: agg.loggedNutritionDays,
+    avg_calories: agg.avgCalories,
+    weight_delta_kg: agg.weightDeltaKg,
+    weight_start_kg: agg.weightStartKg,
+    weight_end_kg: 80,
+    avg_fatigue: 8,
+    avg_energy: 2,
+    tracking: { nutrition: true, workouts: true, weight: true, checkins: true },
+  };
+  const canonical = proposeWeeklyNutrition(nutritionInput);
+  assert.equal(review.decision, 'propose');
+  assert.equal(canonical.reason, 'carb_support');
+  assert.equal(fatigue?.proposal?.kind, 'calorie_adjustment');
+  assert.equal(fatigue?.proposal?.action, 'calorie_adjustment');
+  assert.equal(fatigue?.proposal?.reason, 'carb_support');
+  assert.deepEqual(fatigue?.proposal?.draft, canonical.draft);
+  assert.equal(canonical.draft?.calories, 2000);
+  assert.ok((canonical.draft?.carbs ?? 0) > 200);
+
+  const stallAgg = aggregates({
+    weightDeltaKg: 0,
+    proteinTarget: 160,
+    carbsTarget: 200,
+    fatTarget: 70,
+    weightKg: 80,
+    weightEndKg: 80,
+    avgFatigue: 4,
+    avgEnergy: 6,
+  });
+  const stall = runAthleteWeeklyReview(input({
+    aggregates: stallAgg,
+    existingSignals: [signal({
+      id: 'sig-stall',
+      domain: 'weight',
+      type: 'stall',
+      confidence: 'medium',
+    })],
+  }));
+  const stallProposal = stall.signalActions.find((row) => row.type === 'stall')?.proposal;
+  const stallCanonical = proposeWeeklyNutrition({
+    ...nutritionInput,
+    weight_delta_kg: 0,
+    avg_fatigue: 4,
+    avg_energy: 6,
+  });
+  assert.equal(stallCanonical.reason, 'cut_stall');
+  assert.equal(stallProposal?.reason, 'cut_stall');
+  assert.deepEqual(stallProposal?.draft, stallCanonical.draft);
+  assert.equal(stallCanonical.draft?.calories, 1900);
 });
 
 test('Solo and Coach adapters share the engine; fleet identity is coached', () => {
@@ -492,6 +572,10 @@ test('P2.2 source-lock: new table after audit, RPC writes, Solo+fleet share engi
   const edge = src('supabase/functions/coach-fleet-round/index.ts');
   assert.match(edge, /save_athlete_weekly_review/);
   assert.match(edge, /runAthleteWeeklyReview/);
+  const engine = src('supabase/functions/_shared/weeklyReviewEngine.ts');
+  assert.match(engine, /serializeCanonicalWatchProposal/);
+  assert.match(engine, /proposeWeeklyNutrition/);
+  assert.doesNotMatch(engine, /function snapshotWatchProposal/);
 
   const sqlTest = src('supabase/tests/athlete_weekly_reviews.sql');
   assert.match(sqlTest, /wait is not stored/);

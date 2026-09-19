@@ -95,7 +95,8 @@ BEGIN
   IF NOT public.prometheus_json_object_keys_allowed(v_data, ARRAY[
     'avg_calories', 'calorie_target', 'target_avg_kcal', 'workout_count',
     'logged_nutrition_days', 'weight_delta_kg', 'expected_workouts', 'weigh_ins',
-    'avg_fatigue', 'avg_energy', 'window_start', 'window_end', 'checkin_count', 'goal'
+    'avg_fatigue', 'avg_energy', 'window_start', 'window_end', 'checkin_count', 'goal',
+    'protein_target', 'carbs_target', 'fat_target', 'weight_kg', 'weight_start_kg', 'guarded'
   ]) THEN
     RAISE EXCEPTION 'invalid_data_used';
   END IF;
@@ -129,7 +130,8 @@ DECLARE
   v_allowed text[] := ARRAY[
     'avg_calories', 'calorie_target', 'target_avg_kcal', 'workout_count',
     'logged_nutrition_days', 'weight_delta_kg', 'expected_workouts', 'weigh_ins',
-    'avg_fatigue', 'avg_energy', 'window_start', 'window_end', 'checkin_count', 'goal'
+    'avg_fatigue', 'avg_energy', 'window_start', 'window_end', 'checkin_count', 'goal',
+    'protein_target', 'carbs_target', 'fat_target', 'weight_kg', 'weight_start_kg', 'guarded'
   ];
 BEGIN
   IF p_evidence IS NULL OR jsonb_typeof(p_evidence) <> 'array' THEN
@@ -171,11 +173,15 @@ BEGIN
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.correct_athlete_watch_context(uuid, text, text, text);
+
 CREATE OR REPLACE FUNCTION public.correct_athlete_watch_context(
   p_signal_id uuid,
   p_action text,
   p_human_reason text,
-  p_idempotency_key text DEFAULT NULL
+  p_idempotency_key text DEFAULT NULL,
+  p_seen_updated_at timestamptz DEFAULT NULL,
+  p_seen_evidence jsonb DEFAULT NULL
 )
 RETURNS public.athlete_decision_log
 LANGUAGE plpgsql
@@ -190,6 +196,7 @@ DECLARE
   v_action text := NULLIF(trim(COALESCE(p_action, '')), '');
   v_key text;
   v_data jsonb;
+  v_seen jsonb;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'not_authorized';
@@ -252,7 +259,21 @@ BEGIN
     RAISE EXCEPTION 'idempotency_conflict';
   END IF;
 
+  IF p_seen_updated_at IS NULL OR jsonb_typeof(COALESCE(p_seen_evidence, 'null'::jsonb)) <> 'object' THEN
+    RAISE EXCEPTION 'stale_context';
+  END IF;
+  IF v_signal.updated_at IS DISTINCT FROM p_seen_updated_at THEN
+    RAISE EXCEPTION 'stale_context';
+  END IF;
+
   v_data := public.prometheus_watch_signal_data_used(v_signal.evidence_for);
+  v_seen := public.prometheus_watch_signal_data_used(
+    jsonb_build_array(jsonb_build_object('kind', 'fingerprint', 'summary', COALESCE(p_seen_evidence, '{}'::jsonb)::text))
+  );
+  IF (COALESCE(v_data, '{}'::jsonb) - 'window_start' - 'window_end')
+     IS DISTINCT FROM (COALESCE(v_seen, '{}'::jsonb) - 'window_start' - 'window_end') THEN
+    RAISE EXCEPTION 'stale_context';
+  END IF;
 
   PERFORM public.resolve_athlete_signal(v_signal.id, 'not_relevant', v_reason);
 
@@ -286,15 +307,15 @@ BEGIN
 END;
 $$;
 
-COMMENT ON FUNCTION public.correct_athlete_watch_context(uuid, text, text, text) IS
-  'P2.4 Vision 8.5: Solo (not coached) or the active Coach closes an open watch signal as not_relevant and appends a corrected journal row. Atomic: a missing journal raises not_persisted and rolls back the resolve. Identical replay is idempotent; a different action or reason is idempotency_conflict. Never auto-applies. Never rewrites source measurements. Workspace never grants this.';
+COMMENT ON FUNCTION public.correct_athlete_watch_context(uuid, text, text, text, timestamptz, jsonb) IS
+  'P2.4 Vision 8.5: Solo (not coached) or the active Coach closes an open watch signal as not_relevant and appends a corrected journal row. Atomic: a missing journal raises not_persisted and rolls back the resolve. The caller must send the signal updated_at + fingerprint they saw; a moved signal is stale_context and does not close the new interpretation. Identical replay is idempotent; a different action or reason is idempotency_conflict. Never auto-applies. Never rewrites source measurements. Workspace never grants this.';
 
 REVOKE ALL ON FUNCTION public.prometheus_watch_signal_data_used(jsonb)
   FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.correct_athlete_watch_context(uuid, text, text, text)
+REVOKE ALL ON FUNCTION public.correct_athlete_watch_context(uuid, text, text, text, timestamptz, jsonb)
   FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.prometheus_watch_signal_data_used(jsonb)
   TO service_role;
-GRANT EXECUTE ON FUNCTION public.correct_athlete_watch_context(uuid, text, text, text)
+GRANT EXECUTE ON FUNCTION public.correct_athlete_watch_context(uuid, text, text, text, timestamptz, jsonb)
   TO authenticated, service_role;

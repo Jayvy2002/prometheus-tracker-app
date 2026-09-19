@@ -43,6 +43,8 @@ humain (Solo ou Coach actif) + motif
 → si le journal n’est pas créé : not_persisted (rollback du resolve)
 → rejeu identique (même action + même motif) : idempotent
 → rejeu différent : idempotency_conflict
+→ token immuable : signal updated_at + fingerprint vus à l’écran
+  sinon stale_context (n’écrase pas la nouvelle interprétation)
 → l’historique n’est pas effacé
 → la revue suivante n’ouvre pas le même (domaine, type)
   tant que les preuves n’ont pas changé

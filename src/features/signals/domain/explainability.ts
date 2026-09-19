@@ -79,6 +79,12 @@ export interface PrometheusWatchItem {
   whyHiddenKey: string | null;
   reevaluateKey: string;
   reviewWeekStart: string | null;
+  reviewId: string | null;
+  reviewUpdatedAt: string | null;
+  currentProposal: Record<string, unknown> | null;
+  currentEvidence: Record<string, unknown> | null;
+  signalEvidence: Record<string, unknown> | null;
+  signalUpdatedAt: string | null;
   suppressed: boolean;
 }
 
@@ -156,6 +162,13 @@ export function evidenceSnapshotFromRecord(
     avgEnergy: firstNumber(raw, ['avg_energy', 'avgEnergy']),
     windowStart: firstString(raw, ['window_start', 'windowStart']) ?? undefined,
     windowEnd: firstString(raw, ['window_end', 'windowEnd']) ?? undefined,
+    goal: firstString(raw, ['goal']) ?? undefined,
+    proteinTarget: firstNumber(raw, ['protein_target', 'proteinTarget']) ?? undefined,
+    carbsTarget: firstNumber(raw, ['carbs_target', 'carbsTarget']) ?? undefined,
+    fatTarget: firstNumber(raw, ['fat_target', 'fatTarget']) ?? undefined,
+    weightKg: firstNumber(raw, ['weight_kg', 'weightKg']) ?? undefined,
+    weightStartKg: firstNumber(raw, ['weight_start_kg', 'weightStartKg']),
+    guarded: typeof raw.guarded === 'boolean' ? raw.guarded : undefined,
   };
 }
 
@@ -333,19 +346,32 @@ function currentProposalFromReview(
   review: AthleteWeeklyReview | null,
   domain: string,
   type: string,
-): { key: string; detail: WatchCopy | null } | null {
+): {
+  key: string;
+  detail: WatchCopy | null;
+  proposal: Record<string, unknown>;
+  evidence: Record<string, unknown>;
+} | null {
   if (!reviewProposesFor(review, domain, type) || !review) return null;
   const actions = Array.isArray(review.signal_actions) ? review.signal_actions : [];
   const action = actions.find((raw) => isOpenProposeAction(raw, domain, type));
   const proposal = proposalFromUnknown(action);
   const key = watchProposalCopyKey(proposal);
-  if (!key) return null;
+  if (!key || !proposal || typeof proposal !== 'object' || Array.isArray(proposal)) return null;
   const calories = watchProposalDraftCalories(proposal);
+  const evidenceFor = action && typeof action === 'object' && !Array.isArray(action)
+    ? (action as Record<string, unknown>).evidence_for
+    : null;
+  const evidence = parseEvidenceFingerprint(
+    Array.isArray(evidenceFor) ? evidenceFor as AthleteSignalEvidenceItem[] : null,
+  ) ?? {};
   return {
     key,
     detail: calories != null
       ? { key: WATCH_PROPOSAL_COPY_KEYS.draftCalories, params: { n: calories } }
       : null,
+    proposal: proposal as Record<string, unknown>,
+    evidence,
   };
 }
 
@@ -478,6 +504,12 @@ function buildItem(input: {
         : 'prometheusWatch.evolution.first',
     currentProposalKey: currentProposal?.key ?? null,
     currentProposalDetail: currentProposal?.detail ?? null,
+    currentProposal: hasCurrentProposal ? currentProposal?.proposal ?? null : null,
+    currentEvidence: hasCurrentProposal ? currentProposal?.evidence ?? null : null,
+    signalEvidence: currentMetrics,
+    reviewId: kind === 'current' ? review?.id ?? null : null,
+    reviewUpdatedAt: kind === 'current' ? review?.updated_at ?? null : null,
+    signalUpdatedAt: kind === 'current' ? signal?.updated_at ?? null : null,
     lastProposalKey: lastProposalKeyFrom(decision),
     lastDecisionKey: lastHuman ? `prometheusWatch.decision.${lastHuman}` : null,
     lastDecisionAt: decision?.created_at ?? null,

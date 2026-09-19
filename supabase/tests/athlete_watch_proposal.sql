@@ -18,10 +18,64 @@ insert into public.coach_client_links(coach_id,client_id,status) values
  ('c2500000-0000-4000-8000-000000000004','c2500000-0000-4000-8000-000000000001','active');
 
 do $$ begin
-  if has_function_privilege('anon','public.decide_athlete_watch_proposal(uuid,text,text,text)','execute') then
+  if has_function_privilege('anon','public.decide_athlete_watch_proposal(uuid,text,text,text,uuid,timestamptz,jsonb,jsonb)','execute') then
     raise exception 'anon decide allowed';
   end if;
 end $$;
+
+CREATE FUNCTION pg_temp.watch_decide(
+  p_signal_id uuid,
+  p_decision text,
+  p_human_reason text,
+  p_key text DEFAULT NULL
+) RETURNS public.athlete_decision_log
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_sig public.athlete_signals;
+  v_review public.athlete_weekly_reviews;
+  v_action jsonb;
+  v_fp jsonb;
+  v_proposal jsonb := '{}'::jsonb;
+  v_evidence jsonb := '{}'::jsonb;
+BEGIN
+  SELECT * INTO v_sig FROM public.athlete_signals WHERE id = p_signal_id;
+  SELECT * INTO v_review FROM public.athlete_weekly_reviews
+   WHERE athlete_id = v_sig.athlete_id
+   ORDER BY week_start DESC, created_at DESC
+   LIMIT 1;
+  IF v_review.id IS NOT NULL THEN
+    FOR v_action IN SELECT value FROM jsonb_array_elements(COALESCE(v_review.signal_actions, '[]'::jsonb))
+    LOOP
+      IF v_action->>'domain' = v_sig.domain AND v_action->>'type' = v_sig.type THEN
+        v_proposal := COALESCE(v_action->'proposal', '{}'::jsonb);
+        FOR v_fp IN SELECT value FROM jsonb_array_elements(COALESCE(v_action->'evidence_for', '[]'::jsonb))
+        LOOP
+          IF v_fp->>'kind' = 'fingerprint' THEN
+            BEGIN
+              v_evidence := (v_fp->>'summary')::jsonb;
+            EXCEPTION WHEN OTHERS THEN
+              v_evidence := '{}'::jsonb;
+            END;
+          END IF;
+        END LOOP;
+        EXIT;
+      END IF;
+    END LOOP;
+  END IF;
+  RETURN public.decide_athlete_watch_proposal(
+    p_signal_id,
+    p_decision,
+    p_human_reason,
+    p_key,
+    v_review.id,
+    v_review.updated_at,
+    v_proposal,
+    v_evidence
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION pg_temp.watch_decide(uuid, text, text, text) TO authenticated;
 
 -- Seed a proposing review + open engine signal for Solo (no JWT).
 select public.save_athlete_weekly_review(
@@ -105,7 +159,7 @@ begin
     if sqlerrm <> 'no_current_proposal' then raise; end if;
   end;
 
-  v_log := public.decide_athlete_watch_proposal(v_sig.id, 'accepted', '', 'watch-decide-solo-1');
+  v_log := pg_temp.watch_decide(v_sig.id, 'accepted', '', 'watch-decide-solo-1');
   if v_log.decision <> 'accepted' or v_log.actor_role <> 'athlete' then
     raise exception 'solo accept journal failed';
   end if;
@@ -126,11 +180,11 @@ begin
     raise exception 'solo accept closed the signal';
   end if;
 
-  v_again := public.decide_athlete_watch_proposal(v_sig.id, 'accepted', '', 'watch-decide-solo-1');
+  v_again := pg_temp.watch_decide(v_sig.id, 'accepted', '', 'watch-decide-solo-1');
   if v_again.id <> v_log.id then raise exception 'solo accept not idempotent'; end if;
 
   begin
-    perform public.decide_athlete_watch_proposal(
+    perform pg_temp.watch_decide(
       v_sig.id, 'accepted', 'Je voyage cette semaine', 'watch-decide-solo-reason-b'
     );
     raise exception 'same decision different reason allowed';
@@ -139,7 +193,7 @@ begin
   end;
 
   begin
-    perform public.decide_athlete_watch_proposal(v_sig.id, 'refused', 'Pas maintenant');
+    perform pg_temp.watch_decide(v_sig.id, 'refused', 'Pas maintenant');
     raise exception 'solo accept then refuse allowed';
   exception when others then
     if sqlerrm <> 'already_decided' then raise; end if;
@@ -215,7 +269,7 @@ begin
      and proposal->>'week_start' = '2026-08-31'
    order by created_at desc limit 1;
   if v_first is null then raise exception 'week 1 journal missing'; end if;
-  v_week2 := public.decide_athlete_watch_proposal(v_sig.id, 'accepted', '');
+  v_week2 := pg_temp.watch_decide(v_sig.id, 'accepted', '');
   if v_week2.id = v_first then raise exception 'week 2 reused week 1 idempotency key'; end if;
   if v_week2.proposal->>'week_start' <> '2026-09-07' then
     raise exception 'week 2 journal missing week_start';
@@ -319,11 +373,29 @@ select public.save_athlete_weekly_review(
     )
   )
 );
+-- Coached JWT cannot save a strategic review, nor decide it.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2500000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"c2500000-0000-4000-8000-000000000002","role":"authenticated"}',true);
 do $$
 declare
   v_sig public.athlete_signals;
 begin
+  begin
+    perform public.save_athlete_weekly_review(
+      'c2500000-0000-4000-8000-000000000002',
+      '2026-08-31',
+      'adequate',
+      'propose',
+      'Je forge le contexte du Coach.',
+      jsonb_build_object('calorie_target', 9999, 'goal', 'cut'),
+      jsonb_build_object('nutrition', true, 'workouts', true, 'weight', true, 'checkins', true),
+      '[]'::jsonb
+    );
+    raise exception 'coached self-save weekly review allowed';
+  exception when others then
+    if sqlerrm <> 'not_authorized' then raise; end if;
+  end;
   select * into v_sig from public.athlete_signals
    where athlete_id = 'c2500000-0000-4000-8000-000000000002'
      and type = 'not_following' and status = 'open';
@@ -354,7 +426,7 @@ begin
   select * into v_sig from public.athlete_signals
    where athlete_id = 'c2500000-0000-4000-8000-000000000002'
      and type = 'not_following' and status = 'open';
-  v_log := public.decide_athlete_watch_proposal(
+  v_log := pg_temp.watch_decide(
     v_sig.id,
     'refused',
     'Pas le bon moment pour changer les cibles.'
@@ -372,7 +444,7 @@ begin
     raise exception 'coach refuse closed the signal';
   end if;
   begin
-    perform public.decide_athlete_watch_proposal(
+    perform pg_temp.watch_decide(
       v_sig.id, 'refused', 'Je suis blessé.'
     );
     raise exception 'same refuse different reason allowed';
@@ -610,7 +682,7 @@ begin
   exception when others then
     if sqlerrm <> 'invalid_reason' then raise; end if;
   end;
-  v_log := public.decide_athlete_watch_proposal(
+  v_log := pg_temp.watch_decide(
     v_sig.id,
     'modified',
     'Je garderais le plan, mais je changerais le volume plus tard.'
@@ -774,7 +846,7 @@ begin
    where athlete_id = 'c2500000-0000-4000-8000-000000000005'
      and type = 'missed_sessions' and status = 'open';
   begin
-    perform public.decide_athlete_watch_proposal(v_sig.id, 'accepted', '');
+    perform pg_temp.watch_decide(v_sig.id, 'accepted', '');
     raise exception 'stale fingerprint still accepted';
   exception when others then
     if sqlerrm <> 'stale_proposal' then raise; end if;
@@ -807,7 +879,7 @@ begin
   select * into v_sig from public.athlete_signals
    where athlete_id = 'c2500000-0000-4000-8000-000000000005'
      and type = 'missed_sessions' and status = 'open';
-  v_log := public.decide_athlete_watch_proposal(v_sig.id, 'accepted', '');
+  v_log := pg_temp.watch_decide(v_sig.id, 'accepted', '');
   if v_log.proposal->>'action' <> 'relance' then
     raise exception 'restored fingerprint missing concrete proposal';
   end if;
@@ -820,10 +892,147 @@ begin
 end $$;
 reset role;
 
+-- Decision is locked to the review the human saw, not the latest at click time.
+select public.save_athlete_weekly_review(
+  'c2500000-0000-4000-8000-000000000003',
+  '2026-09-21',
+  'adequate',
+  'propose',
+  'Proposition A vue a l ecran.',
+  jsonb_build_object(
+    'window_start', '2026-09-11',
+    'window_end', '2026-09-24',
+    'logged_nutrition_days', 10,
+    'avg_calories', 2000,
+    'calorie_target', 2000,
+    'workout_count', 1,
+    'expected_workouts', 6
+  ),
+  jsonb_build_object('nutrition', true, 'workouts', true, 'weight', true, 'checkins', true),
+  jsonb_build_array(
+    jsonb_build_object(
+      'op', 'upsert',
+      'domain', 'training',
+      'type', 'missed_sessions',
+      'hypothesis', 'Moins de seances',
+      'evidence_for', jsonb_build_array(
+        jsonb_build_object('kind', 'fingerprint', 'summary', '{"workout_count":1,"expected_workouts":6}')
+      ),
+      'evidence_against', '[]'::jsonb,
+      'confidence', 'medium',
+      'status', 'open',
+      'proposal', jsonb_build_object(
+        'kind', 'adherence_training',
+        'action', 'relance',
+        'domain', 'training',
+        'type', 'missed_sessions',
+        'flag', 'adherence_training',
+        'week_start', '2026-09-21'
+      )
+    )
+  )
+);
+
+do $$
+declare
+  v_review public.athlete_weekly_reviews;
+begin
+  select * into v_review
+  from public.athlete_weekly_reviews
+  where athlete_id = 'c2500000-0000-4000-8000-000000000003'
+    and week_start = '2026-09-21';
+  if v_review.id is null then raise exception 'review A missing'; end if;
+  perform set_config('prometheus.p25_review_a', v_review.id::text, true);
+  perform set_config('prometheus.p25_review_a_at', v_review.updated_at::text, true);
+end $$;
+
+select public.save_athlete_weekly_review(
+  'c2500000-0000-4000-8000-000000000003',
+  '2026-09-28',
+  'adequate',
+  'propose',
+  'Proposition B arrivee pendant que le modal A etait ouvert.',
+  jsonb_build_object(
+    'window_start', '2026-09-18',
+    'window_end', '2026-10-01',
+    'logged_nutrition_days', 10,
+    'avg_calories', 2000,
+    'calorie_target', 2000,
+    'workout_count', 0,
+    'expected_workouts', 6
+  ),
+  jsonb_build_object('nutrition', true, 'workouts', true, 'weight', true, 'checkins', true),
+  jsonb_build_array(
+    jsonb_build_object(
+      'op', 'upsert',
+      'domain', 'training',
+      'type', 'missed_sessions',
+      'hypothesis', 'Toujours trop peu',
+      'evidence_for', jsonb_build_array(
+        jsonb_build_object('kind', 'fingerprint', 'summary', '{"workout_count":0,"expected_workouts":6}')
+      ),
+      'evidence_against', '[]'::jsonb,
+      'confidence', 'high',
+      'status', 'open',
+      'proposal', jsonb_build_object(
+        'kind', 'adherence_training',
+        'action', 'relance',
+        'domain', 'training',
+        'type', 'missed_sessions',
+        'flag', 'adherence_training',
+        'week_start', '2026-09-28'
+      )
+    )
+  )
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2500000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"c2500000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_sig public.athlete_signals;
+  v_log public.athlete_decision_log;
+  v_a uuid := current_setting('prometheus.p25_review_a')::uuid;
+  v_at timestamptz := current_setting('prometheus.p25_review_a_at')::timestamptz;
+begin
+  select * into v_sig from public.athlete_signals
+   where athlete_id = 'c2500000-0000-4000-8000-000000000003'
+     and type = 'missed_sessions' and status = 'open';
+  begin
+    perform public.decide_athlete_watch_proposal(
+      v_sig.id,
+      'accepted',
+      '',
+      NULL,
+      v_a,
+      v_at,
+      jsonb_build_object(
+        'kind', 'adherence_training',
+        'action', 'relance',
+        'domain', 'training',
+        'type', 'missed_sessions',
+        'flag', 'adherence_training',
+        'week_start', '2026-09-21'
+      ),
+      '{"workout_count":1,"expected_workouts":6}'::jsonb
+    );
+    raise exception 'older review A still accepted after B arrived';
+  exception when others then
+    if sqlerrm <> 'stale_proposal' then raise; end if;
+  end;
+  v_log := pg_temp.watch_decide(v_sig.id, 'accepted', '');
+  if v_log.proposal->>'week_start' is distinct from '2026-09-28' then
+    raise exception 'current review B not journaled';
+  end if;
+end $$;
+reset role;
+
 -- Source lock: the RPC must not rewrite tracker rows or call apply engines.
 do $$
 declare
-  def text := pg_get_functiondef('public.decide_athlete_watch_proposal(uuid,text,text,text)'::regprocedure);
+  def text := pg_get_functiondef('public.decide_athlete_watch_proposal(uuid,text,text,text,uuid,timestamptz,jsonb,jsonb)'::regprocedure);
+  save_def text := pg_get_functiondef('public.save_athlete_weekly_review(uuid,date,text,text,text,jsonb,jsonb,jsonb)'::regprocedure);
 begin
   if def ~* 'stripe' then raise exception 'stripe in decide_athlete_watch_proposal'; end if;
   if def ~* 'nutrition_logs|daily_calorie_target|program_assignments|workouts' then
@@ -844,11 +1053,17 @@ begin
   if def !~ 'stale_proposal' then
     raise exception 'decide missing stale fingerprint guard';
   end if;
+  if def !~ 'p_review_id' or def !~ 'p_seen_proposal' then
+    raise exception 'decide missing seen review token';
+  end if;
   if def !~ 'idempotency_conflict' then
     raise exception 'decide missing payload immutability';
   end if;
   if def !~ 'v_action->''proposal''' or def !~ 'v_action->''evidence_for''' then
     raise exception 'decide not bound to the review action';
+  end if;
+  if save_def !~ 'actor_is_actively_coached' then
+    raise exception 'save_athlete_weekly_review missing coached guard';
   end if;
 end $$;
 

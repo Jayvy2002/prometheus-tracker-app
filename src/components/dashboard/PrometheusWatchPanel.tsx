@@ -10,6 +10,7 @@ import { correctAthleteWatchContext } from '../../features/signals/domain/watchC
 import type { WatchContextCorrectionAction } from '../../features/signals/domain/watchContext';
 import { decideAthleteWatchProposal } from '../../features/signals/domain/watchProposalApi';
 import {
+  isWatchProposalReviewId,
   watchProposalReasonRequired,
   type WatchProposalDecision,
 } from '../../features/signals/domain/watchProposal';
@@ -38,6 +39,8 @@ interface CorrectionDraft {
   signalId: string;
   headlineKey: string;
   action: WatchContextCorrectionAction;
+  seenUpdatedAt: string;
+  seenEvidence: Record<string, unknown>;
 }
 
 interface DecisionDraft {
@@ -47,6 +50,10 @@ interface DecisionDraft {
   proposalDetail: PrometheusWatchItem['currentProposalDetail'];
   decision: WatchProposalDecision;
   weekStart: string;
+  reviewId: string;
+  reviewUpdatedAt: string;
+  proposal: Record<string, unknown>;
+  evidence: Record<string, unknown>;
 }
 
 export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship }: Props) {
@@ -192,7 +199,11 @@ function WatchRow({
   const showDecide = canDecide
     && item.kind === 'current'
     && !!item.currentProposalKey
-    && !!item.reviewWeekStart;
+    && !!item.reviewWeekStart
+    && !!item.reviewId
+    && isWatchProposalReviewId(item.reviewId)
+    && !!item.reviewUpdatedAt
+    && !!item.currentProposal;
 
   return (
     <li>
@@ -267,6 +278,10 @@ function WatchRow({
                 proposalDetail: item.currentProposalDetail,
                 decision: 'accepted',
                 weekStart: item.reviewWeekStart ?? '',
+                reviewId: item.reviewId ?? '',
+                reviewUpdatedAt: item.reviewUpdatedAt ?? '',
+                proposal: item.currentProposal ?? {},
+                evidence: item.currentEvidence ?? {},
               })}
             >
               {t('prometheusWatch.decide.accept')}
@@ -283,6 +298,10 @@ function WatchRow({
                 proposalDetail: item.currentProposalDetail,
                 decision: 'modified',
                 weekStart: item.reviewWeekStart ?? '',
+                reviewId: item.reviewId ?? '',
+                reviewUpdatedAt: item.reviewUpdatedAt ?? '',
+                proposal: item.currentProposal ?? {},
+                evidence: item.currentEvidence ?? {},
               })}
             >
               {t('prometheusWatch.decide.modify')}
@@ -299,6 +318,10 @@ function WatchRow({
                 proposalDetail: item.currentProposalDetail,
                 decision: 'refused',
                 weekStart: item.reviewWeekStart ?? '',
+                reviewId: item.reviewId ?? '',
+                reviewUpdatedAt: item.reviewUpdatedAt ?? '',
+                proposal: item.currentProposal ?? {},
+                evidence: item.currentEvidence ?? {},
               })}
             >
               {t('prometheusWatch.decide.refuse')}
@@ -316,6 +339,8 @@ function WatchRow({
                 signalId: item.id,
                 headlineKey: item.headlineKey,
                 action: 'not_relevant',
+                seenUpdatedAt: item.signalUpdatedAt ?? '',
+                seenEvidence: item.signalEvidence ?? {},
               })}
             >
               {t('prometheusWatch.correct.notRelevant')}
@@ -329,6 +354,8 @@ function WatchRow({
                 signalId: item.id,
                 headlineKey: item.headlineKey,
                 action: 'corrected',
+                seenUpdatedAt: item.signalUpdatedAt ?? '',
+                seenEvidence: item.signalEvidence ?? {},
               })}
             >
               {t('prometheusWatch.correct.incorrect')}
@@ -385,6 +412,8 @@ function WatchCorrectionModal({
       signalId: draft.signalId,
       action: draft.action,
       humanReason: trimmed,
+      seenUpdatedAt: draft.seenUpdatedAt,
+      seenEvidence: draft.seenEvidence,
     });
     setSaving(false);
     if (!result.ok) {
@@ -482,6 +511,10 @@ function WatchDecisionModal({
       decision: draft.decision,
       humanReason: trimmed,
       weekStart: draft.weekStart,
+      reviewId: draft.reviewId,
+      reviewUpdatedAt: draft.reviewUpdatedAt,
+      proposal: draft.proposal,
+      evidence: draft.evidence,
     });
     setSaving(false);
     if (!result.ok) {

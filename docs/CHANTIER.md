@@ -34,7 +34,7 @@ Le travail restant n’est pas une reconstruction. Le principal enjeu est désor
 
 > **CURRENT IMPLEMENTATION GATE — P2.5 décision humaine sur la proposition (en cours).**
 >
-> P1.5–P2.3 sont mergés (`#190`, `c51d5f49`) et **actifs en production** (122 migrations, dernière `20260918232507_athlete_decision_durability`). Le slice lecture P2.4 est mergé (`#191`, `b404281`). Cette PR : correction de contexte (P2.4) **et** décision humaine accepter / modifier / refuser depuis le panneau (P2.5). Aucune auto-application. Aucune réécriture des mesures sources. Le panneau n’est pas un troisième moteur d’apply : Solo `commit_solo_weekly_review_decision` et Coach `apply_intervention` restent les chemins d’effet durable. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas P2.6 ni P3. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.5–P2.3 sont mergés (`#190`, `c51d5f49`) et **actifs en production** (122 migrations, dernière `20260918232507_athlete_decision_durability`). Le slice lecture P2.4 est mergé (`#191`, `b404281`). Cette PR : correction de contexte (P2.4) **et** décision humaine accepter / modifier / refuser depuis le panneau (P2.5). Snapshot = sérialisation du builder canonique (`proposeWeeklyNutrition`), pas une 2e logique. Décision verrouillée sur la version exacte vue à l’écran. Un Coaché ne peut pas `save_athlete_weekly_review`. Aucune auto-application. Aucune réécriture des mesures sources. Le panneau n’est pas un troisième moteur d’apply : Solo `commit_solo_weekly_review_decision` et Coach `apply_intervention` restent les chemins d’effet durable. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas P2.6 ni P3. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -608,14 +608,16 @@ Contrat :
 ```text
 humain (Solo ou Coach actif) + proposition courante concrète
 → RPC atomique : journal accepted | modified | refused
-→ le journal porte le snapshot Solo/fleet jugé (pas une proposition générique)
-→ data_used = preuves de la revue, sinon stale_proposal
+→ le journal porte la sérialisation du builder canonique Solo/fleet
+→ data_used = preuves de la revue (toutes les entrées du builder)
+→ token vu à l’écran (review id/updated_at + proposal + evidence)
+  sinon stale_proposal
 → le signal reste ouvert (un refus n’est pas une correction)
 → idempotence par semaine ISO + payload immuable
 → la revue suivante ne repropose pas le même (domaine, type)
   tant que les preuves n’ont pas changé
 → aucune écriture des cibles, séances, repas, programmes
-→ Coaché (y compris Coach lui-même Coaché) : lecture seule
+→ Coaché : lecture seule ; pas de `save_athlete_weekly_review`
 → workspace UI n’accorde rien
 → succès UI seulement après persistance
 ```

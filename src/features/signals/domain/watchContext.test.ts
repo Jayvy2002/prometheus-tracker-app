@@ -39,6 +39,9 @@ test('P2.4 context correction reuses journal + resolve, with Solo/Coach authorit
   assert.match(latest.sql, /not_relevant/);
   assert.match(latest.sql, /watch_context_correction/);
   assert.match(latest.sql, /prometheus_watch/);
+  assert.match(latest.sql, /stale_context/);
+  assert.match(latest.sql, /p_seen_updated_at/);
+  assert.match(latest.sql, /p_seen_evidence/);
   assert.doesNotMatch(latest.sql, /CREATE TABLE/);
   assert.doesNotMatch(latest.sql, /stripe/i);
   assert.doesNotMatch(latest.sql, /UPDATE public\.(programs|program_assignments|nutrition_logs|workouts|user_profiles|weight_logs)/);
@@ -50,13 +53,17 @@ test('P2.4 context correction reuses journal + resolve, with Solo/Coach authorit
   assert.match(api, /rpc\('correct_athlete_watch_context'/);
   assert.doesNotMatch(api, /from\('athlete_signals'\)\.(insert|update)/);
   assert.doesNotMatch(api, /BestEffort/);
-  assert.match(api, /ok: false/);
+  assert.match(api, /p_seen_updated_at/);
+  assert.match(api, /p_seen_evidence/);
+  assert.match(api, /stale_context/);
 
   const panel = src('src/components/dashboard/PrometheusWatchPanel.tsx');
   assert.match(panel, /canCorrectAthleteWatchContext\(/);
   assert.match(panel, /correctAthleteWatchContext/);
   assert.doesNotMatch(panel, /upsert_athlete_signal|resolve_athlete_signal|record_athlete_decision/);
   assert.match(panel, /prometheusWatch\.correct/);
+  assert.match(panel, /seenUpdatedAt/);
+  assert.match(panel, /seenEvidence/);
 
   const engine = src('supabase/functions/_shared/weeklyReviewEngine.ts');
   assert.match(engine, /isContextCorrectionHeld/);
@@ -70,6 +77,9 @@ test('P2.4 context correction reuses journal + resolve, with Solo/Coach authorit
   assert.match(sqlTest, /different reason replay allowed/);
   assert.match(sqlTest, /journal failure closed the signal/);
   assert.match(sqlTest, /journal failure still persisted/);
+  assert.match(sqlTest, /stale context still closed/);
+  assert.match(sqlTest, /stale context closed the new interpretation/);
+  assert.match(sqlTest, /correct_athlete_watch_context missing seen token/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /athlete_watch_context\.sql/);

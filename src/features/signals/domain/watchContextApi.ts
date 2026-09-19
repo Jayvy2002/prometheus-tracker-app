@@ -10,6 +10,8 @@ export interface CorrectAthleteWatchContextInput {
   signalId: string;
   action: WatchContextCorrectionAction;
   humanReason: string;
+  seenUpdatedAt: string;
+  seenEvidence: Record<string, unknown>;
 }
 
 /** Atomic resolve + journal. Never fail-open: a missed write is an error. */
@@ -23,11 +25,16 @@ export async function correctAthleteWatchContext(
   if (reason.length > 500) {
     return { ok: false, message: 'invalid_reason' };
   }
+  if (!input.seenUpdatedAt.trim()) {
+    return { ok: false, message: 'stale_context' };
+  }
   const { data, error } = await supabase.rpc('correct_athlete_watch_context', {
     p_signal_id: input.signalId,
     p_action: input.action,
     p_human_reason: reason,
     p_idempotency_key: watchContextCorrectionIdempotencyKey(input.signalId, input.action),
+    p_seen_updated_at: input.seenUpdatedAt,
+    p_seen_evidence: input.seenEvidence,
   });
   if (error) {
     return { ok: false, message: error.message };

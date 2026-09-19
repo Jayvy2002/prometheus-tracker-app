@@ -29,7 +29,6 @@ do $$
 declare
   v public.athlete_signals;
   v2 public.athlete_signals;
-  wait_row public.athlete_weekly_reviews;
   latest public.athlete_decision_log;
   n int;
 begin
@@ -49,30 +48,20 @@ begin
   );
   if v2.id <> v.id then raise exception 'open signal duplicated'; end if;
 
-  wait_row := public.save_athlete_weekly_review(
-    'a1940000-0000-4000-8000-000000000002',
-    '2026-08-31',
-    'adequate',
-    'wait',
-    'Cette semaine, aucune modification n est necessaire.',
-    '{"logged_nutrition_days":10,"avg_calories":2000,"workout_count":6}'::jsonb,
-    '{"nutrition":true,"workouts":true,"weight":true,"checkins":true}'::jsonb,
-    '[]'::jsonb
-  );
-  if wait_row.decision <> 'wait' then raise exception 'wait week not persisted'; end if;
-
   begin
     perform public.save_athlete_weekly_review(
       'a1940000-0000-4000-8000-000000000002',
       '2026-08-31',
       'adequate',
       'wait',
-      'ok',
-      '{"payload":{"nutrition_logs":[{"calories":1}]}}'::jsonb
+      'Cette semaine, aucune modification n est necessaire.',
+      '{"logged_nutrition_days":10,"avg_calories":2000,"workout_count":6}'::jsonb,
+      '{"nutrition":true,"workouts":true,"weight":true,"checkins":true}'::jsonb,
+      '[]'::jsonb
     );
-    raise exception 'nested raw logs accepted';
+    raise exception 'coached self-save weekly review allowed';
   exception when others then
-    if sqlerrm not in ('raw_logs_forbidden', 'invalid_aggregates') then raise; end if;
+    if sqlerrm <> 'not_authorized' then raise; end if;
   end;
 
   perform public.record_athlete_decision(
@@ -109,6 +98,38 @@ begin
   if latest.why <> 'Toujours non' then raise exception 'latest training decision is not the newest'; end if;
 end $$;
 reset role;
+
+do $$
+declare
+  wait_row public.athlete_weekly_reviews;
+begin
+  wait_row := public.save_athlete_weekly_review(
+    'a1940000-0000-4000-8000-000000000002',
+    '2026-08-31',
+    'adequate',
+    'wait',
+    'Cette semaine, aucune modification n est necessaire.',
+    '{"logged_nutrition_days":10,"avg_calories":2000,"workout_count":6}'::jsonb,
+    '{"nutrition":true,"workouts":true,"weight":true,"checkins":true}'::jsonb,
+    '[]'::jsonb
+  );
+  if wait_row.decision <> 'wait' then raise exception 'wait week not persisted'; end if;
+  if wait_row.authority <> 'coach' then raise exception 'coached review authority is not coach'; end if;
+
+  begin
+    perform public.save_athlete_weekly_review(
+      'a1940000-0000-4000-8000-000000000002',
+      '2026-08-31',
+      'adequate',
+      'wait',
+      'ok',
+      '{"payload":{"nutrition_logs":[{"calories":1}]}}'::jsonb
+    );
+    raise exception 'nested raw logs accepted';
+  exception when others then
+    if sqlerrm not in ('raw_logs_forbidden', 'invalid_aggregates') then raise; end if;
+  end;
+end $$;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1940000-0000-4000-8000-000000000001',true);

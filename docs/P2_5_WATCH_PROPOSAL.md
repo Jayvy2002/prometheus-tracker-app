@@ -34,19 +34,26 @@ la revue **et** le snapshot de proposition porté par le `signal_action`.
 Les apply durables restent sur leurs surfaces. Sans snapshot concret,
 le panneau n’affiche pas Accepter / Modifier / Refuser.
 
+Le snapshot P2.5 **réutilise** `proposeWeeklyNutrition` (fichier partagé
+`weeklyNutritionProposal.ts` : Solo, fleet, Edge, revue). Il ne recalcule
+pas une approximation parallèle.
+
 ## Contrat
 
 ```text
 proposition courante = revue.decision propose
   + upsert open medium/high pour CE (domaine, type)
-  + objet proposal concret sur ce signal_action (kind + action Solo/fleet)
+  + objet proposal = sérialisation du builder canonique
+    (`proposeWeeklyNutrition` / relance training), pas une 2e logique
 humain Solo (pas Coaché) ou Coach actif du dossier
 → accepted | modified | refused
 → motif obligatoire pour modified / refused (1–500)
 → applied_effect = {}
-→ journal.proposal = snapshot jugé (action, flag, draft calories le cas échéant)
+→ journal.proposal = snapshot jugé (action, flag, draft P/C/F le cas échéant)
 → data_used = evidence_for du signal_action de la revue
-→ fingerprint courant ≠ revue → stale_proposal
+  (toutes les entrées du builder : goal, cibles, macros, poids, guarded)
+→ token immuable : review id + updated_at + proposal + evidence vus
+  à l’écran ; une revue plus récente ou un fingerprint déplacé → stale_proposal
 → signal inchangé (reste open)
 → idempotent sur la même semaine + le même payload
   (clé serveur watch-decide:{signal}:{decision}:{week_start})
@@ -55,6 +62,8 @@ humain Solo (pas Coaché) ou Coach actif du dossier
 → une autre décision la même semaine → already_decided
 → custom B ouvert sans upsert de revue → no_current_proposal
 → revue wait / confiance low / signal clos / pas de snapshot → no_current_proposal
+→ Coaché : lecture seule ; `save_athlete_weekly_review` interdit
+  (autorité coach = Coach actif ou backend/service)
 ```
 
 - `isProposalSuppressed` (refused / ignored / corrected) inchangé pour Solo

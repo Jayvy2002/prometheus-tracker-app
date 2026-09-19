@@ -94,6 +94,11 @@ export interface WeeklyReviewAggregates {
   avgFatigue: number | null;
   avgEnergy: number | null;
   goal: string;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  fatTarget?: number;
+  weightKg?: number;
+  weightEndKg?: number | null;
 }
 
 export interface AthleteWeeklyReview {

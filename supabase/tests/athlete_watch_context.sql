@@ -18,10 +18,46 @@ insert into public.coach_client_links(coach_id,client_id,status) values
  ('c2400000-0000-4000-8000-000000000004','c2400000-0000-4000-8000-000000000001','active');
 
 do $$ begin
-  if has_function_privilege('anon','public.correct_athlete_watch_context(uuid,text,text,text)','execute') then
+  if has_function_privilege('anon','public.correct_athlete_watch_context(uuid,text,text,text,timestamptz,jsonb)','execute') then
     raise exception 'anon correct allowed';
   end if;
 end $$;
+
+CREATE FUNCTION pg_temp.watch_correct(
+  p_signal_id uuid,
+  p_action text,
+  p_human_reason text,
+  p_key text DEFAULT NULL
+) RETURNS public.athlete_decision_log
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_sig public.athlete_signals;
+  v_fp jsonb;
+  v_evidence jsonb := '{}'::jsonb;
+BEGIN
+  SELECT * INTO v_sig FROM public.athlete_signals WHERE id = p_signal_id;
+  FOR v_fp IN SELECT value FROM jsonb_array_elements(COALESCE(v_sig.evidence_for, '[]'::jsonb))
+  LOOP
+    IF v_fp->>'kind' = 'fingerprint' THEN
+      BEGIN
+        v_evidence := (v_fp->>'summary')::jsonb;
+      EXCEPTION WHEN OTHERS THEN
+        v_evidence := '{}'::jsonb;
+      END;
+    END IF;
+  END LOOP;
+  RETURN public.correct_athlete_watch_context(
+    p_signal_id,
+    p_action,
+    p_human_reason,
+    p_key,
+    v_sig.updated_at,
+    v_evidence
+  );
+END;
+$$;
+GRANT EXECUTE ON FUNCTION pg_temp.watch_correct(uuid, text, text, text) TO authenticated;
 
 -- Solo athlete can correct own open signal.
 set local role authenticated;
@@ -47,7 +83,7 @@ begin
     'medium',
     'open'
   );
-  v_log := public.correct_athlete_watch_context(
+  v_log := pg_temp.watch_correct(
     v_sig.id,
     'not_relevant',
     'Ce n''est pas un écart de plan, c''est une semaine de déplacement.',
@@ -171,7 +207,7 @@ declare
   v_open public.athlete_signals;
 begin
   begin
-    perform public.correct_athlete_watch_context(
+    perform pg_temp.watch_correct(
       v_id,
       'not_relevant',
       'Semaine de déplacement, à ne pas garder.',
@@ -241,7 +277,7 @@ begin
   where athlete_id = 'c2400000-0000-4000-8000-000000000002'
     and status = 'open'
   limit 1;
-  v_log := public.correct_athlete_watch_context(
+  v_log := pg_temp.watch_correct(
     v_client.id,
     'corrected',
     'Les cibles ont changé : l''écart n''est plus le bon contexte.',
@@ -329,9 +365,88 @@ begin
 end $$;
 reset role;
 
+-- Token is locked to the signal version the human saw.
+select public.upsert_athlete_signal(
+  'c2400000-0000-4000-8000-000000000003',
+  'weight',
+  'stall',
+  'Trajectoire de poids',
+  jsonb_build_array(
+    jsonb_build_object('kind', 'fingerprint', 'summary', '{"weigh_ins":4,"weight_delta_kg":0.1}')
+  ),
+  '[]'::jsonb,
+  'medium',
+  'open'
+);
+
 do $$
 declare
-  def text := pg_get_functiondef('public.correct_athlete_watch_context(uuid,text,text,text)'::regprocedure);
+  v_id uuid;
+  v_at timestamptz;
+begin
+  select id, updated_at into v_id, v_at
+  from public.athlete_signals
+  where athlete_id = 'c2400000-0000-4000-8000-000000000003'
+    and type = 'stall' and status = 'open';
+  if v_id is null then raise exception 'stall signal missing for stale context'; end if;
+  perform set_config('prometheus.p24_stall_id', v_id::text, true);
+  perform set_config('prometheus.p24_stall_at', v_at::text, true);
+end $$;
+
+select public.upsert_athlete_signal(
+  'c2400000-0000-4000-8000-000000000003',
+  'weight',
+  'stall',
+  'Trajectoire mise a jour',
+  jsonb_build_array(
+    jsonb_build_object('kind', 'fingerprint', 'summary', '{"weigh_ins":5,"weight_delta_kg":0.8}')
+  ),
+  '[]'::jsonb,
+  'medium',
+  'open'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_id uuid := current_setting('prometheus.p24_stall_id')::uuid;
+  v_at timestamptz := current_setting('prometheus.p24_stall_at')::timestamptz;
+  v_open public.athlete_signals;
+begin
+  begin
+    perform public.correct_athlete_watch_context(
+      v_id,
+      'not_relevant',
+      'Ancienne interpretation a l ecran',
+      'watch-correct-stale',
+      v_at,
+      '{"weigh_ins":4,"weight_delta_kg":0.1}'::jsonb
+    );
+    raise exception 'stale context still closed';
+  exception when others then
+    if sqlerrm <> 'stale_context' then raise; end if;
+  end;
+  select * into v_open from public.athlete_signals where id = v_id;
+  if v_open.status <> 'open' or v_open.resolved_at is not null then
+    raise exception 'stale context closed the new interpretation';
+  end if;
+  perform pg_temp.watch_correct(
+    v_id,
+    'not_relevant',
+    'Nouvelle interpretation vue',
+    'watch-correct-stale-current'
+  );
+  if exists(select 1 from public.athlete_signals where id = v_id and status in ('open','waiting')) then
+    raise exception 'current token did not close the new interpretation';
+  end if;
+end $$;
+reset role;
+
+do $$
+declare
+  def text := pg_get_functiondef('public.correct_athlete_watch_context(uuid,text,text,text,timestamptz,jsonb)'::regprocedure);
 begin
   if def ~* 'stripe' then raise exception 'stripe in correct_athlete_watch_context'; end if;
   if def ~* 'nutrition_logs|daily_calorie_target|program_assignments|workouts' then
@@ -345,6 +460,9 @@ begin
   end if;
   if def !~ 'idempotency_conflict' then
     raise exception 'correct_athlete_watch_context missing replay conflict';
+  end if;
+  if def !~ 'stale_context' or def !~ 'p_seen_updated_at' then
+    raise exception 'correct_athlete_watch_context missing seen token';
   end if;
 end $$;
 

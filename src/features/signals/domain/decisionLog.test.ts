@@ -231,7 +231,63 @@ test('refusal suppresses the same proposal until evidence moves', () => {
   );
 });
 
-test('evidence thresholds match the fleet snapshot', () => {
+test('proposal inputs unhold a settled watch decision even when the domain fingerprint is unchanged', () => {
+  const settled = [row({
+    domain: 'weight',
+    type: 'stall',
+    decision: 'accepted',
+    source: 'prometheus_watch',
+    data_used: {
+      weigh_ins: 4,
+      weight_delta_kg: -0.1,
+      goal: 'cut',
+      calorie_target: 2000,
+      protein_target: 160,
+    },
+  })];
+  const sameWeight = aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'cut',
+    calorieTarget: 2000,
+    proteinTarget: 160,
+  });
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', sameWeight), true);
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'bulk',
+    calorieTarget: 2000,
+    proteinTarget: 160,
+  })), false);
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'cut',
+    calorieTarget: 1800,
+    proteinTarget: 160,
+  })), false);
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'cut',
+    calorieTarget: 2000,
+    proteinTarget: 180,
+  })), false);
+
+  const trainingSettled = [row({
+    domain: 'training',
+    type: 'missed_sessions',
+    decision: 'accepted',
+    source: 'prometheus_watch',
+    data_used: { workout_count: 1, expected_workouts: 6 },
+  })];
+  assert.equal(
+    isWatchProposalSettled(
+      trainingSettled,
+      'training',
+      'missed_sessions',
+      aggregates({ workoutCount: 1, calorieTarget: 1800, goal: 'bulk' }),
+    ),
+    true,
+  );
+});
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, new RegExp(`>= ${DECISION_EVIDENCE_KCAL_DELTA}`));
   assert.match(fleet, new RegExp(`>= ${DECISION_EVIDENCE_WORKOUT_DELTA}`));

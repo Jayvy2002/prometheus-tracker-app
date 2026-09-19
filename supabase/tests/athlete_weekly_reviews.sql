@@ -175,6 +175,9 @@ begin
   if def ~* 'update public\.(programs|program_assignments|nutrition_logs|workouts|user_profiles)' then
     raise exception 'save mutates tracker data';
   end if;
+  if def !~ 'actor_is_actively_coached' then
+    raise exception 'save_athlete_weekly_review missing coached guard';
+  end if;
 end $$;
 
 rollback;

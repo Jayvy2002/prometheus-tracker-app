@@ -4,8 +4,11 @@
  * Deno `coach-fleet-round` run the same loop. Cards are not replaced.
  */
 
-import type { AthleteDecisionLog, AthleteSignal, WeeklyReviewAggregates } from '../types';
-import type { WeeklyReviewInput } from '../../../../supabase/functions/_shared/weeklyReviewEngine.ts';
+import type { AthleteDecisionLog, AthleteSignal } from '../types';
+import type {
+  WeeklyReviewAggregates,
+  WeeklyReviewInput,
+} from '../../../../supabase/functions/_shared/weeklyReviewEngine.ts';
 
 export {
   WEEKLY_REVIEW_WINDOW_DAYS,
@@ -32,6 +35,10 @@ export interface WeeklyReviewSoloLike {
   today: string;
   goal: string;
   calorieTarget: number;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  fatTarget?: number;
+  weightKg?: number;
   trainingFrequency: number;
   isMinor?: boolean;
   hasMedicalFlags?: boolean;
@@ -96,6 +103,12 @@ export function weeklyReviewInputFromSolo(
       avgFatigue: evidence.avgFatigue,
       avgEnergy: evidence.avgEnergy,
       goal: inputs.goal,
+      proteinTarget: inputs.proteinTarget ?? 0,
+      carbsTarget: inputs.carbsTarget ?? 0,
+      fatTarget: inputs.fatTarget ?? 0,
+      weightKg: evidence.weightEnd ?? inputs.weightKg,
+      weightEndKg: evidence.weightEnd,
+      avgEffectiveTarget: evidence.targetAvg,
     } satisfies WeeklyReviewAggregates,
   };
 }

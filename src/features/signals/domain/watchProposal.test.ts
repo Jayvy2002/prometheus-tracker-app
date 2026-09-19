@@ -9,6 +9,7 @@ import {
   WATCH_PROPOSAL_SOURCE,
   isConcreteWatchProposal,
   isWatchProposalDecision,
+  isWatchProposalReviewId,
   isWatchProposalWeekStart,
   watchProposalCopyKey,
   watchProposalDraftCalories,
@@ -39,6 +40,8 @@ test('watch proposal decisions stay a closed Vision 8.6 set', () => {
   assert.equal(isWatchProposalWeekStart('2026-08-31'), true);
   assert.equal(isWatchProposalWeekStart('2026-8-31'), false);
   assert.equal(isWatchProposalWeekStart(''), false);
+  assert.equal(isWatchProposalReviewId('c2500000-0000-4000-8000-000000000003'), true);
+  assert.equal(isWatchProposalReviewId('rev-1'), false);
   assert.equal(isConcreteWatchProposal({ kind: 'adherence_training', action: 'relance' }), true);
   assert.equal(isConcreteWatchProposal({ kind: 'watch_proposal_decision', action: 'accepted' }), false);
   assert.equal(isConcreteWatchProposal({ kind: 'watch_proposal_decision', action: 'relance' }), true);
@@ -71,6 +74,9 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(latest.sql, /already_decided/);
   assert.match(latest.sql, /stale_proposal/);
   assert.match(latest.sql, /idempotency_conflict/);
+  assert.match(latest.sql, /p_review_id/);
+  assert.match(latest.sql, /p_seen_proposal/);
+  assert.match(latest.sql, /p_seen_evidence/);
   assert.match(latest.sql, /v_action->'proposal'/);
   assert.match(latest.sql, /v_action->'evidence_for'/);
   assert.match(latest.sql, /prometheus_watch_signal_data_used/);
@@ -96,6 +102,11 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(api, /ok: false/);
   assert.match(api, /isWatchProposalWeekStart/);
   assert.match(api, /weekStart/);
+  assert.match(api, /p_review_id/);
+  assert.match(api, /p_seen_updated_at/);
+  assert.match(api, /p_seen_proposal/);
+  assert.match(api, /p_seen_evidence/);
+  assert.match(api, /isWatchProposalReviewId/);
 
   const panel = src('src/components/dashboard/PrometheusWatchPanel.tsx');
   assert.match(panel, /canDecideAthleteWatchProposal\(/);
@@ -103,6 +114,10 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(panel, /item\.currentProposalKey/);
   assert.match(panel, /item\.currentProposalDetail/);
   assert.match(panel, /item\.reviewWeekStart/);
+  assert.match(panel, /item\.reviewId/);
+  assert.match(panel, /item\.reviewUpdatedAt/);
+  assert.match(panel, /item\.currentProposal/);
+  assert.match(panel, /isWatchProposalReviewId/);
   assert.match(panel, /prometheusWatch\.decide/);
   assert.doesNotMatch(panel, /commit_solo_weekly_review_decision/);
   assert.doesNotMatch(panel, /apply_intervention/);
@@ -111,8 +126,14 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
 
   const engine = src('supabase/functions/_shared/weeklyReviewEngine.ts');
   assert.match(engine, /isWatchProposalSettled/);
-  assert.match(engine, /snapshotWatchProposal|adherence_training/);
+  assert.match(engine, /serializeCanonicalWatchProposal/);
+  assert.match(engine, /proposeWeeklyNutrition/);
+  assert.doesNotMatch(engine, /function snapshotWatchProposal/);
   assert.match(engine, /proposal: action.proposal/);
+  const builder = src('supabase/functions/_shared/weeklyNutritionProposal.ts');
+  assert.match(builder, /export function proposeWeeklyNutrition/);
+  assert.match(src('src/features/coaching/domain/coachFleet.ts'), /weeklyNutritionProposal/);
+  assert.match(src('supabase/functions/coach-fleet-round/index.ts'), /weeklyNutritionProposal/);
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /isWatchProposalSettled/);
   const edge = src('supabase/functions/coach-fleet-round/index.ts');
@@ -141,6 +162,10 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(sqlTest, /solo journal missing concrete proposal/);
   assert.match(sqlTest, /journal missing judged draft/);
   assert.match(sqlTest, /journal used live signal instead of review evidence/);
+  assert.match(sqlTest, /older review A still accepted after B arrived/);
+  assert.match(sqlTest, /coached self-save weekly review allowed/);
+  assert.match(sqlTest, /save_athlete_weekly_review missing coached guard/);
+  assert.match(sqlTest, /decide missing seen review token/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /athlete_watch_proposal\.sql/);
