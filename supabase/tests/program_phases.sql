@@ -318,8 +318,6 @@ begin
   end if;
 end $$;
 
-do $$ begin
-  raise notice 'program phases: simple optional, periodized same engine, deload is a phase, logger stamps, leftover lock, fork copies';
-end $$;
+\echo 'program phases: simple optional, periodized same engine, deload is a phase, logger stamps, leftover lock, fork copies'
 
 commit;
