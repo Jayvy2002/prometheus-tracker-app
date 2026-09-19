@@ -38,7 +38,7 @@ test('orchestration persists wait weeks through the shared engine', () => {
   assert.match(src('src/features/signals/domain/weeklyReviewCycle.ts'), /export async function persistAthleteWeeklyReviewCycle/);
 });
 
-test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate is pending', () => {
+test('P2.2 orchestration is wired on Solo and Coach fleet; integrity and durability are in the production lock', () => {
   assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistAthleteWeeklyReviewCycle/);
   assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistVersion/);
   assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistFailed/);
