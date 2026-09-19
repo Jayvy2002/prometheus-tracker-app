@@ -209,3 +209,25 @@ test('UX47 calendar page shows plan states without dropping logged points', () =
   assert.match(ci, /grep -F 'PASS: coached calendar past\/future' artifacts\/p13\/results\.txt/);
   assert.match(ci, /grep -F 'save_program coached leftover owner guard passed'/);
 });
+
+test('calendar can show a session phase without inventing sequence dates', () => {
+  const phases = [
+    { id: 'p1', name: 'Accumulation', order_index: 0, duration_weeks: 4 },
+  ];
+  const withPhase = mark('2026-09-14', {
+    days: [{ id: 'mon', weekday: 1, name: 'Haut du corps', exercises: [{ id: 'e1' }], phase_id: 'p1' }],
+    phases,
+  });
+  assert.equal(withPhase?.status, 'scheduled');
+  assert.equal(withPhase?.phaseName, 'Accumulation');
+
+  const sequence = planMarkForDate({
+    date: '2026-09-15',
+    days: [{ id: 'a', weekday: null, name: 'Lower', exercises: [{ id: 'e1' }], phase_id: 'p1' }],
+    workouts: [],
+    phases,
+    sessionOrganization: 'in_order',
+    ...active,
+  });
+  assert.equal(sequence, null);
+});

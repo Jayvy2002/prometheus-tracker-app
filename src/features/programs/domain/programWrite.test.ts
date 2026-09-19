@@ -40,7 +40,7 @@ test('assign recap date stays on the local calendar day', () => {
 
 test('latest save_program wraps metadata + sync_program_days, refuses stale, and blocks coached leftover owners', () => {
   const found = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program\(/);
-  assert.equal(found.file, '20260919194159_program_session_organization.sql');
+  assert.equal(found.file, '20260919225507_program_phases.sql');
   assert.match(found.sql, /SECURITY DEFINER/);
   assert.match(found.sql, /SET search_path = public/);
   assert.match(found.sql, /RAISE EXCEPTION 'stale'/);
@@ -48,15 +48,16 @@ test('latest save_program wraps metadata + sync_program_days, refuses stale, and
   assert.match(found.sql, /Coached client cannot edit assigned program/);
   assert.match(found.sql, /v_days := public\.sync_program_days\(p_program_id, p_days\)/);
   assert.match(found.sql, /p_session_organization text DEFAULT NULL/);
-  assert.match(found.sql, /GRANT EXECUTE ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz, text\) TO authenticated/);
-  assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz, text\) FROM PUBLIC, anon/);
+  assert.match(found.sql, /p_phases jsonb DEFAULT NULL/);
+  assert.match(found.sql, /GRANT EXECUTE ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz, text, jsonb\) TO authenticated/);
+  assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.save_program\(uuid, text, text, int, jsonb, timestamptz, text, jsonb\) FROM PUBLIC, anon/);
 });
 
 test('legacy program RPCs, owner RLS and assignment Data API share the leftover coached lock', () => {
   const found = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.coached_client_cannot_edit_program');
   assert.equal(found.file, '20260918103748_program_write_coached_owner.sql');
   const sync = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.sync_program_days\(/);
-  assert.equal(sync.file, '20260919194159_program_session_organization.sql');
+  assert.equal(sync.file, '20260919225507_program_phases.sql');
   assert.match(sync.sql, /coached_client_cannot_edit_program/);
   const day = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program_day_exercises\(/);
   assert.equal(day.file, '20260918103748_program_write_coached_owner.sql');

@@ -12,6 +12,7 @@ import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
+import { resolveCurrentPhase } from '../../features/programs/domain/programPhases';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
@@ -343,6 +344,12 @@ export default function WorkoutPage() {
           onStart={startProgramDay}
           onContinue={workoutId => navigate(`/workout/${workoutId}`)}
           onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
+          phaseName={resolveCurrentPhase({
+            phases: assignment.program.phases,
+            startDate: assignment.start_date,
+            today: todayStr(),
+            nextDay: gymCard.day ?? gymCard.nextDay,
+          })?.name}
         />
       )}
 

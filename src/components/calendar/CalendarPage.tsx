@@ -253,6 +253,7 @@ export default function CalendarPage() {
           : null,
         unnamed: t('workout.unnamed'),
         sessionOrganization: assignment?.program?.session_organization,
+        phases: assignment?.program?.phases,
       }));
     }
     return map;
@@ -475,6 +476,11 @@ export default function CalendarPage() {
                   {t(`calendar.plan.${selectedPlan.status}`)}
                 </p>
                 <p className="text-sm font-semibold text-white">{selectedPlan.dayName}</p>
+                {selectedPlan.phaseName ? (
+                  <p className="text-xs text-violet-300 mt-1" data-testid="calendar-plan-phase">
+                    {t('programs.currentPhase', { name: selectedPlan.phaseName })}
+                  </p>
+                ) : null}
                 {selectedPlan.status === 'scheduled' ? (
                   <p className="text-xs text-neutral-500 mt-1">{t('calendar.plan.dueHint')}</p>
                 ) : null}

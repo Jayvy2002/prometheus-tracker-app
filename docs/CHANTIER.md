@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — Hotfix B CLOS EN PRODUCTION (127 migrations, dernière `20260919214423_p2_primitive_authority`). Hotfix A clos. P3.1 clos. P2.1–P2.5 clos. Prochaine passe issue de l’audit P1/P2 : améliorations analytiques/produit (tracking Solo configurable, plus de fallback fictif à 3 séances/semaine, tendance de poids, fatigue/nutrition, mémoire des propositions modifiées, historique des runs si justifié, UX décision/application). Ne pas commencer P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
+> **CURRENT IMPLEMENTATION GATE — P3.2 EN COURS.** Candidate `20260919225507_program_phases` pending. Production/lock restent à **127** (`20260919214423_p2_primitive_authority`). Hotfix B clos. P3.1 clos. Après merge CI verte : apply timestamp Git, lock 128, puis P3.3. Ne pas commencer P4. Aucune auto-application. Watch n’applique pas.
 >
-> Hotfix B est mergé (`#199`) et **appliqué en production** avec le timestamp Git. Hotfix A (`#197`), P3.1 (`#195`/`#196`) et P1.5–P2.5 (`#190`–`#194`) restent clos. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> Hotfix B est mergé (`#199`/`#200`) et **appliqué en production** avec le timestamp Git. P3.1 (`#195`/`#196`) reste clos. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -62,7 +62,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (127 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (127 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **P3.1 clos** — P3.2/P3.3 après audit P1/P2 | Phases/cycles + séquence de séances |
+| **P3** | Planification avancée | **P3.1 clos — P3.2 en cours** | Phases optionnelles, puis versions/activation |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`), P3.1 (`#195`) et Hotfix A (`#197`) sont appliqués en production (126 migrations). P2 s’arrête à P2.5. Arrêt P3 : audit/hotfix P1–P2 avant P3.2. Ne pas commencer P4.
+P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`), P3.1 (`#195`/`#196`) et Hotfix B (`#199`/`#200`) sont appliqués en production (127 migrations). P3.2 est en cours (candidate pending). Ne pas commencer P4.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -449,7 +449,7 @@ Un utilisateur authentifié ne peut pas transformer l’identité d’un lien ex
 
 `authenticated` / `anon` / `PUBLIC` n’ont plus `EXECUTE` sur `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision` (11/13 args), `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. `service_role` conserve `EXECUTE`. Les RPC métier (`save_athlete_weekly_review`, `commit_solo_weekly_review_decision`, `apply_intervention`, Watch `correct`/`decide`) et `drain_athlete_decision_outbox` restent publiques. Une décision Solo qui change les cibles passe uniquement par `commit_solo_weekly_review_decision` : RPC absente → fail-closed, aucune mutation locale.
 
-**Arrêt : Hotfix B est clos. Prochaine passe = améliorations analytiques/produit de l’audit P1/P2. Pas de P3.2 / P3.3 / P4.**
+**Arrêt Hotfix B : clos. Reprise P3 à P3.2 (P3.1 déjà terminé). Pas de P4.**
 
 ### Terminé quand
 
@@ -683,31 +683,21 @@ Ne pas créer deux loggers. Ne pas inventer P2.6/P2.7. Ne pas commencer P4.
 
 ## P3.2 — Phases et cycles
 
-**En attente.** Ne pas commencer tant que la passe d’audit/hotfix P1–P2 n’est pas close et qu’un feu vert explicite n’a pas relancé P3.
+**EN COURS** — candidate `20260919225507_program_phases` (pending, lock production 127). Inventaire : [P3.2 — phases](P3_2_PROGRAM_PHASES.md).
 
-Étendre progressivement le modèle :
+Un seul moteur `programs` → phases optionnelles → `program_days` → prescriptions → workouts.
 
-```text
-program
-→ phases
-→ cycle/microcycle si utile
-→ session templates
-→ exercises
-→ prescriptions
-```
-
-Fonctions visées :
-
-- blocs/phases ;
-- deload ;
-- taper ;
-- variations de volume/intensité ;
-- durée variable ;
-- activation future.
+- Programme simple = zéro phase.
+- Programme périodisé = les mêmes séances, groupées par phase.
+- Deload / taper = une phase avec d’autres prescriptions, pas un second logger.
+- `session_organization` P3.1 inchangé (`fixed_days` / `in_order`).
+- Le logger tamponne `program_phase_id` + `prescribed_phase_name` au start.
+- Permissions P1.2 inchangées (leftover Coaché, owner, Coach actif).
+- Activation / versions = P3.3, pas cette sous-tâche.
 
 ### UX
 
-Le niveau avancé est progressif. Un utilisateur doit toujours pouvoir créer un simple programme de quelques séances sans configurer un mésocycle.
+Le chemin principal reste : créer un programme → séances → Jours fixes ou Dans l’ordre → exercices → enregistrer. Les phases sont derrière « Options avancées ».
 
 ## P3.3 — Versions et activation
 

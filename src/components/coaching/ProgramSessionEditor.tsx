@@ -4,6 +4,8 @@ import { useProgramNlEdit } from '../../features/programs/hooks/useProgramNlEdit
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react';
 import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft, SessionOrganization } from '../../lib/types';
+import type { ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
+import { newPhaseDraft } from '../../features/programs/domain/programPhases';
 import {
   formatExercisePrescription,
   repsInputMode,
@@ -45,6 +47,8 @@ interface Props {
   preferredWeekdays?: number[];
   sessionOrganization?: SessionOrganization;
   onSessionOrganizationChange?: (value: SessionOrganization) => void;
+  phases?: ProgramPhaseDraft[];
+  onPhasesChange?: (phases: ProgramPhaseDraft[]) => void;
 }
 
 function emptyDay(weekday: number | null): AiProgramDayDraft {
@@ -79,6 +83,8 @@ export default function ProgramSessionEditor({
   preferredWeekdays = [],
   sessionOrganization = 'fixed_days',
   onSessionOrganizationChange,
+  phases = [],
+  onPhasesChange,
 }: Props) {
   const { t, i18n } = useTranslation();
   const athlete = presentation === 'athlete';
@@ -291,6 +297,57 @@ export default function ProgramSessionEditor({
         </fieldset>
       )}
 
+      {onPhasesChange && (
+        <details className="group rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3 py-2" data-testid="program-phases-advanced">
+          <summary className="flex items-center justify-between cursor-pointer list-none text-sm text-neutral-300">
+            {t('programs.phasesAdvanced')}
+            <ChevronDown size={16} className="text-neutral-500 group-open:rotate-180 transition-transform" />
+          </summary>
+          <p className="text-[11px] text-neutral-500 mt-2">{t('programs.phasesHint')}</p>
+          <div className="mt-3 space-y-2">
+            {phases.map((phase, index) => (
+              <div key={phase.id ?? `phase-${index}`} className="grid grid-cols-[1fr_72px_32px] gap-2 items-end">
+                <Input
+                  label={index === 0 ? t('programs.phaseName') : undefined}
+                  value={phase.name}
+                  onChange={e => onPhasesChange(phases.map((row, i) => i === index ? { ...row, name: e.target.value } : row))}
+                />
+                <Input
+                  label={index === 0 ? t('programs.phaseWeeks') : undefined}
+                  type="number"
+                  value={phase.duration_weeks ?? ''}
+                  onChange={e => {
+                    const raw = e.target.value;
+                    const weeks = raw === '' ? null : Math.max(1, Math.min(52, Number(raw) || 1));
+                    onPhasesChange(phases.map((row, i) => i === index ? { ...row, duration_weeks: weeks } : row));
+                  }}
+                />
+                <button
+                  type="button"
+                  className="h-10 text-neutral-500 hover:text-red-400"
+                  onClick={() => {
+                    const removed = phases[index]?.id;
+                    onPhasesChange(phases.filter((_, i) => i !== index));
+                    if (removed) {
+                      onDaysChange(days.map(d => d.phase_id === removed ? { ...d, phase_id: null } : d));
+                    }
+                  }}
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="text-xs text-blue-400"
+              onClick={() => onPhasesChange([...phases, newPhaseDraft('')])}
+            >
+              + {t('programs.addPhase')}
+            </button>
+          </div>
+        </details>
+      )}
+
       {athlete ? (
         <div className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3">
           <p className="text-[11px] font-medium text-blue-300 flex items-center gap-1.5">
@@ -441,6 +498,19 @@ export default function ProgramSessionEditor({
                 ? 'flex-1 bg-transparent outline-none text-white text-base font-semibold'
                 : 'flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white'}
             />
+            {onPhasesChange && phases.length > 0 && (
+              <select
+                value={day.phase_id ?? ''}
+                onChange={e => updateDay(safeIndex, { phase_id: e.target.value || null })}
+                className="bg-neutral-900 border border-neutral-800 rounded-xl px-2 py-2 text-xs text-white max-w-[9rem]"
+                data-testid="program-day-phase"
+              >
+                <option value="">{t('programs.phaseNone')}</option>
+                {phases.filter(phase => phase.id).map(phase => (
+                  <option key={phase.id} value={phase.id}>{phase.name.trim() || t('programs.phaseName')}</option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               onClick={() => {

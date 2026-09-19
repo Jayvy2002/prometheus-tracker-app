@@ -7,9 +7,10 @@ import { useProgramStore } from '../../stores/programStore';
 import { namedSessionLine, programSessionLabel } from '../../features/programs/domain/namedSession';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
 import { normalizeSessionOrganization, sessionOrderLetter } from '../../features/programs/domain/sessionOrganization';
+import { phaseNameForDay, resolveCurrentPhase, type ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
-import { programWeekNumber } from '../../lib/utils';
+import { programWeekNumber, todayStr } from '../../lib/utils';
 import { outlineFromEdited } from '../../lib/coachDraftSend';
 import type { AiProgramDayDraft, ProgramDay, ProgramDayExercise, SessionOrganization } from '../../lib/types';
 import Card from '../ui/Card';
@@ -46,6 +47,7 @@ export default function ClientProgramPage() {
   const [weeks, setWeeks] = useState(8);
   const [days, setDays] = useState<AiProgramDayDraft[]>([emptyProgramDraftDay()]);
   const [organization, setOrganization] = useState<SessionOrganization>('fixed_days');
+  const [phases, setPhases] = useState<ProgramPhaseDraft[]>([]);
 
   useEffect(() => {
     if (!user) return;
@@ -62,6 +64,14 @@ export default function ClientProgramPage() {
     : null;
   const inOrder = normalizeSessionOrganization(program?.session_organization ?? organization) === 'in_order';
   const todayDay = inOrder ? null : training.find(d => d.weekday === todayWeekday) ?? null;
+  const currentPhase = program
+    ? resolveCurrentPhase({
+      phases: program.phases,
+      startDate: assignment?.start_date,
+      today: todayStr(),
+      nextDay: todayDay ?? training[0],
+    })
+    : null;
   const showEditor = canEditOwnPlan && (!!program || creating);
 
   useEffect(() => {
@@ -71,6 +81,12 @@ export default function ClientProgramPage() {
     setDescription(program.description ?? '');
     setWeeks(program.duration_weeks);
     setOrganization(normalizeSessionOrganization(program.session_organization));
+    setPhases((program.phases ?? []).map(phase => ({
+      id: phase.id,
+      name: phase.name,
+      description: phase.description,
+      duration_weeks: phase.duration_weeks ?? null,
+    })));
     setDays(programDaysToDraft(program.days));
   }, [program?.id, program?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -124,6 +140,7 @@ export default function ClientProgramPage() {
       },
       outline.days,
       program.updated_at,
+      phases.filter(phase => phase.name.trim()),
     );
     setSaving(false);
     if (saved.error) {
@@ -167,6 +184,8 @@ export default function ClientProgramPage() {
               currentWeek={week}
               sessionOrganization={organization}
               onSessionOrganizationChange={setOrganization}
+              phases={phases}
+              onPhasesChange={setPhases}
               onNameChange={setName}
               onDescriptionChange={setDescription}
               onWeeksChange={setWeeks}
@@ -195,6 +214,11 @@ export default function ClientProgramPage() {
               {program.description?.trim() ? (
                 <p className="text-sm text-neutral-400 mt-1">{program.description}</p>
               ) : null}
+              {currentPhase && (
+                <p className="text-xs text-violet-300 mt-2" data-testid="program-current-phase">
+                  {t('programs.currentPhase', { name: currentPhase.name })}
+                </p>
+              )}
               {week != null && (
                 <>
                   <p className="text-xs text-blue-300 mt-2">
@@ -239,6 +263,7 @@ export default function ClientProgramPage() {
                   isToday={!inOrder && day.weekday === todayWeekday}
                   todayLabel={t('programs.todayBadge')}
                   emptyLabel={t('programs.noExercises')}
+                  phaseName={phaseNameForDay(program.phases, day)}
                 />
               ))}
             </div>
@@ -286,12 +311,14 @@ function DayCard({
   isToday,
   todayLabel,
   emptyLabel,
+  phaseName,
 }: {
   day: ProgramDay;
   label: string;
   isToday: boolean;
   todayLabel: string;
   emptyLabel: string;
+  phaseName?: string | null;
 }) {
   return (
     <Card className={isToday ? 'border-blue-500/20' : undefined}>
@@ -303,6 +330,9 @@ function DayCard({
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-600/20 text-blue-300">{todayLabel}</span>
         )}
       </div>
+      {phaseName ? (
+        <p className="text-[11px] text-violet-300 mb-1">{phaseName}</p>
+      ) : null}
       <ExerciseList exercises={day.exercises ?? []} emptyLabel={emptyLabel} />
     </Card>
   );

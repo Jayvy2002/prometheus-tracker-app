@@ -8,6 +8,7 @@ import {
   restoreCreatesNewRevision,
   revisionBeforeAfter,
   snapshotToDayDrafts,
+  snapshotToPhaseDrafts,
   summarizeRevisionDays,
 } from './programRevisionDiff';
 
@@ -34,15 +35,19 @@ test('revision list shows before/after and restore is a new snapshot', () => {
   assert.equal(snapshotToDayDrafts(snapB)[0].exercises[1].name, 'Incline Bench Press');
 });
 
-test('wrapped revision snapshot keeps organization and null weekday', () => {
+test('wrapped revision snapshot keeps organization, null weekday and optional phases', () => {
   const wrapped = {
     session_organization: 'in_order',
-    days: [{ weekday: null, name: 'A', exercises: [{ name: 'Squat' }] }],
+    days: [{ weekday: null, name: 'A', phase_id: 'p1', exercises: [{ name: 'Squat' }] }],
+    phases: [{ id: 'p1', name: 'Accumulation', duration_weeks: 4 }],
   };
   assert.equal(parseRevisionOrganization(wrapped), 'in_order');
   assert.equal(parseRevisionOrganization([{ weekday: 1, name: 'Upper', exercises: [] }]), 'fixed_days');
   assert.equal(parseRevisionSnapshot(wrapped)[0].weekday, null);
   assert.equal(snapshotToDayDrafts(wrapped)[0].name, 'A');
+  assert.equal(snapshotToDayDrafts(wrapped)[0].phase_id, 'p1');
+  assert.equal(snapshotToPhaseDrafts(wrapped)[0].name, 'Accumulation');
+  assert.deepEqual(snapshotToPhaseDrafts([{ weekday: 1, name: 'Upper', exercises: [] }]), []);
 });
 
 test('UX23 wires history UI and restore goes through save_program, not workouts', () => {
@@ -50,6 +55,7 @@ test('UX23 wires history UI and restore goes through save_program, not workouts'
   assert.match(store, /fetchProgramRevisions/);
   assert.match(store, /restoreProgramRevision/);
   assert.match(store, /snapshotToDayDrafts/);
+  assert.match(store, /snapshotToPhaseDrafts/);
   assert.match(store, /rpc\('save_program'/);
   const restoreFn = store.slice(store.indexOf('restoreProgramRevision'));
   assert.doesNotMatch(restoreFn.slice(0, 800), /from\('workouts'\)/);

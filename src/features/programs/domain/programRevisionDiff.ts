@@ -15,6 +15,7 @@ export interface RevisionDaySnap {
   weekday: number | null;
   name: string;
   order_index?: number;
+  phase_id?: string | null;
   exercises: RevisionExerciseSnap[];
 }
 
@@ -30,6 +31,7 @@ export interface ProgramRevisionRow {
 export interface RevisionDayDraft {
   weekday: number | null;
   name: string;
+  phase_id?: string | null;
   exercises: Array<{
     name: string;
     default_sets: number;
@@ -73,6 +75,7 @@ export function parseRevisionSnapshot(snapshot: unknown): RevisionDaySnap[] {
       weekday: parseWeekday(rec.weekday),
       name: typeof rec.name === 'string' ? rec.name : '',
       order_index: typeof rec.order_index === 'number' ? rec.order_index : index,
+      phase_id: typeof rec.phase_id === 'string' && rec.phase_id ? rec.phase_id : null,
       exercises: exercisesRaw.map((ex, order) => {
         const row = asRecord(ex) ?? {};
         return {
@@ -110,6 +113,7 @@ export function snapshotToDayDrafts(snapshot: unknown): RevisionDayDraft[] {
   return parseRevisionSnapshot(snapshot).map(day => ({
     weekday: day.weekday,
     name: day.name,
+    phase_id: day.phase_id ?? null,
     exercises: day.exercises.map(ex => ({
       name: ex.name,
       default_sets: ex.default_sets ?? 3,
@@ -124,4 +128,24 @@ export function snapshotToDayDrafts(snapshot: unknown): RevisionDayDraft[] {
 
 export function restoreCreatesNewRevision(): true {
   return true;
+}
+
+export function snapshotToPhaseDrafts(snapshot: unknown): Array<{
+  id?: string;
+  name: string;
+  description?: string;
+  duration_weeks: number | null;
+}> {
+  const rec = asRecord(snapshot);
+  const raw = Array.isArray(rec?.phases) ? rec.phases : [];
+  return raw.map((item, order_index) => {
+    const row = asRecord(item) ?? {};
+    const weeks = typeof row.duration_weeks === 'number' ? row.duration_weeks : null;
+    return {
+      id: typeof row.id === 'string' && row.id ? row.id : undefined,
+      name: typeof row.name === 'string' ? row.name : `Phase ${order_index + 1}`,
+      description: typeof row.description === 'string' ? row.description : '',
+      duration_weeks: weeks != null && weeks >= 1 && weeks <= 52 ? weeks : null,
+    };
+  }).filter(phase => phase.name.trim());
 }
