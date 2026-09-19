@@ -2,11 +2,13 @@
 
 ## Livré
 
-Vision 8.4 / 8.5. Lecture « Ce que Prometheus surveille » (`#191`, `b404281`)
+Vision 8.4 / 8.5. Lecture seule : « Ce que Prometheus surveille » (`#191`, `b404281`)
 puis correction traçable (`#192`, `9b8a7ab`).
 
-Aucun second moteur. Aucune auto-application. Les mesures sources
-(nutrition, séances, pesées, programmes, cibles) ne sont pas réécrites.
+Aucun second moteur. Aucune auto-application. Observation = type + fingerprint
+structuré + i18n. État actuel ≠ dernière décision humaine. Indisponible ≠ vide.
+Les mesures sources (nutrition, séances, pesées, programmes, cibles) ne sont
+pas réécrites.
 
 La correction (`corrected`) clôt le signal ouvert en `not_relevant`.
 Un refus de proposition P2.5 n’est pas une correction : le signal reste ouvert.
