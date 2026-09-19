@@ -60,6 +60,13 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity and durabil
   assert.match(src('.github/workflows/ci.yml'), /athlete_review_integrity\.sql/);
   assert.match(src('supabase/tests/athlete_review_integrity.sql'), /signal_athlete_mismatch/);
   assert.match(src('supabase/tests/athlete_review_integrity.sql'), /atomic upsert missing/);
+  {
+    const integrity = src('supabase/tests/athlete_review_integrity.sql');
+    const resets = [...integrity.matchAll(/^reset role;$/gm)];
+    const clears = [...integrity.matchAll(/^reset role;\nselect set_config\('request.jwt.claim.sub','',true\);$/gm)];
+    assert.equal(clears.length, resets.length);
+    assert.ok(resets.length > 0);
+  }
   assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /ON CONFLICT \(athlete_id, domain, type\) WHERE status IN \('open', 'waiting'\)/);
   assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /signal_athlete_mismatch/);
   assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /list_latest_athlete_decisions/);

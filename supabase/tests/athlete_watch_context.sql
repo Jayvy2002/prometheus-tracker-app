@@ -147,6 +147,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- A journal write failure must roll back the resolve (signal stays open).
 do $$
@@ -223,6 +225,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Coached athlete cannot correct own coaching interpretation.
 set local role authenticated;
@@ -260,6 +264,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Active Coach of the athlete can correct. A Coach who is themselves coached
 -- cannot correct their own personal dossier.
@@ -313,6 +319,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Capture signal ids as postgres before unauthorized JWTs. A stranger SELECT
 -- under RLS sees zero rows, so looking up the id after set role would pass
@@ -346,6 +354,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Coach of 001 cannot correct 003 (no relationship). Active meta-coach of 001
 -- still cannot invent a write on 003.
@@ -364,6 +374,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Token is locked to the signal version the human saw.
 select public.upsert_athlete_signal(
@@ -443,6 +455,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 declare

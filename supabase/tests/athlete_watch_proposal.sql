@@ -207,6 +207,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- A later proposing week on the same open signal must journal again (week-scoped key).
 select public.save_athlete_weekly_review(
@@ -279,6 +281,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Latest review wait is not a current proposal.
 select public.save_athlete_weekly_review(
@@ -331,6 +335,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Coached athlete cannot decide a coaching proposal on their own dossier.
 select public.save_athlete_weekly_review(
@@ -413,6 +419,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Active Coach can refuse the client proposal; signal stays open.
 set local role authenticated;
@@ -453,6 +461,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- A Coach who is himself coached cannot decide on his own coached dossier.
 select public.save_athlete_weekly_review(
@@ -505,6 +515,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 declare
@@ -540,6 +552,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Unrelated coach (meta-coach of 001, not of 003) cannot decide on Solo.
 -- Coach-of-coach is not transitive onto the client of 001.
@@ -565,6 +579,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Low confidence is not a current proposal; modified requires a reason; closed signal cannot be decided.
 select public.save_athlete_weekly_review(
@@ -617,6 +633,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 select public.save_athlete_weekly_review(
   'c2500000-0000-4000-8000-000000000004',
@@ -695,6 +713,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 declare
@@ -724,6 +744,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- A propose review without a concrete proposal object is not decidable.
 select public.save_athlete_weekly_review(
@@ -776,6 +798,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Decision is locked to the review action evidence, not the live signal.
 select public.save_athlete_weekly_review(
@@ -853,6 +877,8 @@ begin
   end;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 select public.upsert_athlete_signal(
   'c2500000-0000-4000-8000-000000000005',
@@ -891,6 +917,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Decision is locked to the review the human saw, not the latest at click time.
 select public.save_athlete_weekly_review(
@@ -1027,6 +1055,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 -- Source lock: the RPC must not rewrite tracker rows or call apply engines.
 do $$

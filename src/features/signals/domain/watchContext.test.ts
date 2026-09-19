@@ -69,6 +69,10 @@ test('P2.4 context correction reuses journal + resolve, with Solo/Coach authorit
   assert.match(engine, /isContextCorrectionHeld/);
 
   const sqlTest = src('supabase/tests/athlete_watch_context.sql');
+  const contextResets = [...sqlTest.matchAll(/^reset role;$/gm)];
+  const contextClears = [...sqlTest.matchAll(/^reset role;\nselect set_config\('request.jwt.claim.sub','',true\);$/gm)];
+  assert.equal(contextClears.length, contextResets.length);
+  assert.ok(contextResets.length > 0);
   assert.match(sqlTest, /coached self-correct allowed/);
   assert.match(sqlTest, /coached coach self-correct allowed/);
   assert.match(sqlTest, /stranger correct allowed/);

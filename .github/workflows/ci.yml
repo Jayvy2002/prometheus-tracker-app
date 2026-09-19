@@ -28,7 +28,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Dependency critical vulnerability gate
-        run: npm audit --audit-level=critical
+        # Installed-tree `audits/quick` now 400s ("Invalid package tree") after the
+        # endpoint retirement. Lockfile audit still fails closed on critical findings.
+        run: npm audit --package-lock-only --audit-level=critical
       - run: npm run lint
       - run: npm run typecheck
       # 17b : npm test = tous les src/**/*.test.ts (sessionScope y compris).

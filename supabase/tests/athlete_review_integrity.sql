@@ -98,6 +98,8 @@ begin
   if latest.why <> 'Toujours non' then raise exception 'latest training decision is not the newest'; end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$
 declare
@@ -169,6 +171,8 @@ begin
   end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1940000-0000-4000-8000-000000000002',true);
@@ -200,6 +204,8 @@ begin
   ) then raise exception 'solo weekly row missing from composite'; end if;
 end $$;
 reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
 
 do $$ begin
   if has_table_privilege('authenticated','public.athlete_decision_outbox','insert') then

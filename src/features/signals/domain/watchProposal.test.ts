@@ -141,6 +141,10 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(edge, /isWatchProposalSettled/);
 
   const sqlTest = src('supabase/tests/athlete_watch_proposal.sql');
+  const proposalResets = [...sqlTest.matchAll(/^reset role;$/gm)];
+  const proposalClears = [...sqlTest.matchAll(/^reset role;\nselect set_config\('request.jwt.claim.sub','',true\);$/gm)];
+  assert.equal(proposalClears.length, proposalResets.length);
+  assert.ok(proposalResets.length > 0);
   assert.match(sqlTest, /custom B inherited proposal A/);
   assert.match(sqlTest, /coached self-decide allowed/);
   assert.match(sqlTest, /coached coach self-decide allowed/);
@@ -169,6 +173,7 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(sqlTest, /decide missing seen review token/);
 
   const ci = src('.github/workflows/ci.yml');
+  assert.match(ci, /npm audit --package-lock-only --audit-level=critical/);
   assert.match(ci, /athlete_watch_proposal\.sql/);
   assert.match(
     ci,
