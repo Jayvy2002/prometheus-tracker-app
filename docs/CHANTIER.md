@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P2.4 correction de contexte (en cours).**
+> **CURRENT IMPLEMENTATION GATE — P2.5 décision humaine sur la proposition (en cours).**
 >
-> P1.5–P2.3 sont mergés (`#190`, `c51d5f49`) et **actifs en production** (122 migrations, dernière `20260918232507_athlete_decision_durability`). Le slice lecture P2.4 est mergé (`#191`, `b404281`). Cette PR : correction de contexte traçable (écriture). Aucune auto-application. Aucune réécriture des mesures sources. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas P2.5. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.5–P2.3 sont mergés (`#190`, `c51d5f49`) et **actifs en production** (122 migrations, dernière `20260918232507_athlete_decision_durability`). Le slice lecture P2.4 est mergé (`#191`, `b404281`). Cette PR : correction de contexte (P2.4) **et** décision humaine accepter / modifier / refuser depuis le panneau (P2.5). Aucune auto-application. Aucune réécriture des mesures sources. Le panneau n’est pas un troisième moteur d’apply : Solo `commit_solo_weekly_review_decision` et Coach `apply_intervention` restent les chemins d’effet durable. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas P2.6 ni P3. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -61,7 +61,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (122 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **EN COURS — P2.4 correction de contexte** | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P2** | Cerveau Prometheus | **EN COURS — P2.5 décision humaine sur la proposition** | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.3 sont mergés dans `new-JV` (`#190`) et appliqués en production (122 migrations). Le slice lecture P2.4 est mergé (`#191`). La correction de contexte est la sous-tâche en cours. Un agent n’enchaîne pas P2.5 sans feu vert.
+P1.5–P2.3 sont mergés dans `new-JV` (`#190`) et appliqués en production (122 migrations). Le slice lecture P2.4 est mergé (`#191`). Cette PR porte la correction de contexte et P2.5 (décision sur la proposition courante). Un agent n’enchaîne pas P2.6 ni P3 sans feu vert.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -557,7 +557,7 @@ La revue suivante exploite ce contexte. Un refus n’est pas un bouton sans mém
 
 **SLICE LECTURE MERGÉ** — `#191` (`b404281`) : écran « Ce que Prometheus surveille ».
 
-**SLICE CORRECTION EN COURS** — écriture traçable depuis le même panneau.
+**SLICE CORRECTION DANS CETTE PR** — écriture traçable depuis le même panneau.
 
 Inventaire : [P2.4 — explicabilité](P2_4_EXPLAINABILITY.md).
 
@@ -570,7 +570,7 @@ Audit : P2.1–P2.3 fournissent déjà signaux, revue, journal, `data_used`, `wh
 - Les mesures sources (séances, nutrition, pesées) ne sont jamais réécrites.
 - Indisponible ≠ vide : le panneau a loading / ready / error + retry. Une correction non persistée affiche une erreur, pas un succès.
 
-**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.5.**
+**Arrêt de la sous-tâche P2.4 :** livrée dans cette PR avec P2.5. Ne pas merger sans feu vert.
 
 L’utilisateur/Coach doit pouvoir comprendre :
 
@@ -588,7 +588,39 @@ Ne pas afficher de scores de confiance pseudo-précis si le modèle ne les justi
 - mémoire inter-semaines prouvée par tests ;
 - un refus humain influence une revue suivante ;
 - les modules désactivés n’alimentent pas de jugement ;
-- la correction de contexte reste traçable et ne falsifie pas les mesures.
+- la correction de contexte reste traçable et ne falsifie pas les mesures ;
+- une proposition courante peut être acceptée, modifiée ou refusée depuis le panneau, sans troisième moteur d’apply.
+
+---
+
+## P2.5 — Décision humaine sur la proposition courante
+
+### État actuel
+
+**EN COURS — cette PR**, après le slice correction P2.4.
+
+Inventaire : [P2.5 — proposition](P2_5_WATCH_PROPOSAL.md).
+
+Le panneau montre une proposition **seulement** si la revue `propose` pour ce `(domaine, type)` exact (upsert `open` medium/high). Un signal custom ouvert n’hérite pas de la proposition d’un autre type.
+
+Contrat :
+
+```text
+humain (Solo ou Coach actif) + proposition courante
+→ RPC atomique : journal accepted | modified | refused
+→ le signal reste ouvert (un refus n’est pas une correction)
+→ idempotence par semaine ISO (`watch-decide:{signal}:{décision}:{week_start}`)
+→ la revue suivante ne repropose pas le même (domaine, type)
+  tant que les preuves n’ont pas changé
+→ aucune écriture des cibles, séances, repas, programmes
+→ Coaché (y compris Coach lui-même Coaché) : lecture seule
+→ workspace UI n’accorde rien
+→ succès UI seulement après persistance
+```
+
+`commit_solo_weekly_review_decision` et `apply_intervention` restent les seuls chemins d’effet durable. Le panneau journalise le contexte Vision 8.6.
+
+**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.6 ni P3.**
 
 ---
 

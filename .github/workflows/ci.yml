@@ -177,6 +177,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'athlete watch context: solo and coach can correct, coached cannot, no source rewrite' /tmp/athlete-watch-context-db-results.txt
+      - name: Test athlete watch proposal decision
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_watch_proposal.sql | tee /tmp/athlete-watch-proposal-db-results.txt
+      - name: Confirm athlete watch proposal echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete watch proposal: solo and coach can decide, coached cannot, refuse keeps signal open, custom B does not inherit A' /tmp/athlete-watch-proposal-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

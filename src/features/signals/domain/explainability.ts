@@ -16,6 +16,7 @@ import type {
   AthleteWeeklyReview,
 } from '../types';
 import {
+  decisionEvidenceChanged,
   isProposalSuppressed,
   type ProposalEvidenceSnapshot,
 } from './decisionLog';
@@ -70,6 +71,7 @@ export interface PrometheusWatchItem {
   humanReason: string | null;
   whyHiddenKey: string | null;
   reevaluateKey: string;
+  reviewWeekStart: string | null;
   suppressed: boolean;
 }
 
@@ -239,6 +241,9 @@ function lastProposalKeyFrom(decision: AthleteDecisionLog | null): string | null
   if (decision.decision === 'corrected' || decision.proposal.kind === 'watch_context_correction') {
     return null;
   }
+  if (decision.proposal.kind === 'watch_proposal_decision') {
+    return 'prometheusWatch.proposal.generic';
+  }
   const action = decision.proposal.action;
   if (typeof action !== 'string') return null;
   return LAST_PROPOSAL_ACTION_KEYS[action] ?? 'prometheusWatch.proposal.generic';
@@ -320,11 +325,17 @@ function currentProposalAllowed(input: {
   signal: AthleteSignal | null;
   suppressed: boolean;
   review: AthleteWeeklyReview | null;
+  lastHuman: AthleteHumanDecision | null;
+  evidenceMoved: boolean;
 }): boolean {
   if (input.kind !== 'current') return false;
   if (input.suppressed) return false;
   if (input.signal?.status !== 'open') return false;
-  return reviewProposesFor(input.review, input.domain, input.type);
+  if (!reviewProposesFor(input.review, input.domain, input.type)) return false;
+  if ((input.lastHuman === 'accepted' || input.lastHuman === 'modified') && !input.evidenceMoved) {
+    return false;
+  }
+  return true;
 }
 
 function buildItem(input: {
@@ -353,11 +364,13 @@ function buildItem(input: {
       : true
     : false;
   const evidenceMoved = Boolean(
-    refusedOrIgnored
+    lastHuman
     && currentEvidence
     && decision
-    && !isProposalSuppressed([decision], domain, type, currentEvidence),
+    && decisionEvidenceChanged(decision.data_used, currentEvidence, domain, type),
   );
+  const proposalSettled = suppressed
+    || ((lastHuman === 'accepted' || lastHuman === 'modified') && !evidenceMoved);
 
   const currentMetrics = kind === 'current' && signal
     ? parseEvidenceFingerprint(signal.evidence_for)
@@ -376,6 +389,8 @@ function buildItem(input: {
     signal,
     suppressed,
     review,
+    lastHuman,
+    evidenceMoved,
   });
 
   let statusKey: string;
@@ -390,14 +405,14 @@ function buildItem(input: {
   let whyHiddenKey: string | null = null;
   if (kind === 'history' && evidenceMoved) {
     whyHiddenKey = 'prometheusWatch.hidden.changedNoSignal';
-  } else if (suppressed) {
+  } else if (proposalSettled) {
     whyHiddenKey = 'prometheusWatch.hidden.unchanged';
   } else if (kind === 'current' && evidenceMoved) {
     whyHiddenKey = 'prometheusWatch.hidden.changed';
   }
 
   let reevaluateKey = 'prometheusWatch.reevaluate.nextReview';
-  if (suppressed) reevaluateKey = 'prometheusWatch.reevaluate.needNewProof';
+  if (proposalSettled) reevaluateKey = 'prometheusWatch.reevaluate.needNewProof';
   else if (kind === 'history') reevaluateKey = 'prometheusWatch.reevaluate.noOpenSignal';
   else if (signal?.status === 'waiting') reevaluateKey = 'prometheusWatch.reevaluate.needMoreData';
 
@@ -435,6 +450,7 @@ function buildItem(input: {
     humanReason: decision?.human_reason?.trim() || null,
     whyHiddenKey,
     reevaluateKey,
+    reviewWeekStart: kind === 'current' ? review?.week_start ?? null : null,
     suppressed,
   };
 }

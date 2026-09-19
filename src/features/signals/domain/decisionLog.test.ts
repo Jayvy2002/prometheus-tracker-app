@@ -18,6 +18,7 @@ import {
   isAthleteHumanDecision,
   isContextCorrectionHeld,
   isProposalSuppressed,
+  isWatchProposalSettled,
   latestAthleteDecision,
   mapInterventionDecision,
   mapInterventionKind,
@@ -137,6 +138,39 @@ test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
   assert.equal(canRecordAthleteDecision({ actorId: 'a', athleteId: 'a', isCoachOfAthlete: false }), true);
   assert.equal(canRecordAthleteDecision({ actorId: 'coach', athleteId: 'a', isCoachOfAthlete: true }), true);
   assert.equal(canReadAthleteDecisionLog({ actorId: 'other', athleteId: 'a', isCoachOfAthlete: false }), false);
+});
+
+test('a watch-panel accept or modify settles that proposal until evidence moves', () => {
+  const agg = aggregates({ workoutCount: 0 });
+  const watchAccepted = [row({
+    decision: 'accepted',
+    domain: 'training',
+    type: 'missed_sessions',
+    source: 'prometheus_watch',
+    data_used: { workout_count: 0, expected_workouts: 6 },
+  })];
+  assert.equal(isWatchProposalSettled(watchAccepted, 'training', 'missed_sessions', agg), true);
+  assert.equal(isProposalSuppressed(watchAccepted, 'training', 'missed_sessions', agg), false);
+  assert.equal(
+    isWatchProposalSettled(watchAccepted, 'training', 'missed_sessions', aggregates({ workoutCount: 2 })),
+    false,
+  );
+  assert.equal(isWatchProposalSettled([row({ decision: 'accepted' })], 'nutrition', 'not_following', aggregates()), false);
+  assert.equal(
+    isWatchProposalSettled(
+      [row({
+        decision: 'modified',
+        domain: 'training',
+        type: 'missed_sessions',
+        source: 'prometheus_watch',
+        data_used: { workout_count: 0, expected_workouts: 6 },
+      })],
+      'training',
+      'missed_sessions',
+      agg,
+    ),
+    true,
+  );
 });
 
 test('a context correction holds the same interpretation until evidence moves', () => {
@@ -312,11 +346,14 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.match(shared, /canonicalActionField/);
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /isProposalSuppressed/);
+  assert.match(fleet, /isWatchProposalSettled/);
   assert.match(fleet, /recentDecisions: AthleteDecisionLog\[\] = \[\]/);
   const edge = src('supabase/functions/coach-fleet-round/index.ts');
   assert.match(edge, /proposalMemory/);
   assert.match(edge, /list_latest_athlete_decisions_for_athletes/);
   assert.match(edge, /isProposalSuppressed/);
+  assert.match(edge, /isWatchProposalSettled/);
+  assert.match(edge, /source: str\(row.source\)/);
   assert.doesNotMatch(edge, /function journalEvidenceChanged/);
   assert.doesNotMatch(edge, /function mapInterventionKind/);
 });

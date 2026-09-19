@@ -65,7 +65,9 @@ proposition + pourquoi + données utilisées
 ## Hors scope
 
 P2.4 lecture « Ce que Prometheus surveille » (`#191`). P2.4 correction ajoute
-la décision `corrected` sur cette même table. Stripe / P6.
+la décision `corrected` sur cette même table. P2.5 journalise
+`accepted` / `modified` / `refused` depuis le panneau via
+`decide_athlete_watch_proposal` (même table, signal laissé ouvert). Stripe / P6.
 Ne pas faire évoluer `solo_weekly_reviews` ni `coach_interventions` en journal.
 
 ## Livraison
@@ -74,5 +76,6 @@ PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) mergée 
 (`c51d5f49`). Migrations `20260918201237_athlete_decision_log`,
 `20260918224935_athlete_review_integrity` et
 `20260918232507_athlete_decision_durability` appliquées en production
-le 19 septembre 2026 (lock **122**). La correction P2.4 ajoute un candidat
-`20260919134856_watch_context_correction` (pending), sans restamp du lock.
+le 19 septembre 2026 (lock **122**). Cette PR ajoute les candidats
+`20260919134856_watch_context_correction` et
+`20260919141146_watch_proposal_decision` (pending), sans restamp du lock.

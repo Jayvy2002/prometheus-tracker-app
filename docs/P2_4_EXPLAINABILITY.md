@@ -74,16 +74,20 @@ humain (Solo ou Coach actif) + motif
 Les wrappers `BestEffort` restent pour le moteur / la revue (fail-open).
 Le panneau d’explicabilité ne les utilise pas.
 
-## Hors scope (P2.5 et plus tard)
+## Hors scope (P2.6 et plus tard)
 
 - modifier une donnée source (nutrition, séance, pesée) ;
-- accepter / modifier / refuser une proposition depuis ce panneau
-  (hors correction de contexte) ;
-- P2.5 et suivants.
+- appliquer des cibles ou un programme depuis ce panneau
+  (`commit_solo` / `apply_intervention` restent les chemins d’effet) ;
+- P2.6 et suivants.
+
+P2.5 (accepter / modifier / refuser la proposition courante) est livré dans
+cette même PR : [P2.5](P2_5_WATCH_PROPOSAL.md).
 
 ## Livraison
 
 Vertical slice dans une PR draft vers `new-JV`. Ne pas merger sans feu vert.
-Ne pas enchaîner P2.5. La migration `20260919134856_watch_context_correction`
-est un **candidat** (`migrations.pending.json`) : le lock production reste à
-122 jusqu’à application autorisée après merge.
+Ne pas enchaîner P2.6. Les migrations `20260919134856_watch_context_correction`
+et `20260919141146_watch_proposal_decision` sont des **candidats**
+(`migrations.pending.json`) : le lock production reste à 122 jusqu’à
+application autorisée après merge.

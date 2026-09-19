@@ -6,7 +6,12 @@
  * Window dates alone must not raise confidence.
  */
 
-import { isContextCorrectionHeld, isProposalSuppressed, type ProposalMemoryDecision } from "./proposalMemory.ts";
+import {
+  isContextCorrectionHeld,
+  isProposalSuppressed,
+  isWatchProposalSettled,
+  type ProposalMemoryDecision,
+} from "./proposalMemory.ts";
 
 export const WEEKLY_REVIEW_WINDOW_DAYS = 14;
 const MIN_NUTRITION_LOG_DAYS = 4;
@@ -596,7 +601,10 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
     if (status === "waiting") upsertedWaiting += 1;
     else upsertedOpen += 1;
     if (candidate.proposeWorthy && status === "open" && (confidence === "medium" || confidence === "high")) {
-      if (isProposalSuppressed(recentDecisions, candidate.domain, candidate.type, input.aggregates)) {
+      if (
+        isProposalSuppressed(recentDecisions, candidate.domain, candidate.type, input.aggregates)
+        || isWatchProposalSettled(recentDecisions, candidate.domain, candidate.type, input.aggregates)
+      ) {
         suppressedPropose += 1;
       } else {
         proposeWorthyOpen += 1;

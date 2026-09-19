@@ -338,6 +338,60 @@ test('a context correction does not re-open the same type until evidence changes
   assert.equal(moved.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
 });
 
+test('a watch-panel accept waits instead of re-proposing, without closing the signal like a correction', () => {
+  const heldAgg = aggregates({ workoutCount: 0, expectedWorkouts: 6, loggedNutritionDays: 10 });
+  const watchAccepted = decision({
+    decision: 'accepted',
+    domain: 'training',
+    type: 'missed_sessions',
+    proposal: { kind: 'watch_proposal_decision', action: 'accepted', domain: 'training', type: 'missed_sessions' },
+    data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+    source: 'prometheus_watch',
+  });
+  const settled = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [watchAccepted],
+  }));
+  assert.notEqual(settled.decision, 'propose');
+  assert.equal(settled.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+  assert.equal(settled.signalActions.some((row) => row.op === 'resolve'), false);
+
+  const soloAccepted = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [decision({
+      decision: 'accepted',
+      source: 'solo_weekly_reviews',
+      data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+    })],
+  }));
+  assert.equal(soloAccepted.decision, 'propose');
+  assert.equal(soloAccepted.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+
+  const moved = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 2, expectedWorkouts: 6, loggedNutritionDays: 10 }),
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [watchAccepted],
+  }));
+  assert.equal(moved.decision, 'propose');
+
+  const watchModified = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [decision({
+      decision: 'modified',
+      domain: 'training',
+      type: 'missed_sessions',
+      proposal: { kind: 'watch_proposal_decision', action: 'modified' },
+      data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+      source: 'prometheus_watch',
+    })],
+  }));
+  assert.notEqual(watchModified.decision, 'propose');
+  assert.equal(watchModified.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+});
+
 test('guarded profile never proposes a calorie/weight change', () => {
   const review = runAthleteWeeklyReview(input({
     guarded: true,

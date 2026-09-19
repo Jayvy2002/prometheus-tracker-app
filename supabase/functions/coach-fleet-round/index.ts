@@ -4,6 +4,7 @@ import { FLEET_COPY, fleetLocale, type FleetCopy, type FleetGoalKey, type FleetL
 import { todayInTimeZone } from "../_shared/clock.ts";
 import {
   isProposalSuppressed,
+  isWatchProposalSettled,
   mapInterventionKind,
   weeklyReviewAggregatesFromCounts,
   type ProposalMemoryDecision,
@@ -652,7 +653,7 @@ async function loadDecisionLogs(
   if (latest.error) {
     const fallback = await admin
       .from("athlete_decision_log")
-      .select("athlete_id, domain, type, decision, data_used, created_at")
+      .select("athlete_id, domain, type, decision, data_used, created_at, source")
       .in("athlete_id", athleteIds)
       .order("created_at", { ascending: false })
       .limit(500);
@@ -679,6 +680,7 @@ function ingestDecisionRow(byAthlete: Map<string, DecisionLogRow[]>, row: Record
     decision: str(row.decision) ?? "",
     data_used: dataUsed,
     created_at: str(row.created_at) ?? "",
+    source: str(row.source),
   });
   byAthlete.set(athleteId, list);
 }
@@ -803,13 +805,17 @@ function planWrite(
     }
   }
   const target = mapInterventionKind(card.kind, card.flag);
-  if (isProposalSuppressed(recentDecisions, target.domain, target.type, weeklyReviewAggregatesFromCounts({
+  const aggregates = weeklyReviewAggregatesFromCounts({
     avgCalories: Math.round(d.avg_calories),
     calorieTarget: effectiveCalorieTarget(d),
     workoutCount: d.workout_count,
     loggedNutritionDays: d.logged_nutrition_days,
     weightDeltaKg: d.weight_delta_kg,
-  }))) {
+  });
+  if (
+    isProposalSuppressed(recentDecisions, target.domain, target.type, aggregates)
+    || isWatchProposalSettled(recentDecisions, target.domain, target.type, aggregates)
+  ) {
     return { action: "skip", card: null };
   }
   return { action: "insert", card };

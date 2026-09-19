@@ -3,6 +3,10 @@
     {
       "version": "20260919134856",
       "name": "watch_context_correction"
+    },
+    {
+      "version": "20260919141146",
+      "name": "watch_proposal_decision"
     }
   ]
 }

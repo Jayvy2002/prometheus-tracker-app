@@ -21,6 +21,7 @@ export {
   isAthleteHumanDecision,
   isContextCorrectionHeld,
   isProposalSuppressed,
+  isWatchProposalSettled,
   latestAthleteDecision,
   mapInterventionDecision,
   mapInterventionKind,

@@ -8,6 +8,11 @@ import { listLatestAthleteDecisionsForWatch } from '../../features/signals/domai
 import { listLatestAthleteWeeklyReviewForWatch } from '../../features/signals/domain/weeklyReviewApi';
 import { correctAthleteWatchContext } from '../../features/signals/domain/watchContextApi';
 import type { WatchContextCorrectionAction } from '../../features/signals/domain/watchContext';
+import { decideAthleteWatchProposal } from '../../features/signals/domain/watchProposalApi';
+import {
+  watchProposalReasonRequired,
+  type WatchProposalDecision,
+} from '../../features/signals/domain/watchProposal';
 import {
   buildPrometheusWatchItems,
   type PrometheusWatchItem,
@@ -35,16 +40,24 @@ interface CorrectionDraft {
   action: WatchContextCorrectionAction;
 }
 
+interface DecisionDraft {
+  signalId: string;
+  headlineKey: string;
+  decision: WatchProposalDecision;
+  weekStart: string;
+}
+
 export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship }: Props) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
-  const { canReadAthleteWatch, canCorrectAthleteWatchContext } = useResourcePermissions();
+  const { canReadAthleteWatch, canCorrectAthleteWatchContext, canDecideAthleteWatchProposal } = useResourcePermissions();
   const resource = {
     athleteId,
     hasActiveRelationship: athleteId === user?.id ? undefined : hasActiveRelationship,
   };
   const allowed = canReadAthleteWatch(resource);
   const canCorrect = canCorrectAthleteWatchContext(resource);
+  const canDecide = canDecideAthleteWatchProposal(resource);
   const [load, setLoad] = useState<WatchLoadState>({ phase: 'loading' });
   const [retry, setRetry] = useState(0);
 
@@ -132,7 +145,8 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
                 item={item}
                 viewer={viewer}
                 canCorrect={canCorrect}
-                onCorrected={() => setRetry((n) => n + 1)}
+                canDecide={canDecide}
+                onReloaded={() => setRetry((n) => n + 1)}
               />
             ))}
           </ul>
@@ -146,15 +160,18 @@ function WatchRow({
   item,
   viewer,
   canCorrect,
-  onCorrected,
+  canDecide,
+  onReloaded,
 }: {
   item: PrometheusWatchItem;
   viewer: 'self' | 'coach';
   canCorrect: boolean;
-  onCorrected: () => void;
+  canDecide: boolean;
+  onReloaded: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const [draft, setDraft] = useState<CorrectionDraft | null>(null);
+  const [decisionDraft, setDecisionDraft] = useState<DecisionDraft | null>(null);
   const period = item.periodStart && item.periodEnd
     ? `${formatDate(item.periodStart, i18n.language)} – ${formatDate(item.periodEnd, i18n.language)}`
     : null;
@@ -170,6 +187,10 @@ function WatchRow({
       ? t(item.lastActorKey)
       : null;
   const showCorrection = canCorrect && item.kind === 'current';
+  const showDecide = canDecide
+    && item.kind === 'current'
+    && !!item.currentProposalKey
+    && !!item.reviewWeekStart;
 
   return (
     <li>
@@ -225,6 +246,51 @@ function WatchRow({
           ) : null}
           <WatchField label={t('prometheusWatch.reevaluate.label')} value={t(item.reevaluateKey)} />
         </dl>
+        {showDecide ? (
+          <div className="pb-3 flex flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              size="sm"
+              pressOnly
+              onClick={() => setDecisionDraft({
+                signalId: item.id,
+                headlineKey: item.headlineKey,
+                decision: 'accepted',
+                weekStart: item.reviewWeekStart ?? '',
+              })}
+            >
+              {t('prometheusWatch.decide.accept')}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              pressOnly
+              onClick={() => setDecisionDraft({
+                signalId: item.id,
+                headlineKey: item.headlineKey,
+                decision: 'modified',
+                weekStart: item.reviewWeekStart ?? '',
+              })}
+            >
+              {t('prometheusWatch.decide.modify')}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              pressOnly
+              onClick={() => setDecisionDraft({
+                signalId: item.id,
+                headlineKey: item.headlineKey,
+                decision: 'refused',
+                weekStart: item.reviewWeekStart ?? '',
+              })}
+            >
+              {t('prometheusWatch.decide.refuse')}
+            </Button>
+          </div>
+        ) : null}
         {showCorrection ? (
           <div className="pb-3 flex flex-col sm:flex-row gap-2">
             <Button
@@ -262,7 +328,17 @@ function WatchRow({
           onClose={() => setDraft(null)}
           onPersisted={() => {
             setDraft(null);
-            onCorrected();
+            onReloaded();
+          }}
+        />
+      ) : null}
+      {decisionDraft ? (
+        <WatchDecisionModal
+          draft={decisionDraft}
+          onClose={() => setDecisionDraft(null)}
+          onPersisted={() => {
+            setDecisionDraft(null);
+            onReloaded();
           }}
         />
       ) : null}
@@ -283,7 +359,7 @@ function WatchCorrectionModal({
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
-  const reasonId = 'watch-correction-reason';
+  const reasonId = `watch-correction-reason-${draft.signalId}`;
   const trimmed = reason.trim();
   const invalid = trimmed.length < 1 || trimmed.length > 500;
 
@@ -359,6 +435,105 @@ function WatchCorrectionModal({
           onClick={() => void submit()}
         >
           {t('prometheusWatch.correct.confirm')}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function WatchDecisionModal({
+  draft,
+  onClose,
+  onPersisted,
+}: {
+  draft: DecisionDraft;
+  onClose: () => void;
+  onPersisted: () => void;
+}) {
+  const { t } = useTranslation();
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+  const reasonId = `watch-proposal-reason-${draft.signalId}`;
+  const trimmed = reason.trim();
+  const required = watchProposalReasonRequired(draft.decision);
+  const invalid = trimmed.length > 500 || (required && trimmed.length < 1);
+
+  async function submit() {
+    if (invalid || saving) return;
+    setSaving(true);
+    setError(false);
+    const result = await decideAthleteWatchProposal({
+      signalId: draft.signalId,
+      decision: draft.decision,
+      humanReason: trimmed,
+      weekStart: draft.weekStart,
+    });
+    setSaving(false);
+    if (!result.ok) {
+      setError(true);
+      return;
+    }
+    onPersisted();
+  }
+
+  const titleKey = draft.decision === 'accepted'
+    ? 'prometheusWatch.decide.titleAccept'
+    : draft.decision === 'modified'
+      ? 'prometheusWatch.decide.titleModify'
+      : 'prometheusWatch.decide.titleRefuse';
+
+  return (
+    <Modal
+      open
+      onClose={() => {
+        if (!saving) onClose();
+      }}
+      title={t(titleKey)}
+      size="sm"
+    >
+      <p className="text-sm text-neutral-300 mb-3">
+        {t(draft.headlineKey)}
+      </p>
+      <p className="text-[12px] text-neutral-500 mb-3">
+        {t('prometheusWatch.decide.notice')}
+      </p>
+      <label htmlFor={reasonId} className="block text-sm font-medium text-neutral-300 mb-1.5">
+        {t('prometheusWatch.decide.reasonLabel')}
+      </label>
+      <textarea
+        id={reasonId}
+        value={reason}
+        onChange={(event) => setReason(event.target.value)}
+        maxLength={500}
+        rows={4}
+        required={required}
+        disabled={saving}
+        className="w-full bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2.5 text-white
+          placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400
+          min-h-24"
+      />
+      <p className="text-[11px] text-neutral-500 mt-1 mb-4">
+        {t(required ? 'prometheusWatch.decide.reasonHelpRequired' : 'prometheusWatch.decide.reasonHelpAccept')}
+      </p>
+      {error ? (
+        <p role="alert" className="text-sm text-rose-300 mb-3">
+          {t('prometheusWatch.decide.error')}
+        </p>
+      ) : null}
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" disabled={saving} onClick={onClose}>
+          {t('common.cancel')}
+        </Button>
+        <Button
+          type="button"
+          variant="primary"
+          size="sm"
+          loading={saving}
+          disabled={invalid || saving}
+          onClick={() => void submit()}
+        >
+          {t('prometheusWatch.decide.confirm')}
         </Button>
       </div>
     </Modal>

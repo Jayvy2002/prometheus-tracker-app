@@ -28,6 +28,7 @@ export interface ProposalMemoryDecision {
   decision: string;
   data_used: Record<string, unknown>;
   created_at: string;
+  source?: string | null;
 }
 
 export interface ProposalEvidenceSnapshot {
@@ -279,6 +280,25 @@ export function isProposalSuppressed(
   if (last.decision !== "refused" && last.decision !== "ignored" && last.decision !== "corrected") {
     return false;
   }
+  return !decisionEvidenceChanged(last.data_used, aggregates, last.domain, last.type);
+}
+
+/**
+ * Vision 8.6: a watch-panel accept/modify is remembered. The engine must not
+ * re-propose that exact (domain, type) until evidence moves. Solo calorie apply
+ * and Coach inbox keeps (`source !== prometheus_watch`) still use
+ * `isProposalSuppressed` only, so a real applied accept can be followed up.
+ */
+export function isWatchProposalSettled(
+  recentDecisions: ProposalMemoryDecision[],
+  domain: string,
+  type: string,
+  aggregates: ProposalEvidenceSnapshot,
+): boolean {
+  const last = latestAthleteDecision(recentDecisions, domain, type);
+  if (!last) return false;
+  if (last.source !== "prometheus_watch") return false;
+  if (last.decision !== "accepted" && last.decision !== "modified") return false;
   return !decisionEvidenceChanged(last.data_used, aggregates, last.domain, last.type);
 }
 

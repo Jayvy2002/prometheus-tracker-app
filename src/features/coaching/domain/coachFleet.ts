@@ -24,6 +24,7 @@ import type {
 import { runAthleteWeeklyReview, weeklyReviewInputFromFleet } from '../../signals/domain/weeklyReview';
 import {
   isProposalSuppressed,
+  isWatchProposalSettled,
   mapInterventionKind,
   weeklyReviewAggregatesFromCounts,
 } from '../../signals/domain/decisionLog';
@@ -457,18 +458,17 @@ export function planFleetRoundCard(
     }
   }
   const target = mapInterventionKind(card.kind, card.flag);
-  if (isProposalSuppressed(
-    recentDecisions,
-    target.domain,
-    target.type,
-    weeklyReviewAggregatesFromCounts({
-      avgCalories: Math.round(d.avg_calories),
-      calorieTarget: effectiveCalorieTarget(d),
-      workoutCount: d.workout_count,
-      loggedNutritionDays: d.logged_nutrition_days,
-      weightDeltaKg: d.weight_delta_kg,
-    }),
-  )) {
+  const aggregates = weeklyReviewAggregatesFromCounts({
+    avgCalories: Math.round(d.avg_calories),
+    calorieTarget: effectiveCalorieTarget(d),
+    workoutCount: d.workout_count,
+    loggedNutritionDays: d.logged_nutrition_days,
+    weightDeltaKg: d.weight_delta_kg,
+  });
+  if (
+    isProposalSuppressed(recentDecisions, target.domain, target.type, aggregates)
+    || isWatchProposalSettled(recentDecisions, target.domain, target.type, aggregates)
+  ) {
     return { action: 'skip', card: null };
   }
   return { action: 'insert', card };

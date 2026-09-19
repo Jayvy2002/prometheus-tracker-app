@@ -25,8 +25,9 @@ Les lignes production `accepted` restent `accepted` (état historique terminal) 
 elles n’ont pas été réécrites en `athlete_confirmed`.
 
 Le premier slice P2.4 (explicabilité lecture) n’ajoute **aucune** migration.
-Le slice correction de contexte ajoute le candidat
-`20260919134856_watch_context_correction` dans `migrations.pending.json`.
+Cette PR ajoute deux candidats dans `migrations.pending.json` :
+`20260919134856_watch_context_correction` et
+`20260919141146_watch_proposal_decision`.
 Le lock production reste à **122** jusqu’à application autorisée après merge.
 
 ## Règles migrations
