@@ -76,6 +76,5 @@ PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) mergée 
 (`c51d5f49`). Migrations `20260918201237_athlete_decision_log`,
 `20260918224935_athlete_review_integrity` et
 `20260918232507_athlete_decision_durability` appliquées en production
-le 19 septembre 2026 (lock **122**). Cette PR ajoute les candidats
-`20260919134856_watch_context_correction` et
-`20260919141146_watch_proposal_decision` (pending), sans restamp du lock.
+le 19 septembre 2026 (alors lock **122**). P2.4/P2.5 (`#192`, `9b8a7ab`)
+sont ensuite actifs en production (lock **124**). Stripe / P6.

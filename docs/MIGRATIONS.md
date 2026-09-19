@@ -9,13 +9,12 @@
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **122 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
-- **122 migrations** observées en production, dans le même ordre ;
-- dernière version : `20260918232507_athlete_decision_durability` ;
+- **124 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
+- **124 migrations** observées en production, dans le même ordre ;
+- dernière version : `20260919141146_watch_proposal_decision` ;
 - `supabase/migrations.pending.json` est vide ;
-- les six versions Git de P1.5–P2.3 sont présentes telles quelles (aucun restamp) :
-  `20260918182954`, `20260918185709`, `20260918194013`, `20260918201237`,
-  `20260918224935`, `20260918232507`.
+- les deux versions Git de P2.4/P2.5 sont présentes telles quelles (aucun restamp) :
+  `20260919134856`, `20260919141146`.
 
 Le lock a été rafraîchi après cette vérification live. Une future différence
 Git/lock/production doit être traitée comme un blocage de migration, pas
@@ -25,10 +24,7 @@ Les lignes production `accepted` restent `accepted` (état historique terminal) 
 elles n’ont pas été réécrites en `athlete_confirmed`.
 
 Le premier slice P2.4 (explicabilité lecture) n’ajoute **aucune** migration.
-Cette PR ajoute deux candidats dans `migrations.pending.json` :
-`20260919134856_watch_context_correction` et
-`20260919141146_watch_proposal_decision`.
-Le lock production reste à **122** jusqu’à application autorisée après merge.
+P2.4 correction et P2.5 sont **actifs en production**.
 
 ## Règles migrations
 
@@ -67,7 +63,7 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 
 ## Procédure pour une nouvelle migration
 
-1. Lire `docs/VISION.md`, `docs/CARTE_PRODUIT.md` et la section du chantier concernée.
+1. Lire `docs/VISION.md`, `docs/CARTE_PRODUIT.md` et la section du chantier concerné.
 2. Inspecter le schéma/RPC existants avant de créer une nouvelle primitive.
 3. Créer la migration via la CLI Supabase.
 4. Écrire une évolution append-only, idempotente lorsque pertinent.
