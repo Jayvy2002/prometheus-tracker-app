@@ -197,10 +197,14 @@ begin
   drained := public.drain_athlete_decision_outbox(25);
   if drained < 1 then raise exception 'drain did not recover journal'; end if;
 
-  select count(*), min(actor_id) into n, actor from public.athlete_decision_log
+  select count(*) into n from public.athlete_decision_log
     where athlete_id='a1950000-0000-4000-8000-000000000002'
       and idempotency_key='a1950000-0000-4000-8000-000000000002:drain-replay';
   if n <> 1 then raise exception 'drain replay duplicated'; end if;
+  select actor_id into actor from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000002'
+      and idempotency_key='a1950000-0000-4000-8000-000000000002:drain-replay'
+    limit 1;
   if actor <> 'a1950000-0000-4000-8000-000000000002' then
     raise exception 'drain lost author';
   end if;
