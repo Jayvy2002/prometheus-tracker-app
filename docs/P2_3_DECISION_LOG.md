@@ -14,11 +14,15 @@ Une table dédiée n’est donc pas redondante. Les deux chemins existants **res
 
 Solo : `commit_solo_weekly_review_decision` écrit cibles (si accepté), carte ISO
 et journal dans la même transaction ; la clé d’idempotence est verrouillée avant
-toute mutation. Coach : `apply_intervention` journalise dans la même TX (snapshot
+toute mutation. Une reprise consulte aussi l’intention outbox sous ce verrou :
+si elle existe, seules les écritures de journal manquantes sont terminées.
+Coach : `apply_intervention` journalise dans la même TX (snapshot
 initial vs effets métier, sans identifiants de routage, **preuves** dans
 `data_used`) ; un trigger reprend les UPDATE de statut. File
 `athlete_decision_outbox` unique par `(athlète, clé)` ; collision inter-comptes
-refusée. Validation à l’enqueue, backoff, échec permanent. `drain_athlete_decision_outbox`
+refusée. Le contenu d’une intention est immuable (`idempotency_conflict` si le
+contenu métier diffère) ; drain et rejeu n’utilisent que le payload stocké.
+Validation à l’enqueue, backoff, échec permanent. `drain_athlete_decision_outbox`
 rejoue sans doublon et conserve l’auteur stocké (pas l’exécuteur).
 Table/RPC absente en production → fail-open.
 

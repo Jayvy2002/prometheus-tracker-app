@@ -82,6 +82,9 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /BETWEEN v_from AND v_to/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_calendar_age_years/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_intake_has_medical_flags/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_decision_outbox_payload/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_outbox_intents_equal/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_record_stored_outbox/);
   assert.doesNotMatch(
     src('supabase/migrations/20260918232507_athlete_decision_durability.sql'),
     /p_source_id uuid DEFAULT NULL,\s*p_idempotency_key text,/,
@@ -98,5 +101,10 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /triage window included out-of-range sessions/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /questionnaire without PAR-Q flag counted medical/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /Poison fixtures run as postgres/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /injected_journal_failure/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo replay after journal failure rewrote calorie targets/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /immutable intent accepted different proposal/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /coach reprise replaced stored author/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /stored outbox helper exposed to clients/);
   assert.doesNotMatch(src('supabase/tests/athlete_decision_durability.sql'), /set local role authenticated[\s\S]{0,200}insert into public\.athlete_decision_outbox/i);
 });

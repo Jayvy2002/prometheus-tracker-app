@@ -537,6 +537,8 @@ de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé
 (seuils fleet : kcal ±150, séances ±2). Le signal continue d’être suivi. Aucune
 auto-application. L’intention de journal est enregistrée dans la transaction de
 l’action métier (`queue_and_record_athlete_decision`) avec les preuves utiles ;
+`commit_solo` consulte l’outbox sous verrou avant toute mutation — une reprise
+ne termine que la journalisation. Le contenu d’une intention est immuable.
 `drain_athlete_decision_outbox` reprend les échecs sans doublon ni usurpation
 d’auteur, avec backoff. L’outbox est unique par `(athlete_id, idempotency_key)`.
 

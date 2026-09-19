@@ -348,6 +348,162 @@ reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
+create or replace function public.prometheus_test_fail_journal()
+returns trigger
+language plpgsql
+as $$
+begin
+  if NEW.athlete_id = 'a1950000-0000-4000-8000-000000000002'
+     and position('2026-09-07' in coalesce(NEW.idempotency_key, '')) > 0 then
+    raise exception 'injected_journal_failure';
+  end if;
+  return NEW;
+end;
+$$;
+drop trigger if exists athlete_decision_log_injected_failure on public.athlete_decision_log;
+create trigger athlete_decision_log_injected_failure
+  before insert on public.athlete_decision_log
+  for each row execute function public.prometheus_test_fail_journal();
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  v public.athlete_decision_log;
+  n int;
+  kcal int;
+begin
+  v := public.commit_solo_weekly_review_decision(
+    '2026-09-07',
+    'calorie_adjustment',
+    'not_following',
+    '{"calories":1900,"protein":140,"carbs":180,"fat":60}'::jsonb,
+    '{"logged_days":10}'::jsonb,
+    'accepted',
+    'nutrition',
+    'not_following',
+    '{"action":"calorie_adjustment","reason":"not_following","week_start":"2026-09-07"}'::jsonb,
+    'not_following',
+    '{"avg_calories":2100}'::jsonb,
+    '{"daily_calorie_target":1900}'::jsonb,
+    'solo_weekly_reviews:a1950000-0000-4000-8000-000000000002:2026-09-07'
+  );
+  if v.id is not null then
+    raise exception 'journal write should have been intercepted';
+  end if;
+  select daily_calorie_target into kcal from public.user_profiles
+    where id='a1950000-0000-4000-8000-000000000002';
+  if kcal <> 1900 then
+    raise exception 'solo accept did not write targets before journal failure';
+  end if;
+  select count(*) into n from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000002'
+      and position('2026-09-07' in coalesce(idempotency_key, '')) > 0;
+  if n <> 0 then raise exception 'journal present after injected failure'; end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
+
+do $$
+declare
+  n int;
+  processed timestamptz;
+  kcal int;
+begin
+  select count(*) into n from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000002'
+      and position('2026-09-07' in coalesce(idempotency_key, '')) > 0;
+  if n <> 0 then raise exception 'journal survived injected failure'; end if;
+  select processed_at into processed
+    from public.athlete_decision_outbox
+    where athlete_id='a1950000-0000-4000-8000-000000000002'
+      and position('2026-09-07' in coalesce(idempotency_key, '')) > 0;
+  if not found then raise exception 'outbox missing after journal failure'; end if;
+  if processed is not null then
+    raise exception 'outbox marked processed despite journal failure';
+  end if;
+  select daily_calorie_target into kcal from public.user_profiles
+    where id='a1950000-0000-4000-8000-000000000002';
+  if kcal <> 1900 then raise exception 'targets rolled back with journal'; end if;
+end $$;
+
+drop trigger if exists athlete_decision_log_injected_failure on public.athlete_decision_log;
+drop function if exists public.prometheus_test_fail_journal();
+
+update public.user_profiles
+  set daily_calorie_target = 2100
+  where id='a1950000-0000-4000-8000-000000000002';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  v public.athlete_decision_log;
+  n int;
+  kcal int;
+begin
+  begin
+    perform public.commit_solo_weekly_review_decision(
+      '2026-09-07',
+      'calorie_adjustment',
+      'not_following',
+      '{"calories":1600}'::jsonb,
+      '{}'::jsonb,
+      'accepted',
+      'nutrition',
+      'not_following',
+      '{"action":"keep"}'::jsonb,
+      'not_following',
+      '{"avg_calories":2100}'::jsonb,
+      '{"daily_calorie_target":1900}'::jsonb,
+      'solo_weekly_reviews:a1950000-0000-4000-8000-000000000002:2026-09-07'
+    );
+    raise exception 'solo replay with different intent after journal failure accepted';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+  select daily_calorie_target into kcal from public.user_profiles
+    where id='a1950000-0000-4000-8000-000000000002';
+  if kcal <> 2100 then
+    raise exception 'conflicting replay after journal failure rewrote calorie targets';
+  end if;
+
+  v := public.commit_solo_weekly_review_decision(
+    '2026-09-07',
+    'calorie_adjustment',
+    'not_following',
+    '{"calories":1900,"protein":140,"carbs":180,"fat":60}'::jsonb,
+    '{"logged_days":10}'::jsonb,
+    'accepted',
+    'nutrition',
+    'not_following',
+    '{"action":"calorie_adjustment","reason":"not_following","week_start":"2026-09-07"}'::jsonb,
+    'not_following',
+    '{"avg_calories":2100}'::jsonb,
+    '{"daily_calorie_target":1900}'::jsonb,
+    'solo_weekly_reviews:a1950000-0000-4000-8000-000000000002:2026-09-07'
+  );
+  if v.id is null then raise exception 'stored outbox reprise did not journal'; end if;
+  if v.proposal->>'action' is distinct from 'calorie_adjustment' then
+    raise exception 'reprise journaled a different proposal';
+  end if;
+  select count(*) into n from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000002'
+      and position('2026-09-07' in coalesce(idempotency_key, '')) > 0;
+  if n <> 1 then raise exception 'solo replay after journal failure duplicated journal'; end if;
+  select daily_calorie_target into kcal from public.user_profiles
+    where id='a1950000-0000-4000-8000-000000000002';
+  if kcal <> 2100 then
+    raise exception 'solo replay after journal failure rewrote calorie targets';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
+
 do $$
 declare
   n int;
@@ -400,6 +556,13 @@ begin
     'execute'
   ) then
     raise exception 'write helper exposed to clients';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.prometheus_record_stored_outbox(public.athlete_decision_outbox)',
+    'execute'
+  ) then
+    raise exception 'stored outbox helper exposed to clients';
   end if;
 end $$;
 
@@ -548,6 +711,92 @@ reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000004',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+do $$
+declare
+  boxed public.athlete_decision_outbox;
+begin
+  boxed := public.enqueue_athlete_decision_outbox(
+    'immutable-intent',
+    'a1950000-0000-4000-8000-000000000004',
+    'training',
+    'missed_sessions',
+    'accepted',
+    '{"action":"relance"}'::jsonb,
+    'from-athlete',
+    '{"workout_count":1}'::jsonb
+  );
+  if boxed.actor_id <> 'a1950000-0000-4000-8000-000000000004' then
+    raise exception 'immutable intent actor not the athlete';
+  end if;
+  begin
+    perform public.enqueue_athlete_decision_outbox(
+      'immutable-intent',
+      'a1950000-0000-4000-8000-000000000004',
+      'training',
+      'missed_sessions',
+      'accepted',
+      '{"action":"keep"}'::jsonb,
+      'from-athlete',
+      '{"workout_count":1}'::jsonb
+    );
+    raise exception 'immutable intent accepted different proposal';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v public.athlete_decision_log;
+begin
+  begin
+    perform public.enqueue_athlete_decision_outbox(
+      'immutable-intent',
+      'a1950000-0000-4000-8000-000000000004',
+      'training',
+      'missed_sessions',
+      'accepted',
+      '{"action":"keep"}'::jsonb,
+      'from-athlete',
+      '{"workout_count":1}'::jsonb
+    );
+    raise exception 'coach reprise accepted different proposal';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+
+  v := public.queue_and_record_athlete_decision(
+    'immutable-intent',
+    'a1950000-0000-4000-8000-000000000004',
+    'training',
+    'missed_sessions',
+    'accepted',
+    '{"action":"relance"}'::jsonb,
+    'from-athlete',
+    '{"workout_count":1}'::jsonb
+  );
+  if v.id is null then raise exception 'coach reprise did not finish stored journal'; end if;
+  if v.actor_id <> 'a1950000-0000-4000-8000-000000000004' then
+    raise exception 'coach reprise replaced stored author';
+  end if;
+  if v.proposal->>'action' is distinct from 'relance' then
+    raise exception 'coach reprise journaled a different proposal';
+  end if;
+  if v.why is distinct from 'from-athlete' then
+    raise exception 'coach reprise journaled a different why';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
+
 -- Poison fixtures run as postgres (clients cannot insert into the outbox).
 insert into public.athlete_decision_outbox (
   idempotency_key, athlete_id, actor_id, payload, created_at, next_attempt_at, attempts
@@ -671,4 +920,4 @@ begin
 end $$;
 
 rollback;
-\echo 'decision durability: outbox isolation, drain replay, solo without dashboard'
+\echo 'decision durability: outbox isolation, drain replay, immutable intent, solo journal-fail reprise'

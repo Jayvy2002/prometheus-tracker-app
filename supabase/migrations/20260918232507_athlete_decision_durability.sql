@@ -578,6 +578,76 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.prometheus_decision_outbox_payload(
+  p_domain text,
+  p_type text,
+  p_decision text,
+  p_proposal jsonb,
+  p_why text,
+  p_data_used jsonb,
+  p_human_reason text,
+  p_applied_effect jsonb,
+  p_source text,
+  p_source_id uuid,
+  p_key text
+)
+RETURNS jsonb
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+    'domain', p_domain,
+    'type', p_type,
+    'decision', p_decision,
+    'proposal', COALESCE(p_proposal, '{}'::jsonb),
+    'why', p_why,
+    'data_used', COALESCE(p_data_used, '{}'::jsonb),
+    'human_reason', NULLIF(trim(COALESCE(p_human_reason, '')), ''),
+    'applied_effect', COALESCE(p_applied_effect, '{}'::jsonb),
+    'source', NULLIF(trim(COALESCE(p_source, '')), ''),
+    'source_id', p_source_id,
+    'idempotency_key', p_key
+  ));
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_outbox_intents_equal(p_stored jsonb, p_incoming jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT (COALESCE(p_stored, '{}'::jsonb) - 'idempotency_key')
+    IS NOT DISTINCT FROM (COALESCE(p_incoming, '{}'::jsonb) - 'idempotency_key');
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_record_stored_outbox(p_box public.athlete_decision_outbox)
+RETURNS public.athlete_decision_log
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v jsonb := COALESCE(p_box.payload, '{}'::jsonb);
+BEGIN
+  RETURN public.record_athlete_decision_replay(
+    p_box.athlete_id,
+    v->>'domain',
+    v->>'type',
+    v->>'decision',
+    COALESCE(v->'proposal', '{}'::jsonb),
+    COALESCE(v->>'why', 'decision'),
+    COALESCE(v->'data_used', '{}'::jsonb),
+    v->>'human_reason',
+    COALESCE(v->'applied_effect', '{}'::jsonb),
+    v->>'source',
+    NULLIF(v->>'source_id', '')::uuid,
+    p_box.idempotency_key,
+    p_box.actor_id
+  );
+END;
+$$;
+
 REVOKE ALL ON FUNCTION public.prometheus_strip_routing(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_effects_are_material(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_json_material_snapshot(jsonb) FROM PUBLIC, anon, authenticated;
@@ -595,6 +665,9 @@ REVOKE ALL ON FUNCTION public.prometheus_assert_decision_payload(uuid, text, tex
 REVOKE ALL ON FUNCTION public.prometheus_lock_decision_key(uuid, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_decision_idempotency_key(uuid, text, text, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_outbox_record_failure(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_decision_outbox_payload(text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_outbox_intents_equal(jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_record_stored_outbox(public.athlete_decision_outbox) FROM PUBLIC, anon, authenticated;
 
 DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid);
 DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid);
@@ -798,35 +871,34 @@ BEGIN
     END IF;
   END IF;
 
-  v_payload := jsonb_strip_nulls(jsonb_build_object(
-    'domain', p_domain,
-    'type', p_type,
-    'decision', p_decision,
-    'proposal', COALESCE(p_proposal, '{}'::jsonb),
-    'why', p_why,
-    'data_used', COALESCE(p_data_used, '{}'::jsonb),
-    'human_reason', NULLIF(trim(COALESCE(p_human_reason, '')), ''),
-    'applied_effect', COALESCE(p_applied_effect, '{}'::jsonb),
-    'source', NULLIF(trim(COALESCE(p_source, '')), ''),
-    'source_id', p_source_id,
-    'idempotency_key', v_key
-  ));
+  v_payload := public.prometheus_decision_outbox_payload(
+    p_domain, p_type, p_decision,
+    COALESCE(p_proposal, '{}'::jsonb),
+    p_why,
+    COALESCE(p_data_used, '{}'::jsonb),
+    p_human_reason,
+    COALESCE(p_applied_effect, '{}'::jsonb),
+    p_source,
+    p_source_id,
+    v_key
+  );
 
   INSERT INTO public.athlete_decision_outbox (idempotency_key, athlete_id, actor_id, payload)
   VALUES (v_key, p_athlete_id, v_uid, v_payload)
   ON CONFLICT (athlete_id, idempotency_key)
   DO UPDATE SET
-    actor_id = COALESCE(public.athlete_decision_outbox.actor_id, EXCLUDED.actor_id)
-  WHERE public.athlete_decision_outbox.athlete_id = EXCLUDED.athlete_id
+    payload = public.athlete_decision_outbox.payload
+  WHERE public.prometheus_outbox_intents_equal(
+    public.athlete_decision_outbox.payload,
+    EXCLUDED.payload
+  )
   RETURNING * INTO v_row;
 
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'idempotency_conflict';
+  END IF;
   IF v_row.athlete_id IS DISTINCT FROM p_athlete_id THEN
     RAISE EXCEPTION 'outbox_athlete_mismatch';
-  END IF;
-  IF v_row.payload->>'decision' IS DISTINCT FROM p_decision
-     OR v_row.payload->>'domain' IS DISTINCT FROM p_domain
-     OR v_row.payload->>'type' IS DISTINCT FROM p_type THEN
-    RAISE EXCEPTION 'idempotency_conflict';
   END IF;
 
   RETURN v_row;
@@ -865,15 +937,13 @@ BEGIN
     FROM public.athlete_decision_log
     WHERE athlete_id = p_athlete_id AND idempotency_key = v_box.idempotency_key
     LIMIT 1;
-    RETURN v_row;
+    IF FOUND THEN
+      RETURN v_row;
+    END IF;
   END IF;
 
   BEGIN
-    v_row := public.record_athlete_decision_replay(
-      p_athlete_id, p_domain, p_type, p_decision, p_proposal, p_why,
-      p_data_used, p_human_reason, p_applied_effect, p_source, p_source_id,
-      v_box.idempotency_key, v_box.actor_id
-    );
+    v_row := public.prometheus_record_stored_outbox(v_box);
     UPDATE public.athlete_decision_outbox
     SET processed_at = clock_timestamp(), last_error = NULL, failed_at = NULL
     WHERE id = v_box.id AND athlete_id = p_athlete_id;
@@ -894,7 +964,6 @@ AS $$
 DECLARE
   v_uid uuid := auth.uid();
   v_box public.athlete_decision_outbox;
-  v_payload jsonb;
   v_n int := 0;
 BEGIN
   IF p_limit IS NULL OR p_limit < 1 THEN
@@ -919,23 +988,8 @@ BEGIN
     FOR UPDATE SKIP LOCKED
     LIMIT p_limit
   LOOP
-    v_payload := COALESCE(v_box.payload, '{}'::jsonb);
     BEGIN
-      PERFORM public.record_athlete_decision_replay(
-        v_box.athlete_id,
-        v_payload->>'domain',
-        v_payload->>'type',
-        v_payload->>'decision',
-        COALESCE(v_payload->'proposal', '{}'::jsonb),
-        COALESCE(v_payload->>'why', 'decision'),
-        COALESCE(v_payload->'data_used', '{}'::jsonb),
-        v_payload->>'human_reason',
-        COALESCE(v_payload->'applied_effect', '{}'::jsonb),
-        v_payload->>'source',
-        NULLIF(v_payload->>'source_id', '')::uuid,
-        v_box.idempotency_key,
-        v_box.actor_id
-      );
+      PERFORM public.prometheus_record_stored_outbox(v_box);
       UPDATE public.athlete_decision_outbox
       SET processed_at = clock_timestamp(), last_error = NULL, failed_at = NULL
       WHERE id = v_box.id;
@@ -1223,6 +1277,7 @@ DECLARE
   v_effect jsonb := COALESCE(p_applied_effect, '{}'::jsonb);
   v_proposal jsonb := COALESCE(p_proposal, '{}'::jsonb);
   v_row public.athlete_decision_log;
+  v_box public.athlete_decision_outbox;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'not_authorized';
@@ -1269,6 +1324,38 @@ BEGIN
        OR v_row.applied_effect IS DISTINCT FROM v_effect THEN
       RAISE EXCEPTION 'idempotency_conflict';
     END IF;
+    UPDATE public.athlete_decision_outbox
+    SET processed_at = COALESCE(processed_at, clock_timestamp()),
+        last_error = NULL,
+        failed_at = NULL
+    WHERE athlete_id = v_uid AND idempotency_key = v_key AND processed_at IS NULL;
+    RETURN v_row;
+  END IF;
+
+  SELECT * INTO v_box
+  FROM public.athlete_decision_outbox
+  WHERE athlete_id = v_uid AND idempotency_key = v_key
+  FOR UPDATE;
+  IF FOUND THEN
+    IF NOT public.prometheus_outbox_intents_equal(
+      v_box.payload,
+      public.prometheus_decision_outbox_payload(
+        p_domain, p_type, v_human, v_proposal, p_why,
+        COALESCE(p_data_used, '{}'::jsonb), NULL, v_effect,
+        'solo_weekly_reviews', NULL, v_key
+      )
+    ) THEN
+      RAISE EXCEPTION 'idempotency_conflict';
+    END IF;
+    BEGIN
+      v_row := public.prometheus_record_stored_outbox(v_box);
+      UPDATE public.athlete_decision_outbox
+      SET processed_at = clock_timestamp(), last_error = NULL, failed_at = NULL
+      WHERE id = v_box.id AND athlete_id = v_uid;
+    EXCEPTION WHEN OTHERS THEN
+      PERFORM public.prometheus_outbox_record_failure(v_box.id, SQLERRM);
+      v_row := NULL;
+    END;
     RETURN v_row;
   END IF;
 
@@ -1433,6 +1520,7 @@ $$;
 REVOKE ALL ON FUNCTION public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.prometheus_write_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_record_stored_outbox(public.athlete_decision_outbox) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.enqueue_athlete_decision_outbox(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.queue_and_record_athlete_decision(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.drain_athlete_decision_outbox(integer) FROM PUBLIC, anon;
@@ -1446,6 +1534,8 @@ GRANT EXECUTE ON FUNCTION public.record_athlete_decision(uuid, text, text, text,
 GRANT EXECUTE ON FUNCTION public.prometheus_write_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid)
   TO service_role;
 GRANT EXECUTE ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid)
+  TO service_role;
+GRANT EXECUTE ON FUNCTION public.prometheus_record_stored_outbox(public.athlete_decision_outbox)
   TO service_role;
 GRANT EXECUTE ON FUNCTION public.enqueue_athlete_decision_outbox(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid)
   TO authenticated, service_role;
@@ -1466,6 +1556,8 @@ COMMENT ON FUNCTION public.triage_eligible_solo_weekly(uuid) IS
   'Eligible Solo dossiers (no active coach). Bounded window, calendar age, PAR-Q medical flags. Server weekly loop; dashboard catch-up is optional.';
 COMMENT ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) IS
   'Internal replay: writes the stored outbox author. Not granted to authenticated.';
+COMMENT ON FUNCTION public.prometheus_record_stored_outbox(public.athlete_decision_outbox) IS
+  'Internal reprise: journals the immutable stored outbox payload and actor_id. Not granted to authenticated.';
 CREATE OR REPLACE FUNCTION public.commit_solo_weekly_review_decision(
   p_week_start date,
   p_action text,
