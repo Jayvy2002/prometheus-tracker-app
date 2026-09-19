@@ -50,7 +50,7 @@ passait par `attacl`). `anon` avait `ALL`.
 Le workspace UI n’accorde rien. `is_coach_of` continue de lire uniquement une
 ligne `active` dont `coach_id = auth.uid()`.
 
-ACL finale attendue après application :
+ACL production observée le 19 septembre 2026 (lock **126**, pending vide) :
 
 ```text
 relacl authenticated = SELECT
@@ -58,6 +58,8 @@ relacl anon / PUBLIC = (aucun)
 attacl authenticated UPDATE = last_visited_at, last_nudged_at
 postgres / service_role = ALL (inchangé)
 ```
+
+Appliquée avec le **même timestamp Git** `20260919202538`. Ne pas restamper.
 
 ## Hors scope
 

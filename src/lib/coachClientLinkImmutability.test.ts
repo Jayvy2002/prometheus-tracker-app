@@ -20,8 +20,8 @@ test('Hotfix A freezes coach_client_links identity and keeps métier RPCs', () =
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260919202538'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260919202538/);
+  assert.equal(pending.pending.some((row) => row.version === '20260919202538'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260919202538"/);
 
   const sqlTest = src('supabase/tests/coach_client_link_immutability.sql');
   assert.match(sqlTest, /coach retargeted client_id without error/);

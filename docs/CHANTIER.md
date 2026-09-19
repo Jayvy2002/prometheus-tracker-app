@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — Hotfix A immutabilité `coach_client_links` (candidate `20260919202538_coach_client_link_immutability`, PR séparée). P3.1 clos en production (125 migrations, dernière `20260919194159`). P2.1–P2.5 clos. Après feu vert : Hotfix B primitives P2. Ne pas commencer P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
+> **CURRENT IMPLEMENTATION GATE — Hotfix B — autorité primitives P2. Hotfix A clos en production (126 migrations, dernière `20260919202538_coach_client_link_immutability`). P3.1 clos. P2.1–P2.5 clos. Ne pas commencer les améliorations analytiques P2, P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
 >
-> P3.1 est mergé (`#195`/`#196`) et **appliqué en production**. P1.5–P2.5 restent clos (`#190`–`#194`). Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> Hotfix A est mergé (`#197`) et **appliqué en production** avec le timestamp Git. P3.1 (`#195`/`#196`) et P1.5–P2.5 (`#190`–`#194`) restent clos. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,8 +60,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (125 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (125 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (126 migrations) | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (126 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1 clos** — P3.2/P3.3 après audit P1/P2 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`) et P3.1 (`#195`) est appliqué en production (125 migrations). P2 s’arrête à P2.5. Arrêt P3 : audit/hotfix P1–P2 avant P3.2. Ne pas commencer P4.
+P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`), P3.1 (`#195`) et Hotfix A (`#197`) sont appliqués en production (126 migrations). P2 s’arrête à P2.5. Arrêt P3 : audit/hotfix P1–P2 avant P3.2. Ne pas commencer P4.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -431,18 +431,25 @@ Une seule définition métier est utilisée et testée pour chaque durée.
 
 ### État actuel
 
-**EN COURS** — candidate `20260919202538_coach_client_link_immutability`. Inventaire : [immutabilité du lien](P1_COACH_CLIENT_LINK_IMMUTABILITY.md).
+**CLOS EN PRODUCTION** (`#197`, lock 126, `20260919202538_coach_client_link_immutability`). Inventaire : [immutabilité du lien](P1_COACH_CLIENT_LINK_IMMUTABILITY.md).
 
-Finding confirmé en production : policy `UPDATE` `USING coach_id = uid AND status = 'active'` / `WITH CHECK coach_id = uid`. Les grants colonne bloquaient déjà `client_id`/`coach_id`, mais pas `status`, et aucun trigger ne gelait l’identité.
+Allowlist live : `authenticated` = SELECT + UPDATE (`last_visited_at`, `last_nudged_at`) ; `anon` / `PUBLIC` = aucun privilège. Trigger d’identité + `updated_at` serveur. Status uniquement via RPC métier.
 
-Correctif serveur : trigger d’identité + policy bookkeeping + allowlist ACL
-(`REVOKE ALL` puis `GRANT SELECT` + `UPDATE (last_visited_at, last_nudged_at)`).
-`updated_at` est tamponné par `public.update_updated_at`. Les RPC métier restent
-le seul chemin de transition.
+**Arrêt : Hotfix A est clos. Prochaine tâche = Hotfix B.**
 
 ### Terminé quand
 
 Un utilisateur authentifié ne peut pas transformer l’identité d’un lien existant, ni créer/finir/ressusciter une relation hors RPC.
+
+## Hotfix B — Autorité primitives P2
+
+### État actuel
+
+**PROCHAINE TÂCHE.** Audit des primitives `upsert_athlete_signal`, `resolve_athlete_signal`, `record_athlete_decision`, `enqueue_athlete_decision_outbox`, `queue_and_record_athlete_decision`. Réduire la surface publique sans casser Solo, Coach actif, service/backend, Watch, revue hebdomadaire, outbox ou moteurs d’effet historiques. Pas d’améliorations analytiques P2 avant close B.
+
+### Terminé quand
+
+Les écritures P2 passent par des chemins métier autorisés ; les primitives trop permissives ne sont plus appelables depuis le Data API.
 
 ---
 
