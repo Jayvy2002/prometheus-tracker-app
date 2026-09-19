@@ -181,5 +181,6 @@ test('P3.1 migration is the latest save_program / create_program_complete and UI
   assert.match(src('src/components/calendar/CalendarPage.tsx'), /sessionOrganization: assignment\?\.program\?\.session_organization/);
   assert.match(src('src/components/dashboard/ClientGymCard.tsx'), /typeof day\.weekday === 'number'/);
   assert.match(src('.github/workflows/ci.yml'), /program_session_organization\.sql/);
-  assert.match(src('supabase/migrations.pending.json'), /20260919194159/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /20260919194159/);
+  assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260919194159/);
 });

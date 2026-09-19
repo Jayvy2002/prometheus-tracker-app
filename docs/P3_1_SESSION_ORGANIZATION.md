@@ -47,6 +47,6 @@ Inchangées P1.2 : owner, leftover Coaché, Coach actif via relation, fail-close
 
 ## Migration
 
-Candidate `20260919194159_program_session_organization` jusqu’au merge / application
-avec **le même timestamp Git**. Ne pas appliquer `20260919181919`. Pas de RPC
-`apply_athlete_watch_minimum`.
+Appliquée en production le 19 septembre 2026 : `20260919194159_program_session_organization`
+(lock **125**, pending vide, **même timestamp Git**). Ne pas appliquer `20260919181919`.
+Pas de RPC `apply_athlete_watch_minimum`.
