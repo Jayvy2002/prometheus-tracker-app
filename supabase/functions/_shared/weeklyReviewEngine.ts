@@ -6,18 +6,32 @@
  * Window dates alone must not raise confidence.
  */
 
-import { isProposalSuppressed, type ProposalMemoryDecision } from "./proposalMemory.ts";
+import {
+  isContextCorrectionHeld,
+  isProposalSuppressed,
+  isWatchProposalSettled,
+  type ProposalEvidenceSnapshot,
+  type ProposalMemoryDecision,
+} from "./proposalMemory.ts";
+import {
+  BULK_TOO_FAST_PCT_PER_WEEK,
+  CUT_GAIN_MIN_DELTA_KG,
+  CUT_STALL_MIN_DELTA_KG,
+  CUT_TOO_FAST_PCT_PER_WEEK,
+  ENERGY_DECLARED_MAX,
+  FATIGUE_DECLARED_MIN,
+  MIN_NUTRITION_LOG_DAYS,
+  OVEREAT_RATIO,
+  UNDER_EAT_RATIO,
+  normalizeNutritionGoal,
+  proposeWeeklyNutrition,
+  watchTargetFromNutritionProposal,
+  type CalorieDraft,
+  type WeeklyNutritionInput,
+} from "./weeklyNutritionProposal.ts";
 
 export const WEEKLY_REVIEW_WINDOW_DAYS = 14;
-const MIN_NUTRITION_LOG_DAYS = 4;
 const MIN_WEIGH_INS = 2;
-const OVEREAT_RATIO = 1.15;
-const UNDER_EAT_RATIO = 0.85;
-const CUT_STALL_MIN_DELTA_KG = -0.2;
-const CUT_TOO_FAST_PCT_PER_WEEK = 1.5;
-const BULK_TOO_FAST_PCT_PER_WEEK = 0.7;
-const FATIGUE_DECLARED_MIN = 7;
-const ENERGY_DECLARED_MAX = 3;
 
 export type EngineSignalDomain = "training" | "nutrition" | "recovery" | "weight" | "goal" | "adherence";
 export type EngineSignalConfidence = "low" | "medium" | "high";
@@ -65,6 +79,13 @@ export interface WeeklyReviewAggregates {
   avgFatigue: number | null;
   avgEnergy: number | null;
   goal: string;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  fatTarget?: number;
+  weightKg?: number;
+  weightEndKg?: number | null;
+  avgAdherenceNutrition?: number | null;
+  avgEffectiveTarget?: number;
 }
 
 export type WeeklyReviewDecision = "wait" | "request_info" | "propose" | "close";
@@ -94,6 +115,19 @@ export interface WeeklyReviewSignalAction {
   reason?: string;
   id?: string;
   nextReviewAt?: string | null;
+  /** Concrete Solo/fleet proposal judged by P2.5. Absent when the row is not decidable. */
+  proposal?: WatchProposalSnapshot;
+}
+
+export interface WatchProposalSnapshot {
+  kind: string;
+  action: string;
+  reason?: string;
+  domain: string;
+  type: string;
+  flag?: string;
+  week_start: string;
+  draft?: CalorieDraft;
 }
 
 export interface WeeklyReviewResult {
@@ -125,6 +159,10 @@ export interface WeeklyReviewFleetLike {
   avg_fatigue?: number | null;
   avg_energy?: number | null;
   weigh_ins?: number | null;
+  protein_target?: number;
+  carbs_target?: number;
+  fat_target?: number;
+  avg_adherence_nutrition?: number | null;
   tracking?: WeeklyReviewTracking;
   is_minor?: boolean;
   has_medical_flags?: boolean;
@@ -207,12 +245,28 @@ function trackingOf(input: WeeklyReviewTracking | undefined): WeeklyReviewTracki
   };
 }
 
-function normalizeGoal(goal: string): "cut" | "bulk" | "maintain" | "" {
-  const g = goal.trim().toLowerCase();
-  if (g === "cut" || g === "lose" || g === "fat_loss" || g === "weight_loss") return "cut";
-  if (g === "bulk" || g === "gain" || g === "muscle") return "bulk";
-  if (g === "maintain" || g === "recomp") return "maintain";
-  return "";
+function reviewEvidenceSnapshot(input: WeeklyReviewInput): ProposalEvidenceSnapshot {
+  const agg = input.aggregates;
+  return {
+    avgCalories: agg.avgCalories,
+    calorieTarget: agg.calorieTarget,
+    workoutCount: agg.workoutCount,
+    loggedNutritionDays: agg.loggedNutritionDays,
+    weightDeltaKg: agg.weightDeltaKg,
+    expectedWorkouts: agg.expectedWorkouts,
+    weighIns: agg.weighIns,
+    avgFatigue: agg.avgFatigue,
+    avgEnergy: agg.avgEnergy,
+    windowStart: agg.windowStart,
+    windowEnd: agg.windowEnd,
+    goal: agg.goal,
+    proteinTarget: agg.proteinTarget ?? 0,
+    carbsTarget: agg.carbsTarget ?? 0,
+    fatTarget: agg.fatTarget ?? 0,
+    weightKg: agg.weightKg ?? agg.weightEndKg ?? 0,
+    weightStartKg: agg.weightStartKg,
+    guarded: input.guarded === true,
+  };
 }
 
 function overeatRatio(avgCalories: number, calorieTarget: number): number {
@@ -269,10 +323,29 @@ export function normalizeFingerprint(raw: string | null | undefined): string | n
   }
 }
 
+function proposalInputMetrics(agg: WeeklyReviewAggregates, guarded: boolean): Record<string, unknown> {
+  return {
+    goal: agg.goal,
+    calorie_target: agg.calorieTarget,
+    protein_target: agg.proteinTarget ?? 0,
+    carbs_target: agg.carbsTarget ?? 0,
+    fat_target: agg.fatTarget ?? 0,
+    weight_kg: agg.weightKg ?? agg.weightEndKg ?? agg.weightStartKg ?? 0,
+    guarded,
+  };
+}
+
+function usesCanonicalNutritionProposal(domain: string, type: string): boolean {
+  return (domain === "weight" && (type === "stall" || type === "too_fast"))
+    || (domain === "recovery" && type === "fatigue")
+    || (domain === "nutrition" && type === "not_following");
+}
+
 export function evidenceFingerprint(
   domain: string,
   type: string,
   agg: WeeklyReviewAggregates,
+  guarded = false,
 ): string {
   let metrics: Record<string, unknown>;
   if (domain === "training" || type === "missed_sessions" || type === "program_adjustment") {
@@ -295,6 +368,9 @@ export function evidenceFingerprint(
       avg_calories: agg.avgCalories,
       calorie_target: agg.calorieTarget,
     };
+  }
+  if (usesCanonicalNutritionProposal(domain, type)) {
+    metrics = { ...metrics, ...proposalInputMetrics(agg, guarded) };
   }
   return JSON.stringify(metrics);
 }
@@ -379,7 +455,7 @@ interface Candidate {
 function collectCandidates(input: WeeklyReviewInput): Candidate[] {
   const { tracking, aggregates: agg } = input;
   const out: Candidate[] = [];
-  const goal = normalizeGoal(agg.goal);
+  const goal = normalizeNutritionGoal(agg.goal);
   const span = agg.weightSpanDays ?? WEEKLY_REVIEW_WINDOW_DAYS;
   const pct = weeklyWeightPct(agg.weightDeltaKg, agg.weightStartKg, span);
   const ratio = overeatRatio(agg.avgCalories, agg.calorieTarget);
@@ -483,6 +559,64 @@ function collectCandidates(input: WeeklyReviewInput): Candidate[] {
   return out;
 }
 
+function nutritionInputFromReview(input: WeeklyReviewInput): WeeklyNutritionInput {
+  const agg = input.aggregates;
+  return {
+    goal: agg.goal,
+    calorie_target: agg.calorieTarget,
+    protein_target: agg.proteinTarget ?? 0,
+    carbs_target: agg.carbsTarget ?? 0,
+    fat_target: agg.fatTarget ?? 0,
+    weight_kg: agg.weightKg ?? agg.weightEndKg ?? agg.weightStartKg ?? 0,
+    logged_nutrition_days: agg.loggedNutritionDays,
+    avg_calories: agg.avgCalories,
+    weight_delta_kg: agg.weightDeltaKg,
+    weight_start_kg: agg.weightStartKg,
+    weight_end_kg: agg.weightEndKg ?? agg.weightKg ?? null,
+    weight_span_days: agg.weightSpanDays,
+    avg_effective_target: agg.avgEffectiveTarget,
+    avg_adherence_nutrition: agg.avgAdherenceNutrition ?? null,
+    avg_fatigue: agg.avgFatigue,
+    avg_energy: agg.avgEnergy,
+    tracking: input.tracking,
+    is_minor: input.guarded === true,
+    has_medical_flags: input.guarded === true,
+  };
+}
+
+/** Serialize the canonical Solo/fleet proposal. Training relance is a mapping, not a second calorie engine. */
+function serializeCanonicalWatchProposal(
+  candidate: Candidate,
+  input: WeeklyReviewInput,
+  weekStart: string,
+): WatchProposalSnapshot | null {
+  const domain = candidate.domain;
+  const type = candidate.type;
+  if (domain === "training" && type === "missed_sessions") {
+    return {
+      kind: "adherence_training",
+      action: "relance",
+      domain,
+      type,
+      flag: "adherence_training",
+      week_start: weekStart,
+    };
+  }
+  const nutrition = proposeWeeklyNutrition(nutritionInputFromReview(input));
+  const mapped = watchTargetFromNutritionProposal(nutrition);
+  if (!mapped || mapped.domain !== domain || mapped.type !== type) return null;
+  return {
+    kind: mapped.kind,
+    action: nutrition.action,
+    reason: nutrition.reason,
+    domain,
+    type,
+    flag: mapped.flag,
+    week_start: weekStart,
+    ...(nutrition.draft ? { draft: nutrition.draft } : {}),
+  };
+}
+
 function summaryFor(
   authority: WeeklyReviewAuthority,
   decision: WeeklyReviewDecision,
@@ -564,6 +698,13 @@ export function weeklyReviewInputFromFleet(
       avgFatigue: dossier.avg_fatigue ?? null,
       avgEnergy: dossier.avg_energy ?? null,
       goal: dossier.goal,
+      proteinTarget: dossier.protein_target ?? 0,
+      carbsTarget: dossier.carbs_target ?? 0,
+      fatTarget: dossier.fat_target ?? 0,
+      weightKg: dossier.weight_kg,
+      weightEndKg: dossier.weight_end_kg ?? dossier.weight_kg,
+      avgAdherenceNutrition: dossier.avg_adherence_nutrition ?? null,
+      avgEffectiveTarget: dossier.avg_effective_target,
     },
   };
 }
@@ -585,20 +726,37 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
   const recentDecisions = input.recentDecisions ?? [];
 
   for (const candidate of candidates) {
+    if (isContextCorrectionHeld(recentDecisions, candidate.domain, candidate.type, reviewEvidenceSnapshot(input))) {
+      watched.add(`${candidate.domain}:${candidate.type}`);
+      continue;
+    }
     const prev = findOpen(input.existingSignals, candidate.domain, candidate.type);
-    const fingerprint = evidenceFingerprint(candidate.domain, candidate.type, input.aggregates);
+    const fingerprint = evidenceFingerprint(
+      candidate.domain,
+      candidate.type,
+      input.aggregates,
+      input.guarded === true,
+    );
     const confidence = nextSignalConfidence(prev, candidate.supported, fingerprint);
     const status: EngineSignalOpenStatus = candidate.waiting ? "waiting" : "open";
     if (status === "waiting") upsertedWaiting += 1;
     else upsertedOpen += 1;
     if (candidate.proposeWorthy && status === "open" && (confidence === "medium" || confidence === "high")) {
-      if (isProposalSuppressed(recentDecisions, candidate.domain, candidate.type, input.aggregates)) {
+      if (
+        isProposalSuppressed(recentDecisions, candidate.domain, candidate.type, reviewEvidenceSnapshot(input))
+        || isWatchProposalSettled(recentDecisions, candidate.domain, candidate.type, reviewEvidenceSnapshot(input))
+      ) {
         suppressedPropose += 1;
       } else {
         proposeWorthyOpen += 1;
       }
     }
-    actions.push({
+    const decidable = candidate.proposeWorthy
+      && status === "open"
+      && (confidence === "medium" || confidence === "high")
+      && !isProposalSuppressed(recentDecisions, candidate.domain, candidate.type, reviewEvidenceSnapshot(input))
+      && !isWatchProposalSettled(recentDecisions, candidate.domain, candidate.type, reviewEvidenceSnapshot(input));
+    const action: WeeklyReviewSignalAction = {
       op: "upsert",
       domain: candidate.domain,
       type: candidate.type,
@@ -608,7 +766,12 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
       confidence,
       status,
       nextReviewAt,
-    });
+    };
+    if (decidable) {
+      const snapshot = serializeCanonicalWatchProposal(candidate, input, weekStart);
+      if (snapshot) action.proposal = snapshot;
+    }
+    actions.push(action);
   }
 
   for (const signal of input.existingSignals) {
@@ -627,7 +790,12 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
       continue;
     }
     if (!spec.dataSufficient(input.aggregates)) {
-      const fingerprint = evidenceFingerprint(signal.domain, signal.type, input.aggregates);
+      const fingerprint = evidenceFingerprint(
+        signal.domain,
+        signal.type,
+        input.aggregates,
+        input.guarded === true,
+      );
       upsertedWaiting += 1;
       actions.push({
         op: "upsert",
@@ -701,6 +869,7 @@ export function weeklyReviewActionsToRpcPayload(actions: WeeklyReviewSignalActio
       confidence: action.confidence ?? "low",
       status: action.status ?? "open",
       next_review_at: action.nextReviewAt ?? null,
+      ...(action.proposal ? { proposal: action.proposal } : {}),
     };
   });
 }
@@ -728,6 +897,10 @@ export function weeklyReviewSaveArgs(athleteId: string, review: WeeklyReviewResu
       avg_fatigue: review.aggregates.avgFatigue,
       avg_energy: review.aggregates.avgEnergy,
       goal: review.aggregates.goal,
+      protein_target: review.aggregates.proteinTarget,
+      carbs_target: review.aggregates.carbsTarget,
+      fat_target: review.aggregates.fatTarget,
+      weight_kg: review.aggregates.weightKg ?? review.aggregates.weightEndKg,
     },
     p_tracking: review.tracking,
     p_signal_actions: weeklyReviewActionsToRpcPayload(review.signalActions),

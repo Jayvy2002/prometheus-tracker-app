@@ -173,6 +173,20 @@ export function canCorrectAthleteWatchContext(
   return canActAsCoach(actor) && resource.hasActiveRelationship === true;
 }
 
+/**
+ * Vision 8.2 / 8.6: deciding a current watch proposal is the same authority as
+ * correcting context — Solo self, or the active Coach of the athlete. A coached
+ * athlete, including a Coach who is themselves coached, cannot take coaching
+ * interpretation rights on their own dossier. Workspace never grants this.
+ * Accepting here does not apply calorie targets or programs.
+ */
+export function canDecideAthleteWatchProposal(
+  actor: PermissionActor,
+  resource: AthleteWatchResource = {},
+): boolean {
+  return canCorrectAthleteWatchContext(actor, resource);
+}
+
 export function canReadOwnCalendar(actor: PermissionActor): boolean {
   return canUsePersonalTools(actor);
 }

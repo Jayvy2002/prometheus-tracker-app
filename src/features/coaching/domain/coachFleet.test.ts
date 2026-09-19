@@ -620,6 +620,44 @@ test('P2.3: journal refusal skips after 7-day cooldown if evidence is unchanged'
   assert.equal(planFleetRoundCard(moved, TODAY, 'fr', refused).action, 'insert');
 });
 
+test('P2.5: a watch-panel accept skips a new fleet card until evidence moves', () => {
+  const marc = dossier({
+    client_id: 'marc-id',
+    full_name: 'Marc Bouchard',
+    calorie_target: 2200,
+    logged_nutrition_days: 10,
+    avg_calories: 3100,
+    avg_adherence_nutrition: 2,
+    weight_delta_kg: 0.4,
+  });
+  const watchAccepted: AthleteDecisionLog[] = [{
+    id: 'dec-watch',
+    athlete_id: 'marc-id',
+    actor_id: 'coach-id',
+    actor_role: 'coach',
+    domain: 'nutrition',
+    type: 'not_following',
+    decision: 'accepted',
+    proposal: { kind: 'watch_proposal_decision', action: 'accepted' },
+    why: 'watch',
+    data_used: {
+      avg_calories: 3100,
+      calorie_target: 2200,
+      workout_count: marc.workout_count,
+      logged_nutrition_days: 10,
+      weight_delta_kg: 0.4,
+    },
+    human_reason: null,
+    applied_effect: {},
+    source: 'prometheus_watch',
+    source_id: 'sig-1',
+    created_at: '2026-08-25T00:00:00Z',
+  }];
+  assert.equal(planFleetRoundCard(marc, TODAY, 'fr', watchAccepted).action, 'skip');
+  const moved = dossier({ ...marc, avg_calories: 3400 });
+  assert.equal(planFleetRoundCard(moved, TODAY, 'fr', watchAccepted).action, 'insert');
+});
+
 test('upsert SQL never reopens sent/dismissed fleet rows', () => {
   const sql = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260829134034_fleet_handled_cooldown.sql'), 'utf8');
   assert.match(sql, /AND status = 'pending'/);
@@ -633,6 +671,7 @@ test('upsert SQL never reopens sent/dismissed fleet rows', () => {
   assert.match(fleet, /FLEET_HANDLE_COOLDOWN_DAYS/);
   assert.match(fleet, /athlete_decision_log/);
   assert.match(fleet, /isProposalSuppressed/);
+  assert.match(fleet, /isWatchProposalSettled/);
 });
 
 /**

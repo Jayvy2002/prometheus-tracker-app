@@ -306,7 +306,7 @@ test('changed proofs after a refusal do not resurrect the old proposal as curren
   });
   assert.equal(items[0].kind, 'current');
   assert.equal(items[0].suppressed, false);
-  assert.equal(items[0].currentProposalKey, 'prometheusWatch.proposal.generic');
+  assert.equal(items[0].currentProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(items[0].lastProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(items[0].observedCopy?.params.count, 2);
   assert.equal(items[0].periodStart, '2026-08-28');
@@ -355,11 +355,135 @@ test('a review that proposes for signal A does not invent a current proposal on 
   const other = items.find((row) => row.type === 'custom_habit');
   assert.ok(training);
   assert.ok(other);
-  assert.equal(training?.currentProposalKey, 'prometheusWatch.proposal.generic');
+  assert.equal(training?.currentProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(other?.currentProposalKey, null);
   assert.equal(other?.kind, 'current');
   assert.equal(other?.statusKey, 'prometheusWatch.status.open');
   assert.equal(other?.headlineKey, 'prometheusWatch.types.other');
+});
+
+test('a watch-panel accept or refuse hides the current proposal without inventing history', () => {
+  const week1 = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 0, expectedWorkouts: 6 }),
+  }));
+  const week2 = runAthleteWeeklyReview(input({
+    today: '2026-09-10',
+    aggregates: aggregates({
+      workoutCount: 2,
+      expectedWorkouts: 6,
+      windowStart: addUtcDays('2026-08-21', 7),
+      windowEnd: addUtcDays('2026-09-03', 7),
+    }),
+    existingSignals: [signalFromAction(upsertOf(week1, 'missed_sessions'), { confidence: 'low' })],
+  }));
+  const action = upsertOf(week2, 'missed_sessions');
+  assert.equal(week2.decision, 'propose');
+  const persisted = reviewFromEngine(week2, {
+    signal_actions: weeklyReviewActionsToRpcPayload(week2.signalActions),
+  });
+  const sameEvidence = {
+    workout_count: 2,
+    expected_workouts: 6,
+    window_start: addUtcDays('2026-08-21', 7),
+    window_end: addUtcDays('2026-09-03', 7),
+  };
+
+  const accepted = buildPrometheusWatchItems({
+    signals: [signalFromAction(action)],
+    decisions: [decision({
+      decision: 'accepted',
+      proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
+      source: 'prometheus_watch',
+      data_used: sameEvidence,
+      human_reason: null,
+    })],
+    latestReview: persisted,
+  });
+  assert.equal(accepted.length, 1);
+  assert.equal(accepted[0].kind, 'current');
+  assert.equal(accepted[0].statusKey, 'prometheusWatch.status.open');
+  assert.equal(accepted[0].currentProposalKey, null);
+  assert.equal(accepted[0].lastProposalKey, 'prometheusWatch.proposal.relance');
+  assert.equal(accepted[0].lastDecisionKey, 'prometheusWatch.decision.accepted');
+  assert.equal(accepted[0].whyHiddenKey, 'prometheusWatch.hidden.unchanged');
+  assert.equal(accepted[0].reviewWeekStart, persisted.week_start);
+
+  const modified = buildPrometheusWatchItems({
+    signals: [signalFromAction(action)],
+    decisions: [decision({
+      decision: 'modified',
+      proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
+      source: 'prometheus_watch',
+      data_used: sameEvidence,
+      human_reason: 'Volume plus tard',
+    })],
+    latestReview: persisted,
+  });
+  assert.equal(modified[0].currentProposalKey, null);
+  assert.equal(modified[0].lastDecisionKey, 'prometheusWatch.decision.modified');
+  assert.equal(modified[0].reviewWeekStart, persisted.week_start);
+
+  const refused = buildPrometheusWatchItems({
+    signals: [signalFromAction(action)],
+    decisions: [decision({
+      decision: 'refused',
+      proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
+      source: 'prometheus_watch',
+      data_used: sameEvidence,
+    })],
+    latestReview: persisted,
+  });
+  assert.equal(refused[0].kind, 'current');
+  assert.equal(refused[0].currentProposalKey, null);
+  assert.equal(refused[0].lastDecisionKey, 'prometheusWatch.decision.refused');
+  assert.equal(refused[0].suppressed, true);
+
+  const custom = stubSignal({
+    id: 'sig-custom',
+    domain: 'goal',
+    type: 'custom_habit',
+    confidence: 'high',
+    status: 'open',
+  });
+  const mixed = buildPrometheusWatchItems({
+    signals: [signalFromAction(action), custom],
+    decisions: [],
+    latestReview: persisted,
+  });
+  assert.equal(mixed.find((row) => row.type === 'missed_sessions')?.currentProposalKey, 'prometheusWatch.proposal.relance');
+  assert.equal(mixed.find((row) => row.type === 'missed_sessions')?.reviewWeekStart, persisted.week_start);
+  assert.equal(mixed.find((row) => row.type === 'custom_habit')?.currentProposalKey, null);
+  assert.equal(mixed.find((row) => row.type === 'custom_habit')?.reviewWeekStart, persisted.week_start);
+});
+
+test('a propose review without a concrete proposal object is not decidable', () => {
+  const week2 = runAthleteWeeklyReview(input({
+    today: '2026-09-10',
+    aggregates: aggregates({
+      workoutCount: 2,
+      expectedWorkouts: 6,
+      windowStart: addUtcDays('2026-08-21', 7),
+      windowEnd: addUtcDays('2026-09-03', 7),
+    }),
+    existingSignals: [signalFromAction(upsertOf(runAthleteWeeklyReview(input({
+      aggregates: aggregates({ workoutCount: 0, expectedWorkouts: 6 }),
+    })), 'missed_sessions'), { confidence: 'low' })],
+  }));
+  assert.equal(week2.decision, 'propose');
+  const stripped = weeklyReviewActionsToRpcPayload(week2.signalActions).map((raw) => {
+    const row = { ...(raw as Record<string, unknown>) };
+    delete row.proposal;
+    return row;
+  });
+  const persisted = reviewFromEngine(week2, { signal_actions: stripped });
+  assert.equal(reviewProposesFor(persisted, 'training', 'missed_sessions'), false);
+  const items = buildPrometheusWatchItems({
+    signals: [signalFromAction(upsertOf(week2, 'missed_sessions'))],
+    decisions: [],
+    latestReview: persisted,
+  });
+  assert.equal(items[0].currentProposalKey, null);
+  assert.equal(items[0].currentProposalDetail, null);
 });
 
 test('why copy is a real explanation, not a repeat of the type title', () => {
@@ -379,6 +503,27 @@ test('why copy is a real explanation, not a repeat of the type title', () => {
   assert.match(fr, /plan mérite d’être réévalué/);
   assert.match(en, /plan deserves another look/);
   assert.doesNotMatch(src('src/features/signals/domain/explainability.ts'), /whyKey: typeKeyOf/);
+});
+
+test('a corrected interpretation becomes quiet history without inventing an open signal or a current proposal', () => {
+  const items = buildPrometheusWatchItems({
+    signals: [],
+    decisions: [decision({
+      decision: 'corrected',
+      proposal: { kind: 'watch_context_correction', action: 'not_relevant', domain: 'training', type: 'missed_sessions' },
+      human_reason: 'Semaine de déplacement',
+      source: 'prometheus_watch',
+    })],
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, 'history');
+  assert.equal(items[0].statusKey, 'prometheusWatch.status.quiet');
+  assert.equal(items[0].currentProposalKey, null);
+  assert.equal(items[0].lastProposalKey, null);
+  assert.equal(items[0].lastDecisionKey, 'prometheusWatch.decision.corrected');
+  assert.equal(items[0].humanReason, 'Semaine de déplacement');
+  assert.equal(items[0].whyKey, 'prometheusWatch.whyCopy.missed_sessions');
+  assert.notEqual(items[0].whyKey, items[0].headlineKey);
 });
 
 test('watch panel dates follow the UI language', () => {
@@ -484,21 +629,33 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
     assert.match(locale, /loadError/);
     assert.match(locale, /status:[\s\S]*quiet/);
     assert.match(locale, /whyCopy/);
+    assert.match(locale, /decision:[\s\S]*corrected/);
+    assert.match(locale, /titleNotRelevant|Mark this observation as not relevant/);
+    assert.match(locale, /decide:[\s\S]*accept/);
+    assert.match(locale, /titleRefuse|Decline this proposal/);
+    assert.match(locale, /Record a change \(without applying it\)|Noter une modification \(sans l’appliquer\)/);
+    assert.match(locale, /nutritionRelance/);
+    assert.match(locale, /draftCalories/);
   }
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /PrometheusWatchPanel/);
   assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /PrometheusWatchPanel/);
   const panel = src('src/components/dashboard/PrometheusWatchPanel.tsx');
   assert.match(panel, /canReadAthleteWatch/);
-  assert.doesNotMatch(panel, /canCorrectAthleteWatchContext\(/);
+  assert.match(panel, /canCorrectAthleteWatchContext\(/);
+  assert.match(panel, /canDecideAthleteWatchProposal\(/);
+  assert.match(panel, /correctAthleteWatchContext/);
+  assert.match(panel, /decideAthleteWatchProposal/);
   assert.match(panel, /listAthleteSignalsForWatch\(/);
   assert.match(panel, /listLatestAthleteDecisionsForWatch\(/);
   assert.match(panel, /listLatestAthleteWeeklyReviewForWatch\(/);
   assert.doesNotMatch(panel, /BestEffort/);
+  assert.doesNotMatch(panel, /commit_solo_weekly_review_decision|apply_intervention/);
   assert.match(panel, /phase === 'error'/);
   assert.match(panel, /errors\.retry/);
   assert.match(panel, /loadError/);
   assert.match(panel, /observedCopy/);
   assert.match(panel, /currentProposalKey/);
+  assert.match(panel, /currentProposalDetail/);
   assert.match(panel, /lastProposalKey/);
   assert.doesNotMatch(panel, /item\.hypothesis|evidence\.summary|item\.observed\b/);
   assert.match(src('docs/P2_4_EXPLAINABILITY.md'), /Lecture seule/);

@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P2.4 suite : correction de contexte.**
+> **CURRENT IMPLEMENTATION GATE — P2.5 décision humaine sur la proposition (en cours).**
 >
-> P1.5–P2.3 sont mergés (`#190`, `c51d5f49`) et **actifs en production** (122 migrations, dernière `20260918232507_athlete_decision_durability`). Le premier vertical slice P2.4 est livré : écran « Ce que Prometheus surveille », lecture seule, même vérité P2.1–P2.3, Solo + Coaché + Coach (y compris Coach lui-même Coaché). Aucune auto-application. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas la correction de contexte ni P2.5. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.5–P2.3 sont mergés (`#190`, `c51d5f49`) et **actifs en production** (122 migrations, dernière `20260918232507_athlete_decision_durability`). Le slice lecture P2.4 est mergé (`#191`, `b404281`). Cette PR : correction de contexte (P2.4) **et** décision humaine accepter / modifier / refuser depuis le panneau (P2.5). Snapshot = sérialisation du builder canonique (`proposeWeeklyNutrition`), pas une 2e logique. Décision verrouillée sur la version exacte vue à l’écran. Un Coaché ne peut pas `save_athlete_weekly_review`. Aucune auto-application. Aucune réécriture des mesures sources. Le panneau n’est pas un troisième moteur d’apply : Solo `commit_solo_weekly_review_decision` et Coach `apply_intervention` restent les chemins d’effet durable. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas P2.6 ni P3. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -61,7 +61,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (122 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **EN COURS — P2.4 lecture livrée ; correction ensuite** | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P2** | Cerveau Prometheus | **EN COURS — P2.5 décision humaine sur la proposition** | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.3 sont mergés dans `new-JV` (`#190`) et appliqués en production (122 migrations). Le premier slice P2.4 (lecture « Ce que Prometheus surveille ») est dans une PR draft. Un agent n’enchaîne pas la correction de contexte ni P2.5 sans feu vert.
+P1.5–P2.3 sont mergés dans `new-JV` (`#190`) et appliqués en production (122 migrations). Le slice lecture P2.4 est mergé (`#191`). Cette PR porte la correction de contexte et P2.5 (décision sur la proposition courante). Un agent n’enchaîne pas P2.6 ni P3 sans feu vert.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -555,20 +555,22 @@ La revue suivante exploite ce contexte. Un refus n’est pas un bouton sans mém
 
 ### État actuel
 
-**PREMIER SLICE LIVRÉ (lecture)** — écran « Ce que Prometheus surveille ».
+**SLICE LECTURE MERGÉ** — `#191` (`b404281`) : écran « Ce que Prometheus surveille ».
+
+**SLICE CORRECTION DANS CETTE PR** — écriture traçable depuis le même panneau.
 
 Inventaire : [P2.4 — explicabilité](P2_4_EXPLAINABILITY.md).
 
-Audit : P2.1–P2.3 fournissent déjà signaux, revue, journal, `data_used`, `why`, `proposal`, mémoire de proposition. Aucun second moteur. Le slice lit ces surfaces et les traduit en FR/EN.
+Audit : P2.1–P2.3 fournissent déjà signaux, revue, journal, `data_used`, `why`, `proposal`, mémoire de proposition. Aucun second moteur. Le slice lecture traduit ces surfaces. La correction réutilise `resolve_athlete_signal` + le journal (`corrected`) via une RPC atomique `correct_athlete_watch_context`. Pas de nouvelle table. Pas de 14ᵉ Edge Function.
 
 - Composant unique `PrometheusWatchPanel` : dashboard personnel (Solo et Coaché) + fiche Coach.
-- Permissions = ressource + relation + action (`canReadAthleteWatch` / `canCorrectAthleteWatchContext`). Le Coaché lit ; il ne récupère pas les droits de correction du Coach. Un Coach lui-même Coaché lit son dossier perso et celui de ses clients, sans que le workspace UI n’accorde rien.
-- Divulgation progressive. Pas de JSON, pas de score artificiel, pas d’auto-application, pas d’écriture d’interprétation dans ce slice.
+- Permissions = ressource + relation + action (`canReadAthleteWatch` / `canCorrectAthleteWatchContext`). Le Coaché lit ; il ne récupère pas les droits de correction du Coach. Un Coach lui-même Coaché lit son dossier perso et celui de ses clients, sans que le workspace UI n’accorde rien. Seuls Solo (y compris un Coach côté perso) et le Coach actif de l’athlète corrigent.
 - Observation = type + fingerprint structuré + i18n (jamais `window` / `fingerprint` ni `hypothesis` moteur).
-- État actuel et dernière décision humaine sont des champs séparés. Une ancienne proposition n’est jamais présentée comme proposition actuelle sans upsert `open` medium/high de ce (domaine, type) dans `signal_actions` de la revue courante. Une ligne historique n’invente jamais le statut `open`. Une revue `propose` pour le signal A n’attribue pas de proposition au signal B.
-- Indisponible ≠ vide : le panneau a loading / ready / error + retry.
+- Une correction clôt le signal ouvert en `not_relevant`, journalise `corrected` avec motif humain, et empêche la revue suivante de réouvrir le même `(domaine, type)` tant que les preuves n’ont pas bougé (kcal ±150, séances ±2). Un refus de proposition continue de laisser le signal ouvert.
+- Les mesures sources (séances, nutrition, pesées) ne sont jamais réécrites.
+- Indisponible ≠ vide : le panneau a loading / ready / error + retry. Une correction non persistée affiche une erreur, pas un succès.
 
-**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas la correction de contexte ni P2.5.**
+**Arrêt de la sous-tâche P2.4 :** livrée dans cette PR avec P2.5. Ne pas merger sans feu vert.
 
 L’utilisateur/Coach doit pouvoir comprendre :
 
@@ -586,7 +588,43 @@ Ne pas afficher de scores de confiance pseudo-précis si le modèle ne les justi
 - mémoire inter-semaines prouvée par tests ;
 - un refus humain influence une revue suivante ;
 - les modules désactivés n’alimentent pas de jugement ;
-- la correction de contexte (hors ce slice) reste traçable et ne falsifie pas les mesures.
+- la correction de contexte reste traçable et ne falsifie pas les mesures ;
+- une proposition courante peut être acceptée, modifiée ou refusée depuis le panneau, sans troisième moteur d’apply.
+
+---
+
+## P2.5 — Décision humaine sur la proposition courante
+
+### État actuel
+
+**EN COURS — cette PR**, après le slice correction P2.4.
+
+Inventaire : [P2.5 — proposition](P2_5_WATCH_PROPOSAL.md).
+
+Le panneau montre une proposition **seulement** si la revue `propose` pour ce `(domaine, type)` exact (upsert `open` medium/high). Un signal custom ouvert n’hérite pas de la proposition d’un autre type.
+
+Contrat :
+
+```text
+humain (Solo ou Coach actif) + proposition courante concrète
+→ RPC atomique : journal accepted | modified | refused
+→ le journal porte la sérialisation du builder canonique Solo/fleet
+→ data_used = preuves de la revue (toutes les entrées du builder)
+→ token vu à l’écran (review id/updated_at + proposal + evidence)
+  sinon stale_proposal
+→ le signal reste ouvert (un refus n’est pas une correction)
+→ idempotence par semaine ISO + payload immuable
+→ la revue suivante ne repropose pas le même (domaine, type)
+  tant que les preuves n’ont pas changé
+→ aucune écriture des cibles, séances, repas, programmes
+→ Coaché : lecture seule ; pas de `save_athlete_weekly_review`
+→ workspace UI n’accorde rien
+→ succès UI seulement après persistance
+```
+
+`commit_solo_weekly_review_decision` et `apply_intervention` restent les seuls chemins d’effet durable. Le panneau journalise le contexte Vision 8.6.
+
+**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.6 ni P3.**
 
 ---
 

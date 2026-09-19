@@ -16,7 +16,9 @@ import {
   effectsAreMaterial,
   evidenceFromProposalPayload,
   isAthleteHumanDecision,
+  isContextCorrectionHeld,
   isProposalSuppressed,
+  isWatchProposalSettled,
   latestAthleteDecision,
   mapInterventionDecision,
   mapInterventionKind,
@@ -73,6 +75,7 @@ function row(partial: Partial<AthleteDecisionLog> = {}): AthleteDecisionLog {
 
 test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
   assert.equal(isAthleteHumanDecision('refused'), true);
+  assert.equal(isAthleteHumanDecision('corrected'), true);
   assert.equal(isAthleteHumanDecision('kept'), false);
   assert.equal(mapSoloReviewDecision('accepted'), 'accepted');
   assert.equal(mapSoloReviewDecision('kept'), 'ignored');
@@ -137,11 +140,62 @@ test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
   assert.equal(canReadAthleteDecisionLog({ actorId: 'other', athleteId: 'a', isCoachOfAthlete: false }), false);
 });
 
+test('a watch-panel accept or modify settles that proposal until evidence moves', () => {
+  const agg = aggregates({ workoutCount: 0 });
+  const watchAccepted = [row({
+    decision: 'accepted',
+    domain: 'training',
+    type: 'missed_sessions',
+    source: 'prometheus_watch',
+    data_used: { workout_count: 0, expected_workouts: 6 },
+  })];
+  assert.equal(isWatchProposalSettled(watchAccepted, 'training', 'missed_sessions', agg), true);
+  assert.equal(isProposalSuppressed(watchAccepted, 'training', 'missed_sessions', agg), false);
+  assert.equal(
+    isWatchProposalSettled(watchAccepted, 'training', 'missed_sessions', aggregates({ workoutCount: 2 })),
+    false,
+  );
+  assert.equal(isWatchProposalSettled([row({ decision: 'accepted' })], 'nutrition', 'not_following', aggregates()), false);
+  assert.equal(
+    isWatchProposalSettled(
+      [row({
+        decision: 'modified',
+        domain: 'training',
+        type: 'missed_sessions',
+        source: 'prometheus_watch',
+        data_used: { workout_count: 0, expected_workouts: 6 },
+      })],
+      'training',
+      'missed_sessions',
+      agg,
+    ),
+    true,
+  );
+});
+
+test('a context correction holds the same interpretation until evidence moves', () => {
+  const agg = aggregates({ workoutCount: 0 });
+  const corrected = [row({
+    decision: 'corrected',
+    domain: 'training',
+    type: 'missed_sessions',
+    data_used: { workout_count: 0, expected_workouts: 6 },
+  })];
+  assert.equal(isContextCorrectionHeld(corrected, 'training', 'missed_sessions', agg), true);
+  assert.equal(isContextCorrectionHeld(corrected, 'nutrition', 'not_following', agg), false);
+  assert.equal(
+    isContextCorrectionHeld(corrected, 'training', 'missed_sessions', aggregates({ workoutCount: 2 })),
+    false,
+  );
+  assert.equal(isContextCorrectionHeld([row()], 'nutrition', 'not_following', aggregates()), false);
+});
+
 test('refusal suppresses the same proposal until evidence moves', () => {
   const agg = aggregates();
   const refused = [row()];
   assert.equal(isProposalSuppressed(refused, 'nutrition', 'not_following', agg), true);
   assert.equal(isProposalSuppressed([row({ decision: 'ignored' })], 'nutrition', 'not_following', agg), true);
+  assert.equal(isProposalSuppressed([row({ decision: 'corrected' })], 'nutrition', 'not_following', agg), true);
   assert.equal(isProposalSuppressed([row({ decision: 'accepted' })], 'nutrition', 'not_following', agg), false);
   assert.equal(isProposalSuppressed(refused, 'training', 'missed_sessions', agg), false);
 
@@ -177,7 +231,63 @@ test('refusal suppresses the same proposal until evidence moves', () => {
   );
 });
 
-test('evidence thresholds match the fleet snapshot', () => {
+test('proposal inputs unhold a settled watch decision even when the domain fingerprint is unchanged', () => {
+  const settled = [row({
+    domain: 'weight',
+    type: 'stall',
+    decision: 'accepted',
+    source: 'prometheus_watch',
+    data_used: {
+      weigh_ins: 4,
+      weight_delta_kg: -0.1,
+      goal: 'cut',
+      calorie_target: 2000,
+      protein_target: 160,
+    },
+  })];
+  const sameWeight = aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'cut',
+    calorieTarget: 2000,
+    proteinTarget: 160,
+  });
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', sameWeight), true);
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'bulk',
+    calorieTarget: 2000,
+    proteinTarget: 160,
+  })), false);
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'cut',
+    calorieTarget: 1800,
+    proteinTarget: 160,
+  })), false);
+  assert.equal(isWatchProposalSettled(settled, 'weight', 'stall', aggregates({
+    weightDeltaKg: -0.1,
+    goal: 'cut',
+    calorieTarget: 2000,
+    proteinTarget: 180,
+  })), false);
+
+  const trainingSettled = [row({
+    domain: 'training',
+    type: 'missed_sessions',
+    decision: 'accepted',
+    source: 'prometheus_watch',
+    data_used: { workout_count: 1, expected_workouts: 6 },
+  })];
+  assert.equal(
+    isWatchProposalSettled(
+      trainingSettled,
+      'training',
+      'missed_sessions',
+      aggregates({ workoutCount: 1, calorieTarget: 1800, goal: 'bulk' }),
+    ),
+    true,
+  );
+});
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, new RegExp(`>= ${DECISION_EVIDENCE_KCAL_DELTA}`));
   assert.match(fleet, new RegExp(`>= ${DECISION_EVIDENCE_WORKOUT_DELTA}`));
@@ -292,11 +402,14 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.match(shared, /canonicalActionField/);
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /isProposalSuppressed/);
+  assert.match(fleet, /isWatchProposalSettled/);
   assert.match(fleet, /recentDecisions: AthleteDecisionLog\[\] = \[\]/);
   const edge = src('supabase/functions/coach-fleet-round/index.ts');
   assert.match(edge, /proposalMemory/);
   assert.match(edge, /list_latest_athlete_decisions_for_athletes/);
   assert.match(edge, /isProposalSuppressed/);
+  assert.match(edge, /isWatchProposalSettled/);
+  assert.match(edge, /source: str\(row.source\)/);
   assert.doesNotMatch(edge, /function journalEvidenceChanged/);
   assert.doesNotMatch(edge, /function mapInterventionKind/);
 });
