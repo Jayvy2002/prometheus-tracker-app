@@ -71,7 +71,7 @@ INSERT INTO public.athlete_decision_outbox (
 );
 SQL
 
-psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL &
+psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL >/tmp/prometheus-drain-hold-session.out 2>&1 &
 SET application_name = '${HOLD_APP}';
 BEGIN;
 SELECT pg_advisory_xact_lock(
@@ -122,8 +122,23 @@ if [[ "${free_journaled}" != "1" ]]; then
 fi
 
 kill "${hold_pid}" 2>/dev/null || true
+psql "$DATABASE_URL" -X -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = '${HOLD_APP}' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
 wait "${hold_pid}" 2>/dev/null || true
 hold_pid=""
+released=0
+for _ in $(seq 1 50); do
+  left="$(psql_at "SELECT count(*) FROM pg_stat_activity WHERE application_name = '${HOLD_APP}'")"
+  adv="$(psql_at "SELECT count(*) FROM pg_locks WHERE locktype = 'advisory' AND granted AND pid IN (SELECT pid FROM pg_stat_activity WHERE application_name = '${HOLD_APP}')")"
+  if [[ "${left}" == "0" && "${adv}" == "0" ]]; then
+    released=1
+    break
+  fi
+  sleep 0.05
+done
+if [[ "${released}" != "1" ]]; then
+  echo "hold session still present after terminate" >&2
+  exit 1
+fi
 
 after="$(psql_at "SELECT public.drain_athlete_decision_outbox(2)")"
 a_journaled="$(psql_at "SELECT count(*) FROM public.athlete_decision_log WHERE idempotency_key = '${KEY_A}'")"
