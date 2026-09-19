@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P3.1 clos en production (125 migrations, dernière `20260919194159_program_session_organization`). P2.1–P2.5 clos. pending vide. Arrêt P3 : passe d’audit/hotfix P1–P2 (Hotfix A immutabilité `coach_client_links` d’abord, PR séparées). Ne pas commencer P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
+> **CURRENT IMPLEMENTATION GATE — Hotfix A immutabilité `coach_client_links` (candidate `20260919202538_coach_client_link_immutability`, PR séparée). P3.1 clos en production (125 migrations, dernière `20260919194159`). P2.1–P2.5 clos. Après feu vert : Hotfix B primitives P2. Ne pas commencer P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
 >
-> P3.1 est mergé (`#195`, HEAD `5ab6837`) et **appliqué en production** avec le timestamp Git `20260919194159`. P1.5–P2.5 restent clos (`#190`–`#194`). Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P3.1 est mergé (`#195`/`#196`) et **appliqué en production**. P1.5–P2.5 restent clos (`#190`–`#194`). Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -426,6 +426,20 @@ Centraliser les décisions actuelles :
 ### Terminé quand
 
 Une seule définition métier est utilisée et testée pour chaque durée.
+
+## Hotfix A — Immutabilité `coach_client_links`
+
+### État actuel
+
+**EN COURS** — candidate `20260919202538_coach_client_link_immutability`. Inventaire : [immutabilité du lien](P1_COACH_CLIENT_LINK_IMMUTABILITY.md).
+
+Finding confirmé en production : policy `UPDATE` `USING coach_id = uid AND status = 'active'` / `WITH CHECK coach_id = uid`. Les grants colonne bloquaient déjà `client_id`/`coach_id`, mais pas `status`, et aucun trigger ne gelait l’identité.
+
+Correctif serveur : trigger d’identité + policy bookkeeping + `REVOKE` INSERT/DELETE/status. Les RPC métier restent le seul chemin de transition.
+
+### Terminé quand
+
+Un utilisateur authentifié ne peut pas transformer l’identité d’un lien existant, ni créer/finir/ressusciter une relation hors RPC.
 
 ---
 

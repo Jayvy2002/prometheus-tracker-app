@@ -1,3 +1,8 @@
 {
-  "pending": []
+  "pending": [
+    {
+      "version": "20260919202538",
+      "name": "coach_client_link_immutability"
+    }
+  ]
 }

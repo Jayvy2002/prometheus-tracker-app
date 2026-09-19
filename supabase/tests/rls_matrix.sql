@@ -203,6 +203,51 @@ EXCEPTION WHEN OTHERS THEN
   RAISE;
 END $$;
 
+-- Hotfix A : A ne transforme pas le lien A–A1 en lien A–solo / A–B1.
+DO $$
+DECLARE
+  v_a uuid := '00000000-0000-0000-0000-0000000000a1';
+  v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
+  v_solo uuid := '00000000-0000-0000-0000-00000000000d';
+  v_ok boolean := true;
+  v_detail text := 'rejected';
+BEGIN
+  PERFORM pg_temp.as_user(v_a);
+  SET LOCAL ROLE authenticated;
+  BEGIN
+    UPDATE public.coach_client_links
+       SET client_id = v_solo
+     WHERE coach_id = v_a AND client_id = v_a1;
+    v_ok := false;
+    v_detail := 'A retargeted A1 → solo';
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  BEGIN
+    UPDATE public.coach_client_links
+       SET status = 'ended'
+     WHERE coach_id = v_a AND client_id = v_a1;
+    IF EXISTS (
+      SELECT 1 FROM public.coach_client_links
+      WHERE coach_id = v_a AND client_id = v_a1 AND status = 'ended'
+    ) THEN
+      v_ok := false;
+      v_detail := 'A ended A-A1 via Data API';
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  RESET ROLE; PERFORM pg_temp.clear_user();
+  IF v_ok AND NOT EXISTS (
+    SELECT 1 FROM public.coach_client_links
+    WHERE coach_id = v_a AND client_id = v_a1 AND status = 'active'
+  ) THEN
+    v_ok := false;
+    v_detail := 'active A-A1 missing after probe';
+  END IF;
+  PERFORM pg_temp.record('LINK_IDENTITY', v_ok, v_detail);
+END $$;
+
 -- S02 : A1 ne s'auto-attribue pas P_B et ne lit pas le programme de B.
 DO $$
 DECLARE

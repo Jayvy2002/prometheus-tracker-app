@@ -5,13 +5,11 @@ import { test } from 'node:test';
 import { coachingStoreSource } from './coachingStoreSource';
 
 /**
- * Guards for 20260905135151_lock_link_message_assignment_writes.
+ * Guards for link/message/assignment write locks, including Hotfix A identity immutability.
  *
- * Before it, `authenticated` could UPDATE every column of coach_client_links (a coach could point
- * its own link at any user and become is_coach_of them) and of coach_messages (a client could
- * rewrite the coach's text), and a coached client could DELETE the coach's program_assignments.
- * These tests read the migrations in order and check the LAST word on each grant / policy stays
- * column-restricted, and that the app only writes the columns that are still granted.
+ * Column grants after 20260905135151 blocked client_id/coach_id, but status stayed writable
+ * and the UPDATE policy did not freeze identity. Hotfix A adds a trigger and removes status
+ * from the Data API grant. These tests read the last grant/policy in migration order.
  */
 
 const MIGRATIONS = resolve(process.cwd(), 'supabase/migrations');
@@ -53,6 +51,17 @@ function policiesOn(table: string): Map<string, string> {
   return out;
 }
 
+function latestProtectTrigger(): string {
+  let last = '';
+  for (const { sql } of migrationsInOrder()) {
+    const marker = 'CREATE OR REPLACE FUNCTION public.protect_coach_client_link_identity()';
+    const at = sql.indexOf(marker);
+    if (at >= 0) last = sql.slice(at, sql.indexOf('$$;', at) + 3);
+  }
+  assert.ok(last, 'no migration defines protect_coach_client_link_identity');
+  return last;
+}
+
 /** Column keys written by every `.from('<table>').update({ … })` in a source file. */
 function updatedColumns(file: string, table: string): Set<string> {
   const src = file === 'src/stores/coachingStore.ts'
@@ -69,11 +78,11 @@ function updatedColumns(file: string, table: string): Set<string> {
   return cols;
 }
 
-test('coach_client_links: authenticated may only UPDATE bookkeeping columns, never client_id/coach_id', () => {
+test('coach_client_links: authenticated may only UPDATE bookkeeping columns, never identity or status', () => {
   const grant = lastUpdateGrant('coach_client_links');
   assert.match(grant, /GRANT\s+UPDATE\s*\(/, `table-level UPDATE grant is back: ${grant}`);
   const cols = grant.match(/\(([^)]*)\)/)![1].split(',').map((c) => c.trim()).sort();
-  assert.deepEqual(cols, ['last_nudged_at', 'last_visited_at', 'status', 'updated_at']);
+  assert.deepEqual(cols, ['last_nudged_at', 'last_visited_at', 'updated_at']);
 
   const written = updatedColumns('src/stores/coachingStore.ts', 'coach_client_links');
   assert.ok(written.size > 0, 'expected the store to update coach_client_links somewhere');
@@ -84,8 +93,15 @@ test('coach_client_links: authenticated may only UPDATE bookkeeping columns, nev
   assert.equal(update.length, 1, 'exactly one UPDATE policy on coach_client_links');
   assert.match(update[0], /USING\s*\(\s*coach_id\s*=\s*\(select auth\.uid\(\)\)\s*AND\s+status\s*=\s*'active'\s*\)/i,
     'an ended link must not be re-activatable by the coach');
+  assert.match(update[0], /WITH CHECK\s*\(\s*coach_id\s*=\s*\(select auth\.uid\(\)\)\s*AND\s+status\s*=\s*'active'\s*\)/i,
+    'bookkeeping must not flip status');
   assert.equal([...policies.values()].some((p) => /FOR (INSERT|DELETE|ALL)/i.test(p)), false,
     'links are created/deleted only through SECURITY DEFINER RPCs');
+
+  const identity = latestProtectTrigger();
+  assert.match(identity, /coach_client_link_identity_immutable/);
+  assert.match(identity, /NEW\.coach_id IS DISTINCT FROM OLD\.coach_id/);
+  assert.match(identity, /NEW\.client_id IS DISTINCT FROM OLD\.client_id/);
 });
 
 test('coach_messages: recipients may only UPDATE read_at', () => {

@@ -199,6 +199,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/independent_coach_capability.sql
+      - name: Test coach_client_links identity immutability
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/coach_client_link_immutability.sql | tee /tmp/coach-client-link-immutability-db-results.txt
+      - name: Confirm coach_client_links identity echo
+        run: |
+          set -euo pipefail
+          grep -F 'coach_client_links: identity immutable, status RPC-only, bookkeeping and métier RPCs still work' /tmp/coach-client-link-immutability-db-results.txt
       - name: Test set_coaching_role roster guard
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
