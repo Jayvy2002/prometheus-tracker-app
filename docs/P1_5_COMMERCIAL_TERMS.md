@@ -30,7 +30,7 @@ COMMERCIAL_PRICES.status = 'undecided'
 `src/lib/soloTransition.ts` réexporte `SOLO_TRIAL_DAYS`. La bannière de départ
 lit l’ISO tamponné, pas une durée locale.
 
-SQL (migration append-only candidate `20260918182954_commercial_durations`) :
+SQL (migration append-only `20260918182954_commercial_durations`, appliquée en production) :
 
 - `public.solo_trial_interval()` → `interval '14 days'`
 - `public.coach_grace_interval()` → `interval '7 days'`
@@ -47,6 +47,6 @@ P2 cerveau Prometheus.
 
 ## Livraison
 
-PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
-Candidate déclarée dans `migrations.pending.json`. Le lock production reste à 116 versions
-(`20260918130232_marketplace_athlete_confirm`) tant que la migration n’est pas appliquée.
+PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) mergée dans `new-JV`
+(`c51d5f49`). Migration `20260918182954_commercial_durations` appliquée en production
+le 19 septembre 2026 (lock **122**, `migrations.pending.json` vide).

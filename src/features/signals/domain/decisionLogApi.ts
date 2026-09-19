@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import type { AthleteDecisionLog, AthleteHumanDecision, AthleteSignalDomain } from '../types';
 import { isMissingBackendContract } from './backendContract';
+import type { WatchQueryResult } from './watchQuery';
 
 export interface RecordAthleteDecisionInput {
   athleteId: string;
@@ -125,16 +126,25 @@ export async function listLatestAthleteDecisions(athleteId: string) {
   return supabase.rpc('list_latest_athlete_decisions', { p_athlete_id: athleteId });
 }
 
-/** Latest decision per (domain, type). Table/RPC missing → fail-open. */
-export async function listLatestAthleteDecisionsBestEffort(athleteId: string): Promise<AthleteDecisionLog[]> {
+export async function listLatestAthleteDecisionsForWatch(
+  athleteId: string,
+): Promise<WatchQueryResult<AthleteDecisionLog[]>> {
   const latest = await listLatestAthleteDecisions(athleteId);
   if (!latest.error && Array.isArray(latest.data)) {
-    return latest.data as AthleteDecisionLog[];
+    return { ok: true, data: latest.data as AthleteDecisionLog[] };
   }
-  if (latest.error && !isMissingBackendContract(latest.error)) return [];
+  if (latest.error && !isMissingBackendContract(latest.error)) {
+    return { ok: false, message: latest.error.message };
+  }
   const { data, error } = await listAthleteDecisionLog(athleteId);
-  if (error || !Array.isArray(data)) return [];
-  return data as AthleteDecisionLog[];
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, data: Array.isArray(data) ? data as AthleteDecisionLog[] : [] };
+}
+
+/** Latest decision per (domain, type). Table/RPC missing → fail-open for the engine. */
+export async function listLatestAthleteDecisionsBestEffort(athleteId: string): Promise<AthleteDecisionLog[]> {
+  const result = await listLatestAthleteDecisionsForWatch(athleteId);
+  return result.ok ? result.data : [];
 }
 
 /** Table missing or offline: next review continues without journal context. */

@@ -28,7 +28,7 @@ et Solo prennent le verrou advisory **avant** la ligne d’outbox, puis le journ
 Le drain ordonne par `(next_attempt_at, created_at, id)` et saute une clé occupée
 (`pg_try_advisory_xact_lock`). Une reprise sur un journal existant compare
 l’intention complète (`why`, `data_used`, `human_reason`, `source` inclus).
-Table/RPC absente en production → fail-open.
+Table/RPC absente côté client → fail-open. Les tables sont présentes en production.
 
 La carte Solo et le round fleet **lisent** la dernière décision par
 `(athlète, domain, type)`, pas un plafond global de lignes. Un refus n’est levé
@@ -64,13 +64,13 @@ proposition + pourquoi + données utilisées
 
 ## Hors scope
 
-P2.4 écran « Ce que Prometheus surveille ». Stripe / P6. Pas d’application production.
+P2.4 écran « Ce que Prometheus surveille ». Stripe / P6.
 Ne pas faire évoluer `solo_weekly_reviews` ni `coach_interventions` en journal.
 
 ## Livraison
 
-PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
-Candidate `20260918201237_athlete_decision_log`,
+PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) mergée dans `new-JV`
+(`c51d5f49`). Migrations `20260918201237_athlete_decision_log`,
 `20260918224935_athlete_review_integrity` et
-`20260918232507_athlete_decision_durability` dans `migrations.pending.json`.
-Le lock production reste à 116 versions.
+`20260918232507_athlete_decision_durability` appliquées en production
+le 19 septembre 2026 (lock **122**, `migrations.pending.json` vide).

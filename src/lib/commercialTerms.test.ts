@@ -55,7 +55,7 @@ test('soloTransition re-exports the unique trial constant; live SQL stamps 14 da
   assert.doesNotMatch(latest.sql, /ADD COLUMN\b[\s\S]*coach_grace_ends_at|coach_grace_ends_at\s+timestamptz/);
 });
 
-test('historical 30-day stamps stay in applied migrations; pending carries the 14-day candidate', () => {
+test('historical 30-day stamps stay in applied migrations; 14-day helper is in the production lock', () => {
   const historical = src('supabase/migrations/20260905002213_end_coach_link_back_to_solo.sql');
   assert.match(historical, /COALESCE\(solo_trial_ends_at, now\(\) \+ interval '30 days'\)/);
   const previousLive = src('supabase/migrations/20260913235158_marketplace_audit_hardening.sql');
@@ -65,8 +65,8 @@ test('historical 30-day stamps stay in applied migrations; pending carries the 1
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260918182954' && row.name === 'commercial_durations'), true);
-  assert.doesNotMatch(lock, /"name": "commercial_durations"/);
+  assert.equal(pending.pending.some((row) => row.version === '20260918182954'), false);
+  assert.match(lock, /"name": "commercial_durations"/);
   assert.match(lock, /"version": "20260918130232"/);
 
   const sqlTest = src('supabase/tests/commercial_durations.sql');

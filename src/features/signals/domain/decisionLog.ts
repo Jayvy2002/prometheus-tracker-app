@@ -30,6 +30,8 @@ export {
   weeklyReviewAggregatesFromCounts,
 } from '../../../../supabase/functions/_shared/proposalMemory.ts';
 
+export type { ProposalEvidenceSnapshot } from '../../../../supabase/functions/_shared/proposalMemory.ts';
+
 export function canRecordAthleteDecision(input: {
   actorId: string | null | undefined;
   athleteId: string;

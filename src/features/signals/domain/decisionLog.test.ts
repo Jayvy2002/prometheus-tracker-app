@@ -252,8 +252,8 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260918201237' && row.name === 'athlete_decision_log'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"name": "athlete_decision_log"/);
+  assert.equal(pending.pending.some((row) => row.version === '20260918201237'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "athlete_decision_log"/);
 
   const soloStore = src('src/stores/soloCopilotStore.ts');
   const decide = soloStore.slice(soloStore.indexOf('decide: async'));

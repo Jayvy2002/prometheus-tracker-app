@@ -43,6 +43,7 @@ import NutritionRings from '../nutrition/NutritionRings';
 import ClientGymCard from './ClientGymCard';
 import DashboardWeightCard from './DashboardWeightCard';
 import SoloWeeklyReview from './SoloWeeklyReview';
+import PrometheusWatchPanel from './PrometheusWatchPanel';
 import SoloProgramProposal from './SoloProgramProposal';
 import LinkEndedBanner from './LinkEndedBanner';
 
@@ -465,6 +466,9 @@ export default function Dashboard() {
         )}
 
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
+        {!activityPending && !firstRun && user?.id && (
+          <PrometheusWatchPanel athleteId={user.id} viewer="self" />
+        )}
         {showModule(tracking, 'workouts') && !activityPending && (
           <CardLink to="/programs" className="mb-4" data-testid="dashboard-program">
             <div className="flex items-center justify-between">

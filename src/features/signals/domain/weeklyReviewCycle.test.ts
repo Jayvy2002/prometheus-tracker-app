@@ -38,7 +38,7 @@ test('orchestration persists wait weeks through the shared engine', () => {
   assert.match(src('src/features/signals/domain/weeklyReviewCycle.ts'), /export async function persistAthleteWeeklyReviewCycle/);
 });
 
-test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate is pending', () => {
+test('P2.2 orchestration is wired on Solo and Coach fleet; integrity and durability are in the production lock', () => {
   assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistAthleteWeeklyReviewCycle/);
   assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistVersion/);
   assert.match(src('src/components/dashboard/SoloWeeklyReview.tsx'), /persistFailed/);
@@ -55,7 +55,8 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260918224935' && row.name === 'athlete_review_integrity'), true);
+  assert.equal(pending.pending.some((row) => row.version === '20260918224935'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "athlete_review_integrity"/);
   assert.match(src('.github/workflows/ci.yml'), /athlete_review_integrity\.sql/);
   assert.match(src('supabase/tests/athlete_review_integrity.sql'), /signal_athlete_mismatch/);
   assert.match(src('supabase/tests/athlete_review_integrity.sql'), /atomic upsert missing/);
@@ -65,7 +66,8 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /commit_solo_weekly_review_decision/);
   assert.doesNotMatch(src('supabase/migrations/20260918224935_athlete_review_integrity.sql'), /stripe/i);
 
-  assert.equal(pending.pending.some((row) => row.version === '20260918232507' && row.name === 'athlete_decision_durability'), true);
+  assert.equal(pending.pending.some((row) => row.version === '20260918232507'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "athlete_decision_durability"/);
   assert.match(src('.github/workflows/ci.yml'), /athlete_decision_durability\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /immutable intent, solo journal-fail reprise/);
   assert.match(src('.github/workflows/ci.yml'), /test-decision-drain-concurrency\.sh/);

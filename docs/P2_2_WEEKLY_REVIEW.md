@@ -52,12 +52,12 @@ agrégats autorisés
 ## Hors scope
 
 P2.3 journal des propositions et décisions humaines — **dans la même PR #190**.
-P2.4 écran « Ce que Prometheus surveille ». Stripe / P6. Pas d’application production.
+P2.4 écran « Ce que Prometheus surveille ». Stripe / P6.
 
 ## Livraison
 
-PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
-Candidate `20260918194013_athlete_weekly_reviews` dans `migrations.pending.json`,
-plus `20260918224935_athlete_review_integrity` et
-`20260918232507_athlete_decision_durability`.
-Le lock production reste à 116 versions.
+PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) mergée dans `new-JV`
+(`c51d5f49`). Migrations `20260918194013_athlete_weekly_reviews`,
+`20260918224935_athlete_review_integrity` et
+`20260918232507_athlete_decision_durability` appliquées en production
+le 19 septembre 2026 (lock **122**, `migrations.pending.json` vide).

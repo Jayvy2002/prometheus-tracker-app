@@ -5,6 +5,7 @@ import workout from './fr/workout';
 import nutrition from './fr/nutrition';
 import programs from './fr/programs';
 import marketplace from './fr/marketplace';
+import watch from './fr/watch';
 
 const fr = {
   ...common,
@@ -14,6 +15,7 @@ const fr = {
   ...nutrition,
   ...programs,
   ...marketplace,
+  ...watch,
 } as const;
 
 export default fr;

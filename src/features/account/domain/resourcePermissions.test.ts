@@ -12,11 +12,13 @@ import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 import {
   actorFromAccount,
   canActAsCoach,
+  canCorrectAthleteWatchContext,
   canEditClientDossier,
   canLogOwnSession,
   canOpenPersonalCalendarRoute,
   canProposeAssignedProgramChange,
   canReadAssignedProgram,
+  canReadAthleteWatch,
   canReadClientDossier,
   canReadOwnAssignedProgram,
   canReadOwnCalendar,
@@ -123,6 +125,32 @@ test('P1.2 matrix: a Coach edits a client dossier, never their own, and workspac
   assert.equal(canUpdateAssignedProgram(coached(), { ownerId: 'B', clientId: 'A', hasActiveRelationship: true }), false);
 });
 
+test('P2.4 watch: read is owner or active Coach; correction stays with Solo or the athlete’s Coach', () => {
+  const own = { athleteId: 'A' };
+  const client = { athleteId: 'C', hasActiveRelationship: true };
+  const ended = { athleteId: 'C', hasActiveRelationship: false };
+
+  for (const person of [solo(), coached(), coachSolo(), coachCoached(), coachCoached('coaching')]) {
+    assert.equal(canReadAthleteWatch(person, own), true);
+  }
+  assert.equal(canCorrectAthleteWatchContext(solo(), own), true);
+  assert.equal(canCorrectAthleteWatchContext(coachSolo(), own), true);
+  assert.equal(canCorrectAthleteWatchContext(coached(), own), false);
+  assert.equal(canCorrectAthleteWatchContext(coachCoached(), own), false);
+  assert.equal(canCorrectAthleteWatchContext(coachCoached('coaching'), own), false);
+
+  for (const person of [coachSolo(), coachSolo('coaching'), coachCoached(), coachCoached('coaching')]) {
+    assert.equal(canReadAthleteWatch(person, client), true);
+    assert.equal(canCorrectAthleteWatchContext(person, client), true);
+    assert.equal(canReadAthleteWatch(person, ended), false);
+    assert.equal(canCorrectAthleteWatchContext(person, ended), false);
+  }
+  assert.equal(canReadAthleteWatch(solo(), client), false);
+  assert.equal(canReadAthleteWatch(coached(), client), false);
+  assert.equal(canCorrectAthleteWatchContext(solo(), client), false);
+  assert.equal(canReadAthleteWatch(coachSolo(), { athleteId: 'C' }), false);
+});
+
 test('workspace preference is ignored when deciding grants', () => {
   const personal = coachCoached('personal');
   const coaching = coachCoached('coaching');
@@ -133,6 +161,10 @@ test('workspace preference is ignored when deciding grants', () => {
   assert.equal(
     canReadClientDossier(personal, { clientId: 'C', hasActiveRelationship: true }),
     canReadClientDossier(coaching, { clientId: 'C', hasActiveRelationship: true }),
+  );
+  assert.equal(
+    canReadAthleteWatch(personal, { athleteId: 'C', hasActiveRelationship: true }),
+    canReadAthleteWatch(coaching, { athleteId: 'C', hasActiveRelationship: true }),
   );
 });
 

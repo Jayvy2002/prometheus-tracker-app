@@ -308,12 +308,13 @@ test('22b: i18n locales are split by domain and reassembled', () => {
   const at = (rel: string) => resolve(root, rel);
   for (const locale of ['fr', 'en'] as const) {
     assert.ok(existsSync(at(`src/i18n/locales/${locale}.ts`)), locale);
-    for (const part of ['common', 'navigation', 'coaching', 'workout', 'nutrition', 'programs', 'marketplace']) {
+    for (const part of ['common', 'navigation', 'coaching', 'workout', 'nutrition', 'programs', 'marketplace', 'watch']) {
       assert.ok(existsSync(at(`src/i18n/locales/${locale}/${part}.ts`)), `${locale}/${part}`);
     }
     const barrel = readFileSync(at(`src/i18n/locales/${locale}.ts`), 'utf8');
     assert.match(barrel, new RegExp(`from '\\./${locale}/common'`));
     assert.match(barrel, new RegExp(`from '\\./${locale}/coaching'`));
+    assert.match(barrel, new RegExp(`from '\\./${locale}/watch'`));
     assert.doesNotMatch(barrel, /save: '/);
   }
   assert.match(readFileSync(at('src/i18n/index.ts'), 'utf8'), /from '\.\/locales\/fr'/);
