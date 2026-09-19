@@ -303,6 +303,41 @@ test('human refusal waits instead of re-proposing until evidence changes', () =>
   assert.equal(moved.decision, 'propose');
 });
 
+test('a context correction does not re-open the same type until evidence changes', () => {
+  const heldAgg = aggregates({ workoutCount: 0, expectedWorkouts: 6, loggedNutritionDays: 10 });
+  const correction = decision({
+    decision: 'corrected',
+    domain: 'training',
+    type: 'missed_sessions',
+    proposal: { kind: 'watch_context_correction', action: 'not_relevant', domain: 'training', type: 'missed_sessions' },
+    data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+    human_reason: 'Semaine de déplacement, pas un écart de plan',
+    source: 'prometheus_watch',
+  });
+  const held = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [],
+    recentDecisions: [correction],
+  }));
+  assert.equal(held.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), false);
+  assert.notEqual(held.decision, 'propose');
+
+  const staleOpen = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [correction],
+  }));
+  assert.equal(staleOpen.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), false);
+  assert.equal(staleOpen.signalActions.some((row) => row.op === 'resolve' && row.id === 'sig-1'), false);
+
+  const moved = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 2, expectedWorkouts: 6, loggedNutritionDays: 10 }),
+    existingSignals: [],
+    recentDecisions: [correction],
+  }));
+  assert.equal(moved.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+});
+
 test('guarded profile never proposes a calorie/weight change', () => {
   const review = runAthleteWeeklyReview(input({
     guarded: true,

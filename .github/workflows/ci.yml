@@ -169,6 +169,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'decision drain concurrency: skip occupied key, two sessions no deadlock' /tmp/athlete-decision-drain-concurrency.txt
+      - name: Test athlete watch context correction
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_watch_context.sql | tee /tmp/athlete-watch-context-db-results.txt
+      - name: Confirm athlete watch context echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete watch context: solo and coach can correct, coached cannot, no source rewrite' /tmp/athlete-watch-context-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

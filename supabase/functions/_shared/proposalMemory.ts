@@ -8,7 +8,7 @@ export const DECISION_EVIDENCE_WORKOUT_DELTA = 2;
 export const DECISION_EVIDENCE_LOG_DAYS_DELTA = 3;
 export const DECISION_EVIDENCE_WEIGHT_DELTA_KG = 0.4;
 
-export const ATHLETE_HUMAN_DECISIONS = ["accepted", "modified", "refused", "ignored"] as const;
+export const ATHLETE_HUMAN_DECISIONS = ["accepted", "modified", "refused", "ignored", "corrected"] as const;
 export type AthleteHumanDecision = (typeof ATHLETE_HUMAN_DECISIONS)[number];
 
 export const ATHLETE_DECISION_ACTOR_ROLES = ["athlete", "coach"] as const;
@@ -276,7 +276,21 @@ export function isProposalSuppressed(
 ): boolean {
   const last = latestAthleteDecision(recentDecisions, domain, type);
   if (!last) return false;
-  if (last.decision !== "refused" && last.decision !== "ignored") return false;
+  if (last.decision !== "refused" && last.decision !== "ignored" && last.decision !== "corrected") {
+    return false;
+  }
+  return !decisionEvidenceChanged(last.data_used, aggregates, last.domain, last.type);
+}
+
+/** Vision 8.5: a context correction must not re-open the same interpretation until evidence moves. */
+export function isContextCorrectionHeld(
+  recentDecisions: ProposalMemoryDecision[],
+  domain: string,
+  type: string,
+  aggregates: ProposalEvidenceSnapshot,
+): boolean {
+  const last = latestAthleteDecision(recentDecisions, domain, type);
+  if (!last || last.decision !== "corrected") return false;
   return !decisionEvidenceChanged(last.data_used, aggregates, last.domain, last.type);
 }
 

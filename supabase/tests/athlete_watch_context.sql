@@ -1,0 +1,232 @@
+\set ON_ERROR_STOP on
+begin;
+insert into auth.users(id,email) values
+ ('c2400000-0000-4000-8000-000000000001','p24-coach@example.test'),
+ ('c2400000-0000-4000-8000-000000000002','p24-coached@example.test'),
+ ('c2400000-0000-4000-8000-000000000003','p24-solo@example.test'),
+ ('c2400000-0000-4000-8000-000000000004','p24-meta-coach@example.test'),
+ ('c2400000-0000-4000-8000-000000000005','p24-stranger@example.test');
+insert into public.user_roles(user_id,role,coaching_role) values
+ ('c2400000-0000-4000-8000-000000000001','free','coach'),
+ ('c2400000-0000-4000-8000-000000000002','free','none'),
+ ('c2400000-0000-4000-8000-000000000003','free','none'),
+ ('c2400000-0000-4000-8000-000000000004','free','coach'),
+ ('c2400000-0000-4000-8000-000000000005','free','none')
+on conflict(user_id) do update set coaching_role=excluded.coaching_role;
+insert into public.coach_client_links(coach_id,client_id,status) values
+ ('c2400000-0000-4000-8000-000000000001','c2400000-0000-4000-8000-000000000002','active'),
+ ('c2400000-0000-4000-8000-000000000004','c2400000-0000-4000-8000-000000000001','active');
+
+do $$ begin
+  if has_function_privilege('anon','public.correct_athlete_watch_context(uuid,text,text,text)','execute') then
+    raise exception 'anon correct allowed';
+  end if;
+end $$;
+
+-- Solo athlete can correct own open signal.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_sig public.athlete_signals;
+  v_log public.athlete_decision_log;
+  v_again public.athlete_decision_log;
+  v_closed public.athlete_signals;
+begin
+  v_sig := public.upsert_athlete_signal(
+    'c2400000-0000-4000-8000-000000000003',
+    'training',
+    'missed_sessions',
+    'Moins de séances que prévu',
+    jsonb_build_array(
+      jsonb_build_object('kind', 'window', 'summary', '2026-08-21..2026-09-03'),
+      jsonb_build_object('kind', 'fingerprint', 'summary', '{"workout_count":1,"expected_workouts":6}')
+    ),
+    '[]'::jsonb,
+    'medium',
+    'open'
+  );
+  v_log := public.correct_athlete_watch_context(
+    v_sig.id,
+    'not_relevant',
+    'Ce n''est pas un écart de plan, c''est une semaine de déplacement.',
+    'watch-correct-solo-1'
+  );
+  if v_log.decision <> 'corrected' or v_log.actor_role <> 'athlete' then
+    raise exception 'solo journal failed';
+  end if;
+  if v_log.human_reason is null or v_log.applied_effect <> '{}'::jsonb then
+    raise exception 'solo journal missing reason';
+  end if;
+  if v_log.proposal->>'kind' <> 'watch_context_correction' then
+    raise exception 'solo proposal kind missing';
+  end if;
+  if (v_log.data_used->>'workout_count') is null then
+    raise exception 'solo data_used missing fingerprint';
+  end if;
+  select * into v_closed from public.athlete_signals where id = v_sig.id;
+  if v_closed.status <> 'not_relevant' or v_closed.resolved_at is null then
+    raise exception 'solo signal not closed';
+  end if;
+  if exists(select 1 from public.athlete_signals where id = v_sig.id and status in ('open','waiting')) then
+    raise exception 'solo open signal remains';
+  end if;
+  v_again := public.correct_athlete_watch_context(
+    v_sig.id,
+    'not_relevant',
+    'Ce n''est pas un écart de plan, c''est une semaine de déplacement.',
+    'watch-correct-solo-1'
+  );
+  if v_again.id <> v_log.id then raise exception 'solo correction not idempotent'; end if;
+end $$;
+reset role;
+
+-- Coached athlete cannot correct own coaching interpretation.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  v_sig public.athlete_signals;
+begin
+  v_sig := public.upsert_athlete_signal(
+    'c2400000-0000-4000-8000-000000000002',
+    'nutrition',
+    'not_following',
+    'Apports loin de la cible',
+    jsonb_build_array(
+      jsonb_build_object('kind', 'fingerprint', 'summary', '{"avg_calories":2800,"calorie_target":2000}')
+    ),
+    '[]'::jsonb,
+    'medium',
+    'open'
+  );
+  begin
+    perform public.correct_athlete_watch_context(
+      v_sig.id, 'corrected', 'Je corrige moi-même le coaching'
+    );
+    raise exception 'coached self-correct allowed';
+  exception when others then
+    if sqlerrm <> 'not_authorized' then raise; end if;
+  end;
+  if not exists(
+    select 1 from public.athlete_signals
+    where id = v_sig.id and status = 'open'
+  ) then
+    raise exception 'coached signal closed without authority';
+  end if;
+end $$;
+reset role;
+
+-- Active Coach of the athlete can correct. A Coach who is themselves coached
+-- cannot correct their own personal dossier.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_client public.athlete_signals;
+  v_own public.athlete_signals;
+  v_log public.athlete_decision_log;
+begin
+  select * into v_client
+  from public.athlete_signals
+  where athlete_id = 'c2400000-0000-4000-8000-000000000002'
+    and status = 'open'
+  limit 1;
+  v_log := public.correct_athlete_watch_context(
+    v_client.id,
+    'corrected',
+    'Les cibles ont changé : l''écart n''est plus le bon contexte.',
+    'watch-correct-coach-client'
+  );
+  if v_log.actor_role <> 'coach' or v_log.decision <> 'corrected' then
+    raise exception 'coach journal failed';
+  end if;
+  if exists(
+    select 1 from public.athlete_signals
+    where id = v_client.id and status in ('open','waiting')
+  ) then
+    raise exception 'coach left client signal open';
+  end if;
+
+  v_own := public.upsert_athlete_signal(
+    'c2400000-0000-4000-8000-000000000001',
+    'training',
+    'missed_sessions',
+    'Moins de séances perso',
+    '[]'::jsonb,
+    '[]'::jsonb,
+    'low',
+    'open'
+  );
+  begin
+    perform public.correct_athlete_watch_context(
+      v_own.id, 'not_relevant', 'Je corrige mon propre dossier coaché'
+    );
+    raise exception 'coached coach self-correct allowed';
+  exception when others then
+    if sqlerrm <> 'not_authorized' then raise; end if;
+  end;
+end $$;
+reset role;
+
+-- Stranger cannot correct a Solo signal that is already closed (or any other).
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000005',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000005","role":"authenticated"}',true);
+do $$
+declare
+  v_id uuid;
+begin
+  select id into v_id
+  from public.athlete_signals
+  where athlete_id = 'c2400000-0000-4000-8000-000000000003'
+  limit 1;
+  begin
+    perform public.correct_athlete_watch_context(v_id, 'not_relevant', 'pas mon dossier');
+    raise exception 'stranger correct allowed';
+  exception when others then
+    if sqlerrm <> 'not_authorized' then raise; end if;
+  end;
+end $$;
+reset role;
+
+-- Coach of 001 cannot correct 003 (no relationship). Active meta-coach of 001
+-- still cannot invent a write on 003.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000004',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+do $$
+declare
+  v_id uuid;
+begin
+  select id into v_id
+  from public.athlete_signals
+  where athlete_id = 'c2400000-0000-4000-8000-000000000003'
+  limit 1;
+  begin
+    perform public.correct_athlete_watch_context(v_id, 'not_relevant', 'pas mon client');
+    raise exception 'unrelated coach correct allowed';
+  exception when others then
+    if sqlerrm <> 'not_authorized' then raise; end if;
+  end;
+end $$;
+reset role;
+
+do $$
+declare
+  def text := pg_get_functiondef('public.correct_athlete_watch_context(uuid,text,text,text)'::regprocedure);
+begin
+  if def ~* 'stripe' then raise exception 'stripe in correct_athlete_watch_context'; end if;
+  if def ~* 'nutrition_logs|daily_calorie_target|program_assignments|workouts' then
+    raise exception 'correct_athlete_watch_context mutates tracker data';
+  end if;
+  if def !~ 'actor_is_actively_coached' then
+    raise exception 'correct_athlete_watch_context missing coached guard';
+  end if;
+end $$;
+
+rollback;
+\echo 'athlete watch context: solo and coach can correct, coached cannot, no source rewrite'

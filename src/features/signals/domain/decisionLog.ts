@@ -19,6 +19,7 @@ export {
   evidenceFromProposalPayload,
   evidenceScope,
   isAthleteHumanDecision,
+  isContextCorrectionHeld,
   isProposalSuppressed,
   latestAthleteDecision,
   mapInterventionDecision,

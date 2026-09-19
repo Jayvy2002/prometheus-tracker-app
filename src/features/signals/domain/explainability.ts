@@ -236,6 +236,9 @@ export function observedCopyFromType(
 
 function lastProposalKeyFrom(decision: AthleteDecisionLog | null): string | null {
   if (!decision?.proposal || typeof decision.proposal !== 'object') return null;
+  if (decision.decision === 'corrected' || decision.proposal.kind === 'watch_context_correction') {
+    return null;
+  }
   const action = decision.proposal.action;
   if (typeof action !== 'string') return null;
   return LAST_PROPOSAL_ACTION_KEYS[action] ?? 'prometheusWatch.proposal.generic';
@@ -335,7 +338,7 @@ function buildItem(input: {
 }): PrometheusWatchItem {
   const { signal, decision, review, domain, type, kind } = input;
   const lastHuman: AthleteHumanDecision | null = decision?.decision ?? null;
-  const refusedOrIgnored = lastHuman === 'refused' || lastHuman === 'ignored';
+  const refusedOrIgnored = lastHuman === 'refused' || lastHuman === 'ignored' || lastHuman === 'corrected';
   const currentEvidence = kind === 'current' && signal
     ? snapshotFromSignal(signal) ?? evidenceSnapshotFromRecord(review?.aggregates ?? null)
     : evidenceSnapshotFromRecord(review?.aggregates ?? null);
@@ -463,7 +466,11 @@ export function buildPrometheusWatchItems(input: {
   }
 
   for (const decision of input.decisions) {
-    if (decision.decision !== 'refused' && decision.decision !== 'ignored') continue;
+    if (
+      decision.decision !== 'refused'
+      && decision.decision !== 'ignored'
+      && decision.decision !== 'corrected'
+    ) continue;
     const key = signalKey(decision.domain, decision.type);
     if (seen.has(key)) continue;
     const latest = latestLog(input.decisions, decision.domain, decision.type);

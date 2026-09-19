@@ -23,8 +23,8 @@ test('repository agent contract keeps one execution gate and an always-on Cursor
 
   const gates = [...chantier.matchAll(/CURRENT IMPLEMENTATION GATE/g)];
   assert.equal(gates.length, 1, 'docs/CHANTIER.md must contain exactly one authoritative current-task gate');
-  assert.match(chantier, /P2\.4 suite : correction de contexte/);
-  assert.match(chantier, /n.enchaîne pas la correction de contexte ni P2\.5/);
+  assert.match(chantier, /P2\.4 correction de contexte \(en cours\)/);
+  assert.match(chantier, /n.enchaîne pas P2\.5/);
   assert.match(chantier, /pas d.auto-application|aucune auto-application/i);
   const gate = chantier.slice(
     chantier.indexOf('CURRENT IMPLEMENTATION GATE'),
@@ -35,6 +35,7 @@ test('repository agent contract keeps one execution gate and an always-on Cursor
   assert.doesNotMatch(gate, /n.enchaîne pas P2\.3/);
   assert.doesNotMatch(gate, /n.enchaîne pas P2\.4/);
   assert.doesNotMatch(gate, /ne commence P2\.4/);
+  assert.doesNotMatch(gate, /n.enchaîne pas la correction de contexte/);
 });
 
 test('complete product vision preserves the final non-negotiable decisions', () => {

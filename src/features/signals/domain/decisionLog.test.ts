@@ -16,6 +16,7 @@ import {
   effectsAreMaterial,
   evidenceFromProposalPayload,
   isAthleteHumanDecision,
+  isContextCorrectionHeld,
   isProposalSuppressed,
   latestAthleteDecision,
   mapInterventionDecision,
@@ -73,6 +74,7 @@ function row(partial: Partial<AthleteDecisionLog> = {}): AthleteDecisionLog {
 
 test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
   assert.equal(isAthleteHumanDecision('refused'), true);
+  assert.equal(isAthleteHumanDecision('corrected'), true);
   assert.equal(isAthleteHumanDecision('kept'), false);
   assert.equal(mapSoloReviewDecision('accepted'), 'accepted');
   assert.equal(mapSoloReviewDecision('kept'), 'ignored');
@@ -137,11 +139,29 @@ test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
   assert.equal(canReadAthleteDecisionLog({ actorId: 'other', athleteId: 'a', isCoachOfAthlete: false }), false);
 });
 
+test('a context correction holds the same interpretation until evidence moves', () => {
+  const agg = aggregates({ workoutCount: 0 });
+  const corrected = [row({
+    decision: 'corrected',
+    domain: 'training',
+    type: 'missed_sessions',
+    data_used: { workout_count: 0, expected_workouts: 6 },
+  })];
+  assert.equal(isContextCorrectionHeld(corrected, 'training', 'missed_sessions', agg), true);
+  assert.equal(isContextCorrectionHeld(corrected, 'nutrition', 'not_following', agg), false);
+  assert.equal(
+    isContextCorrectionHeld(corrected, 'training', 'missed_sessions', aggregates({ workoutCount: 2 })),
+    false,
+  );
+  assert.equal(isContextCorrectionHeld([row()], 'nutrition', 'not_following', aggregates()), false);
+});
+
 test('refusal suppresses the same proposal until evidence moves', () => {
   const agg = aggregates();
   const refused = [row()];
   assert.equal(isProposalSuppressed(refused, 'nutrition', 'not_following', agg), true);
   assert.equal(isProposalSuppressed([row({ decision: 'ignored' })], 'nutrition', 'not_following', agg), true);
+  assert.equal(isProposalSuppressed([row({ decision: 'corrected' })], 'nutrition', 'not_following', agg), true);
   assert.equal(isProposalSuppressed([row({ decision: 'accepted' })], 'nutrition', 'not_following', agg), false);
   assert.equal(isProposalSuppressed(refused, 'training', 'missed_sessions', agg), false);
 

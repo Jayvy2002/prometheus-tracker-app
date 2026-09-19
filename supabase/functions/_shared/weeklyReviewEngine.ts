@@ -6,7 +6,7 @@
  * Window dates alone must not raise confidence.
  */
 
-import { isProposalSuppressed, type ProposalMemoryDecision } from "./proposalMemory.ts";
+import { isContextCorrectionHeld, isProposalSuppressed, type ProposalMemoryDecision } from "./proposalMemory.ts";
 
 export const WEEKLY_REVIEW_WINDOW_DAYS = 14;
 const MIN_NUTRITION_LOG_DAYS = 4;
@@ -585,6 +585,10 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
   const recentDecisions = input.recentDecisions ?? [];
 
   for (const candidate of candidates) {
+    if (isContextCorrectionHeld(recentDecisions, candidate.domain, candidate.type, input.aggregates)) {
+      watched.add(`${candidate.domain}:${candidate.type}`);
+      continue;
+    }
     const prev = findOpen(input.existingSignals, candidate.domain, candidate.type);
     const fingerprint = evidenceFingerprint(candidate.domain, candidate.type, input.aggregates);
     const confidence = nextSignalConfidence(prev, candidate.supported, fingerprint);

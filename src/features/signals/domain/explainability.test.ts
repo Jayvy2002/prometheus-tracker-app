@@ -381,6 +381,27 @@ test('why copy is a real explanation, not a repeat of the type title', () => {
   assert.doesNotMatch(src('src/features/signals/domain/explainability.ts'), /whyKey: typeKeyOf/);
 });
 
+test('a corrected interpretation becomes quiet history without inventing an open signal or a current proposal', () => {
+  const items = buildPrometheusWatchItems({
+    signals: [],
+    decisions: [decision({
+      decision: 'corrected',
+      proposal: { kind: 'watch_context_correction', action: 'not_relevant', domain: 'training', type: 'missed_sessions' },
+      human_reason: 'Semaine de déplacement',
+      source: 'prometheus_watch',
+    })],
+  });
+  assert.equal(items.length, 1);
+  assert.equal(items[0].kind, 'history');
+  assert.equal(items[0].statusKey, 'prometheusWatch.status.quiet');
+  assert.equal(items[0].currentProposalKey, null);
+  assert.equal(items[0].lastProposalKey, null);
+  assert.equal(items[0].lastDecisionKey, 'prometheusWatch.decision.corrected');
+  assert.equal(items[0].humanReason, 'Semaine de déplacement');
+  assert.equal(items[0].whyKey, 'prometheusWatch.whyCopy.missed_sessions');
+  assert.notEqual(items[0].whyKey, items[0].headlineKey);
+});
+
 test('watch panel dates follow the UI language', () => {
   const fr = formatDate('2026-09-03', 'fr');
   const en = formatDate('2026-09-03', 'en');
@@ -484,12 +505,15 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
     assert.match(locale, /loadError/);
     assert.match(locale, /status:[\s\S]*quiet/);
     assert.match(locale, /whyCopy/);
+    assert.match(locale, /decision:[\s\S]*corrected/);
+    assert.match(locale, /titleNotRelevant|Mark this observation as not relevant/);
   }
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /PrometheusWatchPanel/);
   assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /PrometheusWatchPanel/);
   const panel = src('src/components/dashboard/PrometheusWatchPanel.tsx');
   assert.match(panel, /canReadAthleteWatch/);
-  assert.doesNotMatch(panel, /canCorrectAthleteWatchContext\(/);
+  assert.match(panel, /canCorrectAthleteWatchContext\(/);
+  assert.match(panel, /correctAthleteWatchContext/);
   assert.match(panel, /listAthleteSignalsForWatch\(/);
   assert.match(panel, /listLatestAthleteDecisionsForWatch\(/);
   assert.match(panel, /listLatestAthleteWeeklyReviewForWatch\(/);

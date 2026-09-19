@@ -109,6 +109,18 @@ const watch = {
       modified: 'Modified',
       refused: 'Declined',
       ignored: 'Set aside',
+      corrected: 'Context corrected',
+    },
+    correct: {
+      notRelevant: 'Mark as not relevant',
+      incorrect: 'Interpretation is wrong',
+      titleNotRelevant: 'Mark this observation as not relevant',
+      titleIncorrect: 'Correct this interpretation',
+      reasonLabel: 'Why this context should no longer be used',
+      reasonHelp: 'Logged sessions, meals and weigh-ins stay as they are. Only the interpretation changes.',
+      notice: 'The correction stays visible. Prometheus will not reuse this interpretation until the evidence changes.',
+      confirm: 'Save the correction',
+      error: 'The correction could not be saved. Nothing was changed.',
     },
     actor: {
       self: 'by you',

@@ -109,6 +109,18 @@ const watch = {
       modified: 'Modifiée',
       refused: 'Refusée',
       ignored: 'Ignorée',
+      corrected: 'Contexte corrigé',
+    },
+    correct: {
+      notRelevant: 'Marquer non pertinent',
+      incorrect: 'Interprétation incorrecte',
+      titleNotRelevant: 'Marquer cette observation non pertinente',
+      titleIncorrect: 'Corriger cette interprétation',
+      reasonLabel: 'Pourquoi ce contexte ne doit plus servir',
+      reasonHelp: 'Les séances, repas et pesées déjà loggés restent tels quels. Seule l’interprétation change.',
+      notice: 'La correction restera visible. Prometheus ne réutilisera pas cette interprétation tant que les preuves n’auront pas changé.',
+      confirm: 'Enregistrer la correction',
+      error: 'La correction n’a pas pu être enregistrée. Rien n’a été modifié.',
     },
     actor: {
       self: 'par toi',
