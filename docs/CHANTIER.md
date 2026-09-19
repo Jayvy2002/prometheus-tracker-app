@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P2.5 décision humaine sur la proposition (en cours).**
+> **CURRENT IMPLEMENTATION GATE — P2.1–P2.5 actifs. Prochaine étape : P3.1 — Séparer séance et jour de semaine (en attente de feu vert).**
 >
-> P1.5–P2.3 sont mergés (`#190`, `c51d5f49`) et **actifs en production** (122 migrations, dernière `20260918232507_athlete_decision_durability`). Le slice lecture P2.4 est mergé (`#191`, `b404281`). Cette PR : correction de contexte (P2.4) **et** décision humaine accepter / modifier / refuser depuis le panneau (P2.5). Snapshot = sérialisation du builder canonique (`proposeWeeklyNutrition`), pas une 2e logique. Décision verrouillée sur la version exacte vue à l’écran. Un Coaché ne peut pas `save_athlete_weekly_review`. Aucune auto-application. Aucune réécriture des mesures sources. Le panneau n’est pas un troisième moteur d’apply : Solo `commit_solo_weekly_review_decision` et Coach `apply_intervention` restent les chemins d’effet durable. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas P2.6 ni P3. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.5–P2.5 sont mergés (`#190`–`#192`, HEAD `9b8a7ab`) et **actifs en production** (124 migrations, dernière `20260919141146_watch_proposal_decision`). P2 s’arrête à P2.5. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ne pas merger cette PR sans feu vert.** Un agent ne commence pas P3.1 sans feu vert explicite. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,9 +60,9 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (122 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **EN COURS — P2.5 décision humaine sur la proposition** | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
+| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (124 migrations) | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (124 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P3** | Planification avancée | **En attente de feu vert — prochaine étape P3.1** | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.3 sont mergés dans `new-JV` (`#190`) et appliqués en production (122 migrations). Le slice lecture P2.4 est mergé (`#191`). Cette PR porte la correction de contexte et P2.5 (décision sur la proposition courante). Un agent n’enchaîne pas P2.6 ni P3 sans feu vert.
+P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#192`) et appliqués en production (124 migrations). P2 s’arrête à P2.5. Prochaine étape réelle : P3.1 — Séparer séance et jour de semaine, en attente de feu vert. Un agent ne commence pas P3.1 sans feu vert explicite.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -555,9 +555,9 @@ La revue suivante exploite ce contexte. Un refus n’est pas un bouton sans mém
 
 ### État actuel
 
-**SLICE LECTURE MERGÉ** — `#191` (`b404281`) : écran « Ce que Prometheus surveille ».
+**✅ TERMINÉ — mergé, déployé et vérifié en production.**
 
-**SLICE CORRECTION DANS CETTE PR** — écriture traçable depuis le même panneau.
+Lecture `#191` (`b404281`). Correction `#192` (`9b8a7ab`). Migrations `20260919134856_watch_context_correction` et `20260919141146_watch_proposal_decision` appliquées avec **le même timestamp Git** (lock **124**).
 
 Inventaire : [P2.4 — explicabilité](P2_4_EXPLAINABILITY.md).
 
@@ -570,7 +570,7 @@ Audit : P2.1–P2.3 fournissent déjà signaux, revue, journal, `data_used`, `wh
 - Les mesures sources (séances, nutrition, pesées) ne sont jamais réécrites.
 - Indisponible ≠ vide : le panneau a loading / ready / error + retry. Une correction non persistée affiche une erreur, pas un succès.
 
-**Arrêt de la sous-tâche P2.4 :** livrée dans cette PR avec P2.5. Ne pas merger sans feu vert.
+**Arrêt : P2.4 est actif en production.**
 
 L’utilisateur/Coach doit pouvoir comprendre :
 
@@ -597,7 +597,9 @@ Ne pas afficher de scores de confiance pseudo-précis si le modèle ne les justi
 
 ### État actuel
 
-**EN COURS — cette PR**, après le slice correction P2.4.
+**✅ TERMINÉ — mergé, déployé et vérifié en production.**
+
+PR [#192](https://github.com/Jayvy2002/prometheus-tracker-app/pull/192) mergée dans `new-JV` (`9b8a7ab`).
 
 Inventaire : [P2.5 — proposition](P2_5_WATCH_PROPOSAL.md).
 
@@ -622,15 +624,19 @@ humain (Solo ou Coach actif) + proposition courante concrète
 → succès UI seulement après persistance
 ```
 
-`commit_solo_weekly_review_decision` et `apply_intervention` restent les seuls chemins d’effet durable. Le panneau journalise le contexte Vision 8.6.
+`commit_solo_weekly_review_decision` et `apply_intervention` restent les seuls moteurs d’effet durable historiques. P2.5 ne journalise que le contexte Vision 8.6 (`applied_effect = {}`).
 
-**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.6 ni P3.**
+**Arrêt : P2.5 est actif en production. P2 est clos.**
 
 ---
 
 # P3 — Planification avancée
 
 ## P3.1 — Séparer séance et jour de semaine
+
+### État actuel
+
+**EN ATTENTE DE FEU VERT.** Ne pas commencer sans instruction explicite.
 
 Le moteur doit supporter :
 
