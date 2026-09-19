@@ -62,8 +62,8 @@ test('signals are a new table after auditing interventions; writes go through RP
   assert.doesNotMatch(weekly, /next_review_at/);
 
   const api = src('src/features/signals/domain/athleteSignalsApi.ts');
-  assert.match(api, /rpc\('upsert_athlete_signal'/);
-  assert.match(api, /rpc\('resolve_athlete_signal'/);
+  assert.doesNotMatch(api, /rpc\('upsert_athlete_signal'/);
+  assert.doesNotMatch(api, /rpc\('resolve_athlete_signal'/);
   assert.doesNotMatch(api, /from\('athlete_signals'\)\.insert/);
 
   const sqlTest = src('supabase/tests/athlete_signals.sql');
@@ -73,6 +73,7 @@ test('signals are a new table after auditing interventions; writes go through RP
   assert.match(sqlTest, /numeric confidence accepted/);
   assert.match(sqlTest, /closed history overwritten/);
   assert.match(sqlTest, /direct signal writes allowed/);
+  assert.match(sqlTest, /authenticated primitive execute allowed/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /athlete_signals\.sql/);

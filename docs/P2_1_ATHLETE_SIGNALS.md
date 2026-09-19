@@ -24,7 +24,7 @@ observation
 
 - Propriétaire : l’athlète (`athlete_id`).
 - Lecture : l’athlète, ou un Coach avec relation **active** (`is_coach_of`).
-- Écriture : RPC `upsert_athlete_signal` / `resolve_athlete_signal` seulement.
+- Écriture : RPC métier (`save_athlete_weekly_review`, Watch `correct`). Les primitives `upsert_athlete_signal` / `resolve_athlete_signal` ne sont plus exécutables via Data API (Hotfix B).
 - Le workspace UI n’accorde aucun droit.
 - L’IA prépare ; rien n’est auto-appliqué (pas d’écriture programmes, cibles, logs).
 - Une fermeture conserve l’historique ; un nouvel `open` du même `(domain, type)` est une

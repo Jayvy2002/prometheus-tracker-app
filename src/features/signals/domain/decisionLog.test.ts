@@ -340,13 +340,13 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.doesNotMatch(historicalInbox, /human_reason/);
 
   const api = src('src/features/signals/domain/decisionLogApi.ts');
-  assert.match(api, /rpc\('record_athlete_decision'/);
+  assert.doesNotMatch(api, /rpc\('record_athlete_decision'/);
   assert.match(api, /recordAthleteDecisionDurable/);
-  assert.match(api, /queue_and_record_athlete_decision/);
+  assert.doesNotMatch(api, /queue_and_record_athlete_decision/);
   assert.match(api, /drain_athlete_decision_outbox/);
   assert.match(api, /listLatestAthleteDecisionsBestEffort/);
   assert.doesNotMatch(api, /from\('athlete_decision_log'\)\.insert/);
-  assert.match(api, /enqueue_athlete_decision_outbox/);
+  assert.doesNotMatch(api, /enqueue_athlete_decision_outbox/);
 
   const sqlTest = src('supabase/tests/athlete_decision_log.sql');
   assert.match(sqlTest, /refused is not stored/);
@@ -354,6 +354,7 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.match(sqlTest, /former coach records decision/);
   assert.match(sqlTest, /raw logs accepted/);
   assert.match(sqlTest, /direct decision log writes allowed/);
+  assert.match(sqlTest, /authenticated record execute allowed/);
   assert.match(sqlTest, /record mutates tracker data/);
   assert.match(sqlTest, /decision log overwritten/);
 
@@ -377,8 +378,8 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   assert.ok(rpcIdx >= 0 && profileIdx > rpcIdx, 'profile write must be fallback after the composite RPC');
   assert.match(soloStore, /mapSoloReviewDecision/);
   const slice = src('src/features/coaching/model/interventionsSlice.ts');
-  assert.match(slice, /journalInterventionDecision/);
-  assert.match(slice, /recordAthleteDecisionDurable/);
+  assert.doesNotMatch(slice, /journalInterventionDecision/);
+  assert.doesNotMatch(slice, /recordAthleteDecisionDurable/);
   assert.match(slice, /proposalMateriallyEdited/);
   assert.match(slice, /fetchIntervention/);
   assert.doesNotMatch(slice, /edited: !!payload/);

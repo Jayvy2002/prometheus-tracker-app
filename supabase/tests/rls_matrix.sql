@@ -624,6 +624,41 @@ BEGIN
   END IF;
 END $$;
 
+-- Hotfix B : primitives P2 hors Data API ; RPC métier et drain restent authenticated.
+DO $$
+DECLARE
+  v_ok boolean := true;
+  v_detail text := 'primitives revoked; métier granted';
+BEGIN
+  IF has_function_privilege('authenticated', 'public.upsert_athlete_signal(uuid,text,text,text,jsonb,jsonb,text,text,timestamptz)', 'execute')
+     OR has_function_privilege('authenticated', 'public.resolve_athlete_signal(uuid,text,text)', 'execute')
+     OR has_function_privilege('authenticated', 'public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)', 'execute')
+     OR has_function_privilege('authenticated', 'public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid,text,uuid)', 'execute')
+     OR has_function_privilege('authenticated', 'public.enqueue_athlete_decision_outbox(text,uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)', 'execute')
+     OR has_function_privilege('authenticated', 'public.queue_and_record_athlete_decision(text,uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)', 'execute')
+     OR has_function_privilege('anon', 'public.upsert_athlete_signal(uuid,text,text,text,jsonb,jsonb,text,text,timestamptz)', 'execute')
+     OR has_function_privilege('anon', 'public.queue_and_record_athlete_decision(text,uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)', 'execute')
+  THEN
+    v_ok := false;
+    v_detail := 'primitive still executable by Data API';
+  ELSIF NOT has_function_privilege('service_role', 'public.upsert_athlete_signal(uuid,text,text,text,jsonb,jsonb,text,text,timestamptz)', 'execute')
+     OR NOT has_function_privilege('service_role', 'public.queue_and_record_athlete_decision(text,uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)', 'execute')
+  THEN
+    v_ok := false;
+    v_detail := 'service_role missing primitive execute';
+  ELSIF NOT has_function_privilege('authenticated', 'public.drain_athlete_decision_outbox(integer)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.save_athlete_weekly_review(uuid,date,text,text,text,jsonb,jsonb,jsonb)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.commit_solo_weekly_review_decision(date,text,text,jsonb,jsonb,text,text,text,jsonb,text,jsonb,jsonb,text)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.apply_intervention(uuid,text,text,text,jsonb,jsonb,text)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.correct_athlete_watch_context(uuid,text,text,text,timestamptz,jsonb)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.decide_athlete_watch_proposal(uuid,text,text,text,uuid,timestamptz,jsonb,jsonb)', 'execute')
+  THEN
+    v_ok := false;
+    v_detail := 'métier RPC or drain revoked';
+  END IF;
+  PERFORM pg_temp.record('P2_PRIMITIVE_GRANTS', v_ok, v_detail);
+END $$;
+
 -- A1 ne peut pas assigner P_B via la RPC.
 DO $$
 DECLARE

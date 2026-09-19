@@ -60,6 +60,19 @@ $$;
 GRANT EXECUTE ON FUNCTION pg_temp.watch_correct(uuid, text, text, text) TO authenticated;
 
 -- Solo athlete can correct own open signal.
+select public.upsert_athlete_signal(
+  'c2400000-0000-4000-8000-000000000003',
+  'training',
+  'missed_sessions',
+  'Moins de séances que prévu',
+  jsonb_build_array(
+    jsonb_build_object('kind', 'window', 'summary', '2026-08-21..2026-09-03'),
+    jsonb_build_object('kind', 'fingerprint', 'summary', '{"workout_count":1,"expected_workouts":6}')
+  ),
+  '[]'::jsonb,
+  'medium',
+  'open'
+);
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000003',true);
 select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000003","role":"authenticated"}',true);
@@ -70,19 +83,10 @@ declare
   v_again public.athlete_decision_log;
   v_closed public.athlete_signals;
 begin
-  v_sig := public.upsert_athlete_signal(
-    'c2400000-0000-4000-8000-000000000003',
-    'training',
-    'missed_sessions',
-    'Moins de séances que prévu',
-    jsonb_build_array(
-      jsonb_build_object('kind', 'window', 'summary', '2026-08-21..2026-09-03'),
-      jsonb_build_object('kind', 'fingerprint', 'summary', '{"workout_count":1,"expected_workouts":6}')
-    ),
-    '[]'::jsonb,
-    'medium',
-    'open'
-  );
+  select * into v_sig from public.athlete_signals
+    where athlete_id = 'c2400000-0000-4000-8000-000000000003'
+      and type = 'missed_sessions' and status = 'open';
+  if v_sig.id is null then raise exception 'solo signal missing'; end if;
   v_log := pg_temp.watch_correct(
     v_sig.id,
     'not_relevant',
@@ -229,6 +233,18 @@ select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
 -- Coached athlete cannot correct own coaching interpretation.
+select public.upsert_athlete_signal(
+  'c2400000-0000-4000-8000-000000000002',
+  'nutrition',
+  'not_following',
+  'Apports loin de la cible',
+  jsonb_build_array(
+    jsonb_build_object('kind', 'fingerprint', 'summary', '{"avg_calories":2800,"calorie_target":2000}')
+  ),
+  '[]'::jsonb,
+  'medium',
+  'open'
+);
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000002',true);
 select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000002","role":"authenticated"}',true);
@@ -236,18 +252,9 @@ do $$
 declare
   v_sig public.athlete_signals;
 begin
-  v_sig := public.upsert_athlete_signal(
-    'c2400000-0000-4000-8000-000000000002',
-    'nutrition',
-    'not_following',
-    'Apports loin de la cible',
-    jsonb_build_array(
-      jsonb_build_object('kind', 'fingerprint', 'summary', '{"avg_calories":2800,"calorie_target":2000}')
-    ),
-    '[]'::jsonb,
-    'medium',
-    'open'
-  );
+  select * into v_sig from public.athlete_signals
+    where athlete_id = 'c2400000-0000-4000-8000-000000000002'
+      and type = 'not_following' and status = 'open';
   begin
     perform public.correct_athlete_watch_context(
       v_sig.id, 'corrected', 'Je corrige moi-même le coaching'
@@ -269,6 +276,16 @@ select set_config('request.jwt.claims','{}',true);
 
 -- Active Coach of the athlete can correct. A Coach who is themselves coached
 -- cannot correct their own personal dossier.
+select public.upsert_athlete_signal(
+  'c2400000-0000-4000-8000-000000000001',
+  'training',
+  'missed_sessions',
+  'Moins de séances perso',
+  '[]'::jsonb,
+  '[]'::jsonb,
+  'low',
+  'open'
+);
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000001","role":"authenticated"}',true);
@@ -299,16 +316,9 @@ begin
     raise exception 'coach left client signal open';
   end if;
 
-  v_own := public.upsert_athlete_signal(
-    'c2400000-0000-4000-8000-000000000001',
-    'training',
-    'missed_sessions',
-    'Moins de séances perso',
-    '[]'::jsonb,
-    '[]'::jsonb,
-    'low',
-    'open'
-  );
+  select * into v_own from public.athlete_signals
+    where athlete_id = 'c2400000-0000-4000-8000-000000000001'
+      and type = 'missed_sessions' and status = 'open';
   begin
     perform public.correct_athlete_watch_context(
       v_own.id, 'not_relevant', 'Je corrige mon propre dossier coaché'

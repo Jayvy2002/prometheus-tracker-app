@@ -1,13 +1,13 @@
 import { supabase } from '../../../lib/supabase';
-import type { AthleteDecisionLog, AthleteHumanDecision, AthleteSignalDomain } from '../types';
+import type { AthleteDecisionLog } from '../types';
 import { isMissingBackendContract } from './backendContract';
 import type { WatchQueryResult } from './watchQuery';
 
 export interface RecordAthleteDecisionInput {
   athleteId: string;
-  domain: AthleteSignalDomain;
+  domain: AthleteDecisionLog['domain'];
   type: string;
-  decision: AthleteHumanDecision;
+  decision: AthleteDecisionLog['decision'];
   proposal: Record<string, unknown>;
   why: string;
   dataUsed?: Record<string, unknown>;
@@ -16,22 +16,6 @@ export interface RecordAthleteDecisionInput {
   source?: string | null;
   sourceId?: string | null;
   idempotencyKey?: string | null;
-}
-
-function journalRpcArgs(input: RecordAthleteDecisionInput) {
-  return {
-    p_athlete_id: input.athleteId,
-    p_domain: input.domain,
-    p_type: input.type,
-    p_decision: input.decision,
-    p_proposal: input.proposal,
-    p_why: input.why,
-    p_data_used: input.dataUsed ?? {},
-    p_human_reason: input.humanReason ?? null,
-    p_applied_effect: input.appliedEffect ?? {},
-    p_source: input.source ?? null,
-    p_source_id: input.sourceId ?? null,
-  };
 }
 
 export function decisionIdempotencyKey(input: RecordAthleteDecisionInput): string {
@@ -48,29 +32,6 @@ export function decisionIdempotencyKey(input: RecordAthleteDecisionInput): strin
   ].join(':').slice(0, 200);
 }
 
-/** Writes go through SECURITY DEFINER RPC. Direct table inserts are revoked. */
-export async function recordAthleteDecision(input: RecordAthleteDecisionInput) {
-  return supabase.rpc('record_athlete_decision', {
-    ...journalRpcArgs(input),
-    p_idempotency_key: decisionIdempotencyKey(input),
-    p_actor_id: null,
-  });
-}
-
-export async function enqueueAthleteDecisionOutbox(input: RecordAthleteDecisionInput) {
-  return supabase.rpc('enqueue_athlete_decision_outbox', {
-    p_idempotency_key: decisionIdempotencyKey(input),
-    ...journalRpcArgs(input),
-  });
-}
-
-export async function queueAndRecordAthleteDecision(input: RecordAthleteDecisionInput) {
-  return supabase.rpc('queue_and_record_athlete_decision', {
-    p_idempotency_key: decisionIdempotencyKey(input),
-    ...journalRpcArgs(input),
-  });
-}
-
 export async function drainAthleteDecisionOutbox(limit = 25) {
   return supabase.rpc('drain_athlete_decision_outbox', { p_limit: limit });
 }
@@ -84,28 +45,16 @@ export async function drainAthleteDecisionOutboxBestEffort(limit = 25): Promise<
 export type DurableDecisionResult = { persisted: boolean; error: string | null };
 
 /**
- * Durable journal write: enqueue the intent and record in one RPC.
- * Missing candidate → fail-open. Other errors are returned, not swallowed.
+ * Hotfix B: the five P2 primitives are not Data API-callable.
+ * Journal writes go through métier RPCs. The client only drains leftover outbox.
+ * Missing-backend fallback remains fail-open.
  */
 export async function recordAthleteDecisionDurable(
   input: RecordAthleteDecisionInput,
 ): Promise<DurableDecisionResult> {
-  const queued = await queueAndRecordAthleteDecision(input);
-  if (!queued.error) {
-    await drainAthleteDecisionOutboxBestEffort();
-    return { persisted: true, error: null };
-  }
-  if (isMissingBackendContract(queued.error)) {
-    const recorded = await supabase.rpc('record_athlete_decision', journalRpcArgs(input));
-    if (!recorded.error) return { persisted: true, error: null };
-    if (isMissingBackendContract(recorded.error)) return { persisted: false, error: null };
-    const boxed = await enqueueAthleteDecisionOutbox(input);
-    if (boxed.error && !isMissingBackendContract(boxed.error)) {
-      return { persisted: false, error: boxed.error.message };
-    }
-    return { persisted: false, error: recorded.error.message };
-  }
-  return { persisted: false, error: queued.error.message };
+  void input;
+  await drainAthleteDecisionOutboxBestEffort();
+  return { persisted: false, error: null };
 }
 
 /** @deprecated use recordAthleteDecisionDurable — kept as the awaited durable path. */

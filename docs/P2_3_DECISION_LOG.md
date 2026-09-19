@@ -46,7 +46,7 @@ proposition + pourquoi + données utilisées
 → la revue suivante lit ce contexte
 ```
 
-- Écritures : RPC `record_athlete_decision` seulement (REVOKE INSERT/UPDATE/DELETE).
+- Écritures : chemins métier (`commit_solo_weekly_review_decision`, `apply_intervention`, Watch). La primitive `record_athlete_decision` n’est plus exécutable via Data API (Hotfix B). REVOKE INSERT/UPDATE/DELETE authenticated inchangé.
 - Append-only : pas de RPC UPDATE.
 - Lecture : athlète propriétaire ou Coach avec relation **active**.
 - `refused` / `ignored` exigent `applied_effect = {}`.
