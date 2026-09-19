@@ -14,17 +14,20 @@ import {
   humanizeDataUsed,
   parseEvidenceFingerprint,
   parseEvidenceWindow,
+  reviewProposesFor,
   watchItemHasRawJson,
   META_EVIDENCE_KINDS,
 } from './explainability';
 import {
   addUtcDays,
   runAthleteWeeklyReview,
+  weeklyReviewActionsToRpcPayload,
   type WeeklyReviewAggregates,
   type WeeklyReviewInput,
   type WeeklyReviewResult,
   type WeeklyReviewSignalAction,
 } from './weeklyReview';
+import { formatDate } from '../../../lib/utils';
 
 function src(rel: string): string {
   if (rel === 'src/i18n/locales/fr.ts') return i18nLocaleSource('fr');
@@ -312,6 +315,86 @@ test('changed proofs after a refusal do not resurrect the old proposal as curren
   assert.equal(items[0].lastDecisionKey, 'prometheusWatch.decision.refused');
 });
 
+test('a review that proposes for signal A does not invent a current proposal on custom signal B', () => {
+  const week1 = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 0, expectedWorkouts: 6 }),
+  }));
+  const week1Action = upsertOf(week1, 'missed_sessions');
+  const week2 = runAthleteWeeklyReview(input({
+    today: '2026-09-10',
+    aggregates: aggregates({
+      workoutCount: 2,
+      expectedWorkouts: 6,
+      windowStart: addUtcDays('2026-08-21', 7),
+      windowEnd: addUtcDays('2026-09-03', 7),
+    }),
+    existingSignals: [signalFromAction(week1Action, { confidence: 'low' })],
+  }));
+  const week2Action = upsertOf(week2, 'missed_sessions');
+  assert.equal(week2.decision, 'propose');
+  const persisted = reviewFromEngine(week2, {
+    signal_actions: weeklyReviewActionsToRpcPayload(week2.signalActions),
+  });
+  assert.equal(reviewProposesFor(persisted, 'training', 'missed_sessions'), true);
+  assert.equal(reviewProposesFor(persisted, 'goal', 'custom_habit'), false);
+
+  const custom = stubSignal({
+    id: 'sig-custom',
+    domain: 'goal',
+    type: 'custom_habit',
+    hypothesis: 'Un signal custom hors moteur',
+    confidence: 'high',
+    status: 'open',
+  });
+  const items = buildPrometheusWatchItems({
+    signals: [signalFromAction(week2Action), custom],
+    decisions: [],
+    latestReview: persisted,
+  });
+  const training = items.find((row) => row.type === 'missed_sessions');
+  const other = items.find((row) => row.type === 'custom_habit');
+  assert.ok(training);
+  assert.ok(other);
+  assert.equal(training?.currentProposalKey, 'prometheusWatch.proposal.generic');
+  assert.equal(other?.currentProposalKey, null);
+  assert.equal(other?.kind, 'current');
+  assert.equal(other?.statusKey, 'prometheusWatch.status.open');
+  assert.equal(other?.headlineKey, 'prometheusWatch.types.other');
+});
+
+test('why copy is a real explanation, not a repeat of the type title', () => {
+  const week1 = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 1, expectedWorkouts: 6 }),
+  }));
+  const items = buildPrometheusWatchItems({
+    signals: [signalFromAction(upsertOf(week1, 'missed_sessions'))],
+    decisions: [],
+    latestReview: reviewFromEngine(week1),
+  });
+  assert.equal(items[0].headlineKey, 'prometheusWatch.types.missed_sessions');
+  assert.equal(items[0].whyKey, 'prometheusWatch.whyCopy.missed_sessions');
+  assert.notEqual(items[0].whyKey, items[0].headlineKey);
+  const fr = src('src/i18n/locales/fr.ts');
+  const en = src('src/i18n/locales/en.ts');
+  assert.match(fr, /plan mérite d’être réévalué/);
+  assert.match(en, /plan deserves another look/);
+  assert.doesNotMatch(src('src/features/signals/domain/explainability.ts'), /whyKey: typeKeyOf/);
+});
+
+test('watch panel dates follow the UI language', () => {
+  const fr = formatDate('2026-09-03', 'fr');
+  const en = formatDate('2026-09-03', 'en');
+  assert.notEqual(fr, en);
+  assert.match(fr, /sept/i);
+  assert.doesNotMatch(en, /sept\./i);
+  const panel = src('src/components/dashboard/PrometheusWatchPanel.tsx');
+  const calls = [...panel.matchAll(/formatDate\(([^)]*)\)/g)];
+  assert.ok(calls.length >= 2);
+  for (const call of calls) {
+    assert.match(call[1], /i18n\.language/);
+  }
+});
+
 test('a historical refusal without an open signal stays history and never invents open', () => {
   const items = buildPrometheusWatchItems({
     signals: [],
@@ -400,6 +483,7 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
     assert.match(locale, /changedNoSignal/);
     assert.match(locale, /loadError/);
     assert.match(locale, /status:[\s\S]*quiet/);
+    assert.match(locale, /whyCopy/);
   }
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /PrometheusWatchPanel/);
   assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /PrometheusWatchPanel/);

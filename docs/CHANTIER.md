@@ -565,7 +565,7 @@ Audit : P2.1–P2.3 fournissent déjà signaux, revue, journal, `data_used`, `wh
 - Permissions = ressource + relation + action (`canReadAthleteWatch` / `canCorrectAthleteWatchContext`). Le Coaché lit ; il ne récupère pas les droits de correction du Coach. Un Coach lui-même Coaché lit son dossier perso et celui de ses clients, sans que le workspace UI n’accorde rien.
 - Divulgation progressive. Pas de JSON, pas de score artificiel, pas d’auto-application, pas d’écriture d’interprétation dans ce slice.
 - Observation = type + fingerprint structuré + i18n (jamais `window` / `fingerprint` ni `hypothesis` moteur).
-- État actuel et dernière décision humaine sont des champs séparés. Une ancienne proposition n’est jamais présentée comme proposition actuelle sans signal ouvert et revue `propose`. Une ligne historique n’invente jamais le statut `open`.
+- État actuel et dernière décision humaine sont des champs séparés. Une ancienne proposition n’est jamais présentée comme proposition actuelle sans upsert `open` medium/high de ce (domaine, type) dans `signal_actions` de la revue courante. Une ligne historique n’invente jamais le statut `open`. Une revue `propose` pour le signal A n’attribue pas de proposition au signal B.
 - Indisponible ≠ vide : le panneau a loading / ready / error + retry.
 
 **Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas la correction de contexte ni P2.5.**

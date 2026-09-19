@@ -34,6 +34,15 @@ const watch = {
     period: 'Period',
     lastPeriod: 'Period of the last decision',
     why: 'Why it matters',
+    whyCopy: {
+      missed_sessions: 'A lasting gap between planned and logged sessions can mean the plan deserves another look.',
+      not_following: 'Intake often far from the current target can mean the nutrition plan deserves another look.',
+      sparse_nutrition: 'Too few nutrition days are logged to judge: Prometheus waits, without concluding.',
+      too_fast: 'A weight change this fast relative to the stated goal can mean the plan deserves a look.',
+      stall: 'The logged weight trend is not tracking the stated goal, so the plan may deserve a look.',
+      fatigue: 'Check-ins report high fatigue or low energy, which can matter for the next training decision.',
+      other: 'This point stayed open. Prometheus does not invent a reason beyond what was logged.',
+    },
     evolution: {
       label: 'How it evolved',
       first: 'First time this was noticed.',

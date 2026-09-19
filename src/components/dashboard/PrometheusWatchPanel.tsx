@@ -126,12 +126,12 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
 }
 
 function WatchRow({ item, viewer }: { item: PrometheusWatchItem; viewer: 'self' | 'coach' }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const period = item.periodStart && item.periodEnd
-    ? `${formatDate(item.periodStart)} – ${formatDate(item.periodEnd)}`
+    ? `${formatDate(item.periodStart, i18n.language)} – ${formatDate(item.periodEnd, i18n.language)}`
     : null;
   const lastPeriod = item.lastPeriodStart && item.lastPeriodEnd
-    ? `${formatDate(item.lastPeriodStart)} – ${formatDate(item.lastPeriodEnd)}`
+    ? `${formatDate(item.lastPeriodStart, i18n.language)} – ${formatDate(item.lastPeriodEnd, i18n.language)}`
     : null;
   const observed = item.observedCopy
     ? t(item.observedCopy.key, item.observedCopy.params)

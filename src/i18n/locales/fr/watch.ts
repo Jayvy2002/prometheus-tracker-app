@@ -34,6 +34,15 @@ const watch = {
     period: 'Période',
     lastPeriod: 'Période de la dernière décision',
     why: 'Pourquoi ça compte',
+    whyCopy: {
+      missed_sessions: 'Un écart durable entre séances prévues et réalisées peut indiquer que le plan mérite d’être réévalué.',
+      not_following: 'Des apports souvent loin de la cible actuelle peuvent indiquer que le plan nutrition mérite un nouveau regard.',
+      sparse_nutrition: 'Trop peu de jours nutrition sont loggés pour juger : Prometheus attend, sans conclure.',
+      too_fast: 'Une variation de poids aussi rapide par rapport à l’objectif déclaré peut indiquer que le plan mérite un regard.',
+      stall: 'La trajectoire de poids loggée ne suit pas l’objectif déclaré : le plan peut mériter un regard.',
+      fatigue: 'Les check-ins déclarent une fatigue haute ou une énergie basse, ce qui peut compter pour la prochaine décision d’entraînement.',
+      other: 'Ce point est resté ouvert. Prometheus n’invente pas de motif au-delà de ce qui a été loggé.',
+    },
     evolution: {
       label: 'Évolution',
       first: 'Première fois que c’est relevé.',

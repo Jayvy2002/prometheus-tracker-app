@@ -34,8 +34,8 @@ signaux ouverts/waiting
 → divulgation progressive
 → observation = type + fingerprint structuré (jamais window/fingerprint bruts)
 → état actuel ≠ dernière décision humaine
-→ proposition actuelle seulement si signal ouvert, preuves non masquées,
-  confiance medium/high et revue `propose`
+→ proposition actuelle seulement si ce (domaine, type) est un upsert
+  open medium/high dans latestReview.signal_actions et que la revue vaut `propose`
 → une ancienne proposition est une « dernière proposition », jamais un état inventé
 → indisponible ≠ vide (loading / ready / error + retry)
 → l’historique n’est jamais réécrit

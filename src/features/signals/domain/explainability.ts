@@ -284,8 +284,36 @@ function typeKeyOf(type: string): string {
     : 'prometheusWatch.types.other';
 }
 
+function whyKeyOf(type: string): string {
+  return isWatchType(type)
+    ? `prometheusWatch.whyCopy.${type}`
+    : 'prometheusWatch.whyCopy.other';
+}
+
+function isOpenProposeAction(raw: unknown, domain: string, type: string): boolean {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  const row = raw as Record<string, unknown>;
+  if (row.op !== 'upsert') return false;
+  if (row.domain !== domain || row.type !== type) return false;
+  if (row.status !== 'open') return false;
+  return row.confidence === 'medium' || row.confidence === 'high';
+}
+
+/** True only when this review actually upserted this (domain, type) as an open, propose-worthy signal. */
+export function reviewProposesFor(
+  review: AthleteWeeklyReview | null | undefined,
+  domain: string,
+  type: string,
+): boolean {
+  if (!review || review.decision !== 'propose') return false;
+  const actions = Array.isArray(review.signal_actions) ? review.signal_actions : [];
+  return actions.some((raw) => isOpenProposeAction(raw, domain, type));
+}
+
 function currentProposalAllowed(input: {
   kind: WatchItemKind;
+  domain: string;
+  type: string;
   signal: AthleteSignal | null;
   suppressed: boolean;
   review: AthleteWeeklyReview | null;
@@ -293,8 +321,7 @@ function currentProposalAllowed(input: {
   if (input.kind !== 'current') return false;
   if (input.suppressed) return false;
   if (input.signal?.status !== 'open') return false;
-  if (input.signal.confidence !== 'medium' && input.signal.confidence !== 'high') return false;
-  return input.review?.decision === 'propose';
+  return reviewProposesFor(input.review, input.domain, input.type);
 }
 
 function buildItem(input: {
@@ -341,6 +368,8 @@ function buildItem(input: {
   const lastPeriod = periodFromSnapshot(lastSnapshot);
   const hasCurrentProposal = currentProposalAllowed({
     kind,
+    domain,
+    type,
     signal,
     suppressed,
     review,
@@ -383,7 +412,7 @@ function buildItem(input: {
     observedCopy: (observedMetrics || isWatchType(type))
       ? observedCopyFromType(type, observedMetrics)
       : null,
-    whyKey: typeKeyOf(type),
+    whyKey: whyKeyOf(type),
     dataPoints: humanizeDataUsed(currentMetrics),
     lastDataPoints: humanizeDataUsed(lastMetrics),
     periodStart: currentWindow?.start ?? null,
