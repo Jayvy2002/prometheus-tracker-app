@@ -1,6 +1,6 @@
 # P2.5 — Décision humaine sur la proposition courante
 
-## Slice (cette PR, avec P2.4)
+## Slice (mergé `#192`, `9b8a7ab`, avec P2.4)
 
 Vision 8.6 : accepter / modifier / refuser **la proposition courante** depuis
 « Ce que Prometheus surveille ».
@@ -82,16 +82,18 @@ humain Solo (pas Coaché) ou Coach actif du dossier
   `apply_intervention`, `upsert_athlete_signal`, `resolve_athlete_signal`
   ni `record_athlete_decision`.
 
-## Hors scope (P2.6 et plus tard)
+## Hors scope
 
 - appliquer des cibles calories ou un programme depuis ce panneau ;
 - réécrire une donnée source ;
-- P3 et suivants.
+- aucune auto-application depuis Watch. La carte Solo et l’inbox Coach
+  restent les surfaces historiques d’effet
+  (`commit_solo_weekly_review_decision` / `apply_intervention`).
 
 ## Livraison
 
-Vertical slice dans la même PR draft que P2.4 vers `new-JV`. Ne pas merger
-sans feu vert. Ne pas enchaîner P2.6. Candidats
+PR [#192](https://github.com/Jayvy2002/prometheus-tracker-app/pull/192) mergée
+dans `new-JV` (`9b8a7ab`). Migrations
 `20260919134856_watch_context_correction` et
-`20260919141146_watch_proposal_decision` (`migrations.pending.json`) : le
-lock production reste à 122 jusqu’à application autorisée après merge.
+`20260919141146_watch_proposal_decision` appliquées en production le
+19 septembre 2026 (lock **124**, pending **0**, aucun restamp).

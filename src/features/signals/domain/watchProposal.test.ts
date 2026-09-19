@@ -183,12 +183,10 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.length, 2);
-  assert.equal(pending.pending[0]?.version, '20260919134856');
-  assert.equal(pending.pending[1]?.version, '20260919141146');
-  assert.equal(pending.pending[1]?.name, 'watch_proposal_decision');
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /watch_proposal_decision/);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /watch_context_correction/);
+  assert.equal(pending.pending.some((row) => row.version === '20260919134856'), false);
+  assert.equal(pending.pending.some((row) => row.version === '20260919141146'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "watch_context_correction"/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "watch_proposal_decision"/);
 
   const edges = src('supabase/functions.manifest.json');
   assert.doesNotMatch(edges, /watch.proposal|decide_athlete_watch/);

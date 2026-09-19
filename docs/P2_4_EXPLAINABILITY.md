@@ -7,7 +7,7 @@ Lecture seule : « Ce que Prometheus surveille ».
 Aucun second moteur. Aucune auto-application. Observation = type + fingerprint
 structuré + i18n. État actuel ≠ dernière décision humaine. Indisponible ≠ vide.
 
-## Slice correction (cette PR)
+## Slice correction (mergé `#192`, `9b8a7ab`)
 
 Écriture traçable : marquer une interprétation **non pertinente** ou **incorrecte**,
 avec un motif humain obligatoire.
@@ -79,20 +79,21 @@ humain (Solo ou Coach actif) + motif
 Les wrappers `BestEffort` restent pour le moteur / la revue (fail-open).
 Le panneau d’explicabilité ne les utilise pas.
 
-## Hors scope (P2.6 et plus tard)
+## Hors scope
 
 - modifier une donnée source (nutrition, séance, pesée) ;
 - appliquer des cibles ou un programme depuis ce panneau
-  (`commit_solo` / `apply_intervention` restent les chemins d’effet) ;
-- P2.6 et suivants.
+  (`commit_solo_weekly_review_decision` / `apply_intervention` restent les
+  chemins d’effet durable). Aucune auto-application depuis Watch.
 
-P2.5 (accepter / modifier / refuser la proposition courante) est livré dans
-cette même PR : [P2.5](P2_5_WATCH_PROPOSAL.md).
+P2.5 (accepter / modifier / refuser la proposition courante) est livré :
+[P2.5](P2_5_WATCH_PROPOSAL.md).
 
 ## Livraison
 
-Vertical slice dans une PR draft vers `new-JV`. Ne pas merger sans feu vert.
-Ne pas enchaîner P2.6. Les migrations `20260919134856_watch_context_correction`
-et `20260919141146_watch_proposal_decision` sont des **candidats**
-(`migrations.pending.json`) : le lock production reste à 122 jusqu’à
-application autorisée après merge.
+PR [#191](https://github.com/Jayvy2002/prometheus-tracker-app/pull/191) (lecture)
+et [#192](https://github.com/Jayvy2002/prometheus-tracker-app/pull/192) (correction)
+mergées dans `new-JV` (`9b8a7ab`). Migrations
+`20260919134856_watch_context_correction` et
+`20260919141146_watch_proposal_decision` appliquées en production le
+19 septembre 2026 (lock **124**, pending **0**, aucun restamp).

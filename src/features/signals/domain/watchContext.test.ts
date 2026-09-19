@@ -92,9 +92,8 @@ test('P2.4 context correction reuses journal + resolve, with Solo/Coach authorit
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260919134856'), true);
-  assert.equal(pending.pending.some((row) => row.name === 'watch_context_correction'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /watch_context_correction/);
+  assert.equal(pending.pending.some((row) => row.version === '20260919134856'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "watch_context_correction"/);
 
   const edges = src('supabase/functions.manifest.json');
   assert.doesNotMatch(edges, /watch.context|correct_athlete_watch/);

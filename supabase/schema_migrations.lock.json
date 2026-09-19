@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-19T03:55:00Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P1.5–P2.3 live apply on 2026-09-19 (122 versions, last 20260918232507_athlete_decision_durability). Never repair or restamp applied history.",
+  "captured_at": "2026-09-19T18:10:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P2.4/P2.5 live apply on 2026-09-19 (124 versions, last 20260919141146_watch_proposal_decision). Git timestamps 20260919134856 and 20260919141146 were kept; never repair or restamp applied history.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -495,6 +495,14 @@
     {
       "version": "20260918232507",
       "name": "athlete_decision_durability"
+    },
+    {
+      "version": "20260919134856",
+      "name": "watch_context_correction"
+    },
+    {
+      "version": "20260919141146",
+      "name": "watch_proposal_decision"
     }
   ]
 }
