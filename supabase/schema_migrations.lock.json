@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-19T22:45:00Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after Hotfix B live apply on 2026-09-19 (127 versions, last 20260919214423_p2_primitive_authority). Git timestamp 20260919214423 was kept; never repair or restamp applied history. Never apply 20260919181919.",
+  "captured_at": "2026-09-19T23:30:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P3.2 live apply on 2026-09-19 (128 versions, last 20260919225507_program_phases). Git timestamp 20260919225507 was kept; never repair or restamp applied history. Never apply 20260919181919.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -515,6 +515,10 @@
     {
       "version": "20260919214423",
       "name": "p2_primitive_authority"
+    },
+    {
+      "version": "20260919225507",
+      "name": "program_phases"
     }
   ]
 }

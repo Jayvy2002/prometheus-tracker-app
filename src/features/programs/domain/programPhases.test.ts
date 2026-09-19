@@ -100,8 +100,8 @@ test('P3.2 migration extends the existing engine without a second logger', () =>
 
   assert.match(src('.github/workflows/ci.yml'), /program_phases\.sql/);
   assert.match(src('supabase/tests/program_phases.sql'), /\\echo 'program phases:/);
-  assert.match(src('supabase/migrations.pending.json'), /20260919225507/);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260919225507/);
+  assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260919225507/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /20260919225507/);
 
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /phaseName=\{gymPhaseName\}/);
   assert.match(src('src/components/workout/WorkoutPage.tsx'), /phaseName=\{resolveCurrentPhase/);

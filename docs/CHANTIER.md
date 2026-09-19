@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P3.2 EN COURS.** Candidate `20260919225507_program_phases` pending. Production/lock restent à **127** (`20260919214423_p2_primitive_authority`). Hotfix B clos. P3.1 clos. Après merge CI verte : apply timestamp Git, lock 128, puis P3.3. Ne pas commencer P4. Aucune auto-application. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P3.2 CLOS.** Production/lock **128** (`20260919225507_program_phases`). P3.1 clos (`#195`/`#196`). Hotfix B clos (`#199`/`#200`). P3.2 mergé (`#201`) et appliqué avec le timestamp Git. Prochaine sous-tâche : **P3.3 versions/activation**. Ne pas commencer P4. Aucune auto-application. Watch n’applique pas.
 >
-> Hotfix B est mergé (`#199`/`#200`) et **appliqué en production** avec le timestamp Git. P3.1 (`#195`/`#196`) reste clos. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,9 +60,9 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (127 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (127 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **P3.1 clos — P3.2 en cours** | Phases optionnelles, puis versions/activation |
+| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P3** | Planification avancée | **P3.1–P3.2 clos — P3.3 suivant** | Versions / activation, puis passe transversale P3 |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`), P3.1 (`#195`/`#196`) et Hotfix B (`#199`/`#200`) sont appliqués en production (127 migrations). P3.2 est en cours (candidate pending). Ne pas commencer P4.
+P1.5–P2.5, P3.1 (`#195`/`#196`), Hotfix B (`#199`/`#200`) et P3.2 (`#201`) sont appliqués en production (128 migrations). Prochaine sous-tâche : P3.3. Ne pas commencer P4.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -683,7 +683,7 @@ Ne pas créer deux loggers. Ne pas inventer P2.6/P2.7. Ne pas commencer P4.
 
 ## P3.2 — Phases et cycles
 
-**EN COURS** — candidate `20260919225507_program_phases` (pending, lock production 127). Inventaire : [P3.2 — phases](P3_2_PROGRAM_PHASES.md).
+**TERMINÉ** (`#201`, lock 128, `20260919225507_program_phases`). Inventaire : [P3.2 — phases](P3_2_PROGRAM_PHASES.md).
 
 Un seul moteur `programs` → phases optionnelles → `program_days` → prescriptions → workouts.
 

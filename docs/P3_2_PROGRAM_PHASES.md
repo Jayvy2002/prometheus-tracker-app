@@ -65,6 +65,6 @@ Le chemin principal ne mentionne pas les phases. Elles sont derrière
 
 ## Migration
 
-Candidate Git `20260919225507_program_phases` (pending jusqu’à apply production).
-Ne pas restamper. Ne pas appliquer avant merge CI verte. Pas de RPC
+Appliquée en production avec le timestamp Git `20260919225507_program_phases`
+(lock **128**, pending vide). Ne pas restamper. Pas de RPC
 `apply_athlete_watch_minimum`. Versions / activation = P3.3.
