@@ -16,6 +16,7 @@ interface Props {
   onContinue: (workoutId: string) => void;
   onEditPlan?: () => void;
   phaseName?: string | null;
+  plannedChange?: string | null;
 }
 
 function repsLabel(ex: ProgramDayExercise): string {
@@ -35,6 +36,7 @@ export default function ClientGymCard({
   onContinue,
   onEditPlan,
   phaseName,
+  plannedChange,
 }: Props) {
   const { t } = useTranslation();
   if (card.kind === 'none') return null;
@@ -42,6 +44,7 @@ export default function ClientGymCard({
   const weekLabel = [
     programWeek != null ? t('programs.weekOf', { current: programWeek, total: durationWeeks }) : programName,
     phaseName?.trim() ? t('programs.currentPhase', { name: phaseName.trim() }) : null,
+    plannedChange?.trim() ? plannedChange.trim() : null,
   ].filter(Boolean).join(' · ');
 
   if (card.kind === 'done_next') {

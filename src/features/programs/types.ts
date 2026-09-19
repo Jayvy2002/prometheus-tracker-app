@@ -83,6 +83,10 @@ export interface Program {
   session_organization?: SessionOrganization;
   phases?: ProgramPhase[];
   days?: ProgramDay[];
+  active_revision_no?: number | null;
+  scheduled_revision_no?: number | null;
+  scheduled_activates_on?: string | null;
+  scheduled_snapshot?: unknown | null;
   created_at: string;
   updated_at: string;
 }

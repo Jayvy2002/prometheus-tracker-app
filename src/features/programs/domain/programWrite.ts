@@ -7,9 +7,11 @@ export function isProgramStaleError(message: string | null | undefined): boolean
 
 export function mapProgramWriteError(
   message: string | null | undefined,
-  copy: { stale: string; fallback: string },
+  copy: { stale: string; fallback: string; scheduled?: string; historical?: string },
 ): string {
   if (isProgramStaleError(message)) return copy.stale;
+  if (copy.scheduled && message?.includes('already_scheduled')) return copy.scheduled;
+  if (copy.historical && message?.includes('historical')) return copy.historical;
   return copy.fallback;
 }
 

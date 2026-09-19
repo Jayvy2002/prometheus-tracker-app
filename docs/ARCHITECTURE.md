@@ -299,6 +299,7 @@ Le moteur actuel est une fondation à conserver.
 ```text
 Program
 → session_organization (fixed_days | in_order)
+→ version (révision active + optionnellement une future)
 → phases optionnelles
 → session templates (program_days)
 → prescriptions
@@ -306,7 +307,8 @@ Program
 ```
 
 Scheduling P3.1 : calendrier (`fixed_days`) et séquence (`in_order`) sur le même
-moteur. Phases P3.2 : optionnelles, même logger. Versions/activation = P3.3.
+moteur. Phases P3.2 : optionnelles, même logger. Versions P3.3 : `program_revisions`
++ pointeurs d’activation, pas de second graphe.
 
 Les deux créent des séances dans le **même** moteur de workout.
 

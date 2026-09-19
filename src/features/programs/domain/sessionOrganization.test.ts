@@ -179,7 +179,7 @@ test('P3.1 organization stays on the shared engine after P3.2 phases', () => {
   assert.doesNotMatch(fr, /sequence_mode/);
   assert.doesNotMatch(en, /schedule_strategy/);
 
-  assert.match(src('src/components/calendar/CalendarPage.tsx'), /sessionOrganization: assignment\?\.program\?\.session_organization/);
+  assert.match(src('src/components/calendar/CalendarPage.tsx'), /sessionOrganization: graph\.organization/);
   assert.match(src('src/components/dashboard/ClientGymCard.tsx'), /typeof day\.weekday === 'number'/);
   assert.match(src('.github/workflows/ci.yml'), /program_session_organization\.sql/);
   assert.match(src('supabase/schema_migrations.lock.json'), /20260919194159/);

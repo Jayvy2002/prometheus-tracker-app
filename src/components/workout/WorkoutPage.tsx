@@ -13,6 +13,7 @@ import { isCoachedAthlete } from '../../lib/coachRole';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
 import { resolveCurrentPhase } from '../../features/programs/domain/programPhases';
+import { assignStartLabel } from '../../lib/programWrite';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
@@ -32,7 +33,7 @@ import SessionReadout from './SessionReadout';
 import ClientGymCard from '../dashboard/ClientGymCard';
 
 export default function WorkoutPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { workouts, loading, workoutsExhausted, fetchWorkouts, fetchOlderWorkouts, fetchWorkout, peekWorkout, deleteWorkout, createWorkout, restoreExercise } = useWorkoutStore();
@@ -350,6 +351,11 @@ export default function WorkoutPage() {
             today: todayStr(),
             nextDay: gymCard.day ?? gymCard.nextDay,
           })?.name}
+          plannedChange={assignment.program.scheduled_activates_on
+            ? t('programs.plannedChangeOn', {
+              date: assignStartLabel(assignment.program.scheduled_activates_on, i18n.language),
+            })
+            : null}
         />
       )}
 
