@@ -218,7 +218,11 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.prometheus_submitted_covered_by(p_original jsonb, p_submitted jsonb)
+CREATE OR REPLACE FUNCTION public.prometheus_submitted_covered_by(
+  p_original jsonb,
+  p_submitted jsonb,
+  p_canonicalize boolean DEFAULT true
+)
 RETURNS boolean
 LANGUAGE plpgsql
 IMMUTABLE
@@ -227,6 +231,8 @@ AS $$
 DECLARE
   v_key text;
   v_orig jsonb;
+  v_orig_val jsonb;
+  v_sub_val jsonb;
 BEGIN
   IF p_submitted IS NULL OR p_submitted = 'null'::jsonb THEN
     RETURN true;
@@ -242,10 +248,13 @@ BEGIN
       IF v_key IN ('assign_client_id', 'for_client_id', 'client_id', 'coach_id') THEN
         CONTINUE;
       END IF;
-      IF NOT public.prometheus_submitted_covered_by(
-        public.prometheus_canonical_action_field(v_key, v_orig->v_key),
-        public.prometheus_canonical_action_field(v_key, p_submitted->v_key)
-      ) THEN
+      v_orig_val := v_orig->v_key;
+      v_sub_val := p_submitted->v_key;
+      IF COALESCE(p_canonicalize, true) THEN
+        v_orig_val := public.prometheus_canonical_action_field(v_key, v_orig_val);
+        v_sub_val := public.prometheus_canonical_action_field(v_key, v_sub_val);
+      END IF;
+      IF NOT public.prometheus_submitted_covered_by(v_orig_val, v_sub_val, false) THEN
         RETURN false;
       END IF;
     END LOOP;
@@ -255,6 +264,8 @@ BEGIN
     IS NOT DISTINCT FROM public.prometheus_strip_routing(p_submitted);
 END;
 $$;
+
+DROP FUNCTION IF EXISTS public.prometheus_submitted_covered_by(jsonb, jsonb);
 
 CREATE OR REPLACE FUNCTION public.prometheus_proposal_materially_edited(p_original jsonb, p_submitted jsonb)
 RETURNS boolean
@@ -574,7 +585,7 @@ REVOKE ALL ON FUNCTION public.prometheus_proposal_materially_edited(jsonb, jsonb
 REVOKE ALL ON FUNCTION public.prometheus_map_intervention_kind(text, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_map_intervention_decision(text, boolean, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_canonical_action_field(text, jsonb) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.prometheus_submitted_covered_by(jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_submitted_covered_by(jsonb, jsonb, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_evidence_from_payload(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_intake_has_medical_flags(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.prometheus_calendar_age_years(date) FROM PUBLIC, anon, authenticated;

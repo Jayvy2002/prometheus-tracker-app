@@ -364,7 +364,11 @@ function canonicalActionField(key: string, value: unknown): unknown {
   return stripRouting(value);
 }
 
-function submittedCoveredBy(original: unknown, submitted: unknown): boolean {
+function submittedCoveredBy(
+  original: unknown,
+  submitted: unknown,
+  canonicalize = true,
+): boolean {
   if (submitted == null) return true;
   if (typeof submitted === "object" && submitted !== null && !Array.isArray(submitted)) {
     const origRow = original && typeof original === "object" && !Array.isArray(original)
@@ -373,9 +377,13 @@ function submittedCoveredBy(original: unknown, submitted: unknown): boolean {
     const subRow = submitted as Record<string, unknown>;
     for (const [key, value] of Object.entries(subRow)) {
       if (ROUTING_KEYS.has(key)) continue;
-      if (!submittedCoveredBy(canonicalActionField(key, origRow[key]), canonicalActionField(key, value))) {
-        return false;
-      }
+      const origVal = canonicalize
+        ? canonicalActionField(key, origRow[key])
+        : origRow[key];
+      const subVal = canonicalize
+        ? canonicalActionField(key, value)
+        : value;
+      if (!submittedCoveredBy(origVal, subVal, false)) return false;
     }
     return true;
   }
