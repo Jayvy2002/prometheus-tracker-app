@@ -444,6 +444,8 @@ reset role;
 -- Assigned client can ensure a due version; former coach cannot after the link ends.
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('c3391941-0000-4000-8000-000000000014','c3391941-0000-4000-8000-000000000003','Client plan','',8);
+insert into public.coach_client_links(id,coach_id,client_id,status)
+values ('c3391941-0000-4000-8000-0000000000ab','c3391941-0000-4000-8000-000000000003','c3391941-0000-4000-8000-000000000004','active');
 insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
 values (
   'c3391941-0000-4000-8000-0000000000c1',
@@ -453,8 +455,6 @@ values (
   current_date,
   'active'
 );
-insert into public.coach_client_links(id,coach_id,client_id,status)
-values ('c3391941-0000-4000-8000-0000000000ab','c3391941-0000-4000-8000-000000000003','c3391941-0000-4000-8000-000000000004','active');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3391941-0000-4000-8000-000000000003',true);
