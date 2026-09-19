@@ -36,7 +36,7 @@ begin
   select coalesce(array_agg(privilege_type order by privilege_type), '{}')
     into v_auth
   from pg_class c
-  cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
   where c.oid = 'public.coach_client_links'::regclass
     and a.grantee = 'authenticated'::regrole;
   if v_auth is distinct from array['SELECT']::text[] then
@@ -46,7 +46,7 @@ begin
   select coalesce(array_agg(privilege_type order by privilege_type), '{}')
     into v_anon
   from pg_class c
-  cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
   where c.oid = 'public.coach_client_links'::regclass
     and a.grantee = 'anon'::regrole;
   if v_anon <> '{}'::text[] then
@@ -56,7 +56,7 @@ begin
   select coalesce(array_agg(privilege_type order by privilege_type), '{}')
     into v_public
   from pg_class c
-  cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
   where c.oid = 'public.coach_client_links'::regclass
     and a.grantee = 0;
   if v_public <> '{}'::text[] then
@@ -66,7 +66,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'INSERT'
@@ -76,7 +76,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'DELETE'
@@ -86,7 +86,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'TRUNCATE'
@@ -96,7 +96,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'REFERENCES'
@@ -106,7 +106,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'TRIGGER'
@@ -116,7 +116,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'MAINTAIN'
@@ -126,7 +126,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'UPDATE'
@@ -137,7 +137,7 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     where c.oid = 'public.coach_client_links'::regclass
       and a.grantee in (0::oid, 'anon'::regrole)
   ) then
@@ -211,7 +211,7 @@ begin
 
   select a.attname into v_forbidden
   from pg_attribute a
-  cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[])) x
+  cross join lateral aclexplode(coalesce(a.attacl, ARRAY[]::aclitem[])) x
   where a.attrelid = 'public.coach_client_links'::regclass
     and a.attnum > 0
     and not a.attisdropped
@@ -225,7 +225,7 @@ begin
   if exists (
     select 1
     from pg_attribute a
-    cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[])) x
+    cross join lateral aclexplode(coalesce(a.attacl, ARRAY[]::aclitem[])) x
     where a.attrelid = 'public.coach_client_links'::regclass
       and a.attnum > 0
       and not a.attisdropped

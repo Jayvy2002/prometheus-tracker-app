@@ -259,7 +259,7 @@ BEGIN
   SELECT coalesce(array_agg(privilege_type ORDER BY privilege_type), '{}')
     INTO v_auth
   FROM pg_class c
-  CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
   WHERE c.oid = 'public.coach_client_links'::regclass
     AND a.grantee = 'authenticated'::regrole;
   IF v_auth IS DISTINCT FROM ARRAY['SELECT']::text[] THEN
@@ -269,7 +269,7 @@ BEGIN
   IF v_ok AND EXISTS (
     SELECT 1
     FROM pg_class c
-    CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
     WHERE c.oid = 'public.coach_client_links'::regclass
       AND a.grantee IN (0::oid, 'anon'::regrole)
   ) THEN
