@@ -558,20 +558,36 @@ reset role;
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claims','{}',true);
 
+-- RLS hides other athletes' signals from a stranger. Capture ids as owner.
+do $$
+declare
+  v_solo uuid;
+  v_client uuid;
+begin
+  select id into v_solo from public.athlete_signals
+   where athlete_id = 'd2600000-0000-4000-8000-000000000003'
+     and type = 'stall' limit 1;
+  select id into v_client from public.athlete_signals
+   where athlete_id = 'd2600000-0000-4000-8000-000000000002'
+     and type = 'stall' and status = 'open';
+  if v_solo is null or v_client is null then
+    raise exception 'signal ids missing for stranger tests';
+  end if;
+  perform set_config('prometheus.p26_solo_signal', v_solo::text, true);
+  perform set_config('prometheus.p26_client_signal', v_client::text, true);
+end $$;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','d2600000-0000-4000-8000-000000000005',true);
 select set_config('request.jwt.claims','{"sub":"d2600000-0000-4000-8000-000000000005","role":"authenticated"}',true);
 do $$
 declare
-  v_sig public.athlete_signals;
+  v_id uuid := current_setting('prometheus.p26_client_signal')::uuid;
 begin
-  select * into v_sig from public.athlete_signals
-   where athlete_id = 'd2600000-0000-4000-8000-000000000002'
-     and type = 'stall' and status = 'open';
   begin
     perform public.apply_athlete_watch_minimum(
-      v_sig.id,
-      v_sig.id,
+      v_id,
+      v_id,
       '{}'::jsonb,
       NULL
     );
@@ -616,8 +632,6 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','d2600000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claims','{"sub":"d2600000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
-declare
-  v_sig public.athlete_signals;
 begin
   -- no personal calorie signal for the coached coach; apply on a missing row
   begin
@@ -631,10 +645,13 @@ begin
   exception when others then
     if sqlerrm not in ('not_found', 'not_authorized', 'stale_proposal') then raise; end if;
   end;
-  select * into v_sig from public.athlete_signals
-   where athlete_id = 'd2600000-0000-4000-8000-000000000003' and type = 'stall' limit 1;
   begin
-    perform pg_temp.watch_apply(v_sig.id);
+    perform public.apply_athlete_watch_minimum(
+      current_setting('prometheus.p26_solo_signal')::uuid,
+      current_setting('prometheus.p26_solo_signal')::uuid,
+      '{}'::jsonb,
+      NULL
+    );
     raise exception 'unrelated coach apply allowed';
   exception when others then
     if sqlerrm <> 'not_authorized' then raise; end if;

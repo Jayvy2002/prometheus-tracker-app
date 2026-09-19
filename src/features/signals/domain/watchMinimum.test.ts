@@ -135,6 +135,7 @@ test('P2.6 reuses existing calorie writes, not a third apply engine', () => {
   assert.match(sqlTest, /modified apply wrote targets/);
   assert.match(sqlTest, /coached self-apply allowed/);
   assert.match(sqlTest, /stranger apply allowed/);
+  assert.match(sqlTest, /signal ids missing for stranger tests/);
   assert.match(sqlTest, /accept without apply wrote targets/);
   assert.match(sqlTest, /long idempotency key applied/);
   assert.match(sqlTest, /apply_athlete_watch_minimum is a third apply engine/);
