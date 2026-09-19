@@ -139,6 +139,7 @@ export default function Dashboard() {
     todayWeekday: new Date().getDay(),
     todayDate: todayStr(),
     assignmentId: assignment?.id ?? null,
+    sessionOrganization: assignment?.program?.session_organization,
   });
   const programWeek = assignment?.program
     ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)

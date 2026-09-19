@@ -2,7 +2,7 @@ const programs = {
 
   programs: {
     title: 'Programs',
-    subtitle: 'Named sessions mapped to weekdays, assigned with a start date.',
+    subtitle: 'Named sessions, organized by fixed days or in order, assigned with a start date.',
     empty: 'No programs yet',
     emptyBody: 'Create a first program to assign it to your clients.',
     moreActions: 'Program actions',
@@ -57,6 +57,13 @@ const programs = {
     sessionFallback: 'Session',
     sessionLifts: '{{n}} exercises',
     splitLabel: '{{n}} sessions',
+    organizationTitle: 'Session organization',
+    organizationFixed: 'Fixed days',
+    organizationFixedHint: 'Sessions are planned on specific weekdays.',
+    organizationInOrder: 'In order',
+    organizationInOrderHint: 'The next session simply follows the program order.',
+    sessionLetter: 'Session {{letter}}',
+    nextSession: 'Next session: {{name}}',
     tapToEdit: 'Tap an exercise to set sets, reps, rest.',
     volumeThisSession: 'This session',
     savePlan: 'Save plan',

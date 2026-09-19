@@ -60,6 +60,7 @@ export default function WorkoutPage() {
     todayWeekday: new Date().getDay(),
     todayDate: todayStr(),
     assignmentId: assignment?.id,
+    sessionOrganization: assignment?.program?.session_organization,
   });
 
 

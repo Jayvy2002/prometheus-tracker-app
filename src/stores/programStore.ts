@@ -10,13 +10,16 @@ import type {
   ProgramDayExercise,
   ProgramExerciseDraft,
   Routine,
+  SessionOrganization,
   SetType,
 } from '../lib/types';
 import { programExerciseRpcFields } from '../lib/programSetPrescription';
-import { snapshotToDayDrafts, type ProgramRevisionRow } from '../lib/programRevisionDiff';
+import { snapshotToDayDrafts, parseRevisionOrganization, type ProgramRevisionRow } from '../lib/programRevisionDiff';
+import { normalizeSessionOrganization } from '../features/programs/domain/sessionOrganization';
 
 type ProgramDayDraft = {
-  weekday: number;
+  id?: string;
+  weekday: number | null;
   name: string;
   exercises: Array<{
     name: string;
@@ -39,6 +42,7 @@ type ProgramDayDraft = {
 
 function rpcDaysPayload(days: ProgramDayDraft[]) {
   return days.map((draft, i) => ({
+    id: draft.id ?? null,
     weekday: draft.weekday,
     name: draft.name,
     order_index: i,
@@ -66,7 +70,7 @@ interface ProgramState {
   updateProgram: (id: string, data: Partial<Program>) => Promise<{ error: string | null }>;
   saveProgram: (
     programId: string,
-    meta: { name: string; description: string; duration_weeks: number },
+    meta: { name: string; description: string; duration_weeks: number; session_organization?: SessionOrganization | null },
     days: ProgramDayDraft[],
     expectedUpdatedAt?: string | null,
   ) => Promise<{ error: string | null }>;
@@ -113,7 +117,7 @@ interface ProgramState {
   restoreProgramRevision: (
     programId: string,
     revisionNo: number,
-    meta: { name: string; description: string; duration_weeks: number },
+    meta: { name: string; description: string; duration_weeks: number; session_organization?: SessionOrganization | null },
     expectedUpdatedAt?: string | null,
   ) => Promise<{ error: string | null }>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
@@ -128,14 +132,18 @@ type ProgramRow = Omit<Program, 'days'> & {
 
 function mapProgramWithDays(row: ProgramRow): Program {
   const days = [...(row.program_days ?? [])]
-    .sort((a, b) => a.order_index - b.order_index || a.weekday - b.weekday)
+    .sort((a, b) => a.order_index - b.order_index || (a.weekday ?? 7) - (b.weekday ?? 7))
     .map(d => ({
       ...d,
       exercises: [...(d.program_day_exercises ?? [])].sort((a, b) => a.order_index - b.order_index),
     }));
   const { program_days: _omit, ...program } = row;
   void _omit;
-  return { ...(program as Program), days };
+  return {
+    ...(program as Program),
+    session_organization: normalizeSessionOrganization((program as Program).session_organization),
+    days,
+  };
 }
 
 export const useProgramStore = create<ProgramState>((set, get) => ({
@@ -193,7 +201,9 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       p_name: program.name ?? '',
       p_description: program.description ?? '',
       p_duration_weeks: program.duration_weeks ?? 8,
+      p_session_organization: normalizeSessionOrganization(program.session_organization),
       p_days: days.map((day, order_index) => ({
+        id: 'id' in day ? (day as { id?: string }).id ?? null : null,
         weekday: day.weekday,
         name: day.name,
         order_index: day.order_index ?? order_index,
@@ -235,6 +245,9 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       p_duration_weeks: meta.duration_weeks,
       p_days: rpcDaysPayload(days),
       p_expected_updated_at: expectedUpdatedAt ?? null,
+      p_session_organization: meta.session_organization == null
+        ? null
+        : normalizeSessionOrganization(meta.session_organization),
     });
     if (error) return { error: error.message };
     track('program_saved', { days: days.length, weeks: meta.duration_weeks });
@@ -473,9 +486,13 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       .eq('revision_no', revisionNo)
       .maybeSingle();
     if (error || !data) return { error: error?.message ?? 'not_found' };
-    const days = snapshotToDayDrafts((data as { snapshot: unknown }).snapshot);
+    const snapshot = (data as { snapshot: unknown }).snapshot;
+    const days = snapshotToDayDrafts(snapshot);
     if (!days.length) return { error: 'empty_snapshot' };
-    return get().saveProgram(programId, meta, days, expectedUpdatedAt);
+    return get().saveProgram(programId, {
+      ...meta,
+      session_organization: parseRevisionOrganization(snapshot),
+    }, days, expectedUpdatedAt);
   },
 
   duplicateProgram: async (programId) => {

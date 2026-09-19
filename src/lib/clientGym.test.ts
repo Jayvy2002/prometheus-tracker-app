@@ -24,7 +24,7 @@ function day(partial: Partial<ProgramDay> & Pick<ProgramDay, 'id' | 'weekday' | 
   return {
     program_id: 'prog',
     routine_id: null,
-    order_index: partial.weekday,
+    order_index: typeof partial.weekday === 'number' ? partial.weekday : 0,
     exercises: partial.exercises ?? [{ id: `${partial.id}-ex`, program_day_id: partial.id, name: 'Squat', default_sets: 3, default_reps: 8, default_rest_seconds: 90, order_index: 0, created_at: '' }],
     created_at: '',
     ...partial,

@@ -1,5 +1,6 @@
 /** Client home = the gym. Next assigned day, not a calorie dump. */
-import type { ProgramDay, Workout } from './types';
+import type { ProgramDay, SessionOrganization, Workout } from './types';
+import { normalizeSessionOrganization } from '../features/programs/domain/sessionOrganization';
 
 export type ClientGymCardKind = 'start' | 'continue' | 'done_next' | 'none';
 
@@ -19,6 +20,7 @@ export interface ClientGymInput {
   todayWeekday: number;
   todayDate: string;
   assignmentId?: string | null;
+  sessionOrganization?: SessionOrganization | null;
 }
 
 const NONE: ClientGymCard = {
@@ -46,7 +48,7 @@ export function trainingDays(days: ProgramDay[] | null | undefined): ProgramDay[
   return (days ?? [])
     .filter(isProgramTrainingDay)
     .slice()
-    .sort((a, b) => a.weekday - b.weekday || a.order_index - b.order_index);
+    .sort((a, b) => a.order_index - b.order_index || (a.weekday ?? 7) - (b.weekday ?? 7));
 }
 
 /** Next assigned day, wrapping the week. skipCurrent omits today's weekday (after a completed session). */
@@ -66,6 +68,38 @@ export function pickNextTrainingDay(
   return pool[0] ?? null;
 }
 
+/** Next session in program order, wrapping A→B→C. lastDayId is the last completed template. */
+export function pickNextInOrder(
+  days: ProgramDay[],
+  lastDayId: string | null | undefined,
+): ProgramDay | null {
+  const pool = trainingDays(days);
+  if (pool.length === 0) return null;
+  if (!lastDayId) return pool[0];
+  const idx = pool.findIndex(d => d.id === lastDayId);
+  if (idx < 0) return pool[0];
+  return pool[(idx + 1) % pool.length];
+}
+
+function matchingProgramLogs(
+  workouts: ClientGymInput['workouts'],
+  assignmentId?: string | null,
+): ClientGymInput['workouts'] {
+  return workouts.filter(w => {
+    if (!w.program_day_id) return false;
+    if (!assignmentId) return true;
+    return !w.program_assignment_id || w.program_assignment_id === assignmentId;
+  });
+}
+
+function lastCompletedProgramDayId(input: ClientGymInput): string | null {
+  const logs = matchingProgramLogs(input.workouts, input.assignmentId)
+    .filter(w => w.completed)
+    .slice()
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return logs[0]?.program_day_id ?? null;
+}
+
 function inProgressWorkout(
   input: ClientGymInput,
 ): ClientGymInput['workouts'][number] | null {
@@ -81,6 +115,7 @@ export function resolveClientGymCard(input: ClientGymInput): ClientGymCard {
   if (!input.hasActiveProgram) return NONE;
   const pool = trainingDays(input.days);
   if (pool.length === 0) return NONE;
+  const inOrder = normalizeSessionOrganization(input.sessionOrganization) === 'in_order';
 
   const todayDay = pool.find(d => d.weekday === input.todayWeekday) ?? null;
   const inProgress = inProgressWorkout(input);
@@ -96,17 +131,34 @@ export function resolveClientGymCard(input: ClientGymInput): ClientGymCard {
     };
   }
 
-  const completedToday = input.workouts.filter(
-    w => w.completed && workoutOnDate(w.date, input.todayDate),
-  );
+  const completedToday = matchingProgramLogs(input.workouts, input.assignmentId)
+    .filter(w => w.completed && workoutOnDate(w.date, input.todayDate))
+    .slice()
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)));
   if (completedToday.length > 0) {
-    const doneDay = pool.find(d => completedToday.some(w => w.program_day_id === d.id)) ?? todayDay;
+    const doneId = completedToday[0]?.program_day_id ?? null;
+    const doneDay = pool.find(d => d.id === doneId) ?? todayDay;
     return {
       kind: 'done_next',
       day: null,
       doneDay,
-      nextDay: pickNextTrainingDay(pool, input.todayWeekday, true),
+      nextDay: inOrder
+        ? pickNextInOrder(pool, doneId)
+        : pickNextTrainingDay(pool, input.todayWeekday, true),
       workoutId: completedToday[0]?.id ?? null,
+      isToday: true,
+    };
+  }
+
+  if (inOrder) {
+    const next = pickNextInOrder(pool, lastCompletedProgramDayId(input));
+    if (!next) return NONE;
+    return {
+      kind: 'start',
+      day: next,
+      nextDay: null,
+      doneDay: null,
+      workoutId: null,
       isToday: true,
     };
   }

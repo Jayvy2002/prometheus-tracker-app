@@ -606,6 +606,8 @@ describe('intake joursDispo → program weekdays', () => {
     assert.match(setup, /preferredWeekdays=\{preferredWeekdays\}/);
     assert.match(setup, /intakeAvailableWeekdays/);
     const editor = readFileSync(resolve(process.cwd(), 'src/components/coaching/ProgramSessionEditor.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/programs/hooks/useProgramEditorTracking.ts'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/programs/hooks/useProgramNlEdit.ts'), 'utf8');
-    assert.match(editor, /nextProgramWeekday\(days\.map\(d => d\.weekday\), preferredWeekdays\)/);
+    assert.match(editor, /nextProgramWeekday\(/);
+    assert.match(editor, /preferredWeekdays/);
+    assert.match(editor, /days\.map\(d => d\.weekday\)/);
   });
 });

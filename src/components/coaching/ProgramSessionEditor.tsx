@@ -3,7 +3,7 @@ import { useProgramEditorTracking } from '../../features/programs/hooks/useProgr
 import { useProgramNlEdit } from '../../features/programs/hooks/useProgramNlEdit';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react';
-import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft } from '../../lib/types';
+import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft, SessionOrganization } from '../../lib/types';
 import {
   formatExercisePrescription,
   repsInputMode,
@@ -15,6 +15,7 @@ import { useExerciseStore } from '../../stores/exerciseStore';
 import { interventionDraftError, isInterventionDrafting } from '../../lib/coachSecond';
 import { nextProgramWeekday } from '../../lib/kinesiologyIntake';
 import { namedSessionLine } from '../../features/programs/domain/namedSession';
+import { normalizeSessionOrganization, sessionOrderLetter } from '../../features/programs/domain/sessionOrganization';
 import ExercisePicker from '../workout/ExercisePicker';
 import AgentDraftingCard from './AgentDraftingCard';
 import Button from '../ui/Button';
@@ -42,9 +43,11 @@ interface Props {
   currentWeek?: number | null;
   /** Intake joursDispo as JS weekday ints; next added day prefers these. */
   preferredWeekdays?: number[];
+  sessionOrganization?: SessionOrganization;
+  onSessionOrganizationChange?: (value: SessionOrganization) => void;
 }
 
-function emptyDay(weekday: number): AiProgramDayDraft {
+function emptyDay(weekday: number | null): AiProgramDayDraft {
   return { weekday, name: '', exercises: [] };
 }
 
@@ -74,6 +77,8 @@ export default function ProgramSessionEditor({
   presentation = 'coach',
   currentWeek = null,
   preferredWeekdays = [],
+  sessionOrganization = 'fixed_days',
+  onSessionOrganizationChange,
 }: Props) {
   const { t, i18n } = useTranslation();
   const athlete = presentation === 'athlete';
@@ -117,12 +122,14 @@ export default function ProgramSessionEditor({
   const todayWeekday = new Date().getDay();
   const trainingCount = days.filter(d => d.exercises.some(ex => ex.name.trim())).length;
   const weekdayKey = days.map(d => d.weekday).join(',');
+  const organization = normalizeSessionOrganization(sessionOrganization);
+  const inOrder = organization === 'in_order';
 
   useEffect(() => {
-    if (!athlete || days.length === 0) return;
+    if (!athlete || inOrder || days.length === 0) return;
     const idx = days.findIndex(d => d.weekday === todayWeekday);
     if (idx >= 0) setDayIndex(idx);
-  }, [athlete, weekdayKey, todayWeekday]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [athlete, inOrder, weekdayKey, todayWeekday]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     void fetchExercises();
@@ -155,7 +162,29 @@ export default function ProgramSessionEditor({
     setSelected(to);
   };
 
-  const nextWeekday = () => nextProgramWeekday(days.map(d => d.weekday), preferredWeekdays);
+  const nextWeekday = () => nextProgramWeekday(
+    days.map(d => d.weekday).filter((value): value is number => typeof value === 'number'),
+    preferredWeekdays,
+  );
+
+  const setOrganization = (next: SessionOrganization) => {
+    if (!onSessionOrganizationChange || next === organization) return;
+    onSessionOrganizationChange(next);
+    if (next === 'in_order') {
+      onDaysChange(days.map(d => ({ ...d, weekday: null })));
+      return;
+    }
+    const used: number[] = [];
+    onDaysChange(days.map(d => {
+      if (typeof d.weekday === 'number' && !used.includes(d.weekday)) {
+        used.push(d.weekday);
+        return d;
+      }
+      const weekday = nextProgramWeekday(used, preferredWeekdays);
+      used.push(weekday);
+      return { ...d, weekday };
+    }));
+  };
 
   return (
     <div className="space-y-3">
@@ -169,7 +198,12 @@ export default function ProgramSessionEditor({
           <h2 className="text-xl font-bold text-white mt-0.5 truncate">{name.trim() || t('programs.mineTitle')}</h2>
           <p className="text-xs text-neutral-400 mt-1">
             {t('programs.splitLabel', { n: trainingCount })}
-            {days.length > 0 ? ` · ${days.map(d => t(`programs.weekdays.${d.weekday}`)).join(' · ')}` : ''}
+            {days.length > 0
+              ? ` · ${days.map((d, i) => inOrder
+                ? (d.name.trim() || t('programs.sessionLetter', { letter: sessionOrderLetter(i) }))
+                : t(`programs.weekdays.${d.weekday ?? 1}`)
+              ).join(' · ')}`
+              : ''}
           </p>
           {currentWeek != null && durationWeeks > 0 && (
             <div className="flex gap-1 mt-3">
@@ -223,6 +257,38 @@ export default function ProgramSessionEditor({
           value={description}
           onChange={e => onDescriptionChange(e.target.value)}
         />
+      )}
+
+      {onSessionOrganizationChange && (
+        <fieldset className="rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3 space-y-2" data-testid="session-organization">
+          <legend className="text-sm font-medium text-white px-1">{t('programs.organizationTitle')}</legend>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="session-organization"
+              className="mt-1"
+              checked={!inOrder}
+              onChange={() => setOrganization('fixed_days')}
+            />
+            <span>
+              <span className="block text-sm text-white">{t('programs.organizationFixed')}</span>
+              <span className="block text-[11px] text-neutral-500">{t('programs.organizationFixedHint')}</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="session-organization"
+              className="mt-1"
+              checked={inOrder}
+              onChange={() => setOrganization('in_order')}
+            />
+            <span>
+              <span className="block text-sm text-white">{t('programs.organizationInOrder')}</span>
+              <span className="block text-[11px] text-neutral-500">{t('programs.organizationInOrderHint')}</span>
+            </span>
+          </label>
+        </fieldset>
       )}
 
       {athlete ? (
@@ -289,8 +355,11 @@ export default function ProgramSessionEditor({
       <div className={`flex gap-1.5 overflow-x-auto scrollbar-hide ${athlete ? 'pb-0.5' : ''}`}>
         {days.map((d, i) => {
           const count = d.exercises.filter(ex => ex.name.trim()).length;
-          const isToday = d.weekday === todayWeekday;
+          const isToday = !inOrder && d.weekday === todayWeekday;
           const active = i === safeIndex;
+          const tabLabel = inOrder
+            ? t('programs.sessionLetter', { letter: sessionOrderLetter(i) })
+            : t(`programs.weekdays.${d.weekday ?? 1}`);
           if (athlete) {
             return (
               <button
@@ -306,7 +375,7 @@ export default function ProgramSessionEditor({
                 }`}
               >
                 <p className={`text-[10px] font-semibold uppercase tracking-wider ${active || isToday ? 'text-blue-300' : 'text-neutral-500'}`}>
-                  {t(`programs.weekdays.${d.weekday}`)}
+                  {tabLabel}
                   {isToday ? ` · ${t('programs.todayBadge')}` : ''}
                 </p>
                 <p className="text-xs font-semibold text-white truncate mt-0.5" data-testid={active || isToday ? 'ux22-session-label' : undefined}>
@@ -325,14 +394,16 @@ export default function ProgramSessionEditor({
                 active ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-400'
               }`}
             >
-              {namedSessionLine(t(`programs.weekdays.${d.weekday}`), d.name)}
+              {inOrder
+                ? namedSessionLine(tabLabel, d.name)
+                : namedSessionLine(t(`programs.weekdays.${d.weekday ?? 1}`), d.name)}
             </button>
           );
         })}
         <button
           type="button"
           onClick={() => {
-            onDaysChange([...days, emptyDay(nextWeekday())]);
+            onDaysChange([...days, emptyDay(inOrder ? null : nextWeekday())]);
             setDayIndex(days.length);
           }}
           className={`shrink-0 text-xs text-blue-400 bg-neutral-900 ${
@@ -346,15 +417,22 @@ export default function ProgramSessionEditor({
       {day && (
         <div className={`space-y-3 ${athlete ? 'rounded-2xl border border-neutral-800 bg-neutral-900/40 p-3' : 'rounded-xl border border-neutral-800 p-3 space-y-2'}`}>
           <div className="flex items-center gap-2">
-            <select
-              value={day.weekday}
-              onChange={e => updateDay(safeIndex, { weekday: Number(e.target.value) })}
-              className="bg-neutral-900 border border-neutral-800 rounded-xl px-2 py-2 text-xs text-white"
-            >
-              {WEEKDAYS.map(w => (
-                <option key={w} value={w}>{t(`programs.weekdays.${w}`)}</option>
-              ))}
-            </select>
+            {!inOrder && (
+              <select
+                value={day.weekday ?? 1}
+                onChange={e => updateDay(safeIndex, { weekday: Number(e.target.value) })}
+                className="bg-neutral-900 border border-neutral-800 rounded-xl px-2 py-2 text-xs text-white"
+              >
+                {WEEKDAYS.map(w => (
+                  <option key={w} value={w}>{t(`programs.weekdays.${w}`)}</option>
+                ))}
+              </select>
+            )}
+            {inOrder && (
+              <span className="text-xs font-semibold text-blue-300 px-1">
+                {t('programs.sessionLetter', { letter: sessionOrderLetter(safeIndex) })}
+              </span>
+            )}
             <input
               value={day.name}
               onChange={e => updateDay(safeIndex, { name: e.target.value })}

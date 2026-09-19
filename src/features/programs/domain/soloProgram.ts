@@ -11,7 +11,7 @@ import {
 } from '../../../lib/coachInterventions';
 import type { AiProgramDayDraft, CoachIntervention, Program, ProgramDay } from '../../../lib/types';
 
-export function emptyProgramDraftDay(weekday = 1): AiProgramDayDraft {
+export function emptyProgramDraftDay(weekday: number | null = 1): AiProgramDayDraft {
   return { weekday, name: '', exercises: [] };
 }
 
@@ -20,6 +20,7 @@ export function programDaysToDraft(days: ProgramDay[] | undefined | null): AiPro
   const sorted = [...(days ?? [])].sort((a, b) => a.order_index - b.order_index);
   if (sorted.length === 0) return [emptyProgramDraftDay()];
   return sorted.map(d => ({
+    id: d.id,
     weekday: d.weekday,
     name: d.name,
     exercises: [...(d.exercises ?? [])]

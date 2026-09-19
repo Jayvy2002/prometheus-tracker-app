@@ -84,12 +84,14 @@ function weekdayInTimeZone(now: Date, timeZone: string | null | undefined): numb
 }
 
 function isProgramTrainingWeekday(
-  days: Array<{ weekday: number; name?: string | null; exerciseCount?: number }>,
+  days: Array<{ weekday: number | null; name?: string | null; exerciseCount?: number }>,
   weekday: number,
 ): boolean {
   const training = days.filter(day => (day.name ?? '').trim().length > 0 || (day.exerciseCount ?? 0) > 0);
   if (training.length === 0) return false;
-  return training.some(day => day.weekday === weekday);
+  const pinned = training.filter(day => typeof day.weekday === 'number');
+  if (pinned.length === 0) return true;
+  return pinned.some(day => day.weekday === weekday);
 }
 
 function shouldSendDailyReminder(facts: {

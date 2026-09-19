@@ -1,6 +1,7 @@
 /** UX47 — états de jour de plan au calendrier. Pas un nouveau calendrier ; le passé dû reste visible. */
 
 import { isProgramTrainingDay, trainingDays, workoutOnDate } from '../../../lib/clientGym';
+import { normalizeSessionOrganization, type SessionOrganization } from './sessionOrganization';
 
 export type PlanCalendarStatus = 'scheduled' | 'started' | 'done';
 
@@ -24,7 +25,7 @@ export type PlanCalendarWorkout = {
 
 export type PlanCalendarDay = {
   id: string;
-  weekday: number;
+  weekday: number | null;
   name?: string | null;
   exercises?: unknown[] | null;
 };
@@ -132,6 +133,7 @@ export function planMarkForDate(input: {
   assignmentStatus?: PlanAssignmentStatus | null;
   endedAt?: string | null;
   unnamed?: string;
+  sessionOrganization?: SessionOrganization | null;
 }): PlanCalendarMark | null {
   const date = civilDay(input.date);
   if (!date) return null;
@@ -140,7 +142,10 @@ export function planMarkForDate(input: {
   const unnamed = input.unnamed?.trim() || '—';
   const weekday = weekdayFromDateStr(date);
   const pool = trainingDays((input.days ?? []) as Parameters<typeof trainingDays>[0]);
-  const template = weekday >= 0 ? pool.find(d => d.weekday === weekday) ?? null : null;
+  const inOrder = normalizeSessionOrganization(input.sessionOrganization) === 'in_order';
+  const template = !inOrder && weekday >= 0
+    ? pool.find(d => d.weekday === weekday) ?? null
+    : null;
   const programLogs = forAssignment(onCivilDate(input.workouts, date), input.assignmentId);
 
   const linked = template

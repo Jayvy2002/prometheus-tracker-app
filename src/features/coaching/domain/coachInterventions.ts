@@ -18,6 +18,7 @@ export interface ProgramOutlineDraft {
   description: string;
   duration_weeks: number;
   days: AiProgramDayDraft[];
+  session_organization?: 'fixed_days' | 'in_order';
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

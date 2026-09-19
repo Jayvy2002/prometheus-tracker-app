@@ -350,7 +350,7 @@ export function proposeSoloAsk(ctx: SoloAskContext): SoloAskProposal | null {
   });
 }
 
-export function shiftProgramWeekdays<T extends { weekday: number }>(
+export function shiftProgramWeekdays<T extends { weekday: number | null }>(
   days: T[],
   fromWeekday: number,
   toWeekday: number,

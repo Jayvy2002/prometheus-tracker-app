@@ -28,6 +28,7 @@ export default function FAB() {
     todayWeekday: new Date().getDay(),
     todayDate: todayStr(),
     assignmentId: assignment?.id,
+    sessionOrganization: assignment?.program?.session_organization,
   }));
 
   const actions: FABAction[] = [

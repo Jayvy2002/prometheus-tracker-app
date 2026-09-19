@@ -236,14 +236,14 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
 
     const assignments = assignmentRes.data ?? [];
     const programIds = [...new Set(assignments.map(a => a.program_id as string))];
-    let programDays: { program_id: string; weekday: number }[] = [];
+    let programDays: { program_id: string; weekday: number | null }[] = [];
     const programMeta = new Map<string, { name: string; duration_weeks: number }>();
     if (programIds.length > 0) {
       const [{ data: days }, { data: programs }] = await Promise.all([
         supabase.from('program_days').select('program_id, weekday').in('program_id', programIds),
         supabase.from('programs').select('id, name, duration_weeks').in('id', programIds),
       ]);
-      programDays = (days ?? []) as { program_id: string; weekday: number }[];
+      programDays = (days ?? []) as { program_id: string; weekday: number | null }[];
       for (const p of programs ?? []) {
         programMeta.set(p.id as string, {
           name: (p.name as string) || '',
@@ -267,9 +267,10 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
     for (const client of clients) {
       const programId = programByClient.get(client.id);
       if (!programId) continue;
-      const days = programDays.filter(d => d.program_id === programId).map(d => d.weekday);
-      scheduledWeekdaysByClient.set(client.id, new Set(days));
-      scheduledDays[client.id] = days.length;
+      const rows = programDays.filter(d => d.program_id === programId);
+      const weekdays = rows.map(d => d.weekday).filter((wd): wd is number => typeof wd === 'number');
+      scheduledWeekdaysByClient.set(client.id, new Set(weekdays));
+      scheduledDays[client.id] = rows.length;
       const asg = assignments.find(a => a.client_id === client.id);
       if (asg) assignmentStart[client.id] = asg.start_date as string;
       const meta = programMeta.get(programId);
@@ -396,6 +397,7 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
       name,
       description: outline.description,
       duration_weeks: outline.duration_weeks,
+      session_organization: outline.session_organization,
     }, outline.days.map((d, i) => ({
       weekday: d.weekday,
       name: d.name,

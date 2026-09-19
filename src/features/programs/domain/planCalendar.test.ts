@@ -187,7 +187,7 @@ test('paused without endedAt fails closed for scheduled', () => {
 test('UX47 calendar page shows plan states without dropping logged points', () => {
   const page = src('src/components/calendar/CalendarPage.tsx');
   assert.match(page, /planMarkForDate/);
-  assert.match(page, /durationWeeks: assignment\?\.program\?\.duration_weeks/);
+  assert.match(page, /sessionOrganization: assignment\?\.program\?\.session_organization/);
   assert.match(page, /assignmentStatus: assignment\?\.status/);
   assert.match(page, /endedAt: assignment\?\.status === 'paused'/);
   assert.match(page, /ux47-plan-dot/);

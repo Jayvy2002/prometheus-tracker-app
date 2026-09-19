@@ -215,6 +215,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'save_program coached leftover owner guard passed' /tmp/save-program-coached-db-results.txt
+      - name: Test program session organization
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_session_organization.sql | tee /tmp/program-session-organization-db-results.txt
+      - name: Confirm program session organization echo
+        run: |
+          set -euo pipefail
+          grep -F 'program session organization: legacy fixed_days, in_order null weekdays, leftover lock, fork copy' /tmp/program-session-organization-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
