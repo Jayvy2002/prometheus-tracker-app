@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import type { AthleteSignal, AthleteSignalClosedStatus, AthleteSignalOpenStatus } from '../types';
 import { isMissingBackendContract } from './backendContract';
+import type { WatchQueryResult } from './watchQuery';
 
 export interface UpsertAthleteSignalInput {
   athleteId: string;
@@ -41,18 +42,23 @@ export async function resolveAthleteSignal(input: {
   });
 }
 
-export async function listOpenAthleteSignalsBestEffort(athleteId: string): Promise<AthleteSignal[]> {
+export async function listOpenAthleteSignals(athleteId: string): Promise<WatchQueryResult<AthleteSignal[]>> {
   const { data, error } = await supabase
     .from('athlete_signals')
     .select('*')
     .eq('athlete_id', athleteId)
     .in('status', ['open', 'waiting']);
-  if (error || !Array.isArray(data)) return [];
-  return data as AthleteSignal[];
+  if (error) return { ok: false, message: error.message };
+  return { ok: true, data: Array.isArray(data) ? data as AthleteSignal[] : [] };
 }
 
-export async function listAthleteSignalsForWatchBestEffort(athleteId: string): Promise<AthleteSignal[]> {
-  return listOpenAthleteSignalsBestEffort(athleteId);
+export async function listOpenAthleteSignalsBestEffort(athleteId: string): Promise<AthleteSignal[]> {
+  const result = await listOpenAthleteSignals(athleteId);
+  return result.ok ? result.data : [];
+}
+
+export async function listAthleteSignalsForWatch(athleteId: string): Promise<WatchQueryResult<AthleteSignal[]>> {
+  return listOpenAthleteSignals(athleteId);
 }
 
 export { isMissingBackendContract };

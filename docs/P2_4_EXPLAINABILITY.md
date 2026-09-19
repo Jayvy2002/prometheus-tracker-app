@@ -32,8 +32,12 @@ signaux ouverts/waiting
 + dernière revue
 → liste courte, textes FR/EN
 → divulgation progressive
-→ proposition masquée si refus/ignore et preuves inchangées
-→ proposition visible à nouveau si les preuves ont bougé
+→ observation = type + fingerprint structuré (jamais window/fingerprint bruts)
+→ état actuel ≠ dernière décision humaine
+→ proposition actuelle seulement si signal ouvert, preuves non masquées,
+  confiance medium/high et revue `propose`
+→ une ancienne proposition est une « dernière proposition », jamais un état inventé
+→ indisponible ≠ vide (loading / ready / error + retry)
 → l’historique n’est jamais réécrit
 ```
 
@@ -47,12 +51,18 @@ signaux ouverts/waiting
 - `canCorrectAthleteWatchContext` est encodé et testé, **non branché** dans
   l’UI de ce slice.
 - Pas de JSON brut, pas de score artificiel.
+- Les phrases visibles ne reprennent pas `hypothesis` ni `evidence.summary`
+  (souvent du français moteur) : elles sont construites via i18n.
 
 ## Surfaces lues (existantes)
 
-- `listOpenAthleteSignalsBestEffort` / `listAthleteSignalsForWatchBestEffort`
-- `listLatestAthleteDecisionsBestEffort`
-- `listLatestAthleteWeeklyReviewBestEffort` (SELECT RLS, fail-open)
+- `listAthleteSignalsForWatch` → `WatchQueryResult` (erreur conservée)
+- `listLatestAthleteDecisionsForWatch` → `WatchQueryResult`
+- `listLatestAthleteWeeklyReviewForWatch` → `WatchQueryResult`
+
+Les wrappers `BestEffort` restent pour le moteur / la revue (fail-open).
+Le panneau d’explicabilité ne les utilise pas : une requête ratée affiche
+error + retry, pas « Rien de particulier à suivre ».
 
 Aucune de ces lectures n’appelle `upsert_athlete_signal`,
 `resolve_athlete_signal`, `record_athlete_decision`, `save_athlete_weekly_review`

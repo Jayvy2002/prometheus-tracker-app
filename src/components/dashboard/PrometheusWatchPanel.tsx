@@ -3,15 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { Eye } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
-import { listAthleteSignalsForWatchBestEffort } from '../../features/signals/domain/athleteSignalsApi';
-import { listLatestAthleteDecisionsBestEffort } from '../../features/signals/domain/decisionLogApi';
-import { listLatestAthleteWeeklyReviewBestEffort } from '../../features/signals/domain/weeklyReviewApi';
+import { listAthleteSignalsForWatch } from '../../features/signals/domain/athleteSignalsApi';
+import { listLatestAthleteDecisionsForWatch } from '../../features/signals/domain/decisionLogApi';
+import { listLatestAthleteWeeklyReviewForWatch } from '../../features/signals/domain/weeklyReviewApi';
 import {
   buildPrometheusWatchItems,
   type PrometheusWatchItem,
 } from '../../features/signals/domain/explainability';
 import type { AthleteDecisionLog, AthleteSignal, AthleteWeeklyReview } from '../../lib/types';
 import { formatDate } from '../../lib/utils';
+import Button from '../ui/Button';
 import Card from '../ui/Card';
 
 interface Props {
@@ -19,6 +20,11 @@ interface Props {
   viewer: 'self' | 'coach';
   hasActiveRelationship?: boolean;
 }
+
+type WatchLoadState =
+  | { phase: 'loading' }
+  | { phase: 'ready'; signals: AthleteSignal[]; decisions: AthleteDecisionLog[]; review: AthleteWeeklyReview | null }
+  | { phase: 'error' };
 
 export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelationship }: Props) {
   const { t } = useTranslation();
@@ -28,38 +34,49 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
     athleteId,
     hasActiveRelationship: athleteId === user?.id ? undefined : hasActiveRelationship,
   });
-  const [signals, setSignals] = useState<AthleteSignal[] | null>(null);
-  const [decisions, setDecisions] = useState<AthleteDecisionLog[] | null>(null);
-  const [review, setReview] = useState<AthleteWeeklyReview | null>(null);
+  const [load, setLoad] = useState<WatchLoadState>({ phase: 'loading' });
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     if (!allowed || !athleteId) return;
     let cancelled = false;
+    setLoad({ phase: 'loading' });
     void Promise.all([
-      listAthleteSignalsForWatchBestEffort(athleteId),
-      listLatestAthleteDecisionsBestEffort(athleteId),
-      listLatestAthleteWeeklyReviewBestEffort(athleteId),
-    ]).then(([nextSignals, nextDecisions, nextReview]) => {
+      listAthleteSignalsForWatch(athleteId),
+      listLatestAthleteDecisionsForWatch(athleteId),
+      listLatestAthleteWeeklyReviewForWatch(athleteId),
+    ]).then(([signals, decisions, review]) => {
       if (cancelled) return;
-      setSignals(nextSignals);
-      setDecisions(nextDecisions);
-      setReview(nextReview);
+      if (!signals.ok || !decisions.ok || !review.ok) {
+        setLoad({ phase: 'error' });
+        return;
+      }
+      setLoad({
+        phase: 'ready',
+        signals: signals.data,
+        decisions: decisions.data,
+        review: review.data,
+      });
+    }).catch(() => {
+      if (!cancelled) setLoad({ phase: 'error' });
     });
     return () => {
       cancelled = true;
     };
-  }, [allowed, athleteId]);
+  }, [allowed, athleteId, retry]);
 
   const items = useMemo(
-    () => (signals && decisions
-      ? buildPrometheusWatchItems({ signals, decisions, latestReview: review })
+    () => (load.phase === 'ready'
+      ? buildPrometheusWatchItems({
+        signals: load.signals,
+        decisions: load.decisions,
+        latestReview: load.review,
+      })
       : []),
-    [signals, decisions, review],
+    [load],
   );
 
   if (!allowed) return null;
-
-  const loading = signals === null || decisions === null;
 
   return (
     <div data-testid="prometheus-watch">
@@ -74,10 +91,24 @@ export default function PrometheusWatchPanel({ athleteId, viewer, hasActiveRelat
           </div>
         </div>
 
-        {loading ? (
+        {load.phase === 'loading' ? (
           <p className="text-sm text-neutral-400">
             {t(viewer === 'coach' ? 'prometheusWatch.loadingCoach' : 'prometheusWatch.loading')}
           </p>
+        ) : load.phase === 'error' ? (
+          <div className="space-y-3">
+            <p role="alert" className="text-sm text-rose-300">
+              {t(viewer === 'coach' ? 'prometheusWatch.loadErrorCoach' : 'prometheusWatch.loadError')}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setRetry((n) => n + 1)}
+            >
+              {t('errors.retry')}
+            </Button>
+          </div>
         ) : items.length === 0 ? (
           <p className="text-sm text-neutral-400">
             {t(viewer === 'coach' ? 'prometheusWatch.emptyCoach' : 'prometheusWatch.empty')}
@@ -99,7 +130,12 @@ function WatchRow({ item, viewer }: { item: PrometheusWatchItem; viewer: 'self' 
   const period = item.periodStart && item.periodEnd
     ? `${formatDate(item.periodStart)} – ${formatDate(item.periodEnd)}`
     : null;
-  const headline = t(item.headlineKey, { defaultValue: item.headlineFallback });
+  const lastPeriod = item.lastPeriodStart && item.lastPeriodEnd
+    ? `${formatDate(item.lastPeriodStart)} – ${formatDate(item.lastPeriodEnd)}`
+    : null;
+  const observed = item.observedCopy
+    ? t(item.observedCopy.key, item.observedCopy.params)
+    : null;
   const actorLabel = item.lastActorKey === 'prometheusWatch.actor.athlete' && viewer === 'self'
     ? t('prometheusWatch.actor.self')
     : item.lastActorKey
@@ -114,13 +150,13 @@ function WatchRow({ item, viewer }: { item: PrometheusWatchItem; viewer: 'self' 
             <span className="block text-[10px] uppercase tracking-wide text-neutral-500">
               {t(item.domainKey)} · {t(item.statusKey)}
             </span>
-            <span className="block text-sm text-white truncate">{headline}</span>
+            <span className="block text-sm text-white truncate">{t(item.headlineKey)}</span>
           </span>
           <span className="text-[11px] text-blue-300 shrink-0">{t('prometheusWatch.more')}</span>
         </summary>
         <dl className="pb-3 pt-1 space-y-2 text-sm">
-          {item.observed ? (
-            <WatchField label={t('prometheusWatch.observed')} value={item.observed} />
+          {observed ? (
+            <WatchField label={t('prometheusWatch.observed')} value={observed} />
           ) : null}
           {item.dataPoints.length > 0 ? (
             <WatchField
@@ -129,13 +165,23 @@ function WatchRow({ item, viewer }: { item: PrometheusWatchItem; viewer: 'self' 
             />
           ) : null}
           {period ? <WatchField label={t('prometheusWatch.period')} value={period} /> : null}
+          {item.lastDataPoints.length > 0 ? (
+            <WatchField
+              label={t('prometheusWatch.lastData')}
+              value={item.lastDataPoints.map((row) => t(row.key, row.params)).join(' · ')}
+            />
+          ) : null}
+          {lastPeriod ? <WatchField label={t('prometheusWatch.lastPeriod')} value={lastPeriod} /> : null}
           <WatchField label={t('prometheusWatch.why')} value={t(item.whyKey)} />
           <WatchField label={t('prometheusWatch.certainty')} value={t(item.confidenceKey)} />
           <WatchField label={t('prometheusWatch.evolution.label')} value={t(item.evolutionKey)} />
           <WatchField
             label={t('prometheusWatch.proposal.label')}
-            value={item.proposalKey ? t(item.proposalKey) : t('prometheusWatch.proposal.none')}
+            value={item.currentProposalKey ? t(item.currentProposalKey) : t('prometheusWatch.proposal.none')}
           />
+          {item.lastProposalKey ? (
+            <WatchField label={t('prometheusWatch.proposal.last')} value={t(item.lastProposalKey)} />
+          ) : null}
           {item.lastDecisionKey ? (
             <WatchField
               label={t('prometheusWatch.lastDecision')}

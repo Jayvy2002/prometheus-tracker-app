@@ -564,7 +564,9 @@ Audit : P2.1–P2.3 fournissent déjà signaux, revue, journal, `data_used`, `wh
 - Composant unique `PrometheusWatchPanel` : dashboard personnel (Solo et Coaché) + fiche Coach.
 - Permissions = ressource + relation + action (`canReadAthleteWatch` / `canCorrectAthleteWatchContext`). Le Coaché lit ; il ne récupère pas les droits de correction du Coach. Un Coach lui-même Coaché lit son dossier perso et celui de ses clients, sans que le workspace UI n’accorde rien.
 - Divulgation progressive. Pas de JSON, pas de score artificiel, pas d’auto-application, pas d’écriture d’interprétation dans ce slice.
-- Un refus inchangé masque la proposition ; des preuves nouvelles la rendent à nouveau visible sans réécrire l’historique.
+- Observation = type + fingerprint structuré + i18n (jamais `window` / `fingerprint` ni `hypothesis` moteur).
+- État actuel et dernière décision humaine sont des champs séparés. Une ancienne proposition n’est jamais présentée comme proposition actuelle sans signal ouvert et revue `propose`. Une ligne historique n’invente jamais le statut `open`.
+- Indisponible ≠ vide : le panneau a loading / ready / error + retry.
 
 **Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas la correction de contexte ni P2.5.**
 

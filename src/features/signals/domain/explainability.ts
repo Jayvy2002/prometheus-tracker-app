@@ -1,6 +1,10 @@
 /**
  * P2.4 — first slice: translate P2.1–P2.3 memory into a human watch list.
  * No second engine. No auto-apply. No source-data rewrite.
+ *
+ * Visible copy is built from type + structured evidence + i18n.
+ * Engine French summaries are never dumped into the watch row.
+ * Current state and last human decision are separate fields.
  */
 
 import type {
@@ -8,6 +12,7 @@ import type {
   AthleteHumanDecision,
   AthleteSignal,
   AthleteSignalDomain,
+  AthleteSignalEvidenceItem,
   AthleteWeeklyReview,
 } from '../types';
 import {
@@ -26,27 +31,39 @@ export const WATCH_SIGNAL_TYPES = [
 
 export type WatchSignalType = (typeof WATCH_SIGNAL_TYPES)[number];
 
-export interface WatchDataPoint {
+export const META_EVIDENCE_KINDS = ['window', 'fingerprint'] as const;
+
+const WINDOW_SUMMARY_RE = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/;
+
+export interface WatchCopy {
   key: string;
   params: Record<string, string | number>;
 }
 
+export type WatchDataPoint = WatchCopy;
+
+export type WatchItemKind = 'current' | 'history';
+
 export interface PrometheusWatchItem {
   id: string;
+  kind: WatchItemKind;
   domain: AthleteSignalDomain;
   type: string;
   headlineKey: string;
-  headlineFallback: string;
   domainKey: string;
   statusKey: string;
   confidenceKey: string;
-  observed: string;
+  observedCopy: WatchCopy | null;
   whyKey: string;
   dataPoints: WatchDataPoint[];
+  lastDataPoints: WatchDataPoint[];
   periodStart: string | null;
   periodEnd: string | null;
+  lastPeriodStart: string | null;
+  lastPeriodEnd: string | null;
   evolutionKey: string;
-  proposalKey: string | null;
+  currentProposalKey: string | null;
+  lastProposalKey: string | null;
   lastDecisionKey: string | null;
   lastDecisionAt: string | null;
   lastActorKey: string | null;
@@ -77,7 +94,7 @@ const DATA_KEY_MAP: Record<string, string> = {
   avgEnergy: 'prometheusWatch.data.energy',
 };
 
-const PROPOSAL_ACTION_KEYS: Record<string, string> = {
+const LAST_PROPOSAL_ACTION_KEYS: Record<string, string> = {
   relance: 'prometheusWatch.proposal.relance',
   calorie_adjustment: 'prometheusWatch.proposal.calories',
   keep: 'prometheusWatch.proposal.wait',
@@ -105,6 +122,10 @@ function firstString(raw: Record<string, unknown>, keys: string[]): string | nul
   return null;
 }
 
+function displayMetric(value: number | null): string | number {
+  return value == null ? '—' : value;
+}
+
 export function evidenceSnapshotFromRecord(
   raw: Record<string, unknown> | null | undefined,
 ): ProposalEvidenceSnapshot | null {
@@ -124,6 +145,30 @@ export function evidenceSnapshotFromRecord(
   };
 }
 
+export function parseEvidenceWindow(
+  items: AthleteSignalEvidenceItem[] | null | undefined,
+): { start: string; end: string } | null {
+  const row = (items ?? []).find((item) => item?.kind === META_EVIDENCE_KINDS[0]);
+  if (!row || typeof row.summary !== 'string') return null;
+  const match = row.summary.trim().match(WINDOW_SUMMARY_RE);
+  if (!match) return null;
+  return { start: match[1], end: match[2] };
+}
+
+export function parseEvidenceFingerprint(
+  items: AthleteSignalEvidenceItem[] | null | undefined,
+): Record<string, unknown> | null {
+  const row = (items ?? []).find((item) => item?.kind === META_EVIDENCE_KINDS[1]);
+  if (!row || typeof row.summary !== 'string' || !row.summary.trim()) return null;
+  try {
+    const parsed: unknown = JSON.parse(row.summary);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 export function humanizeDataUsed(raw: Record<string, unknown> | null | undefined): WatchDataPoint[] {
   if (!raw || typeof raw !== 'object') return [];
   const out: WatchDataPoint[] = [];
@@ -140,33 +185,80 @@ export function humanizeDataUsed(raw: Record<string, unknown> | null | undefined
   return out;
 }
 
-function evidenceSummaries(signal: AthleteSignal | null): string[] {
-  if (!signal) return [];
-  const rows = [...(signal.evidence_for ?? []), ...(signal.evidence_against ?? [])];
-  return rows
-    .map((item) => (typeof item?.summary === 'string' ? item.summary.trim() : ''))
-    .filter(Boolean)
-    .slice(0, 4);
+export function observedCopyFromType(
+  type: string,
+  metrics: Record<string, unknown> | null | undefined,
+): WatchCopy {
+  const raw = metrics ?? {};
+  if (type === 'missed_sessions') {
+    return {
+      key: 'prometheusWatch.observedCopy.workouts',
+      params: {
+        count: displayMetric(firstNumber(raw, ['workout_count', 'workoutCount'])),
+        expected: displayMetric(firstNumber(raw, ['expected_workouts', 'expectedWorkouts'])),
+      },
+    };
+  }
+  if (type === 'not_following') {
+    return {
+      key: 'prometheusWatch.observedCopy.nutrition',
+      params: {
+        avg: displayMetric(firstNumber(raw, ['avg_calories', 'avgCalories'])),
+        target: displayMetric(firstNumber(raw, ['calorie_target', 'calorieTarget'])),
+      },
+    };
+  }
+  if (type === 'sparse_nutrition') {
+    return {
+      key: 'prometheusWatch.observedCopy.nutritionDays',
+      params: {
+        days: displayMetric(firstNumber(raw, ['logged_nutrition_days', 'loggedNutritionDays'])),
+      },
+    };
+  }
+  if (type === 'too_fast' || type === 'stall') {
+    return {
+      key: 'prometheusWatch.observedCopy.weightDelta',
+      params: { n: displayMetric(firstNumber(raw, ['weight_delta_kg', 'weightDeltaKg'])) },
+    };
+  }
+  if (type === 'fatigue') {
+    return {
+      key: 'prometheusWatch.observedCopy.fatigue',
+      params: {
+        fatigue: displayMetric(firstNumber(raw, ['avg_fatigue', 'avgFatigue'])),
+        energy: displayMetric(firstNumber(raw, ['avg_energy', 'avgEnergy'])),
+      },
+    };
+  }
+  return { key: 'prometheusWatch.observedCopy.generic', params: {} };
 }
 
-function proposalKeyFrom(decision: AthleteDecisionLog | null): string | null {
+function lastProposalKeyFrom(decision: AthleteDecisionLog | null): string | null {
   if (!decision?.proposal || typeof decision.proposal !== 'object') return null;
   const action = decision.proposal.action;
   if (typeof action !== 'string') return null;
-  return PROPOSAL_ACTION_KEYS[action] ?? 'prometheusWatch.proposal.generic';
+  return LAST_PROPOSAL_ACTION_KEYS[action] ?? 'prometheusWatch.proposal.generic';
 }
 
-function periodFrom(
-  review: AthleteWeeklyReview | null | undefined,
-  dataUsed: Record<string, unknown> | null | undefined,
-  signal: AthleteSignal | null,
+function periodFromSnapshot(
+  snapshot: ProposalEvidenceSnapshot | null,
 ): { start: string | null; end: string | null } {
-  const fromReview = evidenceSnapshotFromRecord(review?.aggregates ?? null);
-  const fromData = evidenceSnapshotFromRecord(dataUsed ?? null);
   return {
-    start: fromReview?.windowStart ?? fromData?.windowStart ?? signal?.first_seen_at?.slice(0, 10) ?? null,
-    end: fromReview?.windowEnd ?? fromData?.windowEnd ?? signal?.last_seen_at?.slice(0, 10) ?? null,
+    start: snapshot?.windowStart ?? null,
+    end: snapshot?.windowEnd ?? null,
   };
+}
+
+function snapshotFromSignal(signal: AthleteSignal): ProposalEvidenceSnapshot | null {
+  const fingerprint = parseEvidenceFingerprint(signal.evidence_for);
+  const window = parseEvidenceWindow(signal.evidence_for);
+  if (!fingerprint && !window) return null;
+  return evidenceSnapshotFromRecord({
+    ...(fingerprint ?? {}),
+    window_start: window?.start,
+    window_end: window?.end,
+  });
 }
 
 function signalKey(domain: string, type: string): string {
@@ -186,18 +278,40 @@ function latestLog(
   return best;
 }
 
+function typeKeyOf(type: string): string {
+  return isWatchType(type)
+    ? `prometheusWatch.types.${type}`
+    : 'prometheusWatch.types.other';
+}
+
+function currentProposalAllowed(input: {
+  kind: WatchItemKind;
+  signal: AthleteSignal | null;
+  suppressed: boolean;
+  review: AthleteWeeklyReview | null;
+}): boolean {
+  if (input.kind !== 'current') return false;
+  if (input.suppressed) return false;
+  if (input.signal?.status !== 'open') return false;
+  if (input.signal.confidence !== 'medium' && input.signal.confidence !== 'high') return false;
+  return input.review?.decision === 'propose';
+}
+
 function buildItem(input: {
   id: string;
+  kind: WatchItemKind;
   domain: AthleteSignalDomain;
   type: string;
   signal: AthleteSignal | null;
   decision: AthleteDecisionLog | null;
-  currentEvidence: ProposalEvidenceSnapshot | null;
   review: AthleteWeeklyReview | null;
 }): PrometheusWatchItem {
-  const { signal, decision, currentEvidence, review, domain, type } = input;
+  const { signal, decision, review, domain, type, kind } = input;
   const lastHuman: AthleteHumanDecision | null = decision?.decision ?? null;
   const refusedOrIgnored = lastHuman === 'refused' || lastHuman === 'ignored';
+  const currentEvidence = kind === 'current' && signal
+    ? snapshotFromSignal(signal) ?? evidenceSnapshotFromRecord(review?.aggregates ?? null)
+    : evidenceSnapshotFromRecord(review?.aggregates ?? null);
   const suppressed = refusedOrIgnored
     ? currentEvidence
       ? isProposalSuppressed(
@@ -214,62 +328,95 @@ function buildItem(input: {
     && decision
     && !isProposalSuppressed([decision], domain, type, currentEvidence),
   );
-  const status = signal?.status ?? (suppressed ? 'waiting' : 'open');
-  const dataPoints = humanizeDataUsed(decision?.data_used ?? review?.aggregates ?? null);
-  const observedBits = evidenceSummaries(signal);
-  const period = periodFrom(review, decision?.data_used, signal);
-  const typeKey = isWatchType(type)
-    ? `prometheusWatch.types.${type}`
-    : 'prometheusWatch.types.other';
+
+  const currentMetrics = kind === 'current' && signal
+    ? parseEvidenceFingerprint(signal.evidence_for)
+    : null;
+  const lastMetrics = decision?.data_used ?? null;
+  const observedMetrics = currentMetrics ?? (kind === 'history' ? lastMetrics : null);
+  const currentWindow = kind === 'current' && signal
+    ? parseEvidenceWindow(signal.evidence_for)
+    : null;
+  const lastSnapshot = evidenceSnapshotFromRecord(lastMetrics);
+  const lastPeriod = periodFromSnapshot(lastSnapshot);
+  const hasCurrentProposal = currentProposalAllowed({
+    kind,
+    signal,
+    suppressed,
+    review,
+  });
+
+  let statusKey: string;
+  if (kind === 'history') {
+    statusKey = 'prometheusWatch.status.quiet';
+  } else if (signal?.status === 'open' || signal?.status === 'waiting') {
+    statusKey = `prometheusWatch.status.${signal.status}`;
+  } else {
+    statusKey = 'prometheusWatch.status.quiet';
+  }
+
+  let whyHiddenKey: string | null = null;
+  if (kind === 'history' && evidenceMoved) {
+    whyHiddenKey = 'prometheusWatch.hidden.changedNoSignal';
+  } else if (suppressed) {
+    whyHiddenKey = 'prometheusWatch.hidden.unchanged';
+  } else if (kind === 'current' && evidenceMoved) {
+    whyHiddenKey = 'prometheusWatch.hidden.changed';
+  }
+
+  let reevaluateKey = 'prometheusWatch.reevaluate.nextReview';
+  if (suppressed) reevaluateKey = 'prometheusWatch.reevaluate.needNewProof';
+  else if (kind === 'history') reevaluateKey = 'prometheusWatch.reevaluate.noOpenSignal';
+  else if (signal?.status === 'waiting') reevaluateKey = 'prometheusWatch.reevaluate.needMoreData';
 
   return {
     id: input.id,
+    kind,
     domain,
     type,
-    headlineKey: typeKey,
-    headlineFallback: (signal?.hypothesis ?? decision?.why ?? type).trim(),
+    headlineKey: typeKeyOf(type),
     domainKey: `prometheusWatch.domains.${domain}`,
-    statusKey: `prometheusWatch.status.${status}`,
-    confidenceKey: signal
+    statusKey,
+    confidenceKey: kind === 'current' && signal
       ? `prometheusWatch.confidence.${signal.confidence}`
-      : 'prometheusWatch.confidence.low',
-    observed: observedBits[0] ?? (signal?.hypothesis ?? ''),
-    whyKey: typeKey,
-    dataPoints,
-    periodStart: period.start,
-    periodEnd: period.end,
-    evolutionKey: signal && signal.first_seen_at !== signal.last_seen_at
-      ? 'prometheusWatch.evolution.updated'
-      : 'prometheusWatch.evolution.first',
-    proposalKey: suppressed ? null : proposalKeyFrom(decision),
+      : 'prometheusWatch.confidence.none',
+    observedCopy: (observedMetrics || isWatchType(type))
+      ? observedCopyFromType(type, observedMetrics)
+      : null,
+    whyKey: typeKeyOf(type),
+    dataPoints: humanizeDataUsed(currentMetrics),
+    lastDataPoints: humanizeDataUsed(lastMetrics),
+    periodStart: currentWindow?.start ?? null,
+    periodEnd: currentWindow?.end ?? null,
+    lastPeriodStart: lastPeriod.start,
+    lastPeriodEnd: lastPeriod.end,
+    evolutionKey: kind === 'history'
+      ? 'prometheusWatch.evolution.past'
+      : signal && signal.first_seen_at !== signal.last_seen_at
+        ? 'prometheusWatch.evolution.updated'
+        : 'prometheusWatch.evolution.first',
+    currentProposalKey: hasCurrentProposal ? 'prometheusWatch.proposal.generic' : null,
+    lastProposalKey: lastProposalKeyFrom(decision),
     lastDecisionKey: lastHuman ? `prometheusWatch.decision.${lastHuman}` : null,
     lastDecisionAt: decision?.created_at ?? null,
     lastActorKey: decision ? `prometheusWatch.actor.${decision.actor_role}` : null,
     humanReason: decision?.human_reason?.trim() || null,
-    whyHiddenKey: suppressed
-      ? 'prometheusWatch.hidden.unchanged'
-      : evidenceMoved
-        ? 'prometheusWatch.hidden.changed'
-        : null,
-    reevaluateKey: suppressed
-      ? 'prometheusWatch.reevaluate.needNewProof'
-      : status === 'waiting'
-        ? 'prometheusWatch.reevaluate.needMoreData'
-        : 'prometheusWatch.reevaluate.nextReview',
+    whyHiddenKey,
+    reevaluateKey,
     suppressed,
   };
 }
 
-/** Pure: one watch row per open/waiting signal, plus suppressed proposals without an open row. */
+/** Pure: one watch row per open/waiting signal, plus quiet history without inventing an open signal. */
 export function buildPrometheusWatchItems(input: {
   signals: AthleteSignal[];
   decisions: AthleteDecisionLog[];
   latestReview?: AthleteWeeklyReview | null;
 }): PrometheusWatchItem[] {
-  const currentEvidence = evidenceSnapshotFromRecord(input.latestReview?.aggregates ?? null);
   const open = input.signals.filter((row) => row.status === 'open' || row.status === 'waiting');
   const items: PrometheusWatchItem[] = [];
   const seen = new Set<string>();
+  const review = input.latestReview ?? null;
 
   for (const signal of open) {
     const key = signalKey(signal.domain, signal.type);
@@ -277,12 +424,12 @@ export function buildPrometheusWatchItems(input: {
     const decision = latestLog(input.decisions, signal.domain, signal.type);
     items.push(buildItem({
       id: signal.id,
+      kind: 'current',
       domain: signal.domain,
       type: signal.type,
       signal,
       decision,
-      currentEvidence,
-      review: input.latestReview ?? null,
+      review,
     }));
   }
 
@@ -295,12 +442,12 @@ export function buildPrometheusWatchItems(input: {
     seen.add(key);
     items.push(buildItem({
       id: `hidden:${decision.id}`,
+      kind: 'history',
       domain: decision.domain,
       type: decision.type,
       signal: null,
       decision,
-      currentEvidence,
-      review: input.latestReview ?? null,
+      review,
     }));
   }
 
@@ -309,10 +456,11 @@ export function buildPrometheusWatchItems(input: {
 
 export function watchItemHasRawJson(item: PrometheusWatchItem): boolean {
   const blobs = [
-    item.observed,
-    item.headlineFallback,
+    item.observedCopy?.key ?? '',
+    ...Object.values(item.observedCopy?.params ?? {}),
     item.humanReason ?? '',
-    ...item.dataPoints.map((row) => String(row.params.n)),
-  ];
+    ...item.dataPoints.flatMap((row) => Object.values(row.params)),
+    ...item.lastDataPoints.flatMap((row) => Object.values(row.params)),
+  ].map((value) => String(value));
   return blobs.some((value) => /[{[]/.test(value) && /[}\]]/.test(value));
 }
