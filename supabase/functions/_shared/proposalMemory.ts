@@ -348,19 +348,47 @@ const MATERIAL_KEYS = [
   "assign_program_id",
 ] as const;
 
-function normalizeMaterial(value: unknown): unknown {
+function canonicalActionField(key: string, value: unknown): unknown {
   if (value == null) return null;
-  if (Array.isArray(value)) return value.map(normalizeMaterial);
-  if (typeof value !== "object") return value;
-  const row = value as Record<string, unknown>;
-  const out: Record<string, unknown> = {};
-  const keys = Object.keys(row).sort();
-  for (const key of keys) {
-    if (ROUTING_KEYS.has(key)) continue;
-    if (key === "notes" || key === "messages" || key === "nutrition_logs" || key === "workouts" || key === "checkins" || key === "weights") {
-      continue;
+  if (key === "calories") {
+    if (typeof value === "number" && Number.isFinite(value)) return { calories: value };
+    if (typeof value === "object" && !Array.isArray(value)) {
+      const row = value as Record<string, unknown>;
+      const macros: Record<string, unknown> = {};
+      for (const macro of ["calories", "protein", "carbs", "fat"] as const) {
+        if (row[macro] != null) macros[macro] = row[macro];
+      }
+      return macros;
     }
-    out[key] = normalizeMaterial(row[key]);
+  }
+  return stripRouting(value);
+}
+
+function submittedCoveredBy(original: unknown, submitted: unknown): boolean {
+  if (submitted == null) return true;
+  if (typeof submitted === "object" && submitted !== null && !Array.isArray(submitted)) {
+    const origRow = original && typeof original === "object" && !Array.isArray(original)
+      ? original as Record<string, unknown>
+      : {};
+    const subRow = submitted as Record<string, unknown>;
+    for (const [key, value] of Object.entries(subRow)) {
+      if (ROUTING_KEYS.has(key)) continue;
+      if (!submittedCoveredBy(canonicalActionField(key, origRow[key]), canonicalActionField(key, value))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  return JSON.stringify(stripRouting(original ?? null)) === JSON.stringify(stripRouting(submitted));
+}
+
+function pickMaterialAction(row: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const key of MATERIAL_KEYS) {
+    if (key in row) out[key] = canonicalActionField(key, row[key]);
+  }
+  if (row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) {
+    out.payload = stripRouting(row.payload);
   }
   return out;
 }
@@ -371,17 +399,7 @@ export function proposalMateriallyEdited(
 ): boolean {
   if (submitted == null) return false;
   if (original == null) return false;
-  const pick = (row: Record<string, unknown>) => {
-    const out: Record<string, unknown> = {};
-    for (const key of MATERIAL_KEYS) {
-      if (key in row) out[key] = normalizeMaterial(row[key]);
-    }
-    if (row.payload && typeof row.payload === "object" && !Array.isArray(row.payload)) {
-      out.payload = normalizeMaterial(row.payload);
-    }
-    return out;
-  };
-  const submittedPick = pick(submitted);
+  const submittedPick = pickMaterialAction(submitted);
   if (Object.keys(submittedPick).length === 0) return false;
-  return JSON.stringify(pick(original)) !== JSON.stringify(submittedPick);
+  return !submittedCoveredBy(pickMaterialAction(original), submittedPick);
 }

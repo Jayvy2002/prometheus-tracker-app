@@ -108,6 +108,23 @@ test('P2.3 maps human taps to accepted/modified/refused/ignored', () => {
   assert.equal(proposalMateriallyEdited({ calories: 2000 }, { calories: 2000, patch: { sets: 3 } }), true);
   assert.equal(proposalMateriallyEdited({ calories: 2000 }, { assign_client_id: 'x' }), false);
   assert.equal(proposalMateriallyEdited({ calories: 2000, assign_client_id: 'a' }, { calories: 2000, assign_client_id: 'b' }), false);
+  assert.equal(proposalMateriallyEdited(
+    {
+      program: { name: 'Force', days: [{ weekday: 1 }], title: 'ctx' },
+      avg_calories: 2200,
+      evidence: { workout_count: 1 },
+      title: 'Séances',
+    },
+    { program: { name: 'Force', days: [{ weekday: 1 }], assign_client_id: 'client-1' } },
+  ), false);
+  assert.equal(proposalMateriallyEdited(
+    { program: { name: 'Force', days: [{ weekday: 1 }] } },
+    { program: { name: 'Force', days: [{ weekday: 2 }] } },
+  ), true);
+  assert.equal(proposalMateriallyEdited(
+    { calories: { calories: 2000, protein: 140 } },
+    { calories: 2000 },
+  ), false);
   assert.equal(effectsAreMaterial({ note: { body: 'ok' } }), true);
   assert.equal(effectsAreMaterial({}), false);
   assert.equal(effectsAreMaterial({ assign_client_id: 'x' }), false);
@@ -148,6 +165,16 @@ test('refusal suppresses the same proposal until evidence moves', () => {
   assert.equal(decisionEvidenceChanged(trainingRefusal[0].data_used, nutritionMoved, 'training', 'missed_sessions'), false);
   assert.equal(isProposalSuppressed(trainingRefusal, 'training', 'missed_sessions', nutritionMoved), true);
   assert.equal(isProposalSuppressed(trainingRefusal, 'training', 'missed_sessions', aggregates({ workoutCount: 4 })), false);
+  assert.equal(
+    isProposalSuppressed(
+      [row({ domain: 'training', type: 'missed_sessions', data_used: {} })],
+      'training',
+      'missed_sessions',
+      aggregates({ workoutCount: 8 }),
+    ),
+    true,
+    'empty proofs cannot detect a workout change, so the refusal stays blocking',
+  );
 });
 
 test('evidence thresholds match the fleet snapshot', () => {
@@ -261,6 +288,8 @@ test('P2.3 source-lock: new table after audit, RPC writes, no auto-apply', () =>
   const shared = src('supabase/functions/_shared/proposalMemory.ts');
   assert.match(shared, /export function mapInterventionKind/);
   assert.match(shared, /export function decisionEvidenceChanged/);
+  assert.match(shared, /function submittedCoveredBy/);
+  assert.match(shared, /canonicalActionField/);
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /isProposalSuppressed/);
   assert.match(fleet, /recentDecisions: AthleteDecisionLog\[\] = \[\]/);

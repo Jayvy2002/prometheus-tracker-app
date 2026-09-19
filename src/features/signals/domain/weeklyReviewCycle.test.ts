@@ -75,6 +75,13 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /drain_athlete_decision_outbox/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /triage_eligible_solo_weekly/);
   assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /outbox_athlete_mismatch/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_write_athlete_decision/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /record_athlete_decision_replay/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /next_attempt_at/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_resolve_decision_evidence/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /BETWEEN v_from AND v_to/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_calendar_age_years/);
+  assert.match(src('supabase/migrations/20260918232507_athlete_decision_durability.sql'), /prometheus_intake_has_medical_flags/);
   assert.doesNotMatch(
     src('supabase/migrations/20260918232507_athlete_decision_durability.sql'),
     /p_source_id uuid DEFAULT NULL,\s*p_idempotency_key text,/,
@@ -84,5 +91,12 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
     /p_applied_effect jsonb DEFAULT '\{\}'::jsonb,\s*p_idempotency_key text/,
   );
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /42P13/);
-  assert.doesNotMatch(src('supabase/tests/athlete_decision_durability.sql'), /insert into public\.athlete_decision_outbox/i);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /empty coach evidence still blocking/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo replay rewrote calorie targets/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /coach drain attributed the decision to the coach/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /poison outbox must not starve later rows/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /triage window included out-of-range sessions/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /questionnaire without PAR-Q flag counted medical/);
+  assert.match(src('supabase/tests/athlete_decision_durability.sql'), /Poison fixtures run as postgres/);
+  assert.doesNotMatch(src('supabase/tests/athlete_decision_durability.sql'), /set local role authenticated[\s\S]{0,200}insert into public\.athlete_decision_outbox/i);
 });

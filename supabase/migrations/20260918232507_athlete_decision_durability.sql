@@ -9,7 +9,13 @@ ALTER TABLE public.athlete_decision_outbox
 
 ALTER TABLE public.athlete_decision_outbox
   ADD COLUMN IF NOT EXISTS actor_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
-  ADD COLUMN IF NOT EXISTS processed_at timestamptz;
+  ADD COLUMN IF NOT EXISTS processed_at timestamptz,
+  ADD COLUMN IF NOT EXISTS next_attempt_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  ADD COLUMN IF NOT EXISTS failed_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS athlete_decision_outbox_due
+  ON public.athlete_decision_outbox (next_attempt_at, created_at)
+  WHERE processed_at IS NULL AND failed_at IS NULL;
 
 CREATE UNIQUE INDEX IF NOT EXISTS athlete_decision_outbox_athlete_key
   ON public.athlete_decision_outbox (athlete_id, idempotency_key);
@@ -127,19 +133,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.prometheus_proposal_materially_edited(p_original jsonb, p_submitted jsonb)
-RETURNS boolean
-LANGUAGE sql
-IMMUTABLE
-SET search_path = public
-AS $$
-  SELECT CASE
-    WHEN public.prometheus_json_material_snapshot(p_submitted) = '{}'::jsonb THEN false
-    ELSE public.prometheus_json_material_snapshot(p_original)
-         IS DISTINCT FROM public.prometheus_json_material_snapshot(p_submitted)
-  END;
-$$;
-
 CREATE OR REPLACE FUNCTION public.prometheus_map_intervention_kind(p_kind text, p_hint text)
 RETURNS TABLE(domain text, type text)
 LANGUAGE plpgsql
@@ -198,19 +191,230 @@ AS $$
   END;
 $$;
 
-REVOKE ALL ON FUNCTION public.prometheus_strip_routing(jsonb) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.prometheus_effects_are_material(jsonb) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.prometheus_json_material_snapshot(jsonb) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.prometheus_proposal_materially_edited(jsonb, jsonb) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.prometheus_map_intervention_kind(text, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.prometheus_map_intervention_decision(text, boolean, boolean) FROM PUBLIC, anon, authenticated;
+CREATE OR REPLACE FUNCTION public.prometheus_canonical_action_field(p_key text, p_val jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = public
+AS $$
+BEGIN
+  IF p_val IS NULL OR p_val = 'null'::jsonb THEN
+    RETURN NULL;
+  END IF;
+  IF p_key = 'calories' THEN
+    IF jsonb_typeof(p_val) = 'number' THEN
+      RETURN jsonb_build_object('calories', p_val);
+    END IF;
+    IF jsonb_typeof(p_val) = 'object' THEN
+      RETURN jsonb_strip_nulls(jsonb_build_object(
+        'calories', p_val->'calories',
+        'protein', p_val->'protein',
+        'carbs', p_val->'carbs',
+        'fat', p_val->'fat'
+      ));
+    END IF;
+  END IF;
+  RETURN public.prometheus_strip_routing(p_val);
+END;
+$$;
 
-DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid);
-DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid);
+CREATE OR REPLACE FUNCTION public.prometheus_submitted_covered_by(p_original jsonb, p_submitted jsonb)
+RETURNS boolean
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_key text;
+  v_orig jsonb;
+BEGIN
+  IF p_submitted IS NULL OR p_submitted = 'null'::jsonb THEN
+    RETURN true;
+  END IF;
+  IF jsonb_typeof(p_submitted) = 'object' THEN
+    IF p_original IS NULL OR jsonb_typeof(p_original) <> 'object' THEN
+      v_orig := '{}'::jsonb;
+    ELSE
+      v_orig := p_original;
+    END IF;
+    FOR v_key IN SELECT key FROM jsonb_each(p_submitted)
+    LOOP
+      IF v_key IN ('assign_client_id', 'for_client_id', 'client_id', 'coach_id') THEN
+        CONTINUE;
+      END IF;
+      IF NOT public.prometheus_submitted_covered_by(
+        public.prometheus_canonical_action_field(v_key, v_orig->v_key),
+        public.prometheus_canonical_action_field(v_key, p_submitted->v_key)
+      ) THEN
+        RETURN false;
+      END IF;
+    END LOOP;
+    RETURN true;
+  END IF;
+  RETURN public.prometheus_strip_routing(COALESCE(p_original, 'null'::jsonb))
+    IS NOT DISTINCT FROM public.prometheus_strip_routing(p_submitted);
+END;
+$$;
 
--- 13-arg form has no DEFAULT: PG 42P13 forbids a required arg after a default,
--- and defaults here would make the 11-arg wrapper ambiguous.
-CREATE OR REPLACE FUNCTION public.record_athlete_decision(
+CREATE OR REPLACE FUNCTION public.prometheus_proposal_materially_edited(p_original jsonb, p_submitted jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN public.prometheus_json_material_snapshot(p_submitted) = '{}'::jsonb THEN false
+    ELSE NOT public.prometheus_submitted_covered_by(
+      public.prometheus_json_material_snapshot(p_original),
+      public.prometheus_json_material_snapshot(p_submitted)
+    )
+  END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_evidence_from_payload(p jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = public
+AS $$
+DECLARE
+  v jsonb := COALESCE(p, '{}'::jsonb);
+  e jsonb := '{}'::jsonb;
+  v_out jsonb := '{}'::jsonb;
+  k text;
+  mapped text;
+  val jsonb;
+BEGIN
+  IF jsonb_typeof(v) <> 'object' THEN
+    RETURN '{}'::jsonb;
+  END IF;
+  IF jsonb_typeof(v->'evidence') = 'object' THEN
+    e := v->'evidence';
+  END IF;
+  FOREACH k IN ARRAY ARRAY[
+    'avg_calories', 'calorie_target', 'target_avg_kcal', 'workout_count',
+    'logged_nutrition_days', 'weight_delta_kg', 'expected_workouts', 'weigh_ins',
+    'avg_fatigue', 'avg_energy', 'window_start', 'window_end', 'checkin_count', 'goal'
+  ]
+  LOOP
+    mapped := CASE k WHEN 'target_avg_kcal' THEN 'calorie_target' ELSE k END;
+    IF v_out ? mapped THEN
+      CONTINUE;
+    END IF;
+    IF v ? k AND v->k IS NOT NULL AND v->k <> 'null'::jsonb THEN
+      val := v->k;
+    ELSIF e ? k AND e->k IS NOT NULL AND e->k <> 'null'::jsonb THEN
+      val := e->k;
+    ELSE
+      CONTINUE;
+    END IF;
+    v_out := v_out || jsonb_build_object(mapped, val);
+  END LOOP;
+  RETURN v_out;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_intake_has_medical_flags(p jsonb)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT COALESCE(p->>'cardiaqueHtaPoitrine', '') = 'Oui'
+      OR COALESCE(p->>'etourdissementsEquilibre', '') = 'Oui'
+      OR COALESCE(p->>'medecinLimiteExercices', '') = 'Oui';
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_calendar_age_years(p_dob date)
+RETURNS integer
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT CASE
+    WHEN p_dob IS NULL THEN NULL
+    ELSE EXTRACT(YEAR FROM age(CURRENT_DATE, p_dob))::int
+  END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_athlete_evidence_snapshot(p_athlete uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_from date := CURRENT_DATE - 13;
+  v_to date := CURRENT_DATE;
+  v_out jsonb := '{}'::jsonb;
+BEGIN
+  IF p_athlete IS NULL THEN
+    RETURN '{}'::jsonb;
+  END IF;
+  SELECT jsonb_strip_nulls(jsonb_build_object(
+    'avg_calories', (
+      SELECT ROUND(AVG(day_kcal))
+      FROM (
+        SELECT SUM(nl.calories)::numeric AS day_kcal
+        FROM public.nutrition_logs nl
+        WHERE nl.user_id = p_athlete
+          AND nl.logged_at::date BETWEEN v_from AND v_to
+        GROUP BY nl.logged_at::date
+      ) days
+    ),
+    'logged_nutrition_days', (
+      SELECT COUNT(DISTINCT nl.logged_at::date)
+      FROM public.nutrition_logs nl
+      WHERE nl.user_id = p_athlete
+        AND nl.logged_at::date BETWEEN v_from AND v_to
+    ),
+    'workout_count', (
+      SELECT COUNT(*) FILTER (WHERE COALESCE(w.completed, true))
+      FROM public.workouts w
+      WHERE w.user_id = p_athlete
+        AND w.date::date BETWEEN v_from AND v_to
+    ),
+    'checkin_count', (
+      SELECT COUNT(*)
+      FROM public.daily_checkins c
+      WHERE c.user_id = p_athlete
+        AND c.checked_at::date BETWEEN v_from AND v_to
+    ),
+    'weigh_ins', (
+      SELECT COUNT(*)
+      FROM public.weight_measurements wm
+      WHERE wm.user_id = p_athlete
+        AND wm.measured_at::date BETWEEN v_from AND v_to
+    ),
+    'window_start', v_from,
+    'window_end', v_to
+  )) INTO v_out;
+  RETURN COALESCE(v_out, '{}'::jsonb);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_resolve_decision_evidence(
+  p_athlete uuid,
+  p_original jsonb DEFAULT '{}'::jsonb,
+  p_submitted jsonb DEFAULT '{}'::jsonb,
+  p_effects jsonb DEFAULT '{}'::jsonb
+)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT public.prometheus_evidence_from_payload(
+    COALESCE(public.prometheus_athlete_evidence_snapshot(p_athlete), '{}'::jsonb)
+    || COALESCE(p_original, '{}'::jsonb)
+    || COALESCE(p_submitted, '{}'::jsonb)
+    || COALESCE(p_effects, '{}'::jsonb)
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_assert_decision_payload(
   p_athlete_id uuid,
   p_domain text,
   p_type text,
@@ -218,28 +422,18 @@ CREATE OR REPLACE FUNCTION public.record_athlete_decision(
   p_proposal jsonb,
   p_why text,
   p_data_used jsonb,
-  p_human_reason text,
   p_applied_effect jsonb,
-  p_source text,
-  p_source_id uuid,
-  p_idempotency_key text,
-  p_actor_id uuid
+  p_idempotency_key text
 )
-RETURNS public.athlete_decision_log
+RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+STABLE
 SET search_path = public
 AS $$
 DECLARE
-  v_uid uuid := auth.uid();
-  v_actor uuid;
-  v_role text;
-  v_row public.athlete_decision_log;
   v_effect jsonb := COALESCE(p_applied_effect, '{}'::jsonb);
   v_data jsonb := COALESCE(p_data_used, '{}'::jsonb);
   v_proposal jsonb := COALESCE(p_proposal, '{}'::jsonb);
-  v_reason text := NULLIF(trim(COALESCE(p_human_reason, '')), '');
-  v_source text := NULLIF(trim(COALESCE(p_source, '')), '');
   v_key text := NULLIF(trim(COALESCE(p_idempotency_key, '')), '');
 BEGIN
   IF p_athlete_id IS NULL THEN
@@ -292,26 +486,167 @@ BEGIN
   IF v_key IS NOT NULL AND char_length(v_key) > 200 THEN
     RAISE EXCEPTION 'invalid_idempotency_key';
   END IF;
+END;
+$$;
 
-  v_actor := COALESCE(v_uid, p_actor_id);
-
-  IF v_uid IS NOT NULL THEN
-    IF v_uid <> p_athlete_id AND NOT public.is_coach_of(p_athlete_id) THEN
-      RAISE EXCEPTION 'not_authorized';
-    END IF;
-    IF v_uid = p_athlete_id THEN
-      v_role := 'athlete';
-    ELSE
-      v_role := 'coach';
-    END IF;
+CREATE OR REPLACE FUNCTION public.prometheus_decision_idempotency_key(
+  p_athlete_id uuid,
+  p_idempotency_key text,
+  p_source text DEFAULT NULL,
+  p_source_id uuid DEFAULT NULL,
+  p_decision text DEFAULT NULL,
+  p_domain text DEFAULT NULL,
+  p_type text DEFAULT NULL
+)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = public
+AS $$
+DECLARE
+  v_derived text;
+  v_key text;
+BEGIN
+  IF p_athlete_id IS NULL THEN
+    RETURN NULL;
+  END IF;
+  v_derived := left(
+    p_athlete_id::text || ':' || coalesce(p_source, 'unknown') || ':' || coalesce(p_source_id::text, '')
+      || ':' || coalesce(p_decision, '') || ':' || coalesce(p_domain, '') || ':' || coalesce(p_type, ''),
+    200
+  );
+  IF NULLIF(trim(COALESCE(p_idempotency_key, '')), '') IS NULL THEN
+    v_key := v_derived;
+  ELSIF position(p_athlete_id::text in trim(p_idempotency_key)) = 1 THEN
+    v_key := left(trim(p_idempotency_key), 200);
   ELSE
-    IF p_actor_id IS NULL THEN
-      v_role := 'athlete';
-    ELSIF p_actor_id = p_athlete_id THEN
-      v_role := 'athlete';
-    ELSE
-      v_role := 'coach';
+    v_key := left(p_athlete_id::text || ':' || trim(p_idempotency_key), 200);
+  END IF;
+  IF char_length(v_key) < 1 THEN
+    RETURN NULL;
+  END IF;
+  RETURN v_key;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_lock_decision_key(p_athlete_id uuid, p_key text)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF p_athlete_id IS NULL OR NULLIF(trim(COALESCE(p_key, '')), '') IS NULL THEN
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(
+    ('x' || substr(md5(p_athlete_id::text || ':decision:' || trim(p_key)), 1, 16))::bit(64)::bigint
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.prometheus_outbox_record_failure(p_id uuid, p_error text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_attempts int;
+BEGIN
+  UPDATE public.athlete_decision_outbox
+  SET
+    attempts = attempts + 1,
+    last_error = left(p_error, 500),
+    failed_at = CASE WHEN attempts + 1 >= 8 THEN clock_timestamp() ELSE failed_at END,
+    next_attempt_at = CASE
+      WHEN attempts + 1 >= 8 THEN next_attempt_at
+      ELSE clock_timestamp() + (interval '30 seconds') * (2 ^ least(attempts, 6))
+    END
+  WHERE id = p_id
+  RETURNING attempts INTO v_attempts;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.prometheus_strip_routing(jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_effects_are_material(jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_json_material_snapshot(jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_proposal_materially_edited(jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_map_intervention_kind(text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_map_intervention_decision(text, boolean, boolean) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_canonical_action_field(text, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_submitted_covered_by(jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_evidence_from_payload(jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_intake_has_medical_flags(jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_calendar_age_years(date) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_athlete_evidence_snapshot(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_resolve_decision_evidence(uuid, jsonb, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_assert_decision_payload(uuid, text, text, text, jsonb, text, jsonb, jsonb, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_lock_decision_key(uuid, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_decision_idempotency_key(uuid, text, text, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.prometheus_outbox_record_failure(uuid, text) FROM PUBLIC, anon, authenticated;
+
+DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid);
+DROP FUNCTION IF EXISTS public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid);
+DROP FUNCTION IF EXISTS public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid);
+DROP FUNCTION IF EXISTS public.prometheus_write_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid);
+
+CREATE OR REPLACE FUNCTION public.prometheus_write_athlete_decision(
+  p_athlete_id uuid,
+  p_domain text,
+  p_type text,
+  p_decision text,
+  p_proposal jsonb,
+  p_why text,
+  p_data_used jsonb,
+  p_human_reason text,
+  p_applied_effect jsonb,
+  p_source text,
+  p_source_id uuid,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+RETURNS public.athlete_decision_log
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_actor uuid := p_actor_id;
+  v_role text;
+  v_row public.athlete_decision_log;
+  v_effect jsonb := COALESCE(p_applied_effect, '{}'::jsonb);
+  v_data jsonb := COALESCE(p_data_used, '{}'::jsonb);
+  v_proposal jsonb := COALESCE(p_proposal, '{}'::jsonb);
+  v_reason text := NULLIF(trim(COALESCE(p_human_reason, '')), '');
+  v_source text := NULLIF(trim(COALESCE(p_source, '')), '');
+  v_key text := NULLIF(trim(COALESCE(p_idempotency_key, '')), '');
+BEGIN
+  PERFORM public.prometheus_assert_decision_payload(
+    p_athlete_id, p_domain, p_type, p_decision, v_proposal, p_why, v_data, v_effect, v_key
+  );
+  PERFORM public.prometheus_lock_decision_key(p_athlete_id, v_key);
+
+  IF v_key IS NOT NULL THEN
+    SELECT * INTO v_row
+    FROM public.athlete_decision_log
+    WHERE athlete_id = p_athlete_id AND idempotency_key = v_key
+    FOR UPDATE;
+    IF FOUND THEN
+      IF v_row.domain IS DISTINCT FROM p_domain
+         OR v_row.type IS DISTINCT FROM btrim(p_type)
+         OR v_row.decision IS DISTINCT FROM p_decision
+         OR v_row.proposal IS DISTINCT FROM v_proposal
+         OR v_row.applied_effect IS DISTINCT FROM v_effect THEN
+        RAISE EXCEPTION 'idempotency_conflict';
+      END IF;
+      RETURN v_row;
     END IF;
+  END IF;
+
+  IF v_actor IS NULL OR v_actor = p_athlete_id THEN
+    v_role := 'athlete';
+  ELSE
+    v_role := 'coach';
   END IF;
 
   INSERT INTO public.athlete_decision_log (
@@ -324,11 +659,87 @@ BEGIN
     v_proposal, trim(p_why), v_data, v_reason, v_effect, v_source, p_source_id,
     v_key, clock_timestamp()
   )
-  ON CONFLICT (athlete_id, idempotency_key)
-  DO UPDATE SET why = public.athlete_decision_log.why
   RETURNING * INTO v_row;
 
   RETURN v_row;
+END;
+$$;
+
+-- 13-arg form has no DEFAULT: PG 42P13 forbids a required arg after a default,
+-- and defaults here would make the 11-arg wrapper ambiguous.
+-- Client path: author is always auth.uid(), never a client-supplied identity.
+CREATE OR REPLACE FUNCTION public.record_athlete_decision(
+  p_athlete_id uuid,
+  p_domain text,
+  p_type text,
+  p_decision text,
+  p_proposal jsonb,
+  p_why text,
+  p_data_used jsonb,
+  p_human_reason text,
+  p_applied_effect jsonb,
+  p_source text,
+  p_source_id uuid,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+RETURNS public.athlete_decision_log
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
+  IF v_uid <> p_athlete_id AND NOT public.is_coach_of(p_athlete_id) THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
+  RETURN public.prometheus_write_athlete_decision(
+    p_athlete_id, p_domain, p_type, p_decision, p_proposal, p_why,
+    p_data_used, p_human_reason, p_applied_effect, p_source, p_source_id,
+    p_idempotency_key, v_uid
+  );
+END;
+$$;
+
+-- Drain/queue path: author comes from the stored outbox row, never from auth.uid()
+-- and never from a client-supplied identity. Not granted to authenticated.
+CREATE OR REPLACE FUNCTION public.record_athlete_decision_replay(
+  p_athlete_id uuid,
+  p_domain text,
+  p_type text,
+  p_decision text,
+  p_proposal jsonb,
+  p_why text,
+  p_data_used jsonb,
+  p_human_reason text,
+  p_applied_effect jsonb,
+  p_source text,
+  p_source_id uuid,
+  p_idempotency_key text,
+  p_actor_id uuid
+)
+RETURNS public.athlete_decision_log
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NOT NULL THEN
+    IF v_uid <> p_athlete_id AND NOT public.is_coach_of(p_athlete_id) THEN
+      RAISE EXCEPTION 'not_authorized';
+    END IF;
+  END IF;
+  RETURN public.prometheus_write_athlete_decision(
+    p_athlete_id, p_domain, p_type, p_decision, p_proposal, p_why,
+    p_data_used, p_human_reason, p_applied_effect, p_source, p_source_id,
+    p_idempotency_key, p_actor_id
+  );
 END;
 $$;
 
@@ -355,62 +766,56 @@ DECLARE
   v_uid uuid := auth.uid();
   v_row public.athlete_decision_outbox;
   v_key text;
-  v_derived text;
+  v_payload jsonb;
 BEGIN
-  IF p_athlete_id IS NULL THEN
-    RAISE EXCEPTION 'invalid_outbox';
-  END IF;
-  v_derived := left(
-    p_athlete_id::text || ':' || coalesce(p_source, 'unknown') || ':' || coalesce(p_source_id::text, '')
-      || ':' || coalesce(p_decision, '') || ':' || coalesce(p_domain, '') || ':' || coalesce(p_type, ''),
-    200
+  v_key := public.prometheus_decision_idempotency_key(
+    p_athlete_id, p_idempotency_key, p_source, p_source_id, p_decision, p_domain, p_type
   );
-  IF NULLIF(trim(COALESCE(p_idempotency_key, '')), '') IS NULL THEN
-    v_key := v_derived;
-  ELSIF position(p_athlete_id::text in trim(p_idempotency_key)) = 1 THEN
-    v_key := left(trim(p_idempotency_key), 200);
-  ELSE
-    v_key := left(p_athlete_id::text || ':' || trim(p_idempotency_key), 200);
-  END IF;
-  IF char_length(v_key) < 1 THEN
+  IF v_key IS NULL THEN
     RAISE EXCEPTION 'invalid_outbox';
   END IF;
+  PERFORM public.prometheus_assert_decision_payload(
+    p_athlete_id, p_domain, p_type, p_decision,
+    COALESCE(p_proposal, '{}'::jsonb), p_why,
+    COALESCE(p_data_used, '{}'::jsonb),
+    COALESCE(p_applied_effect, '{}'::jsonb),
+    v_key
+  );
   IF v_uid IS NOT NULL THEN
     IF v_uid <> p_athlete_id AND NOT public.is_coach_of(p_athlete_id) THEN
       RAISE EXCEPTION 'not_authorized';
     END IF;
   END IF;
 
+  v_payload := jsonb_strip_nulls(jsonb_build_object(
+    'domain', p_domain,
+    'type', p_type,
+    'decision', p_decision,
+    'proposal', COALESCE(p_proposal, '{}'::jsonb),
+    'why', p_why,
+    'data_used', COALESCE(p_data_used, '{}'::jsonb),
+    'human_reason', NULLIF(trim(COALESCE(p_human_reason, '')), ''),
+    'applied_effect', COALESCE(p_applied_effect, '{}'::jsonb),
+    'source', NULLIF(trim(COALESCE(p_source, '')), ''),
+    'source_id', p_source_id,
+    'idempotency_key', v_key
+  ));
+
   INSERT INTO public.athlete_decision_outbox (idempotency_key, athlete_id, actor_id, payload)
-  VALUES (
-    v_key,
-    p_athlete_id,
-    v_uid,
-    jsonb_strip_nulls(jsonb_build_object(
-      'domain', p_domain,
-      'type', p_type,
-      'decision', p_decision,
-      'proposal', COALESCE(p_proposal, '{}'::jsonb),
-      'why', p_why,
-      'data_used', COALESCE(p_data_used, '{}'::jsonb),
-      'human_reason', NULLIF(trim(COALESCE(p_human_reason, '')), ''),
-      'applied_effect', COALESCE(p_applied_effect, '{}'::jsonb),
-      'source', NULLIF(trim(COALESCE(p_source, '')), ''),
-      'source_id', p_source_id,
-      'actor_id', v_uid,
-      'idempotency_key', v_key
-    ))
-  )
+  VALUES (v_key, p_athlete_id, v_uid, v_payload)
   ON CONFLICT (athlete_id, idempotency_key)
   DO UPDATE SET
-    attempts = public.athlete_decision_outbox.attempts + 1,
-    last_error = public.athlete_decision_outbox.last_error,
     actor_id = COALESCE(public.athlete_decision_outbox.actor_id, EXCLUDED.actor_id)
   WHERE public.athlete_decision_outbox.athlete_id = EXCLUDED.athlete_id
   RETURNING * INTO v_row;
 
   IF v_row.athlete_id IS DISTINCT FROM p_athlete_id THEN
     RAISE EXCEPTION 'outbox_athlete_mismatch';
+  END IF;
+  IF v_row.payload->>'decision' IS DISTINCT FROM p_decision
+     OR v_row.payload->>'domain' IS DISTINCT FROM p_domain
+     OR v_row.payload->>'type' IS DISTINCT FROM p_type THEN
+    RAISE EXCEPTION 'idempotency_conflict';
   END IF;
 
   RETURN v_row;
@@ -453,18 +858,16 @@ BEGIN
   END IF;
 
   BEGIN
-    v_row := public.record_athlete_decision(
+    v_row := public.record_athlete_decision_replay(
       p_athlete_id, p_domain, p_type, p_decision, p_proposal, p_why,
       p_data_used, p_human_reason, p_applied_effect, p_source, p_source_id,
       v_box.idempotency_key, v_box.actor_id
     );
     UPDATE public.athlete_decision_outbox
-    SET processed_at = clock_timestamp(), last_error = NULL
+    SET processed_at = clock_timestamp(), last_error = NULL, failed_at = NULL
     WHERE id = v_box.id AND athlete_id = p_athlete_id;
   EXCEPTION WHEN OTHERS THEN
-    UPDATE public.athlete_decision_outbox
-    SET attempts = attempts + 1, last_error = left(SQLERRM, 500)
-    WHERE id = v_box.id AND athlete_id = p_athlete_id;
+    PERFORM public.prometheus_outbox_record_failure(v_box.id, SQLERRM);
     v_row := NULL;
   END;
   RETURN v_row;
@@ -482,7 +885,6 @@ DECLARE
   v_box public.athlete_decision_outbox;
   v_payload jsonb;
   v_n int := 0;
-  v_actor uuid;
 BEGIN
   IF p_limit IS NULL OR p_limit < 1 THEN
     p_limit := 25;
@@ -495,19 +897,20 @@ BEGIN
     SELECT *
     FROM public.athlete_decision_outbox
     WHERE processed_at IS NULL
+      AND failed_at IS NULL
+      AND next_attempt_at <= clock_timestamp()
       AND (
         v_uid IS NULL
         OR athlete_id = v_uid
         OR public.is_coach_of(athlete_id)
       )
-    ORDER BY created_at
+    ORDER BY next_attempt_at, created_at
     FOR UPDATE SKIP LOCKED
     LIMIT p_limit
   LOOP
     v_payload := COALESCE(v_box.payload, '{}'::jsonb);
-    v_actor := COALESCE(v_box.actor_id, NULLIF(v_payload->>'actor_id', '')::uuid);
     BEGIN
-      PERFORM public.record_athlete_decision(
+      PERFORM public.record_athlete_decision_replay(
         v_box.athlete_id,
         v_payload->>'domain',
         v_payload->>'type',
@@ -520,16 +923,14 @@ BEGIN
         v_payload->>'source',
         NULLIF(v_payload->>'source_id', '')::uuid,
         v_box.idempotency_key,
-        v_actor
+        v_box.actor_id
       );
       UPDATE public.athlete_decision_outbox
-      SET processed_at = clock_timestamp(), last_error = NULL
+      SET processed_at = clock_timestamp(), last_error = NULL, failed_at = NULL
       WHERE id = v_box.id;
       v_n := v_n + 1;
     EXCEPTION WHEN OTHERS THEN
-      UPDATE public.athlete_decision_outbox
-      SET attempts = attempts + 1, last_error = left(SQLERRM, 500)
-      WHERE id = v_box.id;
+      PERFORM public.prometheus_outbox_record_failure(v_box.id, SQLERRM);
     END;
   END LOOP;
   RETURN v_n;
@@ -550,6 +951,7 @@ DECLARE
   v_human text;
   v_effect jsonb;
   v_submitted jsonb;
+  v_data jsonb;
 BEGIN
   IF current_setting('prometheus.intervention_journaled', true) = NEW.id::text THEN
     RETURN NEW;
@@ -571,6 +973,12 @@ BEGIN
   IF v_human IN ('refused', 'ignored') THEN
     v_effect := '{}'::jsonb;
   END IF;
+  v_data := public.prometheus_resolve_decision_evidence(
+    NEW.client_id,
+    COALESCE(OLD.payload, '{}'::jsonb),
+    v_submitted,
+    COALESCE(NEW.applied_values, '{}'::jsonb)
+  );
   PERFORM public.queue_and_record_athlete_decision(
     'coach_interventions:' || NEW.id::text || ':' || NEW.status,
     NEW.client_id,
@@ -586,7 +994,7 @@ BEGIN
       'flag', NEW.payload->>'flag'
     )),
     left(COALESCE(NULLIF(btrim(NEW.rationale), ''), NEW.kind), 500),
-    '{}'::jsonb,
+    v_data,
     NULL,
     v_effect,
     'coach_interventions',
@@ -629,6 +1037,7 @@ DECLARE
   v_human text;
   v_effect jsonb;
   v_original jsonb;
+  v_data jsonb;
 BEGIN
   -- Target = auth.uid() or is_coach_of. assert_client_target raises:
   -- Not authorized for this client
@@ -728,6 +1137,9 @@ BEGIN
     IF v_human IN ('refused', 'ignored') THEN
       v_effect := '{}'::jsonb;
     END IF;
+    v_data := public.prometheus_resolve_decision_evidence(
+      v_client, v_original, COALESCE(p_payload, '{}'::jsonb), COALESCE(p_effects, '{}'::jsonb)
+    );
     PERFORM set_config('prometheus.intervention_journaled', p_id::text, true);
     PERFORM public.queue_and_record_athlete_decision(
       'coach_interventions:' || p_id::text || ':' || p_status,
@@ -744,7 +1156,7 @@ BEGIN
         'flag', COALESCE(p_payload, v_original)->>'flag'
       )),
       left(COALESCE(NULLIF(btrim(v_row.rationale), ''), v_row.kind), 500),
-      '{}'::jsonb,
+      v_data,
       NULL,
       v_effect,
       'coach_interventions',
@@ -798,6 +1210,7 @@ DECLARE
   v_key text;
   v_proposed jsonb := COALESCE(p_proposed, '{}'::jsonb);
   v_effect jsonb := COALESCE(p_applied_effect, '{}'::jsonb);
+  v_proposal jsonb := COALESCE(p_proposal, '{}'::jsonb);
   v_row public.athlete_decision_log;
 BEGIN
   IF v_uid IS NULL THEN
@@ -813,11 +1226,40 @@ BEGIN
   ELSE
     v_human := 'refused';
   END IF;
-  v_key := left(
-    COALESCE(NULLIF(trim(COALESCE(p_idempotency_key, '')), ''),
-      'solo_weekly_reviews:' || v_uid::text || ':' || p_week_start::text),
-    200
+  v_key := public.prometheus_decision_idempotency_key(
+    v_uid,
+    COALESCE(
+      NULLIF(trim(COALESCE(p_idempotency_key, '')), ''),
+      'solo_weekly_reviews:' || v_uid::text || ':' || p_week_start::text
+    ),
+    'solo_weekly_reviews',
+    NULL,
+    v_human,
+    p_domain,
+    p_type
   );
+  IF v_key IS NULL THEN
+    RAISE EXCEPTION 'invalid_idempotency_key';
+  END IF;
+  IF v_human IN ('refused', 'ignored') THEN
+    v_effect := '{}'::jsonb;
+  END IF;
+
+  PERFORM public.prometheus_lock_decision_key(v_uid, v_key);
+  SELECT * INTO v_row
+  FROM public.athlete_decision_log
+  WHERE athlete_id = v_uid AND idempotency_key = v_key
+  FOR UPDATE;
+  IF FOUND THEN
+    IF v_row.domain IS DISTINCT FROM p_domain
+       OR v_row.type IS DISTINCT FROM btrim(p_type)
+       OR v_row.decision IS DISTINCT FROM v_human
+       OR v_row.proposal IS DISTINCT FROM v_proposal
+       OR v_row.applied_effect IS DISTINCT FROM v_effect THEN
+      RAISE EXCEPTION 'idempotency_conflict';
+    END IF;
+    RETURN v_row;
+  END IF;
 
   IF p_decision = 'accepted'
      AND v_proposed ? 'calories'
@@ -850,17 +1292,13 @@ BEGIN
     decision = EXCLUDED.decision,
     decided_at = clock_timestamp();
 
-  IF v_human IN ('refused', 'ignored') THEN
-    v_effect := '{}'::jsonb;
-  END IF;
-
   v_row := public.queue_and_record_athlete_decision(
     v_key,
     v_uid,
     p_domain,
     p_type,
     v_human,
-    COALESCE(p_proposal, '{}'::jsonb),
+    v_proposal,
     p_why,
     COALESCE(p_data_used, '{}'::jsonb),
     NULL,
@@ -880,6 +1318,7 @@ SET search_path = public
 AS $$
 DECLARE
   v_from date := CURRENT_DATE - 13;
+  v_to date := CURRENT_DATE;
   v_uid uuid := auth.uid();
 BEGIN
   IF v_uid IS NOT NULL THEN
@@ -903,7 +1342,7 @@ BEGIN
     SELECT nl.user_id, nl.logged_at::date AS d, SUM(nl.calories)::numeric AS kcal
     FROM public.nutrition_logs nl
     JOIN solos s ON s.athlete_id = nl.user_id
-    WHERE nl.logged_at >= v_from
+    WHERE nl.logged_at::date BETWEEN v_from AND v_to
     GROUP BY nl.user_id, nl.logged_at::date
   ),
   nutrition_agg AS (
@@ -915,7 +1354,7 @@ BEGIN
     SELECT w.user_id, COUNT(*) FILTER (WHERE COALESCE(w.completed, true))::int AS workout_count
     FROM public.workouts w
     JOIN solos s ON s.athlete_id = w.user_id
-    WHERE w.date >= v_from::timestamptz
+    WHERE w.date::date BETWEEN v_from AND v_to
     GROUP BY w.user_id
   ),
   checkin_agg AS (
@@ -924,7 +1363,7 @@ BEGIN
       AVG(c.energy_level)::numeric AS avg_energy
     FROM public.daily_checkins c
     JOIN solos s ON s.athlete_id = c.user_id
-    WHERE c.checked_at >= v_from
+    WHERE c.checked_at::date BETWEEN v_from AND v_to
     GROUP BY c.user_id
   ),
   weight_ord AS (
@@ -933,7 +1372,7 @@ BEGIN
       ROW_NUMBER() OVER (PARTITION BY wm.user_id ORDER BY wm.measured_at DESC) AS rn_desc
     FROM public.weight_measurements wm
     JOIN solos s ON s.athlete_id = wm.user_id
-    WHERE wm.measured_at >= v_from
+    WHERE wm.measured_at::date BETWEEN v_from AND v_to
   ),
   weight_agg AS (
     SELECT a.user_id, a.weight_kg AS weight_start_kg, b.weight_kg AS weight_end_kg,
@@ -969,8 +1408,8 @@ BEGIN
       'tracking', jsonb_build_object(
         'nutrition', true, 'workouts', true, 'weight', true, 'checkins', true
       ),
-      'is_minor', (s.date_of_birth IS NOT NULL AND (CURRENT_DATE - s.date_of_birth) < 18 * 365),
-      'has_medical_flags', COALESCE(s.kinesiology_intake, '{}'::jsonb) <> '{}'::jsonb
+      'is_minor', (s.date_of_birth IS NOT NULL AND public.prometheus_calendar_age_years(s.date_of_birth) < 18),
+      'has_medical_flags', public.prometheus_intake_has_medical_flags(COALESCE(s.kinesiology_intake, '{}'::jsonb))
     )
   FROM solos s
   LEFT JOIN nutrition_agg n ON n.user_id = s.athlete_id
@@ -981,6 +1420,8 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.prometheus_write_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.enqueue_athlete_decision_outbox(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.queue_and_record_athlete_decision(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid) FROM PUBLIC, anon;
 REVOKE ALL ON FUNCTION public.drain_athlete_decision_outbox(integer) FROM PUBLIC, anon;
@@ -991,6 +1432,10 @@ REVOKE ALL ON FUNCTION public.apply_intervention(uuid, text, text, text, jsonb, 
 
 GRANT EXECUTE ON FUNCTION public.record_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid)
   TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.prometheus_write_athlete_decision(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid)
+  TO service_role;
+GRANT EXECUTE ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid)
+  TO service_role;
 GRANT EXECUTE ON FUNCTION public.enqueue_athlete_decision_outbox(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid)
   TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.queue_and_record_athlete_decision(text, uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid)
@@ -1005,9 +1450,11 @@ GRANT EXECUTE ON FUNCTION public.apply_intervention(uuid, text, text, text, json
   TO authenticated, service_role;
 
 COMMENT ON FUNCTION public.drain_athlete_decision_outbox(integer) IS
-  'Idempotent outbox drain. Preserves actor_id. Never auto-applies programs or targets.';
+  'Idempotent outbox drain. Author is the stored outbox actor_id, not the executor. Backoff + dead-letter after 8 failures. Never auto-applies programs or targets.';
 COMMENT ON FUNCTION public.triage_eligible_solo_weekly(uuid) IS
-  'Eligible Solo dossiers (no active coach). Server weekly loop; dashboard catch-up is optional.';
+  'Eligible Solo dossiers (no active coach). Bounded window, calendar age, PAR-Q medical flags. Server weekly loop; dashboard catch-up is optional.';
+COMMENT ON FUNCTION public.record_athlete_decision_replay(uuid, text, text, text, jsonb, text, jsonb, text, jsonb, text, uuid, text, uuid) IS
+  'Internal replay: writes the stored outbox author. Not granted to authenticated.';
 CREATE OR REPLACE FUNCTION public.commit_solo_weekly_review_decision(
   p_week_start date,
   p_action text,

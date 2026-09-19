@@ -46,6 +46,24 @@ begin
   if public.prometheus_map_intervention_decision('kept', false, true) <> 'accepted' then
     raise exception 'kept with effect is not accepted';
   end if;
+  if public.prometheus_proposal_materially_edited(
+    '{"program":{"name":"Force","days":[{"weekday":1}],"title":"ctx"},"avg_calories":2200}'::jsonb,
+    '{"program":{"name":"Force","days":[{"weekday":1}],"assign_client_id":"x"}}'::jsonb
+  ) then
+    raise exception 'program context counted as edit';
+  end if;
+  if not public.prometheus_proposal_materially_edited(
+    '{"program":{"name":"Force","days":[{"weekday":1}]}}'::jsonb,
+    '{"program":{"name":"Force","days":[{"weekday":2}]}}'::jsonb
+  ) then
+    raise exception 'program day change not detected';
+  end if;
+  if not public.prometheus_intake_has_medical_flags('{"cardiaqueHtaPoitrine":"Oui"}'::jsonb) then
+    raise exception 'PAR-Q Oui not medical';
+  end if;
+  if public.prometheus_intake_has_medical_flags('{"objectif":"forme","cardiaqueHtaPoitrine":"Non"}'::jsonb) then
+    raise exception 'filled questionnaire without flag counted medical';
+  end if;
 end $$;
 
 set local role authenticated;
@@ -275,6 +293,50 @@ begin
   if n <> 1 then raise exception 'solo replay duplicated journal'; end if;
   if v2.id <> v.id then raise exception 'solo replay did not reuse journal row'; end if;
 
+  update public.user_profiles
+    set daily_calorie_target = 2000
+    where id = 'a1950000-0000-4000-8000-000000000002';
+  v2 := public.commit_solo_weekly_review_decision(
+    '2026-08-31',
+    'calorie_adjustment',
+    'not_following',
+    '{"calories":1800,"protein":140,"carbs":180,"fat":60}'::jsonb,
+    '{"logged_days":10}'::jsonb,
+    'accepted',
+    'nutrition',
+    'not_following',
+    '{"action":"calorie_adjustment","reason":"not_following","week_start":"2026-08-31"}'::jsonb,
+    'not_following',
+    '{"avg_calories":2200}'::jsonb,
+    '{"daily_calorie_target":1800}'::jsonb,
+    'solo_weekly_reviews:a1950000-0000-4000-8000-000000000002:2026-08-31'
+  );
+  select daily_calorie_target into kcal from public.user_profiles
+    where id='a1950000-0000-4000-8000-000000000002';
+  if kcal <> 2000 then raise exception 'solo replay rewrote calorie targets'; end if;
+  if v2.id <> v.id then raise exception 'solo replay after profile edit did not reuse journal'; end if;
+
+  begin
+    perform public.commit_solo_weekly_review_decision(
+      '2026-08-31',
+      'calorie_adjustment',
+      'not_following',
+      '{"calories":1600}'::jsonb,
+      '{}'::jsonb,
+      'dismissed',
+      'nutrition',
+      'not_following',
+      '{"action":"calorie_adjustment","reason":"not_following","week_start":"2026-08-31"}'::jsonb,
+      'not_following',
+      '{"avg_calories":2200}'::jsonb,
+      '{}'::jsonb,
+      'solo_weekly_reviews:a1950000-0000-4000-8000-000000000002:2026-08-31'
+    );
+    raise exception 'solo replay with different decision accepted';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+
   begin
     perform public.triage_eligible_solo_weekly('a1950000-0000-4000-8000-000000000003');
     raise exception 'solo triage other athlete allowed';
@@ -325,6 +387,287 @@ begin
   end if;
   perform 'public.record_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid)'::regprocedure;
   perform 'public.commit_solo_weekly_review_decision(date,text,text,jsonb,jsonb,text,text,text,jsonb,text,jsonb,jsonb)'::regprocedure;
+  if has_function_privilege(
+    'authenticated',
+    'public.record_athlete_decision_replay(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid,text,uuid)',
+    'execute'
+  ) then
+    raise exception 'decision replay exposed to clients';
+  end if;
+  if has_function_privilege(
+    'authenticated',
+    'public.prometheus_write_athlete_decision(uuid,text,text,text,jsonb,text,jsonb,text,jsonb,text,uuid,text,uuid)',
+    'execute'
+  ) then
+    raise exception 'write helper exposed to clients';
+  end if;
+end $$;
+
+insert into public.coach_interventions (
+  id, coach_id, client_id, kind, title, rationale, payload, status
+) values (
+  'a1950000-0000-4000-8000-000000000010',
+  'a1950000-0000-4000-8000-000000000001',
+  'a1950000-0000-4000-8000-000000000004',
+  'adherence_training',
+  'Seances manquees',
+  'Moins de seances que prevu',
+  '{"flag":"missed_sessions","workout_count":1,"expected_workouts":6,"evidence":{"workout_count":1}}'::jsonb,
+  'pending'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  applied jsonb;
+  proofs jsonb;
+  n int;
+begin
+  applied := public.apply_intervention(
+    'a1950000-0000-4000-8000-000000000010',
+    'coach-ref-1',
+    null,
+    'dismissed',
+    '{"flag":"missed_sessions","workout_count":1,"expected_workouts":6,"evidence":{"workout_count":1}}'::jsonb,
+    '{}'::jsonb,
+    null
+  );
+  if applied->>'ok' is distinct from 'true' then
+    raise exception 'coach refuse apply failed: %', applied;
+  end if;
+  select data_used into proofs
+    from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000004'
+      and source_id='a1950000-0000-4000-8000-000000000010'
+      and decision='refused';
+  if proofs is null then raise exception 'coach refuse not journaled'; end if;
+  if proofs = '{}'::jsonb then raise exception 'empty coach evidence still blocking'; end if;
+  if coalesce((proofs->>'workout_count')::int, 0) <> 1 then
+    raise exception 'coach refuse lost workout proof: %', proofs;
+  end if;
+
+  begin
+    perform public.queue_and_record_athlete_decision(
+      'coach_interventions:a1950000-0000-4000-8000-000000000010:dismissed',
+      'a1950000-0000-4000-8000-000000000004',
+      'training',
+      'missed_sessions',
+      'refused',
+      '{"kind":"adherence_training","action":"adherence_training","flag":"missed_sessions"}'::jsonb,
+      'Moins de seances que prevu',
+      '{"workout_count":9}'::jsonb,
+      null,
+      '{}'::jsonb,
+      'coach_interventions',
+      'a1950000-0000-4000-8000-000000000010'
+    );
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+  select count(*) into n from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000004'
+      and source_id='a1950000-0000-4000-8000-000000000010';
+  if n <> 1 then raise exception 'coach refuse duplicated after frontend retry'; end if;
+  select data_used into proofs
+    from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000004'
+      and source_id='a1950000-0000-4000-8000-000000000010';
+  if coalesce((proofs->>'workout_count')::int, 0) <> 1 then
+    raise exception 'frontend retry replaced stored proofs';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
+
+insert into public.workouts(id,user_id,name,date,completed) values
+ ('a1950000-0000-4000-8000-000000000021','a1950000-0000-4000-8000-000000000004','kept-1', current_date, true),
+ ('a1950000-0000-4000-8000-000000000022','a1950000-0000-4000-8000-000000000004','kept-2', current_date, true),
+ ('a1950000-0000-4000-8000-000000000023','a1950000-0000-4000-8000-000000000004','kept-3', current_date, true);
+
+do $$
+declare
+  stored int;
+  fresh int;
+begin
+  select coalesce((data_used->>'workout_count')::int, 0) into stored
+    from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000004'
+      and source_id='a1950000-0000-4000-8000-000000000010';
+  select coalesce((public.prometheus_athlete_evidence_snapshot('a1950000-0000-4000-8000-000000000004')->>'workout_count')::int, 0)
+    into fresh;
+  if abs(fresh - stored) < 2 then
+    raise exception 'new evidence should lift refusal stored=% fresh=%', stored, fresh;
+  end if;
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000004',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000004","role":"authenticated"}',true);
+do $$
+declare
+  boxed public.athlete_decision_outbox;
+begin
+  boxed := public.enqueue_athlete_decision_outbox(
+    'coach-drain-author',
+    'a1950000-0000-4000-8000-000000000004',
+    'training',
+    'missed_sessions',
+    'accepted',
+    '{"action":"relance"}'::jsonb,
+    'athlete queued',
+    '{"workout_count":3}'::jsonb
+  );
+  if boxed.actor_id <> 'a1950000-0000-4000-8000-000000000004' then
+    raise exception 'outbox actor not the athlete';
+  end if;
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  drained int;
+  actor uuid;
+begin
+  drained := public.drain_athlete_decision_outbox(25);
+  if drained < 1 then raise exception 'coach drain did not recover athlete journal'; end if;
+  select actor_id into actor
+    from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000004'
+      and idempotency_key='a1950000-0000-4000-8000-000000000004:coach-drain-author';
+  if actor <> 'a1950000-0000-4000-8000-000000000004' then
+    raise exception 'coach drain attributed the decision to the coach';
+  end if;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
+
+-- Poison fixtures run as postgres (clients cannot insert into the outbox).
+insert into public.athlete_decision_outbox (
+  idempotency_key, athlete_id, actor_id, payload, created_at, next_attempt_at, attempts
+) values (
+  'a1950000-0000-4000-8000-000000000003:poison-old',
+  'a1950000-0000-4000-8000-000000000003',
+  'a1950000-0000-4000-8000-000000000003',
+  '{"why":"bad"}'::jsonb,
+  clock_timestamp() - interval '2 hours',
+  clock_timestamp() - interval '1 minute',
+  0
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','a1950000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"a1950000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+begin
+  begin
+    perform public.enqueue_athlete_decision_outbox(
+      'invalid-domain',
+      'a1950000-0000-4000-8000-000000000003',
+      'nope',
+      'missed_sessions',
+      'accepted',
+      '{"action":"relance"}'::jsonb,
+      'should not queue',
+      '{}'::jsonb
+    );
+    raise exception 'invalid payload was queued';
+  exception when others then
+    if sqlerrm <> 'invalid_domain' then raise; end if;
+  end;
+
+  perform public.enqueue_athlete_decision_outbox(
+    'later-valid',
+    'a1950000-0000-4000-8000-000000000003',
+    'training',
+    'missed_sessions',
+    'accepted',
+    '{"action":"relance"}'::jsonb,
+    'later valid',
+    '{"workout_count":1}'::jsonb
+  );
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claims','{}',true);
+
+do $$
+declare
+  drained int;
+  poison_next timestamptz;
+  poison_fail timestamptz;
+  later_done timestamptz;
+begin
+  drained := public.drain_athlete_decision_outbox(1);
+  if drained <> 0 then raise exception 'poison drain should not journal'; end if;
+  select next_attempt_at, failed_at into poison_next, poison_fail
+    from public.athlete_decision_outbox
+    where idempotency_key='a1950000-0000-4000-8000-000000000003:poison-old';
+  if poison_fail is not null then raise exception 'first poison failure marked permanent'; end if;
+  if poison_next <= clock_timestamp() then
+    raise exception 'poison outbox must not starve later rows';
+  end if;
+
+  drained := public.drain_athlete_decision_outbox(1);
+  if drained <> 1 then raise exception 'valid row behind poison not drained'; end if;
+  select processed_at into later_done
+    from public.athlete_decision_outbox
+    where idempotency_key='a1950000-0000-4000-8000-000000000003:later-valid';
+  if later_done is null then raise exception 'later valid row still pending'; end if;
+  if not exists (
+    select 1 from public.athlete_decision_log
+    where athlete_id='a1950000-0000-4000-8000-000000000003'
+      and idempotency_key='a1950000-0000-4000-8000-000000000003:later-valid'
+  ) then
+    raise exception 'later valid journal missing';
+  end if;
+end $$;
+
+update public.user_profiles
+  set date_of_birth = (current_date - interval '18 years' + interval '1 day')::date,
+      kinesiology_intake = '{"objectif":"forme","cardiaqueHtaPoitrine":"Non"}'::jsonb
+  where id='a1950000-0000-4000-8000-000000000003';
+
+insert into public.workouts(id,user_id,name,date,completed) values
+ ('a1950000-0000-4000-8000-000000000031','a1950000-0000-4000-8000-000000000003','future', current_date + 7, true),
+ ('a1950000-0000-4000-8000-000000000032','a1950000-0000-4000-8000-000000000003','old', current_date - 20, true),
+ ('a1950000-0000-4000-8000-000000000033','a1950000-0000-4000-8000-000000000003','in-window', current_date, true);
+
+do $$
+declare
+  d jsonb;
+begin
+  select dossier into d
+    from public.triage_eligible_solo_weekly('a1950000-0000-4000-8000-000000000003');
+  if d is null then raise exception 'solo B missing from triage'; end if;
+  if coalesce((d->>'workout_count')::int, 0) <> 1 then
+    raise exception 'triage window included out-of-range sessions: %', d->>'workout_count';
+  end if;
+  if coalesce((d->>'is_minor')::boolean, false) is not true then
+    raise exception 'calendar age 17 not flagged minor';
+  end if;
+  if coalesce((d->>'has_medical_flags')::boolean, true) is not false then
+    raise exception 'questionnaire without PAR-Q flag counted medical';
+  end if;
+
+  update public.user_profiles
+    set date_of_birth = (current_date - interval '18 years')::date,
+        kinesiology_intake = '{"cardiaqueHtaPoitrine":"Oui"}'::jsonb
+    where id='a1950000-0000-4000-8000-000000000003';
+  select dossier into d
+    from public.triage_eligible_solo_weekly('a1950000-0000-4000-8000-000000000003');
+  if coalesce((d->>'is_minor')::boolean, true) is not false then
+    raise exception 'calendar age 18 still flagged minor';
+  end if;
+  if coalesce((d->>'has_medical_flags')::boolean, false) is not true then
+    raise exception 'PAR-Q Oui not flagged medical';
+  end if;
 end $$;
 
 rollback;

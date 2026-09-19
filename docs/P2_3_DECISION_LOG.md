@@ -13,11 +13,13 @@ Une table dédiée n’est donc pas redondante. Les deux chemins existants **res
 (carte nutrition Solo, drafts fleet) et **enregistrent** une ligne après le tap humain.
 
 Solo : `commit_solo_weekly_review_decision` écrit cibles (si accepté), carte ISO
-et journal dans la même transaction, avec clé d’idempotence. Coach :
-`apply_intervention` journalise dans la même TX (snapshot initial vs effets métier,
-sans identifiants de routage) ; un trigger reprend les UPDATE de statut. File
+et journal dans la même transaction ; la clé d’idempotence est verrouillée avant
+toute mutation. Coach : `apply_intervention` journalise dans la même TX (snapshot
+initial vs effets métier, sans identifiants de routage, **preuves** dans
+`data_used`) ; un trigger reprend les UPDATE de statut. File
 `athlete_decision_outbox` unique par `(athlète, clé)` ; collision inter-comptes
-refusée. `drain_athlete_decision_outbox` rejoue sans doublon et conserve l’auteur.
+refusée. Validation à l’enqueue, backoff, échec permanent. `drain_athlete_decision_outbox`
+rejoue sans doublon et conserve l’auteur stocké (pas l’exécuteur).
 Table/RPC absente en production → fail-open.
 
 La carte Solo et le round fleet **lisent** la dernière décision par
