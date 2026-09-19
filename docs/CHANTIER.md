@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P3.1 en cours (organisation des séances, un seul moteur). P2.1–P2.5 clos en production (124 migrations, dernière `20260919141146`). Candidate `20260919194159_program_session_organization` dans pending jusqu’au merge. Après CI verte : merger P3.1, appliquer le timestamp Git, lock=prod, pending vide, puis P3.2. Ne pas commencer P4. Aucune auto-application. Watch n’applique pas.**
+> **CURRENT IMPLEMENTATION GATE — P3.1 clos en production (125 migrations, dernière `20260919194159_program_session_organization`). P2.1–P2.5 clos. pending vide. Arrêt P3 : passe d’audit/hotfix P1–P2 (Hotfix A immutabilité `coach_client_links` d’abord, PR séparées). Ne pas commencer P3.2, P3.3 ni P4. Aucune auto-application. Watch n’applique pas.**
 >
-> P1.5–P2.5 sont mergés (`#190`–`#192`, `#194`, HEAD `1737c74`) et **P2.1–P2.5 sont clos en production** (124 migrations, dernière `20260919141146_watch_proposal_decision`). P3.1 est en cours. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P3.1 est mergé (`#195`, HEAD `5ab6837`) et **appliqué en production** avec le timestamp Git `20260919194159`. P1.5–P2.5 restent clos (`#190`–`#194`). Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,9 +60,9 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (124 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (124 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **P3.1 en cours** | Phases/cycles + séquence de séances |
+| **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (125 migrations) | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (125 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P3** | Planification avancée | **P3.1 clos** — P3.2/P3.3 après audit P1/P2 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`) et appliqués en production (124 migrations). P2 s’arrête à P2.5. P3.1 est en cours. Ne pas commencer P4.
+P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#194`) et P3.1 (`#195`) est appliqué en production (125 migrations). P2 s’arrête à P2.5. Arrêt P3 : audit/hotfix P1–P2 avant P3.2. Ne pas commencer P4.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -636,7 +636,7 @@ humain (Solo ou Coach actif) + proposition courante concrète
 
 ### État actuel
 
-**EN COURS.** Inventaire : [P3.1 — organisation des séances](P3_1_SESSION_ORGANIZATION.md).
+**TERMINÉ — mergé `#195`, appliqué en production (lock 125, `20260919194159_program_session_organization`).** Inventaire : [P3.1 — organisation des séances](P3_1_SESSION_ORGANIZATION.md).
 
 Un seul moteur `programs` → `program_days` → prescriptions → workouts.
 
@@ -647,13 +647,15 @@ Un seul moteur `programs` → `program_days` → prescriptions → workouts.
 - Calendrier : n’invente des dates « prévues » qu’en `fixed_days`. En `in_order`, passé réel seulement.
 - Un seul logger : `startWorkoutFromTemplate`.
 - Permissions P1.2 inchangées (leftover Coaché, owner, Coach actif).
-- Candidate `20260919194159_program_session_organization` (pending jusqu’au merge).
+- `triage_coach_fleet` compte encore les weekdays distincts : 0 pour `in_order` (limite connue ; le roster utilise le nombre de séances).
 
 ### À éviter
 
 Ne pas créer deux loggers. Ne pas inventer P2.6/P2.7. Ne pas commencer P4.
 
 ## P3.2 — Phases et cycles
+
+**En attente.** Ne pas commencer tant que la passe d’audit/hotfix P1–P2 n’est pas close et qu’un feu vert explicite n’a pas relancé P3.
 
 Étendre progressivement le modèle :
 

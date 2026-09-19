@@ -9,13 +9,14 @@
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **124 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **124 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260919141146_watch_proposal_decision` ;
-- candidate P3.1 `20260919194159_program_session_organization` dans `migrations.pending.json`
-  jusqu’au merge et à l’application avec le **même timestamp Git** ;
-- les deux versions Git de P2.4/P2.5 sont présentes telles quelles (aucun restamp) :
-  `20260919134856`, `20260919141146`.
+- **125 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **125 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260919194159_program_session_organization` ;
+- `migrations.pending.json` est vide ;
+- P3.1 a été appliqué avec le **même timestamp Git** `20260919194159` (aucun restamp) ;
+- les deux versions Git de P2.4/P2.5 restent présentes telles quelles :
+  `20260919134856`, `20260919141146` ;
+- ne jamais appliquer `20260919181919`.
 
 Le lock a été rafraîchi après cette vérification live. Une future différence
 Git/lock/production doit être traitée comme un blocage de migration, pas
