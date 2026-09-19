@@ -26,8 +26,8 @@ Un refus de proposition P2.5 n’est pas une correction : le signal reste ouvert
 ## Hors scope
 
 - modifier une donnée source ;
-- appliquer des cibles ou un programme (P2.6) ;
-- P2.7 et suivants.
+- appliquer des cibles ou un programme depuis ce panneau
+  (`commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable).
 
 ## Livraison
 

@@ -59,7 +59,7 @@ const watch = {
       program: 'A program adjustment.',
       generic: 'A proposal to decide.',
       nutritionRelance: 'A nutrition follow-up.',
-      draftCalories: 'Proposed target: {{n}} kcal. Accepting it does not write it on its own.',
+      draftCalories: 'Proposed target: {{n}} kcal. It is not written from this panel.',
       detail: 'Contents',
     },
     lastData: 'Data from the last decision',
@@ -78,13 +78,6 @@ const watch = {
       notice: 'This decision stays visible. Prometheus will not propose the same thing until the evidence changes. Targets, sessions and programs are not written from this panel.',
       confirm: 'Save the decision',
       error: 'The decision could not be saved. Nothing was changed.',
-    },
-    apply: {
-      action: 'Apply this minimum',
-      title: 'Apply only this adjustment',
-      notice: 'Prometheus writes only this calorie and macro target. The program, logged sessions and meals stay as they are. Nothing is applied on its own.',
-      confirm: 'Apply this target',
-      error: 'The target could not be applied. Nothing was changed.',
     },
     hidden: {
       unchanged: 'This proposal is no longer shown: the evidence has not changed.',

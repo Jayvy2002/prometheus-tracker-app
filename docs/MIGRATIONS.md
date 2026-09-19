@@ -12,8 +12,7 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 - **124 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
 - **124 migrations** observées en production, dans le même ordre ;
 - dernière version appliquée : `20260919141146_watch_proposal_decision` ;
-- `supabase/migrations.pending.json` contient le candidat P2.6
-  `20260919181919_watch_minimum_apply` (non appliqué ; aucun restamp) ;
+- `supabase/migrations.pending.json` est vide ;
 - les deux versions Git de P2.4/P2.5 sont présentes telles quelles (aucun restamp) :
   `20260919134856`, `20260919141146`.
 

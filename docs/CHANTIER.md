@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P2.6 adapter le minimum nécessaire (en cours).**
+> **CURRENT IMPLEMENTATION GATE — P2.1–P2.5 actifs. Prochaine étape : P3.1 — Séparer séance et jour de semaine (en attente de feu vert).**
 >
-> P1.5–P2.5 sont mergés (`#190`–`#192`, HEAD `9b8a7ab`) et **actifs en production** (124 migrations, dernière `20260919141146_watch_proposal_decision`). P2.4/P2.5 : snapshot canonique, token vu à l’écran, Coaché sans revue stratégique auto-écrite. Cette PR : après un **accept** Watch avec brouillon calorique **complet**, appliquer **uniquement** ce brouillon (déjà le pas WEEKLY_SMALL / macros du builder) via les écritures cibles existantes (Solo `user_profiles` comme `commit_solo`, Coach `coach_set_client_nutrition_targets`). Pas de troisième moteur. Pas de réécriture de programme. Pas d’auto-application au tap Accepter. Un Coaché n’applique pas ses propres cibles. **Ne pas merger cette PR sans feu vert.** Un agent n’enchaîne pas P2.7 ni P3. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.5–P2.5 sont mergés (`#190`–`#192`, HEAD `9b8a7ab`) et **actifs en production** (124 migrations, dernière `20260919141146_watch_proposal_decision`). P2 s’arrête à P2.5. Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ne pas merger cette PR sans feu vert.** Un agent ne commence pas P3.1 sans feu vert explicite. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -61,8 +61,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 actifs en production** (124 migrations) | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | **EN COURS — P2.6 adapter le minimum nécessaire** | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
+| **P2** | Cerveau Prometheus | **P2.1–P2.5 actifs en production** (124 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P3** | Planification avancée | **En attente de feu vert — prochaine étape P3.1** | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#192`) et appliqués en production (124 migrations). Cette PR porte P2.6 (appliquer le minimum calorique accepté). Un agent n’enchaîne pas P2.7 ni P3 sans feu vert.
+P1.5–P2.5 sont mergés dans `new-JV` (`#190`–`#192`) et appliqués en production (124 migrations). P2 s’arrête à P2.5. Prochaine étape réelle : P3.1 — Séparer séance et jour de semaine, en attente de feu vert. Un agent ne commence pas P3.1 sans feu vert explicite.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -626,42 +626,17 @@ humain (Solo ou Coach actif) + proposition courante concrète
 
 `commit_solo_weekly_review_decision` et `apply_intervention` restent les seuls moteurs d’effet durable historiques. P2.5 ne journalise que le contexte Vision 8.6 (`applied_effect = {}`).
 
-**Arrêt : P2.5 est actif en production.**
-
-## P2.6 — Adapter le minimum nécessaire
-
-### État actuel
-
-**EN COURS — cette PR**, Vision 8.7.
-
-Inventaire : [P2.6 — minimum](P2_6_MINIMUM_ADAPT.md).
-
-Après un **accept** humain P2.5 sur une proposition à brouillon calorique **complet**, le panneau propose d’appliquer **uniquement** ce brouillon. C’est déjà le plus petit pas du builder (`WEEKLY_SMALL` / décalage glucides à calories constantes). Pas de second calcul. Pas d’auto-application au tap Accepter. Un refus ou une modification ne déclenche pas d’écriture. Un Coaché n’applique pas ses propres cibles. Un programme entier n’est pas réécrit.
-
-Contrat :
-
-```text
-humain Solo (pas Coaché) ou Coach actif
-+ journal P2.5 accepted pour CE signal / cette semaine
-+ brouillon P/C/F complet
-→ RPC atomique : écrit la cible minimum, journalise applied_effect
-→ token = journal id + proposal exacte vus à l’écran
-→ revue plus récente → stale_proposal
-→ signal reste ouvert
-→ idempotent sur la même semaine + le même effet
-→ relance sans draft / draft incomplet → no_applicable_minimum
-→ aucune réécriture séances / repas / pesées / programme
-→ workspace UI n’accorde rien
-→ succès UI seulement après persistance
-```
-
-**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.7 ni P3.**
+**Arrêt : P2.5 est actif en production. P2 est clos.**
 
 ---
 
 # P3 — Planification avancée
 
 ## P3.1 — Séparer séance et jour de semaine
+
+### État actuel
+
+**EN ATTENTE DE FEU VERT.** Ne pas commencer sans instruction explicite.
 
 Le moteur doit supporter :
 

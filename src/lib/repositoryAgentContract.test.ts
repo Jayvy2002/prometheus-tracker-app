@@ -23,8 +23,9 @@ test('repository agent contract keeps one execution gate and an always-on Cursor
 
   const gates = [...chantier.matchAll(/CURRENT IMPLEMENTATION GATE/g)];
   assert.equal(gates.length, 1, 'docs/CHANTIER.md must contain exactly one authoritative current-task gate');
-  assert.match(chantier, /P2\.6 adapter le minimum nécessaire \(en cours\)/);
-  assert.match(chantier, /n.enchaîne pas P2\.7/);
+  assert.match(chantier, /P2\.1–P2\.5 actifs/);
+  assert.match(chantier, /P3\.1 — Séparer séance et jour de semaine \(en attente de feu vert\)/);
+  assert.match(chantier, /ne commence pas P3\.1 sans feu vert explicite/);
   assert.match(chantier, /pas d.auto-application|aucune auto-application/i);
   const gate = chantier.slice(
     chantier.indexOf('CURRENT IMPLEMENTATION GATE'),
@@ -35,7 +36,6 @@ test('repository agent contract keeps one execution gate and an always-on Cursor
   assert.doesNotMatch(gate, /n.enchaîne pas P2\.3/);
   assert.doesNotMatch(gate, /n.enchaîne pas P2\.4/);
   assert.doesNotMatch(gate, /n.enchaîne pas P2\.5/);
-  assert.doesNotMatch(gate, /n.enchaîne pas P2\.6/);
   assert.doesNotMatch(gate, /ne commence P2\.4/);
   assert.doesNotMatch(gate, /n.enchaîne pas la correction de contexte/);
 });

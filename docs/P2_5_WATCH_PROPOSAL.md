@@ -48,11 +48,10 @@ humain Solo (pas Coaché) ou Coach actif du dossier
 - Le panneau n’appelle pas `commit_solo_weekly_review_decision` ni
   `apply_intervention` pour journaliser.
 
-## Hors scope (P2.6)
+## Hors scope
 
 - appliquer des cibles calories ou un programme depuis ce panneau ;
-- réécrire une donnée source ;
-- P2.7 et suivants.
+- réécrire une donnée source.
 
 ## Livraison
 

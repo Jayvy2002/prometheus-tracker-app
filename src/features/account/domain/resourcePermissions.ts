@@ -187,18 +187,6 @@ export function canDecideAthleteWatchProposal(
   return canCorrectAthleteWatchContext(actor, resource);
 }
 
-/**
- * Vision 8.7: applying the accepted minimum calorie draft uses the same
- * authority as deciding. Accepting does not auto-apply. A coached athlete
- * cannot apply coaching targets on their own dossier. Workspace never grants this.
- */
-export function canApplyAthleteWatchMinimum(
-  actor: PermissionActor,
-  resource: AthleteWatchResource = {},
-): boolean {
-  return canDecideAthleteWatchProposal(actor, resource);
-}
-
 export function canReadOwnCalendar(actor: PermissionActor): boolean {
   return canUsePersonalTools(actor);
 }
