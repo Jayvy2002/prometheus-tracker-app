@@ -139,7 +139,7 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
     const iso = new Date().toISOString();
     await supabase
       .from('coach_client_links')
-      .update({ last_nudged_at: iso, updated_at: iso })
+      .update({ last_nudged_at: iso })
       .eq('client_id', clientId)
       .eq('status', 'active');
     const mapped = mapCoachMessage(data as Record<string, unknown>);

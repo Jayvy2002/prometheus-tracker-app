@@ -442,7 +442,7 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
     const iso = new Date().toISOString();
     await supabase
       .from('coach_client_links')
-      .update({ last_visited_at: iso, updated_at: iso })
+      .update({ last_visited_at: iso })
       .eq('client_id', clientId)
       .eq('status', 'active');
     // Keep the in-memory last_visited_at as the previous visit so Client 360

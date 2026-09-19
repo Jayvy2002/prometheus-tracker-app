@@ -25,16 +25,154 @@ insert into public.coach_client_links(coach_id,client_id,status) values
  ('a2010000-0000-4000-8000-000000000001','a2010000-0000-4000-8000-000000000002','active'),
  ('a2010000-0000-4000-8000-000000000005','a2010000-0000-4000-8000-000000000006','active');
 
-do $$ begin
+do $$
+declare
+  v_auth text[];
+  v_anon text[];
+  v_public text[];
+  v_cols text[];
+  v_forbidden text;
+begin
+  select coalesce(array_agg(privilege_type order by privilege_type), '{}')
+    into v_auth
+  from pg_class c
+  cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  where c.oid = 'public.coach_client_links'::regclass
+    and a.grantee = 'authenticated'::regrole;
+  if v_auth is distinct from array['SELECT']::text[] then
+    raise exception 'authenticated table ACL is %, expected {SELECT}', v_auth;
+  end if;
+
+  select coalesce(array_agg(privilege_type order by privilege_type), '{}')
+    into v_anon
+  from pg_class c
+  cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  where c.oid = 'public.coach_client_links'::regclass
+    and a.grantee = 'anon'::regrole;
+  if v_anon <> '{}'::text[] then
+    raise exception 'anon table ACL is %, expected none', v_anon;
+  end if;
+
+  select coalesce(array_agg(privilege_type order by privilege_type), '{}')
+    into v_public
+  from pg_class c
+  cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  where c.oid = 'public.coach_client_links'::regclass
+    and a.grantee = 0;
+  if v_public <> '{}'::text[] then
+    raise exception 'PUBLIC table ACL is %, expected none', v_public;
+  end if;
+
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee = 'authenticated'::regrole
+      and a.privilege_type = 'INSERT'
+  ) then
+    raise exception 'authenticated still has INSERT';
+  end if;
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee = 'authenticated'::regrole
+      and a.privilege_type = 'DELETE'
+  ) then
+    raise exception 'authenticated still has DELETE';
+  end if;
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee = 'authenticated'::regrole
+      and a.privilege_type = 'TRUNCATE'
+  ) then
+    raise exception 'authenticated still has TRUNCATE';
+  end if;
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee = 'authenticated'::regrole
+      and a.privilege_type = 'REFERENCES'
+  ) then
+    raise exception 'authenticated still has REFERENCES';
+  end if;
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee = 'authenticated'::regrole
+      and a.privilege_type = 'TRIGGER'
+  ) then
+    raise exception 'authenticated still has TRIGGER';
+  end if;
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee = 'authenticated'::regrole
+      and a.privilege_type = 'MAINTAIN'
+  ) then
+    raise exception 'authenticated still has MAINTAIN';
+  end if;
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee = 'authenticated'::regrole
+      and a.privilege_type = 'UPDATE'
+  ) then
+    raise exception 'authenticated still has table-level UPDATE';
+  end if;
+
+  if exists (
+    select 1
+    from pg_class c
+    cross join lateral aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    where c.oid = 'public.coach_client_links'::regclass
+      and a.grantee in (0::oid, 'anon'::regrole)
+  ) then
+    raise exception 'anon/PUBLIC still have table privileges';
+  end if;
+
   if has_table_privilege('authenticated','public.coach_client_links','insert') then
     raise exception 'authenticated insert grant still open';
   end if;
   if has_table_privilege('authenticated','public.coach_client_links','delete') then
     raise exception 'authenticated delete grant still open';
   end if;
-  if has_table_privilege('anon','public.coach_client_links','update') then
-    raise exception 'anon update grant still open';
+  if has_table_privilege('authenticated','public.coach_client_links','truncate') then
+    raise exception 'authenticated truncate grant still open';
   end if;
+  if has_table_privilege('authenticated','public.coach_client_links','references') then
+    raise exception 'authenticated references grant still open';
+  end if;
+  if has_table_privilege('authenticated','public.coach_client_links','trigger') then
+    raise exception 'authenticated trigger grant still open';
+  end if;
+  if has_table_privilege('authenticated','public.coach_client_links','maintain') then
+    raise exception 'authenticated maintain grant still open';
+  end if;
+  if has_table_privilege('anon','public.coach_client_links','select')
+     or has_table_privilege('anon','public.coach_client_links','insert')
+     or has_table_privilege('anon','public.coach_client_links','update')
+     or has_table_privilege('anon','public.coach_client_links','delete')
+     or has_table_privilege('anon','public.coach_client_links','truncate')
+     or has_table_privilege('anon','public.coach_client_links','references')
+     or has_table_privilege('anon','public.coach_client_links','trigger')
+     or has_table_privilege('anon','public.coach_client_links','maintain') then
+    raise exception 'anon still has a table privilege';
+  end if;
+
   if has_column_privilege('authenticated','public.coach_client_links','client_id','update') then
     raise exception 'authenticated can update client_id';
   end if;
@@ -44,11 +182,56 @@ do $$ begin
   if has_column_privilege('authenticated','public.coach_client_links','status','update') then
     raise exception 'authenticated can update status';
   end if;
+  if has_column_privilege('authenticated','public.coach_client_links','id','update') then
+    raise exception 'authenticated can update id';
+  end if;
+  if has_column_privilege('authenticated','public.coach_client_links','created_at','update') then
+    raise exception 'authenticated can update created_at';
+  end if;
+  if has_column_privilege('authenticated','public.coach_client_links','updated_at','update') then
+    raise exception 'authenticated can update updated_at';
+  end if;
   if not has_column_privilege('authenticated','public.coach_client_links','last_visited_at','update') then
     raise exception 'coach visit bookkeeping revoked';
   end if;
   if not has_column_privilege('authenticated','public.coach_client_links','last_nudged_at','update') then
     raise exception 'coach nudge bookkeeping revoked';
+  end if;
+
+  select coalesce(array_agg(a.attname order by a.attname), '{}')
+    into v_cols
+  from pg_attribute a
+  where a.attrelid = 'public.coach_client_links'::regclass
+    and a.attnum > 0
+    and not a.attisdropped
+    and has_column_privilege('authenticated', a.attrelid, a.attname, 'update');
+  if v_cols is distinct from array['last_nudged_at','last_visited_at']::text[] then
+    raise exception 'authenticated column UPDATE is %, expected {last_nudged_at,last_visited_at}', v_cols;
+  end if;
+
+  select a.attname into v_forbidden
+  from pg_attribute a
+  cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[])) x
+  where a.attrelid = 'public.coach_client_links'::regclass
+    and a.attnum > 0
+    and not a.attisdropped
+    and a.attname not in ('last_visited_at','last_nudged_at')
+    and x.grantee = 'authenticated'::regrole
+  limit 1;
+  if v_forbidden is not null then
+    raise exception 'leftover authenticated column grant on %', v_forbidden;
+  end if;
+
+  if exists (
+    select 1
+    from pg_attribute a
+    cross join lateral aclexplode(coalesce(a.attacl, '{}'::aclitem[])) x
+    where a.attrelid = 'public.coach_client_links'::regclass
+      and a.attnum > 0
+      and not a.attisdropped
+      and x.grantee in (0::oid, 'anon'::regrole)
+  ) then
+    raise exception 'anon/PUBLIC still have column privileges';
   end if;
 end $$;
 
@@ -118,8 +301,17 @@ do $$ begin
   exception when others then
     if sqlerrm = 'coach inserted a link via Data API' then raise; end if;
   end;
+  begin
+    update public.coach_client_links
+       set updated_at = '2020-01-01T00:00:00Z'
+     where coach_id = 'a2010000-0000-4000-8000-000000000001'
+       and client_id = 'a2010000-0000-4000-8000-000000000002';
+    raise exception 'coach wrote updated_at via Data API';
+  exception when others then
+    if sqlerrm = 'coach wrote updated_at via Data API' then raise; end if;
+  end;
   update public.coach_client_links
-     set last_visited_at = '2026-09-19T12:00:00Z', updated_at = '2026-09-19T12:00:00Z'
+     set last_visited_at = '2026-09-19T12:00:00Z'
    where coach_id = 'a2010000-0000-4000-8000-000000000001'
      and client_id = 'a2010000-0000-4000-8000-000000000002'
      and status = 'active';

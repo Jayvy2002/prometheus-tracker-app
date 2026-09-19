@@ -8,8 +8,9 @@ import { coachingStoreSource } from './coachingStoreSource';
  * Guards for link/message/assignment write locks, including Hotfix A identity immutability.
  *
  * Column grants after 20260905135151 blocked client_id/coach_id, but status stayed writable
- * and the UPDATE policy did not freeze identity. Hotfix A adds a trigger and removes status
- * from the Data API grant. These tests read the last grant/policy in migration order.
+ * and the UPDATE policy did not freeze identity. Hotfix A adds a trigger and allowlists
+ * authenticated to SELECT + UPDATE (last_visited_at, last_nudged_at). These tests read
+ * the last grant/policy in migration order.
  */
 
 const MIGRATIONS = resolve(process.cwd(), 'supabase/migrations');
@@ -82,7 +83,7 @@ test('coach_client_links: authenticated may only UPDATE bookkeeping columns, nev
   const grant = lastUpdateGrant('coach_client_links');
   assert.match(grant, /GRANT\s+UPDATE\s*\(/, `table-level UPDATE grant is back: ${grant}`);
   const cols = grant.match(/\(([^)]*)\)/)![1].split(',').map((c) => c.trim()).sort();
-  assert.deepEqual(cols, ['last_nudged_at', 'last_visited_at', 'updated_at']);
+  assert.deepEqual(cols, ['last_nudged_at', 'last_visited_at']);
 
   const written = updatedColumns('src/stores/coachingStore.ts', 'coach_client_links');
   assert.ok(written.size > 0, 'expected the store to update coach_client_links somewhere');

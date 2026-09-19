@@ -435,7 +435,10 @@ Une seule définition métier est utilisée et testée pour chaque durée.
 
 Finding confirmé en production : policy `UPDATE` `USING coach_id = uid AND status = 'active'` / `WITH CHECK coach_id = uid`. Les grants colonne bloquaient déjà `client_id`/`coach_id`, mais pas `status`, et aucun trigger ne gelait l’identité.
 
-Correctif serveur : trigger d’identité + policy bookkeeping + `REVOKE` INSERT/DELETE/status. Les RPC métier restent le seul chemin de transition.
+Correctif serveur : trigger d’identité + policy bookkeeping + allowlist ACL
+(`REVOKE ALL` puis `GRANT SELECT` + `UPDATE (last_visited_at, last_nudged_at)`).
+`updated_at` est tamponné par `public.update_updated_at`. Les RPC métier restent
+le seul chemin de transition.
 
 ### Terminé quand
 

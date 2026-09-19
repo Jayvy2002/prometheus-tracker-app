@@ -248,6 +248,50 @@ BEGIN
   PERFORM pg_temp.record('LINK_IDENTITY', v_ok, v_detail);
 END $$;
 
+-- Hotfix A allowlist: authenticated SELECT + bookkeeping UPDATE only; anon none.
+DO $$
+DECLARE
+  v_auth text[];
+  v_cols text[];
+  v_ok boolean := true;
+  v_detail text := 'allowlist';
+BEGIN
+  SELECT coalesce(array_agg(privilege_type ORDER BY privilege_type), '{}')
+    INTO v_auth
+  FROM pg_class c
+  CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+  WHERE c.oid = 'public.coach_client_links'::regclass
+    AND a.grantee = 'authenticated'::regrole;
+  IF v_auth IS DISTINCT FROM ARRAY['SELECT']::text[] THEN
+    v_ok := false;
+    v_detail := format('authenticated table ACL %s', v_auth);
+  END IF;
+  IF v_ok AND EXISTS (
+    SELECT 1
+    FROM pg_class c
+    CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+    WHERE c.oid = 'public.coach_client_links'::regclass
+      AND a.grantee IN (0::oid, 'anon'::regrole)
+  ) THEN
+    v_ok := false;
+    v_detail := 'anon/PUBLIC still have table privileges';
+  END IF;
+  IF v_ok THEN
+    SELECT coalesce(array_agg(a.attname ORDER BY a.attname), '{}')
+      INTO v_cols
+    FROM pg_attribute a
+    WHERE a.attrelid = 'public.coach_client_links'::regclass
+      AND a.attnum > 0
+      AND NOT a.attisdropped
+      AND has_column_privilege('authenticated', a.attrelid, a.attname, 'update');
+    IF v_cols IS DISTINCT FROM ARRAY['last_nudged_at','last_visited_at']::text[] THEN
+      v_ok := false;
+      v_detail := format('column UPDATE %s', v_cols);
+    END IF;
+  END IF;
+  PERFORM pg_temp.record('LINK_ACL', v_ok, v_detail);
+END $$;
+
 -- S02 : A1 ne s'auto-attribue pas P_B et ne lit pas le programme de B.
 DO $$
 DECLARE

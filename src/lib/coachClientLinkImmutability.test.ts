@@ -9,9 +9,11 @@ test('Hotfix A freezes coach_client_links identity and keeps métier RPCs', () =
   const mig = latestMigrationContaining('protect_coach_client_link_identity');
   assert.equal(mig.file, '20260919202538_coach_client_link_immutability.sql');
   assert.match(mig.sql, /coach_client_link_identity_immutable/);
-  assert.match(mig.sql, /REVOKE ALL ON TABLE public\.coach_client_links FROM PUBLIC, anon/);
-  assert.match(mig.sql, /REVOKE INSERT, DELETE, TRUNCATE, UPDATE ON TABLE public\.coach_client_links FROM authenticated/);
-  assert.match(mig.sql, /GRANT UPDATE \(last_visited_at, last_nudged_at, updated_at\)/);
+  assert.match(mig.sql, /REVOKE ALL ON TABLE public\.coach_client_links FROM PUBLIC, anon, authenticated/);
+  assert.match(mig.sql, /GRANT SELECT ON TABLE public\.coach_client_links TO authenticated/);
+  assert.match(mig.sql, /GRANT UPDATE \(last_visited_at, last_nudged_at\)/);
+  assert.doesNotMatch(mig.sql, /GRANT UPDATE \(last_visited_at, last_nudged_at, updated_at\)/);
+  assert.match(mig.sql, /EXECUTE FUNCTION public\.update_updated_at\(\)/);
   assert.match(mig.sql, /WITH CHECK \(coach_id = \(select auth\.uid\(\)\) AND status = 'active'\)/);
   assert.doesNotMatch(mig.sql, /GRANT UPDATE \(status/);
 
@@ -25,6 +27,14 @@ test('Hotfix A freezes coach_client_links identity and keeps métier RPCs', () =
   assert.match(sqlTest, /coach retargeted client_id without error/);
   assert.match(sqlTest, /coach ended link via Data API/);
   assert.match(sqlTest, /former coach resurrected via Data API/);
+  assert.match(sqlTest, /authenticated table ACL is/);
+  assert.match(sqlTest, /privilege_type = 'MAINTAIN'/);
+  assert.match(sqlTest, /privilege_type = 'REFERENCES'/);
+  assert.match(sqlTest, /privilege_type = 'TRIGGER'/);
+  assert.match(sqlTest, /privilege_type = 'UPDATE'/);
+  assert.match(sqlTest, /coach wrote updated_at via Data API/);
+  assert.match(sqlTest, /authenticated still has table-level UPDATE/);
+  assert.match(sqlTest, /anon\/PUBLIC still have table privileges/);
   assert.match(sqlTest, /end_coach_client_link/);
   assert.match(sqlTest, /client_end_coach_link/);
   assert.match(sqlTest, /activate_coaching_relationship/);
