@@ -23,6 +23,7 @@ import {
   shiftCarbsKeepCalories,
   signsOfFatigue,
   trackingOn,
+  type WeeklyNutritionProposal,
 } from '../../../../supabase/functions/_shared/weeklyNutritionProposal.ts';
 import { normalizeGoal, OVEREAT_RATIO, MIN_NUTRITION_LOG_DAYS } from './coachNutrition';
 import type {

@@ -59,6 +59,7 @@ export interface WeeklyReviewSoloEvidenceLike {
   weighIns: number;
   weightStart: number | null;
   deltaKg: number | null;
+  weightEnd?: number | null;
   weightSpanDays: number | null;
   workouts: number;
   expectedWorkouts: number;

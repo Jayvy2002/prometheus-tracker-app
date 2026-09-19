@@ -15,7 +15,6 @@ import {
 } from "./proposalMemory.ts";
 import {
   BULK_TOO_FAST_PCT_PER_WEEK,
-  CUT_GAIN_MIN_DELTA_KG,
   CUT_STALL_MIN_DELTA_KG,
   CUT_TOO_FAST_PCT_PER_WEEK,
   ENERGY_DECLARED_MAX,

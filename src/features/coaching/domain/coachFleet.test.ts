@@ -956,11 +956,14 @@ test('architecture lock: weekly review stays deterministic and in-app', () => {
 test('fleet-round weekly kcal is data-driven, not a generic ±150', () => {
   const fleet = readFileSync(resolve(process.cwd(), 'supabase/functions/coach-fleet-round/index.ts'), 'utf8');
   assert.match(fleet, /proposeWeeklyNutrition/);
-  assert.match(fleet, /WEEKLY_LARGE_KCAL/);
+  assert.match(fleet, /weeklyNutritionProposal/);
   assert.match(fleet, /carb_support/);
   assert.match(fleet, /why:\s*\{/);
   assert.match(fleet, /loggedDays:/);
   assert.doesNotMatch(fleet, /direction === "down" \? -150/);
+  const builder = readFileSync(resolve(process.cwd(), 'supabase/functions/_shared/weeklyNutritionProposal.ts'), 'utf8');
+  assert.match(builder, /WEEKLY_LARGE_KCAL/);
+  assert.match(builder, /export function proposeWeeklyNutrition/);
   const src = readFileSync(resolve(process.cwd(), 'src/features/coaching/domain/coachFleet.ts'), 'utf8');
   assert.doesNotMatch(src, /cut_more' \|\| direction === 'bulk_less' \? -150/);
   assert.equal(WEEKLY_LARGE_KCAL, 200);

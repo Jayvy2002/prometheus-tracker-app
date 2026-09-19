@@ -288,6 +288,8 @@ test('proposal inputs unhold a settled watch decision even when the domain finge
     true,
   );
 });
+
+test('evidence thresholds match the fleet snapshot', () => {
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, new RegExp(`>= ${DECISION_EVIDENCE_KCAL_DELTA}`));
   assert.match(fleet, new RegExp(`>= ${DECISION_EVIDENCE_WORKOUT_DELTA}`));

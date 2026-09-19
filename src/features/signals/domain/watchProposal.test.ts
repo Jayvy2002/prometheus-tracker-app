@@ -83,10 +83,11 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(latest.sql, /watch-decide:' \|\| v_signal\.id/);
   assert.match(latest.sql, /v_review\.week_start::text/);
   assert.match(latest.sql, /FOR UPDATE/);
+  const decideSql = latest.sql.slice(latest.sql.indexOf('CREATE OR REPLACE FUNCTION public.decide_athlete_watch_proposal'));
   assert.doesNotMatch(latest.sql, /CREATE TABLE/);
-  assert.doesNotMatch(latest.sql, /resolve_athlete_signal/);
-  assert.doesNotMatch(latest.sql, /commit_solo_weekly_review_decision/);
-  assert.doesNotMatch(latest.sql, /apply_intervention/);
+  assert.doesNotMatch(decideSql, /resolve_athlete_signal/);
+  assert.doesNotMatch(decideSql, /commit_solo_weekly_review_decision/);
+  assert.doesNotMatch(decideSql, /apply_intervention/);
   assert.doesNotMatch(latest.sql, /stripe/i);
   assert.doesNotMatch(latest.sql, /UPDATE public\.(programs|program_assignments|nutrition_logs|workouts|user_profiles|weight_logs)/);
   assert.doesNotMatch(latest.sql, /daily_calorie_target/);

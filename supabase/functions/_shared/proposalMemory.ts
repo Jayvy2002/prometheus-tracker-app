@@ -46,6 +46,7 @@ export interface ProposalEvidenceSnapshot {
   goal?: string;
   proteinTarget?: number;
   carbsTarget?: number;
+  fatTarget?: number;
   weightKg?: number;
   weightStartKg?: number | null;
   guarded?: boolean;
