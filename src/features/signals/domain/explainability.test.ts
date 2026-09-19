@@ -306,7 +306,7 @@ test('changed proofs after a refusal do not resurrect the old proposal as curren
   });
   assert.equal(items[0].kind, 'current');
   assert.equal(items[0].suppressed, false);
-  assert.equal(items[0].currentProposalKey, 'prometheusWatch.proposal.generic');
+  assert.equal(items[0].currentProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(items[0].lastProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(items[0].observedCopy?.params.count, 2);
   assert.equal(items[0].periodStart, '2026-08-28');
@@ -355,7 +355,7 @@ test('a review that proposes for signal A does not invent a current proposal on 
   const other = items.find((row) => row.type === 'custom_habit');
   assert.ok(training);
   assert.ok(other);
-  assert.equal(training?.currentProposalKey, 'prometheusWatch.proposal.generic');
+  assert.equal(training?.currentProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(other?.currentProposalKey, null);
   assert.equal(other?.kind, 'current');
   assert.equal(other?.statusKey, 'prometheusWatch.status.open');
@@ -392,7 +392,7 @@ test('a watch-panel accept or refuse hides the current proposal without inventin
     signals: [signalFromAction(action)],
     decisions: [decision({
       decision: 'accepted',
-      proposal: { kind: 'watch_proposal_decision', action: 'accepted', domain: 'training', type: 'missed_sessions' },
+      proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
       source: 'prometheus_watch',
       data_used: sameEvidence,
       human_reason: null,
@@ -403,7 +403,7 @@ test('a watch-panel accept or refuse hides the current proposal without inventin
   assert.equal(accepted[0].kind, 'current');
   assert.equal(accepted[0].statusKey, 'prometheusWatch.status.open');
   assert.equal(accepted[0].currentProposalKey, null);
-  assert.equal(accepted[0].lastProposalKey, 'prometheusWatch.proposal.generic');
+  assert.equal(accepted[0].lastProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(accepted[0].lastDecisionKey, 'prometheusWatch.decision.accepted');
   assert.equal(accepted[0].whyHiddenKey, 'prometheusWatch.hidden.unchanged');
   assert.equal(accepted[0].reviewWeekStart, persisted.week_start);
@@ -412,7 +412,7 @@ test('a watch-panel accept or refuse hides the current proposal without inventin
     signals: [signalFromAction(action)],
     decisions: [decision({
       decision: 'modified',
-      proposal: { kind: 'watch_proposal_decision', action: 'modified', domain: 'training', type: 'missed_sessions' },
+      proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
       source: 'prometheus_watch',
       data_used: sameEvidence,
       human_reason: 'Volume plus tard',
@@ -427,7 +427,7 @@ test('a watch-panel accept or refuse hides the current proposal without inventin
     signals: [signalFromAction(action)],
     decisions: [decision({
       decision: 'refused',
-      proposal: { kind: 'watch_proposal_decision', action: 'refused', domain: 'training', type: 'missed_sessions' },
+      proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
       source: 'prometheus_watch',
       data_used: sameEvidence,
     })],
@@ -450,10 +450,40 @@ test('a watch-panel accept or refuse hides the current proposal without inventin
     decisions: [],
     latestReview: persisted,
   });
-  assert.equal(mixed.find((row) => row.type === 'missed_sessions')?.currentProposalKey, 'prometheusWatch.proposal.generic');
+  assert.equal(mixed.find((row) => row.type === 'missed_sessions')?.currentProposalKey, 'prometheusWatch.proposal.relance');
   assert.equal(mixed.find((row) => row.type === 'missed_sessions')?.reviewWeekStart, persisted.week_start);
   assert.equal(mixed.find((row) => row.type === 'custom_habit')?.currentProposalKey, null);
   assert.equal(mixed.find((row) => row.type === 'custom_habit')?.reviewWeekStart, persisted.week_start);
+});
+
+test('a propose review without a concrete proposal object is not decidable', () => {
+  const week2 = runAthleteWeeklyReview(input({
+    today: '2026-09-10',
+    aggregates: aggregates({
+      workoutCount: 2,
+      expectedWorkouts: 6,
+      windowStart: addUtcDays('2026-08-21', 7),
+      windowEnd: addUtcDays('2026-09-03', 7),
+    }),
+    existingSignals: [signalFromAction(upsertOf(runAthleteWeeklyReview(input({
+      aggregates: aggregates({ workoutCount: 0, expectedWorkouts: 6 }),
+    })), 'missed_sessions'), { confidence: 'low' })],
+  }));
+  assert.equal(week2.decision, 'propose');
+  const stripped = weeklyReviewActionsToRpcPayload(week2.signalActions).map((raw) => {
+    const row = { ...(raw as Record<string, unknown>) };
+    delete row.proposal;
+    return row;
+  });
+  const persisted = reviewFromEngine(week2, { signal_actions: stripped });
+  assert.equal(reviewProposesFor(persisted, 'training', 'missed_sessions'), false);
+  const items = buildPrometheusWatchItems({
+    signals: [signalFromAction(upsertOf(week2, 'missed_sessions'))],
+    decisions: [],
+    latestReview: persisted,
+  });
+  assert.equal(items[0].currentProposalKey, null);
+  assert.equal(items[0].currentProposalDetail, null);
 });
 
 test('why copy is a real explanation, not a repeat of the type title', () => {
@@ -604,6 +634,8 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
     assert.match(locale, /decide:[\s\S]*accept/);
     assert.match(locale, /titleRefuse|Decline this proposal/);
     assert.match(locale, /Record a change \(without applying it\)|Noter une modification \(sans l’appliquer\)/);
+    assert.match(locale, /nutritionRelance/);
+    assert.match(locale, /draftCalories/);
   }
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /PrometheusWatchPanel/);
   assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /PrometheusWatchPanel/);
@@ -623,6 +655,7 @@ test('FR/EN copy covers structured observations, quiet status, load error, and b
   assert.match(panel, /loadError/);
   assert.match(panel, /observedCopy/);
   assert.match(panel, /currentProposalKey/);
+  assert.match(panel, /currentProposalDetail/);
   assert.match(panel, /lastProposalKey/);
   assert.doesNotMatch(panel, /item\.hypothesis|evidence\.summary|item\.observed\b/);
   assert.match(src('docs/P2_4_EXPLAINABILITY.md'), /Lecture seule/);

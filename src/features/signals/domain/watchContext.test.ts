@@ -34,6 +34,8 @@ test('P2.4 context correction reuses journal + resolve, with Solo/Coach authorit
   assert.match(latest.sql, /is_coach_of/);
   assert.match(latest.sql, /resolve_athlete_signal/);
   assert.match(latest.sql, /queue_and_record_athlete_decision/);
+  assert.match(latest.sql, /not_persisted/);
+  assert.match(latest.sql, /idempotency_conflict/);
   assert.match(latest.sql, /not_relevant/);
   assert.match(latest.sql, /watch_context_correction/);
   assert.match(latest.sql, /prometheus_watch/);
@@ -65,6 +67,9 @@ test('P2.4 context correction reuses journal + resolve, with Solo/Coach authorit
   assert.match(sqlTest, /stranger correct allowed/);
   assert.match(sqlTest, /solo correction not idempotent/);
   assert.match(sqlTest, /correct_athlete_watch_context mutates tracker data/);
+  assert.match(sqlTest, /different reason replay allowed/);
+  assert.match(sqlTest, /journal failure closed the signal/);
+  assert.match(sqlTest, /journal failure still persisted/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /athlete_watch_context\.sql/);

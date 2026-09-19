@@ -19,10 +19,13 @@ const MIN_WEIGH_INS = 2;
 const OVEREAT_RATIO = 1.15;
 const UNDER_EAT_RATIO = 0.85;
 const CUT_STALL_MIN_DELTA_KG = -0.2;
+const CUT_GAIN_MIN_DELTA_KG = 0.3;
 const CUT_TOO_FAST_PCT_PER_WEEK = 1.5;
 const BULK_TOO_FAST_PCT_PER_WEEK = 0.7;
 const FATIGUE_DECLARED_MIN = 7;
 const ENERGY_DECLARED_MAX = 3;
+const WEEKLY_SMALL_KCAL = 100;
+const WEEKLY_LARGE_KCAL = 200;
 
 export type EngineSignalDomain = "training" | "nutrition" | "recovery" | "weight" | "goal" | "adherence";
 export type EngineSignalConfidence = "low" | "medium" | "high";
@@ -99,6 +102,19 @@ export interface WeeklyReviewSignalAction {
   reason?: string;
   id?: string;
   nextReviewAt?: string | null;
+  /** Concrete Solo/fleet proposal judged by P2.5. Absent when the row is not decidable. */
+  proposal?: WatchProposalSnapshot;
+}
+
+export interface WatchProposalSnapshot {
+  kind: string;
+  action: string;
+  reason?: string;
+  domain: string;
+  type: string;
+  flag?: string;
+  week_start: string;
+  draft?: { calories: number };
 }
 
 export interface WeeklyReviewResult {
@@ -488,6 +504,96 @@ function collectCandidates(input: WeeklyReviewInput): Candidate[] {
   return out;
 }
 
+function snapshotWatchProposal(
+  candidate: Candidate,
+  agg: WeeklyReviewAggregates,
+  weekStart: string,
+): WatchProposalSnapshot | null {
+  const domain = candidate.domain;
+  const type = candidate.type;
+  const goal = normalizeGoal(agg.goal);
+  const base = Math.round(agg.calorieTarget);
+  const draftOf = (calories: number | null): { calories: number } | undefined =>
+    calories != null && calories > 0 ? { calories } : undefined;
+
+  if (domain === "training" && type === "missed_sessions") {
+    return {
+      kind: "adherence_training",
+      action: "relance",
+      domain,
+      type,
+      flag: "adherence_training",
+      week_start: weekStart,
+    };
+  }
+  if (domain === "nutrition" && type === "not_following") {
+    return {
+      kind: "adherence_nutrition",
+      action: "relance",
+      reason: "not_following",
+      domain,
+      type,
+      flag: "adherence_nutrition",
+      week_start: weekStart,
+    };
+  }
+  if (domain === "adherence" && type === "sparse_nutrition") {
+    return {
+      kind: "adherence_nutrition",
+      action: "relance",
+      reason: "sparse",
+      domain,
+      type,
+      flag: "adherence_nutrition",
+      week_start: weekStart,
+    };
+  }
+  if (domain === "weight" && type === "too_fast") {
+    const calories = goal === "bulk" ? base - WEEKLY_SMALL_KCAL : base + WEEKLY_SMALL_KCAL;
+    return {
+      kind: "calorie_adjustment",
+      action: "calorie_adjustment",
+      reason: goal === "bulk" ? "bulk_too_fast" : "too_fast_cut",
+      domain,
+      type,
+      flag: "too_fast",
+      week_start: weekStart,
+      draft: draftOf(calories),
+    };
+  }
+  if (domain === "weight" && type === "stall") {
+    const gain = goal === "cut" && agg.weightDeltaKg != null && agg.weightDeltaKg >= CUT_GAIN_MIN_DELTA_KG;
+    const calories = goal === "bulk"
+      ? base + WEEKLY_SMALL_KCAL
+      : gain
+        ? base - WEEKLY_LARGE_KCAL
+        : base - WEEKLY_SMALL_KCAL;
+    return {
+      kind: "calorie_adjustment",
+      action: "calorie_adjustment",
+      reason: goal === "bulk" ? "bulk_stall" : gain ? "cut_gain" : "cut_stall",
+      domain,
+      type,
+      flag: "stall_adherent",
+      week_start: weekStart,
+      draft: draftOf(calories),
+    };
+  }
+  if (domain === "recovery" && type === "fatigue") {
+    return {
+      kind: "calorie_adjustment",
+      action: "calorie_adjustment",
+      reason: "carb_support",
+      domain,
+      type,
+      flag: "carb_support",
+      week_start: weekStart,
+      draft: draftOf(base),
+    };
+  }
+  return null;
+}
+
 function summaryFor(
   authority: WeeklyReviewAuthority,
   decision: WeeklyReviewDecision,
@@ -610,7 +716,12 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
         proposeWorthyOpen += 1;
       }
     }
-    actions.push({
+    const decidable = candidate.proposeWorthy
+      && status === "open"
+      && (confidence === "medium" || confidence === "high")
+      && !isProposalSuppressed(recentDecisions, candidate.domain, candidate.type, input.aggregates)
+      && !isWatchProposalSettled(recentDecisions, candidate.domain, candidate.type, input.aggregates);
+    const action: WeeklyReviewSignalAction = {
       op: "upsert",
       domain: candidate.domain,
       type: candidate.type,
@@ -620,7 +731,12 @@ export function runAthleteWeeklyReview(input: WeeklyReviewInput): WeeklyReviewRe
       confidence,
       status,
       nextReviewAt,
-    });
+    };
+    if (decidable) {
+      const snapshot = snapshotWatchProposal(candidate, input.aggregates, weekStart);
+      if (snapshot) action.proposal = snapshot;
+    }
+    actions.push(action);
   }
 
   for (const signal of input.existingSignals) {
@@ -713,6 +829,7 @@ export function weeklyReviewActionsToRpcPayload(actions: WeeklyReviewSignalActio
       confidence: action.confidence ?? "low",
       status: action.status ?? "open",
       next_review_at: action.nextReviewAt ?? null,
+      ...(action.proposal ? { proposal: action.proposal } : {}),
     };
   });
 }

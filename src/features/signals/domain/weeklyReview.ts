@@ -25,6 +25,7 @@ export {
   type WeeklyReviewResult,
   type WeeklyReviewSignalAction,
   type WeeklyReviewTracking,
+  type WatchProposalSnapshot,
 } from '../../../../supabase/functions/_shared/weeklyReviewEngine.ts';
 
 export interface WeeklyReviewSoloLike {

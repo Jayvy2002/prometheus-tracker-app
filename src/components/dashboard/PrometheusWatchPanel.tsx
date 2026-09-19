@@ -43,6 +43,8 @@ interface CorrectionDraft {
 interface DecisionDraft {
   signalId: string;
   headlineKey: string;
+  proposalKey: string;
+  proposalDetail: PrometheusWatchItem['currentProposalDetail'];
   decision: WatchProposalDecision;
   weekStart: string;
 }
@@ -229,6 +231,12 @@ function WatchRow({
             label={t('prometheusWatch.proposal.label')}
             value={item.currentProposalKey ? t(item.currentProposalKey) : t('prometheusWatch.proposal.none')}
           />
+          {item.currentProposalDetail ? (
+            <WatchField
+              label={t('prometheusWatch.proposal.detail')}
+              value={t(item.currentProposalDetail.key, item.currentProposalDetail.params)}
+            />
+          ) : null}
           {item.lastProposalKey ? (
             <WatchField label={t('prometheusWatch.proposal.last')} value={t(item.lastProposalKey)} />
           ) : null}
@@ -255,6 +263,8 @@ function WatchRow({
               onClick={() => setDecisionDraft({
                 signalId: item.id,
                 headlineKey: item.headlineKey,
+                proposalKey: item.currentProposalKey ?? '',
+                proposalDetail: item.currentProposalDetail,
                 decision: 'accepted',
                 weekStart: item.reviewWeekStart ?? '',
               })}
@@ -269,6 +279,8 @@ function WatchRow({
               onClick={() => setDecisionDraft({
                 signalId: item.id,
                 headlineKey: item.headlineKey,
+                proposalKey: item.currentProposalKey ?? '',
+                proposalDetail: item.currentProposalDetail,
                 decision: 'modified',
                 weekStart: item.reviewWeekStart ?? '',
               })}
@@ -283,6 +295,8 @@ function WatchRow({
               onClick={() => setDecisionDraft({
                 signalId: item.id,
                 headlineKey: item.headlineKey,
+                proposalKey: item.currentProposalKey ?? '',
+                proposalDetail: item.currentProposalDetail,
                 decision: 'refused',
                 weekStart: item.reviewWeekStart ?? '',
               })}
@@ -492,9 +506,17 @@ function WatchDecisionModal({
       title={t(titleKey)}
       size="sm"
     >
-      <p className="text-sm text-neutral-300 mb-3">
+      <p className="text-sm text-neutral-300 mb-2">
         {t(draft.headlineKey)}
       </p>
+      {draft.proposalKey ? (
+        <p className="text-sm text-white mb-2">{t(draft.proposalKey)}</p>
+      ) : null}
+      {draft.proposalDetail ? (
+        <p className="text-sm text-neutral-300 mb-3">
+          {t(draft.proposalDetail.key, draft.proposalDetail.params)}
+        </p>
+      ) : null}
       <p className="text-[12px] text-neutral-500 mb-3">
         {t('prometheusWatch.decide.notice')}
       </p>

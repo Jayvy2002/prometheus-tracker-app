@@ -79,6 +79,112 @@ begin
     'watch-correct-solo-1'
   );
   if v_again.id <> v_log.id then raise exception 'solo correction not idempotent'; end if;
+  -- Same payload with another client key still returns the original journal.
+  v_again := public.correct_athlete_watch_context(
+    v_sig.id,
+    'not_relevant',
+    'Ce n''est pas un écart de plan, c''est une semaine de déplacement.',
+    'watch-correct-solo-other-key'
+  );
+  if v_again.id <> v_log.id then raise exception 'solo correction replay lost the original journal'; end if;
+  begin
+    perform public.correct_athlete_watch_context(
+      v_sig.id,
+      'not_relevant',
+      'Je suis blessé, pas en déplacement.',
+      'watch-correct-solo-reason-b'
+    );
+    raise exception 'different reason replay allowed';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+  begin
+    perform public.correct_athlete_watch_context(
+      v_sig.id,
+      'corrected',
+      'Ce n''est pas un écart de plan, c''est une semaine de déplacement.',
+      'watch-correct-solo-action-b'
+    );
+    raise exception 'different action replay allowed';
+  exception when others then
+    if sqlerrm <> 'idempotency_conflict' then raise; end if;
+  end;
+end $$;
+reset role;
+
+-- A journal write failure must roll back the resolve (signal stays open).
+do $$
+declare
+  v_sig public.athlete_signals;
+  v_key text;
+begin
+  v_sig := public.upsert_athlete_signal(
+    'c2400000-0000-4000-8000-000000000003',
+    'recovery',
+    'fatigue',
+    'Fatigue déclarée',
+    jsonb_build_array(
+      jsonb_build_object('kind', 'fingerprint', 'summary', '{"avg_fatigue":8,"avg_energy":2}')
+    ),
+    '[]'::jsonb,
+    'medium',
+    'open'
+  );
+  v_key := public.prometheus_decision_idempotency_key(
+    v_sig.athlete_id,
+    'watch-correct-fail-journal',
+    'prometheus_watch',
+    v_sig.id,
+    'corrected',
+    v_sig.domain,
+    v_sig.type
+  );
+  insert into public.athlete_decision_log (
+    athlete_id, actor_id, actor_role, domain, type, decision,
+    proposal, why, data_used, human_reason, applied_effect,
+    source, source_id, idempotency_key
+  ) values (
+    v_sig.athlete_id,
+    v_sig.athlete_id,
+    'athlete',
+    v_sig.domain,
+    v_sig.type,
+    'corrected',
+    jsonb_build_object('kind', 'watch_context_correction', 'action', 'not_relevant'),
+    'Journal injecté pour forcer un conflit de persistance.',
+    '{}'::jsonb,
+    'payload différent de la RPC',
+    '{}'::jsonb,
+    'prometheus_watch',
+    v_sig.id,
+    v_key
+  );
+  perform set_config('prometheus.p24_fail_signal', v_sig.id::text, true);
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_id uuid := current_setting('prometheus.p24_fail_signal')::uuid;
+  v_open public.athlete_signals;
+begin
+  begin
+    perform public.correct_athlete_watch_context(
+      v_id,
+      'not_relevant',
+      'Semaine de déplacement, à ne pas garder.',
+      'watch-correct-fail-journal'
+    );
+    raise exception 'journal failure still persisted';
+  exception when others then
+    if sqlerrm <> 'not_persisted' then raise; end if;
+  end;
+  select * into v_open from public.athlete_signals where id = v_id;
+  if v_open.status <> 'open' or v_open.resolved_at is not null then
+    raise exception 'journal failure closed the signal';
+  end if;
 end $$;
 reset role;
 
@@ -172,10 +278,9 @@ begin
 end $$;
 reset role;
 
--- Stranger cannot correct a Solo signal that is already closed (or any other).
-set local role authenticated;
-select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000005',true);
-select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000005","role":"authenticated"}',true);
+-- Capture signal ids as postgres before unauthorized JWTs. A stranger SELECT
+-- under RLS sees zero rows, so looking up the id after set role would pass
+-- NULL and raise signal_required instead of not_authorized.
 do $$
 declare
   v_id uuid;
@@ -183,7 +288,20 @@ begin
   select id into v_id
   from public.athlete_signals
   where athlete_id = 'c2400000-0000-4000-8000-000000000003'
+    and type = 'missed_sessions'
   limit 1;
+  if v_id is null then raise exception 'solo signal id missing for stranger tests'; end if;
+  perform set_config('prometheus.p24_solo_signal', v_id::text, true);
+end $$;
+
+-- Stranger cannot correct a Solo signal that is already closed (or any other).
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000005',true);
+select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000005","role":"authenticated"}',true);
+do $$
+declare
+  v_id uuid := current_setting('prometheus.p24_solo_signal')::uuid;
+begin
   begin
     perform public.correct_athlete_watch_context(v_id, 'not_relevant', 'pas mon dossier');
     raise exception 'stranger correct allowed';
@@ -200,12 +318,8 @@ select set_config('request.jwt.claim.sub','c2400000-0000-4000-8000-000000000004'
 select set_config('request.jwt.claims','{"sub":"c2400000-0000-4000-8000-000000000004","role":"authenticated"}',true);
 do $$
 declare
-  v_id uuid;
+  v_id uuid := current_setting('prometheus.p24_solo_signal')::uuid;
 begin
-  select id into v_id
-  from public.athlete_signals
-  where athlete_id = 'c2400000-0000-4000-8000-000000000003'
-  limit 1;
   begin
     perform public.correct_athlete_watch_context(v_id, 'not_relevant', 'pas mon client');
     raise exception 'unrelated coach correct allowed';
@@ -225,6 +339,12 @@ begin
   end if;
   if def !~ 'actor_is_actively_coached' then
     raise exception 'correct_athlete_watch_context missing coached guard';
+  end if;
+  if def !~ 'not_persisted' then
+    raise exception 'correct_athlete_watch_context missing journal rollback';
+  end if;
+  if def !~ 'idempotency_conflict' then
+    raise exception 'correct_athlete_watch_context missing replay conflict';
   end if;
 end $$;
 

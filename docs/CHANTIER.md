@@ -606,10 +606,12 @@ Le panneau montre une proposition **seulement** si la revue `propose` pour ce `(
 Contrat :
 
 ```text
-humain (Solo ou Coach actif) + proposition courante
+humain (Solo ou Coach actif) + proposition courante concrète
 → RPC atomique : journal accepted | modified | refused
+→ le journal porte le snapshot Solo/fleet jugé (pas une proposition générique)
+→ data_used = preuves de la revue, sinon stale_proposal
 → le signal reste ouvert (un refus n’est pas une correction)
-→ idempotence par semaine ISO (`watch-decide:{signal}:{décision}:{week_start}`)
+→ idempotence par semaine ISO + payload immuable
 → la revue suivante ne repropose pas le même (domaine, type)
   tant que les preuves n’ont pas changé
 → aucune écriture des cibles, séances, repas, programmes

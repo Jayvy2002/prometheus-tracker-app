@@ -7,8 +7,11 @@ import {
   WATCH_PROPOSAL_DECISIONS,
   WATCH_PROPOSAL_KIND,
   WATCH_PROPOSAL_SOURCE,
+  isConcreteWatchProposal,
   isWatchProposalDecision,
   isWatchProposalWeekStart,
+  watchProposalCopyKey,
+  watchProposalDraftCalories,
   watchProposalIdempotencyKey,
   watchProposalReasonRequired,
 } from './watchProposal';
@@ -36,6 +39,25 @@ test('watch proposal decisions stay a closed Vision 8.6 set', () => {
   assert.equal(isWatchProposalWeekStart('2026-08-31'), true);
   assert.equal(isWatchProposalWeekStart('2026-8-31'), false);
   assert.equal(isWatchProposalWeekStart(''), false);
+  assert.equal(isConcreteWatchProposal({ kind: 'adherence_training', action: 'relance' }), true);
+  assert.equal(isConcreteWatchProposal({ kind: 'watch_proposal_decision', action: 'accepted' }), false);
+  assert.equal(isConcreteWatchProposal({ kind: 'watch_proposal_decision', action: 'relance' }), true);
+  assert.equal(
+    watchProposalCopyKey({ kind: 'adherence_training', action: 'relance' }),
+    'prometheusWatch.proposal.relance',
+  );
+  assert.equal(
+    watchProposalCopyKey({ kind: 'adherence_nutrition', action: 'relance', type: 'not_following' }),
+    'prometheusWatch.proposal.nutritionRelance',
+  );
+  assert.equal(
+    watchProposalDraftCalories({
+      kind: 'calorie_adjustment',
+      action: 'calorie_adjustment',
+      draft: { calories: 1900 },
+    }),
+    1900,
+  );
 });
 
 test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coach authority', () => {
@@ -47,6 +69,10 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(latest.sql, /watch_proposal_decision/);
   assert.match(latest.sql, /no_current_proposal/);
   assert.match(latest.sql, /already_decided/);
+  assert.match(latest.sql, /stale_proposal/);
+  assert.match(latest.sql, /idempotency_conflict/);
+  assert.match(latest.sql, /v_action->'proposal'/);
+  assert.match(latest.sql, /v_action->'evidence_for'/);
   assert.match(latest.sql, /prometheus_watch_signal_data_used/);
   assert.match(latest.sql, /watch-decide:' \|\| v_signal\.id/);
   assert.match(latest.sql, /v_review\.week_start::text/);
@@ -75,6 +101,7 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(panel, /canDecideAthleteWatchProposal\(/);
   assert.match(panel, /decideAthleteWatchProposal/);
   assert.match(panel, /item\.currentProposalKey/);
+  assert.match(panel, /item\.currentProposalDetail/);
   assert.match(panel, /item\.reviewWeekStart/);
   assert.match(panel, /prometheusWatch\.decide/);
   assert.doesNotMatch(panel, /commit_solo_weekly_review_decision/);
@@ -84,6 +111,8 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
 
   const engine = src('supabase/functions/_shared/weeklyReviewEngine.ts');
   assert.match(engine, /isWatchProposalSettled/);
+  assert.match(engine, /snapshotWatchProposal|adherence_training/);
+  assert.match(engine, /proposal: action.proposal/);
   const fleet = src('src/features/coaching/domain/coachFleet.ts');
   assert.match(fleet, /isWatchProposalSettled/);
   const edge = src('supabase/functions/coach-fleet-round/index.ts');
@@ -106,6 +135,12 @@ test('P2.5 reuses the journal primitive, not a third apply engine, with Solo/Coa
   assert.match(sqlTest, /transitive coach decide allowed/);
   assert.match(sqlTest, /closed signal decide allowed/);
   assert.match(sqlTest, /decide idempotency key is not week-scoped/);
+  assert.match(sqlTest, /generic proposal without object allowed/);
+  assert.match(sqlTest, /stale fingerprint still accepted/);
+  assert.match(sqlTest, /same decision different reason allowed/);
+  assert.match(sqlTest, /solo journal missing concrete proposal/);
+  assert.match(sqlTest, /journal missing judged draft/);
+  assert.match(sqlTest, /journal used live signal instead of review evidence/);
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /athlete_watch_proposal\.sql/);

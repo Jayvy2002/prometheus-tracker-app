@@ -40,6 +40,9 @@ les types connus du moteur. D’où `isContextCorrectionHeld` + décision
 ```text
 humain (Solo ou Coach actif) + motif
 → RPC atomique : resolve not_relevant + journal corrected
+→ si le journal n’est pas créé : not_persisted (rollback du resolve)
+→ rejeu identique (même action + même motif) : idempotent
+→ rejeu différent : idempotency_conflict
 → l’historique n’est pas effacé
 → la revue suivante n’ouvre pas le même (domaine, type)
   tant que les preuves n’ont pas changé

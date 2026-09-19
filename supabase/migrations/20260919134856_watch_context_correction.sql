@@ -240,10 +240,16 @@ BEGIN
       AND decision = 'corrected'
     ORDER BY created_at DESC
     LIMIT 1;
-    IF FOUND THEN
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'already_closed';
+    END IF;
+    -- Identical replay (same action + reason) is idempotent. A different
+    -- payload must not silently return the previous journal.
+    IF COALESCE(v_row.proposal->>'action', '') IS NOT DISTINCT FROM v_action
+       AND COALESCE(v_row.human_reason, '') IS NOT DISTINCT FROM v_reason THEN
       RETURN v_row;
     END IF;
-    RAISE EXCEPTION 'already_closed';
+    RAISE EXCEPTION 'idempotency_conflict';
   END IF;
 
   v_data := public.prometheus_watch_signal_data_used(v_signal.evidence_for);
@@ -270,12 +276,18 @@ BEGIN
     v_signal.id
   );
 
+  -- queue_and_record swallows a journal error, keeps the outbox, and returns
+  -- NULL. Raise so resolve + enqueue roll back with the caller transaction.
+  IF v_row.id IS NULL THEN
+    RAISE EXCEPTION 'not_persisted';
+  END IF;
+
   RETURN v_row;
 END;
 $$;
 
 COMMENT ON FUNCTION public.correct_athlete_watch_context(uuid, text, text, text) IS
-  'P2.4 Vision 8.5: Solo (not coached) or the active Coach closes an open watch signal as not_relevant and appends a corrected journal row. Atomic. Never auto-applies. Never rewrites source measurements. Workspace never grants this.';
+  'P2.4 Vision 8.5: Solo (not coached) or the active Coach closes an open watch signal as not_relevant and appends a corrected journal row. Atomic: a missing journal raises not_persisted and rolls back the resolve. Identical replay is idempotent; a different action or reason is idempotency_conflict. Never auto-applies. Never rewrites source measurements. Workspace never grants this.';
 
 REVOKE ALL ON FUNCTION public.prometheus_watch_signal_data_used(jsonb)
   FROM PUBLIC, anon, authenticated;

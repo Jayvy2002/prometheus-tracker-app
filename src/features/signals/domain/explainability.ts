@@ -20,6 +20,12 @@ import {
   isProposalSuppressed,
   type ProposalEvidenceSnapshot,
 } from './decisionLog';
+import {
+  isConcreteWatchProposal,
+  watchProposalCopyKey,
+  watchProposalDraftCalories,
+  WATCH_PROPOSAL_COPY_KEYS,
+} from './watchProposal';
 
 export const WATCH_SIGNAL_TYPES = [
   'missed_sessions',
@@ -64,6 +70,7 @@ export interface PrometheusWatchItem {
   lastPeriodEnd: string | null;
   evolutionKey: string;
   currentProposalKey: string | null;
+  currentProposalDetail: WatchCopy | null;
   lastProposalKey: string | null;
   lastDecisionKey: string | null;
   lastDecisionAt: string | null;
@@ -102,6 +109,11 @@ const LAST_PROPOSAL_ACTION_KEYS: Record<string, string> = {
   keep: 'prometheusWatch.proposal.wait',
   program_adjustment: 'prometheusWatch.proposal.program',
 };
+
+function proposalFromUnknown(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  return (raw as Record<string, unknown>).proposal ?? null;
+}
 
 function isWatchType(value: string): value is WatchSignalType {
   return (WATCH_SIGNAL_TYPES as readonly string[]).includes(value);
@@ -241,12 +253,10 @@ function lastProposalKeyFrom(decision: AthleteDecisionLog | null): string | null
   if (decision.decision === 'corrected' || decision.proposal.kind === 'watch_context_correction') {
     return null;
   }
-  if (decision.proposal.kind === 'watch_proposal_decision') {
-    return 'prometheusWatch.proposal.generic';
-  }
-  const action = decision.proposal.action;
-  if (typeof action !== 'string') return null;
-  return LAST_PROPOSAL_ACTION_KEYS[action] ?? 'prometheusWatch.proposal.generic';
+  return watchProposalCopyKey(decision.proposal)
+    ?? (typeof decision.proposal.action === 'string'
+      ? LAST_PROPOSAL_ACTION_KEYS[decision.proposal.action] ?? null
+      : null);
 }
 
 function periodFromSnapshot(
@@ -304,10 +314,11 @@ function isOpenProposeAction(raw: unknown, domain: string, type: string): boolea
   if (row.op !== 'upsert') return false;
   if (row.domain !== domain || row.type !== type) return false;
   if (row.status !== 'open') return false;
-  return row.confidence === 'medium' || row.confidence === 'high';
+  if (row.confidence !== 'medium' && row.confidence !== 'high') return false;
+  return isConcreteWatchProposal(proposalFromUnknown(raw));
 }
 
-/** True only when this review actually upserted this (domain, type) as an open, propose-worthy signal. */
+/** True only when this review actually upserted this (domain, type) as an open, propose-worthy signal with a concrete Solo/fleet proposal. */
 export function reviewProposesFor(
   review: AthleteWeeklyReview | null | undefined,
   domain: string,
@@ -316,6 +327,26 @@ export function reviewProposesFor(
   if (!review || review.decision !== 'propose') return false;
   const actions = Array.isArray(review.signal_actions) ? review.signal_actions : [];
   return actions.some((raw) => isOpenProposeAction(raw, domain, type));
+}
+
+function currentProposalFromReview(
+  review: AthleteWeeklyReview | null,
+  domain: string,
+  type: string,
+): { key: string; detail: WatchCopy | null } | null {
+  if (!reviewProposesFor(review, domain, type) || !review) return null;
+  const actions = Array.isArray(review.signal_actions) ? review.signal_actions : [];
+  const action = actions.find((raw) => isOpenProposeAction(raw, domain, type));
+  const proposal = proposalFromUnknown(action);
+  const key = watchProposalCopyKey(proposal);
+  if (!key) return null;
+  const calories = watchProposalDraftCalories(proposal);
+  return {
+    key,
+    detail: calories != null
+      ? { key: WATCH_PROPOSAL_COPY_KEYS.draftCalories, params: { n: calories } }
+      : null,
+  };
 }
 
 function currentProposalAllowed(input: {
@@ -392,6 +423,9 @@ function buildItem(input: {
     lastHuman,
     evidenceMoved,
   });
+  const currentProposal = hasCurrentProposal
+    ? currentProposalFromReview(review, domain, type)
+    : null;
 
   let statusKey: string;
   if (kind === 'history') {
@@ -442,7 +476,8 @@ function buildItem(input: {
       : signal && signal.first_seen_at !== signal.last_seen_at
         ? 'prometheusWatch.evolution.updated'
         : 'prometheusWatch.evolution.first',
-    currentProposalKey: hasCurrentProposal ? 'prometheusWatch.proposal.generic' : null,
+    currentProposalKey: currentProposal?.key ?? null,
+    currentProposalDetail: currentProposal?.detail ?? null,
     lastProposalKey: lastProposalKeyFrom(decision),
     lastDecisionKey: lastHuman ? `prometheusWatch.decision.${lastHuman}` : null,
     lastDecisionAt: decision?.created_at ?? null,

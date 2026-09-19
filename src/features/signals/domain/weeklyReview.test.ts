@@ -193,6 +193,9 @@ test('same metrics stay low even if the window dates move; new observations rais
   }));
   assert.equal(week2.signalActions.find((row) => row.type === 'missed_sessions')?.confidence, 'medium');
   assert.equal(week2.decision, 'propose');
+  assert.equal(week2.signalActions.find((row) => row.type === 'missed_sessions')?.proposal?.kind, 'adherence_training');
+  assert.equal(week2.signalActions.find((row) => row.type === 'missed_sessions')?.proposal?.action, 'relance');
+  assert.equal(missed1?.proposal, undefined);
   assert.match(week2.summary, /Rien n’a été appliqué|prête à examiner/);
 
   const week3Agg = aggregates({
@@ -344,7 +347,7 @@ test('a watch-panel accept waits instead of re-proposing, without closing the si
     decision: 'accepted',
     domain: 'training',
     type: 'missed_sessions',
-    proposal: { kind: 'watch_proposal_decision', action: 'accepted', domain: 'training', type: 'missed_sessions' },
+    proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
     data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
     source: 'prometheus_watch',
   });
@@ -383,7 +386,7 @@ test('a watch-panel accept waits instead of re-proposing, without closing the si
       decision: 'modified',
       domain: 'training',
       type: 'missed_sessions',
-      proposal: { kind: 'watch_proposal_decision', action: 'modified' },
+      proposal: { kind: 'watch_proposal_decision', action: 'relance' },
       data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
       source: 'prometheus_watch',
     })],
