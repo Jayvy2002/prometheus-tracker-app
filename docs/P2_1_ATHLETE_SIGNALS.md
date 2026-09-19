@@ -39,7 +39,6 @@ P2.3 journal des décisions humaines (même PR #190). P2.4 écran
 
 ## Livraison
 
-PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — **non mergée**.
-Candidate `20260918185709_athlete_signals` dans `migrations.pending.json`.
-Le lock production reste à 116 versions tant que les candidates P1.5 et P2.1 ne sont pas
-appliquées.
+PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) mergée dans `new-JV`
+(`c51d5f49`). Migration `20260918185709_athlete_signals` appliquée en production
+le 19 septembre 2026 (lock **122**, `migrations.pending.json` vide).

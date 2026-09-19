@@ -4,34 +4,27 @@
 >
 > Les migrations SQL sont append-only. Les inventaires dans Git doivent rester cohérents avec Supabase production. Ce document décrit le contrat et l’état vérifié ; les fichiers lock contiennent le détail machine-readable.
 
-## État vérifié — 18 septembre 2026
+## État vérifié — 19 septembre 2026
 
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
-- **116 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
-- **116 migrations** observées en production, dans le même ordre ;
-- dernière version : `20260918130232_marketplace_athlete_confirm` ;
-- replay local PostgreSQL 17 validé par la CI ;
-- matrice RLS/staging-like verte sur `new-JV` après le merge P1.4 (#189) ;
-- `db push --dry-run` production : aucune migration à pousser.
+- projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
+- **122 migrations** dans Git / `supabase/schema_migrations.lock.json` ;
+- **122 migrations** observées en production, dans le même ordre ;
+- dernière version : `20260918232507_athlete_decision_durability` ;
+- `supabase/migrations.pending.json` est vide ;
+- les six versions Git de P1.5–P2.3 sont présentes telles quelles (aucun restamp) :
+  `20260918182954`, `20260918185709`, `20260918194013`, `20260918201237`,
+  `20260918224935`, `20260918232507`.
 
-Le lock a été rafraîchi après cette vérification. Une future différence Git/lock/production doit être traitée comme un blocage de migration, pas réparée artificiellement.
+Le lock a été rafraîchi après cette vérification live. Une future différence
+Git/lock/production doit être traitée comme un blocage de migration, pas
+réparée artificiellement.
 
-Les lignes production `accepted` restent `accepted` (état historique terminal) ; elles n’ont pas été réécrites en `athlete_confirmed`.
+Les lignes production `accepted` restent `accepted` (état historique terminal) ;
+elles n’ont pas été réécrites en `athlete_confirmed`.
 
-## Candidats P1.5, P2.1, P2.2, P2.3 et intégrité (non appliqués)
-
-PR #190 déclare dans `migrations.pending.json` :
-
-- `20260918182954_commercial_durations` (P1.5) ;
-- `20260918185709_athlete_signals` (P2.1) ;
-- `20260918194013_athlete_weekly_reviews` (P2.2) ;
-- `20260918201237_athlete_decision_log` (P2.3) ;
-- `20260918224935_athlete_review_integrity` (upsert atomique, match athlète, JSON borné, lecture par clé, journal composite) ;
-- `20260918232507_athlete_decision_durability` (outbox par athlète, intention immuable, drain avec auteur/backoff, preuves Coach, rejeu Solo sans réécriture métier, triage borné).
-
-Le lock production reste à **116** versions (`20260918130232`). Ne pas transférer ces
-versions dans le lock avant application réelle et vérification live.
+Le premier slice P2.4 (explicabilité lecture) n’ajoute **aucune** migration.
 
 ## Règles migrations
 

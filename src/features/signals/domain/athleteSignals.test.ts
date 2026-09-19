@@ -81,6 +81,6 @@ test('signals are a new table after auditing interventions; writes go through RP
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260918185709' && row.name === 'athlete_signals'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"name": "athlete_signals"/);
+  assert.equal(pending.pending.some((row) => row.version === '20260918185709'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "athlete_signals"/);
 });

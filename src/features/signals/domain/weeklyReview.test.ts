@@ -416,6 +416,6 @@ test('P2.2 source-lock: new table after audit, RPC writes, Solo+fleet share engi
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as {
     pending: Array<{ version: string; name: string }>;
   };
-  assert.equal(pending.pending.some((row) => row.version === '20260918194013' && row.name === 'athlete_weekly_reviews'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"name": "athlete_weekly_reviews"/);
+  assert.equal(pending.pending.some((row) => row.version === '20260918194013'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"name": "athlete_weekly_reviews"/);
 });
