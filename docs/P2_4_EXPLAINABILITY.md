@@ -1,12 +1,22 @@
 # P2.4 — Explicabilité et correction
 
-## Premier slice (cette PR)
+## Slice lecture (mergé `#191`, `b404281`)
 
 Lecture seule : « Ce que Prometheus surveille ».
 
-Aucun second moteur. Aucune table ni RPC nouvelle. Aucune auto-application.
-Aucune écriture d’interprétation (la correction de contexte est la **suite**
-du chantier, pas ce slice).
+Aucun second moteur. Aucune auto-application. Observation = type + fingerprint
+structuré + i18n. État actuel ≠ dernière décision humaine. Indisponible ≠ vide.
+
+## Slice correction (cette PR)
+
+Écriture traçable : marquer une interprétation **non pertinente** ou **incorrecte**,
+avec un motif humain obligatoire.
+
+Réutilise les tables P2.1 / P2.3. Une RPC atomique
+`correct_athlete_watch_context` clôt le signal ouvert en `not_relevant` et
+append un journal `corrected`. Pas de nouvelle table. Pas de 14ᵉ Edge Function.
+Les mesures sources (nutrition, séances, pesées, programmes) ne sont pas
+réécrites.
 
 Inventaire du moteur déjà actif : [P2.1](P2_1_ATHLETE_SIGNALS.md),
 [P2.2](P2_2_WEEKLY_REVIEW.md), [P2.3](P2_3_DECISION_LOG.md).
@@ -21,24 +31,28 @@ P2.1–P2.3 fournissent déjà :
   `applied_effect`, `actor_role`) ;
 - `isProposalSuppressed` / `decisionEvidenceChanged` (kcal ±150, séances ±2).
 
-Un écran d’explicabilité n’a donc pas besoin de dupliquer ces faits. Il les
-traduit.
+`resolve_athlete_signal` seul ne suffisait pas : la revue suivante ré-upsertait
+les types connus du moteur. D’où `isContextCorrectionHeld` + décision
+`corrected`.
 
 ## Contrat de ce slice
 
 ```text
-signaux ouverts/waiting
-+ dernières décisions par (domaine, type)
-+ dernière revue
-→ liste courte, textes FR/EN
-→ divulgation progressive
-→ observation = type + fingerprint structuré (jamais window/fingerprint bruts)
-→ état actuel ≠ dernière décision humaine
-→ proposition actuelle seulement si ce (domaine, type) est un upsert
-  open medium/high dans latestReview.signal_actions et que la revue vaut `propose`
-→ une ancienne proposition est une « dernière proposition », jamais un état inventé
-→ indisponible ≠ vide (loading / ready / error + retry)
-→ l’historique n’est jamais réécrit
+humain (Solo ou Coach actif) + motif
+→ RPC atomique : resolve not_relevant + journal corrected
+→ si le journal n’est pas créé : not_persisted (rollback du resolve)
+→ rejeu identique (même action + même motif) : idempotent
+→ rejeu différent : idempotency_conflict
+→ token immuable : signal updated_at + fingerprint vus à l’écran
+  sinon stale_context (n’écrase pas la nouvelle interprétation)
+→ l’historique n’est pas effacé
+→ la revue suivante n’ouvre pas le même (domaine, type)
+  tant que les preuves n’ont pas changé
+→ un refus de proposition n’est pas une correction :
+  le signal reste ouvert, seule la proposition est retenue
+→ Coaché (y compris Coach lui-même Coaché sur son dossier) : lecture seule
+→ workspace UI n’accorde rien
+→ succès UI seulement après persistance
 ```
 
 - Composant unique `PrometheusWatchPanel` : dashboard personnel (Solo **et**
@@ -47,35 +61,38 @@ signaux ouverts/waiting
   `canReadAthleteWatch` / `canCorrectAthleteWatchContext`.
 - Le Coaché lit ; il ne récupère pas les droits de correction du Coach.
 - Un Coach lui-même Coaché lit son dossier perso et celui de ses clients.
-  Le workspace UI n’accorde rien.
-- `canCorrectAthleteWatchContext` est encodé et testé, **non branché** dans
-  l’UI de ce slice.
-- Pas de JSON brut, pas de score artificiel.
-- Les phrases visibles ne reprennent pas `hypothesis` ni `evidence.summary`
-  (souvent du français moteur) : elles sont construites via i18n.
+  Il corrige les dossiers clients, pas son propre dossier coaché.
+- `data_used` du journal est reconstruit côté serveur depuis le fingerprint
+  du signal (pas depuis un payload client).
+- Pas de JSON brut, pas de score artificiel, pas d’auto-application.
 
-## Surfaces lues (existantes)
+## Surfaces
 
-- `listAthleteSignalsForWatch` → `WatchQueryResult` (erreur conservée)
-- `listLatestAthleteDecisionsForWatch` → `WatchQueryResult`
-- `listLatestAthleteWeeklyReviewForWatch` → `WatchQueryResult`
+- Lecture inchangée : `listAthleteSignalsForWatch`,
+  `listLatestAthleteDecisionsForWatch`,
+  `listLatestAthleteWeeklyReviewForWatch` (`WatchQueryResult`).
+- Écriture : `correctAthleteWatchContext` → RPC
+  `correct_athlete_watch_context` uniquement.
+- Le panneau n’appelle pas `upsert_athlete_signal`, `resolve_athlete_signal`
+  ou `record_athlete_decision` directement.
 
 Les wrappers `BestEffort` restent pour le moteur / la revue (fail-open).
-Le panneau d’explicabilité ne les utilise pas : une requête ratée affiche
-error + retry, pas « Rien de particulier à suivre ».
+Le panneau d’explicabilité ne les utilise pas.
 
-Aucune de ces lectures n’appelle `upsert_athlete_signal`,
-`resolve_athlete_signal`, `record_athlete_decision`, `save_athlete_weekly_review`
-ou `commit_solo_weekly_review_decision`.
+## Hors scope (P2.6 et plus tard)
 
-## Hors scope (suite P2.4)
-
-- corriger une interprétation / un contexte (écriture traçable) ;
 - modifier une donnée source (nutrition, séance, pesée) ;
-- accepter / modifier / refuser une proposition depuis ce panneau ;
-- P2.5 et suivants.
+- appliquer des cibles ou un programme depuis ce panneau
+  (`commit_solo` / `apply_intervention` restent les chemins d’effet) ;
+- P2.6 et suivants.
+
+P2.5 (accepter / modifier / refuser la proposition courante) est livré dans
+cette même PR : [P2.5](P2_5_WATCH_PROPOSAL.md).
 
 ## Livraison
 
-Premier vertical slice dans une PR draft vers `new-JV`. Ne pas merger sans
-feu vert. Ne pas enchaîner la correction de contexte.
+Vertical slice dans une PR draft vers `new-JV`. Ne pas merger sans feu vert.
+Ne pas enchaîner P2.6. Les migrations `20260919134856_watch_context_correction`
+et `20260919141146_watch_proposal_decision` sont des **candidats**
+(`migrations.pending.json`) : le lock production reste à 122 jusqu’à
+application autorisée après merge.

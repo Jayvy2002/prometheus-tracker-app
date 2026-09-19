@@ -94,6 +94,11 @@ export interface WeeklyReviewAggregates {
   avgFatigue: number | null;
   avgEnergy: number | null;
   goal: string;
+  proteinTarget?: number;
+  carbsTarget?: number;
+  fatTarget?: number;
+  weightKg?: number;
+  weightEndKg?: number | null;
 }
 
 export interface AthleteWeeklyReview {
@@ -111,9 +116,9 @@ export interface AthleteWeeklyReview {
   updated_at: string;
 }
 
-/** P2.3 human decision journal — Vision §8.6. Append-only. Never auto-applies. */
+/** P2.3 human decision journal — Vision §8.6 / P2.4 §8.5. Append-only. Never auto-applies. */
 
-export const ATHLETE_HUMAN_DECISIONS = ['accepted', 'modified', 'refused', 'ignored'] as const;
+export const ATHLETE_HUMAN_DECISIONS = ['accepted', 'modified', 'refused', 'ignored', 'corrected'] as const;
 
 export type AthleteHumanDecision = (typeof ATHLETE_HUMAN_DECISIONS)[number];
 

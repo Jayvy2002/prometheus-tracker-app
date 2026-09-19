@@ -28,7 +28,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Dependency critical vulnerability gate
-        run: npm audit --audit-level=critical
+        # Installed-tree `audits/quick` now 400s ("Invalid package tree") after the
+        # endpoint retirement. Lockfile audit still fails closed on critical findings.
+        run: npm audit --package-lock-only --audit-level=critical
       - run: npm run lint
       - run: npm run typecheck
       # 17b : npm test = tous les src/**/*.test.ts (sessionScope y compris).
@@ -169,6 +171,22 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'decision drain concurrency: skip occupied key, two sessions no deadlock' /tmp/athlete-decision-drain-concurrency.txt
+      - name: Test athlete watch context correction
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_watch_context.sql | tee /tmp/athlete-watch-context-db-results.txt
+      - name: Confirm athlete watch context echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete watch context: solo and coach can correct, coached cannot, no source rewrite' /tmp/athlete-watch-context-db-results.txt
+      - name: Test athlete watch proposal decision
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_watch_proposal.sql | tee /tmp/athlete-watch-proposal-db-results.txt
+      - name: Confirm athlete watch proposal echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete watch proposal: solo and coach can decide, coached cannot, refuse keeps signal open, custom B does not inherit A' /tmp/athlete-watch-proposal-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

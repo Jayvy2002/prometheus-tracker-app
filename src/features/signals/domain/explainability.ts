@@ -16,9 +16,16 @@ import type {
   AthleteWeeklyReview,
 } from '../types';
 import {
+  decisionEvidenceChanged,
   isProposalSuppressed,
   type ProposalEvidenceSnapshot,
 } from './decisionLog';
+import {
+  isConcreteWatchProposal,
+  watchProposalCopyKey,
+  watchProposalDraftCalories,
+  WATCH_PROPOSAL_COPY_KEYS,
+} from './watchProposal';
 
 export const WATCH_SIGNAL_TYPES = [
   'missed_sessions',
@@ -63,6 +70,7 @@ export interface PrometheusWatchItem {
   lastPeriodEnd: string | null;
   evolutionKey: string;
   currentProposalKey: string | null;
+  currentProposalDetail: WatchCopy | null;
   lastProposalKey: string | null;
   lastDecisionKey: string | null;
   lastDecisionAt: string | null;
@@ -70,6 +78,13 @@ export interface PrometheusWatchItem {
   humanReason: string | null;
   whyHiddenKey: string | null;
   reevaluateKey: string;
+  reviewWeekStart: string | null;
+  reviewId: string | null;
+  reviewUpdatedAt: string | null;
+  currentProposal: Record<string, unknown> | null;
+  currentEvidence: Record<string, unknown> | null;
+  signalEvidence: Record<string, unknown> | null;
+  signalUpdatedAt: string | null;
   suppressed: boolean;
 }
 
@@ -100,6 +115,11 @@ const LAST_PROPOSAL_ACTION_KEYS: Record<string, string> = {
   keep: 'prometheusWatch.proposal.wait',
   program_adjustment: 'prometheusWatch.proposal.program',
 };
+
+function proposalFromUnknown(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  return (raw as Record<string, unknown>).proposal ?? null;
+}
 
 function isWatchType(value: string): value is WatchSignalType {
   return (WATCH_SIGNAL_TYPES as readonly string[]).includes(value);
@@ -142,6 +162,13 @@ export function evidenceSnapshotFromRecord(
     avgEnergy: firstNumber(raw, ['avg_energy', 'avgEnergy']),
     windowStart: firstString(raw, ['window_start', 'windowStart']) ?? undefined,
     windowEnd: firstString(raw, ['window_end', 'windowEnd']) ?? undefined,
+    goal: firstString(raw, ['goal']) ?? undefined,
+    proteinTarget: firstNumber(raw, ['protein_target', 'proteinTarget']) ?? undefined,
+    carbsTarget: firstNumber(raw, ['carbs_target', 'carbsTarget']) ?? undefined,
+    fatTarget: firstNumber(raw, ['fat_target', 'fatTarget']) ?? undefined,
+    weightKg: firstNumber(raw, ['weight_kg', 'weightKg']) ?? undefined,
+    weightStartKg: firstNumber(raw, ['weight_start_kg', 'weightStartKg']),
+    guarded: typeof raw.guarded === 'boolean' ? raw.guarded : undefined,
   };
 }
 
@@ -236,9 +263,13 @@ export function observedCopyFromType(
 
 function lastProposalKeyFrom(decision: AthleteDecisionLog | null): string | null {
   if (!decision?.proposal || typeof decision.proposal !== 'object') return null;
-  const action = decision.proposal.action;
-  if (typeof action !== 'string') return null;
-  return LAST_PROPOSAL_ACTION_KEYS[action] ?? 'prometheusWatch.proposal.generic';
+  if (decision.decision === 'corrected' || decision.proposal.kind === 'watch_context_correction') {
+    return null;
+  }
+  return watchProposalCopyKey(decision.proposal)
+    ?? (typeof decision.proposal.action === 'string'
+      ? LAST_PROPOSAL_ACTION_KEYS[decision.proposal.action] ?? null
+      : null);
 }
 
 function periodFromSnapshot(
@@ -296,10 +327,11 @@ function isOpenProposeAction(raw: unknown, domain: string, type: string): boolea
   if (row.op !== 'upsert') return false;
   if (row.domain !== domain || row.type !== type) return false;
   if (row.status !== 'open') return false;
-  return row.confidence === 'medium' || row.confidence === 'high';
+  if (row.confidence !== 'medium' && row.confidence !== 'high') return false;
+  return isConcreteWatchProposal(proposalFromUnknown(raw));
 }
 
-/** True only when this review actually upserted this (domain, type) as an open, propose-worthy signal. */
+/** True only when this review actually upserted this (domain, type) as an open, propose-worthy signal with a concrete Solo/fleet proposal. */
 export function reviewProposesFor(
   review: AthleteWeeklyReview | null | undefined,
   domain: string,
@@ -310,6 +342,39 @@ export function reviewProposesFor(
   return actions.some((raw) => isOpenProposeAction(raw, domain, type));
 }
 
+function currentProposalFromReview(
+  review: AthleteWeeklyReview | null,
+  domain: string,
+  type: string,
+): {
+  key: string;
+  detail: WatchCopy | null;
+  proposal: Record<string, unknown>;
+  evidence: Record<string, unknown>;
+} | null {
+  if (!reviewProposesFor(review, domain, type) || !review) return null;
+  const actions = Array.isArray(review.signal_actions) ? review.signal_actions : [];
+  const action = actions.find((raw) => isOpenProposeAction(raw, domain, type));
+  const proposal = proposalFromUnknown(action);
+  const key = watchProposalCopyKey(proposal);
+  if (!key || !proposal || typeof proposal !== 'object' || Array.isArray(proposal)) return null;
+  const calories = watchProposalDraftCalories(proposal);
+  const evidenceFor = action && typeof action === 'object' && !Array.isArray(action)
+    ? (action as Record<string, unknown>).evidence_for
+    : null;
+  const evidence = parseEvidenceFingerprint(
+    Array.isArray(evidenceFor) ? evidenceFor as AthleteSignalEvidenceItem[] : null,
+  ) ?? {};
+  return {
+    key,
+    detail: calories != null
+      ? { key: WATCH_PROPOSAL_COPY_KEYS.draftCalories, params: { n: calories } }
+      : null,
+    proposal: proposal as Record<string, unknown>,
+    evidence,
+  };
+}
+
 function currentProposalAllowed(input: {
   kind: WatchItemKind;
   domain: string;
@@ -317,11 +382,17 @@ function currentProposalAllowed(input: {
   signal: AthleteSignal | null;
   suppressed: boolean;
   review: AthleteWeeklyReview | null;
+  lastHuman: AthleteHumanDecision | null;
+  evidenceMoved: boolean;
 }): boolean {
   if (input.kind !== 'current') return false;
   if (input.suppressed) return false;
   if (input.signal?.status !== 'open') return false;
-  return reviewProposesFor(input.review, input.domain, input.type);
+  if (!reviewProposesFor(input.review, input.domain, input.type)) return false;
+  if ((input.lastHuman === 'accepted' || input.lastHuman === 'modified') && !input.evidenceMoved) {
+    return false;
+  }
+  return true;
 }
 
 function buildItem(input: {
@@ -335,7 +406,7 @@ function buildItem(input: {
 }): PrometheusWatchItem {
   const { signal, decision, review, domain, type, kind } = input;
   const lastHuman: AthleteHumanDecision | null = decision?.decision ?? null;
-  const refusedOrIgnored = lastHuman === 'refused' || lastHuman === 'ignored';
+  const refusedOrIgnored = lastHuman === 'refused' || lastHuman === 'ignored' || lastHuman === 'corrected';
   const currentEvidence = kind === 'current' && signal
     ? snapshotFromSignal(signal) ?? evidenceSnapshotFromRecord(review?.aggregates ?? null)
     : evidenceSnapshotFromRecord(review?.aggregates ?? null);
@@ -350,11 +421,13 @@ function buildItem(input: {
       : true
     : false;
   const evidenceMoved = Boolean(
-    refusedOrIgnored
+    lastHuman
     && currentEvidence
     && decision
-    && !isProposalSuppressed([decision], domain, type, currentEvidence),
+    && decisionEvidenceChanged(decision.data_used, currentEvidence, domain, type),
   );
+  const proposalSettled = suppressed
+    || ((lastHuman === 'accepted' || lastHuman === 'modified') && !evidenceMoved);
 
   const currentMetrics = kind === 'current' && signal
     ? parseEvidenceFingerprint(signal.evidence_for)
@@ -373,7 +446,12 @@ function buildItem(input: {
     signal,
     suppressed,
     review,
+    lastHuman,
+    evidenceMoved,
   });
+  const currentProposal = hasCurrentProposal
+    ? currentProposalFromReview(review, domain, type)
+    : null;
 
   let statusKey: string;
   if (kind === 'history') {
@@ -387,14 +465,14 @@ function buildItem(input: {
   let whyHiddenKey: string | null = null;
   if (kind === 'history' && evidenceMoved) {
     whyHiddenKey = 'prometheusWatch.hidden.changedNoSignal';
-  } else if (suppressed) {
+  } else if (proposalSettled) {
     whyHiddenKey = 'prometheusWatch.hidden.unchanged';
   } else if (kind === 'current' && evidenceMoved) {
     whyHiddenKey = 'prometheusWatch.hidden.changed';
   }
 
   let reevaluateKey = 'prometheusWatch.reevaluate.nextReview';
-  if (suppressed) reevaluateKey = 'prometheusWatch.reevaluate.needNewProof';
+  if (proposalSettled) reevaluateKey = 'prometheusWatch.reevaluate.needNewProof';
   else if (kind === 'history') reevaluateKey = 'prometheusWatch.reevaluate.noOpenSignal';
   else if (signal?.status === 'waiting') reevaluateKey = 'prometheusWatch.reevaluate.needMoreData';
 
@@ -424,7 +502,14 @@ function buildItem(input: {
       : signal && signal.first_seen_at !== signal.last_seen_at
         ? 'prometheusWatch.evolution.updated'
         : 'prometheusWatch.evolution.first',
-    currentProposalKey: hasCurrentProposal ? 'prometheusWatch.proposal.generic' : null,
+    currentProposalKey: currentProposal?.key ?? null,
+    currentProposalDetail: currentProposal?.detail ?? null,
+    currentProposal: hasCurrentProposal ? currentProposal?.proposal ?? null : null,
+    currentEvidence: hasCurrentProposal ? currentProposal?.evidence ?? null : null,
+    signalEvidence: currentMetrics,
+    reviewId: kind === 'current' ? review?.id ?? null : null,
+    reviewUpdatedAt: kind === 'current' ? review?.updated_at ?? null : null,
+    signalUpdatedAt: kind === 'current' ? signal?.updated_at ?? null : null,
     lastProposalKey: lastProposalKeyFrom(decision),
     lastDecisionKey: lastHuman ? `prometheusWatch.decision.${lastHuman}` : null,
     lastDecisionAt: decision?.created_at ?? null,
@@ -432,6 +517,7 @@ function buildItem(input: {
     humanReason: decision?.human_reason?.trim() || null,
     whyHiddenKey,
     reevaluateKey,
+    reviewWeekStart: kind === 'current' ? review?.week_start ?? null : null,
     suppressed,
   };
 }
@@ -463,7 +549,11 @@ export function buildPrometheusWatchItems(input: {
   }
 
   for (const decision of input.decisions) {
-    if (decision.decision !== 'refused' && decision.decision !== 'ignored') continue;
+    if (
+      decision.decision !== 'refused'
+      && decision.decision !== 'ignored'
+      && decision.decision !== 'corrected'
+    ) continue;
     const key = signalKey(decision.domain, decision.type);
     if (seen.has(key)) continue;
     const latest = latestLog(input.decisions, decision.domain, decision.type);

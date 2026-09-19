@@ -4,6 +4,7 @@ import {
   actorFromAccount,
   canActAsCoach,
   canCorrectAthleteWatchContext,
+  canDecideAthleteWatchProposal,
   canEditClientDossier,
   canLogOwnSession,
   canOpenPersonalCalendarRoute,
@@ -53,5 +54,7 @@ export function useResourcePermissions() {
       canReadAthleteWatch(actor, resource),
     canCorrectAthleteWatchContext: (resource?: AthleteWatchResource) =>
       canCorrectAthleteWatchContext(actor, resource),
+    canDecideAthleteWatchProposal: (resource?: AthleteWatchResource) =>
+      canDecideAthleteWatchProposal(actor, resource),
   };
 }

@@ -18,6 +18,7 @@ import {
   type WeeklyReviewAggregates,
   type WeeklyReviewInput,
 } from './weeklyReview';
+import { proposeWeeklyNutrition } from '../../../../supabase/functions/_shared/weeklyNutritionProposal.ts';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -193,6 +194,9 @@ test('same metrics stay low even if the window dates move; new observations rais
   }));
   assert.equal(week2.signalActions.find((row) => row.type === 'missed_sessions')?.confidence, 'medium');
   assert.equal(week2.decision, 'propose');
+  assert.equal(week2.signalActions.find((row) => row.type === 'missed_sessions')?.proposal?.kind, 'adherence_training');
+  assert.equal(week2.signalActions.find((row) => row.type === 'missed_sessions')?.proposal?.action, 'relance');
+  assert.equal(missed1?.proposal, undefined);
   assert.match(week2.summary, /Rien n’a été appliqué|prête à examiner/);
 
   const week3Agg = aggregates({
@@ -303,6 +307,95 @@ test('human refusal waits instead of re-proposing until evidence changes', () =>
   assert.equal(moved.decision, 'propose');
 });
 
+test('a context correction does not re-open the same type until evidence changes', () => {
+  const heldAgg = aggregates({ workoutCount: 0, expectedWorkouts: 6, loggedNutritionDays: 10 });
+  const correction = decision({
+    decision: 'corrected',
+    domain: 'training',
+    type: 'missed_sessions',
+    proposal: { kind: 'watch_context_correction', action: 'not_relevant', domain: 'training', type: 'missed_sessions' },
+    data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+    human_reason: 'Semaine de déplacement, pas un écart de plan',
+    source: 'prometheus_watch',
+  });
+  const held = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [],
+    recentDecisions: [correction],
+  }));
+  assert.equal(held.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), false);
+  assert.notEqual(held.decision, 'propose');
+
+  const staleOpen = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [correction],
+  }));
+  assert.equal(staleOpen.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), false);
+  assert.equal(staleOpen.signalActions.some((row) => row.op === 'resolve' && row.id === 'sig-1'), false);
+
+  const moved = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 2, expectedWorkouts: 6, loggedNutritionDays: 10 }),
+    existingSignals: [],
+    recentDecisions: [correction],
+  }));
+  assert.equal(moved.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+});
+
+test('a watch-panel accept waits instead of re-proposing, without closing the signal like a correction', () => {
+  const heldAgg = aggregates({ workoutCount: 0, expectedWorkouts: 6, loggedNutritionDays: 10 });
+  const watchAccepted = decision({
+    decision: 'accepted',
+    domain: 'training',
+    type: 'missed_sessions',
+    proposal: { kind: 'watch_proposal_decision', action: 'relance', domain: 'training', type: 'missed_sessions' },
+    data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+    source: 'prometheus_watch',
+  });
+  const settled = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [watchAccepted],
+  }));
+  assert.notEqual(settled.decision, 'propose');
+  assert.equal(settled.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+  assert.equal(settled.signalActions.some((row) => row.op === 'resolve'), false);
+
+  const soloAccepted = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [decision({
+      decision: 'accepted',
+      source: 'solo_weekly_reviews',
+      data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+    })],
+  }));
+  assert.equal(soloAccepted.decision, 'propose');
+  assert.equal(soloAccepted.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+
+  const moved = runAthleteWeeklyReview(input({
+    aggregates: aggregates({ workoutCount: 2, expectedWorkouts: 6, loggedNutritionDays: 10 }),
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [watchAccepted],
+  }));
+  assert.equal(moved.decision, 'propose');
+
+  const watchModified = runAthleteWeeklyReview(input({
+    aggregates: heldAgg,
+    existingSignals: [signal({ confidence: 'medium' })],
+    recentDecisions: [decision({
+      decision: 'modified',
+      domain: 'training',
+      type: 'missed_sessions',
+      proposal: { kind: 'watch_proposal_decision', action: 'relance' },
+      data_used: { workout_count: 0, expected_workouts: 6, avg_calories: 2000, calorie_target: 2000 },
+      source: 'prometheus_watch',
+    })],
+  }));
+  assert.notEqual(watchModified.decision, 'propose');
+  assert.equal(watchModified.signalActions.some((row) => row.op === 'upsert' && row.type === 'missed_sessions'), true);
+});
+
 test('guarded profile never proposes a calorie/weight change', () => {
   const review = runAthleteWeeklyReview(input({
     guarded: true,
@@ -310,6 +403,85 @@ test('guarded profile never proposes a calorie/weight change', () => {
     existingSignals: [signal({ domain: 'weight', type: 'stall', confidence: 'high' })],
   }));
   assert.notEqual(review.decision, 'propose');
+  assert.equal(review.signalActions.find((row) => row.type === 'stall')?.proposal, undefined);
+});
+
+test('watch snapshot serializes the canonical nutrition proposal, including fatigue macros', () => {
+  const agg = aggregates({
+    avgFatigue: 8,
+    avgEnergy: 2,
+    proteinTarget: 160,
+    carbsTarget: 200,
+    fatTarget: 70,
+    weightKg: 80,
+    weightEndKg: 80,
+  });
+  const review = runAthleteWeeklyReview(input({
+    aggregates: agg,
+    existingSignals: [signal({
+      id: 'sig-fatigue',
+      domain: 'recovery',
+      type: 'fatigue',
+      confidence: 'medium',
+    })],
+  }));
+  const fatigue = review.signalActions.find((row) => row.type === 'fatigue');
+  const nutritionInput = {
+    goal: agg.goal,
+    calorie_target: agg.calorieTarget,
+    protein_target: 160,
+    carbs_target: 200,
+    fat_target: 70,
+    weight_kg: 80,
+    logged_nutrition_days: agg.loggedNutritionDays,
+    avg_calories: agg.avgCalories,
+    weight_delta_kg: agg.weightDeltaKg,
+    weight_start_kg: agg.weightStartKg,
+    weight_end_kg: 80,
+    avg_fatigue: 8,
+    avg_energy: 2,
+    tracking: { nutrition: true, workouts: true, weight: true, checkins: true },
+  };
+  const canonical = proposeWeeklyNutrition(nutritionInput);
+  assert.equal(review.decision, 'propose');
+  assert.equal(canonical.reason, 'carb_support');
+  assert.equal(fatigue?.proposal?.kind, 'calorie_adjustment');
+  assert.equal(fatigue?.proposal?.action, 'calorie_adjustment');
+  assert.equal(fatigue?.proposal?.reason, 'carb_support');
+  assert.deepEqual(fatigue?.proposal?.draft, canonical.draft);
+  assert.equal(canonical.draft?.calories, 2000);
+  assert.ok((canonical.draft?.carbs ?? 0) > 200);
+
+  const stallAgg = aggregates({
+    weightDeltaKg: 0,
+    proteinTarget: 160,
+    carbsTarget: 200,
+    fatTarget: 70,
+    weightKg: 80,
+    weightEndKg: 80,
+    avgFatigue: 4,
+    avgEnergy: 6,
+  });
+  const stall = runAthleteWeeklyReview(input({
+    aggregates: stallAgg,
+    existingSignals: [signal({
+      id: 'sig-stall',
+      domain: 'weight',
+      type: 'stall',
+      confidence: 'medium',
+    })],
+  }));
+  const stallProposal = stall.signalActions.find((row) => row.type === 'stall')?.proposal;
+  const stallCanonical = proposeWeeklyNutrition({
+    ...nutritionInput,
+    weight_delta_kg: 0,
+    avg_fatigue: 4,
+    avg_energy: 6,
+  });
+  assert.equal(stallCanonical.reason, 'cut_stall');
+  assert.equal(stallProposal?.reason, 'cut_stall');
+  assert.deepEqual(stallProposal?.draft, stallCanonical.draft);
+  assert.equal(stallCanonical.draft?.calories, 1900);
 });
 
 test('Solo and Coach adapters share the engine; fleet identity is coached', () => {
@@ -400,6 +572,10 @@ test('P2.2 source-lock: new table after audit, RPC writes, Solo+fleet share engi
   const edge = src('supabase/functions/coach-fleet-round/index.ts');
   assert.match(edge, /save_athlete_weekly_review/);
   assert.match(edge, /runAthleteWeeklyReview/);
+  const engine = src('supabase/functions/_shared/weeklyReviewEngine.ts');
+  assert.match(engine, /serializeCanonicalWatchProposal/);
+  assert.match(engine, /proposeWeeklyNutrition/);
+  assert.doesNotMatch(engine, /function snapshotWatchProposal/);
 
   const sqlTest = src('supabase/tests/athlete_weekly_reviews.sql');
   assert.match(sqlTest, /wait is not stored/);
