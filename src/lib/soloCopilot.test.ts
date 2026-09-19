@@ -14,6 +14,8 @@ import {
   type SoloReviewInputs,
 } from './soloCopilot';
 import { isCompleteCalorieDraft } from './coachInterventions';
+import type { AthleteDecisionLog } from './types';
+import { mapSoloProposalTarget } from '../features/signals/domain/decisionLog';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -58,6 +60,33 @@ function inputs(partial: Partial<SoloReviewInputs> = {}): SoloReviewInputs {
     nutritionLogs: logs(10, 2000),
     weights: weights(80, 79.4),
     workouts: [],
+    ...partial,
+  };
+}
+
+function decision(partial: Partial<AthleteDecisionLog> = {}): AthleteDecisionLog {
+  return {
+    id: 'dec-1',
+    athlete_id: 'self',
+    actor_id: 'self',
+    actor_role: 'athlete',
+    domain: 'weight',
+    type: 'stall',
+    decision: 'refused',
+    proposal: { action: 'calorie_adjustment', reason: 'cut_stall' },
+    why: 'cut_stall',
+    data_used: {
+      avg_calories: 2000,
+      calorie_target: 2000,
+      workout_count: 0,
+      logged_nutrition_days: 10,
+      weight_delta_kg: 0,
+    },
+    human_reason: null,
+    applied_effect: {},
+    source: 'solo_weekly_reviews',
+    source_id: null,
+    created_at: '2026-08-27T00:00:00Z',
     ...partial,
   };
 }
@@ -186,14 +215,24 @@ test('solo copilot lives on the solo home, writes targets only on an explicit ac
   assert.match(card, /onDecide\('kept'\)/);
   assert.doesNotMatch(card, /updateProfile/);
   assert.match(card, /soloReview\.nothingAuto/);
+  assert.match(card, /listAthleteDecisionLogBestEffort/);
+  assert.match(card, /persistAthleteWeeklyReviewCycle/);
+  assert.match(card, /recentDecisions: decisions/);
+  assert.match(card, /!review.suppressedByDecision/);
 
   const store = src('src/stores/soloCopilotStore.ts');
   const decide = store.slice(store.indexOf('decide: async'));
   assert.match(decide, /if \(decision === 'accepted' && draft\)/);
-  assert.match(decide, /updateProfile\(userId, \{\s*daily_calorie_target: draft\.calories/);
+  const rpcIdx = decide.indexOf('commit_solo_weekly_review_decision');
+  const profileIdx = decide.indexOf('updateProfile');
+  assert.ok(rpcIdx >= 0 && profileIdx > rpcIdx);
+  assert.match(decide, /p_idempotency_key/);
+  assert.match(decide, /applyRemoteTargets/);
+  assert.match(decide, /commit_solo_weekly_review_decision/);
   assert.match(decide, /from\('solo_weekly_reviews'\)/);
   assert.match(decide, /onConflict: 'user_id,week_start'/);
   assert.match(decide, /track\('solo_review_decided'/);
+  assert.match(decide, /recordAthleteDecisionDurable/);
 
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
   assert.match(dash, /\{!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview \/>\}/);
@@ -260,4 +299,35 @@ test('I04: solo dossier carries real check-in signals, not nulls', () => {
   assert.equal(dossier.avg_adherence_nutrition, 85);
   assert.equal(dossier.avg_fatigue, 7);
   assert.deepEqual(dossier.tracking, { nutrition: true, workouts: true, weight: true, checkins: true });
+});
+
+test('P2.3: refused stall stays keep until evidence moves', () => {
+  const stall = computeSoloWeeklyReview(inputs({ weights: weights(80, 80) }));
+  assert.equal(stall.proposal.action, 'calorie_adjustment');
+  assert.equal(stall.proposal.reason, 'cut_stall');
+  assert.equal(stall.suppressedByDecision, undefined);
+
+  const refused = computeSoloWeeklyReview(inputs({
+    weights: weights(80, 80),
+    recentDecisions: [decision()],
+  }));
+  assert.equal(refused.suppressedByDecision, true);
+  assert.equal(refused.proposal.action, 'keep');
+  assert.equal(refused.proposal.draft, null);
+  assert.equal(soloReviewMessageKey(refused), 'soloReview.refusedWait');
+
+  const kcalOnly = computeSoloWeeklyReview(inputs({
+    weights: weights(80, 80),
+    nutritionLogs: logs(10, 2200),
+    recentDecisions: [decision()],
+  }));
+  assert.equal(kcalOnly.suppressedByDecision, true);
+
+  const moved = computeSoloWeeklyReview(inputs({
+    weights: weights(80, 80.4),
+    recentDecisions: [decision()],
+  }));
+  assert.equal(moved.suppressedByDecision, undefined);
+  assert.equal(moved.proposal.action, 'calorie_adjustment');
+  assert.equal(mapSoloProposalTarget(moved.proposal.action, moved.proposal.reason).type, 'stall');
 });

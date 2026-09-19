@@ -19,8 +19,8 @@ La conversation prospect dans la messagerie est **P4.3**. P1.4 pose l’état
 
 ## Vérité serveur
 
-Migration append-only `20260918130232_marketplace_athlete_confirm` (candidate,
-pas encore en production).
+Migration append-only `20260918130232_marketplace_athlete_confirm` (appliquée
+en production, même timestamp).
 
 - Statuts stockés : `pending | accepted | coach_accepted | athlete_confirmed | declined | withdrawn`.
   `accepted` est un état historique terminal de l’ancien contrat (acceptation Coach =
@@ -61,3 +61,10 @@ pas encore en production).
 
 P4.3 messagerie prospect. P1.5 durées commerciales. Paiement / Stripe.
 Édition du plan Coach. Matching avancé (P4.1–P4.2).
+
+## Livraison
+
+PR [#189](https://github.com/Jayvy2002/prometheus-tracker-app/pull/189) mergée dans `new-JV`
+(`ced733516a4351eed5bed629794fe8ff3de87621`). Production : 116e version
+`20260918130232_marketplace_athlete_confirm`. `activate_coaching_relationship` reste
+interne. Leftover `accepted` inchangé.

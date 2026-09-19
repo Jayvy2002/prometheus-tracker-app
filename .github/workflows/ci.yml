@@ -112,6 +112,63 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/client_departure.sql | tee /tmp/client-departure-db-results.txt
+      - name: Test commercial durations
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/commercial_durations.sql | tee /tmp/commercial-durations-db-results.txt
+      - name: Confirm commercial durations echo
+        run: |
+          set -euo pipefail
+          grep -F 'commercial durations: solo trial 14 days and coach grace 7 days' /tmp/commercial-durations-db-results.txt
+          grep -F 'client departure: isolation, rollback, archives, revocation, role transition and repeat checks passed' /tmp/client-departure-db-results.txt
+      - name: Test athlete signals
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_signals.sql | tee /tmp/athlete-signals-db-results.txt
+      - name: Confirm athlete signals echo
+        run: |
+          set -euo pipefail
+          grep -F 'athlete signals: persistence, isolation, no auto-apply' /tmp/athlete-signals-db-results.txt
+      - name: Test athlete weekly reviews
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_weekly_reviews.sql | tee /tmp/athlete-weekly-reviews-db-results.txt
+      - name: Confirm athlete weekly reviews echo
+        run: |
+          set -euo pipefail
+          grep -F 'weekly review: universal engine, wait is valid, no auto-apply' /tmp/athlete-weekly-reviews-db-results.txt
+      - name: Test athlete decision log
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_decision_log.sql | tee /tmp/athlete-decision-log-db-results.txt
+      - name: Confirm athlete decision log echo
+        run: |
+          set -euo pipefail
+          grep -F 'decision log: human refusal shapes the next review, no auto-apply' /tmp/athlete-decision-log-db-results.txt
+      - name: Test athlete review integrity
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_review_integrity.sql | tee /tmp/athlete-review-integrity-db-results.txt
+      - name: Confirm athlete review integrity echo
+        run: |
+          set -euo pipefail
+          grep -F 'review integrity: atomic upsert, wait persisted, mismatch blocked, latest per key' /tmp/athlete-review-integrity-db-results.txt
+      - name: Test athlete decision durability
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/athlete_decision_durability.sql | tee /tmp/athlete-decision-durability-db-results.txt
+      - name: Confirm athlete decision durability echo
+        run: |
+          set -euo pipefail
+          grep -F 'decision durability: outbox isolation, drain replay, immutable intent, solo journal-fail reprise' /tmp/athlete-decision-durability-db-results.txt
+      - name: Test athlete decision drain concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-decision-drain-concurrency.sh | tee /tmp/athlete-decision-drain-concurrency.txt
+      - name: Confirm athlete decision drain concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'decision drain concurrency: skip occupied key, two sessions no deadlock' /tmp/athlete-decision-drain-concurrency.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

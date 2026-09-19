@@ -1050,11 +1050,13 @@ const coaching = {
     statWeight: 'kg',
     statSessions: 'sessions',
     nothingAuto: 'Nothing changes without your say.',
+    refusedWait: 'You already declined this suggestion. Waiting until the information changes before proposing it again.',
     guarded: 'No automatic adjustment is suggested. Ask a professional to help interpret this information.',
     apply: 'Apply {{n}} kcal',
     keepMine: 'Keep my targets',
     gotIt: 'Got it',
     applied: 'Targets updated: {{n}} kcal.',
+    persistFailed: 'The review could not be saved. Try again later.',
   },
 
   weeklyWhy: {

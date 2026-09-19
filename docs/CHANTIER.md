@@ -32,9 +32,9 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P1.4 : Lifecycle marketplace avec confirmation finale Athlète.**
+> **CURRENT IMPLEMENTATION GATE — P2.3 : Journal des propositions et décisions humaines.**
 >
-> P1.1, P1.2 et P1.3 sont clôturés. P1.4 est en cours. Un agent ne commence que cette tâche, s’arrête à la PR verte, et attend le feu vert explicite de Jean-Vincent avant merge et avant P1.5. La conversation prospect (P4.3) n’est pas dans cette sous-tâche. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
+> P1.1–P2.3 sont implémentés dans la PR #190 (non mergée). La revue universelle est orchestrée côté serveur (Coach + Solos éligibles via le cron fleet) avec rattrapage à l’ouverture. Le journal est durable : intention dans la transaction métier, outbox isolée par athlète, drain idempotent. La confiance ne monte que si les preuves changent, pas si la seule fenêtre datée avance. Aucune auto-application. Pas d’UI explicabilité (P2.4). **Ne pas merger sans feu vert explicite.** Un agent n’enchaîne pas P2.4 sans feu vert. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
 ## Protocole d’exécution obligatoire
 
@@ -60,8 +60,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | Priorité | Chantier | Statut | But |
 |---|---|---|---|
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
-| **P1** | Identité, capacités, permissions, lifecycle | **EN COURS — P1.1–P1.3 clôturés ; P1.4 PR ouverte, pas de P1.5 sans feu vert** | Faire correspondre le modèle métier à la Vision |
-| **P2** | Cerveau Prometheus | À faire après P1 | Unifier revue hebdo + signaux + mémoire + décisions |
+| **P1** | Identité, capacités, permissions, lifecycle | **P1.5 livré dans #190 (merge en attente)** | Faire correspondre le modèle métier à la Vision |
+| **P2** | Cerveau Prometheus | **EN COURS — P2.3 livré dans #190 (merge en attente)** | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | À faire après contrats P1 | Phases/cycles + séquence de séances |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.4 est en cours. Un agent s’arrête à la PR verte et n’enchaîne pas P1.5 sans le feu vert explicite de Jean-Vincent.
+P2.3 est implémenté dans la PR #190 (non mergée). Un agent n’enchaîne pas P2.4 sans le feu vert explicite de Jean-Vincent.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -328,13 +328,19 @@ Solo et Coaché peuvent consulter passé et futur sans élargir indûment les dr
 
 ### État actuel
 
-**🟡 PR OUVERTE — en attente de revue, CI verte et feu vert de Jean-Vincent. Ne pas merger. Ne pas commencer P1.5.**
+**✅ TERMINÉ — mergé, déployé et vérifié en production.**
+
+PR [#189](https://github.com/Jayvy2002/prometheus-tracker-app/pull/189) mergée dans `new-JV`.
+Commit de merge : `ced733516a4351eed5bed629794fe8ff3de87621`.
+CI post-merge entièrement verte : [run 35376871845](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35376871845)
+(`verify` 1m14s ; `rls-matrix` 3m47s). Le job `verify` exige désormais les secrets
+production et exécute `migration list` + `db push --dry-run` en fail-closed.
 
 Inventaire : [P1.4 — lifecycle marketplace](P1_4_MARKETPLACE_LIFECYCLE.md).
 
 - `respond_coaching_request(..., 'accepted')` pose `coach_accepted` : prospect, pas de `coach_client_links.active`, pas de consentement dossier.
 - Seul `respond_coaching_request(..., 'confirmed')` (athlète, depuis `coach_accepted`) appelle `activate_coaching_relationship`.
-- `activate_coaching_relationship` reste interne (REVOKE authenticated/anon).
+- `activate_coaching_relationship` reste interne (REVOKE authenticated/anon ; execute live = `postgres` + `service_role` uniquement).
 - Demandes `pending` / `coach_accepted` incompatibles retirées après confirmation.
 - Replay d’une confirmation historique après départ : pas de réactivation.
 - Les lignes leftover `accepted` (ancien contrat : acceptation Coach = activation) restent
@@ -343,7 +349,20 @@ Inventaire : [P1.4 — lifecycle marketplace](P1_4_MARKETPLACE_LIFECYCLE.md).
   (pas dans le consentement).
 - `athlete_confirmed` décrit l’événement historique ; l’état actif/terminé est affiché à part.
 - Télémétrie : `coaching_request_accepted` = poursuite Coach ; `marketplace_athlete_confirmed` = activation.
-- Conversation prospect (messagerie sans dossier) : **P4.3**, hors de cette PR.
+- Conversation prospect (messagerie sans dossier) : **P4.3**, hors de cette sous-tâche.
+
+Migration append-only `20260918130232_marketplace_athlete_confirm` appliquée en production
+avec **le même timestamp**. Aucune migration historique modifiée.
+
+État production vérifié après merge :
+- **116 migrations** appliquées, dernière = `20260918130232_marketplace_athlete_confirm` ;
+- CHECK `coach_join_requests_status_check` = `pending | accepted | coach_accepted | athlete_confirmed | declined | withdrawn` ;
+- `activate_coaching_relationship` non exécutable par `anon` ni `authenticated` ;
+- dry-run CI : `Remote database is up to date` / `aucune migration à pousser` ;
+- **13 Edge Functions ACTIVE** (P1.4 n’a pas modifié les edges) ;
+- locks Git rafraîchis à partir de l’état live ; `migrations.pending.json` vidé.
+
+**Arrêt : P1.4 est clôturé. P1.5 continue dans la PR #190. Pas de P2 sans feu vert.**
 
 ### Contrat cible
 
@@ -377,6 +396,25 @@ Aucune action Coach seule ne peut créer `coach_client_links.active` pour une de
 
 ## P1.5 — Règles commerciales constantes
 
+### État actuel
+
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
+
+Feu vert de Jean-Vincent pour implémenter P1.5 dans la même PR que le lock-sync P1.4.
+Pas de Stripe, pas d’entitlements P6, pas de prix inventés.
+
+Inventaire : [P1.5 — règles commerciales](P1_5_COMMERCIAL_TERMS.md).
+
+- TypeScript unique : `src/lib/commercialTerms.ts` (`SOLO_TRIAL_DAYS = 14`, `COACH_GRACE_DAYS = 7`, `COMMERCIAL_PRICES.status = 'undecided'`).
+- SQL unique (candidate append-only `20260918182954_commercial_durations`) : `solo_trial_interval()` / `coach_grace_interval()`, `REVOKE` authenticated/anon.
+- `transition_client_to_solo` tamponne `COALESCE(..., now() + public.solo_trial_interval())` — jamais raccourci.
+- Les migrations historiques 30 jours restent inchangées.
+- Pas de colonne `coach_grace_ends_at`, pas de mur de paiement.
+
+**Arrêt : P1.5 est implémenté dans la PR #190 (non mergée). P2.1–P2.3 continuent dans la même PR. Pas de P2.4 sans feu vert.**
+
+### Cible
+
 Centraliser les décisions actuelles :
 
 - essai Solo = **14 jours** ;
@@ -387,7 +425,7 @@ Centraliser les décisions actuelles :
 
 ### Terminé quand
 
-Une seule définition métier est utilisée et testée pour chaque durée.
+Une seule définition métier est utilisée et testée pour chaque durée. Merge et application production seulement après feu vert.
 
 ---
 
@@ -398,6 +436,24 @@ Une seule définition métier est utilisée et testée pour chaque durée.
 Faire évoluer les briques IA actuelles vers un moteur commun qui apprend du contexte dans le temps sans auto-appliquer.
 
 ## P2.1 — Modèle de signaux persistants
+
+### État actuel
+
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
+
+Audit : `coach_interventions` est une inbox de propositions (`pending/sent/kept/dismissed`), pas une hypothèse suivie dans le temps. `solo_weekly_reviews` est une décision nutrition par semaine ISO. Une table dédiée est nécessaire.
+
+Inventaire : [P2.1 — signaux persistants](P2_1_ATHLETE_SIGNALS.md).
+
+- Table `athlete_signals` (candidate `20260918185709_athlete_signals`) : athlete_id, domain, type, hypothesis, evidence_for/against, confidence qualitative, status, first/last_seen, next_review, resolved.
+- Domaines : training, nutrition, recovery, weight, goal, adherence.
+- Écritures uniquement via `upsert_athlete_signal` / `resolve_athlete_signal` (REVOKE INSERT/UPDATE/DELETE authenticated).
+- Lecture : athlète propriétaire ou Coach avec relation active. Le workspace n’accorde aucun droit.
+- Aucune auto-application (pas d’écriture programmes / cibles / logs).
+
+**Arrêt : P2.1 est livré dans la PR #190 (non mergée). P2.2 et P2.3 continuent dans la même PR. Pas de P2.4 sans feu vert.**
+
+### Cible
 
 Créer un modèle stable conceptuellement équivalent à :
 
@@ -431,28 +487,41 @@ Le schéma exact doit être déterminé après audit des tables d’intervention
 
 ## P2.2 — Revue hebdomadaire universelle
 
-Faire converger :
+### État actuel
 
-- revue hebdo Solo ;
-- fleet/triage Coach.
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
 
-La revue commune doit :
+Inventaire : [P2.2 — revue hebdomadaire](P2_2_WEEKLY_REVIEW.md).
 
-1. charger les agrégats autorisés ;
-2. évaluer la qualité des données ;
-3. mettre à jour les signaux existants ;
-4. créer de nouveaux signaux si nécessaire ;
-5. renforcer ou diminuer la confiance ;
-6. décider : attendre / demander info / proposer / clôturer ;
-7. produire un résumé adapté à l’autorité humaine.
+Audit : `solo_weekly_reviews` reste la décision nutrition Solo (tap humain). La fleet (`triage_coach_fleet` / `coach_interventions`) reste l’inbox Coach. Le moteur commun `runAthleteWeeklyReview` alimente `athlete_signals` et persiste `athlete_weekly_reviews` (candidate `20260918194013`).
+
+La revue commune :
+
+1. charge les agrégats autorisés (pas les logs bruts) ;
+2. évalue la qualité des données ;
+3. met à jour les signaux existants ;
+4. crée de nouveaux signaux si nécessaire ;
+5. renforce ou diminue la confiance qualitative ;
+6. décide : attendre / demander info / proposer / clôturer ;
+7. produit un résumé adapté à l’autorité (athlète Solo, Coach si relation active).
 
 ### Invariant
 
-Une semaine sans modification est un résultat valide.
+Une semaine sans modification est un résultat valide. Un signal faible attend. Les modules désactivés n’alimentent pas de jugement. Aucune auto-application.
+
+**Arrêt : P2.2 est livré dans la PR #190 (non mergée). P2.3 continue dans la même PR. Pas de P2.4 sans feu vert.**
 
 ## P2.3 — Journal des propositions et décisions humaines
 
-Conserver :
+### État actuel
+
+**IMPLÉMENTÉ dans la PR [#190](https://github.com/Jayvy2002/prometheus-tracker-app/pull/190) — non mergée.**
+
+Inventaire : [P2.3 — journal des décisions](P2_3_DECISION_LOG.md).
+
+Audit : `solo_weekly_reviews` (`accepted` / `kept` / `dismissed`) et `coach_interventions` (`pending` / `sent` / `kept` / `dismissed`) ne couvrent pas `modified`, la raison humaine facultative, l’effet réellement appliqué, ni la consommation par la revue suivante. Table dédiée `athlete_decision_log` (candidate `20260918201237`).
+
+Le journal conserve :
 
 - ce qui était proposé ;
 - pourquoi ;
@@ -462,7 +531,25 @@ Conserver :
 - raison humaine facultative ;
 - effet réellement appliqué.
 
-La revue suivante doit pouvoir exploiter ce contexte.
+Un refus ou un ignoré empêche `runAthleteWeeklyReview`, la carte Solo
+(`computeSoloWeeklyReview`) et le round fleet (`planFleetRoundCard` / Edge `planWrite`)
+de reproposer le même `(domaine, type)` tant que les preuves n’ont pas bougé
+(seuils fleet : kcal ±150, séances ±2). Le signal continue d’être suivi. Aucune
+auto-application. L’intention de journal est enregistrée dans la transaction de
+l’action métier (`queue_and_record_athlete_decision`) avec les preuves utiles ;
+`commit_solo` consulte l’outbox sous verrou avant toute mutation — une reprise
+ne termine que la journalisation. Le contenu d’une intention est immuable.
+`drain_athlete_decision_outbox` reprend les échecs sans doublon ni usurpation
+d’auteur, avec backoff. Ordre total `(next_attempt_at, created_at, id)` ;
+try-advisory puis outbox puis journal ; une clé occupée est sautée. Une
+reprise sur un journal existant compare l’intention complète. L’outbox est
+unique par `(athlete_id, idempotency_key)`.
+
+### Invariant
+
+La revue suivante exploite ce contexte. Un refus n’est pas un bouton sans mémoire.
+
+**Arrêt : ne pas merger sans feu vert. Un agent n’enchaîne pas P2.4.**
 
 ## P2.4 — Explicabilité et correction
 

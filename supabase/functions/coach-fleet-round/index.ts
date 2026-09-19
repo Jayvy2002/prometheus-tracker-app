@@ -2,6 +2,19 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.57.4";
 import { FLEET_COPY, fleetLocale, type FleetCopy, type FleetGoalKey, type FleetLocale } from "../_shared/fleetCopy.ts";
 import { todayInTimeZone } from "../_shared/clock.ts";
+import {
+  isProposalSuppressed,
+  mapInterventionKind,
+  weeklyReviewAggregatesFromCounts,
+  type ProposalMemoryDecision,
+} from "../_shared/proposalMemory.ts";
+import {
+  runAthleteWeeklyReview,
+  weeklyReviewInputFromFleet,
+  weeklyReviewSaveArgs,
+  type EngineSignal,
+  type WeeklyReviewFleetLike,
+} from "../_shared/weeklyReviewEngine.ts";
 
 /**
  * Architecture lock 2026-08-29 (Jayvy): DO NOT create Grok Bots.
@@ -599,10 +612,184 @@ function evidenceChanged(prev: FleetEvidence | null | undefined, next: FleetEvid
   return false;
 }
 
+interface DecisionLogRow extends ProposalMemoryDecision {
+  athlete_id: string;
+}
+
+function asEngineSignal(raw: Record<string, unknown>): EngineSignal | null {
+  const id = str(raw.id);
+  const domain = str(raw.domain);
+  const type = str(raw.type);
+  const hypothesis = str(raw.hypothesis);
+  const confidence = str(raw.confidence);
+  const status = str(raw.status);
+  if (!id || !domain || !type || !hypothesis || !confidence || !status) return null;
+  return {
+    id,
+    athlete_id: str(raw.athlete_id) ?? undefined,
+    domain: domain as EngineSignal["domain"],
+    type,
+    hypothesis,
+    evidence_for: Array.isArray(raw.evidence_for) ? raw.evidence_for as EngineSignal["evidence_for"] : [],
+    evidence_against: Array.isArray(raw.evidence_against) ? raw.evidence_against as EngineSignal["evidence_against"] : [],
+    confidence: confidence as EngineSignal["confidence"],
+    status: status as EngineSignal["status"],
+  };
+}
+
+async function loadDecisionLogs(
+  admin: SupabaseClient,
+  athleteIds: string[],
+): Promise<Map<string, DecisionLogRow[]>> {
+  const byAthlete = new Map<string, DecisionLogRow[]>();
+  if (athleteIds.length === 0) return byAthlete;
+  const latest = await admin.rpc("list_latest_athlete_decisions_for_athletes", {
+    p_athlete_ids: athleteIds,
+  });
+  const rows = !latest.error && Array.isArray(latest.data)
+    ? latest.data
+    : [];
+  if (latest.error) {
+    const fallback = await admin
+      .from("athlete_decision_log")
+      .select("athlete_id, domain, type, decision, data_used, created_at")
+      .in("athlete_id", athleteIds)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (!fallback.error && Array.isArray(fallback.data)) {
+      for (const raw of fallback.data) ingestDecisionRow(byAthlete, asObject(raw));
+    }
+    return byAthlete;
+  }
+  for (const raw of rows) ingestDecisionRow(byAthlete, asObject(raw));
+  return byAthlete;
+}
+
+function ingestDecisionRow(byAthlete: Map<string, DecisionLogRow[]>, row: Record<string, unknown>) {
+  const athleteId = str(row.athlete_id);
+  if (!athleteId) return;
+  const list = byAthlete.get(athleteId) ?? [];
+  const dataUsed = row.data_used && typeof row.data_used === "object" && !Array.isArray(row.data_used)
+    ? row.data_used as Record<string, unknown>
+    : {};
+  list.push({
+    athlete_id: athleteId,
+    domain: str(row.domain) ?? "",
+    type: str(row.type) ?? "",
+    decision: str(row.decision) ?? "",
+    data_used: dataUsed,
+    created_at: str(row.created_at) ?? "",
+  });
+  byAthlete.set(athleteId, list);
+}
+
+async function loadOpenSignals(
+  admin: SupabaseClient,
+  athleteIds: string[],
+): Promise<Map<string, EngineSignal[]>> {
+  const byAthlete = new Map<string, EngineSignal[]>();
+  if (athleteIds.length === 0) return byAthlete;
+  const { data, error } = await admin
+    .from("athlete_signals")
+    .select("id, athlete_id, domain, type, hypothesis, evidence_for, evidence_against, confidence, status")
+    .in("athlete_id", athleteIds)
+    .in("status", ["open", "waiting"]);
+  if (error || !Array.isArray(data)) return byAthlete;
+  for (const raw of data) {
+    const row = asEngineSignal(asObject(raw));
+    if (!row?.athlete_id) continue;
+    const list = byAthlete.get(row.athlete_id) ?? [];
+    list.push(row);
+    byAthlete.set(row.athlete_id, list);
+  }
+  return byAthlete;
+}
+
+function isMissingContract(message: string): boolean {
+  return /could not find the function|does not exist|schema cache/i.test(message);
+}
+
+async function persistWeeklyReview(
+  admin: SupabaseClient,
+  d: WeeklyReviewFleetLike,
+  today: string,
+  existingSignals: EngineSignal[],
+  recentDecisions: DecisionLogRow[],
+  identity: "solo" | "coached" = "coached",
+) {
+  const input = weeklyReviewInputFromFleet(d, today, existingSignals, recentDecisions, identity);
+  const review = runAthleteWeeklyReview(input);
+  const { error } = await admin.rpc("save_athlete_weekly_review", weeklyReviewSaveArgs(d.client_id, review));
+  if (error && !isMissingContract(error.message)) {
+    console.error("persist weekly review", d.client_id, error.message);
+  }
+}
+
+function mapSoloTriageRow(raw: Record<string, unknown>): WeeklyReviewFleetLike | null {
+  const dossier = asObject(raw.dossier);
+  const clientId = str(dossier.client_id) ?? str(raw.athlete_id);
+  if (!clientId) return null;
+  const trackingRaw = asObject(dossier.tracking);
+  return {
+    client_id: clientId,
+    goal: str(dossier.goal) ?? "",
+    training_frequency: num(dossier.training_frequency, 3),
+    calorie_target: num(dossier.calorie_target),
+    logged_nutrition_days: num(dossier.logged_nutrition_days),
+    avg_calories: num(dossier.avg_calories),
+    workout_count: num(dossier.workout_count),
+    checkin_count: num(dossier.checkin_count),
+    weight_delta_kg: dossier.weight_delta_kg == null ? null : num(dossier.weight_delta_kg),
+    weight_start_kg: dossier.weight_start_kg == null ? null : num(dossier.weight_start_kg),
+    weight_end_kg: dossier.weight_end_kg == null ? null : num(dossier.weight_end_kg),
+    weight_kg: num(dossier.weight_kg),
+    weight_span_days: dossier.weight_span_days == null ? null : num(dossier.weight_span_days),
+    weigh_ins: dossier.weigh_ins == null ? null : num(dossier.weigh_ins),
+    avg_fatigue: dossier.avg_fatigue == null ? null : num(dossier.avg_fatigue),
+    avg_energy: dossier.avg_energy == null ? null : num(dossier.avg_energy),
+    tracking: {
+      nutrition: trackingRaw.nutrition !== false,
+      workouts: trackingRaw.workouts !== false,
+      weight: trackingRaw.weight !== false,
+      checkins: trackingRaw.checkins !== false,
+    },
+    is_minor: dossier.is_minor === true,
+    has_medical_flags: dossier.has_medical_flags === true,
+  };
+}
+
+async function persistEligibleSoloReviews(admin: SupabaseClient, today: string) {
+  const { data, error } = await admin.rpc("triage_eligible_solo_weekly");
+  if (error) {
+    if (!isMissingContract(error.message)) {
+      console.error("triage eligible solo weekly", error.message);
+    }
+    return;
+  }
+  const rows = Array.isArray(data) ? data : [];
+  const dossiers = rows
+    .map((row) => mapSoloTriageRow(asObject(row)))
+    .filter((row): row is WeeklyReviewFleetLike => !!row);
+  const ids = dossiers.map((row) => row.client_id);
+  const decisionLogs = await loadDecisionLogs(admin, ids);
+  const openSignals = await loadOpenSignals(admin, ids);
+  for (const d of dossiers) {
+    await persistWeeklyReview(
+      admin,
+      d,
+      today,
+      openSignals.get(d.client_id) ?? [],
+      decisionLogs.get(d.client_id) ?? [],
+      "solo",
+    );
+  }
+}
+
 function planWrite(
   d: Dossier,
   today: string,
   locale: FleetLocale,
+  recentDecisions: DecisionLogRow[] = [],
 ): { action: "skip" | "upsert" | "insert"; card: FleetCard | null } {
   const raw = buildCard(d, today, locale);
   if (!raw) return { action: "skip", card: null };
@@ -614,6 +801,16 @@ function planWrite(
     if (!evidenceChanged(prev.evidence, evidenceFromDossier(d), card.flag)) {
       return { action: "skip", card: null };
     }
+  }
+  const target = mapInterventionKind(card.kind, card.flag);
+  if (isProposalSuppressed(recentDecisions, target.domain, target.type, weeklyReviewAggregatesFromCounts({
+    avgCalories: Math.round(d.avg_calories),
+    calorieTarget: effectiveCalorieTarget(d),
+    workoutCount: d.workout_count,
+    loggedNutritionDays: d.logged_nutrition_days,
+    weightDeltaKg: d.weight_delta_kg,
+  }))) {
+    return { action: "skip", card: null };
   }
   return { action: "insert", card };
 }
@@ -1030,6 +1227,8 @@ Deno.serve(async (req: Request) => {
 
     const now = new Date();
     const ctxByCoach = await fetchCoachContext(admin, dossiers.map((d) => d.coach_id));
+    const decisionLogs = await loadDecisionLogs(admin, dossiers.map((d) => d.client_id));
+    const openSignals = await loadOpenSignals(admin, dossiers.map((d) => d.client_id));
 
     let flagged = 0;
     let skipped = 0;
@@ -1038,7 +1237,14 @@ Deno.serve(async (req: Request) => {
     for (const d of dossiers) {
       const ctx = ctxByCoach.get(d.coach_id);
       const today = todayInTimeZone(now, ctx?.timezone ?? DEFAULT_FLEET_TIMEZONE);
-      const plan = planWrite(d, today, ctx?.locale ?? "fr");
+      await persistWeeklyReview(
+        admin,
+        d,
+        today,
+        openSignals.get(d.client_id) ?? [],
+        decisionLogs.get(d.client_id) ?? [],
+      );
+      const plan = planWrite(d, today, ctx?.locale ?? "fr", decisionLogs.get(d.client_id) ?? []);
       if (plan.action === "skip" || !plan.card) {
         skipped += 1;
         continue;
@@ -1054,6 +1260,17 @@ Deno.serve(async (req: Request) => {
           action: plan.action,
         });
       }
+    }
+
+    if (isService && trigger === "cron") {
+      await persistEligibleSoloReviews(
+        admin,
+        todayInTimeZone(now, DEFAULT_FLEET_TIMEZONE),
+      );
+    }
+    const { error: drainError } = await admin.rpc("drain_athlete_decision_outbox", { p_limit: 50 });
+    if (drainError && !isMissingContract(drainError.message)) {
+      console.error("drain athlete decision outbox", drainError.message);
     }
 
     if (roundId) {

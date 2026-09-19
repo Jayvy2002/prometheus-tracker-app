@@ -282,6 +282,7 @@ test('22a: types live by domain; lib/types.ts re-exports', () => {
     'src/features/nutrition/types.ts',
     'src/features/programs/types.ts',
     'src/features/coaching/types.ts',
+    'src/features/signals/types.ts',
   ]) {
     assert.ok(existsSync(at(rel)), rel);
   }
@@ -291,12 +292,16 @@ test('22a: types live by domain; lib/types.ts re-exports', () => {
   assert.match(barrel, /export \* from '\.\.\/features\/nutrition\/types'/);
   assert.match(barrel, /export \* from '\.\.\/features\/programs\/types'/);
   assert.match(barrel, /export \* from '\.\.\/features\/coaching\/types'/);
+  assert.match(barrel, /export \* from '\.\.\/features\/signals\/types'/);
   assert.doesNotMatch(barrel, /export interface UserProfile/);
   assert.match(readFileSync(at('src/shared/types.ts'), 'utf8'), /export interface UserProfile/);
   assert.match(readFileSync(at('src/features/workout/types.ts'), 'utf8'), /export interface Workout \{/);
   assert.match(readFileSync(at('src/features/nutrition/types.ts'), 'utf8'), /export interface NutritionLog \{/);
   assert.match(readFileSync(at('src/features/programs/types.ts'), 'utf8'), /export interface Program \{/);
   assert.match(readFileSync(at('src/features/coaching/types.ts'), 'utf8'), /export interface CoachIntervention /);
+  assert.match(readFileSync(at('src/features/signals/types.ts'), 'utf8'), /export interface AthleteSignal /);
+  assert.match(readFileSync(at('src/features/signals/types.ts'), 'utf8'), /export interface AthleteWeeklyReview /);
+  assert.match(readFileSync(at('src/features/signals/types.ts'), 'utf8'), /export interface AthleteDecisionLog /);
 });
 
 test('22b: i18n locales are split by domain and reassembled', () => {

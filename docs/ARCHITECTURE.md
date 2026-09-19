@@ -323,10 +323,12 @@ Le système cible converge les briques existantes : `solo_weekly_reviews`, fleet
 
 ```text
 agrégats déterministes
-→ signaux persistants
+→ signaux persistants (`athlete_signals`)
+→ revue hebdomadaire universelle (`athlete_weekly_reviews`, P2.2)
+→ journal des décisions humaines (`athlete_decision_log`, P2.3)
 → hypothèses / preuves pour et contre
-→ confiance
-→ proposition éventuelle
+→ confiance qualitative
+→ proposition éventuelle (`coach_interventions` / Solo copilot)
 → décision humaine
 → mémoire pour la prochaine revue
 ```
@@ -398,6 +400,7 @@ Règles durables :
 - essai Solo après perte du Coach : **14 jours** ;
 - grâce Coach en cas de défaut de paiement : **7 jours** ;
 - prix et quotas définitifs : **non décidés** ;
+- source unique applicative : `src/lib/commercialTerms.ts` ; source unique SQL : `solo_trial_interval()` / `coach_grace_interval()` ;
 - pendant la bêta, l’accès peut être ouvert via `beta_access`, sans cesser de mesurer les coûts ;
 - Prometheus facture son logiciel, pas la prestation Coach ↔ athlète ;
 - la plateforme ne doit pas introduire paiement/payout/commission de coaching sans nouvelle décision produit explicite.

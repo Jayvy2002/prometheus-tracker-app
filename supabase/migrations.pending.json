@@ -1,8 +1,28 @@
 {
   "pending": [
     {
-      "version": "20260918130232",
-      "name": "marketplace_athlete_confirm"
+      "version": "20260918182954",
+      "name": "commercial_durations"
+    },
+    {
+      "version": "20260918185709",
+      "name": "athlete_signals"
+    },
+    {
+      "version": "20260918194013",
+      "name": "athlete_weekly_reviews"
+    },
+    {
+      "version": "20260918201237",
+      "name": "athlete_decision_log"
+    },
+    {
+      "version": "20260918224935",
+      "name": "athlete_review_integrity"
+    },
+    {
+      "version": "20260918232507",
+      "name": "athlete_decision_durability"
     }
   ]
 }

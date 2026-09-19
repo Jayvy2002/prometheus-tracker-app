@@ -3,9 +3,10 @@
  * When the link ends, end_coach_client_link / client_end_coach_link hand the account back to
  * solo and stamp user_profiles.coach_link_ended_at / solo_trial_ends_at. These helpers decide
  * what the solo home says about it. Pure — no Supabase.
+ * Trial length lives in commercialTerms (P1.5); this module only reads the stamped ISO.
  */
 
-export const SOLO_TRIAL_DAYS = 30;
+export { SOLO_TRIAL_DAYS } from './commercialTerms';
 
 export interface LinkEndedNotice {
   show: boolean;

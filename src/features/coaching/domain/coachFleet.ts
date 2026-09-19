@@ -10,6 +10,8 @@ import {
 } from '../../../../supabase/functions/_shared/fleetCopy.ts';
 import { normalizeGoal, OVEREAT_RATIO, MIN_NUTRITION_LOG_DAYS, CUT_STALL_MIN_DELTA_KG } from './coachNutrition';
 import type {
+  AthleteDecisionLog,
+  AthleteSignal,
   CoachFleetCard,
   CoachFleetDossier,
   CoachFleetEvidence,
@@ -19,6 +21,12 @@ import type {
   CoachInterventionKind,
   CoachNudgeTemplateKey,
 } from '../../../lib/types';
+import { runAthleteWeeklyReview, weeklyReviewInputFromFleet } from '../../signals/domain/weeklyReview';
+import {
+  isProposalSuppressed,
+  mapInterventionKind,
+  weeklyReviewAggregatesFromCounts,
+} from '../../signals/domain/decisionLog';
 
 export const FLEET_SOURCE = 'fleet';
 export const FLEET_WINDOW_DAYS = 14;
@@ -416,14 +424,26 @@ export function findHandledSignal(
 
 export type FleetWriteAction = 'skip' | 'upsert' | 'insert';
 
+/** Shared P2.2 weekly loop for every active client. Does not write intervention drafts. */
+export function planAthleteWeeklyReview(
+  d: CoachFleetDossier,
+  today: string,
+  existingSignals: AthleteSignal[] = [],
+  recentDecisions: AthleteDecisionLog[] = [],
+) {
+  return runAthleteWeeklyReview(weeklyReviewInputFromFleet(d, today, existingSignals, recentDecisions));
+}
+
 /**
  * Upsert-or-skip: pending → refresh in place. Handled same signal within ~7d
  * with unchanged facts → skip (never reopen sent/dismissed). New evidence → insert.
+ * P2.3: a journal refusal/ignored of the same (domain, type) skips until evidence moves.
  */
 export function planFleetRoundCard(
   d: CoachFleetDossier,
   today: string,
   locale: FleetLocale = 'fr',
+  recentDecisions: AthleteDecisionLog[] = [],
 ): { action: FleetWriteAction; card: CoachFleetCard | null } {
   const raw = buildFleetCardInner(d, today, locale);
   if (!raw) return { action: 'skip', card: null };
@@ -435,6 +455,21 @@ export function planFleetRoundCard(
     if (!fleetEvidenceChanged(prev.evidence, next, card.flag)) {
       return { action: 'skip', card: null };
     }
+  }
+  const target = mapInterventionKind(card.kind, card.flag);
+  if (isProposalSuppressed(
+    recentDecisions,
+    target.domain,
+    target.type,
+    weeklyReviewAggregatesFromCounts({
+      avgCalories: Math.round(d.avg_calories),
+      calorieTarget: effectiveCalorieTarget(d),
+      workoutCount: d.workout_count,
+      loggedNutritionDays: d.logged_nutrition_days,
+      weightDeltaKg: d.weight_delta_kg,
+    }),
+  )) {
+    return { action: 'skip', card: null };
   }
   return { action: 'insert', card };
 }

@@ -20,6 +20,10 @@ import {
   soloReviewMessageKey,
   type SoloReviewDecision,
 } from '../../lib/soloCopilot';
+import { listAthleteDecisionLogBestEffort } from '../../features/signals/domain/decisionLogApi';
+import { loadWeeklyReviewMemory, persistAthleteWeeklyReviewCycle } from '../../features/signals/domain/weeklyReviewCycle';
+import { weeklyReviewInputFromSolo } from '../../features/signals/domain/weeklyReview';
+import type { AthleteDecisionLog } from '../../lib/types';
 import { addDaysToDateStr, todayStr } from '../../lib/utils';
 import Button from '../ui/Button';
 import { toast } from '../ui/Toast';
@@ -43,6 +47,7 @@ export default function SoloWeeklyReview() {
   const { decidedWeek, decidedFor, fetchDecision, decide } = useSoloCopilotStore();
   const [logs, setLogs] = useState<Array<{ logged_at: string; calories: number }> | null>(null);
   const [targetHistory, setTargetHistory] = useState<Array<{ effective_from: string; calories: number }>>([]);
+  const [decisions, setDecisions] = useState<AthleteDecisionLog[] | null>(null);
   const [deciding, setDeciding] = useState<SoloReviewDecision | null>(null);
 
   const solo = !coached;
@@ -75,13 +80,16 @@ export default function SoloWeeklyReview() {
             .map(r => ({ effective_from: r.effective_from.slice(0, 10), calories: Number(r.calories) })));
         }
       });
+    void listAthleteDecisionLogBestEffort(user.id).then(rows => {
+      if (!cancelled) setDecisions(rows);
+    });
     return () => {
       cancelled = true;
     };
   }, [user?.id, solo, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const review = useMemo(() => {
-    if (!solo || !profile || !logs) return null;
+    if (!solo || !profile || !logs || !decisions) return null;
     return computeSoloWeeklyReview({
       today,
       goal: profile.goal ?? 'maintain',
@@ -99,14 +107,88 @@ export default function SoloWeeklyReview() {
       // I04 : accompagnement général pour ces profils, jamais d'objectif auto.
       isMinor: !!profile.date_of_birth && getAge(profile.date_of_birth) < 18,
       hasMedicalFlags: profileHasMedicalFlags(profile.kinesiology_intake),
+      recentDecisions: decisions,
     });
-  }, [solo, profile, logs, measurements, workouts, checkins, targetHistory, today]);
+  }, [solo, profile, logs, decisions, measurements, workouts, checkins, targetHistory, today]);
+
+  const persistVersion = [
+    user?.id,
+    solo,
+    profile?.goal,
+    profile?.daily_calorie_target,
+    profile?.training_frequency,
+    profile?.protein_target,
+    profile?.carbs_target,
+    profile?.fat_target,
+    review?.weekStart,
+    review?.evidence.windowStart,
+    review?.evidence.windowEnd,
+    review?.evidence.loggedDays,
+    review?.evidence.avgCalories,
+    review?.evidence.targetAvg,
+    review?.evidence.workouts,
+    review?.evidence.expectedWorkouts,
+    review?.evidence.weighIns,
+    review?.evidence.deltaKg,
+    review?.evidence.avgFatigue,
+    review?.evidence.avgEnergy,
+    measurements.length,
+    workouts.length,
+    checkins.length,
+    logs?.length ?? 0,
+    targetHistory.length,
+    decisions?.length ?? 0,
+  ].join('|');
 
   useEffect(() => {
     if (!user || !review) return;
     if (decidedFor === user.id && decidedWeek === review.weekStart) return;
     void fetchDecision(user.id, review.weekStart);
-  }, [user?.id, review?.weekStart]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id, review?.weekStart, decidedFor, decidedWeek, fetchDecision]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!user || !solo || !profile || !review) return;
+    let cancelled = false;
+    void (async () => {
+      const memory = await loadWeeklyReviewMemory(user.id);
+      if (cancelled) return;
+      const result = await persistAthleteWeeklyReviewCycle(weeklyReviewInputFromSolo(
+        {
+          today,
+          goal: profile.goal ?? 'maintain',
+          calorieTarget: profile.daily_calorie_target ?? 0,
+          trainingFrequency: profile.training_frequency ?? 0,
+          isMinor: !!profile.date_of_birth && getAge(profile.date_of_birth) < 18,
+          hasMedicalFlags: profileHasMedicalFlags(profile.kinesiology_intake),
+          tracking: { nutrition: true, workouts: true, weight: true, checkins: true },
+        },
+        {
+          windowStart: review.evidence.windowStart,
+          windowEnd: review.evidence.windowEnd,
+          loggedDays: review.evidence.loggedDays,
+          avgCalories: review.evidence.avgCalories,
+          targetAvg: review.evidence.targetAvg,
+          weighIns: review.evidence.weighIns,
+          weightStart: review.evidence.weightStart,
+          deltaKg: review.evidence.deltaKg,
+          weightSpanDays: review.evidence.weightSpanDays,
+          workouts: review.evidence.workouts,
+          expectedWorkouts: review.evidence.expectedWorkouts,
+          avgFatigue: review.evidence.avgFatigue,
+          avgEnergy: review.evidence.avgEnergy,
+          checkinCount: checkins.filter(row => row.checked_at.slice(0, 10) >= windowStart).length,
+        },
+        memory.existingSignals,
+        user.id,
+        memory.recentDecisions,
+      ));
+      if (cancelled) return;
+      if (result.error) toast(t('soloReview.persistFailed'), 'error');
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [persistVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!user || !solo || !review) return null;
   if (decidedFor === user.id && decidedWeek === review.weekStart) return null;
@@ -182,7 +264,7 @@ export default function SoloWeeklyReview() {
 
       {review.status === 'ready' && (
         <div className="mt-3 flex flex-wrap justify-end gap-2">
-          {draft ? (
+          {draft && !review.suppressedByDecision ? (
             <>
               <Button variant="secondary" size="sm" loading={deciding === 'kept'} onClick={() => void onDecide('kept')}>
                 {t('soloReview.keepMine')}
