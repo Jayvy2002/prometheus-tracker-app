@@ -160,7 +160,7 @@ jobs:
       - name: Confirm athlete decision durability echo
         run: |
           set -euo pipefail
-          grep -F 'decision durability: outbox isolation, drain replay, solo without dashboard' /tmp/athlete-decision-durability-db-results.txt
+          grep -F 'decision durability: outbox isolation, drain replay, immutable intent, solo journal-fail reprise' /tmp/athlete-decision-durability-db-results.txt
       - name: Test relationship consent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

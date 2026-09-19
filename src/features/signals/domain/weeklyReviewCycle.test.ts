@@ -67,6 +67,7 @@ test('P2.2 orchestration is wired on Solo and Coach fleet; integrity candidate i
 
   assert.equal(pending.pending.some((row) => row.version === '20260918232507' && row.name === 'athlete_decision_durability'), true);
   assert.match(src('.github/workflows/ci.yml'), /athlete_decision_durability\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /immutable intent, solo journal-fail reprise/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /outbox collision returned another dossier/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /drain did not recover journal/);
   assert.match(src('supabase/tests/athlete_decision_durability.sql'), /solo replay duplicated journal/);
