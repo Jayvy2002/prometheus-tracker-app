@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-19T20:11:00Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P3.1 live apply on 2026-09-19 (125 versions, last 20260919194159_program_session_organization). Git timestamp 20260919194159 was kept; never repair or restamp applied history. Never apply 20260919181919.",
+  "captured_at": "2026-09-19T21:30:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after Hotfix A live apply on 2026-09-19 (126 versions, last 20260919202538_coach_client_link_immutability). Git timestamp 20260919202538 was kept; never repair or restamp applied history. Never apply 20260919181919.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -507,6 +507,10 @@
     {
       "version": "20260919194159",
       "name": "program_session_organization"
+    },
+    {
+      "version": "20260919202538",
+      "name": "coach_client_link_immutability"
     }
   ]
 }
