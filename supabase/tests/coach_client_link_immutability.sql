@@ -36,8 +36,9 @@ begin
   select coalesce(array_agg(privilege_type order by privilege_type), '{}')
     into v_auth
   from pg_class c
-  cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+  cross join lateral aclexplode(c.relacl) a
   where c.oid = 'public.coach_client_links'::regclass
+    and c.relacl is not null
     and a.grantee = 'authenticated'::regrole;
   if v_auth is distinct from array['SELECT']::text[] then
     raise exception 'authenticated table ACL is %, expected {SELECT}', v_auth;
@@ -46,8 +47,9 @@ begin
   select coalesce(array_agg(privilege_type order by privilege_type), '{}')
     into v_anon
   from pg_class c
-  cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+  cross join lateral aclexplode(c.relacl) a
   where c.oid = 'public.coach_client_links'::regclass
+    and c.relacl is not null
     and a.grantee = 'anon'::regrole;
   if v_anon <> '{}'::text[] then
     raise exception 'anon table ACL is %, expected none', v_anon;
@@ -56,8 +58,9 @@ begin
   select coalesce(array_agg(privilege_type order by privilege_type), '{}')
     into v_public
   from pg_class c
-  cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+  cross join lateral aclexplode(c.relacl) a
   where c.oid = 'public.coach_client_links'::regclass
+    and c.relacl is not null
     and a.grantee = 0;
   if v_public <> '{}'::text[] then
     raise exception 'PUBLIC table ACL is %, expected none', v_public;
@@ -66,8 +69,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'INSERT'
   ) then
@@ -76,8 +80,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'DELETE'
   ) then
@@ -86,8 +91,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'TRUNCATE'
   ) then
@@ -96,8 +102,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'REFERENCES'
   ) then
@@ -106,8 +113,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'TRIGGER'
   ) then
@@ -116,8 +124,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'MAINTAIN'
   ) then
@@ -126,8 +135,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee = 'authenticated'::regrole
       and a.privilege_type = 'UPDATE'
   ) then
@@ -137,8 +147,9 @@ begin
   if exists (
     select 1
     from pg_class c
-    cross join lateral aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
+    cross join lateral aclexplode(c.relacl) a
     where c.oid = 'public.coach_client_links'::regclass
+      and c.relacl is not null
       and a.grantee in (0::oid, 'anon'::regrole)
   ) then
     raise exception 'anon/PUBLIC still have table privileges';
@@ -210,13 +221,17 @@ begin
   end if;
 
   select a.attname into v_forbidden
-  from pg_attribute a
-  cross join lateral aclexplode(coalesce(a.attacl, ARRAY[]::aclitem[])) x
-  where a.attrelid = 'public.coach_client_links'::regclass
-    and a.attnum > 0
-    and not a.attisdropped
-    and a.attname not in ('last_visited_at','last_nudged_at')
-    and x.grantee = 'authenticated'::regrole
+  from (
+    select attname, attacl
+    from pg_attribute
+    where attrelid = 'public.coach_client_links'::regclass
+      and attnum > 0
+      and not attisdropped
+      and attacl is not null
+      and attname not in ('last_visited_at','last_nudged_at')
+  ) a
+  cross join lateral aclexplode(a.attacl) x
+  where x.grantee = 'authenticated'::regrole
   limit 1;
   if v_forbidden is not null then
     raise exception 'leftover authenticated column grant on %', v_forbidden;
@@ -224,12 +239,16 @@ begin
 
   if exists (
     select 1
-    from pg_attribute a
-    cross join lateral aclexplode(coalesce(a.attacl, ARRAY[]::aclitem[])) x
-    where a.attrelid = 'public.coach_client_links'::regclass
-      and a.attnum > 0
-      and not a.attisdropped
-      and x.grantee in (0::oid, 'anon'::regrole)
+    from (
+      select attacl
+      from pg_attribute
+      where attrelid = 'public.coach_client_links'::regclass
+        and attnum > 0
+        and not attisdropped
+        and attacl is not null
+    ) a
+    cross join lateral aclexplode(a.attacl) x
+    where x.grantee in (0::oid, 'anon'::regrole)
   ) then
     raise exception 'anon/PUBLIC still have column privileges';
   end if;

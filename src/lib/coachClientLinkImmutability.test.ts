@@ -35,7 +35,7 @@ test('Hotfix A freezes coach_client_links identity and keeps métier RPCs', () =
   assert.match(sqlTest, /coach wrote updated_at via Data API/);
   assert.match(sqlTest, /authenticated still has table-level UPDATE/);
   assert.match(sqlTest, /anon\/PUBLIC still have table privileges/);
-  assert.match(sqlTest, /ARRAY\[\]::aclitem\[\]/);
+  assert.match(sqlTest, /attacl is not null/);
   assert.match(sqlTest, /end_coach_client_link/);
   assert.match(sqlTest, /client_end_coach_link/);
   assert.match(sqlTest, /activate_coaching_relationship/);
