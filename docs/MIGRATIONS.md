@@ -9,10 +9,11 @@
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **126 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **126 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260919202538_coach_client_link_immutability` ;
-- `migrations.pending.json` contient uniquement le candidat Hotfix B `20260919214423_p2_primitive_authority` (pas encore en production) ;
+- **127 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **127 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260919214423_p2_primitive_authority` ;
+- `migrations.pending.json` est vide ;
+- Hotfix B a été appliqué avec le **même timestamp Git** `20260919214423` (aucun restamp) ;
 - Hotfix A a été appliqué avec le **même timestamp Git** `20260919202538` (aucun restamp) ;
 - P3.1 a été appliqué avec le **même timestamp Git** `20260919194159` (aucun restamp) ;
 - les deux versions Git de P2.4/P2.5 restent présentes telles quelles :

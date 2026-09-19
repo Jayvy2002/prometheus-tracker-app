@@ -6,7 +6,7 @@
 
 ## Finding
 
-En production (lock **126**, 19 septembre 2026), `authenticated` avait
+En production (lock **127**, 19 septembre 2026), `authenticated` avait
 `EXECUTE` sur :
 
 - `upsert_athlete_signal`
@@ -59,11 +59,11 @@ côté serveur ; il ne crée pas le journal.
   reste le chemin service pour upsert/enqueue.
 - Les RPC `SECURITY DEFINER` métier continuent d’appeler les primitives en
   tant que propriétaire.
-- Candidate Git **`20260919214423_p2_primitive_authority`**. Ne pas restamper.
-  Ne pas appliquer avant feu vert.
+- Appliqué en production avec le timestamp Git **`20260919214423_p2_primitive_authority`**.
+  Ne pas restamper. Ne jamais appliquer `20260919181919`.
 
 ## Hors scope
 
-Pas d’améliorations analytiques P2. Pas de P3.2 / P3.3 / P4. Pas de
-réécriture Vision. Pas de 14ᵉ Edge Function. Tracking Solo canonique = chantier
-suivant après close B.
+Pas d’améliorations analytiques P2 dans ce hotfix. Pas de P3.2 / P3.3 / P4. Pas de
+réécriture Vision. Pas de 14ᵉ Edge Function. Tracking Solo canonique = prochaine
+passe après close B.
