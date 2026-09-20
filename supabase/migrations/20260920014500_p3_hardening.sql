@@ -333,6 +333,7 @@ BEGIN
     SELECT 1 FROM public.program_assignments pa
     WHERE pa.program_id = p_program_id
       AND public.is_coach_of(pa.client_id)
+      AND pa.status = 'active'
   );
 END;
 $$;
@@ -2169,6 +2170,8 @@ END $$;
 
 -- Live graph is for ACTIVE assignments only. Paused/completed archives use
 -- frozen_revision_no + get_frozen_program_archive, never programs/days/phases.
+-- Non-owner Coach: live SELECT only via an active assignment to an active client.
+-- Owner policies are unchanged (library remains readable after a client leaves).
 DROP POLICY IF EXISTS "Assigned clients read programs" ON public.programs;
 CREATE POLICY "Assigned clients read programs" ON public.programs
   FOR SELECT TO authenticated
@@ -2260,6 +2263,97 @@ CREATE POLICY "Assigned clients read program revisions" ON public.program_revisi
     )
   );
 
+DROP POLICY IF EXISTS "Coaches read assigned programs" ON public.programs;
+CREATE POLICY "Coaches read assigned programs" ON public.programs
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_assignments pa
+      WHERE pa.program_id = programs.id
+        AND public.is_coach_of(pa.client_id)
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Coaches read assigned program days" ON public.program_days;
+CREATE POLICY "Coaches read assigned program days" ON public.program_days
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_assignments pa
+      WHERE pa.program_id = program_days.program_id
+        AND public.is_coach_of(pa.client_id)
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Coaches read assigned program day exercises" ON public.program_day_exercises;
+CREATE POLICY "Coaches read assigned program day exercises" ON public.program_day_exercises
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_days d
+      JOIN public.program_assignments pa ON pa.program_id = d.program_id
+      WHERE d.id = program_day_exercises.program_day_id
+        AND public.is_coach_of(pa.client_id)
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Coaches read assigned program phases" ON public.program_phases;
+CREATE POLICY "Coaches read assigned program phases" ON public.program_phases
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_assignments pa
+      WHERE pa.program_id = program_phases.program_id
+        AND public.is_coach_of(pa.client_id)
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Coaches read client program revisions" ON public.program_revisions;
+CREATE POLICY "Coaches read client program revisions" ON public.program_revisions
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.program_assignments pa
+      JOIN public.programs p ON p.id = pa.program_id
+      WHERE pa.program_id = program_revisions.program_id
+        AND public.is_coach_of(pa.client_id)
+        AND pa.status = 'active'
+        AND (
+          program_revisions.revision_no IS NOT DISTINCT FROM p.active_revision_no
+          OR program_revisions.revision_no IS NOT DISTINCT FROM p.scheduled_revision_no
+          OR EXISTS (
+            SELECT 1 FROM public.workouts w
+            WHERE w.user_id = pa.client_id
+              AND w.program_id = program_revisions.program_id
+              AND w.program_revision_no = program_revisions.revision_no
+          )
+        )
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.program_assignments pa
+      WHERE pa.program_id = program_revisions.program_id
+        AND public.is_coach_of(pa.client_id)
+        AND pa.status IN ('paused', 'completed')
+        AND pa.frozen_revision_no IS NOT NULL
+        AND (
+          program_revisions.revision_no = pa.frozen_revision_no
+          OR EXISTS (
+            SELECT 1 FROM public.workouts w
+            WHERE w.user_id = pa.client_id
+              AND w.program_id = program_revisions.program_id
+              AND w.program_revision_no = program_revisions.revision_no
+          )
+        )
+        AND program_revisions.created_at <= pa.updated_at
+    )
+  );
+
 CREATE OR REPLACE FUNCTION public.get_frozen_program_archive(p_assignment_id uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -2291,7 +2385,8 @@ BEGIN
 
   IF v_asg.client_id IS DISTINCT FROM v_uid
      AND v_asg.assigned_by IS DISTINCT FROM v_uid
-     AND v_owner IS DISTINCT FROM v_uid THEN
+     AND v_owner IS DISTINCT FROM v_uid
+     AND NOT public.is_coach_of(v_asg.client_id) THEN
     RAISE EXCEPTION 'Not authorized';
   END IF;
 
@@ -2318,7 +2413,162 @@ $$;
 REVOKE ALL ON FUNCTION public.get_frozen_program_archive(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_frozen_program_archive(uuid) TO authenticated;
 COMMENT ON FUNCTION public.get_frozen_program_archive(uuid) IS
-  'Read-only frozen assignment archive. Caller must own the assignment; only frozen_revision_no is returned; live graph is never exposed.';
+  'Read-only frozen assignment archive. Caller = client, assigner, owner, or the client''s current active Coach (is_coach_of). Only frozen_revision_no is returned; live graph and later drafts are never exposed.';
+
+-- Adopt copies a snapshot through the existing P3 apply engine. Never copies
+-- live programs/days/phases/exercises. Active assignment → active_revision
+-- snapshot. Paused/completed → frozen_revision_no snapshot (fail closed).
+-- Assignment pick: prefer status=active, else updated_at DESC, id DESC.
+CREATE OR REPLACE FUNCTION public.adopt_client_program(p_program_id uuid, p_client_id uuid, p_name text DEFAULT NULL)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_asg public.program_assignments%ROWTYPE;
+  v_snap jsonb;
+  v_rev int;
+  v_fork_id uuid;
+  v_name text;
+  v_desc text;
+  v_weeks int;
+  v_org text;
+  v_phases jsonb;
+  v_days jsonb;
+  v_phase jsonb;
+  v_day jsonb;
+  v_ex jsonb;
+  v_new_phases jsonb := '[]'::jsonb;
+  v_new_days jsonb := '[]'::jsonb;
+  v_new_ex jsonb;
+  v_map jsonb := '{}'::jsonb;
+  v_old_id text;
+  v_new_id uuid;
+  v_phase_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF NOT public.is_coach_of(p_client_id) THEN RAISE EXCEPTION 'Not your client'; END IF;
+
+  SELECT * INTO v_asg
+  FROM public.program_assignments pa
+  WHERE pa.program_id = p_program_id
+    AND pa.client_id = p_client_id
+  ORDER BY
+    CASE WHEN pa.status = 'active' THEN 0 ELSE 1 END,
+    pa.updated_at DESC NULLS LAST,
+    pa.id DESC
+  LIMIT 1;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Program not assigned to this client';
+  END IF;
+
+  IF v_asg.status = 'active' THEN
+    SELECT p.active_revision_no INTO v_rev
+    FROM public.programs p
+    WHERE p.id = p_program_id;
+    IF v_rev IS NULL THEN
+      RAISE EXCEPTION 'archive_not_frozen';
+    END IF;
+  ELSIF v_asg.status IN ('paused', 'completed') THEN
+    -- Historical adopt: frozen snapshot only. Do not read live graph tables.
+    IF v_asg.frozen_revision_no IS NULL THEN
+      RAISE EXCEPTION 'archive_not_frozen';
+    END IF;
+    v_rev := v_asg.frozen_revision_no;
+  ELSE
+    RAISE EXCEPTION 'Program not assigned to this client';
+  END IF;
+
+  SELECT r.snapshot INTO v_snap
+  FROM public.program_revisions r
+  WHERE r.program_id = p_program_id
+    AND r.revision_no = v_rev;
+  IF v_snap IS NULL THEN
+    RAISE EXCEPTION 'archive_not_frozen';
+  END IF;
+  IF jsonb_typeof(v_snap) = 'array' THEN
+    RAISE EXCEPTION 'archive_not_frozen';
+  END IF;
+
+  v_name := COALESCE(
+    NULLIF(btrim(COALESCE(p_name, '')), ''),
+    NULLIF(btrim(COALESCE(v_snap->>'name', '')), '') || ' (repris)',
+    'Programme (repris)'
+  );
+  v_desc := COALESCE(v_snap->>'description', '');
+  BEGIN
+    v_weeks := GREATEST(1, LEAST(52, COALESCE(NULLIF(btrim(COALESCE(v_snap->>'duration_weeks', '')), '')::int, 8)));
+  EXCEPTION WHEN OTHERS THEN
+    v_weeks := 8;
+  END;
+  v_org := public.normalize_session_organization(v_snap->>'session_organization');
+
+  v_phases := COALESCE(v_snap->'phases', '[]'::jsonb);
+  v_days := COALESCE(v_snap->'days', '[]'::jsonb);
+  IF jsonb_typeof(v_phases) <> 'array' THEN v_phases := '[]'::jsonb; END IF;
+  IF jsonb_typeof(v_days) <> 'array' THEN RAISE EXCEPTION 'Invalid payload'; END IF;
+
+  -- Fresh ids so apply_program_revision_snapshot can insert into the new
+  -- program without colliding with source phase/day UUIDs (Invalid phase).
+  FOR v_phase IN SELECT * FROM jsonb_array_elements(v_phases) LOOP
+    v_new_id := gen_random_uuid();
+    v_old_id := NULLIF(btrim(COALESCE(v_phase->>'id', '')), '');
+    IF v_old_id IS NOT NULL THEN
+      v_map := v_map || jsonb_build_object(v_old_id, v_new_id::text);
+    END IF;
+    v_new_phases := v_new_phases || jsonb_build_array(
+      (v_phase - 'id') || jsonb_build_object('id', v_new_id)
+    );
+  END LOOP;
+
+  FOR v_day IN SELECT * FROM jsonb_array_elements(v_days) LOOP
+    v_phase_id := NULL;
+    v_old_id := NULLIF(btrim(COALESCE(v_day->>'phase_id', '')), '');
+    IF v_old_id IS NOT NULL AND v_map ? v_old_id THEN
+      v_phase_id := (v_map->>v_old_id)::uuid;
+    END IF;
+    v_new_ex := '[]'::jsonb;
+    IF jsonb_typeof(v_day->'exercises') = 'array' THEN
+      FOR v_ex IN SELECT * FROM jsonb_array_elements(v_day->'exercises') LOOP
+        v_new_ex := v_new_ex || jsonb_build_array(v_ex - 'id');
+      END LOOP;
+    END IF;
+    v_new_days := v_new_days || jsonb_build_array(
+      (v_day - 'id' - 'phase_id' - 'exercises' - 'routine_id')
+      || jsonb_build_object(
+        'phase_id', to_jsonb(v_phase_id),
+        'exercises', v_new_ex
+      )
+    );
+  END LOOP;
+
+  v_snap := jsonb_build_object(
+    'session_organization', v_org,
+    'name', v_name,
+    'description', v_desc,
+    'duration_weeks', v_weeks,
+    'phases', v_new_phases,
+    'days', v_new_days
+  );
+
+  INSERT INTO public.programs (owner_id, name, description, duration_weeks, session_organization)
+  VALUES (v_uid, v_name, v_desc, v_weeks, v_org)
+  RETURNING id INTO v_fork_id;
+
+  INSERT INTO public.program_revisions (program_id, revision_no, snapshot, created_by)
+  VALUES (v_fork_id, 1, v_snap, v_uid);
+
+  PERFORM public.apply_program_revision_snapshot(v_fork_id, 1, 'now');
+  RETURN v_fork_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.adopt_client_program(uuid, uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.adopt_client_program(uuid, uuid, text) TO authenticated;
+COMMENT ON FUNCTION public.adopt_client_program(uuid, uuid, text) IS
+  'Copy a client assignment into the current Coach library via apply_program_revision_snapshot. Active assignment uses active_revision snapshot. Paused/completed uses frozen_revision_no snapshot only (never live graph). Multiple historical rows: prefer active, else updated_at DESC, id DESC. Missing frozen → archive_not_frozen.';
 
 -- Lock assigned programs before pausing so freeze/activation share one lock order.
 CREATE OR REPLACE FUNCTION public.end_coach_client_link(p_client_id uuid)

@@ -276,6 +276,15 @@ jobs:
           set -euo pipefail
           grep -F 'shared program archive: A leaves, B continues, frozen snapshot' /tmp/program-shared-archive-db-results.txt
           grep -F 'shared program archive: paused A cannot read live graph or drafts' /tmp/program-shared-archive-db-results.txt
+      - name: Test coach switch archive
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_coach_switch.sql | tee /tmp/program-coach-switch-db-results.txt
+      - name: Confirm coach switch archive echo
+        run: |
+          set -euo pipefail
+          grep -F 'coach switch archive: B cannot read paused live or drafts; adopt copies frozen A' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt paused copies Push A not live Push B' /tmp/program-coach-switch-db-results.txt
       - name: Test delete_program row lock concurrency
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -47,6 +47,68 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     /Assigned clients read programs[\s\S]{0,280}status IN \('active','paused'\)/,
   );
   {
+    const coachLive = found.sql.slice(found.sql.lastIndexOf('DROP POLICY IF EXISTS "Coaches read assigned programs"'));
+    const programsPol = coachLive.slice(
+      coachLive.indexOf('CREATE POLICY "Coaches read assigned programs"'),
+      coachLive.indexOf('DROP POLICY IF EXISTS "Coaches read assigned program days"'),
+    );
+    const daysPol = coachLive.slice(
+      coachLive.indexOf('CREATE POLICY "Coaches read assigned program days"'),
+      coachLive.indexOf('DROP POLICY IF EXISTS "Coaches read assigned program day exercises"'),
+    );
+    const exPol = coachLive.slice(
+      coachLive.indexOf('CREATE POLICY "Coaches read assigned program day exercises"'),
+      coachLive.indexOf('DROP POLICY IF EXISTS "Coaches read assigned program phases"'),
+    );
+    const phasesPol = coachLive.slice(
+      coachLive.indexOf('CREATE POLICY "Coaches read assigned program phases"'),
+      coachLive.indexOf('DROP POLICY IF EXISTS "Coaches read client program revisions"'),
+    );
+    for (const [name, pol] of [
+      ['programs', programsPol],
+      ['days', daysPol],
+      ['exercises', exPol],
+      ['phases', phasesPol],
+    ] as const) {
+      assert.match(pol, /is_coach_of\(pa\.client_id\)/, `${name} coach policy missing is_coach_of`);
+      assert.match(pol, /pa\.status = 'active'/, `${name} coach policy missing active assignment`);
+      assert.doesNotMatch(pol, /status IN \('active',\s*'paused'\)/, `${name} coach policy still allows paused`);
+    }
+  }
+  {
+    const readStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.actor_can_read_program');
+    const readEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.actor_can_read_program');
+    const readFn = found.sql.slice(readStart, readEnd);
+    assert.match(readFn, /is_coach_of\(pa\.client_id\)\s+AND pa\.status = 'active'/);
+  }
+  {
+    const archStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.get_frozen_program_archive');
+    const archEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.get_frozen_program_archive');
+    const archFn = found.sql.slice(archStart, archEnd);
+    assert.match(archFn, /is_coach_of\(v_asg\.client_id\)/);
+  }
+  {
+    const revStart = found.sql.lastIndexOf('DROP POLICY IF EXISTS "Coaches read client program revisions"');
+    const revPol = found.sql.slice(revStart, found.sql.indexOf('CREATE OR REPLACE FUNCTION public.get_frozen_program_archive', revStart));
+    assert.match(revPol, /pa\.status = 'active'/);
+    assert.match(revPol, /frozen_revision_no/);
+    assert.match(revPol, /scheduled_revision_no/);
+    assert.match(revPol, /program_revisions\.created_at <= pa\.updated_at/);
+  }
+  {
+    const adoptStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.adopt_client_program');
+    const adoptEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.adopt_client_program', adoptStart);
+    const adoptFn = found.sql.slice(adoptStart, adoptEnd);
+    assert.match(adoptFn, /frozen_revision_no/);
+    assert.match(adoptFn, /apply_program_revision_snapshot\(v_fork_id, 1, 'now'\)/);
+    assert.match(adoptFn, /CASE WHEN pa\.status = 'active' THEN 0 ELSE 1 END/);
+    assert.match(adoptFn, /pa\.updated_at DESC/);
+    assert.doesNotMatch(adoptFn, /FROM public\.program_days/);
+    assert.doesNotMatch(adoptFn, /FROM public\.program_phases/);
+    assert.doesNotMatch(adoptFn, /FROM public\.program_day_exercises/);
+  }
+  assert.match(src('src/features/coaching/model/clientsSlice.ts'), /rpc\('get_frozen_program_archive'/);
+  {
     const endStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.client_end_coach_link()');
     const endFn = found.sql.slice(endStart, endStart + 1800);
     assert.match(endFn, /FOR UPDATE/);
@@ -171,6 +233,13 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_shared_archive.sql'), /paused A still reads live programs/);
   assert.match(src('supabase/tests/program_shared_archive.sql'), /set local role authenticated/);
   assert.match(src('supabase/tests/program_shared_archive.sql'), /shared program archive: paused A cannot read live graph or drafts/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /coach switch archive: B cannot read paused live or drafts; adopt copies frozen A/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /coach switch archive: adopt paused copies Push A not live Push B/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /coach B still reads paused live programs/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /adopt_client_program copied live\/draft graph/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /paused adopt without frozen_revision_no was allowed/);
+  assert.match(src('.github/workflows/ci.yml'), /program_coach_switch\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /adopt paused copies Push A not live Push B/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /paused live graph hidden; assignment still readable/);
   assert.match(src('supabase/tests/client_departure.sql'), /paused client still reads live program/);
   assert.match(src('.github/workflows/ci.yml'), /program_shared_archive\.sql/);

@@ -148,13 +148,22 @@ seulement (logger / file offline). Pas TRUNCATE/REFERENCES/TRIGGER/MAINTAIN.
 
 Les archives paused/completed n’ont **plus** SELECT sur le graphe LIVE
 (`programs`, `program_days`, `program_day_exercises`, `program_phases`).
-Seul un assignment `active` lit le live. Owner / Coach autorisé inchangés.
-`program_revisions` : client actif = révision active + scheduled + ses
-workouts ; paused = `frozen_revision_no` (+ workouts historiques, jamais une
-révision créée après le départ) ; un saved draft (`activated_at` null, pas
-scheduled) n’est jamais visible au client. Hydratation archive :
-`get_frozen_program_archive(assignment_id)` (caller = client / assigner /
-owner, status paused/completed, snapshot `frozen_revision_no` uniquement).
+Seul un assignment `active` lit le live. L’owner (bibliothèque) est inchangé.
+Un Coach **non-owner** ne lit le live que s’il existe un assignment `active`
+vers l’un de ses clients actifs (`is_coach_of` **et** `pa.status = 'active'`).
+Un nouveau Coach ne voit donc pas le graphe live d’un ancien programme paused,
+ni les drafts sauvés par l’ancien Coach après le départ.
+`program_revisions` : client ou Coach non-owner, assignment actif = révision
+active + scheduled + workouts de **ce** client ; paused/completed =
+`frozen_revision_no` (+ workouts historiques, jamais une révision créée après
+le départ) ; un saved draft n’est jamais visible. L’owner voit tout
+l’historique. Hydratation archive : `get_frozen_program_archive(assignment_id)`
+(caller = client / assigner / owner / **Coach actuel actif** du client,
+status paused/completed, snapshot `frozen_revision_no` uniquement).
+`adopt_client_program` copie ce snapshot via `apply_program_revision_snapshot`
+(pas les tables live). Assignment actif → `active_revision_no`. Paused /
+completed → `frozen_revision_no` (fail-closed si manquant). Plusieurs rows
+historiques : `active` d’abord, sinon `updated_at DESC, id DESC`.
 
 `program_assignments_freeze_on_pause` verrouille `programs … FOR UPDATE`
 avant de copier `active_revision_no`. `end_coach_client_link` /
