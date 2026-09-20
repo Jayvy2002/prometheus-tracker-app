@@ -58,4 +58,4 @@ Programme existant = graphe live, `active_revision_no` = dernière révision (ba
 
 ## Migration
 
-Candidate Git `20260919233853_program_versions` (pending jusqu’à apply production). Ne pas restamper. Pas de P4.
+Appliqué en production avec le timestamp Git `20260919233853_program_versions` (129, pending vide). Ne pas restamper. Pas de P4.
