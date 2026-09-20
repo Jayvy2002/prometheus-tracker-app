@@ -11,8 +11,7 @@ import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
-import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
-import { resolveCurrentPhase } from '../../features/programs/domain/programPhases';
+import { isProgramDayDue, resolveAssignmentGymCard } from '../../lib/clientGym';
 import { assignStartLabel } from '../../lib/programWrite';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -55,14 +54,11 @@ export default function WorkoutPage() {
   const [lastFull, setLastFull] = useState<Workout | null>(null);
 
   const PAGE_SIZE = 20;
-  const gymCard = resolveClientGymCard({
-    hasActiveProgram: assignment?.status === 'active' && !!assignment.program,
-    days: assignment?.program?.days,
+  const gymCard = resolveAssignmentGymCard({
+    assignment,
     workouts,
     todayWeekday: new Date().getDay(),
     todayDate: todayStr(),
-    assignmentId: assignment?.id,
-    sessionOrganization: assignment?.program?.session_organization,
   });
 
 
@@ -345,12 +341,7 @@ export default function WorkoutPage() {
           onStart={startProgramDay}
           onContinue={workoutId => navigate(`/workout/${workoutId}`)}
           onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
-          phaseName={resolveCurrentPhase({
-            phases: assignment.program.phases,
-            startDate: assignment.start_date,
-            today: todayStr(),
-            nextDay: gymCard.day ?? gymCard.nextDay,
-          })?.name}
+          phaseName={gymCard.phase?.name}
           plannedChange={assignment.program.scheduled_activates_on
             ? t('programs.plannedChangeOn', {
               date: assignStartLabel(assignment.program.scheduled_activates_on, i18n.language),

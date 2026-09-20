@@ -26,6 +26,8 @@ export interface ProgramRevisionRow {
   snapshot: unknown;
   created_by: string | null;
   created_at: string;
+  activated_at?: string | null;
+  superseded_at?: string | null;
 }
 
 export interface RevisionDayDraft {
@@ -59,6 +61,21 @@ export function parseRevisionOrganization(snapshot: unknown): 'fixed_days' | 'in
   if (Array.isArray(snapshot) || snapshot == null) return 'fixed_days';
   const rec = asRecord(snapshot);
   return rec?.session_organization === 'in_order' ? 'in_order' : 'fixed_days';
+}
+
+export function parseRevisionMeta(snapshot: unknown): {
+  name?: string;
+  description?: string;
+  duration_weeks?: number;
+} {
+  const rec = asRecord(snapshot);
+  if (!rec) return {};
+  const weeks = typeof rec.duration_weeks === 'number' ? rec.duration_weeks : Number(rec.duration_weeks);
+  return {
+    name: typeof rec.name === 'string' && rec.name.trim() ? rec.name : undefined,
+    description: typeof rec.description === 'string' ? rec.description : undefined,
+    duration_weeks: Number.isFinite(weeks) && weeks >= 1 && weeks <= 52 ? weeks : undefined,
+  };
 }
 
 function parseWeekday(value: unknown): number | null {

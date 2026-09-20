@@ -7,7 +7,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { namedSessionLine, programSessionLabel } from '../../features/programs/domain/namedSession';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
 import { normalizeSessionOrganization, sessionOrderLetter } from '../../features/programs/domain/sessionOrganization';
-import { phaseNameForDay, resolveCurrentPhase, type ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
+import { phaseNameForDay, phaseAnchorDate, resolveCurrentPhase, type ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
 import { programWeekNumber, todayStr } from '../../lib/utils';
@@ -67,7 +67,7 @@ export default function ClientProgramPage() {
   const currentPhase = program
     ? resolveCurrentPhase({
       phases: program.phases,
-      startDate: assignment?.start_date,
+      startDate: phaseAnchorDate(assignment?.start_date, program.phase_anchor_on),
       today: todayStr(),
       nextDay: todayDay ?? training[0],
     })

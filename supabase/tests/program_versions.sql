@@ -295,7 +295,7 @@ begin
     raise exception 'authenticated pointer update was allowed';
   exception
     when others then
-      if sqlerrm not like '%RPC-only%' then
+      if sqlerrm not like '%RPC-only%' and sqlerrm not like '%permission denied%' then
         raise;
       end if;
   end;

@@ -11,6 +11,7 @@ export function revisionVersionState(input: {
   activeRevisionNo?: number | null;
   scheduledRevisionNo?: number | null;
   activatedAt?: string | null;
+  supersededAt?: string | null;
 }): ProgramVersionState {
   if (input.activeRevisionNo != null && input.revisionNo === input.activeRevisionNo) {
     return 'active';
@@ -18,7 +19,11 @@ export function revisionVersionState(input: {
   if (input.scheduledRevisionNo != null && input.revisionNo === input.scheduledRevisionNo) {
     return 'scheduled';
   }
-  if (input.activatedAt || (input.activeRevisionNo != null && input.revisionNo < input.activeRevisionNo)) {
+  if (input.supersededAt || (
+    input.activatedAt
+    && input.activeRevisionNo != null
+    && input.revisionNo !== input.activeRevisionNo
+  )) {
     return 'historical';
   }
   return 'saved';

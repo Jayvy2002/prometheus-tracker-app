@@ -86,6 +86,7 @@ select set_config('request.jwt.claims','{"sub":"a1890000-0000-4000-8000-00000000
 do $$
 declare
   v_updated int;
+  v_days int;
 begin
   update public.program_assignments
      set start_date = current_date
@@ -94,12 +95,16 @@ begin
   if v_updated is distinct from 1 then
     raise exception 'solo leftover assignment Data API update expected 1 row, got %', v_updated;
   end if;
-  update public.programs
-     set description = 'solo-ok'
-   where id = 'a1890000-0000-4000-8000-000000000010';
-  get diagnostics v_updated = row_count;
-  if v_updated is distinct from 1 then
-    raise exception 'solo leftover table update expected 1 row, got %', v_updated;
+  v_days := public.save_program(
+    'a1890000-0000-4000-8000-000000000010',
+    'Solo leftover saved',
+    'solo-ok',
+    8,
+    '[{"weekday":1,"name":"Push","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null
+  );
+  if v_days is distinct from 1 then
+    raise exception 'solo leftover RPC update expected 1 day, got %', v_days;
   end if;
 end $$;
 reset role;
@@ -288,13 +293,24 @@ begin
       end if;
   end;
 
-  update public.programs
-     set name = 'Hijack table'
-   where id = 'a1890000-0000-4000-8000-000000000010';
-  get diagnostics v_touched = row_count;
-  if v_touched <> 0 then
-    raise exception 'coached owner programs UPDATE reached % rows', v_touched;
-  end if;
+  begin
+    update public.programs
+       set name = 'Hijack table'
+     where id = 'a1890000-0000-4000-8000-000000000010';
+    get diagnostics v_touched = row_count;
+    if v_touched <> 0 then
+      raise exception 'coached owner programs UPDATE reached % rows', v_touched;
+    end if;
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%coached owner programs UPDATE reached%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' and sqlerrm not like '%RPC-only%' then
+        raise;
+      end if;
+  end;
 
   delete from public.programs
    where id = 'a1890000-0000-4000-8000-000000000010';
@@ -303,22 +319,44 @@ begin
     raise exception 'coached owner programs DELETE reached % rows', v_touched;
   end if;
 
-  update public.program_days
-     set name = 'Hijack day'
-   where id = v_day;
-  get diagnostics v_touched = row_count;
-  if v_touched <> 0 then
-    raise exception 'coached owner program_days UPDATE reached % rows', v_touched;
-  end if;
-
-  if v_ex is not null then
-    update public.program_day_exercises
-       set name = 'Hijack ex row'
-     where id = v_ex;
+  begin
+    update public.program_days
+       set name = 'Hijack day'
+     where id = v_day;
     get diagnostics v_touched = row_count;
     if v_touched <> 0 then
-      raise exception 'coached owner program_day_exercises UPDATE reached % rows', v_touched;
+      raise exception 'coached owner program_days UPDATE reached % rows', v_touched;
     end if;
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%coached owner program_days UPDATE reached%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' then
+        raise;
+      end if;
+  end;
+
+  if v_ex is not null then
+    begin
+      update public.program_day_exercises
+         set name = 'Hijack ex row'
+       where id = v_ex;
+      get diagnostics v_touched = row_count;
+      if v_touched <> 0 then
+        raise exception 'coached owner program_day_exercises UPDATE reached % rows', v_touched;
+      end if;
+    exception
+      when insufficient_privilege then
+        null;
+      when others then
+        if sqlerrm like '%coached owner program_day_exercises UPDATE reached%' then
+          raise;
+        elsif sqlerrm not like '%permission denied%' then
+          raise;
+        end if;
+    end;
   end if;
 
   begin
@@ -438,13 +476,24 @@ begin
       end if;
   end;
 
-  update public.programs
-     set name = 'Dual leftover table hijack'
-   where id = 'a1890000-0000-4000-8000-000000000012';
-  get diagnostics v_touched = row_count;
-  if v_touched <> 0 then
-    raise exception 'dual leftover programs UPDATE reached % rows', v_touched;
-  end if;
+  begin
+    update public.programs
+       set name = 'Dual leftover table hijack'
+     where id = 'a1890000-0000-4000-8000-000000000012';
+    get diagnostics v_touched = row_count;
+    if v_touched <> 0 then
+      raise exception 'dual leftover programs UPDATE reached % rows', v_touched;
+    end if;
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%dual leftover programs UPDATE reached%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' and sqlerrm not like '%RPC-only%' then
+        raise;
+      end if;
+  end;
 
   begin
     insert into public.program_assignments(program_id, client_id, assigned_by, start_date, status)
@@ -479,12 +528,16 @@ begin
     raise exception 'dual roster save_program_day_exercises expected 1, got %', v_count;
   end if;
 
-  update public.programs
-     set description = 'roster-ok'
-   where id = 'a1890000-0000-4000-8000-000000000013';
-  get diagnostics v_touched = row_count;
-  if v_touched is distinct from 1 then
-    raise exception 'dual roster programs UPDATE expected 1 row, got %', v_touched;
+  v_days := public.save_program(
+    'a1890000-0000-4000-8000-000000000013',
+    'Dual roster updated',
+    'roster-ok',
+    8,
+    '[{"weekday":4,"name":"Upper synced","exercises":[{"name":"Press","default_sets":5,"default_reps":5}]}]'::jsonb,
+    null
+  );
+  if v_days is distinct from 1 then
+    raise exception 'dual roster description save expected 1 day, got %', v_days;
   end if;
 
   update public.program_assignments
@@ -495,8 +548,12 @@ begin
     raise exception 'dual roster assignment UPDATE expected 1 row, got %', v_touched;
   end if;
 
-  insert into public.programs(id, owner_id, name, description, duration_weeks)
-  values (v_new_program, 'a1890000-0000-4000-8000-000000000003', 'Dual extra roster', '', 6);
+  v_new_program := public.create_program_complete(
+    'Dual extra roster',
+    '',
+    6,
+    '[{"weekday":1,"name":"Extra","exercises":[{"name":"Curl","default_sets":2,"default_reps":10}]}]'::jsonb
+  );
 
   insert into public.program_assignments(id, program_id, client_id, assigned_by, start_date, status)
   values (

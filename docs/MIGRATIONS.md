@@ -12,7 +12,8 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 - **129 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
 - **129 migrations** observées en production, dans le même ordre ;
 - dernière version appliquée : `20260919233853_program_versions` ;
-- `migrations.pending.json` est vide ;
+- candidate pending (non appliquée) : `20260920014500_p3_hardening` ;
+- `migrations.pending.json` contient uniquement ce candidat jusqu’au merge + apply live ;
 - P3.3 a été appliqué avec le **même timestamp Git** `20260919233853` (aucun restamp, 45 statements) ;
 - P3.2 a été appliqué avec le **même timestamp Git** `20260919225507` (aucun restamp) ;
 - Hotfix B a été appliqué avec le **même timestamp Git** `20260919214423` (aucun restamp) ;

@@ -5,6 +5,8 @@ import { test } from 'node:test';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
 import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
 import {
+  daysForCurrentPhase,
+  phaseAnchorDate,
   phaseNameForDay,
   resolveCurrentPhase,
   type ProgramPhase,
@@ -67,6 +69,20 @@ test('without durations, current phase follows the next session', () => {
   })?.name, 'Block B');
 });
 
+test('version activation date wins over assignment start for the phase clock', () => {
+  assert.equal(phaseAnchorDate('2026-07-01', '2026-09-01'), '2026-09-01');
+  assert.equal(phaseAnchorDate('2026-07-01', null), '2026-07-01');
+  assert.equal(resolveCurrentPhase({
+    phases,
+    startDate: phaseAnchorDate('2026-07-01', '2026-09-01'),
+    today: '2026-09-10',
+  })?.name, 'Accumulation');
+  assert.equal(daysForCurrentPhase(
+    [{ id: 'a', phase_id: 'p1' }, { id: 'a2', phase_id: 'p2' }],
+    phases[0],
+  ).map(d => d.id).join(','), 'a');
+});
+
 test('P3.2 migration extends the existing engine without a second logger', () => {
   const found = latestMigrationContaining('CREATE TABLE public.program_phases');
   assert.equal(found.file, '20260919225507_program_phases.sql');
@@ -104,7 +120,7 @@ test('P3.2 migration extends the existing engine without a second logger', () =>
   assert.match(src('supabase/schema_migrations.lock.json'), /20260919225507/);
 
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /phaseName=\{gymPhaseName\}/);
-  assert.match(src('src/components/workout/WorkoutPage.tsx'), /phaseName=\{resolveCurrentPhase/);
+  assert.match(src('src/components/workout/WorkoutPage.tsx'), /phaseName=\{gymCard\.phase\?\.name\}/);
   assert.match(src('src/components/calendar/CalendarPage.tsx'), /phases: graph\.phases/);
   assert.match(src('src/components/programs/ClientProgramPage.tsx'), /program-current-phase/);
 });

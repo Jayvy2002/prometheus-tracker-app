@@ -75,7 +75,7 @@ test('legacy program RPCs, owner RLS and assignment Data API share the leftover 
   const found = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.coached_client_cannot_edit_program');
   assert.equal(found.file, '20260918103748_program_write_coached_owner.sql');
   const sync = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.sync_program_days\(/);
-  assert.equal(sync.file, '20260919225507_program_phases.sql');
+  assert.equal(sync.file, '20260920014500_p3_hardening.sql');
   assert.match(sync.sql, /coached_client_cannot_edit_program/);
   const day = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program_day_exercises\(/);
   assert.equal(day.file, '20260918103748_program_write_coached_owner.sql');

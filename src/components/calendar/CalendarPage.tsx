@@ -262,25 +262,27 @@ export default function CalendarPage() {
     const scheduledOrg = assignment?.program?.scheduled_snapshot
       ? parseRevisionOrganization(assignment.program.scheduled_snapshot)
       : null;
+    const program = assignment?.program;
     for (const d of dates) {
       const ds = dateToStr(d);
       const graph = programGraphForDate({
         date: ds,
         liveDays,
-        livePhases: assignment?.program?.phases,
-        liveOrganization: assignment?.program?.session_organization,
-        scheduledActivatesOn: assignment?.program?.scheduled_activates_on,
+        livePhases: program?.phases,
+        liveOrganization: program?.session_organization,
+        scheduledActivatesOn: program?.scheduled_activates_on,
         scheduledDays,
         scheduledPhases,
         scheduledOrganization: scheduledOrg,
       });
+      const scheduledOn = program?.scheduled_activates_on?.slice(0, 10) ?? '';
       map.set(ds, planMarkForDate({
         date: ds,
         days: graph.days,
         workouts,
         assignmentId: assignment?.id,
         startDate: assignment?.start_date,
-        durationWeeks: assignment?.program?.duration_weeks,
+        durationWeeks: program?.duration_weeks,
         assignmentStatus: assignment?.status,
         endedAt: assignment?.status === 'paused' || assignment?.status === 'completed'
           ? assignment.updated_at
@@ -288,6 +290,9 @@ export default function CalendarPage() {
         unnamed: t('workout.unnamed'),
         sessionOrganization: graph.organization,
         phases: graph.phases,
+        phaseAnchorDate: scheduledOn && ds >= scheduledOn && scheduledDays != null
+          ? program?.scheduled_activates_on
+          : (program?.phase_anchor_on ?? assignment?.start_date),
       }));
     }
     return map;

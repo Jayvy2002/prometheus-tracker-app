@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
+  parseRevisionMeta,
   parseRevisionOrganization,
   parseRevisionSnapshot,
   restoreCreatesNewRevision,
@@ -70,5 +71,19 @@ test('UX23 wires history UI and restore goes through save_program, not workouts'
   const fr = src('src/i18n/locales/fr/programs.ts');
   assert.match(fr, /revisionHistory:/);
   assert.match(fr, /revisionRestoreHint:/);
+  assert.match(src('src/i18n/locales/fr/programs.ts'), /versionStateSaved:/);
+  assert.match(src('src/i18n/locales/en/programs.ts'), /versionStateSaved:/);
+  assert.match(history, /program-revision-state/);
   assert.doesNotMatch(store, /program_versioning/);
+});
+
+test('restore prefers snapshot name and description', () => {
+  assert.equal(parseRevisionMeta({
+    name: 'Bloc Force',
+    description: 'force block',
+    duration_weeks: 8,
+    days: [],
+  }).name, 'Bloc Force');
+  const store = src('src/stores/programStore.ts');
+  assert.match(store, /parseRevisionMeta/);
 });

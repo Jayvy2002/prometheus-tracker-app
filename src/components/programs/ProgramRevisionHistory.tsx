@@ -6,6 +6,7 @@ import {
   revisionBeforeAfter,
   type ProgramRevisionRow,
 } from '../../lib/programRevisionDiff';
+import { revisionVersionState, type ProgramVersionState } from '../../features/programs/domain/programVersions';
 import Button from '../ui/Button';
 import Modal from '../ui/Modal';
 import { toast } from '../ui/Toast';
@@ -15,12 +16,14 @@ interface Props {
   programId: string;
   programMeta: { name: string; description: string; duration_weeks: number };
   expectedUpdatedAt: string | null;
+  activeRevisionNo?: number | null;
+  scheduledRevisionNo?: number | null;
   onClose: () => void;
   onRestored: () => Promise<void> | void;
 }
 
 export default function ProgramRevisionHistory({
-  open, programId, programMeta, expectedUpdatedAt, onClose, onRestored,
+  open, programId, programMeta, expectedUpdatedAt, activeRevisionNo, scheduledRevisionNo, onClose, onRestored,
 }: Props) {
   const { t, i18n } = useTranslation();
   const fetchProgramRevisions = useProgramStore(s => s.fetchProgramRevisions);
@@ -73,6 +76,21 @@ export default function ProgramRevisionHistory({
         {rows.map((row, index) => {
           const previous = rows[index + 1]?.snapshot ?? null;
           const diff = revisionBeforeAfter(previous, row.snapshot);
+          const state = revisionVersionState({
+            revisionNo: row.revision_no,
+            activeRevisionNo,
+            scheduledRevisionNo,
+            activatedAt: row.activated_at,
+            supersededAt: row.superseded_at,
+          });
+          const stateKeys: Record<ProgramVersionState, 'programs.versionStateSaved' | 'programs.versionStateActive' | 'programs.versionStateScheduled' | 'programs.versionStateHistorical'> = {
+            draft: 'programs.versionStateSaved',
+            saved: 'programs.versionStateSaved',
+            active: 'programs.versionStateActive',
+            scheduled: 'programs.versionStateScheduled',
+            historical: 'programs.versionStateHistorical',
+          };
+          const stateLabel = t(stateKeys[state]);
           return (
             <div
               key={row.id}
@@ -84,6 +102,9 @@ export default function ProgramRevisionHistory({
                   n: row.revision_no,
                   date: new Date(row.created_at).toLocaleString(i18n.language),
                 })}
+              </p>
+              <p data-testid="program-revision-state" className="text-[11px] text-neutral-400">
+                {stateLabel}
               </p>
               <p className="text-[11px] text-neutral-500">
                 {t('programs.revisionAuthor', {

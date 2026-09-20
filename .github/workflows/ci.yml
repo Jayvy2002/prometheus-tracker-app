@@ -255,6 +255,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'program versions: saved without live mutate, schedule/replace, activate idempotent, historical locked, leftover, logger stamp' /tmp/program-versions-db-results.txt
+      - name: Test program hardening
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_hardening.sql | tee /tmp/program-hardening-db-results.txt
+      - name: Confirm program hardening echo
+        run: |
+          set -euo pipefail
+          grep -F 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description' /tmp/program-hardening-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -54,8 +54,24 @@ test('calendar can show a future version after activation day without inventing 
   assert.equal(sequence, null);
 });
 
+test('never-activated revisions stay saved, not historical', () => {
+  assert.equal(revisionVersionState({ revisionNo: 4, activeRevisionNo: 2 }), 'saved');
+  assert.equal(revisionVersionState({
+    revisionNo: 1,
+    activeRevisionNo: 2,
+    activatedAt: null,
+    supersededAt: null,
+  }), 'saved');
+  assert.equal(revisionVersionState({
+    revisionNo: 1,
+    activeRevisionNo: 2,
+    activatedAt: '2026-07-01',
+    supersededAt: '2026-09-01',
+  }), 'historical');
+});
+
 test('P3.3 reuses program_revisions and the same logger', () => {
-  const found = latestMigrationContaining('save_program_version');
+  const found = latestMigrationContaining('CREATE FUNCTION public.activate_program_version');
   assert.equal(found.file, '20260919233853_program_versions.sql');
   assert.match(found.sql, /CREATE FUNCTION public\.save_program_version/);
   assert.match(found.sql, /CREATE FUNCTION public\.schedule_program_version/);
@@ -68,6 +84,11 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.doesNotMatch(found.sql, /CREATE TABLE public\.program_versioning/);
   assert.doesNotMatch(found.sql, /CREATE TABLE public\.(mesocycles|program_cycles)/);
   assert.doesNotMatch(found.sql, /apply_athlete_watch_minimum/);
+
+  const hard = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.save_program_version');
+  assert.equal(hard.file, '20260920014500_p3_hardening.sql');
+  assert.match(hard.sql, /validate_program_graph_payload/);
+  assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.ensure_due_program_version/);
 
   const store = src('src/stores/programStore.ts');
   assert.match(store, /rpc\('save_program_version'/);
@@ -93,5 +114,7 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.match(src('.github/workflows/ci.yml'), /program_versions\.sql/);
   assert.match(src('supabase/tests/program_versions.sql'), /\\echo 'program versions:/);
   assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260919233853/);
+  assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
   assert.match(src('supabase/schema_migrations.lock.json'), /20260919233853/);
+  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
 });

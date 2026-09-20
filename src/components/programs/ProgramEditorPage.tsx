@@ -325,6 +325,8 @@ export default function ProgramEditorPage() {
             programId={id}
             programMeta={{ name: name.trim(), description, duration_weeks: weeks }}
             expectedUpdatedAt={expectedUpdatedAt}
+            activeRevisionNo={activeRevisionNo}
+            scheduledRevisionNo={scheduledRevisionNo}
             onClose={() => setHistoryOpen(false)}
             onRestored={async () => {
               const p = await fetchProgram(id);

@@ -8,7 +8,7 @@
 >
 > **Règle agents :** ne pas reconstruire ce qui existe déjà. Avant chaque chantier, inspecter le code/migrations actuels et vérifier si le problème est réellement fonctionnel, architectural ou simplement non raccordé.
 
-**Mis à jour : 19 septembre 2026.**
+**Mis à jour : 20 septembre 2026.**
 
 ---
 
@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P3 CLOS.** Production/lock **129** (`20260919233853_program_versions`). Pending vide. Passe transversale P3 faite. **Arrêt avant P4.** Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P3 hardening en cours.** Production/lock **129** (`20260919233853_program_versions`). Candidate pending `20260920014500_p3_hardening`. Audit transversal P3 échoué : corrections obligatoires avant clôture et avant P4. Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -62,7 +62,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **P3.1–P3.3 clos (129)** | Arrêt avant P4 |
+| **P3** | Planification avancée | **P3.1–P3.3 implémentés, audit transversal échoué — hardening en cours** | Ne pas commencer P4 |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3.1 (`#195`/`#196`), Hotfix B (`#199`/`#200`), P3.2 (`#201`/`#202`) et P3.3 (`#203`/`#204`) sont clos en production (129 migrations). Passe transversale P3 faite. **Ne pas commencer P4.**
+P1.5–P2.5, P3.1 (`#195`/`#196`), Hotfix B (`#199`/`#200`), P3.2 (`#201`/`#202`) et P3.3 (`#203`/`#204`) sont en production (129 migrations). Audit transversal P3 : corrections `20260920014500_p3_hardening` en cours. **Ne pas commencer P4.**
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -713,7 +713,7 @@ Distinguer (dérivé, pas une table d’états parallèle) :
 
 Le logger tamponne `program_revision_no` au start. Une version future ne mute pas le graphe live. `session_organization` P3.1 et les phases P3.2 restent sur le même moteur.
 
-Passe transversale P3 (P3.1 non-régression, phases, versions, leftover, calendrier navigateur CI) : **faite**. Arrêt avant P4.
+Passe transversale P3 : **échouée** (phases = labels, weekdays globaux, prescription client, ancre, UTC, relation coupée, Data API, name/description). Corrections : [P3 hardening](P3_HARDENING.md). **Pas un P3.4 officiel. Pas de P4.**
 
 ### Terminé quand P3
 

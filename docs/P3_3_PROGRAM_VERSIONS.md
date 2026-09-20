@@ -42,6 +42,14 @@ Pointeurs sur `programs` :
 
 `apply_program_revision_snapshot` n’est **pas** accordé à `authenticated`.
 
+`name` / `description` du snapshot sont appliqués à l’activation. L’horloge de phase
+repart de `phase_anchor_on` (date civile planifiée, sinon date d’activation).
+
+Une version `scheduled` est validée avant le pointeur. Une relation Coach coupée
+annule le pointeur futur ; un client `paused` ne déclenche pas `ensure_due`.
+
+L’activation due utilise la date civile du client assigné, pas `CURRENT_DATE` UTC.
+
 Deux futures versions : `already_scheduled` sauf `p_replace`. Historique : `historical`. Stale : `stale`.
 
 ## Logger

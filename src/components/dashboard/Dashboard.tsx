@@ -30,8 +30,7 @@ import {
   pickTodayReminder,
   shouldShowDaysSinceReminder,
 } from '../../lib/clientHome';
-import { isProgramDayDue, resolveClientGymCard } from '../../lib/clientGym';
-import { resolveCurrentPhase } from '../../features/programs/domain/programPhases';
+import { isProgramDayDue, resolveAssignmentGymCard } from '../../lib/clientGym';
 import { assignStartLabel } from '../../lib/programWrite';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
@@ -134,26 +133,16 @@ export default function Dashboard() {
   const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
   const alreadyTrainedToday = doneDays[todayIndex];
   const hasProgram = !!assignment?.program && assignment.status === 'active';
-  const gymCard = resolveClientGymCard({
-    hasActiveProgram: hasProgram,
-    days: assignment?.program?.days,
+  const gymCard = resolveAssignmentGymCard({
+    assignment: hasProgram ? assignment : null,
     workouts,
     todayWeekday: new Date().getDay(),
     todayDate: todayStr(),
-    assignmentId: assignment?.id ?? null,
-    sessionOrganization: assignment?.program?.session_organization,
   });
   const programWeek = assignment?.program
     ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
     : null;
-  const gymPhaseName = assignment?.program
-    ? resolveCurrentPhase({
-      phases: assignment.program.phases,
-      startDate: assignment.start_date,
-      today: todayStr(),
-      nextDay: gymCard.day ?? gymCard.nextDay,
-    })?.name ?? null
-    : null;
+  const gymPhaseName = gymCard.phase?.name ?? null;
   const gymPlannedChange = assignment?.program?.scheduled_activates_on
     ? t('programs.plannedChangeOn', {
       date: assignStartLabel(assignment.program.scheduled_activates_on, i18n.language),

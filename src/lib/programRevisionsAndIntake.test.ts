@@ -75,6 +75,7 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /coach_marketplace\.sql/);
   assert.match(ci, /save_program\.sql/);
   assert.match(ci, /program_session_organization\.sql/);
+  assert.match(ci, /program_hardening\.sql/);
   assert.match(ci, /2\.117\.0/);
   assert.match(ci, /Require Supabase production proof credentials/);
   assert.match(ci, /SUPABASE_ACCESS_TOKEN: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}/);

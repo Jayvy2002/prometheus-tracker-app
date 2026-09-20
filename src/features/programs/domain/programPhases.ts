@@ -39,6 +39,30 @@ export function phaseNameForDay(
   return name || null;
 }
 
+/** Version activation date wins over assignment.start_date so Phase 1 restarts. */
+export function phaseAnchorDate(
+  assignmentStartDate?: string | null,
+  phaseAnchorOn?: string | null,
+): string | null {
+  const anchor = phaseAnchorOn?.slice(0, 10) || '';
+  if (anchor) return anchor;
+  const start = assignmentStartDate?.slice(0, 10) || '';
+  return start || null;
+}
+
+export function phasesAreTimed(phases: ProgramPhase[] | null | undefined): boolean {
+  return (phases ?? []).some(phase => phase.duration_weeks != null && phase.duration_weeks > 0);
+}
+
+export function daysForCurrentPhase<T extends { phase_id?: string | null }>(
+  days: T[] | null | undefined,
+  phase: ProgramPhase | null,
+): T[] {
+  const pool = [...(days ?? [])];
+  if (!phase) return pool;
+  return pool.filter(day => day.phase_id === phase.id);
+}
+
 /**
  * Current phase:
  * - no phases → simple program (null)
