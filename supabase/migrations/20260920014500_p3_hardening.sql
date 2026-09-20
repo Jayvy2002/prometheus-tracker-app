@@ -3090,10 +3090,18 @@ BEGIN
           RAISE EXCEPTION 'archive_not_frozen';
         END IF;
       ELSIF v_asg.status IN ('paused', 'completed') THEN
-        IF v_asg.frozen_revision_no IS NULL THEN
+        v_rev := v_asg.frozen_revision_no;
+        IF v_rev IS NULL THEN
+          -- Pause missed the freeze pin (no revision at pause time, or a
+          -- waiter serialized after an assign). Use the program we already
+          -- locked; still fail-closed if that live revision is missing.
+          SELECT p.active_revision_no INTO v_rev
+          FROM public.programs p
+          WHERE p.id = v_asg.program_id;
+        END IF;
+        IF v_rev IS NULL THEN
           RAISE EXCEPTION 'archive_not_frozen';
         END IF;
-        v_rev := v_asg.frozen_revision_no;
       ELSE
         CONTINUE;
       END IF;

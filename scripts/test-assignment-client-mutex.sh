@@ -99,14 +99,23 @@ SQL
 
 wipe_programs() {
   psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
+SELECT pg_terminate_backend(pid)
+  FROM pg_stat_activity
+ WHERE application_name IN ('${HOLD_APP}', '${T1_APP}', '${T2_APP}')
+   AND pid <> pg_backend_pid();
 DELETE FROM public.workouts
  WHERE user_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
     OR program_id IN (
       SELECT id FROM public.programs
        WHERE owner_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
     );
+UPDATE public.program_assignments
+   SET status = 'paused', updated_at = now()
+ WHERE client_id = '${CLIENT}'::uuid
+   AND status = 'active';
 DELETE FROM public.program_assignments
  WHERE client_id = '${CLIENT}'::uuid
+    OR assigned_by IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
     OR program_id IN (
       SELECT id FROM public.programs
        WHERE owner_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
