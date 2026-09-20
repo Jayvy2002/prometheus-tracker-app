@@ -194,6 +194,10 @@ begin
         raise;
       end if;
   end;
+  if (select count(*) from public.program_days
+      where program_id = 'c3401941-0000-4000-8000-000000000010' and weekday = 1) <> 3 then
+    raise exception 'failed duplicate save mutated live mondays';
+  end if;
 end $$;
 
 -- Invalid future version is rejected at save, not at activation day.

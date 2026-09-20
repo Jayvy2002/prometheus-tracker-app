@@ -28,6 +28,8 @@ Uniques partielles :
 - `(program_id, phase_id, weekday)` si phase renseignée
 
 Même lundi en Accumulation / Intensification / Deload, prescriptions distinctes.
+`program_days.phase_id` est `ON DELETE CASCADE` : retirer une phase ne fait plus
+`SET NULL` (ce qui violait l’unique weekday legacy).
 
 ## Logger
 

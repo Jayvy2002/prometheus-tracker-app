@@ -12,6 +12,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   const found = latestMigrationContaining('phase_anchor_on date');
   assert.equal(found.file, '20260920014500_p3_hardening.sql');
   assert.match(found.sql, /program_days_program_phase_weekday_unique/);
+  assert.match(found.sql, /program_days_phase_id_fkey[\s\S]*ON DELETE CASCADE/);
   assert.match(found.sql, /program_civil_date/);
   assert.match(found.sql, /validate_program_graph_payload/);
   assert.match(found.sql, /program_day_not_current_phase/);
