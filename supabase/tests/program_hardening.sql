@@ -1266,6 +1266,7 @@ begin
 end $$;
 
 -- Activer maintenant uses owner civil today; scheduled/due keeps planned date.
+-- Owner 000001 timezone is UTC. Do not call internalized program_civil_date as authenticated.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
@@ -1277,7 +1278,7 @@ declare
   v_today date;
   v_planned date;
 begin
-  v_today := public.program_civil_date('UTC', now());
+  v_today := (now() AT TIME ZONE 'UTC')::date;
   v_planned := v_today + 10;
   v_rev := public.save_program_version(
     'c3401941-0000-4000-8000-000000000010',
