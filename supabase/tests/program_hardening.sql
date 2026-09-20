@@ -6,26 +6,37 @@ insert into auth.users(id,email) values
  ('c3401941-0000-4000-8000-000000000001','p3h-owner@example.test'),
  ('c3401941-0000-4000-8000-000000000002','p3h-stranger@example.test'),
  ('c3401941-0000-4000-8000-000000000003','p3h-coach@example.test'),
- ('c3401941-0000-4000-8000-000000000004','p3h-client@example.test');
+ ('c3401941-0000-4000-8000-000000000004','p3h-client@example.test'),
+ ('c3401941-0000-4000-8000-000000000005','p3h-leftover@example.test'),
+ ('c3401941-0000-4000-8000-000000000006','p3h-toronto@example.test'),
+ ('c3401941-0000-4000-8000-000000000007','p3h-vancouver@example.test');
 insert into public.user_roles(user_id,role,coaching_role) values
  ('c3401941-0000-4000-8000-000000000001','free','none'),
  ('c3401941-0000-4000-8000-000000000002','free','none'),
  ('c3401941-0000-4000-8000-000000000003','free','coach'),
- ('c3401941-0000-4000-8000-000000000004','free','none')
+ ('c3401941-0000-4000-8000-000000000004','free','none'),
+ ('c3401941-0000-4000-8000-000000000005','free','coach'),
+ ('c3401941-0000-4000-8000-000000000006','free','none'),
+ ('c3401941-0000-4000-8000-000000000007','free','none')
 on conflict(user_id) do update set coaching_role=excluded.coaching_role;
 insert into public.user_capabilities(user_id, capability) values
- ('c3401941-0000-4000-8000-000000000003','coach')
+ ('c3401941-0000-4000-8000-000000000003','coach'),
+ ('c3401941-0000-4000-8000-000000000005','coach')
 on conflict do nothing;
 
 update public.user_profiles
    set timezone = 'America/Toronto'
- where id = 'c3401941-0000-4000-8000-000000000004';
+ where id in (
+   'c3401941-0000-4000-8000-000000000003',
+   'c3401941-0000-4000-8000-000000000004',
+   'c3401941-0000-4000-8000-000000000006'
+ );
 update public.user_profiles
    set timezone = 'UTC'
- where id in (
-   'c3401941-0000-4000-8000-000000000001',
-   'c3401941-0000-4000-8000-000000000003'
- );
+ where id = 'c3401941-0000-4000-8000-000000000001';
+update public.user_profiles
+   set timezone = 'America/Vancouver'
+ where id = 'c3401941-0000-4000-8000-000000000007';
 
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('c3401941-0000-4000-8000-000000000010','c3401941-0000-4000-8000-000000000001','Periodized','',9),
@@ -74,9 +85,9 @@ begin
     raise exception 'authenticated still has Data API graph writes';
   end if;
   if not has_table_privilege('authenticated', 'public.programs', 'select')
-     or not has_table_privilege('authenticated', 'public.programs', 'delete')
+     or has_table_privilege('authenticated', 'public.programs', 'delete')
      or not has_table_privilege('authenticated', 'public.program_days', 'select') then
-    raise exception 'authenticated lost required SELECT/DELETE';
+    raise exception 'authenticated graph table privileges wrong';
   end if;
   if has_function_privilege(
     'authenticated',
@@ -92,7 +103,51 @@ begin
   ) then
     raise exception 'validator exposed to authenticated';
   end if;
+  if has_function_privilege('authenticated', 'public.program_actor_timezone(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.program_activation_timezone(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.program_current_phase_id(uuid,date,date)', 'execute')
+     or has_function_privilege('authenticated', 'public.program_civil_date(text,timestamptz)', 'execute')
+     or has_function_privilege('authenticated', 'public.program_version_is_due(date,text,timestamptz)', 'execute')
+     or has_function_privilege('authenticated', 'public.program_has_history(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.sync_program_days(uuid,jsonb,boolean,boolean)', 'execute')
+     or has_function_privilege('authenticated', 'public.cancel_scheduled_program_version(uuid)', 'execute') then
+    raise exception 'internal P3 helper exposed to authenticated';
+  end if;
+  if not has_function_privilege('authenticated', 'public.delete_program(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.schedule_program_version(uuid,int,date,boolean,timestamptz)', 'execute')
+     or not has_function_privilege('authenticated', 'public.ensure_due_program_version(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.start_workout_from_template(text,timestamptz,uuid,uuid,uuid,jsonb)', 'execute')
+     or not has_function_privilege('authenticated', 'public.save_program(uuid,text,text,int,jsonb,timestamptz,text,jsonb)', 'execute')
+     or not has_function_privilege('authenticated', 'public.save_program_version(uuid,text,text,int,jsonb,timestamptz,text,jsonb)', 'execute')
+     or not has_function_privilege('authenticated', 'public.activate_program_version(uuid,int,timestamptz)', 'execute')
+     or not has_function_privilege('authenticated', 'public.create_program_complete(text,text,int,jsonb,uuid,date,text,jsonb)', 'execute')
+     or not has_function_privilege('authenticated', 'public.sync_program_days(uuid,jsonb)', 'execute') then
+    raise exception 'public P3 command lost authenticated execute';
+  end if;
 end $$;
+
+-- Runtime: authenticated cannot call DEFINER timezone helper with an arbitrary user id.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+begin
+  begin
+    perform public.program_actor_timezone('c3401941-0000-4000-8000-000000000002');
+    raise exception 'authenticated executed program_actor_timezone';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%authenticated executed program_actor_timezone%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
@@ -252,6 +307,19 @@ begin
       if sqlerrm like '%owner Data API programs UPDATE was allowed%' then
         raise;
       elsif sqlerrm not like '%permission denied%' and sqlerrm not like '%RPC-only%' then
+        raise;
+      end if;
+  end;
+  begin
+    delete from public.programs where id = 'c3401941-0000-4000-8000-000000000010';
+    raise exception 'owner Data API programs DELETE was allowed';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%owner Data API programs DELETE was allowed%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' then
         raise;
       end if;
   end;
@@ -485,5 +553,357 @@ do $$ begin
   end if;
 end $$;
 
+-- Shared program: freeze owner/Coach TZ (Toronto), not first client, not Vancouver.
+insert into public.programs(id,owner_id,name,description,duration_weeks) values
+ ('c3401941-0000-4000-8000-000000000012','c3401941-0000-4000-8000-000000000003','Shared clock','',8);
+insert into public.coach_client_links(id,coach_id,client_id,status) values
+ ('c3401941-0000-4000-8000-0000000000ab','c3401941-0000-4000-8000-000000000003','c3401941-0000-4000-8000-000000000006','active'),
+ ('c3401941-0000-4000-8000-0000000000ac','c3401941-0000-4000-8000-000000000003','c3401941-0000-4000-8000-000000000007','active');
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status) values
+ ('c3401941-0000-4000-8000-0000000000d1','c3401941-0000-4000-8000-000000000012','c3401941-0000-4000-8000-000000000006','c3401941-0000-4000-8000-000000000003',current_date,'active'),
+ ('c3401941-0000-4000-8000-0000000000d2','c3401941-0000-4000-8000-000000000012','c3401941-0000-4000-8000-000000000007','c3401941-0000-4000-8000-000000000003',current_date,'active');
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_rev int;
+begin
+  perform public.save_program(
+    'c3401941-0000-4000-8000-000000000012',
+    'Shared clock',
+    '',
+    8,
+    '[{"weekday":1,"name":"A","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null,
+    'fixed_days'
+  );
+  v_rev := public.save_program_version(
+    'c3401941-0000-4000-8000-000000000012',
+    'Shared B',
+    '',
+    8,
+    '[{"weekday":1,"name":"B","exercises":[{"name":"Squat","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null,
+    'fixed_days',
+    '[]'::jsonb
+  );
+  perform public.schedule_program_version(
+    'c3401941-0000-4000-8000-000000000012',
+    v_rev,
+    (current_date + 7),
+    false,
+    null
+  );
+end $$;
+reset role;
+
+do $$
+declare
+  v_tz text;
+  v_on date;
+begin
+  select scheduled_activation_timezone, scheduled_activates_on
+    into v_tz, v_on
+  from public.programs
+  where id = 'c3401941-0000-4000-8000-000000000012';
+  if v_tz is distinct from 'America/Toronto' then
+    raise exception 'shared schedule froze %, expected America/Toronto', v_tz;
+  end if;
+  if public.program_version_is_due(date '2026-09-21', v_tz, timestamptz '2026-09-21 00:30:00+00') then
+    raise exception 'frozen Toronto clock treated UTC Monday as due';
+  end if;
+  if not public.program_version_is_due(date '2026-09-21', v_tz, timestamptz '2026-09-21 04:00:00+00') then
+    raise exception 'frozen Toronto clock missed Monday 00:00 EDT';
+  end if;
+  if v_on is null then
+    raise exception 'shared schedule missing activates_on';
+  end if;
+end $$;
+
+-- Live owner TZ must not rewrite a frozen schedule (shared clock stays Toronto).
+update public.user_profiles
+   set timezone = 'Pacific/Auckland'
+ where id = 'c3401941-0000-4000-8000-000000000003';
+
+do $$
+begin
+  if public.program_activation_timezone('c3401941-0000-4000-8000-000000000012')
+     is distinct from 'Pacific/Auckland' then
+    raise exception 'live owner timezone helper did not follow the new profile TZ';
+  end if;
+  if (select scheduled_activation_timezone from public.programs
+      where id = 'c3401941-0000-4000-8000-000000000012') is distinct from 'America/Toronto' then
+    raise exception 'owner timezone change rewrote frozen scheduled_activation_timezone';
+  end if;
+end $$;
+
+update public.program_assignments
+   set status = 'paused'
+ where id = 'c3401941-0000-4000-8000-0000000000d1';
+
+do $$
+begin
+  if (select scheduled_activation_timezone from public.programs
+      where id = 'c3401941-0000-4000-8000-000000000012') is distinct from 'America/Toronto' then
+    raise exception 'first-client leave changed frozen timezone';
+  end if;
+  if (select scheduled_revision_no from public.programs
+      where id = 'c3401941-0000-4000-8000-000000000012') is null then
+    raise exception 'remaining active client lost the scheduled version';
+  end if;
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000007',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000007","role":"authenticated"}',true);
+do $$
+declare
+  v_out int;
+begin
+  v_out := public.ensure_due_program_version('c3401941-0000-4000-8000-000000000012');
+  if v_out is distinct from 0 then
+    raise exception 'Vancouver client applied a Toronto-future version';
+  end if;
+end $$;
+reset role;
+
+update public.programs
+set scheduled_activates_on = (now() AT TIME ZONE scheduled_activation_timezone)::date
+where id = 'c3401941-0000-4000-8000-000000000012';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000007',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000007","role":"authenticated"}',true);
+do $$
+declare
+  v_out int;
+begin
+  v_out := public.ensure_due_program_version('c3401941-0000-4000-8000-000000000012');
+  if v_out is null or v_out = 0 then
+    raise exception 'ensure_due did not use frozen owner timezone after first client left';
+  end if;
+  if (select name from public.program_days
+      where program_id = 'c3401941-0000-4000-8000-000000000012' limit 1)
+     is distinct from 'B' then
+    raise exception 'shared due apply did not replace live days';
+  end if;
+end $$;
+reset role;
+
+-- UTC owner + Toronto client: freeze owner clock, not the assigned client.
+insert into public.programs(id,owner_id,name,description,duration_weeks) values
+ ('c3401941-0000-4000-8000-000000000013','c3401941-0000-4000-8000-000000000001','UTC owner clock','',8);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_rev int;
+begin
+  perform public.save_program(
+    'c3401941-0000-4000-8000-000000000013',
+    'UTC owner clock',
+    '',
+    8,
+    '[{"weekday":1,"name":"A","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null,
+    'fixed_days'
+  );
+  v_rev := public.save_program_version(
+    'c3401941-0000-4000-8000-000000000013',
+    'UTC owner clock B',
+    '',
+    8,
+    '[{"weekday":1,"name":"B","exercises":[{"name":"Squat","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null,
+    'fixed_days',
+    '[]'::jsonb
+  );
+  perform public.schedule_program_version(
+    'c3401941-0000-4000-8000-000000000013',
+    v_rev,
+    (current_date + 7),
+    false,
+    null
+  );
+end $$;
+reset role;
+
+do $$
+declare
+  v_tz text;
+  v_on date;
+begin
+  select scheduled_activation_timezone, scheduled_activates_on
+    into v_tz, v_on
+  from public.programs
+  where id = 'c3401941-0000-4000-8000-000000000013';
+  if v_tz is distinct from 'UTC' then
+    raise exception 'Toronto client froze %, expected owner UTC', v_tz;
+  end if;
+  if not public.program_version_is_due(date '2026-09-21', v_tz, timestamptz '2026-09-21 00:30:00+00') then
+    raise exception 'frozen UTC clock missed UTC Monday 00:30';
+  end if;
+  if public.program_version_is_due(date '2026-09-21', 'America/Toronto', timestamptz '2026-09-21 00:30:00+00') then
+    raise exception 'client Toronto clock would have delayed the UTC-frozen schedule';
+  end if;
+  if v_on is null then
+    raise exception 'UTC owner schedule missing activates_on';
+  end if;
+end $$;
+
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status) values
+ ('c3401941-0000-4000-8000-0000000000d3','c3401941-0000-4000-8000-000000000013','c3401941-0000-4000-8000-000000000004','c3401941-0000-4000-8000-000000000001',current_date,'active');
+
+do $$
+begin
+  if (select scheduled_activation_timezone from public.programs
+      where id = 'c3401941-0000-4000-8000-000000000013') is distinct from 'UTC' then
+    raise exception 'assigning a Toronto client rewrote the frozen owner timezone';
+  end if;
+end $$;
+
+-- delete_program: virgin OK; stranger/leftover/active/history refuse; Data API closed.
+insert into public.programs(id,owner_id,name,description,duration_weeks) values
+ ('c3401941-0000-4000-8000-000000000020','c3401941-0000-4000-8000-000000000001','Virgin','',8),
+ ('c3401941-0000-4000-8000-000000000022','c3401941-0000-4000-8000-000000000005','Leftover owned','',8),
+ ('c3401941-0000-4000-8000-000000000025','c3401941-0000-4000-8000-000000000001','Workout history','',8);
+insert into public.coach_client_links(id,coach_id,client_id,status) values
+ ('c3401941-0000-4000-8000-0000000000ad','c3401941-0000-4000-8000-000000000003','c3401941-0000-4000-8000-000000000005','active');
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status) values
+ ('c3401941-0000-4000-8000-0000000000e2','c3401941-0000-4000-8000-000000000022','c3401941-0000-4000-8000-000000000005','c3401941-0000-4000-8000-000000000003',current_date,'active');
+insert into public.program_days(id,program_id,weekday,name,order_index) values
+ ('c3401941-0000-4000-8000-0000000000f1','c3401941-0000-4000-8000-000000000025',1,'Hist day',0);
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status) values
+ ('c3401941-0000-4000-8000-0000000000e5','c3401941-0000-4000-8000-000000000025','c3401941-0000-4000-8000-000000000001','c3401941-0000-4000-8000-000000000001',current_date,'paused');
+insert into public.workouts(id,user_id,name,date,completed,program_assignment_id,program_day_id) values
+ ('c3401941-0000-4000-8000-0000000000w1','c3401941-0000-4000-8000-000000000001','Hist','2026-09-01',true,'c3401941-0000-4000-8000-0000000000e5','c3401941-0000-4000-8000-0000000000f1');
+insert into public.program_revisions(program_id,revision_no,snapshot) values
+ ('c3401941-0000-4000-8000-000000000025',1,'[]'::jsonb);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+begin
+  begin
+    perform public.delete_program('c3401941-0000-4000-8000-000000000020');
+    raise exception 'stranger delete_program was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%Not program owner%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000005',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000005","role":"authenticated"}',true);
+do $$
+begin
+  begin
+    perform public.delete_program('c3401941-0000-4000-8000-000000000022');
+    raise exception 'leftover delete_program was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_id uuid;
+  v_revs int;
+  v_asg int;
+  v_wo int;
+begin
+  v_id := public.delete_program('c3401941-0000-4000-8000-000000000020');
+  if v_id is distinct from 'c3401941-0000-4000-8000-000000000020' then
+    raise exception 'virgin delete_program failed';
+  end if;
+  if exists (select 1 from public.programs where id = 'c3401941-0000-4000-8000-000000000020') then
+    raise exception 'virgin program still present';
+  end if;
+
+  begin
+    perform public.delete_program('c3401941-0000-4000-8000-000000000010');
+    raise exception 'active assignment delete_program was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%program_has_active_assignment%' then
+        raise;
+      end if;
+  end;
+
+  select count(*) into v_revs from public.program_revisions
+   where program_id = 'c3401941-0000-4000-8000-000000000025';
+  select count(*) into v_asg from public.program_assignments
+   where program_id = 'c3401941-0000-4000-8000-000000000025';
+  select count(*) into v_wo from public.workouts
+   where id = 'c3401941-0000-4000-8000-0000000000w1';
+  begin
+    perform public.delete_program('c3401941-0000-4000-8000-000000000025');
+    raise exception 'historical workout delete_program was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%program_has_history%' then
+        raise;
+      end if;
+  end;
+  if (select count(*) from public.program_revisions
+      where program_id = 'c3401941-0000-4000-8000-000000000025') is distinct from v_revs
+     or (select count(*) from public.program_assignments
+         where program_id = 'c3401941-0000-4000-8000-000000000025') is distinct from v_asg
+     or (select count(*) from public.workouts
+         where id = 'c3401941-0000-4000-8000-0000000000w1') is distinct from v_wo then
+    raise exception 'refused delete mutated history';
+  end if;
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000003',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000003","role":"authenticated"}',true);
+do $$
+declare
+  v_revs int;
+begin
+  select count(*) into v_revs from public.program_revisions
+   where program_id = 'c3401941-0000-4000-8000-000000000011';
+  begin
+    perform public.delete_program('c3401941-0000-4000-8000-000000000011');
+    raise exception 'historical assignment delete_program was allowed';
+  exception
+    when others then
+      if sqlerrm not like '%program_has_history%' then
+        raise;
+      end if;
+  end;
+  if (select count(*) from public.program_revisions
+      where program_id = 'c3401941-0000-4000-8000-000000000011') is distinct from v_revs then
+    raise exception 'refused assignment-history delete dropped revisions';
+  end if;
+end $$;
+reset role;
+
 rollback;
-\echo 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description'
+\echo 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz'

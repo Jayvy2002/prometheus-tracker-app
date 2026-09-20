@@ -262,7 +262,7 @@ jobs:
       - name: Confirm program hardening echo
         run: |
           set -euo pipefail
-          grep -F 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description' /tmp/program-hardening-db-results.txt
+          grep -F 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz' /tmp/program-hardening-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

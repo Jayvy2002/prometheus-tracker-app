@@ -89,6 +89,8 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.equal(hard.file, '20260920014500_p3_hardening.sql');
   assert.match(hard.sql, /validate_program_graph_payload/);
   assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.ensure_due_program_version/);
+  assert.match(hard.sql, /scheduled_activation_timezone/);
+  assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.delete_program/);
 
   const store = src('src/stores/programStore.ts');
   assert.match(store, /rpc\('save_program_version'/);

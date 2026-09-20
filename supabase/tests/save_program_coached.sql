@@ -312,12 +312,23 @@ begin
       end if;
   end;
 
-  delete from public.programs
-   where id = 'a1890000-0000-4000-8000-000000000010';
-  get diagnostics v_touched = row_count;
-  if v_touched <> 0 then
-    raise exception 'coached owner programs DELETE reached % rows', v_touched;
-  end if;
+  begin
+    delete from public.programs
+     where id = 'a1890000-0000-4000-8000-000000000010';
+    get diagnostics v_touched = row_count;
+    if v_touched <> 0 then
+      raise exception 'coached owner programs DELETE reached % rows', v_touched;
+    end if;
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%coached owner programs DELETE reached%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' then
+        raise;
+      end if;
+  end;
 
   begin
     update public.program_days

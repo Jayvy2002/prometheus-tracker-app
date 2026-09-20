@@ -35,20 +35,87 @@ Même lundi en Accumulation / Intensification / Deload, prescriptions distinctes
 
 Si `program_day_id` est fourni, la prescription vient de `program_day_exercises`.
 `p_exercises` client est ignoré. Off-plan (`program_day_id` null) reste libre.
+`start_workout_from_template` est `SECURITY DEFINER` pour appeler les helpers
+civils/phase internes, non accordés à `authenticated`.
 
 ## Versions
 
 - Validateur canonique `validate_program_graph_payload` avant save live, save version, schedule, apply.
 - `apply_program_revision_snapshot` réécrit aussi `name` / `description`.
 - Snapshots live = même forme (`name`, `description`, `duration_weeks`, `phases`, `days`).
-- Activation due = date civile du **client assigné** (`program_civil_date`), pas `CURRENT_DATE` UTC.
 - Assignment `active` → autre statut : annule le pointeur scheduled s’il ne reste aucun assignment actif.
 - Client paused : `ensure_due_program_version` no-op.
 
-## Autorité
+## Horloge des versions planifiées
+
+`schedule_program_version` fige `scheduled_activation_timezone` (IANA) au moment
+du schedule. `ensure_due_program_version` lit **cette colonne**, jamais un
+lookup live des assignments.
+
+Règle des programmes partagés : horloge civile du **propriétaire / Coach**,
+pas du premier client actif. Un client Toronto puis Vancouver, ou le départ
+du premier client avant activation, ne change pas le sens du schedule.
+
+Timezone profil manquante → `America/Toronto`. Colonne frozen absente → fail-closed (`ensure_due` = 0).
+
+## ACL helpers internes
+
+Même principe que Hotfix A/B :
+
+```text
+RPC métier publique
+→ helper interne
+```
+
+pas :
+
+```text
+authenticated
+→ helper SECURITY DEFINER arbitraire
+```
+
+`authenticated` n’a **pas** `EXECUTE` sur :
+
+- `program_actor_timezone(uuid)`
+- `program_activation_timezone(uuid)`
+- `program_current_phase_id(uuid, date, date)`
+- `program_civil_date(text, timestamptz)`
+- `program_version_is_due(date, text, timestamptz)`
+- `program_has_history(uuid)`
+- `validate_program_graph_payload`
+- `apply_program_revision_snapshot`
+- `sync_program_days` 4-arg
+- `cancel_scheduled_program_version`
+
+Ces helpers restent appelables depuis les RPC `SECURITY DEFINER` (propriétaire SQL)
+et `service_role`.
+
+RPC publiques conservées pour `authenticated` : `save_program`,
+`save_program_version`, `schedule_program_version`, `activate_program_version`,
+`ensure_due_program_version`, `start_workout_from_template`,
+`create_program_complete`, `delete_program`, `sync_program_days` (2-arg).
+
+## Suppression de programme
+
+Le Data API `DELETE` sur `programs` est fermé (REVOKE + policy owner retirée).
+La seule porte est `delete_program` :
+
+```text
+jamais attribué / jamais utilisé
+→ hard delete possible
+
+assignment actif
+→ refus (`program_has_active_assignment`)
+
+historique assignment / workout
+→ refus (`program_has_history`)
+```
+
+Pas d’archivage P3. Fail-closed : un refus ne mute pas révisions, assignments
+ni workouts. `deleteProgram()` frontend passe par cette RPC.
+
+## Autorité graphe
 
 Writes Data API `authenticated` retirés sur `program_days`, `program_day_exercises`,
-`program_phases`, et INSERT/UPDATE `programs`. SELECT conservé. DELETE `programs` conservé.
-Chemins publics : `save_program`, `save_program_version`, `schedule_program_version`,
-`activate_program_version`, `create_program_complete`, `sync_program_days` (2-arg).
+`program_phases`, et INSERT/UPDATE/**DELETE** `programs`. SELECT conservé.
 Overloads trusted et `apply_program_revision_snapshot` non accordés à `authenticated`.

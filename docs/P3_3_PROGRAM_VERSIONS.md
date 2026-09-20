@@ -48,7 +48,9 @@ repart de `phase_anchor_on` (date civile planifiée, sinon date d’activation).
 Une version `scheduled` est validée avant le pointeur. Une relation Coach coupée
 annule le pointeur futur ; un client `paused` ne déclenche pas `ensure_due`.
 
-L’activation due utilise la date civile du client assigné, pas `CURRENT_DATE` UTC.
+L’activation due utilise la date civile figée au schedule
+(`scheduled_activation_timezone`, horloge du propriétaire/Coach), pas
+`CURRENT_DATE` UTC et pas le premier client actif. Voir [P3 hardening](P3_HARDENING.md).
 
 Deux futures versions : `already_scheduled` sauf `p_replace`. Historique : `historical`. Stale : `stale`.
 

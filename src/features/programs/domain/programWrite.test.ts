@@ -103,6 +103,9 @@ test('editor and solo save go through saveProgram; delete waits for the server',
   assert.match(store, /rpc\('save_program'/);
   assert.match(store, /p_expected_updated_at/);
   const deleteFn = store.slice(store.indexOf('deleteProgram: async'));
+  assert.match(deleteFn, /rpc\('delete_program'/);
+  assert.match(deleteFn, /p_program_id: id/);
+  assert.doesNotMatch(deleteFn, /from\('programs'\)\.delete/);
   assert.match(deleteFn, /if \(error\) return \{ error:/);
   assert.match(deleteFn, /ne retire du store qu'après/);
   const fetchFn = store.slice(store.indexOf('fetchPrograms: async'));
@@ -123,9 +126,13 @@ test('editor and solo save go through saveProgram; delete waits for the server',
   assert.match(list, /programs\.assignRecap/);
   assert.match(list, /errors\.loadPrograms/);
   assert.match(list, /deleteProgram\(p\.id\)/);
+  assert.match(list, /programDeleteToast/);
+  assert.match(list, /deleteHasHistory/);
 
   assert.match(src('src/i18n/locales/fr.ts'), /assignRecap:/);
   assert.match(src('src/i18n/locales/en.ts'), /assignRecap:/);
+  assert.match(src('src/i18n/locales/fr.ts'), /deleteHasHistory:/);
+  assert.match(src('src/i18n/locales/en.ts'), /deleteHasHistory:/);
   assert.match(src('.github/workflows/ci.yml'), /save_program\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /save_program_coached\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /program_session_organization\.sql/);

@@ -23,6 +23,12 @@ import { toast } from '../ui/Toast';
 import { assignStartLabel } from '../../lib/programWrite';
 import { programSessionLabel } from '../../features/programs/domain/namedSession';
 
+function programDeleteToast(error: string, t: (key: string) => string): string {
+  if (error.includes('program_has_history')) return t('programs.deleteHasHistory');
+  if (error.includes('program_has_active_assignment')) return t('programs.deleteHasActiveAssignment');
+  return t('programs.deleteFailed');
+}
+
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 0]; // Mon-first for display, Sunday=0 stored
 
 export default function ProgramsPage() {
@@ -181,7 +187,7 @@ export default function ProgramsPage() {
                         { id: 'assign', label: t('programs.assign'), onSelect: () => { setAssigningId(p.id); setAssignClient(''); } },
                         { id: 'delete', label: t('common.delete'), danger: true, onSelect: () => {
                           void deleteProgram(p.id).then(result => {
-                            if (result.error) toast(t('programs.deleteFailed'), 'error');
+                            if (result.error) toast(programDeleteToast(result.error, (key) => t(key)), 'error');
                             else toast(t('programs.deleted'));
                           });
                         } },

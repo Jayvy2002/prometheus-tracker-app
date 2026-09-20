@@ -2,10 +2,13 @@
 -- Candidate only until merge + live apply. Do not restamp 20260919233853.
 
 ALTER TABLE public.programs
-  ADD COLUMN IF NOT EXISTS phase_anchor_on date;
+  ADD COLUMN IF NOT EXISTS phase_anchor_on date,
+  ADD COLUMN IF NOT EXISTS scheduled_activation_timezone text;
 
 COMMENT ON COLUMN public.programs.phase_anchor_on IS
   'Civil date the active version started for phase progression. NULL = use assignment.start_date.';
+COMMENT ON COLUMN public.programs.scheduled_activation_timezone IS
+  'IANA TZ frozen at schedule. Shared programs use the owner/Coach civil clock, never the first client.';
 
 DROP INDEX IF EXISTS public.program_days_program_id_weekday_unique;
 
@@ -61,8 +64,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.program_actor_timezone(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.program_actor_timezone(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.program_actor_timezone(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.program_actor_timezone(uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.program_civil_date(p_tz text, p_at timestamptz DEFAULT now())
 RETURNS date
@@ -85,8 +88,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.program_civil_date(text, timestamptz) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.program_civil_date(text, timestamptz) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.program_civil_date(text, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.program_civil_date(text, timestamptz) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.program_version_is_due(p_on date, p_tz text, p_at timestamptz DEFAULT now())
 RETURNS boolean
@@ -97,8 +100,8 @@ AS $$
   SELECT p_on IS NOT NULL AND p_on <= public.program_civil_date(p_tz, p_at);
 $$;
 
-REVOKE ALL ON FUNCTION public.program_version_is_due(date, text, timestamptz) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.program_version_is_due(date, text, timestamptz) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.program_version_is_due(date, text, timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.program_version_is_due(date, text, timestamptz) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.program_activation_timezone(p_program_id uuid)
 RETURNS text
@@ -108,27 +111,17 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_tz text;
   v_owner uuid;
 BEGIN
-  SELECT public.program_actor_timezone(pa.client_id)
-    INTO v_tz
-  FROM public.program_assignments pa
-  WHERE pa.program_id = p_program_id AND pa.status = 'active'
-  ORDER BY pa.created_at
-  LIMIT 1;
-  IF v_tz IS NOT NULL THEN
-    RETURN v_tz;
-  END IF;
   SELECT owner_id INTO v_owner FROM public.programs WHERE id = p_program_id;
   RETURN public.program_actor_timezone(v_owner);
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.program_activation_timezone(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.program_activation_timezone(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.program_activation_timezone(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.program_activation_timezone(uuid) TO service_role;
 COMMENT ON FUNCTION public.program_activation_timezone(uuid) IS
-  'Civil TZ for due/schedule: first active assignment client, else owner. Missing profile = America/Toronto.';
+  'Owner/Coach civil TZ used to freeze scheduled_activation_timezone. Not a live client lookup.';
 
 CREATE OR REPLACE FUNCTION public.program_current_phase_id(p_program_id uuid, p_anchor date, p_today date)
 RETURNS uuid
@@ -183,8 +176,8 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.program_current_phase_id(uuid, date, date) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.program_current_phase_id(uuid, date, date) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.program_current_phase_id(uuid, date, date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.program_current_phase_id(uuid, date, date) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.validate_program_graph_payload(p_org text, p_days jsonb, p_phases jsonb)
 RETURNS void
@@ -298,6 +291,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.validate_program_graph_payload(text, jsonb, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.validate_program_graph_payload(text, jsonb, jsonb) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.cancel_scheduled_program_version(p_program_id uuid)
 RETURNS void
@@ -314,7 +308,10 @@ BEGIN
     RETURN;
   END IF;
   UPDATE public.programs
-  SET scheduled_revision_no = NULL, scheduled_activates_on = NULL
+  SET
+    scheduled_revision_no = NULL,
+    scheduled_activates_on = NULL,
+    scheduled_activation_timezone = NULL
   WHERE id = p_program_id
     AND scheduled_revision_no IS NOT NULL;
 END;
@@ -552,6 +549,7 @@ BEGIN
        NEW.active_revision_no IS DISTINCT FROM OLD.active_revision_no
        OR NEW.scheduled_revision_no IS DISTINCT FROM OLD.scheduled_revision_no
        OR NEW.scheduled_activates_on IS DISTINCT FROM OLD.scheduled_activates_on
+       OR NEW.scheduled_activation_timezone IS DISTINCT FROM OLD.scheduled_activation_timezone
        OR NEW.phase_anchor_on IS DISTINCT FROM OLD.phase_anchor_on
      ) THEN
     RAISE EXCEPTION 'program version pointers are RPC-only';
@@ -658,6 +656,7 @@ BEGIN
     END,
     scheduled_revision_no = NULL,
     scheduled_activates_on = NULL,
+    scheduled_activation_timezone = NULL,
     active_revision_no = p_revision_no,
     phase_anchor_on = v_anchor
   WHERE id = p_program_id;
@@ -786,6 +785,7 @@ DECLARE
   v_phases jsonb;
   v_org text;
   v_today date;
+  v_tz text;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_program_id IS NULL OR p_revision_no IS NULL OR p_activates_on IS NULL THEN
@@ -844,14 +844,17 @@ BEGIN
     RAISE EXCEPTION 'already_scheduled';
   END IF;
 
+  v_tz := public.program_activation_timezone(p_program_id);
+
   UPDATE public.programs
   SET
     scheduled_revision_no = p_revision_no,
     scheduled_activates_on = p_activates_on,
+    scheduled_activation_timezone = v_tz,
     updated_at = now()
   WHERE id = p_program_id;
 
-  v_today := public.program_civil_date(public.program_activation_timezone(p_program_id), now());
+  v_today := public.program_civil_date(v_tz, now());
   IF p_activates_on <= v_today THEN
     RETURN public.apply_program_revision_snapshot(p_program_id, p_revision_no);
   END IF;
@@ -890,13 +893,13 @@ BEGIN
     RETURN 0;
   END IF;
 
-  SELECT active_revision_no, scheduled_revision_no, scheduled_activates_on
-    INTO v_active, v_sched, v_on
+  SELECT active_revision_no, scheduled_revision_no, scheduled_activates_on, scheduled_activation_timezone
+    INTO v_active, v_sched, v_on, v_tz
   FROM public.programs
   WHERE id = p_program_id
   FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'Not authorized'; END IF;
-  IF v_sched IS NULL OR v_on IS NULL THEN
+  IF v_sched IS NULL OR v_on IS NULL OR NULLIF(btrim(COALESCE(v_tz, '')), '') IS NULL THEN
     RETURN 0;
   END IF;
 
@@ -908,14 +911,16 @@ BEGIN
     RETURN 0;
   END IF;
 
-  v_tz := public.program_activation_timezone(p_program_id);
   v_today := public.program_civil_date(v_tz, now());
   IF v_on > v_today THEN
     RETURN 0;
   END IF;
   IF v_active IS NOT DISTINCT FROM v_sched THEN
     UPDATE public.programs
-    SET scheduled_revision_no = NULL, scheduled_activates_on = NULL
+    SET
+      scheduled_revision_no = NULL,
+      scheduled_activates_on = NULL,
+      scheduled_activation_timezone = NULL
     WHERE id = p_program_id;
     RETURN v_sched;
   END IF;
@@ -1025,8 +1030,8 @@ CREATE OR REPLACE FUNCTION public.start_workout_from_template(
 )
 RETURNS uuid
 LANGUAGE plpgsql
-SECURITY INVOKER
-SET search_path = public, pg_temp
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
@@ -1450,13 +1455,82 @@ GRANT EXECUTE ON FUNCTION public.create_program_complete(text, text, int, jsonb,
 COMMENT ON FUNCTION public.create_program_complete(text, text, int, jsonb, uuid, date, text, jsonb) IS
   'D01 + P3.1 + P3.2 : programme + organisation + phases optionnelles + jours + exercices (+ routine) + assignation optionnelle, une transaction. Toute erreur annule tout.';
 COMMENT ON FUNCTION public.ensure_due_program_version(uuid) IS
-  'Apply a scheduled version when activates_on <= assigned client civil date. Paused clients and orphan schedules do not apply.';
+  'Apply a scheduled version when activates_on <= frozen scheduled_activation_timezone civil date (owner/Coach clock). Paused clients and orphan schedules do not apply.';
 COMMENT ON FUNCTION public.validate_program_graph_payload(text, jsonb, jsonb) IS
   'Canonical graph validator shared by live save, future version, schedule and activation.';
+COMMENT ON FUNCTION public.start_workout_from_template(text, timestamptz, uuid, uuid, uuid, jsonb) IS
+  'Single logger. DEFINER so internal civil/phase helpers stay ungranted to authenticated.';
 
--- Graph writes are RPC-only (Hotfix A/B pattern). Keep SELECT. Keep program DELETE for owner UX.
+CREATE OR REPLACE FUNCTION public.program_has_history(p_program_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    EXISTS (
+      SELECT 1 FROM public.program_assignments pa
+      WHERE pa.program_id = p_program_id
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.workouts w
+      JOIN public.program_days d ON d.id = w.program_day_id
+      WHERE d.program_id = p_program_id
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.workouts w
+      JOIN public.program_assignments pa ON pa.id = w.program_assignment_id
+      WHERE pa.program_id = p_program_id
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.program_has_history(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.program_has_history(uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.delete_program(p_program_id uuid)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_owner uuid;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF p_program_id IS NULL THEN RAISE EXCEPTION 'Invalid payload'; END IF;
+  SELECT owner_id INTO v_owner FROM public.programs WHERE id = p_program_id;
+  IF v_owner IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
+  IF v_owner IS DISTINCT FROM v_uid THEN RAISE EXCEPTION 'Not program owner'; END IF;
+  IF public.coached_client_cannot_edit_program(p_program_id) THEN
+    RAISE EXCEPTION 'Coached client cannot edit assigned program';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.program_assignments
+    WHERE program_id = p_program_id AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'program_has_active_assignment';
+  END IF;
+  IF public.program_has_history(p_program_id) THEN
+    RAISE EXCEPTION 'program_has_history';
+  END IF;
+  DELETE FROM public.programs WHERE id = p_program_id;
+  RETURN p_program_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.delete_program(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.delete_program(uuid) TO authenticated, service_role;
+COMMENT ON FUNCTION public.delete_program(uuid) IS
+  'Hard delete a never-assigned unused program. Active assignment refuses (program_has_active_assignment). Historical assignment/workouts refuse (program_has_history). Data API DELETE is closed.';
+
+-- Graph writes are RPC-only (Hotfix A/B pattern). Keep SELECT. Delete via delete_program.
 DROP POLICY IF EXISTS "Owners insert programs" ON public.programs;
 DROP POLICY IF EXISTS "Owners update programs" ON public.programs;
+DROP POLICY IF EXISTS "Owners delete programs" ON public.programs;
 DROP POLICY IF EXISTS "Owners insert program days" ON public.program_days;
 DROP POLICY IF EXISTS "Owners update program days" ON public.program_days;
 DROP POLICY IF EXISTS "Owners delete program days" ON public.program_days;
@@ -1470,8 +1544,8 @@ DROP POLICY IF EXISTS "Owners delete program phases" ON public.program_phases;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.program_days FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.program_day_exercises FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE public.program_phases FROM authenticated;
-REVOKE INSERT, UPDATE ON TABLE public.programs FROM authenticated;
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.programs FROM authenticated;
 GRANT SELECT ON TABLE public.program_days TO authenticated;
 GRANT SELECT ON TABLE public.program_day_exercises TO authenticated;
 GRANT SELECT ON TABLE public.program_phases TO authenticated;
-GRANT SELECT, DELETE ON TABLE public.programs TO authenticated;
+GRANT SELECT ON TABLE public.programs TO authenticated;

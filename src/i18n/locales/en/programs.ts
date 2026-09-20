@@ -24,6 +24,8 @@ const programs = {
     stale: 'This program was changed elsewhere. Reload, then try again.',
     deleted: 'Program deleted',
     deleteFailed: 'Could not delete the program. Try again.',
+    deleteHasHistory: 'This program has already been assigned or used. History is kept.',
+    deleteHasActiveAssignment: 'This program is still assigned. Remove the active assignment before deleting it.',
     revisionBadge: 'Revision {{n}} · {{date}} — previous versions are kept',
     revisionBadgeShort: 'Revision {{n}} · {{date}}',
     revisionHistory: 'Revision history',

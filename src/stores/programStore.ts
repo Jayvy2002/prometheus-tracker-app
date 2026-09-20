@@ -343,9 +343,9 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
 
   deleteProgram: async (id) => {
     // UX20 : ne retire du store qu'après suppression serveur confirmée.
-    const { data, error } = await supabase.from('programs').delete().eq('id', id).select('id');
+    const { data, error } = await supabase.rpc('delete_program', { p_program_id: id });
     if (error) return { error: error.message };
-    if (!data?.length) return { error: 'not_found' };
+    if (!data) return { error: 'not_found' };
     set(s => ({ programs: s.programs.filter(p => p.id !== id) }));
     track('program_deleted');
     return { error: null };
