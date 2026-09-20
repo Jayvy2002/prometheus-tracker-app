@@ -1516,6 +1516,8 @@ begin
     raise exception 'activate now anchored %, expected owner today % not planned %', v_anchor, v_today, v_planned;
   end if;
 
+  -- Past dates are refused (tested later). A future schedule keeps the planned
+  -- date as a pointer and must not move the live anchor.
   v_rev := public.save_program_version(
     'c3401941-0000-4000-8000-000000000010',
     'Version Due',
@@ -1525,7 +1527,7 @@ begin
     null,
     'fixed_days'
   );
-  v_planned := v_today - 3;
+  v_planned := v_today + 10;
   perform public.schedule_program_version(
     'c3401941-0000-4000-8000-000000000010',
     v_rev,
@@ -1533,11 +1535,19 @@ begin
     true,
     null
   );
+  if (select scheduled_revision_no from public.programs
+      where id = 'c3401941-0000-4000-8000-000000000010') is distinct from v_rev then
+    raise exception 'future schedule did not record revision';
+  end if;
+  if (select scheduled_activates_on from public.programs
+      where id = 'c3401941-0000-4000-8000-000000000010') is distinct from v_planned then
+    raise exception 'future schedule did not keep planned date %', v_planned;
+  end if;
   select phase_anchor_on into v_anchor
   from public.programs
   where id = 'c3401941-0000-4000-8000-000000000010';
-  if v_anchor is distinct from v_planned then
-    raise exception 'scheduled/due anchored %, expected planned %', v_anchor, v_planned;
+  if v_anchor is distinct from v_today then
+    raise exception 'future schedule mutated live anchor %, expected %', v_anchor, v_today;
   end if;
 end $$;
 reset role;
@@ -1918,6 +1928,12 @@ begin
 end $$;
 
 -- Active client cannot SELECT an unscheduled saved draft; can SELECT active + scheduled.
+-- 000002 already has the legacy self-assignment 00009a (one-active-per-client).
+update public.program_assignments
+   set status = 'paused'
+ where id = 'c3401941-0000-4000-8000-00000000009a'
+   and status = 'active';
+
 insert into public.programs(id,owner_id,name,description,duration_weeks)
 values ('c3401941-0000-4000-8000-0000000000ee','c3401941-0000-4000-8000-000000000001','Draft isolation','',8);
 insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
@@ -1925,7 +1941,7 @@ values (
   'c3401941-0000-4000-8000-0000000000ef',
   'c3401941-0000-4000-8000-0000000000ee',
   'c3401941-0000-4000-8000-000000000002',
-  'c3401941-0000-4000-8000-000000000001',
+  'c3401941-0000-4000-8000-000000000002',
   current_date,
   'active'
 );
@@ -2093,6 +2109,9 @@ begin
   where program_id = 'c3401941-0000-4000-8000-0000000000ee'
     and name = 'Push A'
   limit 1;
+  if v_day is null then
+    raise exception 'live Push A day missing for start-day week 1';
+  end if;
   perform public.start_workout_from_template(
     'Start day week 1',
     now(),
@@ -2105,21 +2124,24 @@ end $$;
 reset role;
 
 -- Past schedule date refused against the frozen owner civil clock.
+-- program_civil_date / program_activation_timezone are internalized; compute
+-- the owner clock as postgres, then call schedule as authenticated.
+do $$
+begin
+  perform set_config('test.owner_today', (now() at time zone 'UTC')::date::text, true);
+  perform set_config('test.utc_today', (now() at time zone 'UTC')::date::text, true);
+end $$;
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
 declare
-  v_rev int;
-  v_tz text;
-  v_today date;
-  v_utc date;
+  v_rev int := current_setting('test.draft_saved')::int;
+  v_today date := current_setting('test.owner_today')::date;
+  v_today_rev int;
 begin
-  v_tz := public.program_activation_timezone('c3401941-0000-4000-8000-0000000000ee');
-  v_today := public.program_civil_date(v_tz, now());
-  v_utc := (now() at time zone 'UTC')::date;
-  v_rev := current_setting('test.draft_saved')::int;
   begin
     perform public.schedule_program_version(
       'c3401941-0000-4000-8000-0000000000ee',
@@ -2137,18 +2159,32 @@ begin
         raise;
       end if;
   end;
-  if v_utc > v_today then
-    perform public.schedule_program_version(
-      'c3401941-0000-4000-8000-0000000000ee',
-      v_rev,
-      v_utc,
-      true,
-      null
-    );
-    if (select scheduled_revision_no from public.programs
-        where id = 'c3401941-0000-4000-8000-0000000000ee') is distinct from v_rev then
-      raise exception 'UTC-ahead civil date was treated as past for owner TZ';
-    end if;
+
+  -- Today → immediate activation, anchor today.
+  v_today_rev := public.save_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    'Activate today',
+    'today apply',
+    8,
+    '[{"weekday":1,"name":"Today","exercises":[{"name":"Press","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null
+  );
+  perform public.schedule_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    v_today_rev,
+    v_today,
+    true,
+    null
+  );
+  if (select active_revision_no from public.programs
+      where id = 'c3401941-0000-4000-8000-0000000000ee') is distinct from v_today_rev then
+    raise exception 'today schedule did not apply immediately';
+  end if;
+  if (select phase_anchor_on from public.programs
+      where id = 'c3401941-0000-4000-8000-0000000000ee') is distinct from v_today then
+    raise exception 'today schedule anchored %, expected %',
+      (select phase_anchor_on from public.programs where id = 'c3401941-0000-4000-8000-0000000000ee'),
+      v_today;
   end if;
 end $$;
 reset role;
@@ -2157,6 +2193,16 @@ reset role;
 update public.user_profiles
    set timezone = 'America/Toronto'
  where id = 'c3401941-0000-4000-8000-000000000001';
+
+do $$
+begin
+  perform set_config(
+    'test.toronto_today',
+    (now() at time zone 'America/Toronto')::date::text,
+    true
+  );
+  perform set_config('test.utc_today', (now() at time zone 'UTC')::date::text, true);
+end $$;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
@@ -2172,7 +2218,8 @@ declare
     '[{"weekday":1,"name":"TZ","exercises":[{"name":"Fly","default_sets":3,"default_reps":8}]}]'::jsonb,
     null
   );
-  v_today date := public.program_civil_date('America/Toronto', now());
+  v_today date := current_setting('test.toronto_today')::date;
+  v_utc date := current_setting('test.utc_today')::date;
 begin
   begin
     perform public.schedule_program_version(
@@ -2191,6 +2238,24 @@ begin
         raise;
       end if;
   end;
+  -- When UTC is already the next civil day, that date is still future for Toronto.
+  if v_utc > v_today then
+    perform public.schedule_program_version(
+      'c3401941-0000-4000-8000-0000000000ee',
+      v_rev,
+      v_utc,
+      true,
+      null
+    );
+    if (select scheduled_revision_no from public.programs
+        where id = 'c3401941-0000-4000-8000-0000000000ee') is distinct from v_rev then
+      raise exception 'UTC-ahead civil date was treated as past for owner TZ';
+    end if;
+    if (select active_revision_no from public.programs
+        where id = 'c3401941-0000-4000-8000-0000000000ee') is not distinct from v_rev then
+      raise exception 'UTC-ahead civil date applied immediately in Toronto';
+    end if;
+  end if;
 end $$;
 reset role;
 

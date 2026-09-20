@@ -141,7 +141,10 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /workout prescription is immutable/);
   assert.match(src('supabase/tests/program_hardening.sql'), /activate now anchored/);
   assert.match(src('supabase/tests/program_hardening.sql'), /v_today := \(now\(\) AT TIME ZONE 'UTC'\)::date/);
-  assert.match(src('supabase/tests/program_hardening.sql'), /scheduled\/due anchored/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /future schedule mutated live anchor/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /today schedule did not apply immediately/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /past activation date was allowed/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /Toronto-past activation date was allowed/);
   assert.match(src('supabase/tests/program_hardening.sql'), /unexpected authenticated program DEFINER/);
   assert.match(src('supabase/tests/program_hardening.sql'), /actor_owns_program\(uuid\)/);
   assert.match(src('supabase/tests/program_hardening.sql'), /legitimate start left program_id unset/);
