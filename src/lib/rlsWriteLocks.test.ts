@@ -133,6 +133,7 @@ test('program_assignments: Data API is SELECT-only; mutations are RPC-only', () 
   assert.match(hard.sql, /GRANT SELECT ON TABLE public\.program_assignments TO authenticated/);
   assert.match(hard.sql, /program_assignments_protect_identity/);
   assert.match(hard.sql, /program assignment writes are RPC-only/);
+  assert.match(hard.sql, /IF TG_OP = 'DELETE' THEN\s+RETURN OLD;/);
   assert.doesNotMatch(readFileSync(resolve(process.cwd(), 'src/stores/programStore.ts'), 'utf8'), /pauseAssignment/);
   assert.match(readFileSync(resolve(process.cwd(), 'src/stores/programStore.ts'), 'utf8'), /rpc\('assign_program_secure'/);
 });

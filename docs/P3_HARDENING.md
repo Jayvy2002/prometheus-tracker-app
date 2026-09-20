@@ -194,6 +194,13 @@ programmes, pour qu’une assignation qui commit pendant l’attente soit
 incluse dans le fork P3. Les `assignment_id` à transférer sont ensuite
 figés (`FOR UPDATE OF pa` puis CTE `array_agg`) avant tout `INSERT` de fork.
 
+`program_assignments_protect_identity` est `BEFORE INSERT OR UPDATE OR DELETE`.
+Un `DELETE` (y compris `ON DELETE CASCADE` depuis `programs`) doit
+`RETURN OLD` : `RETURN NEW` est NULL sur DELETE et **saute la ligne
+sans erreur**, laissant des assignments orphelins qui se recollent aux
+mêmes UUID de programmes au seed suivant. `authenticated` continue de
+recevoir `program assignment writes are RPC-only`.
+
 Le trigger freeze peut alors `FOR UPDATE` le programme déjà tenu : pas
 d’ordre `assignment → program` vs adopt, et pas de lock-set périmé vs
 assign concurrent.

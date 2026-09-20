@@ -1925,6 +1925,15 @@ begin
     raise exception 'freeze trigger does not lock programs FOR UPDATE';
   end if;
   src := regexp_replace(
+    lower(pg_get_functiondef('public.program_assignments_protect_identity()'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('if tg_op = ''delete'' then return old' in src) = 0 then
+    raise exception 'protect_identity DELETE returns NEW and skips owner/CASCADE deletes';
+  end if;
+  src := regexp_replace(
     lower(pg_get_functiondef('public.lock_programs_for_assignment_mutation(uuid[])'::regprocedure)),
     '\s+',
     ' ',

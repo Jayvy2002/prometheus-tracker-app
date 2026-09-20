@@ -2349,6 +2349,12 @@ BEGIN
       END IF;
     END IF;
   END IF;
+  -- BEFORE DELETE must return OLD. Returning NEW (NULL on DELETE) silently
+  -- skips the row, including ON DELETE CASCADE from programs, and leaves
+  -- orphan assignments that later reattach to recycled program UUIDs.
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
   RETURN NEW;
 END;
 $$;

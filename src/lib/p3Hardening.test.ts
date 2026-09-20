@@ -38,6 +38,12 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     assert.match(freezeFn, /FROM public\.programs p\s+WHERE p\.id = NEW\.program_id\s+FOR UPDATE/);
     assert.match(freezeFn, /SECURITY DEFINER/);
   }
+  {
+    const identStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.program_assignments_protect_identity');
+    const identEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.program_assignments_protect_identity');
+    const identFn = found.sql.slice(identStart, identEnd);
+    assert.match(identFn, /IF TG_OP = 'DELETE' THEN\s+RETURN OLD;/);
+  }
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.get_frozen_program_archive/);
   assert.match(found.sql, /RAISE EXCEPTION 'program_not_started'/);
   assert.match(found.sql, /RAISE EXCEPTION 'activation_date_in_past'/);
@@ -380,6 +386,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /lock_client_assignment_programs\(uuid,uuid\)/);
   assert.match(src('supabase/tests/program_hardening.sql'), /assignment helper does not take client mutex before program locks/);
   assert.match(src('supabase/tests/program_hardening.sql'), /lock_client_assignment_mutex\(uuid\)/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /protect_identity DELETE returns NEW and skips owner\/CASCADE deletes/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_client_assignment_programs'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_client_assignment_mutex'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('remap_program_revision_snapshot'\)/);
