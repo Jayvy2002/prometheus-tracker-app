@@ -161,8 +161,10 @@ begin
     raise exception 'replace did not point at version C';
   end if;
 end $$;
+reset role;
 
 -- Stamp a workout against Version A before activation.
+-- Data API INSERT is closed; fixtures run as postgres.
 insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
 values (
   'c3391941-0000-4000-8000-0000000000a1',
@@ -172,6 +174,11 @@ values (
   current_date,
   'active'
 );
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3391941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3391941-0000-4000-8000-000000000001","role":"authenticated"}',true);
 
 do $$
 declare
