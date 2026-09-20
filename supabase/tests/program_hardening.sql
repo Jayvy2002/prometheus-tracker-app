@@ -54,6 +54,11 @@ begin
   ) then
     raise exception 'Monday 00:00 EDT should be due';
   end if;
+  -- UTC CURRENT_DATE is not the activation clock when Toronto is still yesterday.
+  if public.program_civil_date('America/Toronto', now()) is distinct from current_date
+     and public.program_version_is_due(current_date, 'America/Toronto', now()) then
+    raise exception 'UTC current_date was due in Toronto while civil dates differ';
+  end if;
 end $$;
 
 -- Data API graph writes are closed.

@@ -19,6 +19,8 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(found.sql, /name = COALESCE\(v_name, name\)/);
   assert.match(found.sql, /REVOKE INSERT, UPDATE ON TABLE public\.programs FROM authenticated/);
   assert.match(found.sql, /cancel_scheduled_program_version/);
+  assert.match(found.sql, /program_activation_timezone/);
+  assert.match(src('supabase/tests/program_versions.sql'), /program_civil_date\(\s*public\.program_activation_timezone/);
   assert.doesNotMatch(found.sql, /CREATE TABLE public\.(mesocycles|program_versioning|program_cycles)/);
   assert.doesNotMatch(found.sql, /CREATE OR REPLACE FUNCTION public\.save_program\(/);
   assert.doesNotMatch(found.sql, /CREATE OR REPLACE FUNCTION public\.transition_client_to_solo/);

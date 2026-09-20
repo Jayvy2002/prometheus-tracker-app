@@ -74,6 +74,36 @@ $$;
 REVOKE ALL ON FUNCTION public.program_version_is_due(date, text, timestamptz) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.program_version_is_due(date, text, timestamptz) TO authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION public.program_activation_timezone(p_program_id uuid)
+RETURNS text
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_tz text;
+  v_owner uuid;
+BEGIN
+  SELECT public.program_actor_timezone(pa.client_id)
+    INTO v_tz
+  FROM public.program_assignments pa
+  WHERE pa.program_id = p_program_id AND pa.status = 'active'
+  ORDER BY pa.created_at
+  LIMIT 1;
+  IF v_tz IS NOT NULL THEN
+    RETURN v_tz;
+  END IF;
+  SELECT owner_id INTO v_owner FROM public.programs WHERE id = p_program_id;
+  RETURN public.program_actor_timezone(v_owner);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.program_activation_timezone(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.program_activation_timezone(uuid) TO authenticated, service_role;
+COMMENT ON FUNCTION public.program_activation_timezone(uuid) IS
+  'Civil TZ for due/schedule: first active assignment client, else owner. Missing profile = America/Toronto.';
+
 CREATE OR REPLACE FUNCTION public.program_current_phase_id(p_program_id uuid, p_anchor date, p_today date)
 RETURNS uuid
 LANGUAGE plpgsql
@@ -795,7 +825,7 @@ BEGIN
     updated_at = now()
   WHERE id = p_program_id;
 
-  v_today := public.program_civil_date(public.program_actor_timezone(v_uid), now());
+  v_today := public.program_civil_date(public.program_activation_timezone(p_program_id), now());
   IF p_activates_on <= v_today THEN
     RETURN public.apply_program_revision_snapshot(p_program_id, p_revision_no);
   END IF;
@@ -852,19 +882,7 @@ BEGIN
     RETURN 0;
   END IF;
 
-  SELECT public.program_actor_timezone(pa.client_id)
-    INTO v_tz
-  FROM public.program_assignments pa
-  WHERE pa.program_id = p_program_id AND pa.status = 'active'
-  ORDER BY pa.created_at
-  LIMIT 1;
-  IF v_tz IS NULL THEN
-    SELECT public.program_actor_timezone(p.owner_id)
-      INTO v_tz
-    FROM public.programs p
-    WHERE p.id = p_program_id;
-  END IF;
-  v_tz := COALESCE(v_tz, public.program_actor_timezone(v_uid));
+  v_tz := public.program_activation_timezone(p_program_id);
   v_today := public.program_civil_date(v_tz, now());
   IF v_on > v_today THEN
     RETURN 0;

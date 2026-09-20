@@ -406,6 +406,7 @@ end $$;
 do $$
 declare
   v_rev int;
+  v_today date;
 begin
   perform public.save_program(
     'c3391941-0000-4000-8000-000000000013',
@@ -426,10 +427,15 @@ begin
     'fixed_days',
     '[]'::jsonb
   );
+  -- Civil "today" of the activation clock (owner TZ, no assignment), not UTC CURRENT_DATE.
+  v_today := public.program_civil_date(
+    public.program_activation_timezone('c3391941-0000-4000-8000-000000000013'),
+    now()
+  );
   perform public.schedule_program_version(
     'c3391941-0000-4000-8000-000000000013',
     v_rev,
-    current_date,
+    v_today,
     false,
     null
   );
@@ -495,7 +501,10 @@ reset role;
 
 -- Assigned client can apply a due schedule (date reached) without being owner.
 update public.programs
-set scheduled_activates_on = current_date
+set scheduled_activates_on = public.program_civil_date(
+  public.program_activation_timezone('c3391941-0000-4000-8000-000000000014'),
+  now()
+)
 where id = 'c3391941-0000-4000-8000-000000000014';
 
 set local role authenticated;
