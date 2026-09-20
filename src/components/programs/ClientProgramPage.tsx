@@ -219,6 +219,11 @@ export default function ClientProgramPage() {
                   {t('programs.currentPhase', { name: currentPhase.name })}
                 </p>
               )}
+              {program.scheduled_activates_on && (
+                <p className="text-xs text-blue-300 mt-2" data-testid="program-planned-change">
+                  {t('programs.plannedChangeOn', { date: program.scheduled_activates_on })}
+                </p>
+              )}
               {week != null && (
                 <>
                   <p className="text-xs text-blue-300 mt-2">

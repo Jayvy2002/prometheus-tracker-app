@@ -247,6 +247,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'program phases: simple optional, periodized same engine, deload is a phase, logger stamps, leftover lock, fork copies' /tmp/program-phases-db-results.txt
+      - name: Test program versions
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_versions.sql | tee /tmp/program-versions-db-results.txt
+      - name: Confirm program versions echo
+        run: |
+          set -euo pipefail
+          grep -F 'program versions: saved without live mutate, schedule/replace, activate idempotent, historical locked, leftover, logger stamp' /tmp/program-versions-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

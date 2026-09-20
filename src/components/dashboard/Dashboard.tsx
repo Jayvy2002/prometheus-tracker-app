@@ -32,6 +32,7 @@ import {
 } from '../../lib/clientHome';
 import { isProgramDayDue, resolveClientGymCard } from '../../lib/clientGym';
 import { resolveCurrentPhase } from '../../features/programs/domain/programPhases';
+import { assignStartLabel } from '../../lib/programWrite';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
@@ -152,6 +153,11 @@ export default function Dashboard() {
       today: todayStr(),
       nextDay: gymCard.day ?? gymCard.nextDay,
     })?.name ?? null
+    : null;
+  const gymPlannedChange = assignment?.program?.scheduled_activates_on
+    ? t('programs.plannedChangeOn', {
+      date: assignStartLabel(assignment.program.scheduled_activates_on, i18n.language),
+    })
     : null;
   const hasCoach = isCoachedAthlete(coachingRole, myCoach);
   const scheduledToday = !alreadyTrainedToday
@@ -306,6 +312,7 @@ export default function Dashboard() {
             onContinue={workoutId => navigate(`/workout/${workoutId}`)}
             onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
             phaseName={gymPhaseName}
+            plannedChange={gymPlannedChange}
           />
         )}
 
@@ -474,6 +481,7 @@ export default function Dashboard() {
             onContinue={workoutId => navigate(`/workout/${workoutId}`)}
             onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
             phaseName={gymPhaseName}
+            plannedChange={gymPlannedChange}
           />
         )}
 

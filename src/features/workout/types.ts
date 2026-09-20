@@ -15,6 +15,7 @@ export interface Workout {
   program_day_id?: string | null;
   program_phase_id?: string | null;
   prescribed_phase_name?: string | null;
+  program_revision_no?: number | null;
   exercises?: WorkoutExercise[];
   created_at: string;
   updated_at: string;

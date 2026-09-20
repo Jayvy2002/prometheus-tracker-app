@@ -134,6 +134,25 @@ interface ProgramState {
     meta: { name: string; description: string; duration_weeks: number; session_organization?: SessionOrganization | null },
     expectedUpdatedAt?: string | null,
   ) => Promise<{ error: string | null }>;
+  saveProgramVersion: (
+    programId: string,
+    meta: { name: string; description: string; duration_weeks: number; session_organization?: SessionOrganization | null },
+    days: ProgramDayDraft[],
+    expectedUpdatedAt?: string | null,
+    phases?: ProgramPhaseDraft[] | null,
+  ) => Promise<{ error: string | null; revisionNo?: number }>;
+  scheduleProgramVersion: (
+    programId: string,
+    revisionNo: number,
+    activatesOn: string,
+    replace?: boolean,
+    expectedUpdatedAt?: string | null,
+  ) => Promise<{ error: string | null }>;
+  activateProgramVersion: (
+    programId: string,
+    revisionNo: number,
+    expectedUpdatedAt?: string | null,
+  ) => Promise<{ error: string | null }>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   duplicateProgram: (programId: string) => Promise<{ error: string | null; programId?: string }>;
   pauseAssignment: (id: string) => Promise<void>;
@@ -162,6 +181,19 @@ function mapProgramWithDays(row: ProgramRow): Program {
     phases,
     days,
   };
+}
+
+async function hydrateScheduledSnapshot(program: Program): Promise<Program> {
+  if (!program.scheduled_revision_no) {
+    return { ...program, scheduled_snapshot: null };
+  }
+  const { data } = await supabase
+    .from('program_revisions')
+    .select('snapshot')
+    .eq('program_id', program.id)
+    .eq('revision_no', program.scheduled_revision_no)
+    .maybeSingle();
+  return { ...program, scheduled_snapshot: data ? (data as { snapshot: unknown }).snapshot : null };
 }
 
 export const useProgramStore = create<ProgramState>((set, get) => ({
@@ -201,7 +233,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
         .eq('id', programId)
         .maybeSingle();
       if (error || !data) return null;
-      const program = mapProgramWithDays(data as ProgramRow);
+      const program = await hydrateScheduledSnapshot(mapProgramWithDays(data as ProgramRow));
       set(s => ({
         programs: s.programs.some(p => p.id === programId)
           ? s.programs.map(p => p.id === programId ? program : p)
@@ -455,6 +487,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       set({ assignment: null });
       return null;
     }
+    await supabase.rpc('ensure_due_program_version', { p_program_id: row.program_id });
     const program = await get().fetchProgram(row.program_id as string);
     const assignment = {
       ...(row as ProgramAssignment),
@@ -519,6 +552,48 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       ...meta,
       session_organization: parseRevisionOrganization(snapshot),
     }, days, expectedUpdatedAt, snapshotToPhaseDrafts(snapshot));
+  },
+
+  saveProgramVersion: async (programId, meta, days, expectedUpdatedAt, phases) => {
+    const { data, error } = await supabase.rpc('save_program_version', {
+      p_program_id: programId,
+      p_name: meta.name,
+      p_description: meta.description ?? '',
+      p_duration_weeks: meta.duration_weeks,
+      p_days: rpcDaysPayload(days),
+      p_expected_updated_at: expectedUpdatedAt ?? null,
+      p_session_organization: meta.session_organization == null
+        ? null
+        : normalizeSessionOrganization(meta.session_organization),
+      p_phases: phases === undefined ? [] : rpcPhasesPayload(phases ?? []),
+    });
+    if (error) return { error: error.message };
+    await get().fetchProgram(programId);
+    return { error: null, revisionNo: data as number };
+  },
+
+  scheduleProgramVersion: async (programId, revisionNo, activatesOn, replace, expectedUpdatedAt) => {
+    const { error } = await supabase.rpc('schedule_program_version', {
+      p_program_id: programId,
+      p_revision_no: revisionNo,
+      p_activates_on: activatesOn,
+      p_replace: replace ?? false,
+      p_expected_updated_at: expectedUpdatedAt ?? null,
+    });
+    if (error) return { error: error.message };
+    await get().fetchProgram(programId);
+    return { error: null };
+  },
+
+  activateProgramVersion: async (programId, revisionNo, expectedUpdatedAt) => {
+    const { error } = await supabase.rpc('activate_program_version', {
+      p_program_id: programId,
+      p_revision_no: revisionNo,
+      p_expected_updated_at: expectedUpdatedAt ?? null,
+    });
+    if (error) return { error: error.message };
+    await get().fetchProgram(programId);
+    return { error: null };
   },
 
   duplicateProgram: async (programId) => {

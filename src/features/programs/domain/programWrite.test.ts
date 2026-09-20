@@ -29,6 +29,24 @@ test('maps stale SQL to a stable client code', () => {
     mapProgramWriteError('Not program owner', { stale: 'reload', fallback: 'retry' }),
     'retry',
   );
+  assert.equal(
+    mapProgramWriteError('already_scheduled', {
+      stale: 'reload',
+      fallback: 'retry',
+      scheduled: 'replace',
+      historical: 'hist',
+    }),
+    'replace',
+  );
+  assert.equal(
+    mapProgramWriteError('historical', {
+      stale: 'reload',
+      fallback: 'retry',
+      scheduled: 'replace',
+      historical: 'hist',
+    }),
+    'hist',
+  );
 });
 
 test('assign recap date stays on the local calendar day', () => {

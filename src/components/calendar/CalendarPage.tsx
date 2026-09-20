@@ -15,6 +15,8 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { calendarDayWeights, calendarDayWorkouts, responsesHaveError } from '../../lib/progressSearch';
 import { planMarkForDate, type PlanCalendarMark } from '../../features/programs/domain/planCalendar';
+import { programGraphForDate } from '../../features/programs/domain/programVersions';
+import { parseRevisionOrganization, parseRevisionSnapshot, snapshotToPhaseDrafts } from '../../features/programs/domain/programRevisionDiff';
 import { useProgramStore } from '../../stores/programStore';
 
 interface DayData {
@@ -238,11 +240,43 @@ export default function CalendarPage() {
   const planByDate = useMemo(() => {
     const dates = viewMode === 'week' ? weekDates : monthDates.map(m => m.date);
     const map = new Map<string, PlanCalendarMark | null>();
+    const liveDays = assignment?.program?.days;
+    const scheduledDays = assignment?.program?.scheduled_snapshot
+      ? parseRevisionSnapshot(assignment.program.scheduled_snapshot).map((day, index) => ({
+        id: `scheduled-${index}`,
+        weekday: day.weekday,
+        name: day.name,
+        phase_id: day.phase_id,
+        exercises: day.exercises,
+      }))
+      : null;
+    const scheduledPhases = assignment?.program?.scheduled_snapshot
+      ? snapshotToPhaseDrafts(assignment.program.scheduled_snapshot).map((phase, order_index) => ({
+        id: phase.id ?? `scheduled-phase-${order_index}`,
+        name: phase.name,
+        description: phase.description ?? '',
+        order_index,
+        duration_weeks: phase.duration_weeks,
+      }))
+      : null;
+    const scheduledOrg = assignment?.program?.scheduled_snapshot
+      ? parseRevisionOrganization(assignment.program.scheduled_snapshot)
+      : null;
     for (const d of dates) {
       const ds = dateToStr(d);
+      const graph = programGraphForDate({
+        date: ds,
+        liveDays,
+        livePhases: assignment?.program?.phases,
+        liveOrganization: assignment?.program?.session_organization,
+        scheduledActivatesOn: assignment?.program?.scheduled_activates_on,
+        scheduledDays,
+        scheduledPhases,
+        scheduledOrganization: scheduledOrg,
+      });
       map.set(ds, planMarkForDate({
         date: ds,
-        days: assignment?.program?.days,
+        days: graph.days,
         workouts,
         assignmentId: assignment?.id,
         startDate: assignment?.start_date,
@@ -252,8 +286,8 @@ export default function CalendarPage() {
           ? assignment.updated_at
           : null,
         unnamed: t('workout.unnamed'),
-        sessionOrganization: assignment?.program?.session_organization,
-        phases: assignment?.program?.phases,
+        sessionOrganization: graph.organization,
+        phases: graph.phases,
       }));
     }
     return map;

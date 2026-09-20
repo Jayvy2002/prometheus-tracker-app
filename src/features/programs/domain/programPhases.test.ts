@@ -105,6 +105,6 @@ test('P3.2 migration extends the existing engine without a second logger', () =>
 
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /phaseName=\{gymPhaseName\}/);
   assert.match(src('src/components/workout/WorkoutPage.tsx'), /phaseName=\{resolveCurrentPhase/);
-  assert.match(src('src/components/calendar/CalendarPage.tsx'), /phases: assignment\?\.program\?\.phases/);
+  assert.match(src('src/components/calendar/CalendarPage.tsx'), /phases: graph\.phases/);
   assert.match(src('src/components/programs/ClientProgramPage.tsx'), /program-current-phase/);
 });

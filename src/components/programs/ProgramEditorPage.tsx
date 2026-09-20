@@ -21,7 +21,7 @@ export default function ProgramEditorPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const canCoach = useAccountContext().capabilities.coach;
-  const { fetchProgram, createProgram, saveProgram, fetchProgramRevisionInfo } = useProgramStore();
+  const { fetchProgram, createProgram, saveProgram, fetchProgramRevisionInfo, saveProgramVersion, scheduleProgramVersion, activateProgramVersion } = useProgramStore();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
@@ -33,6 +33,11 @@ export default function ProgramEditorPage() {
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string | null>(null);
   const [revision, setRevision] = useState<{ revision_no: number; created_at: string } | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [activateOn, setActivateOn] = useState('');
+  const [scheduling, setScheduling] = useState(false);
+  const [scheduledRevisionNo, setScheduledRevisionNo] = useState<number | null>(null);
+  const [scheduledActivatesOn, setScheduledActivatesOn] = useState<string | null>(null);
+  const [activeRevisionNo, setActiveRevisionNo] = useState<number | null>(null);
   const isNew = !id || id === 'new';
 
   useEffect(() => {
@@ -59,6 +64,10 @@ export default function ProgramEditorPage() {
         duration_weeks: phase.duration_weeks ?? null,
       })));
       setExpectedUpdatedAt(p.updated_at);
+      setActiveRevisionNo(p.active_revision_no ?? null);
+      setScheduledRevisionNo(p.scheduled_revision_no ?? null);
+      setScheduledActivatesOn(p.scheduled_activates_on ?? null);
+      setActivateOn(p.scheduled_activates_on ?? '');
       const sorted = [...(p.days ?? [])].sort((a, b) => a.order_index - b.order_index);
       setDays(sorted.length > 0 ? sorted.map(d => ({
         id: d.id,
@@ -137,6 +146,75 @@ export default function ProgramEditorPage() {
     toast(t('common.saveChanges'));
   };
 
+  const handleScheduleFuture = async () => {
+    if (!user || !id || isNew || saving || scheduling || !name.trim() || !activateOn) return;
+    setScheduling(true);
+    const saved = await saveProgramVersion(
+      id,
+      { name: name.trim(), description, duration_weeks: weeks, session_organization: organization },
+      days,
+      expectedUpdatedAt,
+      phases.filter(phase => phase.name.trim()),
+    );
+    if (saved.error || saved.revisionNo == null) {
+      setScheduling(false);
+      toast(mapProgramWriteError(saved.error, {
+        stale: t('programs.stale'),
+        fallback: t('programs.saveFailed'),
+        scheduled: t('programs.versionAlreadyScheduled'),
+        historical: t('programs.versionHistorical'),
+      }), 'error');
+      return;
+    }
+    const scheduled = await scheduleProgramVersion(
+      id,
+      saved.revisionNo,
+      activateOn,
+      !!scheduledRevisionNo,
+      useProgramStore.getState().programs.find(p => p.id === id)?.updated_at ?? expectedUpdatedAt,
+    );
+    setScheduling(false);
+    if (scheduled.error) {
+      toast(mapProgramWriteError(scheduled.error, {
+        stale: t('programs.stale'),
+        fallback: t('programs.saveFailed'),
+        scheduled: t('programs.versionAlreadyScheduled'),
+        historical: t('programs.versionHistorical'),
+      }), 'error');
+      return;
+    }
+    const latest = useProgramStore.getState().programs.find(p => p.id === id);
+    if (latest?.updated_at) setExpectedUpdatedAt(latest.updated_at);
+    setActiveRevisionNo(latest?.active_revision_no ?? null);
+    setScheduledRevisionNo(latest?.scheduled_revision_no ?? saved.revisionNo);
+    setScheduledActivatesOn(latest?.scheduled_activates_on ?? activateOn);
+    void fetchProgramRevisionInfo(id).then(setRevision);
+    toast(t('programs.versionScheduled'));
+  };
+
+  const handleActivateNow = async () => {
+    if (!id || !scheduledRevisionNo || scheduling) return;
+    setScheduling(true);
+    const activated = await activateProgramVersion(id, scheduledRevisionNo, expectedUpdatedAt);
+    setScheduling(false);
+    if (activated.error) {
+      toast(mapProgramWriteError(activated.error, {
+        stale: t('programs.stale'),
+        fallback: t('programs.saveFailed'),
+        scheduled: t('programs.versionAlreadyScheduled'),
+        historical: t('programs.versionHistorical'),
+      }), 'error');
+      return;
+    }
+    const latest = await fetchProgram(id);
+    if (latest?.updated_at) setExpectedUpdatedAt(latest.updated_at);
+    setActiveRevisionNo(latest?.active_revision_no ?? null);
+    setScheduledRevisionNo(latest?.scheduled_revision_no ?? null);
+    setScheduledActivatesOn(latest?.scheduled_activates_on ?? null);
+    void fetchProgramRevisionInfo(id).then(setRevision);
+    toast(t('programs.versionActivated'));
+  };
+
   if (!canCoach) return <Navigate to="/programs" replace />;
 
   if (loading) {
@@ -190,6 +268,57 @@ export default function ProgramEditorPage() {
         <Button className="w-full mt-4" onClick={handleSave} loading={saving} disabled={!name.trim()}>
           {t('common.save')}
         </Button>
+        {!isNew && (
+          <details className="mt-4 rounded-2xl border border-neutral-800 bg-neutral-900/40 px-3 py-2" data-testid="program-versions-advanced">
+            <summary className="flex items-center justify-between cursor-pointer list-none text-sm text-neutral-300">
+              {t('programs.versionsAdvanced')}
+            </summary>
+            <p className="text-[11px] text-neutral-500 mt-2">{t('programs.versionsHint')}</p>
+            {activeRevisionNo != null && (
+              <p className="text-xs text-neutral-400 mt-2" data-testid="program-active-version">
+                {t('programs.versionActive', { n: activeRevisionNo })}
+              </p>
+            )}
+            {scheduledRevisionNo != null && scheduledActivatesOn && (
+              <p className="text-xs text-blue-300 mt-1" data-testid="program-scheduled-version">
+                {t('programs.versionScheduledOn', { n: scheduledRevisionNo, date: scheduledActivatesOn })}
+              </p>
+            )}
+            <label className="block mt-3 text-[11px] text-neutral-500">
+              {t('programs.versionActivateOn')}
+              <input
+                type="date"
+                data-testid="program-version-activate-on"
+                value={activateOn}
+                onChange={e => setActivateOn(e.target.value)}
+                className="mt-1 w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+              />
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full mt-3"
+              data-testid="program-save-future-version"
+              onClick={() => void handleScheduleFuture()}
+              loading={scheduling}
+              disabled={!name.trim() || !activateOn}
+            >
+              {scheduledRevisionNo ? t('programs.versionReplaceFuture') : t('programs.versionSaveFuture')}
+            </Button>
+            {scheduledRevisionNo != null && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full mt-2"
+                data-testid="program-activate-version-now"
+                onClick={() => void handleActivateNow()}
+                loading={scheduling}
+              >
+                {t('programs.versionActivateNow')}
+              </Button>
+            )}
+          </details>
+        )}
         {!isNew && id && (
           <ProgramRevisionHistory
             open={historyOpen}
