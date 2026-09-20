@@ -96,17 +96,41 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     assert.match(revPol, /program_revisions\.created_at <= pa\.updated_at/);
   }
   {
-    const adoptStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.adopt_client_program');
-    const adoptEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.adopt_client_program', adoptStart);
+    const adoptStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.adopt_client_assignment');
+    const adoptEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.adopt_client_assignment', adoptStart);
     const adoptFn = found.sql.slice(adoptStart, adoptEnd);
+    assert.match(adoptFn, /p_assignment_id uuid/);
     assert.match(adoptFn, /frozen_revision_no/);
     assert.match(adoptFn, /apply_program_revision_snapshot\(v_fork_id, 1, 'now'\)/);
-    assert.match(adoptFn, /CASE WHEN pa\.status = 'active' THEN 0 ELSE 1 END/);
-    assert.match(adoptFn, /pa\.updated_at DESC/);
+    assert.match(adoptFn, /FROM public\.programs p\s+WHERE p\.id = v_program_id\s+FOR UPDATE/);
+    assert.match(adoptFn, /FROM public\.program_assignments pa\s+WHERE pa\.id = p_assignment_id\s+FOR UPDATE/);
+    assert.match(adoptFn, /FROM public\.coach_client_links l[\s\S]*FOR SHARE/);
+    const lockProgram = adoptFn.search(/FROM public\.programs p\s+WHERE p\.id = v_program_id\s+FOR UPDATE/);
+    const lockAsg = adoptFn.search(/FROM public\.program_assignments pa\s+WHERE pa\.id = p_assignment_id\s+FOR UPDATE/);
+    const lockLink = adoptFn.search(/FROM public\.coach_client_links l[\s\S]*FOR SHARE/);
+    const reval = adoptFn.lastIndexOf('is_coach_of');
+    assert.ok(
+      lockProgram >= 0 && lockAsg > lockProgram && lockLink > lockAsg && reval > lockLink,
+      'adopt must lock program, then assignment, then link FOR SHARE, then revalidate is_coach_of',
+    );
+    assert.doesNotMatch(adoptFn, /CASE WHEN pa\.status = 'active' THEN 0 ELSE 1 END/);
+    assert.doesNotMatch(adoptFn, /pa\.updated_at DESC/);
+    assert.doesNotMatch(adoptFn, /ORDER BY/);
     assert.doesNotMatch(adoptFn, /FROM public\.program_days/);
     assert.doesNotMatch(adoptFn, /FROM public\.program_phases/);
     assert.doesNotMatch(adoptFn, /FROM public\.program_day_exercises/);
   }
+  assert.match(found.sql, /DROP FUNCTION IF EXISTS public\.adopt_client_program\(uuid, uuid, text\)/);
+  assert.match(found.sql, /GRANT EXECUTE ON FUNCTION public\.adopt_client_assignment\(uuid, text\) TO authenticated/);
+  assert.doesNotMatch(found.sql, /CREATE OR REPLACE FUNCTION public\.adopt_client_program/);
+  assert.match(src('src/features/coaching/model/clientsSlice.ts'), /rpc\('adopt_client_assignment'/);
+  assert.match(src('src/features/coaching/model/clientsSlice.ts'), /p_assignment_id: assignmentId/);
+  assert.doesNotMatch(src('src/features/coaching/model/clientsSlice.ts'), /adoptClientProgram/);
+  assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /adoptingId === a\.id/);
+  assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /adoptClientAssignment\(a\.id\)/);
+  assert.match(src('src/components/coaching/ClientDetailPage.tsx'), /setAdoptingId\(a\.id\)/);
+  assert.doesNotMatch(src('src/components/coaching/ClientDetailPage.tsx'), /adoptClientProgram/);
+  assert.doesNotMatch(src('src/components/coaching/ClientDetailPage.tsx'), /setAdoptingId\(a\.program_id\)/);
   assert.match(src('src/features/coaching/model/clientsSlice.ts'), /rpc\('get_frozen_program_archive'/);
   {
     const endStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.client_end_coach_link()');
@@ -224,6 +248,10 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /mixed phase durations were allowed/);
   assert.match(src('supabase/tests/program_hardening.sql'), /late assignment should be week 1/);
   assert.match(src('supabase/tests/program_hardening.sql'), /get_frozen_program_archive/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /ambiguous adopt_client_program\(uuid,uuid,text\) still exists/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /adopt_client_assignment/);
+  assert.match(src('supabase/tests/rls_matrix.sql'), /fn_exec\('adopt_client_assignment'\)/);
+  assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('adopt_client_program'\)/);
   assert.match(src('supabase/tests/program_hardening.sql'), /program_not_started/);
   assert.match(src('supabase/tests/program_hardening.sql'), /activation_date_in_past/);
   assert.match(src('supabase/tests/program_hardening.sql'), /active client SELECT unscheduled saved revision/);
@@ -235,11 +263,22 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_shared_archive.sql'), /shared program archive: paused A cannot read live graph or drafts/);
   assert.match(src('supabase/tests/program_coach_switch.sql'), /coach switch archive: B cannot read paused live or drafts; adopt copies frozen A/);
   assert.match(src('supabase/tests/program_coach_switch.sql'), /coach switch archive: adopt paused copies Push A not live Push B/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /coach switch archive: adopt exact assignment active\+paused copies own revision/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /coach switch archive: adopt exact assignment two paused copies own frozen revision/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /coach switch archive: adopt refuses other coach, former coach, missing, unfrozen/);
   assert.match(src('supabase/tests/program_coach_switch.sql'), /coach B still reads paused live programs/);
-  assert.match(src('supabase/tests/program_coach_switch.sql'), /adopt_client_program copied live\/draft graph/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /adopt_client_assignment copied live\/draft graph/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /cas 1 adopt paused copied active revision 2/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /cas 2 adopt older paused followed updated_at DESC/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /former coach adopt was allowed/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /other coach adopt was allowed/);
+  assert.match(src('supabase/tests/program_coach_switch.sql'), /missing assignment adopt was allowed/);
   assert.match(src('supabase/tests/program_coach_switch.sql'), /paused adopt without frozen_revision_no was allowed/);
   assert.match(src('.github/workflows/ci.yml'), /program_coach_switch\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /adopt paused copies Push A not live Push B/);
+  assert.match(src('.github/workflows/ci.yml'), /adopt exact assignment active\+paused copies own revision/);
+  assert.match(src('.github/workflows/ci.yml'), /adopt exact assignment two paused copies own frozen revision/);
+  assert.match(src('.github/workflows/ci.yml'), /adopt refuses other coach, former coach, missing, unfrozen/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /paused live graph hidden; assignment still readable/);
   assert.match(src('supabase/tests/client_departure.sql'), /paused client still reads live program/);
   assert.match(src('.github/workflows/ci.yml'), /program_shared_archive\.sql/);

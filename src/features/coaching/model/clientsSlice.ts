@@ -79,7 +79,7 @@ import {
   persistRememberedCoachingRole,
 } from './coachingShared';
 
-export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchClients' | 'fetchCoachOps' | 'fetchClientProfile' | 'applyProgramOutline' | 'fetchClientAssignments' | 'adoptClientProgram' | 'touchClientVisit' | 'fetchClientWorkouts' | 'fetchClientWorkout' | 'fetchClientNutrition' | 'fetchClientWeight' | 'fetchClientCheckins' | 'fetchNotes' | 'addNote' | 'deleteNote' | 'endMyCoachLink' | 'endClientLink' > {
+export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchClients' | 'fetchCoachOps' | 'fetchClientProfile' | 'applyProgramOutline' | 'fetchClientAssignments' | 'adoptClientAssignment' | 'touchClientVisit' | 'fetchClientWorkouts' | 'fetchClientWorkout' | 'fetchClientNutrition' | 'fetchClientWeight' | 'fetchClientCheckins' | 'fetchNotes' | 'addNote' | 'deleteNote' | 'endMyCoachLink' | 'endClientLink' > {
   return {
   fetchClients: async () => {
     set({ loading: true });
@@ -445,10 +445,9 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
     }));
   },
 
-  adoptClientProgram: async (programId, clientId) => {
-    const { data, error } = await supabase.rpc('adopt_client_program', {
-      p_program_id: programId,
-      p_client_id: clientId,
+  adoptClientAssignment: async (assignmentId) => {
+    const { data, error } = await supabase.rpc('adopt_client_assignment', {
+      p_assignment_id: assignmentId,
     });
     if (error || !data) return { error: error?.message ?? 'Adoption impossible' };
     track('program_adopted', {});

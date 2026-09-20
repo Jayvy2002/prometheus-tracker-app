@@ -131,7 +131,7 @@ RPC publiques conservées pour `authenticated` : `save_program`,
 `save_program_version`, `schedule_program_version`, `activate_program_version`,
 `ensure_due_program_version`, `start_workout_from_template`,
 `create_program_complete`, `delete_program`, `assign_program_secure`,
-`fork_program`, `adopt_client_program`, `get_frozen_program_archive`.
+`fork_program`, `adopt_client_assignment`, `get_frozen_program_archive`.
 `transition_client_to_solo` n’est pas remplacé.
 
 `program_revisions`, graphe (`programs`, `program_days`,
@@ -160,10 +160,13 @@ le départ) ; un saved draft n’est jamais visible. L’owner voit tout
 l’historique. Hydratation archive : `get_frozen_program_archive(assignment_id)`
 (caller = client / assigner / owner / **Coach actuel actif** du client,
 status paused/completed, snapshot `frozen_revision_no` uniquement).
-`adopt_client_program` copie ce snapshot via `apply_program_revision_snapshot`
-(pas les tables live). Assignment actif → `active_revision_no`. Paused /
-completed → `frozen_revision_no` (fail-closed si manquant). Plusieurs rows
-historiques : `active` d’abord, sinon `updated_at DESC, id DESC`.
+`adopt_client_assignment(p_assignment_id, p_name)` copie **cette** ligne via
+`apply_program_revision_snapshot` (pas les tables live, pas une autre row du
+même programme). Assignment actif → `programs.active_revision_no`. Paused /
+completed → `assignment.frozen_revision_no` (fail-closed si manquant).
+L’ancien RPC `adopt_client_program(program_id, client_id)` (choix active /
+`updated_at DESC`) est **DROP**. Verrou : `programs FOR UPDATE`, assignment
+`FOR UPDATE`, lien Coach actif `FOR SHARE`, puis `is_coach_of` avant copie.
 
 `program_assignments_freeze_on_pause` verrouille `programs … FOR UPDATE`
 avant de copier `active_revision_no`. `end_coach_client_link` /

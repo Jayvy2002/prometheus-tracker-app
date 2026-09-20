@@ -516,7 +516,8 @@ BEGIN
      AND pg_temp.fn_exec('dismiss_coach_relationship_notice')
      AND pg_temp.fn_exec('get_my_coach_card')
      AND pg_temp.fn_exec('save_program')
-     AND pg_temp.fn_exec('adopt_client_program')
+     AND pg_temp.fn_exec('adopt_client_assignment')
+     AND NOT pg_temp.fn_exec('adopt_client_program')
      AND NOT pg_temp.fn_exec('save_program_day_exercises')
      AND NOT pg_temp.fn_exec('sync_program_days')
      AND NOT pg_temp.fn_exec('snapshot_program_revision')
@@ -548,7 +549,7 @@ BEGIN
       pg_temp.fn_exec('snapshot_program_revision'),
       pg_temp.fn_exec('sync_program_phases'),
       pg_temp.fn_exec('create_program_with_days'),
-      pg_temp.fn_exec('adopt_client_program'),
+      pg_temp.fn_exec('adopt_client_assignment'),
       pg_temp.fn_exec('_apply_intervention_effects'),
       pg_temp.fn_exec('assert_client_target'),
       pg_temp.fn_exec('transition_client_to_solo'),

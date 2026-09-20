@@ -2415,11 +2415,14 @@ GRANT EXECUTE ON FUNCTION public.get_frozen_program_archive(uuid) TO authenticat
 COMMENT ON FUNCTION public.get_frozen_program_archive(uuid) IS
   'Read-only frozen assignment archive. Caller = client, assigner, owner, or the client''s current active Coach (is_coach_of). Only frozen_revision_no is returned; live graph and later drafts are never exposed.';
 
--- Adopt copies a snapshot through the existing P3 apply engine. Never copies
--- live programs/days/phases/exercises. Active assignment → active_revision
--- snapshot. Paused/completed → frozen_revision_no snapshot (fail closed).
--- Assignment pick: prefer status=active, else updated_at DESC, id DESC.
-CREATE OR REPLACE FUNCTION public.adopt_client_program(p_program_id uuid, p_client_id uuid, p_name text DEFAULT NULL)
+-- Adopt is addressed by assignment_id. Copy that exact row's snapshot through
+-- the existing P3 apply engine. Never copies live programs/days/phases/
+-- exercises. Never picks "active first / latest paused". Active assignment →
+-- programs.active_revision_no. Paused/completed → assignment.frozen_revision_no
+-- (fail closed). Lock order matches freeze/end_coach: program FOR UPDATE,
+-- assignment FOR UPDATE, then the current coach_client_links row FOR SHARE,
+-- then revalidate is_coach_of before copy.
+CREATE OR REPLACE FUNCTION public.adopt_client_assignment(p_assignment_id uuid, p_name text DEFAULT NULL)
 RETURNS uuid
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -2427,6 +2430,8 @@ SET search_path = public
 AS $$
 DECLARE
   v_uid uuid := auth.uid();
+  v_program_id uuid;
+  v_client_id uuid;
   v_asg public.program_assignments%ROWTYPE;
   v_snap jsonb;
   v_rev int;
@@ -2449,41 +2454,63 @@ DECLARE
   v_phase_id uuid;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
-  IF NOT public.is_coach_of(p_client_id) THEN RAISE EXCEPTION 'Not your client'; END IF;
+  IF p_assignment_id IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
+
+  SELECT pa.program_id, pa.client_id
+    INTO v_program_id, v_client_id
+  FROM public.program_assignments pa
+  WHERE pa.id = p_assignment_id;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+
+  -- Fail closed before locks when the caller is already not the current Coach.
+  IF NOT public.is_coach_of(v_client_id) THEN RAISE EXCEPTION 'Not your client'; END IF;
+
+  -- programs FOR UPDATE, then the exact assignment FOR UPDATE (same order as
+  -- freeze / end_coach). Re-read status/frozen under the assignment lock.
+  PERFORM 1
+  FROM public.programs p
+  WHERE p.id = v_program_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
 
   SELECT * INTO v_asg
   FROM public.program_assignments pa
-  WHERE pa.program_id = p_program_id
-    AND pa.client_id = p_client_id
-  ORDER BY
-    CASE WHEN pa.status = 'active' THEN 0 ELSE 1 END,
-    pa.updated_at DESC NULLS LAST,
-    pa.id DESC
-  LIMIT 1;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Program not assigned to this client';
-  END IF;
+  WHERE pa.id = p_assignment_id
+  FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
+
+  -- Serialize against a concurrent revoke of this Coach-client relation.
+  PERFORM 1
+  FROM public.coach_client_links l
+  WHERE l.coach_id = v_uid
+    AND l.client_id = v_asg.client_id
+    AND l.status = 'active'
+  FOR SHARE;
+
+  IF NOT public.is_coach_of(v_asg.client_id) THEN RAISE EXCEPTION 'Not your client'; END IF;
 
   IF v_asg.status = 'active' THEN
     SELECT p.active_revision_no INTO v_rev
     FROM public.programs p
-    WHERE p.id = p_program_id;
+    WHERE p.id = v_asg.program_id;
     IF v_rev IS NULL THEN
       RAISE EXCEPTION 'archive_not_frozen';
     END IF;
   ELSIF v_asg.status IN ('paused', 'completed') THEN
-    -- Historical adopt: frozen snapshot only. Do not read live graph tables.
+    -- Exact historical row: frozen snapshot only. Do not read live graph tables.
     IF v_asg.frozen_revision_no IS NULL THEN
       RAISE EXCEPTION 'archive_not_frozen';
     END IF;
     v_rev := v_asg.frozen_revision_no;
   ELSE
-    RAISE EXCEPTION 'Program not assigned to this client';
+    RAISE EXCEPTION 'not_found';
   END IF;
 
   SELECT r.snapshot INTO v_snap
   FROM public.program_revisions r
-  WHERE r.program_id = p_program_id
+  WHERE r.program_id = v_asg.program_id
     AND r.revision_no = v_rev;
   IF v_snap IS NULL THEN
     RAISE EXCEPTION 'archive_not_frozen';
@@ -2565,10 +2592,12 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.adopt_client_program(uuid, uuid, text) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.adopt_client_program(uuid, uuid, text) TO authenticated;
-COMMENT ON FUNCTION public.adopt_client_program(uuid, uuid, text) IS
-  'Copy a client assignment into the current Coach library via apply_program_revision_snapshot. Active assignment uses active_revision snapshot. Paused/completed uses frozen_revision_no snapshot only (never live graph). Multiple historical rows: prefer active, else updated_at DESC, id DESC. Missing frozen → archive_not_frozen.';
+REVOKE ALL ON FUNCTION public.adopt_client_assignment(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.adopt_client_assignment(uuid, text) TO authenticated;
+COMMENT ON FUNCTION public.adopt_client_assignment(uuid, text) IS
+  'Copy the exact client assignment into the current Coach library via apply_program_revision_snapshot. Addressed by assignment_id only. Active uses programs.active_revision_no. Paused/completed uses that row''s frozen_revision_no (never live graph, never another row of the same program). Missing frozen → archive_not_frozen. Locks program then assignment then the active coach_client_links row, then revalidates is_coach_of.';
+
+DROP FUNCTION IF EXISTS public.adopt_client_program(uuid, uuid, text);
 
 -- Lock assigned programs before pausing so freeze/activation share one lock order.
 CREATE OR REPLACE FUNCTION public.end_coach_client_link(p_client_id uuid)

@@ -161,7 +161,7 @@ begin
         'create_program_complete',
         'delete_program',
         'fork_program',
-        'adopt_client_program',
+        'adopt_client_assignment',
         'assign_program_secure',
         'get_frozen_program_archive',
         'actor_owns_program',
@@ -187,7 +187,7 @@ begin
           'create_program_complete',
           'delete_program',
           'fork_program',
-          'adopt_client_program',
+          'adopt_client_assignment',
           'assign_program_secure',
           'get_frozen_program_archive',
           'actor_owns_program',
@@ -205,8 +205,12 @@ begin
      or not has_function_privilege('authenticated', 'public.save_program_version(uuid,text,text,int,jsonb,timestamptz,text,jsonb)', 'execute')
      or not has_function_privilege('authenticated', 'public.activate_program_version(uuid,int,timestamptz)', 'execute')
      or not has_function_privilege('authenticated', 'public.create_program_complete(text,text,int,jsonb,uuid,date,text,jsonb)', 'execute')
-     or not has_function_privilege('authenticated', 'public.get_frozen_program_archive(uuid)', 'execute') then
+     or not has_function_privilege('authenticated', 'public.get_frozen_program_archive(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.adopt_client_assignment(uuid,text)', 'execute') then
     raise exception 'public P3 command lost authenticated execute';
+  end if;
+  if to_regprocedure('public.adopt_client_program(uuid,uuid,text)') is not null then
+    raise exception 'ambiguous adopt_client_program(uuid,uuid,text) still exists';
   end if;
   if has_table_privilege('authenticated', 'public.program_revisions', 'insert')
      or has_table_privilege('authenticated', 'public.program_revisions', 'update')

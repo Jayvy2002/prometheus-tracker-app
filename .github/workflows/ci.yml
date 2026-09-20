@@ -285,6 +285,9 @@ jobs:
           set -euo pipefail
           grep -F 'coach switch archive: B cannot read paused live or drafts; adopt copies frozen A' /tmp/program-coach-switch-db-results.txt
           grep -F 'coach switch archive: adopt paused copies Push A not live Push B' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt exact assignment active+paused copies own revision' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt exact assignment two paused copies own frozen revision' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt refuses other coach, former coach, missing, unfrozen' /tmp/program-coach-switch-db-results.txt
       - name: Test delete_program row lock concurrency
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
