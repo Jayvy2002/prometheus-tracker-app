@@ -106,13 +106,14 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     assert.match(adoptFn, /FROM public\.program_assignments pa\s+WHERE pa\.id = p_assignment_id\s+FOR UPDATE/);
     assert.match(adoptFn, /FROM public\.coach_client_links l[\s\S]*FOR SHARE/);
     assert.match(adoptFn, /remap_program_revision_snapshot/);
+    const mutexAt = adoptFn.indexOf('lock_client_assignment_mutex');
     const lockProgram = adoptFn.search(/FROM public\.programs p\s+WHERE p\.id = v_program_id\s+FOR UPDATE/);
     const lockAsg = adoptFn.search(/FROM public\.program_assignments pa\s+WHERE pa\.id = p_assignment_id\s+FOR UPDATE/);
     const lockLink = adoptFn.search(/FROM public\.coach_client_links l[\s\S]*FOR SHARE/);
     const reval = adoptFn.lastIndexOf('is_coach_of');
     assert.ok(
-      lockProgram >= 0 && lockAsg > lockProgram && lockLink > lockAsg && reval > lockLink,
-      'adopt must lock program, then assignment, then link FOR SHARE, then revalidate is_coach_of',
+      mutexAt >= 0 && lockProgram > mutexAt && lockAsg > lockProgram && lockLink > lockAsg && reval > lockLink,
+      'adopt must take client mutex, then program, then assignment, then link FOR SHARE, then revalidate is_coach_of',
     );
     assert.doesNotMatch(adoptFn, /CASE WHEN pa\.status = 'active' THEN 0 ELSE 1 END/);
     assert.doesNotMatch(adoptFn, /pa\.updated_at DESC/);
@@ -145,6 +146,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const lockAt = assignFn.indexOf('lock_client_assignment_programs');
     const pauseAt = assignFn.indexOf("SET status = 'paused'");
     assert.ok(lockAt >= 0 && pauseAt > lockAt, 'assign_program_secure must lock programs before pause');
+    assert.match(found.sql, /PERFORM public\.lock_client_assignment_mutex\(p_client_id\)/);
   }
   {
     const createStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.create_program_complete');
@@ -160,11 +162,16 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const closeFn = found.sql.slice(closeStart, closeEnd);
     assert.match(closeFn, /remap_program_revision_snapshot/);
     assert.match(closeFn, /apply_program_revision_snapshot/);
-    assert.match(closeFn, /lock_programs_for_assignment_mutation/);
+    assert.match(closeFn, /lock_client_assignment_mutex/);
+    const mutexAt = closeFn.indexOf('lock_client_assignment_mutex');
+    const lockAt = closeFn.indexOf('lock_programs_for_assignment_mutation');
+    assert.ok(mutexAt >= 0 && lockAt > mutexAt, 'close_coach_account must take client mutex before program locks');
     assert.match(closeFn, /frozen_revision_no = v_rev/);
     assert.doesNotMatch(closeFn, /INSERT INTO public\.program_days/);
   }
+  assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.lock_client_assignment_mutex/);
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.lock_programs_for_assignment_mutation/);
+  assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.lock_client_assignment_mutex\(uuid\)/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.lock_client_assignment_programs\(uuid, uuid\)/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.remap_program_revision_snapshot\(jsonb\)/);
   assert.match(src('src/stores/programStore.ts'), /rpc\('get_frozen_program_archive'/);
@@ -326,6 +333,13 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-adopt-assign-lock.sh'), /Cas 1 assign_program_secure did not wait on in-flight adopt/);
   assert.match(src('scripts/test-adopt-assign-lock.sh'), /Cas 2 create_program_complete did not wait on in-flight adopt/);
   assert.match(src('scripts/test-adopt-assign-lock.sh'), /serialize without deadlock/);
+  assert.match(src('.github/workflows/ci.yml'), /test-assignment-client-mutex\.sh/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /wait_event = 'advisory'/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /assign_program_secure/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /create_program_complete/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /client_end_coach_link/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /close_coach_account/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /serialize without stale lock-set/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /close_coach_account P3: snapshots, phases, org, prescriptions, freeze pin, workout provenance, retry/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /Secret unused draft/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /get_frozen_program_archive/);
@@ -333,7 +347,10 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /create_program_complete does not lock programs before pause/);
   assert.match(src('supabase/tests/program_hardening.sql'), /close_coach_account is not on the P3 snapshot engine/);
   assert.match(src('supabase/tests/program_hardening.sql'), /lock_client_assignment_programs\(uuid,uuid\)/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /assignment helper does not take client mutex before program locks/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /lock_client_assignment_mutex\(uuid\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_client_assignment_programs'\)/);
+  assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_client_assignment_mutex'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('remap_program_revision_snapshot'\)/);
   assert.match(src('.github/workflows/ci.yml'), /program_close_coach_account\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: provenance immutability/);

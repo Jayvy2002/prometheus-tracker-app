@@ -312,6 +312,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'adopt/assign row lock: adopt×assign_program_secure and adopt×create_program_complete serialize without deadlock' /tmp/adopt-assign-lock-concurrency.txt
+      - name: Test assignment client mutex concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-assignment-client-mutex.sh | tee /tmp/assignment-client-mutex-concurrency.txt
+      - name: Confirm assignment client mutex concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'assignment client mutex: assign×assign, create×create, assign×end, assign×close serialize without stale lock-set' /tmp/assignment-client-mutex-concurrency.txt
       - name: Test close_coach_account P3
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

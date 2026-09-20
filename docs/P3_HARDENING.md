@@ -165,16 +165,37 @@ status paused/completed, snapshot `frozen_revision_no` uniquement).
 même programme). Assignment actif → `programs.active_revision_no`. Paused /
 completed → `assignment.frozen_revision_no` (fail-closed si manquant).
 L’ancien RPC `adopt_client_program(program_id, client_id)` (choix active /
-`updated_at DESC`) est **DROP**. Verrou : `programs FOR UPDATE`, assignment
-`FOR UPDATE`, lien Coach actif `FOR SHARE`, puis `is_coach_of` avant copie.
+`updated_at DESC`) est **DROP**. Verrou : mutex client, `programs FOR UPDATE`,
+assignment `FOR UPDATE`, lien Coach actif `FOR SHARE`, puis `is_coach_of`
+avant copie.
 
 Toute mutation publique d’assignment (`assign_program_secure`,
 `create_program_complete(... p_assign_client_id ...)`, `end_coach_client_link`,
-`client_end_coach_link`) verrouille d’abord les programmes parents
-(`lock_client_assignment_programs` : assignments `active` du client ∪ programme
-cible s’il existe, `ORDER BY id FOR UPDATE`), revalide le lien Coach/client,
-puis seulement `active → paused`. Le trigger freeze peut alors `FOR UPDATE`
-le programme déjà tenu : pas d’ordre `assignment → program` vs adopt.
+`client_end_coach_link`, `adopt_client_assignment`, `close_coach_account`)
+prend d’abord un **mutex de transaction par `client_id`**
+(`lock_client_assignment_mutex` : `pg_advisory_xact_lock` à deux clés, classe
+`20014500`, interne, pas PUBLIC / anon / authenticated). Ensuite seulement :
+
+```text
+client assignment mutex
+→ programs ORDER BY id FOR UPDATE
+→ assignment(s) FOR UPDATE
+→ autres locks (lien FOR SHARE, freeze, etc.)
+```
+
+`lock_client_assignment_programs` prend ce mutex **avant** de lire les
+assignments `active` et de verrouiller les programmes (actifs du client ∪
+cible). Relire les programmes après une attente `FOR UPDATE` sans mutex
+laisserait un waiter avec un lock-set périmé (A paused, B actif jamais
+verrouillé). `transition_client_to_solo` n’est pas remplacé : ses appelants
+publics tiennent déjà le mutex. `close_coach_account` mutex tous les clients
+liés (`ORDER BY client_id`) jusqu’à un ensemble stable **avant** le lock-set
+programmes, pour qu’une assignation qui commit pendant l’attente soit
+incluse dans le fork P3.
+
+Le trigger freeze peut alors `FOR UPDATE` le programme déjà tenu : pas
+d’ordre `assignment → program` vs adopt, et pas de lock-set périmé vs
+assign concurrent.
 
 `close_coach_account` (service_role, une transaction, retry = no-op s’il n’y
 a plus de lien actif) transfère **chaque** assignment du client lié via le

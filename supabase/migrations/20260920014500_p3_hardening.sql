@@ -1488,10 +1488,31 @@ BEGIN
   RETURN v_workout_id;
 END;
 $$;
--- Internal lock order for assignment mutations: programs (active of client
--- plus optional target) ORDER BY id FOR UPDATE, then the caller mutates
--- assignments. Matches freeze / adopt / end_coach so assign cannot deadlock
--- by locking the assignment row before the parent program.
+-- Client-scoped transaction mutex for assignment mutations. Taken BEFORE any
+-- programs FOR UPDATE so a waiter cannot snapshot a stale active lock-set,
+-- then acquire programs in UUID order. Two-key advisory (class 20014500)
+-- so it does not share the bigint advisory namespace used by decision drain
+-- and concurrency harness holds. Reentrant in the same transaction.
+CREATE OR REPLACE FUNCTION public.lock_client_assignment_mutex(p_client_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_client_id IS NULL THEN
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(
+    20014500,
+    ('x' || substr(md5('prometheus.assignment.mutex:' || p_client_id::text), 1, 8))::bit(32)::int
+  );
+END;
+$$;
+
+-- Internal lock order for assignment mutations:
+-- client mutex → programs (active of client plus optional target)
+-- ORDER BY id FOR UPDATE, then the caller mutates assignments.
 CREATE OR REPLACE FUNCTION public.lock_programs_for_assignment_mutation(p_program_ids uuid[])
 RETURNS void
 LANGUAGE plpgsql
@@ -1523,6 +1544,7 @@ BEGIN
   IF p_client_id IS NULL THEN
     RETURN;
   END IF;
+  PERFORM public.lock_client_assignment_mutex(p_client_id);
   PERFORM public.lock_programs_for_assignment_mutation(
     ARRAY(
       SELECT DISTINCT x.id
@@ -1541,12 +1563,16 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.lock_client_assignment_mutex(uuid)
+  FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.lock_programs_for_assignment_mutation(uuid[])
   FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.lock_client_assignment_programs(uuid, uuid)
   FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.lock_client_assignment_mutex(uuid) IS
+  'Internal. Transaction mutex per client_id for assignment mutations. Must run before programs FOR UPDATE.';
 COMMENT ON FUNCTION public.lock_client_assignment_programs(uuid, uuid) IS
-  'Internal. Lock client active-assignment programs plus optional target ORDER BY id FOR UPDATE before any active→paused assignment write.';
+  'Internal. Client assignment mutex, then lock client active-assignment programs plus optional target ORDER BY id FOR UPDATE before any active→paused assignment write.';
 
 CREATE OR REPLACE FUNCTION public.assign_program_secure(
   p_program_id uuid,
@@ -1608,7 +1634,7 @@ $$;
 REVOKE ALL ON FUNCTION public.assign_program_secure(uuid, uuid, date) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.assign_program_secure(uuid, uuid, date) TO authenticated;
 COMMENT ON FUNCTION public.assign_program_secure(uuid, uuid, date) IS
-  'Assign a program to a client. Locks parent programs ORDER BY id FOR UPDATE before pausing the current active assignment so freeze cannot invert lock order with adopt.';
+  'Assign a program to a client. Client assignment mutex, then parent programs ORDER BY id FOR UPDATE, then pause the current active assignment so freeze cannot invert lock order with adopt.';
 
 CREATE OR REPLACE FUNCTION public.create_program_complete(
   p_name text,
@@ -1871,7 +1897,7 @@ REVOKE ALL ON FUNCTION public.create_program_complete(text, text, int, jsonb, uu
 GRANT EXECUTE ON FUNCTION public.create_program_complete(text, text, int, jsonb, uuid, date, text, jsonb) TO authenticated;
 
 COMMENT ON FUNCTION public.create_program_complete(text, text, int, jsonb, uuid, date, text, jsonb) IS
-  'D01 + P3.1 + P3.2 : programme + organisation + phases optionnelles + jours + exercices (+ routine) + assignation optionnelle, une transaction. Toute erreur annule tout. Optional assign locks the client''s current active-assignment programs ORDER BY id FOR UPDATE, then revalidates the Coach/client link, before any active→paused write.';
+  'D01 + P3.1 + P3.2 : programme + organisation + phases optionnelles + jours + exercices (+ routine) + assignation optionnelle, une transaction. Toute erreur annule tout. Optional assign takes the client assignment mutex, locks current active-assignment programs ORDER BY id FOR UPDATE, then revalidates the Coach/client link, before any active→paused write.';
 COMMENT ON FUNCTION public.ensure_due_program_version(uuid) IS
   'Apply a scheduled version when activates_on <= frozen scheduled_activation_timezone civil date (owner/Coach clock). Paused clients and orphan schedules do not apply.';
 COMMENT ON FUNCTION public.validate_program_graph_payload(text, jsonb, jsonb) IS
@@ -2646,7 +2672,7 @@ COMMENT ON FUNCTION public.remap_program_revision_snapshot(jsonb) IS
 -- the existing P3 apply engine. Never copies live programs/days/phases/
 -- exercises. Never picks "active first / latest paused". Active assignment →
 -- programs.active_revision_no. Paused/completed → assignment.frozen_revision_no
--- (fail closed). Lock order matches freeze/end_coach: program FOR UPDATE,
+-- (fail closed). Lock order: client assignment mutex, program FOR UPDATE,
 -- assignment FOR UPDATE, then the current coach_client_links row FOR SHARE,
 -- then revalidate is_coach_of before copy.
 CREATE OR REPLACE FUNCTION public.adopt_client_assignment(p_assignment_id uuid, p_name text DEFAULT NULL)
@@ -2681,6 +2707,8 @@ BEGIN
 
   -- Fail closed before locks when the caller is already not the current Coach.
   IF NOT public.is_coach_of(v_client_id) THEN RAISE EXCEPTION 'Not your client'; END IF;
+
+  PERFORM public.lock_client_assignment_mutex(v_client_id);
 
   -- programs FOR UPDATE, then the exact assignment FOR UPDATE (same order as
   -- freeze / end_coach). Re-read status/frozen under the assignment lock.
@@ -2761,7 +2789,7 @@ $$;
 REVOKE ALL ON FUNCTION public.adopt_client_assignment(uuid, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.adopt_client_assignment(uuid, text) TO authenticated;
 COMMENT ON FUNCTION public.adopt_client_assignment(uuid, text) IS
-  'Copy the exact client assignment into the current Coach library via apply_program_revision_snapshot. Addressed by assignment_id only. Active uses programs.active_revision_no. Paused/completed uses that row''s frozen_revision_no (never live graph, never another row of the same program). Missing frozen → archive_not_frozen. Locks program then assignment then the active coach_client_links row, then revalidates is_coach_of.';
+  'Copy the exact client assignment into the current Coach library via apply_program_revision_snapshot. Addressed by assignment_id only. Active uses programs.active_revision_no. Paused/completed uses that row''s frozen_revision_no (never live graph, never another row of the same program). Missing frozen → archive_not_frozen. Client assignment mutex, then program, then assignment, then the active coach_client_links row, then revalidates is_coach_of.';
 
 DROP FUNCTION IF EXISTS public.adopt_client_program(uuid, uuid, text);
 
@@ -2854,19 +2882,42 @@ DECLARE
   v_desc text;
   v_weeks int;
   v_org text;
+  v_clients uuid[];
+  v_locked uuid[] := '{}';
+  v_cid uuid;
+  v_guard int := 0;
 BEGIN
   IF p_coach_id IS NULL THEN
     RAISE EXCEPTION 'Coach required';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1
-    FROM public.coach_client_links
-    WHERE coach_id = p_coach_id
-      AND status = 'active'
-  ) THEN
-    RETURN jsonb_build_object('ok', true, 'transitioned', 0, 'forked', 0);
-  END IF;
+  -- Serialize every linked client before reading the program lock-set so an
+  -- assign/create that commits during our wait cannot introduce a new active
+  -- Coach program that we never lock.
+  LOOP
+    v_guard := v_guard + 1;
+    IF v_guard > 32 THEN
+      RAISE EXCEPTION 'close_coach_account mutex did not stabilize';
+    END IF;
+    SELECT COALESCE(array_agg(l.client_id ORDER BY l.client_id), '{}')
+      INTO v_clients
+    FROM public.coach_client_links l
+    WHERE l.coach_id = p_coach_id
+      AND l.status = 'active';
+    IF cardinality(v_clients) IS NULL OR cardinality(v_clients) = 0 THEN
+      RETURN jsonb_build_object('ok', true, 'transitioned', 0, 'forked', 0);
+    END IF;
+    FOREACH v_cid IN ARRAY v_clients LOOP
+      PERFORM public.lock_client_assignment_mutex(v_cid);
+    END LOOP;
+    v_locked := v_locked || v_clients;
+    SELECT COALESCE(array_agg(l.client_id ORDER BY l.client_id), '{}')
+      INTO v_clients
+    FROM public.coach_client_links l
+    WHERE l.coach_id = p_coach_id
+      AND l.status = 'active';
+    EXIT WHEN v_clients <@ v_locked;
+  END LOOP;
 
   PERFORM public.lock_programs_for_assignment_mutation(
     ARRAY(
@@ -3005,4 +3056,4 @@ $$;
 REVOKE ALL ON FUNCTION public.close_coach_account(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.close_coach_account(uuid) TO service_role;
 COMMENT ON FUNCTION public.close_coach_account(uuid) IS
-  'P3 coach-account close. For each assignment of each active client, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';
+  'P3 coach-account close. Client assignment mutex for every linked client (ORDER BY client_id) before the program lock-set, so a concurrent assign cannot leave a new Coach-owned active program outside the fork. For each assignment of each active client, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';

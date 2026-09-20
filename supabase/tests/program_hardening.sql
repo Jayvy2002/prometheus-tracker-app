@@ -138,6 +138,7 @@ begin
      or has_function_privilege('authenticated', 'public.program_effective_version_start(date,date)', 'execute')
      or has_function_privilege('authenticated', 'public.lock_programs_for_assignment_mutation(uuid[])', 'execute')
      or has_function_privilege('authenticated', 'public.lock_client_assignment_programs(uuid,uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.lock_client_assignment_mutex(uuid)', 'execute')
      or has_function_privilege('authenticated', 'public.remap_program_revision_snapshot(jsonb)', 'execute') then
     raise exception 'internal P3 helper exposed to authenticated';
   end if;
@@ -1932,6 +1933,17 @@ begin
     raise exception 'assignment lock helper missing ORDER BY id FOR UPDATE';
   end if;
   src := regexp_replace(
+    lower(pg_get_functiondef('public.lock_client_assignment_programs(uuid,uuid)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('lock_client_assignment_mutex' in src) = 0
+     or position('lock_client_assignment_mutex' in src)
+        > position('lock_programs_for_assignment_mutation' in src) then
+    raise exception 'assignment helper does not take client mutex before program locks';
+  end if;
+  src := regexp_replace(
     lower(pg_get_functiondef('public.assign_program_secure(uuid,uuid,date)'::regprocedure)),
     '\s+',
     ' ',
@@ -1961,6 +1973,9 @@ begin
   );
   if position('remap_program_revision_snapshot' in src) = 0
      or position('apply_program_revision_snapshot' in src) = 0
+     or position('lock_client_assignment_mutex' in src) = 0
+     or position('lock_client_assignment_mutex' in src)
+        > position('lock_programs_for_assignment_mutation' in src)
      or position('lock_programs_for_assignment_mutation' in src) = 0
      or position('frozen_revision_no = v_rev' in src) = 0
      or position('insert into public.program_days' in src) > 0 then

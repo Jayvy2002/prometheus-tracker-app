@@ -529,6 +529,7 @@ BEGIN
      AND NOT pg_temp.fn_exec('close_coach_account')
      AND NOT pg_temp.fn_exec('lock_programs_for_assignment_mutation')
      AND NOT pg_temp.fn_exec('lock_client_assignment_programs')
+     AND NOT pg_temp.fn_exec('lock_client_assignment_mutex')
      AND NOT pg_temp.fn_exec('remap_program_revision_snapshot')
      AND NOT pg_temp.fn_exec('handle_new_user')
      AND NOT pg_temp.fn_exec('invoke_coach_fleet_round')
