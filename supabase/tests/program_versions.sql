@@ -451,7 +451,8 @@ begin
 end $$;
 reset role;
 
--- Assigned client can ensure a due version; former coach cannot after the link ends.
+-- Assigned client can ensure a due version. After the link ends, paused
+-- archives must not block the owner from saving/activating a new version.
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('c3391941-0000-4000-8000-000000000014','c3391941-0000-4000-8000-000000000003','Client plan','',8);
 insert into public.coach_client_links(id,coach_id,client_id,status)
@@ -528,7 +529,9 @@ begin
 end $$;
 reset role;
 
--- After ending the relation, former coach cannot activate a new saved version.
+-- After ending the relation: assignment paused+frozen, owner may still
+-- save/activate (no remaining active assignment requires Coach authority).
+-- The paused archive pin must not move.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3391941-0000-4000-8000-000000000003',true);
 select set_config('request.jwt.claim.role','authenticated',true);
@@ -536,8 +539,20 @@ select set_config('request.jwt.claims','{"sub":"c3391941-0000-4000-8000-00000000
 do $$
 declare
   v_rev int;
+  v_frozen int;
 begin
   perform public.end_coach_client_link('c3391941-0000-4000-8000-000000000004');
+  if (select status from public.program_assignments
+      where id = 'c3391941-0000-4000-8000-0000000000c1') is distinct from 'paused' then
+    raise exception 'ended relation did not pause assignment';
+  end if;
+  select frozen_revision_no into v_frozen
+  from public.program_assignments
+  where id = 'c3391941-0000-4000-8000-0000000000c1';
+  if v_frozen is null then
+    raise exception 'ended relation did not freeze revision';
+  end if;
+
   v_rev := public.save_program_version(
     'c3391941-0000-4000-8000-000000000014',
     'After split',
@@ -548,19 +563,24 @@ begin
     'in_order',
     '[]'::jsonb
   );
-  begin
-    perform public.activate_program_version(
-      'c3391941-0000-4000-8000-000000000014',
-      v_rev,
-      null
-    );
-    raise exception 'former coach activation was allowed';
-  exception
-    when others then
-      if sqlerrm not like '%Not an active coach of this assignment%' then
-        raise;
-      end if;
-  end;
+  perform public.activate_program_version(
+    'c3391941-0000-4000-8000-000000000014',
+    v_rev,
+    null
+  );
+  if (select name from public.program_days
+      where program_id = 'c3391941-0000-4000-8000-000000000014' limit 1)
+     is distinct from 'C' then
+    raise exception 'owner activation after split did not apply version C';
+  end if;
+  if (select status from public.program_assignments
+      where id = 'c3391941-0000-4000-8000-0000000000c1') is distinct from 'paused' then
+    raise exception 'activation unpaused former client assignment';
+  end if;
+  if (select frozen_revision_no from public.program_assignments
+      where id = 'c3391941-0000-4000-8000-0000000000c1') is distinct from v_frozen then
+    raise exception 'activation rewrote paused archive frozen_revision_no';
+  end if;
 end $$;
 reset role;
 

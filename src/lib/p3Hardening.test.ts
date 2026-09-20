@@ -71,6 +71,8 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(found.sql, /program_activation_timezone/);
   assert.match(src('supabase/tests/program_versions.sql'), /scheduled_activation_timezone/);
   assert.match(src('supabase/tests/program_versions.sql'), /Data API INSERT is closed; fixtures run as postgres/);
+  assert.match(src('supabase/tests/program_versions.sql'), /activation rewrote paused archive frozen_revision_no/);
+  assert.doesNotMatch(src('supabase/tests/program_versions.sql'), /former coach activation was allowed/);
   assert.match(src('src/stores/programStore.ts'), /rpc\('delete_program'/);
   assert.doesNotMatch(found.sql, /CREATE TABLE public\.(mesocycles|program_versioning|program_cycles)/);
   assert.doesNotMatch(found.sql, /CREATE OR REPLACE FUNCTION public\.save_program\(/);
