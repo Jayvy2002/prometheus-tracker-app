@@ -211,10 +211,13 @@ sont pas copiés. `workouts.program_id` pointe vers le programme client-owned
 Après transfert : `assignment.program_id` = fork, status `paused`,
 `frozen_revision_no` non NULL, archive RPC immédiatement fonctionnelle.
 
-`program_assignments_freeze_on_pause` verrouille `programs … FOR UPDATE`
-avant de copier `active_revision_no`. `end_coach_client_link` /
-`client_end_coach_link` prennent le même verrou **avant**
-`transition_client_to_solo` (ordre identique à activate/save).
+`program_assignments_freeze_on_pause` est `SECURITY DEFINER` : il verrouille
+`programs … FOR UPDATE` avant de copier `active_revision_no`, et refuse
+(`archive_not_frozen`) si cette révision est NULL. `assign_program_secure` /
+`create_program_complete` copient aussi `frozen_revision_no` depuis le
+programme déjà verrouillé au moment du pause. `end_coach_client_link` /
+`client_end_coach_link` prennent le mutex client puis le même verrou programmes
+**avant** `transition_client_to_solo` (ordre identique à activate/save).
 
 `today < effectiveVersionStart` → `start_workout_from_template` refuse
 (`program_not_started`) ; la gym card ne propose aucune séance programme.

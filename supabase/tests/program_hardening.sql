@@ -1920,7 +1920,9 @@ begin
     ' ',
     'g'
   );
-  if position('from public.programs p where p.id = new.program_id for update' in src) = 0 then
+  if position('from public.programs p where p.id = new.program_id for update' in src) = 0
+     or position('security definer' in src) = 0
+     or position('archive_not_frozen' in src) = 0 then
     raise exception 'freeze trigger does not lock programs FOR UPDATE';
   end if;
   src := regexp_replace(
@@ -1951,7 +1953,7 @@ begin
   );
   if position('lock_client_assignment_programs' in src) = 0
      or position('lock_client_assignment_programs' in src)
-        > position('set status = ''paused''' in src) then
+        > position('status = ''paused''' in src) then
     raise exception 'assign_program_secure does not lock programs before pause';
   end if;
   src := regexp_replace(
@@ -1962,7 +1964,7 @@ begin
   );
   if position('lock_client_assignment_programs' in src) = 0
      or position('lock_client_assignment_programs' in src)
-        > position('set status = ''paused''' in src) then
+        > position('status = ''paused''' in src) then
     raise exception 'create_program_complete does not lock programs before pause';
   end if;
   src := regexp_replace(

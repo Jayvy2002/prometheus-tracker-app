@@ -36,6 +36,8 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const freezeEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.program_assignments_freeze_on_pause');
     const freezeFn = found.sql.slice(freezeStart, freezeEnd);
     assert.match(freezeFn, /FROM public\.programs p\s+WHERE p\.id = NEW\.program_id\s+FOR UPDATE/);
+    assert.match(freezeFn, /SECURITY DEFINER/);
+    assert.match(freezeFn, /archive_not_frozen/);
   }
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.get_frozen_program_archive/);
   assert.match(found.sql, /RAISE EXCEPTION 'program_not_started'/);
@@ -144,8 +146,9 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const assignEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.assign_program_secure', assignStart);
     const assignFn = found.sql.slice(assignStart, assignEnd);
     const lockAt = assignFn.indexOf('lock_client_assignment_programs');
-    const pauseAt = assignFn.indexOf("SET status = 'paused'");
+    const pauseAt = assignFn.indexOf("status = 'paused'");
     assert.ok(lockAt >= 0 && pauseAt > lockAt, 'assign_program_secure must lock programs before pause');
+    assert.match(assignFn, /frozen_revision_no = COALESCE\(pa\.frozen_revision_no, p\.active_revision_no\)/);
     assert.match(found.sql, /PERFORM public\.lock_client_assignment_mutex\(p_client_id\)/);
   }
   {
@@ -153,8 +156,9 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const createEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.create_program_complete', createStart);
     const createFn = found.sql.slice(createStart, createEnd);
     const lockAt = createFn.indexOf('lock_client_assignment_programs');
-    const pauseAt = createFn.indexOf("SET status = 'paused'");
+    const pauseAt = createFn.indexOf("status = 'paused'");
     assert.ok(lockAt >= 0 && pauseAt > lockAt, 'create_program_complete must lock programs before pause');
+    assert.match(createFn, /frozen_revision_no = COALESCE\(pa\.frozen_revision_no, p\.active_revision_no\)/);
   }
   {
     const closeStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.close_coach_account');
@@ -357,6 +361,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /client_end_coach_link/);
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /close_coach_account/);
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /serialize without stale lock-set/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /missing active_revision_no/);
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /SET application_name = '\$\{T2_APP\}';\s*SELECT public\.close_coach_account/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /close_coach_account P3: snapshots, phases, org, prescriptions, freeze pin, workout provenance, retry/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /Secret unused draft/);

@@ -164,6 +164,10 @@ SELECT public.activate_program_version(
 $([ "${assign}" = "1" ] && echo "SELECT public.assign_program_secure('${program}'::uuid, '${CLIENT}'::uuid, CURRENT_DATE);")
 COMMIT;
 SQL
+  if [[ "$(psql_at "SELECT active_revision_no FROM public.programs WHERE id = '${program}'::uuid")" == "" ]]; then
+    echo "seed program ${program} missing active_revision_no" >&2
+    exit 1
+  fi
 }
 
 reset_fixture() {

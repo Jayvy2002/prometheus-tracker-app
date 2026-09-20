@@ -1732,9 +1732,15 @@ BEGIN
     RAISE EXCEPTION 'Not authorized for this client';
   END IF;
 
-  UPDATE public.program_assignments
-  SET status = 'paused', updated_at = now()
-  WHERE client_id = p_client_id AND status = 'active';
+  UPDATE public.program_assignments pa
+  SET
+    status = 'paused',
+    frozen_revision_no = COALESCE(pa.frozen_revision_no, p.active_revision_no),
+    updated_at = now()
+  FROM public.programs p
+  WHERE pa.client_id = p_client_id
+    AND pa.status = 'active'
+    AND p.id = pa.program_id;
 
   INSERT INTO public.program_assignments (program_id, client_id, assigned_by, start_date, status)
   VALUES (p_program_id, p_client_id, v_uid, p_start_date, 'active')
@@ -1972,9 +1978,15 @@ BEGIN
   END LOOP;
 
   IF p_assign_client_id IS NOT NULL THEN
-    UPDATE public.program_assignments
-    SET status = 'paused', updated_at = now()
-    WHERE client_id = p_assign_client_id AND status = 'active';
+    UPDATE public.program_assignments pa
+    SET
+      status = 'paused',
+      frozen_revision_no = COALESCE(pa.frozen_revision_no, p.active_revision_no),
+      updated_at = now()
+    FROM public.programs p
+    WHERE pa.client_id = p_assign_client_id
+      AND pa.status = 'active'
+      AND p.id = pa.program_id;
 
     INSERT INTO public.program_assignments (program_id, client_id, assigned_by, start_date, status)
     VALUES (v_program_id, p_assign_client_id, v_uid, p_start_date, 'active');
@@ -2283,6 +2295,7 @@ CREATE TRIGGER workout_exercises_protect_prescribed
 CREATE OR REPLACE FUNCTION public.program_assignments_freeze_on_pause()
 RETURNS trigger
 LANGUAGE plpgsql
+SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
@@ -2295,6 +2308,9 @@ BEGIN
     FROM public.programs p
     WHERE p.id = NEW.program_id
     FOR UPDATE;
+    IF NEW.frozen_revision_no IS NULL THEN
+      RAISE EXCEPTION 'archive_not_frozen';
+    END IF;
   END IF;
   IF TG_OP = 'UPDATE'
      AND OLD.frozen_revision_no IS NOT NULL
