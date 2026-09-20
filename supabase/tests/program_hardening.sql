@@ -773,7 +773,7 @@ insert into public.program_days(id,program_id,weekday,name,order_index) values
 insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status) values
  ('c3401941-0000-4000-8000-0000000000e5','c3401941-0000-4000-8000-000000000025','c3401941-0000-4000-8000-000000000001','c3401941-0000-4000-8000-000000000001',current_date,'paused');
 insert into public.workouts(id,user_id,name,date,completed,program_assignment_id,program_day_id) values
- ('c3401941-0000-4000-8000-0000000000w1','c3401941-0000-4000-8000-000000000001','Hist','2026-09-01',true,'c3401941-0000-4000-8000-0000000000e5','c3401941-0000-4000-8000-0000000000f1');
+ ('c3401941-0000-4000-8000-0000000000c2','c3401941-0000-4000-8000-000000000001','Hist','2026-09-01',true,'c3401941-0000-4000-8000-0000000000e5','c3401941-0000-4000-8000-0000000000f1');
 insert into public.program_revisions(program_id,revision_no,snapshot) values
  ('c3401941-0000-4000-8000-000000000025',1,'[]'::jsonb);
 
@@ -847,7 +847,7 @@ begin
   select count(*) into v_asg from public.program_assignments
    where program_id = 'c3401941-0000-4000-8000-000000000025';
   select count(*) into v_wo from public.workouts
-   where id = 'c3401941-0000-4000-8000-0000000000w1';
+   where id = 'c3401941-0000-4000-8000-0000000000c2';
   begin
     perform public.delete_program('c3401941-0000-4000-8000-000000000025');
     raise exception 'historical workout delete_program was allowed';
@@ -862,7 +862,7 @@ begin
      or (select count(*) from public.program_assignments
          where program_id = 'c3401941-0000-4000-8000-000000000025') is distinct from v_asg
      or (select count(*) from public.workouts
-         where id = 'c3401941-0000-4000-8000-0000000000w1') is distinct from v_wo then
+         where id = 'c3401941-0000-4000-8000-0000000000c2') is distinct from v_wo then
     raise exception 'refused delete mutated history';
   end if;
 end $$;
