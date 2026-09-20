@@ -163,6 +163,7 @@ begin
         'fork_program',
         'adopt_client_program',
         'assign_program_secure',
+        'get_frozen_program_archive',
         'actor_owns_program',
         'actor_can_read_program',
         'actor_can_activate_program_version',
@@ -188,6 +189,7 @@ begin
           'fork_program',
           'adopt_client_program',
           'assign_program_secure',
+          'get_frozen_program_archive',
           'actor_owns_program',
           'actor_can_read_program',
           'actor_can_activate_program_version',
@@ -202,7 +204,8 @@ begin
      or not has_function_privilege('authenticated', 'public.save_program(uuid,text,text,int,jsonb,timestamptz,text,jsonb)', 'execute')
      or not has_function_privilege('authenticated', 'public.save_program_version(uuid,text,text,int,jsonb,timestamptz,text,jsonb)', 'execute')
      or not has_function_privilege('authenticated', 'public.activate_program_version(uuid,int,timestamptz)', 'execute')
-     or not has_function_privilege('authenticated', 'public.create_program_complete(text,text,int,jsonb,uuid,date,text,jsonb)', 'execute') then
+     or not has_function_privilege('authenticated', 'public.create_program_complete(text,text,int,jsonb,uuid,date,text,jsonb)', 'execute')
+     or not has_function_privilege('authenticated', 'public.get_frozen_program_archive(uuid)', 'execute') then
     raise exception 'public P3 command lost authenticated execute';
   end if;
   if has_table_privilege('authenticated', 'public.program_revisions', 'insert')
@@ -1888,8 +1891,312 @@ begin
 end $$;
 reset role;
 
+-- Freeze trigger must lock programs so activation/save cannot race the pin.
+do $$
+declare
+  src text;
+begin
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.program_assignments_freeze_on_pause()'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('from public.programs p where p.id = new.program_id for update' in src) = 0 then
+    raise exception 'freeze trigger does not lock programs FOR UPDATE';
+  end if;
+  if exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('programs', 'program_days', 'program_day_exercises', 'program_phases')
+      and policyname like 'Assigned clients read%'
+      and qual ilike '%paused%'
+  ) then
+    raise exception 'assigned-client live graph policy still allows paused';
+  end if;
+end $$;
+
+-- Active client cannot SELECT an unscheduled saved draft; can SELECT active + scheduled.
+insert into public.programs(id,owner_id,name,description,duration_weeks)
+values ('c3401941-0000-4000-8000-0000000000ee','c3401941-0000-4000-8000-000000000001','Draft isolation','',8);
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
+values (
+  'c3401941-0000-4000-8000-0000000000ef',
+  'c3401941-0000-4000-8000-0000000000ee',
+  'c3401941-0000-4000-8000-000000000002',
+  'c3401941-0000-4000-8000-000000000001',
+  current_date,
+  'active'
+);
+update public.user_profiles
+   set timezone = 'UTC'
+ where id = 'c3401941-0000-4000-8000-000000000002';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_active int;
+  v_sched int;
+  v_draft int;
+begin
+  perform public.save_program(
+    'c3401941-0000-4000-8000-0000000000ee',
+    'Draft isolation',
+    'live A',
+    8,
+    '[{"weekday":1,"name":"Push A","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null,
+    'fixed_days'
+  );
+  v_active := public.save_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    'Draft isolation',
+    'live A',
+    8,
+    '[{"weekday":1,"name":"Push A","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null
+  );
+  perform public.activate_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    v_active,
+    null
+  );
+  v_sched := public.save_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    'Draft isolation scheduled',
+    'sched',
+    8,
+    '[{"weekday":1,"name":"Push S","exercises":[{"name":"Row","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null
+  );
+  perform public.schedule_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    v_sched,
+    (current_date + 5),
+    false,
+    null
+  );
+  v_draft := public.save_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    'Private saved draft',
+    'coach only',
+    8,
+    '[{"weekday":1,"name":"Secret","exercises":[{"name":"Curl","default_sets":3,"default_reps":10}]}]'::jsonb,
+    null
+  );
+  perform set_config('test.draft_active', v_active::text, true);
+  perform set_config('test.draft_sched', v_sched::text, true);
+  perform set_config('test.draft_saved', v_draft::text, true);
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  v_active int := current_setting('test.draft_active')::int;
+  v_sched int := current_setting('test.draft_sched')::int;
+  v_draft int := current_setting('test.draft_saved')::int;
+  v_seen int[];
+begin
+  select coalesce(array_agg(revision_no order by revision_no), '{}')
+    into v_seen
+  from public.program_revisions
+  where program_id = 'c3401941-0000-4000-8000-0000000000ee';
+  if not (v_active = any (v_seen)) then
+    raise exception 'active client cannot SELECT current active revision';
+  end if;
+  if not (v_sched = any (v_seen)) then
+    raise exception 'active client cannot SELECT scheduled revision';
+  end if;
+  if v_draft = any (v_seen) then
+    raise exception 'active client SELECT unscheduled saved revision';
+  end if;
+end $$;
+reset role;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  n int;
+begin
+  select count(*) into n
+  from public.program_revisions
+  where program_id = 'c3401941-0000-4000-8000-0000000000ee';
+  if n < 3 then
+    raise exception 'owner lost full revision history, saw %', n;
+  end if;
+end $$;
+reset role;
+
+-- Assignment starting tomorrow: no program session today; RPC refused; start day allowed.
+update public.program_assignments
+   set start_date = current_date + 1
+ where id = 'c3401941-0000-4000-8000-0000000000ef';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  v_day uuid;
+begin
+  select id into v_day
+  from public.program_days
+  where program_id = 'c3401941-0000-4000-8000-0000000000ee'
+  limit 1;
+  begin
+    perform public.start_workout_from_template(
+      'Too early',
+      now(),
+      null,
+      'c3401941-0000-4000-8000-0000000000ef',
+      v_day,
+      '[]'::jsonb
+    );
+    raise exception 'future start_date workout was allowed';
+  exception
+    when others then
+      if sqlerrm like '%future start_date workout was allowed%' then
+        raise;
+      elsif sqlerrm not like '%program_not_started%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
+
+update public.program_assignments
+   set start_date = current_date
+ where id = 'c3401941-0000-4000-8000-0000000000ef';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000002',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$
+declare
+  v_day uuid;
+begin
+  select id into v_day
+  from public.program_days
+  where program_id = 'c3401941-0000-4000-8000-0000000000ee'
+    and name = 'Push A'
+  limit 1;
+  perform public.start_workout_from_template(
+    'Start day week 1',
+    now(),
+    null,
+    'c3401941-0000-4000-8000-0000000000ef',
+    v_day,
+    '[]'::jsonb
+  );
+end $$;
+reset role;
+
+-- Past schedule date refused against the frozen owner civil clock.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_rev int;
+  v_tz text;
+  v_today date;
+  v_utc date;
+begin
+  v_tz := public.program_activation_timezone('c3401941-0000-4000-8000-0000000000ee');
+  v_today := public.program_civil_date(v_tz, now());
+  v_utc := (now() at time zone 'UTC')::date;
+  v_rev := current_setting('test.draft_saved')::int;
+  begin
+    perform public.schedule_program_version(
+      'c3401941-0000-4000-8000-0000000000ee',
+      v_rev,
+      (v_today - 1),
+      true,
+      null
+    );
+    raise exception 'past activation date was allowed';
+  exception
+    when others then
+      if sqlerrm like '%past activation date was allowed%' then
+        raise;
+      elsif sqlerrm not like '%activation_date_in_past%' then
+        raise;
+      end if;
+  end;
+  if v_utc > v_today then
+    perform public.schedule_program_version(
+      'c3401941-0000-4000-8000-0000000000ee',
+      v_rev,
+      v_utc,
+      true,
+      null
+    );
+    if (select scheduled_revision_no from public.programs
+        where id = 'c3401941-0000-4000-8000-0000000000ee') is distinct from v_rev then
+      raise exception 'UTC-ahead civil date was treated as past for owner TZ';
+    end if;
+  end if;
+end $$;
+reset role;
+
+-- Owner profile Toronto vs UTC midnight: yesterday in Toronto is still past.
+update public.user_profiles
+   set timezone = 'America/Toronto'
+ where id = 'c3401941-0000-4000-8000-000000000001';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_rev int := public.save_program_version(
+    'c3401941-0000-4000-8000-0000000000ee',
+    'TZ boundary draft',
+    '',
+    8,
+    '[{"weekday":1,"name":"TZ","exercises":[{"name":"Fly","default_sets":3,"default_reps":8}]}]'::jsonb,
+    null
+  );
+  v_today date := public.program_civil_date('America/Toronto', now());
+begin
+  begin
+    perform public.schedule_program_version(
+      'c3401941-0000-4000-8000-0000000000ee',
+      v_rev,
+      (v_today - 1),
+      true,
+      null
+    );
+    raise exception 'Toronto-past activation date was allowed';
+  exception
+    when others then
+      if sqlerrm like '%Toronto-past activation date was allowed%' then
+        raise;
+      elsif sqlerrm not like '%activation_date_in_past%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
+
 rollback;
 \echo 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz'
 \echo 'delete_program locks program row FOR UPDATE before checks'
 \echo 'program hardening: provenance immutability, program_id stamp, prescribed freeze, version backfill, activate now vs due'
 \echo 'program hardening: allowlist ACL, assignment Data API closed, laterOf start, 20/21 sets, mixed phases, prescription_source'
+\echo 'program hardening: live graph active-only, revision drafts, not-started, past schedule, freeze FOR UPDATE, archive RPC'

@@ -101,7 +101,8 @@ end $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1750000-0000-4000-8000-000000000002',true);
 do $$ begin
- if not exists(select 1 from public.programs where id='a1750000-0000-4000-8000-000000000010') then raise exception 'paused program archive inaccessible'; end if;
+ if exists(select 1 from public.programs where id='a1750000-0000-4000-8000-000000000010') then raise exception 'paused client still reads live program'; end if;
+ if not exists(select 1 from public.program_assignments where id='a1750000-0000-4000-8000-000000000011' and status='paused') then raise exception 'paused assignment unreadable'; end if;
  if not exists(select 1 from public.workouts where id='a1750000-0000-4000-8000-000000000012') then raise exception 'personal history inaccessible'; end if;
 end $$;
 reset role;

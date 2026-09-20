@@ -179,25 +179,29 @@ async function hydrateAssignmentProgram(
   row: ProgramAssignment,
 ): Promise<Program | null> {
   if (row.status !== 'active') {
-    if (row.frozen_revision_no == null) return null;
-    const { data: meta } = await supabase
-      .from('programs')
-      .select('id, owner_id, created_at, updated_at')
-      .eq('id', row.program_id)
-      .maybeSingle();
-    const { data: rev } = await supabase
-      .from('program_revisions')
-      .select('snapshot, version_start_on, revision_no')
-      .eq('program_id', row.program_id)
-      .eq('revision_no', row.frozen_revision_no)
-      .maybeSingle();
-    if (!meta || !rev) return null;
-    const frozen = rev as { snapshot: unknown; version_start_on?: string | null };
+    const { data, error } = await supabase.rpc('get_frozen_program_archive', {
+      p_assignment_id: row.id,
+    });
+    if (error || !data) return null;
+    const archive = data as {
+      program_id: string;
+      owner_id: string;
+      created_at: string;
+      updated_at: string;
+      frozen_revision_no: number;
+      version_start_on?: string | null;
+      snapshot: unknown;
+    };
     return programFromFrozenRevision({
-      meta: meta as Pick<Program, 'id' | 'owner_id' | 'created_at' | 'updated_at'>,
-      revisionNo: row.frozen_revision_no,
-      versionStartOn: frozen.version_start_on ?? null,
-      snapshot: frozen.snapshot,
+      meta: {
+        id: archive.program_id,
+        owner_id: archive.owner_id,
+        created_at: archive.created_at,
+        updated_at: archive.updated_at,
+      },
+      revisionNo: archive.frozen_revision_no,
+      versionStartOn: archive.version_start_on ?? null,
+      snapshot: archive.snapshot,
     });
   }
   return fetchLive(row.program_id);

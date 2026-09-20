@@ -69,11 +69,26 @@ test('calendar can show a future version after activation day without inventing 
     scheduledDurationWeeks: 12,
   });
   assert.equal(afterAssign.versionStart, '2026-09-30');
+  assert.equal(Array.isArray(afterAssign.days) && afterAssign.days.length, 0);
   assert.equal(planCanInventScheduled({
     date: '2026-09-22',
     startDate: afterAssign.versionStart,
     durationWeeks: afterAssign.durationWeeks,
   }), false);
+
+  const onAssignStart = programGraphForDate({
+    date: '2026-09-30',
+    liveDays: live,
+    livePhases: [],
+    liveVersionStart: '2026-09-01',
+    assignmentStartDate: '2026-09-30',
+    scheduledActivatesOn: '2026-09-21',
+    scheduledDays: future,
+    scheduledPhases: [],
+    scheduledDurationWeeks: 12,
+  });
+  assert.equal(onAssignStart.days[0].name, 'Lower');
+  assert.equal(onAssignStart.versionStart, '2026-09-30');
 
   const beforeActivation = programGraphForDate({
     date: '2026-09-10',
@@ -152,6 +167,8 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   const editor = src('src/components/programs/ProgramEditorPage.tsx');
   assert.match(editor, /program-versions-advanced/);
   assert.match(editor, /program-save-future-version/);
+  assert.match(editor, /min=\{programClock\.today\}/);
+  assert.match(editor, /activationDateInPast/);
   const athlete = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(athlete, /program-planned-change/);
   const calendar = src('src/components/calendar/CalendarPage.tsx');
@@ -159,6 +176,7 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.match(calendar, /scheduled_snapshot/);
   assert.match(calendar, /parseRevisionMeta/);
   assert.match(calendar, /liveVersionStart/);
+  assert.match(calendar, /assignmentStartDate/);
   assert.match(calendar, /const program = assignment\?\.program/);
   assert.match(calendar, /useProgramCivilClock/);
 

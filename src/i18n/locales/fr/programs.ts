@@ -90,6 +90,7 @@ const programs = {
     versionActivated: 'Version activée. Les séances déjà loggées restent.',
     versionAlreadyScheduled: 'Une version future existe déjà. Remplace-la explicitement.',
     versionHistorical: 'Cette version est historique et ne peut plus être activée.',
+    activationDateInPast: 'La date d’activation ne peut pas être dans le passé.',
     plannedChangeOn: 'Changement prévu le {{date}}',
     sessionLetter: 'Séance {{letter}}',
     nextSession: 'Prochaine séance : {{name}}',

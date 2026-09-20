@@ -15,6 +15,7 @@ export function mapProgramWriteError(
     phaseDuration?: string;
     mixedPhases?: string;
     invalidSets?: string;
+    activationInPast?: string;
   },
 ): string {
   if (isProgramStaleError(message)) return copy.stale;
@@ -24,6 +25,9 @@ export function mapProgramWriteError(
   if (copy.phaseDuration && message?.includes('phase duration required')) return copy.phaseDuration;
   if (copy.invalidSets && (message?.includes('Invalid sets') || message?.includes('invalid_set_count'))) {
     return copy.invalidSets;
+  }
+  if (copy.activationInPast && message?.includes('activation_date_in_past')) {
+    return copy.activationInPast;
   }
   return copy.fallback;
 }

@@ -68,7 +68,8 @@ test('end_coach_client_link and client_end_coach_link share the solo transition;
   const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.client_end_coach_link').sql;
   assert.match(latest, /client_end_coach_link/);
   assert.match(latest, /FOR UPDATE/);
-  assert.match(latest, /SET coaching_role = 'none'/);
+  assert.match(latest, /transition_client_to_solo\(v_coach_id, v_uid\)/);
+  assert.match(sql, /SET coaching_role = 'none'/);
 
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /profileLinkEndedChanged\(/);

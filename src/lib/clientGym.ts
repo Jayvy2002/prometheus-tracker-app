@@ -3,6 +3,7 @@ import type { ProgramAssignment, ProgramDay, SessionOrganization, Workout } from
 import { normalizeSessionOrganization } from '../features/programs/domain/sessionOrganization';
 import {
   daysForCurrentPhase,
+  effectiveVersionStart,
   phaseAnchorDate,
   phasesAreTimed,
   resolveCurrentPhase,
@@ -218,8 +219,10 @@ export function resolveAssignmentGymCard(input: {
 }): ClientGymCard {
   const assignment = input.assignment;
   const program = assignment?.program;
+  const startedOn = effectiveVersionStart(assignment?.start_date, program?.phase_anchor_on);
+  const notStarted = !!startedOn && input.todayDate < startedOn;
   return resolveClientGymCard({
-    hasActiveProgram: assignment?.status === 'active' && !!program,
+    hasActiveProgram: assignment?.status === 'active' && !!program && !notStarted,
     days: program?.days,
     workouts: input.workouts,
     todayWeekday: input.todayWeekday,

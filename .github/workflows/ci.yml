@@ -266,6 +266,7 @@ jobs:
           grep -F 'delete_program locks program row FOR UPDATE before checks' /tmp/program-hardening-db-results.txt
           grep -F 'program hardening: provenance immutability, program_id stamp, prescribed freeze, version backfill, activate now vs due' /tmp/program-hardening-db-results.txt
           grep -F 'program hardening: allowlist ACL, assignment Data API closed, laterOf start, 20/21 sets, mixed phases, prescription_source' /tmp/program-hardening-db-results.txt
+          grep -F 'program hardening: live graph active-only, revision drafts, not-started, past schedule, freeze FOR UPDATE, archive RPC' /tmp/program-hardening-db-results.txt
       - name: Test shared program archive
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -274,6 +275,7 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'shared program archive: A leaves, B continues, frozen snapshot' /tmp/program-shared-archive-db-results.txt
+          grep -F 'shared program archive: paused A cannot read live graph or drafts' /tmp/program-shared-archive-db-results.txt
       - name: Test delete_program row lock concurrency
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -282,6 +284,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'delete_program row lock: in-flight assign cannot sneak past FOR UPDATE' /tmp/delete-program-lock-concurrency.txt
+      - name: Test freeze/activation row lock concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-program-freeze-lock.sh | tee /tmp/program-freeze-lock-concurrency.txt
+      - name: Confirm freeze/activation row lock concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'freeze/activation row lock: Cas A pin new revision; Cas B pin old then owner library; Cas C save_program serializes' /tmp/program-freeze-lock-concurrency.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -311,6 +311,35 @@ $$;
 REVOKE ALL ON FUNCTION public.actor_can_activate_program_version(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.actor_can_activate_program_version(uuid) TO authenticated;
 
+CREATE OR REPLACE FUNCTION public.actor_can_read_program(p_program_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.programs p
+    WHERE p.id = p_program_id AND p.owner_id = auth.uid()
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.program_assignments pa
+    WHERE pa.program_id = p_program_id
+      AND pa.client_id = auth.uid()
+      AND pa.status = 'active'
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.program_assignments pa
+    WHERE pa.program_id = p_program_id
+      AND public.is_coach_of(pa.client_id)
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.actor_can_read_program(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.actor_can_read_program(uuid) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.validate_program_graph_payload(p_org text, p_days jsonb, p_phases jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -1052,6 +1081,10 @@ BEGIN
   END IF;
 
   v_tz := public.program_activation_timezone(p_program_id);
+  v_today := public.program_civil_date(v_tz, now());
+  IF p_activates_on < v_today THEN
+    RAISE EXCEPTION 'activation_date_in_past';
+  END IF;
 
   UPDATE public.programs
   SET
@@ -1061,8 +1094,7 @@ BEGIN
     updated_at = now()
   WHERE id = p_program_id;
 
-  v_today := public.program_civil_date(v_tz, now());
-  IF p_activates_on <= v_today THEN
+  IF p_activates_on = v_today THEN
     RETURN public.apply_program_revision_snapshot(p_program_id, p_revision_no, 'scheduled');
   END IF;
   RETURN p_revision_no;
@@ -1085,11 +1117,9 @@ DECLARE
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_program_id IS NULL THEN RAISE EXCEPTION 'Invalid payload'; END IF;
-  IF NOT public.actor_can_read_program(p_program_id) THEN
-    RAISE EXCEPTION 'Not authorized';
-  END IF;
 
-  -- A paused client must not apply a Coach change after the relationship ended.
+  -- Paused/completed archives cannot read the live graph, so this no-op
+  -- must run before actor_can_read_program (active-only).
   IF EXISTS (
     SELECT 1 FROM public.program_assignments pa
     WHERE pa.program_id = p_program_id AND pa.client_id = v_uid
@@ -1098,6 +1128,10 @@ BEGIN
     WHERE pa.program_id = p_program_id AND pa.client_id = v_uid AND pa.status = 'active'
   ) THEN
     RETURN 0;
+  END IF;
+
+  IF NOT public.actor_can_read_program(p_program_id) THEN
+    RAISE EXCEPTION 'Not authorized';
   END IF;
 
   SELECT active_revision_no, scheduled_revision_no, scheduled_activates_on, scheduled_activation_timezone
@@ -1287,6 +1321,23 @@ BEGIN
     WHERE pa.id = p_program_assignment_id AND pa.client_id = v_user_id AND pa.status = 'active'
   ) THEN
     RAISE EXCEPTION 'invalid_program_assignment';
+  END IF;
+  IF p_program_assignment_id IS NOT NULL THEN
+    SELECT pa.start_date, p.phase_anchor_on, r.version_start_on
+      INTO v_start, v_anchor, v_version_start
+    FROM public.program_assignments pa
+    JOIN public.programs p ON p.id = pa.program_id
+    LEFT JOIN public.program_revisions r
+      ON r.program_id = p.id AND r.revision_no = p.active_revision_no
+    WHERE pa.id = p_program_assignment_id;
+    v_today := public.program_civil_date(public.program_actor_timezone(v_user_id), now());
+    v_effective := public.program_effective_version_start(
+      v_start,
+      COALESCE(v_version_start, v_anchor)
+    );
+    IF v_today < v_effective THEN
+      RAISE EXCEPTION 'program_not_started';
+    END IF;
   END IF;
   IF p_program_day_id IS NOT NULL AND NOT EXISTS (
     SELECT 1
@@ -1969,7 +2020,8 @@ BEGIN
     SELECT p.active_revision_no
       INTO NEW.frozen_revision_no
     FROM public.programs p
-    WHERE p.id = NEW.program_id;
+    WHERE p.id = NEW.program_id
+    FOR UPDATE;
   END IF;
   IF TG_OP = 'UPDATE'
      AND OLD.frozen_revision_no IS NOT NULL
@@ -2114,3 +2166,237 @@ BEGIN
     RAISE EXCEPTION 'paused assignment without frozen_revision_no after backfill';
   END IF;
 END $$;
+
+-- Live graph is for ACTIVE assignments only. Paused/completed archives use
+-- frozen_revision_no + get_frozen_program_archive, never programs/days/phases.
+DROP POLICY IF EXISTS "Assigned clients read programs" ON public.programs;
+CREATE POLICY "Assigned clients read programs" ON public.programs
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_assignments pa
+      WHERE pa.program_id = programs.id
+        AND pa.client_id = (select auth.uid())
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Assigned clients read program days" ON public.program_days;
+CREATE POLICY "Assigned clients read program days" ON public.program_days
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_assignments pa
+      WHERE pa.program_id = program_days.program_id
+        AND pa.client_id = (select auth.uid())
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Assigned clients read program day exercises" ON public.program_day_exercises;
+CREATE POLICY "Assigned clients read program day exercises" ON public.program_day_exercises
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_days d
+      JOIN public.program_assignments pa ON pa.program_id = d.program_id
+      WHERE d.id = program_day_exercises.program_day_id
+        AND pa.client_id = (select auth.uid())
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Assigned clients read program phases" ON public.program_phases;
+CREATE POLICY "Assigned clients read program phases" ON public.program_phases
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.program_assignments pa
+      WHERE pa.program_id = program_phases.program_id
+        AND pa.client_id = (select auth.uid())
+        AND pa.status = 'active'
+    )
+  );
+
+DROP POLICY IF EXISTS "Assigned clients read program revisions" ON public.program_revisions;
+CREATE POLICY "Assigned clients read program revisions" ON public.program_revisions
+  FOR SELECT TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.program_assignments pa
+      JOIN public.programs p ON p.id = pa.program_id
+      WHERE pa.program_id = program_revisions.program_id
+        AND pa.client_id = (select auth.uid())
+        AND pa.status = 'active'
+        AND (
+          program_revisions.revision_no IS NOT DISTINCT FROM p.active_revision_no
+          OR program_revisions.revision_no IS NOT DISTINCT FROM p.scheduled_revision_no
+          OR EXISTS (
+            SELECT 1 FROM public.workouts w
+            WHERE w.user_id = (select auth.uid())
+              AND w.program_id = program_revisions.program_id
+              AND w.program_revision_no = program_revisions.revision_no
+          )
+        )
+    )
+    OR EXISTS (
+      SELECT 1
+      FROM public.program_assignments pa
+      WHERE pa.program_id = program_revisions.program_id
+        AND pa.client_id = (select auth.uid())
+        AND pa.status IN ('paused', 'completed')
+        AND pa.frozen_revision_no IS NOT NULL
+        AND (
+          program_revisions.revision_no = pa.frozen_revision_no
+          OR EXISTS (
+            SELECT 1 FROM public.workouts w
+            WHERE w.user_id = (select auth.uid())
+              AND w.program_id = program_revisions.program_id
+              AND w.program_revision_no = program_revisions.revision_no
+          )
+        )
+        AND program_revisions.created_at <= pa.updated_at
+    )
+  );
+
+CREATE OR REPLACE FUNCTION public.get_frozen_program_archive(p_assignment_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_asg public.program_assignments%ROWTYPE;
+  v_owner uuid;
+  v_created timestamptz;
+  v_start date;
+  v_snap jsonb;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'not_authenticated'; END IF;
+  IF p_assignment_id IS NULL THEN RAISE EXCEPTION 'Invalid payload'; END IF;
+
+  SELECT * INTO v_asg FROM public.program_assignments WHERE id = p_assignment_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
+  IF v_asg.status NOT IN ('paused', 'completed') OR v_asg.frozen_revision_no IS NULL THEN
+    RAISE EXCEPTION 'archive_not_frozen';
+  END IF;
+
+  SELECT owner_id, created_at INTO v_owner, v_created
+  FROM public.programs
+  WHERE id = v_asg.program_id;
+  IF v_owner IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
+
+  IF v_asg.client_id IS DISTINCT FROM v_uid
+     AND v_asg.assigned_by IS DISTINCT FROM v_uid
+     AND v_owner IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'Not authorized';
+  END IF;
+
+  SELECT snapshot, version_start_on
+    INTO v_snap, v_start
+  FROM public.program_revisions
+  WHERE program_id = v_asg.program_id
+    AND revision_no = v_asg.frozen_revision_no;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
+
+  RETURN jsonb_build_object(
+    'assignment_id', v_asg.id,
+    'program_id', v_asg.program_id,
+    'frozen_revision_no', v_asg.frozen_revision_no,
+    'owner_id', v_owner,
+    'created_at', v_created,
+    'updated_at', v_asg.updated_at,
+    'version_start_on', v_start,
+    'snapshot', v_snap
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.get_frozen_program_archive(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_frozen_program_archive(uuid) TO authenticated;
+COMMENT ON FUNCTION public.get_frozen_program_archive(uuid) IS
+  'Read-only frozen assignment archive. Caller must own the assignment; only frozen_revision_no is returned; live graph is never exposed.';
+
+-- Lock assigned programs before pausing so freeze/activation share one lock order.
+CREATE OR REPLACE FUNCTION public.end_coach_client_link(p_client_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+BEGIN
+  IF v_uid IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_authenticated');
+  END IF;
+  IF p_client_id = v_uid THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'cannot_end_self');
+  END IF;
+  PERFORM 1
+  FROM public.programs p
+  WHERE p.id IN (
+    SELECT pa.program_id
+    FROM public.program_assignments pa
+    WHERE pa.client_id = p_client_id
+      AND pa.assigned_by = v_uid
+      AND pa.status = 'active'
+  )
+  FOR UPDATE;
+  RETURN public.transition_client_to_solo(v_uid, p_client_id);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.end_coach_client_link(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.end_coach_client_link(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.client_end_coach_link()
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_coach_id uuid;
+  v_result jsonb;
+BEGIN
+  IF v_uid IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_authenticated');
+  END IF;
+
+  SELECT coach_id INTO v_coach_id
+  FROM public.coach_client_links
+  WHERE client_id = v_uid
+    AND status = 'active';
+
+  IF v_coach_id IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'not_linked');
+  END IF;
+
+  PERFORM 1
+  FROM public.programs p
+  WHERE p.id IN (
+    SELECT pa.program_id
+    FROM public.program_assignments pa
+    WHERE pa.client_id = v_uid
+      AND pa.status = 'active'
+  )
+  FOR UPDATE;
+
+  v_result := public.transition_client_to_solo(v_coach_id, v_uid);
+  IF v_result->>'ok' = 'true' THEN
+    RETURN v_result || jsonb_build_object(
+      'former_coach_id', v_coach_id,
+      'ended_at', (SELECT coach_link_ended_at FROM public.user_profiles WHERE id = v_uid)
+    );
+  END IF;
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.client_end_coach_link() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.client_end_coach_link() TO authenticated;

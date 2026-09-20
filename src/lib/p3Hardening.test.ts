@@ -31,7 +31,32 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(found.sql, /mixed phase durations/);
   assert.match(found.sql, /program_effective_version_start/);
   assert.match(found.sql, /program_assignments_protect_identity/);
-  assert.match(found.sql, /program_assignments_freeze_on_pause/);
+  {
+    const freezeStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.program_assignments_freeze_on_pause');
+    const freezeEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.program_assignments_freeze_on_pause');
+    const freezeFn = found.sql.slice(freezeStart, freezeEnd);
+    assert.match(freezeFn, /FROM public\.programs p\s+WHERE p\.id = NEW\.program_id\s+FOR UPDATE/);
+  }
+  assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.get_frozen_program_archive/);
+  assert.match(found.sql, /RAISE EXCEPTION 'program_not_started'/);
+  assert.match(found.sql, /RAISE EXCEPTION 'activation_date_in_past'/);
+  assert.match(found.sql, /GRANT EXECUTE ON FUNCTION public\.get_frozen_program_archive\(uuid\) TO authenticated/);
+  assert.match(found.sql, /Assigned clients read programs[\s\S]{0,280}pa\.status = 'active'/);
+  assert.doesNotMatch(
+    found.sql.slice(found.sql.lastIndexOf('DROP POLICY IF EXISTS "Assigned clients read programs"')),
+    /Assigned clients read programs[\s\S]{0,280}status IN \('active','paused'\)/,
+  );
+  {
+    const endStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.client_end_coach_link()');
+    const endFn = found.sql.slice(endStart, endStart + 1800);
+    assert.match(endFn, /FOR UPDATE/);
+  }
+  assert.match(src('src/stores/programStore.ts'), /rpc\('get_frozen_program_archive'/);
+  assert.match(src('src/lib/clientGym.ts'), /todayDate < startedOn/);
+  assert.match(src('src/features/programs/domain/programVersions.ts'), /date < assignmentStart/);
+  assert.match(src('src/components/programs/ProgramEditorPage.tsx'), /min=\{programClock\.today\}/);
+  assert.match(src('src/i18n/locales/fr/programs.ts'), /activationDateInPast/);
+  assert.match(src('src/i18n/locales/en/programs.ts'), /activationDateInPast/);
   assert.match(found.sql, /DROP POLICY IF EXISTS "Owners delete programs"/);
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.delete_program/);
   {
@@ -133,10 +158,30 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /21 sets save was allowed/);
   assert.match(src('supabase/tests/program_hardening.sql'), /mixed phase durations were allowed/);
   assert.match(src('supabase/tests/program_hardening.sql'), /late assignment should be week 1/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /get_frozen_program_archive/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /program_not_started/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /activation_date_in_past/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /active client SELECT unscheduled saved revision/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /freeze trigger does not lock programs FOR UPDATE/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /program hardening: live graph active-only, revision drafts, not-started, past schedule, freeze FOR UPDATE, archive RPC/);
   assert.match(src('supabase/tests/program_shared_archive.sql'), /shared program archive: A leaves, B continues, frozen snapshot/);
+  assert.match(src('supabase/tests/program_shared_archive.sql'), /paused A still reads live programs/);
+  assert.match(src('supabase/tests/program_shared_archive.sql'), /set local role authenticated/);
+  assert.match(src('supabase/tests/program_shared_archive.sql'), /shared program archive: paused A cannot read live graph or drafts/);
+  assert.match(src('supabase/tests/rls_matrix.sql'), /paused live graph hidden; assignment still readable/);
+  assert.match(src('supabase/tests/client_departure.sql'), /paused client still reads live program/);
   assert.match(src('.github/workflows/ci.yml'), /program_shared_archive\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /test-program-freeze-lock\.sh/);
+  assert.match(src('scripts/test-program-freeze-lock.sh'), /pg_advisory_xact_lock/);
+  assert.match(src('scripts/test-program-freeze-lock.sh'), /activate_program_version/);
+  assert.match(src('scripts/test-program-freeze-lock.sh'), /client_end_coach_link/);
+  assert.match(src('scripts/test-program-freeze-lock.sh'), /Cas A departure did not wait on in-flight activation/);
+  assert.match(src('scripts/test-program-freeze-lock.sh'), /Cas B activation did not wait on in-flight departure/);
+  assert.match(src('scripts/test-program-freeze-lock.sh'), /save_program serializes/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: provenance immutability/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: allowlist ACL/);
+  assert.match(src('.github/workflows/ci.yml'), /live graph active-only/);
+  assert.match(src('.github/workflows/ci.yml'), /test-program-freeze-lock\.sh/);
   assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
   assert.match(src('docs/CHANTIER.md'), /P3 hardening/);

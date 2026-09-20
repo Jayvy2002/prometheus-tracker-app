@@ -131,8 +131,8 @@ RPC publiques conservées pour `authenticated` : `save_program`,
 `save_program_version`, `schedule_program_version`, `activate_program_version`,
 `ensure_due_program_version`, `start_workout_from_template`,
 `create_program_complete`, `delete_program`, `assign_program_secure`,
-`fork_program`, `adopt_client_program`. `transition_client_to_solo` n’est
-pas remplacé.
+`fork_program`, `adopt_client_program`, `get_frozen_program_archive`.
+`transition_client_to_solo` n’est pas remplacé.
 
 `program_revisions`, graphe (`programs`, `program_days`,
 `program_day_exercises`, `program_phases`) et `program_assignments` :
@@ -145,6 +145,26 @@ immuables pour `authenticated` même si un GRANT UPDATE est rouvert.
 
 `workouts` / `workout_exercises` / `workout_sets` : SELECT+INSERT+UPDATE+DELETE
 seulement (logger / file offline). Pas TRUNCATE/REFERENCES/TRIGGER/MAINTAIN.
+
+Les archives paused/completed n’ont **plus** SELECT sur le graphe LIVE
+(`programs`, `program_days`, `program_day_exercises`, `program_phases`).
+Seul un assignment `active` lit le live. Owner / Coach autorisé inchangés.
+`program_revisions` : client actif = révision active + scheduled + ses
+workouts ; paused = `frozen_revision_no` (+ workouts historiques, jamais une
+révision créée après le départ) ; un saved draft (`activated_at` null, pas
+scheduled) n’est jamais visible au client. Hydratation archive :
+`get_frozen_program_archive(assignment_id)` (caller = client / assigner /
+owner, status paused/completed, snapshot `frozen_revision_no` uniquement).
+
+`program_assignments_freeze_on_pause` verrouille `programs … FOR UPDATE`
+avant de copier `active_revision_no`. `end_coach_client_link` /
+`client_end_coach_link` prennent le même verrou **avant**
+`transition_client_to_solo` (ordre identique à activate/save).
+
+`today < effectiveVersionStart` → `start_workout_from_template` refuse
+(`program_not_started`) ; la gym card ne propose aucune séance programme.
+`schedule_program_version` : `p_activates_on <` civil owner →
+`activation_date_in_past`. Aujourd’hui = apply immédiat ; futur = pointeur.
 
 Provenance workout (`program_id`, assignment/day/phase/revision) : RPC-only.
 `workout_exercises.prescription_source` (`program` | `user`) : le logger

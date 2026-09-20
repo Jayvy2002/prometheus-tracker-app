@@ -6,6 +6,7 @@ import {
   isProgramDayDue,
   isProgramTrainingDay,
   pickNextTrainingDay,
+  resolveAssignmentGymCard,
   resolveClientGymCard,
   showLoggingRir,
   trainingDays,
@@ -251,6 +252,45 @@ test('timed phases pick the current phase session, not the next letter in the wh
     phaseAnchorDate: '2026-09-01',
   });
   assert.equal(mondayIntens.day?.name, 'A2');
+});
+
+test('assignment before effective start has no program session', () => {
+  const assignment = {
+    id: 'asg',
+    program_id: 'prog',
+    client_id: 'c',
+    assigned_by: 'c',
+    start_date: '2026-09-21',
+    status: 'active' as const,
+    created_at: '',
+    updated_at: '',
+    program: {
+      id: 'prog',
+      owner_id: 'c',
+      name: 'P',
+      description: '',
+      duration_weeks: 8,
+      days: hugoDays,
+      phase_anchor_on: '2026-09-01',
+      created_at: '',
+      updated_at: '',
+    },
+  };
+  const before = resolveAssignmentGymCard({
+    assignment,
+    workouts: [],
+    todayDate: '2026-09-20',
+    todayWeekday: 0,
+  });
+  assert.equal(before.kind, 'none');
+  const onStart = resolveAssignmentGymCard({
+    assignment,
+    workouts: [],
+    todayDate: '2026-09-21',
+    todayWeekday: 1,
+  });
+  assert.equal(onStart.kind, 'start');
+  assert.equal(onStart.day?.id, 'mon');
 });
 
 test('pickNext wraps; workoutOnDate matches local timestamps', () => {

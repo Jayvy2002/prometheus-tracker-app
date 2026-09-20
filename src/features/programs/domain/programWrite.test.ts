@@ -65,6 +65,14 @@ test('maps stale SQL to a stable client code', () => {
     }),
     'sets',
   );
+  assert.equal(
+    mapProgramWriteError('activation_date_in_past', {
+      stale: 'reload',
+      fallback: 'retry',
+      activationInPast: 'past',
+    }),
+    'past',
+  );
 });
 
 test('assign recap date stays on the local calendar day', () => {

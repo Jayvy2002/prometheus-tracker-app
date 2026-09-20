@@ -53,6 +53,15 @@ export function programGraphForDate(input: {
   const date = input.date.slice(0, 10);
   const activates = input.scheduledActivatesOn?.slice(0, 10) ?? '';
   const assignmentStart = input.assignmentStartDate?.slice(0, 10) || null;
+  if (assignmentStart && date < assignmentStart) {
+    return {
+      days: [],
+      phases: input.livePhases,
+      organization: input.liveOrganization,
+      durationWeeks: input.liveDurationWeeks ?? null,
+      versionStart: laterCivilDate(assignmentStart, input.liveVersionStart),
+    };
+  }
   if (activates && date >= activates && input.scheduledDays != null) {
     return {
       days: input.scheduledDays,

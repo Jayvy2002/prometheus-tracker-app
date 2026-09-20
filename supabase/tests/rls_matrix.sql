@@ -1081,13 +1081,14 @@ EXCEPTION WHEN OTHERS THEN
   PERFORM pg_temp.record('D02_ONCE', false, SQLERRM);
 END $$;
 
--- Unlink : A termine le lien A1 ; le programme pausé reste lisible par l'athlète.
+-- Unlink : A termine le lien A1 ; le graphe LIVE n'est plus lisible par l'athlète pausé.
 DO $$
 DECLARE
   v_a uuid := '00000000-0000-0000-0000-0000000000a1';
   v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
   v_out jsonb;
-  v_visible boolean;
+  v_live boolean;
+  v_asg boolean;
 BEGIN
   PERFORM pg_temp.as_user(v_a);
   SET LOCAL ROLE authenticated;
@@ -1104,12 +1105,16 @@ BEGIN
     SELECT 1 FROM public.programs p
     JOIN public.program_assignments pa ON pa.program_id = p.id
     WHERE pa.client_id = v_a1 AND pa.status = 'paused'
-  ) INTO v_visible;
+  ) INTO v_live;
+  SELECT EXISTS (
+    SELECT 1 FROM public.program_assignments pa
+    WHERE pa.client_id = v_a1 AND pa.status = 'paused'
+  ) INTO v_asg;
   RESET ROLE; PERFORM pg_temp.clear_user();
-  IF v_visible THEN
-    PERFORM pg_temp.record('UNLINK', true, 'paused program readable after unlink');
+  IF (NOT v_live) AND v_asg THEN
+    PERFORM pg_temp.record('UNLINK', true, 'paused live graph hidden; assignment still readable');
   ELSE
-    PERFORM pg_temp.record('UNLINK', false, 'paused program unreadable after unlink');
+    PERFORM pg_temp.record('UNLINK', false, format('live=%s assignment=%s', v_live, v_asg));
   END IF;
 END $$;
 

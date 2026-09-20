@@ -15,6 +15,7 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import { mapProgramWriteError } from '../../lib/programWrite';
 import { normalizeSessionOrganization } from '../../features/programs/domain/sessionOrganization';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
 
 export default function ProgramEditorPage() {
   const { t, i18n } = useTranslation();
@@ -23,6 +24,7 @@ export default function ProgramEditorPage() {
   const { user } = useAuthStore();
   const canCoach = useAccountContext().capabilities.coach;
   const { fetchProgram, createProgram, saveProgram, fetchProgramRevisionInfo, saveProgramVersion, scheduleProgramVersion, activateProgramVersion } = useProgramStore();
+  const programClock = useProgramCivilClock();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
@@ -110,6 +112,7 @@ export default function ProgramEditorPage() {
     phaseDuration: t('programs.phaseDurationRequired'),
     mixedPhases: t('programs.mixedPhaseDurations'),
     invalidSets: t('programs.invalidSetsMax'),
+    activationInPast: t('programs.activationDateInPast'),
   });
 
   const handleSave = async () => {
@@ -170,6 +173,10 @@ export default function ProgramEditorPage() {
 
   const handleScheduleFuture = async () => {
     if (!user || !id || isNew || saving || scheduling || !name.trim() || !activateOn) return;
+    if (activateOn < programClock.today) {
+      toast(t('programs.activationDateInPast'), 'error');
+      return;
+    }
     const graphError = graphGuard();
     if (graphError) {
       toast(graphError, 'error');
@@ -300,6 +307,7 @@ export default function ProgramEditorPage() {
               {t('programs.versionActivateOn')}
               <input
                 type="date"
+                min={programClock.today}
                 data-testid="program-version-activate-on"
                 value={activateOn}
                 onChange={e => setActivateOn(e.target.value)}
