@@ -1335,6 +1335,8 @@ end $$;
 reset role;
 
 -- Legacy backfill: freeze live graph, do not rewrite historical workout revisions.
+-- Self-assign on 000002: 000001 already has an active assignment, and
+-- assigned_by <> client_id requires an active coach_client_link.
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claim.role','',true);
 select set_config('request.jwt.claims','{}',true);
@@ -1347,7 +1349,7 @@ values (
   'c3401941-0000-4000-8000-00000000009a',
   'c3401941-0000-4000-8000-000000000099',
   'c3401941-0000-4000-8000-000000000002',
-  'c3401941-0000-4000-8000-000000000001',
+  'c3401941-0000-4000-8000-000000000002',
   current_date,
   'active'
 );

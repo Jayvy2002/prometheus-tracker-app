@@ -102,6 +102,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /off-plan workout carried program provenance/);
   assert.match(src('supabase/tests/program_hardening.sql'), /workout provenance FKs are not DEFERRABLE INITIALLY IMMEDIATE/);
   assert.match(src('supabase/tests/program_hardening.sql'), /active assignment without active_revision_no after backfill/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /Self-assign on 000002/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: provenance immutability/);
   assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
