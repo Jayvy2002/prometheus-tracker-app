@@ -829,13 +829,18 @@ begin
         raise;
       end if;
   end;
+end $$;
+reset role;
+
+-- Stranger JWT cannot SELECT another owner's program (RLS). Prove survival as postgres.
+do $$
+begin
   if not exists (
     select 1 from public.programs where id = 'c3401941-0000-4000-8000-000000000020'
   ) then
     raise exception 'stranger refuse deleted the program';
   end if;
 end $$;
-reset role;
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000005',true);
