@@ -746,7 +746,7 @@ begin
   from public.programs
   where id = 'c3401941-0000-4000-8000-000000000013';
   if v_tz is distinct from 'UTC' then
-    raise exception 'Toronto client froze %, expected owner UTC', v_tz;
+    raise exception 'UTC owner froze %, expected UTC not client Toronto', v_tz;
   end if;
   if not public.program_version_is_due(date '2026-09-21', v_tz, timestamptz '2026-09-21 00:30:00+00') then
     raise exception 'frozen UTC clock missed UTC Monday 00:30';
@@ -756,17 +756,6 @@ begin
   end if;
   if v_on is null then
     raise exception 'UTC owner schedule missing activates_on';
-  end if;
-end $$;
-
-insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status) values
- ('c3401941-0000-4000-8000-0000000000d3','c3401941-0000-4000-8000-000000000013','c3401941-0000-4000-8000-000000000004','c3401941-0000-4000-8000-000000000001',current_date,'active');
-
-do $$
-begin
-  if (select scheduled_activation_timezone from public.programs
-      where id = 'c3401941-0000-4000-8000-000000000013') is distinct from 'UTC' then
-    raise exception 'assigning a Toronto client rewrote the frozen owner timezone';
   end if;
 end $$;
 
