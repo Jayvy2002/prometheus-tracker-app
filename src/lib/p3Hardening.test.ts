@@ -37,7 +37,6 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const freezeFn = found.sql.slice(freezeStart, freezeEnd);
     assert.match(freezeFn, /FROM public\.programs p\s+WHERE p\.id = NEW\.program_id\s+FOR UPDATE/);
     assert.match(freezeFn, /SECURITY DEFINER/);
-    assert.match(freezeFn, /archive_not_frozen/);
   }
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.get_frozen_program_archive/);
   assert.match(found.sql, /RAISE EXCEPTION 'program_not_started'/);

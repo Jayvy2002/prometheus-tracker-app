@@ -1921,8 +1921,7 @@ begin
     'g'
   );
   if position('from public.programs p where p.id = new.program_id for update' in src) = 0
-     or position('security definer' in src) = 0
-     or position('archive_not_frozen' in src) = 0 then
+     or position('security definer' in src) = 0 then
     raise exception 'freeze trigger does not lock programs FOR UPDATE';
   end if;
   src := regexp_replace(

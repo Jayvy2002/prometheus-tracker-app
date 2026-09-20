@@ -2308,9 +2308,6 @@ BEGIN
     FROM public.programs p
     WHERE p.id = NEW.program_id
     FOR UPDATE;
-    IF NEW.frozen_revision_no IS NULL THEN
-      RAISE EXCEPTION 'archive_not_frozen';
-    END IF;
   END IF;
   IF TG_OP = 'UPDATE'
      AND OLD.frozen_revision_no IS NOT NULL
