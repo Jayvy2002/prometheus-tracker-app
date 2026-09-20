@@ -1364,13 +1364,42 @@ values (
 );
 do $$
 declare
+  v_id uuid;
   v_no int;
+  v_before int;
 begin
   if (select active_revision_no from public.programs where id = 'c3401941-0000-4000-8000-000000000099') is not null then
     raise exception 'legacy fixture already had an active revision';
   end if;
-  v_no := public.snapshot_program_revision('c3401941-0000-4000-8000-000000000099');
-  if (select active_revision_no from public.programs where id = 'c3401941-0000-4000-8000-000000000099') is distinct from v_no then
+  if (select program_revision_no from public.workouts where id = 'c3401941-0000-4000-8000-00000000009c') is not null then
+    raise exception 'legacy workout already had a revision stamp';
+  end if;
+
+  select count(*) into v_before
+  from public.programs p
+  join public.program_assignments pa on pa.program_id = p.id and pa.status = 'active'
+  where p.active_revision_no is null;
+  if v_before < 1 then
+    raise exception 'expected at least the legacy fixture to need backfill';
+  end if;
+
+  -- Replay the candidate backfill (same loop as 20260920014500).
+  for v_id in
+    select p.id
+    from public.programs p
+    where p.active_revision_no is null
+       or not exists (
+         select 1 from public.program_revisions r
+         where r.program_id = p.id
+           and r.revision_no = p.active_revision_no
+       )
+  loop
+    perform public.snapshot_program_revision(v_id);
+  end loop;
+
+  select active_revision_no into v_no
+  from public.programs where id = 'c3401941-0000-4000-8000-000000000099';
+  if v_no is null then
     raise exception 'legacy backfill did not set active_revision_no';
   end if;
   if (select program_revision_no from public.workouts where id = 'c3401941-0000-4000-8000-00000000009c') is not null then

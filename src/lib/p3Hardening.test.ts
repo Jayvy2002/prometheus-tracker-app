@@ -102,6 +102,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /off-plan workout carried program provenance/);
   assert.match(src('supabase/tests/program_hardening.sql'), /workout provenance FKs are not DEFERRABLE INITIALLY IMMEDIATE/);
   assert.match(src('supabase/tests/program_hardening.sql'), /active assignment without active_revision_no after backfill/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /Replay the candidate backfill/);
   assert.match(src('supabase/tests/program_hardening.sql'), /00000000009c/);
   assert.doesNotMatch(src('supabase/tests/program_hardening.sql'), /00009w/);
   assert.match(src('supabase/tests/program_hardening.sql'), /Self-assign on 000002/);
