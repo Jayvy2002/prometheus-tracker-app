@@ -135,7 +135,10 @@ begin
      or has_function_privilege('authenticated', 'public.save_program_day_exercises(uuid,jsonb)', 'execute')
      or has_function_privilege('authenticated', 'public.create_program_with_days(text,text,int,jsonb)', 'execute')
      or has_function_privilege('authenticated', 'public.cancel_scheduled_program_version(uuid)', 'execute')
-     or has_function_privilege('authenticated', 'public.program_effective_version_start(date,date)', 'execute') then
+     or has_function_privilege('authenticated', 'public.program_effective_version_start(date,date)', 'execute')
+     or has_function_privilege('authenticated', 'public.lock_programs_for_assignment_mutation(uuid[])', 'execute')
+     or has_function_privilege('authenticated', 'public.lock_client_assignment_programs(uuid,uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.remap_program_revision_snapshot(jsonb)', 'execute') then
     raise exception 'internal P3 helper exposed to authenticated';
   end if;
   if not has_function_privilege('authenticated', 'public.actor_owns_program(uuid)', 'execute')
@@ -1918,6 +1921,50 @@ begin
   );
   if position('from public.programs p where p.id = new.program_id for update' in src) = 0 then
     raise exception 'freeze trigger does not lock programs FOR UPDATE';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.lock_programs_for_assignment_mutation(uuid[])'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('order by p.id for update' in src) = 0 then
+    raise exception 'assignment lock helper missing ORDER BY id FOR UPDATE';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.assign_program_secure(uuid,uuid,date)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('lock_client_assignment_programs' in src) = 0
+     or position('lock_client_assignment_programs' in src)
+        > position('set status = ''paused''' in src) then
+    raise exception 'assign_program_secure does not lock programs before pause';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.create_program_complete(text,text,int,jsonb,uuid,date,text,jsonb)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('lock_client_assignment_programs' in src) = 0
+     or position('lock_client_assignment_programs' in src)
+        > position('set status = ''paused''' in src) then
+    raise exception 'create_program_complete does not lock programs before pause';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.close_coach_account(uuid)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('remap_program_revision_snapshot' in src) = 0
+     or position('apply_program_revision_snapshot' in src) = 0
+     or position('lock_programs_for_assignment_mutation' in src) = 0
+     or position('frozen_revision_no = v_rev' in src) = 0
+     or position('insert into public.program_days' in src) > 0 then
+    raise exception 'close_coach_account is not on the P3 snapshot engine';
   end if;
   if exists (
     select 1

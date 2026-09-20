@@ -304,6 +304,22 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'freeze/activation row lock: Cas A pin new revision; Cas B pin old then owner library; Cas C save_program serializes' /tmp/program-freeze-lock-concurrency.txt
+      - name: Test adopt vs assign row lock concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-adopt-assign-lock.sh | tee /tmp/adopt-assign-lock-concurrency.txt
+      - name: Confirm adopt vs assign row lock concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'adopt/assign row lock: adopt×assign_program_secure and adopt×create_program_complete serialize without deadlock' /tmp/adopt-assign-lock-concurrency.txt
+      - name: Test close_coach_account P3
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_close_coach_account.sql | tee /tmp/program-close-coach-account-db-results.txt
+      - name: Confirm close_coach_account P3 echo
+        run: |
+          set -euo pipefail
+          grep -F 'close_coach_account P3: snapshots, phases, org, prescriptions, freeze pin, workout provenance, retry' /tmp/program-close-coach-account-db-results.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -13,8 +13,11 @@ const LIST_PAGE = 1000;
 
 /**
  * C03 — account deletion is a business workflow, not a raw Auth delete:
- * 1. close_coach_account (service_role): for every active client, fork the
- *    assigned programs to the athlete, then run the solo transition.
+ * 1. close_coach_account (service_role): for every active client, copy each
+ *    assignment through the P3 snapshot engine (exact source revision +
+ *    workout-referenced revisions, same revision_no) onto a client-owned
+ *    program, retarget workouts.program_id, pause with frozen_revision_no,
+ *    then run the solo transition.
  *    Single transaction — all or nothing, safe to retry.
  * 2. Paginated storage cleanup of the user's own prefixes (best effort).
  * 3. Auth user deletion (cascades to coach-owned rows).

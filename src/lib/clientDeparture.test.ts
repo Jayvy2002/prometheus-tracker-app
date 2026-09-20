@@ -17,8 +17,7 @@ test('client_end_coach_link uses the shared transition, locks the link, and stay
   const fn = latest.sql.slice(start, start + 2200);
   assert.match(fn, /CREATE OR REPLACE FUNCTION public\.client_end_coach_link\(\)/);
   assert.match(fn, /transition_client_to_solo\(v_coach_id, v_uid\)/);
-  assert.match(fn, /FOR UPDATE/);
-  assert.match(fn, /FROM public\.programs p/);
+  assert.match(fn, /lock_client_assignment_programs\(v_uid, NULL\)/);
   assert.match(latest.sql, /REVOKE ALL ON FUNCTION public\.client_end_coach_link\(\) FROM PUBLIC, anon/);
   assert.match(latest.sql, /GRANT EXECUTE ON FUNCTION public\.client_end_coach_link\(\) TO authenticated/);
   assert.doesNotMatch(fn, /CREATE OR REPLACE FUNCTION public\.transition_client_to_solo/);

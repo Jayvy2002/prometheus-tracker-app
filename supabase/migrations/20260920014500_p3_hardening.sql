@@ -1488,6 +1488,128 @@ BEGIN
   RETURN v_workout_id;
 END;
 $$;
+-- Internal lock order for assignment mutations: programs (active of client
+-- plus optional target) ORDER BY id FOR UPDATE, then the caller mutates
+-- assignments. Matches freeze / adopt / end_coach so assign cannot deadlock
+-- by locking the assignment row before the parent program.
+CREATE OR REPLACE FUNCTION public.lock_programs_for_assignment_mutation(p_program_ids uuid[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_program_ids IS NULL OR cardinality(p_program_ids) IS NULL OR cardinality(p_program_ids) = 0 THEN
+    RETURN;
+  END IF;
+  PERFORM 1
+  FROM public.programs p
+  WHERE p.id = ANY (p_program_ids)
+  ORDER BY p.id
+  FOR UPDATE;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.lock_client_assignment_programs(
+  p_client_id uuid,
+  p_target_program_id uuid DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_client_id IS NULL THEN
+    RETURN;
+  END IF;
+  PERFORM public.lock_programs_for_assignment_mutation(
+    ARRAY(
+      SELECT DISTINCT x.id
+      FROM (
+        SELECT pa.program_id AS id
+        FROM public.program_assignments pa
+        WHERE pa.client_id = p_client_id
+          AND pa.status = 'active'
+        UNION
+        SELECT p_target_program_id
+        WHERE p_target_program_id IS NOT NULL
+      ) x
+      WHERE x.id IS NOT NULL
+    )
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.lock_programs_for_assignment_mutation(uuid[])
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.lock_client_assignment_programs(uuid, uuid)
+  FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.lock_client_assignment_programs(uuid, uuid) IS
+  'Internal. Lock client active-assignment programs plus optional target ORDER BY id FOR UPDATE before any active→paused assignment write.';
+
+CREATE OR REPLACE FUNCTION public.assign_program_secure(
+  p_program_id uuid,
+  p_client_id uuid,
+  p_start_date date
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_assignment_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF p_program_id IS NULL OR p_client_id IS NULL OR p_start_date IS NULL THEN
+    RAISE EXCEPTION 'Missing assignment fields';
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.programs p
+    WHERE p.id = p_program_id AND p.owner_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'Not program owner';
+  END IF;
+  IF p_client_id <> v_uid AND NOT public.is_coach_of(p_client_id) THEN
+    RAISE EXCEPTION 'Not authorized for this client';
+  END IF;
+  IF p_client_id = v_uid AND EXISTS (
+    SELECT 1 FROM public.coach_client_links
+    WHERE client_id = v_uid AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'Coached client cannot self-assign';
+  END IF;
+
+  PERFORM public.lock_client_assignment_programs(p_client_id, p_program_id);
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.programs p
+    WHERE p.id = p_program_id AND p.owner_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'Not program owner';
+  END IF;
+  IF p_client_id <> v_uid AND NOT public.is_coach_of(p_client_id) THEN
+    RAISE EXCEPTION 'Not authorized for this client';
+  END IF;
+
+  UPDATE public.program_assignments
+  SET status = 'paused', updated_at = now()
+  WHERE client_id = p_client_id AND status = 'active';
+
+  INSERT INTO public.program_assignments (program_id, client_id, assigned_by, start_date, status)
+  VALUES (p_program_id, p_client_id, v_uid, p_start_date, 'active')
+  RETURNING id INTO v_assignment_id;
+  RETURN v_assignment_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.assign_program_secure(uuid, uuid, date) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.assign_program_secure(uuid, uuid, date) TO authenticated;
+COMMENT ON FUNCTION public.assign_program_secure(uuid, uuid, date) IS
+  'Assign a program to a client. Locks parent programs ORDER BY id FOR UPDATE before pausing the current active assignment so freeze cannot invert lock order with adopt.';
+
 CREATE OR REPLACE FUNCTION public.create_program_complete(
   p_name text,
   p_description text,
@@ -1605,6 +1727,18 @@ BEGIN
     IF p_start_date IS NULL THEN
       RAISE EXCEPTION 'Start date required for assignment';
     END IF;
+    IF p_assign_client_id <> v_uid AND NOT public.is_coach_of(p_assign_client_id) THEN
+      RAISE EXCEPTION 'Not authorized for this client';
+    END IF;
+    IF p_assign_client_id = v_uid AND EXISTS (
+      SELECT 1 FROM public.coach_client_links
+      WHERE client_id = v_uid AND status = 'active'
+    ) THEN
+      RAISE EXCEPTION 'Coached client cannot self-assign';
+    END IF;
+    -- Lock current active-assignment programs before INSERT/pause. The new
+    -- program does not exist yet; freeze will re-lock those same parents.
+    PERFORM public.lock_client_assignment_programs(p_assign_client_id, NULL);
     IF p_assign_client_id <> v_uid AND NOT public.is_coach_of(p_assign_client_id) THEN
       RAISE EXCEPTION 'Not authorized for this client';
     END IF;
@@ -1737,7 +1871,7 @@ REVOKE ALL ON FUNCTION public.create_program_complete(text, text, int, jsonb, uu
 GRANT EXECUTE ON FUNCTION public.create_program_complete(text, text, int, jsonb, uuid, date, text, jsonb) TO authenticated;
 
 COMMENT ON FUNCTION public.create_program_complete(text, text, int, jsonb, uuid, date, text, jsonb) IS
-  'D01 + P3.1 + P3.2 : programme + organisation + phases optionnelles + jours + exercices (+ routine) + assignation optionnelle, une transaction. Toute erreur annule tout.';
+  'D01 + P3.1 + P3.2 : programme + organisation + phases optionnelles + jours + exercices (+ routine) + assignation optionnelle, une transaction. Toute erreur annule tout. Optional assign locks the client''s current active-assignment programs ORDER BY id FOR UPDATE, then revalidates the Coach/client link, before any active→paused write.';
 COMMENT ON FUNCTION public.ensure_due_program_version(uuid) IS
   'Apply a scheduled version when activates_on <= frozen scheduled_activation_timezone civil date (owner/Coach clock). Paused clients and orphan schedules do not apply.';
 COMMENT ON FUNCTION public.validate_program_graph_payload(text, jsonb, jsonb) IS
@@ -2415,6 +2549,99 @@ GRANT EXECUTE ON FUNCTION public.get_frozen_program_archive(uuid) TO authenticat
 COMMENT ON FUNCTION public.get_frozen_program_archive(uuid) IS
   'Read-only frozen assignment archive. Caller = client, assigner, owner, or the client''s current active Coach (is_coach_of). Only frozen_revision_no is returned; live graph and later drafts are never exposed.';
 
+-- Internal. Fresh phase/day UUIDs so apply_program_revision_snapshot can
+-- insert into a new program without colliding with the source graph. Strips
+-- exercise ids and routine_id. Fail-closed on array/legacy snapshots.
+CREATE OR REPLACE FUNCTION public.remap_program_revision_snapshot(p_snapshot jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_org text;
+  v_name text;
+  v_desc text;
+  v_weeks int;
+  v_phases jsonb;
+  v_days jsonb;
+  v_phase jsonb;
+  v_day jsonb;
+  v_ex jsonb;
+  v_new_phases jsonb := '[]'::jsonb;
+  v_new_days jsonb := '[]'::jsonb;
+  v_new_ex jsonb;
+  v_map jsonb := '{}'::jsonb;
+  v_old_id text;
+  v_new_id uuid;
+  v_phase_id uuid;
+BEGIN
+  IF p_snapshot IS NULL OR jsonb_typeof(p_snapshot) <> 'object' THEN
+    RAISE EXCEPTION 'archive_not_frozen';
+  END IF;
+
+  v_name := NULLIF(btrim(COALESCE(p_snapshot->>'name', '')), '');
+  v_desc := COALESCE(p_snapshot->>'description', '');
+  BEGIN
+    v_weeks := GREATEST(1, LEAST(52, COALESCE(NULLIF(btrim(COALESCE(p_snapshot->>'duration_weeks', '')), '')::int, 8)));
+  EXCEPTION WHEN OTHERS THEN
+    v_weeks := 8;
+  END;
+  v_org := public.normalize_session_organization(p_snapshot->>'session_organization');
+
+  v_phases := COALESCE(p_snapshot->'phases', '[]'::jsonb);
+  v_days := COALESCE(p_snapshot->'days', '[]'::jsonb);
+  IF jsonb_typeof(v_phases) <> 'array' THEN v_phases := '[]'::jsonb; END IF;
+  IF jsonb_typeof(v_days) <> 'array' THEN RAISE EXCEPTION 'Invalid payload'; END IF;
+
+  FOR v_phase IN SELECT * FROM jsonb_array_elements(v_phases) LOOP
+    v_new_id := gen_random_uuid();
+    v_old_id := NULLIF(btrim(COALESCE(v_phase->>'id', '')), '');
+    IF v_old_id IS NOT NULL THEN
+      v_map := v_map || jsonb_build_object(v_old_id, v_new_id::text);
+    END IF;
+    v_new_phases := v_new_phases || jsonb_build_array(
+      (v_phase - 'id') || jsonb_build_object('id', v_new_id)
+    );
+  END LOOP;
+
+  FOR v_day IN SELECT * FROM jsonb_array_elements(v_days) LOOP
+    v_phase_id := NULL;
+    v_old_id := NULLIF(btrim(COALESCE(v_day->>'phase_id', '')), '');
+    IF v_old_id IS NOT NULL AND v_map ? v_old_id THEN
+      v_phase_id := (v_map->>v_old_id)::uuid;
+    END IF;
+    v_new_ex := '[]'::jsonb;
+    IF jsonb_typeof(v_day->'exercises') = 'array' THEN
+      FOR v_ex IN SELECT * FROM jsonb_array_elements(v_day->'exercises') LOOP
+        v_new_ex := v_new_ex || jsonb_build_array(v_ex - 'id');
+      END LOOP;
+    END IF;
+    v_new_days := v_new_days || jsonb_build_array(
+      (v_day - 'id' - 'phase_id' - 'exercises' - 'routine_id')
+      || jsonb_build_object(
+        'phase_id', to_jsonb(v_phase_id),
+        'exercises', v_new_ex
+      )
+    );
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'session_organization', v_org,
+    'name', COALESCE(v_name, ''),
+    'description', v_desc,
+    'duration_weeks', v_weeks,
+    'phases', v_new_phases,
+    'days', v_new_days
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.remap_program_revision_snapshot(jsonb)
+  FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.remap_program_revision_snapshot(jsonb) IS
+  'Internal. Remap a P3 revision snapshot onto fresh phase/day ids for apply_program_revision_snapshot on a new program.';
+
 -- Adopt is addressed by assignment_id. Copy that exact row's snapshot through
 -- the existing P3 apply engine. Never copies live programs/days/phases/
 -- exercises. Never picks "active first / latest paused". Active assignment →
@@ -2440,18 +2667,6 @@ DECLARE
   v_desc text;
   v_weeks int;
   v_org text;
-  v_phases jsonb;
-  v_days jsonb;
-  v_phase jsonb;
-  v_day jsonb;
-  v_ex jsonb;
-  v_new_phases jsonb := '[]'::jsonb;
-  v_new_days jsonb := '[]'::jsonb;
-  v_new_ex jsonb;
-  v_map jsonb := '{}'::jsonb;
-  v_old_id text;
-  v_new_id uuid;
-  v_phase_id uuid;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_assignment_id IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
@@ -2515,15 +2730,14 @@ BEGIN
   IF v_snap IS NULL THEN
     RAISE EXCEPTION 'archive_not_frozen';
   END IF;
-  IF jsonb_typeof(v_snap) = 'array' THEN
-    RAISE EXCEPTION 'archive_not_frozen';
-  END IF;
 
+  v_snap := public.remap_program_revision_snapshot(v_snap);
   v_name := COALESCE(
     NULLIF(btrim(COALESCE(p_name, '')), ''),
     NULLIF(btrim(COALESCE(v_snap->>'name', '')), '') || ' (repris)',
     'Programme (repris)'
   );
+  v_snap := v_snap || jsonb_build_object('name', v_name);
   v_desc := COALESCE(v_snap->>'description', '');
   BEGIN
     v_weeks := GREATEST(1, LEAST(52, COALESCE(NULLIF(btrim(COALESCE(v_snap->>'duration_weeks', '')), '')::int, 8)));
@@ -2531,54 +2745,6 @@ BEGIN
     v_weeks := 8;
   END;
   v_org := public.normalize_session_organization(v_snap->>'session_organization');
-
-  v_phases := COALESCE(v_snap->'phases', '[]'::jsonb);
-  v_days := COALESCE(v_snap->'days', '[]'::jsonb);
-  IF jsonb_typeof(v_phases) <> 'array' THEN v_phases := '[]'::jsonb; END IF;
-  IF jsonb_typeof(v_days) <> 'array' THEN RAISE EXCEPTION 'Invalid payload'; END IF;
-
-  -- Fresh ids so apply_program_revision_snapshot can insert into the new
-  -- program without colliding with source phase/day UUIDs (Invalid phase).
-  FOR v_phase IN SELECT * FROM jsonb_array_elements(v_phases) LOOP
-    v_new_id := gen_random_uuid();
-    v_old_id := NULLIF(btrim(COALESCE(v_phase->>'id', '')), '');
-    IF v_old_id IS NOT NULL THEN
-      v_map := v_map || jsonb_build_object(v_old_id, v_new_id::text);
-    END IF;
-    v_new_phases := v_new_phases || jsonb_build_array(
-      (v_phase - 'id') || jsonb_build_object('id', v_new_id)
-    );
-  END LOOP;
-
-  FOR v_day IN SELECT * FROM jsonb_array_elements(v_days) LOOP
-    v_phase_id := NULL;
-    v_old_id := NULLIF(btrim(COALESCE(v_day->>'phase_id', '')), '');
-    IF v_old_id IS NOT NULL AND v_map ? v_old_id THEN
-      v_phase_id := (v_map->>v_old_id)::uuid;
-    END IF;
-    v_new_ex := '[]'::jsonb;
-    IF jsonb_typeof(v_day->'exercises') = 'array' THEN
-      FOR v_ex IN SELECT * FROM jsonb_array_elements(v_day->'exercises') LOOP
-        v_new_ex := v_new_ex || jsonb_build_array(v_ex - 'id');
-      END LOOP;
-    END IF;
-    v_new_days := v_new_days || jsonb_build_array(
-      (v_day - 'id' - 'phase_id' - 'exercises' - 'routine_id')
-      || jsonb_build_object(
-        'phase_id', to_jsonb(v_phase_id),
-        'exercises', v_new_ex
-      )
-    );
-  END LOOP;
-
-  v_snap := jsonb_build_object(
-    'session_organization', v_org,
-    'name', v_name,
-    'description', v_desc,
-    'duration_weeks', v_weeks,
-    'phases', v_new_phases,
-    'days', v_new_days
-  );
 
   INSERT INTO public.programs (owner_id, name, description, duration_weeks, session_organization)
   VALUES (v_uid, v_name, v_desc, v_weeks, v_org)
@@ -2615,16 +2781,7 @@ BEGIN
   IF p_client_id = v_uid THEN
     RETURN jsonb_build_object('ok', false, 'error', 'cannot_end_self');
   END IF;
-  PERFORM 1
-  FROM public.programs p
-  WHERE p.id IN (
-    SELECT pa.program_id
-    FROM public.program_assignments pa
-    WHERE pa.client_id = p_client_id
-      AND pa.assigned_by = v_uid
-      AND pa.status = 'active'
-  )
-  FOR UPDATE;
+  PERFORM public.lock_client_assignment_programs(p_client_id, NULL);
   RETURN public.transition_client_to_solo(v_uid, p_client_id);
 END;
 $$;
@@ -2656,15 +2813,7 @@ BEGIN
     RETURN jsonb_build_object('ok', false, 'error', 'not_linked');
   END IF;
 
-  PERFORM 1
-  FROM public.programs p
-  WHERE p.id IN (
-    SELECT pa.program_id
-    FROM public.program_assignments pa
-    WHERE pa.client_id = v_uid
-      AND pa.status = 'active'
-  )
-  FOR UPDATE;
+  PERFORM public.lock_client_assignment_programs(v_uid, NULL);
 
   v_result := public.transition_client_to_solo(v_coach_id, v_uid);
   IF v_result->>'ok' = 'true' THEN
@@ -2679,3 +2828,181 @@ $$;
 
 REVOKE ALL ON FUNCTION public.client_end_coach_link() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.client_end_coach_link() TO authenticated;
+
+-- P3 close_coach_account: snapshot-engine transfer of each assignment, keep
+-- the same revision_no values, retarget workouts, then freeze paused with a
+-- non-null frozen_revision_no. service_role only; one transaction; retry after
+-- success is a no-op (no active links).
+CREATE OR REPLACE FUNCTION public.close_coach_account(p_coach_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_link record;
+  v_asg record;
+  v_fork_id uuid;
+  v_transitioned int := 0;
+  v_forked int := 0;
+  v_rev int;
+  v_rev_no int;
+  v_rev_nos int[];
+  v_snap jsonb;
+  v_meta jsonb;
+  v_name text;
+  v_desc text;
+  v_weeks int;
+  v_org text;
+BEGIN
+  IF p_coach_id IS NULL THEN
+    RAISE EXCEPTION 'Coach required';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.coach_client_links
+    WHERE coach_id = p_coach_id
+      AND status = 'active'
+  ) THEN
+    RETURN jsonb_build_object('ok', true, 'transitioned', 0, 'forked', 0);
+  END IF;
+
+  PERFORM public.lock_programs_for_assignment_mutation(
+    ARRAY(
+      SELECT DISTINCT pa.program_id
+      FROM public.coach_client_links l
+      JOIN public.program_assignments pa
+        ON pa.client_id = l.client_id
+       AND pa.assigned_by = p_coach_id
+       AND pa.status IN ('active', 'paused', 'completed')
+      JOIN public.programs p
+        ON p.id = pa.program_id
+       AND p.owner_id = p_coach_id
+      WHERE l.coach_id = p_coach_id
+        AND l.status = 'active'
+    )
+  );
+
+  FOR v_link IN
+    SELECT client_id
+    FROM public.coach_client_links
+    WHERE coach_id = p_coach_id
+      AND status = 'active'
+    ORDER BY client_id
+  LOOP
+    FOR v_asg IN
+      SELECT pa.id AS assignment_id,
+             pa.program_id,
+             pa.client_id,
+             pa.status,
+             pa.frozen_revision_no
+      FROM public.program_assignments pa
+      JOIN public.programs p ON p.id = pa.program_id
+      WHERE pa.client_id = v_link.client_id
+        AND pa.assigned_by = p_coach_id
+        AND pa.status IN ('active', 'paused', 'completed')
+        AND p.owner_id = p_coach_id
+      ORDER BY pa.id
+      FOR UPDATE OF pa
+    LOOP
+      IF v_asg.status = 'active' THEN
+        SELECT p.active_revision_no INTO v_rev
+        FROM public.programs p
+        WHERE p.id = v_asg.program_id;
+        IF v_rev IS NULL THEN
+          RAISE EXCEPTION 'archive_not_frozen';
+        END IF;
+      ELSIF v_asg.status IN ('paused', 'completed') THEN
+        IF v_asg.frozen_revision_no IS NULL THEN
+          RAISE EXCEPTION 'archive_not_frozen';
+        END IF;
+        v_rev := v_asg.frozen_revision_no;
+      ELSE
+        CONTINUE;
+      END IF;
+
+      SELECT ARRAY(
+        SELECT DISTINCT x.n
+        FROM (
+          SELECT v_rev AS n
+          UNION
+          SELECT w.program_revision_no
+          FROM public.workouts w
+          WHERE w.program_assignment_id = v_asg.assignment_id
+            AND w.program_revision_no IS NOT NULL
+        ) x
+        ORDER BY 1
+      ) INTO v_rev_nos;
+
+      SELECT r.snapshot INTO v_snap
+      FROM public.program_revisions r
+      WHERE r.program_id = v_asg.program_id
+        AND r.revision_no = v_rev;
+      IF v_snap IS NULL THEN
+        RAISE EXCEPTION 'archive_not_frozen';
+      END IF;
+      v_meta := public.remap_program_revision_snapshot(v_snap);
+      v_name := COALESCE(NULLIF(btrim(COALESCE(v_meta->>'name', '')), ''), 'Programme');
+      v_desc := COALESCE(v_meta->>'description', '');
+      BEGIN
+        v_weeks := GREATEST(1, LEAST(52, COALESCE(NULLIF(btrim(COALESCE(v_meta->>'duration_weeks', '')), '')::int, 8)));
+      EXCEPTION WHEN OTHERS THEN
+        v_weeks := 8;
+      END;
+      v_org := public.normalize_session_organization(v_meta->>'session_organization');
+
+      INSERT INTO public.programs (owner_id, name, description, duration_weeks, session_organization)
+      VALUES (v_link.client_id, v_name, v_desc, v_weeks, v_org)
+      RETURNING id INTO v_fork_id;
+
+      FOREACH v_rev_no IN ARRAY v_rev_nos LOOP
+        SELECT r.snapshot INTO v_snap
+        FROM public.program_revisions r
+        WHERE r.program_id = v_asg.program_id
+          AND r.revision_no = v_rev_no;
+        IF v_snap IS NULL THEN
+          RAISE EXCEPTION 'archive_not_frozen';
+        END IF;
+        INSERT INTO public.program_revisions (program_id, revision_no, snapshot, created_by)
+        VALUES (
+          v_fork_id,
+          v_rev_no,
+          public.remap_program_revision_snapshot(v_snap),
+          v_link.client_id
+        );
+      END LOOP;
+
+      PERFORM public.apply_program_revision_snapshot(v_fork_id, v_rev, 'now');
+
+      UPDATE public.workouts
+      SET
+        program_id = v_fork_id,
+        program_day_id = NULL,
+        program_phase_id = NULL
+      WHERE program_assignment_id = v_asg.assignment_id;
+
+      UPDATE public.program_assignments
+      SET
+        program_id = v_fork_id,
+        assigned_by = v_link.client_id,
+        status = 'paused',
+        frozen_revision_no = v_rev,
+        updated_at = now()
+      WHERE id = v_asg.assignment_id;
+
+      v_forked := v_forked + 1;
+    END LOOP;
+
+    PERFORM public.transition_client_to_solo(p_coach_id, v_link.client_id);
+    v_transitioned := v_transitioned + 1;
+  END LOOP;
+
+  RETURN jsonb_build_object('ok', true, 'transitioned', v_transitioned, 'forked', v_forked);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.close_coach_account(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.close_coach_account(uuid) TO service_role;
+COMMENT ON FUNCTION public.close_coach_account(uuid) IS
+  'P3 coach-account close. For each assignment of each active client, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';

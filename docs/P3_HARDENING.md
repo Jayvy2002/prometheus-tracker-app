@@ -168,6 +168,26 @@ L’ancien RPC `adopt_client_program(program_id, client_id)` (choix active /
 `updated_at DESC`) est **DROP**. Verrou : `programs FOR UPDATE`, assignment
 `FOR UPDATE`, lien Coach actif `FOR SHARE`, puis `is_coach_of` avant copie.
 
+Toute mutation publique d’assignment (`assign_program_secure`,
+`create_program_complete(... p_assign_client_id ...)`, `end_coach_client_link`,
+`client_end_coach_link`) verrouille d’abord les programmes parents
+(`lock_client_assignment_programs` : assignments `active` du client ∪ programme
+cible s’il existe, `ORDER BY id FOR UPDATE`), revalide le lien Coach/client,
+puis seulement `active → paused`. Le trigger freeze peut alors `FOR UPDATE`
+le programme déjà tenu : pas d’ordre `assignment → program` vs adopt.
+
+`close_coach_account` (service_role, une transaction, retry = no-op s’il n’y
+a plus de lien actif) transfère **chaque** assignment du client lié via le
+moteur P3 : révision source exacte (actif → `active_revision_no`, paused /
+completed → `frozen_revision_no`, fail-closed) plus les révisions réellement
+référencées par les workouts de **cet** assignment, mêmes `revision_no`,
+snapshots remappés (`remap_program_revision_snapshot`) puis
+`apply_program_revision_snapshot`. Les drafts Coach privés non utilisés ne
+sont pas copiés. `workouts.program_id` pointe vers le programme client-owned
+**avant** la suppression Auth ; `program_revision_no` continue de résoudre.
+Après transfert : `assignment.program_id` = fork, status `paused`,
+`frozen_revision_no` non NULL, archive RPC immédiatement fonctionnelle.
+
 `program_assignments_freeze_on_pause` verrouille `programs … FOR UPDATE`
 avant de copier `active_revision_no`. `end_coach_client_link` /
 `client_end_coach_link` prennent le même verrou **avant**

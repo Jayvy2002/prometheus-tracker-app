@@ -31,6 +31,12 @@ test('C03: coach deletion runs the business transition first, then paginated cle
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.transition_client_to_solo/);
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.close_coach_account/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.close_coach_account\(uuid\) TO service_role/);
+  const close = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.close_coach_account(p_coach_id uuid)');
+  assert.equal(close.file, '20260920014500_p3_hardening.sql');
+  assert.match(close.sql, /remap_program_revision_snapshot/);
+  assert.match(close.sql, /apply_program_revision_snapshot/);
+  assert.match(close.sql, /lock_programs_for_assignment_mutation/);
+  assert.match(close.sql, /frozen_revision_no = v_rev/);
   const edge = src('supabase/functions/delete-account/index.ts');
   assert.match(edge, /close_coach_account/);
   assert.match(edge, /auth\.admin\.deleteUser/);
@@ -39,6 +45,7 @@ test('C03: coach deletion runs the business transition first, then paginated cle
     'transition must run before Auth deletion',
   );
   assert.match(edge, /offset \+= LIST_PAGE/);
+  assert.match(edge, /P3 snapshot/);
 });
 
 test('C04: assignment history follows the athlete; adoption is exact assignment_id', () => {
