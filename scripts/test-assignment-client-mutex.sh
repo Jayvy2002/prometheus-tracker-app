@@ -97,22 +97,35 @@ UPDATE public.user_profiles
 SQL
 }
 
+wait_mutex_backends_gone() {
+  local n="0"
+  for _ in $(seq 1 50); do
+    n="$(psql_at "SELECT count(*) FROM pg_stat_activity WHERE application_name IN ('${HOLD_APP}', '${T1_APP}', '${T2_APP}') AND pid <> pg_backend_pid()")"
+    if [[ "${n}" == "0" ]]; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  echo "mutex backends still live after terminate (${n})" >&2
+  exit 1
+}
+
 wipe_programs() {
+  psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c "
+    SELECT pg_terminate_backend(pid)
+      FROM pg_stat_activity
+     WHERE application_name IN ('${HOLD_APP}', '${T1_APP}', '${T2_APP}')
+       AND pid <> pg_backend_pid();
+  " >/dev/null
+  wait_mutex_backends_gone
   psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
-SELECT pg_terminate_backend(pid)
-  FROM pg_stat_activity
- WHERE application_name IN ('${HOLD_APP}', '${T1_APP}', '${T2_APP}')
-   AND pid <> pg_backend_pid();
+SET row_security = off;
 DELETE FROM public.workouts
  WHERE user_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
     OR program_id IN (
       SELECT id FROM public.programs
        WHERE owner_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
     );
-UPDATE public.program_assignments
-   SET status = 'paused', updated_at = now()
- WHERE client_id = '${CLIENT}'::uuid
-   AND status = 'active';
 DELETE FROM public.program_assignments
  WHERE client_id = '${CLIENT}'::uuid
     OR assigned_by IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
@@ -136,6 +149,23 @@ VALUES ('${LINK}'::uuid, '${OWNER}'::uuid, '${CLIENT}'::uuid, 'active')
 ON CONFLICT (id) DO UPDATE SET status = 'active', coach_id = EXCLUDED.coach_id, client_id = EXCLUDED.client_id;
 UPDATE public.user_roles SET coaching_role = 'none' WHERE user_id = '${CLIENT}'::uuid;
 SQL
+  leftover="$(psql_at "SELECT count(*) FROM public.program_assignments WHERE client_id = '${CLIENT}'::uuid OR assigned_by IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)")"
+  leftover_programs="$(psql_at "SELECT count(*) FROM public.programs WHERE owner_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)")"
+  if [[ "${leftover}" != "0" || "${leftover_programs}" != "0" ]]; then
+    echo "wipe_programs left ${leftover} assignments / ${leftover_programs} programs" >&2
+    psql "$DATABASE_URL" -X -c "
+      SELECT pa.id, pa.status, pa.assigned_by, pa.program_id, p.owner_id, p.name
+        FROM public.program_assignments pa
+        LEFT JOIN public.programs p ON p.id = pa.program_id
+       WHERE pa.client_id = '${CLIENT}'::uuid
+          OR pa.assigned_by IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
+       ORDER BY pa.created_at;
+      SELECT id, owner_id, name FROM public.programs
+       WHERE owner_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
+       ORDER BY created_at;
+    " >&2 || true
+    exit 1
+  fi
 }
 
 seed_library_program() {
@@ -703,6 +733,19 @@ forked="$(psql_at "
 ")"
 if [[ "${forked}" != "2" ]]; then
   echo "Cas 4a expected two client-owned frozen forks (A+B), got ${forked}" >&2
+  cat /tmp/prometheus-asg-mutex-t1.out /tmp/prometheus-asg-mutex-t1.err >&2 || true
+  cat /tmp/prometheus-asg-mutex-t2.out /tmp/prometheus-asg-mutex-t2.err >&2 || true
+  psql "$DATABASE_URL" -X -c "
+    SELECT pa.id, pa.status, pa.assigned_by, pa.frozen_revision_no, p.owner_id, p.name
+      FROM public.program_assignments pa
+      LEFT JOIN public.programs p ON p.id = pa.program_id
+     WHERE pa.client_id = '${CLIENT}'::uuid
+        OR p.owner_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
+     ORDER BY pa.created_at;
+    SELECT id, owner_id, name FROM public.programs
+     WHERE owner_id IN ('${OWNER}'::uuid, '${CLIENT}'::uuid)
+     ORDER BY created_at;
+  " >&2 || true
   exit 1
 fi
 left_active_coach="$(psql_at "

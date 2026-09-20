@@ -170,6 +170,9 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const lockAt = closeFn.indexOf('lock_programs_for_assignment_mutation');
     assert.ok(mutexAt >= 0 && lockAt > mutexAt, 'close_coach_account must take client mutex before program locks');
     assert.match(closeFn, /frozen_revision_no = v_rev/);
+    const idsAt = closeFn.indexOf('WITH locked AS MATERIALIZED');
+    const insertForkAt = closeFn.indexOf('INSERT INTO public.programs');
+    assert.ok(idsAt >= 0 && insertForkAt > idsAt, 'close_coach_account must snapshot assignment ids before fork INSERT');
     assert.doesNotMatch(closeFn, /INSERT INTO public\.program_days/);
     assert.doesNotMatch(closeFn, /set_config\('request\.jwt/);
   }
@@ -362,6 +365,9 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /serialize without stale lock-set/);
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /missing active_revision_no/);
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /SET application_name = '\$\{T2_APP\}';\s*SELECT public\.close_coach_account/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /wipe_programs left/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /wait_mutex_backends_gone/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /Cas 4a expected two client-owned frozen forks/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /close_coach_account P3: snapshots, phases, org, prescriptions, freeze pin, workout provenance, retry/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /Secret unused draft/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /get_frozen_program_archive/);

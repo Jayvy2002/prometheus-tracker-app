@@ -191,7 +191,8 @@ verrouillé). `transition_client_to_solo` n’est pas remplacé : ses appelants
 publics tiennent déjà le mutex. `close_coach_account` mutex tous les clients
 liés (`ORDER BY client_id`) jusqu’à un ensemble stable **avant** le lock-set
 programmes, pour qu’une assignation qui commit pendant l’attente soit
-incluse dans le fork P3.
+incluse dans le fork P3. Les `assignment_id` à transférer sont ensuite
+figés (`FOR UPDATE OF pa` puis CTE `array_agg`) avant tout `INSERT` de fork.
 
 Le trigger freeze peut alors `FOR UPDATE` le programme déjà tenu : pas
 d’ordre `assignment → program` vs adopt, et pas de lock-set périmé vs

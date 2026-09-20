@@ -3011,6 +3011,8 @@ DECLARE
   v_locked uuid[] := '{}';
   v_cid uuid;
   v_guard int := 0;
+  v_asg_ids uuid[];
+  v_asg_id uuid;
 BEGIN
   IF p_coach_id IS NULL THEN
     RAISE EXCEPTION 'Coach required';
@@ -3067,12 +3069,11 @@ BEGIN
       AND status = 'active'
     ORDER BY client_id
   LOOP
-    FOR v_asg IN
-      SELECT pa.id AS assignment_id,
-             pa.program_id,
-             pa.client_id,
-             pa.status,
-             pa.frozen_revision_no
+    -- Materialize the assignment id set under the client mutex + program
+    -- locks. A FOR loop over a live SELECT can pick up rows inserted by
+    -- apply/freeze in this same transaction; a CTE snapshot cannot.
+    WITH locked AS MATERIALIZED (
+      SELECT pa.id AS assignment_id
       FROM public.program_assignments pa
       JOIN public.programs p ON p.id = pa.program_id
       WHERE pa.client_id = v_link.client_id
@@ -3081,7 +3082,20 @@ BEGIN
         AND p.owner_id = p_coach_id
       ORDER BY pa.id
       FOR UPDATE OF pa
-    LOOP
+    )
+    SELECT COALESCE(array_agg(locked.assignment_id ORDER BY locked.assignment_id), '{}')
+      INTO v_asg_ids
+    FROM locked;
+
+    FOREACH v_asg_id IN ARRAY v_asg_ids LOOP
+      SELECT pa.id AS assignment_id,
+             pa.program_id,
+             pa.client_id,
+             pa.status,
+             pa.frozen_revision_no
+        INTO v_asg
+      FROM public.program_assignments pa
+      WHERE pa.id = v_asg_id;
       IF v_asg.status = 'active' THEN
         SELECT p.active_revision_no INTO v_rev
         FROM public.programs p
@@ -3189,4 +3203,4 @@ $$;
 REVOKE ALL ON FUNCTION public.close_coach_account(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.close_coach_account(uuid) TO service_role;
 COMMENT ON FUNCTION public.close_coach_account(uuid) IS
-  'P3 coach-account close. Client assignment mutex for every linked client (ORDER BY client_id) before the program lock-set, so a concurrent assign cannot leave a new Coach-owned active program outside the fork. For each assignment of each active client, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision without a user JWT, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';
+  'P3 coach-account close. Client assignment mutex for every linked client (ORDER BY client_id) before the program lock-set, so a concurrent assign cannot leave a new Coach-owned active program outside the fork. Assignment ids are materialized with FOR UPDATE then array_agg before any fork INSERT. For each of those rows, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision without a user JWT, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';
