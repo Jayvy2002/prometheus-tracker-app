@@ -203,7 +203,9 @@ moteur P3 : révision source exacte (actif → `active_revision_no`, paused /
 completed → `frozen_revision_no`, fail-closed) plus les révisions réellement
 référencées par les workouts de **cet** assignment, mêmes `revision_no`,
 snapshots remappés (`remap_program_revision_snapshot`) puis
-`apply_program_revision_snapshot`. Les drafts Coach privés non utilisés ne
+`apply_program_revision_snapshot` **sans JWT utilisateur** (`sync_program_phases`
+/ `sync_program_days` en `p_trusted` n'exigent `auth.uid()` que sur le chemin
+non trusted). Les drafts Coach privés non utilisés ne
 sont pas copiés. `workouts.program_id` pointe vers le programme client-owned
 **avant** la suppression Auth ; `program_revision_no` continue de résoudre.
 Après transfert : `assignment.program_id` = fork, status `paused`,

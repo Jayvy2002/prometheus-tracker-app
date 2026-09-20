@@ -1978,8 +1978,31 @@ begin
         > position('lock_programs_for_assignment_mutation' in src)
      or position('lock_programs_for_assignment_mutation' in src) = 0
      or position('frozen_revision_no = v_rev' in src) = 0
+     or position('set_config(''request.jwt' in src) > 0
      or position('insert into public.program_days' in src) > 0 then
     raise exception 'close_coach_account is not on the P3 snapshot engine';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.sync_program_phases(uuid,jsonb,boolean)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('if not coalesce(p_trusted, false) then' in src) = 0
+     or position('not authenticated' in src)
+        < position('if not coalesce(p_trusted, false) then' in src) then
+    raise exception 'trusted sync_program_phases still requires a user JWT';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.sync_program_days(uuid,jsonb,boolean,boolean)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('if not coalesce(p_trusted, false) then' in src) = 0
+     or position('not authenticated' in src)
+        < position('if not coalesce(p_trusted, false) then' in src) then
+    raise exception 'trusted sync_program_days still requires a user JWT';
   end if;
   if exists (
     select 1

@@ -176,6 +176,10 @@ begin
   perform set_config('test.close_draft', v_draft::text, true);
 end $$;
 reset role;
+-- Production delete-account calls close as service_role with no user JWT.
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','',true);
 
 do $$
 declare
@@ -194,6 +198,9 @@ declare
   v_arch jsonb;
   n int;
 begin
+  if auth.uid() is not null then
+    raise exception 'close_coach_account must run without a user JWT (service_role/delete-account shape)';
+  end if;
   v_out := public.close_coach_account(v_coach);
   if v_out->>'ok' is distinct from 'true'
      or (v_out->>'forked')::int is distinct from 2

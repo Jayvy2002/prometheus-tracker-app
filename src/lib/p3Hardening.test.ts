@@ -168,6 +168,23 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     assert.ok(mutexAt >= 0 && lockAt > mutexAt, 'close_coach_account must take client mutex before program locks');
     assert.match(closeFn, /frozen_revision_no = v_rev/);
     assert.doesNotMatch(closeFn, /INSERT INTO public\.program_days/);
+    assert.doesNotMatch(closeFn, /set_config\('request\.jwt/);
+  }
+  {
+    const phasesStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.sync_program_phases(');
+    const phasesEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.sync_program_phases(uuid, jsonb, boolean)', phasesStart);
+    const phasesFn = found.sql.slice(phasesStart, phasesEnd);
+    const trustedAt = phasesFn.indexOf('IF NOT COALESCE(p_trusted, false) THEN');
+    const authAt = phasesFn.indexOf("RAISE EXCEPTION 'Not authenticated'");
+    assert.ok(trustedAt >= 0 && authAt > trustedAt, 'trusted sync_program_phases must not require a user JWT');
+  }
+  {
+    const daysStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.sync_program_days(\n  p_program_id uuid,\n  p_days jsonb,\n  p_skip_snapshot boolean,\n  p_trusted boolean');
+    const daysEnd = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.sync_program_days(p_program_id uuid, p_days jsonb)', daysStart);
+    const daysFn = found.sql.slice(daysStart, daysEnd);
+    const trustedAt = daysFn.indexOf('IF NOT COALESCE(p_trusted, false) THEN');
+    const authAt = daysFn.indexOf("RAISE EXCEPTION 'Not authenticated'");
+    assert.ok(trustedAt >= 0 && authAt > trustedAt, 'trusted sync_program_days must not require a user JWT');
   }
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.lock_client_assignment_mutex/);
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.lock_programs_for_assignment_mutation/);
@@ -340,9 +357,13 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /client_end_coach_link/);
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /close_coach_account/);
   assert.match(src('scripts/test-assignment-client-mutex.sh'), /serialize without stale lock-set/);
+  assert.match(src('scripts/test-assignment-client-mutex.sh'), /SET application_name = '\$\{T2_APP\}';\s*SELECT public\.close_coach_account/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /close_coach_account P3: snapshots, phases, org, prescriptions, freeze pin, workout provenance, retry/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /Secret unused draft/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /get_frozen_program_archive/);
+  assert.match(src('supabase/tests/program_close_coach_account.sql'), /close_coach_account must run without a user JWT/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_phases still requires a user JWT/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_days still requires a user JWT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /assign_program_secure does not lock programs before pause/);
   assert.match(src('supabase/tests/program_hardening.sql'), /create_program_complete does not lock programs before pause/);
   assert.match(src('supabase/tests/program_hardening.sql'), /close_coach_account is not on the P3 snapshot engine/);

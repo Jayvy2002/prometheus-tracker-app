@@ -551,6 +551,115 @@ CREATE TRIGGER program_assignments_cancel_orphan_schedule
   WHEN (OLD.status = 'active' AND NEW.status IS DISTINCT FROM 'active')
   EXECUTE FUNCTION public.program_assignments_cancel_orphan_schedule();
 
+-- Trusted internal apply (close_coach_account / apply_program_revision_snapshot)
+-- must work without a user JWT. Untrusted callers still require auth.uid().
+CREATE OR REPLACE FUNCTION public.sync_program_phases(
+  p_program_id uuid,
+  p_phases jsonb,
+  p_trusted boolean
+)
+RETURNS int
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_phase jsonb;
+  v_id uuid;
+  v_payload_id uuid;
+  v_name text;
+  v_desc text;
+  v_weeks int;
+  v_used uuid[] := '{}';
+  v_order int := 0;
+BEGIN
+  IF p_program_id IS NULL OR p_phases IS NULL OR jsonb_typeof(p_phases) <> 'array' THEN
+    RAISE EXCEPTION 'Invalid payload';
+  END IF;
+  IF jsonb_array_length(p_phases) > 24 THEN RAISE EXCEPTION 'Too many phases'; END IF;
+  IF NOT COALESCE(p_trusted, false) THEN
+    IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+    IF NOT EXISTS (SELECT 1 FROM public.programs p WHERE p.id = p_program_id AND p.owner_id = v_uid) THEN
+      RAISE EXCEPTION 'Not program owner';
+    END IF;
+    IF public.coached_client_cannot_edit_program(p_program_id) THEN
+      RAISE EXCEPTION 'Coached client cannot edit assigned program';
+    END IF;
+  END IF;
+
+  FOR v_phase IN SELECT * FROM jsonb_array_elements(p_phases) LOOP
+    v_name := NULLIF(btrim(COALESCE(v_phase->>'name', '')), '');
+    IF v_name IS NULL THEN RAISE EXCEPTION 'Phase name required'; END IF;
+    IF char_length(v_name) > 80 THEN RAISE EXCEPTION 'Phase name too long'; END IF;
+    BEGIN
+      v_weeks := NULLIF(btrim(COALESCE(v_phase->>'duration_weeks', '')), '')::int;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'Invalid phase duration';
+    END;
+    IF v_weeks IS NOT NULL AND (v_weeks < 1 OR v_weeks > 52) THEN
+      RAISE EXCEPTION 'Invalid phase duration';
+    END IF;
+  END LOOP;
+
+  UPDATE public.program_phases
+  SET order_index = order_index - 10000
+  WHERE program_id = p_program_id;
+
+  FOR v_phase IN SELECT * FROM jsonb_array_elements(p_phases) LOOP
+    v_id := NULL;
+    v_payload_id := NULL;
+    BEGIN
+      v_payload_id := NULLIF(btrim(COALESCE(v_phase->>'id', '')), '')::uuid;
+    EXCEPTION WHEN OTHERS THEN
+      RAISE EXCEPTION 'Invalid payload';
+    END;
+    v_name := btrim(v_phase->>'name');
+    v_desc := COALESCE(v_phase->>'description', '');
+    BEGIN
+      v_weeks := NULLIF(btrim(COALESCE(v_phase->>'duration_weeks', '')), '')::int;
+    EXCEPTION WHEN OTHERS THEN
+      v_weeks := NULL;
+    END;
+    IF v_payload_id IS NOT NULL THEN
+      SELECT ph.id INTO v_id
+      FROM public.program_phases ph
+      WHERE ph.program_id = p_program_id AND ph.id = v_payload_id AND NOT (ph.id = ANY (v_used))
+      LIMIT 1;
+      IF v_id IS NULL AND EXISTS (SELECT 1 FROM public.program_phases ph WHERE ph.id = v_payload_id) THEN
+        RAISE EXCEPTION 'Invalid phase';
+      END IF;
+    END IF;
+    IF v_id IS NULL THEN
+      INSERT INTO public.program_phases (id, program_id, name, description, order_index, duration_weeks)
+      VALUES (
+        COALESCE(v_payload_id, gen_random_uuid()),
+        p_program_id,
+        v_name,
+        v_desc,
+        v_order,
+        v_weeks
+      )
+      RETURNING id INTO v_id;
+    ELSE
+      UPDATE public.program_phases
+      SET name = v_name, description = v_desc, order_index = v_order, duration_weeks = v_weeks
+      WHERE id = v_id;
+    END IF;
+    v_used := v_used || v_id;
+    v_order := v_order + 1;
+  END LOOP;
+
+  DELETE FROM public.program_phases ph
+  WHERE ph.program_id = p_program_id AND NOT (ph.id = ANY (v_used));
+  RETURN v_order;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.sync_program_phases(uuid, jsonb, boolean) FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.sync_program_phases(uuid, jsonb, boolean) IS
+  'Internal. p_trusted skips actor auth so apply_program_revision_snapshot / close_coach_account can run without a user JWT. Untrusted callers still require an authenticated owner.';
+
 CREATE OR REPLACE FUNCTION public.sync_program_days(
   p_program_id uuid,
   p_days jsonb,
@@ -581,12 +690,12 @@ DECLARE
   v_wd_key text;
   v_phases jsonb;
 BEGIN
-  IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_program_id IS NULL OR p_days IS NULL OR jsonb_typeof(p_days) <> 'array' THEN
     RAISE EXCEPTION 'Invalid payload';
   END IF;
   IF jsonb_array_length(p_days) > 42 THEN RAISE EXCEPTION 'Too many days'; END IF;
   IF NOT COALESCE(p_trusted, false) THEN
+    IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
     IF NOT EXISTS (SELECT 1 FROM public.programs p WHERE p.id = p_program_id AND p.owner_id = v_uid) THEN
       RAISE EXCEPTION 'Not program owner';
     END IF;
@@ -912,6 +1021,9 @@ BEGIN
   RETURN p_revision_no;
 END;
 $$;
+
+COMMENT ON FUNCTION public.apply_program_revision_snapshot(uuid, int, text) IS
+  'Internal. Materialize a revision onto the live graph. Trusted sync callees do not require a user JWT so close_coach_account (service_role / delete-account) can apply the client-owned fork without impersonating the deleting coach.';
 
 CREATE OR REPLACE FUNCTION public.save_program_version(
   p_program_id uuid,
@@ -3056,4 +3168,4 @@ $$;
 REVOKE ALL ON FUNCTION public.close_coach_account(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.close_coach_account(uuid) TO service_role;
 COMMENT ON FUNCTION public.close_coach_account(uuid) IS
-  'P3 coach-account close. Client assignment mutex for every linked client (ORDER BY client_id) before the program lock-set, so a concurrent assign cannot leave a new Coach-owned active program outside the fork. For each assignment of each active client, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';
+  'P3 coach-account close. Client assignment mutex for every linked client (ORDER BY client_id) before the program lock-set, so a concurrent assign cannot leave a new Coach-owned active program outside the fork. For each assignment of each active client, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision without a user JWT, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';
