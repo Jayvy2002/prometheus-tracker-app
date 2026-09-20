@@ -207,7 +207,10 @@ begin
   raise exception 'stranger sync_program_phases was allowed';
 exception
   when others then
-    if sqlerrm not like '%Not program owner%' then
+    if sqlerrm like '%stranger sync_program_phases was allowed%' then
+      raise;
+    elsif sqlerrm not like '%Not program owner%'
+          and sqlerrm not like '%permission denied%' then
       raise;
     end if;
 end $$;
@@ -302,8 +305,8 @@ begin
   if has_function_privilege('anon', v_oid, 'EXECUTE') then
     raise exception 'sync_program_phases granted to anon';
   end if;
-  if not has_function_privilege('authenticated', v_oid, 'EXECUTE') then
-    raise exception 'sync_program_phases missing authenticated execute';
+  if has_function_privilege('authenticated', v_oid, 'EXECUTE') then
+    raise exception 'sync_program_phases granted to authenticated';
   end if;
   v_oid := to_regprocedure('public.save_program(uuid,text,text,int,jsonb,timestamptz,text,jsonb)');
   if v_oid is null then raise exception 'save_program 8-arg missing'; end if;

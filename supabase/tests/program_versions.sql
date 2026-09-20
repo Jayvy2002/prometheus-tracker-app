@@ -585,10 +585,13 @@ begin
   if has_function_privilege('anon', v_oid, 'EXECUTE') then
     raise exception 'ensure_due granted to anon';
   end if;
-  v_oid := to_regprocedure('public.apply_program_revision_snapshot(uuid,int)');
+  v_oid := to_regprocedure('public.apply_program_revision_snapshot(uuid,int,text)');
   if v_oid is null then raise exception 'apply helper missing'; end if;
   if has_function_privilege('authenticated', v_oid, 'EXECUTE') then
     raise exception 'apply helper granted to authenticated';
+  end if;
+  if to_regprocedure('public.apply_program_revision_snapshot(uuid,int)') is not null then
+    raise exception 'stale 2-arg apply still present';
   end if;
   v_oid := to_regprocedure('public.sync_program_days(uuid,jsonb,boolean,boolean)');
   if has_function_privilege('authenticated', v_oid, 'EXECUTE') then

@@ -7,10 +7,11 @@ import { useProgramStore } from '../../stores/programStore';
 import { namedSessionLine, programSessionLabel } from '../../features/programs/domain/namedSession';
 import { isProgramTrainingDay, trainingDays } from '../../lib/clientGym';
 import { normalizeSessionOrganization, sessionOrderLetter } from '../../features/programs/domain/sessionOrganization';
-import { phaseNameForDay, phaseAnchorDate, resolveCurrentPhase, type ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
+import { phaseNameForDay, phaseAnchorDate, resolveCurrentPhase, effectiveVersionStart, multiPhaseSharedWeekdaysNeedDuration, type ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { emptyProgramDraftDay, pendingSoloProgramDraft, programDaysToDraft } from '../../lib/soloProgram';
-import { programWeekNumber, todayStr } from '../../lib/utils';
+import { programWeekNumber } from '../../lib/utils';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
 import { outlineFromEdited } from '../../lib/coachDraftSend';
 import type { AiProgramDayDraft, ProgramDay, ProgramDayExercise, SessionOrganization } from '../../lib/types';
 import Card from '../ui/Card';
@@ -38,6 +39,7 @@ export default function ClientProgramPage() {
   const fetchPendingInterventions = useCoachingStore(s => s.fetchPendingInterventions);
   const applyProgramOutline = useCoachingStore(s => s.applyProgramOutline);
   const { canUpdateOwnAssignedProgram: canEditOwnPlan, canProposeAssignedProgramChange } = useResourcePermissions();
+  const programClock = useProgramCivilClock();
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [archives, setArchives] = useState<Awaited<ReturnType<typeof fetchPausedAssignments>>>([]);
@@ -58,17 +60,20 @@ export default function ClientProgramPage() {
   const pending = canEditOwnPlan ? pendingSoloProgramDraft(pendingInterventions, user?.id) : null;
   const program = assignment?.status === 'active' ? assignment.program : undefined;
   const training = trainingDays(program?.days);
-  const todayWeekday = new Date().getDay();
+  const todayWeekday = programClock.weekday;
+  const versionStart = program
+    ? effectiveVersionStart(assignment!.start_date, program.phase_anchor_on)
+    : null;
   const week = program
-    ? programWeekNumber(assignment!.start_date, program.duration_weeks)
+    ? programWeekNumber(versionStart ?? assignment!.start_date, program.duration_weeks, programClock.today)
     : null;
   const inOrder = normalizeSessionOrganization(program?.session_organization ?? organization) === 'in_order';
   const todayDay = inOrder ? null : training.find(d => d.weekday === todayWeekday) ?? null;
   const currentPhase = program
     ? resolveCurrentPhase({
       phases: program.phases,
-      startDate: phaseAnchorDate(assignment?.start_date, program.phase_anchor_on),
-      today: todayStr(),
+      startDate: versionStart ?? phaseAnchorDate(assignment?.start_date, program.phase_anchor_on),
+      today: programClock.today,
       nextDay: todayDay ?? training[0],
     })
     : null;
@@ -116,6 +121,10 @@ export default function ClientProgramPage() {
       toast(t('programs.needDayAndLift'), 'info');
       return;
     }
+    if (multiPhaseSharedWeekdaysNeedDuration(organization, phases, days)) {
+      toast(t('programs.phaseDurationRequired'), 'error');
+      return;
+    }
     setSaving(true);
     if (!program) {
       const created = await applyProgramOutline(user.id, {
@@ -147,6 +156,7 @@ export default function ClientProgramPage() {
       toast(mapProgramWriteError(saved.error, {
         stale: t('programs.stale'),
         fallback: t('programs.saveFailed'),
+        phaseDuration: t('programs.phaseDurationRequired'),
       }), 'error');
       return;
     }

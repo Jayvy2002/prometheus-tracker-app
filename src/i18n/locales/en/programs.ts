@@ -21,6 +21,7 @@ const programs = {
     created: 'Program created',
     createFailed: 'Could not create program',
     saveFailed: 'Could not save the program. Try again.',
+    phaseDurationRequired: 'Phases that share the same weekdays must have an explicit duration.',
     stale: 'This program was changed elsewhere. Reload, then try again.',
     deleted: 'Program deleted',
     deleteFailed: 'Could not delete the program. Try again.',

@@ -17,6 +17,8 @@ import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
+import { effectiveVersionStart } from '../../features/programs/domain/programPhases';
 import { isPerformedSet } from '../../lib/performedSets';
 import SoloAskBar from '../solo/SoloAskBar';
 import type { SoloAskContext } from '../../lib/soloAsk';
@@ -43,6 +45,7 @@ export default function WorkoutPage() {
   const createProgram = useProgramStore(s => s.createProgram);
   const saveProgram = useProgramStore(s => s.saveProgram);
   const { profile } = useProfileStore();
+  const programClock = useProgramCivilClock();
   const { canUpdateOwnAssignedProgram: canEditOwnPlan, canProposeAssignedProgramChange } = useResourcePermissions();
   const coached = isCoachedAthlete(coachingRole, myCoach);
 
@@ -57,8 +60,8 @@ export default function WorkoutPage() {
   const gymCard = resolveAssignmentGymCard({
     assignment,
     workouts,
-    todayWeekday: new Date().getDay(),
-    todayDate: todayStr(),
+    todayWeekday: programClock.weekday,
+    todayDate: programClock.today,
   });
 
 
@@ -335,7 +338,11 @@ export default function WorkoutPage() {
         <ClientGymCard
           card={gymCard}
           programName={assignment.program.name}
-          programWeek={programWeekNumber(assignment.start_date, assignment.program.duration_weeks)}
+          programWeek={programWeekNumber(
+            effectiveVersionStart(assignment.start_date, assignment.program.phase_anchor_on) ?? assignment.start_date,
+            assignment.program.duration_weeks,
+            programClock.today,
+          )}
           durationWeeks={assignment.program.duration_weeks}
           starting={startingGym}
           onStart={startProgramDay}

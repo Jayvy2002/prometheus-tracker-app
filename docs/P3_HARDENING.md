@@ -17,8 +17,15 @@ phase active (horloge version)
 `resolveClientGymCard` / `resolveAssignmentGymCard` filtrent d’abord la phase.
 Le logger refuse un `program_day_id` hors phase courante (`program_day_not_current_phase`).
 
-Ancre : `programs.phase_anchor_on` à l’activation (date civile planifiée si c’est
-une version `scheduled`, sinon date civile du propriétaire). Sinon `assignment.start_date`.
+Ancre : `programs.phase_anchor_on` à l’activation.
+
+- `activate_program_version` (« Activer maintenant ») : date civile propriétaire `now`.
+- `ensure_due_program_version` / schedule déjà dû : `scheduled_activates_on` d’origine.
+
+Sinon `assignment.start_date`. Semaine, durée, calendrier et phase utilisent
+`effectiveVersionStart = phase_anchor_on ?? assignment.start_date`.
+Un preview `date >= scheduled_activates_on` lit `duration_weeks` et l’ancre
+dans le snapshot scheduled (`parseRevisionMeta`).
 
 ## Weekdays multi-phase
 
@@ -83,9 +90,21 @@ authenticated
 - `program_version_is_due(date, text, timestamptz)`
 - `program_has_history(uuid)`
 - `validate_program_graph_payload`
-- `apply_program_revision_snapshot`
-- `sync_program_days` 4-arg
+- `apply_program_revision_snapshot` (3-arg, `p_anchor_mode`)
+- `sync_program_days` 2-arg et 4-arg
+- `sync_program_phases` 2-arg et 3-arg
+- `snapshot_program_revision`
+- `save_program_day_exercises`
+- `create_program_with_days`
 - `cancel_scheduled_program_version`
+
+Les helpers RLS (`actor_owns_program`, `actor_can_read_program`,
+`actor_can_activate_program_version`, `coached_client_cannot_edit_program`)
+restent `EXECUTE` pour `authenticated`.
+
+`save_program` n’est pas remplacé. Après `sync_program_phases`,
+`sync_program_days` recharge les phases live pour le validateur canonique
+(durée obligatoire si weekdays partagés).
 
 Ces helpers restent appelables depuis les RPC `SECURITY DEFINER` (propriétaire SQL)
 et `service_role`.
@@ -93,7 +112,12 @@ et `service_role`.
 RPC publiques conservées pour `authenticated` : `save_program`,
 `save_program_version`, `schedule_program_version`, `activate_program_version`,
 `ensure_due_program_version`, `start_workout_from_template`,
-`create_program_complete`, `delete_program`, `sync_program_days` (2-arg).
+`create_program_complete`, `delete_program`.
+
+`program_revisions` : GRANT SELECT seulement (writes via commandes serveur).
+Provenance workout (`program_id`, assignment/day/phase/revision) et
+`workout_exercises.prescribed_*` : immuables pour `authenticated` après INSERT ;
+seul `start_workout_from_template` estampille.
 
 ## Suppression de programme
 

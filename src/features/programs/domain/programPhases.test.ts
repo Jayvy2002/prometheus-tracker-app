@@ -4,8 +4,11 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
 import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
+import { civilDateInTimeZone, programWeekNumber } from '../../../lib/utils';
 import {
   daysForCurrentPhase,
+  effectiveVersionStart,
+  multiPhaseSharedWeekdaysNeedDuration,
   phaseAnchorDate,
   phaseNameForDay,
   resolveCurrentPhase,
@@ -67,6 +70,41 @@ test('without durations, current phase follows the next session', () => {
     phases: untimed,
     nextDay: { phase_id: 'b' },
   })?.name, 'Block B');
+});
+
+test('shared weekdays across phases require explicit durations', () => {
+  const untimed = [
+    { duration_weeks: null },
+    { duration_weeks: null },
+  ];
+  assert.equal(multiPhaseSharedWeekdaysNeedDuration('fixed_days', untimed, [
+    { weekday: 1, phase_id: 'a' },
+    { weekday: 1, phase_id: 'b' },
+  ]), true);
+  assert.equal(multiPhaseSharedWeekdaysNeedDuration('fixed_days', untimed, [
+    { weekday: 1, phase_id: 'a' },
+    { weekday: 2, phase_id: 'b' },
+  ]), false);
+  assert.equal(multiPhaseSharedWeekdaysNeedDuration('fixed_days', [
+    { duration_weeks: 4 },
+    { duration_weeks: 4 },
+  ], [
+    { weekday: 1, phase_id: 'a' },
+    { weekday: 1, phase_id: 'b' },
+  ]), false);
+  assert.equal(multiPhaseSharedWeekdaysNeedDuration('in_order', untimed, [
+    { weekday: 1, phase_id: 'a' },
+    { weekday: 1, phase_id: 'b' },
+  ]), false);
+  assert.equal(effectiveVersionStart('2026-07-01', '2026-09-21'), '2026-09-21');
+});
+
+test('program week and civil date follow the version/profile clock', () => {
+  assert.equal(programWeekNumber('2026-09-21', 8, '2026-09-21'), 1);
+  assert.equal(programWeekNumber('2026-07-01', 8, '2026-09-21'), 8);
+  const boundary = new Date('2026-09-08T06:30:00Z');
+  assert.equal(civilDateInTimeZone('America/Vancouver', boundary), '2026-09-07');
+  assert.equal(civilDateInTimeZone('UTC', boundary), '2026-09-08');
 });
 
 test('version activation date wins over assignment start for the phase clock', () => {

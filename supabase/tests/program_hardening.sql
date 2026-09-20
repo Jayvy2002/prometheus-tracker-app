@@ -91,10 +91,13 @@ begin
   end if;
   if has_function_privilege(
     'authenticated',
-    'public.apply_program_revision_snapshot(uuid,int)',
+    'public.apply_program_revision_snapshot(uuid,int,text)',
     'execute'
   ) then
     raise exception 'apply snapshot exposed to authenticated';
+  end if;
+  if to_regprocedure('public.apply_program_revision_snapshot(uuid,int)') is not null then
+    raise exception 'stale 2-arg apply still present';
   end if;
   if has_function_privilege(
     'authenticated',
@@ -110,8 +113,71 @@ begin
      or has_function_privilege('authenticated', 'public.program_version_is_due(date,text,timestamptz)', 'execute')
      or has_function_privilege('authenticated', 'public.program_has_history(uuid)', 'execute')
      or has_function_privilege('authenticated', 'public.sync_program_days(uuid,jsonb,boolean,boolean)', 'execute')
+     or has_function_privilege('authenticated', 'public.sync_program_days(uuid,jsonb)', 'execute')
+     or has_function_privilege('authenticated', 'public.sync_program_phases(uuid,jsonb)', 'execute')
+     or has_function_privilege('authenticated', 'public.sync_program_phases(uuid,jsonb,boolean)', 'execute')
+     or has_function_privilege('authenticated', 'public.snapshot_program_revision(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.save_program_day_exercises(uuid,jsonb)', 'execute')
+     or has_function_privilege('authenticated', 'public.create_program_with_days(text,text,int,jsonb)', 'execute')
      or has_function_privilege('authenticated', 'public.cancel_scheduled_program_version(uuid)', 'execute') then
     raise exception 'internal P3 helper exposed to authenticated';
+  end if;
+  if not has_function_privilege('authenticated', 'public.actor_owns_program(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.actor_can_read_program(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.actor_can_activate_program_version(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.coached_client_cannot_edit_program(uuid)', 'execute') then
+    raise exception 'RLS program helper lost authenticated execute';
+  end if;
+  if exists (
+    select 1
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+      and p.proname ~* '(program|snapshot_program|sync_program|save_program)'
+      and has_function_privilege('authenticated', p.oid, 'execute')
+      and p.proname not in (
+        'save_program',
+        'save_program_version',
+        'schedule_program_version',
+        'activate_program_version',
+        'ensure_due_program_version',
+        'create_program_complete',
+        'delete_program',
+        'fork_program',
+        'adopt_client_program',
+        'assign_program_secure',
+        'actor_owns_program',
+        'actor_can_read_program',
+        'actor_can_activate_program_version',
+        'coached_client_cannot_edit_program'
+      )
+  ) then
+    raise exception 'unexpected authenticated program DEFINER: %', (
+      select string_agg(p.proname || '(' || pg_get_function_identity_arguments(p.oid) || ')', ', ' order by p.proname)
+      from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public'
+        and p.prosecdef
+        and p.proname ~* '(program|snapshot_program|sync_program|save_program)'
+        and has_function_privilege('authenticated', p.oid, 'execute')
+        and p.proname not in (
+          'save_program',
+          'save_program_version',
+          'schedule_program_version',
+          'activate_program_version',
+          'ensure_due_program_version',
+          'create_program_complete',
+          'delete_program',
+          'fork_program',
+          'adopt_client_program',
+          'assign_program_secure',
+          'actor_owns_program',
+          'actor_can_read_program',
+          'actor_can_activate_program_version',
+          'coached_client_cannot_edit_program'
+        )
+    );
   end if;
   if not has_function_privilege('authenticated', 'public.delete_program(uuid)', 'execute')
      or not has_function_privilege('authenticated', 'public.schedule_program_version(uuid,int,date,boolean,timestamptz)', 'execute')
@@ -120,9 +186,14 @@ begin
      or not has_function_privilege('authenticated', 'public.save_program(uuid,text,text,int,jsonb,timestamptz,text,jsonb)', 'execute')
      or not has_function_privilege('authenticated', 'public.save_program_version(uuid,text,text,int,jsonb,timestamptz,text,jsonb)', 'execute')
      or not has_function_privilege('authenticated', 'public.activate_program_version(uuid,int,timestamptz)', 'execute')
-     or not has_function_privilege('authenticated', 'public.create_program_complete(text,text,int,jsonb,uuid,date,text,jsonb)', 'execute')
-     or not has_function_privilege('authenticated', 'public.sync_program_days(uuid,jsonb)', 'execute') then
+     or not has_function_privilege('authenticated', 'public.create_program_complete(text,text,int,jsonb,uuid,date,text,jsonb)', 'execute') then
     raise exception 'public P3 command lost authenticated execute';
+  end if;
+  if has_table_privilege('authenticated', 'public.program_revisions', 'insert')
+     or has_table_privilege('authenticated', 'public.program_revisions', 'update')
+     or has_table_privilege('authenticated', 'public.program_revisions', 'delete')
+     or not has_table_privilege('authenticated', 'public.program_revisions', 'select') then
+    raise exception 'program_revisions table privileges are not SELECT-only';
   end if;
 end $$;
 
@@ -375,6 +446,11 @@ begin
   limit 1;
   if v_name is distinct from 'Bench' or v_sets is distinct from 4 then
     raise exception 'client prescription was stamped as Coach, got % x %', v_name, v_sets;
+  end if;
+  if (select w.program_id from public.workouts w where w.id = v_wid)
+       is distinct from 'c3401941-0000-4000-8000-000000000010'
+     or (select w.program_revision_no from public.workouts w where w.id = v_wid) is null then
+    raise exception 'start_workout did not stamp durable program_id/revision';
   end if;
 
   begin
@@ -972,6 +1048,335 @@ begin
 end $$;
 reset role;
 
+-- Shared weekdays without durations are refused. Untimed labels on distinct weekdays stay allowed.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+begin
+  begin
+    perform public.save_program(
+      'c3401941-0000-4000-8000-000000000010',
+      'Ambiguous',
+      '',
+      8,
+      '[
+        {"weekday":1,"name":"A","phase_id":"c3401941-0000-4000-8000-0000000000d1","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]},
+        {"weekday":1,"name":"B","phase_id":"c3401941-0000-4000-8000-0000000000d2","exercises":[{"name":"Row","default_sets":3,"default_reps":5}]}
+      ]'::jsonb,
+      null,
+      'fixed_days',
+      '[
+        {"id":"c3401941-0000-4000-8000-0000000000d1","name":"Block A"},
+        {"id":"c3401941-0000-4000-8000-0000000000d2","name":"Block B"}
+      ]'::jsonb
+    );
+    raise exception 'untimed shared-weekday phases were allowed';
+  exception
+    when others then
+      if sqlerrm not like '%phase duration required%' then
+        raise;
+      end if;
+  end;
+  begin
+    perform public.save_program_version(
+      'c3401941-0000-4000-8000-000000000010',
+      'Ambiguous future',
+      '',
+      8,
+      '[
+        {"weekday":1,"name":"A","phase_id":"c3401941-0000-4000-8000-0000000000d1","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]},
+        {"weekday":1,"name":"B","phase_id":"c3401941-0000-4000-8000-0000000000d2","exercises":[{"name":"Row","default_sets":3,"default_reps":5}]}
+      ]'::jsonb,
+      null,
+      'fixed_days',
+      '[
+        {"id":"c3401941-0000-4000-8000-0000000000d1","name":"Block A"},
+        {"id":"c3401941-0000-4000-8000-0000000000d2","name":"Block B"}
+      ]'::jsonb
+    );
+    raise exception 'untimed shared-weekday future version was allowed';
+  exception
+    when others then
+      if sqlerrm like '%untimed shared-weekday future version was allowed%' then
+        raise;
+      elsif sqlerrm not like '%phase duration required%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
+
+-- Provenance: off-plan OK; forged stamps refused; start RPC stamps; UPDATE freeze; prescribed freeze.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_off uuid;
+  v_wid uuid;
+  v_ex uuid;
+  v_day uuid;
+  v_rev int;
+begin
+  insert into public.workouts(user_id, name, date)
+  values ('c3401941-0000-4000-8000-000000000001', 'Off plan', now())
+  returning id into v_off;
+  if (select program_id from public.workouts where id = v_off) is not null
+     or (select program_revision_no from public.workouts where id = v_off) is not null then
+    raise exception 'off-plan workout carried program provenance';
+  end if;
+
+  begin
+    insert into public.workouts(user_id, name, date, program_revision_no)
+    values ('c3401941-0000-4000-8000-000000000001', 'Forged rev', now(), 9);
+    raise exception 'forged program_revision_no insert was allowed';
+  exception
+    when others then
+      if sqlerrm like '%forged program_revision_no insert was allowed%' then
+        raise;
+      elsif sqlerrm not like '%program provenance is RPC-only%' then
+        raise;
+      end if;
+  end;
+
+  begin
+    insert into public.workouts(
+      user_id, name, date, program_id, program_day_id, program_phase_id
+    ) values (
+      'c3401941-0000-4000-8000-000000000001',
+      'Forged phase',
+      now(),
+      'c3401941-0000-4000-8000-000000000010',
+      'c3401941-0000-4000-8000-0000000000aa',
+      'c3401941-0000-4000-8000-0000000000a1'
+    );
+    raise exception 'forged program day insert was allowed';
+  exception
+    when others then
+      if sqlerrm like '%forged program day insert was allowed%' then
+        raise;
+      elsif sqlerrm not like '%program provenance is RPC-only%'
+            and sqlerrm not like '%foreign key%' then
+        raise;
+      end if;
+  end;
+
+  select id into v_day from public.program_days
+   where program_id = 'c3401941-0000-4000-8000-000000000010' and name = 'Upper A';
+  v_wid := public.start_workout_from_template(
+    'Upper A stamp',
+    now(),
+    null,
+    'c3401941-0000-4000-8000-0000000000b1',
+    v_day,
+    '[]'::jsonb
+  );
+  select program_revision_no into v_rev from public.workouts where id = v_wid;
+  if v_rev is null then
+    raise exception 'legitimate start left program_revision_no null';
+  end if;
+  if (select program_id from public.workouts where id = v_wid)
+       is distinct from 'c3401941-0000-4000-8000-000000000010' then
+    raise exception 'legitimate start left program_id unset';
+  end if;
+
+  begin
+    update public.workouts set program_revision_no = v_rev + 1 where id = v_wid;
+    raise exception 'stamp update was allowed';
+  exception
+    when others then
+      if sqlerrm like '%stamp update was allowed%' then
+        raise;
+      elsif sqlerrm not like '%program provenance is immutable%' then
+        raise;
+      end if;
+  end;
+
+  select we.id into v_ex
+  from public.workout_exercises we
+  where we.workout_id = v_wid
+  order by we.order_index
+  limit 1;
+
+  update public.workout_exercises set name = 'Bench (swap)' where id = v_ex;
+
+  begin
+    update public.workout_exercises set prescribed_sets = 99 where id = v_ex;
+    raise exception 'prescribed update was allowed';
+  exception
+    when others then
+      if sqlerrm like '%prescribed update was allowed%' then
+        raise;
+      elsif sqlerrm not like '%workout prescription is immutable%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
+
+-- Timezone boundary: Vancouver still previous civil day while UTC is next.
+do $$
+declare
+  v_at timestamptz := timestamptz '2026-09-29 06:30:00+00';
+  v_phase_van uuid;
+  v_phase_utc uuid;
+begin
+  if public.program_civil_date('America/Vancouver', v_at) is distinct from date '2026-09-28' then
+    raise exception 'Vancouver civil date expected 2026-09-28';
+  end if;
+  if public.program_civil_date('UTC', v_at) is distinct from date '2026-09-29' then
+    raise exception 'UTC civil date expected 2026-09-29';
+  end if;
+  v_phase_van := public.program_current_phase_id(
+    'c3401941-0000-4000-8000-000000000010',
+    date '2026-09-01',
+    date '2026-09-28'
+  );
+  v_phase_utc := public.program_current_phase_id(
+    'c3401941-0000-4000-8000-000000000010',
+    date '2026-09-01',
+    date '2026-09-29'
+  );
+  if v_phase_van is distinct from 'c3401941-0000-4000-8000-0000000000a1' then
+    raise exception 'Vancouver Sep 28 should still be Accumulation';
+  end if;
+  if v_phase_utc is distinct from 'c3401941-0000-4000-8000-0000000000a2' then
+    raise exception 'UTC Sep 29 should be Intensification';
+  end if;
+end $$;
+
+-- Activer maintenant uses owner civil today; scheduled/due keeps planned date.
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_rev int;
+  v_anchor date;
+  v_today date;
+  v_planned date;
+begin
+  v_today := public.program_civil_date('UTC', now());
+  v_planned := v_today + 10;
+  v_rev := public.save_program_version(
+    'c3401941-0000-4000-8000-000000000010',
+    'Version Now',
+    'now block',
+    8,
+    '[{"weekday":1,"name":"Now day","exercises":[{"name":"Press","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null,
+    'fixed_days'
+  );
+  perform public.schedule_program_version(
+    'c3401941-0000-4000-8000-000000000010',
+    v_rev,
+    v_planned,
+    true,
+    null
+  );
+  perform public.activate_program_version(
+    'c3401941-0000-4000-8000-000000000010',
+    v_rev,
+    null
+  );
+  select phase_anchor_on into v_anchor
+  from public.programs
+  where id = 'c3401941-0000-4000-8000-000000000010';
+  if v_anchor is distinct from v_today then
+    raise exception 'activate now anchored %, expected owner today % not planned %', v_anchor, v_today, v_planned;
+  end if;
+
+  v_rev := public.save_program_version(
+    'c3401941-0000-4000-8000-000000000010',
+    'Version Due',
+    'due block',
+    8,
+    '[{"weekday":1,"name":"Due day","exercises":[{"name":"Press","default_sets":3,"default_reps":5}]}]'::jsonb,
+    null,
+    'fixed_days'
+  );
+  v_planned := v_today - 3;
+  perform public.schedule_program_version(
+    'c3401941-0000-4000-8000-000000000010',
+    v_rev,
+    v_planned,
+    true,
+    null
+  );
+  select phase_anchor_on into v_anchor
+  from public.programs
+  where id = 'c3401941-0000-4000-8000-000000000010';
+  if v_anchor is distinct from v_planned then
+    raise exception 'scheduled/due anchored %, expected planned %', v_anchor, v_planned;
+  end if;
+end $$;
+reset role;
+
+-- Legacy backfill: freeze live graph, do not rewrite historical workout revisions.
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','',true);
+select set_config('request.jwt.claims','{}',true);
+insert into public.programs(id,owner_id,name,description,duration_weeks)
+values ('c3401941-0000-4000-8000-000000000099','c3401941-0000-4000-8000-000000000001','Legacy','',4);
+insert into public.program_days(id,program_id,weekday,name,order_index)
+values ('c3401941-0000-4000-8000-00000000009d','c3401941-0000-4000-8000-000000000099',1,'Legacy day',0);
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
+values (
+  'c3401941-0000-4000-8000-00000000009a',
+  'c3401941-0000-4000-8000-000000000099',
+  'c3401941-0000-4000-8000-000000000002',
+  'c3401941-0000-4000-8000-000000000001',
+  current_date,
+  'active'
+);
+insert into public.workouts(id,user_id,name,date,program_assignment_id,program_day_id)
+values (
+  'c3401941-0000-4000-8000-00000000009w',
+  'c3401941-0000-4000-8000-000000000002',
+  'Old log',
+  now(),
+  'c3401941-0000-4000-8000-00000000009a',
+  'c3401941-0000-4000-8000-00000000009d'
+);
+do $$
+declare
+  v_no int;
+begin
+  if (select active_revision_no from public.programs where id = 'c3401941-0000-4000-8000-000000000099') is not null then
+    raise exception 'legacy fixture already had an active revision';
+  end if;
+  v_no := public.snapshot_program_revision('c3401941-0000-4000-8000-000000000099');
+  if (select active_revision_no from public.programs where id = 'c3401941-0000-4000-8000-000000000099') is distinct from v_no then
+    raise exception 'legacy backfill did not set active_revision_no';
+  end if;
+  if (select program_revision_no from public.workouts where id = 'c3401941-0000-4000-8000-00000000009w') is not null then
+    raise exception 'legacy workout was retro-stamped with a revision';
+  end if;
+  update public.workouts w
+     set program_id = pa.program_id
+    from public.program_assignments pa
+   where w.id = 'c3401941-0000-4000-8000-00000000009w'
+     and w.program_assignment_id = pa.id
+     and w.program_id is null;
+  if (select program_id from public.workouts where id = 'c3401941-0000-4000-8000-00000000009w')
+       is distinct from 'c3401941-0000-4000-8000-000000000099' then
+    raise exception 'legacy workout program_id was not backfilled from assignment';
+  end if;
+  if exists (
+    select 1
+    from public.programs p
+    join public.program_assignments pa on pa.program_id = p.id and pa.status = 'active'
+    where p.active_revision_no is null
+  ) then
+    raise exception 'active assignment without active_revision_no after backfill';
+  end if;
+end $$;
+
 rollback;
 \echo 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz'
 \echo 'delete_program locks program row FOR UPDATE before checks'
+\echo 'program hardening: provenance immutability, program_id stamp, prescribed freeze, version backfill, activate now vs due'

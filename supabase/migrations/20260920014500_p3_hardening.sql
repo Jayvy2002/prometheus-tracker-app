@@ -5,6 +5,16 @@ ALTER TABLE public.programs
   ADD COLUMN IF NOT EXISTS phase_anchor_on date,
   ADD COLUMN IF NOT EXISTS scheduled_activation_timezone text;
 
+ALTER TABLE public.workouts
+  ADD COLUMN IF NOT EXISTS program_id uuid REFERENCES public.programs(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS workouts_program_id_idx
+  ON public.workouts (program_id)
+  WHERE program_id IS NOT NULL;
+
+COMMENT ON COLUMN public.workouts.program_id IS
+  'Durable historical program stamp. Survives assignment/day SET NULL. Written only by start_workout_from_template.';
+
 COMMENT ON COLUMN public.programs.phase_anchor_on IS
   'Civil date the active version started for phase progression. NULL = use assignment.start_date.';
 COMMENT ON COLUMN public.programs.scheduled_activation_timezone IS
@@ -201,6 +211,9 @@ DECLARE
   v_seen text[] := '{}';
   v_wd_key text;
   v_phase_key text;
+  v_wd_phases jsonb := '{}'::jsonb;
+  v_share boolean := false;
+  v_phase_count int;
 BEGIN
   IF p_days IS NULL OR jsonb_typeof(p_days) <> 'array' THEN
     RAISE EXCEPTION 'Invalid payload';
@@ -253,6 +266,11 @@ BEGIN
         RAISE EXCEPTION 'Duplicate weekday %', v_weekday;
       END IF;
       v_seen := v_seen || v_wd_key;
+      v_wd_phases := jsonb_set(
+        v_wd_phases,
+        ARRAY[v_weekday::text],
+        COALESCE(v_wd_phases -> v_weekday::text, '[]'::jsonb) || jsonb_build_array(v_phase_key)
+      );
     END IF;
     IF p_phases IS NOT NULL THEN
       v_id := NULL;
@@ -287,6 +305,34 @@ BEGIN
       IF v_rest < 0 OR v_rest > 3600 THEN RAISE EXCEPTION 'Invalid rest for %', v_name; END IF;
     END LOOP;
   END LOOP;
+
+  -- Multi-phase sharing the same weekday must have explicit durations so the
+  -- timed engine can pick one active phase. Untimed labels stay allowed when
+  -- weekdays do not collide. No-phase programs are unchanged.
+  IF v_org = 'fixed_days'
+     AND p_phases IS NOT NULL
+     AND jsonb_typeof(p_phases) = 'array'
+     AND jsonb_array_length(p_phases) >= 2 THEN
+    FOR v_weekday IN 0..6 LOOP
+      SELECT count(DISTINCT x) INTO v_phase_count
+      FROM jsonb_array_elements_text(COALESCE(v_wd_phases -> v_weekday::text, '[]'::jsonb)) AS x;
+      IF COALESCE(v_phase_count, 0) >= 2 THEN
+        v_share := true;
+      END IF;
+    END LOOP;
+    IF v_share THEN
+      FOR v_phase IN SELECT * FROM jsonb_array_elements(p_phases) LOOP
+        BEGIN
+          v_weeks := NULLIF(btrim(COALESCE(v_phase->>'duration_weeks', '')), '')::int;
+        EXCEPTION WHEN OTHERS THEN
+          RAISE EXCEPTION 'phase duration required';
+        END;
+        IF v_weeks IS NULL OR v_weeks < 1 THEN
+          RAISE EXCEPTION 'phase duration required';
+        END IF;
+      END LOOP;
+    END IF;
+  END IF;
 END;
 $$;
 
@@ -368,6 +414,7 @@ DECLARE
   v_org text;
   v_seen text[] := '{}';
   v_wd_key text;
+  v_phases jsonb;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_program_id IS NULL OR p_days IS NULL OR jsonb_typeof(p_days) <> 'array' THEN
@@ -388,7 +435,20 @@ BEGIN
   FROM public.programs p
   WHERE p.id = p_program_id;
 
-  PERFORM public.validate_program_graph_payload(v_org, p_days, NULL);
+  -- save_program is not replaced. It syncs phases first, then calls this
+  -- wrapper. Load the live phase rows so shared-weekday duration rules apply.
+  SELECT COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'id', ph.id,
+      'name', ph.name,
+      'duration_weeks', ph.duration_weeks
+    ) ORDER BY ph.order_index)
+    FROM public.program_phases ph
+    WHERE ph.program_id = p_program_id
+  ), '[]'::jsonb)
+    INTO v_phases;
+
+  PERFORM public.validate_program_graph_payload(v_org, p_days, v_phases);
 
   -- Validation complète AVANT toute mutation.
   FOR v_day IN SELECT * FROM jsonb_array_elements(p_days) LOOP
@@ -535,8 +595,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.sync_program_days(uuid, jsonb) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.sync_program_days(uuid, jsonb) TO authenticated;
+REVOKE ALL ON FUNCTION public.sync_program_days(uuid, jsonb) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.programs_protect_version_pointers()
 RETURNS trigger
@@ -560,7 +619,11 @@ $$;
 
 REVOKE ALL ON FUNCTION public.programs_protect_version_pointers() FROM PUBLIC, anon, authenticated;
 
-CREATE OR REPLACE FUNCTION public.apply_program_revision_snapshot(p_program_id uuid, p_revision_no int)
+CREATE OR REPLACE FUNCTION public.apply_program_revision_snapshot(
+  p_program_id uuid,
+  p_revision_no int,
+  p_anchor_mode text
+)
 RETURNS int
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -636,10 +699,17 @@ BEGIN
     v_phases
   );
 
-  IF v_sched_no IS NOT DISTINCT FROM p_revision_no AND v_sched_on IS NOT NULL THEN
+  -- Anchor mode is explicit: scheduled/due keeps the planned civil date;
+  -- Activer maintenant uses the owner civil clock even if a future date was scheduled.
+  IF p_anchor_mode = 'scheduled' THEN
+    IF v_sched_on IS NULL THEN
+      RAISE EXCEPTION 'scheduled_anchor_required';
+    END IF;
     v_anchor := v_sched_on;
-  ELSE
+  ELSIF p_anchor_mode = 'now' THEN
     v_anchor := public.program_civil_date(public.program_actor_timezone(v_owner), now());
+  ELSE
+    RAISE EXCEPTION 'Invalid payload';
   END IF;
 
   UPDATE public.programs
@@ -856,7 +926,7 @@ BEGIN
 
   v_today := public.program_civil_date(v_tz, now());
   IF p_activates_on <= v_today THEN
-    RETURN public.apply_program_revision_snapshot(p_program_id, p_revision_no);
+    RETURN public.apply_program_revision_snapshot(p_program_id, p_revision_no, 'scheduled');
   END IF;
   RETURN p_revision_no;
 END;
@@ -924,7 +994,7 @@ BEGIN
     WHERE id = p_program_id;
     RETURN v_sched;
   END IF;
-  RETURN public.apply_program_revision_snapshot(p_program_id, v_sched);
+  RETURN public.apply_program_revision_snapshot(p_program_id, v_sched, 'scheduled');
 END;
 $$;
 
@@ -948,6 +1018,9 @@ BEGIN
     SELECT 1 FROM public.programs p WHERE p.id = p_program_id AND p.owner_id = auth.uid()
   ) THEN
     RAISE EXCEPTION 'Not program owner';
+  END IF;
+  IF auth.uid() IS NOT NULL AND public.coached_client_cannot_edit_program(p_program_id) THEN
+    RAISE EXCEPTION 'Coached client cannot edit assigned program';
   END IF;
   PERFORM 1 FROM public.programs WHERE id = p_program_id FOR UPDATE;
   SELECT public.normalize_session_organization(session_organization), active_revision_no,
@@ -1131,21 +1204,26 @@ BEGIN
     v_exercises := COALESCE(p_exercises, '[]'::jsonb);
   END IF;
 
-  IF p_program_assignment_id IS NOT NULL AND v_revision_no IS NULL THEN
-    SELECT p.active_revision_no
-      INTO v_revision_no
-    FROM public.program_assignments pa
-    JOIN public.programs p ON p.id = pa.program_id
-    WHERE pa.id = p_program_assignment_id;
+  IF p_program_assignment_id IS NOT NULL THEN
+    IF v_program_id IS NULL OR v_revision_no IS NULL THEN
+      SELECT pa.program_id, COALESCE(v_revision_no, p.active_revision_no)
+        INTO v_program_id, v_revision_no
+      FROM public.program_assignments pa
+      JOIN public.programs p ON p.id = pa.program_id
+      WHERE pa.id = p_program_assignment_id;
+    END IF;
+    IF v_program_id IS NULL OR v_revision_no IS NULL THEN
+      RAISE EXCEPTION 'program_revision_required';
+    END IF;
   END IF;
 
   INSERT INTO public.workouts (
     user_id, name, date, routine_id, program_assignment_id, program_day_id,
-    program_phase_id, prescribed_phase_name, program_revision_no
+    program_phase_id, prescribed_phase_name, program_revision_no, program_id
   ) VALUES (
     v_user_id, btrim(p_name), COALESCE(p_date, now()), p_routine_id,
     p_program_assignment_id, p_program_day_id,
-    v_phase_id, v_phase_name, v_revision_no
+    v_phase_id, v_phase_name, v_revision_no, v_program_id
   )
   RETURNING id INTO v_workout_id;
 
@@ -1257,6 +1335,7 @@ BEGIN
   END IF;
 
   v_org := public.normalize_session_organization(p_session_organization);
+  PERFORM public.validate_program_graph_payload(v_org, p_days, COALESCE(p_phases, '[]'::jsonb));
 
   -- Validation complète AVANT toute mutation.
   FOR v_day IN SELECT * FROM jsonb_array_elements(p_days) LOOP
@@ -1432,7 +1511,8 @@ $$;
 
 
 REVOKE ALL ON FUNCTION public.sync_program_days(uuid, jsonb, boolean, boolean) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.apply_program_revision_snapshot(uuid, int) FROM PUBLIC, anon, authenticated;
+DROP FUNCTION IF EXISTS public.apply_program_revision_snapshot(uuid, int);
+REVOKE ALL ON FUNCTION public.apply_program_revision_snapshot(uuid, int, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.save_program_version(uuid, text, text, int, jsonb, timestamptz, text, jsonb)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.save_program_version(uuid, text, text, int, jsonb, timestamptz, text, jsonb)
@@ -1443,8 +1523,8 @@ GRANT EXECUTE ON FUNCTION public.schedule_program_version(uuid, int, date, boole
   TO authenticated;
 REVOKE ALL ON FUNCTION public.ensure_due_program_version(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.ensure_due_program_version(uuid) TO authenticated;
-REVOKE ALL ON FUNCTION public.snapshot_program_revision(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.snapshot_program_revision(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.snapshot_program_revision(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.snapshot_program_revision(uuid) TO service_role;
 REVOKE ALL ON FUNCTION public.start_workout_from_template(text, timestamptz, uuid, uuid, uuid, jsonb)
   FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.start_workout_from_template(text, timestamptz, uuid, uuid, uuid, jsonb)
@@ -1461,6 +1541,58 @@ COMMENT ON FUNCTION public.validate_program_graph_payload(text, jsonb, jsonb) IS
 COMMENT ON FUNCTION public.start_workout_from_template(text, timestamptz, uuid, uuid, uuid, jsonb) IS
   'Single logger. DEFINER so internal civil/phase helpers stay ungranted to authenticated.';
 
+CREATE OR REPLACE FUNCTION public.activate_program_version(
+  p_program_id uuid,
+  p_revision_no int,
+  p_expected_updated_at timestamptz DEFAULT NULL
+)
+RETURNS int
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_owner uuid;
+  v_seen timestamptz;
+  v_active int;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
+  IF p_program_id IS NULL OR p_revision_no IS NULL THEN
+    RAISE EXCEPTION 'Invalid payload';
+  END IF;
+
+  SELECT owner_id, updated_at, active_revision_no
+    INTO v_owner, v_seen, v_active
+  FROM public.programs
+  WHERE id = p_program_id
+  FOR UPDATE;
+  IF v_owner IS NULL OR v_owner IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'Not program owner';
+  END IF;
+  IF public.coached_client_cannot_edit_program(p_program_id) THEN
+    RAISE EXCEPTION 'Coached client cannot edit assigned program';
+  END IF;
+  IF NOT public.actor_can_activate_program_version(p_program_id) THEN
+    RAISE EXCEPTION 'Not an active coach of this assignment';
+  END IF;
+  IF p_expected_updated_at IS NOT NULL AND v_seen IS DISTINCT FROM p_expected_updated_at THEN
+    RAISE EXCEPTION 'stale';
+  END IF;
+  IF v_active IS NOT DISTINCT FROM p_revision_no THEN
+    RETURN p_revision_no;
+  END IF;
+  RETURN public.apply_program_revision_snapshot(p_program_id, p_revision_no, 'now');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.activate_program_version(uuid, int, timestamptz)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.activate_program_version(uuid, int, timestamptz)
+  TO authenticated;
+COMMENT ON FUNCTION public.activate_program_version(uuid, int, timestamptz) IS
+  'Manual Activer maintenant. Anchors phase/week 1 on the owner civil date, not a future scheduled_activates_on.';
+
 CREATE OR REPLACE FUNCTION public.program_has_history(p_program_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -1470,6 +1602,10 @@ SET search_path = public
 AS $$
   SELECT
     EXISTS (
+      SELECT 1 FROM public.workouts w
+      WHERE w.program_id = p_program_id
+    )
+    OR EXISTS (
       SELECT 1 FROM public.program_assignments pa
       WHERE pa.program_id = p_program_id
     )
@@ -1555,3 +1691,133 @@ GRANT SELECT ON TABLE public.program_days TO authenticated;
 GRANT SELECT ON TABLE public.program_day_exercises TO authenticated;
 GRANT SELECT ON TABLE public.program_phases TO authenticated;
 GRANT SELECT ON TABLE public.programs TO authenticated;
+
+-- Public métier commands only. Primitives stay DEFINER-internal.
+REVOKE ALL ON FUNCTION public.sync_program_phases(uuid, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.sync_program_phases(uuid, jsonb, boolean)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.create_program_with_days(text, text, int, jsonb)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.save_program_day_exercises(uuid, jsonb)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.sync_program_days(uuid, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_program_with_days(text, text, int, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.sync_program_phases(uuid, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.save_program_day_exercises(uuid, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION public.sync_program_days(uuid, jsonb) TO service_role;
+
+-- program_revisions: SELECT per RLS; writes via server commands only (Hotfix A/B).
+REVOKE ALL ON TABLE public.program_revisions FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.program_revisions TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.workouts_protect_program_provenance()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user = 'authenticated' THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.program_assignment_id IS NOT NULL
+         OR NEW.program_day_id IS NOT NULL
+         OR NEW.program_phase_id IS NOT NULL
+         OR NEW.prescribed_phase_name IS NOT NULL
+         OR NEW.program_revision_no IS NOT NULL
+         OR NEW.program_id IS NOT NULL THEN
+        RAISE EXCEPTION 'program provenance is RPC-only';
+      END IF;
+    ELSIF TG_OP = 'UPDATE' THEN
+      IF NEW.program_assignment_id IS DISTINCT FROM OLD.program_assignment_id
+         OR NEW.program_day_id IS DISTINCT FROM OLD.program_day_id
+         OR NEW.program_phase_id IS DISTINCT FROM OLD.program_phase_id
+         OR NEW.prescribed_phase_name IS DISTINCT FROM OLD.prescribed_phase_name
+         OR NEW.program_revision_no IS DISTINCT FROM OLD.program_revision_no
+         OR NEW.program_id IS DISTINCT FROM OLD.program_id THEN
+        RAISE EXCEPTION 'program provenance is immutable';
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.workouts_protect_program_provenance() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS workouts_protect_program_provenance ON public.workouts;
+CREATE TRIGGER workouts_protect_program_provenance
+  BEFORE INSERT OR UPDATE ON public.workouts
+  FOR EACH ROW
+  EXECUTE FUNCTION public.workouts_protect_program_provenance();
+
+CREATE OR REPLACE FUNCTION public.workout_exercises_protect_prescribed()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user = 'authenticated' AND TG_OP = 'UPDATE' THEN
+    IF NEW.prescribed_sets IS DISTINCT FROM OLD.prescribed_sets
+       OR NEW.prescribed_reps IS DISTINCT FROM OLD.prescribed_reps
+       OR NEW.prescribed_reps_min IS DISTINCT FROM OLD.prescribed_reps_min
+       OR NEW.prescribed_rir IS DISTINCT FROM OLD.prescribed_rir
+       OR NEW.prescribed_rest_seconds IS DISTINCT FROM OLD.prescribed_rest_seconds
+       OR NEW.prescribed_weight_kg IS DISTINCT FROM OLD.prescribed_weight_kg THEN
+      RAISE EXCEPTION 'workout prescription is immutable';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.workout_exercises_protect_prescribed() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS workout_exercises_protect_prescribed ON public.workout_exercises;
+CREATE TRIGGER workout_exercises_protect_prescribed
+  BEFORE UPDATE ON public.workout_exercises
+  FOR EACH ROW
+  EXECUTE FUNCTION public.workout_exercises_protect_prescribed();
+
+-- Backfill durable workout→program stamp when assignment or day still exists.
+-- Do not guess when neither FK can name the program. Do not rewrite program_revision_no.
+UPDATE public.workouts w
+SET program_id = pa.program_id
+FROM public.program_assignments pa
+WHERE w.program_assignment_id = pa.id
+  AND w.program_id IS NULL
+  AND pa.program_id IS NOT NULL;
+
+UPDATE public.workouts w
+SET program_id = d.program_id
+FROM public.program_days d
+WHERE w.program_day_id = d.id
+  AND w.program_id IS NULL
+  AND d.program_id IS NOT NULL;
+
+-- Legacy programs with no interpretable active version: freeze the LIVE graph.
+DO $$
+DECLARE
+  v_id uuid;
+BEGIN
+  FOR v_id IN
+    SELECT p.id
+    FROM public.programs p
+    WHERE p.active_revision_no IS NULL
+       OR NOT EXISTS (
+         SELECT 1 FROM public.program_revisions r
+         WHERE r.program_id = p.id
+           AND r.revision_no = p.active_revision_no
+       )
+  LOOP
+    PERFORM public.snapshot_program_revision(v_id);
+  END LOOP;
+
+  IF EXISTS (
+    SELECT 1
+    FROM public.programs p
+    JOIN public.program_assignments pa
+      ON pa.program_id = p.id AND pa.status = 'active'
+    WHERE p.active_revision_no IS NULL
+  ) THEN
+    RAISE EXCEPTION 'active assignment without active_revision_no after backfill';
+  END IF;
+END $$;

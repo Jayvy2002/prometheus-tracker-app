@@ -275,7 +275,8 @@ begin
     raise exception 'coached owner sync_program_days was allowed';
   exception
     when others then
-      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+      if sqlerrm not like '%Coached client cannot edit assigned program%'
+         and sqlerrm not like '%permission denied%' then
         raise;
       end if;
   end;
@@ -288,7 +289,8 @@ begin
     raise exception 'coached owner save_program_day_exercises was allowed';
   exception
     when others then
-      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+      if sqlerrm not like '%Coached client cannot edit assigned program%'
+         and sqlerrm not like '%permission denied%' then
         raise;
       end if;
   end;
@@ -469,7 +471,8 @@ begin
     raise exception 'dual leftover sync_program_days was allowed';
   exception
     when others then
-      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+      if sqlerrm not like '%Coached client cannot edit assigned program%'
+         and sqlerrm not like '%permission denied%' then
         raise;
       end if;
   end;
@@ -482,7 +485,8 @@ begin
     raise exception 'dual leftover save_program_day_exercises was allowed';
   exception
     when others then
-      if sqlerrm not like '%Coached client cannot edit assigned program%' then
+      if sqlerrm not like '%Coached client cannot edit assigned program%'
+         and sqlerrm not like '%permission denied%' then
         raise;
       end if;
   end;
@@ -523,21 +527,39 @@ begin
       end if;
   end;
 
-  v_days := public.sync_program_days(
-    'a1890000-0000-4000-8000-000000000013',
-    '[{"weekday":4,"name":"Upper synced","exercises":[{"name":"Press","default_sets":4,"default_reps":6}]}]'::jsonb
-  );
-  if v_days is distinct from 1 then
-    raise exception 'dual roster sync expected 1 day, got %', v_days;
-  end if;
+  begin
+    perform public.sync_program_days(
+      'a1890000-0000-4000-8000-000000000013',
+      '[{"weekday":4,"name":"Upper synced","exercises":[{"name":"Press","default_sets":4,"default_reps":6}]}]'::jsonb
+    );
+    raise exception 'dual roster sync_program_days still executable';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%still executable%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' then
+        raise;
+      end if;
+  end;
 
-  v_count := public.save_program_day_exercises(
-    v_roster_day,
-    '[{"name":"Press","default_sets":5,"default_reps":5}]'::jsonb
-  );
-  if v_count is distinct from 1 then
-    raise exception 'dual roster save_program_day_exercises expected 1, got %', v_count;
-  end if;
+  begin
+    perform public.save_program_day_exercises(
+      v_roster_day,
+      '[{"name":"Press","default_sets":5,"default_reps":5}]'::jsonb
+    );
+    raise exception 'dual roster save_program_day_exercises still executable';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%still executable%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%' then
+        raise;
+      end if;
+  end;
 
   v_days := public.save_program(
     'a1890000-0000-4000-8000-000000000013',

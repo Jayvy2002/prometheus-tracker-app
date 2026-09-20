@@ -109,9 +109,39 @@ export function localWorkoutTimestamp(d: Date = new Date()): string {
   return `${toLocalDateStr(d)}T12:00:00`;
 }
 
-export function programWeekNumber(startDate: string, durationWeeks: number, today: Date = new Date()): number {
+export function civilDateInTimeZone(timeZone: string | null | undefined, now: Date = new Date()): string {
+  const tz = (timeZone ?? '').trim() || 'America/Toronto';
+  try {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(now).map(part => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  } catch {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Toronto',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const parts = Object.fromEntries(fmt.formatToParts(now).map(part => [part.type, part.value]));
+    return `${parts.year}-${parts.month}-${parts.day}`;
+  }
+}
+
+export function weekdayFromCivilDate(date: string): number {
+  const parsed = new Date(`${date.slice(0, 10)}T12:00:00`);
+  return Number.isNaN(parsed.getTime()) ? -1 : parsed.getDay();
+}
+
+export function programWeekNumber(startDate: string, durationWeeks: number, today: Date | string = new Date()): number {
   const start = parseDate(startDate);
-  const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const todayLocal = typeof today === 'string'
+    ? parseDate(today)
+    : new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const diffDays = Math.floor((todayLocal.getTime() - start.getTime()) / 86400000);
   if (diffDays < 0) return 1;
   return Math.min(durationWeeks, Math.floor(diffDays / 7) + 1);

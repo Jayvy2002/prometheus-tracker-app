@@ -34,14 +34,19 @@ export function programGraphForDate(input: {
   liveDays: PlanCalendarDay[] | null | undefined;
   livePhases: ProgramPhase[] | null | undefined;
   liveOrganization?: SessionOrganization | null;
+  liveDurationWeeks?: number | null;
+  liveVersionStart?: string | null;
   scheduledActivatesOn?: string | null;
   scheduledDays?: PlanCalendarDay[] | null;
   scheduledPhases?: ProgramPhase[] | null;
   scheduledOrganization?: SessionOrganization | null;
+  scheduledDurationWeeks?: number | null;
 }): {
   days: PlanCalendarDay[] | null | undefined;
   phases: ProgramPhase[] | null | undefined;
   organization?: SessionOrganization | null;
+  durationWeeks?: number | null;
+  versionStart?: string | null;
 } {
   const date = input.date.slice(0, 10);
   const activates = input.scheduledActivatesOn?.slice(0, 10) ?? '';
@@ -50,11 +55,15 @@ export function programGraphForDate(input: {
       days: input.scheduledDays,
       phases: input.scheduledPhases ?? input.livePhases,
       organization: input.scheduledOrganization ?? input.liveOrganization,
+      durationWeeks: input.scheduledDurationWeeks ?? input.liveDurationWeeks ?? null,
+      versionStart: activates,
     };
   }
   return {
     days: input.liveDays,
     phases: input.livePhases,
     organization: input.liveOrganization,
+    durationWeeks: input.liveDurationWeeks ?? null,
+    versionStart: input.liveVersionStart ?? null,
   };
 }

@@ -33,6 +33,8 @@ import {
 import { isProgramDayDue, resolveAssignmentGymCard } from '../../lib/clientGym';
 import { assignStartLabel } from '../../lib/programWrite';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
+import { effectiveVersionStart } from '../../features/programs/domain/programPhases';
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
 import PageTransition from '../ui/PageTransition';
@@ -75,6 +77,7 @@ export default function Dashboard() {
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount } = useCoachingStore();
   const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
   const { assignment } = useProgramStore();
+  const programClock = useProgramCivilClock();
   const tracking = useClientTracking();
   const { nutritionHistoryCount, assignmentReady } = useDashboardBootstrap();
   const [startingRoutine, setStartingRoutine] = useState(false);
@@ -136,11 +139,14 @@ export default function Dashboard() {
   const gymCard = resolveAssignmentGymCard({
     assignment: hasProgram ? assignment : null,
     workouts,
-    todayWeekday: new Date().getDay(),
-    todayDate: todayStr(),
+    todayWeekday: programClock.weekday,
+    todayDate: programClock.today,
   });
+  const versionStart = assignment?.program
+    ? effectiveVersionStart(assignment.start_date, assignment.program.phase_anchor_on)
+    : null;
   const programWeek = assignment?.program
-    ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
+    ? programWeekNumber(versionStart ?? assignment.start_date, assignment.program.duration_weeks, programClock.today)
     : null;
   const gymPhaseName = gymCard.phase?.name ?? null;
   const gymPlannedChange = assignment?.program?.scheduled_activates_on

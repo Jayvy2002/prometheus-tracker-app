@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
 import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
-import { planMarkForDate } from './planCalendar';
+import { planMarkForDate, planCanInventScheduled } from './planCalendar';
 import { programGraphForDate, revisionVersionState } from './programVersions';
 
 function src(rel: string): string {
@@ -36,11 +36,26 @@ test('calendar can show a future version after activation day without inventing 
     date: '2026-09-21',
     liveDays: live,
     livePhases: [],
+    liveDurationWeeks: 4,
+    liveVersionStart: '2026-09-01',
     scheduledActivatesOn: '2026-09-21',
     scheduledDays: future,
     scheduledPhases: [],
+    scheduledDurationWeeks: 12,
   });
   assert.equal(after.days[0].name, 'Lower');
+  assert.equal(after.durationWeeks, 12);
+  assert.equal(after.versionStart, '2026-09-21');
+  assert.equal(planCanInventScheduled({
+    date: '2026-12-13',
+    startDate: after.versionStart,
+    durationWeeks: after.durationWeeks,
+  }), true);
+  assert.equal(planCanInventScheduled({
+    date: '2026-12-14',
+    startDate: after.versionStart,
+    durationWeeks: after.durationWeeks,
+  }), false);
 
   const sequence = planMarkForDate({
     date: '2026-09-22',
@@ -90,6 +105,9 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.match(hard.sql, /validate_program_graph_payload/);
   assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.ensure_due_program_version/);
   assert.match(hard.sql, /scheduled_activation_timezone/);
+  assert.match(hard.sql, /p_anchor_mode text/);
+  assert.match(hard.sql, /apply_program_revision_snapshot\(p_program_id, p_revision_no, 'now'\)/);
+  assert.match(hard.sql, /apply_program_revision_snapshot\(p_program_id, v_sched, 'scheduled'\)/);
   assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.delete_program/);
   assert.match(
     hard.sql,
@@ -112,6 +130,9 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   const calendar = src('src/components/calendar/CalendarPage.tsx');
   assert.match(calendar, /programGraphForDate/);
   assert.match(calendar, /scheduled_snapshot/);
+  assert.match(calendar, /parseRevisionMeta/);
+  assert.match(calendar, /liveVersionStart/);
+  assert.match(calendar, /const program = assignment\?\.program/);
 
   const fr = src('src/i18n/locales/fr.ts');
   const en = src('src/i18n/locales/en.ts');

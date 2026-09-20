@@ -264,6 +264,7 @@ jobs:
           set -euo pipefail
           grep -F 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz' /tmp/program-hardening-db-results.txt
           grep -F 'delete_program locks program row FOR UPDATE before checks' /tmp/program-hardening-db-results.txt
+          grep -F 'program hardening: provenance immutability, program_id stamp, prescribed freeze, version backfill, activate now vs due' /tmp/program-hardening-db-results.txt
       - name: Test delete_program row lock concurrency
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

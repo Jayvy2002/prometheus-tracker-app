@@ -50,6 +50,39 @@ export function phaseAnchorDate(
   return start || null;
 }
 
+/** Same clock as phase: version activation date wins over assignment.start_date. */
+export function effectiveVersionStart(
+  assignmentStartDate?: string | null,
+  phaseAnchorOn?: string | null,
+): string | null {
+  return phaseAnchorDate(assignmentStartDate, phaseAnchorOn);
+}
+
+/**
+ * Real multi-phase programs that reuse weekdays across phases need explicit
+ * durations so the timed engine can pick one active phase. Descriptive
+ * untimed phases remain allowed when weekdays do not collide.
+ */
+export function multiPhaseSharedWeekdaysNeedDuration(
+  organization: string | null | undefined,
+  phases: Array<{ duration_weeks: number | null | undefined }> | null | undefined,
+  days: Array<{ weekday?: number | null; phase_id?: string | null }> | null | undefined,
+): boolean {
+  if (organization !== 'fixed_days') return false;
+  const list = phases ?? [];
+  if (list.length < 2) return false;
+  const byWeekday = new Map<number, Set<string>>();
+  for (const day of days ?? []) {
+    if (day.weekday == null) continue;
+    const set = byWeekday.get(day.weekday) ?? new Set<string>();
+    set.add(day.phase_id?.trim() ? day.phase_id : '-');
+    byWeekday.set(day.weekday, set);
+  }
+  const shares = [...byWeekday.values()].some(set => set.size >= 2);
+  if (!shares) return false;
+  return list.some(phase => phase.duration_weeks == null || phase.duration_weeks < 1);
+}
+
 export function phasesAreTimed(phases: ProgramPhase[] | null | undefined): boolean {
   return (phases ?? []).some(phase => phase.duration_weeks != null && phase.duration_weeks > 0);
 }

@@ -74,10 +74,11 @@ test('I02: preview and apply share resolvePatchTargets; fork + version guard the
   assert.match(send, /resolvePatchTargets\(program, patch\)/);
   assert.match(send, /patchPreviewTargets/);
   const store = readFileSync(resolve(process.cwd(), 'src/stores/programStore.ts'), 'utf8');
-  assert.match(store, /resolvePatchTargets\(program, patch\)/);
+  assert.match(store, /rpc\('save_program'/);
   assert.match(store, /rpc\('fork_program'/);
   assert.match(store, /expectedUpdatedAt/);
-  assert.match(store, /return \{ error: 'stale' \}/);
+  assert.doesNotMatch(store, /rpc\('save_program_day_exercises'/);
+  assert.doesNotMatch(store, /applyExercisePatch/);
   assert.doesNotMatch(store, /ex\.name\.toLowerCase\(\)\.includes\(patch\.exercise\.toLowerCase\(\)\)/);
   const page = readFileSync(resolve(process.cwd(), 'src/components/coaching/InterventionDraftPage.tsx'), 'utf8');
   assert.match(page, /patchPreviewTargets\(boundAssignment\?\.program, patch\)/);

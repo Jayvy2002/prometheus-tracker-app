@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
 import type { AiProgramDayDraft, SessionOrganization } from '../../lib/types';
 import type { ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
+import { multiPhaseSharedWeekdaysNeedDuration } from '../../features/programs/domain/programPhases';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import ProgramRevisionHistory from './ProgramRevisionHistory';
 import Button from '../ui/Button';
@@ -94,6 +95,10 @@ export default function ProgramEditorPage() {
 
   const handleSave = async () => {
     if (!user || !name.trim() || saving) return;
+    if (multiPhaseSharedWeekdaysNeedDuration(organization, phases.filter(phase => phase.name.trim()), days)) {
+      toast(t('programs.phaseDurationRequired'), 'error');
+      return;
+    }
     setSaving(true);
     if (isNew) {
       const created = await createProgram({
@@ -136,6 +141,7 @@ export default function ProgramEditorPage() {
       toast(mapProgramWriteError(saved.error, {
         stale: t('programs.stale'),
         fallback: t('programs.saveFailed'),
+        phaseDuration: t('programs.phaseDurationRequired'),
       }), 'error');
       return;
     }
@@ -148,6 +154,10 @@ export default function ProgramEditorPage() {
 
   const handleScheduleFuture = async () => {
     if (!user || !id || isNew || saving || scheduling || !name.trim() || !activateOn) return;
+    if (multiPhaseSharedWeekdaysNeedDuration(organization, phases.filter(phase => phase.name.trim()), days)) {
+      toast(t('programs.phaseDurationRequired'), 'error');
+      return;
+    }
     setScheduling(true);
     const saved = await saveProgramVersion(
       id,
@@ -163,6 +173,7 @@ export default function ProgramEditorPage() {
         fallback: t('programs.saveFailed'),
         scheduled: t('programs.versionAlreadyScheduled'),
         historical: t('programs.versionHistorical'),
+        phaseDuration: t('programs.phaseDurationRequired'),
       }), 'error');
       return;
     }
