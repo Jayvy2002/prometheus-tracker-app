@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P3.3 EN COURS.** Candidate `20260919233853_program_versions` pending. Production/lock restent à **128** (`20260919225507_program_phases`). P3.1–P3.2 clos. Après merge CI verte : apply timestamp Git, lock 129, passe transversale P3, arrêt avant P4. Aucune auto-application. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P3.3 APPLIQUÉ.** Production/lock **129** (`20260919233853_program_versions`, timestamp Git, 45 statements). Pending vide. Passe transversale P3 puis arrêt avant P4. Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -62,7 +62,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **P3.1–P3.2 clos — P3.3 en cours** | Versions / activation, puis passe transversale P3 |
+| **P3** | Planification avancée | **P3.1–P3.3 appliqués (129) — passe transversale** | Arrêt avant P4 |
 | **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3.1 (`#195`/`#196`), Hotfix B (`#199`/`#200`) et P3.2 (`#201`/`#202`) sont appliqués en production (128 migrations). P3.3 est en cours (candidate pending). Ne pas commencer P4.
+P1.5–P2.5, P3.1 (`#195`/`#196`), Hotfix B (`#199`/`#200`), P3.2 (`#201`/`#202`) et P3.3 (`#203`) sont appliqués en production (129 migrations). Passe transversale P3 puis arrêt. Ne pas commencer P4.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -701,7 +701,7 @@ Le chemin principal reste : créer un programme → séances → Jours fixes ou 
 
 ## P3.3 — Versions et activation
 
-**EN COURS** — candidate `20260919233853_program_versions` (pending, lock production 128). Inventaire : [P3.3 — versions](P3_3_PROGRAM_VERSIONS.md).
+**TERMINÉ** (`#203`, lock 129, `20260919233853_program_versions`). Inventaire : [P3.3 — versions](P3_3_PROGRAM_VERSIONS.md).
 
 Distinguer (dérivé, pas une table d’états parallèle) :
 
