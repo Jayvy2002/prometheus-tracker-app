@@ -1355,7 +1355,7 @@ values (
 );
 insert into public.workouts(id,user_id,name,date,program_assignment_id,program_day_id)
 values (
-  'c3401941-0000-4000-8000-00000000009w',
+  'c3401941-0000-4000-8000-00000000009c',
   'c3401941-0000-4000-8000-000000000002',
   'Old log',
   now(),
@@ -1373,16 +1373,16 @@ begin
   if (select active_revision_no from public.programs where id = 'c3401941-0000-4000-8000-000000000099') is distinct from v_no then
     raise exception 'legacy backfill did not set active_revision_no';
   end if;
-  if (select program_revision_no from public.workouts where id = 'c3401941-0000-4000-8000-00000000009w') is not null then
+  if (select program_revision_no from public.workouts where id = 'c3401941-0000-4000-8000-00000000009c') is not null then
     raise exception 'legacy workout was retro-stamped with a revision';
   end if;
   update public.workouts w
      set program_id = pa.program_id
     from public.program_assignments pa
-   where w.id = 'c3401941-0000-4000-8000-00000000009w'
+   where w.id = 'c3401941-0000-4000-8000-00000000009c'
      and w.program_assignment_id = pa.id
      and w.program_id is null;
-  if (select program_id from public.workouts where id = 'c3401941-0000-4000-8000-00000000009w')
+  if (select program_id from public.workouts where id = 'c3401941-0000-4000-8000-00000000009c')
        is distinct from 'c3401941-0000-4000-8000-000000000099' then
     raise exception 'legacy workout program_id was not backfilled from assignment';
   end if;
