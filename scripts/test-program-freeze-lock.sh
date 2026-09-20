@@ -372,7 +372,9 @@ UPDATE public.coach_client_links SET status = 'active' WHERE id = '${LINK}'::uui
 UPDATE public.user_roles SET coaching_role = 'none' WHERE user_id = '${CLIENT}'::uuid;
 SQL
 
-# --- Cas C: save_program live locks first; freeze waits; pin stays current revision. ---
+# --- Cas C: save_program live locks first; freeze waits; pin = committed live revision. ---
+# save_program snapshots and advances active_revision_no. Freeze must wait, then
+# pin that new revision — never the pre-save number.
 seed_program "${PROGRAM_C}" "Freeze C"
 rev_c1="$(psql_at "SELECT active_revision_no FROM public.programs WHERE id = '${PROGRAM_C}'::uuid")"
 
@@ -441,8 +443,13 @@ if [[ "${depart_rc}" -ne 0 ]]; then
 fi
 
 frozen_c="$(psql_at "SELECT frozen_revision_no FROM public.program_assignments WHERE program_id = '${PROGRAM_C}'::uuid AND client_id = '${CLIENT}'::uuid")"
-if [[ "${frozen_c}" != "${rev_c1}" ]]; then
-  echo "Cas C freeze pin ${frozen_c}, expected current revision ${rev_c1}" >&2
+live_c="$(psql_at "SELECT active_revision_no FROM public.programs WHERE id = '${PROGRAM_C}'::uuid")"
+if [[ -z "${frozen_c}" || "${frozen_c}" != "${live_c}" ]]; then
+  echo "Cas C freeze pin ${frozen_c} live ${live_c}, expected pin of committed live revision" >&2
+  exit 1
+fi
+if [[ "${frozen_c}" -le "${rev_c1}" ]]; then
+  echo "Cas C freeze pin ${frozen_c} did not advance with save_program from ${rev_c1}" >&2
   exit 1
 fi
 
