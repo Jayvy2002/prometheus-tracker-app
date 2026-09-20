@@ -21,6 +21,20 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(found.sql, /REVOKE INSERT, UPDATE, DELETE ON TABLE public\.programs FROM authenticated/);
   assert.match(found.sql, /DROP POLICY IF EXISTS "Owners delete programs"/);
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.delete_program/);
+  {
+    const delStart = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.delete_program');
+    const delEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.delete_program');
+    const delFn = found.sql.slice(delStart, delEnd);
+    const lockAt = delFn.search(/FROM public\.programs\s+WHERE id = p_program_id\s+FOR UPDATE/);
+    const leftoverAt = delFn.indexOf('coached_client_cannot_edit_program');
+    const activeAt = delFn.indexOf("RAISE EXCEPTION 'program_has_active_assignment'");
+    const histAt = delFn.indexOf('program_has_history(p_program_id)');
+    const deleteAt = delFn.indexOf('DELETE FROM public.programs');
+    assert.ok(
+      lockAt >= 0 && leftoverAt > lockAt && activeAt > leftoverAt && histAt > activeAt && deleteAt > histAt,
+      'delete_program must FOR UPDATE the program row before leftover/active/history checks',
+    );
+  }
   assert.match(found.sql, /scheduled_activation_timezone/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.program_actor_timezone\(uuid\) FROM PUBLIC, anon, authenticated/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.program_activation_timezone\(uuid\) FROM PUBLIC, anon, authenticated/);
@@ -44,8 +58,21 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('src/i18n/locales/en/programs.ts'), /deleteHasHistory/);
   assert.match(src('.github/workflows/ci.yml'), /program_hardening\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /helper ACL, delete, frozen tz/);
+  assert.match(src('.github/workflows/ci.yml'), /delete_program locks program row FOR UPDATE before checks/);
+  assert.match(src('.github/workflows/ci.yml'), /test-delete-program-lock\.sh/);
+  assert.match(src('scripts/test-delete-program-lock.sh'), /pg_advisory_xact_lock/);
+  assert.match(src('scripts/test-delete-program-lock.sh'), /assign_program_secure/);
+  assert.match(src('scripts/test-delete-program-lock.sh'), /delete_program did not wait on in-flight assignment/);
+  assert.match(src('scripts/test-delete-program-lock.sh'), /in-flight assign cannot sneak past FOR UPDATE/);
   assert.match(src('supabase/tests/program_hardening.sql'), /\\echo 'program hardening:/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /delete_program locks program row FOR UPDATE before checks/);
   assert.match(src('supabase/tests/program_hardening.sql'), /internal P3 helper exposed to authenticated/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /delete_program does not lock the program row before deletion checks/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /from public\.programs where id = p_program_id for update/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /leftover refuse mutated assignments/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /active refuse mutated assignments/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /refused assignment-history delete dropped assignments/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /stranger refuse deleted the program/);
   assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
   assert.match(src('docs/CHANTIER.md'), /P3 hardening/);

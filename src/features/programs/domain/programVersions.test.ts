@@ -91,6 +91,10 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.ensure_due_program_version/);
   assert.match(hard.sql, /scheduled_activation_timezone/);
   assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.delete_program/);
+  assert.match(
+    hard.sql,
+    /FROM public\.programs\s+WHERE id = p_program_id\s+FOR UPDATE/,
+  );
 
   const store = src('src/stores/programStore.ts');
   assert.match(store, /rpc\('save_program_version'/);

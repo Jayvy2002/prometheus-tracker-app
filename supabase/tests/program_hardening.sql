@@ -759,6 +759,43 @@ begin
   end if;
 end $$;
 
+-- delete_program: FOR UPDATE before checks (source contract).
+do $$
+declare
+  src text;
+  lock_at int;
+  owner_at int;
+  leftover_at int;
+  active_at int;
+  hist_at int;
+  del_at int;
+begin
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.delete_program(uuid)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  lock_at := position('from public.programs where id = p_program_id for update' in src);
+  owner_at := position('not program owner' in src);
+  leftover_at := position('coached_client_cannot_edit_program' in src);
+  active_at := position('program_has_active_assignment' in src);
+  hist_at := position('program_has_history(p_program_id)' in src);
+  del_at := position('delete from public.programs' in src);
+  if lock_at = 0 or owner_at = 0 or leftover_at = 0 or active_at = 0 or hist_at = 0 or del_at = 0 then
+    raise exception 'delete_program missing lock or check';
+  end if;
+  if not (
+    lock_at < owner_at
+    and owner_at < leftover_at
+    and leftover_at < active_at
+    and active_at < hist_at
+    and hist_at < del_at
+  ) then
+    raise exception 'delete_program does not lock the program row before deletion checks';
+  end if;
+end $$;
+
 -- delete_program: virgin OK; stranger/leftover/active/history refuse; Data API closed.
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('c3401941-0000-4000-8000-000000000020','c3401941-0000-4000-8000-000000000001','Virgin','',8),
@@ -792,6 +829,11 @@ begin
         raise;
       end if;
   end;
+  if not exists (
+    select 1 from public.programs where id = 'c3401941-0000-4000-8000-000000000020'
+  ) then
+    raise exception 'stranger refuse deleted the program';
+  end if;
 end $$;
 reset role;
 
@@ -800,7 +842,11 @@ select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000005'
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000005","role":"authenticated"}',true);
 do $$
+declare
+  v_asg int;
 begin
+  select count(*) into v_asg from public.program_assignments
+   where program_id = 'c3401941-0000-4000-8000-000000000022';
   begin
     perform public.delete_program('c3401941-0000-4000-8000-000000000022');
     raise exception 'leftover delete_program was allowed';
@@ -810,6 +856,15 @@ begin
         raise;
       end if;
   end;
+  if not exists (
+    select 1 from public.programs where id = 'c3401941-0000-4000-8000-000000000022'
+  ) then
+    raise exception 'leftover refuse deleted the program';
+  end if;
+  if (select count(*) from public.program_assignments
+      where program_id = 'c3401941-0000-4000-8000-000000000022') is distinct from v_asg then
+    raise exception 'leftover refuse mutated assignments';
+  end if;
 end $$;
 reset role;
 
@@ -832,6 +887,8 @@ begin
     raise exception 'virgin program still present';
   end if;
 
+  select count(*) into v_asg from public.program_assignments
+   where program_id = 'c3401941-0000-4000-8000-000000000010';
   begin
     perform public.delete_program('c3401941-0000-4000-8000-000000000010');
     raise exception 'active assignment delete_program was allowed';
@@ -841,6 +898,15 @@ begin
         raise;
       end if;
   end;
+  if not exists (
+    select 1 from public.programs where id = 'c3401941-0000-4000-8000-000000000010'
+  ) then
+    raise exception 'active refuse deleted the program';
+  end if;
+  if (select count(*) from public.program_assignments
+      where program_id = 'c3401941-0000-4000-8000-000000000010') is distinct from v_asg then
+    raise exception 'active refuse mutated assignments';
+  end if;
 
   select count(*) into v_revs from public.program_revisions
    where program_id = 'c3401941-0000-4000-8000-000000000025';
@@ -875,8 +941,11 @@ select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-00000000
 do $$
 declare
   v_revs int;
+  v_asg int;
 begin
   select count(*) into v_revs from public.program_revisions
+   where program_id = 'c3401941-0000-4000-8000-000000000011';
+  select count(*) into v_asg from public.program_assignments
    where program_id = 'c3401941-0000-4000-8000-000000000011';
   begin
     perform public.delete_program('c3401941-0000-4000-8000-000000000011');
@@ -891,8 +960,13 @@ begin
       where program_id = 'c3401941-0000-4000-8000-000000000011') is distinct from v_revs then
     raise exception 'refused assignment-history delete dropped revisions';
   end if;
+  if (select count(*) from public.program_assignments
+      where program_id = 'c3401941-0000-4000-8000-000000000011') is distinct from v_asg then
+    raise exception 'refused assignment-history delete dropped assignments';
+  end if;
 end $$;
 reset role;
 
 rollback;
 \echo 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz'
+\echo 'delete_program locks program row FOR UPDATE before checks'

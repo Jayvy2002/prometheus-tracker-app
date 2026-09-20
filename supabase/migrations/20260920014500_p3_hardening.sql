@@ -1502,7 +1502,13 @@ DECLARE
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Not authenticated'; END IF;
   IF p_program_id IS NULL THEN RAISE EXCEPTION 'Invalid payload'; END IF;
-  SELECT owner_id INTO v_owner FROM public.programs WHERE id = p_program_id;
+  -- Hold the parent row until COMMIT so a concurrent program_assignments INSERT
+  -- (FK FOR KEY SHARE) cannot commit between the guards and DELETE CASCADE.
+  SELECT owner_id
+    INTO v_owner
+    FROM public.programs
+   WHERE id = p_program_id
+     FOR UPDATE;
   IF v_owner IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
   IF v_owner IS DISTINCT FROM v_uid THEN RAISE EXCEPTION 'Not program owner'; END IF;
   IF public.coached_client_cannot_edit_program(p_program_id) THEN
@@ -1525,7 +1531,7 @@ $$;
 REVOKE ALL ON FUNCTION public.delete_program(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.delete_program(uuid) TO authenticated, service_role;
 COMMENT ON FUNCTION public.delete_program(uuid) IS
-  'Hard delete a never-assigned unused program. Active assignment refuses (program_has_active_assignment). Historical assignment/workouts refuse (program_has_history). Data API DELETE is closed.';
+  'Hard delete a never-assigned unused program. Locks programs FOR UPDATE before ownership, leftover, active-assignment and history checks so a concurrent assignment cannot sneak in and be CASCADE-deleted. Active assignment refuses (program_has_active_assignment). Historical assignment/workouts refuse (program_has_history). Data API DELETE is closed.';
 
 -- Graph writes are RPC-only (Hotfix A/B pattern). Keep SELECT. Delete via delete_program.
 DROP POLICY IF EXISTS "Owners insert programs" ON public.programs;

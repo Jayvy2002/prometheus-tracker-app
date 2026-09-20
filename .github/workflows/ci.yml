@@ -263,6 +263,15 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz' /tmp/program-hardening-db-results.txt
+          grep -F 'delete_program locks program row FOR UPDATE before checks' /tmp/program-hardening-db-results.txt
+      - name: Test delete_program row lock concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-delete-program-lock.sh | tee /tmp/delete-program-lock-concurrency.txt
+      - name: Confirm delete_program row lock concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'delete_program row lock: in-flight assign cannot sneak past FOR UPDATE' /tmp/delete-program-lock-concurrency.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

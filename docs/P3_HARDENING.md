@@ -111,6 +111,12 @@ historique assignment / workout
 → refus (`program_has_history`)
 ```
 
+`delete_program` verrouille `programs` (`SELECT owner_id … FOR UPDATE`) **avant**
+ownership, leftover, assignment actif et historique. Le verrou est tenu jusqu’à
+la fin de la transaction : un `INSERT` concurrent dans `program_assignments`
+(FK vers `programs(id)`) attend / entre en conflit au lieu de se glisser entre
+les checks et le `DELETE` (`ON DELETE CASCADE`).
+
 Pas d’archivage P3. Fail-closed : un refus ne mute pas révisions, assignments
 ni workouts. `deleteProgram()` frontend passe par cette RPC.
 
