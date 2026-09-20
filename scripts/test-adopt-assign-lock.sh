@@ -402,9 +402,18 @@ if [[ "${other_rc}" -ne 0 ]]; then
   exit 1
 fi
 
-created="$(tr -d '[:space:]' < /tmp/prometheus-adopt-assign-create.out)"
-if [[ -z "${created}" ]]; then
-  echo "Cas 2 create_program_complete returned no program id" >&2
+created="$(psql_at "
+  SELECT pa.program_id::text
+    FROM public.program_assignments pa
+    JOIN public.programs p ON p.id = pa.program_id
+   WHERE pa.client_id = '${CLIENT}'::uuid
+     AND pa.status = 'active'
+     AND p.name = 'Adopt Create New'
+   LIMIT 1
+")"
+if [[ ! "${created}" =~ ^[0-9a-f-]{36}$ ]]; then
+  echo "Cas 2 create_program_complete returned no program id: ${created}" >&2
+  cat /tmp/prometheus-adopt-assign-create.out /tmp/prometheus-adopt-assign-create.err >&2 || true
   exit 1
 fi
 paused_b="$(psql_at "SELECT status || ':' || COALESCE(frozen_revision_no::text, 'null') FROM public.program_assignments WHERE id = '${asg_b}'::uuid")"
@@ -427,8 +436,6 @@ if [[ "${forks_after}" -le "${forks_before}" ]]; then
   echo "Cas 2 adopted fork missing (programs ${forks_before} → ${forks_after})" >&2
   exit 1
 fi
-day_b="$(psql_at "SELECT name FROM public.program_days WHERE program_id IN (SELECT id FROM public.programs WHERE owner_id = '${OWNER}'::uuid AND id NOT IN ('${PROGRAM_A}'::uuid, '${PROGRAM_T}'::uuid, '${PROGRAM_B}'::uuid, '${created}'::uuid)) ORDER BY created_at DESC LIMIT 1")"
-# The newest coach-owned extra program is the adopt fork of B (Push A).
 fork_b_day="$(psql_at "
   SELECT pd.name
     FROM public.program_days pd
