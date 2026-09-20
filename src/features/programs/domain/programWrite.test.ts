@@ -47,6 +47,24 @@ test('maps stale SQL to a stable client code', () => {
     }),
     'hist',
   );
+  assert.equal(
+    mapProgramWriteError('mixed phase durations', {
+      stale: 'reload',
+      fallback: 'retry',
+      mixedPhases: 'mixed',
+      invalidSets: 'sets',
+    }),
+    'mixed',
+  );
+  assert.equal(
+    mapProgramWriteError('Invalid sets for Bench', {
+      stale: 'reload',
+      fallback: 'retry',
+      mixedPhases: 'mixed',
+      invalidSets: 'sets',
+    }),
+    'sets',
+  );
 });
 
 test('assign recap date stays on the local calendar day', () => {

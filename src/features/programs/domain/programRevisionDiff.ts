@@ -1,4 +1,5 @@
 /** UX23 — visual history of program_revisions. Restore = new revision, logs untouched. */
+import type { Program } from '../types';
 
 export interface RevisionExerciseSnap {
   name: string;
@@ -12,6 +13,7 @@ export interface RevisionExerciseSnap {
 }
 
 export interface RevisionDaySnap {
+  id?: string;
   weekday: number | null;
   name: string;
   order_index?: number;
@@ -28,9 +30,11 @@ export interface ProgramRevisionRow {
   created_at: string;
   activated_at?: string | null;
   superseded_at?: string | null;
+  version_start_on?: string | null;
 }
 
 export interface RevisionDayDraft {
+  id?: string;
   weekday: number | null;
   name: string;
   phase_id?: string | null;
@@ -89,6 +93,7 @@ export function parseRevisionSnapshot(snapshot: unknown): RevisionDaySnap[] {
     const rec = asRecord(raw) ?? {};
     const exercisesRaw = Array.isArray(rec.exercises) ? rec.exercises : [];
     return {
+      id: typeof rec.id === 'string' && rec.id ? rec.id : undefined,
       weekday: parseWeekday(rec.weekday),
       name: typeof rec.name === 'string' ? rec.name : '',
       order_index: typeof rec.order_index === 'number' ? rec.order_index : index,
@@ -128,6 +133,7 @@ export function revisionBeforeAfter(previous: unknown | null, current: unknown):
 
 export function snapshotToDayDrafts(snapshot: unknown): RevisionDayDraft[] {
   return parseRevisionSnapshot(snapshot).map(day => ({
+    id: day.id,
     weekday: day.weekday,
     name: day.name,
     phase_id: day.phase_id ?? null,
@@ -165,4 +171,67 @@ export function snapshotToPhaseDrafts(snapshot: unknown): Array<{
       duration_weeks: weeks != null && weeks >= 1 && weeks <= 52 ? weeks : null,
     };
   }).filter(phase => phase.name.trim());
+}
+
+/** Paused/completed archives reconstruct the frozen revision, never the live graph. */
+export function programFromFrozenRevision(input: {
+  meta: Pick<Program, 'id' | 'owner_id' | 'created_at' | 'updated_at'>;
+  revisionNo: number;
+  versionStartOn?: string | null;
+  snapshot: unknown;
+}): Program {
+  const daysSnap = parseRevisionSnapshot(input.snapshot);
+  const days = daysSnap.map((day, order_index) => {
+    const dayId = day.id ?? `frozen-day-${input.revisionNo}-${order_index}`;
+    return {
+      id: dayId,
+      program_id: input.meta.id,
+      weekday: day.weekday,
+      name: day.name,
+      routine_id: null,
+      order_index: day.order_index ?? order_index,
+      phase_id: day.phase_id ?? null,
+      created_at: input.meta.created_at,
+      exercises: day.exercises.map((ex, i) => ({
+        id: `frozen-ex-${input.revisionNo}-${order_index}-${i}`,
+        program_day_id: dayId,
+        name: ex.name,
+        default_sets: ex.default_sets ?? 3,
+        default_reps: ex.default_reps ?? 10,
+        default_reps_min: ex.default_reps_min,
+        default_rir: ex.default_rir,
+        default_rest_seconds: ex.default_rest_seconds ?? 90,
+        default_weight_kg: ex.default_weight_kg,
+        order_index: ex.order_index ?? i,
+        created_at: input.meta.created_at,
+      })),
+    };
+  });
+  const phases = snapshotToPhaseDrafts(input.snapshot).map((phase, order_index) => ({
+    id: phase.id ?? `frozen-phase-${input.revisionNo}-${order_index}`,
+    program_id: input.meta.id,
+    name: phase.name,
+    description: phase.description,
+    order_index,
+    duration_weeks: phase.duration_weeks,
+  }));
+  const snapMeta = parseRevisionMeta(input.snapshot);
+  return {
+    id: input.meta.id,
+    owner_id: input.meta.owner_id,
+    name: snapMeta.name ?? '',
+    description: snapMeta.description ?? '',
+    duration_weeks: snapMeta.duration_weeks ?? 8,
+    session_organization: parseRevisionOrganization(input.snapshot),
+    phases,
+    days,
+    active_revision_no: input.revisionNo,
+    scheduled_revision_no: null,
+    scheduled_activates_on: null,
+    scheduled_activation_timezone: null,
+    scheduled_snapshot: null,
+    phase_anchor_on: input.versionStartOn ?? null,
+    created_at: input.meta.created_at,
+    updated_at: input.meta.updated_at,
+  };
 }

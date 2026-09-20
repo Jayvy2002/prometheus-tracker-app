@@ -13,12 +13,18 @@ export function mapProgramWriteError(
     scheduled?: string;
     historical?: string;
     phaseDuration?: string;
+    mixedPhases?: string;
+    invalidSets?: string;
   },
 ): string {
   if (isProgramStaleError(message)) return copy.stale;
   if (copy.scheduled && message?.includes('already_scheduled')) return copy.scheduled;
   if (copy.historical && message?.includes('historical')) return copy.historical;
+  if (copy.mixedPhases && message?.includes('mixed phase durations')) return copy.mixedPhases;
   if (copy.phaseDuration && message?.includes('phase duration required')) return copy.phaseDuration;
+  if (copy.invalidSets && (message?.includes('Invalid sets') || message?.includes('invalid_set_count'))) {
+    return copy.invalidSets;
+  }
   return copy.fallback;
 }
 

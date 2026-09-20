@@ -137,13 +137,40 @@ export function weekdayFromCivilDate(date: string): number {
   return Number.isNaN(parsed.getTime()) ? -1 : parsed.getDay();
 }
 
+/** UTC ordinal of a YYYY-MM-DD civil date. Independent of local TZ / DST. */
+export function civilDateOrdinal(isoDate: string): number | null {
+  const part = isoDate.slice(0, 10);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(part);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return Math.round(Date.UTC(year, month - 1, day) / 86_400_000);
+}
+
+export function civilDaysBetween(start: string, today: string): number | null {
+  const from = civilDateOrdinal(start);
+  const to = civilDateOrdinal(today);
+  if (from == null || to == null) return null;
+  return to - from;
+}
+
+export function laterCivilDate(a?: string | null, b?: string | null): string | null {
+  const left = a?.slice(0, 10) || '';
+  const right = b?.slice(0, 10) || '';
+  if (left && right) return left >= right ? left : right;
+  return left || right || null;
+}
+
 export function programWeekNumber(startDate: string, durationWeeks: number, today: Date | string = new Date()): number {
-  const start = parseDate(startDate);
-  const todayLocal = typeof today === 'string'
-    ? parseDate(today)
-    : new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const diffDays = Math.floor((todayLocal.getTime() - start.getTime()) / 86400000);
-  if (diffDays < 0) return 1;
+  const start = startDate.slice(0, 10);
+  const todayCivil = typeof today === 'string'
+    ? today.slice(0, 10)
+    : `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const diffDays = civilDaysBetween(start, todayCivil);
+  if (diffDays == null || diffDays < 0) return 1;
   return Math.min(durationWeeks, Math.floor(diffDays / 7) + 1);
 }
 

@@ -134,6 +134,7 @@ export interface ProgramAssignment {
   assigned_by: string;
   start_date: string;
   status: 'active' | 'completed' | 'paused';
+  frozen_revision_no?: number | null;
   program?: Program;
   created_at: string;
   updated_at: string;

@@ -20,6 +20,30 @@ COMMENT ON COLUMN public.programs.phase_anchor_on IS
 COMMENT ON COLUMN public.programs.scheduled_activation_timezone IS
   'IANA TZ frozen at schedule. Shared programs use the owner/Coach civil clock, never the first client.';
 
+ALTER TABLE public.program_assignments
+  ADD COLUMN IF NOT EXISTS frozen_revision_no integer;
+
+COMMENT ON COLUMN public.program_assignments.frozen_revision_no IS
+  'Revision stamped atomically when active → paused/completed. Archives read this snapshot, never the live graph.';
+
+ALTER TABLE public.program_revisions
+  ADD COLUMN IF NOT EXISTS version_start_on date;
+
+COMMENT ON COLUMN public.program_revisions.version_start_on IS
+  'Civil start of this revision when it became active. NULL = unprovable legacy; fallback assignment.start_date.';
+
+ALTER TABLE public.workout_exercises
+  ADD COLUMN IF NOT EXISTS prescription_source text NOT NULL DEFAULT 'user';
+
+ALTER TABLE public.workout_exercises
+  DROP CONSTRAINT IF EXISTS workout_exercises_prescription_source_chk;
+ALTER TABLE public.workout_exercises
+  ADD CONSTRAINT workout_exercises_prescription_source_chk
+  CHECK (prescription_source IN ('program', 'user'));
+
+COMMENT ON COLUMN public.workout_exercises.prescription_source IS
+  'program = historical Coach/program prescription from start_workout_from_template. user = logger/solo target. Immutable.';
+
 DROP INDEX IF EXISTS public.program_days_program_id_weekday_unique;
 
 CREATE UNIQUE INDEX IF NOT EXISTS program_days_program_weekday_no_phase_unique
@@ -194,6 +218,15 @@ BEGIN
   IF v_timed = 0 THEN
     RETURN NULL;
   END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM public.program_phases
+    WHERE program_id = p_program_id
+      AND (duration_weeks IS NULL OR duration_weeks < 1)
+  ) THEN
+    -- Mixed timed/untimed is invalid; do not invent a 1-week span.
+    RETURN NULL;
+  END IF;
   IF p_today < p_anchor THEN
     v_week := 0;
   ELSE
@@ -207,10 +240,7 @@ BEGIN
   LOOP
     IF v_first IS NULL THEN v_first := v_phase.id; END IF;
     v_last := v_phase.id;
-    v_span := CASE
-      WHEN v_phase.duration_weeks IS NOT NULL AND v_phase.duration_weeks > 0 THEN v_phase.duration_weeks
-      ELSE 1
-    END;
+    v_span := v_phase.duration_weeks;
     IF v_week < v_cursor + v_span THEN
       RETURN v_phase.id;
     END IF;
@@ -222,6 +252,64 @@ $$;
 
 REVOKE ALL ON FUNCTION public.program_current_phase_id(uuid, date, date) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.program_current_phase_id(uuid, date, date) TO service_role;
+
+CREATE OR REPLACE FUNCTION public.program_effective_version_start(p_assignment_start date, p_version_start date)
+RETURNS date
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT CASE
+    WHEN p_assignment_start IS NULL THEN p_version_start
+    WHEN p_version_start IS NULL THEN p_assignment_start
+    WHEN p_assignment_start >= p_version_start THEN p_assignment_start
+    ELSE p_version_start
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION public.program_effective_version_start(date, date) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.program_effective_version_start(date, date) TO service_role;
+COMMENT ON FUNCTION public.program_effective_version_start(date, date) IS
+  'laterOf(assignment.start_date, revision version_start_on / phase_anchor_on). New clients start week 1 on their start_date.';
+
+CREATE OR REPLACE FUNCTION public.actor_can_activate_program_version(p_program_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RETURN false;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.programs p
+    WHERE p.id = p_program_id AND p.owner_id = auth.uid()
+  ) THEN
+    RETURN false;
+  END IF;
+  IF public.coached_client_cannot_edit_program(p_program_id) THEN
+    RETURN false;
+  END IF;
+  -- Only ACTIVE assignments impose Coach authority. Frozen paused/completed
+  -- archives of a former client must not block the owner for remaining clients.
+  IF EXISTS (
+    SELECT 1
+    FROM public.program_assignments pa
+    WHERE pa.program_id = p_program_id
+      AND pa.client_id IS DISTINCT FROM auth.uid()
+      AND pa.status = 'active'
+      AND pa.assigned_by = auth.uid()
+      AND NOT public.is_coach_of(pa.client_id)
+  ) THEN
+    RETURN false;
+  END IF;
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.actor_can_activate_program_version(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.actor_can_activate_program_version(uuid) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.validate_program_graph_payload(p_org text, p_days jsonb, p_phases jsonb)
 RETURNS void
@@ -248,6 +336,8 @@ DECLARE
   v_wd_phases jsonb := '{}'::jsonb;
   v_share boolean := false;
   v_phase_count int;
+  v_timed int := 0;
+  v_untimed int := 0;
 BEGIN
   IF p_days IS NULL OR jsonb_typeof(p_days) <> 'array' THEN
     RAISE EXCEPTION 'Invalid payload';
@@ -269,6 +359,11 @@ BEGIN
       END;
       IF v_weeks IS NOT NULL AND (v_weeks < 1 OR v_weeks > 52) THEN
         RAISE EXCEPTION 'Invalid phase duration';
+      END IF;
+      IF v_weeks IS NULL THEN
+        v_untimed := v_untimed + 1;
+      ELSE
+        v_timed := v_timed + 1;
       END IF;
       v_id := NULL;
       BEGIN
@@ -334,11 +429,17 @@ BEGIN
       EXCEPTION WHEN OTHERS THEN
         RAISE EXCEPTION 'Invalid numbers for %', v_name;
       END;
-      IF v_sets < 1 OR v_sets > 100 THEN RAISE EXCEPTION 'Invalid sets for %', v_name; END IF;
+      IF v_sets < 1 OR v_sets > 20 THEN RAISE EXCEPTION 'Invalid sets for %', v_name; END IF;
       IF v_reps < 0 OR v_reps > 5000 THEN RAISE EXCEPTION 'Invalid reps for %', v_name; END IF;
       IF v_rest < 0 OR v_rest > 3600 THEN RAISE EXCEPTION 'Invalid rest for %', v_name; END IF;
     END LOOP;
   END LOOP;
+
+  -- Timed programs: every phase has a duration. Descriptive programs: none do.
+  -- Mixed timed/untimed is rejected so the engine never invents a 1-week span.
+  IF v_timed > 0 AND v_untimed > 0 THEN
+    RAISE EXCEPTION 'mixed phase durations';
+  END IF;
 
   -- Multi-phase sharing the same weekday must have explicit durations so the
   -- timed engine can pick one active phase. Untimed labels stay allowed when
@@ -774,7 +875,9 @@ BEGIN
     WHERE program_id = p_program_id AND revision_no = v_prev AND superseded_at IS NULL;
   END IF;
   UPDATE public.program_revisions
-  SET activated_at = COALESCE(activated_at, now())
+  SET
+    activated_at = COALESCE(activated_at, now()),
+    version_start_on = COALESCE(version_start_on, v_anchor)
   WHERE program_id = p_program_id AND revision_no = p_revision_no;
   RETURN p_revision_no;
 END;
@@ -1046,6 +1149,7 @@ DECLARE
   v_name text;
   v_desc text;
   v_weeks int;
+  v_anchor date;
 BEGIN
   IF p_program_id IS NULL THEN RAISE EXCEPTION 'Program required'; END IF;
   IF auth.uid() IS NOT NULL AND NOT EXISTS (
@@ -1058,8 +1162,8 @@ BEGIN
   END IF;
   PERFORM 1 FROM public.programs WHERE id = p_program_id FOR UPDATE;
   SELECT public.normalize_session_organization(session_organization), active_revision_no,
-         name, description, duration_weeks
-    INTO v_org, v_prev, v_name, v_desc, v_weeks
+         name, description, duration_weeks, phase_anchor_on
+    INTO v_org, v_prev, v_name, v_desc, v_weeks, v_anchor
   FROM public.programs
   WHERE id = p_program_id;
   SELECT COALESCE(MAX(revision_no), 0) + 1 INTO v_no
@@ -1116,8 +1220,8 @@ BEGIN
       WHERE d.program_id = p_program_id
     ), '[]'::jsonb)
   ) INTO v_snap;
-  INSERT INTO public.program_revisions (program_id, revision_no, snapshot, created_by, activated_at)
-  VALUES (p_program_id, v_no, v_snap, auth.uid(), now());
+  INSERT INTO public.program_revisions (program_id, revision_no, snapshot, created_by, activated_at, version_start_on)
+  VALUES (p_program_id, v_no, v_snap, auth.uid(), now(), v_anchor);
   IF v_prev IS NOT NULL AND v_prev IS DISTINCT FROM v_no THEN
     UPDATE public.program_revisions
     SET superseded_at = COALESCE(superseded_at, now())
@@ -1157,6 +1261,9 @@ DECLARE
   v_today date;
   v_current_phase uuid;
   v_start date;
+  v_version_start date;
+  v_effective date;
+  v_source text;
 BEGIN
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'not_authenticated';
@@ -1194,18 +1301,25 @@ BEGIN
   END IF;
 
   IF p_program_day_id IS NOT NULL THEN
-    SELECT pd.phase_id, ph.name, pd.program_id, p.phase_anchor_on, pa.start_date, p.active_revision_no
-      INTO v_phase_id, v_phase_name, v_program_id, v_anchor, v_start, v_revision_no
+    SELECT pd.phase_id, ph.name, pd.program_id, p.phase_anchor_on, pa.start_date, p.active_revision_no,
+           r.version_start_on
+      INTO v_phase_id, v_phase_name, v_program_id, v_anchor, v_start, v_revision_no, v_version_start
     FROM public.program_days pd
     JOIN public.program_assignments pa ON pa.program_id = pd.program_id
     JOIN public.programs p ON p.id = pd.program_id
     LEFT JOIN public.program_phases ph ON ph.id = pd.phase_id
+    LEFT JOIN public.program_revisions r
+      ON r.program_id = p.id AND r.revision_no = p.active_revision_no
     WHERE pd.id = p_program_day_id
       AND pa.id = p_program_assignment_id;
     v_today := public.program_civil_date(public.program_actor_timezone(v_user_id), now());
+    v_effective := public.program_effective_version_start(
+      v_start,
+      COALESCE(v_version_start, v_anchor)
+    );
     v_current_phase := public.program_current_phase_id(
       v_program_id,
-      COALESCE(v_anchor, v_start),
+      v_effective,
       v_today
     );
     IF v_phase_id IS NOT NULL
@@ -1268,8 +1382,8 @@ BEGIN
     IF NULLIF(btrim(v_item->>'name'), '') IS NULL THEN
       RAISE EXCEPTION 'exercise_name_required';
     END IF;
-    v_set_count := COALESCE((v_item->>'default_sets')::integer, 0);
-    IF v_set_count < 0 OR v_set_count > 20 THEN
+    v_set_count := COALESCE((v_item->>'default_sets')::integer, 3);
+    IF v_set_count < 1 OR v_set_count > 20 THEN
       RAISE EXCEPTION 'invalid_set_count';
     END IF;
     v_set_type := COALESCE(NULLIF(v_item->>'set_type', ''), 'working');
@@ -1277,10 +1391,13 @@ BEGIN
       v_set_type := 'working';
     END IF;
 
+    v_source := CASE WHEN p_program_day_id IS NOT NULL THEN 'program' ELSE 'user' END;
+
     INSERT INTO public.workout_exercises (
       workout_id, name, order_index,
       prescribed_sets, prescribed_reps, prescribed_reps_min, prescribed_rir,
-      prescribed_rest_seconds, prescribed_weight_kg, superset_group_id
+      prescribed_rest_seconds, prescribed_weight_kg, superset_group_id,
+      prescription_source
     ) VALUES (
       v_workout_id,
       btrim(v_item->>'name'),
@@ -1291,7 +1408,8 @@ BEGIN
       NULLIF(v_item->>'default_rir', '')::integer,
       NULLIF(v_item->>'default_rest_seconds', '')::integer,
       NULLIF(v_item->>'default_weight_kg', '')::numeric,
-      NULLIF(v_item->>'superset_group', '')
+      NULLIF(v_item->>'superset_group', ''),
+      v_source
     )
     RETURNING id INTO v_exercise_id;
 
@@ -1418,7 +1536,7 @@ BEGIN
         EXCEPTION WHEN OTHERS THEN
           RAISE EXCEPTION 'Invalid numbers for %', v_name;
         END;
-        IF v_sets < 1 OR v_sets > 100 THEN
+        IF v_sets < 1 OR v_sets > 20 THEN
           RAISE EXCEPTION 'Invalid sets for %', v_name;
         END IF;
         IF v_reps < 0 OR v_reps > 5000 THEN
@@ -1703,7 +1821,7 @@ GRANT EXECUTE ON FUNCTION public.delete_program(uuid) TO authenticated, service_
 COMMENT ON FUNCTION public.delete_program(uuid) IS
   'Hard delete a never-assigned unused program. Locks programs FOR UPDATE before ownership, leftover, active-assignment and history checks so a concurrent assignment cannot sneak in and be CASCADE-deleted. Active assignment refuses (program_has_active_assignment). Historical assignment/workouts refuse (program_has_history). Data API DELETE is closed.';
 
--- Graph writes are RPC-only (Hotfix A/B pattern). Keep SELECT. Delete via delete_program.
+-- Graph writes are RPC-only (Hotfix A/B allowlist). SELECT per RLS only.
 DROP POLICY IF EXISTS "Owners insert programs" ON public.programs;
 DROP POLICY IF EXISTS "Owners update programs" ON public.programs;
 DROP POLICY IF EXISTS "Owners delete programs" ON public.programs;
@@ -1717,14 +1835,28 @@ DROP POLICY IF EXISTS "Owners insert program phases" ON public.program_phases;
 DROP POLICY IF EXISTS "Owners update program phases" ON public.program_phases;
 DROP POLICY IF EXISTS "Owners delete program phases" ON public.program_phases;
 
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.program_days FROM authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.program_day_exercises FROM authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.program_phases FROM authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE public.programs FROM authenticated;
+REVOKE ALL ON TABLE public.program_days FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.program_day_exercises FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.program_phases FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.programs FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE public.program_days TO authenticated;
 GRANT SELECT ON TABLE public.program_day_exercises TO authenticated;
 GRANT SELECT ON TABLE public.program_phases TO authenticated;
 GRANT SELECT ON TABLE public.programs TO authenticated;
+
+DROP POLICY IF EXISTS "Assigner inserts assignments" ON public.program_assignments;
+DROP POLICY IF EXISTS "Assigner updates assignments" ON public.program_assignments;
+DROP POLICY IF EXISTS "Assigner deletes assignments" ON public.program_assignments;
+
+REVOKE ALL ON TABLE public.program_assignments FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE public.program_assignments TO authenticated;
+
+REVOKE ALL ON TABLE public.workouts FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.workout_exercises FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.workout_sets FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.workouts TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.workout_exercises TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.workout_sets TO authenticated;
 
 -- Public métier commands only. Primitives stay DEFINER-internal.
 REVOKE ALL ON FUNCTION public.sync_program_phases(uuid, jsonb) FROM PUBLIC, anon, authenticated;
@@ -1789,14 +1921,27 @@ LANGUAGE plpgsql
 SET search_path = public
 AS $$
 BEGIN
-  IF current_user = 'authenticated' AND TG_OP = 'UPDATE' THEN
-    IF NEW.prescribed_sets IS DISTINCT FROM OLD.prescribed_sets
-       OR NEW.prescribed_reps IS DISTINCT FROM OLD.prescribed_reps
-       OR NEW.prescribed_reps_min IS DISTINCT FROM OLD.prescribed_reps_min
-       OR NEW.prescribed_rir IS DISTINCT FROM OLD.prescribed_rir
-       OR NEW.prescribed_rest_seconds IS DISTINCT FROM OLD.prescribed_rest_seconds
-       OR NEW.prescribed_weight_kg IS DISTINCT FROM OLD.prescribed_weight_kg THEN
-      RAISE EXCEPTION 'workout prescription is immutable';
+  IF current_user = 'authenticated' THEN
+    IF TG_OP = 'INSERT' THEN
+      IF NEW.prescription_source IS DISTINCT FROM 'user' THEN
+        RAISE EXCEPTION 'prescription_source is RPC-only';
+      END IF;
+      NEW.prescription_source := 'user';
+    ELSIF TG_OP = 'UPDATE' THEN
+      IF NEW.prescription_source IS DISTINCT FROM OLD.prescription_source THEN
+        RAISE EXCEPTION 'prescription_source is immutable';
+      END IF;
+      IF OLD.prescription_source = 'program'
+         AND (
+           NEW.prescribed_sets IS DISTINCT FROM OLD.prescribed_sets
+           OR NEW.prescribed_reps IS DISTINCT FROM OLD.prescribed_reps
+           OR NEW.prescribed_reps_min IS DISTINCT FROM OLD.prescribed_reps_min
+           OR NEW.prescribed_rir IS DISTINCT FROM OLD.prescribed_rir
+           OR NEW.prescribed_rest_seconds IS DISTINCT FROM OLD.prescribed_rest_seconds
+           OR NEW.prescribed_weight_kg IS DISTINCT FROM OLD.prescribed_weight_kg
+         ) THEN
+        RAISE EXCEPTION 'workout prescription is immutable';
+      END IF;
     END IF;
   END IF;
   RETURN NEW;
@@ -1807,9 +1952,76 @@ REVOKE ALL ON FUNCTION public.workout_exercises_protect_prescribed() FROM PUBLIC
 
 DROP TRIGGER IF EXISTS workout_exercises_protect_prescribed ON public.workout_exercises;
 CREATE TRIGGER workout_exercises_protect_prescribed
-  BEFORE UPDATE ON public.workout_exercises
+  BEFORE INSERT OR UPDATE ON public.workout_exercises
   FOR EACH ROW
   EXECUTE FUNCTION public.workout_exercises_protect_prescribed();
+
+CREATE OR REPLACE FUNCTION public.program_assignments_freeze_on_pause()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND OLD.status = 'active'
+     AND NEW.status IN ('paused', 'completed')
+     AND NEW.frozen_revision_no IS NULL THEN
+    SELECT p.active_revision_no
+      INTO NEW.frozen_revision_no
+    FROM public.programs p
+    WHERE p.id = NEW.program_id;
+  END IF;
+  IF TG_OP = 'UPDATE'
+     AND OLD.frozen_revision_no IS NOT NULL
+     AND NEW.frozen_revision_no IS DISTINCT FROM OLD.frozen_revision_no THEN
+    RAISE EXCEPTION 'frozen_revision_no is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.program_assignments_freeze_on_pause() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS program_assignments_freeze_on_pause ON public.program_assignments;
+CREATE TRIGGER program_assignments_freeze_on_pause
+  BEFORE UPDATE ON public.program_assignments
+  FOR EACH ROW
+  EXECUTE FUNCTION public.program_assignments_freeze_on_pause();
+
+CREATE OR REPLACE FUNCTION public.program_assignments_protect_identity()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF current_user = 'authenticated' THEN
+    IF TG_OP = 'INSERT' THEN
+      RAISE EXCEPTION 'program assignment writes are RPC-only';
+    ELSIF TG_OP = 'DELETE' THEN
+      RAISE EXCEPTION 'program assignment writes are RPC-only';
+    ELSIF TG_OP = 'UPDATE' THEN
+      IF NEW.id IS DISTINCT FROM OLD.id
+         OR NEW.program_id IS DISTINCT FROM OLD.program_id
+         OR NEW.client_id IS DISTINCT FROM OLD.client_id
+         OR NEW.assigned_by IS DISTINCT FROM OLD.assigned_by
+         OR NEW.start_date IS DISTINCT FROM OLD.start_date
+         OR NEW.status IS DISTINCT FROM OLD.status
+         OR NEW.frozen_revision_no IS DISTINCT FROM OLD.frozen_revision_no THEN
+        RAISE EXCEPTION 'program assignment identity is immutable';
+      END IF;
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.program_assignments_protect_identity() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS program_assignments_protect_identity ON public.program_assignments;
+CREATE TRIGGER program_assignments_protect_identity
+  BEFORE INSERT OR UPDATE OR DELETE ON public.program_assignments
+  FOR EACH ROW
+  EXECUTE FUNCTION public.program_assignments_protect_identity();
 
 -- Backfill durable workout→program stamp when assignment or day still exists.
 -- Do not guess when neither FK can name the program. Do not rewrite program_revision_no.
@@ -1853,5 +2065,52 @@ BEGIN
     WHERE p.active_revision_no IS NULL
   ) THEN
     RAISE EXCEPTION 'active assignment without active_revision_no after backfill';
+  END IF;
+END $$;
+
+-- Historical program prescriptions: stamp source=program when the workout has program provenance.
+UPDATE public.workout_exercises we
+SET prescription_source = 'program'
+FROM public.workouts w
+WHERE we.workout_id = w.id
+  AND we.prescription_source IS DISTINCT FROM 'program'
+  AND (
+    w.program_id IS NOT NULL
+    OR w.program_assignment_id IS NOT NULL
+    OR w.program_day_id IS NOT NULL
+  );
+
+-- Reconstruct frozen_revision_no for paused/completed archives when the
+-- overlapping activated/superseded window is unambiguous. Do not guess.
+UPDATE public.program_assignments pa
+SET frozen_revision_no = sub.revision_no
+FROM (
+  SELECT DISTINCT ON (pa2.id)
+    pa2.id,
+    r.revision_no
+  FROM public.program_assignments pa2
+  JOIN public.program_revisions r ON r.program_id = pa2.program_id
+  WHERE pa2.status IN ('paused', 'completed')
+    AND pa2.frozen_revision_no IS NULL
+    AND r.activated_at IS NOT NULL
+    AND r.activated_at <= pa2.updated_at
+    AND (r.superseded_at IS NULL OR r.superseded_at > pa2.updated_at)
+  ORDER BY pa2.id, r.revision_no DESC
+) sub
+WHERE pa.id = sub.id;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.program_assignments pa
+    JOIN public.program_revisions r ON r.program_id = pa.program_id
+    WHERE pa.status IN ('paused', 'completed')
+      AND pa.frozen_revision_no IS NULL
+      AND r.activated_at IS NOT NULL
+      AND r.activated_at <= pa.updated_at
+      AND (r.superseded_at IS NULL OR r.superseded_at > pa.updated_at)
+  ) THEN
+    RAISE EXCEPTION 'paused assignment without frozen_revision_no after backfill';
   END IF;
 END $$;

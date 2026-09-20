@@ -424,6 +424,7 @@ export const useWorkoutStore = create<WorkoutState>((set, get) => ({
       prescribed_rir: extras?.prescribed_rir ?? null,
       prescribed_rest_seconds: extras?.prescribed_rest_seconds ?? null,
       prescribed_weight_kg: extras?.prescribed_weight_kg ?? null,
+      prescription_source: 'user' as const,
     };
     const op = takeQueuedOp('exercise.add', { workoutId, exercise: { ...exercise } }, owner);
     const { data, error } = await supabase

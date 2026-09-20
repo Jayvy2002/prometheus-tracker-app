@@ -22,6 +22,8 @@ const programs = {
     createFailed: 'Impossible de créer le programme',
     saveFailed: 'Impossible d’enregistrer le programme. Réessaie.',
     phaseDurationRequired: 'Les phases qui partagent les mêmes jours doivent avoir une durée explicite.',
+    mixedPhaseDurations: 'Toutes les phases doivent avoir une durée, ou aucune. Le mélange n’est pas permis.',
+    invalidSetsMax: 'Chaque exercice du programme peut avoir au plus 20 séries.',
     stale: 'Ce programme a été modifié ailleurs. Recharge, puis réessaie.',
     deleted: 'Programme supprimé',
     deleteFailed: 'Impossible de supprimer le programme. Réessaie.',

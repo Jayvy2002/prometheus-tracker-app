@@ -57,6 +57,33 @@ test('calendar can show a future version after activation day without inventing 
     durationWeeks: after.durationWeeks,
   }), false);
 
+  const afterAssign = programGraphForDate({
+    date: '2026-09-22',
+    liveDays: live,
+    livePhases: [],
+    liveVersionStart: '2026-09-01',
+    assignmentStartDate: '2026-09-30',
+    scheduledActivatesOn: '2026-09-21',
+    scheduledDays: future,
+    scheduledPhases: [],
+    scheduledDurationWeeks: 12,
+  });
+  assert.equal(afterAssign.versionStart, '2026-09-30');
+  assert.equal(planCanInventScheduled({
+    date: '2026-09-22',
+    startDate: afterAssign.versionStart,
+    durationWeeks: afterAssign.durationWeeks,
+  }), false);
+
+  const beforeActivation = programGraphForDate({
+    date: '2026-09-10',
+    liveDays: live,
+    livePhases: [],
+    liveVersionStart: '2026-09-01',
+    assignmentStartDate: '2026-07-01',
+  });
+  assert.equal(beforeActivation.versionStart, '2026-09-01');
+
   const sequence = planMarkForDate({
     date: '2026-09-22',
     days: [{ id: 's', weekday: null, name: 'Lower', exercises: [{ id: 'e1' }] }],

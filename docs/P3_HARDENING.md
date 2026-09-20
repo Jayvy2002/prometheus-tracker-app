@@ -23,13 +23,22 @@ Ancre : `programs.phase_anchor_on` à l’activation.
 - `ensure_due_program_version` / schedule déjà dû : `scheduled_activates_on` d’origine.
 
 Sinon `assignment.start_date`. Semaine, durée, calendrier et phase utilisent
-`effectiveVersionStart = phase_anchor_on ?? assignment.start_date`.
-Un preview `date >= scheduled_activates_on` lit `duration_weeks` et l’ancre
-dans le snapshot scheduled (`parseRevisionMeta`).
+`effectiveVersionStart = laterOf(assignment.start_date, version_start_on / phase_anchor_on)`.
+Un client assigné après l’activation d’une version commence semaine 1 à sa
+`start_date`. Un preview `date >= scheduled_activates_on` lit `duration_weeks`
+et l’ancre dans le snapshot scheduled (`parseRevisionMeta`), toujours via laterOf
+avec `assignment.start_date`.
+
+`program_revisions.version_start_on` fige le début civil réel de la révision
+quand `apply_program_revision_snapshot` calcule `v_anchor`. Un snapshot live
+copie `programs.phase_anchor_on` sans redémarrer. Legacy non prouvable : NULL,
+fallback `assignment.start_date`.
 
 Horloge civile programme = timezone du **profil** (`useProgramCivilClock`),
-pas `todayStr()` device. Dashboard (semaine + gym), Workout, ClientProgram,
-calendrier des jours planifiés. Nutrition/streak restent device-local.
+pas `todayStr()` device. Les différences de jours civils frontend utilisent
+un ordinal UTC (`Date.UTC(y, m-1, d)`), jamais `/ 86_400_000` local (DST).
+Dashboard (semaine + gym), Workout, ClientProgram, calendrier des jours
+planifiés. Nutrition/streak restent device-local.
 
 ## Weekdays multi-phase
 
@@ -96,6 +105,7 @@ authenticated
 - `program_current_phase_id(uuid, date, date)`
 - `program_civil_date(text, timestamptz)`
 - `program_version_is_due(date, text, timestamptz)`
+- `program_effective_version_start(date, date)`
 - `program_has_history(uuid)`
 - `validate_program_graph_payload`
 - `apply_program_revision_snapshot` (3-arg, `p_anchor_mode`)
@@ -120,12 +130,40 @@ et `service_role`.
 RPC publiques conservées pour `authenticated` : `save_program`,
 `save_program_version`, `schedule_program_version`, `activate_program_version`,
 `ensure_due_program_version`, `start_workout_from_template`,
-`create_program_complete`, `delete_program`.
+`create_program_complete`, `delete_program`, `assign_program_secure`,
+`fork_program`, `adopt_client_program`. `transition_client_to_solo` n’est
+pas remplacé.
 
-`program_revisions` : GRANT SELECT seulement (writes via commandes serveur).
-Provenance workout (`program_id`, assignment/day/phase/revision) et
-`workout_exercises.prescribed_*` : immuables pour `authenticated` après INSERT ;
-seul `start_workout_from_template` estampille.
+`program_revisions`, graphe (`programs`, `program_days`,
+`program_day_exercises`, `program_phases`) et `program_assignments` :
+`REVOKE ALL` PUBLIC/anon/authenticated puis `GRANT SELECT` authenticated.
+Aucun INSERT/UPDATE/DELETE/TRUNCATE/REFERENCES/TRIGGER/MAINTAIN Data API.
+Les mutations d’assignment passent par `assign_program_secure`,
+`create_program_complete`, `transition_client_to_solo`. Identité assignment
+(`id`, `program_id`, `client_id`, `assigned_by`, `start_date`) et `status`
+immuables pour `authenticated` même si un GRANT UPDATE est rouvert.
+
+`workouts` / `workout_exercises` / `workout_sets` : SELECT+INSERT+UPDATE+DELETE
+seulement (logger / file offline). Pas TRUNCATE/REFERENCES/TRIGGER/MAINTAIN.
+
+Provenance workout (`program_id`, assignment/day/phase/revision) : RPC-only.
+`workout_exercises.prescription_source` (`program` | `user`) : le logger
+écrit `program` ; un INSERT authenticated ne peut écrire que `user` ;
+la source est immuable ; `prescribed_*` d’une ligne `program` est immuable.
+Les cibles d’une ligne `user` (Solo `addExercise`) ne sont pas une
+prescription Coach.
+
+Limite canonique `default_sets` : **1..20** (validateur, create, save,
+version, logger, UI). 21 est rejeté dès save/version.
+
+Phases : toutes avec durée **ou** toutes sans durée. Mélange rejeté
+(`mixed phase durations`). Pas de span silencieux d’1 semaine.
+
+`actor_can_activate_program_version` ne regarde que les assignments **actifs**.
+Un historique paused/completed figé (`frozen_revision_no` stampé
+active→paused/completed) ne bloque pas le propriétaire pour les clients
+encore actifs. Les archives lisent le snapshot de `frozen_revision_no`,
+jamais le graphe live.
 
 ## Suppression de programme
 
@@ -154,6 +192,7 @@ ni workouts. `deleteProgram()` frontend passe par cette RPC.
 
 ## Autorité graphe
 
-Writes Data API `authenticated` retirés sur `program_days`, `program_day_exercises`,
-`program_phases`, et INSERT/UPDATE/**DELETE** `programs`. SELECT conservé.
+Writes Data API `authenticated` retirés (Hotfix A `REVOKE ALL` + GRANT SELECT)
+sur `program_days`, `program_day_exercises`, `program_phases`, `programs`,
+`program_assignments`, `program_revisions`. SELECT conservé.
 Overloads trusted et `apply_program_revision_snapshot` non accordés à `authenticated`.

@@ -12,7 +12,7 @@ import type {
   SetType,
 } from '../lib/types';
 import { programExerciseRpcFields } from '../lib/programSetPrescription';
-import { snapshotToDayDrafts, parseRevisionOrganization, parseRevisionMeta, snapshotToPhaseDrafts, type ProgramRevisionRow } from '../lib/programRevisionDiff';
+import { snapshotToDayDrafts, parseRevisionOrganization, parseRevisionMeta, snapshotToPhaseDrafts, programFromFrozenRevision, type ProgramRevisionRow } from '../lib/programRevisionDiff';
 import { normalizeSessionOrganization } from '../features/programs/domain/sessionOrganization';
 import type { ProgramPhase, ProgramPhaseDraft } from '../features/programs/domain/programPhases';
 
@@ -147,7 +147,6 @@ interface ProgramState {
   ) => Promise<{ error: string | null }>;
   assignProgram: (programId: string, clientId: string, startDate: string) => Promise<{ error: string | null }>;
   duplicateProgram: (programId: string) => Promise<{ error: string | null; programId?: string }>;
-  pauseAssignment: (id: string) => Promise<void>;
   clear: () => void;
 }
 
@@ -173,6 +172,35 @@ function mapProgramWithDays(row: ProgramRow): Program {
     phases,
     days,
   };
+}
+
+async function hydrateAssignmentProgram(
+  fetchLive: (programId: string) => Promise<Program | null>,
+  row: ProgramAssignment,
+): Promise<Program | null> {
+  if (row.status !== 'active') {
+    if (row.frozen_revision_no == null) return null;
+    const { data: meta } = await supabase
+      .from('programs')
+      .select('id, owner_id, created_at, updated_at')
+      .eq('id', row.program_id)
+      .maybeSingle();
+    const { data: rev } = await supabase
+      .from('program_revisions')
+      .select('snapshot, version_start_on, revision_no')
+      .eq('program_id', row.program_id)
+      .eq('revision_no', row.frozen_revision_no)
+      .maybeSingle();
+    if (!meta || !rev) return null;
+    const frozen = rev as { snapshot: unknown; version_start_on?: string | null };
+    return programFromFrozenRevision({
+      meta: meta as Pick<Program, 'id' | 'owner_id' | 'created_at' | 'updated_at'>,
+      revisionNo: row.frozen_revision_no,
+      versionStartOn: frozen.version_start_on ?? null,
+      snapshot: frozen.snapshot,
+    });
+  }
+  return fetchLive(row.program_id);
 }
 
 async function hydrateScheduledSnapshot(program: Program): Promise<Program> {
@@ -367,10 +395,13 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       set({ assignment: null });
       return null;
     }
-    await supabase.rpc('ensure_due_program_version', { p_program_id: row.program_id });
-    const program = await get().fetchProgram(row.program_id as string);
+    const assignmentRow = row as ProgramAssignment;
+    if (assignmentRow.status === 'active') {
+      await supabase.rpc('ensure_due_program_version', { p_program_id: assignmentRow.program_id });
+    }
+    const program = await hydrateAssignmentProgram(get().fetchProgram, assignmentRow);
     const assignment = {
-      ...(row as ProgramAssignment),
+      ...assignmentRow,
       program: program ?? undefined,
     };
     set({ assignment });
@@ -382,13 +413,13 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       .from('program_assignments')
       .select('*')
       .eq('client_id', clientId)
-      .eq('status', 'paused')
+      .in('status', ['paused', 'completed'])
       .order('updated_at', { ascending: false })
       .limit(10);
     const rows = (data ?? []) as ProgramAssignment[];
     const out: ProgramAssignment[] = [];
     for (const row of rows) {
-      const program = await get().fetchProgram(row.program_id as string);
+      const program = await hydrateAssignmentProgram(get().fetchProgram, row);
       out.push({ ...row, program: program ?? undefined });
     }
     return out;
@@ -410,7 +441,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   fetchProgramRevisions: async (programId) => {
     const { data, error } = await supabase
       .from('program_revisions')
-      .select('id, program_id, revision_no, snapshot, created_by, created_at, activated_at, superseded_at')
+      .select('id, program_id, revision_no, snapshot, created_by, created_at, activated_at, superseded_at, version_start_on')
       .eq('program_id', programId)
       .order('revision_no', { ascending: false });
     if (error || !data) return [];
@@ -506,16 +537,6 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
     track('program_assigned', { self: clientId === user.id });
     if (clientId === user.id) await get().fetchMyAssignment(clientId);
     return { error: null };
-  },
-
-  pauseAssignment: async (id) => {
-    await supabase
-      .from('program_assignments')
-      .update({ status: 'paused', updated_at: new Date().toISOString() })
-      .eq('id', id);
-    set(s => ({
-      assignment: s.assignment?.id === id ? { ...s.assignment, status: 'paused' } : s.assignment,
-    }));
   },
 
   clear: () => set({ programs: [], programsError: null, assignment: null }),

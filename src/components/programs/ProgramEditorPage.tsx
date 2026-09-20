@@ -7,7 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
 import type { AiProgramDayDraft, SessionOrganization } from '../../lib/types';
 import type { ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
-import { multiPhaseSharedWeekdaysNeedDuration } from '../../features/programs/domain/programPhases';
+import { multiPhaseSharedWeekdaysNeedDuration, phasesHaveMixedDurations } from '../../features/programs/domain/programPhases';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import ProgramRevisionHistory from './ProgramRevisionHistory';
 import Button from '../ui/Button';
@@ -93,10 +93,30 @@ export default function ProgramEditorPage() {
 
   const dirtyLabel = useMemo(() => t('coaching.programEditor.saveHint'), [t]);
 
+  const graphGuard = (): string | null => {
+    const named = phases.filter(phase => phase.name.trim());
+    if (phasesHaveMixedDurations(named)) return t('programs.mixedPhaseDurations');
+    if (multiPhaseSharedWeekdaysNeedDuration(organization, named, days)) {
+      return t('programs.phaseDurationRequired');
+    }
+    return null;
+  };
+
+  const writeCopy = () => ({
+    stale: t('programs.stale'),
+    fallback: t('programs.saveFailed'),
+    scheduled: t('programs.versionAlreadyScheduled'),
+    historical: t('programs.versionHistorical'),
+    phaseDuration: t('programs.phaseDurationRequired'),
+    mixedPhases: t('programs.mixedPhaseDurations'),
+    invalidSets: t('programs.invalidSetsMax'),
+  });
+
   const handleSave = async () => {
     if (!user || !name.trim() || saving) return;
-    if (multiPhaseSharedWeekdaysNeedDuration(organization, phases.filter(phase => phase.name.trim()), days)) {
-      toast(t('programs.phaseDurationRequired'), 'error');
+    const graphError = graphGuard();
+    if (graphError) {
+      toast(graphError, 'error');
       return;
     }
     setSaving(true);
@@ -138,11 +158,7 @@ export default function ProgramEditorPage() {
     );
     if (saved.error) {
       setSaving(false);
-      toast(mapProgramWriteError(saved.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-        phaseDuration: t('programs.phaseDurationRequired'),
-      }), 'error');
+      toast(mapProgramWriteError(saved.error, writeCopy()), 'error');
       return;
     }
     const latest = useProgramStore.getState().programs.find(p => p.id === id);
@@ -154,8 +170,9 @@ export default function ProgramEditorPage() {
 
   const handleScheduleFuture = async () => {
     if (!user || !id || isNew || saving || scheduling || !name.trim() || !activateOn) return;
-    if (multiPhaseSharedWeekdaysNeedDuration(organization, phases.filter(phase => phase.name.trim()), days)) {
-      toast(t('programs.phaseDurationRequired'), 'error');
+    const graphError = graphGuard();
+    if (graphError) {
+      toast(graphError, 'error');
       return;
     }
     setScheduling(true);
@@ -168,13 +185,7 @@ export default function ProgramEditorPage() {
     );
     if (saved.error || saved.revisionNo == null) {
       setScheduling(false);
-      toast(mapProgramWriteError(saved.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-        scheduled: t('programs.versionAlreadyScheduled'),
-        historical: t('programs.versionHistorical'),
-        phaseDuration: t('programs.phaseDurationRequired'),
-      }), 'error');
+      toast(mapProgramWriteError(saved.error, writeCopy()), 'error');
       return;
     }
     const scheduled = await scheduleProgramVersion(
@@ -186,12 +197,7 @@ export default function ProgramEditorPage() {
     );
     setScheduling(false);
     if (scheduled.error) {
-      toast(mapProgramWriteError(scheduled.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-        scheduled: t('programs.versionAlreadyScheduled'),
-        historical: t('programs.versionHistorical'),
-      }), 'error');
+      toast(mapProgramWriteError(scheduled.error, writeCopy()), 'error');
       return;
     }
     const latest = useProgramStore.getState().programs.find(p => p.id === id);
@@ -209,12 +215,7 @@ export default function ProgramEditorPage() {
     const activated = await activateProgramVersion(id, scheduledRevisionNo, expectedUpdatedAt);
     setScheduling(false);
     if (activated.error) {
-      toast(mapProgramWriteError(activated.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-        scheduled: t('programs.versionAlreadyScheduled'),
-        historical: t('programs.versionHistorical'),
-      }), 'error');
+      toast(mapProgramWriteError(activated.error, writeCopy()), 'error');
       return;
     }
     const latest = await fetchProgram(id);

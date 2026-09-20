@@ -1,5 +1,6 @@
 /** P3.3 — version states derived from program_revisions + program pointers. */
 
+import { laterCivilDate } from '../../../lib/utils';
 import type { ProgramPhase } from './programPhases';
 import type { PlanCalendarDay } from './planCalendar';
 import type { SessionOrganization } from './sessionOrganization';
@@ -36,6 +37,7 @@ export function programGraphForDate(input: {
   liveOrganization?: SessionOrganization | null;
   liveDurationWeeks?: number | null;
   liveVersionStart?: string | null;
+  assignmentStartDate?: string | null;
   scheduledActivatesOn?: string | null;
   scheduledDays?: PlanCalendarDay[] | null;
   scheduledPhases?: ProgramPhase[] | null;
@@ -50,13 +52,14 @@ export function programGraphForDate(input: {
 } {
   const date = input.date.slice(0, 10);
   const activates = input.scheduledActivatesOn?.slice(0, 10) ?? '';
+  const assignmentStart = input.assignmentStartDate?.slice(0, 10) || null;
   if (activates && date >= activates && input.scheduledDays != null) {
     return {
       days: input.scheduledDays,
       phases: input.scheduledPhases ?? input.livePhases,
       organization: input.scheduledOrganization ?? input.liveOrganization,
       durationWeeks: input.scheduledDurationWeeks ?? input.liveDurationWeeks ?? null,
-      versionStart: activates,
+      versionStart: laterCivilDate(assignmentStart, activates),
     };
   }
   return {
@@ -64,6 +67,6 @@ export function programGraphForDate(input: {
     phases: input.livePhases,
     organization: input.liveOrganization,
     durationWeeks: input.liveDurationWeeks ?? null,
-    versionStart: input.liveVersionStart ?? null,
+    versionStart: laterCivilDate(assignmentStart, input.liveVersionStart),
   };
 }

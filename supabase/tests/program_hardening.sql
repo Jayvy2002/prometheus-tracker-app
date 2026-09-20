@@ -134,7 +134,8 @@ begin
      or has_function_privilege('authenticated', 'public.snapshot_program_revision(uuid)', 'execute')
      or has_function_privilege('authenticated', 'public.save_program_day_exercises(uuid,jsonb)', 'execute')
      or has_function_privilege('authenticated', 'public.create_program_with_days(text,text,int,jsonb)', 'execute')
-     or has_function_privilege('authenticated', 'public.cancel_scheduled_program_version(uuid)', 'execute') then
+     or has_function_privilege('authenticated', 'public.cancel_scheduled_program_version(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.program_effective_version_start(date,date)', 'execute') then
     raise exception 'internal P3 helper exposed to authenticated';
   end if;
   if not has_function_privilege('authenticated', 'public.actor_owns_program(uuid)', 'execute')
@@ -209,6 +210,86 @@ begin
      or has_table_privilege('authenticated', 'public.program_revisions', 'delete')
      or not has_table_privilege('authenticated', 'public.program_revisions', 'select') then
     raise exception 'program_revisions table privileges are not SELECT-only';
+  end if;
+end $$;
+
+-- Hotfix A: SELECT-only graph/assignments; SIDU logger tables; no TRUNCATE/REFERENCES/TRIGGER/MAINTAIN; anon none.
+do $$
+declare
+  v_table text;
+  v_priv text;
+  v_select_only text[] := array[
+    'programs',
+    'program_days',
+    'program_day_exercises',
+    'program_phases',
+    'program_revisions',
+    'program_assignments'
+  ];
+  v_sidu text[] := array['workouts', 'workout_exercises', 'workout_sets'];
+begin
+  foreach v_table in array v_select_only loop
+    if not has_table_privilege('authenticated', 'public.' || v_table, 'select') then
+      raise exception '% missing authenticated SELECT', v_table;
+    end if;
+    foreach v_priv in array array['insert','update','delete','truncate','references','trigger','maintain'] loop
+      if has_table_privilege('authenticated', 'public.' || v_table, v_priv) then
+        raise exception 'authenticated still has % on %', v_priv, v_table;
+      end if;
+    end loop;
+    foreach v_priv in array array['select','insert','update','delete','truncate','references','trigger','maintain'] loop
+      if has_table_privilege('anon', 'public.' || v_table, v_priv) then
+        raise exception 'anon still has % on %', v_priv, v_table;
+      end if;
+    end loop;
+    if exists (
+      select 1
+      from pg_class c
+      cross join lateral aclexplode(c.relacl) a
+      where c.oid = ('public.' || v_table)::regclass
+        and c.relacl is not null
+        and a.grantee in (0::oid, 'anon'::regrole)
+    ) then
+      raise exception 'PUBLIC/anon ACL leftover on %', v_table;
+    end if;
+  end loop;
+
+  foreach v_table in array v_sidu loop
+    if not has_table_privilege('authenticated', 'public.' || v_table, 'select')
+       or not has_table_privilege('authenticated', 'public.' || v_table, 'insert')
+       or not has_table_privilege('authenticated', 'public.' || v_table, 'update')
+       or not has_table_privilege('authenticated', 'public.' || v_table, 'delete') then
+      raise exception '% missing authenticated SIDU', v_table;
+    end if;
+    foreach v_priv in array array['truncate','references','trigger','maintain'] loop
+      if has_table_privilege('authenticated', 'public.' || v_table, v_priv) then
+        raise exception 'authenticated still has % on %', v_priv, v_table;
+      end if;
+    end loop;
+    foreach v_priv in array array['select','insert','update','delete','truncate','references','trigger','maintain'] loop
+      if has_table_privilege('anon', 'public.' || v_table, v_priv) then
+        raise exception 'anon still has % on %', v_priv, v_table;
+      end if;
+    end loop;
+    if exists (
+      select 1
+      from pg_class c
+      cross join lateral aclexplode(c.relacl) a
+      where c.oid = ('public.' || v_table)::regclass
+        and c.relacl is not null
+        and a.grantee in (0::oid, 'anon'::regrole)
+    ) then
+      raise exception 'PUBLIC/anon ACL leftover on %', v_table;
+    end if;
+  end loop;
+
+  if public.program_effective_version_start(date '2026-07-01', date '2026-09-01')
+       is distinct from date '2026-09-01'
+     or public.program_effective_version_start(date '2026-09-30', date '2026-09-01')
+       is distinct from date '2026-09-30'
+     or public.program_effective_version_start(date '2026-09-30', null)
+       is distinct from date '2026-09-30' then
+    raise exception 'laterOf(assignment, version start) is wrong';
   end if;
 end $$;
 
@@ -462,6 +543,13 @@ begin
   if v_name is distinct from 'Bench' or v_sets is distinct from 4 then
     raise exception 'client prescription was stamped as Coach, got % x %', v_name, v_sets;
   end if;
+  if (select we.prescription_source
+        from public.workout_exercises we
+       where we.workout_id = v_wid
+       order by we.order_index
+       limit 1) is distinct from 'program' then
+    raise exception 'start RPC did not stamp prescription_source=program';
+  end if;
   if (select w.program_id from public.workouts w where w.id = v_wid)
        is distinct from 'c3401941-0000-4000-8000-000000000010'
      or (select w.program_revision_no from public.workouts w where w.id = v_wid) is null then
@@ -484,6 +572,53 @@ begin
         raise;
       end if;
   end;
+end $$;
+reset role;
+
+-- Data API cannot rewrite or delete an assignment (owner/assigner included).
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+begin
+  begin
+    update public.program_assignments
+       set start_date = current_date - 7
+     where id = 'c3401941-0000-4000-8000-0000000000b1';
+    raise exception 'assignment start_date Data API update was allowed';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%assignment start_date Data API update was allowed%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%'
+         and sqlerrm not like '%program assignment%' then
+        raise;
+      end if;
+  end;
+  begin
+    delete from public.program_assignments
+     where id = 'c3401941-0000-4000-8000-0000000000b1';
+    raise exception 'assignment Data API delete was allowed';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%assignment Data API delete was allowed%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%'
+         and sqlerrm not like '%program assignment%' then
+        raise;
+      end if;
+  end;
+  if (select start_date from public.program_assignments
+      where id = 'c3401941-0000-4000-8000-0000000000b1') is distinct from current_date
+     or (select status from public.program_assignments
+         where id = 'c3401941-0000-4000-8000-0000000000b1') is distinct from 'active' then
+    raise exception 'assignment identity mutated through Data API';
+  end if;
 end $$;
 reset role;
 
@@ -552,6 +687,13 @@ begin
   end if;
   if v_anchor is null then
     raise exception 'phase_anchor_on not set on activation';
+  end if;
+  if (select r.version_start_on
+        from public.program_revisions r
+        join public.programs p on p.id = r.program_id and p.active_revision_no = r.revision_no
+       where p.id = 'c3401941-0000-4000-8000-000000000011')
+     is distinct from v_anchor then
+    raise exception 'activated revision did not store version_start_on';
   end if;
   v_phase := public.program_current_phase_id(
     'c3401941-0000-4000-8000-000000000011',
@@ -737,6 +879,10 @@ update public.program_assignments
 
 do $$
 begin
+  if (select frozen_revision_no from public.program_assignments
+      where id = 'c3401941-0000-4000-8000-0000000000d1') is null then
+    raise exception 'active→paused did not freeze revision';
+  end if;
   if (select scheduled_activation_timezone from public.programs
       where id = 'c3401941-0000-4000-8000-000000000012') is distinct from 'America/Toronto' then
     raise exception 'first-client leave changed frozen timezone';
@@ -1231,6 +1377,65 @@ begin
         raise;
       end if;
   end;
+
+  begin
+    update public.workout_exercises set prescription_source = 'user' where id = v_ex;
+    raise exception 'prescription_source update was allowed';
+  exception
+    when others then
+      if sqlerrm like '%prescription_source update was allowed%' then
+        raise;
+      elsif sqlerrm not like '%prescription_source is immutable%' then
+        raise;
+      end if;
+  end;
+
+  insert into public.workouts(id, user_id, name, date)
+  values (
+    'c3401941-0000-4000-8000-0000000000e1',
+    'c3401941-0000-4000-8000-000000000001',
+    'Solo add',
+    now()
+  );
+
+  begin
+    insert into public.workout_exercises(
+      workout_id, name, order_index,
+      prescribed_sets, prescribed_reps, prescribed_rir, prescription_source
+    ) values (
+      'c3401941-0000-4000-8000-0000000000e1',
+      'Fake coach',
+      0,
+      99, 99, 0, 'program'
+    );
+    raise exception 'direct fake prescription_source=program was allowed';
+  exception
+    when others then
+      if sqlerrm like '%direct fake prescription_source=program was allowed%' then
+        raise;
+      elsif sqlerrm not like '%prescription_source is RPC-only%' then
+        raise;
+      end if;
+  end;
+
+  insert into public.workout_exercises(
+    workout_id, name, order_index,
+    prescribed_sets, prescribed_reps, prescription_source
+  ) values (
+    'c3401941-0000-4000-8000-0000000000e1',
+    'Solo target',
+    0,
+    6, 8, 'user'
+  );
+  if not exists (
+    select 1 from public.workout_exercises
+    where workout_id = 'c3401941-0000-4000-8000-0000000000e1'
+      and name = 'Solo target'
+      and prescription_source = 'user'
+      and prescribed_sets = 6
+  ) then
+    raise exception 'direct user addition was refused';
+  end if;
 end $$;
 reset role;
 
@@ -1425,7 +1630,266 @@ begin
   end if;
 end $$;
 
+-- 21 sets rejected at save; 20 is executable. Mixed timed/untimed rejected.
+-- Assignment after activation starts week 1 (laterOf).
+update public.program_assignments
+   set status = 'paused'
+ where client_id = 'c3401941-0000-4000-8000-000000000001'
+   and status = 'active';
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_id uuid;
+  v_days int;
+  v_asg uuid := 'c3401941-0000-4000-8000-0000000000f1';
+  v_day uuid;
+  v_phase uuid;
+  v_late uuid;
+begin
+  begin
+    perform public.create_program_complete(
+      'Too many sets',
+      '',
+      4,
+      '[{"weekday":1,"name":"A","exercises":[{"name":"Bench","default_sets":21,"default_reps":5}]}]'::jsonb
+    );
+    raise exception '21 sets create was allowed';
+  exception
+    when others then
+      if sqlerrm like '%21 sets create was allowed%' then
+        raise;
+      elsif sqlerrm not like '%Invalid sets%' then
+        raise;
+      end if;
+  end;
+
+  v_id := public.create_program_complete(
+    'Twenty sets',
+    '',
+    4,
+    '[{"weekday":1,"name":"A","exercises":[{"name":"Bench","default_sets":20,"default_reps":5}]}]'::jsonb
+  );
+  v_days := public.save_program(
+    v_id,
+    'Twenty sets',
+    '',
+    4,
+    '[{"weekday":1,"name":"A","exercises":[{"name":"Bench","default_sets":20,"default_reps":5}]}]'::jsonb,
+    null
+  );
+  if v_days is distinct from 1 then
+    raise exception '20 sets save expected 1 day, got %', v_days;
+  end if;
+  begin
+    perform public.save_program(
+      v_id,
+      'Twenty-one sets',
+      '',
+      4,
+      '[{"weekday":1,"name":"A","exercises":[{"name":"Bench","default_sets":21,"default_reps":5}]}]'::jsonb,
+      null
+    );
+    raise exception '21 sets save was allowed';
+  exception
+    when others then
+      if sqlerrm like '%21 sets save was allowed%' then
+        raise;
+      elsif sqlerrm not like '%Invalid sets%' then
+        raise;
+      end if;
+  end;
+  begin
+    perform public.save_program_version(
+      v_id,
+      'Twenty-one future',
+      '',
+      4,
+      '[{"weekday":1,"name":"A","exercises":[{"name":"Bench","default_sets":21,"default_reps":5}]}]'::jsonb,
+      null
+    );
+    raise exception '21 sets version was allowed';
+  exception
+    when others then
+      if sqlerrm like '%21 sets version was allowed%' then
+        raise;
+      elsif sqlerrm not like '%Invalid sets%' then
+        raise;
+      end if;
+  end;
+
+  begin
+    perform public.save_program(
+      v_id,
+      'Mixed phases',
+      '',
+      8,
+      '[
+        {"weekday":1,"name":"A","phase_id":"c3401941-0000-4000-8000-0000000000e2","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]},
+        {"weekday":2,"name":"B","phase_id":"c3401941-0000-4000-8000-0000000000e3","exercises":[{"name":"Row","default_sets":3,"default_reps":5}]}
+      ]'::jsonb,
+      null,
+      'fixed_days',
+      '[
+        {"id":"c3401941-0000-4000-8000-0000000000e2","name":"Timed","duration_weeks":4},
+        {"id":"c3401941-0000-4000-8000-0000000000e3","name":"Untimed"}
+      ]'::jsonb
+    );
+    raise exception 'mixed phase durations were allowed';
+  exception
+    when others then
+      if sqlerrm like '%mixed phase durations were allowed%' then
+        raise;
+      elsif sqlerrm not like '%mixed phase durations%' then
+        raise;
+      end if;
+  end;
+
+  perform set_config('test.twenty_sets_program', v_id::text, true);
+end $$;
+reset role;
+
+select public.snapshot_program_revision(current_setting('test.twenty_sets_program')::uuid);
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
+values (
+  'c3401941-0000-4000-8000-0000000000f1',
+  current_setting('test.twenty_sets_program')::uuid,
+  'c3401941-0000-4000-8000-000000000001',
+  'c3401941-0000-4000-8000-000000000001',
+  current_date,
+  'active'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+declare
+  v_day uuid;
+begin
+  select id into v_day
+  from public.program_days
+  where program_id = current_setting('test.twenty_sets_program')::uuid
+  limit 1;
+  perform public.start_workout_from_template(
+    'Twenty sets log',
+    now(),
+    null,
+    'c3401941-0000-4000-8000-0000000000f1',
+    v_day,
+    '[]'::jsonb
+  );
+end $$;
+reset role;
+
+update public.program_assignments
+   set status = 'paused'
+ where id = 'c3401941-0000-4000-8000-0000000000f1';
+
+-- New client assigned after activation starts week 1, not a later phase.
+insert into public.programs(id,owner_id,name,description,duration_weeks)
+values ('c3401941-0000-4000-8000-0000000000e4','c3401941-0000-4000-8000-000000000001','Late assign','',9);
+insert into public.program_phases(id,program_id,name,order_index,duration_weeks) values
+ ('c3401941-0000-4000-8000-0000000000e5','c3401941-0000-4000-8000-0000000000e4','Accumulation',0,4),
+ ('c3401941-0000-4000-8000-0000000000e6','c3401941-0000-4000-8000-0000000000e4','Intensification',1,4),
+ ('c3401941-0000-4000-8000-0000000000e7','c3401941-0000-4000-8000-0000000000e4','Deload',2,1);
+insert into public.program_days(id,program_id,weekday,name,order_index,phase_id) values
+ ('c3401941-0000-4000-8000-0000000000e8','c3401941-0000-4000-8000-0000000000e4',1,'Acc day',0,'c3401941-0000-4000-8000-0000000000e5'),
+ ('c3401941-0000-4000-8000-0000000000e9','c3401941-0000-4000-8000-0000000000e4',1,'Int day',1,'c3401941-0000-4000-8000-0000000000e6');
+insert into public.program_day_exercises(program_day_id,name,default_sets,default_reps,order_index)
+values ('c3401941-0000-4000-8000-0000000000e8','Bench',3,5,0),
+       ('c3401941-0000-4000-8000-0000000000e9','Press',5,3,0);
+select public.snapshot_program_revision('c3401941-0000-4000-8000-0000000000e4');
+update public.programs
+   set phase_anchor_on = current_date - 60
+ where id = 'c3401941-0000-4000-8000-0000000000e4';
+update public.program_revisions
+   set version_start_on = current_date - 60,
+       activated_at = coalesce(activated_at, now())
+ where program_id = 'c3401941-0000-4000-8000-0000000000e4';
+insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
+values (
+  'c3401941-0000-4000-8000-0000000000ea',
+  'c3401941-0000-4000-8000-0000000000e4',
+  'c3401941-0000-4000-8000-000000000001',
+  'c3401941-0000-4000-8000-000000000001',
+  current_date,
+  'active'
+);
+
+do $$
+declare
+  v_effective date;
+  v_phase uuid;
+begin
+  select public.program_effective_version_start(pa.start_date, coalesce(r.version_start_on, p.phase_anchor_on))
+    into v_effective
+  from public.program_assignments pa
+  join public.programs p on p.id = pa.program_id
+  left join public.program_revisions r
+    on r.program_id = p.id and r.revision_no = p.active_revision_no
+  where pa.id = 'c3401941-0000-4000-8000-0000000000ea';
+  if v_effective is distinct from current_date then
+    raise exception 'late assignment effective start %, expected current_date', v_effective;
+  end if;
+  v_phase := public.program_current_phase_id(
+    'c3401941-0000-4000-8000-0000000000e4',
+    v_effective,
+    current_date
+  );
+  if v_phase is distinct from 'c3401941-0000-4000-8000-0000000000e5' then
+    raise exception 'late assignment should be week 1 Accumulation, got %', v_phase;
+  end if;
+  if public.program_current_phase_id(
+       'c3401941-0000-4000-8000-0000000000e4',
+       current_date - 60,
+       current_date
+     ) is not distinct from 'c3401941-0000-4000-8000-0000000000e5' then
+    raise exception 'anchor-only clock did not leave week 1 — fixture is not past phase 1';
+  end if;
+end $$;
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3401941-0000-4000-8000-000000000001","role":"authenticated"}',true);
+do $$
+begin
+  perform public.start_workout_from_template(
+    'Late week 1',
+    now(),
+    null,
+    'c3401941-0000-4000-8000-0000000000ea',
+    'c3401941-0000-4000-8000-0000000000e8',
+    '[]'::jsonb
+  );
+  begin
+    perform public.start_workout_from_template(
+      'Late week 5 hijack',
+      now(),
+      null,
+      'c3401941-0000-4000-8000-0000000000ea',
+      'c3401941-0000-4000-8000-0000000000e9',
+      '[]'::jsonb
+    );
+    raise exception 'late assignment started a later-phase day';
+  exception
+    when others then
+      if sqlerrm like '%late assignment started a later-phase day%' then
+        raise;
+      elsif sqlerrm not like '%program_day_not_current_phase%' then
+        raise;
+      end if;
+  end;
+end $$;
+reset role;
+
 rollback;
 \echo 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz'
 \echo 'delete_program locks program row FOR UPDATE before checks'
 \echo 'program hardening: provenance immutability, program_id stamp, prescribed freeze, version backfill, activate now vs due'
+\echo 'program hardening: allowlist ACL, assignment Data API closed, laterOf start, 20/21 sets, mixed phases, prescription_source'

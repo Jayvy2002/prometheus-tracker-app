@@ -78,23 +78,31 @@ begin
 end $$;
 reset role;
 
--- Solo leftover owner can still mutate assignment + tables via Data API before coaching.
+-- Solo leftover owner cannot mutate assignment identity via Data API.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','a1890000-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claims','{"sub":"a1890000-0000-4000-8000-000000000001","role":"authenticated"}',true);
 do $$
 declare
-  v_updated int;
   v_days int;
 begin
-  update public.program_assignments
-     set start_date = current_date
-   where id = 'a1890000-0000-4000-8000-000000000020';
-  get diagnostics v_updated = row_count;
-  if v_updated is distinct from 1 then
-    raise exception 'solo leftover assignment Data API update expected 1 row, got %', v_updated;
-  end if;
+  begin
+    update public.program_assignments
+       set start_date = current_date
+     where id = 'a1890000-0000-4000-8000-000000000020';
+    raise exception 'solo leftover assignment Data API update was allowed';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%solo leftover assignment Data API update was allowed%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%'
+         and sqlerrm not like '%program assignment%' then
+        raise;
+      end if;
+  end;
   v_days := public.save_program(
     'a1890000-0000-4000-8000-000000000010',
     'Solo leftover saved',
@@ -389,20 +397,44 @@ begin
       end if;
   end;
 
-  update public.program_assignments
-     set start_date = current_date + 3
-   where id = 'a1890000-0000-4000-8000-000000000020';
-  get diagnostics v_touched = row_count;
-  if v_touched <> 0 then
-    raise exception 'coached owner assignment UPDATE reached % rows', v_touched;
-  end if;
+  begin
+    update public.program_assignments
+       set start_date = current_date + 3
+     where id = 'a1890000-0000-4000-8000-000000000020';
+    get diagnostics v_touched = row_count;
+    if v_touched <> 0 then
+      raise exception 'coached owner assignment UPDATE reached % rows', v_touched;
+    end if;
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%coached owner assignment UPDATE reached%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%'
+         and sqlerrm not like '%program assignment%' then
+        raise;
+      end if;
+  end;
 
-  delete from public.program_assignments
-   where id = 'a1890000-0000-4000-8000-000000000020';
-  get diagnostics v_touched = row_count;
-  if v_touched <> 0 then
-    raise exception 'coached owner assignment DELETE reached % rows', v_touched;
-  end if;
+  begin
+    delete from public.program_assignments
+     where id = 'a1890000-0000-4000-8000-000000000020';
+    get diagnostics v_touched = row_count;
+    if v_touched <> 0 then
+      raise exception 'coached owner assignment DELETE reached % rows', v_touched;
+    end if;
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%coached owner assignment DELETE reached%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%'
+         and sqlerrm not like '%program assignment%' then
+        raise;
+      end if;
+  end;
 end $$;
 reset role;
 
@@ -573,13 +605,22 @@ begin
     raise exception 'dual roster description save expected 1 day, got %', v_days;
   end if;
 
-  update public.program_assignments
-     set start_date = current_date
-   where id = 'a1890000-0000-4000-8000-000000000023';
-  get diagnostics v_touched = row_count;
-  if v_touched is distinct from 1 then
-    raise exception 'dual roster assignment UPDATE expected 1 row, got %', v_touched;
-  end if;
+  begin
+    update public.program_assignments
+       set start_date = current_date
+     where id = 'a1890000-0000-4000-8000-000000000023';
+    raise exception 'dual roster assignment Data API update was allowed';
+  exception
+    when insufficient_privilege then
+      null;
+    when others then
+      if sqlerrm like '%dual roster assignment Data API update was allowed%' then
+        raise;
+      elsif sqlerrm not like '%permission denied%'
+         and sqlerrm not like '%program assignment%' then
+        raise;
+      end if;
+  end;
 
   v_new_program := public.create_program_complete(
     'Dual extra roster',
@@ -587,18 +628,19 @@ begin
     6,
     '[{"weekday":1,"name":"Extra","exercises":[{"name":"Curl","default_sets":2,"default_reps":10}]}]'::jsonb
   );
-
-  insert into public.program_assignments(id, program_id, client_id, assigned_by, start_date, status)
-  values (
-    'a1890000-0000-4000-8000-000000000024',
-    v_new_program,
-    'a1890000-0000-4000-8000-000000000004',
-    'a1890000-0000-4000-8000-000000000003',
-    current_date,
-    'paused'
-  );
+  perform set_config('test.dual_extra_program', v_new_program::text, true);
 end $$;
 reset role;
+
+insert into public.program_assignments(id, program_id, client_id, assigned_by, start_date, status)
+values (
+  'a1890000-0000-4000-8000-000000000024',
+  current_setting('test.dual_extra_program')::uuid,
+  'a1890000-0000-4000-8000-000000000004',
+  'a1890000-0000-4000-8000-000000000003',
+  current_date,
+  'paused'
+);
 
 do $$ begin
   if (select name from public.programs where id = 'a1890000-0000-4000-8000-000000000012')

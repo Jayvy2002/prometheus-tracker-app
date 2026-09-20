@@ -22,6 +22,8 @@ const programs = {
     createFailed: 'Could not create program',
     saveFailed: 'Could not save the program. Try again.',
     phaseDurationRequired: 'Phases that share the same weekdays must have an explicit duration.',
+    mixedPhaseDurations: 'Every phase must have a duration, or none of them. Mixing is not allowed.',
+    invalidSetsMax: 'Each program exercise can have at most 20 sets.',
     stale: 'This program was changed elsewhere. Reload, then try again.',
     deleted: 'Program deleted',
     deleteFailed: 'Could not delete the program. Try again.',

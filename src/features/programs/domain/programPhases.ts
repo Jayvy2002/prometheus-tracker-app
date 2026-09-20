@@ -1,4 +1,10 @@
+import { civilDaysBetween, laterCivilDate } from '../../../lib/utils';
+
 /** P3.2 — optional phases on the shared program engine. No mesocycle tree. */
+
+export const PROGRAM_EXERCISE_MAX_SETS = 20;
+
+export { civilDaysBetween, laterCivilDate };
 
 export interface ProgramPhase {
   id: string;
@@ -21,13 +27,6 @@ function sortedPhases(phases: ProgramPhase[] | null | undefined): ProgramPhase[]
   return [...(phases ?? [])].sort((a, b) => a.order_index - b.order_index);
 }
 
-export function civilDaysBetween(start: string, today: string): number | null {
-  const from = Date.parse(`${start.slice(0, 10)}T12:00:00`);
-  const to = Date.parse(`${today.slice(0, 10)}T12:00:00`);
-  if (Number.isNaN(from) || Number.isNaN(to)) return null;
-  return Math.floor((to - from) / 86_400_000);
-}
-
 export function phaseNameForDay(
   phases: ProgramPhase[] | null | undefined,
   day: { phase_id?: string | null } | null | undefined,
@@ -39,23 +38,24 @@ export function phaseNameForDay(
   return name || null;
 }
 
-/** Version activation date wins over assignment.start_date so Phase 1 restarts. */
+/**
+ * Week 1 starts on the later of assignment.start_date and the version's
+ * own civil start (version_start_on / phase_anchor_on). A client assigned
+ * after activation does not jump into a later phase.
+ */
 export function phaseAnchorDate(
   assignmentStartDate?: string | null,
   phaseAnchorOn?: string | null,
 ): string | null {
-  const anchor = phaseAnchorOn?.slice(0, 10) || '';
-  if (anchor) return anchor;
-  const start = assignmentStartDate?.slice(0, 10) || '';
-  return start || null;
+  return laterCivilDate(assignmentStartDate, phaseAnchorOn);
 }
 
-/** Same clock as phase: version activation date wins over assignment.start_date. */
+/** Same clock as phase, calendar, and the server logger. */
 export function effectiveVersionStart(
   assignmentStartDate?: string | null,
   phaseAnchorOn?: string | null,
 ): string | null {
-  return phaseAnchorDate(assignmentStartDate, phaseAnchorOn);
+  return laterCivilDate(assignmentStartDate, phaseAnchorOn);
 }
 
 /**
@@ -84,7 +84,19 @@ export function multiPhaseSharedWeekdaysNeedDuration(
 }
 
 export function phasesAreTimed(phases: ProgramPhase[] | null | undefined): boolean {
-  return (phases ?? []).some(phase => phase.duration_weeks != null && phase.duration_weeks > 0);
+  const list = phases ?? [];
+  if (list.length === 0) return false;
+  return list.every(phase => phase.duration_weeks != null && phase.duration_weeks > 0);
+}
+
+export function phasesHaveMixedDurations(
+  phases: Array<{ duration_weeks: number | null | undefined }> | null | undefined,
+): boolean {
+  const list = phases ?? [];
+  if (list.length === 0) return false;
+  const timed = list.some(phase => phase.duration_weeks != null && phase.duration_weeks > 0);
+  const untimed = list.some(phase => phase.duration_weeks == null || phase.duration_weeks < 1);
+  return timed && untimed;
 }
 
 export function daysForCurrentPhase<T extends { phase_id?: string | null }>(
@@ -110,20 +122,21 @@ export function resolveCurrentPhase(input: {
 }): ProgramPhase | null {
   const phases = sortedPhases(input.phases);
   if (phases.length === 0) return null;
+  if (phasesHaveMixedDurations(phases)) {
+    const fromNext = phases.find(phase => phase.id === input.nextDay?.phase_id);
+    return fromNext ?? phases[0] ?? null;
+  }
 
-  const timed = phases.filter(phase => phase.duration_weeks != null && phase.duration_weeks > 0);
   const start = input.startDate?.slice(0, 10) ?? '';
   const today = input.today?.slice(0, 10) ?? '';
-  if (timed.length > 0 && start && today) {
+  if (phasesAreTimed(phases) && start && today) {
     const elapsed = civilDaysBetween(start, today);
     if (elapsed == null) return phases[0] ?? null;
     if (elapsed < 0) return phases[0] ?? null;
     const weekIndex = Math.floor(elapsed / 7);
     let cursor = 0;
     for (const phase of phases) {
-      const span = phase.duration_weeks != null && phase.duration_weeks > 0
-        ? phase.duration_weeks
-        : 1;
+      const span = phase.duration_weeks ?? 0;
       if (weekIndex < cursor + span) return phase;
       cursor += span;
     }

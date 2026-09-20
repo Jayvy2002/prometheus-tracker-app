@@ -112,14 +112,13 @@ test('coach_messages: recipients may only UPDATE read_at', () => {
   assert.deepEqual([...written], ['read_at']);
 });
 
-test('program_assignments: only the assigner mutates; the coached client can read but not delete', () => {
+test('program_assignments: Data API is SELECT-only; mutations are RPC-only', () => {
   const policies = policiesOn('program_assignments');
   const bodies = [...policies.values()];
   assert.equal(bodies.some((p) => /FOR ALL/i.test(p)), false, 'FOR ALL policy is back (client could DELETE)');
-  const del = bodies.filter((p) => /FOR DELETE/i.test(p));
-  assert.equal(del.length, 1);
-  assert.match(del[0], /assigned_by\s*=\s*\(select auth\.uid\(\)\)/i);
-  assert.match(del[0], /actor_is_actively_coached/);
+  assert.equal(bodies.filter((p) => /FOR DELETE/i.test(p)).length, 0, 'DELETE policy must stay dropped');
+  assert.equal(bodies.filter((p) => /FOR UPDATE/i.test(p)).length, 0, 'UPDATE policy must stay dropped');
+  assert.equal(bodies.filter((p) => /FOR INSERT/i.test(p)).length, 0, 'INSERT policy must stay dropped');
   const sel = bodies.filter((p) => /FOR SELECT/i.test(p));
   // C04 adds a second SELECT policy (coach reads active clients' history) — read-only.
   assert.equal(sel.length, 2);
@@ -127,16 +126,15 @@ test('program_assignments: only the assigner mutates; the coached client can rea
   const history = sel.find((p) => /Coaches read client assignment history/i.test(p));
   assert.ok(history, 'coach history read policy missing');
   assert.match(history as string, /is_coach_of\(client_id\)/i);
-  const upd = bodies.filter((p) => /FOR UPDATE/i.test(p));
-  assert.equal(upd.length, 1);
-  assert.match(upd[0], /assigned_by\s*=\s*\(select auth\.uid\(\)\)/i);
-  assert.match(upd[0], /is_coach_of\(client_id\)/);
-  assert.match(upd[0], /actor_owns_program/);
-  assert.match(upd[0], /actor_is_actively_coached/);
-  const ins = bodies.filter((p) => /FOR INSERT/i.test(p));
-  assert.equal(ins.length, 1);
-  assert.match(ins[0], /actor_is_actively_coached/);
-  assert.match(ins[0], /actor_owns_program/);
+
+  const hard = migrationsInOrder().find((m) => m.file.includes('20260920014500_p3_hardening'));
+  assert.ok(hard, 'P3 hardening candidate missing');
+  assert.match(hard.sql, /REVOKE ALL ON TABLE public\.program_assignments FROM PUBLIC, anon, authenticated/);
+  assert.match(hard.sql, /GRANT SELECT ON TABLE public\.program_assignments TO authenticated/);
+  assert.match(hard.sql, /program_assignments_protect_identity/);
+  assert.match(hard.sql, /program assignment writes are RPC-only/);
+  assert.doesNotMatch(readFileSync(resolve(process.cwd(), 'src/stores/programStore.ts'), 'utf8'), /pauseAssignment/);
+  assert.match(readFileSync(resolve(process.cwd(), 'src/stores/programStore.ts'), 'utf8'), /rpc\('assign_program_secure'/);
 });
 
 test('search_food_products is not callable with the anon key', () => {
