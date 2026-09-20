@@ -15,7 +15,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboardBootstrap';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
-import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
+import { toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -50,14 +50,14 @@ import PrometheusWatchPanel from './PrometheusWatchPanel';
 import SoloProgramProposal from './SoloProgramProposal';
 import LinkEndedBanner from './LinkEndedBanner';
 
-function getWeekDates(): string[] {
-  const today = new Date();
-  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  monday.setDate(monday.getDate() - ((today.getDay() + 6) % 7));
+function getWeekDates(todayCivil: string): string[] {
+  const [y, m, d] = todayCivil.split('-').map(Number);
+  const monday = new Date(y, m - 1, d);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return toLocalDateStr(d);
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + i);
+    return toLocalDateStr(day);
   });
 }
 
@@ -103,8 +103,8 @@ export default function Dashboard() {
   const waterPct = targetRatio(waterConsumed, waterTarget);
 
   // Weekly workout goal
-  const weekDates = getWeekDates();
-  const todayIndex = weekDates.indexOf(todayStr());
+  const weekDates = getWeekDates(programClock.today);
+  const todayIndex = weekDates.indexOf(programClock.today);
   const trainingTarget = resolveTrainingFrequency(
     profile?.training_frequency,
     assignment?.status === 'active' ? assignment.program?.days : null,
@@ -133,7 +133,7 @@ export default function Dashboard() {
     ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
     : null;
 
-  const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
+  const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][programClock.weekday];
   const alreadyTrainedToday = doneDays[todayIndex];
   const hasProgram = !!assignment?.program && assignment.status === 'active';
   const gymCard = resolveAssignmentGymCard({

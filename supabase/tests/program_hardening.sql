@@ -89,6 +89,21 @@ begin
      or not has_table_privilege('authenticated', 'public.program_days', 'select') then
     raise exception 'authenticated graph table privileges wrong';
   end if;
+  if (
+    select count(distinct a.attname)
+    from pg_constraint c
+    join pg_class rel on rel.oid = c.conrelid
+    join pg_namespace nsp on nsp.oid = rel.relnamespace
+    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any (c.conkey)
+    where nsp.nspname = 'public'
+      and rel.relname = 'workouts'
+      and c.contype = 'f'
+      and a.attname in ('program_day_id', 'program_phase_id')
+      and c.condeferrable
+      and not c.condeferred
+  ) is distinct from 2 then
+    raise exception 'workout provenance FKs are not DEFERRABLE INITIALLY IMMEDIATE';
+  end if;
   if has_function_privilege(
     'authenticated',
     'public.apply_program_revision_snapshot(uuid,int,text)',
@@ -1049,6 +1064,8 @@ end $$;
 reset role;
 
 -- Shared weekdays without durations are refused. Untimed labels on distinct weekdays stay allowed.
+-- Program 000010 already has a logged workout (start_workout above). CASCADE
+-- phase delete must raise "phase duration required", not a workout FK error.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3401941-0000-4000-8000-000000000001',true);
 select set_config('request.jwt.claim.role','authenticated',true);

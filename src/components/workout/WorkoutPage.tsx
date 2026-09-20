@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../lib/utils';
+import { formatDate, formatDuration, programWeekNumber } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
@@ -72,7 +72,7 @@ export default function WorkoutPage() {
     }
   }, [user, coached]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const lastCompleted = lastCompletedWorkout(workouts, todayStr());
+  const lastCompleted = lastCompletedWorkout(workouts, programClock.today);
   const lastCompletedId = lastCompleted?.id ?? '';
   const lastPerformed = (lastFull?.exercises ?? [])
     .flatMap(ex => (ex.sets ?? []).filter(isPerformedSet))

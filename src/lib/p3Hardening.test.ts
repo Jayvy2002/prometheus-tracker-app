@@ -13,6 +13,8 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.equal(found.file, '20260920014500_p3_hardening.sql');
   assert.match(found.sql, /program_days_program_phase_weekday_unique/);
   assert.match(found.sql, /program_days_phase_id_fkey[\s\S]*ON DELETE CASCADE/);
+  assert.match(found.sql, /workouts_program_day_id_fkey[\s\S]*ON DELETE SET NULL[\s\S]*DEFERRABLE INITIALLY IMMEDIATE/);
+  assert.match(found.sql, /workouts_program_phase_id_fkey[\s\S]*ON DELETE SET NULL[\s\S]*DEFERRABLE INITIALLY IMMEDIATE/);
   assert.match(found.sql, /program_civil_date/);
   assert.match(found.sql, /validate_program_graph_payload/);
   assert.match(found.sql, /program_day_not_current_phase/);
@@ -64,6 +66,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
 
   assert.match(src('src/features/programs/hooks/useProgramCivilClock.ts'), /civilDateInTimeZone/);
   assert.match(src('src/components/dashboard/Dashboard.tsx'), /useProgramCivilClock/);
+  assert.match(src('src/components/calendar/CalendarPage.tsx'), /useProgramCivilClock/);
   assert.match(src('src/components/programs/ClientProgramPage.tsx'), /effectiveVersionStart/);
   assert.match(src('src/lib/clientGym.ts'), /phaseAnchorDate\(/);
   assert.match(src('src/stores/programStore.ts'), /activated_at, superseded_at/);
@@ -96,6 +99,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /actor_owns_program\(uuid\)/);
   assert.match(src('supabase/tests/program_hardening.sql'), /legitimate start left program_id unset/);
   assert.match(src('supabase/tests/program_hardening.sql'), /off-plan workout carried program provenance/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /workout provenance FKs are not DEFERRABLE INITIALLY IMMEDIATE/);
   assert.match(src('supabase/tests/program_hardening.sql'), /active assignment without active_revision_no after backfill/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: provenance immutability/);
   assert.match(src('supabase/migrations.pending.json'), /20260920014500/);

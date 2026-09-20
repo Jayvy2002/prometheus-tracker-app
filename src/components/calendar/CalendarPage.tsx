@@ -19,6 +19,7 @@ import { programGraphForDate } from '../../features/programs/domain/programVersi
 import { parseRevisionMeta, parseRevisionOrganization, parseRevisionSnapshot, snapshotToPhaseDrafts } from '../../features/programs/domain/programRevisionDiff';
 import { useProgramStore } from '../../stores/programStore';
 import { phaseAnchorDate } from '../../features/programs/domain/programPhases';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
 
 interface DayData {
   date: string;
@@ -84,6 +85,8 @@ export default function CalendarPage() {
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
   const assignment = useProgramStore(s => s.assignment);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
+  const programClock = useProgramCivilClock();
+  const today = programClock.today;
 
   const DAY_LABELS = [
     t('calendar.days.mon'),
@@ -98,7 +101,7 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(dateToStr(new Date()));
+  const [selectedDate, setSelectedDate] = useState(today);
   const [allNutritionDates, setAllNutritionDates] = useState<Set<string>>(new Set());
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -210,10 +213,11 @@ export default function CalendarPage() {
   }, [workoutDateSet, weightDateSet, allNutritionDates]);
 
   const weekBaseDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + weekOffset * 7);
-    return d;
-  }, [weekOffset]);
+    const [y, m, d] = today.split('-').map(Number);
+    const base = new Date(y, m - 1, d);
+    base.setDate(base.getDate() + weekOffset * 7);
+    return base;
+  }, [weekOffset, today]);
 
   const weekDates = useMemo(() => getWeekDates(weekBaseDate), [weekBaseDate]);
 
@@ -224,19 +228,17 @@ export default function CalendarPage() {
   }, [weekDates, weekOffset, t, i18n.language]);
 
   const monthBaseDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + monthOffset);
-    return d;
-  }, [monthOffset]);
+    const [y, m] = today.split('-').map(Number);
+    const base = new Date(y, m - 1, 1);
+    base.setMonth(base.getMonth() + monthOffset);
+    return base;
+  }, [monthOffset, today]);
 
   const monthDates = useMemo(() => getMonthDates(monthBaseDate.getFullYear(), monthBaseDate.getMonth()), [monthBaseDate]);
 
   const monthLabel = useMemo(() => {
     return monthBaseDate.toLocaleDateString(dateLocale(i18n.language), { month: 'long', year: 'numeric' });
   }, [monthBaseDate, i18n.language]);
-
-  const today = dateToStr(new Date());
 
   const planByDate = useMemo(() => {
     const dates = viewMode === 'week' ? weekDates : monthDates.map(m => m.date);

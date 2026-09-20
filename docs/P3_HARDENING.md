@@ -27,6 +27,10 @@ Sinon `assignment.start_date`. Semaine, durée, calendrier et phase utilisent
 Un preview `date >= scheduled_activates_on` lit `duration_weeks` et l’ancre
 dans le snapshot scheduled (`parseRevisionMeta`).
 
+Horloge civile programme = timezone du **profil** (`useProgramCivilClock`),
+pas `todayStr()` device. Dashboard (semaine + gym), Workout, ClientProgram,
+calendrier des jours planifiés. Nutrition/streak restent device-local.
+
 ## Weekdays multi-phase
 
 Uniques partielles :
@@ -37,6 +41,10 @@ Uniques partielles :
 Même lundi en Accumulation / Intensification / Deload, prescriptions distinctes.
 `program_days.phase_id` est `ON DELETE CASCADE` : retirer une phase ne fait plus
 `SET NULL` (ce qui violait l’unique weekday legacy).
+`workouts.program_day_id` et `workouts.program_phase_id` restent
+`ON DELETE SET NULL`, mais **DEFERRABLE INITIALLY IMMEDIATE** : un DELETE de
+phase ne revalide plus `program_day_id` alors que le jour est déjà parti.
+`save_program` n’est pas remplacé.
 
 ## Logger
 

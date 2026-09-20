@@ -33,9 +33,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS program_days_program_phase_weekday_unique
 -- SET NULL on phase delete made two Mondays share phase_id NULL and broke
 -- the legacy unique. Removing a phase removes its days; save_program then
 -- rebuilds the payload. Workout stamps stay ON DELETE SET NULL.
+-- Those workout FKs must be DEFERRABLE INITIALLY IMMEDIATE: CASCADE-deleting
+-- a phase then SET NULL of program_phase_id otherwise rechecks program_day_id
+-- after the day row is already gone. save_program is not replaced.
 DO $$
 DECLARE
   v_con text;
+  v_col text;
 BEGIN
   SELECT c.conname INTO v_con
   FROM pg_constraint c
@@ -50,11 +54,41 @@ BEGIN
   IF v_con IS NOT NULL THEN
     EXECUTE format('ALTER TABLE public.program_days DROP CONSTRAINT %I', v_con);
   END IF;
+
+  FOREACH v_col IN ARRAY ARRAY['program_day_id', 'program_phase_id'] LOOP
+    LOOP
+      v_con := NULL;
+      SELECT c.conname INTO v_con
+      FROM pg_constraint c
+      JOIN pg_class rel ON rel.oid = c.conrelid
+      JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = ANY (c.conkey)
+      WHERE nsp.nspname = 'public'
+        AND rel.relname = 'workouts'
+        AND c.contype = 'f'
+        AND a.attname = v_col
+      LIMIT 1;
+      EXIT WHEN v_con IS NULL;
+      EXECUTE format('ALTER TABLE public.workouts DROP CONSTRAINT %I', v_con);
+    END LOOP;
+  END LOOP;
 END $$;
 
 ALTER TABLE public.program_days
   ADD CONSTRAINT program_days_phase_id_fkey
   FOREIGN KEY (phase_id) REFERENCES public.program_phases(id) ON DELETE CASCADE;
+
+ALTER TABLE public.workouts
+  ADD CONSTRAINT workouts_program_day_id_fkey
+  FOREIGN KEY (program_day_id) REFERENCES public.program_days(id)
+  ON DELETE SET NULL
+  DEFERRABLE INITIALLY IMMEDIATE;
+
+ALTER TABLE public.workouts
+  ADD CONSTRAINT workouts_program_phase_id_fkey
+  FOREIGN KEY (program_phase_id) REFERENCES public.program_phases(id)
+  ON DELETE SET NULL
+  DEFERRABLE INITIALLY IMMEDIATE;
 
 CREATE OR REPLACE FUNCTION public.program_actor_timezone(p_user_id uuid)
 RETURNS text

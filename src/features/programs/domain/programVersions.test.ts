@@ -133,6 +133,7 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.match(calendar, /parseRevisionMeta/);
   assert.match(calendar, /liveVersionStart/);
   assert.match(calendar, /const program = assignment\?\.program/);
+  assert.match(calendar, /useProgramCivilClock/);
 
   const fr = src('src/i18n/locales/fr.ts');
   const en = src('src/i18n/locales/en.ts');
