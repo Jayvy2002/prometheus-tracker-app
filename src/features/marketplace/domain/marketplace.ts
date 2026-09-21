@@ -1,4 +1,9 @@
-export const MARKET_DISCIPLINES = ['strength', 'powerlifting', 'general_fitness'] as const;
+export const MARKET_DISCIPLINES = ['strength', 'bodybuilding', 'hypertrophy', 'powerlifting', 'general_fitness'] as const;
+export const PROSPECT_SNAPSHOT_KEYS = ['objective', 'level', 'discipline', 'language', 'expectations', 'availability', 'constraints', 'budget', 'summary'] as const;
+export const PROSPECT_SNAPSHOT_LIMITS: Record<typeof PROSPECT_SNAPSHOT_KEYS[number], number> = {
+  objective: 200, level: 80, discipline: 80, language: 40, expectations: 500,
+  availability: 300, constraints: 500, budget: 120, summary: 1500,
+};
 export const MARKETPLACE_CONSENT_VERSION = 2;
 export const MARKET_LANGUAGES = ['fr', 'en'] as const;
 export const MARKET_FORMATS = ['online', 'in_person', 'hybrid'] as const;
@@ -6,21 +11,25 @@ export const QUALIFICATION_TYPES = ['certification', 'degree', 'license', 'conti
 export const QUALIFICATION_STATUSES = ['declared', 'pending', 'verified', 'rejected', 'expired'] as const;
 export type QualificationType = typeof QUALIFICATION_TYPES[number];
 export type QualificationStatus = typeof QUALIFICATION_STATUSES[number];
-export interface CoachQualification {
+export interface CoachPublicQualification {
   id: string;
   coach_id: string;
   title: string;
   qualification_type: QualificationType;
   issuer: string;
   declared_at: string;
-  proof_path: string | null;
   verification_status: QualificationStatus;
   verified_at: string | null;
-  reviewer_id: string | null;
   expires_on: string | null;
+}
+export interface CoachQualification extends CoachPublicQualification {
+  proof_path: string | null;
+  reviewer_id: string | null;
+  reviewer_ref?: string;
   review_note: string | null;
   updated_at: string;
 }
+export type ProspectSnapshot = Partial<Record<typeof PROSPECT_SNAPSHOT_KEYS[number], string>>;
 export interface CoachPublicProfile {
   coach_id: string; public_name: string; introduction: string; method: string; offer: string;
   disciplines: string[]; languages: string[]; formats: string[]; area: string;
@@ -31,6 +40,7 @@ export interface CoachPublicProfile {
   experience_levels?: string[];
   indicative_price_cents?: number | null;
   indicative_price_period?: string;
+  indicative_price_currency?: string;
 }
 export type RelationshipState = 'active' | 'ended' | 'unknown';
 export interface CoachingLinkRecord {
@@ -44,6 +54,7 @@ export interface CoachingRequest {
   coach_name?: string | null;
   relationship_state?: RelationshipState;
   id: string; coach_id: string; client_id: string; public_name: string; summary: string;
+  prospect_snapshot?: ProspectSnapshot;
   sharing_version: number; status: 'pending' | 'accepted' | 'coach_accepted' | 'athlete_confirmed' | 'declined' | 'withdrawn';
   created_at: string; updated_at: string;
 }
@@ -103,6 +114,26 @@ export function requestRelationshipCopyKey(
   return request.status === 'accepted'
     ? 'marketplace.relationshipUnknownHistorical'
     : 'marketplace.relationshipUnknown';
+}
+
+export function isProspectConversationStatus(status: CoachingRequest['status']): boolean {
+  return status === 'pending' || status === 'coach_accepted';
+}
+
+export function normalizeProspectSnapshot(raw: Record<string, unknown> | null | undefined): ProspectSnapshot {
+  const out: ProspectSnapshot = {};
+  if (!raw || typeof raw !== 'object') return out;
+  for (const key of PROSPECT_SNAPSHOT_KEYS) {
+    const value = raw[key];
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim().slice(0, PROSPECT_SNAPSHOT_LIMITS[key]);
+    if (trimmed) out[key] = trimmed;
+  }
+  return out;
+}
+
+export function ownedQualificationProofPath(coachId: string, qualificationId: string, path: string): boolean {
+  return new RegExp(`^${coachId}/${qualificationId}/proof(\\.(pdf|jpg|jpeg|png|webp))?$`).test(path);
 }
 
 export function requestActions(request: CoachingRequest, userId: string): Array<'accepted' | 'declined' | 'withdrawn' | 'confirmed'> {

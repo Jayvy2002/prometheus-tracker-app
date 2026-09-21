@@ -54,15 +54,39 @@ function asQualification(row: CoachQualification): CoachQualification {
   return row;
 }
 
-export async function readCoachQualifications(coachId: string): Promise<CoachQualification[]> {
+function asPublicQualification(row: Omit<CoachQualification, 'proof_path' | 'reviewer_id' | 'review_note' | 'updated_at' | 'reviewer_ref'>): CoachQualification {
+  return {
+    ...row,
+    proof_path: null,
+    reviewer_id: null,
+    reviewer_ref: '',
+    review_note: null,
+    updated_at: '',
+  };
+}
+
+export async function readCoachQualifications(coachId: string, viewerId?: string): Promise<CoachQualification[]> {
   if (!OWNER_ID.test(coachId)) return [];
-  const { data, error } = await supabase
-    .from('coach_qualifications')
-    .select('*')
-    .eq('coach_id', coachId)
-    .order('declared_at', { ascending: false });
+  if (viewerId && viewerId === coachId) {
+    const { data, error } = await supabase
+      .from('coach_qualifications')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('declared_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(asQualification);
+  }
+  const { data, error } = await supabase.rpc('list_public_coach_qualifications', { p_coach: coachId });
   if (error) throw error;
-  return (data ?? []).map(asQualification);
+  return (Array.isArray(data) ? data : []).map(asPublicQualification);
+}
+
+export async function readPublicCoachQualificationCards(coachIds: string[]): Promise<CoachQualification[]> {
+  const ids = coachIds.filter(id => OWNER_ID.test(id));
+  if (!ids.length) return [];
+  const { data, error } = await supabase.rpc('list_public_coach_qualification_cards', { p_coaches: ids });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map(asPublicQualification);
 }
 
 export async function readMarketplaceSearchIntent(owner: string): Promise<MarketplaceSearchIntent | null> {

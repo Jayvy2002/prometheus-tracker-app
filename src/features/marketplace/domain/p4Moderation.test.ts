@@ -33,6 +33,17 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.doesNotMatch(sql, /stripe/i);
   const save = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.save_my_coach_profile');
   assert.doesNotMatch(save.sql, /directory_suspended/);
+  const requestFn = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
+  assert.equal(requestFn.file, '20260921024426_p4_marketplace_moderation.sql');
+  assert.match(requestFn.sql, /AND NOT directory_suspended/);
+  assert.match(sql, /marketplace_audit_actor\(\)/);
+  assert.match(sql, /actor = v_actor/);
+  assert.doesNotMatch(sql, /DEFAULT CURRENT_USER/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /new request reached suspended coach/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /in-flight pending prospect closed by suspend/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /suspended qualification badge leaked/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /durable actor/);
+  assert.doesNotMatch(save.sql, /directory_suspended/);
   const explain = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.explain_marketplace_matches');
   assert.equal(explain.file, '20260921024426_p4_marketplace_moderation.sql');
   assert.match(explain.sql, /AND NOT directory_suspended/);

@@ -9,34 +9,42 @@ coach_qualifications
 - coach_id
 - title
 - qualification_type (certification | degree | license | continuing_education | other)
-- issuer
 - declared_at
-- proof_path (bucket privé qualification-proofs)
+- proof_path (owner only; bucket privé qualification-proofs)
 - verification_status (declared | pending | verified | rejected | expired)
 - verified_at
-- reviewer_id
+- reviewer_id (nullable, may be absent under service_role)
+- reviewer_ref (durable: user:<uid> | role:<role>)
 - expires_on
-- review_note
+- review_note (owner / reviewer only)
 ```
 
 `expired` est l’état effectif d’une ligne `verified` dont `expires_on <` date civile.
+
+## Surfaces
+
+| Lecteur | Chemin | Champs |
+|---|---|---|
+| Owner | RLS table `SELECT *` | état complet, y compris preuve et revue interne |
+| Autre membre | `list_public_coach_qualifications` / `list_public_coach_qualification_cards` | id, coach_id, title, type, issuer, declared_at, status, verified_at, expires_on |
+
+Un utilisateur public ne lit jamais `proof_path`, `reviewer_id`, `reviewer_ref` ni `review_note`. Un Coach suspendu (`directory_suspended`) n’expose plus la surface publique (P4.4).
+
+## Preuve
+
+Le chemin doit matcher `auth.uid() / qualification_id / proof[.pdf|.jpg|.jpeg|.png|.webp]`. `declare` ignore un `p_proof_path` client. `save` / `submit` refusent tout autre chemin (`invalid_proof_path`). Les policies Storage exigent le même dossier.
 
 ## Écritures
 
 | RPC | Qui | Effet |
 |---|---|---|
-| `declare_coach_qualification` | Coach | insert `declared` (max 20) |
+| `declare_coach_qualification` | Coach | insert `declared` (max 20), preuve nulle |
 | `save_coach_qualification` | Coach | mute `declared` / `rejected` → `declared` |
-| `submit_coach_qualification` | Coach | `declared`/`rejected` → `pending` si preuve |
+| `submit_coach_qualification` | Coach | `declared`/`rejected` → `pending` si preuve owned |
 | `withdraw_coach_qualification` | Coach | `pending` → `declared` ; sinon DELETE |
-| `review_coach_qualification` | `service_role` | `pending` → `verified` / `rejected` |
+| `review_coach_qualification` | `service_role` | `pending` → `verified` / `rejected`, `reviewer_ref = marketplace_audit_actor()` |
 
 `save_program` / marketplace publish **n’exigent pas** de badge. Pas d’étoiles.
-
-## Lecture
-
-Owner : toutes les lignes. Autres membres : lignes d’un profil **publié**, sauf `rejected`.
-Badge public : au moins une qualification effectivement `verified`.
 
 ## Migration
 

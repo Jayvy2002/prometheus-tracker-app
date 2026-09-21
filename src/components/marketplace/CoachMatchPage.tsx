@@ -9,9 +9,11 @@ import {
   MATCH_AUTONOMY,
   MATCH_EXPERIENCE,
   MATCH_FREQUENCIES,
+  MATCH_PRICE_PERIODS,
   MATCH_STYLES,
   emptyIntent,
   intentIsReady,
+  normalizeIsoCurrency,
   normalizeSearchIntent,
   type CoachMatchExplanation,
   type MarketplaceSearchIntent,
@@ -22,7 +24,7 @@ import Input from '../ui/Input';
 
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
 
-function eurosFromCents(cents: number | null): string {
+function amountFromCents(cents: number | null): string {
   return cents == null ? '' : String(Math.round(cents / 100));
 }
 
@@ -31,7 +33,7 @@ export default function CoachMatchPage() {
   const owner = useAuthStore(s => s.user?.id) ?? '';
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [intent, setIntent] = useState<MarketplaceSearchIntent>(emptyIntent);
-  const [budgetEuros, setBudgetEuros] = useState('');
+  const [budgetAmount, setBudgetAmount] = useState('');
   const [matches, setMatches] = useState<Array<CoachMatchExplanation & { public_name?: string }>>([]);
   const [searched, setSearched] = useState(false);
   const [error, setError] = useState('');
@@ -53,7 +55,7 @@ export default function CoachMatchPage() {
       if (seq !== sequence.current) return;
       const next = saved ?? emptyIntent;
       setIntent(next);
-      setBudgetEuros(eurosFromCents(next.budget_max_cents));
+      setBudgetAmount(amountFromCents(next.budget_max_cents));
       if (saved && intentIsReady(saved)) {
         const rows = await explainMarketplaceMatches(owner);
         if (seq !== sequence.current) return;
@@ -76,10 +78,11 @@ export default function CoachMatchPage() {
     writing.current = true;
     setBusy(true);
     setError('');
-    const parsed = Number(budgetEuros);
+    const parsed = Number(budgetAmount);
     const next = normalizeSearchIntent({
       ...intent,
-      budget_max_cents: budgetEuros === '' || !Number.isFinite(parsed) || parsed <= 0 ? null : Math.round(parsed * 100),
+      budget_max_cents: budgetAmount === '' || !Number.isFinite(parsed) || parsed <= 0 ? null : Math.round(parsed * 100),
+      budget_currency: normalizeIsoCurrency(intent.budget_currency),
     });
     setIntent(next);
     try {
@@ -139,7 +142,15 @@ export default function CoachMatchPage() {
           {intent.format && intent.format !== 'online' && (
             <Input maxLength={150} label={t('marketplace.area')} value={intent.area} onChange={e => patch({ area: e.target.value })} />
           )}
-          <Input inputMode="decimal" label={t('marketplace.budget')} value={budgetEuros} onChange={e => setBudgetEuros(e.target.value)} />
+          <Input inputMode="decimal" label={t('marketplace.budget')} value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)} />
+          <div className="space-y-2">
+            <label htmlFor="match-budget-period">{t('marketplace.budget_period')}</label>
+            <select id="match-budget-period" className={fieldStyle} value={intent.budget_period} onChange={e => patch({ budget_period: e.target.value })}>
+              <option value="">{t('marketplace.any')}</option>
+              {MATCH_PRICE_PERIODS.filter(value => value !== 'on_request').map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}
+            </select>
+          </div>
+          <Input maxLength={3} autoCapitalize="characters" label={t('marketplace.budget_currency')} value={intent.budget_currency} onChange={e => patch({ budget_currency: e.target.value.toUpperCase() })} />
         </fieldset>
         <fieldset disabled={busy} className="space-y-4">
           <legend className="font-semibold text-white">{t('marketplace.matchPreferences')}</legend>

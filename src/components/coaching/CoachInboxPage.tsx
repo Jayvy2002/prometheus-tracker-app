@@ -19,7 +19,7 @@ import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKe
 import { formatBilanDate, hasBilan, parseBilanQuery } from '../../lib/messageBilan';
 import { supabase } from '../../lib/supabase';
 import { readRequests } from '../../lib/marketplaceApi';
-import type { CoachingRequest } from '../../lib/marketplace';
+import { isProspectConversationStatus, type CoachingRequest } from '../../lib/marketplace';
 import type { CoachClientSummary } from '../../lib/types';
 import EmptyState from '../ui/EmptyState';
 import Button from '../ui/Button';
@@ -109,12 +109,12 @@ export default function CoachInboxPage() {
   }, [bilan, t, i18n.language]);
 
   const prospects = user
-    ? requests.filter(row => row.status === 'coach_accepted' && row.coach_id === user.id)
+    ? requests.filter(row => isProspectConversationStatus(row.status) && row.coach_id === user.id)
     : [];
   const threads = useMemo(() => {
     if (!user) return [];
     const extra = requests
-      .filter(row => row.status === 'coach_accepted' && row.coach_id === user.id && !clients.some(client => client.id === row.client_id))
+      .filter(row => isProspectConversationStatus(row.status) && row.coach_id === user.id && !clients.some(client => client.id === row.client_id))
       .map(prospectSummary);
     return groupMessageThreads(sentMessages, [...clients, ...extra], user.id);
   }, [sentMessages, clients, requests, user]);

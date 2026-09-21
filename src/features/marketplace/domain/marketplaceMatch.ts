@@ -13,6 +13,7 @@ export interface CoachMatchProfile extends CoachPublicProfile {
   experience_levels: string[];
   indicative_price_cents: number | null;
   indicative_price_period: string;
+  indicative_price_currency: string;
 }
 
 export interface MarketplaceSearchIntent {
@@ -21,6 +22,8 @@ export interface MarketplaceSearchIntent {
   format: string;
   area: string;
   budget_max_cents: number | null;
+  budget_period: string;
+  budget_currency: string;
   contact_frequency: string;
   coaching_style: string;
   autonomy: string;
@@ -38,7 +41,7 @@ export interface CoachMatchExplanation {
 }
 
 const emptyIntent: MarketplaceSearchIntent = {
-  discipline: '', language: '', format: '', area: '', budget_max_cents: null,
+  discipline: '', language: '', format: '', area: '', budget_max_cents: null, budget_period: '', budget_currency: '',
   contact_frequency: '', coaching_style: '', autonomy: '', experience_level: '', secondary_notes: '',
 };
 
@@ -51,18 +54,44 @@ export function blankMatchProfile(base: CoachPublicProfile): CoachMatchProfile {
     experience_levels: Array.isArray((base as CoachMatchProfile).experience_levels) ? (base as CoachMatchProfile).experience_levels : [],
     indicative_price_cents: typeof (base as CoachMatchProfile).indicative_price_cents === 'number' ? (base as CoachMatchProfile).indicative_price_cents : null,
     indicative_price_period: (base as CoachMatchProfile).indicative_price_period || 'on_request',
+    indicative_price_currency: normalizeIsoCurrency((base as CoachMatchProfile).indicative_price_currency),
   };
+}
+
+export function normalizeIsoCurrency(value: string | undefined | null): string {
+  const next = (value ?? '').trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(next) ? next : '';
+}
+
+export function listedRateDecision(
+  budgetCents: number | null,
+  budgetPeriod: string,
+  budgetCurrency: string,
+  priceCents: number | null,
+  pricePeriod: string,
+  priceCurrency: string,
+): 'skip' | 'missing' | 'over' | 'match' {
+  if (budgetCents == null) return 'skip';
+  if (!budgetPeriod || !/^[A-Z]{3}$/.test(budgetCurrency)
+    || priceCents == null || !pricePeriod || pricePeriod === 'on_request' || !/^[A-Z]{3}$/.test(priceCurrency)
+    || pricePeriod !== budgetPeriod || priceCurrency !== budgetCurrency) {
+    return 'missing';
+  }
+  return priceCents > budgetCents ? 'over' : 'match';
 }
 
 export function normalizeSearchIntent(raw: Partial<MarketplaceSearchIntent>): MarketplaceSearchIntent {
   const pick = (value: string | undefined, allowed: readonly string[]) => allowed.includes(value ?? '') ? value! : '';
   const cents = raw.budget_max_cents;
+  const budget = typeof cents === 'number' && Number.isFinite(cents) && cents > 0 ? Math.floor(cents) : null;
   return {
     discipline: pick(raw.discipline, MARKET_DISCIPLINES),
     language: pick(raw.language, MARKET_LANGUAGES),
     format: pick(raw.format, MARKET_FORMATS),
     area: (raw.area ?? '').trim().slice(0, 150),
-    budget_max_cents: typeof cents === 'number' && Number.isFinite(cents) && cents > 0 ? Math.floor(cents) : null,
+    budget_max_cents: budget,
+    budget_period: budget ? pick(raw.budget_period, MATCH_PRICE_PERIODS.filter(value => value !== 'on_request')) : '',
+    budget_currency: budget ? normalizeIsoCurrency(raw.budget_currency) : '',
     contact_frequency: pick(raw.contact_frequency, MATCH_FREQUENCIES),
     coaching_style: pick(raw.coaching_style, MATCH_STYLES),
     autonomy: pick(raw.autonomy, MATCH_AUTONOMY),
@@ -120,11 +149,17 @@ export function evaluateCoachMatch(profile: CoachMatchProfile, intent: Marketpla
     }
   }
   if (intent.budget_max_cents != null) {
-    if (profile.indicative_price_cents == null || profile.indicative_price_period === 'on_request') {
-      missing_information.push('price');
-    } else if (profile.indicative_price_cents > intent.budget_max_cents) {
-      eligible = false;
-    } else {
+    const decision = listedRateDecision(
+      intent.budget_max_cents,
+      intent.budget_period,
+      intent.budget_currency,
+      profile.indicative_price_cents,
+      profile.indicative_price_period,
+      profile.indicative_price_currency,
+    );
+    if (decision === 'missing') missing_information.push('price');
+    else if (decision === 'over') eligible = false;
+    else if (decision === 'match') {
       matched_requirements.push('budget');
       reasons.push('budget');
     }
@@ -177,12 +212,16 @@ export function intentIsReady(intent: MarketplaceSearchIntent): boolean {
 }
 
 export function listedRateCopy(
-  profile: Pick<CoachMatchProfile, 'indicative_price_cents' | 'indicative_price_period'>,
-): { amount: string; period: string } | null {
+  profile: Pick<CoachMatchProfile, 'indicative_price_cents' | 'indicative_price_period' | 'indicative_price_currency'>,
+): { amount: string; period: string; currency: string } | null {
   if (profile.indicative_price_cents == null || !profile.indicative_price_period || profile.indicative_price_period === 'on_request') {
     return null;
   }
-  return { amount: String(Math.round(profile.indicative_price_cents / 100)), period: profile.indicative_price_period };
+  return {
+    amount: String(Math.round(profile.indicative_price_cents / 100)),
+    period: profile.indicative_price_period,
+    currency: normalizeIsoCurrency(profile.indicative_price_currency),
+  };
 }
 
 export { emptyIntent };

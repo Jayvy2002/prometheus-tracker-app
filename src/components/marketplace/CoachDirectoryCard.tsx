@@ -42,7 +42,11 @@ export default function CoachDirectoryCard({ profile, verified, filters, query, 
       )}
       <p className="text-sm text-neutral-500">{(() => {
         const rate = listedRateCopy(blankMatchProfile(profile));
-        return rate ? t('marketplace.listedPrice', { amount: rate.amount, period: t(`marketplace.pricePeriod_${rate.period}`) }) : t('marketplace.priceOnRequest');
+        if (!rate) return t('marketplace.priceOnRequest');
+        const period = t(`marketplace.pricePeriod_${rate.period}`);
+        return rate.currency
+          ? t('marketplace.listedPrice', { amount: rate.amount, currency: rate.currency, period })
+          : t('marketplace.listedPriceNoCurrency', { amount: rate.amount, period });
       })()}</p>
       <div className="mt-auto space-y-2 border-t border-neutral-800 pt-3">
         <Link className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-medium text-blue-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400" to={`/coaches/${profile.coach_id}?${query}`}>

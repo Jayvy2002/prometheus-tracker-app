@@ -1,4 +1,4 @@
--- P4.2 matching: blocking vs preferences, eligible shortlist only, no percent.
+-- P4.2 matching: blocking vs preferences, comparable budget, Vision disciplines.
 \set ON_ERROR_STOP on
 BEGIN;
 
@@ -30,7 +30,11 @@ INSERT INTO auth.users(id, email) VALUES
  ('c4200000-0000-4000-8000-000000000007', 'p42-golf@example.test'),
  ('c4200000-0000-4000-8000-000000000008', 'p42-hidden@example.test'),
  ('c4200000-0000-4000-8000-000000000009', 'p42-athlete@example.test'),
- ('c4200000-0000-4000-8000-00000000000a', 'p42-other@example.test');
+ ('c4200000-0000-4000-8000-00000000000a', 'p42-other@example.test'),
+ ('c4200000-0000-4000-8000-00000000000b', 'p42-body@example.test'),
+ ('c4200000-0000-4000-8000-00000000000c', 'p42-hyper@example.test'),
+ ('c4200000-0000-4000-8000-00000000000d', 'p42-session@example.test'),
+ ('c4200000-0000-4000-8000-00000000000e', 'p42-usd@example.test');
 INSERT INTO public.user_roles(user_id, role, coaching_role) VALUES
  ('c4200000-0000-4000-8000-000000000001', 'free', 'coach'),
  ('c4200000-0000-4000-8000-000000000002', 'free', 'coach'),
@@ -41,7 +45,11 @@ INSERT INTO public.user_roles(user_id, role, coaching_role) VALUES
  ('c4200000-0000-4000-8000-000000000007', 'free', 'coach'),
  ('c4200000-0000-4000-8000-000000000008', 'free', 'coach'),
  ('c4200000-0000-4000-8000-000000000009', 'free', 'none'),
- ('c4200000-0000-4000-8000-00000000000a', 'free', 'none')
+ ('c4200000-0000-4000-8000-00000000000a', 'free', 'none'),
+ ('c4200000-0000-4000-8000-00000000000b', 'free', 'coach'),
+ ('c4200000-0000-4000-8000-00000000000c', 'free', 'coach'),
+ ('c4200000-0000-4000-8000-00000000000d', 'free', 'coach'),
+ ('c4200000-0000-4000-8000-00000000000e', 'free', 'coach')
 ON CONFLICT (user_id) DO UPDATE SET coaching_role = excluded.coaching_role;
 
 DO $$ BEGIN
@@ -61,6 +69,13 @@ DO $$ BEGIN
      OR NOT has_function_privilege('authenticated', 'public.explain_marketplace_matches()', 'execute')
      OR has_function_privilege('anon', 'public.explain_marketplace_matches()', 'execute') THEN
     RAISE EXCEPTION 'matching grants mismatch';
+  END IF;
+  IF public.marketplace_listed_rate_decision(5000, 'month', 'EUR', 4000, 'session', 'EUR') <> 'missing'
+     OR public.marketplace_listed_rate_decision(5000, 'month', 'EUR', 4000, 'month', 'USD') <> 'missing'
+     OR public.marketplace_listed_rate_decision(5000, 'month', 'EUR', 9000, 'month', 'EUR') <> 'over'
+     OR public.marketplace_listed_rate_decision(5000, 'program', 'CHF', 4000, 'program', 'CHF') <> 'match'
+  THEN
+    RAISE EXCEPTION 'listed rate decision mismatch';
   END IF;
 END $$;
 
@@ -92,21 +107,29 @@ DO $$ BEGIN
 END $$;
 
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000001');
-SELECT public.save_my_coach_profile('{"public_name":"Alpha","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"contact_frequency":"weekly","coaching_style":"collaborative","autonomy":"medium","experience_levels":["beginner"],"indicative_price_cents":4000,"indicative_price_period":"month"}');
+SELECT public.save_my_coach_profile('{"public_name":"Alpha","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"contact_frequency":"weekly","coaching_style":"collaborative","autonomy":"medium","experience_levels":["beginner"],"indicative_price_cents":4000,"indicative_price_period":"month","indicative_price_currency":"EUR"}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000002');
-SELECT public.save_my_coach_profile('{"public_name":"Bravo","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"contact_frequency":"weekly","indicative_price_cents":4000,"indicative_price_period":"month"}');
+SELECT public.save_my_coach_profile('{"public_name":"Bravo","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"contact_frequency":"weekly","indicative_price_cents":4000,"indicative_price_period":"month","indicative_price_currency":"EUR"}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000003');
 SELECT public.save_my_coach_profile('{"public_name":"Charlie","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000004');
-SELECT public.save_my_coach_profile('{"public_name":"Delta","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":4000,"indicative_price_period":"month"}');
+SELECT public.save_my_coach_profile('{"public_name":"Delta","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":4000,"indicative_price_period":"month","indicative_price_currency":"EUR"}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000005');
-SELECT public.save_my_coach_profile('{"public_name":"Echo","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":4000,"indicative_price_period":"month"}');
+SELECT public.save_my_coach_profile('{"public_name":"Echo","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":4000,"indicative_price_period":"month","indicative_price_currency":"EUR"}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000006');
-SELECT public.save_my_coach_profile('{"public_name":"Foxtrot","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":20000,"indicative_price_period":"month"}');
+SELECT public.save_my_coach_profile('{"public_name":"Foxtrot","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":20000,"indicative_price_period":"month","indicative_price_currency":"EUR"}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000007');
 SELECT public.save_my_coach_profile('{"public_name":"Golf","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["en"],"formats":["online"],"published":true,"accepting_clients":true}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000008');
 SELECT public.save_my_coach_profile('{"public_name":"Hidden","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":false,"accepting_clients":true}');
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000b');
+SELECT public.save_my_coach_profile('{"public_name":"Body","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["bodybuilding"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true}');
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000c');
+SELECT public.save_my_coach_profile('{"public_name":"Hyper","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["hypertrophy"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true}');
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000d');
+SELECT public.save_my_coach_profile('{"public_name":"Session","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":9000,"indicative_price_period":"session","indicative_price_currency":"EUR"}');
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000e');
+SELECT public.save_my_coach_profile('{"public_name":"Usd","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":20000,"indicative_price_period":"month","indicative_price_currency":"USD"}');
 
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000009');
 SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"online","contact_frequency":"weekly","coaching_style":"collaborative","autonomy":"medium","experience_level":"beginner"}');
@@ -129,11 +152,29 @@ BEGIN
   END IF;
 END $$;
 
-SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"online","budget_max_cents":5000,"contact_frequency":"weekly","coaching_style":"collaborative","autonomy":"medium","experience_level":"beginner"}');
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000004');
+DO $$
+DECLARE p public.coach_profiles;
+BEGIN
+  SELECT * INTO p FROM public.coach_profiles WHERE coach_id = auth.uid();
+  PERFORM public.save_my_coach_profile(to_jsonb(p) || '{"published":false}', p.updated_at);
+END $$;
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000005');
+DO $$
+DECLARE p public.coach_profiles;
+BEGIN
+  SELECT * INTO p FROM public.coach_profiles WHERE coach_id = auth.uid();
+  PERFORM public.save_my_coach_profile(to_jsonb(p) || '{"published":false}', p.updated_at);
+END $$;
+
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000009');
+SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"online","budget_max_cents":5000,"budget_period":"month","budget_currency":"EUR","contact_frequency":"weekly","coaching_style":"collaborative","autonomy":"medium","experience_level":"beginner"}');
 DO $$
 DECLARE
   v_rows jsonb;
   v_charlie jsonb;
+  v_session jsonb;
+  v_usd jsonb;
 BEGIN
   v_rows := public.explain_marketplace_matches();
   IF v_rows::text LIKE '%Foxtrot%' OR v_rows::text LIKE '%Golf%' THEN
@@ -143,6 +184,38 @@ BEGIN
   IF v_charlie IS NULL THEN RAISE EXCEPTION 'missing price became ineligible'; END IF;
   IF NOT (v_charlie->'missing_information' @> '["price"]'::jsonb) THEN
     RAISE EXCEPTION 'missing price not reported';
+  END IF;
+  SELECT item INTO v_session FROM jsonb_array_elements(v_rows) item WHERE item->>'public_name' = 'Session';
+  IF v_session IS NULL THEN RAISE EXCEPTION 'session vs month became ineligible'; END IF;
+  IF NOT (v_session->'missing_information' @> '["price"]'::jsonb) THEN
+    RAISE EXCEPTION 'incomparable period was excluded';
+  END IF;
+  SELECT item INTO v_usd FROM jsonb_array_elements(v_rows) item WHERE item->>'public_name' = 'Usd';
+  IF v_usd IS NULL THEN RAISE EXCEPTION 'different currency became ineligible'; END IF;
+  IF NOT (v_usd->'missing_information' @> '["price"]'::jsonb) THEN
+    RAISE EXCEPTION 'incomparable currency was excluded';
+  END IF;
+END $$;
+
+SELECT public.save_marketplace_search_intent('{"discipline":"bodybuilding","language":"fr","format":"online"}');
+DO $$
+DECLARE
+  v_rows jsonb;
+BEGIN
+  v_rows := public.explain_marketplace_matches();
+  IF jsonb_array_length(v_rows) <> 1 OR v_rows->0->>'public_name' <> 'Body' THEN
+    RAISE EXCEPTION 'bodybuilding shortlist mismatch';
+  END IF;
+END $$;
+
+SELECT public.save_marketplace_search_intent('{"discipline":"hypertrophy","language":"fr","format":"online"}');
+DO $$
+DECLARE
+  v_rows jsonb;
+BEGIN
+  v_rows := public.explain_marketplace_matches();
+  IF jsonb_array_length(v_rows) <> 1 OR v_rows->0->>'public_name' <> 'Hyper' THEN
+    RAISE EXCEPTION 'hypertrophy shortlist mismatch';
   END IF;
 END $$;
 

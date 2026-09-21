@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
   coachHasVerifiedBadge,
+  ownedQualificationProofPath,
   publicQualifications,
   qualificationEffectiveStatus,
   type CoachQualification,
@@ -29,6 +30,8 @@ test('verified qualifications expire on the civil date without becoming a rankin
   assert.equal(coachHasVerifiedBadge([row('declared'), row('verified')]), true);
   assert.equal(coachHasVerifiedBadge([row('declared')]), false);
   assert.equal(coachHasVerifiedBadge([row('verified', '2020-01-01')], '2026-09-21'), false);
+  assert.equal(ownedQualificationProofPath('c4100000-0000-4000-8000-000000000001', 'c4100000-0000-4000-8000-000000000099', 'c4100000-0000-4000-8000-000000000001/c4100000-0000-4000-8000-000000000099/proof.pdf'), true);
+  assert.equal(ownedQualificationProofPath('c4100000-0000-4000-8000-000000000001', 'c4100000-0000-4000-8000-000000000099', 'c4100000-0000-4000-8000-000000000002/c4100000-0000-4000-8000-000000000099/proof.pdf'), false);
 });
 
 test('P4.1 qualifications reuse marketplace publish and never require a verified badge', () => {
@@ -52,5 +55,15 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /unverified badge shown/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /^ROLLBACK;/m);
   assert.doesNotMatch(src('supabase/tests/p4_coach_qualifications.sql'), /^COMMIT;/m);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /foreign proof_path accepted/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /stranger selected owner qualification table/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /public qualification leaked internal fields/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /reviewer_ref was not durable/);
+  assert.match(found, /list_public_coach_qualifications/);
+  assert.match(found, /qualification_owned_proof_path/);
+  assert.match(found, /coach_id = \(SELECT auth.uid\(\)\)/);
+  assert.doesNotMatch(found, /verification_status <> 'rejected'\s+AND EXISTS/);
+  assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /list_public_coach_qualifications/);
+  assert.doesNotMatch(src('src/components/marketplace/MarketplacePage.tsx'), /from\('coach_qualifications'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /declare_coach_qualification/);
 });

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
+import { isProspectConversationStatus } from '../../lib/marketplace';
 import { readRequests } from '../../lib/marketplaceApi';
 import EmptyState from '../ui/EmptyState';
 import Button from '../ui/Button';
@@ -29,7 +30,8 @@ export default function ClientMessagesPage() {
     fetchMyCoach();
     fetchCoachMessages();
     void readRequests(user.id).then(rows => {
-      const row = rows.find(item => item.client_id === user.id && item.status === 'coach_accepted');
+      const row = rows.find(item => item.client_id === user.id && item.status === 'coach_accepted')
+        ?? rows.find(item => item.client_id === user.id && isProspectConversationStatus(item.status));
       setProspectCoach(row ? { id: row.coach_id, full_name: row.coach_name || '' } : null);
     }).catch(() => setProspectCoach(null));
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps

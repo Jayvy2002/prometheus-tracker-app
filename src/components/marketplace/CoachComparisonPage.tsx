@@ -45,7 +45,11 @@ export default function CoachComparisonPage() {
             <p className="text-sm text-neutral-500">{t(row.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</p>
             <p className="text-sm text-neutral-500">{(() => {
               const rate = listedRateCopy(blankMatchProfile(row));
-              return rate ? t('marketplace.listedPrice', { amount: rate.amount, period: t(`marketplace.pricePeriod_${rate.period}`) }) : t('marketplace.priceOnRequest');
+              if (!rate) return t('marketplace.priceOnRequest');
+              const period = t(`marketplace.pricePeriod_${rate.period}`);
+              return rate.currency
+                ? t('marketplace.listedPrice', { amount: rate.amount, currency: rate.currency, period })
+                : t('marketplace.listedPriceNoCurrency', { amount: rate.amount, period });
             })()}</p>
             <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
           </article>

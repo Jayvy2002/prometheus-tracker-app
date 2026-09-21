@@ -4,11 +4,33 @@
 
 ## Questionnaire
 
-Exigences bloquantes : discipline, langue, format, zone si présentiel, budget maximal lorsqu’un tarif indicatif existe.
+Exigences bloquantes : discipline, langue, format, zone si présentiel, budget **seulement** lorsqu’il est comparable.
 
 Préférences importantes : fréquence de contact, style, autonomie, expérience.
 
 Préférences secondaires : notes libres, non classantes.
+
+## Disciplines
+
+Valeurs retenues (SQL + TypeScript + FR/EN) :
+
+- `strength` (musculation)
+- `bodybuilding`
+- `hypertrophy` (hypertrophie)
+- `powerlifting`
+- `general_fitness` (valeur historique conservée)
+
+## Budget / tarif
+
+Offre Coach : `indicative_price_cents` + `indicative_price_period` (`on_request` / `session` / `month` / `program`) + `indicative_price_currency` (ISO 4217 ou vide).
+
+Intention Athlète : `budget_max_cents` + `budget_period` + `budget_currency`.
+
+`marketplace_listed_rate_decision` :
+
+- informations manquantes ou période/devise différentes → `missing_information` (`price`), **pas** d’exclusion ;
+- montant + période + devise comparables et tarif > budget → inéligible ;
+- aucune devise universelle n’est inférée. Pas de `€` hardcodé dans la logique produit.
 
 ## Moteur
 
@@ -19,8 +41,6 @@ Préférences secondaires : notes libres, non classantes.
 - `matched_preferences`
 - `missing_information`
 - `reasons`
-
-Un tarif non renseigné avec un budget demandé = information manquante, pas une exclusion.
 
 L’annuaire reste parcourable librement. La shortlist se limite à **5** Coachs éligibles. Un ensemble vide reste vide.
 

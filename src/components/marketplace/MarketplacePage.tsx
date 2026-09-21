@@ -3,13 +3,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, MATCH_AUTONOMY, MATCH_EXPERIENCE, MATCH_FREQUENCIES, MATCH_PRICE_PERIODS, MATCH_STYLES, blankMatchProfile, coachHasVerifiedBadge, listedRateCopy, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, MATCH_AUTONOMY, MATCH_EXPERIENCE, MATCH_FREQUENCIES, MATCH_PRICE_PERIODS, MATCH_STYLES, blankMatchProfile, coachHasVerifiedBadge, isProspectConversationStatus, listedRateCopy, marketFilters, normalizeJoinRequestStatus, normalizeProspectSnapshot, PROSPECT_SNAPSHOT_KEYS, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport, type ProspectSnapshot } from '../../lib/marketplace';
 import CoachDirectoryCard from './CoachDirectoryCard';
 import CoachQualificationsPanel from './CoachQualificationsPanel';
 import QualificationList from './QualificationList';
 import MarketplaceReportForm from './MarketplaceReportForm';
 import MarketplaceReportsList from './MarketplaceReportsList';
-import { marketRpc, readCoachProfile, readCoachQualifications, readMyMarketplaceReports, readRequests } from '../../lib/marketplaceApi';
+import { marketRpc, readCoachProfile, readCoachQualifications, readMyMarketplaceReports, readPublicCoachQualificationCards, readRequests } from '../../lib/marketplaceApi';
 import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
 import { track } from '../../lib/telemetryClient';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -20,9 +20,19 @@ const blank: CoachPublicProfile = {
   coach_id: '', public_name: '', introduction: '', method: '', offer: '', disciplines: [], languages: [], formats: [], area: '',
   published: false, accepting_clients: false, updated_at: '',
   contact_frequency: '', coaching_style: '', autonomy: '', experience_levels: [],
-  indicative_price_cents: null, indicative_price_period: 'on_request',
+  indicative_price_cents: null, indicative_price_period: 'on_request', indicative_price_currency: '',
 };
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
+const emptySnapshot: ProspectSnapshot = {};
+
+function listedRateLabel(t: (key: string, options?: object) => string, profile: CoachPublicProfile): string {
+  const rate = listedRateCopy(blankMatchProfile(profile));
+  if (!rate) return t('marketplace.priceOnRequest');
+  const period = t(`marketplace.pricePeriod_${rate.period}`);
+  return rate.currency
+    ? t('marketplace.listedPrice', { amount: rate.amount, currency: rate.currency, period })
+    : t('marketplace.listedPriceNoCurrency', { amount: rate.amount, period });
+}
 
 export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
   const { t, i18n } = useTranslation();
@@ -52,6 +62,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState('');
   const [summary, setSummary] = useState('');
+  const [snapshot, setSnapshot] = useState<ProspectSnapshot>(emptySnapshot);
   const [consent, setConsent] = useState(false);
   const [relationshipConsent, setRelationshipConsent] = useState(false);
   const [page, setPage] = useState(0);
@@ -62,7 +73,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   useEffect(() => {
     const seq = ++sequence.current;
     writing.current = false; setBusy(false); setStatus('loading'); setError(''); setNotice('');
-        setProfiles([]); setProfile(null); setRequests([]); setReports([]); setQualifications([]); setVerifiedIds([]); setConsent(false); setRelationshipConsent(false); setName(''); setSummary('');
+        setProfiles([]); setProfile(null); setRequests([]); setReports([]); setQualifications([]); setVerifiedIds([]); setConsent(false); setRelationshipConsent(false); setName(''); setSummary(''); setSnapshot(emptySnapshot);
     void (async () => {
       if (mode === 'directory') {
         const selected = JSON.parse(filterKey) as ReturnType<typeof marketFilters>;
@@ -76,13 +87,12 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         setProfiles((data ?? []).slice(0, 20)); setMore((data?.length ?? 0) > 20);
         const ids = (data ?? []).slice(0, 20).map(row => row.coach_id);
         if (ids.length) {
-          const quals = await supabase.from('coach_qualifications').select('coach_id,verification_status,expires_on').in('coach_id', ids);
-          if (quals.error) throw quals.error;
+          const cards = await readPublicCoachQualificationCards(ids);
           if (seq !== sequence.current) return;
           const grouped = new Map<string, CoachQualification[]>();
-          for (const row of quals.data ?? []) {
+          for (const row of cards) {
             const list = grouped.get(row.coach_id) ?? [];
-            list.push(row as CoachQualification);
+            list.push(row);
             grouped.set(row.coach_id, list);
           }
           setVerifiedIds([...grouped.entries()].filter(([, list]) => coachHasVerifiedBadge(list)).map(([id]) => id));
@@ -92,7 +102,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         if (seq !== sequence.current) return;
         setProfile(found ?? (mode === 'profile' ? { ...blank, coach_id: owner } : null));
         const coach = mode === 'profile' ? owner : coachId ?? '';
-        setQualifications(coach ? await readCoachQualifications(coach) : []);
+        setQualifications(coach ? await readCoachQualifications(coach, owner) : []);
       } else {
         const found = await readRequests(owner, page);
         if (seq !== sequence.current) return;
@@ -118,7 +128,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
     catch (cause) {
       if (seq === sequence.current) {
         const message = cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : '';
-        const key = ['profile_changed', 'coach_unavailable', 'already_coached', 'request_closed', 'session_changed', 'consent_renewal_required'].includes(message) ? message : 'saveError';
+        const key = ['profile_changed', 'coach_unavailable', 'already_coached', 'request_closed', 'session_changed', 'consent_renewal_required', 'invalid_snapshot', 'invalid_proof_path'].includes(message) ? message : 'saveError';
         setError(t(`marketplace.${key}`));
       }
     } finally { if (seq === sequence.current) { writing.current = false; setBusy(false); } }
@@ -131,6 +141,16 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
     if (mode === 'requests') return <><Button variant="secondary" onClick={() => setRevision(n => n + 1)}>{t('marketplace.refresh')}</Button>{requests.length ? <div className="space-y-4">{requests.map(row => <article key={row.id} className="rounded-xl border border-neutral-800 p-4 space-y-3">
       <p className="text-sm text-neutral-400">{t(row.client_id === owner ? 'marketplace.fromYou' : 'marketplace.toYou')}</p><h2 className="font-semibold">{row.client_id === owner ? row.coach_name || t('marketplace.coachUnavailableName') : row.public_name}</h2>
       <p className="whitespace-pre-wrap break-words">{row.summary}</p>
+      {row.prospect_snapshot && PROSPECT_SNAPSHOT_KEYS.some(key => row.prospect_snapshot?.[key]) && (
+        <dl className="text-sm text-neutral-400 space-y-1">
+          {PROSPECT_SNAPSHOT_KEYS.filter(key => row.prospect_snapshot?.[key]).map(key => (
+            <div key={key}>
+              <dt className="font-medium text-neutral-300">{t(`marketplace.snapshot_${key}`)}</dt>
+              <dd className="whitespace-pre-wrap break-words">{row.prospect_snapshot?.[key]}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       <p className="text-sm text-neutral-300">{t(`marketplace.${row.status}`)}</p>
       {row.status === 'pending' && row.coach_id === owner && (
         <p className="text-sm text-neutral-400">{t('marketplace.acceptContinuesProspect')}</p>
@@ -138,7 +158,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {row.status === 'coach_accepted' && row.client_id === owner && (
         <p className="text-sm text-neutral-400">{t('marketplace.confirmActivatesFollow')}</p>
       )}
-      {row.status === 'coach_accepted' && (
+      {isProspectConversationStatus(row.status) && (
         <Link className="block min-h-11 inline-flex items-center text-blue-400 underline" to={row.coach_id === owner ? `/messages/${row.client_id}` : '/messages'}>{t('marketplace.openConversation')}</Link>
       )}
       <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
@@ -235,6 +255,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
           {MATCH_PRICE_PERIODS.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}
         </select>
       </div>
+      <Input maxLength={3} autoCapitalize="characters" label={t('marketplace.indicative_price_currency')} value={profile.indicative_price_currency ?? ''} onChange={e => setProfile({ ...profile, indicative_price_currency: e.target.value.toUpperCase() })} />
       {(['published', 'accepting_clients'] as const).map(key => <label key={key} className="min-h-11 flex items-center gap-2"><input type="checkbox" checked={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.checked })} />{t(`marketplace.${key}`)}</label>)}
       <Button type="submit" loading={busy}>{t('common.save')}</Button>
       {profile.published && <Link className="block text-blue-400 underline" to={`/coaches/${owner}`}>{t('marketplace.viewCoach')}</Link>}
@@ -250,10 +271,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <p className="text-sm text-neutral-400">{[...profile.disciplines, ...profile.formats].map(v => t(`marketplace.${v}`)).join(' · ')}</p>
         <p className="text-sm text-neutral-400">{[profile.area, profile.languages.map(v => t(`marketplace.${v}`)).join(' / ')].filter(Boolean).join(' · ')}</p>
         <p className="text-sm text-neutral-500">{t(profile.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</p>
-        <p className="text-sm text-neutral-500">{(() => {
-          const rate = listedRateCopy(blankMatchProfile(profile));
-          return rate ? t('marketplace.listedPrice', { amount: rate.amount, period: t(`marketplace.pricePeriod_${rate.period}`) }) : t('marketplace.priceOnRequest');
-        })()}</p>
+        <p className="text-sm text-neutral-500">{listedRateLabel(t, profile)}</p>
         <p className="text-sm text-neutral-400">{[profile.contact_frequency, profile.coaching_style, profile.autonomy].filter(Boolean).map(value => t(`marketplace.${value}`)).join(' · ')}</p>
       </header>
       <QualificationList rows={qualifications} />
@@ -263,13 +281,25 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {profile.accepting_clients && profile.coach_id !== owner && !activeCoachId && <form className="space-y-4" onSubmit={e => {
         e.preventDefault(); if (!consent || !relationshipConsent) return; const seq = sequence.current;
         void write(async () => {
-          const result = await marketRpc<CoachingRequest>('request_coaching', { p_coach: profile.coach_id, p_public_name: name, p_summary: summary, p_sharing_version: MARKETPLACE_CONSENT_VERSION, p_request_key: coachingRequestKey(sessionStorage, owner, profile.coach_id) }, owner);
+          const result = await marketRpc<CoachingRequest>('request_coaching', {
+            p_coach: profile.coach_id,
+            p_public_name: name,
+            p_summary: summary,
+            p_sharing_version: MARKETPLACE_CONSENT_VERSION,
+            p_request_key: coachingRequestKey(sessionStorage, owner, profile.coach_id),
+            p_snapshot: normalizeProspectSnapshot({ ...snapshot, summary }),
+          }, owner);
           const status = normalizeJoinRequestStatus(result.status);
           if (seq === sequence.current) { clearCoachingRequestKey(sessionStorage, owner, profile.coach_id); setNotice(t(status === 'pending' ? 'marketplace.sent' : `marketplace.${status}`)); setConsent(false); setRelationshipConsent(false); }
         });
       }}><fieldset disabled={busy} className="space-y-4">
         <Input required maxLength={100} label={t('marketplace.yourName')} value={name} onChange={e => setName(e.target.value)} />
         <label className="block space-y-2">{t('marketplace.summary')}<textarea required className={fieldStyle} maxLength={1500} rows={4} value={summary} onChange={e => setSummary(e.target.value)} /></label>
+        {(['objective', 'level', 'discipline', 'language', 'expectations', 'availability', 'constraints', 'budget'] as const).map(key => (
+          <label key={key} className="block space-y-2">{t(`marketplace.snapshot_${key}`)}
+            <textarea className={fieldStyle} maxLength={key === 'expectations' || key === 'constraints' ? 500 : 200} rows={key === 'expectations' || key === 'constraints' || key === 'availability' ? 2 : 1} value={snapshot[key] ?? ''} onChange={e => setSnapshot(current => ({ ...current, [key]: e.target.value }))} />
+          </label>
+        ))}
         <label className="flex items-start gap-3"><input className="mt-1" type="checkbox" required checked={consent} onChange={e => setConsent(e.target.checked)} /><span>{t('marketplace.sharing')}</span></label>
         <p className="text-sm text-neutral-300">{t('marketplace.relationshipIfAccepted')}</p>
         <ul className="text-sm text-neutral-400 list-disc pl-5 space-y-1">

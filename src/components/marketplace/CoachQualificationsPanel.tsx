@@ -33,7 +33,7 @@ export default function CoachQualificationsPanel({ owner, rows, busy, onChange, 
     try { await action(); }
     catch (cause) {
       const message = cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : '';
-      const key = ['coach_required', 'qualification_limit', 'qualification_locked', 'proof_required', 'not_found'].includes(message) ? message : 'saveError';
+      const key = ['coach_required', 'qualification_limit', 'qualification_locked', 'proof_required', 'not_found', 'invalid_proof_path'].includes(message) ? message : 'saveError';
       onError(t(`marketplace.${key}`));
     } finally { setSaving(false); }
   }

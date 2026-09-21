@@ -7,12 +7,13 @@ import {
   evaluateCoachMatch,
   intentIsReady,
   listedRateCopy,
+  listedRateDecision,
   normalizeSearchIntent,
   shortlistMatches,
   type CoachMatchProfile,
   type MarketplaceSearchIntent,
 } from './marketplaceMatch';
-import type { CoachPublicProfile } from './marketplace';
+import { MARKET_DISCIPLINES, type CoachPublicProfile } from './marketplace';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -38,6 +39,7 @@ function profile(overrides: Partial<CoachMatchProfile> = {}): CoachMatchProfile 
     experience_levels: ['beginner'],
     indicative_price_cents: 4000,
     indicative_price_period: 'month',
+    indicative_price_currency: 'EUR',
     ...overrides,
   };
 }
@@ -66,14 +68,14 @@ test('blocking mismatches make a coach ineligible without a compatibility percen
     intent({ format: 'in_person', area: 'Lyon' }),
   );
   assert.equal(area.eligible, false);
-  const overBudget = evaluateCoachMatch(profile({ indicative_price_cents: 9000 }), intent({ budget_max_cents: 5000 }));
+  const overBudget = evaluateCoachMatch(profile({ indicative_price_cents: 9000 }), intent({ budget_max_cents: 5000, budget_period: 'month', budget_currency: 'EUR' }));
   assert.equal(overBudget.eligible, false);
 });
 
 test('missing listed rate stays eligible and is reported as missing information', () => {
   const row = evaluateCoachMatch(
     profile({ indicative_price_cents: null, indicative_price_period: 'on_request' }),
-    intent({ budget_max_cents: 5000 }),
+    intent({ budget_max_cents: 5000, budget_period: 'month', budget_currency: 'EUR' }),
   );
   assert.equal(row.eligible, true);
   assert.deepEqual(row.missing_information, ['price']);
@@ -114,7 +116,7 @@ test('an empty eligible set stays empty instead of filling with incompatibles', 
 test('intent readiness requires blocking discipline, language and format', () => {
   assert.equal(intentIsReady(intent()), true);
   assert.equal(intentIsReady(normalizeSearchIntent({ discipline: 'strength', language: 'fr' })), false);
-  assert.deepEqual(listedRateCopy(profile()), { amount: '40', period: 'month' });
+  assert.deepEqual(listedRateCopy(profile()), { amount: '40', period: 'month', currency: 'EUR' });
   assert.equal(listedRateCopy(profile({ indicative_price_period: 'on_request' })), null);
   const base = { coach_id: 'c', public_name: 'A', introduction: '', method: '', offer: '', disciplines: [], languages: [], formats: [], area: '', published: false, accepting_clients: false, updated_at: '' } as CoachPublicProfile;
   assert.equal(blankMatchProfile(base).indicative_price_period, 'on_request');
@@ -154,4 +156,43 @@ test('P4.2 matching is an explained shortlist, not a score, and stays off the si
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
   assert.equal(pending.pending.some(row => row.version === '20260921021923'), true);
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260921021923/);
+});
+
+test('Vision core disciplines remain first-class and comparable budgets require period plus currency', () => {
+  assert.deepEqual([...MARKET_DISCIPLINES], ['strength', 'bodybuilding', 'hypertrophy', 'powerlifting', 'general_fitness']);
+  const bodybuilding = evaluateCoachMatch(profile({ disciplines: ['bodybuilding'] }), intent({ discipline: 'bodybuilding' }));
+  assert.equal(bodybuilding.eligible, true);
+  const hypertrophy = evaluateCoachMatch(profile({ disciplines: ['hypertrophy'] }), intent({ discipline: 'hypertrophy' }));
+  assert.equal(hypertrophy.eligible, true);
+  const sessionVsMonth = evaluateCoachMatch(
+    profile({ indicative_price_period: 'session', indicative_price_cents: 9000, indicative_price_currency: 'EUR' }),
+    intent({ budget_max_cents: 5000, budget_period: 'month', budget_currency: 'EUR' }),
+  );
+  assert.equal(sessionVsMonth.eligible, true);
+  assert.deepEqual(sessionVsMonth.missing_information, ['price']);
+  const programVsMonth = evaluateCoachMatch(
+    profile({ indicative_price_period: 'program', indicative_price_cents: 4000, indicative_price_currency: 'EUR' }),
+    intent({ budget_max_cents: 5000, budget_period: 'month', budget_currency: 'EUR' }),
+  );
+  assert.equal(programVsMonth.eligible, true);
+  assert.deepEqual(programVsMonth.missing_information, ['price']);
+  const otherCurrency = evaluateCoachMatch(
+    profile({ indicative_price_currency: 'USD', indicative_price_cents: 20000 }),
+    intent({ budget_max_cents: 5000, budget_period: 'month', budget_currency: 'EUR' }),
+  );
+  assert.equal(otherCurrency.eligible, true);
+  assert.deepEqual(otherCurrency.missing_information, ['price']);
+  assert.equal(listedRateDecision(5000, 'month', 'EUR', 4000, 'session', 'EUR'), 'missing');
+  assert.equal(listedRateDecision(5000, 'month', 'EUR', 4000, 'month', 'USD'), 'missing');
+  assert.equal(listedRateDecision(5000, 'month', 'EUR', 9000, 'month', 'EUR'), 'over');
+  const sql = src('supabase/migrations/20260921021923_p4_explained_matching.sql');
+  assert.match(sql, /bodybuilding/);
+  assert.match(sql, /hypertrophy/);
+  assert.match(sql, /indicative_price_currency/);
+  assert.match(sql, /budget_period/);
+  assert.match(sql, /marketplace_listed_rate_decision/);
+  assert.doesNotMatch(sql, /€/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /bodybuilding shortlist mismatch/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /session vs month became ineligible/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /different currency became ineligible/);
 });

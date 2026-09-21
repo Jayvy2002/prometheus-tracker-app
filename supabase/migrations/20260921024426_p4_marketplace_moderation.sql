@@ -1,10 +1,12 @@
 -- P4.4: marketplace reports and traced moderation. No ratings.
+-- Directory hold blocks new requests. In-flight prospect conversations continue.
+-- Active coaching relationships are not ended.
 
 ALTER TABLE public.coach_profiles
   ADD COLUMN IF NOT EXISTS directory_suspended boolean NOT NULL DEFAULT false;
 
 COMMENT ON COLUMN public.coach_profiles.directory_suspended IS
-  'Temporary marketplace visibility hold during a serious review. Does not end a coaching relationship.';
+  'Temporary marketplace visibility hold during a serious review. Blocks new request_coaching. Does not end a coaching relationship. Existing pending/coach_accepted prospect threads may continue through athlete_confirmed.';
 
 DROP POLICY IF EXISTS marketplace_profile_read ON public.coach_profiles;
 CREATE POLICY marketplace_profile_read ON public.coach_profiles
@@ -45,7 +47,7 @@ CREATE TABLE IF NOT EXISTS public.marketplace_moderation_actions (
     'acknowledge', 'dismiss', 'resolve', 'suspend_directory', 'restore_directory'
   )),
   note text NOT NULL DEFAULT '' CHECK (length(note) <= 2000),
-  actor text NOT NULL DEFAULT CURRENT_USER,
+  actor text NOT NULL DEFAULT '',
   created_at timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
@@ -55,7 +57,9 @@ CREATE INDEX IF NOT EXISTS marketplace_moderation_actions_report_idx
   ON public.marketplace_moderation_actions (report_id, created_at);
 
 COMMENT ON TABLE public.marketplace_moderation_actions IS
-  'Auditable moderation actions on marketplace reports. service_role only. Not a public coach review.';
+  'Auditable moderation actions on marketplace reports. service_role only. actor is marketplace_audit_actor(), never a client-supplied id. Not a public coach review.';
+COMMENT ON COLUMN public.marketplace_moderation_actions.actor IS
+  'Durable provenance from marketplace_audit_actor (user:<uid> or role:<role>). Not CURRENT_USER and not a client argument.';
 
 ALTER TABLE public.marketplace_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.marketplace_moderation_actions ENABLE ROW LEVEL SECURITY;
@@ -128,6 +132,7 @@ AS $$
 DECLARE
   v_row public.marketplace_reports;
   v_note text := coalesce(p_note, '');
+  v_actor text := public.marketplace_audit_actor();
 BEGIN
   IF coalesce(nullif(auth.role(), ''), current_user) IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'not_authorized';
@@ -157,8 +162,8 @@ BEGIN
     SET status = v_row.status, updated_at = clock_timestamp()
     WHERE id = v_row.id
     RETURNING * INTO v_row;
-  INSERT INTO public.marketplace_moderation_actions (report_id, action, note)
-    VALUES (v_row.id, p_action, v_note);
+  INSERT INTO public.marketplace_moderation_actions (report_id, action, note, actor)
+    VALUES (v_row.id, p_action, v_note, v_actor);
   RETURN v_row;
 END;
 $$;
@@ -169,7 +174,195 @@ GRANT EXECUTE ON FUNCTION public.review_marketplace_report(uuid, text, text) TO 
 COMMENT ON FUNCTION public.submit_marketplace_report(uuid, text, text, text, uuid) IS
   'Member marketplace report. Not a public coach review.';
 COMMENT ON FUNCTION public.review_marketplace_report(uuid, text, text) IS
-  'service_role moderation action. Does not end a coaching relationship.';
+  'service_role moderation action. Records marketplace_audit_actor. Does not end a coaching relationship.';
+
+CREATE OR REPLACE FUNCTION public.coach_has_verified_qualification(p_coach uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    auth.uid() IS NOT NULL
+    AND p_coach IS NOT NULL
+    AND (
+      p_coach = auth.uid()
+      OR EXISTS (
+        SELECT 1 FROM public.coach_profiles p
+        WHERE p.coach_id = p_coach
+          AND p.published
+          AND NOT p.directory_suspended
+      )
+    )
+    AND EXISTS (
+      SELECT 1 FROM public.coach_qualifications q
+      WHERE q.coach_id = p_coach
+        AND public.qualification_effective_status(q.verification_status, q.expires_on) = 'verified'
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_has_verified_qualification(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.coach_has_verified_qualification(uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.list_public_coach_qualifications(p_coach uuid)
+RETURNS TABLE (
+  id uuid,
+  coach_id uuid,
+  title text,
+  qualification_type text,
+  issuer text,
+  declared_at timestamptz,
+  verification_status text,
+  verified_at timestamptz,
+  expires_on date
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    q.id,
+    q.coach_id,
+    q.title,
+    q.qualification_type,
+    q.issuer,
+    q.declared_at,
+    public.qualification_effective_status(q.verification_status, q.expires_on),
+    q.verified_at,
+    q.expires_on
+  FROM public.coach_qualifications q
+  JOIN public.coach_profiles p ON p.coach_id = q.coach_id
+  WHERE q.coach_id = p_coach
+    AND p.published
+    AND NOT p.directory_suspended
+    AND q.verification_status <> 'rejected'
+  ORDER BY q.declared_at DESC, q.id;
+$$;
+
+CREATE OR REPLACE FUNCTION public.list_public_coach_qualification_cards(p_coaches uuid[])
+RETURNS TABLE (
+  id uuid,
+  coach_id uuid,
+  title text,
+  qualification_type text,
+  issuer text,
+  declared_at timestamptz,
+  verification_status text,
+  verified_at timestamptz,
+  expires_on date
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT
+    q.id,
+    q.coach_id,
+    q.title,
+    q.qualification_type,
+    q.issuer,
+    q.declared_at,
+    public.qualification_effective_status(q.verification_status, q.expires_on),
+    q.verified_at,
+    q.expires_on
+  FROM public.coach_qualifications q
+  JOIN public.coach_profiles p ON p.coach_id = q.coach_id
+  WHERE p_coaches IS NOT NULL
+    AND q.coach_id = ANY (p_coaches)
+    AND p.published
+    AND NOT p.directory_suspended
+    AND q.verification_status <> 'rejected'
+  ORDER BY q.coach_id, q.declared_at DESC, q.id;
+$$;
+
+REVOKE ALL ON FUNCTION public.list_public_coach_qualifications(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.list_public_coach_qualifications(uuid) TO authenticated;
+REVOKE ALL ON FUNCTION public.list_public_coach_qualification_cards(uuid[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.list_public_coach_qualification_cards(uuid[]) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.request_coaching(
+  p_coach uuid,
+  p_public_name text,
+  p_summary text,
+  p_sharing_version integer,
+  p_request_key uuid,
+  p_snapshot jsonb
+)
+RETURNS public.coach_join_requests
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_result public.coach_join_requests;
+  v_snapshot jsonb := public.marketplace_prospect_snapshot(p_snapshot);
+  v_summary text := btrim(coalesce(p_summary, ''));
+BEGIN
+  IF v_uid IS NULL OR p_coach IS NULL OR p_coach = v_uid THEN
+    RAISE EXCEPTION 'invalid_target';
+  END IF;
+  IF p_sharing_version IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'consent_required';
+  END IF;
+  IF p_request_key IS NULL THEN
+    RAISE EXCEPTION 'request_key_required';
+  END IF;
+  IF v_summary = '' THEN
+    v_summary := coalesce(v_snapshot->>'summary', '');
+  ELSIF NOT (v_snapshot ? 'summary') THEN
+    v_snapshot := v_snapshot || jsonb_build_object('summary', v_summary);
+  END IF;
+  PERFORM 1 FROM public.user_roles WHERE user_id = v_uid FOR UPDATE;
+  SELECT * INTO v_result
+  FROM public.coach_join_requests
+  WHERE client_id = v_uid AND client_request_id = p_request_key;
+  IF FOUND THEN
+    IF v_result.coach_id <> p_coach THEN
+      RAISE EXCEPTION 'request_key_conflict';
+    END IF;
+    RETURN v_result;
+  END IF;
+  SELECT * INTO v_result
+  FROM public.coach_join_requests
+  WHERE client_id = v_uid
+    AND coach_id = p_coach
+    AND status IN ('pending', 'coach_accepted');
+  IF FOUND THEN
+    RETURN v_result;
+  END IF;
+  PERFORM 1 FROM public.coach_profiles
+    WHERE coach_id = p_coach
+      AND published
+      AND accepting_clients
+      AND NOT directory_suspended
+    FOR SHARE;
+  IF NOT FOUND OR NOT public.marketplace_coach_eligible(p_coach) THEN
+    RAISE EXCEPTION 'coach_unavailable';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.coach_client_links
+    WHERE client_id = v_uid AND status = 'active'
+  ) THEN
+    RAISE EXCEPTION 'already_coached';
+  END IF;
+  INSERT INTO public.coach_join_requests (
+    coach_id, client_id, public_name, summary, sharing_version, client_request_id, prospect_snapshot
+  ) VALUES (
+    p_coach, v_uid, btrim(p_public_name), v_summary, p_sharing_version, p_request_key, v_snapshot
+  )
+  ON CONFLICT (coach_id, client_id) WHERE status IN ('pending', 'coach_accepted')
+  DO UPDATE SET updated_at = public.coach_join_requests.updated_at
+  RETURNING * INTO v_result;
+  RETURN v_result;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, jsonb) TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.explain_marketplace_matches()
 RETURNS jsonb
@@ -187,6 +380,7 @@ DECLARE
   v_pref text[];
   v_missing text[];
   v_reasons text[];
+  v_price text;
   v_acc jsonb := '[]'::jsonb;
   v_item jsonb;
 BEGIN
@@ -246,14 +440,20 @@ BEGIN
       v_eligible := false;
     END IF;
 
-    IF v_intent.budget_max_cents IS NOT NULL THEN
-      IF v_row.indicative_price_cents IS NULL OR v_row.indicative_price_period = 'on_request' THEN
-        v_missing := array_append(v_missing, 'price');
-      ELSIF v_row.indicative_price_cents > v_intent.budget_max_cents THEN
-        v_eligible := false;
-      ELSE
-        v_req := array_append(v_req, 'budget'); v_reasons := array_append(v_reasons, 'budget');
-      END IF;
+    v_price := public.marketplace_listed_rate_decision(
+      v_intent.budget_max_cents,
+      v_intent.budget_period,
+      v_intent.budget_currency,
+      v_row.indicative_price_cents,
+      v_row.indicative_price_period,
+      v_row.indicative_price_currency
+    );
+    IF v_price = 'missing' THEN
+      v_missing := array_append(v_missing, 'price');
+    ELSIF v_price = 'over' THEN
+      v_eligible := false;
+    ELSIF v_price = 'match' THEN
+      v_req := array_append(v_req, 'budget'); v_reasons := array_append(v_reasons, 'budget');
     END IF;
 
     IF v_intent.contact_frequency <> '' THEN

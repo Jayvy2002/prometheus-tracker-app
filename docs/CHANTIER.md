@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P4 Marketplace complète livrée (P4.1–P4.4).** Candidates `20260921021231`, `20260921021923`, `20260921023720`, `20260921024426`. Production/lock **130** (`20260920014500_p3_hardening`). Revue transversale P4 avant apply. **Ne pas commencer P5.** Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P4 revue contractuelle en correction (P4.1–P4.4).** Candidates `20260921021231`, `20260921021923`, `20260921023720`, `20260921024426`. Production/lock **130** (`20260920014500_p3_hardening`). **Ne pas merger. Ne pas appliquer. Ne pas commencer P5.** Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.4 sont en PR (candidates pending). **P4 est livrée.** Ne pas commencer P5. Watch n’applique pas.
+P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.4 sont en PR (candidates pending). **P4 n’est pas livrée** : la revue contractuelle du 21 septembre 2026 doit rester verte avant tout merge/apply. Ne pas commencer P5. Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -729,31 +729,31 @@ Un programme simple et un programme périodisé utilisent le même moteur d’ex
 
 ## P4.1 — Qualifications Coach
 
-**TERMINÉ** — candidate `20260921021231_p4_coach_qualifications` (pending jusqu’à apply live). Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
+**En correction revue** — candidate `20260921021231_p4_coach_qualifications` (pending jusqu’à apply live). Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
 
-Un Coach **reste visible et utilisable sans badge vérifié**. Les états sont `declared / pending / verified / rejected / expired`. La revue est `service_role` uniquement. Pas d’étoiles.
+Un Coach **reste visible et utilisable sans badge vérifié**. Les états sont `declared / pending / verified / rejected / expired`. La revue est `service_role` uniquement. Surface publique minimale (pas de `proof_path` / `reviewer_*` / `review_note`). Preuve liée à `auth.uid() / qualification_id / proof`. Pas d’étoiles.
 
 ## P4.2 — Matching expliqué
 
-**TERMINÉ** — candidate `20260921021923_p4_explained_matching` (pending jusqu’à apply live). Inventaire : [P4.2 — matching expliqué](P4_2_MATCHING.md).
+**En correction revue** — candidate `20260921021923_p4_explained_matching` (pending jusqu’à apply live). Inventaire : [P4.2 — matching expliqué](P4_2_MATCHING.md).
 
-Exigences bloquantes vs préférences. Shortlist de Coachs **éligibles** uniquement (max 5), avec raisons et informations manquantes. Pas de pourcentage. L’annuaire reste parcourable.
+Exigences bloquantes vs préférences. Disciplines Vision (`strength` / `bodybuilding` / `hypertrophy` / `powerlifting` + `general_fitness` historique). Budget comparable seulement si montant + période + devise matchent. Shortlist de Coachs **éligibles** uniquement (max 5). Pas de pourcentage. Pas de `€` hardcodé.
 
 ## P4.3 — Prospect dans la messagerie
 
-**TERMINÉ** — candidate `20260921023720_p4_prospect_messaging` (pending jusqu’à apply live). Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
+**En correction revue** — candidate `20260921023720_p4_prospect_messaging` (pending jusqu’à apply live). Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
 
-Après `coach_accepted`, conversation possible. Pas d’`is_coach_of`, pas de dossier / photos / programme. Le fil `(coach_id, client_id)` reste le même après `athlete_confirmed`.
+Dès `pending` : conversation prospect. Puis `coach_accepted` : même fil. Pas d’`is_coach_of`, pas de dossier / photos / programme avant `athlete_confirmed`. Snapshot prospect limité et consenti.
 
 ## P4.4 — Signalement/modération minimale
 
-**TERMINÉ** — candidate `20260921024426_p4_marketplace_moderation` (pending jusqu’à apply live). Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
+**En correction revue** — candidate `20260921024426_p4_marketplace_moderation` (pending jusqu’à apply live). Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
 
-Signaler un profil ou un comportement. File `service_role` (pas de console SPA). États `open / in_review / resolved / dismissed`. Actions auditées. Suspension d’annuaire = retenue de visibilité, pas une fin de relation. **Pas d’étoiles/avis Coach.** Pas de produit « bloquer ».
+Signaler un profil ou un comportement. File `service_role` (pas de console SPA). `directory_suspended` masque l’annuaire **et** refuse une **nouvelle** `request_coaching` (`coach_unavailable`). Une relation active n’est pas terminée. Un prospect déjà ouvert peut continuer jusqu’à confirmation. Acteur d’audit durable (`marketplace_audit_actor`). **Pas d’étoiles/avis Coach.** Pas de produit « bloquer ».
 
 ### Terminé quand P4
 
-Le parcours complet : questionnaire recherche → shortlist expliquée → demande → Coach accepte → échange → Athlète confirme → client actif fonctionne sans accès prématuré au dossier. **Critère atteint** (candidates pending apply live).
+Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère non atteint tant que la revue contractuelle n’est pas corrigée et mergée/appliquée.**
 
 ---
 

@@ -1,4 +1,4 @@
--- P4.4 moderation: report queue, directory hold, no reviews, no relationship end.
+-- P4.4 moderation: report queue, directory hold, new requests blocked, in-flight continues.
 \set ON_ERROR_STOP on
 BEGIN;
 
@@ -23,11 +23,13 @@ $$;
 INSERT INTO auth.users(id, email) VALUES
  ('c4400000-0000-4000-8000-000000000001', 'p44-coach@example.test'),
  ('c4400000-0000-4000-8000-000000000002', 'p44-athlete@example.test'),
- ('c4400000-0000-4000-8000-000000000003', 'p44-stranger@example.test');
+ ('c4400000-0000-4000-8000-000000000003', 'p44-stranger@example.test'),
+ ('c4400000-0000-4000-8000-000000000004', 'p44-inflight@example.test');
 INSERT INTO public.user_roles(user_id, role, coaching_role) VALUES
  ('c4400000-0000-4000-8000-000000000001', 'free', 'coach'),
  ('c4400000-0000-4000-8000-000000000002', 'free', 'none'),
- ('c4400000-0000-4000-8000-000000000003', 'free', 'none')
+ ('c4400000-0000-4000-8000-000000000003', 'free', 'none'),
+ ('c4400000-0000-4000-8000-000000000004', 'free', 'none')
 ON CONFLICT (user_id) DO UPDATE SET coaching_role = excluded.coaching_role;
 
 DO $$ BEGIN
@@ -55,6 +57,14 @@ END $$;
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000001');
 SELECT public.save_my_coach_profile('{"public_name":"Moderation Coach","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["powerlifting"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true}');
+SELECT public.declare_coach_qualification('CSCS', 'certification', 'NSCA');
+DO $$
+DECLARE q public.coach_qualifications;
+BEGIN
+  SELECT * INTO q FROM public.coach_qualifications WHERE coach_id = auth.uid();
+  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
+  PERFORM public.submit_coach_qualification(q.id);
+END $$;
 
 SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000002');
 SELECT public.save_marketplace_search_intent('{"discipline":"powerlifting","language":"fr","format":"online"}');
@@ -139,6 +149,9 @@ BEGIN
   END;
 END $$;
 
+SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000004');
+SELECT public.request_coaching('c4400000-0000-4000-8000-000000000001', 'Inflight', 'Already talking', 2, 'c4400000-0000-4000-8000-000000000014');
+
 SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000001');
 DO $$ BEGIN
   IF EXISTS (
@@ -168,7 +181,14 @@ SELECT set_config('request.jwt.claims', json_build_object('role', 'service_role'
 DO $$
 DECLARE
   report public.marketplace_reports;
+  q public.coach_qualifications;
 BEGIN
+  SELECT * INTO q FROM public.coach_qualifications
+  WHERE coach_id = 'c4400000-0000-4000-8000-000000000001';
+  q := public.review_coach_qualification(q.id, 'verified', NULL);
+  IF q.reviewer_ref IS DISTINCT FROM 'role:service_role' THEN
+    RAISE EXCEPTION 'qualification reviewer_ref missing: %', q.reviewer_ref;
+  END IF;
   SELECT * INTO report FROM public.marketplace_reports
   WHERE reporter_id = 'c4400000-0000-4000-8000-000000000002';
   report := public.review_marketplace_report(report.id, 'acknowledge', 'queue opened');
@@ -180,8 +200,10 @@ BEGIN
   ) THEN RAISE EXCEPTION 'directory was not suspended'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.marketplace_moderation_actions
-    WHERE report_id = report.id AND action = 'suspend_directory' AND actor <> ''
-  ) THEN RAISE EXCEPTION 'suspend action not audited'; END IF;
+    WHERE report_id = report.id
+      AND action = 'suspend_directory'
+      AND actor = 'role:service_role'
+  ) THEN RAISE EXCEPTION 'suspend action not audited with durable actor'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.coach_client_links
     WHERE coach_id = 'c4400000-0000-4000-8000-000000000001'
@@ -210,9 +232,45 @@ BEGIN
   END IF;
 END $$;
 
+SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000003');
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.request_coaching(
+      'c4400000-0000-4000-8000-000000000001',
+      'Stranger',
+      'New request after hold',
+      2,
+      'c4400000-0000-4000-8000-000000000013'
+    );
+    RAISE EXCEPTION 'new request reached suspended coach';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'coach_unavailable' THEN RAISE; END IF;
+  END;
+  IF EXISTS (
+    SELECT 1 FROM public.list_public_coach_qualifications('c4400000-0000-4000-8000-000000000001')
+  ) THEN RAISE EXCEPTION 'suspended qualification badge leaked'; END IF;
+  IF public.coach_has_verified_qualification('c4400000-0000-4000-8000-000000000001') THEN
+    RAISE EXCEPTION 'suspended verified badge leaked';
+  END IF;
+END $$;
+
+SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000004');
+DO $$
+DECLARE
+  r public.coach_join_requests;
+BEGIN
+  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid() AND status = 'pending';
+  IF NOT public.marketplace_open_prospect(r.coach_id, auth.uid()) THEN
+    RAISE EXCEPTION 'in-flight pending prospect closed by suspend';
+  END IF;
+  INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key)
+  VALUES (r.coach_id, auth.uid(), auth.uid(), 'still talking', 'reply');
+END $$;
+
 SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000001');
 DO $$
 DECLARE
+  r public.coach_join_requests;
   p public.coach_profiles;
 BEGIN
   SELECT * INTO p FROM public.coach_profiles WHERE coach_id = auth.uid();
@@ -221,6 +279,21 @@ BEGIN
   IF NOT p.directory_suspended THEN RAISE EXCEPTION 'client flipped directory_suspended'; END IF;
   IF NOT public.is_coach_of('c4400000-0000-4000-8000-000000000002') THEN
     RAISE EXCEPTION 'suspend ended coaching link';
+  END IF;
+  SELECT * INTO r FROM public.coach_join_requests
+    WHERE coach_id = auth.uid() AND client_id = 'c4400000-0000-4000-8000-000000000004';
+  PERFORM public.respond_coaching_request(r.id, 'accepted');
+END $$;
+
+SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000004');
+DO $$
+DECLARE
+  r public.coach_join_requests;
+BEGIN
+  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid() AND status = 'coach_accepted';
+  PERFORM public.respond_coaching_request(r.id, 'confirmed');
+  IF NOT public.is_client_of('c4400000-0000-4000-8000-000000000001') THEN
+    RAISE EXCEPTION 'in-flight confirm blocked by suspend';
   END IF;
 END $$;
 

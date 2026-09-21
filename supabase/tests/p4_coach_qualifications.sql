@@ -1,4 +1,4 @@
--- P4.1 qualifications: declare/submit/review, no publish gate, no stars.
+-- P4.1 qualifications: declare/submit/review, owner vs public surfaces, proof path binding.
 \set ON_ERROR_STOP on
 BEGIN;
 
@@ -46,6 +46,8 @@ DO $$ BEGIN
   IF has_function_privilege('authenticated', 'public.review_coach_qualification(uuid,text,text)', 'execute')
      OR has_function_privilege('anon', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.list_public_coach_qualifications(uuid)', 'execute')
+     OR has_function_privilege('anon', 'public.list_public_coach_qualifications(uuid)', 'execute')
      OR NOT has_function_privilege('service_role', 'public.review_coach_qualification(uuid,text,text)', 'execute') THEN
     RAISE EXCEPTION 'qualification grants mismatch';
   END IF;
@@ -67,20 +69,33 @@ END $$;
 
 SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
 SELECT public.save_my_coach_profile('{"public_name":"Qual Coach","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true}');
-SELECT public.declare_coach_qualification('CSCS', 'certification', 'NSCA');
+SELECT public.declare_coach_qualification('CSCS', 'certification', 'NSCA', 'stolen-on-declare.pdf', NULL);
 
 DO $$
 DECLARE
   q public.coach_qualifications;
 BEGIN
   SELECT * INTO q FROM public.coach_qualifications WHERE coach_id = auth.uid();
+  IF q.proof_path IS NOT NULL THEN RAISE EXCEPTION 'declare accepted client proof_path'; END IF;
   BEGIN
     PERFORM public.submit_coach_qualification(q.id);
     RAISE EXCEPTION 'submit without proof';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'proof_required' THEN RAISE; END IF;
   END;
-  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, 'c4100000-0000-4000-8000-000000000001/' || q.id::text || '/proof.pdf', NULL);
+  BEGIN
+    PERFORM public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, 'c4100000-0000-4000-8000-000000000002/' || q.id::text || '/proof.pdf', NULL);
+    RAISE EXCEPTION 'foreign proof_path accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'invalid_proof_path' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/00000000-0000-4000-8000-000000000099/proof.pdf', NULL);
+    RAISE EXCEPTION 'wrong qualification proof_path accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'invalid_proof_path' THEN RAISE; END IF;
+  END;
+  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
   q := public.submit_coach_qualification(q.id);
   IF q.verification_status <> 'pending' THEN RAISE EXCEPTION 'submit did not pending'; END IF;
   BEGIN
@@ -95,11 +110,21 @@ END $$;
 
 SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000003');
 DO $$ BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
     SELECT 1 FROM public.coach_qualifications
     WHERE coach_id = 'c4100000-0000-4000-8000-000000000001'
-      AND verification_status = 'pending'
+  ) THEN RAISE EXCEPTION 'stranger selected owner qualification table'; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.list_public_coach_qualifications('c4100000-0000-4000-8000-000000000001')
+    WHERE verification_status = 'pending'
   ) THEN RAISE EXCEPTION 'pending hidden from directory reader'; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.list_public_coach_qualifications('c4100000-0000-4000-8000-000000000001') card
+    WHERE to_jsonb(card) ? 'proof_path'
+       OR to_jsonb(card) ? 'reviewer_id'
+       OR to_jsonb(card) ? 'reviewer_ref'
+       OR to_jsonb(card) ? 'review_note'
+  ) THEN RAISE EXCEPTION 'public qualification leaked internal fields'; END IF;
   IF public.coach_has_verified_qualification('c4100000-0000-4000-8000-000000000001') THEN
     RAISE EXCEPTION 'unverified badge shown';
   END IF;
@@ -120,6 +145,9 @@ BEGIN
   IF q.verification_status <> 'verified' OR q.verified_at IS NULL THEN
     RAISE EXCEPTION 'review did not verify';
   END IF;
+  IF q.reviewer_ref IS DISTINCT FROM 'role:service_role' THEN
+    RAISE EXCEPTION 'reviewer_ref was not durable: %', q.reviewer_ref;
+  END IF;
 END $$;
 
 SET LOCAL ROLE authenticated;
@@ -129,9 +157,8 @@ DO $$ BEGIN
     RAISE EXCEPTION 'verified badge missing';
   END IF;
   IF EXISTS (
-    SELECT 1 FROM public.coach_qualifications
-    WHERE coach_id = 'c4100000-0000-4000-8000-000000000001'
-      AND verification_status = 'rejected'
+    SELECT 1 FROM public.list_public_coach_qualifications('c4100000-0000-4000-8000-000000000001')
+    WHERE verification_status = 'rejected'
   ) THEN RAISE EXCEPTION 'rejected leaked'; END IF;
 END $$;
 
@@ -139,18 +166,42 @@ SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
 DO $$
 DECLARE
   p public.coach_profiles;
+  q public.coach_qualifications;
 BEGIN
   SELECT * INTO p FROM public.coach_profiles WHERE coach_id = auth.uid();
   p := public.save_my_coach_profile(to_jsonb(p) || '{"published":true,"accepting_clients":true}', p.updated_at);
   IF NOT p.published THEN RAISE EXCEPTION 'publish required a verified badge'; END IF;
+  SELECT * INTO q FROM public.coach_qualifications WHERE coach_id = auth.uid();
+  IF q.proof_path IS NULL OR q.reviewer_ref <> 'role:service_role' THEN
+    RAISE EXCEPTION 'owner lost internal qualification fields';
+  END IF;
 END $$;
 
 SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000002');
 SELECT public.save_my_coach_profile('{"public_name":"Other","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["powerlifting"],"languages":["en"],"formats":["online"],"published":true,"accepting_clients":true}');
-DO $$ BEGIN
+DO $$
+DECLARE
+  stolen text;
+  q public.coach_qualifications;
+BEGIN
   IF public.coach_has_verified_qualification('c4100000-0000-4000-8000-000000000002') THEN
     RAISE EXCEPTION 'empty coach has badge';
   END IF;
+  SELECT proof_path INTO stolen
+  FROM public.coach_qualifications
+  WHERE coach_id = 'c4100000-0000-4000-8000-000000000001';
+  IF stolen IS NOT NULL THEN RAISE EXCEPTION 'other coach read proof_path'; END IF;
+  q := public.declare_coach_qualification('CSCS', 'certification', 'NSCA');
+  BEGIN
+    PERFORM public.save_coach_qualification(
+      q.id, q.title, q.qualification_type, q.issuer,
+      'c4100000-0000-4000-8000-000000000001/' || q.id::text || '/proof.pdf',
+      NULL
+    );
+    RAISE EXCEPTION 'other coach reused foreign folder';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'invalid_proof_path' THEN RAISE; END IF;
+  END;
 END $$;
 
 RESET ROLE;

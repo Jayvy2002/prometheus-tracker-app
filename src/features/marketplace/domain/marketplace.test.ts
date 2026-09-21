@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import en from '../../../i18n/locales/en/marketplace';
 import fr from '../../../i18n/locales/fr/marketplace';
-import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, marketFilters, matchingReasons, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, resolveRelationshipState, type CoachPublicProfile, type CoachingLinkRecord, type CoachingRequest } from './marketplace';
+import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, isProspectConversationStatus, marketFilters, matchingReasons, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, resolveRelationshipState, type CoachPublicProfile, type CoachingLinkRecord, type CoachingRequest } from './marketplace';
 
 const coach = 'a1780000-0000-4000-8000-000000000001';
 const client = 'a1780000-0000-4000-8000-000000000003';
@@ -38,6 +38,12 @@ const confirmationVocabEn = /confirmed|confirmation/i;
 const activeClaimFr = /est actif/i;
 const activeClaimEn = /coaching is active|now active/i;
 
+test('prospect conversation is open for pending and coach_accepted, never for closed states', () => {
+  assert.equal(isProspectConversationStatus('pending'), true);
+  assert.equal(isProspectConversationStatus('coach_accepted'), true);
+  assert.equal(isProspectConversationStatus('athlete_confirmed'), false);
+  assert.equal(isProspectConversationStatus('declined'), false);
+});
 test('search only accepts implemented criteria and keeps compatible URL filters', () => {
  assert.deepEqual(marketFilters(new URLSearchParams('discipline=unknown&language=en&format=online&score=99')), { discipline:'',language:'en',format:'online' });
 });

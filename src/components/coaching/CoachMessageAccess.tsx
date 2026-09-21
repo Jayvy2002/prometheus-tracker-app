@@ -10,7 +10,7 @@ import {
 } from '../../lib/relationshipAccess';
 import Button from '../ui/Button';
 
-/** Conversation for an active client or a coach_accepted prospect. Never grants dossier RLS. */
+/** Conversation for an active client or a pending/coach_accepted prospect. Never grants dossier RLS. */
 export default function CoachMessageAccess({ children }: { children: ReactNode }) {
   const { clientId } = useParams();
   const owner = useAuthStore(s => s.user?.id);
@@ -25,7 +25,7 @@ export default function CoachMessageAccess({ children }: { children: ReactNode }
     const access = createRelationshipAccess(async () => {
       const [link, request] = await Promise.all([
         supabase.from('coach_client_links').select('id').eq('coach_id', owner).eq('client_id', clientId).eq('status', 'active').maybeSingle(),
-        supabase.from('coach_join_requests').select('id').eq('coach_id', owner).eq('client_id', clientId).eq('status', 'coach_accepted').maybeSingle(),
+        supabase.from('coach_join_requests').select('id').eq('coach_id', owner).eq('client_id', clientId).in('status', ['pending', 'coach_accepted']).maybeSingle(),
       ]);
       if (link.error) throw link.error;
       if (request.error) throw request.error;
