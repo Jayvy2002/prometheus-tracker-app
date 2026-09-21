@@ -435,7 +435,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /close_coach_account must run without a user JWT/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /now\(\) at time zone 'America\/Toronto'/);
   assert.match(src('supabase/tests/program_phases.sql'), /set timezone = 'UTC'/);
-  assert.match(src('supabase/tests/program_versions.sql'), /set timezone = 'UTC'/);
+  assert.match(src('supabase/tests/program_versions.sql'), /c3391941-0000-4000-8000-0000000000a1[\s\S]{0,500}now\(\) AT TIME ZONE 'America\/Toronto'/);
   assert.match(src('supabase/tests/program_close_archive_not_frozen.sql'), /close_coach_account fail-closed: paused NULL frozen_revision_no refuses live V2, atomic/);
   assert.match(src('supabase/tests/program_close_archive_not_frozen.sql'), /set session_replication_role = replica/);
   assert.match(src('supabase/tests/program_close_archive_not_frozen.sql'), /archive_not_frozen/);

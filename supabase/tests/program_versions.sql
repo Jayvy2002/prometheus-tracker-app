@@ -19,10 +19,10 @@ insert into public.user_capabilities(user_id, capability) values
  ('c3391941-0000-4000-8000-000000000003','coach'),
  ('c3391941-0000-4000-8000-000000000005','coach')
 on conflict do nothing;
--- start_workout_from_template compares start_date to the actor civil date.
--- Pin UTC so current_date and the logger clock stay on the same calendar day.
+-- Default profile TZ is America/Toronto. Same-day schedule uses that civil
+-- clock, so logger start_date must too — not UTC current_date.
 update public.user_profiles
-   set timezone = 'UTC'
+   set timezone = 'America/Toronto'
  where id in (
    'c3391941-0000-4000-8000-000000000001',
    'c3391941-0000-4000-8000-000000000002',
@@ -182,7 +182,7 @@ values (
   'c3391941-0000-4000-8000-000000000010',
   'c3391941-0000-4000-8000-000000000001',
   'c3391941-0000-4000-8000-000000000001',
-  current_date,
+  (now() AT TIME ZONE 'America/Toronto')::date,
   'active'
 );
 
