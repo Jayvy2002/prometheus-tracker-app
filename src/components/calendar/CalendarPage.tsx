@@ -427,7 +427,10 @@ export default function CalendarPage() {
           }
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-neutral-800">
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-neutral-800"
+          data-testid="calendar-plan-legend"
+        >
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
             <div className="w-1.5 h-1.5 rounded-full border border-violet-400" />
             {t('calendar.plan.scheduled')}

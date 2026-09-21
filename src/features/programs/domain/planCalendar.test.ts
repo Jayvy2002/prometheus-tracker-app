@@ -194,6 +194,7 @@ test('UX47 calendar page shows plan states without dropping logged points', () =
   assert.match(page, /ux47-plan-card/);
   assert.match(page, /calendar\.plan\.scheduled/);
   assert.match(page, /data-testid="calendar-page"/);
+  assert.match(page, /data-testid="calendar-plan-legend"/);
   assert.match(page, /data-future=/);
   assert.match(page, /data-selected=\{isSelected \? 'true' : 'false'\}/);
   assert.match(page, /onClick=\{\(\) => setSelectedDate\(day\.date\)\}/);
@@ -208,6 +209,9 @@ test('UX47 calendar page shows plan states without dropping logged points', () =
   assert.match(ci, /node scripts\/test-personal-calendar-browser\.mjs/);
   assert.match(ci, /grep -F 'PASS: coached calendar past\/future' artifacts\/p13\/results\.txt/);
   assert.match(ci, /grep -F 'save_program coached leftover owner guard passed'/);
+  const browser = src('scripts/test-personal-calendar-browser.mjs');
+  assert.match(browser, /calendar-plan-legend/);
+  assert.match(browser, /civilInTimeZone\('America\/Toronto'\)/);
 });
 
 test('calendar can show a session phase without inventing sequence dates', () => {
