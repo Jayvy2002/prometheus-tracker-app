@@ -19,6 +19,13 @@ update public.user_profiles
    'c3401970-0000-4000-8000-000000000001',
    'c3401970-0000-4000-8000-000000000002'
  );
+-- Assignments that the logger will open must use the actor civil date, not
+-- Postgres current_date (UTC can already be tomorrow in Toronto).
+select set_config(
+  'test.civil_today',
+  (now() at time zone 'America/Toronto')::date::text,
+  true
+);
 
 insert into public.coach_client_links(coach_id,client_id,status) values
  ('c3401970-0000-4000-8000-000000000001','c3401970-0000-4000-8000-000000000002','active');
@@ -40,7 +47,7 @@ begin
     8,
     '[{"weekday":1,"name":"Push V1","exercises":[{"name":"Bench","default_sets":3,"default_reps":5}]}]'::jsonb,
     'c3401970-0000-4000-8000-000000000002',
-    current_date
+    current_setting('test.civil_today')::date
   );
   select pa.id, p.active_revision_no
     into v_asg, v_rev
@@ -156,7 +163,7 @@ begin
   perform public.assign_program_secure(
     v_program,
     'c3401970-0000-4000-8000-000000000002',
-    current_date
+    current_setting('test.civil_today')::date
   );
   select pa.id, p.active_revision_no
     into v_asg, v_rev
