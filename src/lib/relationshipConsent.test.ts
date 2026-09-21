@@ -28,7 +28,11 @@ test('direct invitation sends one explicit, versioned and duplicate-free scope s
 });
 
 test('M2b adds the 3-arg accept RPC without revoking the 1-arg overload', () => {
-  const mig = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.accept_coach_invite(').sql;
+  const found = latestMigrationContaining(
+    'CREATE OR REPLACE FUNCTION public.accept_coach_invite(\n  p_token text,\n  p_consent_version integer,\n  p_scopes text[]',
+  );
+  assert.equal(found.file, '20260913185941_relationship_consent.sql');
+  const mig = found.sql;
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.accept_coach_invite\(\s*p_token text,\s*p_consent_version integer,\s*p_scopes text\[\]/);
   assert.match(mig, /public\.accept_coach_invite\(p_token\)/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.accept_coach_invite\(text, integer, text\[\]\) TO authenticated/);

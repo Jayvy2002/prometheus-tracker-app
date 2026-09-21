@@ -139,6 +139,8 @@ begin
      or has_function_privilege('authenticated', 'public.lock_programs_for_assignment_mutation(uuid[])', 'execute')
      or has_function_privilege('authenticated', 'public.lock_client_assignment_programs(uuid,uuid)', 'execute')
      or has_function_privilege('authenticated', 'public.lock_client_assignment_mutex(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.lock_coach_relationship_lifecycle(uuid)', 'execute')
+     or has_function_privilege('authenticated', 'public.coach_relationship_is_open(uuid)', 'execute')
      or has_function_privilege('authenticated', 'public.remap_program_revision_snapshot(jsonb)', 'execute') then
     raise exception 'internal P3 helper exposed to authenticated';
   end if;
@@ -1983,6 +1985,9 @@ begin
   );
   if position('remap_program_revision_snapshot' in src) = 0
      or position('apply_program_revision_snapshot' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src)
+        > position('lock_client_assignment_mutex' in src)
      or position('lock_client_assignment_mutex' in src) = 0
      or position('lock_client_assignment_mutex' in src)
         > position('lock_programs_for_assignment_mutation' in src)
@@ -1993,8 +1998,58 @@ begin
      or position('with locked as materialized' in src)
         > position('insert into public.programs' in src)
      or position('set_config(''request.jwt' in src) > 0
-     or position('insert into public.program_days' in src) > 0 then
+     or position('insert into public.program_days' in src) > 0
+     or position('v_rev := v_asg.frozen_revision_no; if v_rev is null then raise exception ''archive_not_frozen''' in src) = 0 then
     raise exception 'close_coach_account is not on the P3 snapshot engine';
+  end if;
+  if position('v_rev := v_asg.frozen_revision_no; if v_rev is null then select p.active_revision_no' in src) > 0 then
+    raise exception 'paused archive still falls back to live active_revision_no';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.lock_coach_relationship_lifecycle(uuid)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('pg_advisory_xact_lock' in src) = 0
+     or position('20014501' in src) = 0 then
+    raise exception 'lock_coach_relationship_lifecycle missing distinct advisory class';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.activate_coaching_relationship(uuid,uuid)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('lock_coach_relationship_lifecycle' in src) = 0
+     or position('coach_relationship_is_open' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src)
+        > position('insert into public.coach_client_links' in src) then
+    raise exception 'activate_coaching_relationship does not take Coach mutex before INSERT';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.accept_coach_invite(text)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('lock_coach_relationship_lifecycle' in src) = 0
+     or position('coach_relationship_is_open' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src)
+        > position('insert into coach_client_links' in src) then
+    raise exception 'accept_coach_invite does not take Coach mutex before INSERT';
+  end if;
+  src := regexp_replace(
+    lower(pg_get_functiondef('public.respond_coaching_request(uuid,text)'::regprocedure)),
+    '\s+',
+    ' ',
+    'g'
+  );
+  if position('p_status = ''confirmed''' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src)
+        > position('activate_coaching_relationship' in src) then
+    raise exception 'respond_coaching_request confirmed does not take Coach mutex before activate';
   end if;
   src := regexp_replace(
     lower(pg_get_functiondef('public.sync_program_phases(uuid,jsonb,boolean)'::regprocedure)),

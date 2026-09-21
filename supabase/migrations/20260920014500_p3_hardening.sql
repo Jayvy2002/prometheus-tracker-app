@@ -1686,6 +1686,60 @@ COMMENT ON FUNCTION public.lock_client_assignment_mutex(uuid) IS
 COMMENT ON FUNCTION public.lock_client_assignment_programs(uuid, uuid) IS
   'Internal. Client assignment mutex, then lock client active-assignment programs plus optional target ORDER BY id FOR UPDATE before any active→paused assignment write.';
 
+-- Coach-scoped relationship lifecycle mutex. Distinct two-key class from the
+-- client assignment mutex (20014500) and from bigint advisory holds. Taken
+-- FIRST by close_coach_account and by every path that INSERT/reactivates
+-- coach_client_links to active, then held until commit.
+CREATE TABLE IF NOT EXISTS public.coach_account_closures (
+  coach_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  closed_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.coach_account_closures ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.coach_account_closures FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE public.coach_account_closures TO service_role;
+COMMENT ON TABLE public.coach_account_closures IS
+  'Durable Coach-closed stamp written by close_coach_account while holding the Coach lifecycle mutex. Activation paths revalidate after that mutex and refuse a new active link.';
+
+CREATE OR REPLACE FUNCTION public.lock_coach_relationship_lifecycle(p_coach_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_coach_id IS NULL THEN
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(
+    20014501,
+    ('x' || substr(md5('prometheus.coach.lifecycle:' || p_coach_id::text), 1, 8))::bit(32)::int
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.coach_relationship_is_open(p_coach_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT p_coach_id IS NOT NULL
+    AND EXISTS (SELECT 1 FROM auth.users u WHERE u.id = p_coach_id)
+    AND NOT EXISTS (
+      SELECT 1 FROM public.coach_account_closures c WHERE c.coach_id = p_coach_id
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.lock_coach_relationship_lifecycle(uuid)
+  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.coach_relationship_is_open(uuid)
+  FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.lock_coach_relationship_lifecycle(uuid) IS
+  'Internal. Transaction mutex per coach_id for relationship lifecycle (close vs activate/invite/confirm). Class 20014501. Must run before client assignment mutexes.';
+COMMENT ON FUNCTION public.coach_relationship_is_open(uuid) IS
+  'Internal. True iff the Coach user still exists and close_coach_account has not stamped a closure. Call after lock_coach_relationship_lifecycle.';
+
 CREATE OR REPLACE FUNCTION public.assign_program_secure(
   p_program_id uuid,
   p_client_id uuid,
@@ -3014,9 +3068,7 @@ DECLARE
   v_weeks int;
   v_org text;
   v_clients uuid[];
-  v_locked uuid[] := '{}';
   v_cid uuid;
-  v_guard int := 0;
   v_asg_ids uuid[];
   v_asg_id uuid;
 BEGIN
@@ -3024,32 +3076,31 @@ BEGIN
     RAISE EXCEPTION 'Coach required';
   END IF;
 
-  -- Serialize every linked client before reading the program lock-set so an
-  -- assign/create that commits during our wait cannot introduce a new active
-  -- Coach program that we never lock.
-  LOOP
-    v_guard := v_guard + 1;
-    IF v_guard > 32 THEN
-      RAISE EXCEPTION 'close_coach_account mutex did not stabilize';
-    END IF;
-    SELECT COALESCE(array_agg(l.client_id ORDER BY l.client_id), '{}')
-      INTO v_clients
-    FROM public.coach_client_links l
-    WHERE l.coach_id = p_coach_id
-      AND l.status = 'active';
-    IF cardinality(v_clients) IS NULL OR cardinality(v_clients) = 0 THEN
-      RETURN jsonb_build_object('ok', true, 'transitioned', 0, 'forked', 0);
-    END IF;
-    FOREACH v_cid IN ARRAY v_clients LOOP
-      PERFORM public.lock_client_assignment_mutex(v_cid);
-    END LOOP;
-    v_locked := v_locked || v_clients;
-    SELECT COALESCE(array_agg(l.client_id ORDER BY l.client_id), '{}')
-      INTO v_clients
-    FROM public.coach_client_links l
-    WHERE l.coach_id = p_coach_id
-      AND l.status = 'active';
-    EXIT WHEN v_clients <@ v_locked;
+  -- Coach lifecycle mutex first, held until commit. Activation/invite/confirm
+  -- take the same key before inserting an active link, so a new client C
+  -- cannot appear after we snapshot the client set.
+  PERFORM public.lock_coach_relationship_lifecycle(p_coach_id);
+
+  INSERT INTO public.coach_account_closures (coach_id, closed_at)
+  VALUES (p_coach_id, now())
+  ON CONFLICT (coach_id) DO NOTHING;
+
+  UPDATE public.coach_profiles
+     SET published = false,
+         accepting_clients = false,
+         updated_at = clock_timestamp()
+   WHERE coach_id = p_coach_id;
+
+  SELECT COALESCE(array_agg(l.client_id ORDER BY l.client_id), '{}')
+    INTO v_clients
+  FROM public.coach_client_links l
+  WHERE l.coach_id = p_coach_id
+    AND l.status = 'active';
+  IF cardinality(v_clients) IS NULL OR cardinality(v_clients) = 0 THEN
+    RETURN jsonb_build_object('ok', true, 'transitioned', 0, 'forked', 0);
+  END IF;
+  FOREACH v_cid IN ARRAY v_clients LOOP
+    PERFORM public.lock_client_assignment_mutex(v_cid);
   END LOOP;
 
   PERFORM public.lock_programs_for_assignment_mutation(
@@ -3111,14 +3162,6 @@ BEGIN
         END IF;
       ELSIF v_asg.status IN ('paused', 'completed') THEN
         v_rev := v_asg.frozen_revision_no;
-        IF v_rev IS NULL THEN
-          -- Pause missed the freeze pin (no revision at pause time, or a
-          -- waiter serialized after an assign). Use the program we already
-          -- locked; still fail-closed if that live revision is missing.
-          SELECT p.active_revision_no INTO v_rev
-          FROM public.programs p
-          WHERE p.id = v_asg.program_id;
-        END IF;
         IF v_rev IS NULL THEN
           RAISE EXCEPTION 'archive_not_frozen';
         END IF;
@@ -3209,4 +3252,369 @@ $$;
 REVOKE ALL ON FUNCTION public.close_coach_account(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.close_coach_account(uuid) TO service_role;
 COMMENT ON FUNCTION public.close_coach_account(uuid) IS
-  'P3 coach-account close. Client assignment mutex for every linked client (ORDER BY client_id) before the program lock-set, so a concurrent assign cannot leave a new Coach-owned active program outside the fork. Assignment ids are materialized with FOR UPDATE then array_agg before any fork INSERT. For each of those rows, copy the exact source revision (active → programs.active_revision_no, paused/completed → frozen_revision_no) plus workout-referenced revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply the source revision without a user JWT, retarget workouts.program_id, then pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';
+  'P3 coach-account close. Coach lifecycle mutex first (class 20014501), then client assignment mutexes ORDER BY client_id, then programs ORDER BY id FOR UPDATE, then assignments FOR UPDATE. Stamps coach_account_closures and unpublishes the directory profile while holding the Coach mutex so confirm/invite/activate wait, then revalidate and refuse. Active → programs.active_revision_no. Paused/completed → assignment.frozen_revision_no only; missing pin → archive_not_frozen (never the live revision). Assignment ids are materialized with FOR UPDATE then array_agg before any fork INSERT. Copy those revisions onto a client-owned program via remapped snapshots, keep the same revision_no, apply without a user JWT, retarget workouts.program_id, pause with frozen_revision_no set. Unused private drafts are not copied. service_role only; one transaction; retry after success is a no-op.';
+
+-- Relationship activation takes the same Coach lifecycle mutex as close, then
+-- revalidates that the Coach is still open. Marketplace confirm and the
+-- historical invite path both serialize here.
+CREATE OR REPLACE FUNCTION public.activate_coaching_relationship(p_coach uuid, p_client uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_existing uuid;
+BEGIN
+  IF p_coach IS NULL OR p_client IS NULL OR p_coach = p_client THEN
+    RAISE EXCEPTION 'invalid_target';
+  END IF;
+
+  PERFORM public.lock_coach_relationship_lifecycle(p_coach);
+
+  IF NOT public.coach_relationship_is_open(p_coach) THEN
+    RAISE EXCEPTION 'coach_unavailable';
+  END IF;
+
+  PERFORM 1 FROM public.user_roles WHERE user_id = p_client FOR UPDATE;
+
+  SELECT coach_id INTO v_existing
+  FROM public.coach_client_links
+  WHERE client_id = p_client AND status = 'active'
+  FOR UPDATE;
+  IF v_existing IS NOT NULL AND v_existing <> p_coach THEN
+    RAISE EXCEPTION 'already_coached';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.coach_client_links (coach_id, client_id, status)
+    VALUES (p_coach, p_client, 'active')
+    ON CONFLICT (coach_id, client_id) DO UPDATE
+      SET status = 'active', updated_at = now();
+  EXCEPTION WHEN unique_violation THEN
+    RAISE EXCEPTION 'already_coached';
+  END;
+
+  INSERT INTO public.user_roles (user_id, role, coaching_role)
+  VALUES (p_client, 'free', 'client')
+  ON CONFLICT (user_id) DO UPDATE
+    SET coaching_role = CASE
+      WHEN public.user_roles.coaching_role = 'coach' THEN 'coach'
+      ELSE 'client'
+    END,
+    updated_at = now();
+
+  INSERT INTO public.client_tracking_config (
+    coach_id, client_id,
+    track_weight, track_checkins, track_nutrition, track_workouts, workout_focus,
+    training_vars, nutrition_vars, checkin_vars
+  )
+  SELECT
+    p_coach,
+    p_client,
+    COALESCE((cs.default_tracking->>'track_weight')::boolean, true),
+    COALESCE((cs.default_tracking->>'track_checkins')::boolean, true),
+    COALESCE((cs.default_tracking->>'track_nutrition')::boolean, true),
+    COALESCE((cs.default_tracking->>'track_workouts')::boolean, true),
+    COALESCE(cs.default_tracking->>'workout_focus', ''),
+    COALESCE(
+      cs.default_tracking->'training_vars',
+      cs.default_tracking->'training',
+      '{"sets":true,"reps":true,"reps_range":true,"rir":true,"load":true,"rest":true}'::jsonb
+    ),
+    COALESCE(
+      cs.default_tracking->'nutrition_vars',
+      cs.default_tracking->'nutrition',
+      '{"calories":true,"protein":true,"carbs":true,"fat":true,"water":true,"steps":true}'::jsonb
+    ),
+    COALESCE(
+      cs.default_tracking->'checkin_vars',
+      cs.default_tracking->'checkin',
+      '{"sleep_hours":true,"sleep_quality":true,"energy":true,"mood":true,"motivation":true,"hunger":true,"fatigue":true,"stress":true,"soreness":true,"joint_pain":true,"notes":true}'::jsonb
+    )
+  FROM (SELECT 1) AS _
+  LEFT JOIN public.coach_settings cs ON cs.coach_id = p_coach
+  ON CONFLICT (coach_id, client_id) DO NOTHING;
+END;
+$$;
+
+COMMENT ON FUNCTION public.activate_coaching_relationship(uuid, uuid) IS
+  'Internal link activation. Takes lock_coach_relationship_lifecycle then revalidates the Coach is still open. Marketplace uses it only after athlete confirmation. Not granted to authenticated or anon.';
+
+REVOKE ALL ON FUNCTION public.activate_coaching_relationship(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.accept_coach_invite(p_token text)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_invite coach_invites%ROWTYPE;
+  v_existing uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT * INTO v_invite FROM coach_invites WHERE token = p_token FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid');
+  END IF;
+  IF v_invite.expires_at < now() THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'expired');
+  END IF;
+  IF v_invite.use_count >= v_invite.max_uses THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'used');
+  END IF;
+  IF v_invite.coach_id = v_uid THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'self');
+  END IF;
+
+  PERFORM public.lock_coach_relationship_lifecycle(v_invite.coach_id);
+
+  SELECT * INTO v_invite FROM coach_invites WHERE token = p_token FOR UPDATE;
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'invalid');
+  END IF;
+  IF v_invite.expires_at < now() THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'expired');
+  END IF;
+  IF v_invite.use_count >= v_invite.max_uses THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'used');
+  END IF;
+  IF NOT public.coach_relationship_is_open(v_invite.coach_id) THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'coach_unavailable');
+  END IF;
+
+  SELECT coach_id INTO v_existing
+  FROM coach_client_links
+  WHERE client_id = v_uid AND status = 'active';
+
+  IF v_existing IS NOT NULL AND v_existing <> v_invite.coach_id THEN
+    RETURN jsonb_build_object('ok', false, 'error', 'already_coached');
+  END IF;
+
+  INSERT INTO coach_client_links (coach_id, client_id, status)
+  VALUES (v_invite.coach_id, v_uid, 'active')
+  ON CONFLICT (coach_id, client_id) DO UPDATE
+    SET status = 'active', updated_at = now();
+
+  UPDATE coach_invites
+    SET use_count = use_count + 1
+    WHERE id = v_invite.id;
+
+  INSERT INTO user_roles (user_id, role, coaching_role)
+  VALUES (v_uid, 'free', 'client')
+  ON CONFLICT (user_id) DO UPDATE
+    SET coaching_role = CASE
+      WHEN user_roles.coaching_role = 'coach' THEN 'coach'
+      ELSE 'client'
+    END,
+    updated_at = now();
+
+  INSERT INTO client_tracking_config (
+    coach_id, client_id,
+    track_weight, track_checkins, track_nutrition, track_workouts, workout_focus,
+    training_vars, nutrition_vars, checkin_vars
+  )
+  SELECT
+    v_invite.coach_id,
+    v_uid,
+    COALESCE((cs.default_tracking->>'track_weight')::boolean, true),
+    COALESCE((cs.default_tracking->>'track_checkins')::boolean, true),
+    COALESCE((cs.default_tracking->>'track_nutrition')::boolean, true),
+    COALESCE((cs.default_tracking->>'track_workouts')::boolean, true),
+    COALESCE(cs.default_tracking->>'workout_focus', ''),
+    COALESCE(
+      cs.default_tracking->'training_vars',
+      cs.default_tracking->'training',
+      '{"sets":true,"reps":true,"reps_range":true,"rir":true,"load":true,"rest":true}'::jsonb
+    ),
+    COALESCE(
+      cs.default_tracking->'nutrition_vars',
+      cs.default_tracking->'nutrition',
+      '{"calories":true,"protein":true,"carbs":true,"fat":true,"water":true,"steps":true}'::jsonb
+    ),
+    COALESCE(
+      cs.default_tracking->'checkin_vars',
+      cs.default_tracking->'checkin',
+      '{"sleep_hours":true,"sleep_quality":true,"energy":true,"mood":true,"motivation":true,"hunger":true,"fatigue":true,"stress":true,"soreness":true,"joint_pain":true,"notes":true}'::jsonb
+    )
+  FROM (SELECT 1) AS _
+  LEFT JOIN coach_settings cs ON cs.coach_id = v_invite.coach_id
+  ON CONFLICT (coach_id, client_id) DO NOTHING;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'coach_id', v_invite.coach_id,
+    'coach_name', COALESCE((SELECT full_name FROM user_profiles WHERE id = v_invite.coach_id), '')
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.accept_coach_invite(text) FROM PUBLIC, anon, authenticated;
+COMMENT ON FUNCTION public.accept_coach_invite(text) IS
+  'Historical 1-arg invite accept. Takes lock_coach_relationship_lifecycle then revalidates the Coach is still open. Not granted to authenticated; 3-arg wrapper remains the public path.';
+
+CREATE OR REPLACE FUNCTION public.respond_coaching_request(p_request uuid, p_status text)
+RETURNS public.coach_join_requests
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_result public.coach_join_requests;
+  v_target text;
+  v_scopes constant text[] := ARRAY[
+    'checkins',
+    'messages',
+    'nutrition',
+    'profile',
+    'program',
+    'progress_photos',
+    'questionnaire',
+    'workouts'
+  ];
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not_authenticated';
+  END IF;
+  SELECT * INTO v_result
+  FROM public.coach_join_requests
+  WHERE id = p_request AND v_uid IN (coach_id, client_id);
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+  PERFORM 1 FROM public.user_roles WHERE user_id = v_result.client_id FOR UPDATE;
+  SELECT * INTO v_result
+  FROM public.coach_join_requests
+  WHERE id = p_request AND v_uid IN (coach_id, client_id)
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'request_not_found';
+  END IF;
+
+  v_target := CASE p_status
+    WHEN 'accepted' THEN 'coach_accepted'
+    WHEN 'confirmed' THEN 'athlete_confirmed'
+    ELSE p_status
+  END;
+
+  IF NOT (
+    (v_uid = v_result.client_id AND p_status IN ('withdrawn', 'confirmed'))
+    OR (v_uid = v_result.coach_id AND p_status IN ('accepted', 'declined'))
+  ) THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
+
+  IF v_result.status = v_target THEN
+    RETURN v_result;
+  END IF;
+
+  IF v_result.status = 'accepted' THEN
+    RAISE EXCEPTION 'request_closed';
+  END IF;
+
+  IF p_status = 'accepted' THEN
+    IF v_result.status <> 'pending' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF v_result.sharing_version <> 2 THEN
+      RAISE EXCEPTION 'consent_renewal_required';
+    END IF;
+    PERFORM 1 FROM public.coach_profiles
+      WHERE coach_id = v_uid AND published AND accepting_clients
+      FOR SHARE;
+    IF NOT FOUND OR NOT public.marketplace_coach_eligible(v_uid) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    UPDATE public.coach_join_requests
+    SET status = 'coach_accepted', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  IF p_status = 'declined' THEN
+    IF v_result.status <> 'pending' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    UPDATE public.coach_join_requests
+    SET status = 'declined', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  IF p_status = 'withdrawn' THEN
+    IF v_result.status NOT IN ('pending', 'coach_accepted') THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    UPDATE public.coach_join_requests
+    SET status = 'withdrawn', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  IF p_status = 'confirmed' THEN
+    IF v_result.status <> 'coach_accepted' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF v_result.sharing_version <> 2 THEN
+      RAISE EXCEPTION 'consent_renewal_required';
+    END IF;
+    PERFORM public.lock_coach_relationship_lifecycle(v_result.coach_id);
+    SELECT * INTO v_result
+    FROM public.coach_join_requests
+    WHERE id = p_request AND v_uid IN (coach_id, client_id)
+    FOR UPDATE;
+    IF NOT FOUND OR v_result.status <> 'coach_accepted' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF NOT public.coach_relationship_is_open(v_result.coach_id) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    PERFORM 1 FROM public.coach_profiles
+      WHERE coach_id = v_result.coach_id AND published AND accepting_clients
+      FOR SHARE;
+    IF NOT FOUND OR NOT public.marketplace_coach_eligible(v_result.coach_id) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    PERFORM public.activate_coaching_relationship(v_result.coach_id, v_result.client_id);
+    INSERT INTO public.coaching_relationship_consents (
+      coach_id, client_id, join_request_id, source, consent_version, scopes
+    ) VALUES (
+      v_result.coach_id,
+      v_result.client_id,
+      v_result.id,
+      'directory_request',
+      2,
+      v_scopes
+    )
+    ON CONFLICT (join_request_id, client_id) WHERE join_request_id IS NOT NULL DO UPDATE SET
+      consent_version = excluded.consent_version,
+      scopes = excluded.scopes,
+      accepted_at = now(),
+      revoked_at = NULL;
+    UPDATE public.coach_join_requests
+    SET status = 'withdrawn', updated_at = clock_timestamp()
+    WHERE client_id = v_result.client_id
+      AND id <> p_request
+      AND status IN ('pending', 'coach_accepted');
+    UPDATE public.coach_join_requests
+    SET status = 'athlete_confirmed', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  RAISE EXCEPTION 'not_authorized';
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.respond_coaching_request(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.respond_coaching_request(uuid, text) TO authenticated;
+COMMENT ON FUNCTION public.respond_coaching_request(uuid, text) IS
+  'Coach accepted continues a prospect (stored as coach_accepted). Historical accepted stays accepted and cannot replay. Athlete confirmed takes the Coach lifecycle mutex, revalidates the Coach is still open, then activates the coaching link. Not a payment.';

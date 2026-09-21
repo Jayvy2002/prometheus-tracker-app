@@ -160,6 +160,9 @@ BEGIN
   IF to_regclass('public.coaching_relationship_consents') IS NOT NULL THEN
     DELETE FROM public.coaching_relationship_consents WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
   END IF;
+  IF to_regclass('public.coach_account_closures') IS NOT NULL THEN
+    DELETE FROM public.coach_account_closures WHERE coach_id = ANY (v_ids);
+  END IF;
   DELETE FROM public.user_roles WHERE user_id = ANY (v_ids);
   IF to_regclass('public.user_capabilities') IS NOT NULL THEN
     DELETE FROM public.user_capabilities WHERE user_id = ANY (v_ids);
@@ -530,6 +533,8 @@ BEGIN
      AND NOT pg_temp.fn_exec('lock_programs_for_assignment_mutation')
      AND NOT pg_temp.fn_exec('lock_client_assignment_programs')
      AND NOT pg_temp.fn_exec('lock_client_assignment_mutex')
+     AND NOT pg_temp.fn_exec('lock_coach_relationship_lifecycle')
+     AND NOT pg_temp.fn_exec('coach_relationship_is_open')
      AND NOT pg_temp.fn_exec('remap_program_revision_snapshot')
      AND NOT pg_temp.fn_exec('handle_new_user')
      AND NOT pg_temp.fn_exec('invoke_coach_fleet_round')
@@ -622,6 +627,9 @@ BEGIN
      AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'update')
      AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'insert')
      AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'select')
+     AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'update')
      AND has_table_privilege('authenticated', 'public.coach_profiles', 'select')
      AND has_table_privilege('authenticated', 'public.coach_join_requests', 'select')
      AND to_regclass('public.coach_profiles') IS NOT NULL

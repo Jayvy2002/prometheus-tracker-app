@@ -188,11 +188,29 @@ assignments `active` et de verrouiller les programmes (actifs du client ∪
 cible). Relire les programmes après une attente `FOR UPDATE` sans mutex
 laisserait un waiter avec un lock-set périmé (A paused, B actif jamais
 verrouillé). `transition_client_to_solo` n’est pas remplacé : ses appelants
-publics tiennent déjà le mutex. `close_coach_account` mutex tous les clients
-liés (`ORDER BY client_id`) jusqu’à un ensemble stable **avant** le lock-set
-programmes, pour qu’une assignation qui commit pendant l’attente soit
-incluse dans le fork P3. Les `assignment_id` à transférer sont ensuite
-figés (`FOR UPDATE OF pa` puis CTE `array_agg`) avant tout `INSERT` de fork.
+publics tiennent déjà le mutex.
+
+`close_coach_account` et tout chemin qui INSERT / réactive
+`coach_client_links` vers `active` (`activate_coaching_relationship`,
+`respond_coaching_request` confirmé, `accept_coach_invite`) prennent d’abord
+un **mutex de lifecycle par Coach** (`lock_coach_relationship_lifecycle` :
+`pg_advisory_xact_lock` à deux clés, classe `20014501`, interne). Ordre :
+
+```text
+coach lifecycle mutex
+→ client assignment mutex(es) ORDER BY client_id
+→ programs ORDER BY id FOR UPDATE
+→ assignment(s) FOR UPDATE
+→ autres locks
+```
+
+`close_coach_account` prend ce mutex Coach en premier, le garde jusqu’au
+commit, stamp `coach_account_closures` et dépublie le profil annuaire. Un
+client C activé pendant l’attente est donc soit inclus dans la fermeture
+(activation commit avant close), soit refusé après le mutex (close commit
+avant activation : `coach_unavailable`, pas de lien actif recréé). Les
+`assignment_id` à transférer sont ensuite figés (`FOR UPDATE OF pa` puis
+CTE `array_agg`) avant tout `INSERT` de fork.
 
 `program_assignments_protect_identity` est `BEFORE INSERT OR UPDATE OR DELETE`.
 Un `DELETE` (y compris `ON DELETE CASCADE` depuis `programs`) doit
@@ -207,8 +225,10 @@ assign concurrent.
 
 `close_coach_account` (service_role, une transaction, retry = no-op s’il n’y
 a plus de lien actif) transfère **chaque** assignment du client lié via le
-moteur P3 : révision source exacte (actif → `active_revision_no`, paused /
-completed → `frozen_revision_no`, fail-closed) plus les révisions réellement
+moteur P3 : révision source exacte (actif → `programs.active_revision_no`,
+paused / completed → `assignment.frozen_revision_no` **uniquement**,
+fail-closed `archive_not_frozen` si le pin historique est NULL — jamais un
+fallback vers la révision live actuelle) plus les révisions réellement
 référencées par les workouts de **cet** assignment, mêmes `revision_no`,
 snapshots remappés (`remap_program_revision_snapshot`) puis
 `apply_program_revision_snapshot` **sans JWT utilisateur** (`sync_program_phases`
@@ -217,7 +237,9 @@ non trusted). Les drafts Coach privés non utilisés ne
 sont pas copiés. `workouts.program_id` pointe vers le programme client-owned
 **avant** la suppression Auth ; `program_revision_no` continue de résoudre.
 Après transfert : `assignment.program_id` = fork, status `paused`,
-`frozen_revision_no` non NULL, archive RPC immédiatement fonctionnelle.
+`frozen_revision_no` non NULL, archive RPC immédiatement fonctionnelle. Un
+paused/completed dont le pin est absent ne doit jamais être reconstruit
+depuis V2 live : la transaction lève et n’écrit aucun fork partiel.
 
 `program_assignments_freeze_on_pause` est `SECURITY DEFINER` : il verrouille
 `programs … FOR UPDATE` avant de copier `active_revision_no`. `assign_program_secure` /

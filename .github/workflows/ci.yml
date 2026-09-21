@@ -328,6 +328,22 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'close_coach_account P3: snapshots, phases, org, prescriptions, freeze pin, workout provenance, retry' /tmp/program-close-coach-account-db-results.txt
+      - name: Test close_coach_account fail-closed unfrozen archive
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_close_archive_not_frozen.sql | tee /tmp/program-close-archive-not-frozen-db-results.txt
+      - name: Confirm close_coach_account fail-closed echo
+        run: |
+          set -euo pipefail
+          grep -F 'close_coach_account fail-closed: paused NULL frozen_revision_no refuses live V2, atomic' /tmp/program-close-archive-not-frozen-db-results.txt
+      - name: Test coach lifecycle mutex concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-coach-lifecycle-mutex.sh | tee /tmp/coach-lifecycle-mutex-concurrency.txt
+      - name: Confirm coach lifecycle mutex concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'coach lifecycle mutex: close×activate Cas A includes C; Cas B confirm/invite refuse closed Coach without deadlock' /tmp/coach-lifecycle-mutex-concurrency.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

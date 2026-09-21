@@ -35,6 +35,7 @@ test('C03: coach deletion runs the business transition first, then paginated cle
   assert.equal(close.file, '20260920014500_p3_hardening.sql');
   assert.match(close.sql, /remap_program_revision_snapshot/);
   assert.match(close.sql, /apply_program_revision_snapshot/);
+  assert.match(close.sql, /lock_coach_relationship_lifecycle/);
   assert.match(close.sql, /lock_client_assignment_mutex/);
   assert.match(close.sql, /lock_programs_for_assignment_mutation/);
   assert.match(close.sql, /frozen_revision_no = v_rev/);

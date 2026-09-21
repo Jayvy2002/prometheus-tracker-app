@@ -171,11 +171,24 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     const closeFn = found.sql.slice(closeStart, closeEnd);
     assert.match(closeFn, /remap_program_revision_snapshot/);
     assert.match(closeFn, /apply_program_revision_snapshot/);
+    assert.match(closeFn, /lock_coach_relationship_lifecycle/);
     assert.match(closeFn, /lock_client_assignment_mutex/);
+    const coachMutexAt = closeFn.indexOf('lock_coach_relationship_lifecycle');
     const mutexAt = closeFn.indexOf('lock_client_assignment_mutex');
     const lockAt = closeFn.indexOf('lock_programs_for_assignment_mutation');
-    assert.ok(mutexAt >= 0 && lockAt > mutexAt, 'close_coach_account must take client mutex before program locks');
+    assert.ok(
+      coachMutexAt >= 0 && mutexAt > coachMutexAt && lockAt > mutexAt,
+      'close_coach_account must take Coach lifecycle mutex, then client mutex, then program locks',
+    );
     assert.match(closeFn, /frozen_revision_no = v_rev/);
+    assert.match(
+      closeFn,
+      /ELSIF v_asg\.status IN \('paused', 'completed'\) THEN\s+v_rev := v_asg\.frozen_revision_no;\s+IF v_rev IS NULL THEN\s+RAISE EXCEPTION 'archive_not_frozen'/,
+    );
+    assert.doesNotMatch(
+      closeFn,
+      /ELSIF v_asg\.status IN \('paused', 'completed'\) THEN[\s\S]{0,400}active_revision_no/,
+    );
     const idsAt = closeFn.indexOf('WITH locked AS MATERIALIZED');
     const insertForkAt = closeFn.indexOf('INSERT INTO public.programs');
     assert.ok(idsAt >= 0 && insertForkAt > idsAt, 'close_coach_account must snapshot assignment ids before fork INSERT');
@@ -199,9 +212,51 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
     assert.ok(trustedAt >= 0 && authAt > trustedAt, 'trusted sync_program_days must not require a user JWT');
   }
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.lock_client_assignment_mutex/);
+  assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.lock_coach_relationship_lifecycle/);
   assert.match(found.sql, /CREATE OR REPLACE FUNCTION public\.lock_programs_for_assignment_mutation/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.lock_client_assignment_mutex\(uuid\)/);
+  assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.lock_coach_relationship_lifecycle\(uuid\)/);
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.lock_client_assignment_programs\(uuid, uuid\)/);
+  assert.match(found.sql, /CREATE TABLE IF NOT EXISTS public\.coach_account_closures/);
+  assert.match(found.sql, /REVOKE ALL ON TABLE public\.coach_account_closures FROM PUBLIC, anon, authenticated/);
+  {
+    const actStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.activate_coaching_relationship');
+    const actEnd = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.accept_coach_invite(p_token text)', actStart);
+    const actFn = found.sql.slice(actStart, actEnd);
+    const mutexAt = actFn.indexOf('lock_coach_relationship_lifecycle');
+    const openAt = actFn.indexOf('coach_relationship_is_open');
+    const insertAt = actFn.indexOf('INSERT INTO public.coach_client_links');
+    assert.ok(
+      mutexAt >= 0 && openAt > mutexAt && insertAt > openAt,
+      'activate_coaching_relationship must take Coach mutex, revalidate open, then INSERT',
+    );
+  }
+  {
+    const invStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.accept_coach_invite(p_token text)');
+    const invEnd = found.sql.indexOf('CREATE OR REPLACE FUNCTION public.respond_coaching_request', invStart);
+    const invFn = found.sql.slice(invStart, invEnd);
+    const mutexAt = invFn.indexOf('lock_coach_relationship_lifecycle');
+    const openAt = invFn.indexOf('coach_relationship_is_open');
+    const insertAt = invFn.indexOf('INSERT INTO coach_client_links');
+    assert.ok(
+      mutexAt >= 0 && openAt > mutexAt && insertAt > openAt,
+      'accept_coach_invite must take Coach mutex, revalidate open, then INSERT',
+    );
+  }
+  {
+    const respStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.respond_coaching_request');
+    const respFn = found.sql.slice(respStart);
+    const confirmed = respFn.slice(respFn.indexOf("IF p_status = 'confirmed'"));
+    assert.match(confirmed, /lock_coach_relationship_lifecycle/);
+    assert.match(confirmed, /coach_relationship_is_open/);
+    const mutexAt = confirmed.indexOf('lock_coach_relationship_lifecycle');
+    const openAt = confirmed.indexOf('coach_relationship_is_open');
+    const actAt = confirmed.indexOf('activate_coaching_relationship');
+    assert.ok(
+      mutexAt >= 0 && openAt > mutexAt && actAt > openAt,
+      'respond confirmed must take Coach mutex, revalidate, then activate',
+    );
+  }
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.remap_program_revision_snapshot\(jsonb\)/);
   assert.match(src('src/stores/programStore.ts'), /rpc\('get_frozen_program_archive'/);
   assert.match(src('src/lib/clientGym.ts'), /todayDate < startedOn/);
@@ -378,6 +433,14 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /Secret unused draft/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /get_frozen_program_archive/);
   assert.match(src('supabase/tests/program_close_coach_account.sql'), /close_coach_account must run without a user JWT/);
+  assert.match(src('supabase/tests/program_close_archive_not_frozen.sql'), /close_coach_account fail-closed: paused NULL frozen_revision_no refuses live V2, atomic/);
+  assert.match(src('supabase/tests/program_close_archive_not_frozen.sql'), /set session_replication_role = replica/);
+  assert.match(src('supabase/tests/program_close_archive_not_frozen.sql'), /archive_not_frozen/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /lock_coach_relationship_lifecycle|activate_coaching_relationship/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /respond_coaching_request/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /accept_coach_invite/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /wait_event = 'advisory'/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /close×activate Cas A includes C; Cas B confirm\/invite refuse closed Coach without deadlock/);
   assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_phases still requires a user JWT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_days still requires a user JWT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /assign_program_secure does not lock programs before pause/);
@@ -386,11 +449,21 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /lock_client_assignment_programs\(uuid,uuid\)/);
   assert.match(src('supabase/tests/program_hardening.sql'), /assignment helper does not take client mutex before program locks/);
   assert.match(src('supabase/tests/program_hardening.sql'), /lock_client_assignment_mutex\(uuid\)/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /lock_coach_relationship_lifecycle\(uuid\)/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /paused archive still falls back to live active_revision_no/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /activate_coaching_relationship does not take Coach mutex before INSERT/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /accept_coach_invite does not take Coach mutex before INSERT/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /respond_coaching_request confirmed does not take Coach mutex before activate/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /lock_coach_relationship_lifecycle missing distinct advisory class/);
   assert.match(src('supabase/tests/program_hardening.sql'), /protect_identity DELETE returns NEW and skips owner\/CASCADE deletes/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_client_assignment_programs'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_client_assignment_mutex'\)/);
+  assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_coach_relationship_lifecycle'\)/);
+  assert.match(src('supabase/tests/rls_matrix.sql'), /NOT has_table_privilege\('authenticated', 'public.coach_account_closures', 'select'\)/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('remap_program_revision_snapshot'\)/);
   assert.match(src('.github/workflows/ci.yml'), /program_close_coach_account\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /program_close_archive_not_frozen\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /test-coach-lifecycle-mutex\.sh/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: provenance immutability/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: allowlist ACL/);
   assert.match(src('.github/workflows/ci.yml'), /live graph active-only/);
@@ -398,4 +471,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
   assert.match(src('docs/CHANTIER.md'), /P3 hardening/);
+  assert.match(src('docs/P3_HARDENING.md'), /lock_coach_relationship_lifecycle/);
+  assert.match(src('docs/P3_HARDENING.md'), /20014501/);
+  assert.match(src('docs/P3_HARDENING.md'), /jamais un\nfallback vers la révision live actuelle/);
 });
