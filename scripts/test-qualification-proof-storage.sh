@@ -131,7 +131,7 @@ remove_code="$(curl -sS -o /tmp/prometheus-qual-remove.out -w '%{http_code}' -X 
   -H "Authorization: Bearer ${SERVICE_ROLE_KEY}" \
   -H "apikey: ${SERVICE_ROLE_KEY}" \
   -H "Content-Type: application/json" \
-  -d "[\"${PATH_NAME}\"]")"
+  -d "{\"prefixes\":[\"${PATH_NAME}\"]}")"
 if [[ "${remove_code}" != "200" ]]; then
   echo "Storage API .remove() failed (${remove_code})" >&2
   cat /tmp/prometheus-qual-remove.out >&2 || true

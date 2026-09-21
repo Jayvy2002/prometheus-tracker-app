@@ -74,6 +74,7 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /qualification-proofs'\)\.remove/);
   assert.match(src('src/components/marketplace/CoachQualificationsPanel.tsx'), /removeQualificationProof/);
   assert.match(src('scripts/test-qualification-proof-storage.sh'), /storage\/v1\/object/);
+  assert.match(src('scripts/test-qualification-proof-storage.sh'), /prefixes/);
   assert.match(src('scripts/test-qualification-proof-storage.sh'), /proof_cleanup_required/);
   assert.match(src('.github/workflows/ci.yml'), /test-qualification-proof-storage\.sh/);
   for (const file of [
