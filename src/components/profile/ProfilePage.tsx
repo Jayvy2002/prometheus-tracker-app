@@ -108,7 +108,7 @@ export default function ProfilePage() {
     setDeleteError(null);
     const { error } = await deleteAccount();
     if (error) {
-      setDeleteError(error);
+      setDeleteError(error === 'storage_cleanup_failed' ? t('profile.deleteModal.storageCleanupFailed') : error);
       setDeleting(false);
     } else {
       navigate('/auth');

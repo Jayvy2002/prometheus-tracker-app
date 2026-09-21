@@ -40,15 +40,20 @@ test('C03: coach deletion runs the business transition first, then paginated cle
   assert.match(close.sql, /lock_programs_for_assignment_mutation/);
   assert.match(close.sql, /frozen_revision_no = v_rev/);
   const edge = src('supabase/functions/delete-account/index.ts');
+  const cleanup = src('supabase/functions/delete-account/storageCleanup.ts');
   assert.match(edge, /close_coach_account/);
   assert.match(edge, /auth\.admin\.deleteUser/);
+  assert.match(edge, /deleteAuthUserAfterStorageCleanup/);
+  assert.match(edge, /storage_cleanup_failed/);
   assert.ok(
-    edge.indexOf('close_coach_account') < edge.indexOf('auth.admin.deleteUser'),
-    'transition must run before Auth deletion',
+    edge.lastIndexOf('close_coach_account') < edge.lastIndexOf('deleteAuthUserAfterStorageCleanup'),
+    'transition must run before Storage cleanup / Auth deletion',
   );
-  assert.match(edge, /offset \+= LIST_PAGE/);
-  assert.match(edge, /qualification-proofs/);
-  assert.match(edge, /listOwnedStoragePaths/);
+  assert.match(cleanup, /offset \+= /);
+  assert.match(cleanup, /qualification-proofs/);
+  assert.match(cleanup, /listOwnedStoragePaths/);
+  assert.match(cleanup, /StorageCleanupError/);
+  assert.doesNotMatch(edge, /best effort/);
   assert.match(edge, /P3 snapshot/);
 });
 

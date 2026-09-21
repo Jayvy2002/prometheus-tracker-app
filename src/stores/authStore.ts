@@ -96,7 +96,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      return { error: body.error ?? 'Failed to delete account' };
+      const code = typeof body.error === 'string' ? body.error : '';
+      return { error: code || 'Failed to delete account' };
     }
 
     currentGeneration += 1;

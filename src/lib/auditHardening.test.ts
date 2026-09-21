@@ -134,12 +134,15 @@ test('edges: coach link first, OpenAI timeout, storage wipe, reminders auth, not
   assert.match(agent, /p_client_id: clientId/);
   assert.match(src('supabase/functions/analyze-product/index.ts'), /AbortSignal\.timeout\(20_000\)/);
   assert.match(src('supabase/functions/verify-exercise/index.ts'), /AbortSignal\.timeout\(20_000\)/);
-  const del = src('supabase/functions/delete-account/index.ts');
+  const del = src('supabase/functions/delete-account/index.ts')
+    + src('supabase/functions/delete-account/storageCleanup.ts');
   assert.match(del, /progress-photos/);
   assert.match(del, /qualification-proofs/);
   assert.match(del, /listOwnedStoragePaths/);
   assert.match(del, /!entry\.id/);
   assert.match(del, /storage\.from\(bucket\)\.remove/);
+  assert.match(del, /storage_cleanup_failed/);
+  assert.match(del, /StorageCleanupError/);
   const reminders = src('supabase/functions/send-daily-reminders/index.ts');
   assert.match(reminders, /REMINDERS_CRON_SECRET/);
   assert.match(reminders, /hhmmInTimeZone/);

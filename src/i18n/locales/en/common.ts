@@ -327,6 +327,7 @@ const common = {
       typeToConfirm: 'Type {{word}} to confirm',
       deleting: 'Deleting…',
       confirmText: 'This deletes your account and your journals (workouts, nutrition, weight, check-ins, photos, recipes). A coach’s private notes and intervention drafts are not exported and are not given to you.',
+      storageCleanupFailed: 'Your files could not be cleaned up. Your account is still active — try again.',
     },
     dataControl: {
       title: 'Your data',
