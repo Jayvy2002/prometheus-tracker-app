@@ -29,6 +29,8 @@ test('P4.3 prospect messaging opens the thread without is_coach_of or the dossie
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /prospect gained is_coach_of/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /prospect coach read photos/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /activation dropped prospect thread/);
+  assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /^ROLLBACK;/m);
+  assert.doesNotMatch(src('supabase/tests/p4_prospect_messaging.sql'), /^COMMIT;/m);
   assert.match(src('supabase/tests/rls_matrix.sql'), /marketplace_open_prospect/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
   assert.equal(pending.pending.some(row => row.version === '20260921023720'), true);

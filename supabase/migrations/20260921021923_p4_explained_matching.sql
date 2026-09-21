@@ -232,13 +232,13 @@ BEGIN
     v_reasons := ARRAY[]::text[];
 
     IF v_row.disciplines @> ARRAY[v_intent.discipline] THEN
-      v_req := v_req || 'discipline'; v_reasons := v_reasons || 'discipline';
+      v_req := array_append(v_req, 'discipline'); v_reasons := array_append(v_reasons, 'discipline');
     ELSE
       v_eligible := false;
     END IF;
 
     IF v_row.languages @> ARRAY[v_intent.language] THEN
-      v_req := v_req || 'language'; v_reasons := v_reasons || 'language';
+      v_req := array_append(v_req, 'language'); v_reasons := array_append(v_reasons, 'language');
     ELSE
       v_eligible := false;
     END IF;
@@ -251,10 +251,10 @@ BEGIN
         OR (v_row.formats @> ARRAY['online']::text[] AND v_row.formats @> ARRAY['in_person']::text[])
       ))
     ) THEN
-      v_req := v_req || 'format'; v_reasons := v_reasons || 'format';
+      v_req := array_append(v_req, 'format'); v_reasons := array_append(v_reasons, 'format');
       IF v_intent.format <> 'online' THEN
         IF btrim(v_intent.area) = '' THEN
-          v_missing := v_missing || 'area';
+          v_missing := array_append(v_missing, 'area');
         ELSIF btrim(v_row.area) = '' THEN
           v_eligible := false;
         ELSIF position(lower(btrim(v_intent.area)) IN lower(btrim(v_row.area))) = 0
@@ -262,7 +262,7 @@ BEGIN
           AND lower(btrim(v_row.area)) IS DISTINCT FROM lower(btrim(v_intent.area)) THEN
           v_eligible := false;
         ELSE
-          v_req := v_req || 'area'; v_reasons := v_reasons || 'area';
+          v_req := array_append(v_req, 'area'); v_reasons := array_append(v_reasons, 'area');
         END IF;
       END IF;
     ELSE
@@ -271,36 +271,36 @@ BEGIN
 
     IF v_intent.budget_max_cents IS NOT NULL THEN
       IF v_row.indicative_price_cents IS NULL OR v_row.indicative_price_period = 'on_request' THEN
-        v_missing := v_missing || 'price';
+        v_missing := array_append(v_missing, 'price');
       ELSIF v_row.indicative_price_cents > v_intent.budget_max_cents THEN
         v_eligible := false;
       ELSE
-        v_req := v_req || 'budget'; v_reasons := v_reasons || 'budget';
+        v_req := array_append(v_req, 'budget'); v_reasons := array_append(v_reasons, 'budget');
       END IF;
     END IF;
 
     IF v_intent.contact_frequency <> '' THEN
-      IF v_row.contact_frequency = '' THEN v_missing := v_missing || 'contact_frequency';
+      IF v_row.contact_frequency = '' THEN v_missing := array_append(v_missing, 'contact_frequency');
       ELSIF v_row.contact_frequency = v_intent.contact_frequency THEN
-        v_pref := v_pref || 'contact_frequency'; v_reasons := v_reasons || 'contact_frequency';
+        v_pref := array_append(v_pref, 'contact_frequency'); v_reasons := array_append(v_reasons, 'contact_frequency');
       END IF;
     END IF;
     IF v_intent.coaching_style <> '' THEN
-      IF v_row.coaching_style = '' THEN v_missing := v_missing || 'coaching_style';
+      IF v_row.coaching_style = '' THEN v_missing := array_append(v_missing, 'coaching_style');
       ELSIF v_row.coaching_style = v_intent.coaching_style THEN
-        v_pref := v_pref || 'coaching_style'; v_reasons := v_reasons || 'coaching_style';
+        v_pref := array_append(v_pref, 'coaching_style'); v_reasons := array_append(v_reasons, 'coaching_style');
       END IF;
     END IF;
     IF v_intent.autonomy <> '' THEN
-      IF v_row.autonomy = '' THEN v_missing := v_missing || 'autonomy';
+      IF v_row.autonomy = '' THEN v_missing := array_append(v_missing, 'autonomy');
       ELSIF v_row.autonomy = v_intent.autonomy THEN
-        v_pref := v_pref || 'autonomy'; v_reasons := v_reasons || 'autonomy';
+        v_pref := array_append(v_pref, 'autonomy'); v_reasons := array_append(v_reasons, 'autonomy');
       END IF;
     END IF;
     IF v_intent.experience_level <> '' THEN
-      IF cardinality(v_row.experience_levels) = 0 THEN v_missing := v_missing || 'experience_level';
+      IF cardinality(v_row.experience_levels) = 0 THEN v_missing := array_append(v_missing, 'experience_level');
       ELSIF v_row.experience_levels @> ARRAY[v_intent.experience_level] THEN
-        v_pref := v_pref || 'experience_level'; v_reasons := v_reasons || 'experience_level';
+        v_pref := array_append(v_pref, 'experience_level'); v_reasons := array_append(v_reasons, 'experience_level');
       END IF;
     END IF;
 
