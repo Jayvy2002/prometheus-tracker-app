@@ -1,4 +1,4 @@
-import { MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, type CoachPublicProfile } from './marketplace';
+import { MARKET_BETA_CURRENCIES, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, type CoachPublicProfile } from './marketplace';
 
 export const MATCH_FREQUENCIES = ['weekly', 'biweekly', 'monthly', 'flexible'] as const;
 export const MATCH_STYLES = ['directive', 'collaborative', 'autonomous'] as const;
@@ -14,6 +14,9 @@ export interface CoachMatchProfile extends CoachPublicProfile {
   indicative_price_cents: number | null;
   indicative_price_period: string;
   indicative_price_currency: string;
+  area_city: string;
+  area_region: string;
+  area_country: string;
 }
 
 export interface MarketplaceSearchIntent {
@@ -21,6 +24,9 @@ export interface MarketplaceSearchIntent {
   language: string;
   format: string;
   area: string;
+  area_city: string;
+  area_region: string;
+  area_country: string;
   budget_max_cents: number | null;
   budget_period: string;
   budget_currency: string;
@@ -41,7 +47,8 @@ export interface CoachMatchExplanation {
 }
 
 const emptyIntent: MarketplaceSearchIntent = {
-  discipline: '', language: '', format: '', area: '', budget_max_cents: null, budget_period: '', budget_currency: '',
+  discipline: '', language: '', format: '', area: '', area_city: '', area_region: '', area_country: '',
+  budget_max_cents: null, budget_period: '', budget_currency: '',
   contact_frequency: '', coaching_style: '', autonomy: '', experience_level: '', secondary_notes: '',
 };
 
@@ -55,12 +62,15 @@ export function blankMatchProfile(base: CoachPublicProfile): CoachMatchProfile {
     indicative_price_cents: typeof (base as CoachMatchProfile).indicative_price_cents === 'number' ? (base as CoachMatchProfile).indicative_price_cents : null,
     indicative_price_period: (base as CoachMatchProfile).indicative_price_period || 'on_request',
     indicative_price_currency: normalizeIsoCurrency((base as CoachMatchProfile).indicative_price_currency),
+    area_city: typeof (base as CoachMatchProfile).area_city === 'string' ? (base as CoachMatchProfile).area_city : '',
+    area_region: typeof (base as CoachMatchProfile).area_region === 'string' ? (base as CoachMatchProfile).area_region : '',
+    area_country: typeof (base as CoachMatchProfile).area_country === 'string' ? (base as CoachMatchProfile).area_country : '',
   };
 }
 
 export function normalizeIsoCurrency(value: string | undefined | null): string {
   const next = (value ?? '').trim().toUpperCase();
-  return /^[A-Z]{3}$/.test(next) ? next : '';
+  return (MARKET_BETA_CURRENCIES as readonly string[]).includes(next) ? next : '';
 }
 
 export function listedRateDecision(
@@ -72,9 +82,9 @@ export function listedRateDecision(
   priceCurrency: string,
 ): 'skip' | 'missing' | 'over' | 'match' {
   if (budgetCents == null) return 'skip';
-  if (!budgetPeriod || !/^[A-Z]{3}$/.test(budgetCurrency)
-    || priceCents == null || !pricePeriod || pricePeriod === 'on_request' || !/^[A-Z]{3}$/.test(priceCurrency)
-    || pricePeriod !== budgetPeriod || priceCurrency !== budgetCurrency) {
+  if (!budgetPeriod || !normalizeIsoCurrency(budgetCurrency)
+    || priceCents == null || !pricePeriod || pricePeriod === 'on_request' || !normalizeIsoCurrency(priceCurrency)
+    || pricePeriod !== budgetPeriod || normalizeIsoCurrency(priceCurrency) !== normalizeIsoCurrency(budgetCurrency)) {
     return 'missing';
   }
   return priceCents > budgetCents ? 'over' : 'match';
@@ -89,6 +99,9 @@ export function normalizeSearchIntent(raw: Partial<MarketplaceSearchIntent>): Ma
     language: pick(raw.language, MARKET_LANGUAGES),
     format: pick(raw.format, MARKET_FORMATS),
     area: (raw.area ?? '').trim().slice(0, 150),
+    area_city: (raw.area_city ?? '').trim().slice(0, 80),
+    area_region: (raw.area_region ?? '').trim().slice(0, 80),
+    area_country: (raw.area_country ?? '').trim().slice(0, 80),
     budget_max_cents: budget,
     budget_period: budget ? pick(raw.budget_period, MATCH_PRICE_PERIODS.filter(value => value !== 'on_request')) : '',
     budget_currency: budget ? normalizeIsoCurrency(raw.budget_currency) : '',
@@ -100,11 +113,20 @@ export function normalizeSearchIntent(raw: Partial<MarketplaceSearchIntent>): Ma
   };
 }
 
-function areaOverlap(coachArea: string, wanted: string): boolean {
-  const a = coachArea.trim().toLowerCase();
-  const b = wanted.trim().toLowerCase();
-  if (!a || !b) return false;
-  return a === b || a.includes(b) || b.includes(a);
+function locationMatches(
+  coach: Pick<CoachMatchProfile, 'area_city' | 'area_region' | 'area_country'>,
+  wanted: Pick<MarketplaceSearchIntent, 'area_city' | 'area_region' | 'area_country'>,
+): boolean {
+  const city = wanted.area_city.trim().toLowerCase();
+  const country = wanted.area_country.trim().toLowerCase();
+  const coachCity = coach.area_city.trim().toLowerCase();
+  const coachCountry = coach.area_country.trim().toLowerCase();
+  if (!city || !country || !coachCity || !coachCountry) return false;
+  if (city !== coachCity || country !== coachCountry) return false;
+  const region = wanted.area_region.trim().toLowerCase();
+  const coachRegion = coach.area_region.trim().toLowerCase();
+  if (region && coachRegion && region !== coachRegion) return false;
+  return true;
 }
 
 function formatOk(coach: string[], wanted: string): boolean {
@@ -139,8 +161,7 @@ export function evaluateCoachMatch(profile: CoachMatchProfile, intent: Marketpla
       matched_requirements.push('format');
       reasons.push('format');
       if (intent.format !== 'online') {
-        if (!intent.area) missing_information.push('area');
-        else if (!areaOverlap(profile.area, intent.area)) eligible = false;
+        if (!locationMatches(profile, intent)) eligible = false;
         else {
           matched_requirements.push('area');
           reasons.push('area');
@@ -208,7 +229,9 @@ export function shortlistMatches(
 }
 
 export function intentIsReady(intent: MarketplaceSearchIntent): boolean {
-  return Boolean(intent.discipline && intent.language && intent.format);
+  if (!intent.discipline || !intent.language || !intent.format) return false;
+  if (intent.format !== 'online' && (!intent.area_city || !intent.area_country)) return false;
+  return true;
 }
 
 export function listedRateCopy(
@@ -218,7 +241,7 @@ export function listedRateCopy(
     return null;
   }
   return {
-    amount: String(Math.round(profile.indicative_price_cents / 100)),
+    amount: (profile.indicative_price_cents / 100).toFixed(2),
     period: profile.indicative_price_period,
     currency: normalizeIsoCurrency(profile.indicative_price_currency),
   };

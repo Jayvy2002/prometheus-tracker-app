@@ -8,8 +8,47 @@ const corsHeaders = {
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-const BUCKETS = ["avatars", "product-images", "progress-photos"];
+const BUCKETS = ["avatars", "product-images", "progress-photos", "qualification-proofs"];
 const LIST_PAGE = 1000;
+const REMOVE_BATCH = 100;
+
+type StorageListEntry = { name?: string; id?: string | null };
+
+async function listOwnedStoragePaths(
+  adminClient: ReturnType<typeof createClient>,
+  bucket: string,
+  prefix: string,
+  warnings: string[],
+): Promise<string[]> {
+  const files: string[] = [];
+  let offset = 0;
+  for (;;) {
+    const { data: entries, error: listError } = await adminClient.storage
+      .from(bucket)
+      .list(prefix, { limit: LIST_PAGE, offset });
+    if (listError) {
+      warnings.push(`${bucket}:${prefix}: list failed (${listError.message})`);
+      return files;
+    }
+    const page = (entries ?? []) as StorageListEntry[];
+    for (const entry of page) {
+      if (!entry.name) continue;
+      const path = `${prefix}/${entry.name}`;
+      if (!entry.id) {
+        files.push(...await listOwnedStoragePaths(adminClient, bucket, path, warnings));
+      } else {
+        files.push(path);
+      }
+    }
+    if (page.length < LIST_PAGE) break;
+    offset += LIST_PAGE;
+    if (offset > 50_000) {
+      warnings.push(`${bucket}:${prefix}: truncated after 50000 listings`);
+      break;
+    }
+  }
+  return files;
+}
 
 /**
  * C03 — account deletion is a business workflow, not a raw Auth delete:
@@ -78,33 +117,14 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 2. Storage cleanup, paginated (Q02: the old code stopped at 1000 files).
+    // 2. Recursive Storage API cleanup (list() folder entries are not files).
     const warnings: string[] = [];
     for (const bucket of BUCKETS) {
-      let offset = 0;
-      for (;;) {
-        const { data: entries, error: listError } = await adminClient.storage
-          .from(bucket)
-          .list(user.id, { limit: LIST_PAGE, offset });
-        if (listError) {
-          warnings.push(`${bucket}: list failed (${listError.message})`);
-          break;
-        }
-        const paths = (entries ?? [])
-          .map((entry) => entry.name)
-          .filter(Boolean)
-          .map((name) => `${user.id}/${name}`);
-        if (paths.length > 0) {
-          const { error: removeError } = await adminClient.storage.from(bucket).remove(paths);
-          if (removeError) warnings.push(`${bucket}: remove failed (${removeError.message})`);
-        }
-        if ((entries ?? []).length < LIST_PAGE) break;
-        offset += LIST_PAGE;
-        // Safety valve against pathological buckets.
-        if (offset > 50_000) {
-          warnings.push(`${bucket}: truncated after 50000 objects`);
-          break;
-        }
+      const paths = await listOwnedStoragePaths(adminClient, bucket, user.id, warnings);
+      for (let i = 0; i < paths.length; i += REMOVE_BATCH) {
+        const batch = paths.slice(i, i + REMOVE_BATCH);
+        const { error: removeError } = await adminClient.storage.from(bucket).remove(batch);
+        if (removeError) warnings.push(`${bucket}: remove failed (${removeError.message})`);
       }
     }
 

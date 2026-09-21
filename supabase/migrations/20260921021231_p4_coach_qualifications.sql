@@ -94,6 +94,50 @@ $$;
 REVOKE ALL ON FUNCTION public.qualification_owned_proof_path(uuid, uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.qualification_owned_proof_path(uuid, uuid, text) TO authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION public.qualification_proof_object_exists(p_path text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT p_path IS NOT NULL
+    AND EXISTS (
+      SELECT 1 FROM storage.objects
+      WHERE bucket_id = 'qualification-proofs'
+        AND name = p_path
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.qualification_proof_object_exists(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.qualification_proof_object_exists(text) TO service_role;
+
+COMMENT ON FUNCTION public.qualification_proof_object_exists(text) IS
+  'True when the exact qualification-proofs object exists. Used by submit; not a public listing.';
+
+CREATE OR REPLACE FUNCTION public.qualification_delete_proof_objects(p_coach uuid, p_id uuid, p_path text)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  DELETE FROM storage.objects
+  WHERE bucket_id = 'qualification-proofs'
+    AND (
+      (p_path IS NOT NULL AND name = p_path)
+      OR (
+        p_coach IS NOT NULL
+        AND p_id IS NOT NULL
+        AND name LIKE (p_coach::text || '/' || p_id::text || '/%')
+      )
+    );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.qualification_delete_proof_objects(uuid, uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.qualification_delete_proof_objects(uuid, uuid, text) TO service_role;
+
 CREATE OR REPLACE FUNCTION public.qualification_effective_status(p_status text, p_expires_on date)
 RETURNS text
 LANGUAGE sql
@@ -346,6 +390,9 @@ BEGIN
   IF NOT public.qualification_owned_proof_path(v_uid, p_id, v_result.proof_path) THEN
     RAISE EXCEPTION 'invalid_proof_path';
   END IF;
+  IF NOT public.qualification_proof_object_exists(v_result.proof_path) THEN
+    RAISE EXCEPTION 'proof_missing';
+  END IF;
   UPDATE public.coach_qualifications SET
     verification_status = 'pending',
     verified_at = NULL,
@@ -390,6 +437,7 @@ BEGIN
     RETURNING * INTO v_result;
     RETURN v_result;
   END IF;
+  PERFORM public.qualification_delete_proof_objects(v_uid, p_id, v_result.proof_path);
   DELETE FROM public.coach_qualifications WHERE id = p_id RETURNING * INTO v_result;
   RETURN v_result;
 END;
@@ -476,6 +524,7 @@ CREATE POLICY "Coaches upload qualification proofs"
       SELECT 1 FROM public.coach_qualifications q
       WHERE q.id::text = (storage.foldername(name))[2]
         AND q.coach_id = (SELECT auth.uid())
+        AND q.verification_status IN ('declared', 'rejected')
     )
     AND storage.filename(name) ~ '^proof(\.(pdf|jpg|jpeg|png|webp))?$'
   );
@@ -489,6 +538,7 @@ CREATE POLICY "Coaches update qualification proofs"
       SELECT 1 FROM public.coach_qualifications q
       WHERE q.id::text = (storage.foldername(name))[2]
         AND q.coach_id = (SELECT auth.uid())
+        AND q.verification_status IN ('declared', 'rejected')
     )
   )
   WITH CHECK (
@@ -498,6 +548,7 @@ CREATE POLICY "Coaches update qualification proofs"
       SELECT 1 FROM public.coach_qualifications q
       WHERE q.id::text = (storage.foldername(name))[2]
         AND q.coach_id = (SELECT auth.uid())
+        AND q.verification_status IN ('declared', 'rejected')
     )
     AND storage.filename(name) ~ '^proof(\.(pdf|jpg|jpeg|png|webp))?$'
   );
@@ -511,6 +562,7 @@ CREATE POLICY "Coaches delete qualification proofs"
       SELECT 1 FROM public.coach_qualifications q
       WHERE q.id::text = (storage.foldername(name))[2]
         AND q.coach_id = (SELECT auth.uid())
+        AND q.verification_status IN ('declared', 'rejected')
     )
   );
 

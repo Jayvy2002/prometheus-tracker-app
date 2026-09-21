@@ -14,6 +14,44 @@ ALTER TABLE public.coach_join_requests
 COMMENT ON COLUMN public.coach_join_requests.prospect_snapshot IS
   'Minimal explicitly consented prospect context: objective, level, discipline, language, expectations, availability, constraints, budget, summary. Not the questionnaire, private profile, or live athlete data.';
 
+DO $$
+DECLARE
+  v_name text;
+BEGIN
+  FOR v_name IN
+    SELECT c.conname
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = 'public'
+      AND t.relname = 'coach_join_requests'
+      AND c.contype = 'c'
+      AND pg_get_constraintdef(c.oid) ILIKE '%sharing_version%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.coach_join_requests DROP CONSTRAINT %I', v_name);
+  END LOOP;
+  FOR v_name IN
+    SELECT c.conname
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_namespace n ON n.oid = t.relnamespace
+    WHERE n.nspname = 'public'
+      AND t.relname = 'coach_messages'
+      AND c.contype = 'c'
+      AND pg_get_constraintdef(c.oid) ILIKE '%char_length(trim(body))%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.coach_messages DROP CONSTRAINT %I', v_name);
+  END LOOP;
+END $$;
+
+ALTER TABLE public.coach_join_requests
+  ADD CONSTRAINT coach_join_requests_sharing_version_check
+  CHECK (sharing_version IN (1, 2, 3));
+
+ALTER TABLE public.coach_messages
+  ADD CONSTRAINT coach_messages_body_length_check
+  CHECK (char_length(trim(body)) BETWEEN 1 AND 2000);
+
 CREATE OR REPLACE FUNCTION public.marketplace_open_prospect(p_coach uuid, p_client uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -52,6 +90,8 @@ CREATE POLICY "Coach sends to own clients"
       OR (
         public.marketplace_open_prospect((SELECT auth.uid()), client_id)
         AND template_key IN ('prospect', 'reply')
+        AND workout_id IS NULL
+        AND checkin_id IS NULL
       )
     )
   );
@@ -65,9 +105,35 @@ CREATE POLICY "Client replies to own coach"
     AND template_key = 'reply'
     AND (
       public.is_client_of(coach_id)
-      OR public.marketplace_open_prospect(coach_id, (SELECT auth.uid()))
+      OR (
+        public.marketplace_open_prospect(coach_id, (SELECT auth.uid()))
+        AND workout_id IS NULL
+        AND checkin_id IS NULL
+      )
     )
   );
+
+CREATE OR REPLACE FUNCTION public.coach_message_prospect_no_dossier()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF (NEW.workout_id IS NOT NULL OR NEW.checkin_id IS NOT NULL)
+     AND public.marketplace_open_prospect(NEW.coach_id, NEW.client_id)
+     AND NOT public.is_coach_of(NEW.client_id)
+  THEN
+    RAISE EXCEPTION 'prospect_no_dossier';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS coach_message_prospect_no_dossier ON public.coach_messages;
+CREATE TRIGGER coach_message_prospect_no_dossier
+  BEFORE INSERT OR UPDATE ON public.coach_messages
+  FOR EACH ROW
+  EXECUTE FUNCTION public.coach_message_prospect_no_dossier();
 
 CREATE OR REPLACE FUNCTION public.fetch_thread_messages(
   p_client_id uuid,
@@ -185,22 +251,33 @@ AS $$
 DECLARE
   v_uid uuid := auth.uid();
   v_result public.coach_join_requests;
-  v_snapshot jsonb := public.marketplace_prospect_snapshot(p_snapshot);
+  v_snapshot jsonb := '{}'::jsonb;
   v_summary text := btrim(coalesce(p_summary, ''));
 BEGIN
   IF v_uid IS NULL OR p_coach IS NULL OR p_coach = v_uid THEN
     RAISE EXCEPTION 'invalid_target';
   END IF;
-  IF p_sharing_version IS DISTINCT FROM 2 THEN
+  IF p_sharing_version NOT IN (2, 3) THEN
     RAISE EXCEPTION 'consent_required';
   END IF;
   IF p_request_key IS NULL THEN
     RAISE EXCEPTION 'request_key_required';
   END IF;
-  IF v_summary = '' THEN
-    v_summary := coalesce(v_snapshot->>'summary', '');
-  ELSIF NOT (v_snapshot ? 'summary') THEN
-    v_snapshot := v_snapshot || jsonb_build_object('summary', v_summary);
+  IF p_sharing_version = 3 THEN
+    v_snapshot := public.marketplace_prospect_snapshot(p_snapshot);
+    IF v_summary = '' THEN
+      v_summary := coalesce(v_snapshot->>'summary', '');
+    ELSIF NOT (v_snapshot ? 'summary') THEN
+      v_snapshot := v_snapshot || jsonb_build_object('summary', v_summary);
+    END IF;
+  ELSE
+    IF v_summary = '' AND p_snapshot IS NOT NULL AND jsonb_typeof(p_snapshot) = 'object' THEN
+      v_summary := btrim(coalesce(p_snapshot->>'summary', ''));
+    END IF;
+    v_snapshot := CASE
+      WHEN v_summary <> '' THEN jsonb_build_object('summary', v_summary)
+      ELSE '{}'::jsonb
+    END;
   END IF;
   PERFORM 1 FROM public.user_roles WHERE user_id = v_uid FOR UPDATE;
   SELECT * INTO v_result
@@ -274,4 +351,178 @@ REVOKE ALL ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, 
 GRANT EXECUTE ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, jsonb) TO authenticated;
 
 COMMENT ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, jsonb) IS
-  'Athlete-initiated coaching request with a consented prospect snapshot. Not a payment.';
+  'Athlete-initiated coaching request. sharing_version 3 is the limited prospect snapshot disclosure. Version 2 remains the historical name+summary contract.';
+
+CREATE OR REPLACE FUNCTION public.respond_coaching_request(p_request uuid, p_status text)
+RETURNS public.coach_join_requests
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_result public.coach_join_requests;
+  v_target text;
+  v_scopes constant text[] := ARRAY[
+    'checkins',
+    'messages',
+    'nutrition',
+    'profile',
+    'program',
+    'progress_photos',
+    'questionnaire',
+    'workouts'
+  ];
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not_authenticated';
+  END IF;
+  SELECT * INTO v_result
+  FROM public.coach_join_requests
+  WHERE id = p_request AND v_uid IN (coach_id, client_id);
+  IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+
+  IF p_status = 'confirmed' THEN
+    IF v_uid <> v_result.client_id THEN
+      RAISE EXCEPTION 'not_authorized';
+    END IF;
+    PERFORM public.lock_coach_relationship_lifecycle(v_result.coach_id);
+    PERFORM 1 FROM public.user_roles WHERE user_id = v_result.client_id FOR UPDATE;
+    SELECT * INTO v_result
+    FROM public.coach_join_requests
+    WHERE id = p_request AND v_uid IN (coach_id, client_id)
+    FOR UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'request_not_found';
+    END IF;
+    IF v_uid <> v_result.client_id THEN
+      RAISE EXCEPTION 'not_authorized';
+    END IF;
+    IF v_result.status = 'athlete_confirmed' THEN
+      RETURN v_result;
+    END IF;
+    IF v_result.status = 'accepted' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF v_result.status <> 'coach_accepted' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF v_result.sharing_version NOT IN (2, 3) THEN
+      RAISE EXCEPTION 'consent_renewal_required';
+    END IF;
+    IF NOT public.coach_relationship_is_open(v_result.coach_id) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    PERFORM 1 FROM public.coach_profiles
+      WHERE coach_id = v_result.coach_id AND published AND accepting_clients
+      FOR SHARE;
+    IF NOT FOUND OR NOT public.marketplace_coach_eligible(v_result.coach_id) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    PERFORM public.activate_coaching_relationship(v_result.coach_id, v_result.client_id);
+    INSERT INTO public.coaching_relationship_consents (
+      coach_id, client_id, join_request_id, source, consent_version, scopes
+    ) VALUES (
+      v_result.coach_id,
+      v_result.client_id,
+      v_result.id,
+      'directory_request',
+      2,
+      v_scopes
+    )
+    ON CONFLICT (join_request_id, client_id) WHERE join_request_id IS NOT NULL DO UPDATE SET
+      consent_version = excluded.consent_version,
+      scopes = excluded.scopes,
+      accepted_at = now(),
+      revoked_at = NULL;
+    UPDATE public.coach_join_requests
+    SET status = 'withdrawn', updated_at = clock_timestamp()
+    WHERE client_id = v_result.client_id
+      AND id <> p_request
+      AND status IN ('pending', 'coach_accepted');
+    UPDATE public.coach_join_requests
+    SET status = 'athlete_confirmed', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  PERFORM 1 FROM public.user_roles WHERE user_id = v_result.client_id FOR UPDATE;
+  SELECT * INTO v_result
+  FROM public.coach_join_requests
+  WHERE id = p_request AND v_uid IN (coach_id, client_id)
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'request_not_found';
+  END IF;
+
+  v_target := CASE p_status
+    WHEN 'accepted' THEN 'coach_accepted'
+    ELSE p_status
+  END;
+
+  IF NOT (
+    (v_uid = v_result.client_id AND p_status = 'withdrawn')
+    OR (v_uid = v_result.coach_id AND p_status IN ('accepted', 'declined'))
+  ) THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
+
+  IF v_result.status = v_target THEN
+    RETURN v_result;
+  END IF;
+
+  IF v_result.status = 'accepted' THEN
+    RAISE EXCEPTION 'request_closed';
+  END IF;
+
+  IF p_status = 'accepted' THEN
+    IF v_result.status <> 'pending' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF v_result.sharing_version NOT IN (2, 3) THEN
+      RAISE EXCEPTION 'consent_renewal_required';
+    END IF;
+    PERFORM 1 FROM public.coach_profiles
+      WHERE coach_id = v_uid AND published AND accepting_clients
+      FOR SHARE;
+    IF NOT FOUND OR NOT public.marketplace_coach_eligible(v_uid) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    UPDATE public.coach_join_requests
+    SET status = 'coach_accepted', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  IF p_status = 'declined' THEN
+    IF v_result.status <> 'pending' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    UPDATE public.coach_join_requests
+    SET status = 'declined', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  IF p_status = 'withdrawn' THEN
+    IF v_result.status NOT IN ('pending', 'coach_accepted') THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    UPDATE public.coach_join_requests
+    SET status = 'withdrawn', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
+  RAISE EXCEPTION 'not_authorized';
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.respond_coaching_request(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.respond_coaching_request(uuid, text) TO authenticated;
+COMMENT ON FUNCTION public.respond_coaching_request(uuid, text) IS
+  'Coach accepted continues a prospect (stored as coach_accepted). Historical accepted stays accepted and cannot replay. Athlete confirmed takes the Coach lifecycle mutex, then user_roles(client) FOR UPDATE, then the request row FOR UPDATE, revalidates, then activates. sharing_version 2 (historical name+summary) and 3 (limited prospect snapshot) may complete. Relationship consent_version stays 2. Not a payment.';

@@ -24,8 +24,9 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public.submit_marketplace_report\(uuid, text, text, text, uuid\) TO authenticated/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public.review_marketplace_report\(uuid, text, text\) TO service_role/);
   assert.doesNotMatch(sql, /GRANT EXECUTE ON FUNCTION public.review_marketplace_report\(uuid, text, text\) TO authenticated/);
-  assert.match(sql, /AND NOT directory_suspended/);
-  assert.match(sql, /SET directory_suspended = true/);
+  assert.match(sql, /marketplace_coach_discoverable/);
+  assert.match(sql, /directory_hold_active/);
+  assert.match(sql, /marketplace_refresh_directory_suspended/);
   assert.doesNotMatch(sql, /UPDATE public\.coach_client_links/);
   assert.doesNotMatch(sql, /CREATE TABLE.*rating/i);
   assert.doesNotMatch(sql, /star_rating/i);
@@ -35,7 +36,7 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.doesNotMatch(save.sql, /directory_suspended/);
   const requestFn = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
   assert.equal(requestFn.file, '20260921024426_p4_marketplace_moderation.sql');
-  assert.match(requestFn.sql, /AND NOT directory_suspended/);
+  assert.match(requestFn.sql, /marketplace_coach_discoverable/);
   assert.match(sql, /marketplace_audit_actor\(\)/);
   assert.match(sql, /v_actor text := public\.marketplace_audit_actor\(\)/);
   assert.match(sql, /VALUES \(v_row\.id, p_action, v_note, v_actor\)/);
@@ -47,7 +48,7 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.doesNotMatch(save.sql, /directory_suspended/);
   const explain = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.explain_marketplace_matches');
   assert.equal(explain.file, '20260921024426_p4_marketplace_moderation.sql');
-  assert.match(explain.sql, /AND NOT directory_suspended/);
+  assert.match(explain.sql, /marketplace_coach_discoverable/);
   assert.match(explain.sql, /array_append\(v_req, 'discipline'\)/);
   assert.doesNotMatch(explain.sql, /v_req := v_req \|\| '/);
   assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /MarketplaceReportForm/);
@@ -67,7 +68,11 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /target read reporter identity/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /suspended coach remained in matching/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /suspend ended coaching link/);
-  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /client flipped directory_suspended/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /restoring A lifted B hold/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /reporter delete dropped report/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /coach without capability still matched/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /closed coach republished/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /report idempotency lost/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /^ROLLBACK;/m);
   assert.doesNotMatch(src('supabase/tests/p4_marketplace_moderation.sql'), /^COMMIT;/m);
   for (const slice of [

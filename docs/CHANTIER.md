@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P4 revue contractuelle en correction (P4.1–P4.4).** Candidates `20260921021231`, `20260921021923`, `20260921023720`, `20260921024426`. Production/lock **130** (`20260920014500_p3_hardening`). **Ne pas merger. Ne pas appliquer. Ne pas commencer P5.** Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P4 revue pré-production en correction (P4.1–P4.4).** Candidates `20260921021231`, `20260921021923`, `20260921023720`, `20260921024426`. Production/lock **130** (`20260920014500_p3_hardening`). **Ne pas merger. Ne pas appliquer. Ne pas commencer P5.** Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -63,7 +63,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
-| **P4** | Marketplace complète | **P4.1–P4.4 en correction revue — ne pas merger/appliquer** | Qualifications, matching, prospect, signalement |
+| **P4** | Marketplace complète | **P4.1–P4.4 en correction pré-production — ne pas merger/appliquer** | Qualifications, matching, prospect, signalement |
 | **P5** | Adoption Coach | À faire — **ne pas commencer** | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
@@ -729,31 +729,31 @@ Un programme simple et un programme périodisé utilisent le même moteur d’ex
 
 ## P4.1 — Qualifications Coach
 
-**En correction revue** — candidate `20260921021231_p4_coach_qualifications` (pending jusqu’à apply live). Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
+**En correction pré-production** — candidate `20260921021231_p4_coach_qualifications` (pending jusqu’à apply live). Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
 
 Un Coach **reste visible et utilisable sans badge vérifié**. Les états sont `declared / pending / verified / rejected / expired`. La revue est `service_role` uniquement. Surface publique minimale (pas de `proof_path` / `reviewer_*` / `review_note`). Preuve liée à `auth.uid() / qualification_id / proof`. Pas d’étoiles.
 
 ## P4.2 — Matching expliqué
 
-**En correction revue** — candidate `20260921021923_p4_explained_matching` (pending jusqu’à apply live). Inventaire : [P4.2 — matching expliqué](P4_2_MATCHING.md).
+**En correction pré-production** — candidate `20260921021923_p4_explained_matching` (pending jusqu’à apply live). Inventaire : [P4.2 — matching expliqué](P4_2_MATCHING.md).
 
 Exigences bloquantes vs préférences. Disciplines Vision (`strength` / `bodybuilding` / `hypertrophy` / `powerlifting` + `general_fitness` historique). Budget comparable seulement si montant + période + devise matchent. Shortlist de Coachs **éligibles** uniquement (max 5). Pas de pourcentage. Pas de `€` hardcodé.
 
 ## P4.3 — Prospect dans la messagerie
 
-**En correction revue** — candidate `20260921023720_p4_prospect_messaging` (pending jusqu’à apply live). Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
+**En correction pré-production** — candidate `20260921023720_p4_prospect_messaging` (pending jusqu’à apply live). Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
 
 Dès `pending` : conversation prospect. Puis `coach_accepted` : même fil. Pas d’`is_coach_of`, pas de dossier / photos / programme avant `athlete_confirmed`. Snapshot prospect limité et consenti.
 
 ## P4.4 — Signalement/modération minimale
 
-**En correction revue** — candidate `20260921024426_p4_marketplace_moderation` (pending jusqu’à apply live). Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
+**En correction pré-production** — candidate `20260921024426_p4_marketplace_moderation` (pending jusqu’à apply live). Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
 
 Signaler un profil ou un comportement. File `service_role` (pas de console SPA). `directory_suspended` masque l’annuaire **et** refuse une **nouvelle** `request_coaching` (`coach_unavailable`). Une relation active n’est pas terminée. Un prospect déjà ouvert peut continuer jusqu’à confirmation. Acteur d’audit durable (`marketplace_audit_actor`). **Pas d’étoiles/avis Coach.** Pas de produit « bloquer ».
 
 ### Terminé quand P4
 
-Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère non atteint tant que la revue contractuelle n’est pas corrigée et mergée/appliquée.**
+Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère non atteint tant que la revue pré-production n’est pas corrigée et mergée/appliquée.**
 
 ---
 

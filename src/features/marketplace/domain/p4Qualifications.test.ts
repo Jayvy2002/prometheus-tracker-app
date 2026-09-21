@@ -61,6 +61,13 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /reviewer_ref was not durable/);
   assert.match(found, /list_public_coach_qualifications/);
   assert.match(found, /qualification_owned_proof_path/);
+  assert.match(found, /qualification_proof_object_exists/);
+  assert.match(found, /proof_missing/);
+  assert.match(found, /qualification_delete_proof_objects/);
+  assert.match(found, /verification_status IN \('declared', 'rejected'\)/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /submit without storage object/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /pending proof update allowed/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /withdraw left proof object/);
   assert.match(found, /coach_id = \(SELECT auth.uid\(\)\)/);
   assert.doesNotMatch(found, /verification_status <> 'rejected'\s+AND EXISTS/);
   assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /list_public_coach_qualifications/);

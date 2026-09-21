@@ -32,7 +32,9 @@ Un utilisateur public ne lit jamais `proof_path`, `reviewer_id`, `reviewer_ref` 
 
 ## Preuve
 
-Le chemin doit matcher `auth.uid() / qualification_id / proof[.pdf|.jpg|.jpeg|.png|.webp]`. `declare` ignore un `p_proof_path` client. `save` / `submit` refusent tout autre chemin (`invalid_proof_path`). Les policies Storage exigent le même dossier.
+Le chemin doit matcher `auth.uid() / qualification_id / proof[.pdf|.jpg|.jpeg|.png|.webp]`. `declare` ignore un `p_proof_path` client. `save` / `submit` refusent tout autre chemin (`invalid_proof_path`). `submit` exige que l’objet existe dans `storage.objects` (`bucket = qualification-proofs`, `name = proof_path`) sinon `proof_missing`.
+
+Les policies Storage n’autorisent INSERT/UPDATE/DELETE que si `verification_status IN ('declared', 'rejected')`. Dès `pending` (et pour `verified` / `expired`) la preuve est immuable. `withdraw` d’une ligne `declared`/`rejected` supprime d’abord les objets du catalogue Storage, puis la ligne. La suppression de compte nettoie récursivement le bucket via l’API Storage.
 
 ## Écritures
 

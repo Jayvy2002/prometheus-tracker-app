@@ -30,6 +30,9 @@ function profile(overrides: Partial<CoachMatchProfile> = {}): CoachMatchProfile 
     languages: ['fr'],
     formats: ['online'],
     area: '',
+    area_city: '',
+    area_region: '',
+    area_country: '',
     published: true,
     accepting_clients: true,
     updated_at: '',
@@ -64,8 +67,8 @@ test('blocking mismatches make a coach ineligible without a compatibility percen
   const format = evaluateCoachMatch(profile({ formats: ['in_person'], area: 'Lyon' }), intent({ format: 'online' }));
   assert.equal(format.eligible, false);
   const area = evaluateCoachMatch(
-    profile({ formats: ['in_person'], area: 'Paris' }),
-    intent({ format: 'in_person', area: 'Lyon' }),
+    profile({ formats: ['in_person'], area_city: 'Paris', area_country: 'FR' }),
+    intent({ format: 'in_person', area_city: 'Lyon', area_country: 'FR' }),
   );
   assert.equal(area.eligible, false);
   const overBudget = evaluateCoachMatch(profile({ indicative_price_cents: 9000 }), intent({ budget_max_cents: 5000, budget_period: 'month', budget_currency: 'EUR' }));
@@ -82,13 +85,32 @@ test('missing listed rate stays eligible and is reported as missing information'
   assert.equal(row.matched_requirements.includes('budget'), false);
 });
 
-test('in-person without an athlete area stays eligible with missing area', () => {
+test('in-person without city and country is not ready and is ineligible', () => {
   const row = evaluateCoachMatch(
-    profile({ formats: ['in_person'], area: 'Lyon' }),
-    intent({ format: 'in_person', area: '' }),
+    profile({ formats: ['in_person'], area_city: 'Lyon', area_country: 'FR' }),
+    intent({ format: 'in_person', area_city: '', area_country: '' }),
   );
-  assert.equal(row.eligible, true);
-  assert.deepEqual(row.missing_information, ['area']);
+  assert.equal(row.eligible, false);
+  assert.equal(intentIsReady(intent({ format: 'in_person' })), false);
+  assert.equal(intentIsReady(intent({ format: 'in_person', area_city: 'Lyon', area_country: 'FR' })), true);
+});
+
+test('in-person matching uses city and country equality, not substrings', () => {
+  const parisFr = evaluateCoachMatch(
+    profile({ formats: ['in_person'], area_city: 'Paris', area_country: 'FR' }),
+    intent({ format: 'in_person', area_city: 'Paris', area_country: 'FR' }),
+  );
+  assert.equal(parisFr.eligible, true);
+  const parisTexas = evaluateCoachMatch(
+    profile({ formats: ['in_person'], area_city: 'Paris', area_region: 'Texas', area_country: 'US' }),
+    intent({ format: 'in_person', area_city: 'Paris', area_country: 'FR' }),
+  );
+  assert.equal(parisTexas.eligible, false);
+  const york = evaluateCoachMatch(
+    profile({ formats: ['in_person'], area_city: 'New York', area_country: 'US' }),
+    intent({ format: 'in_person', area_city: 'York', area_country: 'US' }),
+  );
+  assert.equal(york.eligible, false);
 });
 
 test('shortlist keeps only eligible coaches, ordered by preferences, capped at five', () => {
@@ -116,10 +138,12 @@ test('an empty eligible set stays empty instead of filling with incompatibles', 
 test('intent readiness requires blocking discipline, language and format', () => {
   assert.equal(intentIsReady(intent()), true);
   assert.equal(intentIsReady(normalizeSearchIntent({ discipline: 'strength', language: 'fr' })), false);
-  assert.deepEqual(listedRateCopy(profile()), { amount: '40', period: 'month', currency: 'EUR' });
+  assert.deepEqual(listedRateCopy(profile()), { amount: '40.00', period: 'month', currency: 'EUR' });
+  assert.deepEqual(listedRateCopy(profile({ indicative_price_cents: 4050 })), { amount: '40.50', period: 'month', currency: 'EUR' });
   assert.equal(listedRateCopy(profile({ indicative_price_period: 'on_request' })), null);
   const base = { coach_id: 'c', public_name: 'A', introduction: '', method: '', offer: '', disciplines: [], languages: [], formats: [], area: '', published: false, accepting_clients: false, updated_at: '' } as CoachPublicProfile;
   assert.equal(blankMatchProfile(base).indicative_price_period, 'on_request');
+  assert.equal(blankMatchProfile(base).area_city, '');
 });
 
 test('P4.2 matching is an explained shortlist, not a score, and stays off the sixth tab', () => {
@@ -128,7 +152,10 @@ test('P4.2 matching is an explained shortlist, not a score, and stays off the si
   assert.match(sql, /CREATE OR REPLACE FUNCTION public.explain_marketplace_matches\(\)/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public.explain_marketplace_matches\(\) TO authenticated/);
   assert.match(sql, /LIMIT 5/);
-  assert.match(sql, /array_append\(v_req, 'discipline'\)/);
+  assert.match(sql, /marketplace_location_matches/);
+  assert.match(sql, /coach_account_closed/);
+  assert.match(sql, /'EUR', 'USD', 'CAD'/);
+  assert.doesNotMatch(sql, /position\(lower\(btrim/);
   assert.doesNotMatch(sql, /v_req := v_req \|\| '/);
   assert.doesNotMatch(sql, /%\s*compatible|compatibility_score|92\s*%/);
   assert.doesNotMatch(sql, /subscription/);
@@ -147,7 +174,8 @@ test('P4.2 matching is an explained shortlist, not a score, and stays off the si
   assert.match(src('src/i18n/locales/fr/marketplace.ts'), /Aucun coach ne correspond aux exigences/);
   assert.match(src('src/i18n/locales/en/marketplace.ts'), /No coach matches these requirements/);
   assert.match(src('.github/workflows/ci.yml'), /p4_explained_matching\.sql/);
-  assert.match(src('supabase/tests/p4_explained_matching.sql'), /incompatible coach filled the shortlist/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /structured geo shortlist mismatch/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /in-person without city explained/);
   assert.match(src('supabase/tests/p4_explained_matching.sql'), /shortlist exceeded five/);
   assert.match(src('supabase/tests/p4_explained_matching.sql'), /missing_information' @> '\["price"\]'/);
   assert.match(src('supabase/tests/p4_explained_matching.sql'), /^ROLLBACK;/m);

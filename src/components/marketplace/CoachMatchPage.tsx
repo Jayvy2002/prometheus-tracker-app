@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import {
+  MARKET_BETA_CURRENCIES,
   MARKET_DISCIPLINES,
   MARKET_FORMATS,
   MARKET_LANGUAGES,
@@ -25,7 +26,7 @@ import Input from '../ui/Input';
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
 
 function amountFromCents(cents: number | null): string {
-  return cents == null ? '' : String(Math.round(cents / 100));
+  return cents == null ? '' : (cents / 100).toFixed(2);
 }
 
 export default function CoachMatchPage() {
@@ -140,7 +141,11 @@ export default function CoachMatchPage() {
             </div>
           ))}
           {intent.format && intent.format !== 'online' && (
-            <Input maxLength={150} label={t('marketplace.area')} value={intent.area} onChange={e => patch({ area: e.target.value })} />
+            <>
+              <Input required maxLength={80} label={t('marketplace.area_city')} value={intent.area_city} onChange={e => patch({ area_city: e.target.value })} />
+              <Input maxLength={80} label={t('marketplace.area_region')} value={intent.area_region} onChange={e => patch({ area_region: e.target.value })} />
+              <Input required maxLength={80} label={t('marketplace.area_country')} value={intent.area_country} onChange={e => patch({ area_country: e.target.value })} />
+            </>
           )}
           <Input inputMode="decimal" label={t('marketplace.budget')} value={budgetAmount} onChange={e => setBudgetAmount(e.target.value)} />
           <div className="space-y-2">
@@ -150,7 +155,13 @@ export default function CoachMatchPage() {
               {MATCH_PRICE_PERIODS.filter(value => value !== 'on_request').map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}
             </select>
           </div>
-          <Input maxLength={3} autoCapitalize="characters" label={t('marketplace.budget_currency')} value={intent.budget_currency} onChange={e => patch({ budget_currency: e.target.value.toUpperCase() })} />
+          <div className="space-y-2">
+            <label htmlFor="match-budget-currency">{t('marketplace.budget_currency')}</label>
+            <select id="match-budget-currency" className={fieldStyle} value={intent.budget_currency} onChange={e => patch({ budget_currency: e.target.value })}>
+              <option value="">{t('marketplace.any')}</option>
+              {MARKET_BETA_CURRENCIES.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </div>
         </fieldset>
         <fieldset disabled={busy} className="space-y-4">
           <legend className="font-semibold text-white">{t('marketplace.matchPreferences')}</legend>

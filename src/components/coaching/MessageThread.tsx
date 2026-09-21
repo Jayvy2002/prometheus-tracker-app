@@ -12,6 +12,7 @@ import {
 } from '../../lib/messageDrafts';
 import { bilanOpenHref, bilanViewerFor, formatBilanDate } from '../../lib/messageBilan';
 import { useMessageBilanLabels, type MessageBilanChip } from '../../features/coaching/hooks/useMessageBilanLabels';
+import { MARKETPLACE_MESSAGE_MAX_LENGTH } from '../../lib/marketplace';
 
 export default function MessageThread({
   messages,
@@ -52,9 +53,10 @@ export default function MessageThread({
   const previous = useRef({ first: '', last: '', height: 0 });
   const [newMessages, setNewMessages] = useState(false);
   const changeBody = (value: string) => {
+    const next = value.slice(0, MARKETPLACE_MESSAGE_MAX_LENGTH);
     revisionRef.current += 1;
-    setBody(value);
-    saveMessageDraft(accountId, peerId, value);
+    setBody(next);
+    saveMessageDraft(accountId, peerId, next);
   };
   const ordered = useMemo(() => [...messages].sort((a, b) =>
     a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id)), [messages]);
@@ -215,6 +217,7 @@ export default function MessageThread({
               }
             }}
             rows={draftBody ? 4 : 2}
+            maxLength={MARKETPLACE_MESSAGE_MAX_LENGTH}
             placeholder={t('coaching.messages.replyPlaceholder')}
             className="flex-1 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white resize-none"
           />

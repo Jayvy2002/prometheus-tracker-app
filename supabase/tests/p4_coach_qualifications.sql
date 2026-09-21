@@ -96,8 +96,51 @@ BEGIN
     IF SQLERRM <> 'invalid_proof_path' THEN RAISE; END IF;
   END;
   q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
+  BEGIN
+    PERFORM public.submit_coach_qualification(q.id);
+    RAISE EXCEPTION 'submit without storage object';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'proof_missing' THEN RAISE; END IF;
+  END;
+END $$;
+
+RESET ROLE;
+INSERT INTO storage.objects (bucket_id, name, owner, owner_id)
+SELECT 'qualification-proofs', q.proof_path, q.coach_id, q.coach_id::text
+FROM public.coach_qualifications q
+WHERE q.coach_id = 'c4100000-0000-4000-8000-000000000001'
+  AND q.proof_path IS NOT NULL;
+
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
+DO $$
+DECLARE
+  q public.coach_qualifications;
+  n int;
+BEGIN
+  SELECT * INTO q FROM public.coach_qualifications WHERE coach_id = auth.uid();
   q := public.submit_coach_qualification(q.id);
   IF q.verification_status <> 'pending' THEN RAISE EXCEPTION 'submit did not pending'; END IF;
+  UPDATE storage.objects SET metadata = '{"tamper":true}'::jsonb WHERE name = q.proof_path;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'pending proof update allowed'; END IF;
+  DELETE FROM storage.objects WHERE name = q.proof_path;
+  GET DIAGNOSTICS n = ROW_COUNT;
+  IF n <> 0 THEN RAISE EXCEPTION 'pending proof delete allowed'; END IF;
+  BEGIN
+    INSERT INTO storage.objects (bucket_id, name, owner, owner_id)
+    VALUES (
+      'qualification-proofs',
+      auth.uid()::text || '/' || q.id::text || '/proof.jpg',
+      auth.uid(),
+      auth.uid()::text
+    );
+    RAISE EXCEPTION 'pending extra proof insert allowed';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE '%permission denied%' AND SQLERRM NOT LIKE '%policy%' THEN
+      RAISE;
+    END IF;
+  END;
   BEGIN
     PERFORM public.review_coach_qualification(q.id, 'verified', NULL);
     RAISE EXCEPTION 'client reviewed qualification';
@@ -204,7 +247,36 @@ BEGIN
   END;
 END $$;
 
+SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
+DO $$
+DECLARE
+  q public.coach_qualifications;
+BEGIN
+  q := public.declare_coach_qualification('ISSN', 'certification', 'ISSN');
+  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
+  PERFORM set_config('p4.withdraw_id', q.id::text, true);
+END $$;
+RESET ROLE;
+INSERT INTO storage.objects (bucket_id, name, owner, owner_id)
+VALUES (
+  'qualification-proofs',
+  'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf',
+  'c4100000-0000-4000-8000-000000000001',
+  'c4100000-0000-4000-8000-000000000001'
+);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
+SELECT public.withdraw_coach_qualification(current_setting('p4.withdraw_id')::uuid);
 RESET ROLE;
 SELECT pg_temp.clear_jwt();
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM storage.objects
+    WHERE bucket_id = 'qualification-proofs'
+      AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf'
+  ) THEN RAISE EXCEPTION 'withdraw left proof object'; END IF;
+END $$;
+
 \echo 'p4.1 qualifications: declare/submit/review, badge optional, no publish gate'
 ROLLBACK;

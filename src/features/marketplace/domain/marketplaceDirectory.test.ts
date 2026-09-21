@@ -91,7 +91,8 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.match(page, /normalizeJoinRequestStatus/);
   assert.match(page, /requestRelationshipCopyKey/);
   assert.match(page, /marketplace\.acceptContinuesProspect/);
-  assert.match(page, /marketplace\.confirmActivatesFollow/);
+  assert.match(page, /confirmScopesReminder/);
+  assert.match(src('src/features/marketplace/domain/marketplace.ts'), /MARKETPLACE_CONSENT_VERSION = 3/);
   assert.doesNotMatch(page, /acceptActivatesFollow/);
   assert.doesNotMatch(page, /relationshipUnknownHistorical/);
   assert.match(page, /marketplace\.already_coached/);

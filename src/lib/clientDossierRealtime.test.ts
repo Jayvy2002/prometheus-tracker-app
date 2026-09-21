@@ -47,6 +47,8 @@ test('C03: coach deletion runs the business transition first, then paginated cle
     'transition must run before Auth deletion',
   );
   assert.match(edge, /offset \+= LIST_PAGE/);
+  assert.match(edge, /qualification-proofs/);
+  assert.match(edge, /listOwnedStoragePaths/);
   assert.match(edge, /P3 snapshot/);
 });
 

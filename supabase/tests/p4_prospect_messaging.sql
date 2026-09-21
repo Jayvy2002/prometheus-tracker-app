@@ -50,7 +50,7 @@ DO $$ BEGIN
       'c4300000-0000-4000-8000-000000000001',
       'Athlete',
       'Looking for a coach',
-      2,
+      3,
       'c4300000-0000-4000-8000-000000000010',
       '{"summary":"Looking for a coach","questionnaire":"secret"}'::jsonb
     );
@@ -58,13 +58,36 @@ DO $$ BEGIN
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'invalid_snapshot' THEN RAISE; END IF;
   END;
+  PERFORM public.request_coaching(
+    'c4300000-0000-4000-8000-000000000001',
+    'Athlete',
+    'Looking for a coach',
+    2,
+    'c4300000-0000-4000-8000-000000000011',
+    '{"summary":"Looking for a coach","questionnaire":"secret","objective":"ignored"}'::jsonb
+  );
+END $$;
+
+SELECT * FROM public.coach_join_requests WHERE client_request_id = 'c4300000-0000-4000-8000-000000000011';
+DO $$
+DECLARE
+  r public.coach_join_requests;
+BEGIN
+  SELECT * INTO r FROM public.coach_join_requests WHERE client_request_id = 'c4300000-0000-4000-8000-000000000011';
+  IF r.sharing_version <> 2 OR r.prospect_snapshot ? 'objective' OR r.prospect_snapshot ? 'questionnaire' THEN
+    RAISE EXCEPTION 'v2 extras were not stripped';
+  END IF;
+  IF r.prospect_snapshot->>'summary' IS DISTINCT FROM 'Looking for a coach' THEN
+    RAISE EXCEPTION 'v2 summary missing';
+  END IF;
+  PERFORM public.respond_coaching_request(r.id, 'withdrawn');
 END $$;
 
 SELECT public.request_coaching(
   'c4300000-0000-4000-8000-000000000001',
   'Athlete',
   'Looking for a coach',
-  2,
+  3,
   'c4300000-0000-4000-8000-000000000010',
   '{"objective":"Hypertrophy","level":"intermediate","discipline":"bodybuilding","language":"fr","expectations":"Weekly check-ins","availability":"Evenings","constraints":"Knee","budget":"200 per month","summary":"Looking for a coach"}'::jsonb
 );
@@ -73,7 +96,7 @@ DO $$
 DECLARE
   r public.coach_join_requests;
 BEGIN
-  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid();
+  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid() AND status = 'pending';
   IF r.status <> 'pending' THEN RAISE EXCEPTION 'request was not pending'; END IF;
   IF r.prospect_snapshot->>'objective' IS DISTINCT FROM 'Hypertrophy'
      OR r.prospect_snapshot ? 'questionnaire' THEN
@@ -84,6 +107,22 @@ BEGIN
   END IF;
   INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key)
   VALUES (r.coach_id, auth.uid(), auth.uid(), 'Hello from pending', 'reply');
+  INSERT INTO public.workouts(id, user_id, name)
+  VALUES ('c4300000-0000-4000-8000-0000000000aa', auth.uid(), 'Prospect session');
+  BEGIN
+    INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key, workout_id)
+    VALUES (r.coach_id, auth.uid(), auth.uid(), 'dossier leak', 'reply', 'c4300000-0000-4000-8000-0000000000aa');
+    RAISE EXCEPTION 'prospect athlete attached workout';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'new row violates%' AND SQLERRM <> 'prospect_no_dossier' THEN RAISE; END IF;
+  END;
+  BEGIN
+    INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key)
+    VALUES (r.coach_id, auth.uid(), auth.uid(), repeat('x', 2001), 'reply');
+    RAISE EXCEPTION 'oversized prospect message accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%coach_messages_body_length_check%' AND SQLERRM NOT LIKE 'new row violates%' AND SQLERRM NOT LIKE '%check constraint%' THEN RAISE; END IF;
+  END;
 END $$;
 
 SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000001');
@@ -91,7 +130,7 @@ DO $$
 DECLARE
   r public.coach_join_requests;
 BEGIN
-  SELECT * INTO r FROM public.coach_join_requests WHERE coach_id = auth.uid();
+  SELECT * INTO r FROM public.coach_join_requests WHERE coach_id = auth.uid() AND status = 'pending';
   IF r.prospect_snapshot->>'constraints' IS DISTINCT FROM 'Knee' THEN
     RAISE EXCEPTION 'coach did not receive consented snapshot';
   END IF;
@@ -116,6 +155,13 @@ BEGIN
   END;
   INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key)
   VALUES (auth.uid(), r.client_id, auth.uid(), 'Hello prospect', 'prospect');
+  BEGIN
+    INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key, workout_id)
+    VALUES (auth.uid(), r.client_id, auth.uid(), 'session note', 'prospect', 'c4300000-0000-4000-8000-0000000000aa');
+    RAISE EXCEPTION 'prospect coach attached workout';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'new row violates%' AND SQLERRM <> 'prospect_no_dossier' THEN RAISE; END IF;
+  END;
   PERFORM public.respond_coaching_request(r.id, 'accepted');
   IF public.is_coach_of(r.client_id) THEN RAISE EXCEPTION 'prospect gained is_coach_of'; END IF;
   IF NOT public.marketplace_open_prospect(auth.uid(), r.client_id) THEN

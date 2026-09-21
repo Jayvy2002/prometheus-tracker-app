@@ -4,7 +4,9 @@ export const PROSPECT_SNAPSHOT_LIMITS: Record<typeof PROSPECT_SNAPSHOT_KEYS[numb
   objective: 200, level: 80, discipline: 80, language: 40, expectations: 500,
   availability: 300, constraints: 500, budget: 120, summary: 1500,
 };
-export const MARKETPLACE_CONSENT_VERSION = 2;
+export const MARKETPLACE_CONSENT_VERSION = 3;
+export const MARKETPLACE_MESSAGE_MAX_LENGTH = 2000;
+export const MARKET_BETA_CURRENCIES = ['EUR', 'USD', 'CAD'] as const;
 export const MARKET_LANGUAGES = ['fr', 'en'] as const;
 export const MARKET_FORMATS = ['online', 'in_person', 'hybrid'] as const;
 export const QUALIFICATION_TYPES = ['certification', 'degree', 'license', 'continuing_education', 'other'] as const;
@@ -33,6 +35,9 @@ export type ProspectSnapshot = Partial<Record<typeof PROSPECT_SNAPSHOT_KEYS[numb
 export interface CoachPublicProfile {
   coach_id: string; public_name: string; introduction: string; method: string; offer: string;
   disciplines: string[]; languages: string[]; formats: string[]; area: string;
+  area_city?: string;
+  area_region?: string;
+  area_country?: string;
   published: boolean; accepting_clients: boolean; updated_at: string;
   contact_frequency?: string;
   coaching_style?: string;
@@ -185,6 +190,16 @@ export function clearCoachingRequestKey(storage: Pick<Storage, 'removeItem'>, ow
   requestKeys.delete(name);
   try { storage.removeItem(name); } catch { /* Cleanup cannot turn a confirmed write into failure. */ }
 }
+export function coachingReportKey(storage: Pick<Storage, 'getItem' | 'setItem'>, owner: string, target: string, relatedRequestId: string | null): string {
+  const name = `prometheus:marketplace-report:${owner}:${target}:${relatedRequestId ?? 'none'}`;
+  let existing = requestKeys.get(name);
+  try { existing = storage.getItem(name) ?? existing; } catch { /* Storage can be disabled. */ }
+  if (existing && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(existing)) { requestKeys.set(name, existing); return existing; }
+  const key = crypto.randomUUID();
+  requestKeys.set(name, key);
+  try { storage.setItem(name, key); } catch { /* Keep this session's retry key in memory. */ }
+  return key;
+}
 
 export const REPORT_SUBJECT_TYPES = ['profile', 'behavior'] as const;
 export const REPORT_CATEGORIES = ['harassment', 'impersonation', 'inappropriate', 'spam', 'other'] as const;
@@ -200,6 +215,7 @@ export interface MarketplaceReport {
   category: ReportCategory;
   context: string;
   related_request_id: string | null;
+  client_report_id?: string | null;
   status: ReportStatus;
   created_at: string;
   updated_at: string;

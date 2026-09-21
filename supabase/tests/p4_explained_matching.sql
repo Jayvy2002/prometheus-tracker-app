@@ -34,7 +34,9 @@ INSERT INTO auth.users(id, email) VALUES
  ('c4200000-0000-4000-8000-00000000000b', 'p42-body@example.test'),
  ('c4200000-0000-4000-8000-00000000000c', 'p42-hyper@example.test'),
  ('c4200000-0000-4000-8000-00000000000d', 'p42-session@example.test'),
- ('c4200000-0000-4000-8000-00000000000e', 'p42-usd@example.test');
+ ('c4200000-0000-4000-8000-00000000000e', 'p42-usd@example.test'),
+ ('c4200000-0000-4000-8000-00000000000f', 'p42-paris-fr@example.test'),
+ ('c4200000-0000-4000-8000-000000000010', 'p42-paris-us@example.test');
 INSERT INTO public.user_roles(user_id, role, coaching_role) VALUES
  ('c4200000-0000-4000-8000-000000000001', 'free', 'coach'),
  ('c4200000-0000-4000-8000-000000000002', 'free', 'coach'),
@@ -49,7 +51,9 @@ INSERT INTO public.user_roles(user_id, role, coaching_role) VALUES
  ('c4200000-0000-4000-8000-00000000000b', 'free', 'coach'),
  ('c4200000-0000-4000-8000-00000000000c', 'free', 'coach'),
  ('c4200000-0000-4000-8000-00000000000d', 'free', 'coach'),
- ('c4200000-0000-4000-8000-00000000000e', 'free', 'coach')
+ ('c4200000-0000-4000-8000-00000000000e', 'free', 'coach'),
+ ('c4200000-0000-4000-8000-00000000000f', 'free', 'coach'),
+ ('c4200000-0000-4000-8000-000000000010', 'free', 'coach')
 ON CONFLICT (user_id) DO UPDATE SET coaching_role = excluded.coaching_role;
 
 DO $$ BEGIN
@@ -73,7 +77,8 @@ DO $$ BEGIN
   IF public.marketplace_listed_rate_decision(5000, 'month', 'EUR', 4000, 'session', 'EUR') <> 'missing'
      OR public.marketplace_listed_rate_decision(5000, 'month', 'EUR', 4000, 'month', 'USD') <> 'missing'
      OR public.marketplace_listed_rate_decision(5000, 'month', 'EUR', 9000, 'month', 'EUR') <> 'over'
-     OR public.marketplace_listed_rate_decision(5000, 'program', 'CHF', 4000, 'program', 'CHF') <> 'match'
+     OR public.marketplace_listed_rate_decision(5000, 'program', 'CAD', 4000, 'program', 'CAD') <> 'match'
+     OR public.marketplace_listed_rate_decision(5000, 'program', 'CHF', 4000, 'program', 'CHF') <> 'missing'
   THEN
     RAISE EXCEPTION 'listed rate decision mismatch';
   END IF;
@@ -130,6 +135,10 @@ SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000d');
 SELECT public.save_my_coach_profile('{"public_name":"Session","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":9000,"indicative_price_period":"session","indicative_price_currency":"EUR"}');
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000e');
 SELECT public.save_my_coach_profile('{"public_name":"Usd","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true,"indicative_price_cents":20000,"indicative_price_period":"month","indicative_price_currency":"USD"}');
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000f');
+SELECT public.save_my_coach_profile('{"public_name":"ParisFr","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["in_person"],"published":true,"accepting_clients":true,"area_city":"Paris","area_country":"FR"}');
+SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000010');
+SELECT public.save_my_coach_profile('{"public_name":"ParisTx","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["in_person"],"published":true,"accepting_clients":true,"area_city":"Paris","area_region":"Texas","area_country":"US"}');
 
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-000000000009');
 SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"online","contact_frequency":"weekly","coaching_style":"collaborative","autonomy":"medium","experience_level":"beginner"}');
@@ -219,15 +228,25 @@ BEGIN
   END IF;
 END $$;
 
-SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"in_person","area":"Paris"}');
+SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"in_person","area_city":"Paris","area_country":"FR"}');
 DO $$
 DECLARE
   v_rows jsonb;
 BEGIN
   v_rows := public.explain_marketplace_matches();
-  IF jsonb_array_length(v_rows) <> 0 THEN
-    RAISE EXCEPTION 'in-person mismatch still listed';
+  IF jsonb_array_length(v_rows) <> 1 OR v_rows->0->>'public_name' <> 'ParisFr' THEN
+    RAISE EXCEPTION 'structured geo shortlist mismatch: %', v_rows;
   END IF;
+END $$;
+
+SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"in_person"}');
+DO $$ BEGIN
+  BEGIN
+    PERFORM public.explain_marketplace_matches();
+    RAISE EXCEPTION 'in-person without city explained';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'intent_incomplete' THEN RAISE; END IF;
+  END;
 END $$;
 
 SELECT pg_temp.as_user('c4200000-0000-4000-8000-00000000000a');

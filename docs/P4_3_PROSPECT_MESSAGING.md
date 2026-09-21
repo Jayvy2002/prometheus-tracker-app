@@ -28,7 +28,9 @@ Colonne `prospect_snapshot` sur `coach_join_requests`, normalisée par `marketpl
 
 `objective`, `level`, `discipline`, `language`, `expectations`, `availability`, `constraints`, `budget`, `summary`.
 
-Ce n’est **pas** le questionnaire complet, le profil privé, ni les données live. `request_coaching(..., p_snapshot jsonb)` ; la signature 5 arguments délègue avec `{summary}`.
+`request_coaching(..., p_snapshot jsonb)` ; `sharing_version = 3` est la disclosure snapshot limitée. `sharing_version = 2` historique = nom + résumé uniquement (clés extra ignorées). La signature 5 arguments délègue avec `{summary}`. `respond_coaching_request` accepte 2 et 3 ; le consentement de relation reste version 2.
+
+Toute insertion prospect (`marketplace_open_prospect`) exige `workout_id IS NULL` et `checkin_id IS NULL`. Corps de message : 1–2000 caractères.
 
 ## Fil
 

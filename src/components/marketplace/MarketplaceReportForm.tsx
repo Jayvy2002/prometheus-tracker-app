@@ -5,6 +5,7 @@ import { marketRpc } from '../../lib/marketplaceApi';
 import {
   REPORT_CATEGORIES,
   REPORT_SUBJECT_TYPES,
+  coachingReportKey,
   type MarketplaceReport,
   type ReportCategory,
   type ReportSubjectType,
@@ -41,6 +42,7 @@ export default function MarketplaceReportForm({ owner, targetUserId, relatedRequ
         p_category: category,
         p_context: context,
         p_request: relatedRequestId,
+        p_client_report_id: coachingReportKey(sessionStorage, owner, targetUserId, relatedRequestId),
       }, owner);
       onSubmitted(saved);
       setContext('');

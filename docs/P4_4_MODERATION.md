@@ -10,8 +10,10 @@
 | Lecture | le reporter voit **ses** dossiers ; la cible ne voit pas l’identité du reporter |
 | Revue | `review_marketplace_report` — `service_role` uniquement |
 | Actions | `acknowledge` / `dismiss` / `resolve` / `suspend_directory` / `restore_directory`, journalisées |
-| Annuaire | `directory_suspended` masque le profil publié, la shortlist, et les badges publics |
-| Nouvelle demande | `request_coaching` échoue `coach_unavailable` si le Coach est suspendu |
+| Annuaire | `marketplace_coach_discoverable` (capability Coach, lifecycle P3 ouvert, published, `NOT directory_suspended`) |
+| Nouvelle demande | `request_coaching` échoue `coach_unavailable` si le Coach n’est pas découvrable |
+| Hold | `directory_hold_active` par report ; `directory_suspended` = OR des holds actifs |
+| Audit | `reporter_id` / `target_user_id` SET NULL ; `reporter_ref` / `target_ref` durables ; actions `ON DELETE RESTRICT` |
 | Prospect déjà ouvert | une demande `pending` / `coach_accepted` existante **peut** continuer (messages, accept, confirm) — compatible avec le hold d’annuaire, pas une nouvelle acquisition |
 | Relation | la suspension **ne** touche **pas** `coach_client_links` / `is_coach_of` |
 | Provenance | `marketplace_moderation_actions.actor` et `coach_qualifications.reviewer_ref` = `marketplace_audit_actor()` (`user:<uid>` ou `role:service_role`). Jamais `CURRENT_USER` DEFINER, jamais un id client |

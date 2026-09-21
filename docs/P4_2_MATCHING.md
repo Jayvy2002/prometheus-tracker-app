@@ -4,7 +4,7 @@
 
 ## Questionnaire
 
-Exigences bloquantes : discipline, langue, format, zone si présentiel, budget **seulement** lorsqu’il est comparable.
+Exigences bloquantes : discipline, langue, format, **ville + pays** si présentiel/hybride (égalité normalisée, pas de sous-chaîne), budget **seulement** lorsqu’il est comparable.
 
 Préférences importantes : fréquence de contact, style, autonomie, expérience.
 
@@ -22,7 +22,7 @@ Valeurs retenues (SQL + TypeScript + FR/EN) :
 
 ## Budget / tarif
 
-Offre Coach : `indicative_price_cents` + `indicative_price_period` (`on_request` / `session` / `month` / `program`) + `indicative_price_currency` (ISO 4217 ou vide).
+Offre Coach : `indicative_price_cents` + `indicative_price_period` (`on_request` / `session` / `month` / `program`) + `indicative_price_currency` (**bêta : EUR / USD / CAD** ou vide).
 
 Intention Athlète : `budget_max_cents` + `budget_period` + `budget_currency`.
 
@@ -43,6 +43,8 @@ Intention Athlète : `budget_max_cents` + `budget_period` + `budget_currency`.
 - `reasons`
 
 L’annuaire reste parcourable librement. La shortlist se limite à **5** Coachs éligibles. Un ensemble vide reste vide.
+
+`save_my_coach_profile` refuse `published` / `accepting_clients` si `coach_relationship_is_open` est faux (`coach_account_closed`). `explain_marketplace_matches` (P4.4) ne liste que `marketplace_coach_discoverable`.
 
 ## Migration
 
