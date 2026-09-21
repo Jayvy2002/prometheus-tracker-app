@@ -632,8 +632,14 @@ BEGIN
      AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'update')
      AND has_table_privilege('authenticated', 'public.coach_profiles', 'select')
      AND has_table_privilege('authenticated', 'public.coach_join_requests', 'select')
-     AND to_regclass('public.coach_profiles') IS NOT NULL
-     AND to_regclass('public.coach_join_requests') IS NOT NULL
+     AND has_function_privilege('authenticated', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
+     AND has_function_privilege('authenticated', 'public.submit_coach_qualification(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.review_coach_qualification(uuid,text,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.coach_qualifications', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_qualifications', 'update')
+     AND has_table_privilege('authenticated', 'public.coach_qualifications', 'select')
+     AND to_regclass('public.coach_qualifications') IS NOT NULL
   THEN
     PERFORM pg_temp.record('MARKETPLACE_GRANTS', true, 'directory RPCs granted; table writes revoked; anon revoked');
   ELSE

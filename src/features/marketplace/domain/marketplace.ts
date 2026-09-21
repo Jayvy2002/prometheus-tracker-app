@@ -2,6 +2,25 @@ export const MARKET_DISCIPLINES = ['strength', 'powerlifting', 'general_fitness'
 export const MARKETPLACE_CONSENT_VERSION = 2;
 export const MARKET_LANGUAGES = ['fr', 'en'] as const;
 export const MARKET_FORMATS = ['online', 'in_person', 'hybrid'] as const;
+export const QUALIFICATION_TYPES = ['certification', 'degree', 'license', 'continuing_education', 'other'] as const;
+export const QUALIFICATION_STATUSES = ['declared', 'pending', 'verified', 'rejected', 'expired'] as const;
+export type QualificationType = typeof QUALIFICATION_TYPES[number];
+export type QualificationStatus = typeof QUALIFICATION_STATUSES[number];
+export interface CoachQualification {
+  id: string;
+  coach_id: string;
+  title: string;
+  qualification_type: QualificationType;
+  issuer: string;
+  declared_at: string;
+  proof_path: string | null;
+  verification_status: QualificationStatus;
+  verified_at: string | null;
+  reviewer_id: string | null;
+  expires_on: string | null;
+  review_note: string | null;
+  updated_at: string;
+}
 export interface CoachPublicProfile {
   coach_id: string; public_name: string; introduction: string; method: string; offer: string;
   disciplines: string[]; languages: string[]; formats: string[]; area: string;
@@ -86,6 +105,26 @@ export function requestActions(request: CoachingRequest, userId: string): Array<
   if (request.coach_id === userId && request.status === 'pending') return ['accepted', 'declined'];
   return [];
 }
+export function civilDate(value: Date): string {
+  return `${value.getUTCFullYear()}-${String(value.getUTCMonth() + 1).padStart(2, '0')}-${String(value.getUTCDate()).padStart(2, '0')}`;
+}
+
+export function qualificationEffectiveStatus(
+  row: Pick<CoachQualification, 'verification_status' | 'expires_on'>,
+  today = civilDate(new Date()),
+): QualificationStatus {
+  if (row.verification_status === 'verified' && row.expires_on && row.expires_on < today) return 'expired';
+  return row.verification_status;
+}
+
+export function publicQualifications(rows: readonly CoachQualification[], today = civilDate(new Date())): CoachQualification[] {
+  return rows.filter(row => qualificationEffectiveStatus(row, today) !== 'rejected');
+}
+
+export function coachHasVerifiedBadge(rows: readonly CoachQualification[], today = civilDate(new Date())): boolean {
+  return rows.some(row => qualificationEffectiveStatus(row, today) === 'verified');
+}
+
 export function matchingReasons(profile: CoachPublicProfile, filters: ReturnType<typeof marketFilters>): string[] {
   return [filters.discipline && profile.disciplines.includes(filters.discipline) ? filters.discipline : '',
     filters.language && profile.languages.includes(filters.language) ? filters.language : '',
