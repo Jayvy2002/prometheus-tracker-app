@@ -388,7 +388,7 @@ jobs:
       - name: Confirm P4.3 prospect messaging echo
         run: |
           set -euo pipefail
-          grep -F 'p4.3 prospect messaging: conversation after accept, no dossier until confirm' /tmp/p4-prospect-db-results.txt
+          grep -F 'p4.3 prospect messaging: conversation from pending, no dossier until confirm' /tmp/p4-prospect-db-results.txt
       - name: Test P4.4 marketplace moderation
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

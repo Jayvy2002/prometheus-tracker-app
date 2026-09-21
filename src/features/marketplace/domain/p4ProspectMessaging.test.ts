@@ -31,6 +31,8 @@ test('P4.3 prospect messaging opens the thread without is_coach_of or the dossie
   assert.match(src('src/features/coaching/domain/coachQueue.ts'), /'prospect'/);
   assert.match(src('src/features/coaching/model/messagesSlice.ts'), /pCoachId/);
   assert.match(src('.github/workflows/ci.yml'), /p4_prospect_messaging\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /conversation from pending, no dossier until confirm/);
+  assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /conversation from pending, no dossier until confirm/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /prospect gained is_coach_of/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /prospect coach read photos/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /activation dropped prospect thread/);
