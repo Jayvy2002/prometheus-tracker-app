@@ -64,6 +64,7 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(found, /qualification_proof_object_exists/);
   assert.match(found, /proof_missing/);
   assert.match(found, /qualification_delete_proof_objects/);
+  assert.match(found, /storage\.allow_delete_query/);
   assert.match(found, /verification_status IN \('declared', 'rejected'\)/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /submit without storage object/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /pending proof update allowed/);

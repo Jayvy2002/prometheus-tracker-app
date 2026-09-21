@@ -124,8 +124,10 @@ BEGIN
   UPDATE storage.objects SET metadata = '{"tamper":true}'::jsonb WHERE name = q.proof_path;
   GET DIAGNOSTICS n = ROW_COUNT;
   IF n <> 0 THEN RAISE EXCEPTION 'pending proof update allowed'; END IF;
+  PERFORM set_config('storage.allow_delete_query', 'true', true);
   DELETE FROM storage.objects WHERE name = q.proof_path;
   GET DIAGNOSTICS n = ROW_COUNT;
+  PERFORM set_config('storage.allow_delete_query', 'false', true);
   IF n <> 0 THEN RAISE EXCEPTION 'pending proof delete allowed'; END IF;
   BEGIN
     INSERT INTO storage.objects (bucket_id, name, owner, owner_id)

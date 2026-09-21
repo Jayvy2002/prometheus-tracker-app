@@ -122,6 +122,7 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 BEGIN
+  PERFORM set_config('storage.allow_delete_query', 'true', true);
   DELETE FROM storage.objects
   WHERE bucket_id = 'qualification-proofs'
     AND (
