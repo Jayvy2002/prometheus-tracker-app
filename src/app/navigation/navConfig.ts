@@ -17,6 +17,7 @@ import {
   CalendarDays,
   BarChart2,
   Flame,
+  ListFilter,
 } from 'lucide-react';
 import type { AccountContext } from '../../lib/accountContext';
 import type { ResolvedTrackingConfig } from '../../lib/clientTracking';
@@ -66,6 +67,7 @@ const copilot: NavItemDef = { id: 'copilot', path: '/prometheus', labelKey: 'nav
 const coachOffer: NavItemDef = { id: 'coachOffer', path: '/coach/profile', labelKey: 'marketplace.profile', icon: User };
 const requests: NavItemDef = { id: 'requests', path: '/coaching-requests', labelKey: 'marketplace.requests', icon: Inbox };
 const directory: NavItemDef = { id: 'directory', path: '/coaches', labelKey: 'marketplace.directory', icon: Search };
+const coachMatch: NavItemDef = { id: 'coachMatch', path: '/coaches/match', labelKey: 'marketplace.match', icon: ListFilter };
 const weight: NavItemDef = { id: 'weight', path: '/weight', labelKey: 'nav.weight', icon: Scale };
 const photos: NavItemDef = { id: 'photos', path: '/photos', labelKey: 'nav.photos', icon: Camera };
 const calendar: NavItemDef = { id: 'calendar', path: '/calendar', labelKey: 'nav.calendar', icon: CalendarDays };
@@ -110,7 +112,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
     return nonempty([
       { id: 'primary', items: [today, clients, messages, programs] },
       { id: 'copilot', labelKey: 'nav.sectionCopilot', items: [copilot] },
-      { id: 'activity', labelKey: 'nav.sectionActivity', tone: 'muted', items: [coachOffer, requests, directory] },
+      { id: 'activity', labelKey: 'nav.sectionActivity', tone: 'muted', items: [coachOffer, requests, directory, coachMatch] },
       { id: 'account', items: [profile] },
     ]);
   }
@@ -140,7 +142,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       },
       { id: 'inbox', items: [messages] },
       { id: 'account', items: [profile] },
-      { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, requests] },
+      { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, coachMatch, requests] },
     ]);
   }
 
@@ -169,7 +171,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
       items: [progress, stats, calendar],
     },
     { id: 'account', items: [profile] },
-    { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, requests] },
+    { id: 'marketplace', labelKey: 'nav.sectionActivity', tone: 'muted', items: [directory, coachMatch, requests] },
   ]);
 }
 

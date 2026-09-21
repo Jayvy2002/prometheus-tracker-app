@@ -457,6 +457,8 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /wait_event = 'advisory'/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /close×activate Cas A includes C; Cas B confirm\/invite refuse closed Coach without deadlock/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /grep -qx 'coach_unavailable'/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /request_closed\|coach_unavailable/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /Cas B close did not withdraw the in-flight prospect/);
   assert.match(src('scripts/test-confirm-activate-lock.sh'), /respond_coaching_request/);
   assert.match(src('scripts/test-confirm-activate-lock.sh'), /activate_coaching_relationship/);
   assert.match(src('scripts/test-confirm-activate-lock.sh'), /classid = 20014501/);
@@ -500,8 +502,8 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('.github/workflows/ci.yml'), /program hardening: allowlist ACL/);
   assert.match(src('.github/workflows/ci.yml'), /live graph active-only/);
   assert.match(src('.github/workflows/ci.yml'), /test-program-freeze-lock\.sh/);
-  assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
+  assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260920014500/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /20260920014500/);
   assert.match(src('docs/CHANTIER.md'), /P3 hardening/);
   assert.match(src('docs/P3_HARDENING.md'), /lock_coach_relationship_lifecycle/);
   assert.match(src('docs/P3_HARDENING.md'), /20014501/);

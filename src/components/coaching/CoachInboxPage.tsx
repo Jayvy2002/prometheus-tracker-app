@@ -18,6 +18,9 @@ import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 import { formatBilanDate, hasBilan, parseBilanQuery } from '../../lib/messageBilan';
 import { supabase } from '../../lib/supabase';
+import { readRequests } from '../../lib/marketplaceApi';
+import { isProspectConversationStatus, type CoachingRequest } from '../../lib/marketplace';
+import type { CoachClientSummary } from '../../lib/types';
 import EmptyState from '../ui/EmptyState';
 import Button from '../ui/Button';
 import IconButton from '../ui/IconButton';
@@ -27,6 +30,23 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import MessageThread from './MessageThread';
 import InterventionInboxCard from './InterventionInboxCard';
+
+function prospectSummary(row: CoachingRequest): CoachClientSummary {
+  return {
+    id: row.client_id,
+    full_name: row.public_name,
+    email: '',
+    avatar_url: '',
+    linked_at: row.created_at,
+    onboarding_completed: false,
+    goal: '',
+    training_frequency: 0,
+    target_weight_kg: 0,
+    weight_kg: 0,
+    last_visited_at: null,
+    last_nudged_at: null,
+  };
+}
 
 export default function CoachInboxPage() {
   const { t, i18n } = useTranslation();
@@ -44,6 +64,7 @@ export default function CoachInboxPage() {
   const [sendingId, setSendingId] = useState<string | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [bilanHint, setBilanHint] = useState<string | null>(null);
+  const [requests, setRequests] = useState<CoachingRequest[]>([]);
   const nudgeKey = parseNudgeQuery(searchParams.get('nudge'));
   const bilan = useMemo(() => parseBilanQuery(searchParams), [searchParams]);
 
@@ -52,6 +73,7 @@ export default function CoachInboxPage() {
     fetchCoachOps();
     fetchCoachMessages();
     fetchCoachSettings();
+    void readRequests(user.id).then(setRequests).catch(() => setRequests([]));
   }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -86,15 +108,24 @@ export default function CoachInboxPage() {
     return () => { cancelled = true; };
   }, [bilan, t, i18n.language]);
 
-  const threads = useMemo(
-    () => (user ? groupMessageThreads(sentMessages, clients, user.id) : []),
-    [sentMessages, clients, user],
-  );
+  const prospects = user
+    ? requests.filter(row => isProspectConversationStatus(row.status) && row.coach_id === user.id)
+    : [];
+  const threads = useMemo(() => {
+    if (!user) return [];
+    const extra = requests
+      .filter(row => isProspectConversationStatus(row.status) && row.coach_id === user.id && !clients.some(client => client.id === row.client_id))
+      .map(prospectSummary);
+    return groupMessageThreads(sentMessages, [...clients, ...extra], user.id);
+  }, [sentMessages, clients, requests, user]);
   const activeClient = clients.find(c => c.id === clientId);
+  const prospectPeer = !!clientId && prospects.some(row => row.client_id === clientId);
   const threadMessages = sentMessages.filter(m => m.client_id === clientId);
-  const clientName = activeClient ? displayName(activeClient, t('coaching.unnamed')) : t('coaching.unnamed');
+  const clientName = activeClient
+    ? displayName(activeClient, t('coaching.unnamed'))
+    : (prospects.find(row => row.client_id === clientId)?.public_name || t('coaching.unnamed'));
   const draftName = firstNameOf(clientName) || clientName;
-  const draftBody = nudgeKey
+  const draftBody = activeClient && nudgeKey
     ? resolveNudgeBody(
       nudgeKey,
       draftName,
@@ -109,7 +140,8 @@ export default function CoachInboxPage() {
     setSending(true);
     try {
       const msgId = loadOrCreateMessageKey(clientId, body, user.id);
-      const result = await sendCoachMessage(clientId, body, nudgeKey ?? 'general_followup', msgId, bilan);
+      const template = activeClient ? (nudgeKey ?? 'general_followup') : 'prospect';
+      const result = await sendCoachMessage(clientId, body, template, msgId, activeClient ? bilan : undefined);
       if (!result.error) clearMessageKey(clientId, user.id);
       return result;
     } finally {
@@ -158,6 +190,8 @@ export default function CoachInboxPage() {
               <ArrowLeft size={18} />
             </IconButton>
             <h1 className="text-base font-semibold text-white truncate flex-1">{clientName}</h1>
+            {prospectPeer && <p className="text-xs text-neutral-400">{t('coaching.messages.prospectHint')}</p>}
+            {activeClient && (
             <Button
               type="button"
               variant="ghost"
@@ -166,6 +200,7 @@ export default function CoachInboxPage() {
             >
               {t('coaching.command.openClient')}
             </Button>
+            )}
           </div>
           <div className="flex-1 min-h-0">
             <MessageThread
@@ -234,13 +269,13 @@ export default function CoachInboxPage() {
                   to={`/messages/${thread.clientId}`}
                   leading={(
                     <div className="w-9 h-9 rounded-xl bg-blue-600/20 text-blue-300 flex items-center justify-center font-semibold text-sm shrink-0">
-                      {(client?.full_name?.[0] || client?.email?.[0] || '?').toUpperCase()}
+                      {(client?.full_name?.[0] || client?.email?.[0] || prospects.find(row => row.client_id === thread.clientId)?.public_name?.[0] || '?').toUpperCase()}
                     </div>
                   )}
-                  title={client ? displayName(client, t('coaching.unnamed')) : t('coaching.unnamed')}
+                  title={client ? displayName(client, t('coaching.unnamed')) : (prospects.find(row => row.client_id === thread.clientId)?.public_name || t('coaching.unnamed'))}
                   subtitle={thread.lastMessage?.body || t('coaching.messages.noMessagesYet')}
                   badge={thread.unreadCount > 0 ? thread.unreadCount : undefined}
-                  trailing={(
+                  trailing={clients.some(client => client.id === thread.clientId) ? (
                     <Button
                       type="button"
                       size="sm"
@@ -253,7 +288,7 @@ export default function CoachInboxPage() {
                     >
                       {t('coaching.queue.relance')}
                     </Button>
-                  )}
+                  ) : undefined}
                 />
               );
             })}

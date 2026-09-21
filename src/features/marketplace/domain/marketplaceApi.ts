@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSession } from '../../../lib/sessionScope';
-import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachingRequest } from './marketplace';
+import { buildQualificationProofPath, normalizeJoinRequestStatus, ownedQualificationProofPath, resolveRelationshipState, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport } from './marketplace';
+import { normalizeSearchIntent, type CoachMatchExplanation, type MarketplaceSearchIntent } from './marketplaceMatch';
 
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,4 +48,98 @@ export async function readRequests(owner: string, page = 0): Promise<CoachingReq
     coach_name: profiles.data?.find(item => item.coach_id === row.coach_id)?.public_name ?? null,
     relationship_state: resolveRelationshipState(row.coach_id, row.client_id, linkRows),
   }));
+}
+
+function asQualification(row: CoachQualification): CoachQualification {
+  return row;
+}
+
+function asPublicQualification(row: Omit<CoachQualification, 'proof_path' | 'reviewer_id' | 'review_note' | 'updated_at' | 'reviewer_ref'>): CoachQualification {
+  return {
+    ...row,
+    proof_path: null,
+    reviewer_id: null,
+    reviewer_ref: '',
+    review_note: null,
+    updated_at: '',
+  };
+}
+
+export async function readCoachQualifications(coachId: string, viewerId?: string): Promise<CoachQualification[]> {
+  if (!OWNER_ID.test(coachId)) return [];
+  if (viewerId && viewerId === coachId) {
+    const { data, error } = await supabase
+      .from('coach_qualifications')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('declared_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(asQualification);
+  }
+  const { data, error } = await supabase.rpc('list_public_coach_qualifications', { p_coach: coachId });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map(asPublicQualification);
+}
+
+export async function readPublicCoachQualificationCards(coachIds: string[]): Promise<CoachQualification[]> {
+  const ids = coachIds.filter(id => OWNER_ID.test(id));
+  if (!ids.length) return [];
+  const { data, error } = await supabase.rpc('list_public_coach_qualification_cards', { p_coaches: ids });
+  if (error) throw error;
+  return (Array.isArray(data) ? data : []).map(asPublicQualification);
+}
+
+export async function readMarketplaceSearchIntent(owner: string): Promise<MarketplaceSearchIntent | null> {
+  if (!OWNER_ID.test(owner)) return null;
+  const current = captureSession(owner);
+  if (!current()) throw Error('session_changed');
+  const { data, error } = await supabase
+    .from('marketplace_search_intents')
+    .select('*')
+    .eq('athlete_id', owner)
+    .maybeSingle();
+  if (!current()) throw Error('session_changed');
+  if (error) throw error;
+  return data ? normalizeSearchIntent(data) : null;
+}
+
+export async function explainMarketplaceMatches(owner: string): Promise<Array<CoachMatchExplanation & { public_name?: string }>> {
+  const current = captureSession(owner);
+  if (!current()) throw Error('session_changed');
+  const { data, error } = await supabase.rpc('explain_marketplace_matches');
+  if (!current()) throw Error('session_changed');
+  if (error) throw error;
+  if (!Array.isArray(data)) throw Error('invalid_response');
+  return data as Array<CoachMatchExplanation & { public_name?: string }>;
+}
+
+export async function readMyMarketplaceReports(owner: string): Promise<MarketplaceReport[]> {
+  if (!OWNER_ID.test(owner)) return [];
+  const current = captureSession(owner);
+  if (!current()) throw Error('session_changed');
+  const { data, error } = await supabase
+    .from('marketplace_reports')
+    .select('*')
+    .eq('reporter_id', owner)
+    .order('created_at', { ascending: false });
+  if (!current()) throw Error('session_changed');
+  if (error) throw error;
+  return (data ?? []) as MarketplaceReport[];
+}
+
+export async function uploadQualificationProof(owner: string, qualificationId: string, file: File): Promise<string> {
+  if (!OWNER_ID.test(owner) || !OWNER_ID.test(qualificationId)) throw Error('invalid_response');
+  const ext = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'jpg';
+  const path = buildQualificationProofPath(owner, qualificationId, ext);
+  if (!ownedQualificationProofPath(owner, qualificationId, path)) throw Error('invalid_proof_path');
+  const { error } = await supabase.storage.from('qualification-proofs').upload(path, file, { upsert: false });
+  if (error) throw error;
+  return path;
+}
+
+export async function removeQualificationProof(owner: string, path: string): Promise<void> {
+  if (!OWNER_ID.test(owner)) throw Error('invalid_proof_path');
+  if (!path.startsWith(`${owner}/`)) throw Error('invalid_proof_path');
+  const { error } = await supabase.storage.from('qualification-proofs').remove([path]);
+  if (error) throw error;
 }

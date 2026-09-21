@@ -327,6 +327,7 @@ const common = {
       typeToConfirm: 'Tape {{word}} pour confirmer',
       deleting: 'Suppression…',
       confirmText: 'Ceci supprime ton compte et tes journaux (séances, nutrition, poids, check-ins, photos, recettes). Les notes privées d’un coach et les brouillons d’intervention ne sont pas exportés et ne te sont pas transmis.',
+      storageCleanupFailed: 'Le nettoyage de tes fichiers n’a pas abouti. Ton compte est toujours actif — réessaie.',
     },
     dataControl: {
       title: 'Tes données',

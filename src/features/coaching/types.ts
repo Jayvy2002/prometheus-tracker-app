@@ -174,7 +174,7 @@ export interface CheckinReviewRow {
 
 export type CoachNudgeTemplateKey = 'missed_training' | 'missed_checkins' | 'general_followup';
 
-export type CoachMessageTemplateKey = CoachNudgeTemplateKey | 'reply';
+export type CoachMessageTemplateKey = CoachNudgeTemplateKey | 'reply' | 'prospect';
 
 export type CoachQueueActionKind = 'compose' | 'open_draft' | 'open_setup' | 'open_360';
 

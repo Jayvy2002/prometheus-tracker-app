@@ -1,5 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  StorageCleanupError,
+  deleteAuthUserAfterStorageCleanup,
+} from "./storageCleanup.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,9 +11,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "Content-Type, Authorization, X-Client-Info, Apikey",
 };
-
-const BUCKETS = ["avatars", "product-images", "progress-photos"];
-const LIST_PAGE = 1000;
 
 /**
  * C03 — account deletion is a business workflow, not a raw Auth delete:
@@ -19,8 +20,11 @@ const LIST_PAGE = 1000;
  *    program, retarget workouts.program_id, pause with frozen_revision_no,
  *    then run the solo transition.
  *    Single transaction — all or nothing, safe to retry.
- * 2. Paginated storage cleanup of the user's own prefixes (best effort).
- * 3. Auth user deletion (cascades to coach-owned rows).
+ * 2. Complete Storage API cleanup of the user's own prefixes (fail-closed).
+ *    list / remove / truncation failure aborts; the Auth user is kept so
+ *    close_coach_account + cleanup can be retried. A missing
+ *    qualification-proofs bucket (pre-P4) is treated as empty.
+ * 3. Auth user deletion (cascades to remaining coach-owned rows).
  */
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
@@ -78,43 +82,25 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // 2. Storage cleanup, paginated (Q02: the old code stopped at 1000 files).
-    const warnings: string[] = [];
-    for (const bucket of BUCKETS) {
-      let offset = 0;
-      for (;;) {
-        const { data: entries, error: listError } = await adminClient.storage
-          .from(bucket)
-          .list(user.id, { limit: LIST_PAGE, offset });
-        if (listError) {
-          warnings.push(`${bucket}: list failed (${listError.message})`);
-          break;
-        }
-        const paths = (entries ?? [])
-          .map((entry) => entry.name)
-          .filter(Boolean)
-          .map((name) => `${user.id}/${name}`);
-        if (paths.length > 0) {
-          const { error: removeError } = await adminClient.storage.from(bucket).remove(paths);
-          if (removeError) warnings.push(`${bucket}: remove failed (${removeError.message})`);
-        }
-        if ((entries ?? []).length < LIST_PAGE) break;
-        offset += LIST_PAGE;
-        // Safety valve against pathological buckets.
-        if (offset > 50_000) {
-          warnings.push(`${bucket}: truncated after 50000 objects`);
-          break;
-        }
+    // 2. Fail-closed Storage cleanup — never delete Auth if personal objects remain.
+    try {
+      await deleteAuthUserAfterStorageCleanup(
+        adminClient,
+        user.id,
+        (id) => adminClient.auth.admin.deleteUser(id),
+      );
+    } catch (cleanupErr) {
+      if (cleanupErr instanceof StorageCleanupError) {
+        return new Response(
+          JSON.stringify({
+            error: "storage_cleanup_failed",
+            reason: cleanupErr.reason,
+            detail: cleanupErr.message,
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
-    }
-
-    // 3. Auth deletion (cascades to remaining coach-owned rows).
-    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
-    if (deleteError) {
-      return new Response(JSON.stringify({ error: deleteError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      throw cleanupErr;
     }
 
     return new Response(
@@ -122,7 +108,6 @@ Deno.serve(async (req: Request) => {
         success: true,
         transitioned: transition.transitioned ?? 0,
         forked: transition.forked ?? 0,
-        warnings,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );

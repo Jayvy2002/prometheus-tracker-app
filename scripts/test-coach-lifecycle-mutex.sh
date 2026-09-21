@@ -532,7 +532,11 @@ if [[ "${t2_rc}" -eq 0 ]]; then
   cat /tmp/prometheus-coach-life-t2.out /tmp/prometheus-coach-life-t2.err >&2 || true
   exit 1
 fi
-if ! grep -Eqi 'coach_unavailable' /tmp/prometheus-coach-life-t2.err /tmp/prometheus-coach-life-t2.out; then
+# Close stamps coach_account_closures in the same transaction as the P4
+# trigger that withdraws pending / coach_accepted prospects. Confirm then
+# fails request_closed (the request is no longer open). coach_unavailable
+# remains accepted if a path revalidates the closed lifecycle first.
+if ! grep -Eqi 'request_closed|coach_unavailable' /tmp/prometheus-coach-life-t2.err /tmp/prometheus-coach-life-t2.out; then
   echo "Cas B confirm failed for the wrong reason" >&2
   cat /tmp/prometheus-coach-life-t2.out /tmp/prometheus-coach-life-t2.err >&2 || true
   exit 1
@@ -549,8 +553,8 @@ if [[ "${c_link}" != "0" ]]; then
   exit 1
 fi
 req_st="$(psql_at "SELECT status FROM public.coach_join_requests WHERE id = '${REQUEST_C}'::uuid")"
-if [[ "${req_st}" == "athlete_confirmed" ]]; then
-  echo "Cas B confirm marked the request athlete_confirmed after close" >&2
+if [[ "${req_st}" != "withdrawn" ]]; then
+  echo "Cas B close did not withdraw the in-flight prospect (${req_st})" >&2
   exit 1
 fi
 self_link="$(psql_at "SELECT count(*) FROM public.coach_client_links WHERE id = '${LINK_SELF}'::uuid AND status = 'active'")"

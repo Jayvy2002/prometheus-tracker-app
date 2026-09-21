@@ -9,7 +9,7 @@ function src(rel: string): string {
 }
 
 test('directory writes go through RPCs; athlete confirm activates the coaching link without billing', () => {
-  const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
+  const latest = { file: '20260918130232_marketplace_athlete_confirm.sql', sql: src('supabase/migrations/20260918130232_marketplace_athlete_confirm.sql') };
   const mig = latest.sql;
   assert.match(latest.file, /_marketplace_athlete_confirm\.sql$/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.request_coaching\(uuid, text, text, integer, uuid\) TO authenticated/);
@@ -91,7 +91,8 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.match(page, /normalizeJoinRequestStatus/);
   assert.match(page, /requestRelationshipCopyKey/);
   assert.match(page, /marketplace\.acceptContinuesProspect/);
-  assert.match(page, /marketplace\.confirmActivatesFollow/);
+  assert.match(page, /confirmScopesReminder/);
+  assert.match(src('src/features/marketplace/domain/marketplace.ts'), /MARKETPLACE_CONSENT_VERSION = 3/);
   assert.doesNotMatch(page, /acceptActivatesFollow/);
   assert.doesNotMatch(page, /relationshipUnknownHistorical/);
   assert.match(page, /marketplace\.already_coached/);
@@ -118,6 +119,7 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /coach_marketplace\.sql/);
+  assert.match(ci, /p4_coach_qualifications\.sql/);
   assert.match(ci, /athlete confirm activates coaching/);
   assert.match(ci, /legacy accepted stays accepted/);
   assert.match(ci, /historical confirmation does not reactivate/);
@@ -126,11 +128,11 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
   assert.match(browser, /Athlete confirmation recorded/);
   assert.match(browser, /This coaching relationship has ended/);
   assert.doesNotMatch(browser, /Confirmed — coaching is active/);
-  const latest = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
+  const appliedRequest = src('supabase/migrations/20260918130232_marketplace_athlete_confirm.sql');
   const lock = src('supabase/schema_migrations.lock.json');
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
-  const version = latest.file.slice(0, 14);
-  assert.equal(latest.file, '20260918130232_marketplace_athlete_confirm.sql');
+  const version = '20260918130232';
+  assert.match(appliedRequest, /CREATE OR REPLACE FUNCTION public.request_coaching/);
   assert.match(lock, new RegExp(`"version": "${version}"`));
   assert.equal(pending.pending.some((row) => row.version === version), false);
   assert.match(lock, /"name": "coach_marketplace"/);

@@ -535,6 +535,11 @@ BEGIN
      AND NOT pg_temp.fn_exec('lock_client_assignment_mutex')
      AND NOT pg_temp.fn_exec('lock_coach_relationship_lifecycle')
      AND NOT pg_temp.fn_exec('coach_relationship_is_open')
+     AND NOT pg_temp.fn_exec('coach_message_prospect_no_dossier')
+     AND NOT pg_temp.fn_exec('withdraw_open_prospects_on_coach_closure')
+     AND NOT pg_temp.fn_exec('lock_marketplace_directory_hold')
+     AND NOT pg_temp.fn_exec('marketplace_refresh_directory_suspended')
+     AND NOT pg_temp.fn_exec('marketplace_audit_actor')
      AND NOT pg_temp.fn_exec('remap_program_revision_snapshot')
      AND NOT pg_temp.fn_exec('handle_new_user')
      AND NOT pg_temp.fn_exec('invoke_coach_fleet_round')
@@ -615,12 +620,14 @@ DO $$
 BEGIN
   IF has_function_privilege('authenticated', 'public.save_my_coach_profile(jsonb,timestamptz)', 'execute')
      AND has_function_privilege('authenticated', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.request_coaching(uuid,text,text,integer,uuid,jsonb)', 'execute')
      AND has_function_privilege('authenticated', 'public.respond_coaching_request(uuid,text)', 'execute')
      AND has_function_privilege('authenticated', 'public.marketplace_coach_eligible(uuid)', 'execute')
      AND to_regprocedure('public.activate_coaching_relationship(uuid,uuid)') IS NOT NULL
      AND NOT has_function_privilege('authenticated', 'public.activate_coaching_relationship(uuid,uuid)', 'execute')
      AND NOT has_function_privilege('anon', 'public.save_my_coach_profile(jsonb,timestamptz)', 'execute')
      AND NOT has_function_privilege('anon', 'public.request_coaching(uuid,text,text,integer,uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.request_coaching(uuid,text,text,integer,uuid,jsonb)', 'execute')
      AND NOT has_function_privilege('anon', 'public.respond_coaching_request(uuid,text)', 'execute')
      AND NOT has_function_privilege('anon', 'public.activate_coaching_relationship(uuid,uuid)', 'execute')
      AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'insert')
@@ -632,8 +639,47 @@ BEGIN
      AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'update')
      AND has_table_privilege('authenticated', 'public.coach_profiles', 'select')
      AND has_table_privilege('authenticated', 'public.coach_join_requests', 'select')
-     AND to_regclass('public.coach_profiles') IS NOT NULL
-     AND to_regclass('public.coach_join_requests') IS NOT NULL
+     AND has_function_privilege('authenticated', 'public.list_public_coach_qualifications(uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.list_public_coach_qualification_cards(uuid[])', 'execute')
+     AND has_function_privilege('authenticated', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
+     AND has_function_privilege('authenticated', 'public.submit_coach_qualification(uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.save_marketplace_search_intent(jsonb)', 'execute')
+     AND has_function_privilege('authenticated', 'public.explain_marketplace_matches()', 'execute')
+     AND has_function_privilege('authenticated', 'public.marketplace_open_prospect(uuid,uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.submit_marketplace_report(uuid,text,text,text,uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.submit_marketplace_report(uuid,text,text,text,uuid,uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.marketplace_coach_discoverable(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.review_coach_qualification(uuid,text,text)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.review_marketplace_report(uuid,text,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.list_public_coach_qualifications(uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.explain_marketplace_matches()', 'execute')
+     AND NOT has_function_privilege('anon', 'public.marketplace_open_prospect(uuid,uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.submit_marketplace_report(uuid,text,text,text,uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.submit_marketplace_report(uuid,text,text,text,uuid,uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.marketplace_coach_discoverable(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_message_prospect_no_dossier()', 'execute')
+     AND NOT has_function_privilege('anon', 'public.coach_message_prospect_no_dossier()', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.withdraw_open_prospects_on_coach_closure()', 'execute')
+     AND NOT has_function_privilege('anon', 'public.withdraw_open_prospects_on_coach_closure()', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.lock_marketplace_directory_hold(uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.lock_marketplace_directory_hold(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.marketplace_refresh_directory_suspended(uuid)', 'execute')
+     AND to_regprocedure('public.qualification_delete_proof_objects(uuid,uuid,text)') IS NULL
+     AND NOT has_table_privilege('authenticated', 'public.coach_qualifications', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_qualifications', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.marketplace_search_intents', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.marketplace_search_intents', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.marketplace_reports', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.marketplace_reports', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.marketplace_moderation_actions', 'select')
+     AND has_table_privilege('authenticated', 'public.coach_qualifications', 'select')
+     AND has_table_privilege('authenticated', 'public.marketplace_search_intents', 'select')
+     AND has_table_privilege('authenticated', 'public.marketplace_reports', 'select')
+     AND to_regclass('public.coach_qualifications') IS NOT NULL
+     AND to_regclass('public.marketplace_search_intents') IS NOT NULL
+     AND to_regclass('public.marketplace_reports') IS NOT NULL
+     AND to_regclass('public.marketplace_moderation_actions') IS NOT NULL
   THEN
     PERFORM pg_temp.record('MARKETPLACE_GRANTS', true, 'directory RPCs granted; table writes revoked; anon revoked');
   ELSE

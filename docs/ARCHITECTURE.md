@@ -238,6 +238,8 @@ pending
 
 Une acceptation du Coach ne doit jamais activer seule la relation. Le dernier consentement appartient à l’athlète. La conversation prospect sans dossier (P4.3) n’est pas ouverte par cette transition.
 
+Un signalement (P4.4) n’active ni n’arrête une relation. La suspension d’annuaire est une retenue de visibilité, pas une fin de suivi.
+
 Ne pas confondre cette machine d’état avec :
 
 - paiement ;

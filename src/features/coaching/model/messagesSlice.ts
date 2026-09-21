@@ -13,6 +13,7 @@ import {
 import {
   confirmedReadIds,
 } from '../../../lib/messageDrafts';
+import { MARKETPLACE_MESSAGE_MAX_LENGTH } from '../../../lib/marketplace';
 import {
   liveMessageState,
 } from '../../../lib/clientLive';
@@ -100,7 +101,7 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
   sendCoachMessage: async (clientId, body, templateKey, clientMsgId, bilan) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: 'Not authenticated' };
-    const trimmed = body.trim();
+    const trimmed = body.trim().slice(0, MARKETPLACE_MESSAGE_MAX_LENGTH);
     if (!trimmed) return { error: 'empty' };
     // C02 : idempotence retry — même client_msg_id = un seul message.
     const msgId = clientMsgId ?? crypto.randomUUID();
@@ -155,17 +156,17 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
     return { error: null };
   },
 
-  sendClientReply: async (body, clientMsgId) => {
+  sendClientReply: async (body, clientMsgId, coachId) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const coach = get().myCoach;
-    if (!user || !coach) return { error: 'Not authenticated' };
-    const trimmed = body.trim();
+    const pCoachId = coachId ?? get().myCoach?.id;
+    if (!user || !pCoachId) return { error: 'Not authenticated' };
+    const trimmed = body.trim().slice(0, MARKETPLACE_MESSAGE_MAX_LENGTH);
     if (!trimmed) return { error: 'empty' };
     const msgId = clientMsgId ?? crypto.randomUUID();
     const { data, error } = await supabase
       .from('coach_messages')
       .insert({
-        coach_id: coach.id,
+        coach_id: pCoachId,
         client_id: user.id,
         sender_id: user.id,
         body: trimmed,
