@@ -37,7 +37,8 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.equal(requestFn.file, '20260921024426_p4_marketplace_moderation.sql');
   assert.match(requestFn.sql, /AND NOT directory_suspended/);
   assert.match(sql, /marketplace_audit_actor\(\)/);
-  assert.match(sql, /actor = v_actor/);
+  assert.match(sql, /v_actor text := public\.marketplace_audit_actor\(\)/);
+  assert.match(sql, /VALUES \(v_row\.id, p_action, v_note, v_actor\)/);
   assert.doesNotMatch(sql, /DEFAULT CURRENT_USER/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /new request reached suspended coach/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /in-flight pending prospect closed by suspend/);

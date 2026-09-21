@@ -63,7 +63,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
-| **P4** | Marketplace complète | **P4.1–P4.4 livrés — revue transversale / apply** | Qualifications, matching, prospect, signalement |
+| **P4** | Marketplace complète | **P4.1–P4.4 en correction revue — ne pas merger/appliquer** | Qualifications, matching, prospect, signalement |
 | **P5** | Adoption Coach | À faire — **ne pas commencer** | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |

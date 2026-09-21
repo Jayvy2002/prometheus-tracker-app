@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import type { TFunction } from 'i18next';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -25,7 +26,7 @@ const blank: CoachPublicProfile = {
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
 const emptySnapshot: ProspectSnapshot = {};
 
-function listedRateLabel(t: (key: string, options?: object) => string, profile: CoachPublicProfile): string {
+function listedRateLabel(t: TFunction<'translation', undefined>, profile: CoachPublicProfile): string {
   const rate = listedRateCopy(blankMatchProfile(profile));
   if (!rate) return t('marketplace.priceOnRequest');
   const period = t(`marketplace.pricePeriod_${rate.period}`);
