@@ -54,6 +54,8 @@ test('P4.3 prospect messaging opens the thread without is_coach_of or the dossie
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /prospect coach read photos/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /pending was not withdrawn on closure/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /coach_accepted was not withdrawn on closure/);
+  assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /client_request_id = 'c4300000-0000-4000-8000-000000000010'/);
+  assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /open prospects remained after closure/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /historical prospect thread dropped on closure/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /new prospect send after closure/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /closure trigger ended the P3 active relationship/);

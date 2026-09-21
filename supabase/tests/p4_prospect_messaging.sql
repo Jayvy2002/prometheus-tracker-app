@@ -299,14 +299,19 @@ DECLARE
   confirmed_st text;
 BEGIN
   SELECT status INTO pending_st FROM public.coach_join_requests
-   WHERE client_id = 'c4300000-0000-4000-8000-000000000004';
+   WHERE client_request_id = 'c4300000-0000-4000-8000-000000000044';
   SELECT status INTO accepted_st FROM public.coach_join_requests
-   WHERE client_id = 'c4300000-0000-4000-8000-000000000005';
+   WHERE client_request_id = 'c4300000-0000-4000-8000-000000000055';
   SELECT status INTO confirmed_st FROM public.coach_join_requests
-   WHERE client_id = 'c4300000-0000-4000-8000-000000000002';
+   WHERE client_request_id = 'c4300000-0000-4000-8000-000000000010';
   IF pending_st <> 'withdrawn' THEN RAISE EXCEPTION 'pending was not withdrawn on closure: %', pending_st; END IF;
   IF accepted_st <> 'withdrawn' THEN RAISE EXCEPTION 'coach_accepted was not withdrawn on closure: %', accepted_st; END IF;
   IF confirmed_st <> 'athlete_confirmed' THEN RAISE EXCEPTION 'confirmed request was reactivated or rewritten: %', confirmed_st; END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.coach_join_requests
+     WHERE coach_id = 'c4300000-0000-4000-8000-000000000001'
+       AND status IN ('pending', 'coach_accepted')
+  ) THEN RAISE EXCEPTION 'open prospects remained after closure'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.coach_client_links
      WHERE coach_id = 'c4300000-0000-4000-8000-000000000001'
