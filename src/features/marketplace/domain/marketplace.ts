@@ -25,6 +25,12 @@ export interface CoachPublicProfile {
   coach_id: string; public_name: string; introduction: string; method: string; offer: string;
   disciplines: string[]; languages: string[]; formats: string[]; area: string;
   published: boolean; accepting_clients: boolean; updated_at: string;
+  contact_frequency?: string;
+  coaching_style?: string;
+  autonomy?: string;
+  experience_levels?: string[];
+  indicative_price_cents?: number | null;
+  indicative_price_period?: string;
 }
 export type RelationshipState = 'active' | 'ended' | 'unknown';
 export interface CoachingLinkRecord {

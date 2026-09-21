@@ -1,0 +1,152 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { test } from 'node:test';
+import {
+  blankMatchProfile,
+  evaluateCoachMatch,
+  intentIsReady,
+  listedRateCopy,
+  normalizeSearchIntent,
+  shortlistMatches,
+  type CoachMatchProfile,
+  type MarketplaceSearchIntent,
+} from './marketplaceMatch';
+import type { CoachPublicProfile } from './marketplace';
+
+function src(rel: string): string {
+  return readFileSync(resolve(process.cwd(), rel), 'utf8');
+}
+
+function profile(overrides: Partial<CoachMatchProfile> = {}): CoachMatchProfile {
+  return {
+    coach_id: overrides.coach_id ?? 'c4200000-0000-4000-8000-000000000001',
+    public_name: 'Coach',
+    introduction: '',
+    method: '',
+    offer: '',
+    disciplines: ['strength'],
+    languages: ['fr'],
+    formats: ['online'],
+    area: '',
+    published: true,
+    accepting_clients: true,
+    updated_at: '',
+    contact_frequency: 'weekly',
+    coaching_style: 'collaborative',
+    autonomy: 'medium',
+    experience_levels: ['beginner'],
+    indicative_price_cents: 4000,
+    indicative_price_period: 'month',
+    ...overrides,
+  };
+}
+
+function intent(overrides: Partial<MarketplaceSearchIntent> = {}): MarketplaceSearchIntent {
+  return normalizeSearchIntent({
+    discipline: 'strength',
+    language: 'fr',
+    format: 'online',
+    contact_frequency: 'weekly',
+    coaching_style: 'collaborative',
+    autonomy: 'medium',
+    experience_level: 'beginner',
+    ...overrides,
+  });
+}
+
+test('blocking mismatches make a coach ineligible without a compatibility percent', () => {
+  const language = evaluateCoachMatch(profile({ languages: ['en'] }), intent());
+  assert.equal(language.eligible, false);
+  assert.equal(language.matched_requirements.includes('language'), false);
+  const format = evaluateCoachMatch(profile({ formats: ['in_person'], area: 'Lyon' }), intent({ format: 'online' }));
+  assert.equal(format.eligible, false);
+  const area = evaluateCoachMatch(
+    profile({ formats: ['in_person'], area: 'Paris' }),
+    intent({ format: 'in_person', area: 'Lyon' }),
+  );
+  assert.equal(area.eligible, false);
+  const overBudget = evaluateCoachMatch(profile({ indicative_price_cents: 9000 }), intent({ budget_max_cents: 5000 }));
+  assert.equal(overBudget.eligible, false);
+});
+
+test('missing listed rate stays eligible and is reported as missing information', () => {
+  const row = evaluateCoachMatch(
+    profile({ indicative_price_cents: null, indicative_price_period: 'on_request' }),
+    intent({ budget_max_cents: 5000 }),
+  );
+  assert.equal(row.eligible, true);
+  assert.deepEqual(row.missing_information, ['price']);
+  assert.equal(row.matched_requirements.includes('budget'), false);
+});
+
+test('in-person without an athlete area stays eligible with missing area', () => {
+  const row = evaluateCoachMatch(
+    profile({ formats: ['in_person'], area: 'Lyon' }),
+    intent({ format: 'in_person', area: '' }),
+  );
+  assert.equal(row.eligible, true);
+  assert.deepEqual(row.missing_information, ['area']);
+});
+
+test('shortlist keeps only eligible coaches, ordered by preferences, capped at five', () => {
+  const rows = [
+    profile({ coach_id: '6', contact_frequency: '', coaching_style: '', autonomy: '', experience_levels: [] }),
+    profile({ coach_id: '1', languages: ['en'] }),
+    profile({ coach_id: '2' }),
+    profile({ coach_id: '3', contact_frequency: 'weekly', coaching_style: '', autonomy: '', experience_levels: [] }),
+    profile({ coach_id: '4', contact_frequency: '', coaching_style: '', autonomy: '', experience_levels: [] }),
+    profile({ coach_id: '5', contact_frequency: '', coaching_style: '', autonomy: '', experience_levels: [] }),
+    profile({ coach_id: '7', contact_frequency: '', coaching_style: '', autonomy: '', experience_levels: [] }),
+  ];
+  const shortlist = shortlistMatches(rows, intent());
+  assert.equal(shortlist.length, 5);
+  assert.deepEqual(shortlist.map(row => row.coach_id), ['2', '3', '4', '5', '6']);
+  assert.equal(shortlist.every(row => row.eligible), true);
+  assert.equal(shortlist.some(row => row.coach_id === '1'), false);
+});
+
+test('an empty eligible set stays empty instead of filling with incompatibles', () => {
+  const shortlist = shortlistMatches([profile({ languages: ['en'] }), profile({ disciplines: ['powerlifting'] })], intent());
+  assert.deepEqual(shortlist, []);
+});
+
+test('intent readiness requires blocking discipline, language and format', () => {
+  assert.equal(intentIsReady(intent()), true);
+  assert.equal(intentIsReady(normalizeSearchIntent({ discipline: 'strength', language: 'fr' })), false);
+  assert.deepEqual(listedRateCopy(profile()), { amount: '40', period: 'month' });
+  assert.equal(listedRateCopy(profile({ indicative_price_period: 'on_request' })), null);
+  const base = { coach_id: 'c', public_name: 'A', introduction: '', method: '', offer: '', disciplines: [], languages: [], formats: [], area: '', published: false, accepting_clients: false, updated_at: '' } as CoachPublicProfile;
+  assert.equal(blankMatchProfile(base).indicative_price_period, 'on_request');
+});
+
+test('P4.2 matching is an explained shortlist, not a score, and stays off the sixth tab', () => {
+  const sql = src('supabase/migrations/20260921021923_p4_explained_matching.sql');
+  assert.match(sql, /CREATE TABLE IF NOT EXISTS public.marketplace_search_intents/);
+  assert.match(sql, /CREATE OR REPLACE FUNCTION public.explain_marketplace_matches\(\)/);
+  assert.match(sql, /GRANT EXECUTE ON FUNCTION public.explain_marketplace_matches\(\) TO authenticated/);
+  assert.match(sql, /LIMIT 5/);
+  assert.doesNotMatch(sql, /%\s*compatible|compatibility_score|92\s*%/);
+  assert.doesNotMatch(sql, /subscription/);
+  assert.doesNotMatch(sql, /stripe/i);
+  assert.match(src('src/app/router/AppRoutes.tsx'), /path="\/coaches\/match"/);
+  const routes = src('src/app/router/AppRoutes.tsx');
+  assert.ok(routes.indexOf('path="/coaches/match"') < routes.indexOf('path="/coaches/:coachId"'));
+  const nav = src('src/app/navigation/navConfig.ts');
+  assert.match(nav, /path: '\/coaches\/match'/);
+  const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
+  assert.doesNotMatch(mobileFn, /coachMatch/);
+  assert.doesNotMatch(mobileFn, /\/coaches\/match/);
+  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /\/coaches\/match/);
+  assert.match(src('src/components/marketplace/CoachMatchPage.tsx'), /explainMarketplaceMatches/);
+  assert.doesNotMatch(src('src/components/marketplace/CoachMatchPage.tsx'), /marketplace\.compatible/);
+  assert.match(src('src/i18n/locales/fr/marketplace.ts'), /Aucun coach ne correspond aux exigences/);
+  assert.match(src('src/i18n/locales/en/marketplace.ts'), /No coach matches these requirements/);
+  assert.match(src('.github/workflows/ci.yml'), /p4_explained_matching\.sql/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /incompatible coach filled the shortlist/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /shortlist exceeded five/);
+  assert.match(src('supabase/tests/rls_matrix.sql'), /explain_marketplace_matches/);
+  const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
+  assert.equal(pending.pending.some(row => row.version === '20260921021923'), true);
+  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260921021923/);
+});

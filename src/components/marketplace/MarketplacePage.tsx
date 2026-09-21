@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, coachHasVerifiedBadge, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachQualification, type CoachingRequest } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, MATCH_AUTONOMY, MATCH_EXPERIENCE, MATCH_FREQUENCIES, MATCH_PRICE_PERIODS, MATCH_STYLES, blankMatchProfile, coachHasVerifiedBadge, listedRateCopy, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachQualification, type CoachingRequest } from '../../lib/marketplace';
 import CoachDirectoryCard from './CoachDirectoryCard';
 import CoachQualificationsPanel from './CoachQualificationsPanel';
 import QualificationList from './QualificationList';
@@ -14,7 +14,12 @@ import { useCoachingStore } from '../../stores/coachingStore';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
-const blank: CoachPublicProfile = { coach_id: '', public_name: '', introduction: '', method: '', offer: '', disciplines: [], languages: [], formats: [], area: '', published: false, accepting_clients: false, updated_at: '' };
+const blank: CoachPublicProfile = {
+  coach_id: '', public_name: '', introduction: '', method: '', offer: '', disciplines: [], languages: [], formats: [], area: '',
+  published: false, accepting_clients: false, updated_at: '',
+  contact_frequency: '', coaching_style: '', autonomy: '', experience_levels: [],
+  indicative_price_cents: null, indicative_price_period: 'on_request',
+};
 const fieldStyle = 'w-full rounded-xl bg-neutral-900 border border-neutral-700 p-3 text-white';
 
 export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile' | 'detail' | 'requests' }) {
@@ -168,6 +173,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         const next = new URLSearchParams(params); if (e.target.value) next.set(key, e.target.value); else next.delete(key); setPage(0); setParams(next);
       }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></div>)}</div>
       <p className="text-sm text-neutral-400">{t('marketplace.matchExplanation')}</p>
+      <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to="/coaches/match">{t('marketplace.match')}</Link>
       {!profiles.length && <p>{t('marketplace.noResults')}</p>}
       <div className="grid gap-4 md:grid-cols-2">{profiles.map(row => <CoachDirectoryCard key={row.coach_id} profile={row} verified={verifiedIds.includes(row.coach_id)} filters={filters} query={params.toString()} compared={compared.includes(row.coach_id)} comparisonFull={compared.length >= 3} onCompare={checked => {
           const selected = checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
@@ -190,6 +196,29 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {(['introduction', 'method', 'offer'] as const).map(key => <label key={key} className="block space-y-2">{t(`marketplace.${key}`)}<textarea className={fieldStyle} required={profile.published} maxLength={2000} rows={4} value={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.value })} /></label>)}
       {([['disciplines', MARKET_DISCIPLINES], ['languages', MARKET_LANGUAGES], ['formats', MARKET_FORMATS]] as const).map(([key, values]) => <fieldset key={key}><legend>{t(`marketplace.${key}`)}</legend><div className="flex flex-wrap gap-4">{values.map(value => <label key={value} className="min-h-11 flex items-center gap-2"><input type="checkbox" checked={profile[key].includes(value)} onChange={e => setProfile({ ...profile, [key]: e.target.checked ? [...profile[key], value] : profile[key].filter(v => v !== value) })} />{t(`marketplace.${value}`)}</label>)}</div></fieldset>)}
       <Input maxLength={150} required={profile.published && profile.formats.some(v => v !== 'online')} label={t('marketplace.area')} value={profile.area} onChange={e => setProfile({ ...profile, area: e.target.value })} />
+      {([['contact_frequency', MATCH_FREQUENCIES], ['coaching_style', MATCH_STYLES], ['autonomy', MATCH_AUTONOMY]] as const).map(([key, values]) => (
+        <div key={key} className="space-y-2">
+          <label htmlFor={`profile-${key}`}>{t(`marketplace.${key}`)}</label>
+          <select id={`profile-${key}`} className={fieldStyle} value={profile[key] ?? ''} onChange={e => setProfile({ ...profile, [key]: e.target.value })}>
+            <option value="">{t('marketplace.any')}</option>
+            {values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}
+          </select>
+        </div>
+      ))}
+      <fieldset>
+        <legend>{t('marketplace.experience_levels')}</legend>
+        <div className="flex flex-wrap gap-4">{MATCH_EXPERIENCE.map(value => <label key={value} className="min-h-11 flex items-center gap-2"><input type="checkbox" checked={(profile.experience_levels ?? []).includes(value)} onChange={e => setProfile({ ...profile, experience_levels: e.target.checked ? [...(profile.experience_levels ?? []), value] : (profile.experience_levels ?? []).filter(item => item !== value) })} />{t(`marketplace.${value}`)}</label>)}</div>
+      </fieldset>
+      <Input inputMode="decimal" label={t('marketplace.listedRate')} value={profile.indicative_price_cents ? String(Math.round(profile.indicative_price_cents / 100)) : ''} onChange={e => {
+        const n = Number(e.target.value);
+        setProfile({ ...profile, indicative_price_cents: e.target.value === '' || !Number.isFinite(n) || n <= 0 ? null : Math.round(n * 100) });
+      }} />
+      <div className="space-y-2">
+        <label htmlFor="profile-price-period">{t('marketplace.indicative_price_period')}</label>
+        <select id="profile-price-period" className={fieldStyle} value={profile.indicative_price_period || 'on_request'} onChange={e => setProfile({ ...profile, indicative_price_period: e.target.value })}>
+          {MATCH_PRICE_PERIODS.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}
+        </select>
+      </div>
       {(['published', 'accepting_clients'] as const).map(key => <label key={key} className="min-h-11 flex items-center gap-2"><input type="checkbox" checked={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.checked })} />{t(`marketplace.${key}`)}</label>)}
       <Button type="submit" loading={busy}>{t('common.save')}</Button>
       {profile.published && <Link className="block text-blue-400 underline" to={`/coaches/${owner}`}>{t('marketplace.viewCoach')}</Link>}
@@ -205,7 +234,11 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <p className="text-sm text-neutral-400">{[...profile.disciplines, ...profile.formats].map(v => t(`marketplace.${v}`)).join(' · ')}</p>
         <p className="text-sm text-neutral-400">{[profile.area, profile.languages.map(v => t(`marketplace.${v}`)).join(' / ')].filter(Boolean).join(' · ')}</p>
         <p className="text-sm text-neutral-500">{t(profile.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</p>
-        <p className="text-sm text-neutral-500">{t('marketplace.priceOnRequest')}</p>
+        <p className="text-sm text-neutral-500">{(() => {
+          const rate = listedRateCopy(blankMatchProfile(profile));
+          return rate ? t('marketplace.listedPrice', { amount: rate.amount, period: t(`marketplace.pricePeriod_${rate.period}`) }) : t('marketplace.priceOnRequest');
+        })()}</p>
+        <p className="text-sm text-neutral-400">{[profile.contact_frequency, profile.coaching_style, profile.autonomy].filter(Boolean).map(value => t(`marketplace.${value}`)).join(' · ')}</p>
       </header>
       <QualificationList rows={qualifications} />
       {(['introduction', 'method', 'offer'] as const).map(key => <section key={key}><h3 className="font-semibold text-white">{t(`marketplace.${key}`)}</h3><p className="whitespace-pre-wrap break-words text-neutral-300">{profile[key]}</p></section>)}
@@ -237,6 +270,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
     <h1 className="text-2xl font-semibold">{title}</h1>
     <nav className="flex flex-wrap gap-2">
       <Link aria-current={mode === 'directory' || mode === 'detail' ? 'page' : undefined} className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'directory' || mode === 'detail' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to={`/coaches?${params}`}>{t('marketplace.directory')}</Link>
+      <Link className="min-h-11 inline-flex items-center rounded-xl px-3 text-sm bg-neutral-900 text-neutral-300" to="/coaches/match">{t('marketplace.match')}</Link>
       <Link aria-current={mode === 'requests' ? 'page' : undefined} className={`min-h-11 inline-flex items-center rounded-xl px-3 text-sm ${mode === 'requests' ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`} to="/coaching-requests">{t('marketplace.requests')}</Link>
     </nav>
     {error && <div><p role="alert" className="text-rose-300">{error}</p>{mode === 'profile' && <Button variant="secondary" onClick={() => setRevision(n => n + 1)}>{t('marketplace.reloadProfile')}</Button>}</div>}

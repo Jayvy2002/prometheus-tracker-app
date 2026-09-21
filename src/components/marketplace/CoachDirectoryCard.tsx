@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowUpRight } from 'lucide-react';
-import { matchingReasons, type CoachPublicProfile, type marketFilters } from '../../lib/marketplace';
+import { matchingReasons, listedRateCopy, blankMatchProfile, type CoachPublicProfile, type marketFilters } from '../../lib/marketplace';
 
 interface Props {
   profile: CoachPublicProfile;
@@ -40,7 +40,10 @@ export default function CoachDirectoryCard({ profile, verified, filters, query, 
       {reasons.length > 0 && (
         <p className="text-sm text-blue-300">{t('marketplace.whyThisCoach')}</p>
       )}
-      <p className="text-sm text-neutral-500">{t('marketplace.priceOnRequest')}</p>
+      <p className="text-sm text-neutral-500">{(() => {
+        const rate = listedRateCopy(blankMatchProfile(profile));
+        return rate ? t('marketplace.listedPrice', { amount: rate.amount, period: t(`marketplace.pricePeriod_${rate.period}`) }) : t('marketplace.priceOnRequest');
+      })()}</p>
       <div className="mt-auto space-y-2 border-t border-neutral-800 pt-3">
         <Link className="inline-flex min-h-11 items-center gap-2 rounded-lg text-sm font-medium text-blue-300 underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400" to={`/coaches/${profile.coach_id}?${query}`}>
           {t('marketplace.viewCoach')}<ArrowUpRight size={16} aria-hidden="true" />

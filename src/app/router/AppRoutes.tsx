@@ -52,6 +52,7 @@ const ClientQuestionnairePanel = lazy(() => import('../../components/onboarding/
 const CoachLearnedPage = lazy(() => import('../../components/coaching/CoachLearnedPage'));
 const MarketplacePage = lazy(() => import('../../components/marketplace/MarketplacePage'));
 const CoachComparisonPage = lazy(() => import('../../components/marketplace/CoachComparisonPage'));
+const CoachMatchPage = lazy(() => import('../../components/marketplace/CoachMatchPage'));
 
 function HomeDashboard() {
   const context = useAccountContext();
@@ -189,6 +190,7 @@ export default function AppRoutes() {
         <Routes>
           <Route element={<AppLayout />}>
             <Route path="/coaches" element={<MarketplacePage key={user.id + ':directory'} mode="directory" />} />
+            <Route path="/coaches/match" element={<CoachMatchPage key={user.id + ':match'} />} />
             <Route path="/coaches/compare" element={<CoachComparisonPage key={user.id} />} />
             <Route path="/coaches/:coachId" element={<MarketplacePage key={user.id + location.pathname} mode="detail" />} />
             <Route path="/coach/profile" element={<CoachOnly><MarketplacePage key={user.id + ':profile'} mode="profile" /></CoachOnly>} />

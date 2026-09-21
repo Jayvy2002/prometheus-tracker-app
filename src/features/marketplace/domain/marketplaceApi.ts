@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSession } from '../../../lib/sessionScope';
 import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachQualification, type CoachingRequest } from './marketplace';
+import { normalizeSearchIntent, type CoachMatchExplanation, type MarketplaceSearchIntent } from './marketplaceMatch';
 
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,6 +63,30 @@ export async function readCoachQualifications(coachId: string): Promise<CoachQua
     .order('declared_at', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(asQualification);
+}
+
+export async function readMarketplaceSearchIntent(owner: string): Promise<MarketplaceSearchIntent | null> {
+  if (!OWNER_ID.test(owner)) return null;
+  const current = captureSession(owner);
+  if (!current()) throw Error('session_changed');
+  const { data, error } = await supabase
+    .from('marketplace_search_intents')
+    .select('*')
+    .eq('athlete_id', owner)
+    .maybeSingle();
+  if (!current()) throw Error('session_changed');
+  if (error) throw error;
+  return data ? normalizeSearchIntent(data) : null;
+}
+
+export async function explainMarketplaceMatches(owner: string): Promise<Array<CoachMatchExplanation & { public_name?: string }>> {
+  const current = captureSession(owner);
+  if (!current()) throw Error('session_changed');
+  const { data, error } = await supabase.rpc('explain_marketplace_matches');
+  if (!current()) throw Error('session_changed');
+  if (error) throw error;
+  if (!Array.isArray(data)) throw Error('invalid_response');
+  return data as Array<CoachMatchExplanation & { public_name?: string }>;
 }
 
 export async function uploadQualificationProof(owner: string, qualificationId: string, file: File): Promise<string> {
