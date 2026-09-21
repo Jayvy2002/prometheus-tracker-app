@@ -27,6 +27,7 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.match(sql, /marketplace_coach_discoverable/);
   assert.match(sql, /directory_hold_active/);
   assert.match(sql, /marketplace_refresh_directory_suspended/);
+  assert.match(sql, /PERFORM 1 FROM public.coach_profiles WHERE coach_id = p_coach FOR UPDATE/);
   assert.doesNotMatch(sql, /UPDATE public\.coach_client_links/);
   assert.doesNotMatch(sql, /CREATE TABLE.*rating/i);
   assert.doesNotMatch(sql, /star_rating/i);

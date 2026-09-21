@@ -175,6 +175,7 @@ BEGIN
   IF p_coach IS NULL THEN
     RETURN;
   END IF;
+  PERFORM 1 FROM public.coach_profiles WHERE coach_id = p_coach FOR UPDATE;
   UPDATE public.coach_profiles SET
     directory_suspended = EXISTS (
       SELECT 1 FROM public.marketplace_reports r

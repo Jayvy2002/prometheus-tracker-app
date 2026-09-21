@@ -416,9 +416,11 @@ fi
 
 timeout 20 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL >/tmp/prometheus-req-life-t2.out 2>/tmp/prometheus-req-life-t2.err &
 SET application_name = '${T2_APP}';
-SELECT set_config('request.jwt.claim.role', 'service_role', false);
-SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false);
+BEGIN;
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 SELECT public.review_marketplace_report('${REPORT}'::uuid, 'suspend_directory', 'visibility hold');
+COMMIT;
 SQL
 t2_pid=$!
 
@@ -456,9 +458,11 @@ if [[ "${req_st}" != "pending" ]]; then
   echo "Cas C in-flight request was not kept pending (${req_st})" >&2
   exit 1
 fi
+hold_active="$(psql_at "SELECT directory_hold_active::text FROM public.marketplace_reports WHERE id = '${REPORT}'::uuid")"
 suspended="$(psql_at "SELECT directory_suspended::text FROM public.coach_profiles WHERE coach_id = '${COACH}'::uuid")"
-if [[ "${suspended}" != "t" ]]; then
-  echo "Cas C directory was not suspended after the request won" >&2
+if [[ "${hold_active}" != "t" || "${suspended}" != "t" ]]; then
+  echo "Cas C directory was not suspended after the request won (hold=${hold_active} suspended=${suspended})" >&2
+  cat /tmp/prometheus-req-life-t2.out /tmp/prometheus-req-life-t2.err >&2 || true
   exit 1
 fi
 
