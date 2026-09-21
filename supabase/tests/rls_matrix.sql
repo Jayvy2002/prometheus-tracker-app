@@ -632,8 +632,23 @@ BEGIN
      AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'update')
      AND has_table_privilege('authenticated', 'public.coach_profiles', 'select')
      AND has_table_privilege('authenticated', 'public.coach_join_requests', 'select')
-     AND to_regclass('public.coach_profiles') IS NOT NULL
-     AND to_regclass('public.coach_join_requests') IS NOT NULL
+     AND has_function_privilege('authenticated', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
+     AND has_function_privilege('authenticated', 'public.submit_coach_qualification(uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.save_marketplace_search_intent(jsonb)', 'execute')
+     AND has_function_privilege('authenticated', 'public.explain_marketplace_matches()', 'execute')
+     AND has_function_privilege('authenticated', 'public.marketplace_open_prospect(uuid,uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.review_coach_qualification(uuid,text,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.declare_coach_qualification(text,text,text,text,date)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.explain_marketplace_matches()', 'execute')
+     AND NOT has_function_privilege('anon', 'public.marketplace_open_prospect(uuid,uuid)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.coach_qualifications', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_qualifications', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.marketplace_search_intents', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.marketplace_search_intents', 'update')
+     AND has_table_privilege('authenticated', 'public.coach_qualifications', 'select')
+     AND has_table_privilege('authenticated', 'public.marketplace_search_intents', 'select')
+     AND to_regclass('public.coach_qualifications') IS NOT NULL
+     AND to_regclass('public.marketplace_search_intents') IS NOT NULL
   THEN
     PERFORM pg_temp.record('MARKETPLACE_GRANTS', true, 'directory RPCs granted; table writes revoked; anon revoked');
   ELSE

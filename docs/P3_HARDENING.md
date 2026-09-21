@@ -1,10 +1,11 @@
 # P3 hardening — corrections de l’audit transversal
 
-> Corrections obligatoires après l’audit P3.1 × P3.2 × P3.3.
-> Ce n’est **pas** un P3.4 officiel de la roadmap. **Pas de P4.**
+> Corrections de l’audit P3.1 × P3.2 × P3.3.
+> Ce n’est **pas** un P3.4 officiel de la roadmap.
 
-Candidate : `20260920014500_p3_hardening` (pending jusqu’au merge + apply live).
-Ne pas restamper `20260919233853`. Un seul logger : `start_workout_from_template`.
+Appliqué en production : `20260920014500_p3_hardening` (lock **130**, pending vide, timestamp Git, 241 statements).
+Ne pas restamper `20260919233853` ni `20260920014500`. Un seul logger : `start_workout_from_template`.
+Prochain chantier : P4.1 Qualifications Coach (`docs/CHANTIER.md`).
 
 ## Exécution
 

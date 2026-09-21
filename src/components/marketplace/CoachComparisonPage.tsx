@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { comparisonIds, type CoachPublicProfile } from '../../lib/marketplace';
+import { comparisonIds, blankMatchProfile, listedRateCopy, type CoachPublicProfile } from '../../lib/marketplace';
 import Button from '../ui/Button';
 
 export default function CoachComparisonPage() {
@@ -43,7 +43,10 @@ export default function CoachComparisonPage() {
             <p className="text-sm text-neutral-400">{row.method || t('marketplace.notProvided')}</p>
             <p className="text-sm text-neutral-400">{row.formats.map(v => t(`marketplace.${v}`)).join(' · ')} · {row.languages.map(v => t(`marketplace.${v}`)).join(' / ')}</p>
             <p className="text-sm text-neutral-500">{t(row.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</p>
-            <p className="text-sm text-neutral-500">{t('marketplace.priceOnRequest')}</p>
+            <p className="text-sm text-neutral-500">{(() => {
+              const rate = listedRateCopy(blankMatchProfile(row));
+              return rate ? t('marketplace.listedPrice', { amount: rate.amount, period: t(`marketplace.pricePeriod_${rate.period}`) }) : t('marketplace.priceOnRequest');
+            })()}</p>
             <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/${row.coach_id}?${params}`}>{t('marketplace.viewCoach')}</Link>
           </article>
         ))}

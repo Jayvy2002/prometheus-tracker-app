@@ -4,16 +4,16 @@
 >
 > Les migrations SQL sont append-only. Les inventaires dans Git doivent rester cohérents avec Supabase production. Ce document décrit le contrat et l’état vérifié ; les fichiers lock contiennent le détail machine-readable.
 
-## État vérifié — 19 septembre 2026
+## État vérifié — 21 septembre 2026
 
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **129 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **129 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260919233853_program_versions` ;
-- candidate pending (non appliquée) : `20260920014500_p3_hardening` ;
-- `migrations.pending.json` contient uniquement ce candidat jusqu’au merge + apply live ;
+- **130 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **130 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260920014500_p3_hardening` ;
+- `migrations.pending.json` contient les candidates P4.1 `20260921021231_p4_coach_qualifications`, P4.2 `20260921021923_p4_explained_matching` et P4.3 `20260921023720_p4_prospect_messaging` (non appliquées) ;
+- P3 hardening a été appliqué avec le **même timestamp Git** `20260920014500` (aucun restamp, 241 statements, `created_by` null) ;
 - P3.3 a été appliqué avec le **même timestamp Git** `20260919233853` (aucun restamp, 45 statements) ;
 - P3.2 a été appliqué avec le **même timestamp Git** `20260919225507` (aucun restamp) ;
 - Hotfix B a été appliqué avec le **même timestamp Git** `20260919214423` (aucun restamp) ;

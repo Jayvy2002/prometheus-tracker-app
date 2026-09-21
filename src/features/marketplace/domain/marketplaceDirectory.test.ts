@@ -118,6 +118,7 @@ test('the directory is reachable without a 6th bottom tab and skips intake, not 
 
   const ci = src('.github/workflows/ci.yml');
   assert.match(ci, /coach_marketplace\.sql/);
+  assert.match(ci, /p4_coach_qualifications\.sql/);
   assert.match(ci, /athlete confirm activates coaching/);
   assert.match(ci, /legacy accepted stays accepted/);
   assert.match(ci, /historical confirmation does not reactivate/);

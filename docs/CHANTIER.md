@@ -8,7 +8,7 @@
 >
 > **Règle agents :** ne pas reconstruire ce qui existe déjà. Avant chaque chantier, inspecter le code/migrations actuels et vérifier si le problème est réellement fonctionnel, architectural ou simplement non raccordé.
 
-**Mis à jour : 20 septembre 2026.**
+**Mis à jour : 21 septembre 2026.**
 
 ---
 
@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P3 hardening en cours.** Production/lock **129** (`20260919233853_program_versions`). Candidate pending `20260920014500_p3_hardening`. Audit transversal P3 échoué : corrections obligatoires avant clôture et avant P4, y compris mutex client des mutations d’assignment, mutex Coach de lifecycle (`close` × activate/confirm/invite), ordre confirmé mutex Coach → `user_roles(client)` → `join_requests`, fail-closed `archive_not_frozen` sans fallback live, et apply P3 de `close_coach_account` sans JWT. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P4.4 Signalement / modération minimale.** P4.1–P4.3 livrés (candidates `20260921021231`, `20260921021923`, `20260921023720`). Production/lock **130** (`20260920014500_p3_hardening`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -62,8 +62,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **P3.1–P3.3 implémentés, audit transversal échoué — hardening en cours** | Ne pas commencer P4 |
-| **P4** | Marketplace complète | À faire après lifecycle P1.4 | Matching, qualifications, prospect → confirmation athlète |
+| **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | P4.1 Qualifications Coach |
+| **P4** | Marketplace complète | **P4.1–P4.3 livrés — P4.4 signalement** | File de modération, pas d’étoiles |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3.1 (`#195`/`#196`), Hotfix B (`#199`/`#200`), P3.2 (`#201`/`#202`) et P3.3 (`#203`/`#204`) sont en production (129 migrations). Audit transversal P3 : corrections `20260920014500_p3_hardening` en cours. **Ne pas commencer P4.**
+P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.3 sont en PR (candidates pending). Prochain : P4.4 Signalement / modération minimale. Watch n’applique pas. **Pas de P5.**
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -713,11 +713,15 @@ Distinguer (dérivé, pas une table d’états parallèle) :
 
 Le logger tamponne `program_revision_no` au start. Une version future ne mute pas le graphe live. `session_organization` P3.1 et les phases P3.2 restent sur le même moteur.
 
-Passe transversale P3 : **échouée** (phases = labels, weekdays globaux, prescription client, ancre, UTC, relation coupée, Data API, name/description). Corrections : [P3 hardening](P3_HARDENING.md). **Pas un P3.4 officiel. Pas de P4.**
+Passe transversale P3 / P3 hardening : **TERMINÉ** (`#206`, lock 130, `20260920014500_p3_hardening`). Inventaire : [P3 hardening](P3_HARDENING.md). Ce n’est pas un P3.4 officiel.
 
 ### Terminé quand P3
 
-Un programme simple et un programme périodisé utilisent le même moteur d’exécution et le même historique.
+Un programme simple et un programme périodisé utilisent le même moteur d’exécution et le même historique. **Critère atteint.**
+
+## P3 hardening — ✅ TERMINÉ
+
+**TERMINÉ** (`#206`, merge `b8f6a6df02925f042ef8708b50e6521b4e1c26dc`, lock 130, `20260920014500_p3_hardening`, timestamp Git, 241 statements). Pending vide. Ne pas restamper.
 
 ---
 
@@ -725,55 +729,21 @@ Un programme simple et un programme périodisé utilisent le même moteur d’ex
 
 ## P4.1 — Qualifications Coach
 
-Ajouter un contrat durable :
+**TERMINÉ** — candidate `20260921021231_p4_coach_qualifications` (pending jusqu’à apply live). Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
 
-```text
-qualification
-- coach_id
-- title/type
-- issuer
-- declared_at
-- proof reference
-- verification_status
-- verified_at
-- reviewer/admin reference
-- expiration if relevant
-```
-
-États : déclaré / pending / verified / rejected / expired si nécessaire.
-
-Un Coach reste utilisable sans badge.
+Un Coach **reste visible et utilisable sans badge vérifié**. Les états sont `declared / pending / verified / rejected / expired`. La revue est `service_role` uniquement. Pas d’étoiles.
 
 ## P4.2 — Matching expliqué
 
-Structurer :
+**TERMINÉ** — candidate `20260921021923_p4_explained_matching` (pending jusqu’à apply live). Inventaire : [P4.2 — matching expliqué](P4_2_MATCHING.md).
 
-### Exigences bloquantes
-
-Exemples : langue obligatoire, format, discipline nécessaire, zone présentielle, budget maximal si offres payantes.
-
-### Préférences importantes
-
-Exemples : fréquence de contact, style, autonomie, expérience spécifique.
-
-### Préférences secondaires
-
-Exemples : options non critiques.
-
-Le moteur renvoie :
-
-- éligible oui/non ;
-- correspondances importantes ;
-- informations manquantes ;
-- raisons explicables.
-
-Ne pas produire un pourcentage arbitraire.
+Exigences bloquantes vs préférences. Shortlist de Coachs **éligibles** uniquement (max 5), avec raisons et informations manquantes. Pas de pourcentage. L’annuaire reste parcourable.
 
 ## P4.3 — Prospect dans la messagerie
 
-Raccorder la phase `coach_accepted` à la conversation sans donner accès au dossier complet.
+**TERMINÉ** — candidate `20260921023720_p4_prospect_messaging` (pending jusqu’à apply live). Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
 
-Après `athlete_confirmed`, conserver la continuité du fil lorsque techniquement possible.
+Après `coach_accepted`, conversation possible. Pas d’`is_coach_of`, pas de dossier / photos / programme. Le fil `(coach_id, client_id)` reste le même après `athlete_confirmed`.
 
 ## P4.4 — Signalement/modération minimale
 

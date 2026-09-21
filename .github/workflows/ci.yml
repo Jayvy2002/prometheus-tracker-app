@@ -365,6 +365,30 @@ jobs:
           set -euo pipefail
           grep -F 'athlete confirm activates coaching' /tmp/coach-marketplace-db-results.txt
           grep -F 'legacy accepted stays accepted' /tmp/coach-marketplace-db-results.txt
+      - name: Test P4.1 coach qualifications
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p4_coach_qualifications.sql | tee /tmp/p4-qualifications-db-results.txt
+      - name: Confirm P4.1 qualifications echo
+        run: |
+          set -euo pipefail
+          grep -F 'p4.1 qualifications: declare/submit/review, badge optional, no publish gate' /tmp/p4-qualifications-db-results.txt
+      - name: Test P4.2 explained matching
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p4_explained_matching.sql | tee /tmp/p4-matching-db-results.txt
+      - name: Confirm P4.2 matching echo
+        run: |
+          set -euo pipefail
+          grep -F 'p4.2 matching: blocking vs prefs, shortlist eligible only, no percent' /tmp/p4-matching-db-results.txt
+      - name: Test P4.3 prospect messaging
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p4_prospect_messaging.sql | tee /tmp/p4-prospect-db-results.txt
+      - name: Confirm P4.3 prospect messaging echo
+        run: |
+          set -euo pipefail
+          grep -F 'p4.3 prospect messaging: conversation after accept, no dossier until confirm' /tmp/p4-prospect-db-results.txt
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
