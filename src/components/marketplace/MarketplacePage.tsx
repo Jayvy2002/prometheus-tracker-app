@@ -3,9 +3,11 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachingRequest } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, coachHasVerifiedBadge, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachQualification, type CoachingRequest } from '../../lib/marketplace';
 import CoachDirectoryCard from './CoachDirectoryCard';
-import { marketRpc, readCoachProfile, readRequests } from '../../lib/marketplaceApi';
+import CoachQualificationsPanel from './CoachQualificationsPanel';
+import QualificationList from './QualificationList';
+import { marketRpc, readCoachProfile, readCoachQualifications, readRequests } from '../../lib/marketplaceApi';
 import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
 import { track } from '../../lib/telemetryClient';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -34,6 +36,8 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   const [status, setStatus] = useState<'loading' | 'ready' | 'failed'>('loading');
   const [profiles, setProfiles] = useState<CoachPublicProfile[]>([]);
   const [profile, setProfile] = useState<CoachPublicProfile | null>(null);
+  const [qualifications, setQualifications] = useState<CoachQualification[]>([]);
+  const [verifiedIds, setVerifiedIds] = useState<string[]>([]);
   const [requests, setRequests] = useState<CoachingRequest[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -50,7 +54,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   useEffect(() => {
     const seq = ++sequence.current;
     writing.current = false; setBusy(false); setStatus('loading'); setError(''); setNotice('');
-    setProfiles([]); setProfile(null); setRequests([]); setConsent(false); setRelationshipConsent(false); setName(''); setSummary('');
+        setProfiles([]); setProfile(null); setRequests([]); setQualifications([]); setVerifiedIds([]); setConsent(false); setRelationshipConsent(false); setName(''); setSummary('');
     void (async () => {
       if (mode === 'directory') {
         const selected = JSON.parse(filterKey) as ReturnType<typeof marketFilters>;
@@ -62,10 +66,25 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         if (error) throw error;
         if (seq !== sequence.current) return;
         setProfiles((data ?? []).slice(0, 20)); setMore((data?.length ?? 0) > 20);
+        const ids = (data ?? []).slice(0, 20).map(row => row.coach_id);
+        if (ids.length) {
+          const quals = await supabase.from('coach_qualifications').select('coach_id,verification_status,expires_on').in('coach_id', ids);
+          if (quals.error) throw quals.error;
+          if (seq !== sequence.current) return;
+          const grouped = new Map<string, CoachQualification[]>();
+          for (const row of quals.data ?? []) {
+            const list = grouped.get(row.coach_id) ?? [];
+            list.push(row as CoachQualification);
+            grouped.set(row.coach_id, list);
+          }
+          setVerifiedIds([...grouped.entries()].filter(([, list]) => coachHasVerifiedBadge(list)).map(([id]) => id));
+        } else setVerifiedIds([]);
       } else if (mode === 'profile' || mode === 'detail') {
         const found = await readCoachProfile(mode === 'profile' ? owner : coachId ?? '');
         if (seq !== sequence.current) return;
         setProfile(found ?? (mode === 'profile' ? { ...blank, coach_id: owner } : null));
+        const coach = mode === 'profile' ? owner : coachId ?? '';
+        setQualifications(coach ? await readCoachQualifications(coach) : []);
       } else {
         const found = await readRequests(owner, page);
         if (seq !== sequence.current) return;
@@ -150,7 +169,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       }}><option value="">{t('marketplace.any')}</option>{values.map(value => <option key={value} value={value}>{t(`marketplace.${value}`)}</option>)}</select></div>)}</div>
       <p className="text-sm text-neutral-400">{t('marketplace.matchExplanation')}</p>
       {!profiles.length && <p>{t('marketplace.noResults')}</p>}
-      <div className="grid gap-4 md:grid-cols-2">{profiles.map(row => <CoachDirectoryCard key={row.coach_id} profile={row} filters={filters} query={params.toString()} compared={compared.includes(row.coach_id)} comparisonFull={compared.length >= 3} onCompare={checked => {
+      <div className="grid gap-4 md:grid-cols-2">{profiles.map(row => <CoachDirectoryCard key={row.coach_id} profile={row} verified={verifiedIds.includes(row.coach_id)} filters={filters} query={params.toString()} compared={compared.includes(row.coach_id)} comparisonFull={compared.length >= 3} onCompare={checked => {
           const selected = checked ? [...compared, row.coach_id] : compared.filter(id => id !== row.coach_id);
           setCompared(selected);
           const next = new URLSearchParams(params); if (selected.length) next.set('compare', selected.join(',')); else next.delete('compare'); setParams(next);
@@ -158,7 +177,8 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {pagination}
     </>;
     if (!profile) return <p>{t('marketplace.unavailable')}</p>;
-    if (mode === 'profile') return <form onSubmit={(e: FormEvent) => {
+    if (mode === 'profile') return <div className="space-y-6">
+      <form onSubmit={(e: FormEvent) => {
       e.preventDefault(); const seq = sequence.current;
       void write(async () => {
         const saved = await marketRpc<CoachPublicProfile>('save_my_coach_profile', { p_profile: profile, p_expected_updated_at: profile.updated_at || null }, owner);
@@ -173,7 +193,9 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {(['published', 'accepting_clients'] as const).map(key => <label key={key} className="min-h-11 flex items-center gap-2"><input type="checkbox" checked={profile[key]} onChange={e => setProfile({ ...profile, [key]: e.target.checked })} />{t(`marketplace.${key}`)}</label>)}
       <Button type="submit" loading={busy}>{t('common.save')}</Button>
       {profile.published && <Link className="block text-blue-400 underline" to={`/coaches/${owner}`}>{t('marketplace.viewCoach')}</Link>}
-    </fieldset></form>;
+    </fieldset></form>
+      <CoachQualificationsPanel owner={owner} rows={qualifications} busy={busy} onChange={setQualifications} onError={setError} />
+    </div>;
     return <div className="space-y-5">
       <header className="rounded-2xl border border-neutral-800 bg-neutral-900/50 p-5 space-y-2">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-500/10 text-2xl font-semibold text-blue-300">
@@ -185,6 +207,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <p className="text-sm text-neutral-500">{t(profile.accepting_clients ? 'marketplace.available' : 'marketplace.unavailable')}</p>
         <p className="text-sm text-neutral-500">{t('marketplace.priceOnRequest')}</p>
       </header>
+      <QualificationList rows={qualifications} />
       {(['introduction', 'method', 'offer'] as const).map(key => <section key={key}><h3 className="font-semibold text-white">{t(`marketplace.${key}`)}</h3><p className="whitespace-pre-wrap break-words text-neutral-300">{profile[key]}</p></section>)}
       {!profile.accepting_clients && <p>{t('marketplace.unavailable')}</p>}
       {profile.accepting_clients && profile.coach_id !== owner && activeCoachId && <p>{t('marketplace.already_coached')}</p>}

@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSession } from '../../../lib/sessionScope';
-import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachingRequest } from './marketplace';
+import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachQualification, type CoachingRequest } from './marketplace';
 
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -47,4 +47,28 @@ export async function readRequests(owner: string, page = 0): Promise<CoachingReq
     coach_name: profiles.data?.find(item => item.coach_id === row.coach_id)?.public_name ?? null,
     relationship_state: resolveRelationshipState(row.coach_id, row.client_id, linkRows),
   }));
+}
+
+function asQualification(row: CoachQualification): CoachQualification {
+  return row;
+}
+
+export async function readCoachQualifications(coachId: string): Promise<CoachQualification[]> {
+  if (!OWNER_ID.test(coachId)) return [];
+  const { data, error } = await supabase
+    .from('coach_qualifications')
+    .select('*')
+    .eq('coach_id', coachId)
+    .order('declared_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(asQualification);
+}
+
+export async function uploadQualificationProof(owner: string, qualificationId: string, file: File): Promise<string> {
+  if (!OWNER_ID.test(owner) || !OWNER_ID.test(qualificationId)) throw Error('invalid_response');
+  const ext = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'jpg';
+  const path = `${owner}/${qualificationId}/proof.${ext}`;
+  const { error } = await supabase.storage.from('qualification-proofs').upload(path, file, { upsert: true });
+  if (error) throw error;
+  return path;
 }

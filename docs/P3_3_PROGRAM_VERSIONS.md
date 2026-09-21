@@ -68,4 +68,4 @@ Programme existant = graphe live, `active_revision_no` = dernière révision (ba
 
 ## Migration
 
-Appliqué en production avec le timestamp Git `20260919233853_program_versions` (129, pending vide). Ne pas restamper. Pas de P4.
+Appliqué en production avec le timestamp Git `20260919233853_program_versions` (129). P3 hardening a suivi avec `20260920014500_p3_hardening` (130, pending vide). Ne pas restamper.

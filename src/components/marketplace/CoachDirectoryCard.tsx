@@ -5,6 +5,7 @@ import { matchingReasons, type CoachPublicProfile, type marketFilters } from '..
 
 interface Props {
   profile: CoachPublicProfile;
+  verified?: boolean;
   filters: ReturnType<typeof marketFilters>;
   query: string;
   compared: boolean;
@@ -12,7 +13,7 @@ interface Props {
   onCompare: (checked: boolean) => void;
 }
 
-export default function CoachDirectoryCard({ profile, filters, query, compared, comparisonFull, onCompare }: Props) {
+export default function CoachDirectoryCard({ profile, verified, filters, query, compared, comparisonFull, onCompare }: Props) {
   const { t } = useTranslation();
   const reasons = matchingReasons(profile, filters);
   return (
@@ -23,6 +24,7 @@ export default function CoachDirectoryCard({ profile, filters, query, compared, 
         </span>
         <div className="min-w-0">
           <h2 className="break-words text-lg font-semibold text-white">{profile.public_name}</h2>
+          {verified && <p className="text-xs text-blue-300">{t('marketplace.verifiedBadge')}</p>}
           <p className="text-sm text-neutral-400 truncate">
             {[...profile.disciplines, ...profile.formats].slice(0, 3).map(v => t(`marketplace.${v}`)).join(' · ')}
           </p>
