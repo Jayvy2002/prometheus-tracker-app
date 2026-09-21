@@ -36,6 +36,8 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   const explain = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.explain_marketplace_matches');
   assert.equal(explain.file, '20260921024426_p4_marketplace_moderation.sql');
   assert.match(explain.sql, /AND NOT directory_suspended/);
+  assert.match(explain.sql, /array_append\(v_req, 'discipline'\)/);
+  assert.doesNotMatch(explain.sql, /v_req := v_req \|\| '/);
   assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /MarketplaceReportForm/);
   assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /MarketplaceReportsList/);
   assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /directory_suspended/);
