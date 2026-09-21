@@ -444,6 +444,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /accept_coach_invite/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /wait_event = 'advisory'/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /close×activate Cas A includes C; Cas B confirm\/invite refuse closed Coach without deadlock/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /grep -qx 'coach_unavailable'/);
   assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_phases still requires a user JWT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_days still requires a user JWT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /assign_program_secure does not lock programs before pause/);

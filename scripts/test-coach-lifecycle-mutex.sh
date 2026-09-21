@@ -574,7 +574,7 @@ SELECT public.accept_coach_invite(
 COMMIT;
 SQL
 )"
-if [[ "${inv_err}" != "coach_unavailable" ]]; then
+if ! grep -qx 'coach_unavailable' <<<"${inv_err}"; then
   echo "Cas B historical invite did not return coach_unavailable (${inv_err})" >&2
   exit 1
 fi
