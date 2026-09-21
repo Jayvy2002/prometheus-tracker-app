@@ -37,6 +37,7 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   const requestFn = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.request_coaching');
   assert.equal(requestFn.file, '20260921024426_p4_marketplace_moderation.sql');
   assert.match(requestFn.sql, /marketplace_coach_discoverable/);
+  assert.match(requestFn.sql, /p_sharing_version IS DISTINCT FROM 2 AND p_sharing_version IS DISTINCT FROM 3/);
   assert.match(sql, /marketplace_audit_actor\(\)/);
   assert.match(sql, /v_actor text := public\.marketplace_audit_actor\(\)/);
   assert.match(sql, /VALUES \(v_row\.id, p_action, v_note, v_actor\)/);

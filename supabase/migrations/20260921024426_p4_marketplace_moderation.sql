@@ -449,7 +449,7 @@ BEGIN
   IF v_uid IS NULL OR p_coach IS NULL OR p_coach = v_uid THEN
     RAISE EXCEPTION 'invalid_target';
   END IF;
-  IF p_sharing_version NOT IN (2, 3) THEN
+  IF p_sharing_version IS DISTINCT FROM 2 AND p_sharing_version IS DISTINCT FROM 3 THEN
     RAISE EXCEPTION 'consent_required';
   END IF;
   IF p_request_key IS NULL THEN

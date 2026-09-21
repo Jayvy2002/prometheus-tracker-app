@@ -257,7 +257,7 @@ BEGIN
   IF v_uid IS NULL OR p_coach IS NULL OR p_coach = v_uid THEN
     RAISE EXCEPTION 'invalid_target';
   END IF;
-  IF p_sharing_version NOT IN (2, 3) THEN
+  IF p_sharing_version IS DISTINCT FROM 2 AND p_sharing_version IS DISTINCT FROM 3 THEN
     RAISE EXCEPTION 'consent_required';
   END IF;
   IF p_request_key IS NULL THEN
@@ -407,7 +407,7 @@ BEGIN
     IF v_result.status <> 'coach_accepted' THEN
       RAISE EXCEPTION 'request_closed';
     END IF;
-    IF v_result.sharing_version NOT IN (2, 3) THEN
+    IF v_result.sharing_version IS DISTINCT FROM 2 AND v_result.sharing_version IS DISTINCT FROM 3 THEN
       RAISE EXCEPTION 'consent_renewal_required';
     END IF;
     IF NOT public.coach_relationship_is_open(v_result.coach_id) THEN
@@ -480,7 +480,7 @@ BEGIN
     IF v_result.status <> 'pending' THEN
       RAISE EXCEPTION 'request_closed';
     END IF;
-    IF v_result.sharing_version NOT IN (2, 3) THEN
+    IF v_result.sharing_version IS DISTINCT FROM 2 AND v_result.sharing_version IS DISTINCT FROM 3 THEN
       RAISE EXCEPTION 'consent_renewal_required';
     END IF;
     PERFORM 1 FROM public.coach_profiles

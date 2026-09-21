@@ -50,6 +50,18 @@ DO $$ BEGIN
       'c4300000-0000-4000-8000-000000000001',
       'Athlete',
       'Looking for a coach',
+      NULL,
+      'c4300000-0000-4000-8000-00000000000f'
+    );
+    RAISE EXCEPTION 'missing consent accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'consent_required' THEN RAISE; END IF;
+  END;
+  BEGIN
+    PERFORM public.request_coaching(
+      'c4300000-0000-4000-8000-000000000001',
+      'Athlete',
+      'Looking for a coach',
       3,
       'c4300000-0000-4000-8000-000000000010',
       '{"summary":"Looking for a coach","questionnaire":"secret"}'::jsonb

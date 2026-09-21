@@ -27,13 +27,15 @@ test('P4.3 prospect messaging opens the thread without is_coach_of or the dossie
   assert.match(sql, /prospect_no_dossier/);
   assert.match(sql, /sharing_version IN \(1, 2, 3\)/);
   assert.match(sql, /char_length\(trim\(body\)\) BETWEEN 1 AND 2000/);
-  assert.match(sql, /sharing_version NOT IN \(2, 3\)/);
+  assert.match(sql, /p_sharing_version IS DISTINCT FROM 2 AND p_sharing_version IS DISTINCT FROM 3/);
+  assert.match(sql, /sharing_version IS DISTINCT FROM 2 AND v_result.sharing_version IS DISTINCT FROM 3/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /prospect athlete attached workout/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /prospect coach attached workout/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /v2 extras were not stripped/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /oversized prospect message accepted/);
   assert.match(sql, /marketplace_prospect_snapshot/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /open prospect helper false while pending/);
+  assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /missing consent accepted/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /extra snapshot key accepted/);
   assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /openConversation/);
   assert.match(src('src/features/coaching/domain/coachQueue.ts'), /'prospect'/);
