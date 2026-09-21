@@ -32,9 +32,9 @@ Un utilisateur public ne lit jamais `proof_path`, `reviewer_id`, `reviewer_ref` 
 
 ## Preuve
 
-Le chemin doit matcher `auth.uid() / qualification_id / proof[.pdf|.jpg|.jpeg|.png|.webp]`. `declare` ignore un `p_proof_path` client. `save` / `submit` refusent tout autre chemin (`invalid_proof_path`). `submit` exige que l’objet existe dans `storage.objects` (`bucket = qualification-proofs`, `name = proof_path`) sinon `proof_missing`.
+Le chemin doit matcher `auth.uid() / qualification_id / proof-<uuid>.{pdf|jpg|jpeg|png|webp}`. Chaque upload crée un nouvel objet (`upsert: false`) ; jamais d’écrasement du même chemin. `declare` ignore un `p_proof_path` client. `save` / `submit` refusent tout autre chemin (`invalid_proof_path`). `submit` exige que l’objet existe dans `storage.objects` (`bucket = qualification-proofs`, `name = proof_path`) sinon `proof_missing`. Après soumission le `proof_path` est figé : le document vérifié est exactement celui qui existait à la soumission.
 
-Les policies Storage n’autorisent INSERT/UPDATE/DELETE que si `verification_status IN ('declared', 'rejected')`. Dès `pending` (et pour `verified` / `expired`) la preuve est immuable. `withdraw` d’une ligne `declared`/`rejected` refuse `proof_cleanup_required` tant que l’objet Storage existe : le client doit d’abord `.remove()` via l’API Storage, puis seulement ensuite supprimer la ligne. Jamais de `DELETE FROM storage.objects`. La suppression de compte nettoie récursivement le bucket via l’API Storage.
+Les policies Storage n’autorisent INSERT/DELETE que si `verification_status IN ('declared', 'rejected')`. Aucune policy UPDATE : un objet n’est jamais écrasé. Dès `pending` (et pour `verified` / `expired`) la preuve est immuable. `withdraw` d’une ligne `declared`/`rejected` refuse `proof_cleanup_required` tant que l’objet Storage existe : le client doit d’abord `.remove()` via l’API Storage, puis seulement ensuite supprimer la ligne. Jamais de `DELETE FROM storage.objects`. `delete-account` nettoie récursivement les buckets personnels via l’API Storage et **refuse** `auth.deleteUser` si `list` / `remove` / un listing tronqué (>50 000) échoue.
 
 ## Écritures
 

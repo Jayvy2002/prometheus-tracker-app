@@ -65,7 +65,7 @@ if [[ -z "${QUAL}" ]]; then
   exit 1
 fi
 
-PATH_NAME="${COACH}/${QUAL}/proof.pdf"
+PATH_NAME="${COACH}/${QUAL}/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf"
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL
 BEGIN;
 SET LOCAL ROLE authenticated;

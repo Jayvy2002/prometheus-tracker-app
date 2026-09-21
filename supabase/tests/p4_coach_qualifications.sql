@@ -84,18 +84,24 @@ BEGIN
     IF SQLERRM <> 'proof_required' THEN RAISE; END IF;
   END;
   BEGIN
-    PERFORM public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, 'c4100000-0000-4000-8000-000000000002/' || q.id::text || '/proof.pdf', NULL);
+    PERFORM public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, 'c4100000-0000-4000-8000-000000000002/' || q.id::text || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf', NULL);
     RAISE EXCEPTION 'foreign proof_path accepted';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'invalid_proof_path' THEN RAISE; END IF;
   END;
   BEGIN
-    PERFORM public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/00000000-0000-4000-8000-000000000099/proof.pdf', NULL);
+    PERFORM public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/00000000-0000-4000-8000-000000000099/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf', NULL);
     RAISE EXCEPTION 'wrong qualification proof_path accepted';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'invalid_proof_path' THEN RAISE; END IF;
   END;
-  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
+  BEGIN
+    PERFORM public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
+    RAISE EXCEPTION 'mutable proof path accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'invalid_proof_path' THEN RAISE; END IF;
+  END;
+  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf', NULL);
   BEGIN
     PERFORM public.submit_coach_qualification(q.id);
     RAISE EXCEPTION 'submit without storage object';
@@ -133,7 +139,7 @@ BEGIN
     INSERT INTO storage.objects (bucket_id, name, owner, owner_id)
     VALUES (
       'qualification-proofs',
-      auth.uid()::text || '/' || q.id::text || '/proof.jpg',
+      auth.uid()::text || '/' || q.id::text || '/proof-bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.jpg',
       auth.uid(),
       auth.uid()::text
     );
@@ -240,7 +246,7 @@ BEGIN
   BEGIN
     PERFORM public.save_coach_qualification(
       q.id, q.title, q.qualification_type, q.issuer,
-      'c4100000-0000-4000-8000-000000000001/' || q.id::text || '/proof.pdf',
+      'c4100000-0000-4000-8000-000000000001/' || q.id::text || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf',
       NULL
     );
     RAISE EXCEPTION 'other coach reused foreign folder';
@@ -255,14 +261,14 @@ DECLARE
   q public.coach_qualifications;
 BEGIN
   q := public.declare_coach_qualification('ISSN', 'certification', 'ISSN');
-  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
+  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf', NULL);
   PERFORM set_config('p4.withdraw_id', q.id::text, true);
 END $$;
 RESET ROLE;
 INSERT INTO storage.objects (bucket_id, name, owner, owner_id)
 VALUES (
   'qualification-proofs',
-  'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf',
+  'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf',
   'c4100000-0000-4000-8000-000000000001',
   'c4100000-0000-4000-8000-000000000001'
 );
@@ -292,7 +298,7 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM storage.objects
     WHERE bucket_id = 'qualification-proofs'
-      AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf'
+      AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf'
   ) THEN RAISE EXCEPTION 'withdraw deleted storage catalog without Storage API'; END IF;
   IF NOT EXISTS (
     SELECT 1 FROM public.coach_qualifications
@@ -304,7 +310,7 @@ END $$;
 SELECT set_config('storage.allow_delete_query', 'true', true);
 DELETE FROM storage.objects
  WHERE bucket_id = 'qualification-proofs'
-   AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf';
+   AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf';
 SELECT set_config('storage.allow_delete_query', 'false', true);
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
@@ -320,7 +326,7 @@ BEGIN
   IF EXISTS (
     SELECT 1 FROM storage.objects
     WHERE bucket_id = 'qualification-proofs'
-      AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf'
+      AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf'
   ) THEN RAISE EXCEPTION 'proof object remained after Storage cleanup'; END IF;
 END $$;
 

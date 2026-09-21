@@ -137,8 +137,21 @@ export function normalizeProspectSnapshot(raw: Record<string, unknown> | null | 
   return out;
 }
 
+export const QUALIFICATION_PROOF_FILENAME =
+  /^proof-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(pdf|jpg|jpeg|png|webp)$/i;
+
+export function buildQualificationProofPath(
+  owner: string,
+  qualificationId: string,
+  ext: 'pdf' | 'jpg',
+  objectId = crypto.randomUUID(),
+): string {
+  return `${owner}/${qualificationId}/proof-${objectId}.${ext}`;
+}
+
 export function ownedQualificationProofPath(coachId: string, qualificationId: string, path: string): boolean {
-  return new RegExp(`^${coachId}/${qualificationId}/proof(\\.(pdf|jpg|jpeg|png|webp))?$`).test(path);
+  const prefix = `${coachId}/${qualificationId}/`;
+  return path.startsWith(prefix) && QUALIFICATION_PROOF_FILENAME.test(path.slice(prefix.length));
 }
 
 export function requestActions(request: CoachingRequest, userId: string): Array<'accepted' | 'declined' | 'withdrawn' | 'confirmed'> {

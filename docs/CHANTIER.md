@@ -731,7 +731,7 @@ Un programme simple et un programme périodisé utilisent le même moteur d’ex
 
 **En correction pré-production** — candidate `20260921021231_p4_coach_qualifications` (pending jusqu’à apply live). Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
 
-Un Coach **reste visible et utilisable sans badge vérifié**. Les états sont `declared / pending / verified / rejected / expired`. La revue est `service_role` uniquement. Surface publique minimale (pas de `proof_path` / `reviewer_*` / `review_note`). Preuve liée à `auth.uid() / qualification_id / proof`. Pas d’étoiles.
+Un Coach **reste visible et utilisable sans badge vérifié**. Les états sont `declared / pending / verified / rejected / expired`. La revue est `service_role` uniquement. Surface publique minimale (pas de `proof_path` / `reviewer_*` / `review_note`). Preuve liée à `auth.uid() / qualification_id / proof-<uuid>.ext` (`upsert: false`). Pas d’étoiles.
 
 ## P4.2 — Matching expliqué
 
@@ -750,6 +750,15 @@ Dès `pending` : conversation prospect. Puis `coach_accepted` : même fil. Pas d
 **En correction pré-production** — candidate `20260921024426_p4_marketplace_moderation` (pending jusqu’à apply live). Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
 
 Signaler un profil ou un comportement. File `service_role` (pas de console SPA). `directory_suspended` masque l’annuaire **et** refuse une **nouvelle** `request_coaching` (`coach_unavailable`). Une relation active n’est pas terminée. Un prospect déjà ouvert peut continuer jusqu’à confirmation. Acteur d’audit durable (`marketplace_audit_actor`). **Pas d’étoiles/avis Coach.** Pas de produit « bloquer ».
+
+### Déploiement (après feu vert explicite uniquement)
+
+1. Edge `delete-account` corrigée (cleanup Storage fail-closed, compatible pré-P4 : le bucket `qualification-proofs` peut encore être absent) ;
+2. migrations P4 ;
+3. smoke tests production ;
+4. frontend P4.
+
+Ne pas inverser : cela évite une fenêtre où les preuves existent déjà et l’ancienne Edge les laisse orphelines. **Ne pas merger. Ne pas appliquer. Ne pas commencer P5.**
 
 ### Terminé quand P4
 

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
+  buildQualificationProofPath,
   coachHasVerifiedBadge,
   ownedQualificationProofPath,
   publicQualifications,
@@ -30,8 +31,18 @@ test('verified qualifications expire on the civil date without becoming a rankin
   assert.equal(coachHasVerifiedBadge([row('declared'), row('verified')]), true);
   assert.equal(coachHasVerifiedBadge([row('declared')]), false);
   assert.equal(coachHasVerifiedBadge([row('verified', '2020-01-01')], '2026-09-21'), false);
-  assert.equal(ownedQualificationProofPath('c4100000-0000-4000-8000-000000000001', 'c4100000-0000-4000-8000-000000000099', 'c4100000-0000-4000-8000-000000000001/c4100000-0000-4000-8000-000000000099/proof.pdf'), true);
-  assert.equal(ownedQualificationProofPath('c4100000-0000-4000-8000-000000000001', 'c4100000-0000-4000-8000-000000000099', 'c4100000-0000-4000-8000-000000000002/c4100000-0000-4000-8000-000000000099/proof.pdf'), false);
+  const coach = 'c4100000-0000-4000-8000-000000000001';
+  const qid = 'c4100000-0000-4000-8000-000000000099';
+  const immutable = `${coach}/${qid}/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf`;
+  assert.equal(ownedQualificationProofPath(coach, qid, immutable), true);
+  assert.equal(ownedQualificationProofPath(coach, qid, `${coach}/${qid}/proof.pdf`), false);
+  assert.equal(ownedQualificationProofPath(coach, qid, `${coach}/${qid}/proof-not-a-uuid.pdf`), false);
+  assert.equal(ownedQualificationProofPath('c4100000-0000-4000-8000-000000000002', qid, immutable), false);
+  assert.equal(
+    buildQualificationProofPath(coach, qid, 'pdf', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'),
+    immutable,
+  );
+  assert.match(buildQualificationProofPath(coach, qid, 'jpg'), new RegExp(`^${coach}/${qid}/proof-[0-9a-f-]{36}\\.jpg$`, 'i'));
 });
 
 test('P4.1 qualifications reuse marketplace publish and never require a verified badge', () => {
@@ -47,6 +58,12 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /CoachQualificationsPanel/);
   assert.match(src('src/components/marketplace/CoachDirectoryCard.tsx'), /verifiedBadge/);
   assert.match(src('docs/CHANTIER.md'), /P4\.1/);
+  assert.match(src('docs/CHANTIER.md'), /proof-<uuid>/);
+  assert.match(src('docs/CHANTIER.md'), /Edge `delete-account`/);
+  assert.match(src('docs/P4_1_QUALIFICATIONS.md'), /upsert: false/);
+  assert.match(src('src/i18n/locales/fr/common.ts'), /storageCleanupFailed/);
+  assert.match(src('src/i18n/locales/en/common.ts'), /storageCleanupFailed/);
+  assert.match(src('src/components/profile/ProfilePage.tsx'), /storage_cleanup_failed/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
   assert.equal(pending.pending.some(row => row.version === '20260921021231'), true);
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260921021231/);
@@ -56,6 +73,7 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /^ROLLBACK;/m);
   assert.doesNotMatch(src('supabase/tests/p4_coach_qualifications.sql'), /^COMMIT;/m);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /foreign proof_path accepted/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /mutable proof path accepted/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /stranger selected owner qualification table/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /public qualification leaked internal fields/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /reviewer_ref was not durable/);
@@ -72,6 +90,11 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /withdraw succeeded while proof object existed/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /withdraw deleted storage catalog without Storage API/);
   assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /qualification-proofs'\)\.remove/);
+  assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /upsert:\s*false/);
+  assert.doesNotMatch(src('src/features/marketplace/domain/marketplaceApi.ts'), /upsert:\s*true/);
+  assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /buildQualificationProofPath/);
+  assert.match(found, /proof-\[0-9a-f\]\{8\}/);
+  assert.doesNotMatch(found, /CREATE POLICY "Coaches update qualification proofs"/);
   assert.match(src('src/components/marketplace/CoachQualificationsPanel.tsx'), /removeQualificationProof/);
   assert.match(src('scripts/test-qualification-proof-storage.sh'), /storage\/v1\/object/);
   assert.match(src('scripts/test-qualification-proof-storage.sh'), /prefixes/);

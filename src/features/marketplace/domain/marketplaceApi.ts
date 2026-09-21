@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSession } from '../../../lib/sessionScope';
-import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport } from './marketplace';
+import { buildQualificationProofPath, normalizeJoinRequestStatus, ownedQualificationProofPath, resolveRelationshipState, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport } from './marketplace';
 import { normalizeSearchIntent, type CoachMatchExplanation, type MarketplaceSearchIntent } from './marketplaceMatch';
 
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -130,8 +130,9 @@ export async function readMyMarketplaceReports(owner: string): Promise<Marketpla
 export async function uploadQualificationProof(owner: string, qualificationId: string, file: File): Promise<string> {
   if (!OWNER_ID.test(owner) || !OWNER_ID.test(qualificationId)) throw Error('invalid_response');
   const ext = file.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'jpg';
-  const path = `${owner}/${qualificationId}/proof.${ext}`;
-  const { error } = await supabase.storage.from('qualification-proofs').upload(path, file, { upsert: true });
+  const path = buildQualificationProofPath(owner, qualificationId, ext);
+  if (!ownedQualificationProofPath(owner, qualificationId, path)) throw Error('invalid_proof_path');
+  const { error } = await supabase.storage.from('qualification-proofs').upload(path, file, { upsert: false });
   if (error) throw error;
   return path;
 }

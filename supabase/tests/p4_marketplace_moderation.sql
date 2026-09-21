@@ -67,7 +67,7 @@ DO $$
 DECLARE q public.coach_qualifications;
 BEGIN
   SELECT * INTO q FROM public.coach_qualifications WHERE coach_id = auth.uid();
-  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof.pdf', NULL);
+  q := public.save_coach_qualification(q.id, q.title, q.qualification_type, q.issuer, auth.uid()::text || '/' || q.id::text || '/proof-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.pdf', NULL);
   PERFORM set_config('p4.proof_path', q.proof_path, true);
   PERFORM set_config('p4.qual_id', q.id::text, true);
 END $$;

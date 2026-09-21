@@ -87,7 +87,7 @@ AS $$
       || p_coach::text
       || '/'
       || p_id::text
-      || '/proof(\.(pdf|jpg|jpeg|png|webp))?$'
+      || '/proof-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[.](pdf|jpg|jpeg|png|webp)$'
     );
 $$;
 
@@ -519,31 +519,7 @@ CREATE POLICY "Coaches upload qualification proofs"
         AND q.coach_id = (SELECT auth.uid())
         AND q.verification_status IN ('declared', 'rejected')
     )
-    AND storage.filename(name) ~ '^proof(\.(pdf|jpg|jpeg|png|webp))?$'
-  );
-
-CREATE POLICY "Coaches update qualification proofs"
-  ON storage.objects FOR UPDATE TO authenticated
-  USING (
-    bucket_id = 'qualification-proofs'
-    AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-    AND EXISTS (
-      SELECT 1 FROM public.coach_qualifications q
-      WHERE q.id::text = (storage.foldername(name))[2]
-        AND q.coach_id = (SELECT auth.uid())
-        AND q.verification_status IN ('declared', 'rejected')
-    )
-  )
-  WITH CHECK (
-    bucket_id = 'qualification-proofs'
-    AND (storage.foldername(name))[1] = (SELECT auth.uid())::text
-    AND EXISTS (
-      SELECT 1 FROM public.coach_qualifications q
-      WHERE q.id::text = (storage.foldername(name))[2]
-        AND q.coach_id = (SELECT auth.uid())
-        AND q.verification_status IN ('declared', 'rejected')
-    )
-    AND storage.filename(name) ~ '^proof(\.(pdf|jpg|jpeg|png|webp))?$'
+    AND storage.filename(name) ~ '^proof-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[.](pdf|jpg|jpeg|png|webp)$'
   );
 
 CREATE POLICY "Coaches delete qualification proofs"
