@@ -56,6 +56,16 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /suspended coach remained in matching/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /suspend ended coaching link/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /client flipped directory_suspended/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /^ROLLBACK;/m);
+  assert.doesNotMatch(src('supabase/tests/p4_marketplace_moderation.sql'), /^COMMIT;/m);
+  for (const slice of [
+    'p4_coach_qualifications.sql',
+    'p4_explained_matching.sql',
+    'p4_prospect_messaging.sql',
+  ]) {
+    assert.match(src(`supabase/tests/${slice}`), /^ROLLBACK;/m);
+    assert.doesNotMatch(src(`supabase/tests/${slice}`), /^COMMIT;/m);
+  }
   assert.match(src('supabase/tests/rls_matrix.sql'), /submit_marketplace_report/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /review_marketplace_report/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };

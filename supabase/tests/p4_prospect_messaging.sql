@@ -149,4 +149,4 @@ END $$;
 RESET ROLE;
 SELECT pg_temp.clear_jwt();
 \echo 'p4.3 prospect messaging: conversation after accept, no dossier until confirm'
-COMMIT;
+ROLLBACK;

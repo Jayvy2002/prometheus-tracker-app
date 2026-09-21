@@ -266,4 +266,4 @@ END $$;
 RESET ROLE;
 SELECT pg_temp.clear_jwt();
 \echo 'p4.4 moderation: report queue, suspend directory, no ratings, no relationship end'
-COMMIT;
+ROLLBACK;

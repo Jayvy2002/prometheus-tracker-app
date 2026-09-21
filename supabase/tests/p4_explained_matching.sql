@@ -168,4 +168,4 @@ END $$;
 RESET ROLE;
 SELECT pg_temp.clear_jwt();
 \echo 'p4.2 matching: blocking vs prefs, shortlist eligible only, no percent'
-COMMIT;
+ROLLBACK;
