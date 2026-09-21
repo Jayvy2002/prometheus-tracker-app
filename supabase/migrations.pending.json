@@ -1,3 +1,8 @@
 {
-  "pending": []
+  "pending": [
+    {
+      "version": "20260920014500",
+      "name": "p3_hardening"
+    }
+  ]
 }

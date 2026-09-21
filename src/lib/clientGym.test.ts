@@ -6,6 +6,7 @@ import {
   isProgramDayDue,
   isProgramTrainingDay,
   pickNextTrainingDay,
+  resolveAssignmentGymCard,
   resolveClientGymCard,
   showLoggingRir,
   trainingDays,
@@ -173,6 +174,125 @@ test('program day is due only for continue or today’s start, not a future week
   assert.equal(isProgramDayDue({ kind: 'none', isToday: false }), false);
 });
 
+test('timed phases pick the current phase session, not the next letter in the whole program', () => {
+  const phases = [
+    { id: 'p1', name: 'Accumulation', order_index: 0, duration_weeks: 4 },
+    { id: 'p2', name: 'Intensification', order_index: 1, duration_weeks: 4 },
+    { id: 'p3', name: 'Deload', order_index: 2, duration_weeks: 1 },
+  ];
+  const days = [
+    day({ id: 'a', weekday: 1, name: 'A', phase_id: 'p1', order_index: 0 }),
+    day({ id: 'b', weekday: 3, name: 'B', phase_id: 'p1', order_index: 1 }),
+    day({ id: 'a2', weekday: 1, name: 'A2', phase_id: 'p2', order_index: 2 }),
+    day({ id: 'b2', weekday: 3, name: 'B2', phase_id: 'p2', order_index: 3 }),
+    day({ id: 'd', weekday: 1, name: 'D', phase_id: 'p3', order_index: 4 }),
+  ];
+  const inOrderWeek1 = resolveClientGymCard({
+    hasActiveProgram: true,
+    days,
+    workouts: [],
+    todayWeekday: 1,
+    todayDate: '2026-09-01',
+    sessionOrganization: 'in_order',
+    phases,
+    phaseAnchorDate: '2026-09-01',
+  });
+  assert.equal(inOrderWeek1.day?.name, 'A');
+  assert.equal(inOrderWeek1.phase?.name, 'Accumulation');
+
+  const afterTwo = resolveClientGymCard({
+    hasActiveProgram: true,
+    days,
+    workouts: [
+      { id: 'w1', date: '2026-09-01T12:00:00', completed: true, program_day_id: 'a', program_assignment_id: 'asg' },
+      { id: 'w2', date: '2026-09-03T12:00:00', completed: true, program_day_id: 'b', program_assignment_id: 'asg' },
+    ],
+    assignmentId: 'asg',
+    todayWeekday: 5,
+    todayDate: '2026-09-05',
+    sessionOrganization: 'in_order',
+    phases,
+    phaseAnchorDate: '2026-09-01',
+  });
+  assert.equal(afterTwo.day?.name, 'A');
+  assert.notEqual(afterTwo.day?.name, 'A2');
+
+  const week5 = resolveClientGymCard({
+    hasActiveProgram: true,
+    days,
+    workouts: [],
+    todayWeekday: 1,
+    todayDate: '2026-09-29',
+    sessionOrganization: 'in_order',
+    phases,
+    phaseAnchorDate: '2026-09-01',
+  });
+  assert.equal(week5.day?.name, 'A2');
+  assert.equal(week5.phase?.name, 'Intensification');
+
+  const mondayAccum = resolveClientGymCard({
+    hasActiveProgram: true,
+    days,
+    workouts: [],
+    todayWeekday: 1,
+    todayDate: '2026-09-07',
+    sessionOrganization: 'fixed_days',
+    phases,
+    phaseAnchorDate: '2026-09-01',
+  });
+  assert.equal(mondayAccum.day?.name, 'A');
+  const mondayIntens = resolveClientGymCard({
+    hasActiveProgram: true,
+    days,
+    workouts: [],
+    todayWeekday: 1,
+    todayDate: '2026-09-29',
+    sessionOrganization: 'fixed_days',
+    phases,
+    phaseAnchorDate: '2026-09-01',
+  });
+  assert.equal(mondayIntens.day?.name, 'A2');
+});
+
+test('assignment before effective start has no program session', () => {
+  const assignment = {
+    id: 'asg',
+    program_id: 'prog',
+    client_id: 'c',
+    assigned_by: 'c',
+    start_date: '2026-09-21',
+    status: 'active' as const,
+    created_at: '',
+    updated_at: '',
+    program: {
+      id: 'prog',
+      owner_id: 'c',
+      name: 'P',
+      description: '',
+      duration_weeks: 8,
+      days: hugoDays,
+      phase_anchor_on: '2026-09-01',
+      created_at: '',
+      updated_at: '',
+    },
+  };
+  const before = resolveAssignmentGymCard({
+    assignment,
+    workouts: [],
+    todayDate: '2026-09-20',
+    todayWeekday: 0,
+  });
+  assert.equal(before.kind, 'none');
+  const onStart = resolveAssignmentGymCard({
+    assignment,
+    workouts: [],
+    todayDate: '2026-09-21',
+    todayWeekday: 1,
+  });
+  assert.equal(onStart.kind, 'start');
+  assert.equal(onStart.day?.id, 'mon');
+});
+
 test('pickNext wraps; workoutOnDate matches local timestamps', () => {
   assert.equal(pickNextTrainingDay(hugoDays, 6, false)?.name, 'Push');
   assert.equal(workoutOnDate('2026-08-30T12:00:00', '2026-08-30'), true);
@@ -188,7 +308,7 @@ test('coach RIR flag wins over local pref; disabled vars stay hidden', () => {
 
 test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 stay', () => {
   const dash = src('src/components/dashboard/Dashboard.tsx') + src('src/features/dashboard/hooks/useDashboardBootstrap.ts');
-  assert.match(dash, /resolveClientGymCard/);
+  assert.match(dash, /resolveAssignmentGymCard/);
   assert.match(dash, /ClientGymCard/);
   assert.match(dash, /DashboardWeightCard/);
   const gymIdx = dash.indexOf('<ClientGymCard');

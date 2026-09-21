@@ -31,6 +31,14 @@ test('C03: coach deletion runs the business transition first, then paginated cle
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.transition_client_to_solo/);
   assert.match(mig, /CREATE OR REPLACE FUNCTION public\.close_coach_account/);
   assert.match(mig, /GRANT EXECUTE ON FUNCTION public\.close_coach_account\(uuid\) TO service_role/);
+  const close = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.close_coach_account(p_coach_id uuid)');
+  assert.equal(close.file, '20260920014500_p3_hardening.sql');
+  assert.match(close.sql, /remap_program_revision_snapshot/);
+  assert.match(close.sql, /apply_program_revision_snapshot/);
+  assert.match(close.sql, /lock_coach_relationship_lifecycle/);
+  assert.match(close.sql, /lock_client_assignment_mutex/);
+  assert.match(close.sql, /lock_programs_for_assignment_mutation/);
+  assert.match(close.sql, /frozen_revision_no = v_rev/);
   const edge = src('supabase/functions/delete-account/index.ts');
   assert.match(edge, /close_coach_account/);
   assert.match(edge, /auth\.admin\.deleteUser/);
@@ -39,18 +47,25 @@ test('C03: coach deletion runs the business transition first, then paginated cle
     'transition must run before Auth deletion',
   );
   assert.match(edge, /offset \+= LIST_PAGE/);
+  assert.match(edge, /P3 snapshot/);
 });
 
-test('C04: assignment history follows the athlete; adoption is explicit', () => {
+test('C04: assignment history follows the athlete; adoption is exact assignment_id', () => {
   const mig = migrationsSql();
   assert.match(mig, /Coaches read client assignment history/);
   assert.match(mig, /Coaches read assigned programs/);
-  assert.match(mig, /CREATE OR REPLACE FUNCTION public\.adopt_client_program/);
+  assert.match(mig, /CREATE OR REPLACE FUNCTION public\.adopt_client_assignment/);
+  assert.match(mig, /DROP FUNCTION IF EXISTS public\.adopt_client_program\(uuid, uuid, text\)/);
   const store = src('src/stores/coachingStore.ts');
   assert.match(store, /fetchClientAssignments/);
-  assert.match(store, /adoptClientProgram/);
+  assert.match(store, /adoptClientAssignment/);
+  assert.doesNotMatch(store, /adoptClientProgram/);
   const page = src('src/components/coaching/ClientDetailPage.tsx') + src('src/features/coaching/hooks/useClientDossier.ts');
   assert.match(page, /client360\.historyTitle/);
+  assert.match(page, /adoptClientAssignment\(a\.id\)/);
+  assert.match(page, /adoptingId === a\.id/);
+  assert.doesNotMatch(page, /adoptClientProgram/);
+  assert.doesNotMatch(page, /setAdoptingId\(a\.program_id\)/);
   const athlete = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(athlete, /fetchPausedAssignments/);
   assert.match(athlete, /programs\.archivesTitle/);

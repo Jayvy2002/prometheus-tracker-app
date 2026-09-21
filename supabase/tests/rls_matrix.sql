@@ -160,6 +160,9 @@ BEGIN
   IF to_regclass('public.coaching_relationship_consents') IS NOT NULL THEN
     DELETE FROM public.coaching_relationship_consents WHERE coach_id = ANY (v_ids) OR client_id = ANY (v_ids);
   END IF;
+  IF to_regclass('public.coach_account_closures') IS NOT NULL THEN
+    DELETE FROM public.coach_account_closures WHERE coach_id = ANY (v_ids);
+  END IF;
   DELETE FROM public.user_roles WHERE user_id = ANY (v_ids);
   IF to_regclass('public.user_capabilities') IS NOT NULL THEN
     DELETE FROM public.user_capabilities WHERE user_id = ANY (v_ids);
@@ -515,22 +518,31 @@ BEGIN
      AND pg_temp.fn_exec('client_end_coach_link')
      AND pg_temp.fn_exec('dismiss_coach_relationship_notice')
      AND pg_temp.fn_exec('get_my_coach_card')
-     AND pg_temp.fn_exec('save_program_day_exercises')
-     AND pg_temp.fn_exec('sync_program_days')
      AND pg_temp.fn_exec('save_program')
-     AND pg_temp.fn_exec('snapshot_program_revision')
-     AND pg_temp.fn_exec('adopt_client_program')
+     AND pg_temp.fn_exec('adopt_client_assignment')
+     AND NOT pg_temp.fn_exec('adopt_client_program')
+     AND NOT pg_temp.fn_exec('save_program_day_exercises')
+     AND NOT pg_temp.fn_exec('sync_program_days')
+     AND NOT pg_temp.fn_exec('snapshot_program_revision')
+     AND NOT pg_temp.fn_exec('sync_program_phases')
+     AND NOT pg_temp.fn_exec('create_program_with_days')
      AND NOT pg_temp.fn_exec('_apply_intervention_effects')
      AND NOT pg_temp.fn_exec('assert_client_target')
      AND NOT pg_temp.fn_exec('transition_client_to_solo')
      AND NOT pg_temp.fn_exec('close_coach_account')
+     AND NOT pg_temp.fn_exec('lock_programs_for_assignment_mutation')
+     AND NOT pg_temp.fn_exec('lock_client_assignment_programs')
+     AND NOT pg_temp.fn_exec('lock_client_assignment_mutex')
+     AND NOT pg_temp.fn_exec('lock_coach_relationship_lifecycle')
+     AND NOT pg_temp.fn_exec('coach_relationship_is_open')
+     AND NOT pg_temp.fn_exec('remap_program_revision_snapshot')
      AND NOT pg_temp.fn_exec('handle_new_user')
      AND NOT pg_temp.fn_exec('invoke_coach_fleet_round')
   THEN
     PERFORM pg_temp.record('DEFINER_GRANTS', true, 'surface RPCs granted ; helpers revoked');
   ELSE
     PERFORM pg_temp.record('DEFINER_GRANTS', false, format(
-      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s client_end=%s dismiss=%s card=%s save=%s sync=%s save_all=%s snap=%s adopt=%s helper=%s assert=%s trans=%s close=%s handle=%s fleet=%s',
+      'complete=%s apply=%s claim=%s assign=%s fork=%s unlink=%s client_end=%s dismiss=%s card=%s save=%s sync=%s save_all=%s snap=%s phases=%s create_days=%s adopt=%s helper=%s assert=%s trans=%s close=%s handle=%s fleet=%s',
       pg_temp.fn_exec('create_program_complete'),
       pg_temp.fn_exec('apply_intervention'),
       pg_temp.fn_exec('claim_intervention'),
@@ -544,7 +556,9 @@ BEGIN
       pg_temp.fn_exec('sync_program_days'),
       pg_temp.fn_exec('save_program'),
       pg_temp.fn_exec('snapshot_program_revision'),
-      pg_temp.fn_exec('adopt_client_program'),
+      pg_temp.fn_exec('sync_program_phases'),
+      pg_temp.fn_exec('create_program_with_days'),
+      pg_temp.fn_exec('adopt_client_assignment'),
       pg_temp.fn_exec('_apply_intervention_effects'),
       pg_temp.fn_exec('assert_client_target'),
       pg_temp.fn_exec('transition_client_to_solo'),
@@ -613,6 +627,9 @@ BEGIN
      AND NOT has_table_privilege('authenticated', 'public.coach_profiles', 'update')
      AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'insert')
      AND NOT has_table_privilege('authenticated', 'public.coach_join_requests', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'select')
+     AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_account_closures', 'update')
      AND has_table_privilege('authenticated', 'public.coach_profiles', 'select')
      AND has_table_privilege('authenticated', 'public.coach_join_requests', 'select')
      AND to_regclass('public.coach_profiles') IS NOT NULL
@@ -1077,13 +1094,14 @@ EXCEPTION WHEN OTHERS THEN
   PERFORM pg_temp.record('D02_ONCE', false, SQLERRM);
 END $$;
 
--- Unlink : A termine le lien A1 ; le programme pausé reste lisible par l'athlète.
+-- Unlink : A termine le lien A1 ; le graphe LIVE n'est plus lisible par l'athlète pausé.
 DO $$
 DECLARE
   v_a uuid := '00000000-0000-0000-0000-0000000000a1';
   v_a1 uuid := '00000000-0000-0000-0000-0000000000c1';
   v_out jsonb;
-  v_visible boolean;
+  v_live boolean;
+  v_asg boolean;
 BEGIN
   PERFORM pg_temp.as_user(v_a);
   SET LOCAL ROLE authenticated;
@@ -1100,12 +1118,16 @@ BEGIN
     SELECT 1 FROM public.programs p
     JOIN public.program_assignments pa ON pa.program_id = p.id
     WHERE pa.client_id = v_a1 AND pa.status = 'paused'
-  ) INTO v_visible;
+  ) INTO v_live;
+  SELECT EXISTS (
+    SELECT 1 FROM public.program_assignments pa
+    WHERE pa.client_id = v_a1 AND pa.status = 'paused'
+  ) INTO v_asg;
   RESET ROLE; PERFORM pg_temp.clear_user();
-  IF v_visible THEN
-    PERFORM pg_temp.record('UNLINK', true, 'paused program readable after unlink');
+  IF (NOT v_live) AND v_asg THEN
+    PERFORM pg_temp.record('UNLINK', true, 'paused live graph hidden; assignment still readable');
   ELSE
-    PERFORM pg_temp.record('UNLINK', false, 'paused program unreadable after unlink');
+    PERFORM pg_temp.record('UNLINK', false, format('live=%s assignment=%s', v_live, v_asg));
   END IF;
 END $$;
 

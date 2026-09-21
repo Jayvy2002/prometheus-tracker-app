@@ -157,7 +157,7 @@ test('P3.1 organization stays on the shared engine after P3.2 phases', () => {
   assert.doesNotMatch(save.sql, /apply_athlete_watch_minimum/);
 
   const create = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.create_program_complete');
-  assert.equal(create.file, '20260919225507_program_phases.sql');
+  assert.equal(create.file, '20260920014500_p3_hardening.sql');
   assert.match(create.sql, /p_session_organization text DEFAULT 'fixed_days'/);
   assert.match(create.sql, /Toute erreur annule tout/);
 

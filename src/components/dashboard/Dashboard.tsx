@@ -15,7 +15,7 @@ import { useProgramStore } from '../../stores/programStore';
 import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboardBootstrap';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
-import { todayStr, toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
+import { toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -30,10 +30,11 @@ import {
   pickTodayReminder,
   shouldShowDaysSinceReminder,
 } from '../../lib/clientHome';
-import { isProgramDayDue, resolveClientGymCard } from '../../lib/clientGym';
-import { resolveCurrentPhase } from '../../features/programs/domain/programPhases';
+import { isProgramDayDue, resolveAssignmentGymCard } from '../../lib/clientGym';
 import { assignStartLabel } from '../../lib/programWrite';
 import { resolveTrainingFrequency } from '../../lib/trainingFrequency';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
+import { effectiveVersionStart } from '../../features/programs/domain/programPhases';
 import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDrafts';
 import type { ProgramDay } from '../../lib/types';
 import PageTransition from '../ui/PageTransition';
@@ -49,14 +50,14 @@ import PrometheusWatchPanel from './PrometheusWatchPanel';
 import SoloProgramProposal from './SoloProgramProposal';
 import LinkEndedBanner from './LinkEndedBanner';
 
-function getWeekDates(): string[] {
-  const today = new Date();
-  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  monday.setDate(monday.getDate() - ((today.getDay() + 6) % 7));
+function getWeekDates(todayCivil: string): string[] {
+  const [y, m, d] = todayCivil.split('-').map(Number);
+  const monday = new Date(y, m - 1, d);
+  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + i);
-    return toLocalDateStr(d);
+    const day = new Date(monday);
+    day.setDate(monday.getDate() + i);
+    return toLocalDateStr(day);
   });
 }
 
@@ -76,6 +77,7 @@ export default function Dashboard() {
   const { myCoach, coachingRole, latestCoachMessage, unreadMessageCount } = useCoachingStore();
   const { canUpdateOwnAssignedProgram: canEditOwnPlan } = useResourcePermissions();
   const { assignment } = useProgramStore();
+  const programClock = useProgramCivilClock();
   const tracking = useClientTracking();
   const { nutritionHistoryCount, assignmentReady } = useDashboardBootstrap();
   const [startingRoutine, setStartingRoutine] = useState(false);
@@ -101,8 +103,8 @@ export default function Dashboard() {
   const waterPct = targetRatio(waterConsumed, waterTarget);
 
   // Weekly workout goal
-  const weekDates = getWeekDates();
-  const todayIndex = weekDates.indexOf(todayStr());
+  const weekDates = getWeekDates(programClock.today);
+  const todayIndex = weekDates.indexOf(programClock.today);
   const trainingTarget = resolveTrainingFrequency(
     profile?.training_frequency,
     assignment?.status === 'active' ? assignment.program?.days : null,
@@ -131,29 +133,22 @@ export default function Dashboard() {
     ? +(recentWeights[recentWeights.length - 1].weight_kg - recentWeights[0].weight_kg).toFixed(1)
     : null;
 
-  const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][new Date().getDay()];
+  const todayDow = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][programClock.weekday];
   const alreadyTrainedToday = doneDays[todayIndex];
   const hasProgram = !!assignment?.program && assignment.status === 'active';
-  const gymCard = resolveClientGymCard({
-    hasActiveProgram: hasProgram,
-    days: assignment?.program?.days,
+  const gymCard = resolveAssignmentGymCard({
+    assignment: hasProgram ? assignment : null,
     workouts,
-    todayWeekday: new Date().getDay(),
-    todayDate: todayStr(),
-    assignmentId: assignment?.id ?? null,
-    sessionOrganization: assignment?.program?.session_organization,
+    todayWeekday: programClock.weekday,
+    todayDate: programClock.today,
   });
+  const versionStart = assignment?.program
+    ? effectiveVersionStart(assignment.start_date, assignment.program.phase_anchor_on)
+    : null;
   const programWeek = assignment?.program
-    ? programWeekNumber(assignment.start_date, assignment.program.duration_weeks)
+    ? programWeekNumber(versionStart ?? assignment.start_date, assignment.program.duration_weeks, programClock.today)
     : null;
-  const gymPhaseName = assignment?.program
-    ? resolveCurrentPhase({
-      phases: assignment.program.phases,
-      startDate: assignment.start_date,
-      today: todayStr(),
-      nextDay: gymCard.day ?? gymCard.nextDay,
-    })?.name ?? null
-    : null;
+  const gymPhaseName = gymCard.phase?.name ?? null;
   const gymPlannedChange = assignment?.program?.scheduled_activates_on
     ? t('programs.plannedChangeOn', {
       date: assignStartLabel(assignment.program.scheduled_activates_on, i18n.language),

@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useProgramStore } from '../../stores/programStore';
 import type { AiProgramDayDraft, SessionOrganization } from '../../lib/types';
 import type { ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
+import { multiPhaseSharedWeekdaysNeedDuration, phasesHaveMixedDurations } from '../../features/programs/domain/programPhases';
 import ProgramSessionEditor from '../coaching/ProgramSessionEditor';
 import ProgramRevisionHistory from './ProgramRevisionHistory';
 import Button from '../ui/Button';
@@ -14,6 +15,7 @@ import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import { mapProgramWriteError } from '../../lib/programWrite';
 import { normalizeSessionOrganization } from '../../features/programs/domain/sessionOrganization';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
 
 export default function ProgramEditorPage() {
   const { t, i18n } = useTranslation();
@@ -22,6 +24,7 @@ export default function ProgramEditorPage() {
   const { user } = useAuthStore();
   const canCoach = useAccountContext().capabilities.coach;
   const { fetchProgram, createProgram, saveProgram, fetchProgramRevisionInfo, saveProgramVersion, scheduleProgramVersion, activateProgramVersion } = useProgramStore();
+  const programClock = useProgramCivilClock();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
@@ -92,8 +95,33 @@ export default function ProgramEditorPage() {
 
   const dirtyLabel = useMemo(() => t('coaching.programEditor.saveHint'), [t]);
 
+  const graphGuard = (): string | null => {
+    const named = phases.filter(phase => phase.name.trim());
+    if (phasesHaveMixedDurations(named)) return t('programs.mixedPhaseDurations');
+    if (multiPhaseSharedWeekdaysNeedDuration(organization, named, days)) {
+      return t('programs.phaseDurationRequired');
+    }
+    return null;
+  };
+
+  const writeCopy = () => ({
+    stale: t('programs.stale'),
+    fallback: t('programs.saveFailed'),
+    scheduled: t('programs.versionAlreadyScheduled'),
+    historical: t('programs.versionHistorical'),
+    phaseDuration: t('programs.phaseDurationRequired'),
+    mixedPhases: t('programs.mixedPhaseDurations'),
+    invalidSets: t('programs.invalidSetsMax'),
+    activationInPast: t('programs.activationDateInPast'),
+  });
+
   const handleSave = async () => {
     if (!user || !name.trim() || saving) return;
+    const graphError = graphGuard();
+    if (graphError) {
+      toast(graphError, 'error');
+      return;
+    }
     setSaving(true);
     if (isNew) {
       const created = await createProgram({
@@ -133,10 +161,7 @@ export default function ProgramEditorPage() {
     );
     if (saved.error) {
       setSaving(false);
-      toast(mapProgramWriteError(saved.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-      }), 'error');
+      toast(mapProgramWriteError(saved.error, writeCopy()), 'error');
       return;
     }
     const latest = useProgramStore.getState().programs.find(p => p.id === id);
@@ -148,6 +173,15 @@ export default function ProgramEditorPage() {
 
   const handleScheduleFuture = async () => {
     if (!user || !id || isNew || saving || scheduling || !name.trim() || !activateOn) return;
+    if (activateOn < programClock.today) {
+      toast(t('programs.activationDateInPast'), 'error');
+      return;
+    }
+    const graphError = graphGuard();
+    if (graphError) {
+      toast(graphError, 'error');
+      return;
+    }
     setScheduling(true);
     const saved = await saveProgramVersion(
       id,
@@ -158,12 +192,7 @@ export default function ProgramEditorPage() {
     );
     if (saved.error || saved.revisionNo == null) {
       setScheduling(false);
-      toast(mapProgramWriteError(saved.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-        scheduled: t('programs.versionAlreadyScheduled'),
-        historical: t('programs.versionHistorical'),
-      }), 'error');
+      toast(mapProgramWriteError(saved.error, writeCopy()), 'error');
       return;
     }
     const scheduled = await scheduleProgramVersion(
@@ -175,12 +204,7 @@ export default function ProgramEditorPage() {
     );
     setScheduling(false);
     if (scheduled.error) {
-      toast(mapProgramWriteError(scheduled.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-        scheduled: t('programs.versionAlreadyScheduled'),
-        historical: t('programs.versionHistorical'),
-      }), 'error');
+      toast(mapProgramWriteError(scheduled.error, writeCopy()), 'error');
       return;
     }
     const latest = useProgramStore.getState().programs.find(p => p.id === id);
@@ -198,12 +222,7 @@ export default function ProgramEditorPage() {
     const activated = await activateProgramVersion(id, scheduledRevisionNo, expectedUpdatedAt);
     setScheduling(false);
     if (activated.error) {
-      toast(mapProgramWriteError(activated.error, {
-        stale: t('programs.stale'),
-        fallback: t('programs.saveFailed'),
-        scheduled: t('programs.versionAlreadyScheduled'),
-        historical: t('programs.versionHistorical'),
-      }), 'error');
+      toast(mapProgramWriteError(activated.error, writeCopy()), 'error');
       return;
     }
     const latest = await fetchProgram(id);
@@ -288,6 +307,7 @@ export default function ProgramEditorPage() {
               {t('programs.versionActivateOn')}
               <input
                 type="date"
+                min={programClock.today}
                 data-testid="program-version-activate-on"
                 value={activateOn}
                 onChange={e => setActivateOn(e.target.value)}
@@ -325,6 +345,8 @@ export default function ProgramEditorPage() {
             programId={id}
             programMeta={{ name: name.trim(), description, duration_weeks: weeks }}
             expectedUpdatedAt={expectedUpdatedAt}
+            activeRevisionNo={activeRevisionNo}
+            scheduledRevisionNo={scheduledRevisionNo}
             onClose={() => setHistoryOpen(false)}
             onRestored={async () => {
               const p = await fetchProgram(id);

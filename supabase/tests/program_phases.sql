@@ -19,6 +19,17 @@ insert into public.user_capabilities(user_id, capability) values
  ('c3291941-0000-4000-8000-000000000003','coach'),
  ('c3291941-0000-4000-8000-000000000005','coach')
 on conflict do nothing;
+-- Logger not-before-start uses the actor civil clock. Pin UTC so it matches
+-- the CI session current_date even when America/Toronto is still yesterday.
+update public.user_profiles
+   set timezone = 'UTC'
+ where id in (
+   'c3291941-0000-4000-8000-000000000001',
+   'c3291941-0000-4000-8000-000000000002',
+   'c3291941-0000-4000-8000-000000000003',
+   'c3291941-0000-4000-8000-000000000004',
+   'c3291941-0000-4000-8000-000000000005'
+ );
 
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('c3291941-0000-4000-8000-000000000010','c3291941-0000-4000-8000-000000000001','Simple split','',12);
@@ -207,7 +218,10 @@ begin
   raise exception 'stranger sync_program_phases was allowed';
 exception
   when others then
-    if sqlerrm not like '%Not program owner%' then
+    if sqlerrm like '%stranger sync_program_phases was allowed%' then
+      raise;
+    elsif sqlerrm not like '%Not program owner%'
+          and sqlerrm not like '%permission denied%' then
       raise;
     end if;
 end $$;
@@ -302,8 +316,8 @@ begin
   if has_function_privilege('anon', v_oid, 'EXECUTE') then
     raise exception 'sync_program_phases granted to anon';
   end if;
-  if not has_function_privilege('authenticated', v_oid, 'EXECUTE') then
-    raise exception 'sync_program_phases missing authenticated execute';
+  if has_function_privilege('authenticated', v_oid, 'EXECUTE') then
+    raise exception 'sync_program_phases granted to authenticated';
   end if;
   v_oid := to_regprocedure('public.save_program(uuid,text,text,int,jsonb,timestamptz,text,jsonb)');
   if v_oid is null then raise exception 'save_program 8-arg missing'; end if;

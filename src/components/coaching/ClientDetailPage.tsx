@@ -170,7 +170,7 @@ export default function ClientDetailPage() {
     addNote, notes, rosterSignals,
     priorities, coachSettings,
     pendingInterventions, endClientLink, askCoachAgent, createIntervention,
-    adoptClientProgram,
+    adoptClientAssignment,
   } = useCoachingStore();
   const dossier = useClientDossier(id);
   const {
@@ -847,10 +847,10 @@ export default function ClientDetailPage() {
                       </div>
                       <button
                         type="button"
-                        disabled={adoptingId === a.program_id}
-                        onClick={() => id && void (async () => {
-                          setAdoptingId(a.program_id);
-                          const result = await adoptClientProgram(a.program_id, id);
+                        disabled={adoptingId === a.id}
+                        onClick={() => void (async () => {
+                          setAdoptingId(a.id);
+                          const result = await adoptClientAssignment(a.id);
                           setAdoptingId(null);
                           if ('error' in result) toast(result.error, 'error');
                           else toast(t('coaching.client360.historyAdopted'));

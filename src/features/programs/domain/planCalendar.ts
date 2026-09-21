@@ -1,7 +1,13 @@
 /** UX47 — états de jour de plan au calendrier. Pas un nouveau calendrier ; le passé dû reste visible. */
 
 import { isProgramTrainingDay, trainingDays, workoutOnDate } from '../../../lib/clientGym';
-import { phaseNameForDay, resolveCurrentPhase, type ProgramPhase } from './programPhases';
+import {
+  daysForCurrentPhase,
+  phaseNameForDay,
+  phasesAreTimed,
+  resolveCurrentPhase,
+  type ProgramPhase,
+} from './programPhases';
 import { normalizeSessionOrganization, type SessionOrganization } from './sessionOrganization';
 
 export type PlanCalendarStatus = 'scheduled' | 'started' | 'done';
@@ -153,6 +159,7 @@ export function planMarkForDate(input: {
   unnamed?: string;
   sessionOrganization?: SessionOrganization | null;
   phases?: ProgramPhase[] | null;
+  phaseAnchorDate?: string | null;
 }): PlanCalendarMark | null {
   const date = civilDay(input.date);
   if (!date) return null;
@@ -160,7 +167,13 @@ export function planMarkForDate(input: {
 
   const unnamed = input.unnamed?.trim() || '—';
   const weekday = weekdayFromDateStr(date);
-  const pool = trainingDays((input.days ?? []) as Parameters<typeof trainingDays>[0]);
+  const all = trainingDays((input.days ?? []) as Parameters<typeof trainingDays>[0]);
+  const phaseClock = input.phaseAnchorDate || input.startDate;
+  const timed = phasesAreTimed(input.phases);
+  const phase = timed
+    ? resolveCurrentPhase({ phases: input.phases, startDate: phaseClock, today: date })
+    : null;
+  const pool = timed ? daysForCurrentPhase(all, phase) : all;
   const inOrder = normalizeSessionOrganization(input.sessionOrganization) === 'in_order';
   const template = !inOrder && weekday >= 0
     ? pool.find(d => d.weekday === weekday) ?? null
@@ -174,8 +187,10 @@ export function planMarkForDate(input: {
   const chosen = linked[0] ?? recaled[0] ?? null;
 
   if (chosen) {
-    const day = pool.find(d => d.id === chosen.program_day_id) ?? template;
-    return markFromWorkout(chosen, day, unnamed, input.phases, date, input.startDate);
+    const day = pool.find(d => d.id === chosen.program_day_id)
+      ?? all.find(d => d.id === chosen.program_day_id)
+      ?? template;
+    return markFromWorkout(chosen, day, unnamed, input.phases, date, phaseClock);
   }
 
   if (template && isProgramTrainingDay(template) && planCanInventScheduled({
@@ -190,7 +205,7 @@ export function planMarkForDate(input: {
       dayName: template.name?.trim() || unnamed,
       dayId: template.id,
       workoutId: null,
-      phaseName: markPhaseName(input.phases, template, date, input.startDate),
+      phaseName: markPhaseName(input.phases, template, date, phaseClock),
     };
   }
   return null;

@@ -7,11 +7,28 @@ export function isProgramStaleError(message: string | null | undefined): boolean
 
 export function mapProgramWriteError(
   message: string | null | undefined,
-  copy: { stale: string; fallback: string; scheduled?: string; historical?: string },
+  copy: {
+    stale: string;
+    fallback: string;
+    scheduled?: string;
+    historical?: string;
+    phaseDuration?: string;
+    mixedPhases?: string;
+    invalidSets?: string;
+    activationInPast?: string;
+  },
 ): string {
   if (isProgramStaleError(message)) return copy.stale;
   if (copy.scheduled && message?.includes('already_scheduled')) return copy.scheduled;
   if (copy.historical && message?.includes('historical')) return copy.historical;
+  if (copy.mixedPhases && message?.includes('mixed phase durations')) return copy.mixedPhases;
+  if (copy.phaseDuration && message?.includes('phase duration required')) return copy.phaseDuration;
+  if (copy.invalidSets && (message?.includes('Invalid sets') || message?.includes('invalid_set_count'))) {
+    return copy.invalidSets;
+  }
+  if (copy.activationInPast && message?.includes('activation_date_in_past')) {
+    return copy.activationInPast;
+  }
   return copy.fallback;
 }
 

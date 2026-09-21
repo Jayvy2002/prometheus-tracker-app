@@ -4,7 +4,7 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { latestMigrationContaining } from '../../../lib/migrationScan';
 import { i18nLocaleSource } from '../../../lib/i18nLocaleSource';
-import { planMarkForDate } from './planCalendar';
+import { planMarkForDate, planCanInventScheduled } from './planCalendar';
 import { programGraphForDate, revisionVersionState } from './programVersions';
 
 function src(rel: string): string {
@@ -36,11 +36,68 @@ test('calendar can show a future version after activation day without inventing 
     date: '2026-09-21',
     liveDays: live,
     livePhases: [],
+    liveDurationWeeks: 4,
+    liveVersionStart: '2026-09-01',
     scheduledActivatesOn: '2026-09-21',
     scheduledDays: future,
     scheduledPhases: [],
+    scheduledDurationWeeks: 12,
   });
   assert.equal(after.days[0].name, 'Lower');
+  assert.equal(after.durationWeeks, 12);
+  assert.equal(after.versionStart, '2026-09-21');
+  assert.equal(planCanInventScheduled({
+    date: '2026-12-13',
+    startDate: after.versionStart,
+    durationWeeks: after.durationWeeks,
+  }), true);
+  assert.equal(planCanInventScheduled({
+    date: '2026-12-14',
+    startDate: after.versionStart,
+    durationWeeks: after.durationWeeks,
+  }), false);
+
+  const afterAssign = programGraphForDate({
+    date: '2026-09-22',
+    liveDays: live,
+    livePhases: [],
+    liveVersionStart: '2026-09-01',
+    assignmentStartDate: '2026-09-30',
+    scheduledActivatesOn: '2026-09-21',
+    scheduledDays: future,
+    scheduledPhases: [],
+    scheduledDurationWeeks: 12,
+  });
+  assert.equal(afterAssign.versionStart, '2026-09-30');
+  assert.equal(Array.isArray(afterAssign.days) && afterAssign.days.length, 0);
+  assert.equal(planCanInventScheduled({
+    date: '2026-09-22',
+    startDate: afterAssign.versionStart,
+    durationWeeks: afterAssign.durationWeeks,
+  }), false);
+
+  const onAssignStart = programGraphForDate({
+    date: '2026-09-30',
+    liveDays: live,
+    livePhases: [],
+    liveVersionStart: '2026-09-01',
+    assignmentStartDate: '2026-09-30',
+    scheduledActivatesOn: '2026-09-21',
+    scheduledDays: future,
+    scheduledPhases: [],
+    scheduledDurationWeeks: 12,
+  });
+  assert.equal(onAssignStart.days[0].name, 'Lower');
+  assert.equal(onAssignStart.versionStart, '2026-09-30');
+
+  const beforeActivation = programGraphForDate({
+    date: '2026-09-10',
+    liveDays: live,
+    livePhases: [],
+    liveVersionStart: '2026-09-01',
+    assignmentStartDate: '2026-07-01',
+  });
+  assert.equal(beforeActivation.versionStart, '2026-09-01');
 
   const sequence = planMarkForDate({
     date: '2026-09-22',
@@ -54,8 +111,24 @@ test('calendar can show a future version after activation day without inventing 
   assert.equal(sequence, null);
 });
 
+test('never-activated revisions stay saved, not historical', () => {
+  assert.equal(revisionVersionState({ revisionNo: 4, activeRevisionNo: 2 }), 'saved');
+  assert.equal(revisionVersionState({
+    revisionNo: 1,
+    activeRevisionNo: 2,
+    activatedAt: null,
+    supersededAt: null,
+  }), 'saved');
+  assert.equal(revisionVersionState({
+    revisionNo: 1,
+    activeRevisionNo: 2,
+    activatedAt: '2026-07-01',
+    supersededAt: '2026-09-01',
+  }), 'historical');
+});
+
 test('P3.3 reuses program_revisions and the same logger', () => {
-  const found = latestMigrationContaining('save_program_version');
+  const found = latestMigrationContaining('CREATE FUNCTION public.activate_program_version');
   assert.equal(found.file, '20260919233853_program_versions.sql');
   assert.match(found.sql, /CREATE FUNCTION public\.save_program_version/);
   assert.match(found.sql, /CREATE FUNCTION public\.schedule_program_version/);
@@ -69,6 +142,20 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.doesNotMatch(found.sql, /CREATE TABLE public\.(mesocycles|program_cycles)/);
   assert.doesNotMatch(found.sql, /apply_athlete_watch_minimum/);
 
+  const hard = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.save_program_version');
+  assert.equal(hard.file, '20260920014500_p3_hardening.sql');
+  assert.match(hard.sql, /validate_program_graph_payload/);
+  assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.ensure_due_program_version/);
+  assert.match(hard.sql, /scheduled_activation_timezone/);
+  assert.match(hard.sql, /p_anchor_mode text/);
+  assert.match(hard.sql, /apply_program_revision_snapshot\(p_program_id, p_revision_no, 'now'\)/);
+  assert.match(hard.sql, /apply_program_revision_snapshot\(p_program_id, v_sched, 'scheduled'\)/);
+  assert.match(hard.sql, /CREATE OR REPLACE FUNCTION public\.delete_program/);
+  assert.match(
+    hard.sql,
+    /FROM public\.programs\s+WHERE id = p_program_id\s+FOR UPDATE/,
+  );
+
   const store = src('src/stores/programStore.ts');
   assert.match(store, /rpc\('save_program_version'/);
   assert.match(store, /rpc\('schedule_program_version'/);
@@ -80,11 +167,18 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   const editor = src('src/components/programs/ProgramEditorPage.tsx');
   assert.match(editor, /program-versions-advanced/);
   assert.match(editor, /program-save-future-version/);
+  assert.match(editor, /min=\{programClock\.today\}/);
+  assert.match(editor, /activationDateInPast/);
   const athlete = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(athlete, /program-planned-change/);
   const calendar = src('src/components/calendar/CalendarPage.tsx');
   assert.match(calendar, /programGraphForDate/);
   assert.match(calendar, /scheduled_snapshot/);
+  assert.match(calendar, /parseRevisionMeta/);
+  assert.match(calendar, /liveVersionStart/);
+  assert.match(calendar, /assignmentStartDate/);
+  assert.match(calendar, /const program = assignment\?\.program/);
+  assert.match(calendar, /useProgramCivilClock/);
 
   const fr = src('src/i18n/locales/fr.ts');
   const en = src('src/i18n/locales/en.ts');
@@ -93,5 +187,7 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.match(src('.github/workflows/ci.yml'), /program_versions\.sql/);
   assert.match(src('supabase/tests/program_versions.sql'), /\\echo 'program versions:/);
   assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260919233853/);
+  assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
   assert.match(src('supabase/schema_migrations.lock.json'), /20260919233853/);
+  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
 });

@@ -15,7 +15,7 @@ test('E01: program revisions are immutable and snapshotted on every structural s
   assert.match(all, /Owners read program revisions/);
   assert.match(all, /Assigned clients read program revisions/);
   assert.match(all, /Coaches read client program revisions/);
-  for (const fn of ['save_program_day_exercises', 'sync_program_days', 'save_program', 'fork_program', 'adopt_client_program']) {
+  for (const fn of ['save_program_day_exercises', 'sync_program_days', 'save_program', 'fork_program', 'adopt_client_program', 'adopt_client_assignment']) {
     assert.match(all, new RegExp(`CREATE OR REPLACE FUNCTION public\\.${fn}`), `${fn} must exist`);
   }
   assert.ok(
@@ -75,6 +75,7 @@ test('Q06: RLS matrix covers the P0 boundaries for staging runs', () => {
   assert.match(ci, /coach_marketplace\.sql/);
   assert.match(ci, /save_program\.sql/);
   assert.match(ci, /program_session_organization\.sql/);
+  assert.match(ci, /program_hardening\.sql/);
   assert.match(ci, /2\.117\.0/);
   assert.match(ci, /Require Supabase production proof credentials/);
   assert.match(ci, /SUPABASE_ACCESS_TOKEN: \$\{\{ secrets\.SUPABASE_ACCESS_TOKEN \}\}/);

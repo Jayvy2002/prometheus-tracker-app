@@ -16,8 +16,10 @@ import PageTransition from '../ui/PageTransition';
 import { calendarDayWeights, calendarDayWorkouts, responsesHaveError } from '../../lib/progressSearch';
 import { planMarkForDate, type PlanCalendarMark } from '../../features/programs/domain/planCalendar';
 import { programGraphForDate } from '../../features/programs/domain/programVersions';
-import { parseRevisionOrganization, parseRevisionSnapshot, snapshotToPhaseDrafts } from '../../features/programs/domain/programRevisionDiff';
+import { parseRevisionMeta, parseRevisionOrganization, parseRevisionSnapshot, snapshotToPhaseDrafts } from '../../features/programs/domain/programRevisionDiff';
 import { useProgramStore } from '../../stores/programStore';
+import { phaseAnchorDate } from '../../features/programs/domain/programPhases';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
 
 interface DayData {
   date: string;
@@ -83,6 +85,8 @@ export default function CalendarPage() {
   const { setSelectedDate: setNutritionDate } = useNutritionStore();
   const assignment = useProgramStore(s => s.assignment);
   const fetchMyAssignment = useProgramStore(s => s.fetchMyAssignment);
+  const programClock = useProgramCivilClock();
+  const today = programClock.today;
 
   const DAY_LABELS = [
     t('calendar.days.mon'),
@@ -97,7 +101,7 @@ export default function CalendarPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('week');
   const [weekOffset, setWeekOffset] = useState(0);
   const [monthOffset, setMonthOffset] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(dateToStr(new Date()));
+  const [selectedDate, setSelectedDate] = useState(today);
   const [allNutritionDates, setAllNutritionDates] = useState<Set<string>>(new Set());
   const [daySummary, setDaySummary] = useState<DaySummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -209,10 +213,11 @@ export default function CalendarPage() {
   }, [workoutDateSet, weightDateSet, allNutritionDates]);
 
   const weekBaseDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() + weekOffset * 7);
-    return d;
-  }, [weekOffset]);
+    const [y, m, d] = today.split('-').map(Number);
+    const base = new Date(y, m - 1, d);
+    base.setDate(base.getDate() + weekOffset * 7);
+    return base;
+  }, [weekOffset, today]);
 
   const weekDates = useMemo(() => getWeekDates(weekBaseDate), [weekBaseDate]);
 
@@ -223,11 +228,11 @@ export default function CalendarPage() {
   }, [weekDates, weekOffset, t, i18n.language]);
 
   const monthBaseDate = useMemo(() => {
-    const d = new Date();
-    d.setDate(1);
-    d.setMonth(d.getMonth() + monthOffset);
-    return d;
-  }, [monthOffset]);
+    const [y, m] = today.split('-').map(Number);
+    const base = new Date(y, m - 1, 1);
+    base.setMonth(base.getMonth() + monthOffset);
+    return base;
+  }, [monthOffset, today]);
 
   const monthDates = useMemo(() => getMonthDates(monthBaseDate.getFullYear(), monthBaseDate.getMonth()), [monthBaseDate]);
 
@@ -235,14 +240,13 @@ export default function CalendarPage() {
     return monthBaseDate.toLocaleDateString(dateLocale(i18n.language), { month: 'long', year: 'numeric' });
   }, [monthBaseDate, i18n.language]);
 
-  const today = dateToStr(new Date());
-
   const planByDate = useMemo(() => {
     const dates = viewMode === 'week' ? weekDates : monthDates.map(m => m.date);
     const map = new Map<string, PlanCalendarMark | null>();
-    const liveDays = assignment?.program?.days;
-    const scheduledDays = assignment?.program?.scheduled_snapshot
-      ? parseRevisionSnapshot(assignment.program.scheduled_snapshot).map((day, index) => ({
+    const program = assignment?.program;
+    const liveDays = program?.days;
+    const scheduledDays = program?.scheduled_snapshot
+      ? parseRevisionSnapshot(program.scheduled_snapshot).map((day, index) => ({
         id: `scheduled-${index}`,
         weekday: day.weekday,
         name: day.name,
@@ -250,8 +254,8 @@ export default function CalendarPage() {
         exercises: day.exercises,
       }))
       : null;
-    const scheduledPhases = assignment?.program?.scheduled_snapshot
-      ? snapshotToPhaseDrafts(assignment.program.scheduled_snapshot).map((phase, order_index) => ({
+    const scheduledPhases = program?.scheduled_snapshot
+      ? snapshotToPhaseDrafts(program.scheduled_snapshot).map((phase, order_index) => ({
         id: phase.id ?? `scheduled-phase-${order_index}`,
         name: phase.name,
         description: phase.description ?? '',
@@ -259,28 +263,36 @@ export default function CalendarPage() {
         duration_weeks: phase.duration_weeks,
       }))
       : null;
-    const scheduledOrg = assignment?.program?.scheduled_snapshot
-      ? parseRevisionOrganization(assignment.program.scheduled_snapshot)
+    const scheduledOrg = program?.scheduled_snapshot
+      ? parseRevisionOrganization(program.scheduled_snapshot)
       : null;
+    const scheduledMeta = program?.scheduled_snapshot
+      ? parseRevisionMeta(program.scheduled_snapshot)
+      : {};
+    const liveStart = phaseAnchorDate(assignment?.start_date, program?.phase_anchor_on);
     for (const d of dates) {
       const ds = dateToStr(d);
       const graph = programGraphForDate({
         date: ds,
         liveDays,
-        livePhases: assignment?.program?.phases,
-        liveOrganization: assignment?.program?.session_organization,
-        scheduledActivatesOn: assignment?.program?.scheduled_activates_on,
+        livePhases: program?.phases,
+        liveOrganization: program?.session_organization,
+        liveDurationWeeks: program?.duration_weeks,
+        liveVersionStart: program?.phase_anchor_on ?? null,
+        assignmentStartDate: assignment?.start_date,
+        scheduledActivatesOn: program?.scheduled_activates_on,
         scheduledDays,
         scheduledPhases,
         scheduledOrganization: scheduledOrg,
+        scheduledDurationWeeks: scheduledMeta.duration_weeks,
       });
       map.set(ds, planMarkForDate({
         date: ds,
         days: graph.days,
         workouts,
         assignmentId: assignment?.id,
-        startDate: assignment?.start_date,
-        durationWeeks: assignment?.program?.duration_weeks,
+        startDate: graph.versionStart ?? assignment?.start_date,
+        durationWeeks: graph.durationWeeks ?? program?.duration_weeks,
         assignmentStatus: assignment?.status,
         endedAt: assignment?.status === 'paused' || assignment?.status === 'completed'
           ? assignment.updated_at
@@ -288,6 +300,7 @@ export default function CalendarPage() {
         unnamed: t('workout.unnamed'),
         sessionOrganization: graph.organization,
         phases: graph.phases,
+        phaseAnchorDate: graph.versionStart ?? liveStart,
       }));
     }
     return map;
@@ -414,7 +427,10 @@ export default function CalendarPage() {
           }
         </div>
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-neutral-800">
+        <div
+          className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 pt-3 border-t border-neutral-800"
+          data-testid="calendar-plan-legend"
+        >
           <div className="flex items-center gap-1.5 text-[11px] text-neutral-500">
             <div className="w-1.5 h-1.5 rounded-full border border-violet-400" />
             {t('calendar.plan.scheduled')}

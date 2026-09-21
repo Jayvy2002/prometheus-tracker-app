@@ -86,6 +86,8 @@ export interface Program {
   active_revision_no?: number | null;
   scheduled_revision_no?: number | null;
   scheduled_activates_on?: string | null;
+  scheduled_activation_timezone?: string | null;
+  phase_anchor_on?: string | null;
   scheduled_snapshot?: unknown | null;
   created_at: string;
   updated_at: string;
@@ -132,6 +134,7 @@ export interface ProgramAssignment {
   assigned_by: string;
   start_date: string;
   status: 'active' | 'completed' | 'paused';
+  frozen_revision_no?: number | null;
   program?: Program;
   created_at: string;
   updated_at: string;

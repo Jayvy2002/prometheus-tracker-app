@@ -34,10 +34,13 @@ Un seul logger : `start_workout_from_template`.
 Au start, le workout reçoit `program_phase_id` + `prescribed_phase_name` depuis le
 jour courant. Un changement futur de phase **ne réécrit pas** les séances déjà loggées.
 
-La phase « actuelle » affichée est dérivée côté client :
+La phase « actuelle » gouverne les séances proposées :
 
-- durées + `start_date` → marche des semaines (durée nulle = 1 ; dernière phase tient) ;
-- sinon → phase de la prochaine séance.
+- durées + `phase_anchor_on` (sinon `assignment.start_date`) → marche des semaines ;
+- le moteur ne propose que les `program_days` de cette phase ;
+- weekdays uniques **par phase** (legacy sans phase : unique par programme).
+
+Un seul logger : `start_workout_from_template`. Prescription d’une séance liée au programme chargée côté serveur.
 
 ## Calendrier / séquence
 

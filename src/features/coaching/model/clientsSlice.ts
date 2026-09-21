@@ -79,7 +79,7 @@ import {
   persistRememberedCoachingRole,
 } from './coachingShared';
 
-export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchClients' | 'fetchCoachOps' | 'fetchClientProfile' | 'applyProgramOutline' | 'fetchClientAssignments' | 'adoptClientProgram' | 'touchClientVisit' | 'fetchClientWorkouts' | 'fetchClientWorkout' | 'fetchClientNutrition' | 'fetchClientWeight' | 'fetchClientCheckins' | 'fetchNotes' | 'addNote' | 'deleteNote' | 'endMyCoachLink' | 'endClientLink' > {
+export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<CoachingState, 'fetchClients' | 'fetchCoachOps' | 'fetchClientProfile' | 'applyProgramOutline' | 'fetchClientAssignments' | 'adoptClientAssignment' | 'touchClientVisit' | 'fetchClientWorkouts' | 'fetchClientWorkout' | 'fetchClientNutrition' | 'fetchClientWeight' | 'fetchClientCheckins' | 'fetchNotes' | 'addNote' | 'deleteNote' | 'endMyCoachLink' | 'endClientLink' > {
   return {
   fetchClients: async () => {
     set({ loading: true });
@@ -424,14 +424,30 @@ export function createClientsSlice(set: CoachingSet, get: CoachingGet): Pick<Coa
       .select('*, programs(name)')
       .eq('client_id', clientId)
       .order('updated_at', { ascending: false });
-    return ((data ?? []) as Array<ProgramAssignment & { programs?: { name: string } | null }>)
+    const rows = ((data ?? []) as Array<ProgramAssignment & { programs?: { name: string } | null }>)
       .filter(a => a.status === 'active' || a.status === 'paused');
+    return Promise.all(rows.map(async (row) => {
+      if (row.status === 'active' && row.programs?.name) return row;
+      const { data: archive } = await supabase.rpc('get_frozen_program_archive', {
+        p_assignment_id: row.id,
+      });
+      const snapshot = archive && typeof archive === 'object'
+        ? (archive as { snapshot?: unknown }).snapshot
+        : null;
+      const rec = snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot)
+        ? snapshot as Record<string, unknown>
+        : null;
+      const frozenName = typeof rec?.name === 'string' && rec.name.trim()
+        ? rec.name.trim()
+        : null;
+      if (!frozenName) return row;
+      return { ...row, programs: { name: frozenName } };
+    }));
   },
 
-  adoptClientProgram: async (programId, clientId) => {
-    const { data, error } = await supabase.rpc('adopt_client_program', {
-      p_program_id: programId,
-      p_client_id: clientId,
+  adoptClientAssignment: async (assignmentId) => {
+    const { data, error } = await supabase.rpc('adopt_client_assignment', {
+      p_assignment_id: assignmentId,
     });
     if (error || !data) return { error: error?.message ?? 'Adoption impossible' };
     track('program_adopted', {});

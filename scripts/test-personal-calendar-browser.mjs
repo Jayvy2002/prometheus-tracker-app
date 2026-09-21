@@ -78,9 +78,26 @@ check(await admin.from('coach_client_links').insert([
   { coach_id: coach.id, client_id: dual.id, status: 'active' },
 ]));
 
-const today = civil(new Date());
-const futureMonday = nextWeekdayStrictlyAfter(today, 1);
-const pastMonday = addDays(futureMonday, -7);
+function civilInTimeZone(timeZone, d = new Date()) {
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const parts = Object.fromEntries(fmt.formatToParts(d).map(part => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+const utcToday = civilInTimeZone('UTC');
+const torontoToday = civilInTimeZone('America/Toronto');
+const earliestToday = utcToday <= torontoToday ? utcToday : torontoToday;
+const latestToday = utcToday >= torontoToday ? utcToday : torontoToday;
+const futureMonday = nextWeekdayStrictlyAfter(latestToday, 1);
+let pastMonday = addDays(futureMonday, -7);
+while (pastMonday >= earliestToday) {
+  pastMonday = addDays(pastMonday, -7);
+}
 const dayName = 'Upper pull';
 
 check(await coach.client.rpc('create_program_complete', {
@@ -170,9 +187,10 @@ try {
   const coachedPage = await openAs(coached);
   await coachedPage.goto(origin + '/calendar');
   await coachedPage.getByTestId('calendar-page').waitFor();
-  await coachedPage.getByText('Scheduled', { exact: true }).waitFor();
-  await coachedPage.getByText('Started', { exact: true }).waitFor();
-  await coachedPage.getByText('Done', { exact: true }).waitFor();
+  const planLegend = coachedPage.getByTestId('calendar-plan-legend');
+  await planLegend.getByText('Scheduled', { exact: true }).waitFor();
+  await planLegend.getByText('Started', { exact: true }).waitFor();
+  await planLegend.getByText('Done', { exact: true }).waitFor();
   assert.equal(await coachedPage.getByRole('button', { name: 'Save plan' }).count(), 0);
   assert.equal(await coachedPage.getByRole('button', { name: 'Create my program' }).count(), 0);
 

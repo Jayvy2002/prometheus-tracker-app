@@ -19,6 +19,17 @@ insert into public.user_capabilities(user_id, capability) values
  ('c3391941-0000-4000-8000-000000000003','coach'),
  ('c3391941-0000-4000-8000-000000000005','coach')
 on conflict do nothing;
+-- Default profile TZ is America/Toronto. Same-day schedule uses that civil
+-- clock, so logger start_date must too — not UTC current_date.
+update public.user_profiles
+   set timezone = 'America/Toronto'
+ where id in (
+   'c3391941-0000-4000-8000-000000000001',
+   'c3391941-0000-4000-8000-000000000002',
+   'c3391941-0000-4000-8000-000000000003',
+   'c3391941-0000-4000-8000-000000000004',
+   'c3391941-0000-4000-8000-000000000005'
+ );
 
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('c3391941-0000-4000-8000-000000000010','c3391941-0000-4000-8000-000000000001','Version A','',12);
@@ -161,17 +172,24 @@ begin
     raise exception 'replace did not point at version C';
   end if;
 end $$;
+reset role;
 
 -- Stamp a workout against Version A before activation.
+-- Data API INSERT is closed; fixtures run as postgres.
 insert into public.program_assignments(id,program_id,client_id,assigned_by,start_date,status)
 values (
   'c3391941-0000-4000-8000-0000000000a1',
   'c3391941-0000-4000-8000-000000000010',
   'c3391941-0000-4000-8000-000000000001',
   'c3391941-0000-4000-8000-000000000001',
-  current_date,
+  (now() AT TIME ZONE 'America/Toronto')::date,
   'active'
 );
+
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c3391941-0000-4000-8000-000000000001',true);
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claims','{"sub":"c3391941-0000-4000-8000-000000000001","role":"authenticated"}',true);
 
 do $$
 declare
@@ -295,7 +313,7 @@ begin
     raise exception 'authenticated pointer update was allowed';
   exception
     when others then
-      if sqlerrm not like '%RPC-only%' then
+      if sqlerrm not like '%RPC-only%' and sqlerrm not like '%permission denied%' then
         raise;
       end if;
   end;
@@ -406,6 +424,7 @@ end $$;
 do $$
 declare
   v_rev int;
+  v_today date;
 begin
   perform public.save_program(
     'c3391941-0000-4000-8000-000000000013',
@@ -426,10 +445,12 @@ begin
     'fixed_days',
     '[]'::jsonb
   );
+  -- Civil "today" of the frozen owner clock, not UTC CURRENT_DATE.
+  v_today := (now() AT TIME ZONE 'America/Toronto')::date;
   perform public.schedule_program_version(
     'c3391941-0000-4000-8000-000000000013',
     v_rev,
-    current_date,
+    v_today,
     false,
     null
   );
@@ -441,7 +462,8 @@ begin
 end $$;
 reset role;
 
--- Assigned client can ensure a due version; former coach cannot after the link ends.
+-- Assigned client can ensure a due version. After the link ends, paused
+-- archives must not block the owner from saving/activating a new version.
 insert into public.programs(id,owner_id,name,description,duration_weeks) values
  ('c3391941-0000-4000-8000-000000000014','c3391941-0000-4000-8000-000000000003','Client plan','',8);
 insert into public.coach_client_links(id,coach_id,client_id,status)
@@ -495,7 +517,7 @@ reset role;
 
 -- Assigned client can apply a due schedule (date reached) without being owner.
 update public.programs
-set scheduled_activates_on = current_date
+set scheduled_activates_on = (now() AT TIME ZONE COALESCE(scheduled_activation_timezone, 'America/Toronto'))::date
 where id = 'c3391941-0000-4000-8000-000000000014';
 
 set local role authenticated;
@@ -518,7 +540,9 @@ begin
 end $$;
 reset role;
 
--- After ending the relation, former coach cannot activate a new saved version.
+-- After ending the relation: assignment paused+frozen, owner may still
+-- save/activate (no remaining active assignment requires Coach authority).
+-- The paused archive pin must not move.
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c3391941-0000-4000-8000-000000000003',true);
 select set_config('request.jwt.claim.role','authenticated',true);
@@ -526,8 +550,20 @@ select set_config('request.jwt.claims','{"sub":"c3391941-0000-4000-8000-00000000
 do $$
 declare
   v_rev int;
+  v_frozen int;
 begin
   perform public.end_coach_client_link('c3391941-0000-4000-8000-000000000004');
+  if (select status from public.program_assignments
+      where id = 'c3391941-0000-4000-8000-0000000000c1') is distinct from 'paused' then
+    raise exception 'ended relation did not pause assignment';
+  end if;
+  select frozen_revision_no into v_frozen
+  from public.program_assignments
+  where id = 'c3391941-0000-4000-8000-0000000000c1';
+  if v_frozen is null then
+    raise exception 'ended relation did not freeze revision';
+  end if;
+
   v_rev := public.save_program_version(
     'c3391941-0000-4000-8000-000000000014',
     'After split',
@@ -538,19 +574,24 @@ begin
     'in_order',
     '[]'::jsonb
   );
-  begin
-    perform public.activate_program_version(
-      'c3391941-0000-4000-8000-000000000014',
-      v_rev,
-      null
-    );
-    raise exception 'former coach activation was allowed';
-  exception
-    when others then
-      if sqlerrm not like '%Not an active coach of this assignment%' then
-        raise;
-      end if;
-  end;
+  perform public.activate_program_version(
+    'c3391941-0000-4000-8000-000000000014',
+    v_rev,
+    null
+  );
+  if (select name from public.program_days
+      where program_id = 'c3391941-0000-4000-8000-000000000014' limit 1)
+     is distinct from 'C' then
+    raise exception 'owner activation after split did not apply version C';
+  end if;
+  if (select status from public.program_assignments
+      where id = 'c3391941-0000-4000-8000-0000000000c1') is distinct from 'paused' then
+    raise exception 'activation unpaused former client assignment';
+  end if;
+  if (select frozen_revision_no from public.program_assignments
+      where id = 'c3391941-0000-4000-8000-0000000000c1') is distinct from v_frozen then
+    raise exception 'activation rewrote paused archive frozen_revision_no';
+  end if;
 end $$;
 reset role;
 
@@ -582,10 +623,13 @@ begin
   if has_function_privilege('anon', v_oid, 'EXECUTE') then
     raise exception 'ensure_due granted to anon';
   end if;
-  v_oid := to_regprocedure('public.apply_program_revision_snapshot(uuid,int)');
+  v_oid := to_regprocedure('public.apply_program_revision_snapshot(uuid,int,text)');
   if v_oid is null then raise exception 'apply helper missing'; end if;
   if has_function_privilege('authenticated', v_oid, 'EXECUTE') then
     raise exception 'apply helper granted to authenticated';
+  end if;
+  if to_regprocedure('public.apply_program_revision_snapshot(uuid,int)') is not null then
+    raise exception 'stale 2-arg apply still present';
   end if;
   v_oid := to_regprocedure('public.sync_program_days(uuid,jsonb,boolean,boolean)');
   if has_function_privilege('authenticated', v_oid, 'EXECUTE') then

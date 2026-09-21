@@ -3,8 +3,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
 import {
+  parseRevisionMeta,
   parseRevisionOrganization,
   parseRevisionSnapshot,
+  programFromFrozenRevision,
   restoreCreatesNewRevision,
   revisionBeforeAfter,
   snapshotToDayDrafts,
@@ -48,6 +50,21 @@ test('wrapped revision snapshot keeps organization, null weekday and optional ph
   assert.equal(snapshotToDayDrafts(wrapped)[0].phase_id, 'p1');
   assert.equal(snapshotToPhaseDrafts(wrapped)[0].name, 'Accumulation');
   assert.deepEqual(snapshotToPhaseDrafts([{ weekday: 1, name: 'Upper', exercises: [] }]), []);
+  const frozen = programFromFrozenRevision({
+    meta: {
+      id: 'prog-1',
+      owner_id: 'owner-1',
+      created_at: '2026-09-01T00:00:00Z',
+      updated_at: '2026-09-10T00:00:00Z',
+    },
+    revisionNo: 2,
+    versionStartOn: '2026-09-01',
+    snapshot: wrapped,
+  });
+  assert.equal(frozen.phase_anchor_on, '2026-09-01');
+  assert.equal(frozen.active_revision_no, 2);
+  assert.equal(frozen.days?.[0].name, 'A');
+  assert.equal(frozen.scheduled_revision_no, null);
 });
 
 test('UX23 wires history UI and restore goes through save_program, not workouts', () => {
@@ -70,5 +87,19 @@ test('UX23 wires history UI and restore goes through save_program, not workouts'
   const fr = src('src/i18n/locales/fr/programs.ts');
   assert.match(fr, /revisionHistory:/);
   assert.match(fr, /revisionRestoreHint:/);
+  assert.match(src('src/i18n/locales/fr/programs.ts'), /versionStateSaved:/);
+  assert.match(src('src/i18n/locales/en/programs.ts'), /versionStateSaved:/);
+  assert.match(history, /program-revision-state/);
   assert.doesNotMatch(store, /program_versioning/);
+});
+
+test('restore prefers snapshot name and description', () => {
+  assert.equal(parseRevisionMeta({
+    name: 'Bloc Force',
+    description: 'force block',
+    duration_weeks: 8,
+    days: [],
+  }).name, 'Bloc Force');
+  const store = src('src/stores/programStore.ts');
+  assert.match(store, /parseRevisionMeta/);
 });

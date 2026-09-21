@@ -5,19 +5,20 @@ import { useTranslation } from 'react-i18next';
 import { toast, toastWithUndo } from '../ui/Toast';
 import { useAuthStore } from '../../stores/authStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { formatDate, formatDuration, todayStr, programWeekNumber } from '../../lib/utils';
+import { formatDate, formatDuration, programWeekNumber } from '../../lib/utils';
 import { lastCompletedWorkout, lastSessionFromWorkout } from '../../lib/coachLastSession';
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { isCoachedAthlete } from '../../lib/coachRole';
 import { useResourcePermissions } from '../../lib/useResourcePermissions';
-import { resolveClientGymCard, isProgramDayDue } from '../../lib/clientGym';
-import { resolveCurrentPhase } from '../../features/programs/domain/programPhases';
+import { isProgramDayDue, resolveAssignmentGymCard } from '../../lib/clientGym';
 import { assignStartLabel } from '../../lib/programWrite';
 import type { ProgramDay, Workout } from '../../lib/types';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useProgramStore } from '../../stores/programStore';
 import { useProfileStore } from '../../stores/profileStore';
+import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
+import { effectiveVersionStart } from '../../features/programs/domain/programPhases';
 import { isPerformedSet } from '../../lib/performedSets';
 import SoloAskBar from '../solo/SoloAskBar';
 import type { SoloAskContext } from '../../lib/soloAsk';
@@ -44,6 +45,7 @@ export default function WorkoutPage() {
   const createProgram = useProgramStore(s => s.createProgram);
   const saveProgram = useProgramStore(s => s.saveProgram);
   const { profile } = useProfileStore();
+  const programClock = useProgramCivilClock();
   const { canUpdateOwnAssignedProgram: canEditOwnPlan, canProposeAssignedProgramChange } = useResourcePermissions();
   const coached = isCoachedAthlete(coachingRole, myCoach);
 
@@ -55,14 +57,11 @@ export default function WorkoutPage() {
   const [lastFull, setLastFull] = useState<Workout | null>(null);
 
   const PAGE_SIZE = 20;
-  const gymCard = resolveClientGymCard({
-    hasActiveProgram: assignment?.status === 'active' && !!assignment.program,
-    days: assignment?.program?.days,
+  const gymCard = resolveAssignmentGymCard({
+    assignment,
     workouts,
-    todayWeekday: new Date().getDay(),
-    todayDate: todayStr(),
-    assignmentId: assignment?.id,
-    sessionOrganization: assignment?.program?.session_organization,
+    todayWeekday: programClock.weekday,
+    todayDate: programClock.today,
   });
 
 
@@ -73,7 +72,7 @@ export default function WorkoutPage() {
     }
   }, [user, coached]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const lastCompleted = lastCompletedWorkout(workouts, todayStr());
+  const lastCompleted = lastCompletedWorkout(workouts, programClock.today);
   const lastCompletedId = lastCompleted?.id ?? '';
   const lastPerformed = (lastFull?.exercises ?? [])
     .flatMap(ex => (ex.sets ?? []).filter(isPerformedSet))
@@ -339,18 +338,17 @@ export default function WorkoutPage() {
         <ClientGymCard
           card={gymCard}
           programName={assignment.program.name}
-          programWeek={programWeekNumber(assignment.start_date, assignment.program.duration_weeks)}
+          programWeek={programWeekNumber(
+            effectiveVersionStart(assignment.start_date, assignment.program.phase_anchor_on) ?? assignment.start_date,
+            assignment.program.duration_weeks,
+            programClock.today,
+          )}
           durationWeeks={assignment.program.duration_weeks}
           starting={startingGym}
           onStart={startProgramDay}
           onContinue={workoutId => navigate(`/workout/${workoutId}`)}
           onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
-          phaseName={resolveCurrentPhase({
-            phases: assignment.program.phases,
-            startDate: assignment.start_date,
-            today: todayStr(),
-            nextDay: gymCard.day ?? gymCard.nextDay,
-          })?.name}
+          phaseName={gymCard.phase?.name}
           plannedChange={assignment.program.scheduled_activates_on
             ? t('programs.plannedChangeOn', {
               date: assignStartLabel(assignment.program.scheduled_activates_on, i18n.language),

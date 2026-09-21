@@ -47,6 +47,32 @@ test('maps stale SQL to a stable client code', () => {
     }),
     'hist',
   );
+  assert.equal(
+    mapProgramWriteError('mixed phase durations', {
+      stale: 'reload',
+      fallback: 'retry',
+      mixedPhases: 'mixed',
+      invalidSets: 'sets',
+    }),
+    'mixed',
+  );
+  assert.equal(
+    mapProgramWriteError('Invalid sets for Bench', {
+      stale: 'reload',
+      fallback: 'retry',
+      mixedPhases: 'mixed',
+      invalidSets: 'sets',
+    }),
+    'sets',
+  );
+  assert.equal(
+    mapProgramWriteError('activation_date_in_past', {
+      stale: 'reload',
+      fallback: 'retry',
+      activationInPast: 'past',
+    }),
+    'past',
+  );
 });
 
 test('assign recap date stays on the local calendar day', () => {
@@ -75,7 +101,7 @@ test('legacy program RPCs, owner RLS and assignment Data API share the leftover 
   const found = latestMigrationContaining('CREATE OR REPLACE FUNCTION public.coached_client_cannot_edit_program');
   assert.equal(found.file, '20260918103748_program_write_coached_owner.sql');
   const sync = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.sync_program_days\(/);
-  assert.equal(sync.file, '20260919225507_program_phases.sql');
+  assert.equal(sync.file, '20260920014500_p3_hardening.sql');
   assert.match(sync.sql, /coached_client_cannot_edit_program/);
   const day = latestMigrationContaining(/CREATE OR REPLACE FUNCTION public\.save_program_day_exercises\(/);
   assert.equal(day.file, '20260918103748_program_write_coached_owner.sql');
@@ -103,6 +129,9 @@ test('editor and solo save go through saveProgram; delete waits for the server',
   assert.match(store, /rpc\('save_program'/);
   assert.match(store, /p_expected_updated_at/);
   const deleteFn = store.slice(store.indexOf('deleteProgram: async'));
+  assert.match(deleteFn, /rpc\('delete_program'/);
+  assert.match(deleteFn, /p_program_id: id/);
+  assert.doesNotMatch(deleteFn, /from\('programs'\)\.delete/);
   assert.match(deleteFn, /if \(error\) return \{ error:/);
   assert.match(deleteFn, /ne retire du store qu'après/);
   const fetchFn = store.slice(store.indexOf('fetchPrograms: async'));
@@ -123,9 +152,13 @@ test('editor and solo save go through saveProgram; delete waits for the server',
   assert.match(list, /programs\.assignRecap/);
   assert.match(list, /errors\.loadPrograms/);
   assert.match(list, /deleteProgram\(p\.id\)/);
+  assert.match(list, /programDeleteToast/);
+  assert.match(list, /deleteHasHistory/);
 
   assert.match(src('src/i18n/locales/fr.ts'), /assignRecap:/);
   assert.match(src('src/i18n/locales/en.ts'), /assignRecap:/);
+  assert.match(src('src/i18n/locales/fr.ts'), /deleteHasHistory:/);
+  assert.match(src('src/i18n/locales/en.ts'), /deleteHasHistory:/);
   assert.match(src('.github/workflows/ci.yml'), /save_program\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /save_program_coached\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /program_session_organization\.sql/);

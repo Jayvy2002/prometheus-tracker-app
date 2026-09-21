@@ -16,6 +16,7 @@ export interface Workout {
   program_phase_id?: string | null;
   prescribed_phase_name?: string | null;
   program_revision_no?: number | null;
+  program_id?: string | null;
   exercises?: WorkoutExercise[];
   created_at: string;
   updated_at: string;
@@ -34,6 +35,7 @@ export interface WorkoutExercise {
   prescribed_rir?: number | null;
   prescribed_rest_seconds?: number | null;
   prescribed_weight_kg?: number | null;
+  prescription_source?: 'program' | 'user';
   sets?: WorkoutSet[];
   created_at: string;
 }

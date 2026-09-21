@@ -1,5 +1,6 @@
 /** P3.3 — version states derived from program_revisions + program pointers. */
 
+import { laterCivilDate } from '../../../lib/utils';
 import type { ProgramPhase } from './programPhases';
 import type { PlanCalendarDay } from './planCalendar';
 import type { SessionOrganization } from './sessionOrganization';
@@ -11,6 +12,7 @@ export function revisionVersionState(input: {
   activeRevisionNo?: number | null;
   scheduledRevisionNo?: number | null;
   activatedAt?: string | null;
+  supersededAt?: string | null;
 }): ProgramVersionState {
   if (input.activeRevisionNo != null && input.revisionNo === input.activeRevisionNo) {
     return 'active';
@@ -18,7 +20,11 @@ export function revisionVersionState(input: {
   if (input.scheduledRevisionNo != null && input.revisionNo === input.scheduledRevisionNo) {
     return 'scheduled';
   }
-  if (input.activatedAt || (input.activeRevisionNo != null && input.revisionNo < input.activeRevisionNo)) {
+  if (input.supersededAt || (
+    input.activatedAt
+    && input.activeRevisionNo != null
+    && input.revisionNo !== input.activeRevisionNo
+  )) {
     return 'historical';
   }
   return 'saved';
@@ -29,27 +35,47 @@ export function programGraphForDate(input: {
   liveDays: PlanCalendarDay[] | null | undefined;
   livePhases: ProgramPhase[] | null | undefined;
   liveOrganization?: SessionOrganization | null;
+  liveDurationWeeks?: number | null;
+  liveVersionStart?: string | null;
+  assignmentStartDate?: string | null;
   scheduledActivatesOn?: string | null;
   scheduledDays?: PlanCalendarDay[] | null;
   scheduledPhases?: ProgramPhase[] | null;
   scheduledOrganization?: SessionOrganization | null;
+  scheduledDurationWeeks?: number | null;
 }): {
   days: PlanCalendarDay[] | null | undefined;
   phases: ProgramPhase[] | null | undefined;
   organization?: SessionOrganization | null;
+  durationWeeks?: number | null;
+  versionStart?: string | null;
 } {
   const date = input.date.slice(0, 10);
   const activates = input.scheduledActivatesOn?.slice(0, 10) ?? '';
+  const assignmentStart = input.assignmentStartDate?.slice(0, 10) || null;
+  if (assignmentStart && date < assignmentStart) {
+    return {
+      days: [],
+      phases: input.livePhases,
+      organization: input.liveOrganization,
+      durationWeeks: input.liveDurationWeeks ?? null,
+      versionStart: laterCivilDate(assignmentStart, input.liveVersionStart),
+    };
+  }
   if (activates && date >= activates && input.scheduledDays != null) {
     return {
       days: input.scheduledDays,
       phases: input.scheduledPhases ?? input.livePhases,
       organization: input.scheduledOrganization ?? input.liveOrganization,
+      durationWeeks: input.scheduledDurationWeeks ?? input.liveDurationWeeks ?? null,
+      versionStart: laterCivilDate(assignmentStart, activates),
     };
   }
   return {
     days: input.liveDays,
     phases: input.livePhases,
     organization: input.liveOrganization,
+    durationWeeks: input.liveDurationWeeks ?? null,
+    versionStart: laterCivilDate(assignmentStart, input.liveVersionStart),
   };
 }

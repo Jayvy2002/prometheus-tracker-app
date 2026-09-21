@@ -255,6 +255,103 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'program versions: saved without live mutate, schedule/replace, activate idempotent, historical locked, leftover, logger stamp' /tmp/program-versions-db-results.txt
+      - name: Test program hardening
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_hardening.sql | tee /tmp/program-hardening-db-results.txt
+      - name: Confirm program hardening echo
+        run: |
+          set -euo pipefail
+          grep -F 'program hardening: phase engine, duplicate weekdays, server prescription, civil date, relation end, Data API, name/description, helper ACL, delete, frozen tz' /tmp/program-hardening-db-results.txt
+          grep -F 'delete_program locks program row FOR UPDATE before checks' /tmp/program-hardening-db-results.txt
+          grep -F 'program hardening: provenance immutability, program_id stamp, prescribed freeze, version backfill, activate now vs due' /tmp/program-hardening-db-results.txt
+          grep -F 'program hardening: allowlist ACL, assignment Data API closed, laterOf start, 20/21 sets, mixed phases, prescription_source' /tmp/program-hardening-db-results.txt
+          grep -F 'program hardening: live graph active-only, revision drafts, not-started, past schedule, freeze FOR UPDATE, archive RPC' /tmp/program-hardening-db-results.txt
+      - name: Test shared program archive
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_shared_archive.sql | tee /tmp/program-shared-archive-db-results.txt
+      - name: Confirm shared program archive echo
+        run: |
+          set -euo pipefail
+          grep -F 'shared program archive: A leaves, B continues, frozen snapshot' /tmp/program-shared-archive-db-results.txt
+          grep -F 'shared program archive: paused A cannot read live graph or drafts' /tmp/program-shared-archive-db-results.txt
+      - name: Test coach switch archive
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_coach_switch.sql | tee /tmp/program-coach-switch-db-results.txt
+      - name: Confirm coach switch archive echo
+        run: |
+          set -euo pipefail
+          grep -F 'coach switch archive: B cannot read paused live or drafts; adopt copies frozen A' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt paused copies Push A not live Push B' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt exact assignment active+paused copies own revision' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt exact assignment two paused copies own frozen revision' /tmp/program-coach-switch-db-results.txt
+          grep -F 'coach switch archive: adopt refuses other coach, former coach, missing, unfrozen' /tmp/program-coach-switch-db-results.txt
+      - name: Test delete_program row lock concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-delete-program-lock.sh | tee /tmp/delete-program-lock-concurrency.txt
+      - name: Confirm delete_program row lock concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'delete_program row lock: in-flight assign cannot sneak past FOR UPDATE' /tmp/delete-program-lock-concurrency.txt
+      - name: Test freeze/activation row lock concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-program-freeze-lock.sh | tee /tmp/program-freeze-lock-concurrency.txt
+      - name: Confirm freeze/activation row lock concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'freeze/activation row lock: Cas A pin new revision; Cas B pin old then owner library; Cas C save_program serializes' /tmp/program-freeze-lock-concurrency.txt
+      - name: Test adopt vs assign row lock concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-adopt-assign-lock.sh | tee /tmp/adopt-assign-lock-concurrency.txt
+      - name: Confirm adopt vs assign row lock concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'adopt/assign row lock: adopt×assign_program_secure and adopt×create_program_complete serialize without deadlock' /tmp/adopt-assign-lock-concurrency.txt
+      - name: Test assignment client mutex concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-assignment-client-mutex.sh | tee /tmp/assignment-client-mutex-concurrency.txt
+      - name: Confirm assignment client mutex concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'assignment client mutex: assign×assign, create×create, assign×end, assign×close serialize without stale lock-set' /tmp/assignment-client-mutex-concurrency.txt
+      - name: Test close_coach_account P3
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_close_coach_account.sql | tee /tmp/program-close-coach-account-db-results.txt
+      - name: Confirm close_coach_account P3 echo
+        run: |
+          set -euo pipefail
+          grep -F 'close_coach_account P3: snapshots, phases, org, prescriptions, freeze pin, workout provenance, retry' /tmp/program-close-coach-account-db-results.txt
+      - name: Test close_coach_account fail-closed unfrozen archive
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/program_close_archive_not_frozen.sql | tee /tmp/program-close-archive-not-frozen-db-results.txt
+      - name: Confirm close_coach_account fail-closed echo
+        run: |
+          set -euo pipefail
+          grep -F 'close_coach_account fail-closed: paused NULL frozen_revision_no refuses live V2, atomic' /tmp/program-close-archive-not-frozen-db-results.txt
+      - name: Test coach lifecycle mutex concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-coach-lifecycle-mutex.sh | tee /tmp/coach-lifecycle-mutex-concurrency.txt
+      - name: Confirm coach lifecycle mutex concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'coach lifecycle mutex: close×activate Cas A includes C; Cas B confirm/invite refuse closed Coach without deadlock' /tmp/coach-lifecycle-mutex-concurrency.txt
+      - name: Test confirm × activate lock order concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-confirm-activate-lock.sh | tee /tmp/confirm-activate-lock-concurrency.txt
+      - name: Confirm confirm × activate lock order echo
+        run: |
+          set -euo pipefail
+          grep -F 'confirm×activate lock order: Cas A confirm holds Coach mutex, Cas B activate holds Coach mutex; both serialize without deadlock; one active link' /tmp/confirm-activate-lock-concurrency.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

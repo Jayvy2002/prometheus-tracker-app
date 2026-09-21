@@ -337,8 +337,8 @@ export interface CoachingState {
   subscribeClientDossier: (clientId: string, onInvalidate: () => void) => () => void;
   /** C04 : attributions (actives + en pause) d'un client suivi. */
   fetchClientAssignments: (clientId: string) => Promise<Array<ProgramAssignment & { programs?: { name: string } | null }>>;
-  /** C04 : adopte (fork) un programme assigné au client dans la bibliothèque coach. */
-  adoptClientProgram: (programId: string, clientId: string) => Promise<{ programId: string } | { error: string }>;
+  /** C04 : adopte (fork) l'assignment historique exact dans la bibliothèque coach. */
+  adoptClientAssignment: (assignmentId: string) => Promise<{ programId: string } | { error: string }>;
   createIntervention: (input: {
     clientId: string | null;
     kind: CoachInterventionKind;

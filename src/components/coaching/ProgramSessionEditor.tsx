@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, GripVertical, Plus, Sparkles, Trash2 } from 'lucide-react';
 import type { AiProgramDayDraft, Exercise, ProgramExerciseDraft, SessionOrganization } from '../../lib/types';
 import type { ProgramPhaseDraft } from '../../features/programs/domain/programPhases';
-import { newPhaseDraft } from '../../features/programs/domain/programPhases';
+import { newPhaseDraft, PROGRAM_EXERCISE_MAX_SETS } from '../../features/programs/domain/programPhases';
 import {
   formatExercisePrescription,
   repsInputMode,
@@ -582,7 +582,7 @@ export default function ProgramSessionEditor({
                           <input
                             type="number"
                             value={ex.default_sets}
-                            onChange={e => updateExercise(ei, { default_sets: Math.max(1, +e.target.value || 1) })}
+                            onChange={e => updateExercise(ei, { default_sets: Math.max(1, Math.min(PROGRAM_EXERCISE_MAX_SETS, +e.target.value || 1)) })}
                             className="mt-0.5 w-full bg-neutral-900 border border-neutral-800 rounded-lg px-2 py-1 text-xs text-white"
                           />
                         </label>
