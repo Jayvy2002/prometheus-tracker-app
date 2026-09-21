@@ -145,6 +145,7 @@ test('P4.2 matching is an explained shortlist, not a score, and stays off the si
   assert.match(src('.github/workflows/ci.yml'), /p4_explained_matching\.sql/);
   assert.match(src('supabase/tests/p4_explained_matching.sql'), /incompatible coach filled the shortlist/);
   assert.match(src('supabase/tests/p4_explained_matching.sql'), /shortlist exceeded five/);
+  assert.match(src('supabase/tests/p4_explained_matching.sql'), /missing_information' @> '\["price"\]'/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /explain_marketplace_matches/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
   assert.equal(pending.pending.some(row => row.version === '20260921021923'), true);

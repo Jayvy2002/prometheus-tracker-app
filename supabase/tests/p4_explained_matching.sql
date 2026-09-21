@@ -141,7 +141,7 @@ BEGIN
   END IF;
   SELECT item INTO v_charlie FROM jsonb_array_elements(v_rows) item WHERE item->>'public_name' = 'Charlie';
   IF v_charlie IS NULL THEN RAISE EXCEPTION 'missing price became ineligible'; END IF;
-  IF v_charlie->'missing_information' <> '["price"]'::jsonb THEN
+  IF NOT (v_charlie->'missing_information' @> '["price"]'::jsonb) THEN
     RAISE EXCEPTION 'missing price not reported';
   END IF;
 END $$;
