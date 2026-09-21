@@ -113,31 +113,14 @@ REVOKE ALL ON FUNCTION public.qualification_proof_object_exists(text) FROM PUBLI
 GRANT EXECUTE ON FUNCTION public.qualification_proof_object_exists(text) TO service_role;
 
 COMMENT ON FUNCTION public.qualification_proof_object_exists(text) IS
-  'True when the exact qualification-proofs object exists. Used by submit; not a public listing.';
+  'True when the exact qualification-proofs object exists. Used by submit and withdraw fail-safe; not a public listing.';
 
-CREATE OR REPLACE FUNCTION public.qualification_delete_proof_objects(p_coach uuid, p_id uuid, p_path text)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = ''
-AS $$
-BEGIN
-  PERFORM set_config('storage.allow_delete_query', 'true', true);
-  DELETE FROM storage.objects
-  WHERE bucket_id = 'qualification-proofs'
-    AND (
-      (p_path IS NOT NULL AND name = p_path)
-      OR (
-        p_coach IS NOT NULL
-        AND p_id IS NOT NULL
-        AND name LIKE (p_coach::text || '/' || p_id::text || '/%')
-      )
-    );
-END;
-$$;
+-- Proof files are removed only via the Storage API (.remove()). Never SQL-DELETE
+-- storage.objects: that leaves a physical orphan. withdraw_coach_qualification
+-- refuses with proof_cleanup_required while any object remains under the
+-- qualification prefix.
 
-REVOKE ALL ON FUNCTION public.qualification_delete_proof_objects(uuid, uuid, text) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.qualification_delete_proof_objects(uuid, uuid, text) TO service_role;
+DROP FUNCTION IF EXISTS public.qualification_delete_proof_objects(uuid, uuid, text);
 
 CREATE OR REPLACE FUNCTION public.qualification_effective_status(p_status text, p_expires_on date)
 RETURNS text
@@ -438,7 +421,16 @@ BEGIN
     RETURNING * INTO v_result;
     RETURN v_result;
   END IF;
-  PERFORM public.qualification_delete_proof_objects(v_uid, p_id, v_result.proof_path);
+  IF EXISTS (
+    SELECT 1 FROM storage.objects
+    WHERE bucket_id = 'qualification-proofs'
+      AND (
+        (v_result.proof_path IS NOT NULL AND name = v_result.proof_path)
+        OR name LIKE (v_uid::text || '/' || p_id::text || '/%')
+      )
+  ) THEN
+    RAISE EXCEPTION 'proof_cleanup_required';
+  END IF;
   DELETE FROM public.coach_qualifications WHERE id = p_id RETURNING * INTO v_result;
   RETURN v_result;
 END;

@@ -5,6 +5,7 @@ import { marketRpc } from '../../lib/marketplaceApi';
 import {
   REPORT_CATEGORIES,
   REPORT_SUBJECT_TYPES,
+  clearCoachingReportKey,
   coachingReportKey,
   type MarketplaceReport,
   type ReportCategory,
@@ -44,13 +45,14 @@ export default function MarketplaceReportForm({ owner, targetUserId, relatedRequ
         p_request: relatedRequestId,
         p_client_report_id: coachingReportKey(sessionStorage, owner, targetUserId, relatedRequestId),
       }, owner);
+      clearCoachingReportKey(sessionStorage, owner, targetUserId, relatedRequestId);
       onSubmitted(saved);
       setContext('');
       setNotice(t('marketplace.reportSent'));
       setOpen(false);
     } catch (cause) {
       const message = cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : '';
-      const key = ['invalid_target', 'request_mismatch', 'report_limit', 'session_changed'].includes(message) ? message : 'saveError';
+      const key = ['invalid_target', 'request_mismatch', 'report_limit', 'report_key_conflict', 'session_changed'].includes(message) ? message : 'saveError';
       setError(t(`marketplace.${key}`));
     } finally {
       setBusy(false);

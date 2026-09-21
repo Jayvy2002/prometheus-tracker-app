@@ -61,6 +61,7 @@ SET search_path = ''
 AS $$
   SELECT (SELECT auth.uid()) IS NOT NULL
     AND (SELECT auth.uid()) IN (p_coach, p_client)
+    AND public.coach_relationship_is_open(p_coach)
     AND EXISTS (
       SELECT 1
       FROM public.coach_join_requests
@@ -74,7 +75,34 @@ REVOKE ALL ON FUNCTION public.marketplace_open_prospect(uuid, uuid) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.marketplace_open_prospect(uuid, uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.marketplace_open_prospect(uuid, uuid) IS
-  'True when the caller is a party to a pending or coach_accepted join request. Does not grant is_coach_of.';
+  'True when the caller is a party to a pending or coach_accepted join request and the Coach lifecycle is still open. Fail-closed after coach_account_closures. Does not grant is_coach_of.';
+
+CREATE OR REPLACE FUNCTION public.withdraw_open_prospects_on_coach_closure()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  UPDATE public.coach_join_requests
+     SET status = 'withdrawn',
+         updated_at = clock_timestamp()
+   WHERE coach_id = NEW.coach_id
+     AND status IN ('pending', 'coach_accepted');
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.withdraw_open_prospects_on_coach_closure() FROM PUBLIC, anon, authenticated;
+
+COMMENT ON FUNCTION public.withdraw_open_prospects_on_coach_closure() IS
+  'Internal. When a Coach is stamped in coach_account_closures, pending and coach_accepted requests become withdrawn in the same transaction. Does not touch active P3 links.';
+
+DROP TRIGGER IF EXISTS withdraw_open_prospects_on_coach_closure ON public.coach_account_closures;
+CREATE TRIGGER withdraw_open_prospects_on_coach_closure
+  AFTER INSERT ON public.coach_account_closures
+  FOR EACH ROW
+  EXECUTE FUNCTION public.withdraw_open_prospects_on_coach_closure();
 
 DROP POLICY IF EXISTS "Coach sends to own clients" ON public.coach_messages;
 CREATE POLICY "Coach sends to own clients"
@@ -128,6 +156,8 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.coach_message_prospect_no_dossier() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS coach_message_prospect_no_dossier ON public.coach_messages;
 CREATE TRIGGER coach_message_prospect_no_dossier

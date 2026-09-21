@@ -200,6 +200,11 @@ export function coachingReportKey(storage: Pick<Storage, 'getItem' | 'setItem'>,
   try { storage.setItem(name, key); } catch { /* Keep this session's retry key in memory. */ }
   return key;
 }
+export function clearCoachingReportKey(storage: Pick<Storage, 'removeItem'>, owner: string, target: string, relatedRequestId: string | null) {
+  const name = `prometheus:marketplace-report:${owner}:${target}:${relatedRequestId ?? 'none'}`;
+  requestKeys.delete(name);
+  try { storage.removeItem(name); } catch { /* Cleanup cannot turn a confirmed write into failure. */ }
+}
 
 export const REPORT_SUBJECT_TYPES = ['profile', 'behavior'] as const;
 export const REPORT_CATEGORIES = ['harassment', 'impersonation', 'inappropriate', 'spam', 'other'] as const;

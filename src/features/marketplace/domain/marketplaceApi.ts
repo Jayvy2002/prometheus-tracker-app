@@ -135,3 +135,10 @@ export async function uploadQualificationProof(owner: string, qualificationId: s
   if (error) throw error;
   return path;
 }
+
+export async function removeQualificationProof(owner: string, path: string): Promise<void> {
+  if (!OWNER_ID.test(owner)) throw Error('invalid_proof_path');
+  if (!path.startsWith(`${owner}/`)) throw Error('invalid_proof_path');
+  const { error } = await supabase.storage.from('qualification-proofs').remove([path]);
+  if (error) throw error;
+}

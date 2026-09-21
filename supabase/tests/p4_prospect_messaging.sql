@@ -23,18 +23,26 @@ $$;
 INSERT INTO auth.users(id, email) VALUES
  ('c4300000-0000-4000-8000-000000000001', 'p43-coach@example.test'),
  ('c4300000-0000-4000-8000-000000000002', 'p43-athlete@example.test'),
- ('c4300000-0000-4000-8000-000000000003', 'p43-stranger@example.test');
+ ('c4300000-0000-4000-8000-000000000003', 'p43-stranger@example.test'),
+ ('c4300000-0000-4000-8000-000000000004', 'p43-pending@example.test'),
+ ('c4300000-0000-4000-8000-000000000005', 'p43-accepted@example.test');
 INSERT INTO public.user_roles(user_id, role, coaching_role) VALUES
  ('c4300000-0000-4000-8000-000000000001', 'free', 'coach'),
  ('c4300000-0000-4000-8000-000000000002', 'free', 'none'),
- ('c4300000-0000-4000-8000-000000000003', 'free', 'none')
+ ('c4300000-0000-4000-8000-000000000003', 'free', 'none'),
+ ('c4300000-0000-4000-8000-000000000004', 'free', 'none'),
+ ('c4300000-0000-4000-8000-000000000005', 'free', 'none')
 ON CONFLICT (user_id) DO UPDATE SET coaching_role = excluded.coaching_role;
 
 DO $$ BEGIN
   IF NOT has_function_privilege('authenticated', 'public.marketplace_open_prospect(uuid,uuid)', 'execute')
      OR has_function_privilege('anon', 'public.marketplace_open_prospect(uuid,uuid)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.request_coaching(uuid,text,text,integer,uuid,jsonb)', 'execute')
-     OR has_function_privilege('anon', 'public.request_coaching(uuid,text,text,integer,uuid,jsonb)', 'execute') THEN
+     OR has_function_privilege('anon', 'public.request_coaching(uuid,text,text,integer,uuid,jsonb)', 'execute')
+     OR has_function_privilege('authenticated', 'public.coach_message_prospect_no_dossier()', 'execute')
+     OR has_function_privilege('anon', 'public.coach_message_prospect_no_dossier()', 'execute')
+     OR has_function_privilege('authenticated', 'public.withdraw_open_prospects_on_coach_closure()', 'execute')
+     OR has_function_privilege('anon', 'public.withdraw_open_prospects_on_coach_closure()', 'execute') THEN
     RAISE EXCEPTION 'prospect helper grants mismatch';
   END IF;
 END $$;
@@ -248,6 +256,103 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM public.progress_photos WHERE user_id = 'c4300000-0000-4000-8000-000000000002') THEN
     RAISE EXCEPTION 'active coach still cannot read photos';
   END IF;
+END $$;
+
+SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000004');
+SELECT public.request_coaching(
+  'c4300000-0000-4000-8000-000000000001',
+  'Pending Close',
+  'Keep me pending',
+  2,
+  'c4300000-0000-4000-8000-000000000044'
+);
+INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key)
+VALUES ('c4300000-0000-4000-8000-000000000001', 'c4300000-0000-4000-8000-000000000004', 'c4300000-0000-4000-8000-000000000004', 'pending before close', 'reply');
+
+SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000005');
+SELECT public.request_coaching(
+  'c4300000-0000-4000-8000-000000000001',
+  'Accepted Close',
+  'Accept then close',
+  2,
+  'c4300000-0000-4000-8000-000000000055'
+);
+SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000001');
+DO $$
+DECLARE
+  r public.coach_join_requests;
+BEGIN
+  SELECT * INTO r FROM public.coach_join_requests
+   WHERE client_id = 'c4300000-0000-4000-8000-000000000005' AND status = 'pending';
+  PERFORM public.respond_coaching_request(r.id, 'accepted');
+END $$;
+
+RESET ROLE;
+SELECT pg_temp.clear_jwt();
+INSERT INTO public.coach_account_closures(coach_id)
+VALUES ('c4300000-0000-4000-8000-000000000001');
+
+DO $$
+DECLARE
+  pending_st text;
+  accepted_st text;
+  confirmed_st text;
+BEGIN
+  SELECT status INTO pending_st FROM public.coach_join_requests
+   WHERE client_id = 'c4300000-0000-4000-8000-000000000004';
+  SELECT status INTO accepted_st FROM public.coach_join_requests
+   WHERE client_id = 'c4300000-0000-4000-8000-000000000005';
+  SELECT status INTO confirmed_st FROM public.coach_join_requests
+   WHERE client_id = 'c4300000-0000-4000-8000-000000000002';
+  IF pending_st <> 'withdrawn' THEN RAISE EXCEPTION 'pending was not withdrawn on closure: %', pending_st; END IF;
+  IF accepted_st <> 'withdrawn' THEN RAISE EXCEPTION 'coach_accepted was not withdrawn on closure: %', accepted_st; END IF;
+  IF confirmed_st <> 'athlete_confirmed' THEN RAISE EXCEPTION 'confirmed request was reactivated or rewritten: %', confirmed_st; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.coach_client_links
+     WHERE coach_id = 'c4300000-0000-4000-8000-000000000001'
+       AND client_id = 'c4300000-0000-4000-8000-000000000002'
+       AND status = 'active'
+  ) THEN RAISE EXCEPTION 'closure trigger ended the P3 active relationship'; END IF;
+END $$;
+
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000001');
+DO $$
+DECLARE
+  n int;
+BEGIN
+  IF public.marketplace_open_prospect(auth.uid(), 'c4300000-0000-4000-8000-000000000004')
+     OR public.marketplace_open_prospect(auth.uid(), 'c4300000-0000-4000-8000-000000000005') THEN
+    RAISE EXCEPTION 'open prospect stayed true after coach closure';
+  END IF;
+  SELECT count(*) INTO n FROM public.fetch_thread_messages('c4300000-0000-4000-8000-000000000004');
+  IF n < 1 THEN RAISE EXCEPTION 'historical prospect thread dropped on closure'; END IF;
+  BEGIN
+    INSERT INTO public.coach_messages(coach_id, client_id, sender_id, body, template_key)
+    VALUES (auth.uid(), 'c4300000-0000-4000-8000-000000000004', auth.uid(), 'after close', 'prospect');
+    RAISE EXCEPTION 'new prospect send after closure';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'new prospect send after closure%' THEN RAISE; END IF;
+    IF SQLERRM NOT LIKE '%row-level security%' AND SQLERRM NOT LIKE 'new row violates%' AND SQLERRM NOT LIKE 'permission denied%' THEN RAISE; END IF;
+  END;
+  IF NOT public.is_coach_of('c4300000-0000-4000-8000-000000000002') THEN
+    RAISE EXCEPTION 'closure trigger ended the P3 active relationship';
+  END IF;
+END $$;
+
+SELECT pg_temp.as_user('c4300000-0000-4000-8000-000000000004');
+DO $$
+DECLARE
+  r public.coach_join_requests;
+BEGIN
+  SELECT * INTO r FROM public.coach_join_requests WHERE client_id = auth.uid();
+  BEGIN
+    PERFORM public.respond_coaching_request(r.id, 'confirmed');
+    RAISE EXCEPTION 'withdrawn request reactivated';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'withdrawn request reactivated%' THEN RAISE; END IF;
+    IF SQLERRM NOT IN ('request_closed', 'not_authorized', 'coach_unavailable') THEN RAISE; END IF;
+  END;
 END $$;
 
 RESET ROLE;

@@ -11,8 +11,8 @@
 | Revue | `review_marketplace_report` — `service_role` uniquement |
 | Actions | `acknowledge` / `dismiss` / `resolve` / `suspend_directory` / `restore_directory`, journalisées |
 | Annuaire | `marketplace_coach_discoverable` (capability Coach, lifecycle P3 ouvert, published, `NOT directory_suspended`) |
-| Nouvelle demande | `request_coaching` échoue `coach_unavailable` si le Coach n’est pas découvrable |
-| Hold | `directory_hold_active` par report ; `directory_suspended` = OR des holds actifs |
+| Nouvelle demande | `request_coaching` prend `lock_coach_relationship_lifecycle` (ordre P3), revalide `marketplace_coach_discoverable`, échoue `coach_unavailable` sinon |
+| Hold | `directory_hold_active` par report ; mutations sérialisées par `target_user_id` (classe 20014503) ; `directory_suspended` = OR des holds actifs |
 | Audit | `reporter_id` / `target_user_id` SET NULL ; `reporter_ref` / `target_ref` durables ; actions `ON DELETE RESTRICT` |
 | Prospect déjà ouvert | une demande `pending` / `coach_accepted` existante **peut** continuer (messages, accept, confirm) — compatible avec le hold d’annuaire, pas une nouvelle acquisition |
 | Relation | la suspension **ne** touche **pas** `coach_client_links` / `is_coach_of` |

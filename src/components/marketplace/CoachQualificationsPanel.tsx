@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
-import { marketRpc, uploadQualificationProof } from '../../lib/marketplaceApi';
+import { marketRpc, removeQualificationProof, uploadQualificationProof } from '../../lib/marketplaceApi';
 import {
   QUALIFICATION_TYPES,
   qualificationEffectiveStatus,
@@ -33,7 +33,7 @@ export default function CoachQualificationsPanel({ owner, rows, busy, onChange, 
     try { await action(); }
     catch (cause) {
       const message = cause && typeof cause === 'object' && 'message' in cause ? String(cause.message) : '';
-      const key = ['coach_required', 'qualification_limit', 'qualification_locked', 'proof_required', 'proof_missing', 'not_found', 'invalid_proof_path'].includes(message) ? message : 'saveError';
+      const key = ['coach_required', 'qualification_limit', 'qualification_locked', 'proof_required', 'proof_missing', 'proof_cleanup_required', 'not_found', 'invalid_proof_path'].includes(message) ? message : 'saveError';
       onError(t(`marketplace.${key}`));
     } finally { setSaving(false); }
   }
@@ -83,6 +83,9 @@ export default function CoachQualificationsPanel({ owner, rows, busy, onChange, 
               )}
               {status !== 'verified' && status !== 'expired' && (
                 <Button variant="secondary" disabled={busy || saving} onClick={() => void run(async () => {
+                  if (status !== 'pending' && row.proof_path) {
+                    await removeQualificationProof(owner, row.proof_path);
+                  }
                   const saved = await marketRpc<CoachQualification>('withdraw_coach_qualification', { p_id: row.id }, owner);
                   if (status === 'pending') replace(saved);
                   else onChange(rows.filter(item => item.id !== row.id));

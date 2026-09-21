@@ -34,7 +34,7 @@ Un utilisateur public ne lit jamais `proof_path`, `reviewer_id`, `reviewer_ref` 
 
 Le chemin doit matcher `auth.uid() / qualification_id / proof[.pdf|.jpg|.jpeg|.png|.webp]`. `declare` ignore un `p_proof_path` client. `save` / `submit` refusent tout autre chemin (`invalid_proof_path`). `submit` exige que l’objet existe dans `storage.objects` (`bucket = qualification-proofs`, `name = proof_path`) sinon `proof_missing`.
 
-Les policies Storage n’autorisent INSERT/UPDATE/DELETE que si `verification_status IN ('declared', 'rejected')`. Dès `pending` (et pour `verified` / `expired`) la preuve est immuable. `withdraw` d’une ligne `declared`/`rejected` supprime d’abord les objets du catalogue Storage, puis la ligne. La suppression de compte nettoie récursivement le bucket via l’API Storage.
+Les policies Storage n’autorisent INSERT/UPDATE/DELETE que si `verification_status IN ('declared', 'rejected')`. Dès `pending` (et pour `verified` / `expired`) la preuve est immuable. `withdraw` d’une ligne `declared`/`rejected` refuse `proof_cleanup_required` tant que l’objet Storage existe : le client doit d’abord `.remove()` via l’API Storage, puis seulement ensuite supprimer la ligne. Jamais de `DELETE FROM storage.objects`. La suppression de compte nettoie récursivement le bucket via l’API Storage.
 
 ## Écritures
 
@@ -43,7 +43,7 @@ Les policies Storage n’autorisent INSERT/UPDATE/DELETE que si `verification_st
 | `declare_coach_qualification` | Coach | insert `declared` (max 20), preuve nulle |
 | `save_coach_qualification` | Coach | mute `declared` / `rejected` → `declared` |
 | `submit_coach_qualification` | Coach | `declared`/`rejected` → `pending` si preuve owned |
-| `withdraw_coach_qualification` | Coach | `pending` → `declared` ; sinon DELETE |
+| `withdraw_coach_qualification` | Coach | `pending` → `declared` ; `declared`/`rejected` DELETE seulement si plus aucun objet Storage |
 | `review_coach_qualification` | `service_role` | `pending` → `verified` / `rejected`, `reviewer_ref = marketplace_audit_actor()` |
 
 `save_program` / marketplace publish **n’exigent pas** de badge. Pas d’étoiles.

@@ -63,12 +63,27 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(found, /qualification_owned_proof_path/);
   assert.match(found, /qualification_proof_object_exists/);
   assert.match(found, /proof_missing/);
-  assert.match(found, /qualification_delete_proof_objects/);
-  assert.match(found, /storage\.allow_delete_query/);
+  assert.match(found, /proof_cleanup_required/);
+  assert.doesNotMatch(found, /CREATE OR REPLACE FUNCTION public\.qualification_delete_proof_objects/);
+  assert.doesNotMatch(found, /DELETE FROM storage\.objects/);
   assert.match(found, /verification_status IN \('declared', 'rejected'\)/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /submit without storage object/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /pending proof update allowed/);
-  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /withdraw left proof object/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /withdraw succeeded while proof object existed/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /withdraw deleted storage catalog without Storage API/);
+  assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /qualification-proofs'\)\.remove/);
+  assert.match(src('src/components/marketplace/CoachQualificationsPanel.tsx'), /removeQualificationProof/);
+  assert.match(src('scripts/test-qualification-proof-storage.sh'), /storage\/v1\/object/);
+  assert.match(src('scripts/test-qualification-proof-storage.sh'), /proof_cleanup_required/);
+  assert.match(src('.github/workflows/ci.yml'), /test-qualification-proof-storage\.sh/);
+  for (const file of [
+    '20260921021231_p4_coach_qualifications.sql',
+    '20260921021923_p4_explained_matching.sql',
+    '20260921023720_p4_prospect_messaging.sql',
+    '20260921024426_p4_marketplace_moderation.sql',
+  ]) {
+    assert.doesNotMatch(src(`supabase/migrations/${file}`), /DELETE FROM storage\.objects/);
+  }
   assert.match(found, /coach_id = \(SELECT auth.uid\(\)\)/);
   assert.doesNotMatch(found, /verification_status <> 'rejected'\s+AND EXISTS/);
   assert.match(src('src/features/marketplace/domain/marketplaceApi.ts'), /list_public_coach_qualifications/);

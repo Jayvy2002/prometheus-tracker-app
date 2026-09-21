@@ -189,6 +189,29 @@ $$;
 REVOKE ALL ON FUNCTION public.marketplace_refresh_directory_suspended(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.marketplace_refresh_directory_suspended(uuid) TO service_role;
 
+CREATE OR REPLACE FUNCTION public.lock_marketplace_directory_hold(p_target uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF p_target IS NULL THEN
+    RETURN;
+  END IF;
+  PERFORM pg_advisory_xact_lock(
+    20014503,
+    ('x' || substr(md5('prometheus.directory.hold:' || p_target::text), 1, 8))::bit(32)::int
+  );
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.lock_marketplace_directory_hold(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.lock_marketplace_directory_hold(uuid) TO service_role;
+
+COMMENT ON FUNCTION public.lock_marketplace_directory_hold(uuid) IS
+  'Internal. Transaction mutex per target_user_id for directory_hold_active mutations and directory_suspended recompute. Class 20014503. Distinct from Coach lifecycle 20014501 and report quota 20014502.';
+
 CREATE OR REPLACE FUNCTION public.submit_marketplace_report(
   p_target uuid,
   p_subject_type text,
@@ -224,6 +247,13 @@ BEGIN
     FROM public.marketplace_reports
     WHERE reporter_id = v_uid AND client_report_id = p_client_report_id;
     IF FOUND THEN
+      IF v_result.target_user_id IS DISTINCT FROM p_target
+         OR v_result.subject_type IS DISTINCT FROM p_subject_type
+         OR v_result.category IS DISTINCT FROM p_category
+         OR v_result.context IS DISTINCT FROM btrim(p_context)
+         OR v_result.related_request_id IS DISTINCT FROM p_request THEN
+        RAISE EXCEPTION 'report_key_conflict';
+      END IF;
       RETURN v_result;
     END IF;
   END IF;
@@ -286,6 +316,9 @@ BEGIN
   IF coalesce(nullif(auth.role(), ''), current_user) IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'not_authorized';
   END IF;
+  SELECT * INTO v_row FROM public.marketplace_reports WHERE id = p_report;
+  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
+  PERFORM public.lock_marketplace_directory_hold(v_row.target_user_id);
   SELECT * INTO v_row FROM public.marketplace_reports WHERE id = p_report FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
   IF p_action = 'acknowledge' THEN
@@ -325,9 +358,9 @@ GRANT EXECUTE ON FUNCTION public.review_marketplace_report(uuid, text, text) TO 
 COMMENT ON FUNCTION public.submit_marketplace_report(uuid, text, text, text, uuid) IS
   'Member marketplace report. Not a public coach review.';
 COMMENT ON FUNCTION public.submit_marketplace_report(uuid, text, text, text, uuid, uuid) IS
-  'Member marketplace report with client_report_id idempotency. Quota is serialized per reporter.';
+  'Member marketplace report with client_report_id idempotency. Identical payload returns the existing row; a different target/subject/category/context/request raises report_key_conflict. Quota is serialized per reporter.';
 COMMENT ON FUNCTION public.review_marketplace_report(uuid, text, text) IS
-  'service_role moderation action. Records marketplace_audit_actor. Directory hold is per report. Does not end a coaching relationship.';
+  'service_role moderation action. Records marketplace_audit_actor. Serializes directory_hold_active mutations per target_user_id (class 20014503), then recomputes directory_suspended. Does not end a coaching relationship.';
 
 CREATE OR REPLACE FUNCTION public.coach_has_verified_qualification(p_coach uuid)
 RETURNS boolean
@@ -471,6 +504,7 @@ BEGIN
       ELSE '{}'::jsonb
     END;
   END IF;
+  PERFORM public.lock_coach_relationship_lifecycle(p_coach);
   PERFORM 1 FROM public.user_roles WHERE user_id = v_uid FOR UPDATE;
   SELECT * INTO v_result
   FROM public.coach_join_requests
@@ -489,13 +523,16 @@ BEGIN
   IF FOUND THEN
     RETURN v_result;
   END IF;
-  IF NOT public.marketplace_coach_discoverable(p_coach) THEN
-    RAISE EXCEPTION 'coach_unavailable';
-  END IF;
   PERFORM 1 FROM public.coach_profiles
-    WHERE coach_id = p_coach AND accepting_clients
+    WHERE coach_id = p_coach
+      AND published
+      AND accepting_clients
+      AND NOT directory_suspended
     FOR SHARE;
   IF NOT FOUND THEN
+    RAISE EXCEPTION 'coach_unavailable';
+  END IF;
+  IF NOT public.marketplace_coach_discoverable(p_coach) THEN
     RAISE EXCEPTION 'coach_unavailable';
   END IF;
   IF EXISTS (
@@ -518,6 +555,9 @@ $$;
 
 REVOKE ALL ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, jsonb) TO authenticated;
+
+COMMENT ON FUNCTION public.request_coaching(uuid, text, text, integer, uuid, jsonb) IS
+  'Athlete-initiated coaching request. New requests take lock_coach_relationship_lifecycle first (P3 order), then client user_roles, then coach profile FOR SHARE with published/accepting/NOT directory_suspended, then revalidate marketplace_coach_discoverable before INSERT.';
 
 CREATE OR REPLACE FUNCTION public.explain_marketplace_matches()
 RETURNS jsonb

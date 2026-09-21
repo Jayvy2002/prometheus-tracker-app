@@ -268,16 +268,60 @@ VALUES (
 );
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
+DO $$
+BEGIN
+  IF to_regprocedure('public.qualification_delete_proof_objects(uuid,uuid,text)') IS NOT NULL THEN
+    RAISE EXCEPTION 'qualification_delete_proof_objects still present';
+  END IF;
+  IF pg_get_functiondef('public.withdraw_coach_qualification(uuid)'::regprocedure)
+       ILIKE '%DELETE FROM storage.objects%' THEN
+    RAISE EXCEPTION 'withdraw sql-deletes storage.objects';
+  END IF;
+  BEGIN
+    PERFORM public.withdraw_coach_qualification(current_setting('p4.withdraw_id')::uuid);
+    RAISE EXCEPTION 'withdraw succeeded while proof object existed';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'withdraw succeeded while proof object existed%' THEN RAISE; END IF;
+    IF SQLERRM <> 'proof_cleanup_required' THEN RAISE; END IF;
+  END;
+END $$;
+RESET ROLE;
+SELECT pg_temp.clear_jwt();
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM storage.objects
+    WHERE bucket_id = 'qualification-proofs'
+      AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf'
+  ) THEN RAISE EXCEPTION 'withdraw deleted storage catalog without Storage API'; END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.coach_qualifications
+    WHERE id = current_setting('p4.withdraw_id')::uuid
+  ) THEN RAISE EXCEPTION 'withdraw deleted qualification before proof cleanup'; END IF;
+END $$;
+-- Test-only catalog removal after the Storage API would have .remove()'d the file.
+-- Production withdraw never SQL-DELETEs storage.objects.
+SELECT set_config('storage.allow_delete_query', 'true', true);
+DELETE FROM storage.objects
+ WHERE bucket_id = 'qualification-proofs'
+   AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf';
+SELECT set_config('storage.allow_delete_query', 'false', true);
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c4100000-0000-4000-8000-000000000001');
 SELECT public.withdraw_coach_qualification(current_setting('p4.withdraw_id')::uuid);
 RESET ROLE;
 SELECT pg_temp.clear_jwt();
 DO $$
 BEGIN
   IF EXISTS (
+    SELECT 1 FROM public.coach_qualifications
+    WHERE id = current_setting('p4.withdraw_id')::uuid
+  ) THEN RAISE EXCEPTION 'withdraw after Storage cleanup left qualification'; END IF;
+  IF EXISTS (
     SELECT 1 FROM storage.objects
     WHERE bucket_id = 'qualification-proofs'
       AND name = 'c4100000-0000-4000-8000-000000000001/' || current_setting('p4.withdraw_id') || '/proof.pdf'
-  ) THEN RAISE EXCEPTION 'withdraw left proof object'; END IF;
+  ) THEN RAISE EXCEPTION 'proof object remained after Storage cleanup'; END IF;
 END $$;
 
 \echo 'p4.1 qualifications: declare/submit/review, badge optional, no publish gate'

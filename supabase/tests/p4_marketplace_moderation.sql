@@ -51,7 +51,10 @@ DO $$ BEGIN
      OR NOT has_function_privilege('authenticated', 'public.submit_marketplace_report(uuid,text,text,text,uuid)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.submit_marketplace_report(uuid,text,text,text,uuid,uuid)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.marketplace_coach_discoverable(uuid)', 'execute')
-     OR NOT has_function_privilege('service_role', 'public.review_marketplace_report(uuid,text,text)', 'execute') THEN
+     OR NOT has_function_privilege('service_role', 'public.review_marketplace_report(uuid,text,text)', 'execute')
+     OR has_function_privilege('authenticated', 'public.lock_marketplace_directory_hold(uuid)', 'execute')
+     OR has_function_privilege('anon', 'public.lock_marketplace_directory_hold(uuid)', 'execute')
+     OR has_function_privilege('authenticated', 'public.marketplace_refresh_directory_suspended(uuid)', 'execute') THEN
     RAISE EXCEPTION 'moderation grants mismatch';
   END IF;
 END $$;
@@ -391,6 +394,31 @@ BEGIN
   );
   IF retry.id <> report.id THEN
     RAISE EXCEPTION 'report idempotency lost';
+  END IF;
+  BEGIN
+    PERFORM public.submit_marketplace_report(
+      'c4400000-0000-4000-8000-000000000001',
+      'behavior',
+      'spam',
+      'Different payload must not reuse the key.',
+      NULL,
+      'c4400000-0000-4000-8000-0000000000aa'
+    );
+    RAISE EXCEPTION 'report key collision accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE 'report key collision accepted%' THEN RAISE; END IF;
+    IF SQLERRM <> 'report_key_conflict' THEN RAISE; END IF;
+  END;
+  retry := public.submit_marketplace_report(
+    'c4400000-0000-4000-8000-000000000001',
+    'profile',
+    'other',
+    'Second genuine report after success.',
+    NULL,
+    'c4400000-0000-4000-8000-0000000000cc'
+  );
+  IF retry.id = report.id THEN
+    RAISE EXCEPTION 'second report after success reused the first row';
   END IF;
 END $$;
 

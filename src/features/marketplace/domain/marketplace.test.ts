@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import en from '../../../i18n/locales/en/marketplace';
 import fr from '../../../i18n/locales/fr/marketplace';
-import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, isProspectConversationStatus, marketFilters, matchingReasons, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, resolveRelationshipState, type CoachPublicProfile, type CoachingLinkRecord, type CoachingRequest } from './marketplace';
+import { comparisonIds, coachingRequestKey, clearCoachingRequestKey, coachingReportKey, clearCoachingReportKey, isProspectConversationStatus, marketFilters, matchingReasons, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, resolveRelationshipState, type CoachPublicProfile, type CoachingLinkRecord, type CoachingRequest } from './marketplace';
 
 const coach = 'a1780000-0000-4000-8000-000000000001';
 const client = 'a1780000-0000-4000-8000-000000000003';
@@ -179,6 +179,25 @@ test('disabled browser storage keeps a retry key and cannot turn success into cl
  const first=coachingRequestKey(storage,'no-storage','coach');
  assert.equal(coachingRequestKey(storage,'no-storage','coach'),first);
  assert.doesNotThrow(()=>clearCoachingRequestKey(storage,'no-storage','coach'));
+});
+
+test('report identifiers survive retries, clear only after success, and isolate per target', () => {
+ const map = new Map<string,string>();
+ const storage = { getItem:(key:string)=>map.get(key)??null, setItem:(key:string,value:string)=>{map.set(key,value);}, removeItem:(key:string)=>{map.delete(key);} };
+ const first=coachingReportKey(storage,'A','target','req');
+ assert.equal(coachingReportKey(storage,'A','target','req'),first);
+ assert.notEqual(coachingReportKey(storage,'B','target','req'),first);
+ assert.notEqual(coachingReportKey(storage,'A','other','req'),first);
+ assert.notEqual(coachingReportKey(storage,'A','target',null),first);
+ clearCoachingReportKey(storage,'A','target','req');
+ assert.notEqual(coachingReportKey(storage,'A','target','req'),first);
+});
+
+test('disabled browser storage keeps a report retry key and cannot turn success into cleanup failure', () => {
+ const storage={getItem:()=>{throw Error('blocked');},setItem:()=>{throw Error('blocked');},removeItem:()=>{throw Error('blocked');}};
+ const first=coachingReportKey(storage,'no-storage','target',null);
+ assert.equal(coachingReportKey(storage,'no-storage','target',null),first);
+ assert.doesNotThrow(()=>clearCoachingReportKey(storage,'no-storage','target',null));
 });
 
 test('comparison accepts at most three unique profile identifiers, never arbitrary query fragments', () => {

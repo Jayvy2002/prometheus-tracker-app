@@ -177,6 +177,7 @@ const marketplace = {
     proof_required: 'Add proof before submitting for review.',
     invalid_proof_path: 'This proof does not belong to this qualification.',
     proof_missing: 'The proof file is missing. Upload it before submitting.',
+    proof_cleanup_required: 'Remove the proof file first, then withdraw the qualification.',
     coach_account_closed: 'This coach account is closing. Publishing again is no longer possible.',
     confirmScopesReminder: 'Confirming activates coaching with these access rights:',
     invalid_snapshot: 'The prospect context is invalid. Share only the consented fields.',
@@ -214,6 +215,7 @@ const marketplace = {
     invalid_target: 'This person cannot be reported.',
     request_mismatch: 'This request is not linked to the report.',
     report_limit: 'You have too many open reports.',
+    report_key_conflict: 'This report key is already used for a different report.',
     not_authorized: 'This action is not allowed.',
   },
 } as const;

@@ -177,6 +177,7 @@ const marketplace = {
     proof_required: 'Ajoute une preuve avant d’envoyer en vérification.',
     invalid_proof_path: 'Cette preuve n’appartient pas à cette qualification.',
     proof_missing: 'Le fichier de preuve est introuvable. Téléverse-le avant d’envoyer.',
+    proof_cleanup_required: 'Supprime d’abord le fichier de preuve, puis retire la qualification.',
     coach_account_closed: 'Ce compte coach est en cours de fermeture. La republication n’est plus possible.',
     confirmScopesReminder: 'En confirmant, tu actives le suivi avec ces accès :',
     invalid_snapshot: 'Le dossier prospect est invalide. Partage seulement les champs consentis.',
@@ -214,6 +215,7 @@ const marketplace = {
     invalid_target: 'Cette personne ne peut pas être signalée.',
     request_mismatch: 'Cette demande n’est pas liée à ce signalement.',
     report_limit: 'Tu as trop de signalements ouverts.',
+    report_key_conflict: 'Cette clé de signalement est déjà utilisée pour un autre dossier.',
     not_authorized: 'Action non autorisée.',
   },
 } as const;

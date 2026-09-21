@@ -397,6 +397,30 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p4.4 moderation: report queue, suspend directory, no ratings, no relationship end' /tmp/p4-moderation-db-results.txt
+      - name: Test qualification proof Storage API withdraw
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-qualification-proof-storage.sh | tee /tmp/p4-qualification-storage.txt
+      - name: Confirm qualification proof Storage API echo
+        run: |
+          set -euo pipefail
+          grep -F 'qualification proof storage: withdraw refuses while object exists; Storage API .remove() then withdraw succeeds; no SQL DELETE of storage.objects' /tmp/p4-qualification-storage.txt
+      - name: Test request_coaching lifecycle concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-request-coaching-lifecycle.sh | tee /tmp/p4-request-lifecycle-concurrency.txt
+      - name: Confirm request_coaching lifecycle concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'request_coaching × close_coach_account / request_coaching × suspend_directory: two-session serialize without stale discovery' /tmp/p4-request-lifecycle-concurrency.txt
+      - name: Test directory hold restore×suspend concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-directory-hold-mutex.sh | tee /tmp/p4-directory-hold-concurrency.txt
+      - name: Confirm directory hold concurrency echo
+        run: |
+          set -euo pipefail
+          grep -F 'directory hold mutex: restore×suspend two-session, remaining hold keeps directory_suspended, last hold off clears it' /tmp/p4-directory-hold-concurrency.txt
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
