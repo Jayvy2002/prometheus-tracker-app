@@ -132,6 +132,9 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
       {row.status === 'coach_accepted' && row.client_id === owner && (
         <p className="text-sm text-neutral-400">{t('marketplace.confirmActivatesFollow')}</p>
       )}
+      {row.status === 'coach_accepted' && (
+        <Link className="block min-h-11 inline-flex items-center text-blue-400 underline" to={row.coach_id === owner ? `/messages/${row.client_id}` : '/messages'}>{t('marketplace.openConversation')}</Link>
+      )}
       <time className="block text-xs text-neutral-500" dateTime={row.created_at}>{new Date(row.created_at).toLocaleDateString(i18n.language)}</time>
       {(() => {
         const relationshipCopy = requestRelationshipCopyKey(row, owner);

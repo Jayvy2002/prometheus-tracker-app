@@ -250,11 +250,11 @@ export interface CoachingState {
   sendCoachMessage: (
     clientId: string,
     body: string,
-    templateKey: CoachNudgeTemplateKey,
+    templateKey: CoachNudgeTemplateKey | 'prospect',
     clientMsgId?: string,
     bilan?: { workoutId?: string | null; checkinId?: string | null },
   ) => Promise<{ error: string | null }>;
-  sendClientReply: (body: string, clientMsgId?: string) => Promise<{ error: string | null }>;
+  sendClientReply: (body: string, clientMsgId?: string, coachId?: string) => Promise<{ error: string | null }>;
   /**
    * C02 : pagination par conversation (curseur created_at DESC). Complète
    * sentMessages sans le tronquer ; hasMore[clientId]=false en fin de fil.

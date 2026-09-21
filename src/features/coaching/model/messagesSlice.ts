@@ -155,17 +155,17 @@ export function createMessagesSlice(set: CoachingSet, get: CoachingGet): Pick<Co
     return { error: null };
   },
 
-  sendClientReply: async (body, clientMsgId) => {
+  sendClientReply: async (body, clientMsgId, coachId) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const coach = get().myCoach;
-    if (!user || !coach) return { error: 'Not authenticated' };
+    const pCoachId = coachId ?? get().myCoach?.id;
+    if (!user || !pCoachId) return { error: 'Not authenticated' };
     const trimmed = body.trim();
     if (!trimmed) return { error: 'empty' };
     const msgId = clientMsgId ?? crypto.randomUUID();
     const { data, error } = await supabase
       .from('coach_messages')
       .insert({
-        coach_id: coach.id,
+        coach_id: pCoachId,
         client_id: user.id,
         sender_id: user.id,
         body: trimmed,

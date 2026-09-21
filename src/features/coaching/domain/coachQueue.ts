@@ -40,7 +40,7 @@ const PROGRESS_QUEUE_KINDS = new Set<CoachPriorityKind>([
   'weight_off_trajectory',
 ]);
 
-const TEMPLATE_KEYS: CoachMessageTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup', 'reply'];
+const TEMPLATE_KEYS: CoachMessageTemplateKey[] = ['missed_training', 'missed_checkins', 'general_followup', 'reply', 'prospect'];
 
 export function firstNameOf(full: string): string {
   const trimmed = full.trim();

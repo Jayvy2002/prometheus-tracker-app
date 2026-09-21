@@ -92,6 +92,7 @@ const marketplace = {
     confirmActivatesFollow: 'Confirmer active le suivi avec ce coach. Ce n’est pas un paiement.',
     openClient: 'Ouvrir le suivi',
     goDashboard: 'Aller à l’accueil',
+    openConversation: 'Ouvrir la conversation',
     relationshipIfAccepted: 'S’il accepte de poursuivre, tu pourras encore confirmer avant que le suivi commence — ce n’est pas un paiement. Il peut consulter ces informations pendant le suivi. Les modules restent configurables. Tes données personnelles restent à toi si la relation se termine.',
     consentAck: 'J’ai lu et j’accepte ce partage d’informations pendant le suivi.',
     pending: 'En attente de réponse',

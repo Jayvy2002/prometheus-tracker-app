@@ -92,6 +92,7 @@ const marketplace = {
     confirmActivatesFollow: 'Confirming starts coaching with this coach. This is not a payment.',
     openClient: 'Open the client file',
     goDashboard: 'Go to home',
+    openConversation: 'Open the conversation',
     relationshipIfAccepted: 'If they agree to continue, you still confirm before coaching starts — this is not a payment. They can view this information during coaching. Tracking modules stay configurable. Your personal data stays yours if the relationship ends.',
     consentAck: 'I have read and I accept this information sharing during coaching.',
     pending: 'Waiting for a response',

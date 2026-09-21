@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { useAccountContext } from '../../lib/useAccountContext';
 import ActiveRelationshipBoundary from '../../components/coaching/ActiveRelationshipBoundary';
+import CoachMessageAccess from '../../components/coaching/CoachMessageAccess';
 import TrackingGate from '../../components/coaching/TrackingGate';
 import AppLayout from '../../components/layout/AppLayout';
 import AuthPage from '../../components/auth/AuthPage';
@@ -250,7 +251,7 @@ export default function AppRoutes() {
         <Route path="/clients/:id/draft/:interventionId" element={<CoachOnly><ActiveRelationshipBoundary><InterventionDraftPage /></ActiveRelationshipBoundary></CoachOnly>} />
         <Route path="/inbox/:interventionId" element={<CoachOnly><InterventionDraftPage /></CoachOnly>} />
         <Route path="/messages" element={<MessagesHome />} />
-        <Route path="/messages/:clientId" element={<CoachOnly><ActiveRelationshipBoundary><CoachInboxPage /></ActiveRelationshipBoundary></CoachOnly>} />
+        <Route path="/messages/:clientId" element={<CoachOnly><CoachMessageAccess><CoachInboxPage /></CoachMessageAccess></CoachOnly>} />
         <Route path="/photos" element={<CoachTrackerRedirect><ClientPhotosPage /></CoachTrackerRedirect>} />
         <Route path="/prometheus" element={<CoachOnly><AskPrometheusPage /></CoachOnly>} />
         <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />

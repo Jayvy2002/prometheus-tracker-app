@@ -12,7 +12,7 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 - **130 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
 - **130 migrations** observées en production, dans le même ordre ;
 - dernière version appliquée : `20260920014500_p3_hardening` ;
-- `migrations.pending.json` contient les candidates P4.1 `20260921021231_p4_coach_qualifications` et P4.2 `20260921021923_p4_explained_matching` (non appliquées) ;
+- `migrations.pending.json` contient les candidates P4.1 `20260921021231_p4_coach_qualifications`, P4.2 `20260921021923_p4_explained_matching` et P4.3 `20260921023720_p4_prospect_messaging` (non appliquées) ;
 - P3 hardening a été appliqué avec le **même timestamp Git** `20260920014500` (aucun restamp, 241 statements, `created_by` null) ;
 - P3.3 a été appliqué avec le **même timestamp Git** `20260919233853` (aucun restamp, 45 statements) ;
 - P3.2 a été appliqué avec le **même timestamp Git** `20260919225507` (aucun restamp) ;

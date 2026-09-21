@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P4.3 Prospect dans la messagerie.** P4.1–P4.2 livrés (candidates `20260921021231_p4_coach_qualifications`, `20260921021923_p4_explained_matching`). Production/lock **130** (`20260920014500_p3_hardening`). Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P4.4 Signalement / modération minimale.** P4.1–P4.3 livrés (candidates `20260921021231`, `20260921021923`, `20260921023720`). Production/lock **130** (`20260920014500_p3_hardening`). Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -63,7 +63,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | P4.1 Qualifications Coach |
-| **P4** | Marketplace complète | **P4.1–P4.2 livrés — P4.3 prospect messagerie** | Conversation sans dossier |
+| **P4** | Marketplace complète | **P4.1–P4.3 livrés — P4.4 signalement** | File de modération, pas d’étoiles |
 | **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.2 sont en PR (candidates pending). Prochain : P4.3 Prospect dans la messagerie. Watch n’applique pas. **Pas de P5.**
+P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.3 sont en PR (candidates pending). Prochain : P4.4 Signalement / modération minimale. Watch n’applique pas. **Pas de P5.**
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -741,9 +741,9 @@ Exigences bloquantes vs préférences. Shortlist de Coachs **éligibles** unique
 
 ## P4.3 — Prospect dans la messagerie
 
-Raccorder la phase `coach_accepted` à la conversation sans donner accès au dossier complet.
+**TERMINÉ** — candidate `20260921023720_p4_prospect_messaging` (pending jusqu’à apply live). Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
 
-Après `athlete_confirmed`, conserver la continuité du fil lorsque techniquement possible.
+Après `coach_accepted`, conversation possible. Pas d’`is_coach_of`, pas de dossier / photos / programme. Le fil `(coach_id, client_id)` reste le même après `athlete_confirmed`.
 
 ## P4.4 — Signalement/modération minimale
 
