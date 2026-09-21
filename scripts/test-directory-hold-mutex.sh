@@ -263,9 +263,9 @@ SQL
   fi
 
   local a_hold b_hold suspended
-  a_hold="$(psql_at "SELECT directory_hold_active::text FROM public.marketplace_reports WHERE id = '${REPORT_A}'::uuid")"
-  b_hold="$(psql_at "SELECT directory_hold_active::text FROM public.marketplace_reports WHERE id = '${REPORT_B}'::uuid")"
-  suspended="$(psql_at "SELECT directory_suspended::text FROM public.coach_profiles WHERE coach_id = '${COACH}'::uuid")"
+  a_hold="$(psql_at "SELECT directory_hold_active FROM public.marketplace_reports WHERE id = '${REPORT_A}'::uuid")"
+  b_hold="$(psql_at "SELECT directory_hold_active FROM public.marketplace_reports WHERE id = '${REPORT_B}'::uuid")"
+  suspended="$(psql_at "SELECT directory_suspended FROM public.coach_profiles WHERE coach_id = '${COACH}'::uuid")"
   if [[ "${a_hold}" != "f" ]]; then
     echo "${label}: report A hold_active=${a_hold}, expected false after restore" >&2
     exit 1
@@ -294,7 +294,7 @@ SELECT set_config('request.jwt.claim.role', 'service_role', false);
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', false);
 SELECT public.review_marketplace_report('${REPORT_B}'::uuid, 'restore_directory', 'lift last hold');
 SQL
-last="$(psql_at "SELECT directory_suspended::text FROM public.coach_profiles WHERE coach_id = '${COACH}'::uuid")"
+last="$(psql_at "SELECT directory_suspended FROM public.coach_profiles WHERE coach_id = '${COACH}'::uuid")"
 if [[ "${last}" != "f" ]]; then
   echo "last hold off left directory_suspended=${last}" >&2
   exit 1

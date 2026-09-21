@@ -458,8 +458,8 @@ if [[ "${req_st}" != "pending" ]]; then
   echo "Cas C in-flight request was not kept pending (${req_st})" >&2
   exit 1
 fi
-hold_active="$(psql_at "SELECT directory_hold_active::text FROM public.marketplace_reports WHERE id = '${REPORT}'::uuid")"
-suspended="$(psql_at "SELECT directory_suspended::text FROM public.coach_profiles WHERE coach_id = '${COACH}'::uuid")"
+hold_active="$(psql_at "SELECT directory_hold_active FROM public.marketplace_reports WHERE id = '${REPORT}'::uuid")"
+suspended="$(psql_at "SELECT directory_suspended FROM public.coach_profiles WHERE coach_id = '${COACH}'::uuid")"
 if [[ "${hold_active}" != "t" || "${suspended}" != "t" ]]; then
   echo "Cas C directory was not suspended after the request won (hold=${hold_active} suspended=${suspended})" >&2
   cat /tmp/prometheus-req-life-t2.out /tmp/prometheus-req-life-t2.err >&2 || true
