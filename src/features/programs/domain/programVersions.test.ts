@@ -187,7 +187,7 @@ test('P3.3 reuses program_revisions and the same logger', () => {
   assert.match(src('.github/workflows/ci.yml'), /program_versions\.sql/);
   assert.match(src('supabase/tests/program_versions.sql'), /\\echo 'program versions:/);
   assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260919233853/);
-  assert.match(src('supabase/migrations.pending.json'), /20260920014500/);
+  assert.doesNotMatch(src('supabase/migrations.pending.json'), /20260920014500/);
   assert.match(src('supabase/schema_migrations.lock.json'), /20260919233853/);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260920014500/);
+  assert.match(src('supabase/schema_migrations.lock.json'), /20260920014500/);
 });
