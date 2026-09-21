@@ -38,4 +38,4 @@ Même table `coach_messages`, clé `(coach_id, client_id)`. Pas de nouveau threa
 
 ## Migration
 
-Candidate Git `20260921023720_p4_prospect_messaging`. Ne pas restamper `20260920014500`.
+Appliqué en production : `20260921023720_p4_prospect_messaging` (lock **134**, pending vide, timestamp Git, 42 statements, `created_by` null). Ne pas restamper `20260920014500` ni `20260921023720`.

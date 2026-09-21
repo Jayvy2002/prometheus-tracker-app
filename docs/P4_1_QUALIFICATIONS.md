@@ -50,4 +50,4 @@ Les policies Storage n’autorisent INSERT/DELETE que si `verification_status IN
 
 ## Migration
 
-Candidate Git `20260921021231_p4_coach_qualifications`. Ne pas restamper `20260920014500`.
+Appliqué en production : `20260921021231_p4_coach_qualifications` (lock **134**, pending vide, timestamp Git, 62 statements, `created_by` null). Ne pas restamper `20260920014500` ni `20260921021231`.

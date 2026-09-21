@@ -9,10 +9,14 @@
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **130 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **130 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260920014500_p3_hardening` ;
-- `migrations.pending.json` contient les candidates P4.1 `20260921021231_p4_coach_qualifications`, P4.2 `20260921021923_p4_explained_matching`, P4.3 `20260921023720_p4_prospect_messaging` et P4.4 `20260921024426_p4_marketplace_moderation` (non appliquées) ;
+- **134 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **134 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260921024426_p4_marketplace_moderation` ;
+- `migrations.pending.json` est vide ;
+- P4.1 a été appliqué avec le **même timestamp Git** `20260921021231` (aucun restamp, 62 statements, `created_by` null) ;
+- P4.2 a été appliqué avec le **même timestamp Git** `20260921021923` (aucun restamp, 52 statements, `created_by` null) ;
+- P4.3 a été appliqué avec le **même timestamp Git** `20260921023720` (aucun restamp, 42 statements, `created_by` null) ;
+- P4.4 a été appliqué avec le **même timestamp Git** `20260921024426` (aucun restamp, 79 statements, `created_by` null) ;
 - P3 hardening a été appliqué avec le **même timestamp Git** `20260920014500` (aucun restamp, 241 statements, `created_by` null) ;
 - P3.3 a été appliqué avec le **même timestamp Git** `20260919233853` (aucun restamp, 45 statements) ;
 - P3.2 a été appliqué avec le **même timestamp Git** `20260919225507` (aucun restamp) ;
@@ -85,11 +89,12 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 
 L’inventaire machine-readable est `supabase/functions.deployed.lock.json`.
 
-État live vérifié directement le 18 septembre 2026 après le merge P1.4 : **13 fonctions ACTIVE**. P1.4 n’a pas redéployé d’Edge Function. Exemples importants au moment du contrôle :
+État live vérifié directement le 21 septembre 2026 après le merge `#210` : **13 fonctions ACTIVE**. `delete-account` est en **v15**, `verify_jwt=false`, cleanup Storage fail-closed. Exemples importants au moment du contrôle :
 
-- `coach-agent` : v138, `verify_jwt=true` ;
-- `coach-fleet-round` : v145, `verify_jwt=false` ;
-- `notify-onboarding-complete` : v134, `verify_jwt=false`.
+- `delete-account` : v15, `verify_jwt=false` ;
+- `coach-agent` : v154, `verify_jwt=true` ;
+- `coach-fleet-round` : v161, `verify_jwt=false` ;
+- `notify-onboarding-complete` : v150, `verify_jwt=false`.
 
 Les numéros de version Supabase sont volatils et augmentent lors des redéploiements. Après toute modification d’Edge Function :
 

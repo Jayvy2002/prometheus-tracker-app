@@ -114,7 +114,7 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.match(src('supabase/tests/rls_matrix.sql'), /lock_marketplace_directory_hold/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /qualification_delete_proof_objects/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
-  assert.equal(pending.pending.some(row => row.version === '20260921024426'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260921024426/);
+  assert.equal(pending.pending.some(row => row.version === '20260921024426'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260921024426"/);
   assert.match(src('docs/CHANTIER.md'), /P4\.4/);
 });

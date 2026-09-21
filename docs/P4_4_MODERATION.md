@@ -33,4 +33,4 @@ Un Coach peut rester utilisable pour un client déjà actif pendant une retenue 
 
 ## Migration
 
-Candidate Git `20260921024426_p4_marketplace_moderation`. Ne pas restamper `20260920014500`.
+Appliqué en production : `20260921024426_p4_marketplace_moderation` (lock **134**, pending vide, timestamp Git, 79 statements, `created_by` null). Ne pas restamper `20260920014500` ni `20260921024426`.

@@ -182,8 +182,8 @@ test('P4.2 matching is an explained shortlist, not a score, and stays off the si
   assert.doesNotMatch(src('supabase/tests/p4_explained_matching.sql'), /^COMMIT;/m);
   assert.match(src('supabase/tests/rls_matrix.sql'), /explain_marketplace_matches/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
-  assert.equal(pending.pending.some(row => row.version === '20260921021923'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260921021923/);
+  assert.equal(pending.pending.some(row => row.version === '20260921021923'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260921021923"/);
 });
 
 test('Vision core disciplines remain first-class and comparable budgets require period plus currency', () => {

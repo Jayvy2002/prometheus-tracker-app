@@ -1,98 +1,98 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-18T11:16:28Z",
-  "comment": "Inventaire live vérifié directement contre Supabase après le merge P1.2. Rafraîchir ce fichier après tout redéploiement Edge et ne jamais considérer un job skipped comme preuve de déploiement.",
+  "captured_at": "2026-09-21T22:15:00Z",
+  "comment": "Inventaire live vérifié directement contre Supabase après le merge #210 et le déploiement delete-account v15. Rafraîchir ce fichier après tout redéploiement Edge et ne jamais considérer un job skipped comme preuve de déploiement.",
   "functions": [
     {
       "slug": "analyze-product",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 123,
-      "ezbr_sha256": "b2dcbc7e5b33c539293f67f19c373fa55164bec567faf98b32efa3301f425163"
+      "version": 143,
+      "ezbr_sha256": "1664ab639eb84109fad4d58ba4be5f440ec17a65eb5ddec70341f3e11aed31f6"
     },
     {
       "slug": "ask-second",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 10,
+      "version": 11,
       "ezbr_sha256": "d9890125f10dfbc3b1e728d86fae4ab70dc5b785f8e103b89e091b365970df72"
     },
     {
       "slug": "batch-verify-exercises",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 10,
+      "version": 11,
       "ezbr_sha256": "3c64fe982f1a39f20a9bffbaa0fb4bfe384ef698f330f0ae5f58b4a1d9313906"
     },
     {
       "slug": "coach-agent",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 134,
-      "ezbr_sha256": "e1b41b012fe1a5cff58955f8af5f5cabf755a088e6da4f4386761aca0ebf6107"
+      "version": 154,
+      "ezbr_sha256": "275643d73f30041ff8327b72e9781035c1d910ceb083d300f48d63f30f8a93e4"
     },
     {
       "slug": "coach-fleet-round",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 141,
-      "ezbr_sha256": "8cc4879d76f9852056e497db8d670f742bfc062fb06f3718d8dac89a2f3c07ed"
+      "version": 161,
+      "ezbr_sha256": "f631af49a49293a9a4313a465d349ebbd32962abae9b9ff55a4114bfe96673a1"
     },
     {
       "slug": "create-checkout-session",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 9,
+      "version": 10,
       "ezbr_sha256": "98e87be05eb227be6615a164d71f6c9160eaed8c20ff1314a4c7117f7321db1e"
     },
     {
       "slug": "create-portal-session",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 9,
+      "version": 10,
       "ezbr_sha256": "1de858d7a31ec5f7335a12b4ad118132a1b9f279783d7eb9c86ad5e3dc836b88"
     },
     {
       "slug": "delete-account",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 11,
-      "ezbr_sha256": "1550fcc69f5d65f92b599dba7301e004c9e11b4c05048412725d23698ce85f81"
+      "version": 15,
+      "ezbr_sha256": "f0813c643bef8cf03c1f2f1f2d602de11fce261496ea211c93f77c8ceca3e6f3"
     },
     {
       "slug": "notify-onboarding-complete",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 130,
-      "ezbr_sha256": "1bb9378c6a524cddd801b106f8c85299b9ea23fa7dcf671b0a2749c0795340e6"
+      "version": 150,
+      "ezbr_sha256": "d1f7557c0dc8e5d29eb5609cf224d0e476d4953d3589d3731df3540d27dbda7c"
     },
     {
       "slug": "send-daily-reminders",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 119,
-      "ezbr_sha256": "c26ccf9a7bb4cd70a1ff5effffee0729f84e43fd64ab14fd9304ff655355f89b"
+      "version": 139,
+      "ezbr_sha256": "71c490a1b3af78c3fd0b27b8cda2b7d59a35ecb4c735ce8b411b509026888b81"
     },
     {
       "slug": "stripe-webhook",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 9,
+      "version": 10,
       "ezbr_sha256": "0c05ba71ad26b3a9a5bf2f3611fbff00d8b02342927d81a91301f4bcc5d75180"
     },
     {
       "slug": "suggest-client-plan",
       "status": "ACTIVE",
       "verify_jwt": true,
-      "version": 11,
+      "version": 12,
       "ezbr_sha256": "725d8962d82188f48f3a0058e9de19fa85264b9aecb20896c99f8abad3d8ee0e"
     },
     {
       "slug": "verify-exercise",
       "status": "ACTIVE",
       "verify_jwt": false,
-      "version": 120,
-      "ezbr_sha256": "dacf8ec8eefea4985bd40c3524ced66f1cd0bb92189346d1d55f2a059805e81e"
+      "version": 140,
+      "ezbr_sha256": "4b2694f1156423bb1d8013539a03fc168ca0a9f3073145391dc13f1e18310498"
     }
   ]
 }

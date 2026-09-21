@@ -5,7 +5,7 @@
 
 Appliqué en production : `20260920014500_p3_hardening` (lock **130**, pending vide, timestamp Git, 241 statements).
 Ne pas restamper `20260919233853` ni `20260920014500`. Un seul logger : `start_workout_from_template`.
-Prochain chantier : P4.1 Qualifications Coach (`docs/CHANTIER.md`).
+P4.1–P4.4 clos (`#210`, lock **134**). Prochain chantier : P5.1 Import spreadsheet/CSV (`docs/CHANTIER.md`).
 
 ## Exécution
 

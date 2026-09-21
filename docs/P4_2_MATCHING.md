@@ -48,4 +48,4 @@ L’annuaire reste parcourable librement. La shortlist se limite à **5** Coachs
 
 ## Migration
 
-Candidate Git `20260921021923_p4_explained_matching`. Ne pas restamper `20260920014500`. Pas de paiement / Stripe.
+Appliqué en production : `20260921021923_p4_explained_matching` (lock **134**, pending vide, timestamp Git, 52 statements, `created_by` null). Ne pas restamper `20260920014500` ni `20260921021923`. Pas de paiement / Stripe.
