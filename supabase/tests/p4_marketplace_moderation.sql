@@ -360,6 +360,7 @@ DO $$
 DECLARE
   v_rows jsonb;
   report public.marketplace_reports;
+  retry public.marketplace_reports;
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM public.coach_profiles
@@ -380,14 +381,15 @@ BEGIN
     NULL,
     'c4400000-0000-4000-8000-0000000000aa'
   );
-  IF public.submit_marketplace_report(
+  retry := public.submit_marketplace_report(
     'c4400000-0000-4000-8000-000000000001',
     'profile',
     'other',
     'Retry key should not duplicate.',
     NULL,
     'c4400000-0000-4000-8000-0000000000aa'
-  ).id <> report.id THEN
+  );
+  IF retry.id <> report.id THEN
     RAISE EXCEPTION 'report idempotency lost';
   END IF;
 END $$;
