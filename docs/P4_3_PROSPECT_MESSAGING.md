@@ -20,7 +20,7 @@ athlète initie
 | `coach_accepted` | oui (`prospect` / `reply`) | non | non |
 | `athlete_confirmed` | oui (fil inchangé) | oui | selon la relation |
 
-`marketplace_open_prospect(coach, client)` est vrai pour une partie d’une demande `pending` **ou** `coach_accepted` **et** si le lifecycle Coach P3 est encore ouvert. Elle n’accorde pas `is_coach_of`. Un INSERT dans `coach_account_closures` retire atomiquement les demandes `pending` / `coach_accepted` (`withdrawn`) sans toucher aux liens actifs P3.
+`marketplace_open_prospect(coach, client)` est vrai pour une partie d’une demande `pending` **ou** `coach_accepted` **et** si le lifecycle Coach P3 est encore ouvert. Elle n’accorde pas `is_coach_of`. Un INSERT dans `coach_account_closures` retire atomiquement les demandes `pending` / `coach_accepted` (`withdrawn`) sans toucher aux liens actifs P3. Un confirm concurrent après close refuse alors `request_closed` (prospect déjà retiré) plutôt que de recréer un lien.
 
 ## Snapshot prospect
 

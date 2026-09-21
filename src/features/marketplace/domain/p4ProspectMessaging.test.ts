@@ -58,6 +58,8 @@ test('P4.3 prospect messaging opens the thread without is_coach_of or the dossie
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /new prospect send after closure/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /closure trigger ended the P3 active relationship/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /withdrawn request reactivated/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /Cas B close did not withdraw the in-flight prospect/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /request_closed\|coach_unavailable/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /^ROLLBACK;/m);
   assert.doesNotMatch(src('supabase/tests/p4_prospect_messaging.sql'), /^COMMIT;/m);
   assert.match(src('supabase/tests/rls_matrix.sql'), /marketplace_open_prospect/);

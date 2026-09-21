@@ -457,6 +457,8 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /wait_event = 'advisory'/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /close×activate Cas A includes C; Cas B confirm\/invite refuse closed Coach without deadlock/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /grep -qx 'coach_unavailable'/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /request_closed\|coach_unavailable/);
+  assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /Cas B close did not withdraw the in-flight prospect/);
   assert.match(src('scripts/test-confirm-activate-lock.sh'), /respond_coaching_request/);
   assert.match(src('scripts/test-confirm-activate-lock.sh'), /activate_coaching_relationship/);
   assert.match(src('scripts/test-confirm-activate-lock.sh'), /classid = 20014501/);
