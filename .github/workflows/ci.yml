@@ -344,6 +344,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'coach lifecycle mutex: close×activate Cas A includes C; Cas B confirm/invite refuse closed Coach without deadlock' /tmp/coach-lifecycle-mutex-concurrency.txt
+      - name: Test confirm × activate lock order concurrency
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-confirm-activate-lock.sh | tee /tmp/confirm-activate-lock-concurrency.txt
+      - name: Confirm confirm × activate lock order echo
+        run: |
+          set -euo pipefail
+          grep -F 'confirm×activate lock order: Cas A confirm holds Coach mutex, Cas B activate holds Coach mutex; both serialize without deadlock; one active link' /tmp/confirm-activate-lock-concurrency.txt
       - name: Test account entry intent
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

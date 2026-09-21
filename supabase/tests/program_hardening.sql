@@ -2047,9 +2047,18 @@ begin
   );
   if position('p_status = ''confirmed''' in src) = 0
      or position('lock_coach_relationship_lifecycle' in src) = 0
+     or position('for update' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src)
+        > position('for update' in src)
+     or position('from public.user_roles where user_id = v_result.client_id for update' in src) = 0
+     or position('lock_coach_relationship_lifecycle' in src)
+        > position('from public.user_roles where user_id = v_result.client_id for update' in src)
+     or position('from public.coach_join_requests where id = p_request and v_uid in (coach_id, client_id) for update' in src) = 0
+     or position('from public.user_roles where user_id = v_result.client_id for update' in src)
+        > position('from public.coach_join_requests where id = p_request and v_uid in (coach_id, client_id) for update' in src)
      or position('lock_coach_relationship_lifecycle' in src)
         > position('activate_coaching_relationship' in src) then
-    raise exception 'respond_coaching_request confirmed does not take Coach mutex before activate';
+    raise exception 'respond_coaching_request confirmed does not take Coach mutex before user_roles and request';
   end if;
   src := regexp_replace(
     lower(pg_get_functiondef('public.sync_program_phases(uuid,jsonb,boolean)'::regprocedure)),

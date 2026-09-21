@@ -245,16 +245,28 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   }
   {
     const respStart = found.sql.lastIndexOf('CREATE OR REPLACE FUNCTION public.respond_coaching_request');
-    const respFn = found.sql.slice(respStart);
-    const confirmed = respFn.slice(respFn.indexOf("IF p_status = 'confirmed'"));
-    assert.match(confirmed, /lock_coach_relationship_lifecycle/);
-    assert.match(confirmed, /coach_relationship_is_open/);
-    const mutexAt = confirmed.indexOf('lock_coach_relationship_lifecycle');
-    const openAt = confirmed.indexOf('coach_relationship_is_open');
-    const actAt = confirmed.indexOf('activate_coaching_relationship');
+    const respEnd = found.sql.indexOf('REVOKE ALL ON FUNCTION public.respond_coaching_request', respStart);
+    const respFn = found.sql.slice(respStart, respEnd);
+    const confirmedAt = respFn.indexOf("IF p_status = 'confirmed'");
+    const mutexAt = respFn.indexOf('lock_coach_relationship_lifecycle');
+    const userRolesAt = respFn.indexOf('user_roles WHERE user_id = v_result.client_id FOR UPDATE');
+    const reqLockAt = respFn.search(
+      /coach_join_requests\s+WHERE id = p_request AND v_uid IN \(coach_id, client_id\)\s+FOR UPDATE/,
+    );
+    const firstForUpdateAt = respFn.search(/FOR UPDATE/);
+    const openAt = respFn.indexOf('coach_relationship_is_open');
+    const actAt = respFn.indexOf('PERFORM public.activate_coaching_relationship');
+    assert.match(respFn, /lock_coach_relationship_lifecycle/);
+    assert.match(respFn, /coach_relationship_is_open/);
     assert.ok(
-      mutexAt >= 0 && openAt > mutexAt && actAt > openAt,
-      'respond confirmed must take Coach mutex, revalidate, then activate',
+      confirmedAt >= 0 &&
+        mutexAt > confirmedAt &&
+        firstForUpdateAt > mutexAt &&
+        userRolesAt > mutexAt &&
+        reqLockAt > userRolesAt &&
+        openAt > reqLockAt &&
+        actAt > openAt,
+      'respond confirmed must take Coach mutex, then user_roles, then request FOR UPDATE, revalidate, then activate',
     );
   }
   assert.match(found.sql, /REVOKE ALL ON FUNCTION public\.remap_program_revision_snapshot\(jsonb\)/);
@@ -445,6 +457,17 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /wait_event = 'advisory'/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /close×activate Cas A includes C; Cas B confirm\/invite refuse closed Coach without deadlock/);
   assert.match(src('scripts/test-coach-lifecycle-mutex.sh'), /grep -qx 'coach_unavailable'/);
+  assert.match(src('scripts/test-confirm-activate-lock.sh'), /respond_coaching_request/);
+  assert.match(src('scripts/test-confirm-activate-lock.sh'), /activate_coaching_relationship/);
+  assert.match(src('scripts/test-confirm-activate-lock.sh'), /classid = 20014501/);
+  assert.match(src('scripts/test-confirm-activate-lock.sh'), /wait_event = 'advisory'/);
+  assert.match(src('scripts/test-confirm-activate-lock.sh'), /872009200163/);
+  assert.match(src('scripts/test-confirm-activate-lock.sh'), /872009200164/);
+  assert.match(src('scripts/test-confirm-activate-lock.sh'), /e2eb0000-0000-4000-8000-000000000001/);
+  assert.match(
+    src('scripts/test-confirm-activate-lock.sh'),
+    /confirm×activate lock order: Cas A confirm holds Coach mutex, Cas B activate holds Coach mutex; both serialize without deadlock; one active link/,
+  );
   assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_phases still requires a user JWT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /trusted sync_program_days still requires a user JWT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /assign_program_secure does not lock programs before pause/);
@@ -457,7 +480,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('supabase/tests/program_hardening.sql'), /paused archive still falls back to live active_revision_no/);
   assert.match(src('supabase/tests/program_hardening.sql'), /activate_coaching_relationship does not take Coach mutex before INSERT/);
   assert.match(src('supabase/tests/program_hardening.sql'), /accept_coach_invite does not take Coach mutex before INSERT/);
-  assert.match(src('supabase/tests/program_hardening.sql'), /respond_coaching_request confirmed does not take Coach mutex before activate/);
+  assert.match(src('supabase/tests/program_hardening.sql'), /respond_coaching_request confirmed does not take Coach mutex before user_roles and request/);
   assert.match(src('supabase/tests/program_hardening.sql'), /lock_coach_relationship_lifecycle missing distinct advisory class/);
   assert.match(src('supabase/tests/program_hardening.sql'), /protect_identity DELETE returns NEW and skips owner\/CASCADE deletes/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /NOT pg_temp\.fn_exec\('lock_client_assignment_programs'\)/);
@@ -468,6 +491,11 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('.github/workflows/ci.yml'), /program_close_coach_account\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /program_close_archive_not_frozen\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /test-coach-lifecycle-mutex\.sh/);
+  assert.match(src('.github/workflows/ci.yml'), /test-confirm-activate-lock\.sh/);
+  assert.match(
+    src('.github/workflows/ci.yml'),
+    /confirm×activate lock order: Cas A confirm holds Coach mutex, Cas B activate holds Coach mutex; both serialize without deadlock; one active link/,
+  );
   assert.match(src('.github/workflows/ci.yml'), /program hardening: provenance immutability/);
   assert.match(src('.github/workflows/ci.yml'), /program hardening: allowlist ACL/);
   assert.match(src('.github/workflows/ci.yml'), /live graph active-only/);
@@ -477,5 +505,7 @@ test('P3 hardening reuses the same engine and closes the transversal gaps', () =
   assert.match(src('docs/CHANTIER.md'), /P3 hardening/);
   assert.match(src('docs/P3_HARDENING.md'), /lock_coach_relationship_lifecycle/);
   assert.match(src('docs/P3_HARDENING.md'), /20014501/);
+  assert.match(src('docs/P3_HARDENING.md'), /user_roles\(client\) FOR UPDATE/);
+  assert.match(src('docs/P3_HARDENING.md'), /coach_join_requests FOR UPDATE/);
   assert.match(src('docs/P3_HARDENING.md'), /jamais un\nfallback vers la révision live actuelle/);
 });

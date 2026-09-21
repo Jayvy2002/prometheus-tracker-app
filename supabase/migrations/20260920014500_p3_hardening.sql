@@ -3486,6 +3486,75 @@ BEGIN
   FROM public.coach_join_requests
   WHERE id = p_request AND v_uid IN (coach_id, client_id);
   IF NOT FOUND THEN RAISE EXCEPTION 'request_not_found'; END IF;
+
+  -- Confirmed must take the Coach lifecycle mutex before user_roles(client)
+  -- or the request row. The activation helper uses the same order;
+  -- the advisory xact lock is reentrant in this transaction.
+  IF p_status = 'confirmed' THEN
+    IF v_uid <> v_result.client_id THEN
+      RAISE EXCEPTION 'not_authorized';
+    END IF;
+    PERFORM public.lock_coach_relationship_lifecycle(v_result.coach_id);
+    PERFORM 1 FROM public.user_roles WHERE user_id = v_result.client_id FOR UPDATE;
+    SELECT * INTO v_result
+    FROM public.coach_join_requests
+    WHERE id = p_request AND v_uid IN (coach_id, client_id)
+    FOR UPDATE;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'request_not_found';
+    END IF;
+    IF v_uid <> v_result.client_id THEN
+      RAISE EXCEPTION 'not_authorized';
+    END IF;
+    IF v_result.status = 'athlete_confirmed' THEN
+      RETURN v_result;
+    END IF;
+    IF v_result.status = 'accepted' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF v_result.status <> 'coach_accepted' THEN
+      RAISE EXCEPTION 'request_closed';
+    END IF;
+    IF v_result.sharing_version <> 2 THEN
+      RAISE EXCEPTION 'consent_renewal_required';
+    END IF;
+    IF NOT public.coach_relationship_is_open(v_result.coach_id) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    PERFORM 1 FROM public.coach_profiles
+      WHERE coach_id = v_result.coach_id AND published AND accepting_clients
+      FOR SHARE;
+    IF NOT FOUND OR NOT public.marketplace_coach_eligible(v_result.coach_id) THEN
+      RAISE EXCEPTION 'coach_unavailable';
+    END IF;
+    PERFORM public.activate_coaching_relationship(v_result.coach_id, v_result.client_id);
+    INSERT INTO public.coaching_relationship_consents (
+      coach_id, client_id, join_request_id, source, consent_version, scopes
+    ) VALUES (
+      v_result.coach_id,
+      v_result.client_id,
+      v_result.id,
+      'directory_request',
+      2,
+      v_scopes
+    )
+    ON CONFLICT (join_request_id, client_id) WHERE join_request_id IS NOT NULL DO UPDATE SET
+      consent_version = excluded.consent_version,
+      scopes = excluded.scopes,
+      accepted_at = now(),
+      revoked_at = NULL;
+    UPDATE public.coach_join_requests
+    SET status = 'withdrawn', updated_at = clock_timestamp()
+    WHERE client_id = v_result.client_id
+      AND id <> p_request
+      AND status IN ('pending', 'coach_accepted');
+    UPDATE public.coach_join_requests
+    SET status = 'athlete_confirmed', updated_at = clock_timestamp()
+    WHERE id = p_request
+    RETURNING * INTO v_result;
+    RETURN v_result;
+  END IF;
+
   PERFORM 1 FROM public.user_roles WHERE user_id = v_result.client_id FOR UPDATE;
   SELECT * INTO v_result
   FROM public.coach_join_requests
@@ -3497,12 +3566,11 @@ BEGIN
 
   v_target := CASE p_status
     WHEN 'accepted' THEN 'coach_accepted'
-    WHEN 'confirmed' THEN 'athlete_confirmed'
     ELSE p_status
   END;
 
   IF NOT (
-    (v_uid = v_result.client_id AND p_status IN ('withdrawn', 'confirmed'))
+    (v_uid = v_result.client_id AND p_status = 'withdrawn')
     OR (v_uid = v_result.coach_id AND p_status IN ('accepted', 'declined'))
   ) THEN
     RAISE EXCEPTION 'not_authorized';
@@ -3558,58 +3626,6 @@ BEGIN
     RETURN v_result;
   END IF;
 
-  IF p_status = 'confirmed' THEN
-    IF v_result.status <> 'coach_accepted' THEN
-      RAISE EXCEPTION 'request_closed';
-    END IF;
-    IF v_result.sharing_version <> 2 THEN
-      RAISE EXCEPTION 'consent_renewal_required';
-    END IF;
-    PERFORM public.lock_coach_relationship_lifecycle(v_result.coach_id);
-    SELECT * INTO v_result
-    FROM public.coach_join_requests
-    WHERE id = p_request AND v_uid IN (coach_id, client_id)
-    FOR UPDATE;
-    IF NOT FOUND OR v_result.status <> 'coach_accepted' THEN
-      RAISE EXCEPTION 'request_closed';
-    END IF;
-    IF NOT public.coach_relationship_is_open(v_result.coach_id) THEN
-      RAISE EXCEPTION 'coach_unavailable';
-    END IF;
-    PERFORM 1 FROM public.coach_profiles
-      WHERE coach_id = v_result.coach_id AND published AND accepting_clients
-      FOR SHARE;
-    IF NOT FOUND OR NOT public.marketplace_coach_eligible(v_result.coach_id) THEN
-      RAISE EXCEPTION 'coach_unavailable';
-    END IF;
-    PERFORM public.activate_coaching_relationship(v_result.coach_id, v_result.client_id);
-    INSERT INTO public.coaching_relationship_consents (
-      coach_id, client_id, join_request_id, source, consent_version, scopes
-    ) VALUES (
-      v_result.coach_id,
-      v_result.client_id,
-      v_result.id,
-      'directory_request',
-      2,
-      v_scopes
-    )
-    ON CONFLICT (join_request_id, client_id) WHERE join_request_id IS NOT NULL DO UPDATE SET
-      consent_version = excluded.consent_version,
-      scopes = excluded.scopes,
-      accepted_at = now(),
-      revoked_at = NULL;
-    UPDATE public.coach_join_requests
-    SET status = 'withdrawn', updated_at = clock_timestamp()
-    WHERE client_id = v_result.client_id
-      AND id <> p_request
-      AND status IN ('pending', 'coach_accepted');
-    UPDATE public.coach_join_requests
-    SET status = 'athlete_confirmed', updated_at = clock_timestamp()
-    WHERE id = p_request
-    RETURNING * INTO v_result;
-    RETURN v_result;
-  END IF;
-
   RAISE EXCEPTION 'not_authorized';
 END;
 $$;
@@ -3617,4 +3633,4 @@ $$;
 REVOKE ALL ON FUNCTION public.respond_coaching_request(uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.respond_coaching_request(uuid, text) TO authenticated;
 COMMENT ON FUNCTION public.respond_coaching_request(uuid, text) IS
-  'Coach accepted continues a prospect (stored as coach_accepted). Historical accepted stays accepted and cannot replay. Athlete confirmed takes the Coach lifecycle mutex, revalidates the Coach is still open, then activates the coaching link. Not a payment.';
+  'Coach accepted continues a prospect (stored as coach_accepted). Historical accepted stays accepted and cannot replay. Athlete confirmed takes the Coach lifecycle mutex, then user_roles(client) FOR UPDATE, then the request row FOR UPDATE, revalidates, then activates. Same global order as activate_coaching_relationship. Not a payment.';

@@ -194,7 +194,7 @@ publics tiennent déjà le mutex.
 `coach_client_links` vers `active` (`activate_coaching_relationship`,
 `respond_coaching_request` confirmé, `accept_coach_invite`) prennent d’abord
 un **mutex de lifecycle par Coach** (`lock_coach_relationship_lifecycle` :
-`pg_advisory_xact_lock` à deux clés, classe `20014501`, interne). Ordre :
+`pg_advisory_xact_lock` à deux clés, classe `20014501`, interne). Ordre close :
 
 ```text
 coach lifecycle mutex
@@ -202,6 +202,17 @@ coach lifecycle mutex
 → programs ORDER BY id FOR UPDATE
 → assignment(s) FOR UPDATE
 → autres locks
+```
+
+`respond_coaching_request(..., 'confirmed')` lit d’abord le request sans lock
+pour obtenir `coach_id`, puis le même ordre global qu’`activate_coaching_relationship` :
+
+```text
+coach lifecycle mutex
+→ user_roles(client) FOR UPDATE
+→ coach_join_requests FOR UPDATE
+→ revalidation
+→ activate_coaching_relationship (mutex réentrant dans la même transaction)
 ```
 
 `close_coach_account` prend ce mutex Coach en premier, le garde jusqu’au
