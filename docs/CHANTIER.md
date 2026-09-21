@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P4 revue pré-production en correction (P4.1–P4.4).** Candidates `20260921021231`, `20260921021923`, `20260921023720`, `20260921024426`. Production/lock **130** (`20260920014500_p3_hardening`). **Ne pas merger. Ne pas appliquer. Ne pas commencer P5.** Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5.1 Import spreadsheet/CSV.** Production/lock **134** (`20260921024426_p4_marketplace_moderation`). P4.1–P4.4 TERMINÉ (`#210`, merge `54a93f7860ea2bd0ef5d2631bdd48e383d746d8d`). Pending vide. **Ne pas implémenter P5.** Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -63,8 +63,8 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
-| **P4** | Marketplace complète | **P4.1–P4.4 en correction pré-production — ne pas merger/appliquer** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | À faire — **ne pas commencer** | Imports, bibliothèque exercices, admin ciblé |
+| **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
+| **P5** | Adoption Coach | À faire — **ne pas implémenter** | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.4 sont en PR (candidates pending). **P4 n’est pas livrée** : la revue contractuelle du 21 septembre 2026 doit rester verte avant tout merge/apply. Ne pas commencer P5. Watch n’applique pas.
+P1.5–P2.5, P3 et P4 (`#210`) sont en production (134 migrations). **P4 est livrée.** Prochaine tâche = P5.1. Ne pas implémenter P5. Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -729,40 +729,47 @@ Un programme simple et un programme périodisé utilisent le même moteur d’ex
 
 ## P4.1 — Qualifications Coach
 
-**En correction pré-production** — candidate `20260921021231_p4_coach_qualifications` (pending jusqu’à apply live). Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
+**✅ TERMINÉ — mergé, déployé et vérifié en production.** Inventaire : [P4.1 — qualifications](P4_1_QUALIFICATIONS.md).
 
 Un Coach **reste visible et utilisable sans badge vérifié**. Les états sont `declared / pending / verified / rejected / expired`. La revue est `service_role` uniquement. Surface publique minimale (pas de `proof_path` / `reviewer_*` / `review_note`). Preuve liée à `auth.uid() / qualification_id / proof-<uuid>.ext` (`upsert: false`). Pas d’étoiles.
 
 ## P4.2 — Matching expliqué
 
-**En correction pré-production** — candidate `20260921021923_p4_explained_matching` (pending jusqu’à apply live). Inventaire : [P4.2 — matching expliqué](P4_2_MATCHING.md).
+**✅ TERMINÉ — mergé, déployé et vérifié en production.** Inventaire : [P4.2 — matching expliqué](P4_2_MATCHING.md).
 
 Exigences bloquantes vs préférences. Disciplines Vision (`strength` / `bodybuilding` / `hypertrophy` / `powerlifting` + `general_fitness` historique). Budget comparable seulement si montant + période + devise matchent. Shortlist de Coachs **éligibles** uniquement (max 5). Pas de pourcentage. Pas de `€` hardcodé.
 
 ## P4.3 — Prospect dans la messagerie
 
-**En correction pré-production** — candidate `20260921023720_p4_prospect_messaging` (pending jusqu’à apply live). Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
+**✅ TERMINÉ — mergé, déployé et vérifié en production.** Inventaire : [P4.3 — prospect messagerie](P4_3_PROSPECT_MESSAGING.md).
 
 Dès `pending` : conversation prospect. Puis `coach_accepted` : même fil. Pas d’`is_coach_of`, pas de dossier / photos / programme avant `athlete_confirmed`. Snapshot prospect limité et consenti.
 
 ## P4.4 — Signalement/modération minimale
 
-**En correction pré-production** — candidate `20260921024426_p4_marketplace_moderation` (pending jusqu’à apply live). Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
+**✅ TERMINÉ — mergé, déployé et vérifié en production.** Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
 
 Signaler un profil ou un comportement. File `service_role` (pas de console SPA). `directory_suspended` masque l’annuaire **et** refuse une **nouvelle** `request_coaching` (`coach_unavailable`). Une relation active n’est pas terminée. Un prospect déjà ouvert peut continuer jusqu’à confirmation. Acteur d’audit durable (`marketplace_audit_actor`). **Pas d’étoiles/avis Coach.** Pas de produit « bloquer ».
 
-### Déploiement (après feu vert explicite uniquement)
+### Déploiement effectué
 
-1. Edge `delete-account` corrigée (cleanup Storage fail-closed, compatible pré-P4 : le bucket `qualification-proofs` peut encore être absent) ;
-2. migrations P4 ;
-3. smoke tests production ;
-4. frontend P4.
+PR [#210](https://github.com/Jayvy2002/prometheus-tracker-app/pull/210) mergée dans `new-JV`.
+Commit de merge : `54a93f7860ea2bd0ef5d2631bdd48e383d746d8d`.
+CI post-merge verte : [run 35660157162](https://github.com/Jayvy2002/prometheus-tracker-app/actions/runs/35660157162)
+(`verify` success ; `rls-matrix` success).
 
-Ne pas inverser : cela évite une fenêtre où les preuves existent déjà et l’ancienne Edge les laisse orphelines. **Ne pas merger. Ne pas appliquer. Ne pas commencer P5.**
+1. Edge `delete-account` v15 (`verify_jwt=false`, cleanup Storage fail-closed) ;
+2. migrations P4 avec timestamps Git (`created_by` null) ;
+3. gate production : **134** versions, dernière `20260921024426`, pending 0 ;
+4. frontend P4 = merge `new-JV`.
+
+`delete-account` reste fail-closed : `close_coach_account` d’abord, cleanup Storage récursif, `deleteUser` seulement après succès complet.
 
 ### Terminé quand P4
 
-Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère non atteint tant que la revue pré-production n’est pas corrigée et mergée/appliquée.**
+Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère atteint.**
+
+**Arrêt : P4 est clôturé. Ne pas implémenter P5.**
 
 ---
 

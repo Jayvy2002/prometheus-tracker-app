@@ -65,8 +65,8 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('src/i18n/locales/en/common.ts'), /storageCleanupFailed/);
   assert.match(src('src/components/profile/ProfilePage.tsx'), /storage_cleanup_failed/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
-  assert.equal(pending.pending.some(row => row.version === '20260921021231'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260921021231/);
+  assert.equal(pending.pending.some(row => row.version === '20260921021231'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260921021231"/);
   assert.match(src('.github/workflows/ci.yml'), /p4_coach_qualifications\.sql/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /publish required a verified badge/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /unverified badge shown/);

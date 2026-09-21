@@ -68,6 +68,6 @@ test('P4.3 prospect messaging opens the thread without is_coach_of or the dossie
   assert.match(src('supabase/tests/rls_matrix.sql'), /coach_message_prospect_no_dossier/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /withdraw_open_prospects_on_coach_closure/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string; name: string }> };
-  assert.equal(pending.pending.some(row => row.version === '20260921023720'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260921023720/);
+  assert.equal(pending.pending.some(row => row.version === '20260921023720'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260921023720"/);
 });
