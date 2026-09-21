@@ -156,4 +156,4 @@ END $$;
 RESET ROLE;
 SELECT pg_temp.clear_jwt();
 \echo 'p4.1 qualifications: declare/submit/review, badge optional, no publish gate'
-COMMIT;
+ROLLBACK;

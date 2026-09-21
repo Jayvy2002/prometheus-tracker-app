@@ -50,5 +50,7 @@ test('P4.1 qualifications reuse marketplace publish and never require a verified
   assert.match(src('.github/workflows/ci.yml'), /p4_coach_qualifications\.sql/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /publish required a verified badge/);
   assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /unverified badge shown/);
+  assert.match(src('supabase/tests/p4_coach_qualifications.sql'), /^ROLLBACK;/m);
+  assert.doesNotMatch(src('supabase/tests/p4_coach_qualifications.sql'), /^COMMIT;/m);
   assert.match(src('supabase/tests/rls_matrix.sql'), /declare_coach_qualification/);
 });
