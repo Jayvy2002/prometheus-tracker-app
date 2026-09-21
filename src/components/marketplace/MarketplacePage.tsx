@@ -3,11 +3,13 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
 import { supabase } from '../../lib/supabase';
-import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, MATCH_AUTONOMY, MATCH_EXPERIENCE, MATCH_FREQUENCIES, MATCH_PRICE_PERIODS, MATCH_STYLES, blankMatchProfile, coachHasVerifiedBadge, listedRateCopy, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachQualification, type CoachingRequest } from '../../lib/marketplace';
+import { MARKETPLACE_CONSENT_VERSION, comparisonIds, coachingRequestKey, clearCoachingRequestKey, MARKET_DISCIPLINES, MARKET_FORMATS, MARKET_LANGUAGES, MATCH_AUTONOMY, MATCH_EXPERIENCE, MATCH_FREQUENCIES, MATCH_PRICE_PERIODS, MATCH_STYLES, blankMatchProfile, coachHasVerifiedBadge, listedRateCopy, marketFilters, normalizeJoinRequestStatus, requestActions, requestActivatesFollow, requestRelationshipCopyKey, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport } from '../../lib/marketplace';
 import CoachDirectoryCard from './CoachDirectoryCard';
 import CoachQualificationsPanel from './CoachQualificationsPanel';
 import QualificationList from './QualificationList';
-import { marketRpc, readCoachProfile, readCoachQualifications, readRequests } from '../../lib/marketplaceApi';
+import MarketplaceReportForm from './MarketplaceReportForm';
+import MarketplaceReportsList from './MarketplaceReportsList';
+import { marketRpc, readCoachProfile, readCoachQualifications, readMyMarketplaceReports, readRequests } from '../../lib/marketplaceApi';
 import { DIRECT_INVITE_CONSENT_SCOPES } from '../../lib/relationshipConsent';
 import { track } from '../../lib/telemetryClient';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -44,6 +46,7 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   const [qualifications, setQualifications] = useState<CoachQualification[]>([]);
   const [verifiedIds, setVerifiedIds] = useState<string[]>([]);
   const [requests, setRequests] = useState<CoachingRequest[]>([]);
+  const [reports, setReports] = useState<MarketplaceReport[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -59,11 +62,11 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
   useEffect(() => {
     const seq = ++sequence.current;
     writing.current = false; setBusy(false); setStatus('loading'); setError(''); setNotice('');
-        setProfiles([]); setProfile(null); setRequests([]); setQualifications([]); setVerifiedIds([]); setConsent(false); setRelationshipConsent(false); setName(''); setSummary('');
+        setProfiles([]); setProfile(null); setRequests([]); setReports([]); setQualifications([]); setVerifiedIds([]); setConsent(false); setRelationshipConsent(false); setName(''); setSummary('');
     void (async () => {
       if (mode === 'directory') {
         const selected = JSON.parse(filterKey) as ReturnType<typeof marketFilters>;
-        let query = supabase.from('coach_profiles').select('*').eq('published', true).eq('accepting_clients', true).neq('coach_id', owner);
+        let query = supabase.from('coach_profiles').select('*').eq('published', true).eq('accepting_clients', true).eq('directory_suspended', false).neq('coach_id', owner);
         if (selected.discipline) query = query.contains('disciplines', [selected.discipline]);
         if (selected.language) query = query.contains('languages', [selected.language]);
         if (selected.format) query = query.contains('formats', [selected.format]);
@@ -94,6 +97,9 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         const found = await readRequests(owner, page);
         if (seq !== sequence.current) return;
         setRequests(found.slice(0, 50)); setMore(found.length > 50);
+        const mine = await readMyMarketplaceReports(owner);
+        if (seq !== sequence.current) return;
+        setReports(mine);
         if (found.some(row => requestActivatesFollow(row.status) && row.client_id === owner)) {
           void fetchMyRole(owner);
           void fetchMyCoach();
@@ -169,7 +175,14 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
           if (seq === sequence.current) setRevision(n => n + 1);
         });
       }}>{t(`marketplace.action_${action}`)}</Button>)}</div>
-    </article>)}</div> : <p>{t('marketplace.noRequests')}</p>}{pagination}</>;
+      <MarketplaceReportForm
+        owner={owner}
+        targetUserId={row.coach_id === owner ? row.client_id : row.coach_id}
+        relatedRequestId={row.id}
+        subjectType="behavior"
+        onSubmitted={report => setReports(current => [report, ...current.filter(item => item.id !== report.id)])}
+      />
+    </article>)}</div> : <p>{t('marketplace.noRequests')}</p>}{pagination}<MarketplaceReportsList rows={reports} /></>;
     if (mode === 'directory') return <>
       {compared.length >= 2 && <Link className="inline-flex min-h-11 items-center text-blue-400 underline" to={`/coaches/compare?${params}`}>{t('marketplace.compare')}</Link>}
       <div className="grid gap-3 sm:grid-cols-3">{([['discipline', MARKET_DISCIPLINES], ['language', MARKET_LANGUAGES], ['format', MARKET_FORMATS]] as const).map(([key, values]) => <div key={key} className="space-y-2"><label htmlFor={`market-filter-${key}`}>{t(`marketplace.${key}`)}</label><select id={`market-filter-${key}`} className={fieldStyle} value={filters[key]} onChange={e => {
@@ -267,6 +280,14 @@ export default function MarketplacePage({ mode }: { mode: 'directory' | 'profile
         <label className="flex items-start gap-3"><input className="mt-1" type="checkbox" required checked={relationshipConsent} onChange={e => setRelationshipConsent(e.target.checked)} /><span>{t('marketplace.consentAck')}</span></label>
         <Button type="submit" loading={busy} disabled={!consent || !relationshipConsent}>{t('marketplace.send')}</Button>
       </fieldset></form>}
+      {profile.coach_id !== owner && (
+        <MarketplaceReportForm
+          owner={owner}
+          targetUserId={profile.coach_id}
+          subjectType="profile"
+          onSubmitted={report => setReports(current => [report, ...current.filter(item => item.id !== report.id)])}
+        />
+      )}
     </div>;
   };
   return <div className="mx-auto w-full max-w-5xl p-4 md:p-6 pb-28 space-y-5">

@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P4.4 Signalement / modération minimale.** P4.1–P4.3 livrés (candidates `20260921021231`, `20260921021923`, `20260921023720`). Production/lock **130** (`20260920014500_p3_hardening`). Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P4 Marketplace complète livrée (P4.1–P4.4).** Candidates `20260921021231`, `20260921021923`, `20260921023720`, `20260921024426`. Production/lock **130** (`20260920014500_p3_hardening`). Revue transversale P4 avant apply. **Ne pas commencer P5.** Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -62,9 +62,9 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P0** | Stabilité dépôt | **Opérationnel** — CI verte ; protection GitHub native recommandée | Baseline fiable + protocole PR |
 | **P1** | Identité, capacités, permissions, lifecycle | **P1.1–P1.5 + Hotfix A actifs en production** (128 migrations) | Faire correspondre le modèle métier à la Vision |
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
-| **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | P4.1 Qualifications Coach |
-| **P4** | Marketplace complète | **P4.1–P4.3 livrés — P4.4 signalement** | File de modération, pas d’étoiles |
-| **P5** | Adoption Coach | À faire | Imports, bibliothèque exercices, admin ciblé |
+| **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
+| **P4** | Marketplace complète | **P4.1–P4.4 livrés — revue transversale / apply** | Qualifications, matching, prospect, signalement |
+| **P5** | Adoption Coach | À faire — **ne pas commencer** | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.3 sont en PR (candidates pending). Prochain : P4.4 Signalement / modération minimale. Watch n’applique pas. **Pas de P5.**
+P1.5–P2.5, P3 et P3 hardening (`#206`) sont en production (130 migrations). P4.1–P4.4 sont en PR (candidates pending). **P4 est livrée.** Ne pas commencer P5. Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -747,18 +747,13 @@ Après `coach_accepted`, conversation possible. Pas d’`is_coach_of`, pas de do
 
 ## P4.4 — Signalement/modération minimale
 
-Prévoir :
+**TERMINÉ** — candidate `20260921024426_p4_marketplace_moderation` (pending jusqu’à apply live). Inventaire : [P4.4 — signalement](P4_4_MODERATION.md).
 
-- signaler un profil/comportement ;
-- file admin ;
-- état du signalement ;
-- action tracée.
-
-**Pas d’étoiles/avis Coach.**
+Signaler un profil ou un comportement. File `service_role` (pas de console SPA). États `open / in_review / resolved / dismissed`. Actions auditées. Suspension d’annuaire = retenue de visibilité, pas une fin de relation. **Pas d’étoiles/avis Coach.** Pas de produit « bloquer ».
 
 ### Terminé quand P4
 
-Le parcours complet : questionnaire recherche → shortlist expliquée → demande → Coach accepte → échange → Athlète confirme → client actif fonctionne sans accès prématuré au dossier.
+Le parcours complet : questionnaire recherche → shortlist expliquée → demande → Coach accepte → échange → Athlète confirme → client actif fonctionne sans accès prématuré au dossier. **Critère atteint** (candidates pending apply live).
 
 ---
 

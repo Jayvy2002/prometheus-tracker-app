@@ -155,6 +155,29 @@ export function clearCoachingRequestKey(storage: Pick<Storage, 'removeItem'>, ow
   try { storage.removeItem(name); } catch { /* Cleanup cannot turn a confirmed write into failure. */ }
 }
 
+export const REPORT_SUBJECT_TYPES = ['profile', 'behavior'] as const;
+export const REPORT_CATEGORIES = ['harassment', 'impersonation', 'inappropriate', 'spam', 'other'] as const;
+export const REPORT_STATUSES = ['open', 'in_review', 'resolved', 'dismissed'] as const;
+export type ReportSubjectType = typeof REPORT_SUBJECT_TYPES[number];
+export type ReportCategory = typeof REPORT_CATEGORIES[number];
+export type ReportStatus = typeof REPORT_STATUSES[number];
+export interface MarketplaceReport {
+  id: string;
+  reporter_id: string;
+  target_user_id: string;
+  subject_type: ReportSubjectType;
+  category: ReportCategory;
+  context: string;
+  related_request_id: string | null;
+  status: ReportStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export function reportIsOpen(status: ReportStatus): boolean {
+  return status === 'open' || status === 'in_review';
+}
+
 export function comparisonIds(params: URLSearchParams): string[] {
   return [...new Set((params.get('compare') ?? '').split(',').filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)))].slice(0, 3);
 }

@@ -1,6 +1,6 @@
 import { supabase } from '../../../lib/supabase';
 import { captureSession } from '../../../lib/sessionScope';
-import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachQualification, type CoachingRequest } from './marketplace';
+import { normalizeJoinRequestStatus, resolveRelationshipState, type CoachPublicProfile, type CoachQualification, type CoachingRequest, type MarketplaceReport } from './marketplace';
 import { normalizeSearchIntent, type CoachMatchExplanation, type MarketplaceSearchIntent } from './marketplaceMatch';
 
 const OWNER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -87,6 +87,20 @@ export async function explainMarketplaceMatches(owner: string): Promise<Array<Co
   if (error) throw error;
   if (!Array.isArray(data)) throw Error('invalid_response');
   return data as Array<CoachMatchExplanation & { public_name?: string }>;
+}
+
+export async function readMyMarketplaceReports(owner: string): Promise<MarketplaceReport[]> {
+  if (!OWNER_ID.test(owner)) return [];
+  const current = captureSession(owner);
+  if (!current()) throw Error('session_changed');
+  const { data, error } = await supabase
+    .from('marketplace_reports')
+    .select('*')
+    .eq('reporter_id', owner)
+    .order('created_at', { ascending: false });
+  if (!current()) throw Error('session_changed');
+  if (error) throw error;
+  return (data ?? []) as MarketplaceReport[];
 }
 
 export async function uploadQualificationProof(owner: string, qualificationId: string, file: File): Promise<string> {

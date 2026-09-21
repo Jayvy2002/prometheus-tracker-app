@@ -389,6 +389,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p4.3 prospect messaging: conversation after accept, no dossier until confirm' /tmp/p4-prospect-db-results.txt
+      - name: Test P4.4 marketplace moderation
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p4_marketplace_moderation.sql | tee /tmp/p4-moderation-db-results.txt
+      - name: Confirm P4.4 moderation echo
+        run: |
+          set -euo pipefail
+          grep -F 'p4.4 moderation: report queue, suspend directory, no ratings, no relationship end' /tmp/p4-moderation-db-results.txt
       - name: Test questionnaire migrated schema
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -11,6 +11,10 @@
     {
       "version": "20260921023720",
       "name": "p4_prospect_messaging"
+    },
+    {
+      "version": "20260921024426",
+      "name": "p4_marketplace_moderation"
     }
   ]
 }
