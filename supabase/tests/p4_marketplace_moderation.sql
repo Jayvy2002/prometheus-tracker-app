@@ -54,10 +54,10 @@ END $$;
 
 SET LOCAL ROLE authenticated;
 SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000001');
-SELECT public.save_my_coach_profile('{"public_name":"Moderation Coach","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["strength"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true}');
+SELECT public.save_my_coach_profile('{"public_name":"Moderation Coach","introduction":"Exp","method":"Weekly","offer":"Terms","disciplines":["powerlifting"],"languages":["fr"],"formats":["online"],"published":true,"accepting_clients":true}');
 
 SELECT pg_temp.as_user('c4400000-0000-4000-8000-000000000002');
-SELECT public.save_marketplace_search_intent('{"discipline":"strength","language":"fr","format":"online"}');
+SELECT public.save_marketplace_search_intent('{"discipline":"powerlifting","language":"fr","format":"online"}');
 SELECT public.request_coaching('c4400000-0000-4000-8000-000000000001', 'Athlete', 'Looking for a coach', 2, 'c4400000-0000-4000-8000-000000000010');
 
 DO $$

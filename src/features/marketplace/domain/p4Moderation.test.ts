@@ -49,6 +49,8 @@ test('P4.4 moderation is a report queue and directory hold, not ratings or an ad
   assert.match(src('src/i18n/locales/fr/marketplace.ts'), /pas une note/);
   assert.match(src('src/i18n/locales/en/marketplace.ts'), /This is not a rating/);
   assert.match(src('.github/workflows/ci.yml'), /p4_marketplace_moderation\.sql/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /eligible coach missing from matching/);
+  assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /powerlifting/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /self report accepted/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /target read reporter identity/);
   assert.match(src('supabase/tests/p4_marketplace_moderation.sql'), /suspended coach remained in matching/);
