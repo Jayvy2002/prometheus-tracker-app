@@ -12,7 +12,7 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 - **135 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
 - **135 migrations** observées en production, dans le même ordre ;
 - dernière version appliquée : `20260922014500_p5_coach_csv_import` ;
-- `migrations.pending.json` est vide ;
+- `migrations.pending.json` contient `20260922223000_p5_provisional_dossiers` (P5.2, pas encore observé en production) ;
 - P5.1 a été appliqué avec le **même timestamp Git** `20260922014500` (aucun restamp, 97 statements, `created_by` null) ; le job `coach-import-preview-purge` est actif (`15 * * * *`, `SELECT public.coach_import_purge_stale_previews()`) ;
 - P4.1 a été appliqué avec le **même timestamp Git** `20260921021231` (aucun restamp, 62 statements, `created_by` null) ;
 - P4.2 a été appliqué avec le **même timestamp Git** `20260921021923` (aucun restamp, 52 statements, `created_by` null) ;

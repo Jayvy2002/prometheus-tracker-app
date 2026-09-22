@@ -1,6 +1,7 @@
 import type { CoachingRole } from '../../../lib/types';
 
 const PENDING_INVITE_KEY = 'prometheus_pending_invite';
+const PENDING_DOSSIER_KEY = 'prometheus_pending_dossier';
 const INTENDED_ROLE_KEY = 'prometheus_intended_coaching_role';
 const DEFER_ONBOARDING_KEY = 'prometheus_defer_onboarding';
 
@@ -22,6 +23,24 @@ export function getPendingInviteToken(): string | null {
 export function clearPendingInviteToken() {
   try { localStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
   try { sessionStorage.removeItem(PENDING_INVITE_KEY); } catch { /* ignore */ }
+}
+
+export function setPendingDossierToken(token: string) {
+  try { localStorage.setItem(PENDING_DOSSIER_KEY, token); } catch { /* private mode */ }
+  try { sessionStorage.setItem(PENDING_DOSSIER_KEY, token); } catch { /* private mode */ }
+}
+
+export function getPendingDossierToken(): string | null {
+  try {
+    return localStorage.getItem(PENDING_DOSSIER_KEY) || sessionStorage.getItem(PENDING_DOSSIER_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPendingDossierToken() {
+  try { localStorage.removeItem(PENDING_DOSSIER_KEY); } catch { /* ignore */ }
+  try { sessionStorage.removeItem(PENDING_DOSSIER_KEY); } catch { /* ignore */ }
 }
 
 export function setIntendedCoachingRole(role: IntendedCoachingRole) {

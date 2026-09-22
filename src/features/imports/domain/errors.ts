@@ -37,6 +37,8 @@ const IMPORT_ERROR_KEYS = [
   'invalid_idempotency_key',
   'invalid_subject',
   'not_found',
+  'dossier_closed',
+  'dossier_attached',
 ] as const;
 
 export type ImportErrorCode = (typeof IMPORT_ERROR_KEYS)[number];

@@ -40,6 +40,7 @@ const navigation = {
     sectionCopilot: 'Copilot',
     sectionActivity: 'Activity',
     importCsv: 'Import',
+    provisionalDossiers: 'Dossiers',
   },
 
   pages: {

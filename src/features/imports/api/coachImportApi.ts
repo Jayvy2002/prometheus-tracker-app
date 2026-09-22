@@ -28,7 +28,7 @@ export type CoachImportView = {
   errors_only: boolean;
 };
 
-function asView(value: unknown): CoachImportView {
+export function asCoachImportView(value: unknown): CoachImportView {
   const row = (value && typeof value === 'object') ? value as Record<string, unknown> : {};
   return {
     import_id: String(row.import_id ?? ''),
@@ -67,7 +67,7 @@ export async function previewCoachImport(input: {
     p_idempotency_key: input.idempotencyKey,
   });
   if (error) return { data: null, error: error.message };
-  return { data: asView(data), error: null };
+  return { data: asCoachImportView(data), error: null };
 }
 
 export async function commitCoachImport(input: {
@@ -82,7 +82,7 @@ export async function commitCoachImport(input: {
     p_mapping: input.mapping,
   });
   if (error) return { data: null, error: error.message };
-  return { data: asView(data), error: null };
+  return { data: asCoachImportView(data), error: null };
 }
 
 export async function cancelCoachImport(
@@ -92,7 +92,7 @@ export async function cancelCoachImport(
     p_import_id: importId,
   });
   if (error) return { data: null, error: error.message };
-  return { data: asView(data), error: null };
+  return { data: asCoachImportView(data), error: null };
 }
 
 export async function getCoachImport(
@@ -106,5 +106,5 @@ export async function getCoachImport(
     p_errors_only: page?.errorsOnly ?? false,
   });
   if (error) return { data: null, error: error.message };
-  return { data: asView(data), error: null };
+  return { data: asCoachImportView(data), error: null };
 }

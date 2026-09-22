@@ -1208,6 +1208,31 @@ BEGIN
   END IF;
 END $$;
 
+-- P5.2 provisional dossier: claim/import granted; staging writes and the 6-arg preview revoked.
+DO $$
+BEGIN
+  IF to_regclass('public.coach_provisional_dossiers') IS NOT NULL
+     AND has_function_privilege('authenticated', 'public.create_provisional_dossier(text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.preview_provisional_import(uuid,text,text,jsonb,text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.preview_provisional_claim(text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.confirm_provisional_claim(text,boolean,boolean)', 'execute')
+     AND has_function_privilege('authenticated', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.preview_coach_import(uuid,text,text,jsonb,text,uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.lock_coach_import_provisional(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_assert_dossier(uuid)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.preview_provisional_claim(text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.confirm_provisional_claim(text,boolean,boolean)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.coach_provisional_dossiers', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_provisional_workouts', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_provisional_claims', 'insert')
+     AND has_table_privilege('authenticated', 'public.coach_provisional_dossiers', 'select')
+  THEN
+    PERFORM pg_temp.record('P5_DOSSIER_GRANTS', true, 'provisional dossier grants, no staging writes');
+  ELSE
+    PERFORM pg_temp.record('P5_DOSSIER_GRANTS', false, 'P5.2 provisional grants mismatch');
+  END IF;
+END $$;
+
 SELECT check_id, passed, detail FROM rls_results ORDER BY check_id;
 
 DO $$

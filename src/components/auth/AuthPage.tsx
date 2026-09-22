@@ -17,9 +17,11 @@ import { track } from '../../lib/telemetryClient';
 interface Props {
   inviteCoachName?: string | null;
   fromInvite?: boolean;
+  returnHere?: boolean;
+  banner?: string | null;
 }
 
-export default function AuthPage({ inviteCoachName, fromInvite = false }: Props) {
+export default function AuthPage({ inviteCoachName, fromInvite = false, returnHere = false, banner = null }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,7 +78,7 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
       if ('needsConfirmation' in result && result.needsConfirmation) {
         setCheckEmail(true);
       } else {
-        navigate(fromInvite ? postLoginPath(location.pathname) : postLoginPath(), { replace: true });
+        navigate((fromInvite || returnHere) ? postLoginPath(location.pathname) : postLoginPath(), { replace: true });
       }
     } finally {
       submittingRef.current = false;
@@ -94,11 +96,11 @@ export default function AuthPage({ inviteCoachName, fromInvite = false }: Props)
             <p className="text-neutral-400 mt-2">{t('auth.tagline')}</p>
           </div>
 
-          {fromInvite && (
+          {(fromInvite || banner) && (
             <div className="mb-5 bg-blue-600/10 border border-blue-500/30 rounded-xl p-3 text-sm text-blue-200 text-center">
-              {inviteCoachName
+              {banner ?? (inviteCoachName
                 ? t('coaching.invite.authBanner', { name: inviteCoachName })
-                : t('coaching.invite.authBannerNoName')}
+                : t('coaching.invite.authBannerNoName'))}
             </div>
           )}
 

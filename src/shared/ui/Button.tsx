@@ -52,10 +52,8 @@ export default function Button({
         transition-all duration-200 ease-out touch-manipulation
         ${palette.base} ${pressOnly ? '' : palette.hover} ${sizes[size]}
         ${disabled || loading
-          ? 'opacity-50 cursor-not-allowed'
-          : pressOnly
-            ? 'active:opacity-90'
-            : 'active:opacity-90'
+          ? 'opacity-40 saturate-0 cursor-not-allowed'
+          : 'active:opacity-90'
         }
         ${className}`}
       disabled={disabled || loading}

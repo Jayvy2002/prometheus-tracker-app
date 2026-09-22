@@ -199,14 +199,26 @@ export function canOpenPersonalCalendarRoute(actor: PermissionActor): boolean {
 export interface CoachImportResource {
   subjectUserId?: string | null;
   hasActiveRelationship?: boolean;
+  provisionalDossierId?: string | null;
+  ownsProvisionalDossier?: boolean;
 }
 
-/** P5.1: Coach may import for self or an active client. Workspace never grants this. */
+/** A Coach may prepare a dossier for someone who does not have an account yet. */
+export function canPrepareProvisionalDossier(actor: PermissionActor): boolean {
+  return canActAsCoach(actor);
+}
+
+/**
+ * P5.1 / P5.2: Coach may import for self, an active client, or a provisional
+ * dossier they own. Workspace never grants this. Ownership of the dossier is
+ * a fact supplied by the server list, not by the UI persona.
+ */
 export function canImportCoachSpreadsheet(
   actor: PermissionActor,
   resource: CoachImportResource = {},
 ): boolean {
   if (!canActAsCoach(actor)) return false;
+  if (resource.provisionalDossierId) return resource.ownsProvisionalDossier === true;
   const subjectId = resource.subjectUserId ?? actor.userId;
   if (!subjectId || !actor.userId) return false;
   if (subjectId === actor.userId) return true;
