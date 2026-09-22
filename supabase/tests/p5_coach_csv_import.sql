@@ -3,6 +3,7 @@
 BEGIN;
 
 CREATE TEMP TABLE p51_hold (import_id uuid, sha text, map jsonb);
+GRANT ALL ON TABLE p51_hold TO authenticated;
 
 CREATE FUNCTION pg_temp.as_user(p uuid) RETURNS void
 LANGUAGE plpgsql AS $$
