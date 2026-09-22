@@ -7,6 +7,8 @@ import { CsvParseError, parseCsvText } from './csvParse';
 import { createHash } from 'node:crypto';
 import { IMPORT_MAX_BYTES, IMPORT_LOCK_CLASS } from './limits';
 import { planImportRows } from './preview';
+import frCoaching from '../../../i18n/locales/fr/coaching';
+import enCoaching from '../../../i18n/locales/en/coaching';
 
 const src = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
 
@@ -293,7 +295,9 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   assert.equal(IMPORT_LOCK_CLASS, 20014504);
   assert.equal(IMPORT_MAX_BYTES, 512 * 1024);
   assert.match(src('src/components/coaching/CoachImportPage.tsx'), /previewCoachImport/);
-  assert.match(src('src/i18n/locales/fr/coaching.ts'), /Dépose ton fichier/);
-  assert.match(src('src/i18n/locales/en/coaching.ts'), /Drop your file/);
+  assert.equal(frCoaching.coaching.importCsv.drop, 'Dépose ton fichier');
+  assert.equal(enCoaching.coaching.importCsv.drop, 'Drop your file');
+  assert.equal(frCoaching.coaching.importCsv.acknowledgeDuplicates, 'Importer quand même');
+  assert.equal(enCoaching.coaching.importCsv.confirm, 'Confirm import');
   assert.doesNotMatch(src('src/components/coaching/CoachImportPage.tsx'), /% compatible|€/);
 });
