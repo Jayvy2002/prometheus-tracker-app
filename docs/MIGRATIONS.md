@@ -12,7 +12,7 @@ Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 - **134 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
 - **134 migrations** observées en production, dans le même ordre ;
 - dernière version appliquée : `20260921024426_p4_marketplace_moderation` ;
-- `migrations.pending.json` est vide ;
+- `migrations.pending.json` est vide en production ; la PR P5.1 déclare le candidat `20260922014500_p5_coach_csv_import` **sans** le copier dans le lock ;
 - P4.1 a été appliqué avec le **même timestamp Git** `20260921021231` (aucun restamp, 62 statements, `created_by` null) ;
 - P4.2 a été appliqué avec le **même timestamp Git** `20260921021923` (aucun restamp, 52 statements, `created_by` null) ;
 - P4.3 a été appliqué avec le **même timestamp Git** `20260921023720` (aucun restamp, 42 statements, `created_by` null) ;

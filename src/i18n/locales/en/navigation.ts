@@ -39,6 +39,7 @@ const navigation = {
     sectionUnderstand: 'Progress',
     sectionCopilot: 'Copilot',
     sectionActivity: 'Activity',
+    importCsv: 'Import',
   },
 
   pages: {
@@ -53,6 +54,7 @@ const navigation = {
     prometheus: 'Prometheus',
     checkin: 'Check-in',
     marketplace: 'Find a coach',
+    import: 'Import',
   },
 } as const;
 

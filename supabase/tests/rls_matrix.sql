@@ -1177,6 +1177,37 @@ BEGIN
   END IF;
 END $$;
 
+-- P5.1 Coach CSV import: preview/commit granted; helpers and table writes revoked.
+DO $$
+BEGIN
+  IF to_regclass('public.coach_imports') IS NOT NULL
+     AND has_function_privilege('authenticated', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.commit_coach_import(uuid,text,jsonb)', 'execute')
+     AND has_function_privilege('authenticated', 'public.get_coach_import(uuid,integer,integer,boolean)', 'execute')
+     AND has_function_privilege('authenticated', 'public.list_coach_imports()', 'execute')
+     AND has_function_privilege('authenticated', 'public.cancel_coach_import(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.lock_coach_import(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_expire_previews(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_purge_stale_previews()', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.lock_coach_import_subject(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.lock_coach_import_quota(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_assert_actor(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_lock_active_link(uuid,uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_finish_conflict(uuid,uuid,text,text,text)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_parse_csv(text,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.commit_coach_import(uuid,text,jsonb)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.coach_imports', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.coach_imports', 'update')
+     AND NOT has_table_privilege('authenticated', 'public.coach_import_rows', 'insert')
+     AND has_table_privilege('authenticated', 'public.coach_imports', 'select')
+  THEN
+    PERFORM pg_temp.record('P5_IMPORT_GRANTS', true, 'preview/commit granted; lock and table writes revoked');
+  ELSE
+    PERFORM pg_temp.record('P5_IMPORT_GRANTS', false, 'P5.1 import grants mismatch');
+  END IF;
+END $$;
+
 SELECT check_id, passed, detail FROM rls_results ORDER BY check_id;
 
 DO $$

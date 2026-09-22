@@ -29,6 +29,7 @@ import {
   canUpdateOwnAssignedProgram,
   canUpdateOwnPersonalData,
   canUsePersonalTools,
+  canImportCoachSpreadsheet,
   type PermissionActor,
 } from './resourcePermissions';
 
@@ -204,6 +205,21 @@ test('calendar resource read and route are allowed for Solo and Coached personal
   assert.equal(canOpenPersonalCalendarRoute(coachCoached()), true);
   const blocked = actorFromAccount(null, resolveAccountContext('none', null, true, null));
   assert.equal(canOpenPersonalCalendarRoute(blocked), false);
+});
+
+test('P5.1 import is coach-only for self or an active client; workspace does not grant', () => {
+  const client = { subjectUserId: 'C', hasActiveRelationship: true };
+  const ended = { subjectUserId: 'C', hasActiveRelationship: false };
+  for (const person of [coachSolo(), coachSolo('coaching'), coachCoached(), coachCoached('coaching')]) {
+    assert.equal(canImportCoachSpreadsheet(person), true);
+    assert.equal(canImportCoachSpreadsheet(person, { subjectUserId: 'A' }), true);
+    assert.equal(canImportCoachSpreadsheet(person, client), true);
+    assert.equal(canImportCoachSpreadsheet(person, ended), false);
+  }
+  assert.equal(canImportCoachSpreadsheet(solo(), client), false);
+  assert.equal(canImportCoachSpreadsheet(coached(), client), false);
+  const blocked = actorFromAccount(null, resolveAccountContext('none', null, true, null));
+  assert.equal(canImportCoachSpreadsheet(blocked), false);
 });
 
 test('server enforces owner writes, leftover coached save_program, nutrition targets and dossier isolation', () => {

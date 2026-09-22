@@ -20,9 +20,11 @@ import {
   canUpdateOwnAssignedProgram,
   canUpdateOwnPersonalData,
   canUsePersonalTools,
+  canImportCoachSpreadsheet,
   type AssignedProgramResource,
   type AthleteWatchResource,
   type ClientDossierResource,
+  type CoachImportResource,
 } from '../domain/resourcePermissions';
 
 export function useResourcePermissions() {
@@ -56,5 +58,7 @@ export function useResourcePermissions() {
       canCorrectAthleteWatchContext(actor, resource),
     canDecideAthleteWatchProposal: (resource?: AthleteWatchResource) =>
       canDecideAthleteWatchProposal(actor, resource),
+    canImportCoachSpreadsheet: (resource?: CoachImportResource) =>
+      canImportCoachSpreadsheet(actor, resource),
   };
 }

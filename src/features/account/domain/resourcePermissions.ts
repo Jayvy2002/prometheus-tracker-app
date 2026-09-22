@@ -195,3 +195,20 @@ export function canReadOwnCalendar(actor: PermissionActor): boolean {
 export function canOpenPersonalCalendarRoute(actor: PermissionActor): boolean {
   return canReadOwnCalendar(actor);
 }
+
+export interface CoachImportResource {
+  subjectUserId?: string | null;
+  hasActiveRelationship?: boolean;
+}
+
+/** P5.1: Coach may import for self or an active client. Workspace never grants this. */
+export function canImportCoachSpreadsheet(
+  actor: PermissionActor,
+  resource: CoachImportResource = {},
+): boolean {
+  if (!canActAsCoach(actor)) return false;
+  const subjectId = resource.subjectUserId ?? actor.userId;
+  if (!subjectId || !actor.userId) return false;
+  if (subjectId === actor.userId) return true;
+  return resource.hasActiveRelationship === true;
+}

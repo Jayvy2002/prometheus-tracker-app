@@ -51,6 +51,7 @@ const ClientPhotosPage = lazy(() => import('../../components/coaching/ClientPhot
 const CoachQuestionnairePage = lazy(() => import('../../components/coaching/CoachQuestionnairePage'));
 const ClientQuestionnairePanel = lazy(() => import('../../components/onboarding/ClientQuestionnairePanel'));
 const CoachLearnedPage = lazy(() => import('../../components/coaching/CoachLearnedPage'));
+const CoachImportPage = lazy(() => import('../../components/coaching/CoachImportPage'));
 const MarketplacePage = lazy(() => import('../../components/marketplace/MarketplacePage'));
 const CoachComparisonPage = lazy(() => import('../../components/marketplace/CoachComparisonPage'));
 const CoachMatchPage = lazy(() => import('../../components/marketplace/CoachMatchPage'));
@@ -257,6 +258,7 @@ export default function AppRoutes() {
         <Route path="/coach/questionnaire" element={<CoachOnly><CoachQuestionnairePage key={user.id} /></CoachOnly>} />
         <Route path="/questionnaire" element={<AthleteQuestionnairePage key={user.id} />} />
         <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
+        <Route path="/coach/import" element={<CoachOnly><CoachImportPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
         <Route path="/programs/:id" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
