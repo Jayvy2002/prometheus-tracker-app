@@ -1,6 +1,6 @@
 # P5.2 — Dossier provisoire d’un client sans compte
 
-> Implémenté. Migration `20260922223000_p5_provisional_dossiers` en pending tant qu’elle n’est pas observée en production. Ne pas déclarer P5.2 clos avant le lock.
+> Livré en production. Migration `20260922223000_p5_provisional_dossiers` observée (129 statements, `created_by` null, timestamp Git conservé). Lock 136, pending vide.
 
 ## Parcours
 
