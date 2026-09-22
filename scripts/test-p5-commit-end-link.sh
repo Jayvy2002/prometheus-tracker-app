@@ -181,11 +181,19 @@ wait_state() {
   return 1
 }
 
-tuple_lock() {
+# Granted row locks are stored on the tuple, not as locktype=tuple in pg_locks.
+# A session blocked on pg_advisory_xact_lock(HOLD_KEY) after the RPC returned
+# still owns every row lock taken in that transaction (FOR SHARE / FOR UPDATE).
+# HOLD_KEY 872009201136 is advisory classid 203. A waiter on that row shows up
+# as an ungranted transactionid or tuple lock.
+holding_after_rpc() {
   local app="$1"
-  local mode="$2"
-  local granted="$3"
-  echo "SELECT count(*) FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid WHERE a.application_name = '${app}' AND l.locktype = 'tuple' AND l.mode = '${mode}' AND l.relation = 'public.coach_client_links'::regclass AND l.granted = ${granted}"
+  echo "SELECT count(*) FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid WHERE a.application_name = '${app}' AND a.state = 'active' AND l.locktype = 'advisory' AND l.classid = 203 AND NOT l.granted"
+}
+
+row_wait() {
+  local app="$1"
+  echo "SELECT count(*) FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid WHERE a.application_name = '${app}' AND l.locktype IN ('tuple', 'transactionid') AND NOT l.granted"
 }
 
 start_commit() {
@@ -298,8 +306,8 @@ relink
 make_preview 'end-commit-wins-client' '2026-04-01'
 hold_advisory
 start_commit 'end-commit-wins-client' /tmp/end-commit-wins-client-commit
-if ! wait_state "$(tuple_lock "${COMMIT_APP}" ForShare true)" "${commit_pid}"; then
-  echo "commit never held the active link FOR SHARE" >&2
+if ! wait_state "$(holding_after_rpc "${COMMIT_APP}")" "${commit_pid}"; then
+  echo "commit did not stay open after locking the active link" >&2
   cat /tmp/end-commit-wins-client-commit.out /tmp/end-commit-wins-client-commit.err >&2 || true
   exit 1
 fi
@@ -309,7 +317,7 @@ if [[ "${ACTIVE}" != "active" ]]; then
   exit 1
 fi
 start_end client /tmp/end-commit-wins-client-end
-if ! wait_state "$(tuple_lock "${END_APP}" ForUpdate false)" "${end_pid}"; then
+if ! wait_state "$(row_wait "${END_APP}")" "${end_pid}"; then
   echo "client_end_coach_link did not wait on the link row" >&2
   cat /tmp/end-commit-wins-client-end.out /tmp/end-commit-wins-client-end.err >&2 || true
   exit 1
@@ -333,14 +341,14 @@ relink
 make_preview 'end-client-wins' '2026-04-02'
 hold_advisory
 start_end client /tmp/end-client-wins-end
-if ! wait_state "$(tuple_lock "${END_APP}" ForUpdate true)" "${end_pid}"; then
-  echo "client_end never held the link FOR UPDATE" >&2
+if ! wait_state "$(holding_after_rpc "${END_APP}")" "${end_pid}"; then
+  echo "client_end did not stay open while holding the link" >&2
   cat /tmp/end-client-wins-end.out /tmp/end-client-wins-end.err >&2 || true
   exit 1
 fi
 BEFORE="$(psql_at "SELECT count(*) FROM public.workouts WHERE user_id = '${CLIENT}'::uuid AND name = '2026-04-02'")"
 start_commit_expect_denied 'end-client-wins' /tmp/end-client-wins-commit
-if ! wait_state "$(tuple_lock "${COMMIT_APP}" ForShare false)" "${commit_pid}"; then
+if ! wait_state "$(row_wait "${COMMIT_APP}")" "${commit_pid}"; then
   echo "commit did not wait on the link held by client_end" >&2
   cat /tmp/end-client-wins-commit.out /tmp/end-client-wins-commit.err >&2 || true
   exit 1
@@ -364,13 +372,13 @@ relink
 make_preview 'end-commit-wins-coach' '2026-04-03'
 hold_advisory
 start_commit 'end-commit-wins-coach' /tmp/end-commit-wins-coach-commit
-if ! wait_state "$(tuple_lock "${COMMIT_APP}" ForShare true)" "${commit_pid}"; then
-  echo "commit never held the link before end_coach_client_link" >&2
+if ! wait_state "$(holding_after_rpc "${COMMIT_APP}")" "${commit_pid}"; then
+  echo "commit did not stay open before end_coach_client_link" >&2
   cat /tmp/end-commit-wins-coach-commit.err >&2 || true
   exit 1
 fi
 start_end coach /tmp/end-commit-wins-coach-end
-if ! wait_state "$(tuple_lock "${END_APP}" ForUpdate false)" "${end_pid}"; then
+if ! wait_state "$(row_wait "${END_APP}")" "${end_pid}"; then
   echo "end_coach_client_link did not wait on the link row" >&2
   cat /tmp/end-commit-wins-coach-end.out /tmp/end-commit-wins-coach-end.err >&2 || true
   exit 1
@@ -390,13 +398,13 @@ relink
 make_preview 'end-coach-wins' '2026-04-04'
 hold_advisory
 start_end coach /tmp/end-coach-wins-end
-if ! wait_state "$(tuple_lock "${END_APP}" ForUpdate true)" "${end_pid}"; then
-  echo "end_coach_client_link never held the link FOR UPDATE" >&2
+if ! wait_state "$(holding_after_rpc "${END_APP}")" "${end_pid}"; then
+  echo "end_coach_client_link did not stay open while holding the link" >&2
   cat /tmp/end-coach-wins-end.err >&2 || true
   exit 1
 fi
 start_commit_expect_denied 'end-coach-wins' /tmp/end-coach-wins-commit
-if ! wait_state "$(tuple_lock "${COMMIT_APP}" ForShare false)" "${commit_pid}"; then
+if ! wait_state "$(row_wait "${COMMIT_APP}")" "${commit_pid}"; then
   echo "commit did not wait on the link held by end_coach_client_link" >&2
   cat /tmp/end-coach-wins-commit.out /tmp/end-coach-wins-commit.err >&2 || true
   exit 1
