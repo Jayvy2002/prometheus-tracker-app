@@ -9,10 +9,11 @@
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **135 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **135 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260922014500_p5_coach_csv_import` ;
-- `migrations.pending.json` contient `20260922223000_p5_provisional_dossiers` (P5.2, pas encore observé en production) ;
+- **136 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **136 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260922223000_p5_provisional_dossiers` ;
+- `migrations.pending.json` est vide ;
+- P5.2 a été appliqué avec le **même timestamp Git** `20260922223000` (aucun restamp, 129 statements, `created_by` null) ;
 - P5.1 a été appliqué avec le **même timestamp Git** `20260922014500` (aucun restamp, 97 statements, `created_by` null) ; le job `coach-import-preview-purge` est actif (`15 * * * *`, `SELECT public.coach_import_purge_stale_previews()`) ;
 - P4.1 a été appliqué avec le **même timestamp Git** `20260921021231` (aucun restamp, 62 statements, `created_by` null) ;
 - P4.2 a été appliqué avec le **même timestamp Git** `20260921021923` (aucun restamp, 52 statements, `created_by` null) ;
@@ -82,7 +83,7 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 5. Rejouer la base locale et lancer les tests du domaine.
 6. Exécuter les advisors Supabase lorsque la sécurité/performance est concernée.
 7. Vérifier les permissions Data API + RLS/RPC.
-8. Appliquer via le mécanisme de déploiement du projet.
+8. Appliquer via `workflow_dispatch` du workflow CI, input `confirm_apply=APPLY_PENDING`. Le job `apply pending migrations` relance la preuve dry-run, puis `supabase db push --linked --yes --skip-vault`. Le timestamp du fichier Git est conservé. Ne pas passer par le MCP `apply_migration` : il réécrit la version.
 9. Vérifier production.
 10. Rafraîchir `supabase/schema_migrations.lock.json` uniquement avec l’état réellement observé.
 

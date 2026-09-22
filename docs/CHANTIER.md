@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5.1 CLOSED, P5.2 en revue.** Production/lock **135** (`20260922014500_p5_coach_csv_import`). P5.2 est implémenté (`20260922223000_p5_provisional_dossiers`, pending). Ne pas le déclarer clos avant observation production et lock. Job `coach-import-preview-purge` actif. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5.2 CLOSED.** Production/lock **136** (`20260922223000_p5_provisional_dossiers`, 129 statements, `created_by` null). Pending vide. Prochaine étape : P5.3. Ne pas commencer P6. Job `coach-import-preview-purge` actif. Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1 clos (135). P5.2 implémenté, pending** | Imports, dossier provisoire, bibliothèque, admin |
+| **P5** | Adoption Coach | **P5.1–P5.2 clos (136). P5.3 suivant** | Imports, dossier provisoire, bibliothèque, admin |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3, P4 (`#210`) et P5.1 (`#213`) sont en production (135 migrations). **P5.1 est livré.** P5.2 est implémenté et encore en pending (`20260922223000`). Watch n’applique pas.
+P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`) et P5.2 (`#215`) sont en production (136 migrations). **P5.2 est livré.** P5.3 n’est pas commencé. Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -769,7 +769,7 @@ CI post-merge verte : [run 35660157162](https://github.com/Jayvy2002/prometheus-
 
 Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère atteint.**
 
-**Arrêt P4 : livré.** **Arrêt P5.1 : livré** (`#213`, `20260922014500`, lock 135). P5.2 est implémenté (`docs/P5_2_PROVISIONAL_DOSSIER.md`) et reste pending jusqu’au lock production.
+**Arrêt P4 : livré.** **Arrêt P5.1 : livré** (`#213`, `20260922014500`, lock 135). **Arrêt P5.2 : livré** (`#215`, `20260922223000`, lock 136, pending vide).
 
 ---
 
@@ -810,7 +810,7 @@ XLSX, bibliothèque d’exercices, admin des imports.
 
 ## P5.2 — Dossier provisoire d’un client sans compte
 
-Implémenté, migration en pending. Contrat : `docs/P5_2_PROVISIONAL_DOSSIER.md`.
+**Livré en production** (`#215`, lock **136**, pending vide). Contrat : `docs/P5_2_PROVISIONAL_DOSSIER.md`.
 
 Coach crée un dossier minimal, y importe via P5.1, invite, puis la personne confirme. Aucun faux compte. Aucune relation active avant consentement de coaching. Aucune écriture dans `workouts` ou `weight_measurements` avant confirmation. Rattachement atomique, idempotent, mutex `20014507`. Le dossier est inutilisable après succès.
 

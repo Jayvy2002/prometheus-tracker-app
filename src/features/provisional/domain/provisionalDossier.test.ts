@@ -28,8 +28,8 @@ test('P5.2 reuses the import pipeline for an owned provisional dossier and never
   assert.match(src('.github/workflows/ci.yml'), /test-p5-provisional-claim-lock\.sh/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /P5_DOSSIER_GRANTS/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string }> };
-  assert.equal(pending.pending.some((row) => row.version === '20260922223000'), true);
-  assert.equal(pending.pending.some((row) => row.version === '20260922014500'), false);
+  assert.equal(pending.pending.some((row) => row.version === '20260922223000'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260922223000"/);
   const routes = src('src/app/router/AppRoutes.tsx');
   assert.match(routes, /path="\/coach\/dossiers"/);
   assert.match(routes, /path="\/dossier\/:token"/);
