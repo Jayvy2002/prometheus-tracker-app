@@ -154,7 +154,7 @@ BEGIN
     IF v_ch = E'\n' THEN
       v_row := v_row || btrim(v_cell);
       v_cell := '';
-      IF v_row_no > 0 OR exists (SELECT 1 FROM unnest(v_row) c WHERE c <> '') THEN
+      IF exists (SELECT 1 FROM unnest(v_row) c WHERE c <> '') THEN
         v_row_no := v_row_no + 1;
         IF v_row_no > v_max_rows THEN RAISE EXCEPTION 'too_many_rows'; END IF;
         IF coalesce(array_length(v_row, 1), 0) > v_max_cols THEN RAISE EXCEPTION 'too_many_columns'; END IF;
@@ -174,7 +174,7 @@ BEGIN
   END LOOP;
   IF v_in_quotes THEN RAISE EXCEPTION 'malformed_csv'; END IF;
   v_row := v_row || btrim(v_cell);
-  IF v_row_no > 0 OR exists (SELECT 1 FROM unnest(v_row) c WHERE c <> '') THEN
+  IF exists (SELECT 1 FROM unnest(v_row) c WHERE c <> '') THEN
     v_row_no := v_row_no + 1;
     IF v_row_no > v_max_rows THEN RAISE EXCEPTION 'too_many_rows'; END IF;
     IF coalesce(array_length(v_row, 1), 0) > v_max_cols THEN RAISE EXCEPTION 'too_many_columns'; END IF;
