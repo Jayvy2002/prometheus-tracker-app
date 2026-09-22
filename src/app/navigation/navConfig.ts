@@ -14,6 +14,7 @@ import {
   Camera,
   Search,
   Inbox,
+  Upload,
   CalendarDays,
   BarChart2,
   Flame,
@@ -68,6 +69,7 @@ const coachOffer: NavItemDef = { id: 'coachOffer', path: '/coach/profile', label
 const requests: NavItemDef = { id: 'requests', path: '/coaching-requests', labelKey: 'marketplace.requests', icon: Inbox };
 const directory: NavItemDef = { id: 'directory', path: '/coaches', labelKey: 'marketplace.directory', icon: Search };
 const coachMatch: NavItemDef = { id: 'coachMatch', path: '/coaches/match', labelKey: 'marketplace.match', icon: ListFilter };
+const coachImport: NavItemDef = { id: 'coachImport', path: '/coach/import', labelKey: 'nav.importCsv', icon: Upload };
 const weight: NavItemDef = { id: 'weight', path: '/weight', labelKey: 'nav.weight', icon: Scale };
 const photos: NavItemDef = { id: 'photos', path: '/photos', labelKey: 'nav.photos', icon: Camera };
 const calendar: NavItemDef = { id: 'calendar', path: '/calendar', labelKey: 'nav.calendar', icon: CalendarDays };
@@ -112,7 +114,7 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
     return nonempty([
       { id: 'primary', items: [today, clients, messages, programs] },
       { id: 'copilot', labelKey: 'nav.sectionCopilot', items: [copilot] },
-      { id: 'activity', labelKey: 'nav.sectionActivity', tone: 'muted', items: [coachOffer, requests, directory, coachMatch] },
+      { id: 'activity', labelKey: 'nav.sectionActivity', tone: 'muted', items: [coachOffer, requests, directory, coachMatch, coachImport] },
       { id: 'account', items: [profile] },
     ]);
   }

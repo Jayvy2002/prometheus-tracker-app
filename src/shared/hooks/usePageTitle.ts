@@ -7,6 +7,7 @@ const TITLE_RULES: Array<{ test: (path: string) => boolean; key: string }> = [
   { test: path => path.startsWith('/workout'), key: 'pages.workout' },
   { test: path => path.startsWith('/nutrition') || path.startsWith('/scanner') || path.startsWith('/recipes'), key: 'pages.nutrition' },
   { test: path => path.startsWith('/exercise-progress') || path.startsWith('/stats') || path.startsWith('/weight') || path.startsWith('/calendar') || path.startsWith('/photos'), key: 'pages.progress' },
+  { test: path => path.startsWith('/coach/import'), key: 'pages.import' },
   { test: path => path.startsWith('/profile') || path.startsWith('/coach/profile'), key: 'pages.profile' },
   { test: path => path.startsWith('/messages'), key: 'pages.messages' },
   { test: path => path.startsWith('/clients'), key: 'pages.clients' },

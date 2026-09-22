@@ -39,6 +39,7 @@ const navigation = {
     sectionUnderstand: 'Comprendre',
     sectionCopilot: 'Copilote',
     sectionActivity: 'Activité',
+    importCsv: 'Importer',
   },
 
   pages: {
@@ -53,6 +54,7 @@ const navigation = {
     prometheus: 'Prometheus',
     checkin: 'Check-in',
     marketplace: 'Trouver un coach',
+    import: 'Importer',
   },
 } as const;
 

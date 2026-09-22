@@ -3,7 +3,7 @@ import { useResourcePermissions } from '../../lib/useResourcePermissions';
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Copy, Link2, Users, ChevronRight, Plus, Trash2 } from 'lucide-react';
+import { Copy, Link2, Users, ChevronRight, Plus, Trash2, Upload } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { shouldOpenSetup } from '../../lib/coachAlerts';
@@ -147,9 +147,14 @@ export default function ClientsPage() {
               </p>
             )}
           </div>
-          <Button size="sm" onClick={() => setInviteOpen(true)}>
-            <Plus size={14} /> {t('coaching.invite.cta')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="secondary" onClick={() => navigate('/coach/import')}>
+              <Upload size={14} /> {t('coaching.importCsv.title')}
+            </Button>
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <Plus size={14} /> {t('coaching.invite.cta')}
+            </Button>
+          </div>
         </div>
 
         {clients.length > 0 && (

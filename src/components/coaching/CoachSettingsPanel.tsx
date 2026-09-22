@@ -85,6 +85,12 @@ export default function CoachSettingsPanel() {
       >
         {t('coaching.learned.open')}
       </Link>
+      <Link
+        to="/coach/import"
+        className="block text-sm text-blue-400 hover:text-blue-300"
+      >
+        {t('coaching.importCsv.title')}
+      </Link>
 
       <div>
         <p className="text-xs font-medium text-neutral-400 mb-2">{t('coaching.settings.tabs')}</p>

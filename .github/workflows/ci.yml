@@ -397,6 +397,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p4.4 moderation: report queue, suspend directory, no ratings, no relationship end' /tmp/p4-moderation-db-results.txt
+      - name: Test P5.1 coach CSV import
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p5_coach_csv_import.sql | tee /tmp/p5-csv-import-db-results.txt
+      - name: Confirm P5.1 CSV import echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.1 csv import: preview no business write, commit atomic, is_coach_of, retry, no silent Weight' /tmp/p5-csv-import-db-results.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

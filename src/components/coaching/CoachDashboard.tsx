@@ -6,6 +6,7 @@ import {
   Link2,
   Plus,
   Search,
+  Upload,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -106,6 +107,15 @@ export default function CoachDashboard() {
             >
               <Search size={14} />
               {t('coaching.ask.shortcut')}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => navigate('/coach/import')}
+            >
+              <Upload size={14} />
+              {t('coaching.importCsv.title')}
             </Button>
           </div>
         </div>

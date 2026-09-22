@@ -8,7 +8,7 @@
 >
 > **Règle agents :** ne pas reconstruire ce qui existe déjà. Avant chaque chantier, inspecter le code/migrations actuels et vérifier si le problème est réellement fonctionnel, architectural ou simplement non raccordé.
 
-**Mis à jour : 21 septembre 2026.**
+**Mis à jour : 22 septembre 2026.**
 
 ---
 
@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5.1 Import spreadsheet/CSV.** Production/lock **134** (`20260921024426_p4_marketplace_moderation`). P4.1–P4.4 TERMINÉ (`#210`, merge `54a93f7860ea2bd0ef5d2631bdd48e383d746d8d`). Pending vide. **Ne pas implémenter P5.** Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5.1 Import spreadsheet/CSV (candidate pending).** Production/lock **134** (`20260921024426_p4_marketplace_moderation`). P4.1–P4.4 TERMINÉ (`#210`, merge `54a93f7860ea2bd0ef5d2631bdd48e383d746d8d`). Migration Git `20260922014500_p5_coach_csv_import` **pending, non appliquée**. **Ne pas merger P5.1. Ne pas appliquer en production. Ne pas commencer P5.2.** Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | À faire — **ne pas implémenter** | Imports, bibliothèque exercices, admin ciblé |
+| **P5** | Adoption Coach | **P5.1 candidate (pending Git, pas mergée, pas appliquée)** | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3 et P4 (`#210`) sont en production (134 migrations). **P4 est livrée.** Prochaine tâche = P5.1. Ne pas implémenter P5. Watch n’applique pas.
+P1.5–P2.5, P3 et P4 (`#210`) sont en production (134 migrations). **P4 est livrée.** P5.1 est une PR candidate : ne pas merger, ne pas appliquer, ne pas commencer P5.2. Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -769,7 +769,7 @@ CI post-merge verte : [run 35660157162](https://github.com/Jayvy2002/prometheus-
 
 Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère atteint.**
 
-**Arrêt : P4 est clôturé. Ne pas implémenter P5.**
+**Arrêt P4 : livré.** P5.1 est une candidate Git (pending `20260922014500`). Ne pas merger, ne pas appliquer, ne pas commencer P5.2.
 
 ---
 
@@ -777,7 +777,9 @@ Le parcours complet : questionnaire recherche → shortlist expliquée → deman
 
 ## P5.1 — Import spreadsheet/CSV intelligent
 
-Parcours :
+**Candidate Git — ne pas merger, ne pas appliquer.** Inventaire : [P5.1 CSV import](P5_1_CSV_IMPORT.md).
+
+Parcours livré dans la PR :
 
 ```text
 Upload
@@ -793,11 +795,16 @@ Upload
 
 ### Règles
 
-- jamais d’import silencieux de champs ambigus ;
-- dry-run/preview obligatoire ;
-- idempotence/reprise ;
-- provenance des données ;
-- erreurs par ligne récupérables lorsque possible.
+- jamais d’import silencieux de champs ambigus (`Weight` = charge ou poids corporel) ;
+- dry-run/preview obligatoire, écriture métier seulement au commit ;
+- idempotence/reprise (`idempotency_key`, fingerprint SHA-256, mutex `20014504`) ;
+- provenance sur `coach_imports` / `coach_import_rows` ;
+- erreurs par ligne récupérables ; commit atomique ;
+- Coach lui-même ou client actif (`is_coach_of`) seulement — pas de dossier provisoire (P5.2).
+
+### Hors scope volontaire (P5.2+)
+
+XLSX, dossier client sans compte, bibliothèque d’exercices, admin des imports.
 
 ## P5.2 — Dossier provisoire d’un client sans compte
 
