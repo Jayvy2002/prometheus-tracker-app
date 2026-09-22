@@ -20,6 +20,7 @@ export type CoachImportView = {
   error_count: number;
   applied_count: number;
   issues: string[];
+  potential_duplicates: Array<{ workout_id: string; name: string; date: string }>;
   rows: CoachImportRowView[];
   row_count: number;
   row_offset: number;
@@ -40,6 +41,9 @@ function asView(value: unknown): CoachImportView {
     error_count: Number(row.error_count ?? 0),
     applied_count: Number(row.applied_count ?? 0),
     issues: Array.isArray(row.issues) ? row.issues.map(String) : [],
+    potential_duplicates: Array.isArray(row.potential_duplicates)
+      ? row.potential_duplicates as CoachImportView['potential_duplicates']
+      : [],
     rows: Array.isArray(row.rows) ? row.rows as CoachImportRowView[] : [],
     row_count: Number(row.row_count ?? 0),
     row_offset: Number(row.row_offset ?? 0),
@@ -76,6 +80,16 @@ export async function commitCoachImport(input: {
     p_import_id: input.importId,
     p_file_sha256: fileSha,
     p_mapping: input.mapping,
+  });
+  if (error) return { data: null, error: error.message };
+  return { data: asView(data), error: null };
+}
+
+export async function cancelCoachImport(
+  importId: string,
+): Promise<{ data: CoachImportView | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('cancel_coach_import', {
+    p_import_id: importId,
   });
   if (error) return { data: null, error: error.message };
   return { data: asView(data), error: null };

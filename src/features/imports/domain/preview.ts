@@ -3,10 +3,12 @@ import {
   convertToKg,
   mappingIssues,
   parseDateCell,
+  parseMeasureUnit,
   parseNumberCell,
   unresolvedAmbiguities,
   type ColumnDetection,
   type ImportMapping,
+  type MeasureUnit,
 } from './columns';
 
 export type PlannedRowStatus = 'ready' | 'ignored' | 'error';
@@ -21,6 +23,7 @@ export type PlannedRow = {
   setIndex: number | null;
   reps: number | null;
   loadKg: number | null;
+  sourceUnit: MeasureUnit | null;
   bodyWeightKg: number | null;
   rir: number | null;
   notes: string | null;
@@ -55,6 +58,20 @@ function parseWholeNumber(raw: string): number | null {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
+function resolveMappedUnit(
+  row: string[],
+  mapping: ImportMapping,
+  fallback: MeasureUnit,
+): { unit: MeasureUnit } | { error: 'formula_rejected' | 'invalid_unit' } {
+  if (mapping.columns.unit == null) return { unit: fallback };
+  const raw = cell(row, mapping.columns.unit);
+  if (blank(raw)) return { unit: fallback };
+  if (looksLikeFormula(raw.trim())) return { error: 'formula_rejected' };
+  const unit = parseMeasureUnit(raw);
+  if (!unit) return { error: 'invalid_unit' };
+  return { unit };
+}
+
 function emptyPlanned(rowNo: number, errorCode: string, date: string | null = null): PlannedRow {
   return {
     rowNo,
@@ -66,6 +83,7 @@ function emptyPlanned(rowNo: number, errorCode: string, date: string | null = nu
     setIndex: null,
     reps: null,
     loadKg: null,
+    sourceUnit: null,
     bodyWeightKg: null,
     rir: null,
     notes: null,
@@ -88,6 +106,7 @@ export function planImportRows(
     || issue === 'exercise_required'
     || issue === 'body_weight_required'
     || issue === 'weight_role_conflict'
+    || issue === 'rir_rpe_conflict'
   ));
   const planned: PlannedRow[] = rows.map((row, offset) => {
     const rowNo = offset + 1;
@@ -105,6 +124,7 @@ export function planImportRows(
         setIndex: null,
         reps: null,
         loadKg: null,
+        sourceUnit: null,
         bodyWeightKg: null,
         rir: null,
         notes: null,
@@ -128,11 +148,14 @@ export function planImportRows(
           setIndex: null,
           reps: null,
           loadKg: null,
+          sourceUnit: null,
           bodyWeightKg: null,
           rir: null,
           notes: cell(row, mapping.columns.notes) || null,
         };
       }
+      const unitChoice = resolveMappedUnit(row, mapping, mapping.body_weight_unit);
+      if ('error' in unitChoice) return emptyPlanned(rowNo, unitChoice.error, date);
       return {
         rowNo,
         status: 'ready',
@@ -143,7 +166,8 @@ export function planImportRows(
         setIndex: null,
         reps: null,
         loadKg: null,
-        bodyWeightKg: Math.round(convertToKg(parsed, mapping.body_weight_unit) * 100) / 100,
+        sourceUnit: unitChoice.unit,
+        bodyWeightKg: Math.round(convertToKg(parsed, unitChoice.unit) * 100) / 100,
         rir: null,
         notes: cell(row, mapping.columns.notes) || null,
       };
@@ -165,10 +189,15 @@ export function planImportRows(
     }
     const rawLoad = mapping.columns.exercise_load == null ? '' : cell(row, mapping.columns.exercise_load);
     let loadKg: number | null = null;
+    let parsedLoad: number | null = null;
     if (!blank(rawLoad)) {
-      const parsed = parseNumberCell(rawLoad);
-      if (parsed == null || parsed < 0 || parsed > 2000) return emptyPlanned(rowNo, formulaOrInvalid(rawLoad), date);
-      loadKg = Math.round(convertToKg(parsed, mapping.load_unit) * 100) / 100;
+      parsedLoad = parseNumberCell(rawLoad);
+      if (parsedLoad == null || parsedLoad < 0 || parsedLoad > 2000) return emptyPlanned(rowNo, formulaOrInvalid(rawLoad), date);
+    }
+    const unitChoice = resolveMappedUnit(row, mapping, mapping.load_unit);
+    if ('error' in unitChoice) return emptyPlanned(rowNo, unitChoice.error, date);
+    if (parsedLoad != null) {
+      loadKg = Math.round(convertToKg(parsedLoad, unitChoice.unit) * 100) / 100;
     }
     const rawSet = mapping.columns.set_index == null ? '' : cell(row, mapping.columns.set_index);
     let setIndex: number | null = null;
@@ -188,10 +217,14 @@ export function planImportRows(
       if (looksLikeFormula(rawRpe.trim())) return emptyPlanned(rowNo, 'formula_rejected', date);
       const rpe = parseNumberCell(rawRpe);
       if (rpe == null || rpe < 1 || rpe > 10) return emptyPlanned(rowNo, 'invalid_number', date);
-      if (mapping.rpe_mode === 'convert_to_rir') {
-        rir = Math.max(0, Math.round(10 - rpe));
-      } else {
+      if (mapping.rpe_mode === 'notes') {
         notes = [notes, `RPE ${rpe}`].filter(Boolean).join(' · ');
+      } else if (rir != null && mapping.effort_source !== 'rir' && mapping.effort_source !== 'rpe') {
+        return emptyPlanned(rowNo, 'rir_rpe_conflict', date);
+      } else if ((mapping.effort_source ?? 'rpe') === 'rir' && rir != null) {
+        notes = [notes, `RPE ${rpe}`].filter(Boolean).join(' · ');
+      } else {
+        rir = Math.max(0, Math.round(10 - rpe));
       }
     }
     return {
@@ -204,6 +237,7 @@ export function planImportRows(
       setIndex,
       reps,
       loadKg,
+      sourceUnit: loadKg == null ? null : unitChoice.unit,
       bodyWeightKg: null,
       rir,
       notes: notes || null,

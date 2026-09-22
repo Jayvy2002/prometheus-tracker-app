@@ -29,12 +29,35 @@ function stripBom(text: string): string {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
 }
 
+function countOutsideQuotes(sample: string, delimiter: string): number {
+  let count = 0;
+  let inQuotes = false;
+  for (let i = 0; i < sample.length; i += 1) {
+    const ch = sample[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (sample[i + 1] === '"') {
+          i += 1;
+          continue;
+        }
+        inQuotes = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      continue;
+    }
+    if (ch === delimiter) count += 1;
+  }
+  return count;
+}
+
 function detectDelimiter(sample: string): ',' | ';' | '\t' {
-  const line = sample.split(/\r?\n/, 1)[0] ?? '';
   const counts: Array<{ d: ',' | ';' | '\t'; n: number }> = [
-    { d: ',', n: (line.match(/,/g) ?? []).length },
-    { d: ';', n: (line.match(/;/g) ?? []).length },
-    { d: '\t', n: (line.match(/\t/g) ?? []).length },
+    { d: ',', n: countOutsideQuotes(sample, ',') },
+    { d: ';', n: countOutsideQuotes(sample, ';') },
+    { d: '\t', n: countOutsideQuotes(sample, '\t') },
   ];
   counts.sort((a, b) => b.n - a.n);
   return counts[0].n > 0 ? counts[0].d : ',';

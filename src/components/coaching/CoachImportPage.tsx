@@ -10,7 +10,7 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import { commitCoachImport, getCoachImport, previewCoachImport, type CoachImportView } from '../../features/imports/api/coachImportApi';
+import { cancelCoachImport, commitCoachImport, getCoachImport, previewCoachImport, type CoachImportView } from '../../features/imports/api/coachImportApi';
 import {
   COLUMN_ROLES,
   detectColumns,
@@ -20,6 +20,7 @@ import {
   unresolvedDuplicateHeaders,
   type ColumnRole,
   type DateFormat,
+  type EffortSource,
   type ImportKind,
   type ImportMapping,
   type MeasureUnit,
@@ -70,8 +71,6 @@ export default function CoachImportPage() {
   }, [requested, user]);
 
   const detections = useMemo(() => (parsed ? detectColumns(parsed.headers) : []), [parsed]);
-  const ambiguities = mapping && parsed ? unresolvedAmbiguities(detections, mapping) : [];
-  const issues = mapping && parsed ? mappingIssues(mapping, parsed.headers.length, detections) : [];
   const duplicateHeaders = mapping ? unresolvedDuplicateHeaders(detections, mapping) : [];
   const localPreview = parsed && mapping ? planImportRows(parsed.rows, mapping, detections) : null;
   const ownedClients = clients.filter((client) => (
@@ -139,19 +138,23 @@ export default function CoachImportPage() {
     }
   };
 
-  const runPreview = async () => {
-    if (!parsed || !mapping || !subjectId) return;
-    if (ambiguities.length || issues.length) {
+  const runPreview = async (nextMapping?: ImportMapping) => {
+    const activeMapping = nextMapping ?? mapping;
+    if (!parsed || !activeMapping || !subjectId) return;
+    const activeIssues = mappingIssues(activeMapping, parsed.headers.length, detections);
+    const activeAmbiguities = unresolvedAmbiguities(detections, activeMapping);
+    if (activeAmbiguities.length || activeIssues.length) {
       setLocalError(t('coaching.importCsv.fixBeforePreview'));
       return;
     }
+    if (nextMapping) setMapping(nextMapping);
     setBusy(true);
     setLocalError(null);
     const result = await previewCoachImport({
       subjectUserId: subjectId,
       filename,
       sourceText,
-      mapping,
+      mapping: activeMapping,
       idempotencyKey,
     });
     setBusy(false);
@@ -175,6 +178,41 @@ export default function CoachImportPage() {
       return;
     }
     setServerView(result.data);
+  };
+
+  const runCancel = async () => {
+    if (!serverView) return;
+    setBusy(true);
+    setLocalError(null);
+    const result = await cancelCoachImport(serverView.import_id);
+    setBusy(false);
+    if (result.error) {
+      setLocalError(t(importErrorI18nKey(result.error)));
+      return;
+    }
+    resetFile();
+  };
+
+  const onDelimiter = (delimiter: ImportMapping['delimiter']) => {
+    if (!mapping || !sourceText) return;
+    try {
+      const next = parseCsvText(sourceText, delimiter);
+      const proposed = proposeMapping(kind, detectColumns(next.headers), delimiter);
+      setParsed(next);
+      setMapping({
+        ...proposed,
+        date_format: mapping.date_format,
+        load_unit: mapping.load_unit,
+        body_weight_unit: mapping.body_weight_unit,
+        rpe_mode: mapping.rpe_mode,
+        effort_source: null,
+        acknowledge_duplicates: false,
+      });
+      setServerView(null);
+    } catch (err) {
+      const code = err instanceof CsvParseError ? err.code : 'malformed_csv';
+      setLocalError(t(importErrorI18nKey(code)));
+    }
   };
 
   const runCommit = async () => {
@@ -348,6 +386,18 @@ export default function CoachImportPage() {
                 </label>
               ))}
             </section>
+            <label className="text-xs text-neutral-400 block">
+              {t('coaching.importCsv.delimiter')}
+              <select
+                className="mt-1 w-full min-h-11 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+                value={mapping.delimiter}
+                onChange={(event) => onDelimiter(event.target.value as ImportMapping['delimiter'])}
+              >
+                <option value=",">{t('coaching.importCsv.delimiters.comma')}</option>
+                <option value=";">{t('coaching.importCsv.delimiters.semicolon')}</option>
+                <option value={'\t'}>{t('coaching.importCsv.delimiters.tab')}</option>
+              </select>
+            </label>
             <div className="grid grid-cols-2 gap-2">
               <label className="text-xs text-neutral-400">
                 {t('coaching.importCsv.dateFormat')}
@@ -376,6 +426,9 @@ export default function CoachImportPage() {
                   <option value="kg">kg</option>
                   <option value="lb">lb</option>
                 </select>
+                {mapping.columns.unit != null ? (
+                  <span className="block mt-1 text-neutral-500">{t('coaching.importCsv.unitColumnHint')}</span>
+                ) : null}
               </label>
             </div>
             {kind === 'workout' ? (
@@ -391,6 +444,28 @@ export default function CoachImportPage() {
                 </select>
               </label>
             ) : null}
+            {kind === 'workout' && mapping.rpe_mode === 'convert_to_rir' && mapping.columns.rir != null && mapping.columns.rpe != null ? (
+              <label className="text-xs text-neutral-400 block">
+                {t('coaching.importCsv.effortSource')}
+                <select
+                  className="mt-1 w-full min-h-11 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+                  value={mapping.effort_source ?? ''}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setMapping({
+                      ...mapping,
+                      effort_source: value === 'rir' || value === 'rpe' ? value as EffortSource : null,
+                    });
+                    setServerView(null);
+                  }}
+                >
+                  <option value="">{t('coaching.importCsv.chooseMeaning')}</option>
+                  <option value="rir">{t('coaching.importCsv.effortRir')}</option>
+                  <option value="rpe">{t('coaching.importCsv.effortRpe')}</option>
+                </select>
+              </label>
+            ) : null}
+            <p className="text-xs text-neutral-500">{t('coaching.importCsv.previewRetention')}</p>
             {localPreview ? (
               <p className="text-sm text-neutral-400">
                 {t('coaching.importCsv.localCounts', {
@@ -408,6 +483,17 @@ export default function CoachImportPage() {
 
         {step === 'preview' && serverView ? (
           <div className="space-y-4">
+            {serverView.potential_duplicates.length > 0 ? (
+              <Card>
+                <p className="text-sm text-amber-200">{t('coaching.importCsv.potentialDuplicate')}</p>
+                <p className="text-xs text-neutral-500 mt-1">{t('coaching.importCsv.potentialDuplicateHint')}</p>
+                <ul className="mt-2 space-y-1">
+                  {serverView.potential_duplicates.map((dup) => (
+                    <li key={dup.workout_id} className="text-sm text-neutral-200">{dup.date} · {dup.name}</li>
+                  ))}
+                </ul>
+              </Card>
+            ) : null}
             <Card>
               <p className="text-sm text-white">{t('coaching.importCsv.exactPlan')}</p>
               <p className="text-sm text-neutral-400 mt-1">
@@ -453,7 +539,23 @@ export default function CoachImportPage() {
                 </Button>
               ) : null}
               <Button variant="secondary" onClick={() => setStep('map')}>{t('coaching.importCsv.correct')}</Button>
-              <Button onClick={() => void runCommit()} loading={busy} disabled={serverView.ready_count < 1}>
+              {serverView.issues.includes('potential_duplicate') && mapping ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => void runPreview({ ...mapping, acknowledge_duplicates: true })}
+                  loading={busy}
+                >
+                  {t('coaching.importCsv.acknowledgeDuplicates')}
+                </Button>
+              ) : null}
+              <Button variant="secondary" onClick={() => void runCancel()} loading={busy}>
+                {t('coaching.importCsv.cancelPreview')}
+              </Button>
+              <Button
+                onClick={() => void runCommit()}
+                loading={busy}
+                disabled={serverView.ready_count < 1 || serverView.issues.includes('potential_duplicate')}
+              >
                 {t('coaching.importCsv.confirm')}
               </Button>
             </div>

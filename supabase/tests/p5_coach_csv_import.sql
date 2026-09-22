@@ -52,7 +52,9 @@ INSERT INTO public.coach_client_links(coach_id, client_id, status) VALUES
 DO $$ BEGIN
   IF NOT has_function_privilege('authenticated', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
      OR NOT has_function_privilege('authenticated', 'public.commit_coach_import(uuid,text,jsonb)', 'execute')
+     OR NOT has_function_privilege('authenticated', 'public.cancel_coach_import(uuid)', 'execute')
      OR has_function_privilege('authenticated', 'public.lock_coach_import(uuid)', 'execute')
+     OR has_function_privilege('authenticated', 'public.coach_import_expire_previews(uuid)', 'execute')
      OR has_function_privilege('anon', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
      OR has_table_privilege('authenticated', 'public.coach_imports', 'insert')
   THEN
@@ -677,6 +679,288 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM <> 'not_found' THEN RAISE; END IF;
   END;
+END $$;
+
+RESET ROLE;
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000003');
+
+DO $$
+DECLARE
+  v jsonb;
+  row jsonb;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1,"exercise_load":2,"unit":3},"ignored":[]}'::jsonb;
+  v_csv text := E'Date,Exercise,Weight,Unit\n2026-09-15,Bench,225,lb\n2026-09-15,Squat,100,\n2026-09-15,Row,10,stone\n';
+BEGIN
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'unit.csv', v_csv, v_map, 'unit-column'
+  );
+  SELECT e INTO row FROM jsonb_array_elements(v->'rows') e WHERE (e->>'row_no')::int = 1;
+  IF (row->'planned'->>'load_kg')::numeric IS DISTINCT FROM 102.06
+     OR row->'planned'->>'source_unit' IS DISTINCT FROM 'lb' THEN
+    RAISE EXCEPTION 'unit column ignored %', row;
+  END IF;
+  SELECT e INTO row FROM jsonb_array_elements(v->'rows') e WHERE (e->>'row_no')::int = 2;
+  IF (row->'planned'->>'load_kg')::numeric IS DISTINCT FROM 100
+     OR row->'planned'->>'source_unit' IS DISTINCT FROM 'kg' THEN
+    RAISE EXCEPTION 'blank unit did not use kg %', row;
+  END IF;
+  SELECT e INTO row FROM jsonb_array_elements(v->'rows') e WHERE (e->>'row_no')::int = 3;
+  IF row->>'error_code' IS DISTINCT FROM 'invalid_unit' THEN
+    RAISE EXCEPTION 'invalid unit accepted %', row;
+  END IF;
+  IF (v->>'ready_count')::int <> 2 THEN RAISE EXCEPTION 'unit file ready %', v->>'ready_count'; END IF;
+END $$;
+
+DO $$
+DECLARE
+  v jsonb;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"convert_to_rir","columns":{"date":0,"exercise":1,"rir":2,"rpe":3},"ignored":[]}'::jsonb;
+  v_csv text := E'Date,Exercise,RIR,RPE\n2026-09-16,Bench,3,8\n';
+BEGIN
+  BEGIN
+    PERFORM public.preview_coach_import(
+      'c5100000-0000-4000-8000-000000000004', 'effort.csv', v_csv, v_map, 'effort-missing'
+    );
+    RAISE EXCEPTION 'rir and rpe converted without a choice';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'rir_rpe_conflict' THEN RAISE; END IF;
+  END;
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'effort.csv', v_csv,
+    jsonb_set(v_map, '{effort_source}', '"rir"'), 'effort-rir'
+  );
+  IF (v->'rows'->0->'planned'->>'rir')::int IS DISTINCT FROM 3
+     OR position('RPE 8' IN coalesce(v->'rows'->0->'planned'->>'notes', '')) = 0 THEN
+    RAISE EXCEPTION 'explicit RIR was replaced %', v->'rows'->0;
+  END IF;
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'effort-rpe.csv', v_csv,
+    jsonb_set(v_map, '{effort_source}', '"rpe"'), 'effort-rpe'
+  );
+  IF (v->'rows'->0->'planned'->>'rir')::int IS DISTINCT FROM 2 THEN
+    RAISE EXCEPTION 'chosen RPE was not converted %', v->'rows'->0;
+  END IF;
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'effort-notes.csv', v_csv,
+    jsonb_set(v_map, '{rpe_mode}', '"notes"'), 'effort-notes'
+  );
+  IF (v->'rows'->0->'planned'->>'rir')::int IS DISTINCT FROM 3
+     OR position('RPE 8' IN coalesce(v->'rows'->0->'planned'->>'notes', '')) = 0 THEN
+    RAISE EXCEPTION 'notes mode dropped RIR or RPE %', v->'rows'->0;
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v jsonb;
+  n int;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1,"reps":2},"ignored":[]}'::jsonb;
+  v_file text := E'Date,Exercise,Reps\n2026-10-01,Bench,5\n';
+  v_overlap text := E'Date,Exercise,Reps\n2026-10-01,Bench,8\n';
+  v_other text := E'Date,Session,Exercise,Reps\n2026-10-01,Evening,Row,6\n';
+  v_other_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"session_name":1,"exercise":2,"reps":3},"ignored":[]}'::jsonb;
+  v_acked jsonb;
+BEGIN
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'source-a.csv', v_file, v_map, 'source-a'
+  );
+  v := public.commit_coach_import((v->>'import_id')::uuid, v->>'file_sha256', v_map);
+  IF v->>'status' <> 'committed' THEN RAISE EXCEPTION 'first source commit %', v->>'status'; END IF;
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'source-a.csv', v_file, v_map, 'source-a-again'
+  );
+  IF v->>'status' <> 'committed' THEN
+    RAISE EXCEPTION 'same source opened another preview %', v->>'status';
+  END IF;
+  BEGIN
+    PERFORM public.preview_coach_import(
+      'c5100000-0000-4000-8000-000000000004', 'source-a.csv', v_file,
+      jsonb_set(v_map, '{ignored}', '[9]'), 'source-a-remap'
+    );
+    RAISE EXCEPTION 'committed source accepted another mapping';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'already_imported' THEN RAISE; END IF;
+  END;
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'source-b.csv', v_overlap, v_map, 'source-b'
+  );
+  IF NOT (v->'issues' ? 'potential_duplicate') THEN
+    RAISE EXCEPTION 'overlap was silent %', v->'issues';
+  END IF;
+  BEGIN
+    PERFORM public.commit_coach_import((v->>'import_id')::uuid, v->>'file_sha256', v_map);
+    RAISE EXCEPTION 'overlap committed without confirmation';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'potential_duplicate' THEN RAISE; END IF;
+  END;
+  SELECT count(*) INTO n FROM public.workouts
+  WHERE user_id = 'c5100000-0000-4000-8000-000000000004';
+  IF n <> 1 THEN RAISE EXCEPTION 'unacked overlap wrote workouts %', n; END IF;
+  v_acked := jsonb_set(v_map, '{acknowledge_duplicates}', 'true');
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'source-b.csv', v_overlap, v_acked, 'source-b'
+  );
+  IF v->'issues' ? 'potential_duplicate' THEN
+    RAISE EXCEPTION 'acknowledgement still blocked %', v->'issues';
+  END IF;
+  IF jsonb_array_length(v->'potential_duplicates') < 1 THEN
+    RAISE EXCEPTION 'acknowledgement hid the existing session';
+  END IF;
+  v := public.commit_coach_import((v->>'import_id')::uuid, v->>'file_sha256', v_acked);
+  IF v->>'status' <> 'committed' THEN RAISE EXCEPTION 'acked overlap status %', v->>'status'; END IF;
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000004', 'source-c.csv', v_other, v_other_map, 'source-c'
+  );
+  IF v->'issues' ? 'potential_duplicate' THEN
+    RAISE EXCEPTION 'distinct same-day session flagged %', v->'issues';
+  END IF;
+  PERFORM public.commit_coach_import((v->>'import_id')::uuid, v->>'file_sha256', v_other_map);
+  SELECT count(*) INTO n FROM public.workouts
+  WHERE user_id = 'c5100000-0000-4000-8000-000000000004';
+  IF n <> 3 THEN RAISE EXCEPTION 'session count %', n; END IF;
+  INSERT INTO p51_hold(import_id, sha, map) VALUES (NULL, 'source-a-body', to_jsonb(v_file));
+END $$;
+
+RESET ROLE;
+UPDATE public.coach_client_links
+   SET status = 'ended'
+ WHERE coach_id = 'c5100000-0000-4000-8000-000000000003'
+   AND client_id = 'c5100000-0000-4000-8000-000000000004';
+INSERT INTO public.coach_client_links(coach_id, client_id, status)
+VALUES ('c5100000-0000-4000-8000-000000000001', 'c5100000-0000-4000-8000-000000000004', 'active');
+
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000001');
+DO $$
+DECLARE
+  v_file text;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1,"reps":2},"ignored":[]}'::jsonb;
+  n int;
+BEGIN
+  SELECT map #>> '{}' INTO v_file FROM p51_hold WHERE sha = 'source-a-body';
+  BEGIN
+    PERFORM public.preview_coach_import(
+      'c5100000-0000-4000-8000-000000000004', 'source-a.csv', v_file, v_map, 'source-a-new-coach'
+    );
+    RAISE EXCEPTION 'new coach reimported the same source';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'already_imported' THEN RAISE; END IF;
+  END;
+  SELECT count(*) INTO n FROM public.workouts
+  WHERE user_id = 'c5100000-0000-4000-8000-000000000004' AND name = '2026-10-01';
+  IF n <> 2 THEN RAISE EXCEPTION 'new coach changed workout count %', n; END IF;
+END $$;
+
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000003');
+DO $$
+DECLARE
+  v jsonb;
+  v_id uuid;
+  n int;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1},"ignored":[]}'::jsonb;
+BEGIN
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000003', 'cancel.csv',
+    E'Date,Exercise\n2026-11-01,Press\n', v_map, 'cancel-me'
+  );
+  v_id := (v->>'import_id')::uuid;
+  v := public.cancel_coach_import(v_id);
+  IF v->>'status' <> 'cancelled' THEN RAISE EXCEPTION 'cancel status %', v->>'status'; END IF;
+  SELECT count(*) INTO n FROM public.coach_import_rows WHERE import_id = v_id;
+  IF n <> 0 THEN RAISE EXCEPTION 'cancel kept raw rows %', n; END IF;
+  INSERT INTO p51_hold(import_id, sha, map) VALUES (v_id, 'cancel-marker', '{}'::jsonb);
+END $$;
+
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000001');
+DO $$
+DECLARE
+  v_id uuid;
+BEGIN
+  SELECT import_id INTO v_id FROM p51_hold WHERE sha = 'cancel-marker';
+  BEGIN
+    PERFORM public.cancel_coach_import(v_id);
+    RAISE EXCEPTION 'other coach cancelled the preview';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'not_found' THEN RAISE; END IF;
+  END;
+END $$;
+
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000003');
+DO $$
+DECLARE
+  v jsonb;
+  v_id uuid;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1},"ignored":[]}'::jsonb;
+BEGIN
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000003', 'stale.csv',
+    E'Date,Exercise\n2026-11-02,Press\n', v_map, 'stale-preview'
+  );
+  INSERT INTO p51_hold(import_id, sha, map)
+  VALUES ((v->>'import_id')::uuid, 'stale-marker', '{}'::jsonb);
+END $$;
+
+RESET ROLE;
+UPDATE public.coach_imports
+   SET created_at = clock_timestamp() - interval '8 days'
+ WHERE id = (SELECT import_id FROM p51_hold WHERE sha = 'stale-marker');
+
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000003');
+DO $$
+DECLARE
+  v_id uuid;
+  n int;
+  v_status text;
+BEGIN
+  SELECT import_id INTO v_id FROM p51_hold WHERE sha = 'stale-marker';
+  PERFORM public.list_coach_imports();
+  SELECT status INTO v_status FROM public.coach_imports WHERE id = v_id;
+  SELECT count(*) INTO n FROM public.coach_import_rows WHERE import_id = v_id;
+  IF v_status IS DISTINCT FROM 'cancelled' OR n <> 0 THEN
+    RAISE EXCEPTION 'stale preview status % rows %', v_status, n;
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  i int;
+  v_hit boolean := false;
+  v_id uuid;
+  v jsonb;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1},"ignored":[]}'::jsonb;
+BEGIN
+  FOR i IN 1..25 LOOP
+    BEGIN
+      PERFORM public.preview_coach_import(
+        'c5100000-0000-4000-8000-000000000003',
+        'quota-' || i::text || '.csv',
+        'Date,Exercise' || E'\n' || '2026-12-01,Quota' || i::text,
+        v_map,
+        'quota-' || i::text
+      );
+    EXCEPTION WHEN OTHERS THEN
+      IF SQLERRM = 'preview_quota' THEN
+        v_hit := true;
+        EXIT;
+      END IF;
+      RAISE;
+    END;
+  END LOOP;
+  IF NOT v_hit THEN RAISE EXCEPTION 'preview quota was not enforced'; END IF;
+  SELECT id INTO v_id FROM public.coach_imports
+  WHERE coach_id = auth.uid() AND status = 'previewed'
+  ORDER BY created_at DESC
+  LIMIT 1;
+  PERFORM public.cancel_coach_import(v_id);
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000003', 'quota-after.csv',
+    E'Date,Exercise\n2026-12-02,AfterQuota\n', v_map, 'quota-after'
+  );
+  IF v->>'status' IS DISTINCT FROM 'previewed' THEN
+    RAISE EXCEPTION 'quota did not free a slot %', v->>'status';
+  END IF;
 END $$;
 
 RESET ROLE;

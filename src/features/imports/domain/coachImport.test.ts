@@ -38,6 +38,8 @@ test('Weight is ambiguous until the coach chooses load or body weight', () => {
 
 test('ambiguous dates stay unresolved on iso unless the format is chosen', () => {
   assert.equal(parseDateCell('01/02/2026', 'iso'), null);
+  assert.equal(parseDateCell('31/01/2026', 'iso'), null);
+  assert.equal(parseDateCell('31/01/2026', 'dmy'), '2026-01-31');
   assert.equal(parseDateCell('01/02/2026', 'dmy'), '2026-02-01');
   assert.equal(parseDateCell('01/02/2026', 'mdy'), '2026-01-02');
   assert.equal(parseDateCell('2026-01-02', 'iso'), '2026-01-02');
@@ -149,6 +151,56 @@ test('body-weight import converts lb and keeps a stable fingerprint', () => {
   assert.equal(createHash('sha256').update(csv.sourceText, 'utf8').digest('hex').length, 64);
 });
 
+test('a mapped unit column converts that row and a blank unit uses the chosen fallback', () => {
+  const csv = parseCsvText('Date,Exercise,Weight,Unit\n2026-09-01,Bench,225,lb\n2026-09-01,Squat,100,\n2026-09-01,Row,10,stone\n');
+  const detections = detectColumns(csv.headers);
+  const mapping = {
+    ...proposeMapping('workout', detections, ','),
+    load_unit: 'kg' as const,
+    columns: { date: 0, exercise: 1, exercise_load: 2, unit: 3 },
+    ignored: [] as number[],
+  };
+  assert.equal(mapping.columns.unit, 3);
+  const preview = planImportRows(csv.rows, mapping, detections);
+  assert.equal(preview.rows[0].status, 'ready');
+  assert.equal(preview.rows[0].loadKg, 102.06);
+  assert.equal(preview.rows[0].sourceUnit, 'lb');
+  assert.equal(preview.rows[1].loadKg, 100);
+  assert.equal(preview.rows[1].sourceUnit, 'kg');
+  assert.equal(preview.rows[2].errorCode, 'invalid_unit');
+});
+
+test('convert_to_rir does not replace an explicit RIR unless the coach chooses RPE', () => {
+  const csv = parseCsvText('Date,Exercise,RIR,RPE\n2026-09-02,Bench,3,8\n');
+  const detections = detectColumns(csv.headers);
+  const base = {
+    ...proposeMapping('workout', detections, ','),
+    rpe_mode: 'convert_to_rir' as const,
+    columns: { date: 0, exercise: 1, rir: 2, rpe: 3 },
+    ignored: [] as number[],
+  };
+  assert.ok(mappingIssues(base, detections.length, detections).includes('rir_rpe_conflict'));
+  const keepRir = planImportRows(csv.rows, { ...base, effort_source: 'rir' }, detections);
+  assert.equal(keepRir.rows[0].rir, 3);
+  assert.match(keepRir.rows[0].notes ?? '', /RPE 8/);
+  const useRpe = planImportRows(csv.rows, { ...base, effort_source: 'rpe' }, detections);
+  assert.equal(useRpe.rows[0].rir, 2);
+  const notesMode = planImportRows(csv.rows, { ...base, rpe_mode: 'notes', effort_source: null }, detections);
+  assert.equal(notesMode.rows[0].rir, 3);
+  assert.match(notesMode.rows[0].notes ?? '', /RPE 8/);
+});
+
+test('delimiter detection ignores separators inside quotes and an explicit delimiter overrides it', () => {
+  const text = 'Date;Exercise;Notes\n2026-01-01;Bench;"a, b, c, d, e, f"\n';
+  const detected = parseCsvText(text);
+  assert.equal(detected.delimiter, ';');
+  assert.equal(detected.headers.length, 3);
+  assert.equal(detected.rows[0][2], 'a, b, c, d, e, f');
+  const forced = parseCsvText(text, ',');
+  assert.equal(forced.delimiter, ',');
+  assert.notEqual(forced.headers.length, 3);
+});
+
 test('P5.1 is a server-committed pipeline, pending until apply, and stays off the mobile tabs', () => {
   const sql = src('supabase/migrations/20260922014500_p5_coach_csv_import.sql');
   assert.match(sql, /preview_coach_import/);
@@ -161,6 +213,12 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   assert.match(sql, /interval '12 hours'/);
   assert.match(sql, /ORDER BY min\(row_no\)/);
   assert.match(sql, /duplicate_header/);
+  assert.match(sql, /already_imported/);
+  assert.match(sql, /acknowledge_duplicates/);
+  assert.match(sql, /cancel_coach_import/);
+  assert.match(sql, /20014505/);
+  assert.match(sql, /interval '7 days'/);
+  assert.match(sql, />= 20/);
   assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'load_kg'\)/);
   assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'reps'\)/);
   assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'rir'\)/);

@@ -29,6 +29,15 @@ CREATE UNIQUE INDEX IF NOT EXISTS coach_imports_fingerprint_idx
   ON public.coach_imports (coach_id, subject_user_id, file_sha256, mapping_hash)
   WHERE status IN ('previewed', 'committed');
 
+-- Same file for the same athlete stays committed once, whichever Coach imported it.
+CREATE UNIQUE INDEX IF NOT EXISTS coach_imports_subject_source_idx
+  ON public.coach_imports (subject_user_id, file_sha256)
+  WHERE status = 'committed';
+
+CREATE INDEX IF NOT EXISTS coach_imports_open_preview_idx
+  ON public.coach_imports (coach_id, created_at)
+  WHERE status = 'previewed';
+
 CREATE TABLE IF NOT EXISTS public.coach_import_rows (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   import_id uuid NOT NULL REFERENCES public.coach_imports(id) ON DELETE CASCADE,
@@ -356,6 +365,32 @@ $$;
 
 REVOKE ALL ON FUNCTION public.coach_import_parse_uint(text) FROM PUBLIC, anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.coach_import_parse_unit(p_value text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v text := regexp_replace(
+    translate(lower(btrim(coalesce(p_value, ''))), 'éèêëàâäùûüôöîïç', 'eeeeaaauuuooiic'),
+    '[^a-z0-9]+',
+    '',
+    'g'
+  );
+BEGIN
+  IF v IN ('kg', 'kgs', 'kilogram', 'kilograms', 'kilo', 'kilogramme', 'kilogrammes') THEN
+    RETURN 'kg';
+  END IF;
+  IF v IN ('lb', 'lbs', 'pound', 'pounds', 'livre', 'livres') THEN
+    RETURN 'lb';
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_parse_unit(text) FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.coach_import_header_group(p_header text)
 RETURNS text
 LANGUAGE sql
@@ -467,6 +502,9 @@ DECLARE
   v_load_unit text := coalesce(p_mapping->>'load_unit', 'kg');
   v_bw_unit text := coalesce(p_mapping->>'body_weight_unit', 'kg');
   v_rpe_mode text := coalesce(p_mapping->>'rpe_mode', 'notes');
+  v_effort text := nullif(btrim(coalesce(p_mapping->>'effort_source', '')), '');
+  v_ack_text text := p_mapping->>'acknowledge_duplicates';
+  v_ack boolean := false;
   v_cols jsonb;
   v_ignored jsonb;
 BEGIN
@@ -475,6 +513,14 @@ BEGIN
   IF v_date_fmt NOT IN ('iso', 'dmy', 'mdy') THEN RAISE EXCEPTION 'invalid_mapping'; END IF;
   IF v_load_unit NOT IN ('kg', 'lb') OR v_bw_unit NOT IN ('kg', 'lb') THEN RAISE EXCEPTION 'invalid_mapping'; END IF;
   IF v_rpe_mode NOT IN ('notes', 'convert_to_rir') THEN RAISE EXCEPTION 'invalid_mapping'; END IF;
+  IF v_effort IS NOT NULL AND v_effort NOT IN ('rir', 'rpe') THEN RAISE EXCEPTION 'invalid_mapping'; END IF;
+  IF v_ack_text IS NULL OR btrim(v_ack_text) = '' THEN
+    v_ack := false;
+  ELSIF v_ack_text IN ('true', 'false') THEN
+    v_ack := v_ack_text::boolean;
+  ELSE
+    RAISE EXCEPTION 'invalid_mapping';
+  END IF;
   SELECT coalesce(jsonb_object_agg(q.key, q.value), '{}'::jsonb)
     INTO v_cols
   FROM (
@@ -509,6 +555,14 @@ BEGIN
   THEN
     RAISE EXCEPTION 'weight_role_conflict';
   END IF;
+  IF v_kind = 'workout'
+     AND v_rpe_mode = 'convert_to_rir'
+     AND (v_cols ? 'rir')
+     AND (v_cols ? 'rpe')
+     AND v_effort IS NULL
+  THEN
+    RAISE EXCEPTION 'rir_rpe_conflict';
+  END IF;
   RETURN jsonb_build_object(
     'kind', v_kind,
     'delimiter', v_delim,
@@ -516,6 +570,8 @@ BEGIN
     'load_unit', v_load_unit,
     'body_weight_unit', v_bw_unit,
     'rpe_mode', v_rpe_mode,
+    'effort_source', to_jsonb(v_effort),
+    'acknowledge_duplicates', v_ack,
     'columns', v_cols,
     'ignored', v_ignored
   );
@@ -549,6 +605,8 @@ DECLARE
   v_set integer;
   v_reps integer;
   v_derive boolean := false;
+  v_unit text;
+  v_unit_raw text;
   idx integer;
   token text;
 BEGIN
@@ -589,7 +647,18 @@ BEGIN
         'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_number' END
       );
     END IF;
-    IF p_mapping->>'body_weight_unit' = 'lb' THEN
+    v_unit := p_mapping->>'body_weight_unit';
+    v_unit_raw := public.coach_import_cell(p_cells, v_cols, 'unit');
+    IF v_unit_raw IS NOT NULL AND btrim(v_unit_raw) <> '' THEN
+      IF public.coach_import_is_formula(v_unit_raw) THEN
+        RETURN jsonb_build_object('status', 'error', 'error_code', 'formula_rejected', 'date', v_date);
+      END IF;
+      v_unit := public.coach_import_parse_unit(v_unit_raw);
+      IF v_unit IS NULL THEN
+        RETURN jsonb_build_object('status', 'error', 'error_code', 'invalid_unit', 'date', v_date);
+      END IF;
+    END IF;
+    IF v_unit = 'lb' THEN
       v_num := round(v_num * 0.45359237, 2);
     END IF;
     RETURN jsonb_build_object(
@@ -597,6 +666,7 @@ BEGIN
       'error_code', null,
       'date', v_date,
       'body_weight_kg', v_num,
+      'source_unit', v_unit,
       'notes', v_notes
     );
   END IF;
@@ -634,9 +704,20 @@ BEGIN
         'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_number' END
       );
     END IF;
-    IF p_mapping->>'load_unit' = 'lb' THEN
-      v_load := round(v_load * 0.45359237, 2);
+  END IF;
+  v_unit := p_mapping->>'load_unit';
+  v_unit_raw := public.coach_import_cell(p_cells, v_cols, 'unit');
+  IF v_unit_raw IS NOT NULL AND btrim(v_unit_raw) <> '' THEN
+    IF public.coach_import_is_formula(v_unit_raw) THEN
+      RETURN jsonb_build_object('status', 'error', 'error_code', 'formula_rejected', 'date', v_date);
     END IF;
+    v_unit := public.coach_import_parse_unit(v_unit_raw);
+    IF v_unit IS NULL THEN
+      RETURN jsonb_build_object('status', 'error', 'error_code', 'invalid_unit', 'date', v_date);
+    END IF;
+  END IF;
+  IF v_load IS NOT NULL AND v_unit = 'lb' THEN
+    v_load := round(v_load * 0.45359237, 2);
   END IF;
   v_raw := public.coach_import_cell(p_cells, v_cols, 'set_index');
   IF v_raw IS NULL OR btrim(v_raw) = '' THEN
@@ -669,10 +750,14 @@ BEGIN
     IF v_rpe IS NULL OR v_rpe < 1 OR v_rpe > 10 THEN
       RETURN jsonb_build_object('status', 'error', 'error_code', 'invalid_number', 'date', v_date);
     END IF;
-    IF p_mapping->>'rpe_mode' = 'convert_to_rir' THEN
-      v_rir := greatest(0, round(10 - v_rpe))::int;
-    ELSE
+    IF p_mapping->>'rpe_mode' = 'notes' THEN
       v_notes := nullif(concat_ws(' · ', v_notes, 'RPE ' || v_rpe::text), '');
+    ELSIF v_rir IS NOT NULL AND nullif(p_mapping->>'effort_source', '') IS NULL THEN
+      RETURN jsonb_build_object('status', 'error', 'error_code', 'rir_rpe_conflict', 'date', v_date);
+    ELSIF coalesce(nullif(p_mapping->>'effort_source', ''), 'rpe') = 'rir' AND v_rir IS NOT NULL THEN
+      v_notes := nullif(concat_ws(' · ', v_notes, 'RPE ' || v_rpe::text), '');
+    ELSE
+      v_rir := greatest(0, round(10 - v_rpe))::int;
     END IF;
   END IF;
   RETURN jsonb_build_object(
@@ -685,6 +770,7 @@ BEGIN
     'derive_set', v_derive,
     'reps', v_reps,
     'load_kg', v_load,
+    'source_unit', CASE WHEN v_load IS NULL THEN NULL ELSE v_unit END,
     'rir', v_rir,
     'notes', v_notes
   );
@@ -774,6 +860,109 @@ $$;
 
 REVOKE ALL ON FUNCTION public.coach_import_lock_active_link(uuid, uuid) FROM PUBLIC, anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.lock_coach_import_quota(p_coach uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF p_coach IS NULL THEN RETURN; END IF;
+  PERFORM pg_advisory_xact_lock(20014505, pg_catalog.hashtext(p_coach::text));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.lock_coach_import_quota(uuid) FROM PUBLIC, anon, authenticated;
+
+-- Drops raw rows of previews older than 7 days. Committed provenance is kept.
+CREATE OR REPLACE FUNCTION public.coach_import_expire_previews(p_coach uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_id uuid;
+  v_row public.coach_imports;
+BEGIN
+  IF p_coach IS NULL THEN RETURN; END IF;
+  FOR v_id IN
+    SELECT i.id
+    FROM public.coach_imports i
+    WHERE i.coach_id = p_coach
+      AND i.status = 'previewed'
+      AND i.created_at < clock_timestamp() - interval '7 days'
+    ORDER BY i.id
+  LOOP
+    PERFORM public.lock_coach_import(v_id);
+    SELECT * INTO v_row FROM public.coach_imports WHERE id = v_id FOR UPDATE;
+    IF NOT FOUND
+       OR v_row.status <> 'previewed'
+       OR v_row.created_at >= clock_timestamp() - interval '7 days' THEN
+      CONTINUE;
+    END IF;
+    DELETE FROM public.coach_import_rows WHERE import_id = v_id;
+    UPDATE public.coach_imports
+       SET status = 'cancelled',
+           source_headers = '[]'::jsonb,
+           row_count = 0,
+           ready_count = 0,
+           ignored_count = 0,
+           error_count = 0
+     WHERE id = v_id;
+  END LOOP;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_expire_previews(uuid) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_duplicate_report(p_import public.coach_imports)
+RETURNS jsonb
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT coalesce((
+    SELECT jsonb_agg(jsonb_build_object(
+      'workout_id', q.id,
+      'name', q.name,
+      'date', q.civil
+    ) ORDER BY q.civil, q.name)
+    FROM (
+      SELECT DISTINCT w.id, w.name, (w.date AT TIME ZONE 'UTC')::date AS civil
+      FROM public.workouts w
+      WHERE p_import.kind = 'workout'
+        AND w.user_id = p_import.subject_user_id
+        AND NOT EXISTS (
+          SELECT 1 FROM public.coach_import_rows own
+          WHERE own.import_id = p_import.id
+            AND own.applied_workout_id = w.id
+        )
+        AND EXISTS (
+          SELECT 1
+          FROM public.coach_import_rows r
+          WHERE r.import_id = p_import.id
+            AND r.status IN ('ready', 'applied')
+            AND (r.planned->>'date')::date = (w.date AT TIME ZONE 'UTC')::date
+            AND (
+              lower(btrim(w.name)) = lower(btrim(coalesce(
+                nullif(btrim(r.planned->>'session_name'), ''),
+                to_char((r.planned->>'date')::date, 'YYYY-MM-DD')
+              )))
+              OR EXISTS (
+                SELECT 1 FROM public.workout_exercises e
+                WHERE e.workout_id = w.id
+                  AND lower(btrim(e.name)) = lower(btrim(r.planned->>'exercise'))
+              )
+            )
+        )
+    ) q
+  ), '[]'::jsonb);
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_duplicate_report(public.coach_imports) FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.coach_import_view(
   p_import public.coach_imports,
   p_offset integer DEFAULT 0,
@@ -789,7 +978,11 @@ AS $$
 DECLARE
   v_offset integer := greatest(coalesce(p_offset, 0), 0);
   v_limit integer := least(greatest(coalesce(p_limit, 50), 0), 200);
+  v_dups jsonb := '[]'::jsonb;
 BEGIN
+  IF p_import.kind = 'workout' THEN
+    v_dups := public.coach_import_duplicate_report(p_import);
+  END IF;
   RETURN jsonb_build_object(
     'import_id', p_import.id,
     'status', p_import.status,
@@ -804,10 +997,19 @@ BEGIN
     'row_offset', v_offset,
     'row_limit', v_limit,
     'errors_only', coalesce(p_errors_only, false),
+    'potential_duplicates', v_dups,
     'issues', coalesce((
-      SELECT jsonb_agg(DISTINCT r.error_code)
-      FROM public.coach_import_rows r
-      WHERE r.import_id = p_import.id AND r.error_code IS NOT NULL
+      SELECT jsonb_agg(DISTINCT s.code)
+      FROM (
+        SELECT r.error_code AS code
+        FROM public.coach_import_rows r
+        WHERE r.import_id = p_import.id AND r.error_code IS NOT NULL
+        UNION ALL
+        SELECT 'potential_duplicate'::text
+        WHERE v_dups <> '[]'::jsonb
+          AND coalesce((p_import.mapping->>'acknowledge_duplicates')::boolean, false) = false
+      ) s
+      WHERE s.code IS NOT NULL
     ), '[]'::jsonb),
     'rows', coalesce((
       SELECT jsonb_agg(jsonb_build_object(
@@ -927,6 +1129,7 @@ DECLARE
   v_found uuid;
   v_new_id uuid;
   v_have boolean := false;
+  v_self uuid := NULL;
   v_key text := btrim(p_idempotency_key);
 BEGIN
   v_uid := public.coach_import_assert_actor(p_subject_user_id);
@@ -939,6 +1142,7 @@ BEGIN
   v_mapping := public.coach_import_normalized_mapping(p_mapping);
   v_hash := public.coach_import_sha256(p_source_text);
   v_map_hash := public.coach_import_sha256(v_mapping::text);
+  PERFORM public.coach_import_expire_previews(v_uid);
 
   SELECT id INTO v_found
   FROM public.coach_imports
@@ -955,13 +1159,30 @@ BEGIN
         RETURN public.coach_import_view(v_existing);
       END IF;
       RAISE EXCEPTION 'import_conflict';
-    ELSIF v_existing.file_sha256 IS DISTINCT FROM v_hash THEN
+    ELSIF v_existing.status = 'previewed' AND v_existing.file_sha256 IS DISTINCT FROM v_hash THEN
       RAISE EXCEPTION 'file_changed';
     ELSE
       DELETE FROM public.coach_import_rows WHERE import_id = v_existing.id;
       v_import := v_existing;
       v_have := true;
     END IF;
+  END IF;
+
+  IF v_have THEN
+    v_self := v_import.id;
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.coach_imports committed
+    WHERE committed.subject_user_id = p_subject_user_id
+      AND committed.file_sha256 = v_hash
+      AND committed.status = 'committed'
+      AND committed.id IS DISTINCT FROM v_self
+      AND NOT (
+        committed.coach_id = v_uid
+        AND committed.mapping_hash = v_map_hash
+      )
+  ) THEN
+    RAISE EXCEPTION 'already_imported';
   END IF;
 
   IF NOT v_have THEN
@@ -982,6 +1203,13 @@ BEGIN
          AND v_existing.status IN ('previewed', 'committed') THEN
         RETURN public.coach_import_view(v_existing);
       END IF;
+    END IF;
+    PERFORM public.lock_coach_import_quota(v_uid);
+    IF (
+      SELECT count(*) FROM public.coach_imports
+      WHERE coach_id = v_uid AND status = 'previewed'
+    ) >= 20 THEN
+      RAISE EXCEPTION 'preview_quota';
     END IF;
     v_new_id := gen_random_uuid();
     PERFORM public.lock_coach_import(v_new_id);
@@ -1044,6 +1272,10 @@ BEGIN
          kind = v_mapping->>'kind',
          source_headers = to_jsonb(coalesce(v_headers, ARRAY[]::text[])),
          status = 'previewed',
+         created_at = CASE
+           WHEN v_import.status IN ('cancelled', 'failed') THEN clock_timestamp()
+           ELSE created_at
+         END,
          row_count = v_rows,
          ready_count = v_ready,
          ignored_count = v_ignored,
@@ -1123,6 +1355,22 @@ BEGIN
     RAISE EXCEPTION 'nothing_to_import';
   END IF;
   PERFORM public.coach_import_lock_active_link(v_uid, v_import.subject_user_id);
+
+  IF EXISTS (
+    SELECT 1 FROM public.coach_imports other
+    WHERE other.subject_user_id = v_import.subject_user_id
+      AND other.file_sha256 = v_import.file_sha256
+      AND other.status = 'committed'
+      AND other.id <> v_import.id
+  ) THEN
+    RAISE EXCEPTION 'already_imported';
+  END IF;
+  IF v_import.kind = 'workout'
+     AND coalesce((v_mapping->>'acknowledge_duplicates')::boolean, false) = false
+     AND public.coach_import_duplicate_report(v_import) <> '[]'::jsonb
+  THEN
+    RAISE EXCEPTION 'potential_duplicate';
+  END IF;
 
   IF v_import.kind = 'body_weight' THEN
     FOR v_row IN
@@ -1251,6 +1499,9 @@ BEGIN
    RETURNING * INTO v_import;
 
   RETURN public.coach_import_view(v_import);
+EXCEPTION
+  WHEN unique_violation THEN
+    RAISE EXCEPTION 'already_imported';
 END;
 $$;
 
@@ -1275,6 +1526,7 @@ BEGIN
   IF coalesce(p_offset, 0) < 0 OR coalesce(p_limit, 50) < 1 OR coalesce(p_limit, 50) > 200 THEN
     RAISE EXCEPTION 'invalid_mapping';
   END IF;
+  PERFORM public.coach_import_expire_previews(auth.uid());
   SELECT * INTO v_import FROM public.coach_imports WHERE id = p_import_id;
   IF NOT FOUND OR NOT public.coach_import_actor_can_read(v_import) THEN
     RAISE EXCEPTION 'not_found';
@@ -1294,11 +1546,13 @@ SET search_path = ''
 AS $$
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'not_authenticated'; END IF;
+  PERFORM public.coach_import_expire_previews(auth.uid());
   RETURN coalesce((
     SELECT jsonb_agg(public.coach_import_view(i, 0, 0, false) ORDER BY i.created_at DESC)
     FROM (
       SELECT * FROM public.coach_imports i
       WHERE i.coach_id = auth.uid()
+        AND i.status IN ('previewed', 'committed')
         AND (
           i.subject_user_id = auth.uid()
           OR public.is_coach_of(i.subject_user_id)
@@ -1313,9 +1567,50 @@ $$;
 REVOKE ALL ON FUNCTION public.list_coach_imports() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.list_coach_imports() TO authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION public.cancel_coach_import(p_import_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_import public.coach_imports;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'not_authenticated'; END IF;
+  IF p_import_id IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
+  PERFORM public.lock_coach_import(p_import_id);
+  SELECT * INTO v_import FROM public.coach_imports WHERE id = p_import_id FOR UPDATE;
+  IF NOT FOUND OR v_import.coach_id IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+  IF v_import.status = 'committed' THEN
+    RAISE EXCEPTION 'import_conflict';
+  END IF;
+  IF v_import.status = 'previewed' THEN
+    DELETE FROM public.coach_import_rows WHERE import_id = v_import.id;
+    UPDATE public.coach_imports
+       SET status = 'cancelled',
+           source_headers = '[]'::jsonb,
+           row_count = 0,
+           ready_count = 0,
+           ignored_count = 0,
+           error_count = 0
+     WHERE id = v_import.id
+     RETURNING * INTO v_import;
+  END IF;
+  RETURN public.coach_import_view(v_import);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.cancel_coach_import(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cancel_coach_import(uuid) TO authenticated, service_role;
+
 COMMENT ON TABLE public.coach_imports IS
-  'P5.1 Coach CSV import jobs. Preview then transactional commit. coach_ref stays after the Coach account is deleted; coach_id becomes null. Subject rows follow the subject lifecycle.';
+  'P5.1 Coach CSV import jobs. Preview then transactional commit. coach_ref stays after the Coach account is deleted; coach_id becomes null. Subject rows follow the subject lifecycle. Open previews are capped at 20 per Coach and their raw rows are removed after 7 days or on cancel. Committed provenance is kept.';
 COMMENT ON FUNCTION public.preview_coach_import(uuid, text, text, jsonb, text) IS
-  'Parse and plan a Coach CSV. No business writes. Lock order: Coach lifecycle, import mutex, coach_imports FOR UPDATE. Idempotency key is bound to the subject.';
+  'Parse and plan a Coach CSV. No business writes. Lock order: Coach lifecycle, expire old previews, import mutex, coach_imports FOR UPDATE, then preview quota 20014505 before a new row. Idempotency key is bound to the subject. A committed file cannot be imported again for the same athlete.';
 COMMENT ON FUNCTION public.commit_coach_import(uuid, text, jsonb) IS
-  'Lock order: lifecycle, import mutex, coach_imports FOR UPDATE, revalidation, active coach_client_links FOR SHARE, then historical writes. Blank load, reps and RIR stay null. Session dates are noon UTC.';
+  'Lock order: lifecycle, import mutex, coach_imports FOR UPDATE, revalidation, active coach_client_links FOR SHARE, duplicate checks, then historical writes. Blank load, reps and RIR stay null. Session dates are noon UTC. Same-file reimport is already_imported. Overlapping workouts need acknowledge_duplicates.';
+COMMENT ON FUNCTION public.cancel_coach_import(uuid) IS
+  'Cancel one open preview and delete its raw rows. Committed provenance is not deleted.';

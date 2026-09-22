@@ -29,6 +29,8 @@ export type ColumnDetection = {
   candidates: ColumnRole[];
 };
 
+export type EffortSource = 'rir' | 'rpe';
+
 export type ImportMapping = {
   kind: ImportKind;
   delimiter: ',' | ';' | '\t';
@@ -36,6 +38,10 @@ export type ImportMapping = {
   load_unit: MeasureUnit;
   body_weight_unit: MeasureUnit;
   rpe_mode: RpeMode;
+  /** Required when both RIR and RPE are mapped and RPE is converted to RIR. */
+  effort_source: EffortSource | null;
+  /** Explicit acceptance of a workout that overlaps an existing session. */
+  acknowledge_duplicates: boolean;
   columns: Partial<Record<ColumnRole, number>>;
   ignored: number[];
 };
@@ -145,6 +151,8 @@ export function proposeMapping(
     load_unit: 'kg',
     body_weight_unit: 'kg',
     rpe_mode: 'notes',
+    effort_source: null,
+    acknowledge_duplicates: false,
     columns,
     ignored,
   };
@@ -190,6 +198,16 @@ export function mappingIssues(
   ) {
     issues.push('weight_role_conflict');
   }
+  if (
+    mapping.kind === 'workout'
+    && mapping.rpe_mode === 'convert_to_rir'
+    && mapping.columns.rir != null
+    && mapping.columns.rpe != null
+    && mapping.effort_source !== 'rir'
+    && mapping.effort_source !== 'rpe'
+  ) {
+    issues.push('rir_rpe_conflict');
+  }
   return [...new Set(issues)];
 }
 
@@ -212,6 +230,7 @@ export function parseDateCell(value: string, format: DateFormat): string | null 
   if (!trimmed || looksLikeFormula(trimmed)) return null;
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
   if (iso) return isoDate(iso[1], Number(iso[2]), Number(iso[3]));
+  if (format === 'iso') return null;
   const slash = /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/.exec(trimmed);
   if (!slash) return null;
   const a = Number(slash[1]);
@@ -219,7 +238,16 @@ export function parseDateCell(value: string, format: DateFormat): string | null 
   const y = slash[3];
   if (format === 'dmy') return isoDate(y, b, a);
   if (format === 'mdy') return isoDate(y, a, b);
-  if (a > 12 && b <= 12) return isoDate(y, b, a);
+  return null;
+}
+
+const KG_TOKENS = ['kg', 'kgs', 'kilogram', 'kilograms', 'kilo', 'kilogramme', 'kilogrammes'];
+const LB_TOKENS = ['lb', 'lbs', 'pound', 'pounds', 'livre', 'livres'];
+
+export function parseMeasureUnit(value: string): MeasureUnit | null {
+  const token = value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  if (KG_TOKENS.includes(token)) return 'kg';
+  if (LB_TOKENS.includes(token)) return 'lb';
   return null;
 }
 
