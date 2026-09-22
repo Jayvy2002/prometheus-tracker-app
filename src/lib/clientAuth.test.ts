@@ -192,9 +192,9 @@ test('AuthPage: identity login keeps first-submit behavior without granting role
 
 test('invite leftovers: banner without coach name, explicit consent after login, ops refresh after setup', () => {
   const page = src('src/components/auth/AuthPage.tsx');
-  assert.match(page, /fromInvite && \(/);
+  assert.match(page, /\(fromInvite \|\| banner\) && \(/);
   assert.match(page, /authBannerNoName/);
-  assert.match(page, /fromInvite \? postLoginPath\(location\.pathname\)/);
+  assert.match(page, /\(fromInvite \|\| returnHere\) \? postLoginPath\(location\.pathname\)/);
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.doesNotMatch(app, /await acceptInvite\(token\)/);
   assert.match(app, /\/invite\/\$\{pendingInvite\}/);

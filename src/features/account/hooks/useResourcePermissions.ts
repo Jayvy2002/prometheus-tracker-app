@@ -21,6 +21,7 @@ import {
   canUpdateOwnPersonalData,
   canUsePersonalTools,
   canImportCoachSpreadsheet,
+  canPrepareProvisionalDossier,
   type AssignedProgramResource,
   type AthleteWatchResource,
   type ClientDossierResource,
@@ -60,5 +61,6 @@ export function useResourcePermissions() {
       canDecideAthleteWatchProposal(actor, resource),
     canImportCoachSpreadsheet: (resource?: CoachImportResource) =>
       canImportCoachSpreadsheet(actor, resource),
+    canPrepareProvisionalDossier: canPrepareProvisionalDossier(actor),
   };
 }

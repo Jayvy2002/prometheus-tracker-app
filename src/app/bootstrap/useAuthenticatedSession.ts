@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
-import { useCoachingStore, getPendingInviteToken, getIntendedCoachingRole, isOnboardingDeferred } from '../../stores/coachingStore';
+import { useCoachingStore, getPendingInviteToken, getPendingDossierToken, getIntendedCoachingRole, isOnboardingDeferred } from '../../stores/coachingStore';
 import { resetSessionStores } from '../../lib/resetStores';
 import { getSessionOwner } from '../../lib/sessionScope';
 import { detachPushOnLogout } from '../../lib/notifications';
@@ -162,5 +162,6 @@ export function useAuthenticatedSession() {
     deferClientOnboarding,
     forceKinesiology,
     pendingInvite: getPendingInviteToken(),
+    pendingDossier: getPendingDossierToken(),
   };
 }

@@ -429,6 +429,22 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5.1 commit × commit: subject mutex, second sees the workout, potential_duplicate, no deadlock' /tmp/p5-commit-commit-subject.txt
+      - name: Test P5.2 provisional dossier
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p5_provisional_dossier.sql | tee /tmp/p5-provisional-dossier.txt
+      - name: Confirm P5.2 provisional dossier echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.2 provisional dossier: no auth user, provisional rows, claim atomic, no active link without consent' /tmp/p5-provisional-dossier.txt
+      - name: Test P5.2 claim × claim × commit
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-p5-provisional-claim-lock.sh | tee /tmp/p5-provisional-claim-lock.txt
+      - name: Confirm P5.2 claim lock echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.2 claim × claim × commit: dossier mutex, one workout, second confirm idempotent, commit fail-closed, no deadlock' /tmp/p5-provisional-claim-lock.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

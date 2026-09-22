@@ -30,6 +30,7 @@ import {
   canUpdateOwnPersonalData,
   canUsePersonalTools,
   canImportCoachSpreadsheet,
+  canPrepareProvisionalDossier,
   type PermissionActor,
 } from './resourcePermissions';
 
@@ -220,6 +221,17 @@ test('P5.1 import is coach-only for self or an active client; workspace does not
   assert.equal(canImportCoachSpreadsheet(coached(), client), false);
   const blocked = actorFromAccount(null, resolveAccountContext('none', null, true, null));
   assert.equal(canImportCoachSpreadsheet(blocked), false);
+  const owned = { provisionalDossierId: 'D', ownsProvisionalDossier: true };
+  const foreign = { provisionalDossierId: 'D', ownsProvisionalDossier: false };
+  for (const person of [coachSolo(), coachSolo('coaching'), coachCoached(), coachCoached('coaching')]) {
+    assert.equal(canPrepareProvisionalDossier(person), true);
+    assert.equal(canImportCoachSpreadsheet(person, owned), true);
+    assert.equal(canImportCoachSpreadsheet(person, foreign), false);
+  }
+  assert.equal(canPrepareProvisionalDossier(solo()), false);
+  assert.equal(canPrepareProvisionalDossier(coached()), false);
+  assert.equal(canImportCoachSpreadsheet(solo(), owned), false);
+  assert.equal(canImportCoachSpreadsheet(blocked, owned), false);
 });
 
 test('server enforces owner writes, leftover coached save_program, nutrition targets and dossier isolation', () => {

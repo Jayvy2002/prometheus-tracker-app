@@ -1,6 +1,6 @@
 # P5.1 — Import spreadsheet / CSV intelligent
 
-> Livré en production le 22 septembre 2026 (`#213`, lock **135**, pending vide). P5.2 n’est pas commencé.
+> Livré en production le 22 septembre 2026 (`#213`, lock **135**). P5.2 réutilise ce pipeline pour un dossier provisoire via `preview_provisional_import`. La signature à 5 arguments de `preview_coach_import` reste celle des comptes.
 
 ## Parcours
 

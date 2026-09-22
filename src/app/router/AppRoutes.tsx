@@ -10,6 +10,7 @@ import AppLayout from '../../components/layout/AppLayout';
 import AuthPage from '../../components/auth/AuthPage';
 import ResetPasswordPage from '../../components/auth/ResetPasswordPage';
 import InvitePage from '../../components/coaching/InvitePage';
+import ProvisionalClaimPage from '../../components/coaching/ProvisionalClaimPage';
 import { useAssignedQuestionnaire } from '../../components/onboarding/assignedQuestionnaireContext';
 import Dashboard from '../../components/dashboard/Dashboard';
 import { useAuthenticatedSession } from '../bootstrap/useAuthenticatedSession';
@@ -52,6 +53,7 @@ const CoachQuestionnairePage = lazy(() => import('../../components/coaching/Coac
 const ClientQuestionnairePanel = lazy(() => import('../../components/onboarding/ClientQuestionnairePanel'));
 const CoachLearnedPage = lazy(() => import('../../components/coaching/CoachLearnedPage'));
 const CoachImportPage = lazy(() => import('../../components/coaching/CoachImportPage'));
+const CoachDossiersPage = lazy(() => import('../../components/coaching/CoachDossiersPage'));
 const MarketplacePage = lazy(() => import('../../components/marketplace/MarketplacePage'));
 const CoachComparisonPage = lazy(() => import('../../components/marketplace/CoachComparisonPage'));
 const CoachMatchPage = lazy(() => import('../../components/marketplace/CoachMatchPage'));
@@ -108,6 +110,7 @@ export default function AppRoutes() {
     deferClientOnboarding,
     forceKinesiology,
     pendingInvite,
+    pendingDossier,
   } = session;
 
   if (authLoading || !initialized) {
@@ -126,13 +129,36 @@ export default function AppRoutes() {
     return (
       <Routes>
         <Route path="/invite/:token" element={<InvitePage />} />
+        <Route path="/dossier/:token" element={<ProvisionalClaimPage />} />
         <Route path="*" element={<AuthPage />} />
       </Routes>
     );
   }
 
-  if (pendingInvite && !location.pathname.startsWith('/invite/')) {
+  if (
+    pendingInvite
+    && !location.pathname.startsWith('/invite/')
+    && !location.pathname.startsWith('/dossier/')
+  ) {
     return <Navigate to={`/invite/${pendingInvite}`} replace />;
+  }
+
+  if (
+    pendingDossier
+    && !pendingInvite
+    && !location.pathname.startsWith('/dossier/')
+    && !location.pathname.startsWith('/invite/')
+  ) {
+    return <Navigate to={`/dossier/${pendingDossier}`} replace />;
+  }
+
+  if (location.pathname.startsWith('/dossier/')) {
+    return (
+      <Routes>
+        <Route path="/dossier/:token" element={<ProvisionalClaimPage />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Routes>
+    );
   }
 
   if (location.pathname.startsWith('/invite/')) {
@@ -216,6 +242,7 @@ export default function AppRoutes() {
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/dossier/:token" element={<ProvisionalClaimPage />} />
           <Route path="*" element={<KinesiologyIntakeFlow />} />
         </Routes>
       </Suspense>
@@ -227,6 +254,7 @@ export default function AppRoutes() {
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/invite/:token" element={<InvitePage />} />
+          <Route path="/dossier/:token" element={<ProvisionalClaimPage />} />
           <Route path="*" element={<OnboardingFlow />} />
         </Routes>
       </Suspense>
@@ -259,6 +287,7 @@ export default function AppRoutes() {
         <Route path="/questionnaire" element={<AthleteQuestionnairePage key={user.id} />} />
         <Route path="/coach/learned" element={<CoachOnly><CoachLearnedPage /></CoachOnly>} />
         <Route path="/coach/import" element={<CoachOnly><CoachImportPage /></CoachOnly>} />
+        <Route path="/coach/dossiers" element={<CoachOnly><CoachDossiersPage /></CoachOnly>} />
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
         <Route path="/programs/:id" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
@@ -272,6 +301,7 @@ export default function AppRoutes() {
       <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/intake" element={<KinesiologyIntakeFlow allowExit />} />
       <Route path="/invite/:token" element={<InvitePage />} />
+      <Route path="/dossier/:token" element={<ProvisionalClaimPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

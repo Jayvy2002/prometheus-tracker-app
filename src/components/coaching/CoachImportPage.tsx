@@ -11,6 +11,7 @@ import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
 import { cancelCoachImport, commitCoachImport, getCoachImport, previewCoachImport, type CoachImportView } from '../../features/imports/api/coachImportApi';
+import { listProvisionalDossiers, previewProvisionalImport, type ProvisionalDossier } from '../../features/provisional/api/provisionalApi';
 import {
   COLUMN_ROLES,
   detectColumns,
@@ -41,6 +42,13 @@ function roleLabel(t: (key: string) => string, role: ColumnRole): string {
   return t(`coaching.importCsv.roles.${role}`);
 }
 
+function joinedCounts(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  parts: Array<[string, number]>,
+): string {
+  return parts.map(([key, count]) => t(key, { count })).join(' · ');
+}
+
 export default function CoachImportPage() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
@@ -48,8 +56,16 @@ export default function CoachImportPage() {
   const { clients, fetchClients } = useCoachingStore();
   const [params] = useSearchParams();
   const requested = params.get('subject');
+  const requestedDossier = params.get('dossier');
 
-  const [subjectId, setSubjectId] = useState<string>(requested && requested !== 'self' ? requested : (user?.id ?? ''));
+  const [subjectId, setSubjectId] = useState<string>(
+    requestedDossier
+      ? `dossier:${requestedDossier}`
+      : (requested && requested !== 'self' ? requested : (user?.id ?? '')),
+  );
+  const [dossiers, setDossiers] = useState<ProvisionalDossier[]>([]);
+  const [dossierLoadError, setDossierLoadError] = useState(false);
+  const [dossierRetry, setDossierRetry] = useState(0);
   const [step, setStep] = useState<Step>('file');
   const [filename, setFilename] = useState('');
   const [sourceText, setSourceText] = useState('');
@@ -67,9 +83,27 @@ export default function CoachImportPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    let live = true;
+    listProvisionalDossiers().then((result) => {
+      if (!live) return;
+      if (result.error) {
+        setDossierLoadError(true);
+        return;
+      }
+      setDossierLoadError(false);
+      setDossiers(result.data);
+    }).catch(() => {
+      if (live) setDossierLoadError(true);
+    });
+    return () => { live = false; };
+  }, [dossierRetry]);
+
+  useEffect(() => {
     if (!user) return;
-    if (requested === 'self' || !requested) setSubjectId(user.id);
-  }, [requested, user]);
+    if (requestedDossier) setSubjectId(`dossier:${requestedDossier}`);
+    else if (requested === 'self' || !requested) setSubjectId(user.id);
+    else setSubjectId(requested);
+  }, [requested, requestedDossier, user]);
 
   const detections = useMemo(() => (parsed ? detectColumns(parsed.headers) : []), [parsed]);
   const duplicateHeaders = mapping ? unresolvedDuplicateHeaders(detections, mapping) : [];
@@ -77,10 +111,14 @@ export default function CoachImportPage() {
   const ownedClients = clients.filter((client) => (
     canImportCoachSpreadsheet({ subjectUserId: client.id, hasActiveRelationship: true })
   ));
-  const subjectAllowed = canImportCoachSpreadsheet({
-    subjectUserId: subjectId,
-    hasActiveRelationship: ownedClients.some((client) => client.id === subjectId),
-  });
+  const openDossiers = dossiers.filter((dossier) => dossier.status === 'preparing' || dossier.status === 'invited');
+  const dossierId = subjectId.startsWith('dossier:') ? subjectId.slice('dossier:'.length) : null;
+  const subjectAllowed = canImportCoachSpreadsheet(dossierId
+    ? { provisionalDossierId: dossierId, ownsProvisionalDossier: openDossiers.some((dossier) => dossier.id === dossierId) }
+    : {
+      subjectUserId: subjectId,
+      hasActiveRelationship: ownedClients.some((client) => client.id === subjectId),
+    });
 
   if (!canActAsCoach) return <Navigate to="/dashboard" replace />;
 
@@ -154,13 +192,21 @@ export default function CoachImportPage() {
     setStaleDuplicates(false);
     setBusy(true);
     setLocalError(null);
-    const result = await previewCoachImport({
-      subjectUserId: subjectId,
-      filename,
-      sourceText,
-      mapping: activeMapping,
-      idempotencyKey,
-    });
+    const result = dossierId
+      ? await previewProvisionalImport({
+        dossierId,
+        filename,
+        sourceText,
+        mapping: activeMapping,
+        idempotencyKey,
+      })
+      : await previewCoachImport({
+        subjectUserId: subjectId,
+        filename,
+        sourceText,
+        mapping: activeMapping,
+        idempotencyKey,
+      });
     setBusy(false);
     if (result.error || !result.data) {
       setLocalError(t(importErrorI18nKey(result.error ?? 'generic')));
@@ -263,12 +309,28 @@ export default function CoachImportPage() {
               resetFile();
             }}
           >
-            {user ? <option value={user.id}>{t('coaching.importCsv.myself')}</option> : null}
-            {ownedClients.map((client) => (
-              <option key={client.id} value={client.id}>{displayName(client)}</option>
-            ))}
+            <optgroup label={t('coaching.importCsv.subjectPeople')}>
+              {user ? <option value={user.id}>{t('coaching.importCsv.myself')}</option> : null}
+              {ownedClients.map((client) => (
+                <option key={client.id} value={client.id}>{displayName(client)}</option>
+              ))}
+            </optgroup>
+            <optgroup label={t('coaching.importCsv.subjectDossiers')}>
+              {openDossiers.map((dossier) => (
+                <option key={dossier.id} value={`dossier:${dossier.id}`}>{dossier.display_name}</option>
+              ))}
+            </optgroup>
           </select>
         </label>
+        {dossierLoadError ? (
+          <p className="text-sm text-amber-200 mb-4">
+            {t('coaching.provisional.loadError')}
+            {' '}
+            <button type="button" className="underline min-h-11" onClick={() => setDossierRetry((value) => value + 1)}>
+              {t('errors.retry')}
+            </button>
+          </p>
+        ) : null}
 
         {!subjectAllowed ? (
           <p className="text-sm text-amber-200 mb-4">{t('coaching.importCsv.errors.not_your_client')}</p>
@@ -293,7 +355,9 @@ export default function CoachImportPage() {
         {step === 'map' && parsed && mapping ? (
           <div className="space-y-4">
             <Card>
-              <p className="text-sm text-white">{t('coaching.importCsv.understood', { file: filename, rows: parsed.rows.length })}</p>
+              <p className="text-sm text-white">
+                {filename} · {t('coaching.importCsv.counts.read', { count: parsed.rows.length })}
+              </p>
             </Card>
             <div className="flex gap-2">
               {(['workout', 'body_weight'] as const).map((value) => (
@@ -474,11 +538,11 @@ export default function CoachImportPage() {
             <p className="text-xs text-neutral-500">{t('coaching.importCsv.previewRetention')}</p>
             {localPreview ? (
               <p className="text-sm text-neutral-400">
-                {t('coaching.importCsv.localCounts', {
-                  ready: localPreview.readyCount,
-                  ignored: localPreview.ignoredCount,
-                  error: localPreview.errorCount,
-                })}
+                {joinedCounts(t, [
+                  ['coaching.importCsv.counts.ready', localPreview.readyCount],
+                  ['coaching.importCsv.counts.ignored', localPreview.ignoredCount],
+                  ['coaching.importCsv.counts.toFix', localPreview.errorCount],
+                ])}
               </p>
             ) : null}
             <Button onClick={() => void runPreview()} loading={busy} disabled={!subjectAllowed}>
@@ -491,11 +555,17 @@ export default function CoachImportPage() {
           <div className="space-y-4">
             {serverView.potential_duplicates.length > 0 ? (
               <Card>
-                <p className="text-sm text-amber-200">{t('coaching.importCsv.potentialDuplicate')}</p>
+                <p className="text-sm text-amber-200">
+                  {t('coaching.importCsv.duplicateSummary', { count: serverView.potential_duplicates.length })}
+                </p>
                 <p className="text-xs text-neutral-500 mt-1">{t('coaching.importCsv.potentialDuplicateHint')}</p>
                 <ul className="mt-2 space-y-1">
                   {serverView.potential_duplicates.map((dup) => (
-                    <li key={dup.workout_id} className="text-sm text-neutral-200">{dup.date} · {dup.name}</li>
+                    <li key={dup.workout_id} className="text-sm text-neutral-200">
+                      {dup.name === dup.date
+                        ? t('coaching.importCsv.duplicateItemSameName', { date: dup.date })
+                        : t('coaching.importCsv.duplicateItem', { date: dup.date, name: dup.name })}
+                    </li>
                   ))}
                 </ul>
               </Card>
@@ -503,11 +573,11 @@ export default function CoachImportPage() {
             <Card>
               <p className="text-sm text-white">{t('coaching.importCsv.exactPlan')}</p>
               <p className="text-sm text-neutral-400 mt-1">
-                {t('coaching.importCsv.localCounts', {
-                  ready: serverView.ready_count,
-                  ignored: serverView.ignored_count,
-                  error: serverView.error_count,
-                })}
+                {joinedCounts(t, [
+                  ['coaching.importCsv.counts.ready', serverView.ready_count],
+                  ['coaching.importCsv.counts.ignored', serverView.ignored_count],
+                  ['coaching.importCsv.counts.toFix', serverView.error_count],
+                ])}
               </p>
             </Card>
             <div className="space-y-2">
@@ -581,11 +651,11 @@ export default function CoachImportPage() {
           <Card className="space-y-2">
             <p className="text-sm text-white">{t('coaching.importCsv.resultTitle')}</p>
             <p className="text-sm text-neutral-300">
-              {t('coaching.importCsv.resultBody', {
-                applied: serverView.applied_count,
-                ignored: serverView.ignored_count,
-                error: serverView.error_count,
-              })}
+              {joinedCounts(t, [
+                ['coaching.importCsv.counts.applied', serverView.applied_count],
+                ['coaching.importCsv.counts.ignored', serverView.ignored_count],
+                ['coaching.importCsv.counts.toFix', serverView.error_count],
+              ])}
             </p>
             <Button variant="secondary" onClick={resetFile}>{t('coaching.importCsv.another')}</Button>
           </Card>
