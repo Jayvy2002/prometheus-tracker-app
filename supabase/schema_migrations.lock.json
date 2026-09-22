@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-21T22:15:00Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P4 live apply on 2026-09-21 (134 versions, last 20260921024426_p4_marketplace_moderation). Git timestamps 20260921021231, 20260921021923, 20260921023720 and 20260921024426 were kept; never repair or restamp applied history. Never apply 20260919181919.",
+  "captured_at": "2026-09-22T15:20:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P5.1 apply on 2026-09-22 (135 versions, last 20260922014500_p5_coach_csv_import, 97 statements, created_by null). Git timestamp 20260922014500 was kept; never repair or restamp applied history. Never apply 20260919181919.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -543,6 +543,10 @@
     {
       "version": "20260921024426",
       "name": "p4_marketplace_moderation"
+    },
+    {
+      "version": "20260922014500",
+      "name": "p5_coach_csv_import"
     }
   ]
 }

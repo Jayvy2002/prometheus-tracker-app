@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5.1 Import spreadsheet/CSV (candidate pending).** Production/lock **134** (`20260921024426_p4_marketplace_moderation`). P4.1–P4.4 TERMINÉ (`#210`, merge `54a93f7860ea2bd0ef5d2631bdd48e383d746d8d`). Migration Git `20260922014500_p5_coach_csv_import` **pending, non appliquée**. **Ne pas merger P5.1. Ne pas appliquer en production. Ne pas commencer P5.2.** Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5.1 CLOSED.** Production/lock **135** (`20260922014500_p5_coach_csv_import`). Merge `#213` (`e7e8498e573acfd99fc8daffc720ee3cebb3d257`). Job `coach-import-preview-purge` actif, `15 * * * *`, `SELECT public.coach_import_purge_stale_previews()`. **P5.2 n’est pas commencé.** Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1 candidate (pending Git, pas mergée, pas appliquée)** | Imports, bibliothèque exercices, admin ciblé |
+| **P5** | Adoption Coach | **P5.1 clos (135). P5.2 pas commencé** | Imports, bibliothèque exercices, admin ciblé |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3 et P4 (`#210`) sont en production (134 migrations). **P4 est livrée.** P5.1 est une PR candidate : ne pas merger, ne pas appliquer, ne pas commencer P5.2. Watch n’applique pas.
+P1.5–P2.5, P3, P4 (`#210`) et P5.1 (`#213`) sont en production (135 migrations). **P5.1 est livré.** P5.2 n’est pas commencé. Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -769,7 +769,7 @@ CI post-merge verte : [run 35660157162](https://github.com/Jayvy2002/prometheus-
 
 Le parcours complet : questionnaire recherche → shortlist expliquée → demande + snapshot limité → discussion prospect dès pending → Coach accepte → même conversation → Athlète confirme → client actif, sans accès prématuré au dossier. **Critère atteint.**
 
-**Arrêt P4 : livré.** P5.1 est une candidate Git (pending `20260922014500`). Ne pas merger, ne pas appliquer, ne pas commencer P5.2.
+**Arrêt P4 : livré.** **Arrêt P5.1 : livré** (`#213`, `20260922014500`, lock 135, pending vide). P5.2 n’est pas commencé.
 
 ---
 
@@ -777,7 +777,7 @@ Le parcours complet : questionnaire recherche → shortlist expliquée → deman
 
 ## P5.1 — Import spreadsheet/CSV intelligent
 
-**Candidate Git — ne pas merger, ne pas appliquer.** Inventaire : [P5.1 CSV import](P5_1_CSV_IMPORT.md).
+**Livré en production** (`#213`, lock **135**, pending vide). Inventaire : [P5.1 CSV import](P5_1_CSV_IMPORT.md).
 
 Parcours livré dans la PR :
 

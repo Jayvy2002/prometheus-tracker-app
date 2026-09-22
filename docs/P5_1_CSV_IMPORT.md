@@ -1,6 +1,6 @@
 # P5.1 — Import spreadsheet / CSV intelligent
 
-> Candidate Git uniquement. **Ne pas merger. Ne pas appliquer en production.** P5.2 n’est pas commencé.
+> Livré en production le 22 septembre 2026 (`#213`, lock **135**, pending vide). P5.2 n’est pas commencé.
 
 ## Parcours
 
@@ -74,4 +74,4 @@ Route CoachOnly `/coach/import` (desktop muted + réglages + dashboard + clients
 
 ## Migration
 
-Candidate : `20260922014500_p5_coach_csv_import`. Lock production **134**. Pending Git uniquement. Ne pas restamper `20260921024426`.
+Appliqué : `20260922014500_p5_coach_csv_import` (même timestamp Git, 97 statements, `created_by` null). Lock production **135**. Pending vide. Ne pas restamper `20260921024426` ni `20260922014500`.
