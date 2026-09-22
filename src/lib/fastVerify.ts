@@ -1,9 +1,8 @@
 /**
  * Fast food / exercise verification contract.
  *
- * Lookup order is local DB first. OpenAI runs only on a miss, inside the
- * edge function, and the function writes the result before returning 200.
- * These paths never ping Second (GROK_BOT_WEBHOOK_URL).
+ * Lookup order is local DB first. OpenAI may describe a miss, but it does not
+ * insert an exercise or approve a proposal. These paths never ping Second.
  *
  * Coach drafts (onboarding_plan, ask_prometheus, program_nl_edit) stay on
  * coach-agent (sync OpenAI). Fleet rounds stay in-app.
@@ -87,6 +86,7 @@ export function parseAnalyzeProductResponse(
 
 export type VerifyClientOutcome =
   | { kind: 'approved'; exercise: Record<string, unknown> }
+  | { kind: 'pending' }
   | { kind: 'rejected'; reason: string }
   | { kind: 'poll' }
   | { kind: 'error'; dailyLimit: boolean };
@@ -102,6 +102,9 @@ export function parseVerifyExerciseResponse(
   const exercise = body.exercise;
   if (exercise && typeof exercise === 'object' && !Array.isArray(exercise)) {
     return { kind: 'approved', exercise: exercise as Record<string, unknown> };
+  }
+  if (body.status === 'pending' && body.applied === false) {
+    return { kind: 'pending' };
   }
   if (body.rejected === true) {
     return {

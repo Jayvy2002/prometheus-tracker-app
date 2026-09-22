@@ -1233,6 +1233,30 @@ BEGIN
   END IF;
 END $$;
 
+-- P5.3 catalog: search and proposals granted; merge and direct inserts revoked.
+DO $$
+BEGIN
+  IF to_regclass('public.exercise_aliases') IS NOT NULL
+     AND has_function_privilege('authenticated', 'public.search_exercises(text,integer)', 'execute')
+     AND has_function_privilege('authenticated', 'public.propose_exercise(text,text,text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.suggest_exercise_matches(text)', 'execute')
+     AND has_function_privilege('authenticated', 'public.resolve_exercise_catalog(text)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.merge_exercises(uuid,uuid,boolean)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.list_exercise_duplicate_candidates(integer)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.propose_exercise(text,text,text)', 'execute')
+     AND NOT has_function_privilege('anon', 'public.merge_exercises(uuid,uuid,boolean)', 'execute')
+     AND NOT has_table_privilege('authenticated', 'public.exercises', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.exercise_aliases', 'insert')
+     AND NOT has_table_privilege('authenticated', 'public.exercise_merges', 'select')
+     AND has_table_privilege('authenticated', 'public.exercises', 'select')
+     AND has_table_privilege('authenticated', 'public.exercise_aliases', 'select')
+  THEN
+    PERFORM pg_temp.record('P5_EXERCISE_GRANTS', true, 'catalog search granted, merge and inserts revoked');
+  ELSE
+    PERFORM pg_temp.record('P5_EXERCISE_GRANTS', false, 'P5.3 catalog grants mismatch');
+  END IF;
+END $$;
+
 SELECT check_id, passed, detail FROM rls_results ORDER BY check_id;
 
 DO $$

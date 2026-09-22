@@ -30,7 +30,7 @@ Rôles : date, exercice, série, reps, charge, poids corporel, RIR, RPE, notes, 
 
 Deux natures d’import :
 
-- `workout` — séances **terminées** historiques (`completed = true`), noms d’exercices en texte libre. Pas de catalogue (P5.3). **Pas** `start_workout_from_template` / `save_program`. Pas de `program_day_id`.
+- `workout` — séances **terminées** historiques (`completed = true`), noms d’exercices en texte libre. P5.3 peut remplir `catalog_exercise_id` seulement si le nom normalisé correspond à un seul exercice actif. Le texte écrit ne change pas. **Pas** `start_workout_from_template` / `save_program`. Pas de `program_day_id`.
 - `body_weight` — `weight_measurements`. Unique `(user_id, measured_at)` : jour déjà présent → `already_exists`, pas d’écrasement.
 
 RPE : notes, ou conversion explicite vers RIR (`10 − RPE`). Si les deux colonnes sont mappées et que le mode est `convert_to_rir`, le Coach choisit `effort_source` (`rir` ou `rpe`) avant l’aperçu. Sans ce choix : `rir_rpe_conflict`. En mode notes, le RIR reste et le RPE est ajouté à la note.

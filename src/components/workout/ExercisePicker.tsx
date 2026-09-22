@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, Dumbbell, Loader2, Sparkles, CheckCircle, XCircle, Info, Clock } from 'lucide-react';
+import { Search, Plus, Dumbbell, Loader2, Sparkles, Info, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -8,13 +8,6 @@ import Input from '../ui/Input';
 import { useExerciseStore } from '../../stores/exerciseStore';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import { supabase } from '../../lib/supabase';
-import { waitForRowChange } from '../../lib/realtimeWait';
-import { functionsErrorBody, functionsHttpStatus } from '../../lib/supabaseFunctions';
-import {
-  FAST_VERIFY_BONUS_POLL_MS,
-  FAST_VERIFY_BONUS_TIMEOUT_MS,
-  parseVerifyExerciseResponse,
-} from '../../lib/fastVerify';
 import type { Exercise } from '../../lib/types';
 import { muscleLabel } from '../../lib/muscleLabels';
 import { displayExerciseName, exerciseSearchFields, isExactExerciseMatch, scoreAgainstQuery } from '../../lib/pickerSearch';
@@ -37,7 +30,7 @@ interface Props {
 
 export default function ExercisePicker({ open, onClose, onSelect }: Props) {
   const { t, i18n } = useTranslation();
-  const { exercises, loading, fetchExercises, searchExercises } = useExerciseStore();
+  const { exercises, loading, loadError, fetchExercises, searchExercises } = useExerciseStore();
   const workouts = useWorkoutStore(s => s.workouts);
   const [search, setSearch] = useState('');
   const [equipment, setEquipment] = useState<string | 'all'>('all');
@@ -181,8 +174,20 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
         )}
 
         {loading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex items-center justify-center py-8" role="status">
             <Loader2 size={20} className="animate-spin text-blue-400" />
+            <span className="sr-only">{t('common.loading')}</span>
+          </div>
+        ) : loadError ? (
+          <div className="text-center py-6 space-y-3">
+            <p className="text-sm text-rose-300">{t('workout.exercisePicker.loadError')}</p>
+            <button
+              type="button"
+              onClick={() => { useExerciseStore.setState({ fetched: false }); void fetchExercises(); }}
+              className="px-3 py-2 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-500"
+            >
+              {t('common.tryAgain')}
+            </button>
           </div>
         ) : (
           <>
@@ -293,236 +298,160 @@ export default function ExercisePicker({ open, onClose, onSelect }: Props) {
   );
 }
 
+type CatalogMatch = { id: string; name: string; name_fr: string };
+
 function NewExerciseModal({ initialName, onClose, onSelect }: {
   initialName: string;
   onClose: () => void;
   onSelect: (name: string) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { submitExercise, addExercise } = useExerciseStore();
   const [name, setName] = useState(initialName);
   const [muscles, setMuscles] = useState('');
   const [description, setDescription] = useState('');
-  const [status, setStatus] = useState<'idle' | 'submitting' | 'verifying' | 'approved' | 'rejected'>('idle');
+  const [status, setStatus] = useState<'idle' | 'submitting' | 'pending'>('idle');
   const [error, setError] = useState('');
-  const [approvedExercise, setApprovedExercise] = useState<Exercise | null>(null);
-  const [rejectionReason, setRejectionReason] = useState('');
+  const [exact, setExact] = useState<CatalogMatch[]>([]);
+  const [nearby, setNearby] = useState<CatalogMatch[]>([]);
+  const [matchState, setMatchState] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [matchRetry, setMatchRetry] = useState(0);
 
-  const handleSubmit = async () => {
+  useEffect(() => {
+    const query = name.trim();
+    if (query.length < 2) {
+      setExact([]);
+      setNearby([]);
+      setMatchState('idle');
+      return;
+    }
+    let cancelled = false;
+    setMatchState('loading');
+    const timer = window.setTimeout(async () => {
+      const { data, error: rpcError } = await supabase.rpc('suggest_exercise_matches', { p_name: query });
+      if (cancelled) return;
+      if (rpcError || !data || typeof data !== 'object') {
+        setMatchState('error');
+        return;
+      }
+      const body = data as { exact?: CatalogMatch[]; nearby?: CatalogMatch[] };
+      setExact(Array.isArray(body.exact) ? body.exact : []);
+      setNearby(Array.isArray(body.nearby) ? body.nearby : []);
+      setMatchState('ready');
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [name, matchRetry]);
+
+  const display = (match: CatalogMatch) => (
+    i18n.language.toLowerCase().startsWith('en') ? match.name : (match.name_fr || match.name)
+  );
+
+  const handlePropose = async () => {
     if (!name.trim()) return;
     setStatus('submitting');
     setError('');
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError(t('auth.signIn'));
-      setStatus('idle');
-      return;
-    }
-
-    const request = await submitExercise(user.id, name.trim(), muscles.trim(), description.trim());
-    if (!request) {
+    const { data, error: rpcError } = await supabase.rpc('propose_exercise', {
+      p_name: name.trim(),
+      p_muscles: muscles.trim(),
+      p_description: description.trim(),
+    });
+    if (rpcError || !data) {
       setError(t('common.tryAgain'));
       setStatus('idle');
       return;
     }
-
-    setStatus('verifying');
-
-    const { data, error: fnError } = await supabase.functions.invoke('verify-exercise', {
-      body: { request_id: request.id },
-    });
-    const bodyFromData = (data && typeof data === 'object' && !Array.isArray(data))
-      ? data as Record<string, unknown>
-      : {};
-    const bodyFromError = fnError ? await functionsErrorBody(fnError) : {};
-    const body = Object.keys(bodyFromData).length > 0 ? bodyFromData : bodyFromError;
-    const outcome = parseVerifyExerciseResponse(body, functionsHttpStatus(fnError));
-
-    if (outcome.kind === 'approved') {
-      addExercise(outcome.exercise as unknown as Exercise);
-      setApprovedExercise(outcome.exercise as unknown as Exercise);
-      setStatus('approved');
-      return;
-    }
-
-    if (outcome.kind === 'rejected') {
-      setRejectionReason(outcome.reason || t('workout.exercisePicker.notRecognized'));
-      setStatus('rejected');
-      return;
-    }
-
-    if (outcome.kind === 'error') {
-      setError(outcome.dailyLimit ? t('workout.exercisePicker.verifying') : t('common.tryAgain'));
-      setStatus('idle');
-      return;
-    }
-
-    // Bonus only: a stale 202 deploy. Primary path is 200 + exercise id.
-    const done = await waitForRowChange<{
-      status: string;
-      result_exercise_id: string | null;
-      error_message: string;
-    }>({
-      table: 'exercise_requests',
-      filter: `id=eq.${request.id}`,
-      timeoutMs: FAST_VERIFY_BONUS_TIMEOUT_MS,
-      pollMs: FAST_VERIFY_BONUS_POLL_MS,
-      poll: async () => {
-        const { data: row } = await supabase
-          .from('exercise_requests')
-          .select('status, result_exercise_id, error_message')
-          .eq('id', request.id)
-          .maybeSingle();
-        return row as { status: string; result_exercise_id: string | null; error_message: string } | null;
-      },
-      isDone: row => row.status === 'approved' || row.status === 'rejected',
-    });
-
-    if (done?.status === 'approved' && done.result_exercise_id) {
-      const { data: exercise } = await supabase
-        .from('exercises')
-        .select('*')
-        .eq('id', done.result_exercise_id)
-        .maybeSingle();
-      if (exercise) {
-        addExercise(exercise as Exercise);
-        setApprovedExercise(exercise as Exercise);
-        setStatus('approved');
-        return;
-      }
-    }
-
-    if (done?.status === 'rejected') {
-      setRejectionReason(done.error_message || t('workout.exercisePicker.notRecognized'));
-      setStatus('rejected');
-      return;
-    }
-
-    setError(t('common.tryAgain'));
-    setStatus('idle');
+    setStatus('pending');
   };
 
-  // Verifying screen
-  if (status === 'verifying') {
+  if (status === 'pending') {
     return createPortal(
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
         <div className="fixed inset-0 bg-black/70" />
         <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10">
-          <div className="text-center py-4">
-            <div className="w-16 h-16 rounded-2xl bg-blue-500/15 flex items-center justify-center mx-auto mb-4">
-              <Loader2 size={28} className="text-blue-400 animate-spin" />
-            </div>
-            <p className="text-white font-semibold text-lg mb-2">{t('workout.exercisePicker.verifying')}</p>
-            <p className="text-neutral-400 text-sm">
-              {t('workout.exercisePicker.aiAnalyzing', { name: name.trim() })}
-            </p>
-            <p className="text-neutral-500 text-xs mt-1">{t('workout.exercisePicker.fewSeconds')}</p>
+          <p className="text-white font-semibold text-lg mb-2">{t('workout.exercisePicker.pendingSaved')}</p>
+          <p className="text-neutral-400 text-sm mb-5">{t('workout.exercisePicker.pendingHint')}</p>
+          <div className="flex gap-2">
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-medium">
+              {t('common.close')}
+            </button>
+            <button type="button" onClick={() => onSelect(name.trim())} className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-medium">
+              {t('workout.exercisePicker.useTypedName')}
+            </button>
           </div>
         </div>
       </div>,
-      document.body
+      document.body,
     );
   }
 
-  // Approved screen
-  if (status === 'approved' && approvedExercise) {
-    return createPortal(
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/70" />
-        <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10 animate-modal-pop">
-          <div className="text-center py-2">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
-              <CheckCircle size={28} className="text-emerald-400" />
-            </div>
-            <p className="text-white font-semibold text-lg mb-1">{t('workout.exercisePicker.exerciseAdded')}</p>
-            <p className="text-neutral-400 text-sm mb-4">
-              <span className="text-white font-medium">"{approvedExercise.name}"</span> {t('workout.exercisePicker.nowAvailable')}
-            </p>
-            {approvedExercise.primary_muscles.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-1.5 mb-5">
-                {approvedExercise.primary_muscles.slice(0, 3).map(m => (
-                  <span key={m} className="text-xs text-blue-400/80 bg-blue-500/10 px-2 py-1 rounded-lg">
-                    {muscleLabel(m, i18n.language)}
-                  </span>
-                ))}
-              </div>
-            )}
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-medium transition-colors"
-              >
-                {t('common.close')}
-              </button>
-              <button
-                onClick={() => onSelect(approvedExercise.name)}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-medium transition-colors"
-              >
-                {t('workout.exercisePicker.useNow')}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>,
-      document.body
-    );
-  }
+  const submitDisabled = !name.trim() || status === 'submitting';
 
-  // Rejected screen
-  if (status === 'rejected') {
-    return createPortal(
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-        <div className="fixed inset-0 bg-black/70" />
-        <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-6 z-10 animate-modal-pop">
-          <div className="text-center py-2">
-            <div className="w-16 h-16 rounded-2xl bg-rose-500/15 flex items-center justify-center mx-auto mb-4">
-              <XCircle size={28} className="text-rose-400" />
-            </div>
-            <p className="text-white font-semibold text-lg mb-2">{t('workout.exercisePicker.notRecognized')}</p>
-            <p className="text-neutral-400 text-sm leading-relaxed mb-5">{rejectionReason}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={onClose}
-                className="flex-1 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl font-medium transition-colors"
-              >
-                {t('common.close')}
-              </button>
-              <button
-                onClick={() => { setStatus('idle'); setError(''); }}
-                className="flex-1 py-2.5 bg-neutral-700 hover:bg-neutral-600 text-white rounded-xl font-medium transition-colors"
-              >
-                {t('common.tryAgain')}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>,
-      document.body
-    );
-  }
-
-  // Main form
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div className="fixed inset-0 bg-black/70" onClick={status === 'idle' ? onClose : undefined} />
-      <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10">
+      <div className="relative bg-neutral-950 border border-neutral-800 rounded-2xl w-full max-w-md p-5 z-10 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold text-white mb-1">{t('workout.exercisePicker.suggestExercise')}</h3>
-        <p className="text-neutral-500 text-xs mb-4">{t('workout.exercisePicker.aiInstantCheck')}</p>
+        <p className="text-neutral-500 text-xs mb-4">{t('workout.exercisePicker.proposalHint')}</p>
 
-        <div className="space-y-3 mb-5">
+        <div className="space-y-3 mb-4">
           <div>
-            <label className="text-xs font-medium text-neutral-400 mb-1 block">{t('workout.exercisePicker.exerciseName')}</label>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block" htmlFor="proposal-name">{t('workout.exercisePicker.exerciseName')}</label>
             <Input
+              id="proposal-name"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder={t('options.placeholders.exerciseName')}
               disabled={status === 'submitting'}
             />
           </div>
+          {matchState === 'loading' && (
+            <p className="text-xs text-neutral-400" role="status">{t('workout.exercisePicker.matchesLoading')}</p>
+          )}
+          {matchState === 'error' && (
+            <div className="flex items-center justify-between gap-2 text-xs text-rose-300">
+              <span>{t('workout.exercisePicker.matchesError')}</span>
+              <button type="button" className="underline" onClick={() => setMatchRetry(current => current + 1)}>{t('common.tryAgain')}</button>
+            </div>
+          )}
+          {matchState === 'ready' && exact.length > 0 && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-2">
+              <p className="text-sm text-amber-100">{t('workout.exercisePicker.exactMatch')}</p>
+              {exact.map(match => (
+                <button
+                  key={match.id}
+                  type="button"
+                  onClick={() => onSelect(match.name)}
+                  className="w-full text-left px-3 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800"
+                >
+                  {t('workout.exercisePicker.useExisting', { name: display(match) })}
+                </button>
+              ))}
+            </div>
+          )}
+          {matchState === 'ready' && nearby.length > 0 && (
+            <div className="rounded-xl border border-neutral-800 p-3 space-y-2">
+              <p className="text-xs text-neutral-400">{t('workout.exercisePicker.nearby')}</p>
+              {nearby.map(match => (
+                <button
+                  key={match.id}
+                  type="button"
+                  onClick={() => onSelect(match.name)}
+                  className="w-full text-left px-3 py-2 rounded-lg bg-neutral-900 text-neutral-200 text-sm hover:bg-neutral-800"
+                >
+                  {display(match)}
+                </button>
+              ))}
+            </div>
+          )}
+          {matchState === 'ready' && exact.length === 0 && nearby.length === 0 && (
+            <p className="text-xs text-neutral-500">{t('workout.exercisePicker.noNearby')}</p>
+          )}
           <div>
-            <label className="text-xs font-medium text-neutral-400 mb-1 block">{t('workout.exercisePicker.musclesWorked')}</label>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block" htmlFor="proposal-muscles">{t('workout.exercisePicker.musclesWorked')}</label>
             <Input
+              id="proposal-muscles"
               value={muscles}
               onChange={e => setMuscles(e.target.value)}
               placeholder={t('options.placeholders.exerciseMuscles')}
@@ -530,36 +459,39 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-neutral-400 mb-1 block">{t('workout.exercisePicker.description')}</label>
+            <label className="text-xs font-medium text-neutral-400 mb-1 block" htmlFor="proposal-description">{t('workout.exercisePicker.description')}</label>
             <textarea
+              id="proposal-description"
               value={description}
               onChange={e => setDescription(e.target.value)}
               placeholder={t('options.placeholders.exerciseDescription')}
               rows={3}
               disabled={status === 'submitting'}
-              className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+              className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-neutral-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/40 disabled:opacity-40 disabled:saturate-0 disabled:cursor-not-allowed resize-none"
             />
           </div>
         </div>
 
         {error && (
-          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 mb-4">
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-xl p-3 text-sm text-rose-400 mb-4" role="alert">
             {error}
           </div>
         )}
 
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={onClose}
             disabled={status === 'submitting'}
-            className="flex-1 py-2.5 bg-neutral-900 text-neutral-300 rounded-xl font-medium hover:bg-neutral-800 transition-colors disabled:opacity-40"
+            className="flex-1 py-2.5 bg-neutral-900 text-neutral-300 rounded-xl font-medium hover:bg-neutral-800 transition-colors disabled:opacity-40 disabled:saturate-0 disabled:cursor-not-allowed"
           >
             {t('common.cancel')}
           </button>
           <button
-            onClick={handleSubmit}
-            disabled={!name.trim() || status === 'submitting'}
-            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            type="button"
+            onClick={handlePropose}
+            disabled={submitDisabled}
+            className="flex-1 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-500 transition-colors disabled:opacity-40 disabled:saturate-0 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {status === 'submitting' ? (
               <>
@@ -567,15 +499,12 @@ function NewExerciseModal({ initialName, onClose, onSelect }: {
                 {t('workout.exercisePicker.sending')}
               </>
             ) : (
-              <>
-                <Sparkles size={15} />
-                {t('workout.exercisePicker.verify')}
-              </>
+              t(exact.length > 0 ? 'workout.exercisePicker.proposeAnyway' : 'workout.exercisePicker.propose')
             )}
           </button>
         </div>
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

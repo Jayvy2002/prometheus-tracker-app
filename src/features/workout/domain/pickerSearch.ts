@@ -196,6 +196,9 @@ export function exerciseSearchFields(ex: Exercise, lang = 'fr'): TextField[] {
   for (const alias of aliasesForExercise(ex)) {
     fields.push({ text: alias, weight: 0.94 });
   }
+  for (const alias of ex.aliases ?? []) {
+    fields.push({ text: alias, weight: 0.94 });
+  }
   for (const muscle of ex.primary_muscles) {
     fields.push({ text: muscle, weight: 0.48 });
     fields.push({ text: muscleLabel(muscle, lang), weight: 0.48 });
@@ -216,7 +219,9 @@ export function rankExercises(exercises: Exercise[], query: string, lang = 'fr')
 export function isExactExerciseMatch(query: string, ex: Exercise): boolean {
   const q = foldText(query);
   if (!q) return false;
-  return foldText(ex.name) === q || foldText(ex.name_fr) === q;
+  return foldText(ex.name) === q
+    || foldText(ex.name_fr) === q
+    || (ex.aliases ?? []).some(alias => foldText(alias) === q);
 }
 
 export function displayExerciseName(ex: Exercise, lang = 'fr'): string {

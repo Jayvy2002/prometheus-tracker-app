@@ -3,9 +3,9 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.4";
 import { chatCompletionsBody, resolveOpenAiModel } from "../_shared/openaiJson.ts";
 
 /**
- * Synchronous exercise verification: library first, then OpenAI.
- * Completes exercise_requests (and INSERT exercises if approved) in this same request.
- * Does NOT ping Second. Coach drafts stay on coach-agent.
+ * Exercise check: catalog first. A miss may ask OpenAI for a non-binding
+ * suggestion stored on the pending request. This function never inserts an
+ * exercise and never marks a proposal approved.
  */
 
 const corsHeaders = {
@@ -85,22 +85,35 @@ Deno.serve(async (req: Request) => {
       return json(404, { error: "Exercise request not found" });
     }
 
-    const { data: existing } = await adminClient
-      .from("exercises")
-      .select("*")
-      .ilike("name", String(exReq.name ?? "").trim())
-      .maybeSingle();
+    const normalizedName = String(exReq.name ?? "").trim();
+    const { data: resolvedId } = await adminClient.rpc("resolve_exercise_catalog", {
+      p_name: normalizedName,
+    });
+    let existing: Record<string, unknown> | null = null;
+    if (typeof resolvedId === "string" && resolvedId) {
+      const { data } = await adminClient.from("exercises").select("*").eq("id", resolvedId).maybeSingle();
+      existing = data;
+    }
+    if (!existing) {
+      const { data } = await adminClient
+        .from("exercises")
+        .select("*")
+        .ilike("name", normalizedName)
+        .is("merged_into_id", null)
+        .maybeSingle();
+      existing = data;
+    }
 
     if (existing) {
       await adminClient
         .from("exercise_requests")
         .update({
-          status: "approved",
+          status: "matched",
           result_exercise_id: existing.id,
           updated_at: new Date().toISOString(),
         })
         .eq("id", request_id);
-      return json(200, { exercise: existing, status: "approved" });
+      return json(200, { exercise: existing, status: "matched", applied: false });
     }
 
     const dayStart = new Date();
@@ -121,15 +134,7 @@ Deno.serve(async (req: Request) => {
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     if (!openaiKey) {
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message: "OPENAI_API_KEY not configured",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-      return json(500, { error: "OPENAI_API_KEY not configured" });
+      return json(200, { status: "pending", applied: false });
     }
 
     await adminClient
@@ -137,39 +142,26 @@ Deno.serve(async (req: Request) => {
       .update({ status: "processing", updated_at: new Date().toISOString() })
       .eq("id", request_id);
 
-    const systemPrompt = `You are a fitness exercise verification assistant. Your role is to verify whether a proposed exercise is a real, legitimate exercise and provide accurate details about it.
-
-You MUST respond with ONLY a valid JSON object (no markdown, no code blocks, no extra text) with these exact fields:
+    const systemPrompt = `You are a fitness exercise description assistant. Respond with ONLY a JSON object. Do not decide whether the exercise is added to the catalog.
 {
   "name": "standardized English exercise name",
   "name_fr": "French exercise name",
-  "primary_muscles": ["muscle1", "muscle2"],
+  "primary_muscles": ["muscle1"],
   "secondary_muscles": ["muscle1"],
   "category": "compound|isolation|cardio|stretch|plyometric",
   "equipment": "barbell|dumbbell|machine|cable|bodyweight|kettlebell|band|other",
   "instructions": "Step-by-step instructions in French (3-4 sentences)",
-  "tips": "Form tips and common mistakes in French (2-3 sentences)",
+  "tips": "Form tips in French (2-3 sentences)",
   "difficulty": "beginner|intermediate|advanced",
-  "is_real_exercise": true/false,
-  "rejection_reason": "reason in French if not a real exercise, empty string otherwise"
-}
-
-Muscle names must use these exact values: chest, upper_chest, lower_chest, front_delts, side_delts, rear_delts, traps, lats, rhomboids, lower_back, core, quadriceps, hamstrings, glutes, calves, biceps, triceps, forearms, rotator_cuff, hip_flexors, adductors, abductors, shoulders, obliques
-
-Rules:
-- VERIFY the exercise is a real, recognized fitness exercise practiced in gyms or sports
-- If the user provides a name that is close to a known exercise but misspelled, correct the name
-- If the exercise name is gibberish, offensive, or not a real exercise, set is_real_exercise to false
-- If it's a variation of a known exercise (e.g. "close grip bench press"), treat it as valid
-- Provide accurate muscle activation data based on exercise science
-- Instructions and tips must be in French
-- Be strict: only approve exercises that are genuinely practiced in fitness/sports`;
+  "is_real_exercise": true,
+  "rejection_reason": ""
+}`;
 
     const descriptionInfo = exReq.description ? `\nUser description: "${exReq.description}"` : "";
     const userMessage = `Exercise name: "${exReq.name}"
 User-provided muscle info: "${exReq.muscles || "not specified"}"${descriptionInfo}
 
-Verify this exercise and provide complete details.`;
+Describe this exercise. The catalog decision is human.`;
 
     let openaiRes: Response;
     try {
@@ -193,13 +185,9 @@ Verify this exercise and provide complete details.`;
     } catch {
       await adminClient
         .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message: "OpenAI timeout",
-          updated_at: new Date().toISOString(),
-        })
+        .update({ status: "pending", updated_at: new Date().toISOString() })
         .eq("id", request_id);
-      return json(504, { error: "AI timeout" });
+      return json(200, { status: "pending", applied: false });
     }
 
     await adminClient.from("ai_usage_logs").insert({
@@ -208,116 +196,33 @@ Verify this exercise and provide complete details.`;
     });
 
     if (!openaiRes.ok) {
-      const errBody = await openaiRes.text();
       await adminClient
         .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message: `AI verification failed: ${openaiRes.status}`,
-          updated_at: new Date().toISOString(),
-        })
+        .update({ status: "pending", updated_at: new Date().toISOString() })
         .eq("id", request_id);
-      return json(502, { error: "AI verification failed", details: errBody });
+      return json(200, { status: "pending", applied: false });
     }
 
     const aiResult = await openaiRes.json();
     const rawContent = aiResult.choices?.[0]?.message?.content ?? "";
-
-    let exerciseData: ExerciseData;
+    let exerciseData: ExerciseData | null = null;
     try {
-      const cleaned = rawContent
-        .replace(/```json\s*/g, "")
-        .replace(/```\s*/g, "")
-        .trim();
+      const cleaned = rawContent.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
       exerciseData = JSON.parse(cleaned);
     } catch {
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message: "Erreur d'analyse de la reponse IA",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-      return json(500, { error: "Failed to parse AI response" });
-    }
-
-    if (!exerciseData.is_real_exercise) {
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message:
-            exerciseData.rejection_reason ||
-            "Cet exercice n'a pas ete reconnu comme un exercice de fitness valide.",
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-      return json(200, {
-        rejected: true,
-        reason: exerciseData.rejection_reason,
-        status: "rejected",
-      });
-    }
-
-    const { data: newExercise, error: insertErr } = await adminClient
-      .from("exercises")
-      .insert({
-        name: exerciseData.name,
-        name_fr: exerciseData.name_fr || "",
-        primary_muscles: exerciseData.primary_muscles || [],
-        secondary_muscles: exerciseData.secondary_muscles || [],
-        category: exerciseData.category || "compound",
-        equipment: exerciseData.equipment || "other",
-        instructions: exerciseData.instructions || "",
-        tips: exerciseData.tips || "",
-        difficulty: exerciseData.difficulty || "intermediate",
-        verified: true,
-        created_by: user.id,
-      })
-      .select()
-      .maybeSingle();
-
-    if (insertErr || !newExercise) {
-      const { data: dupExercise } = await adminClient
-        .from("exercises")
-        .select("*")
-        .ilike("name", exerciseData.name)
-        .maybeSingle();
-
-      if (dupExercise) {
-        await adminClient
-          .from("exercise_requests")
-          .update({
-            status: "approved",
-            result_exercise_id: dupExercise.id,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", request_id);
-        return json(200, { exercise: dupExercise, status: "approved" });
-      }
-
-      await adminClient
-        .from("exercise_requests")
-        .update({
-          status: "rejected",
-          error_message: `Erreur lors de l'enregistrement: ${insertErr?.message ?? "unknown"}`,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", request_id);
-      return json(500, { error: "Failed to save exercise" });
+      exerciseData = null;
     }
 
     await adminClient
       .from("exercise_requests")
       .update({
-        status: "approved",
-        result_exercise_id: newExercise.id,
+        status: "pending",
+        ai_suggestion: exerciseData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", request_id);
 
-    return json(200, { exercise: newExercise, status: "approved" });
+    return json(200, { status: "pending", applied: false, suggestion: exerciseData });
   } catch (err) {
     return json(500, {
       error: "Internal server error",

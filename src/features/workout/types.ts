@@ -97,6 +97,8 @@ export interface Exercise {
   created_by: string | null;
   created_at: string;
   video_url: string | null;
+  aliases?: string[];
+  merged_into_id?: string | null;
 }
 
 export type ExerciseRequestStatus = 'pending' | 'processing' | 'approved' | 'rejected';
