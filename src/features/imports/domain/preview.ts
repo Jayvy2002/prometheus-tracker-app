@@ -40,32 +40,58 @@ function cell(row: string[], index: number | undefined): string {
   return row[index] ?? '';
 }
 
+function blank(value: string): boolean {
+  return value.trim() === '';
+}
+
+function formulaOrInvalid(raw: string): 'formula_rejected' | 'invalid_number' {
+  return looksLikeFormula(raw.trim()) ? 'formula_rejected' : 'invalid_number';
+}
+
+function parseWholeNumber(raw: string): number | null {
+  const trimmed = raw.trim().replace(',', '.');
+  if (!trimmed || looksLikeFormula(trimmed) || !/^\d{1,9}$/.test(trimmed)) return null;
+  const parsed = Number(trimmed);
+  return Number.isInteger(parsed) ? parsed : null;
+}
+
+function emptyPlanned(rowNo: number, errorCode: string, date: string | null = null): PlannedRow {
+  return {
+    rowNo,
+    status: 'error',
+    errorCode,
+    date,
+    exercise: null,
+    sessionName: null,
+    setIndex: null,
+    reps: null,
+    loadKg: null,
+    bodyWeightKg: null,
+    rir: null,
+    notes: null,
+  };
+}
+
 export function planImportRows(
   rows: string[][],
   mapping: ImportMapping,
   detections: ColumnDetection[],
 ): ImportPreview {
-  const issues = mappingIssues(mapping, detections.length);
+  const issues = mappingIssues(mapping, detections.length, detections);
   const ambiguities = unresolvedAmbiguities(detections, mapping);
   if (ambiguities.length) issues.push('unresolved_ambiguity');
+  const blocking = issues.find((issue) => (
+    issue === 'unresolved_ambiguity'
+    || issue === 'date_required'
+    || issue === 'duplicate_header'
+    || issue === 'duplicate_mapping'
+    || issue === 'exercise_required'
+    || issue === 'body_weight_required'
+    || issue === 'weight_role_conflict'
+  ));
   const planned: PlannedRow[] = rows.map((row, offset) => {
     const rowNo = offset + 1;
-    if (issues.includes('unresolved_ambiguity') || issues.includes('date_required')) {
-      return {
-        rowNo,
-        status: 'error',
-        errorCode: issues[0] ?? 'invalid_mapping',
-        date: null,
-        exercise: null,
-        sessionName: null,
-        setIndex: null,
-        reps: null,
-        loadKg: null,
-        bodyWeightKg: null,
-        rir: null,
-        notes: null,
-      };
-    }
+    if (blocking) return emptyPlanned(rowNo, blocking);
     const rawDate = cell(row, mapping.columns.date);
     const date = parseDateCell(rawDate, mapping.date_format);
     if (!date) {
@@ -85,6 +111,10 @@ export function planImportRows(
       };
     }
     if (mapping.kind === 'body_weight') {
+      const rawNotes = cell(row, mapping.columns.notes);
+      if (rawNotes.trim() && looksLikeFormula(rawNotes.trim())) {
+        return emptyPlanned(rowNo, 'formula_rejected', date);
+      }
       const rawWeight = cell(row, mapping.columns.body_weight);
       const parsed = parseNumberCell(rawWeight);
       if (parsed == null || parsed <= 0 || parsed > 500) {
@@ -118,87 +148,46 @@ export function planImportRows(
         notes: cell(row, mapping.columns.notes) || null,
       };
     }
-    const exercise = cell(row, mapping.columns.exercise);
-    if (!exercise) {
-      return {
-        rowNo,
-        status: 'error',
-        errorCode: 'exercise_required',
-        date,
-        exercise: null,
-        sessionName: cell(row, mapping.columns.session_name) || null,
-        setIndex: null,
-        reps: null,
-        loadKg: null,
-        bodyWeightKg: null,
-        rir: null,
-        notes: null,
-      };
+    const rawExercise = cell(row, mapping.columns.exercise);
+    const rawSession = cell(row, mapping.columns.session_name);
+    const rawNotes = cell(row, mapping.columns.notes);
+    if (looksLikeFormula(rawExercise.trim())) return emptyPlanned(rowNo, 'formula_rejected', date);
+    if (!rawExercise.trim()) return emptyPlanned(rowNo, 'exercise_required', date);
+    if (rawSession.trim() && looksLikeFormula(rawSession.trim())) return emptyPlanned(rowNo, 'formula_rejected', date);
+    if (rawNotes.trim() && looksLikeFormula(rawNotes.trim())) return emptyPlanned(rowNo, 'formula_rejected', date);
+    const exercise = rawExercise.trim();
+    const sessionName = rawSession.trim() || null;
+    const rawReps = mapping.columns.reps == null ? '' : cell(row, mapping.columns.reps);
+    let reps: number | null = null;
+    if (!blank(rawReps)) {
+      reps = parseWholeNumber(rawReps);
+      if (reps == null || reps > 1000) return emptyPlanned(rowNo, formulaOrInvalid(rawReps), date);
     }
-    const rawReps = cell(row, mapping.columns.reps);
-    const reps = rawReps ? parseNumberCell(rawReps) : 0;
-    if (rawReps && (reps == null || reps < 0 || reps > 1000 || !Number.isInteger(reps))) {
-      return {
-        rowNo,
-        status: 'error',
-        errorCode: looksLikeFormula(rawReps) ? 'formula_rejected' : 'invalid_number',
-        date,
-        exercise,
-        sessionName: cell(row, mapping.columns.session_name) || null,
-        setIndex: null,
-        reps: null,
-        loadKg: null,
-        bodyWeightKg: null,
-        rir: null,
-        notes: null,
-      };
-    }
-    const rawLoad = cell(row, mapping.columns.exercise_load);
+    const rawLoad = mapping.columns.exercise_load == null ? '' : cell(row, mapping.columns.exercise_load);
     let loadKg: number | null = null;
-    if (rawLoad) {
+    if (!blank(rawLoad)) {
       const parsed = parseNumberCell(rawLoad);
-      if (parsed == null || parsed < 0 || parsed > 2000) {
-        return {
-          rowNo,
-          status: 'error',
-          errorCode: looksLikeFormula(rawLoad) ? 'formula_rejected' : 'invalid_number',
-          date,
-          exercise,
-          sessionName: cell(row, mapping.columns.session_name) || null,
-          setIndex: null,
-          reps: reps ?? 0,
-          loadKg: null,
-          bodyWeightKg: null,
-          rir: null,
-          notes: null,
-        };
-      }
+      if (parsed == null || parsed < 0 || parsed > 2000) return emptyPlanned(rowNo, formulaOrInvalid(rawLoad), date);
       loadKg = Math.round(convertToKg(parsed, mapping.load_unit) * 100) / 100;
     }
-    const rawSet = cell(row, mapping.columns.set_index);
-    const setIndex = rawSet ? parseNumberCell(rawSet) : 1;
-    const rawRir = cell(row, mapping.columns.rir);
-    const rawRpe = cell(row, mapping.columns.rpe);
-    let rir: number | null = rawRir ? parseNumberCell(rawRir) : null;
-    let notes = cell(row, mapping.columns.notes);
-    if (rawRpe) {
+    const rawSet = mapping.columns.set_index == null ? '' : cell(row, mapping.columns.set_index);
+    let setIndex: number | null = null;
+    if (!blank(rawSet)) {
+      setIndex = parseWholeNumber(rawSet);
+      if (setIndex == null || setIndex < 1 || setIndex > 100) return emptyPlanned(rowNo, formulaOrInvalid(rawSet), date);
+    }
+    const rawRir = mapping.columns.rir == null ? '' : cell(row, mapping.columns.rir);
+    let rir: number | null = null;
+    if (!blank(rawRir)) {
+      rir = parseWholeNumber(rawRir);
+      if (rir == null || rir > 10) return emptyPlanned(rowNo, formulaOrInvalid(rawRir), date);
+    }
+    const rawRpe = mapping.columns.rpe == null ? '' : cell(row, mapping.columns.rpe);
+    let notes = rawNotes.trim();
+    if (!blank(rawRpe)) {
+      if (looksLikeFormula(rawRpe.trim())) return emptyPlanned(rowNo, 'formula_rejected', date);
       const rpe = parseNumberCell(rawRpe);
-      if (rpe == null || rpe < 1 || rpe > 10) {
-        return {
-          rowNo,
-          status: 'error',
-          errorCode: 'invalid_number',
-          date,
-          exercise,
-          sessionName: cell(row, mapping.columns.session_name) || null,
-          setIndex: setIndex == null ? 1 : setIndex,
-          reps: reps ?? 0,
-          loadKg,
-          bodyWeightKg: null,
-          rir: null,
-          notes: notes || null,
-        };
-      }
+      if (rpe == null || rpe < 1 || rpe > 10) return emptyPlanned(rowNo, 'invalid_number', date);
       if (mapping.rpe_mode === 'convert_to_rir') {
         rir = Math.max(0, Math.round(10 - rpe));
       } else {
@@ -211,15 +200,29 @@ export function planImportRows(
       errorCode: null,
       date,
       exercise,
-      sessionName: cell(row, mapping.columns.session_name) || null,
-      setIndex: setIndex == null ? 1 : setIndex,
-      reps: reps ?? 0,
+      sessionName,
+      setIndex,
+      reps,
       loadKg,
       bodyWeightKg: null,
       rir,
       notes: notes || null,
     };
   });
+  const groups = new Map<string, PlannedRow[]>();
+  for (const row of planned) {
+    if (row.status !== 'ready' || row.setIndex != null || !row.exercise) continue;
+    const key = `${row.date ?? ''}|${row.sessionName ?? ''}|${row.exercise}`;
+    const list = groups.get(key) ?? [];
+    list.push(row);
+    groups.set(key, list);
+  }
+  for (const list of groups.values()) {
+    list.sort((a, b) => a.rowNo - b.rowNo);
+    list.forEach((row, index) => {
+      row.setIndex = index + 1;
+    });
+  }
   return {
     issues,
     ambiguities,

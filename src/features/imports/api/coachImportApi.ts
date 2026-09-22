@@ -21,6 +21,10 @@ export type CoachImportView = {
   applied_count: number;
   issues: string[];
   rows: CoachImportRowView[];
+  row_count: number;
+  row_offset: number;
+  row_limit: number;
+  errors_only: boolean;
 };
 
 function asView(value: unknown): CoachImportView {
@@ -37,6 +41,10 @@ function asView(value: unknown): CoachImportView {
     applied_count: Number(row.applied_count ?? 0),
     issues: Array.isArray(row.issues) ? row.issues.map(String) : [],
     rows: Array.isArray(row.rows) ? row.rows as CoachImportRowView[] : [],
+    row_count: Number(row.row_count ?? 0),
+    row_offset: Number(row.row_offset ?? 0),
+    row_limit: Number(row.row_limit ?? 50),
+    errors_only: row.errors_only === true,
   };
 }
 
@@ -73,8 +81,16 @@ export async function commitCoachImport(input: {
   return { data: asView(data), error: null };
 }
 
-export async function getCoachImport(importId: string): Promise<{ data: CoachImportView | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('get_coach_import', { p_import_id: importId });
+export async function getCoachImport(
+  importId: string,
+  page?: { offset?: number; limit?: number; errorsOnly?: boolean },
+): Promise<{ data: CoachImportView | null; error: string | null }> {
+  const { data, error } = await supabase.rpc('get_coach_import', {
+    p_import_id: importId,
+    p_offset: page?.offset ?? 0,
+    p_limit: page?.limit ?? 50,
+    p_errors_only: page?.errorsOnly ?? false,
+  });
   if (error) return { data: null, error: error.message };
   return { data: asView(data), error: null };
 }

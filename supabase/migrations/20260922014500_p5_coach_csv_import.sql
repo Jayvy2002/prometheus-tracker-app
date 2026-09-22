@@ -4,7 +4,8 @@
 
 CREATE TABLE IF NOT EXISTS public.coach_imports (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  coach_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  coach_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  coach_ref text NOT NULL CHECK (coach_ref ~ '^user:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
   subject_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   status text NOT NULL CHECK (status IN ('previewed', 'committed', 'failed', 'cancelled')),
   kind text NOT NULL CHECK (kind IN ('workout', 'body_weight')),
@@ -13,6 +14,7 @@ CREATE TABLE IF NOT EXISTS public.coach_imports (
   mapping jsonb NOT NULL,
   mapping_hash text NOT NULL CHECK (char_length(mapping_hash) = 64),
   idempotency_key text NOT NULL CHECK (char_length(btrim(idempotency_key)) BETWEEN 1 AND 200),
+  source_headers jsonb NOT NULL DEFAULT '[]'::jsonb,
   row_count integer NOT NULL DEFAULT 0 CHECK (row_count >= 0),
   ready_count integer NOT NULL DEFAULT 0 CHECK (ready_count >= 0),
   ignored_count integer NOT NULL DEFAULT 0 CHECK (ignored_count >= 0),
@@ -54,7 +56,13 @@ GRANT SELECT ON TABLE public.coach_import_rows TO authenticated, service_role;
 DROP POLICY IF EXISTS coach_imports_select ON public.coach_imports;
 CREATE POLICY coach_imports_select ON public.coach_imports
   FOR SELECT TO authenticated
-  USING (coach_id = (SELECT auth.uid()));
+  USING (
+    coach_id = (SELECT auth.uid())
+    AND (
+      subject_user_id = (SELECT auth.uid())
+      OR public.is_coach_of(subject_user_id)
+    )
+  );
 
 DROP POLICY IF EXISTS coach_import_rows_select ON public.coach_import_rows;
 CREATE POLICY coach_import_rows_select ON public.coach_import_rows
@@ -62,9 +70,35 @@ CREATE POLICY coach_import_rows_select ON public.coach_import_rows
   USING (
     EXISTS (
       SELECT 1 FROM public.coach_imports i
-      WHERE i.id = import_id AND i.coach_id = (SELECT auth.uid())
+      WHERE i.id = import_id
     )
   );
+
+CREATE OR REPLACE FUNCTION public.coach_imports_protect_provenance()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  IF NEW.coach_ref IS DISTINCT FROM OLD.coach_ref THEN
+    RAISE EXCEPTION 'coach_ref_immutable';
+  END IF;
+  IF OLD.coach_id IS NOT NULL
+     AND NEW.coach_id IS DISTINCT FROM OLD.coach_id
+     AND NEW.coach_id IS NOT NULL THEN
+    RAISE EXCEPTION 'coach_id_immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS coach_imports_protect_provenance ON public.coach_imports;
+CREATE TRIGGER coach_imports_protect_provenance
+  BEFORE UPDATE ON public.coach_imports
+  FOR EACH ROW
+  EXECUTE FUNCTION public.coach_imports_protect_provenance();
+
+REVOKE ALL ON FUNCTION public.coach_imports_protect_provenance() FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.coach_import_sha256(p_text text)
 RETURNS text
@@ -208,6 +242,35 @@ $$;
 
 REVOKE ALL ON FUNCTION public.lock_coach_import(uuid) FROM PUBLIC, anon, authenticated;
 
+CREATE OR REPLACE FUNCTION public.coach_import_calendar_date(p_year integer, p_month integer, p_day integer)
+RETURNS date
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v_dim integer;
+BEGIN
+  IF p_year IS NULL OR p_year < 1 OR p_year > 9999 THEN RETURN NULL; END IF;
+  IF p_month IS NULL OR p_month < 1 OR p_month > 12 THEN RETURN NULL; END IF;
+  IF p_day IS NULL OR p_day < 1 THEN RETURN NULL; END IF;
+  v_dim := CASE p_month
+    WHEN 1 THEN 31 WHEN 3 THEN 31 WHEN 5 THEN 31 WHEN 7 THEN 31
+    WHEN 8 THEN 31 WHEN 10 THEN 31 WHEN 12 THEN 31
+    WHEN 4 THEN 30 WHEN 6 THEN 30 WHEN 9 THEN 30 WHEN 11 THEN 30
+    WHEN 2 THEN CASE
+      WHEN (p_year % 4 = 0 AND p_year % 100 <> 0) OR (p_year % 400 = 0) THEN 29
+      ELSE 28
+    END
+    ELSE 0
+  END;
+  IF p_day > v_dim THEN RETURN NULL; END IF;
+  RETURN pg_catalog.make_date(p_year, p_month, p_day);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_calendar_date(integer, integer, integer) FROM PUBLIC, anon, authenticated;
+
 CREATE OR REPLACE FUNCTION public.coach_import_parse_date(p_value text, p_format text)
 RETURNS date
 LANGUAGE plpgsql
@@ -219,18 +282,26 @@ DECLARE
   a integer;
   b integer;
   y integer;
+  v_norm text;
 BEGIN
   IF v = '' OR v ~ '^[=+@|-]' THEN RETURN NULL; END IF;
-  IF v ~ '^\d{4}-\d{2}-\d{2}$' THEN RETURN v::date; END IF;
+  IF v ~ '^\d{4}-\d{2}-\d{2}$' THEN
+    RETURN public.coach_import_calendar_date(
+      split_part(v, '-', 1)::int,
+      split_part(v, '-', 2)::int,
+      split_part(v, '-', 3)::int
+    );
+  END IF;
   IF v ~ '^\d{1,2}[/.]\d{1,2}[/.]\d{4}$' THEN
-    a := split_part(regexp_replace(v, '[/.]', '-', 'g'), '-', 1)::int;
-    b := split_part(regexp_replace(v, '[/.]', '-', 'g'), '-', 2)::int;
-    y := split_part(regexp_replace(v, '[/.]', '-', 'g'), '-', 3)::int;
-    IF p_format = 'dmy' AND a BETWEEN 1 AND 31 AND b BETWEEN 1 AND 12 THEN
-      RETURN make_date(y, b, a);
+    v_norm := regexp_replace(v, '[/.]', '-', 'g');
+    a := split_part(v_norm, '-', 1)::int;
+    b := split_part(v_norm, '-', 2)::int;
+    y := split_part(v_norm, '-', 3)::int;
+    IF p_format = 'dmy' THEN
+      RETURN public.coach_import_calendar_date(y, b, a);
     END IF;
-    IF p_format = 'mdy' AND a BETWEEN 1 AND 12 AND b BETWEEN 1 AND 31 THEN
-      RETURN make_date(y, a, b);
+    IF p_format = 'mdy' THEN
+      RETURN public.coach_import_calendar_date(y, a, b);
     END IF;
   END IF;
   RETURN NULL;
@@ -255,6 +326,133 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.coach_import_parse_number(text) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_is_formula(p_value text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT btrim(coalesce(p_value, '')) ~ '^[=+@|-]';
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_is_formula(text) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_parse_uint(p_value text)
+RETURNS integer
+LANGUAGE plpgsql
+IMMUTABLE
+SET search_path = ''
+AS $$
+DECLARE
+  v text := btrim(replace(coalesce(p_value, ''), ',', '.'));
+BEGIN
+  IF v = '' OR public.coach_import_is_formula(v) OR v !~ '^\d{1,9}$' THEN
+    RETURN NULL;
+  END IF;
+  RETURN v::integer;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_parse_uint(text) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_header_group(p_header text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT CASE public.coach_import_header_token(p_header)
+    WHEN 'date' THEN 'date'
+    WHEN 'jour' THEN 'date'
+    WHEN 'day' THEN 'date'
+    WHEN 'loggedat' THEN 'date'
+    WHEN 'measuredat' THEN 'date'
+    WHEN 'exercise' THEN 'exercise'
+    WHEN 'exercice' THEN 'exercise'
+    WHEN 'movement' THEN 'exercise'
+    WHEN 'mouvement' THEN 'exercise'
+    WHEN 'lift' THEN 'exercise'
+    WHEN 'set' THEN 'set_index'
+    WHEN 'serie' THEN 'set_index'
+    WHEN 'setindex' THEN 'set_index'
+    WHEN 'reps' THEN 'reps'
+    WHEN 'rep' THEN 'reps'
+    WHEN 'repetitions' THEN 'reps'
+    WHEN 'rir' THEN 'rir'
+    WHEN 'rpe' THEN 'rpe'
+    WHEN 'notes' THEN 'notes'
+    WHEN 'note' THEN 'notes'
+    WHEN 'comment' THEN 'notes'
+    WHEN 'commentaire' THEN 'notes'
+    WHEN 'session' THEN 'session_name'
+    WHEN 'workout' THEN 'session_name'
+    WHEN 'seance' THEN 'session_name'
+    WHEN 'unit' THEN 'unit'
+    WHEN 'unite' THEN 'unit'
+    WHEN 'units' THEN 'unit'
+    WHEN 'weight' THEN 'weight'
+    WHEN 'poids' THEN 'weight'
+    WHEN 'wt' THEN 'weight'
+    WHEN 'load' THEN 'weight'
+    WHEN 'charge' THEN 'weight'
+    ELSE NULL
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_header_group(text) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_assert_headers(p_headers text[], p_mapping jsonb)
+RETURNS void
+LANGUAGE plpgsql
+STABLE
+SET search_path = ''
+AS $$
+DECLARE
+  i integer;
+  j integer;
+  g text;
+  n integer := coalesce(array_length(p_headers, 1), 0);
+  v_ignored integer[] := coalesce((
+    SELECT array_agg(value::int)
+    FROM jsonb_array_elements_text(coalesce(p_mapping->'ignored', '[]'::jsonb))
+  ), ARRAY[]::integer[]);
+  v_mapped integer[] := coalesce((
+    SELECT array_agg(value::int)
+    FROM jsonb_each_text(coalesce(p_mapping->'columns', '{}'::jsonb))
+  ), ARRAY[]::integer[]);
+BEGIN
+  FOR i IN 1..n LOOP
+    g := public.coach_import_header_group(p_headers[i]);
+    IF g IS NULL THEN CONTINUE; END IF;
+    FOR j IN i + 1..n LOOP
+      IF public.coach_import_header_group(p_headers[j]) IS DISTINCT FROM g THEN
+        CONTINUE;
+      END IF;
+      IF NOT ((i - 1) = ANY (v_ignored) OR (i - 1) = ANY (v_mapped))
+         OR NOT ((j - 1) = ANY (v_ignored) OR (j - 1) = ANY (v_mapped)) THEN
+        RAISE EXCEPTION 'duplicate_header';
+      END IF;
+    END LOOP;
+  END LOOP;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_assert_headers(text[], jsonb) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_cell(p_cells text[], p_cols jsonb, p_role text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = ''
+AS $$
+  SELECT CASE
+    WHEN p_cols ? p_role THEN p_cells[(p_cols->>p_role)::int + 1]
+    ELSE NULL
+  END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_cell(text[], jsonb, text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.coach_import_normalized_mapping(p_mapping jsonb)
 RETURNS jsonb
@@ -343,18 +541,16 @@ DECLARE
   v_raw text;
   v_num numeric;
   v_exercise text;
+  v_session text;
   v_notes text;
   v_rpe numeric;
-  v_rir numeric;
+  v_rir integer;
   v_load numeric;
   v_set integer;
   v_reps integer;
+  v_derive boolean := false;
   idx integer;
   token text;
-  ignored integer[] := coalesce((
-    SELECT array_agg(value::int)
-    FROM jsonb_array_elements_text(coalesce(p_mapping->'ignored', '[]'::jsonb))
-  ), ARRAY[]::integer[]);
 BEGIN
   FOR idx IN 1 .. coalesce(array_length(p_headers, 1), 0) LOOP
     token := public.coach_import_header_token(p_headers[idx]);
@@ -370,22 +566,27 @@ BEGIN
     END IF;
   END LOOP;
 
-  v_raw := p_cells[(v_cols->>'date')::int + 1];
+  v_raw := public.coach_import_cell(p_cells, v_cols, 'date');
   v_date := public.coach_import_parse_date(v_raw, p_mapping->>'date_format');
   IF v_date IS NULL THEN
     RETURN jsonb_build_object(
       'status', 'error',
-      'error_code', CASE WHEN coalesce(v_raw, '') ~ '^[=+@|-]' THEN 'formula_rejected' ELSE 'invalid_date' END
+      'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_date' END
     );
   END IF;
 
+  v_notes := nullif(btrim(coalesce(public.coach_import_cell(p_cells, v_cols, 'notes'), '')), '');
+  IF public.coach_import_is_formula(v_notes) THEN
+    RETURN jsonb_build_object('status', 'error', 'error_code', 'formula_rejected', 'date', v_date);
+  END IF;
+
   IF p_kind = 'body_weight' THEN
-    v_raw := p_cells[(v_cols->>'body_weight')::int + 1];
+    v_raw := public.coach_import_cell(p_cells, v_cols, 'body_weight');
     v_num := public.coach_import_parse_number(v_raw);
     IF v_num IS NULL OR v_num <= 0 OR v_num > 500 THEN
       RETURN jsonb_build_object(
         'status', 'error',
-        'error_code', CASE WHEN coalesce(v_raw, '') ~ '^[=+@|-]' THEN 'formula_rejected' ELSE 'invalid_number' END
+        'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_number' END
       );
     END IF;
     IF p_mapping->>'body_weight_unit' = 'lb' THEN
@@ -396,55 +597,80 @@ BEGIN
       'error_code', null,
       'date', v_date,
       'body_weight_kg', v_num,
-      'notes', nullif(p_cells[coalesce((v_cols->>'notes')::int, -1) + 1], '')
+      'notes', v_notes
     );
   END IF;
 
-  v_exercise := nullif(p_cells[(v_cols->>'exercise')::int + 1], '');
+  v_raw := public.coach_import_cell(p_cells, v_cols, 'exercise');
+  IF public.coach_import_is_formula(v_raw) THEN
+    RETURN jsonb_build_object('status', 'error', 'error_code', 'formula_rejected', 'date', v_date);
+  END IF;
+  v_exercise := nullif(btrim(coalesce(v_raw, '')), '');
   IF v_exercise IS NULL THEN
     RETURN jsonb_build_object('status', 'error', 'error_code', 'exercise_required', 'date', v_date);
   END IF;
-  v_raw := p_cells[coalesce((v_cols->>'reps')::int, -1) + 1];
-  IF coalesce(v_raw, '') <> '' THEN
-    v_num := public.coach_import_parse_number(v_raw);
-    IF v_num IS NULL OR v_num < 0 OR v_num > 1000 OR v_num <> trunc(v_num) THEN
+  v_session := public.coach_import_cell(p_cells, v_cols, 'session_name');
+  IF public.coach_import_is_formula(v_session) THEN
+    RETURN jsonb_build_object('status', 'error', 'error_code', 'formula_rejected', 'date', v_date);
+  END IF;
+  v_session := nullif(btrim(coalesce(v_session, '')), '');
+
+  v_raw := public.coach_import_cell(p_cells, v_cols, 'reps');
+  IF v_raw IS NOT NULL AND btrim(v_raw) <> '' THEN
+    v_reps := public.coach_import_parse_uint(v_raw);
+    IF v_reps IS NULL OR v_reps > 1000 THEN
       RETURN jsonb_build_object(
         'status', 'error',
-        'error_code', CASE WHEN v_raw ~ '^[=+@|-]' THEN 'formula_rejected' ELSE 'invalid_number' END
+        'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_number' END
       );
     END IF;
-    v_reps := v_num::int;
-  ELSE
-    v_reps := 0;
   END IF;
-  v_raw := p_cells[coalesce((v_cols->>'exercise_load')::int, -1) + 1];
-  IF coalesce(v_raw, '') <> '' THEN
+  v_raw := public.coach_import_cell(p_cells, v_cols, 'exercise_load');
+  IF v_raw IS NOT NULL AND btrim(v_raw) <> '' THEN
     v_load := public.coach_import_parse_number(v_raw);
     IF v_load IS NULL OR v_load < 0 OR v_load > 2000 THEN
       RETURN jsonb_build_object(
         'status', 'error',
-        'error_code', CASE WHEN v_raw ~ '^[=+@|-]' THEN 'formula_rejected' ELSE 'invalid_number' END
+        'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_number' END
       );
     END IF;
     IF p_mapping->>'load_unit' = 'lb' THEN
       v_load := round(v_load * 0.45359237, 2);
     END IF;
   END IF;
-  v_raw := p_cells[coalesce((v_cols->>'set_index')::int, -1) + 1];
-  v_set := coalesce(public.coach_import_parse_number(v_raw)::int, 1);
-  v_notes := nullif(p_cells[coalesce((v_cols->>'notes')::int, -1) + 1], '');
-  v_raw := p_cells[coalesce((v_cols->>'rir')::int, -1) + 1];
-  IF coalesce(v_raw, '') <> '' THEN
-    v_rir := public.coach_import_parse_number(v_raw);
+  v_raw := public.coach_import_cell(p_cells, v_cols, 'set_index');
+  IF v_raw IS NULL OR btrim(v_raw) = '' THEN
+    v_derive := true;
+  ELSE
+    v_set := public.coach_import_parse_uint(v_raw);
+    IF v_set IS NULL OR v_set < 1 OR v_set > 100 THEN
+      RETURN jsonb_build_object(
+        'status', 'error',
+        'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_number' END
+      );
+    END IF;
   END IF;
-  v_raw := p_cells[coalesce((v_cols->>'rpe')::int, -1) + 1];
-  IF coalesce(v_raw, '') <> '' THEN
+  v_raw := public.coach_import_cell(p_cells, v_cols, 'rir');
+  IF v_raw IS NOT NULL AND btrim(v_raw) <> '' THEN
+    v_rir := public.coach_import_parse_uint(v_raw);
+    IF v_rir IS NULL OR v_rir > 10 THEN
+      RETURN jsonb_build_object(
+        'status', 'error',
+        'error_code', CASE WHEN public.coach_import_is_formula(v_raw) THEN 'formula_rejected' ELSE 'invalid_number' END
+      );
+    END IF;
+  END IF;
+  v_raw := public.coach_import_cell(p_cells, v_cols, 'rpe');
+  IF v_raw IS NOT NULL AND btrim(v_raw) <> '' THEN
+    IF public.coach_import_is_formula(v_raw) THEN
+      RETURN jsonb_build_object('status', 'error', 'error_code', 'formula_rejected', 'date', v_date);
+    END IF;
     v_rpe := public.coach_import_parse_number(v_raw);
     IF v_rpe IS NULL OR v_rpe < 1 OR v_rpe > 10 THEN
-      RETURN jsonb_build_object('status', 'error', 'error_code', 'invalid_number');
+      RETURN jsonb_build_object('status', 'error', 'error_code', 'invalid_number', 'date', v_date);
     END IF;
     IF p_mapping->>'rpe_mode' = 'convert_to_rir' THEN
-      v_rir := greatest(0, round(10 - v_rpe));
+      v_rir := greatest(0, round(10 - v_rpe))::int;
     ELSE
       v_notes := nullif(concat_ws(' · ', v_notes, 'RPE ' || v_rpe::text), '');
     END IF;
@@ -454,8 +680,9 @@ BEGIN
     'error_code', null,
     'date', v_date,
     'exercise', v_exercise,
-    'session_name', nullif(p_cells[coalesce((v_cols->>'session_name')::int, -1) + 1], ''),
+    'session_name', v_session,
     'set_index', v_set,
+    'derive_set', v_derive,
     'reps', v_reps,
     'load_kg', v_load,
     'rir', v_rir,
@@ -497,13 +724,71 @@ $$;
 
 REVOKE ALL ON FUNCTION public.coach_import_assert_actor(uuid) FROM PUBLIC, anon, authenticated;
 
-CREATE OR REPLACE FUNCTION public.coach_import_view(p_import public.coach_imports)
+CREATE OR REPLACE FUNCTION public.coach_import_actor_can_read(p_import public.coach_imports)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT p_import.coach_id IS NOT NULL
+    AND p_import.coach_id = auth.uid()
+    AND (
+      p_import.subject_user_id = auth.uid()
+      OR public.is_coach_of(p_import.subject_user_id)
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_actor_can_read(public.coach_imports) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_lock_active_link(p_coach uuid, p_subject uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF p_coach IS NULL OR p_subject IS NULL THEN
+    RAISE EXCEPTION 'not_your_client';
+  END IF;
+  IF p_subject = p_coach THEN
+    RETURN;
+  END IF;
+  PERFORM 1
+  FROM public.coach_client_links
+  WHERE coach_id = p_coach
+    AND client_id = p_subject
+    AND status = 'active'
+  FOR SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'not_your_client';
+  END IF;
+  IF NOT public.coach_relationship_is_open(p_coach) THEN
+    RAISE EXCEPTION 'coach_account_closed';
+  END IF;
+  IF NOT public.is_coach_of(p_subject) THEN
+    RAISE EXCEPTION 'not_your_client';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_lock_active_link(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_view(
+  p_import public.coach_imports,
+  p_offset integer DEFAULT 0,
+  p_limit integer DEFAULT 50,
+  p_errors_only boolean DEFAULT false
+)
 RETURNS jsonb
 LANGUAGE plpgsql
 STABLE
 SECURITY DEFINER
 SET search_path = ''
 AS $$
+DECLARE
+  v_offset integer := greatest(coalesce(p_offset, 0), 0);
+  v_limit integer := least(greatest(coalesce(p_limit, 50), 0), 200);
 BEGIN
   RETURN jsonb_build_object(
     'import_id', p_import.id,
@@ -515,6 +800,10 @@ BEGIN
     'ignored_count', p_import.ignored_count,
     'error_count', p_import.error_count,
     'applied_count', p_import.applied_count,
+    'row_count', p_import.row_count,
+    'row_offset', v_offset,
+    'row_limit', v_limit,
+    'errors_only', coalesce(p_errors_only, false),
     'issues', coalesce((
       SELECT jsonb_agg(DISTINCT r.error_code)
       FROM public.coach_import_rows r
@@ -522,20 +811,92 @@ BEGIN
     ), '[]'::jsonb),
     'rows', coalesce((
       SELECT jsonb_agg(jsonb_build_object(
-        'row_no', r.row_no,
-        'status', r.status,
-        'error_code', r.error_code,
-        'planned', r.planned
-      ) ORDER BY r.row_no)
-      FROM public.coach_import_rows r
-      WHERE r.import_id = p_import.id
-        AND r.row_no <= 50
+        'row_no', q.row_no,
+        'status', q.status,
+        'error_code', q.error_code,
+        'planned', q.planned
+      ) ORDER BY q.row_no)
+      FROM (
+        SELECT r.row_no, r.status, r.error_code, r.planned
+        FROM public.coach_import_rows r
+        WHERE r.import_id = p_import.id
+          AND (NOT coalesce(p_errors_only, false) OR r.status = 'error')
+        ORDER BY r.row_no
+        OFFSET v_offset
+        LIMIT v_limit
+      ) q
     ), '[]'::jsonb)
   );
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.coach_import_view(public.coach_imports) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.coach_import_view(public.coach_imports, integer, integer, boolean) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.coach_import_finish_conflict(
+  p_uid uuid,
+  p_subject uuid,
+  p_key text,
+  p_hash text,
+  p_map_hash text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_id uuid;
+  v_row public.coach_imports;
+BEGIN
+  IF p_subject IS DISTINCT FROM p_uid THEN
+    PERFORM public.lock_coach_relationship_lifecycle(p_uid);
+  END IF;
+  SELECT id INTO v_id
+  FROM public.coach_imports
+  WHERE coach_id = p_uid AND idempotency_key = p_key;
+  IF FOUND THEN
+    PERFORM public.lock_coach_import(v_id);
+    SELECT * INTO v_row FROM public.coach_imports WHERE id = v_id FOR UPDATE;
+    IF NOT FOUND OR v_row.subject_user_id IS DISTINCT FROM p_subject THEN
+      RAISE EXCEPTION 'import_conflict';
+    END IF;
+    IF v_row.status = 'committed' THEN
+      IF v_row.file_sha256 = p_hash AND v_row.mapping_hash = p_map_hash THEN
+        RETURN public.coach_import_view(v_row);
+      END IF;
+      RAISE EXCEPTION 'import_conflict';
+    END IF;
+    IF v_row.file_sha256 IS DISTINCT FROM p_hash THEN
+      RAISE EXCEPTION 'file_changed';
+    END IF;
+    IF v_row.mapping_hash = p_map_hash THEN
+      RETURN public.coach_import_view(v_row);
+    END IF;
+    RAISE EXCEPTION 'import_conflict';
+  END IF;
+  SELECT id INTO v_id
+  FROM public.coach_imports
+  WHERE coach_id = p_uid
+    AND subject_user_id = p_subject
+    AND file_sha256 = p_hash
+    AND mapping_hash = p_map_hash
+    AND status IN ('previewed', 'committed');
+  IF FOUND THEN
+    PERFORM public.lock_coach_import(v_id);
+    SELECT * INTO v_row FROM public.coach_imports WHERE id = v_id FOR UPDATE;
+    IF FOUND
+       AND v_row.subject_user_id = p_subject
+       AND v_row.file_sha256 = p_hash
+       AND v_row.mapping_hash = p_map_hash
+       AND v_row.status IN ('previewed', 'committed') THEN
+      RETURN public.coach_import_view(v_row);
+    END IF;
+  END IF;
+  RAISE EXCEPTION 'import_conflict';
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.coach_import_finish_conflict(uuid, uuid, text, text, text) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.preview_coach_import(
   p_subject_user_id uuid,
@@ -563,50 +924,73 @@ DECLARE
   v_error integer := 0;
   v_ignored integer := 0;
   v_rows integer := 0;
+  v_found uuid;
+  v_new_id uuid;
+  v_have boolean := false;
+  v_key text := btrim(p_idempotency_key);
 BEGIN
   v_uid := public.coach_import_assert_actor(p_subject_user_id);
   IF p_filename IS NULL OR char_length(btrim(p_filename)) NOT BETWEEN 1 AND 200 THEN
     RAISE EXCEPTION 'invalid_filename';
   END IF;
-  IF p_idempotency_key IS NULL OR char_length(btrim(p_idempotency_key)) NOT BETWEEN 1 AND 200 THEN
+  IF p_idempotency_key IS NULL OR char_length(v_key) NOT BETWEEN 1 AND 200 THEN
     RAISE EXCEPTION 'invalid_idempotency_key';
   END IF;
   v_mapping := public.coach_import_normalized_mapping(p_mapping);
   v_hash := public.coach_import_sha256(p_source_text);
   v_map_hash := public.coach_import_sha256(v_mapping::text);
 
-  SELECT * INTO v_existing
+  SELECT id INTO v_found
   FROM public.coach_imports
-  WHERE coach_id = v_uid AND idempotency_key = btrim(p_idempotency_key)
-  FOR UPDATE;
+  WHERE coach_id = v_uid AND idempotency_key = v_key;
   IF FOUND THEN
-    IF v_existing.status = 'committed' THEN
+    PERFORM public.lock_coach_import(v_found);
+    SELECT * INTO v_existing FROM public.coach_imports WHERE id = v_found FOR UPDATE;
+    IF NOT FOUND THEN
+      v_found := NULL;
+    ELSIF v_existing.subject_user_id IS DISTINCT FROM p_subject_user_id THEN
+      RAISE EXCEPTION 'import_conflict';
+    ELSIF v_existing.status = 'committed' THEN
       IF v_existing.file_sha256 = v_hash AND v_existing.mapping_hash = v_map_hash THEN
         RETURN public.coach_import_view(v_existing);
       END IF;
       RAISE EXCEPTION 'import_conflict';
+    ELSIF v_existing.file_sha256 IS DISTINCT FROM v_hash THEN
+      RAISE EXCEPTION 'file_changed';
+    ELSE
+      DELETE FROM public.coach_import_rows WHERE import_id = v_existing.id;
+      v_import := v_existing;
+      v_have := true;
     END IF;
-    IF v_existing.file_sha256 <> v_hash THEN RAISE EXCEPTION 'file_changed'; END IF;
-    DELETE FROM public.coach_import_rows WHERE import_id = v_existing.id;
-    v_import := v_existing;
-  ELSE
-    SELECT * INTO v_existing
+  END IF;
+
+  IF NOT v_have THEN
+    SELECT id INTO v_found
     FROM public.coach_imports
     WHERE coach_id = v_uid
       AND subject_user_id = p_subject_user_id
       AND file_sha256 = v_hash
       AND mapping_hash = v_map_hash
-      AND status IN ('previewed', 'committed')
-    FOR UPDATE;
+      AND status IN ('previewed', 'committed');
     IF FOUND THEN
-      RETURN public.coach_import_view(v_existing);
+      PERFORM public.lock_coach_import(v_found);
+      SELECT * INTO v_existing FROM public.coach_imports WHERE id = v_found FOR UPDATE;
+      IF FOUND
+         AND v_existing.subject_user_id = p_subject_user_id
+         AND v_existing.file_sha256 = v_hash
+         AND v_existing.mapping_hash = v_map_hash
+         AND v_existing.status IN ('previewed', 'committed') THEN
+        RETURN public.coach_import_view(v_existing);
+      END IF;
     END IF;
+    v_new_id := gen_random_uuid();
+    PERFORM public.lock_coach_import(v_new_id);
     INSERT INTO public.coach_imports (
-      coach_id, subject_user_id, status, kind, filename, file_sha256,
-      mapping, mapping_hash, idempotency_key
+      id, coach_id, coach_ref, subject_user_id, status, kind, filename, file_sha256,
+      mapping, mapping_hash, idempotency_key, source_headers
     ) VALUES (
-      v_uid, p_subject_user_id, 'previewed', v_mapping->>'kind', btrim(p_filename),
-      v_hash, v_mapping, v_map_hash, btrim(p_idempotency_key)
+      v_new_id, v_uid, 'user:' || v_uid::text, p_subject_user_id, 'previewed', v_mapping->>'kind',
+      btrim(p_filename), v_hash, v_mapping, v_map_hash, v_key, '[]'::jsonb
     )
     RETURNING * INTO v_import;
   END IF;
@@ -616,6 +1000,7 @@ BEGIN
   LOOP
     IF v_parsed.row_no = 1 THEN
       v_headers := v_parsed.cells;
+      PERFORM public.coach_import_assert_headers(v_headers, v_mapping);
       CONTINUE;
     END IF;
     v_rows := v_rows + 1;
@@ -635,13 +1020,29 @@ BEGIN
     END IF;
   END LOOP;
 
+  WITH ranked AS (
+    SELECT r.id,
+           row_number() OVER (
+             PARTITION BY r.planned->>'date', coalesce(r.planned->>'session_name', ''), r.planned->>'exercise'
+             ORDER BY r.row_no
+           ) AS n
+    FROM public.coach_import_rows r
+    WHERE r.import_id = v_import.id
+      AND r.status = 'ready'
+      AND coalesce((r.planned->>'derive_set')::boolean, false)
+  )
+  UPDATE public.coach_import_rows r
+     SET planned = jsonb_set(r.planned, '{set_index}', to_jsonb(ranked.n), true)
+    FROM ranked
+   WHERE r.id = ranked.id;
+
   UPDATE public.coach_imports
      SET mapping = v_mapping,
          mapping_hash = v_map_hash,
          file_sha256 = v_hash,
          filename = btrim(p_filename),
          kind = v_mapping->>'kind',
-         subject_user_id = p_subject_user_id,
+         source_headers = to_jsonb(coalesce(v_headers, ARRAY[]::text[])),
          status = 'previewed',
          row_count = v_rows,
          ready_count = v_ready,
@@ -653,19 +1054,7 @@ BEGIN
   RETURN public.coach_import_view(v_import);
 EXCEPTION
   WHEN unique_violation THEN
-    SELECT * INTO v_existing
-    FROM public.coach_imports
-    WHERE coach_id = v_uid AND idempotency_key = btrim(p_idempotency_key);
-    IF FOUND THEN RETURN public.coach_import_view(v_existing); END IF;
-    SELECT * INTO v_existing
-    FROM public.coach_imports
-    WHERE coach_id = v_uid
-      AND subject_user_id = p_subject_user_id
-      AND file_sha256 = v_hash
-      AND mapping_hash = v_map_hash
-      AND status IN ('previewed', 'committed');
-    IF FOUND THEN RETURN public.coach_import_view(v_existing); END IF;
-    RAISE;
+    RETURN public.coach_import_finish_conflict(v_uid, p_subject_user_id, v_key, v_hash, v_map_hash);
 END;
 $$;
 
@@ -684,6 +1073,8 @@ SET search_path = ''
 AS $$
 DECLARE
   v_uid uuid;
+  v_subject uuid;
+  v_coach uuid;
   v_import public.coach_imports;
   v_mapping jsonb;
   v_map_hash text;
@@ -697,12 +1088,23 @@ DECLARE
   v_ex text;
   v_ex_ord integer;
 BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'not_authenticated'; END IF;
   IF p_import_id IS NULL THEN RAISE EXCEPTION 'not_found'; END IF;
-  SELECT * INTO v_import FROM public.coach_imports WHERE id = p_import_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
+  SELECT subject_user_id, coach_id INTO v_subject, v_coach
+  FROM public.coach_imports
+  WHERE id = p_import_id;
+  IF NOT FOUND OR v_coach IS DISTINCT FROM auth.uid() THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+  v_uid := public.coach_import_assert_actor(v_subject);
   PERFORM public.lock_coach_import(p_import_id);
-  v_uid := public.coach_import_assert_actor(v_import.subject_user_id);
-  IF v_import.coach_id <> v_uid THEN RAISE EXCEPTION 'not_found'; END IF;
+  SELECT * INTO v_import FROM public.coach_imports WHERE id = p_import_id FOR UPDATE;
+  IF NOT FOUND OR v_import.coach_id IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+  IF v_import.subject_user_id IS DISTINCT FROM v_subject THEN
+    RAISE EXCEPTION 'import_conflict';
+  END IF;
   IF v_import.status = 'committed' THEN
     RETURN public.coach_import_view(v_import);
   END IF;
@@ -710,12 +1112,17 @@ BEGIN
   v_mapping := public.coach_import_normalized_mapping(p_mapping);
   v_map_hash := public.coach_import_sha256(v_mapping::text);
   IF v_map_hash <> v_import.mapping_hash THEN RAISE EXCEPTION 'mapping_changed'; END IF;
+  PERFORM public.coach_import_assert_headers(
+    COALESCE(ARRAY(SELECT jsonb_array_elements_text(v_import.source_headers)), ARRAY[]::text[]),
+    v_mapping
+  );
   IF NOT EXISTS (
     SELECT 1 FROM public.coach_import_rows
     WHERE import_id = v_import.id AND status = 'ready'
   ) THEN
     RAISE EXCEPTION 'nothing_to_import';
   END IF;
+  PERFORM public.coach_import_lock_active_link(v_uid, v_import.subject_user_id);
 
   IF v_import.kind = 'body_weight' THEN
     FOR v_row IN
@@ -737,7 +1144,7 @@ BEGIN
           v_import.subject_user_id,
           (v_row.planned->>'body_weight_kg')::numeric,
           v_date,
-          coalesce(v_row.planned->>'notes', '')
+          v_row.planned->>'notes'
         )
         RETURNING id INTO v_weight;
         UPDATE public.coach_import_rows
@@ -753,27 +1160,31 @@ BEGIN
     END LOOP;
   ELSE
     FOR v_date, v_session IN
-      SELECT DISTINCT (planned->>'date')::date, coalesce(planned->>'session_name', '')
+      SELECT (planned->>'date')::date, coalesce(planned->>'session_name', '')
       FROM public.coach_import_rows
       WHERE import_id = v_import.id AND status = 'ready'
+      GROUP BY 1, 2
+      ORDER BY min(row_no)
     LOOP
       INSERT INTO public.workouts (user_id, name, date, completed, notes)
       VALUES (
         v_import.subject_user_id,
         CASE WHEN v_session <> '' THEN v_session ELSE to_char(v_date, 'YYYY-MM-DD') END,
-        (v_date::timestamp AT TIME ZONE 'UTC'),
+        ((v_date::timestamp + interval '12 hours') AT TIME ZONE 'UTC'),
         true,
         ''
       )
       RETURNING id INTO v_wid;
       v_ex_ord := 0;
       FOR v_ex IN
-        SELECT DISTINCT planned->>'exercise'
+        SELECT planned->>'exercise'
         FROM public.coach_import_rows
         WHERE import_id = v_import.id
           AND status = 'ready'
           AND (planned->>'date')::date = v_date
           AND coalesce(planned->>'session_name', '') = v_session
+        GROUP BY planned->>'exercise'
+        ORDER BY min(row_no)
       LOOP
         v_ex_ord := v_ex_ord + 1;
         INSERT INTO public.workout_exercises (workout_id, name, order_index, notes)
@@ -782,13 +1193,17 @@ BEGIN
           v_ex,
           v_ex_ord,
           coalesce((
-            SELECT planned->>'notes'
-            FROM public.coach_import_rows
-            WHERE import_id = v_import.id AND status = 'ready'
-              AND (planned->>'date')::date = v_date
-              AND coalesce(planned->>'session_name', '') = v_session
-              AND planned->>'exercise' = v_ex
-            ORDER BY row_no LIMIT 1
+            SELECT string_agg(
+              concat(coalesce(r.planned->>'set_index', r.row_no::text), ' · ', r.planned->>'notes'),
+              E'\n' ORDER BY r.row_no
+            )
+            FROM public.coach_import_rows r
+            WHERE r.import_id = v_import.id
+              AND r.status = 'ready'
+              AND (r.planned->>'date')::date = v_date
+              AND coalesce(r.planned->>'session_name', '') = v_session
+              AND r.planned->>'exercise' = v_ex
+              AND coalesce(r.planned->>'notes', '') <> ''
           ), '')
         )
         RETURNING id INTO v_eid;
@@ -798,11 +1213,11 @@ BEGIN
         SELECT
           v_eid,
           'working',
-          coalesce((r.planned->>'load_kg')::numeric, 0),
-          coalesce((r.planned->>'reps')::int, 0),
-          coalesce((r.planned->>'rir')::int, 0),
+          (r.planned->>'load_kg')::numeric,
+          (r.planned->>'reps')::int,
+          (r.planned->>'rir')::int,
           true,
-          coalesce((r.planned->>'set_index')::int, 1)
+          row_number() OVER (ORDER BY r.row_no)
         FROM public.coach_import_rows r
         WHERE r.import_id = v_import.id
           AND r.status = 'ready'
@@ -842,7 +1257,12 @@ $$;
 REVOKE ALL ON FUNCTION public.commit_coach_import(uuid, text, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.commit_coach_import(uuid, text, jsonb) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.get_coach_import(p_import_id uuid)
+CREATE OR REPLACE FUNCTION public.get_coach_import(
+  p_import_id uuid,
+  p_offset integer DEFAULT 0,
+  p_limit integer DEFAULT 50,
+  p_errors_only boolean DEFAULT false
+)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -852,16 +1272,19 @@ DECLARE
   v_import public.coach_imports;
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'not_authenticated'; END IF;
-  SELECT * INTO v_import
-  FROM public.coach_imports
-  WHERE id = p_import_id AND coach_id = auth.uid();
-  IF NOT FOUND THEN RAISE EXCEPTION 'not_found'; END IF;
-  RETURN public.coach_import_view(v_import);
+  IF coalesce(p_offset, 0) < 0 OR coalesce(p_limit, 50) < 1 OR coalesce(p_limit, 50) > 200 THEN
+    RAISE EXCEPTION 'invalid_mapping';
+  END IF;
+  SELECT * INTO v_import FROM public.coach_imports WHERE id = p_import_id;
+  IF NOT FOUND OR NOT public.coach_import_actor_can_read(v_import) THEN
+    RAISE EXCEPTION 'not_found';
+  END IF;
+  RETURN public.coach_import_view(v_import, p_offset, p_limit, coalesce(p_errors_only, false));
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.get_coach_import(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_coach_import(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.get_coach_import(uuid, integer, integer, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_coach_import(uuid, integer, integer, boolean) TO authenticated, service_role;
 
 CREATE OR REPLACE FUNCTION public.list_coach_imports()
 RETURNS jsonb
@@ -872,10 +1295,14 @@ AS $$
 BEGIN
   IF auth.uid() IS NULL THEN RAISE EXCEPTION 'not_authenticated'; END IF;
   RETURN coalesce((
-    SELECT jsonb_agg(public.coach_import_view(i) ORDER BY i.created_at DESC)
+    SELECT jsonb_agg(public.coach_import_view(i, 0, 0, false) ORDER BY i.created_at DESC)
     FROM (
-      SELECT * FROM public.coach_imports
-      WHERE coach_id = auth.uid()
+      SELECT * FROM public.coach_imports i
+      WHERE i.coach_id = auth.uid()
+        AND (
+          i.subject_user_id = auth.uid()
+          OR public.is_coach_of(i.subject_user_id)
+        )
       ORDER BY created_at DESC
       LIMIT 20
     ) i
@@ -887,8 +1314,8 @@ REVOKE ALL ON FUNCTION public.list_coach_imports() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.list_coach_imports() TO authenticated, service_role;
 
 COMMENT ON TABLE public.coach_imports IS
-  'P5.1 Coach CSV import jobs. Preview then transactional commit. Provenance stays here; business tables are not polluted.';
+  'P5.1 Coach CSV import jobs. Preview then transactional commit. coach_ref stays after the Coach account is deleted; coach_id becomes null. Subject rows follow the subject lifecycle.';
 COMMENT ON FUNCTION public.preview_coach_import(uuid, text, text, jsonb, text) IS
-  'Parse and plan a Coach CSV. No business writes. Coach self or active client only.';
+  'Parse and plan a Coach CSV. No business writes. Lock order: Coach lifecycle, import mutex, coach_imports FOR UPDATE. Idempotency key is bound to the subject.';
 COMMENT ON FUNCTION public.commit_coach_import(uuid, text, jsonb) IS
-  'Revalidate mapping, fingerprint and is_coach_of, then apply historical rows atomically. Retry returns the committed result.';
+  'Lock order: lifecycle, import mutex, coach_imports FOR UPDATE, revalidation, active coach_client_links FOR SHARE, then historical writes. Blank load, reps and RIR stay null. Session dates are noon UTC.';

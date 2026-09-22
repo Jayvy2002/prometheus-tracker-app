@@ -405,6 +405,22 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5.1 csv import: preview no business write, commit atomic, is_coach_of, retry, no silent Weight' /tmp/p5-csv-import-db-results.txt
+      - name: Test P5.1 preview × commit lock order
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-p5-preview-commit-lock.sh | tee /tmp/p5-preview-commit-lock.txt
+      - name: Confirm P5.1 preview × commit lock echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.1 preview × commit: two-session lock order, no deadlock' /tmp/p5-preview-commit-lock.txt
+      - name: Test P5.1 commit × end link
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-p5-commit-end-link.sh | tee /tmp/p5-commit-end-link.txt
+      - name: Confirm P5.1 commit × end link echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.1 commit × end link: commit wins while active, end wins not_your_client, no client write after, no deadlock' /tmp/p5-commit-end-link.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

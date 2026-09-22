@@ -8,6 +8,7 @@ const IMPORT_ERROR_KEYS = [
   'malformed_csv',
   'unresolved_ambiguity',
   'duplicate_mapping',
+  'duplicate_header',
   'column_out_of_range',
   'date_required',
   'exercise_required',

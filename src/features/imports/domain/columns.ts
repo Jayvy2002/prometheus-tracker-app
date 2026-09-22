@@ -78,6 +78,44 @@ export function detectColumns(headers: string[]): ColumnDetection[] {
   });
 }
 
+export function headerGroup(detection: ColumnDetection): string | null {
+  if (detection.confidence === 'certain' && detection.candidates[0]) return detection.candidates[0];
+  if (
+    detection.confidence === 'ambiguous'
+    && detection.candidates.includes('exercise_load')
+    && detection.candidates.includes('body_weight')
+  ) {
+    return 'weight';
+  }
+  return null;
+}
+
+export function columnResolved(index: number, mapping: ImportMapping): boolean {
+  return mapping.ignored.includes(index) || Object.values(mapping.columns).includes(index);
+}
+
+export function unresolvedDuplicateHeaders(
+  detections: ColumnDetection[],
+  mapping: ImportMapping,
+): ColumnDetection[] {
+  const groups = new Map<string, ColumnDetection[]>();
+  for (const detection of detections) {
+    const group = headerGroup(detection);
+    if (!group) continue;
+    const list = groups.get(group) ?? [];
+    list.push(detection);
+    groups.set(group, list);
+  }
+  const unresolved: ColumnDetection[] = [];
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    for (const detection of list) {
+      if (!columnResolved(detection.index, mapping)) unresolved.push(detection);
+    }
+  }
+  return unresolved;
+}
+
 export function proposeMapping(
   kind: ImportKind,
   detections: ColumnDetection[],
@@ -85,16 +123,20 @@ export function proposeMapping(
 ): ImportMapping {
   const columns: Partial<Record<ColumnRole, number>> = {};
   const ignored: number[] = [];
+  const groupCount = new Map<string, number>();
   for (const detection of detections) {
+    const group = headerGroup(detection);
+    if (group) groupCount.set(group, (groupCount.get(group) ?? 0) + 1);
+  }
+  for (const detection of detections) {
+    const group = headerGroup(detection);
+    if (group && (groupCount.get(group) ?? 0) > 1) continue;
     if (detection.confidence === 'certain' && detection.candidates[0]) {
       const role = detection.candidates[0];
       if (columns[role] == null) columns[role] = detection.index;
-      else ignored.push(detection.index);
       continue;
     }
-    if (detection.confidence === 'unknown') {
-      ignored.push(detection.index);
-    }
+    if (detection.confidence === 'unknown') ignored.push(detection.index);
   }
   return {
     kind,
@@ -121,10 +163,15 @@ export function unresolvedAmbiguities(
   ));
 }
 
-export function mappingIssues(mapping: ImportMapping, columnCount: number): string[] {
+export function mappingIssues(
+  mapping: ImportMapping,
+  columnCount: number,
+  detections: ColumnDetection[] = [],
+): string[] {
   const issues: string[] = [];
   const values = Object.values(mapping.columns);
   if (new Set(values).size !== values.length) issues.push('duplicate_mapping');
+  if (unresolvedDuplicateHeaders(detections, mapping).length > 0) issues.push('duplicate_header');
   for (const index of values) {
     if (index < 0 || index >= columnCount) issues.push('column_out_of_range');
   }
@@ -146,27 +193,33 @@ export function mappingIssues(mapping: ImportMapping, columnCount: number): stri
   return [...new Set(issues)];
 }
 
+function isCivilDate(year: number, month: number, day: number): boolean {
+  if (year < 1 || year > 9999 || month < 1 || month > 12 || day < 1) return false;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return parsed.getUTCFullYear() === year
+    && parsed.getUTCMonth() === month - 1
+    && parsed.getUTCDate() === day;
+}
+
+function isoDate(year: string, month: number, day: number): string | null {
+  const y = Number(year);
+  if (!isCivilDate(y, month, day)) return null;
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
 export function parseDateCell(value: string, format: DateFormat): string | null {
   const trimmed = value.trim();
   if (!trimmed || looksLikeFormula(trimmed)) return null;
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  if (iso) return isoDate(iso[1], Number(iso[2]), Number(iso[3]));
   const slash = /^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/.exec(trimmed);
   if (!slash) return null;
   const a = Number(slash[1]);
   const b = Number(slash[2]);
   const y = slash[3];
-  if (format === 'dmy') {
-    if (a < 1 || a > 31 || b < 1 || b > 12) return null;
-    return `${y}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
-  }
-  if (format === 'mdy') {
-    if (a < 1 || a > 12 || b < 1 || b > 31) return null;
-    return `${y}-${String(a).padStart(2, '0')}-${String(b).padStart(2, '0')}`;
-  }
-  if (a > 12 && b <= 12) {
-    return `${y}-${String(b).padStart(2, '0')}-${String(a).padStart(2, '0')}`;
-  }
+  if (format === 'dmy') return isoDate(y, b, a);
+  if (format === 'mdy') return isoDate(y, a, b);
+  if (a > 12 && b <= 12) return isoDate(y, b, a);
   return null;
 }
 

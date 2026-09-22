@@ -10,13 +10,14 @@ import Button from '../ui/Button';
 import Card from '../ui/Card';
 import PageTransition from '../ui/PageTransition';
 import { toast } from '../ui/Toast';
-import { commitCoachImport, previewCoachImport, type CoachImportView } from '../../features/imports/api/coachImportApi';
+import { commitCoachImport, getCoachImport, previewCoachImport, type CoachImportView } from '../../features/imports/api/coachImportApi';
 import {
   COLUMN_ROLES,
   detectColumns,
   mappingIssues,
   proposeMapping,
   unresolvedAmbiguities,
+  unresolvedDuplicateHeaders,
   type ColumnRole,
   type DateFormat,
   type ImportKind,
@@ -70,7 +71,8 @@ export default function CoachImportPage() {
 
   const detections = useMemo(() => (parsed ? detectColumns(parsed.headers) : []), [parsed]);
   const ambiguities = mapping && parsed ? unresolvedAmbiguities(detections, mapping) : [];
-  const issues = mapping && parsed ? mappingIssues(mapping, parsed.headers.length) : [];
+  const issues = mapping && parsed ? mappingIssues(mapping, parsed.headers.length, detections) : [];
+  const duplicateHeaders = mapping ? unresolvedDuplicateHeaders(detections, mapping) : [];
   const localPreview = parsed && mapping ? planImportRows(parsed.rows, mapping, detections) : null;
   const ownedClients = clients.filter((client) => (
     canImportCoachSpreadsheet({ subjectUserId: client.id, hasActiveRelationship: true })
@@ -160,6 +162,19 @@ export default function CoachImportPage() {
     }
     setServerView(result.data);
     setStep('preview');
+  };
+
+  const loadPage = async (offset: number, errorsOnly: boolean) => {
+    if (!serverView) return;
+    setBusy(true);
+    setLocalError(null);
+    const result = await getCoachImport(serverView.import_id, { offset, limit: 50, errorsOnly });
+    setBusy(false);
+    if (result.error || !result.data) {
+      setLocalError(t(importErrorI18nKey(result.error ?? 'generic')));
+      return;
+    }
+    setServerView(result.data);
   };
 
   const runCommit = async () => {
@@ -254,6 +269,35 @@ export default function CoachImportPage() {
                 <p key={row.index} className="text-sm text-neutral-300">{row.header} → {roleLabel(t, row.candidates[0])}</p>
               ))}
             </section>
+            {duplicateHeaders.length > 0 ? (
+              <section>
+                <h2 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">{t('coaching.importCsv.duplicateHeader')}</h2>
+                <p className="text-xs text-neutral-500 mb-2">{t('coaching.importCsv.duplicateHeaderHint')}</p>
+                {duplicateHeaders.map((row) => (
+                  <label key={row.index} className="block mb-2">
+                    <span className="text-sm text-white">{row.header}</span>
+                    <select
+                      className="mt-1 w-full min-h-11 bg-neutral-900 border border-neutral-800 rounded-xl px-3 py-2 text-sm text-white"
+                      value={
+                        Object.entries(mapping.columns).find(([, index]) => index === row.index)?.[0]
+                        ?? (mapping.ignored.includes(row.index) ? 'ignored' : '')
+                      }
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        if (!value) return;
+                        assignRole(row.index, value as ColumnRole | 'ignored');
+                      }}
+                    >
+                      <option value="">{t('coaching.importCsv.chooseMeaning')}</option>
+                      {(row.candidates.length ? row.candidates : COLUMN_ROLES).map((role) => (
+                        <option key={role} value={role}>{roleLabel(t, role)}</option>
+                      ))}
+                      <option value="ignored">{t('coaching.importCsv.ignoreColumn')}</option>
+                    </select>
+                  </label>
+                ))}
+              </section>
+            ) : null}
             <section>
               <h2 className="text-xs uppercase tracking-wider text-neutral-500 mb-2">{t('coaching.importCsv.ambiguous')}</h2>
               {detections.filter((row) => row.confidence === 'ambiguous').length === 0 ? (
@@ -392,7 +436,22 @@ export default function CoachImportPage() {
                 </Card>
               ))}
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {serverView.error_count > 0 ? (
+                <Button variant="secondary" onClick={() => void loadPage(0, true)} loading={busy}>
+                  {t('coaching.importCsv.showErrors')}
+                </Button>
+              ) : null}
+              {serverView.row_offset > 0 ? (
+                <Button variant="secondary" onClick={() => void loadPage(Math.max(0, serverView.row_offset - 50), serverView.errors_only)} loading={busy}>
+                  {t('coaching.importCsv.prevPage')}
+                </Button>
+              ) : null}
+              {serverView.row_offset + serverView.rows.length < (serverView.errors_only ? serverView.error_count : serverView.row_count) ? (
+                <Button variant="secondary" onClick={() => void loadPage(serverView.row_offset + serverView.rows.length, serverView.errors_only)} loading={busy}>
+                  {t('coaching.importCsv.nextPage')}
+                </Button>
+              ) : null}
               <Button variant="secondary" onClick={() => setStep('map')}>{t('coaching.importCsv.correct')}</Button>
               <Button onClick={() => void runCommit()} loading={busy} disabled={serverView.ready_count < 1}>
                 {t('coaching.importCsv.confirm')}

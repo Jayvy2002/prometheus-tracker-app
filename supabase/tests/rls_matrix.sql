@@ -1183,10 +1183,12 @@ BEGIN
   IF to_regclass('public.coach_imports') IS NOT NULL
      AND has_function_privilege('authenticated', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
      AND has_function_privilege('authenticated', 'public.commit_coach_import(uuid,text,jsonb)', 'execute')
-     AND has_function_privilege('authenticated', 'public.get_coach_import(uuid)', 'execute')
+     AND has_function_privilege('authenticated', 'public.get_coach_import(uuid,integer,integer,boolean)', 'execute')
      AND has_function_privilege('authenticated', 'public.list_coach_imports()', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.lock_coach_import(uuid)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.coach_import_assert_actor(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_lock_active_link(uuid,uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_finish_conflict(uuid,uuid,text,text,text)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.coach_import_parse_csv(text,text)', 'execute')
      AND NOT has_function_privilege('anon', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
      AND NOT has_function_privilege('anon', 'public.commit_coach_import(uuid,text,jsonb)', 'execute')

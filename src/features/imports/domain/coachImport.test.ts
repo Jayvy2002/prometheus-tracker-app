@@ -41,6 +41,79 @@ test('ambiguous dates stay unresolved on iso unless the format is chosen', () =>
   assert.equal(parseDateCell('01/02/2026', 'dmy'), '2026-02-01');
   assert.equal(parseDateCell('01/02/2026', 'mdy'), '2026-01-02');
   assert.equal(parseDateCell('2026-01-02', 'iso'), '2026-01-02');
+  assert.equal(parseDateCell('2026-02-31', 'iso'), null);
+  assert.equal(parseDateCell('31/02/2026', 'dmy'), null);
+  assert.equal(parseDateCell('02/31/2026', 'mdy'), null);
+  assert.equal(parseDateCell('2024-02-29', 'iso'), '2024-02-29');
+});
+
+test('duplicate headers stay unresolved until one column is chosen and the other ignored', () => {
+  const detections = detectColumns(['Date', 'Date', 'Exercise']);
+  const proposed = proposeMapping('workout', detections, ',');
+  assert.equal(proposed.columns.date, undefined);
+  assert.deepEqual(proposed.ignored, []);
+  assert.ok(mappingIssues(proposed, detections.length, detections).includes('duplicate_header'));
+  const resolved = {
+    ...proposed,
+    columns: { date: 0, exercise: 2 },
+    ignored: [1],
+  };
+  assert.equal(mappingIssues(resolved, detections.length, detections).includes('duplicate_header'), false);
+});
+
+test('blank load reps and RIR stay null, explicit zero stays zero, and bad set or RIR is a row error', () => {
+  const csv = parseCsvText('Date,Exercise,Set,Reps,Load,RIR\n2026-06-01,Blank,1,,,\n2026-06-01,Zero,1,0,0,0\n2026-06-01,Bad,abc,5,10,1\n2026-06-01,Half,1.5,5,10,1\n2026-06-01,High,1,5,10,11\n2026-06-01,Derived,,5,10,\n2026-06-01,Derived,,5,10,\n');
+  const detections = detectColumns(csv.headers);
+  const mapping = {
+    ...proposeMapping('workout', detections, ','),
+    columns: { date: 0, exercise: 1, set_index: 2, reps: 3, exercise_load: 4, rir: 5 },
+    ignored: [] as number[],
+  };
+  const preview = planImportRows(csv.rows, mapping, detections);
+  assert.equal(preview.rows[0].reps, null);
+  assert.equal(preview.rows[0].loadKg, null);
+  assert.equal(preview.rows[0].rir, null);
+  assert.equal(preview.rows[1].reps, 0);
+  assert.equal(preview.rows[1].loadKg, 0);
+  assert.equal(preview.rows[1].rir, 0);
+  assert.equal(preview.rows[2].errorCode, 'invalid_number');
+  assert.equal(preview.rows[3].errorCode, 'invalid_number');
+  assert.equal(preview.rows[4].errorCode, 'invalid_number');
+  assert.equal(preview.rows[5].status, 'ready');
+  assert.equal(preview.rows[5].setIndex, 1);
+  assert.equal(preview.rows[6].setIndex, 2);
+  assert.equal(preview.rows[5].rir, null);
+});
+
+test('an impossible date is a row error and the other rows stay previewable', () => {
+  const csv = parseCsvText('Date,Exercise\n2026-02-02,Squat\n2026-02-31,Bench\n2026-02-03,Row\n');
+  const detections = detectColumns(csv.headers);
+  const mapping = {
+    ...proposeMapping('workout', detections, ','),
+    columns: { date: 0, exercise: 1 },
+    ignored: [] as number[],
+  };
+  const preview = planImportRows(csv.rows, mapping, detections);
+  assert.equal(preview.rows[0].status, 'ready');
+  assert.equal(preview.rows[1].errorCode, 'invalid_date');
+  assert.equal(preview.rows[2].status, 'ready');
+});
+
+test('formulas in exercise, notes, set and RIR are rejected', () => {
+  const csv = parseCsvText('Date,Exercise,Notes,Set,RIR\n2026-08-01,=1+1,ok,1,1\n2026-08-01,Squat,=cmd,1,1\n2026-08-01,Squat,ok,=2,1\n2026-08-01,Squat,ok,1,=3\n2026-08-01,Squat,fine,1,2\n');
+  const detections = detectColumns(csv.headers);
+  const mapping = {
+    ...proposeMapping('workout', detections, ','),
+    columns: { date: 0, exercise: 1, notes: 2, set_index: 3, rir: 4 },
+    ignored: [] as number[],
+  };
+  const preview = planImportRows(csv.rows, mapping, detections);
+  assert.equal(preview.rows[0].errorCode, 'formula_rejected');
+  assert.equal(preview.rows[1].errorCode, 'formula_rejected');
+  assert.equal(preview.rows[2].errorCode, 'formula_rejected');
+  assert.equal(preview.rows[3].errorCode, 'formula_rejected');
+  assert.equal(preview.rows[4].status, 'ready');
+  assert.equal(preview.rows[4].rir, 2);
 });
 
 test('preview never writes and surfaces invalid numbers, formulas and missing exercise', () => {
@@ -81,6 +154,26 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   assert.match(sql, /preview_coach_import/);
   assert.match(sql, /commit_coach_import/);
   assert.match(sql, /lock_coach_import/);
+  assert.match(sql, /coach_import_lock_active_link/);
+  assert.match(sql, /FOR SHARE/);
+  assert.match(sql, /ON DELETE SET NULL/);
+  assert.match(sql, /coach_ref/);
+  assert.match(sql, /interval '12 hours'/);
+  assert.match(sql, /ORDER BY min\(row_no\)/);
+  assert.match(sql, /duplicate_header/);
+  assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'load_kg'\)/);
+  assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'reps'\)/);
+  assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'rir'\)/);
+  const commit = sql.slice(sql.indexOf('FUNCTION public.commit_coach_import'), sql.indexOf('FUNCTION public.get_coach_import'));
+  const life = commit.indexOf('coach_import_assert_actor');
+  const mutex = commit.indexOf('lock_coach_import');
+  const rowLock = commit.indexOf('FOR UPDATE');
+  const shareCall = commit.indexOf('coach_import_lock_active_link');
+  assert.ok(life >= 0 && life < mutex && mutex < rowLock && rowLock < shareCall);
+  assert.match(
+    sql.slice(sql.indexOf('FUNCTION public.coach_import_lock_active_link'), sql.indexOf('FUNCTION public.coach_import_view')),
+    /FOR SHARE/,
+  );
   assert.match(sql, /String\(20014504\)|20014504/);
   assert.match(sql, /is_coach_of/);
   assert.doesNotMatch(sql, /start_workout_from_template/);
