@@ -151,6 +151,35 @@ test('body-weight import converts lb and keeps a stable fingerprint', () => {
   assert.equal(createHash('sha256').update(csv.sourceText, 'utf8').digest('hex').length, 64);
 });
 
+test('domain limits apply after conversion to kilograms', () => {
+  const load = parseCsvText('Date,Exercise,Weight,Unit\n2026-09-22,Bench,3000,lb\n2026-09-22,Squat,5000,lb\n');
+  const loadDetections = detectColumns(load.headers);
+  const loadMapping = {
+    ...proposeMapping('workout', loadDetections, ','),
+    load_unit: 'kg' as const,
+    columns: { date: 0, exercise: 1, exercise_load: 2, unit: 3 },
+    ignored: [] as number[],
+  };
+  const loadPreview = planImportRows(load.rows, loadMapping, loadDetections);
+  assert.equal(loadPreview.rows[0].status, 'ready');
+  assert.equal(loadPreview.rows[0].loadKg, 1360.78);
+  assert.equal(loadPreview.rows[1].errorCode, 'invalid_number');
+
+  const body = parseCsvText('Date,Weight,Unit\n2026-09-20,501,lb\n2026-09-21,1103,lb\n');
+  const bodyDetections = detectColumns(body.headers);
+  const bodyMapping = {
+    ...proposeMapping('body_weight', bodyDetections, ','),
+    kind: 'body_weight' as const,
+    body_weight_unit: 'kg' as const,
+    columns: { date: 0, body_weight: 1, unit: 2 },
+    ignored: [] as number[],
+  };
+  const bodyPreview = planImportRows(body.rows, bodyMapping, bodyDetections);
+  assert.equal(bodyPreview.rows[0].status, 'ready');
+  assert.equal(bodyPreview.rows[0].bodyWeightKg, 227.25);
+  assert.equal(bodyPreview.rows[1].errorCode, 'invalid_number');
+});
+
 test('a mapped unit column converts that row and a blank unit uses the chosen fallback', () => {
   const csv = parseCsvText('Date,Exercise,Weight,Unit\n2026-09-01,Bench,225,lb\n2026-09-01,Squat,100,\n2026-09-01,Row,10,stone\n');
   const detections = detectColumns(csv.headers);
@@ -217,6 +246,10 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   assert.match(sql, /acknowledge_duplicates/);
   assert.match(sql, /cancel_coach_import/);
   assert.match(sql, /20014505/);
+  assert.match(sql, /20014506/);
+  assert.match(sql, /duplicates_changed/);
+  assert.match(sql, /coach_import_purge_stale_previews/);
+  assert.match(sql, /coach-import-preview-purge/);
   assert.match(sql, /interval '7 days'/);
   assert.match(sql, />= 20/);
   assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'load_kg'\)/);
@@ -227,7 +260,8 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   const mutex = commit.indexOf('lock_coach_import');
   const rowLock = commit.indexOf('FOR UPDATE');
   const shareCall = commit.indexOf('coach_import_lock_active_link');
-  assert.ok(life >= 0 && life < mutex && mutex < rowLock && rowLock < shareCall);
+  const subjectLock = commit.indexOf('lock_coach_import_subject');
+  assert.ok(life >= 0 && life < mutex && mutex < rowLock && rowLock < shareCall && shareCall < subjectLock);
   assert.match(
     sql.slice(sql.indexOf('FUNCTION public.coach_import_lock_active_link'), sql.indexOf('FUNCTION public.coach_import_view')),
     /FOR SHARE/,
@@ -246,6 +280,7 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   assert.equal(pending.pending.some((row) => row.version === '20260922014500'), true);
   assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260922014500/);
   assert.match(src('.github/workflows/ci.yml'), /p5_coach_csv_import\.sql/);
+  assert.match(src('.github/workflows/ci.yml'), /test-p5-commit-commit-subject\.sh/);
   assert.match(src('supabase/tests/p5_coach_csv_import.sql'), /^ROLLBACK;/m);
   assert.doesNotMatch(src('supabase/tests/p5_coach_csv_import.sql'), /^COMMIT;/m);
   assert.match(src('supabase/tests/rls_matrix.sql'), /preview_coach_import/);

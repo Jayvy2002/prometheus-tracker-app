@@ -137,7 +137,7 @@ export function planImportRows(
       }
       const rawWeight = cell(row, mapping.columns.body_weight);
       const parsed = parseNumberCell(rawWeight);
-      if (parsed == null || parsed <= 0 || parsed > 500) {
+      if (parsed == null) {
         return {
           rowNo,
           status: 'error',
@@ -156,6 +156,8 @@ export function planImportRows(
       }
       const unitChoice = resolveMappedUnit(row, mapping, mapping.body_weight_unit);
       if ('error' in unitChoice) return emptyPlanned(rowNo, unitChoice.error, date);
+      const bodyWeightKg = Math.round(convertToKg(parsed, unitChoice.unit) * 100) / 100;
+      if (bodyWeightKg <= 0 || bodyWeightKg > 500) return emptyPlanned(rowNo, 'invalid_number', date);
       return {
         rowNo,
         status: 'ready',
@@ -167,7 +169,7 @@ export function planImportRows(
         reps: null,
         loadKg: null,
         sourceUnit: unitChoice.unit,
-        bodyWeightKg: Math.round(convertToKg(parsed, unitChoice.unit) * 100) / 100,
+        bodyWeightKg,
         rir: null,
         notes: cell(row, mapping.columns.notes) || null,
       };
@@ -192,12 +194,13 @@ export function planImportRows(
     let parsedLoad: number | null = null;
     if (!blank(rawLoad)) {
       parsedLoad = parseNumberCell(rawLoad);
-      if (parsedLoad == null || parsedLoad < 0 || parsedLoad > 2000) return emptyPlanned(rowNo, formulaOrInvalid(rawLoad), date);
+      if (parsedLoad == null) return emptyPlanned(rowNo, formulaOrInvalid(rawLoad), date);
     }
     const unitChoice = resolveMappedUnit(row, mapping, mapping.load_unit);
     if ('error' in unitChoice) return emptyPlanned(rowNo, unitChoice.error, date);
     if (parsedLoad != null) {
       loadKg = Math.round(convertToKg(parsedLoad, unitChoice.unit) * 100) / 100;
+      if (loadKg < 0 || loadKg > 2000) return emptyPlanned(rowNo, 'invalid_number', date);
     }
     const rawSet = mapping.columns.set_index == null ? '' : cell(row, mapping.columns.set_index);
     let setIndex: number | null = null;

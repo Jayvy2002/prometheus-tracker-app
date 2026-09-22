@@ -798,7 +798,8 @@ Upload
 - jamais d’import silencieux de champs ambigus (`Weight` = charge ou poids corporel) ;
 - dry-run/preview obligatoire, écriture métier seulement au commit ;
 - idempotence/reprise (`idempotency_key`, fingerprint SHA-256, mutex `20014504`) ; une source déjà committée ne se réimporte pas pour le même athlète ; une séance qui chevauche une séance existante exige une confirmation ;
-- aperçus ouverts limités (20) et effacés après 7 jours ou annulation ; la provenance committée reste ;
+- aperçus ouverts limités (20) et effacés après 7 jours (purge horaire et nettoyage opportuniste) ou annulation ; la provenance committée reste ;
+- deux commits du même athlète se sérialisent avant les écritures ; l’acceptation d’un doublon ne vaut que pour la liste montrée à l’aperçu ;
 - provenance sur `coach_imports` / `coach_import_rows` ;
 - erreurs par ligne récupérables ; commit atomique ;
 - Coach lui-même ou client actif (`is_coach_of`) seulement — pas de dossier provisoire (P5.2).

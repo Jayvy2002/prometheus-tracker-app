@@ -23,6 +23,7 @@ const IMPORT_ERROR_KEYS = [
   'already_exists',
   'already_imported',
   'potential_duplicate',
+  'duplicates_changed',
   'preview_quota',
   'file_changed',
   'mapping_changed',

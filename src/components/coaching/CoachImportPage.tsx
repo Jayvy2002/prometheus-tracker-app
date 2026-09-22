@@ -60,6 +60,7 @@ export default function CoachImportPage() {
   const [busy, setBusy] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [serverView, setServerView] = useState<CoachImportView | null>(null);
+  const [staleDuplicates, setStaleDuplicates] = useState(false);
 
   useEffect(() => {
     fetchClients();
@@ -90,6 +91,7 @@ export default function CoachImportPage() {
     setParsed(null);
     setMapping(null);
     setServerView(null);
+    setStaleDuplicates(false);
     setLocalError(null);
     setIdempotencyKey(newKey());
   };
@@ -130,6 +132,7 @@ export default function CoachImportPage() {
       setParsed(next);
       setMapping(nextMapping);
       setServerView(null);
+      setStaleDuplicates(false);
       setIdempotencyKey(newKey());
       setStep('map');
     } catch (err) {
@@ -148,6 +151,7 @@ export default function CoachImportPage() {
       return;
     }
     if (nextMapping) setMapping(nextMapping);
+    setStaleDuplicates(false);
     setBusy(true);
     setLocalError(null);
     const result = await previewCoachImport({
@@ -230,10 +234,12 @@ export default function CoachImportPage() {
     });
     setBusy(false);
     if (result.error || !result.data) {
+      if (result.error === 'duplicates_changed') setStaleDuplicates(true);
       setLocalError(t(importErrorI18nKey(result.error ?? 'generic')));
       toast(t(importErrorI18nKey(result.error ?? 'generic')), 'error');
       return;
     }
+    setStaleDuplicates(false);
     setServerView(result.data);
     setStep('done');
   };
@@ -546,6 +552,15 @@ export default function CoachImportPage() {
                   loading={busy}
                 >
                   {t('coaching.importCsv.acknowledgeDuplicates')}
+                </Button>
+              ) : null}
+              {staleDuplicates && mapping?.acknowledge_duplicates ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => void runPreview(mapping)}
+                  loading={busy}
+                >
+                  {t('coaching.importCsv.reviewDuplicates')}
                 </Button>
               ) : null}
               <Button variant="secondary" onClick={() => void runCancel()} loading={busy}>

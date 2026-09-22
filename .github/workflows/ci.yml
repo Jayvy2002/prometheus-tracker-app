@@ -421,6 +421,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5.1 commit × end link: commit wins while active, end wins not_your_client, no client write after, no deadlock' /tmp/p5-commit-end-link.txt
+      - name: Test P5.1 commit × commit same subject
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-p5-commit-commit-subject.sh | tee /tmp/p5-commit-commit-subject.txt
+      - name: Confirm P5.1 commit × commit subject echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.1 commit × commit: subject mutex, second sees the workout, potential_duplicate, no deadlock' /tmp/p5-commit-commit-subject.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

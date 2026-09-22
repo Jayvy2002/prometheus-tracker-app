@@ -1188,6 +1188,8 @@ BEGIN
      AND has_function_privilege('authenticated', 'public.cancel_coach_import(uuid)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.lock_coach_import(uuid)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.coach_import_expire_previews(uuid)', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.coach_import_purge_stale_previews()', 'execute')
+     AND NOT has_function_privilege('authenticated', 'public.lock_coach_import_subject(uuid)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.lock_coach_import_quota(uuid)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.coach_import_assert_actor(uuid)', 'execute')
      AND NOT has_function_privilege('authenticated', 'public.coach_import_lock_active_link(uuid,uuid)', 'execute')

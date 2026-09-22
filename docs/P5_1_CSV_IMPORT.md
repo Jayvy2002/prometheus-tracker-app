@@ -35,7 +35,7 @@ Deux natures d’import :
 
 RPE : notes, ou conversion explicite vers RIR (`10 − RPE`). Si les deux colonnes sont mappées et que le mode est `convert_to_rir`, le Coach choisit `effort_source` (`rir` ou `rpe`) avant l’aperçu. Sans ce choix : `rir_rpe_conflict`. En mode notes, le RIR reste et le RPE est ajouté à la note.
 
-Unité : une colonne `unit` mappée est lue. `kg` / `lb` (et alias) convertit cette ligne. Une cellule vide retombe sur `load_unit` ou `body_weight_unit`. Une unité inconnue est `invalid_unit`. Le menu global ne remplace jamais une unité écrite dans le fichier.
+Unité : une colonne `unit` mappée est lue. `kg` / `lb` (et alias) convertit cette ligne, puis le plafond s’applique en kg (`500` pour le poids, `2000` pour la charge). `501 lb` reste valide. Une cellule vide retombe sur `load_unit` ou `body_weight_unit`. Une unité inconnue est `invalid_unit`. Le menu global ne remplace jamais une unité écrite dans le fichier.
 
 Dates : `iso` / `dmy` / `mdy`. Le format `iso` n’accepte qu’une date `AAAA-MM-JJ` : `31/01/2026` est invalide tant que le format n’est pas `dmy`. Une date impossible (`2026-02-31`, `31/02/2026`) est une erreur de ligne `invalid_date`, pas un échec de tout l’aperçu. La séance importée est stockée à midi UTC, comme les séances saisies dans l’app, pour rester le même jour civil à Montréal et dans les fuseaux supportés.
 
@@ -46,16 +46,17 @@ Séparateur : la détection compte les `,` `;` et tabulations hors guillemets. L
 - `idempotency_key` unique par Coach et liée au sujet. Une clé déjà utilisée pour un autre `subject_user_id`, ou un commit dont le fichier ou le mapping diffère, renvoie `import_conflict`. Une preview du même sujet et du même fichier peut encore corriger le mapping. Une collision concurrente applique les mêmes vérifications.
 - Empreinte `(coach_id, subject_user_id, file_sha256, mapping_hash)` pour previewed/committed.
 - Source déjà committée pour le même athlète : index `(subject_user_id, file_sha256)` où `status = committed`, indépendant du Coach. Un second import du même fichier renvoie `already_imported`, y compris après un changement de Coach. Le retry du même mapping renvoie l’import existant.
-- Collision avec une séance déjà présente (même jour civil et même nom, ou même exercice) : `potential_duplicate`. Le commit est refusé tant que `acknowledge_duplicates` n’est pas vrai. Deux séances légitimes le même jour, avec un autre nom et d’autres exercices, ne sont pas bloquées. Pas de contrainte unique `(user, date, name)`.
+- Collision avec une séance déjà présente (même jour civil et même nom, ou même exercice) : `potential_duplicate`. Le commit est refusé tant que `acknowledge_duplicates` n’est pas vrai. L’acceptation fige l’empreinte de la liste montrée. Si cette liste a changé au commit : `duplicates_changed`, et il faut un nouvel aperçu. Deux séances légitimes le même jour, avec un autre nom et d’autres exercices, ne sont pas bloquées. Pas de contrainte unique `(user, date, name)`.
+- Deux commits du même athlète se sérialisent sur le mutex de sujet `20014506` avant ce contrôle et les écritures. Le second revoit la séance du premier.
 - Retry du même commit : même résultat, pas de doublon.
 - Fichier ou mapping changé depuis l’aperçu → `file_changed` / `mapping_changed`.
-- Ordre de verrous : mutex de cycle de vie du Coach si le sujet n’est pas le Coach, puis `lock_coach_import` (classe `20014504`), puis `coach_imports` `FOR UPDATE`, puis revalidation, puis la ligne active `coach_client_links` en `FOR SHARE` pour tout le commit. Pas de mutex d’affectation (`20014500`) dans l’import.
+- Ordre de verrous : mutex de cycle de vie du Coach si le sujet n’est pas le Coach, puis `lock_coach_import` (classe `20014504`), puis `coach_imports` `FOR UPDATE`, puis revalidation, puis la ligne active `coach_client_links` en `FOR SHARE`, puis le mutex de sujet `20014506`. Pas de mutex d’affectation (`20014500`) dans l’import.
 
 ## Provenance
 
 Conservée sur `coach_imports` / `coach_import_rows` (fichier, hash, mapping, `coach_ref` immuable `user:<uuid>`, sujet, ligne, erreurs, ids appliqués) **une fois l’import commité**. `coach_id` est nullable `ON DELETE SET NULL` : supprimer le compte Coach ne détruit pas la provenance ni les séances du client. Les tables métier ne sont pas polluées. Un ancien Coach ne lit plus le CSV tant que la relation n’est plus active. L’import pour soi-même reste lisible.
 
-Les aperçus non confirmés ne sont pas de la provenance durable. Au plus **20** aperçus `previewed` par Coach (`preview_quota`). `cancel_coach_import` passe le statut à `cancelled` et supprime les lignes brutes. Un aperçu encore ouvert après **7 jours** est annulé de la même façon au prochain preview, get ou list de ce Coach. Les imports `committed` ne sont pas annulés et leur audit n’est pas supprimé.
+Les aperçus non confirmés ne sont pas de la provenance durable. Au plus **20** aperçus `previewed` par Coach (`preview_quota`). `cancel_coach_import` passe le statut à `cancelled` et supprime les lignes brutes. Un aperçu encore ouvert après **7 jours** est aussi annulé au prochain preview, get ou list de ce Coach, et par la purge horaire `coach-import-preview-purge` (`coach_import_purge_stale_previews`), même si le Coach ne revient pas. Les imports `committed` ne sont pas annulés et leur audit n’est pas supprimé.
 
 ## Permissions
 

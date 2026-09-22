@@ -55,6 +55,8 @@ DO $$ BEGIN
      OR NOT has_function_privilege('authenticated', 'public.cancel_coach_import(uuid)', 'execute')
      OR has_function_privilege('authenticated', 'public.lock_coach_import(uuid)', 'execute')
      OR has_function_privilege('authenticated', 'public.coach_import_expire_previews(uuid)', 'execute')
+     OR has_function_privilege('authenticated', 'public.coach_import_purge_stale_previews()', 'execute')
+     OR has_function_privilege('authenticated', 'public.lock_coach_import_subject(uuid)', 'execute')
      OR has_function_privilege('anon', 'public.preview_coach_import(uuid,text,text,jsonb,text)', 'execute')
      OR has_table_privilege('authenticated', 'public.coach_imports', 'insert')
   THEN
@@ -920,6 +922,125 @@ BEGIN
   SELECT count(*) INTO n FROM public.coach_import_rows WHERE import_id = v_id;
   IF v_status IS DISTINCT FROM 'cancelled' OR n <> 0 THEN
     RAISE EXCEPTION 'stale preview status % rows %', v_status, n;
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v jsonb;
+  row jsonb;
+  v_load jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1,"exercise_load":2,"unit":3},"ignored":[]}'::jsonb;
+  v_body jsonb := '{"kind":"body_weight","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"body_weight":1,"unit":2},"ignored":[]}'::jsonb;
+BEGIN
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000003', 'lb-load.csv',
+    E'Date,Exercise,Weight,Unit\n2026-09-22,Bench,3000,lb\n2026-09-22,Squat,5000,lb\n',
+    v_load, 'lb-load'
+  );
+  SELECT e INTO row FROM jsonb_array_elements(v->'rows') e WHERE (e->>'row_no')::int = 1;
+  IF row->>'status' IS DISTINCT FROM 'ready'
+     OR (row->'planned'->>'load_kg')::numeric IS DISTINCT FROM 1360.78 THEN
+    RAISE EXCEPTION '3000 lb was not converted before the cap %', row;
+  END IF;
+  SELECT e INTO row FROM jsonb_array_elements(v->'rows') e WHERE (e->>'row_no')::int = 2;
+  IF row->>'error_code' IS DISTINCT FROM 'invalid_number' THEN
+    RAISE EXCEPTION '5000 lb stayed under the kg cap %', row;
+  END IF;
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000003', 'lb-body.csv',
+    E'Date,Weight,Unit\n2026-09-20,501,lb\n2026-09-21,1103,lb\n',
+    v_body, 'lb-body'
+  );
+  SELECT e INTO row FROM jsonb_array_elements(v->'rows') e WHERE (e->>'row_no')::int = 1;
+  IF row->>'status' IS DISTINCT FROM 'ready'
+     OR (row->'planned'->>'body_weight_kg')::numeric IS DISTINCT FROM 227.25 THEN
+    RAISE EXCEPTION '501 lb was rejected before conversion %', row;
+  END IF;
+  SELECT e INTO row FROM jsonb_array_elements(v->'rows') e WHERE (e->>'row_no')::int = 2;
+  IF row->>'error_code' IS DISTINCT FROM 'invalid_number' THEN
+    RAISE EXCEPTION '1103 lb was accepted as body weight %', row;
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  v jsonb;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","acknowledge_duplicates":true,"columns":{"date":0,"exercise":1},"ignored":[]}'::jsonb;
+BEGIN
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000003', 'ack.csv',
+    E'Date,Exercise\n2026-06-20,Press\n', v_map, 'ack-snapshot'
+  );
+  INSERT INTO p51_hold(import_id, sha, map)
+  VALUES ((v->>'import_id')::uuid, v->>'file_sha256', v_map || '{"marker":"ack-snapshot"}'::jsonb);
+END $$;
+
+RESET ROLE;
+INSERT INTO public.workouts(user_id, name, date, completed, notes)
+VALUES (
+  'c5100000-0000-4000-8000-000000000003',
+  'Other',
+  (timestamp '2026-06-20 12:00:00' AT TIME ZONE 'UTC'),
+  true,
+  ''
+);
+INSERT INTO public.workout_exercises(workout_id, name, order_index, notes)
+SELECT id, 'Press', 1, ''
+FROM public.workouts
+WHERE user_id = 'c5100000-0000-4000-8000-000000000003'
+  AND name = 'Other';
+
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000003');
+DO $$
+DECLARE
+  h p51_hold;
+  n int;
+BEGIN
+  SELECT * INTO h FROM p51_hold WHERE map->>'marker' = 'ack-snapshot';
+  BEGIN
+    PERFORM public.commit_coach_import(h.import_id, h.sha, h.map);
+    RAISE EXCEPTION 'ack committed a duplicate that was not in the preview';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM <> 'duplicates_changed' THEN RAISE; END IF;
+  END;
+  SELECT count(*) INTO n FROM public.workouts
+  WHERE user_id = 'c5100000-0000-4000-8000-000000000003' AND name = 'Other';
+  IF n <> 1 THEN RAISE EXCEPTION 'changed duplicate list wrote % workouts', n; END IF;
+END $$;
+
+DO $$
+DECLARE
+  v jsonb;
+  v_map jsonb := '{"kind":"workout","delimiter":",","date_format":"iso","load_unit":"kg","body_weight_unit":"kg","rpe_mode":"notes","columns":{"date":0,"exercise":1},"ignored":[]}'::jsonb;
+BEGIN
+  v := public.preview_coach_import(
+    'c5100000-0000-4000-8000-000000000003', 'purge.csv',
+    E'Date,Exercise\n2026-11-03,Press\n', v_map, 'purge-me'
+  );
+  INSERT INTO p51_hold(import_id, sha, map)
+  VALUES ((v->>'import_id')::uuid, 'purge-marker', '{}'::jsonb);
+END $$;
+
+RESET ROLE;
+UPDATE public.coach_imports
+   SET created_at = clock_timestamp() - interval '8 days'
+ WHERE id = (SELECT import_id FROM p51_hold WHERE sha = 'purge-marker');
+SELECT public.coach_import_purge_stale_previews();
+
+SET LOCAL ROLE authenticated;
+SELECT pg_temp.as_user('c5100000-0000-4000-8000-000000000003');
+DO $$
+DECLARE
+  v_id uuid;
+  n int;
+  v_status text;
+BEGIN
+  SELECT import_id INTO v_id FROM p51_hold WHERE sha = 'purge-marker';
+  SELECT status INTO v_status FROM public.coach_imports WHERE id = v_id;
+  SELECT count(*) INTO n FROM public.coach_import_rows WHERE import_id = v_id;
+  IF v_status IS DISTINCT FROM 'cancelled' OR n <> 0 THEN
+    RAISE EXCEPTION 'hourly purge left status % rows %', v_status, n;
   END IF;
 END $$;
 
