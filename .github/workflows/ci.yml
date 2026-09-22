@@ -481,6 +481,22 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5.2 claim × claim × commit: dossier mutex, one workout, second confirm idempotent, commit fail-closed, no deadlock' /tmp/p5-provisional-claim-lock.txt
+      - name: Test P5.3 exercise catalog
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/p5_exercise_catalog.sql | tee /tmp/p5-exercise-catalog.txt
+      - name: Confirm P5.3 exercise catalog echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.3 exercise catalog: alias resolve, proposal pending, merge keeps the written name' /tmp/p5-exercise-catalog.txt
+      - name: Test P5.3 merge × merge
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: bash scripts/test-p5-exercise-merge-lock.sh | tee /tmp/p5-exercise-merge-lock.txt
+      - name: Confirm P5.3 merge lock echo
+        run: |
+          set -euo pipefail
+          grep -F 'p5.3 merge × merge: one merge, second idempotent, written name kept, no deadlock' /tmp/p5-exercise-merge-lock.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

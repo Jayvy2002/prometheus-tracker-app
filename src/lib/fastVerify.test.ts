@@ -6,7 +6,6 @@ import { SECOND_PING_KINDS, isSecondPingKind } from './coachSecond';
 import {
   FAST_VERIFY_BONUS_TIMEOUT_MS,
   FAST_VERIFY_VENDOR,
-  completedExerciseWrite,
   completedProductWrite,
   foodLookupSource,
   isSecondFoodOrExerciseKind,
@@ -62,28 +61,28 @@ test('miss / photo calls the API and completes product_requests in the same 200'
   assert.doesNotMatch(src, /status:\s*202/);
 });
 
-test('unknown exercise: library hit skips API; miss calls API and completes the request', () => {
+test('unknown exercise stays pending: catalog hit does not insert, miss does not approve', () => {
   assert.equal(shouldCallVerifyExerciseApi({ libraryHit: true }), false);
   assert.equal(shouldCallVerifyExerciseApi({ libraryHit: false }), true);
 
-  const approved = parseVerifyExerciseResponse(
-    { exercise: { id: 'e1', name: 'Pendlay row' }, status: 'approved' },
+  const matched = parseVerifyExerciseResponse(
+    { exercise: { id: 'e1', name: 'Pendlay row' }, status: 'matched', applied: false },
     200,
   );
-  assert.equal(approved.kind, 'approved');
-  if (approved.kind !== 'approved') throw new Error('expected approved');
-  assert.equal(approved.exercise.id, 'e1');
+  assert.equal(matched.kind, 'approved');
+  if (matched.kind !== 'approved') throw new Error('expected catalog match');
+  assert.equal(matched.exercise.id, 'e1');
 
-  const write = completedExerciseWrite('e1', true);
-  assert.equal(write.status, 'approved');
-  assert.equal(write.result_exercise_id, 'e1');
+  const pending = parseVerifyExerciseResponse({ status: 'pending', applied: false }, 200);
+  assert.equal(pending.kind, 'pending');
 
   const src = source('supabase/functions/verify-exercise/index.ts');
-  const libIdx = src.indexOf('.from("exercises")');
+  const libIdx = src.indexOf('resolve_exercise_catalog');
   const apiIdx = src.indexOf('api.openai.com');
-  assert.ok(libIdx >= 0 && apiIdx > libIdx, 'library lookup happens before OpenAI');
-  assert.match(src, /status:\s*"approved"/);
-  assert.match(src, /result_exercise_id/);
+  assert.ok(libIdx >= 0 && apiIdx > libIdx, 'catalog lookup happens before OpenAI');
+  assert.match(src, /applied:\s*false/);
+  assert.doesNotMatch(src, /\.from\("exercises"\)[\s\S]{0,80}insert/);
+  assert.doesNotMatch(src, /status:\s*"approved"/);
   assert.doesNotMatch(src, /status:\s*202/);
 });
 
@@ -133,8 +132,9 @@ test('client treats 200 + id as done and does not wait 90s on Second', () => {
   assert.doesNotMatch(store, /90_000/);
 
   const picker = source('src/components/workout/ExercisePicker.tsx');
-  assert.match(picker, /FAST_VERIFY_BONUS_TIMEOUT_MS/);
+  assert.match(picker, /propose_exercise/);
   assert.doesNotMatch(picker, /90_000/);
+  assert.doesNotMatch(picker, /verify-exercise/);
 });
 
 test('daily limit and rejected exercise stay on the fast 200/429 contract', () => {
