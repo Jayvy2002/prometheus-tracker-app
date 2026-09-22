@@ -1,6 +1,6 @@
 # P5.3 — Bibliothèque d’exercices
 
-> En revue. Migration `20260923014500_p5_exercise_catalog` en pending. Le lock production reste 136 tant que la migration n’est pas observée.
+> CLOSED. Migration `20260923014500_p5_exercise_catalog` observée en production le 22 septembre 2026 (74 statements, `created_by` null, timestamp Git conservé). Lock 137. PR `#217`.
 
 Le catalogue existant (`exercises`, `exercise_requests`) est étendu. Il n’y a pas de seconde bibliothèque privée par Coach.
 

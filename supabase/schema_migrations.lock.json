@@ -1,7 +1,7 @@
 {
   "project_ref": "phyuijjekxtjvipjtdfv",
-  "captured_at": "2026-09-22T23:05:00Z",
-  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P5.2 apply on 2026-09-22 (136 versions, last 20260922223000_p5_provisional_dossiers, 129 statements, created_by null). Git timestamp 20260922223000 was kept; never repair or restamp applied history. Never apply 20260919181919.",
+  "captured_at": "2026-09-22T23:50:00Z",
+  "strategy": "Git migrations on new-JV, this lock, and Supabase production must contain the same ordered versions. Verified directly against production after P5.3 apply on 2026-09-22 (137 versions, last 20260923014500_p5_exercise_catalog, 74 statements, created_by null, fingerprint d0c9455e78a9b5090d76cf6ee5764a52). Function body hashes match the local replay. Git timestamp 20260923014500 was kept; never repair or restamp applied history. Never apply 20260919181919.",
   "audit_range": {
     "from": "20260910044211",
     "to": "20260910064501",
@@ -551,6 +551,10 @@
     {
       "version": "20260922223000",
       "name": "p5_provisional_dossiers"
+    },
+    {
+      "version": "20260923014500",
+      "name": "p5_exercise_catalog"
     }
   ]
 }

@@ -28,8 +28,8 @@ test('P5.3 catalog links a unique alias and never rewrites the written name', ()
   assert.match(src('.github/workflows/ci.yml'), /test-p5-exercise-merge-lock\.sh/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /P5_EXERCISE_GRANTS/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string }> };
-  assert.equal(pending.pending.some(row => row.version === '20260923014500'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"version": "20260923014500"/);
+  assert.equal(pending.pending.some(row => row.version === '20260923014500'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260923014500"/);
   assert.match(src('supabase/functions/verify-exercise/index.ts'), /applied:\s*false/);
   assert.doesNotMatch(src('supabase/functions/verify-exercise/index.ts'), /from\("exercises"\)[\s\S]{0,120}\.insert/);
   assert.match(src('src/components/workout/ExercisePicker.tsx'), /propose_exercise/);
