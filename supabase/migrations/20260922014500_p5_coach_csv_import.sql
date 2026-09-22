@@ -1707,25 +1707,34 @@ COMMENT ON FUNCTION public.commit_coach_import(uuid, text, jsonb) IS
 COMMENT ON FUNCTION public.cancel_coach_import(uuid) IS
   'Cancel one open preview and delete its raw rows. Committed provenance is not deleted.';
 COMMENT ON FUNCTION public.coach_import_purge_stale_previews() IS
-  'Delete raw rows of every preview older than 7 days. Scheduled hourly. Committed provenance is kept.';
+  'Delete raw rows of every preview older than 7 days. Scheduled hourly. Committed provenance is kept. The migration fails if this job is not registered.';
+
+-- Fail closed. A missing pg_cron or a failed cron.schedule must abort the
+-- migration: the 7-day purge is part of the contract, not a best-effort notice.
+CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 DO $$
-BEGIN
-  EXECUTE 'CREATE EXTENSION IF NOT EXISTS pg_cron';
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'pg_cron unavailable (%); preview purge cron skipped', SQLERRM;
-END $$;
-
-DO $$
+DECLARE
+  v_jobid bigint;
 BEGIN
   IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'coach-import-preview-purge') THEN
     PERFORM cron.unschedule('coach-import-preview-purge');
   END IF;
-  PERFORM cron.schedule(
+  v_jobid := cron.schedule(
     'coach-import-preview-purge',
     '15 * * * *',
     'SELECT public.coach_import_purge_stale_previews()'
   );
-EXCEPTION WHEN OTHERS THEN
-  RAISE NOTICE 'coach-import-preview-purge cron not scheduled (%)', SQLERRM;
+  IF v_jobid IS NULL
+     OR NOT EXISTS (
+       SELECT 1
+       FROM cron.job
+       WHERE jobid = v_jobid
+         AND jobname = 'coach-import-preview-purge'
+         AND schedule = '15 * * * *'
+         AND command = 'SELECT public.coach_import_purge_stale_previews()'
+     )
+  THEN
+    RAISE EXCEPTION 'coach-import-preview-purge schedule mismatch';
+  END IF;
 END $$;

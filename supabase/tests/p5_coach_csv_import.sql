@@ -62,6 +62,14 @@ DO $$ BEGIN
   THEN
     RAISE EXCEPTION 'p5.1 grants mismatch';
   END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM cron.job
+    WHERE jobname = 'coach-import-preview-purge'
+      AND schedule = '15 * * * *'
+      AND command = 'SELECT public.coach_import_purge_stale_previews()'
+  ) THEN
+    RAISE EXCEPTION 'coach-import-preview-purge job missing after migration';
+  END IF;
 END $$;
 
 SET LOCAL ROLE authenticated;

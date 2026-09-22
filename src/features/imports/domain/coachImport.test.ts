@@ -250,6 +250,11 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   assert.match(sql, /duplicates_changed/);
   assert.match(sql, /coach_import_purge_stale_previews/);
   assert.match(sql, /coach-import-preview-purge/);
+  const schedule = sql.slice(sql.lastIndexOf('CREATE EXTENSION IF NOT EXISTS pg_cron'));
+  assert.doesNotMatch(schedule, /EXCEPTION\s+WHEN/);
+  assert.doesNotMatch(schedule, /RAISE NOTICE/);
+  assert.match(schedule, /coach-import-preview-purge schedule mismatch/);
+  assert.match(src('supabase/tests/p5_coach_csv_import.sql'), /coach-import-preview-purge job missing after migration/);
   assert.match(sql, /interval '7 days'/);
   assert.match(sql, />= 20/);
   assert.doesNotMatch(sql, /coalesce\(\(r\.planned->>'load_kg'\)/);
