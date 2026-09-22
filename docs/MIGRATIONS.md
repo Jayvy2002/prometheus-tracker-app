@@ -82,7 +82,7 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 5. Rejouer la base locale et lancer les tests du domaine.
 6. Exécuter les advisors Supabase lorsque la sécurité/performance est concernée.
 7. Vérifier les permissions Data API + RLS/RPC.
-8. Appliquer via le workflow manuel `Apply pending migrations` (`workflow_dispatch`, confirmation `APPLY_PENDING`). Il relance la preuve dry-run, puis `supabase db push --linked --yes --skip-vault`. Le timestamp du fichier Git est conservé. Ne pas passer par le MCP `apply_migration` : il réécrit la version.
+8. Appliquer via `workflow_dispatch` du workflow CI, input `confirm_apply=APPLY_PENDING`. Le job `apply pending migrations` relance la preuve dry-run, puis `supabase db push --linked --yes --skip-vault`. Le timestamp du fichier Git est conservé. Ne pas passer par le MCP `apply_migration` : il réécrit la version.
 9. Vérifier production.
 10. Rafraîchir `supabase/schema_migrations.lock.json` uniquement avec l’état réellement observé.
 
