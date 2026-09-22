@@ -314,8 +314,11 @@ if [[ "${WORKOUTS}" != "1" ]]; then
   exit 1
 fi
 
-# Same new idempotency key from two sessions: one insert wins, the other
-# unique_violation path must return that same import and not a second row.
+# Same new idempotency key from two sessions on a file that is not already
+# fingerprinted. Self-import skips the lifecycle mutex, so both sessions reach
+# the insert and the loser must take the unique_violation path. One row.
+RACE_CSV='Date,Exercise,Reps,Weight
+2026-03-04,Deadlift,3,140'
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL >/tmp/p51-race-a.out 2>/tmp/p51-race-a.err &
 SET application_name = '${P_APP}';
 BEGIN;
@@ -324,9 +327,9 @@ SELECT set_config('request.jwt.claim.sub', '${COACH}', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claims', '{"sub":"${COACH}","role":"authenticated"}', true);
 SELECT public.preview_coach_import(
-  '${CLIENT}'::uuid,
+  '${COACH}'::uuid,
   'race.csv',
-  \$csv\$${CSV}\$csv\$,
+  \$csv\$${RACE_CSV}\$csv\$,
   '${MAP}'::jsonb,
   'race-same'
 );
@@ -341,9 +344,9 @@ SELECT set_config('request.jwt.claim.sub', '${COACH}', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claims', '{"sub":"${COACH}","role":"authenticated"}', true);
 SELECT public.preview_coach_import(
-  '${CLIENT}'::uuid,
+  '${COACH}'::uuid,
   'race.csv',
-  \$csv\$${CSV}\$csv\$,
+  \$csv\$${RACE_CSV}\$csv\$,
   '${MAP}'::jsonb,
   'race-same'
 );
@@ -355,10 +358,10 @@ wait "${c_pid}"
 assert_no_deadlock /tmp/p51-race-a.err /tmp/p51-race-b.err
 p_pid=""
 c_pid=""
-RACE_COUNT="$(psql_at "SELECT count(*) FROM public.coach_imports WHERE coach_id = '${COACH}'::uuid AND idempotency_key = 'race-same'")"
+RACE_COUNT="$(psql_at "SELECT count(*) FROM public.coach_imports WHERE coach_id = '${COACH}'::uuid AND idempotency_key = 'race-same' AND subject_user_id = '${COACH}'::uuid")"
 if [[ "${RACE_COUNT}" != "1" ]]; then
   echo "concurrent same-intent preview created ${RACE_COUNT} imports" >&2
-  cat /tmp/p51-race-a.err /tmp/p51-race-b.err >&2 || true
+  cat /tmp/p51-race-a.out /tmp/p51-race-a.err /tmp/p51-race-b.out /tmp/p51-race-b.err >&2 || true
   exit 1
 fi
 

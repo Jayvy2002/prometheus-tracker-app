@@ -27,6 +27,13 @@ commit_pid=""
 end_pid=""
 
 cleanup() {
+  local code=$?
+  if [[ "${code}" != "0" ]]; then
+    echo "---- pg_locks ----" >&2
+    psql "$DATABASE_URL" -X -c "SELECT a.application_name, a.state, l.locktype, l.mode, l.granted, l.classid FROM pg_stat_activity a LEFT JOIN pg_locks l ON l.pid = a.pid WHERE a.application_name LIKE 'prometheus-p51%' ORDER BY 1, 3, 4;" >&2 || true
+    echo "---- session output ----" >&2
+    cat /tmp/end-*.out /tmp/end-*.err /tmp/p51-end-hold.out /tmp/p51-end-hold.err >&2 || true
+  fi
   for pid in "${end_pid}" "${commit_pid}" "${hold_pid}"; do
     if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
       kill "${pid}" 2>/dev/null || true
