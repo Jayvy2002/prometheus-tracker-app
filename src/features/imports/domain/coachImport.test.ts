@@ -232,7 +232,7 @@ test('delimiter detection ignores separators inside quotes and an explicit delim
   assert.notEqual(forced.headers.length, 3);
 });
 
-test('P5.1 is a server-committed pipeline, pending until apply, and stays off the mobile tabs', () => {
+test('P5.1 is a server-committed pipeline, applied in the lock, and stays off the mobile tabs', () => {
   const sql = src('supabase/migrations/20260922014500_p5_coach_csv_import.sql');
   assert.match(sql, /preview_coach_import/);
   assert.match(sql, /commit_coach_import/);
@@ -284,8 +284,8 @@ test('P5.1 is a server-committed pipeline, pending until apply, and stays off th
   const mobileFn = nav.slice(nav.indexOf('export function mobileTabs'), nav.indexOf('function nonempty'));
   assert.doesNotMatch(mobileFn, /\/coach\/import/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string }> };
-  assert.equal(pending.pending.some((row) => row.version === '20260922014500'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /20260922014500/);
+  assert.equal(pending.pending.some((row) => row.version === '20260922014500'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260922014500"/);
   assert.match(src('.github/workflows/ci.yml'), /p5_coach_csv_import\.sql/);
   assert.match(src('.github/workflows/ci.yml'), /test-p5-commit-commit-subject\.sh/);
   assert.match(src('supabase/tests/p5_coach_csv_import.sql'), /^ROLLBACK;/m);

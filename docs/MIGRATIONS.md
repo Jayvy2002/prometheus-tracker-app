@@ -4,15 +4,16 @@
 >
 > Les migrations SQL sont append-only. Les inventaires dans Git doivent rester cohérents avec Supabase production. Ce document décrit le contrat et l’état vérifié ; les fichiers lock contiennent le détail machine-readable.
 
-## État vérifié — 21 septembre 2026
+## État vérifié — 22 septembre 2026
 
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **134 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **134 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260921024426_p4_marketplace_moderation` ;
-- `migrations.pending.json` est vide en production ; la PR P5.1 déclare le candidat `20260922014500_p5_coach_csv_import` **sans** le copier dans le lock ;
+- **135 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **135 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260922014500_p5_coach_csv_import` ;
+- `migrations.pending.json` est vide ;
+- P5.1 a été appliqué avec le **même timestamp Git** `20260922014500` (aucun restamp, 97 statements, `created_by` null) ; le job `coach-import-preview-purge` est actif (`15 * * * *`, `SELECT public.coach_import_purge_stale_previews()`) ;
 - P4.1 a été appliqué avec le **même timestamp Git** `20260921021231` (aucun restamp, 62 statements, `created_by` null) ;
 - P4.2 a été appliqué avec le **même timestamp Git** `20260921021923` (aucun restamp, 52 statements, `created_by` null) ;
 - P4.3 a été appliqué avec le **même timestamp Git** `20260921023720` (aucun restamp, 42 statements, `created_by` null) ;
@@ -89,12 +90,12 @@ Voir [P1.1](P1_1_COACH_CAPABILITY.md). Une PR verte ne constitue pas un déploie
 
 L’inventaire machine-readable est `supabase/functions.deployed.lock.json`.
 
-État live vérifié directement le 21 septembre 2026 après le merge `#210` : **13 fonctions ACTIVE**. `delete-account` est en **v15**, `verify_jwt=false`, cleanup Storage fail-closed. Exemples importants au moment du contrôle :
+État live vérifié directement le 22 septembre 2026 après le merge `#213` : **13 fonctions ACTIVE**. `delete-account` est en **v17**, `verify_jwt=false`, cleanup Storage fail-closed. Exemples importants au moment du contrôle :
 
-- `delete-account` : v15, `verify_jwt=false` ;
-- `coach-agent` : v154, `verify_jwt=true` ;
-- `coach-fleet-round` : v161, `verify_jwt=false` ;
-- `notify-onboarding-complete` : v150, `verify_jwt=false`.
+- `delete-account` : v17, `verify_jwt=false` ;
+- `coach-agent` : v156, `verify_jwt=true` ;
+- `coach-fleet-round` : v163, `verify_jwt=false` ;
+- `notify-onboarding-complete` : v152, `verify_jwt=false`.
 
 Les numéros de version Supabase sont volatils et augmentent lors des redéploiements. Après toute modification d’Edge Function :
 
