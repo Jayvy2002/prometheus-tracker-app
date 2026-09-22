@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5.3 en revue.** Production/lock **136**. Migration `20260923014500_p5_exercise_catalog` en pending, pas encore appliquée. Ne pas commencer P6. Job `coach-import-preview-purge` actif. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5.4.** Production/lock **137**. P5.3 est CLOSED (`20260923014500_p5_exercise_catalog`, 74 statements, `created_by` null, timestamp Git conservé). Ne pas commencer P6. Job `coach-import-preview-purge` actif. Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1–P5.2 clos (136). P5.3 en revue** | Imports, dossier provisoire, bibliothèque, admin |
+| **P5** | Adoption Coach | **P5.1–P5.3 clos (137). P5.4 ouvert** | Imports, dossier provisoire, bibliothèque, admin |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`) et P5.2 (`#215`, `#216`) sont en production (136 migrations). **P5.3 est en revue** (`20260923014500`, pending). Watch n’applique pas.
+P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`), P5.2 (`#215`, `#216`) et P5.3 (`#217`) sont en production (137 migrations). **P5.4 est le prochain sous-chantier.** Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -823,7 +823,7 @@ Aucune donnée personnelle ne devient définitivement rattachée à un utilisate
 
 ## P5.3 — Bibliothèque d’exercices
 
-**En revue.** Contrat : `docs/P5_3_EXERCISE_CATALOG.md`. Migration `20260923014500_p5_exercise_catalog` pending. Pas encore en production.
+**CLOSED.** Contrat : `docs/P5_3_EXERCISE_CATALOG.md`. Migration `20260923014500_p5_exercise_catalog` observée en production (74 statements, `created_by` null, timestamp Git conservé). Lock **137**. PR `#217`.
 
 Alias, recherche normalisée, propositions en attente, fusion explicite. Le nom historique écrit n’est pas réécrit. Le lien catalogue n’est posé que s’il est unique.
 

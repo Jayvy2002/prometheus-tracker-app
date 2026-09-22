@@ -9,10 +9,11 @@
 Vérification directe contre le projet Supabase `phyuijjekxtjvipjtdfv` :
 
 - projet `ACTIVE_HEALTHY`, PostgreSQL 17.6 ;
-- **136 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
-- **136 migrations** observées en production, dans le même ordre ;
-- dernière version appliquée : `20260922223000_p5_provisional_dossiers` ;
-- `migrations.pending.json` contient `20260923014500_p5_exercise_catalog` (P5.3, pas encore appliqué). Le lock production reste à 136 ;
+- **137 migrations** dans le lock production `supabase/schema_migrations.lock.json` ;
+- **137 migrations** observées en production, dans le même ordre ;
+- dernière version appliquée : `20260923014500_p5_exercise_catalog` ;
+- `migrations.pending.json` est vide ;
+- P5.3 a été appliqué avec le **même timestamp Git** `20260923014500` (aucun restamp, 74 statements, `created_by` null, empreinte `d0c9455e78a9b5090d76cf6ee5764a52`) ;
 - P5.2 a été appliqué avec le **même timestamp Git** `20260922223000` (aucun restamp, 129 statements, `created_by` null) ;
 - P5.1 a été appliqué avec le **même timestamp Git** `20260922014500` (aucun restamp, 97 statements, `created_by` null) ; le job `coach-import-preview-purge` est actif (`15 * * * *`, `SELECT public.coach_import_purge_stale_previews()`) ;
 - P4.1 a été appliqué avec le **même timestamp Git** `20260921021231` (aucun restamp, 62 statements, `created_by` null) ;
