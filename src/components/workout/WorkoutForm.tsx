@@ -16,6 +16,8 @@ import PageHeader from '../ui/PageHeader';
 import { toast } from '../ui/Toast';
 import { userFacingError } from '../../lib/userFacingError';
 import { incompleteWorkingSets, shouldConfirmIncompleteFinish } from '../../lib/workoutFinish';
+import { workoutHasLoggedWork } from '../../features/workout/domain/resumableSession';
+import { draftLoadToKg } from '../../features/workout/domain/workoutSetComplete';
 import ExerciseCard from './ExerciseCard';
 import SupersetGroup from './SupersetGroup';
 import RestTimer from './RestTimer';
@@ -289,6 +291,13 @@ function WorkoutFormInner() {
     if (currentWorkout) saveSessionTimer(currentWorkout.id, next);
   };
 
+  const hasTypedDraft = () => {
+    for (const draft of getAllSetDrafts().values()) {
+      if ((draft.weight_kg ?? '') !== '' || (draft.reps ?? '') !== '' || (draft.duration_seconds ?? '') !== '') return true;
+    }
+    return false;
+  };
+
   const handleBack = async () => {
     if (leavingRef.current) return;
     leavingRef.current = true;
@@ -296,7 +305,16 @@ function WorkoutFormInner() {
     if (currentWorkout) {
       saveSessionTimer(currentWorkout.id, pauseTimer(timer));
       const seconds = Math.floor(currentElapsedMs(timer) / 1000);
-      if (seconds > 0 && !currentWorkout.completed) {
+      const empty = !currentWorkout.completed
+        && !workoutHasLoggedWork(currentWorkout.exercises)
+        && !hasTypedDraft();
+      if (empty) {
+        // Nothing was logged: leaving discards the shell instead of leaving
+        // an open session behind the « Reprendre » bar.
+        await deleteWorkout(currentWorkout.id);
+        clearSessionTimer(currentWorkout.id);
+        clearFieldDrafts(currentWorkout.id);
+      } else if (seconds > 0 && !currentWorkout.completed) {
         await updateWorkout(currentWorkout.id, { duration_seconds: seconds });
       }
     }
@@ -356,13 +374,13 @@ function WorkoutFormInner() {
       const setDrafts = getAllSetDrafts();
       const exerciseDrafts = getAllExerciseDrafts();
 
-      const safeFloat = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+      const unit: 'kg' | 'lbs' = profile?.unit_weight === 'lbs' ? 'lbs' : 'kg';
       const safeInt = (v: string) => { const n = parseInt(v, 10); return isNaN(n) ? 0 : n; };
 
       const setUpdates: PromiseLike<unknown>[] = [];
       setDrafts.forEach((draft, setId) => {
         const updates: Record<string, unknown> = {};
-        if (draft.weight_kg !== undefined) updates.weight_kg = draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg);
+        if (draft.weight_kg !== undefined) updates.weight_kg = draftLoadToKg(draft.weight_kg, unit);
         if (draft.reps !== undefined) updates.reps = draft.reps === '' ? 0 : safeInt(draft.reps);
         if (draft.rir !== undefined) updates.rir = draft.rir === '' ? 0 : safeInt(draft.rir);
         if (draft.set_type !== undefined) updates.set_type = draft.set_type;
@@ -431,7 +449,7 @@ function WorkoutFormInner() {
             if (!draft) return s;
             return {
               ...s,
-              weight_kg: draft.weight_kg !== undefined ? (draft.weight_kg === '' ? 0 : safeFloat(draft.weight_kg)) : s.weight_kg,
+              weight_kg: draft.weight_kg !== undefined ? draftLoadToKg(draft.weight_kg, unit) : s.weight_kg,
               reps: draft.reps !== undefined ? (draft.reps === '' ? 0 : safeInt(draft.reps)) : s.reps,
               rir: draft.rir !== undefined ? (draft.rir === '' ? 0 : safeInt(draft.rir)) : s.rir,
               set_type: draft.set_type !== undefined ? draft.set_type : s.set_type,
@@ -544,9 +562,11 @@ function WorkoutFormInner() {
       </div>
       {sessionMenu && (
         <div className="mb-3 rounded-xl border border-neutral-800 bg-neutral-950 p-2 space-y-1">
-          <button type="button" className="min-h-11 w-full rounded-lg px-3 text-left text-sm text-white hover:bg-neutral-800" onClick={() => { setSessionMenu(false); setAskOpen(true); }}>
-            {t('soloAsk.label')}
-          </button>
+          {solo && (
+            <button type="button" className="min-h-11 w-full rounded-lg px-3 text-left text-sm text-white hover:bg-neutral-800" onClick={() => { setSessionMenu(false); setAskOpen(true); }}>
+              {t('soloAsk.label')}
+            </button>
+          )}
           <button type="button" className="min-h-11 w-full rounded-lg px-3 text-left text-sm text-rose-300 hover:bg-rose-500/10" onClick={() => { setSessionMenu(false); setAbandonOpen(true); }}>
             {t('workout.abandonSession')}
           </button>
@@ -758,7 +778,7 @@ function WorkoutFormInner() {
           <Plus size={16} /> {t('workout.addExercise')}
         </Button>
         )}
-        {user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
+        {solo && user && !isProgramSession && (currentWorkout.exercises?.length ?? 0) > 0 && (
           <Button
             type="button"
             variant="ghost"

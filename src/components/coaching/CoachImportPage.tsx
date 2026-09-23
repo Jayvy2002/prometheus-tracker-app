@@ -28,7 +28,7 @@ import {
   type RpeMode,
 } from '../../features/imports/domain/columns';
 import { CsvParseError, parseCsvText, type ParsedCsv } from '../../features/imports/domain/csvParse';
-import { importErrorCode, importErrorI18nKey } from '../../features/imports/domain/errors';
+import { importErrorCode, importErrorI18nKey, isImportIncident } from '../../features/imports/domain/errors';
 import { IMPORT_MAX_BYTES } from '../../features/imports/domain/limits';
 import { planImportRows } from '../../features/imports/domain/preview';
 
@@ -195,9 +195,11 @@ export default function CoachImportPage() {
   };
 
   const noteIncident = (message: string | null) => {
+    // Operators see failures (parsing, unexpected server errors), not the
+    // coach's normal decisions (duplicate, already imported, quota).
     const code = importErrorCode(message);
-    if (code === 'generic') return;
-    void recordCoachImportIncident(kind, code);
+    if (!isImportIncident(code)) return;
+    void recordCoachImportIncident(kind, code === 'generic' ? 'unexpected_error' : code);
   };
 
   const runPreview = async (nextMapping?: ImportMapping) => {

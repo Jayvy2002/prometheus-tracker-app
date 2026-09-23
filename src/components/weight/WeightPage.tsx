@@ -7,7 +7,7 @@ import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
 
 import { formatWeight, formatDate, formatDateShort, parseDateStr, todayStr } from '../../lib/utils';
-import { weeklyAverageKg } from '../../lib/weeklyWeight';
+import { rollingWeightTrend, weeklyAverageKg } from '../../lib/weeklyWeight';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, ReferenceLine } from 'recharts';
 import { toast } from '../ui/Toast';
 import Card from '../ui/Card';
@@ -108,15 +108,19 @@ export default function WeightPage() {
 
   const filtered = filterByPeriod(sortedAsc, period);
 
+  const show = (kg: number) => (unit === 'lbs' ? +(kg * 2.20462).toFixed(1) : +kg.toFixed(1));
+  // The trend is computed on all weigh-ins so the first points of a period are not a cold start.
+  const trendByDay = new Map(rollingWeightTrend(sortedAsc).map(row => [row.day, row.trend_kg]));
   const chartData = filtered.map((m: { weight_kg: number; measured_at: string }) => ({
     date: formatDateShort(m.measured_at),
-    weight: unit === 'lbs' ? +(m.weight_kg * 2.20462).toFixed(1) : +m.weight_kg.toFixed(1),
+    weight: show(m.weight_kg),
+    trend: show(trendByDay.get(m.measured_at.slice(0, 10)) ?? m.weight_kg),
   }));
 
   const week = weeklyAverageKg(measurements, todayStr());
+  // Headline = 7-day mean; delta = vs the 7 days before. No mix of a mean and a raw weigh-in.
   const latest = week.current ?? measurements[0]?.weight_kg;
-  const previous = measurements[1]?.weight_kg;
-  const diff = latest && previous ? +(latest - previous).toFixed(2) : 0;
+  const diff = week.deltaKg ?? 0;
   const targetKg = profile?.target_weight_kg ?? 0;
 
   if (!showModule(tracking, 'weight')) {
@@ -157,7 +161,7 @@ export default function WeightPage() {
           <div className="flex items-center gap-4">
             <div>
               <p className="text-3xl font-bold text-white">{formatWeight(latest, unit)}</p>
-              <p className="text-sm text-neutral-500 mt-0.5">{t('weight.current')}</p>
+              <p className="text-sm text-neutral-400 mt-0.5">{week.current != null ? t('weight.weekAverage') : t('weight.current')}</p>
             </div>
             <div className="flex-1" />
             {diff !== 0 && (
@@ -180,7 +184,7 @@ export default function WeightPage() {
                   <button
                     key={p}
                     onClick={() => setPeriod(p)}
-                    className={`px-2 py-1 rounded-md text-xs font-medium transition-colors
+                    className={`min-h-11 px-3 rounded-md text-xs font-medium transition-colors
                       ${period === p ? 'bg-blue-600 text-white' : 'bg-neutral-800 text-neutral-400 hover:text-neutral-300'}`}
                   >
                     {t(`weight.periods.${p}`)}
@@ -205,7 +209,8 @@ export default function WeightPage() {
                     label={{ value: t('weight.goalLine'), fill: '#f59e0b', fontSize: 10 }}
                   />
                 )}
-                <Line type="monotone" dataKey="weight" stroke="#2563eb" strokeWidth={2} dot={{ r: 3, fill: '#2563eb' }} />
+                <Line type="monotone" dataKey="weight" name={t('weight.weighIn')} stroke="transparent" dot={{ r: 2.5, fill: '#64748b' }} isAnimationActive={false} />
+                <Line type="monotone" dataKey="trend" name={t('weight.trend')} stroke="#2563eb" strokeWidth={2.5} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>

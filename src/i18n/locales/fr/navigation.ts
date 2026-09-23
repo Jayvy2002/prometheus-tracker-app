@@ -37,6 +37,7 @@ const navigation = {
     sectionTrain: "S'entraîner",
     sectionBody: 'Corps',
     suivi: 'Suivi',
+    bodyEmpty: 'Aucun module corps n’est suivi pour le moment.',
     routines: 'Routines',
     sectionUnderstand: 'Comprendre',
     sectionCopilot: 'Copilote',

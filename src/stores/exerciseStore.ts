@@ -32,7 +32,7 @@ export const useExerciseStore = create<ExerciseState>((set, get) => ({
     for (let from = 0; from < 5000; from += pageSize) {
       const { data, error } = await supabase
         .from('exercises')
-        .select('id, name, name_fr, primary_muscles, secondary_muscles, category, equipment, verified, created_by, merged_into_id, instructions, tips, difficulty')
+        .select('id, name, name_fr, primary_muscles, secondary_muscles, category, equipment, verified, created_by, merged_into_id, instructions, tips, difficulty, video_url')
         .order('name')
         .range(from, from + pageSize - 1);
       if (generation !== fetchGeneration) return;

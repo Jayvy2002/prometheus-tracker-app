@@ -86,7 +86,10 @@ test('16g session logger stays usable on a phone', () => {
   const card = src('src/components/workout/ExerciseCard.tsx') + src('src/components/workout/SetRow.tsx') + src('src/features/workout/domain/overloadSuggestion.ts') + src('src/features/workout/hooks/useExerciseHistory.ts');
   assert.match(card, /data-set-row="true"/);
   assert.match(card, /OverflowMenu/);
-  assert.match(card, /SetRowMenu/);
+  // Set actions live in the set-number popover; swipe left deletes with undo.
+  assert.match(card, /onDuplicate=\{onDuplicate\}/);
+  assert.match(card, /touch-pan-y/);
+  assert.doesNotMatch(card, /SetRowMenu/);
   assert.match(card, /min-h-11 min-w-11/);
 });
 

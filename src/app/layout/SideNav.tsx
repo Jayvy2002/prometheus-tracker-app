@@ -1,10 +1,10 @@
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
-import { desktopSections, navPersona, quickAddActions } from '@/app/navigation/navConfig';
+import { desktopSections, navPersona, pathMatchesItem, quickAddActions } from '@/app/navigation/navConfig';
 import { useProgramDayDue } from '@/features/workout/hooks/useProgramDayDue';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 
@@ -14,6 +14,7 @@ export default function SideNav() {
   const unreadMessageCount = useCoachingStore(s => s.unreadMessageCount);
   const tracking = useCoachingStore(s => s.myTrackingConfig);
   const context = useAccountContext();
+  const { pathname } = useLocation();
   const persona = navPersona(context);
   const sections = desktopSections(persona, tracking);
   const programDayDue = useProgramDayDue();
@@ -43,6 +44,7 @@ export default function SideNav() {
               {section.items.map(tab => {
                 const Icon = tab.icon;
                 const muted = section.tone === 'muted';
+                const isActive = pathMatchesItem(pathname, tab);
                 return (
                   <NavLink
                     key={tab.id}
@@ -54,7 +56,7 @@ export default function SideNav() {
                         ? t('nav.messagesUnread', { count: unreadMessageCount })
                         : t(tab.labelKey)
                     }
-                    className={({ isActive }) => `relative w-full flex items-center gap-3.5 px-4 py-2 min-h-11 rounded-xl text-sm font-medium transition-colors duration-200
+                    className={`relative w-full flex items-center gap-3.5 px-4 py-2 min-h-11 rounded-xl text-sm font-medium transition-colors duration-200
                       ${isActive
                         ? 'bg-blue-600/15 text-white'
                         : muted
@@ -62,7 +64,6 @@ export default function SideNav() {
                           : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800/60'
                       }`}
                   >
-                    {({ isActive }) => (
                       <>
                         {isActive && <span className="nav-active-indicator" />}
                         <Icon
@@ -77,7 +78,6 @@ export default function SideNav() {
                           </span>
                         )}
                       </>
-                    )}
                   </NavLink>
                 );
               })}

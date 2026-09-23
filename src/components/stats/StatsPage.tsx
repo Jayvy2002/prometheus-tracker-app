@@ -68,7 +68,7 @@ function TrendBadge({ value }: { value: number | null }) {
   );
 }
 
-export default function StatsPage() {
+export default function StatsPage({ embedded = false }: { embedded?: boolean }) {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -274,9 +274,11 @@ export default function StatsPage() {
       <div className="px-4 pt-6 pb-28">
         {/* Header */}
         <div className="flex items-center gap-3 mb-5 animate-fade-in-down">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 text-neutral-400 hover:text-white transition-colors">
-            <ArrowLeft size={20} />
-          </button>
+          {!embedded && (
+            <button type="button" aria-label={t('common.back')} onClick={() => navigate(-1)} className="min-h-11 min-w-11 -ml-2 text-neutral-400 hover:text-white transition-colors">
+              <ArrowLeft size={20} className="mx-auto" />
+            </button>
+          )}
           <h1 className="text-xl font-bold text-white flex-1" data-testid="stats-page">{t('stats.title')}</h1>
         </div>
 
@@ -286,8 +288,8 @@ export default function StatsPage() {
             <button
               key={p.value}
               onClick={() => setPeriod(p.value)}
-              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all
-                ${period === p.value ? 'bg-neutral-700 text-white' : 'text-neutral-500 hover:text-neutral-300'}`}
+              className={`flex-1 min-h-11 rounded-lg text-sm font-medium transition-all
+                ${period === p.value ? 'bg-neutral-700 text-white' : 'text-neutral-400 hover:text-neutral-200'}`}
             >
               {p.label}
             </button>

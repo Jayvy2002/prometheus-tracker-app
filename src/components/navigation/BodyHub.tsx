@@ -3,42 +3,57 @@ import { useTranslation } from 'react-i18next';
 import NutritionPage from '../nutrition/NutritionPage';
 import WeightPage from '../weight/WeightPage';
 import CheckInPage from '../checkin/CheckInPage';
+import StepsTracker from '../nutrition/StepsTracker';
+import EmptyState from '../ui/EmptyState';
+import HubTabs from './HubTabs';
+import { useClientTracking } from '../../lib/useClientTracking';
+import { checkinHasAnyField, showModule, showNutritionField } from '../../lib/clientTracking';
 
-const VIEWS = ['nutrition', 'weight', 'checkin'] as const;
-type View = (typeof VIEWS)[number];
+type View = 'nutrition' | 'weight' | 'checkin';
 
-function viewOf(value: string | null): View {
-  return VIEWS.includes(value as View) ? value as View : 'nutrition';
-}
-
+/**
+ * Corps : ce qui se logge chaque jour. Seuls les modules actifs apparaissent :
+ * un module coupé par le coach n'est pas une vue vide, il n'existe pas.
+ */
 export default function BodyHub() {
   const { t } = useTranslation();
+  const tracking = useClientTracking();
   const [params, setParams] = useSearchParams();
-  const view = viewOf(params.get('view'));
+  const views: View[] = [
+    ...(showModule(tracking, 'nutrition') ? ['nutrition' as const] : []),
+    ...(showModule(tracking, 'weight') ? ['weight' as const] : []),
+    ...(showModule(tracking, 'checkins') && checkinHasAnyField(tracking) ? ['checkin' as const] : []),
+  ];
+  const requested = params.get('view') as View | null;
+  const view = requested && views.includes(requested) ? requested : views[0];
   const labels: Record<View, string> = {
     nutrition: t('nav.nutrition'),
     weight: t('nav.weight'),
     checkin: t('nav.checkin'),
   };
 
+  if (!view) {
+    return (
+      <div className="px-4 pt-6">
+        <EmptyState title={t('nav.bodyEmpty')} />
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div className="px-4 pt-4 flex gap-2" role="tablist" aria-label={t('nav.sectionBody')}>
-        {VIEWS.map((item) => (
-          <button
-            key={item}
-            type="button"
-            role="tab"
-            aria-selected={view === item}
-            onClick={() => setParams({ view: item })}
-            className={`min-h-11 flex-1 rounded-xl px-3 text-sm font-medium ${view === item ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`}
-          >
-            {labels[item]}
-          </button>
-        ))}
-      </div>
+      <HubTabs label={t('nav.sectionBody')} views={views} value={view} labels={labels} onChange={next => setParams({ view: next })} />
       {view === 'nutrition' ? <NutritionPage /> : null}
-      {view === 'weight' ? <WeightPage /> : null}
+      {view === 'weight' ? (
+        <>
+          <WeightPage />
+          {showNutritionField(tracking, 'steps') ? (
+            <div className="px-4 pb-28">
+              <StepsTracker />
+            </div>
+          ) : null}
+        </>
+      ) : null}
       {view === 'checkin' ? <CheckInPage /> : null}
     </div>
   );

@@ -37,6 +37,7 @@ const navigation = {
     sectionTrain: 'Train',
     sectionBody: 'Body',
     suivi: 'Progress',
+    bodyEmpty: 'No body module is tracked right now.',
     routines: 'Routines',
     sectionUnderstand: 'Progress',
     sectionCopilot: 'Copilot',

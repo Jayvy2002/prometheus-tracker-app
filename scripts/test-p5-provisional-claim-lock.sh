@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Two confirms of the same provisional token, plus a commit of a second file,
-# while the first confirm is paused inside the workout copy.
-# Claim and commit share mutex 20014507. The second confirm must not copy a
-# second workout. The commit must see the dossier attached and refuse.
+# Two confirms of the same provisional token, both accepting coaching, plus a
+# commit of a second file, while the first confirm is paused inside the
+# workout copy. Confirm takes the coach lifecycle mutex 20014501, then the
+# dossier mutex 20014507, like commit and invite (audit F04: no inverted
+# order, no deadlock). The second confirm must not copy a second workout.
+# The commit must see the dossier attached and refuse.
 set -euo pipefail
 
 : "${DATABASE_URL:?DATABASE_URL is required}"
@@ -60,6 +62,7 @@ DELETE FROM public.workout_sets
 DELETE FROM public.workout_exercises
  WHERE workout_id IN (SELECT id FROM public.workouts WHERE user_id = '${ATHLETE}'::uuid);
 DELETE FROM public.workouts WHERE user_id = '${ATHLETE}'::uuid;
+DELETE FROM public.coach_client_links WHERE coach_id = '${COACH}'::uuid;
 DELETE FROM public.coach_imports WHERE coach_id = '${COACH}'::uuid;
 DELETE FROM public.coach_provisional_dossiers WHERE coach_id = '${COACH}'::uuid;
 DELETE FROM public.user_capabilities WHERE user_id IN ('${COACH}'::uuid, '${ATHLETE}'::uuid);
@@ -192,6 +195,22 @@ if [[ "${#TOKEN}" -lt 32 || -z "${SECOND}" || -z "${DOSSIER}" ]]; then
   exit 1
 fi
 
+# The athlete confirms the revision they previewed (audit F03).
+REVISION="$(psql "$DATABASE_URL" -X -q -v ON_ERROR_STOP=1 -At <<SQL | tail -n 1
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '${ATHLETE}', true) IS NOT NULL;
+SELECT set_config('request.jwt.claim.role', 'authenticated', true) IS NOT NULL;
+SELECT set_config('request.jwt.claims', '{"sub":"${ATHLETE}","role":"authenticated","email":"p52-lock-athlete@example.test"}', true) IS NOT NULL;
+SELECT public.preview_provisional_claim('${TOKEN}')->>'revision';
+COMMIT;
+SQL
+)"
+if [[ "${#REVISION}" -ne 64 ]]; then
+  echo "preview revision missing: ${REVISION}" >&2
+  exit 1
+fi
+
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL >/tmp/p52-hold.out 2>&1 &
 SET application_name = '${HOLD_APP}';
 BEGIN;
@@ -209,11 +228,12 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '${ATHLETE}', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claims', '{"sub":"${ATHLETE}","role":"authenticated"}', true);
-SELECT public.confirm_provisional_claim('${TOKEN}', true, false);
+SELECT public.confirm_provisional_claim('${TOKEN}', true, true, '${REVISION}', false);
 COMMIT;
 SQL
 a_pid=$!
 wait_state "SELECT count(*) FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid WHERE a.application_name = '${A_APP}' AND l.locktype = 'advisory' AND l.classid = 20014507 AND l.granted" "${a_pid}"
+wait_state "SELECT count(*) FROM pg_stat_activity a JOIN pg_locks l ON l.pid = a.pid WHERE a.application_name = '${A_APP}' AND l.locktype = 'advisory' AND l.classid = 20014501 AND l.granted" "${a_pid}"
 wait_state "SELECT count(*) FROM pg_stat_activity WHERE application_name = '${A_APP}' AND wait_event_type = 'Lock'" "${a_pid}"
 
 psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 <<SQL >/tmp/p52-claim-b.out 2>/tmp/p52-claim-b.err &
@@ -223,7 +243,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '${ATHLETE}', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config('request.jwt.claims', '{"sub":"${ATHLETE}","role":"authenticated"}', true);
-SELECT public.confirm_provisional_claim('${TOKEN}', true, false);
+SELECT public.confirm_provisional_claim('${TOKEN}', true, true, '${REVISION}', false);
 COMMIT;
 SQL
 b_pid=$!
@@ -244,8 +264,9 @@ COMMIT;
 SQL
 c_pid=$!
 
-wait_state "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = '${B_APP}' AND l.locktype = 'advisory' AND l.classid = 20014507 AND NOT l.granted" "${b_pid}"
-wait_state "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = '${C_APP}' AND l.locktype = 'advisory' AND l.classid = 20014507 AND NOT l.granted" "${c_pid}"
+# Both wait on the coach lifecycle mutex A holds, before touching the dossier.
+wait_state "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = '${B_APP}' AND l.locktype = 'advisory' AND l.classid = 20014501 AND NOT l.granted" "${b_pid}"
+wait_state "SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE a.application_name = '${C_APP}' AND l.locktype = 'advisory' AND l.classid = 20014501 AND NOT l.granted" "${c_pid}"
 
 kill "${hold_pid}" 2>/dev/null || true
 wait "${hold_pid}" 2>/dev/null || true
@@ -292,5 +313,10 @@ if [[ "${STATUS}" != "attached" ]]; then
   echo "dossier status ${STATUS}" >&2
   exit 1
 fi
+LINKS="$(psql_at "SELECT count(*) FROM public.coach_client_links WHERE coach_id = '${COACH}'::uuid AND client_id = '${ATHLETE}'::uuid AND status = 'active'")"
+if [[ "${LINKS}" != "1" ]]; then
+  echo "expected one active link after consent, got ${LINKS}" >&2
+  exit 1
+fi
 
-echo "p5.2 claim × claim × commit: dossier mutex, one workout, second confirm idempotent, commit fail-closed, no deadlock"
+echo "p5.2 claim(coaching) × claim × commit: lifecycle then dossier mutex, one workout, one link, second confirm idempotent, commit fail-closed, no deadlock"

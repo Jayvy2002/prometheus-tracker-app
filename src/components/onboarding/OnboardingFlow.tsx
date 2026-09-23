@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
-  User, Ruler, Dumbbell, Footprints, Salad, Target, Sparkles,
-  ChevronRight, ChevronLeft, Check, AlertTriangle, Moon
+  User, Ruler, Dumbbell, Footprints, Salad, Target,
+  ChevronRight, ChevronLeft, Check, Moon
 } from 'lucide-react';
 import { useProfileStore } from '../../stores/profileStore';
 import { useWeightStore } from '../../stores/weightStore';
@@ -28,6 +28,7 @@ const TOTAL_STEPS = 4;
 
 interface FormData {
   full_name: string;
+  unit_weight: 'kg' | 'lbs';
   gender: string;
   date_of_birth: string;
   height_cm: number;
@@ -191,7 +192,8 @@ function StepPersonal({ form, setForm, banner = true }: { form: FormData; setFor
 // --- Step 2: Your Body ---
 function StepPhysical({ form, setForm, banner = true }: { form: FormData; setForm: (f: FormData) => void; banner?: boolean }) {
   const { t } = useTranslation();
-  const [unit, setUnit] = useState<'kg' | 'lbs'>('kg');
+  const unit = form.unit_weight;
+  const setUnit = (next: 'kg' | 'lbs') => setForm({ ...form, unit_weight: next });
   const shown = (kg: number) => unit === 'lbs' ? Math.round(kg * 2.20462 * 10) / 10 : kg;
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -388,99 +390,6 @@ function StepGoalMotivation({ form, setForm }: { form: FormData; setForm: (f: Fo
   );
 }
 
-// --- Step 8: Summary ---
-function StepSummary({ form, coached }: { form: FormData; coached: boolean }) {
-  const { t } = useTranslation();
-  const age = form.date_of_birth ? getAge(form.date_of_birth) : 25;
-  const bmr = calculateBMR(form.weight_kg, form.height_cm, age, form.gender);
-  const tdee = calculateEnhancedTDEE(bmr, form.activity_level, form.daily_steps_average, form.training_frequency);
-  const calorieTarget = calculateCalorieTarget(tdee, form.goal, bmr);
-  const macros = calculateMacros(calorieTarget, form.goal, form.diet_type, form.weight_kg);
-  const waterTarget = calculateWaterTarget(form.weight_kg, form.daily_steps_average, form.activity_level, form.hydration_habit);
-
-  return (
-    <div className="space-y-5 animate-fade-in-up">
-      <StepHeader icon={Sparkles} title={t('onboarding.steps.summary')} subtitle={t('onboarding.steps.summarySub')} />
-
-      {coached ? (
-      <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5">
-        <p className="text-sm text-neutral-300">{t('onboarding.fields.coachOwnsTargets')}</p>
-      </div>
-      ) : (
-      <div className="bg-neutral-900/80 border border-neutral-800 rounded-2xl p-5">
-        <h3 className="text-xs text-neutral-400 font-medium uppercase tracking-wider mb-3">{t('onboarding.fields.dailyTargets')}</h3>
-        <div className="text-center mb-4">
-          <span className="text-4xl font-bold text-white">{calorieTarget}</span>
-          <span className="text-sm text-neutral-500 ml-1">{t('onboarding.summary.calDay')}</span>
-        </div>
-        <div className="grid grid-cols-3 gap-3">
-          <div className="text-center p-3 rounded-xl bg-blue-500/10">
-            <span className="text-lg font-bold text-blue-400">{macros.protein}g</span>
-            <span className="block text-[10px] text-neutral-500 mt-0.5">{t('common.protein')}</span>
-          </div>
-          <div className="text-center p-3 rounded-xl bg-amber-500/10">
-            <span className="text-lg font-bold text-amber-400">{macros.carbs}g</span>
-            <span className="block text-[10px] text-neutral-500 mt-0.5">{t('common.carbs')}</span>
-          </div>
-          <div className="text-center p-3 rounded-xl bg-rose-500/10">
-            <span className="text-lg font-bold text-rose-400">{macros.fat}g</span>
-            <span className="block text-[10px] text-neutral-500 mt-0.5">{t('common.fat')}</span>
-          </div>
-        </div>
-      </div>
-      )}
-
-      {/* Key Stats */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.summary.bmr')}</span>
-          <span className="block text-lg font-bold text-white">{Math.round(bmr)} kcal</span>
-        </div>
-        <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-xs text-neutral-500 uppercase tracking-wider">{t('onboarding.summary.tdee')}</span>
-          <span className="block text-lg font-bold text-white">{tdee} kcal</span>
-        </div>
-        <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('profile.goals.dailyWater')}</span>
-          <span className="block text-lg font-bold text-white">{(waterTarget / 1000).toFixed(1)}L</span>
-        </div>
-        <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-          <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.fields.sessionsPerWeek')}</span>
-          <span className="block text-lg font-bold text-white">{t('onboarding.summary.sessionsShort', { n: form.training_frequency })}</span>
-        </div>
-      </div>
-
-      {/* Recovery note */}
-      {(form.sleep_hours_average < 6.5) && (
-        <div className="flex items-start gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-          <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-          <div>
-            <p className="text-xs font-medium text-amber-300">{t('onboarding.fields.recoveryNotice')}</p>
-            <p className="text-[11px] text-neutral-400 mt-0.5">
-              {t('onboarding.fields.recoveryBody')}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Diet summary */}
-      <div className="bg-neutral-900/80 border border-neutral-800 rounded-xl p-4">
-        <span className="text-[10px] text-neutral-500 uppercase tracking-wider">{t('onboarding.fields.yourProfile')}</span>
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 text-[10px] font-medium">
-            {optionLabel(t, 'diet', form.diet_type)}
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 text-[10px] font-medium">
-            {optionLabel(t, 'trainingFocus', form.training_focus)}
-          </span>
-          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-medium">
-            {optionLabel(t, 'trainingExperience', form.training_experience)}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // --- Main Onboarding Component ---
 export default function OnboardingFlow() {
@@ -497,6 +406,7 @@ export default function OnboardingFlow() {
 
   const [form, setForm] = useState<FormData>({
     full_name: '',
+    unit_weight: 'kg',
     gender: 'male',
     date_of_birth: '',
     height_cm: 175,
@@ -557,6 +467,7 @@ export default function OnboardingFlow() {
       training_focus: form.training_focus,
       injuries_limitations: form.injuries_limitations,
       hydration_habit: form.hydration_habit,
+      unit_weight: form.unit_weight,
       onboarding_completed: true,
     };
     const saved = await updateProfile(user.id, stripSelfServeNutritionTargets(payload, coached));
@@ -593,7 +504,6 @@ export default function OnboardingFlow() {
       default: return null;
     }
   };
-  void StepSummary;
 
   return (
     <div className="min-h-screen bg-black flex flex-col">

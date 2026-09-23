@@ -277,9 +277,11 @@ export default function CheckInPage() {
           </div>
         ) : null}
 
-        <button type="button" className="mb-3 min-h-11 text-sm text-neutral-300" onClick={() => setAskOpen(v => !v)}>
-          {t('soloAsk.label')}
-        </button>
+        {solo && (
+          <button type="button" className="mb-3 min-h-11 text-sm text-neutral-300" onClick={() => setAskOpen(v => !v)}>
+            {t('soloAsk.label')}
+          </button>
+        )}
         {askOpen && solo && (
         <SoloAskBar
           context={soloAskFromProfile('checkin', profile)}

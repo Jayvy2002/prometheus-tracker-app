@@ -241,7 +241,7 @@ export default function ProvisionalClaimPage() {
               <section className="rounded-xl border border-amber-800 px-3 py-2 space-y-1">
                 <h2 className="text-sm font-medium text-amber-200">{t('coaching.provisional.claim.collisionsTitle')}</h2>
                 {preview.collisions.files.length ? (
-                  <p className="text-xs text-neutral-300">{t('coaching.provisional.claim.collisionsFiles', { list: preview.collisions.files.join(', ') })}</p>
+                  <p className="text-xs text-neutral-300">{t('coaching.provisional.claim.collisionsFiles', { count: preview.collisions.files.length })}</p>
                 ) : null}
                 {preview.collisions.session_dates.length ? (
                   <p className="text-xs text-neutral-300">{t('coaching.provisional.claim.collisionsSessions', { list: preview.collisions.session_dates.join(', ') })}</p>

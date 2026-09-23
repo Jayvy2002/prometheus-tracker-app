@@ -269,7 +269,8 @@ test('stats and calendar are personal history surfaces; routines stay persona-ga
   assert.match(progress, /to="\/calendar"/);
   const suivi = src('src/components/navigation/SuiviHub.tsx');
   assert.match(suivi, /CalendarPage/);
-  assert.match(suivi, /WeightPage/);
+  assert.match(suivi, /StatsPage/);
+  assert.doesNotMatch(suivi, /NutritionPage/);
   assert.doesNotMatch(src('src/components/profile/ProfilePage.tsx'), /to="\/stats"/);
   const program = src('src/components/programs/ClientProgramPage.tsx');
   assert.match(program, /canUpdateOwnAssignedProgram/);

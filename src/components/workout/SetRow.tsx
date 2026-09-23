@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Trash2, Copy, Check, MoreVertical } from 'lucide-react';
+import { Trash2, Copy, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useWorkoutStore } from '../../stores/workoutStore';
 import type { WorkoutSet, SetType } from '../../lib/types';
@@ -7,12 +7,18 @@ import { SET_TYPES } from '../../lib/constants';
 import { kgToLbs, lbsToKg } from '../../lib/utils';
 import { useDraftContext } from './WorkoutDraftContext';
 import { optionLabel } from '../../lib/optionLabels';
-import { applySetPlaceholders } from '../../lib/workoutSetComplete';
+import { applySetPlaceholders, parseDecimalInput } from '../../lib/workoutSetComplete';
 import { parseDropSegments, emptyDropSegments } from '../../lib/programSetPrescription';
 
 // --- Set Type Picker ---
 
-function SetTypePicker({ currentType, onChange, onClose }: { currentType: string; onChange: (type: SetType) => void; onClose: () => void }) {
+function SetTypePicker({ currentType, onChange, onClose, onDuplicate, onDelete }: {
+  currentType: string;
+  onChange: (type: SetType) => void;
+  onClose: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
   const { t: tr } = useTranslation();
   const pickerRef = useRef<HTMLDivElement>(null);
 
@@ -42,59 +48,22 @@ function SetTypePicker({ currentType, onChange, onClose }: { currentType: string
           </button>
         ))}
       </div>
-    </div>
-  );
-}
-
-function SetRowMenu({
-  onDuplicate,
-  onDelete,
-}: {
-  onDuplicate: () => void;
-  onDelete: () => void;
-}) {
-  const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
-
-  return (
-    <div ref={menuRef} className="relative shrink-0">
-      <button
-        type="button"
-        aria-label={t('workout.exerciseCard.setActions')}
-        aria-expanded={open}
-        onClick={() => setOpen(v => !v)}
-        className="sr-only"
-      >
-        <MoreVertical size={16} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-50 mt-1 min-w-[10rem] rounded-xl border border-neutral-700/50 bg-neutral-950 p-1 shadow-xl">
-          <button
-            type="button"
-            onClick={() => { setOpen(false); onDuplicate(); }}
-            className="flex w-full min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-white hover:bg-neutral-800"
-          >
-            <Copy size={14} /> {t('workout.exerciseCard.duplicateSet')}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setOpen(false); onDelete(); }}
-            className="flex w-full min-h-11 items-center gap-2 rounded-lg px-3 text-sm text-rose-300 hover:bg-rose-500/10"
-          >
-            <Trash2 size={14} /> {t('common.delete')}
-          </button>
-        </div>
-      )}
+      <div className="mt-1.5 grid grid-cols-2 gap-1 border-t border-neutral-800 pt-1.5">
+        <button
+          type="button"
+          onClick={() => { onClose(); onDuplicate(); }}
+          className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-neutral-200 hover:bg-neutral-800"
+        >
+          <Copy size={13} /> {tr('workout.exerciseCard.duplicateSet')}
+        </button>
+        <button
+          type="button"
+          onClick={() => { onClose(); onDelete(); }}
+          className="flex min-h-11 items-center justify-center gap-1.5 rounded-lg text-xs font-medium text-rose-300 hover:bg-rose-500/10"
+        >
+          <Trash2 size={13} /> {tr('common.delete')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -299,7 +268,7 @@ export function SetRow({
     if (filled.weight !== localWeight) {
       setLocalWeight(filled.weight);
       updateSetDraft(set.id, 'weight_kg', filled.weight);
-      const w = parseFloat(filled.weight);
+      const w = parseDecimalInput(filled.weight);
       if (!isNaN(w)) updates.weight_kg = toStorage(w);
     }
     if (filled.reps !== localReps) {
@@ -319,7 +288,7 @@ export function SetRow({
   // Drop percentage badge (ratio — computed in display units consistently)
   const prevDisplay = previousSet && previousSet.weight_kg > 0 ? toDisplay(previousSet.weight_kg) : 0;
   const dropPct = isDrop && previousSet && previousSet.weight_kg > 0 && localWeight
-    ? Math.round((1 - parseFloat(localWeight) / prevDisplay) * 100)
+    ? Math.round((1 - parseDecimalInput(localWeight) / prevDisplay) * 100)
     : set.drop_percentage;
 
   // Myo activation badge
@@ -340,7 +309,7 @@ export function SetRow({
       ${isDrop && index > 0 ? '-mt-0.5' : ''}
     `}>
       <div
-        className="flex items-center gap-1.5 p-2"
+        className="flex items-center gap-1.5 p-2 touch-pan-y"
         onPointerDown={(event) => {
           const node = event.target as HTMLElement;
           if (node.closest('input, button')) return;
@@ -379,6 +348,8 @@ export function SetRow({
             <SetTypePicker
               currentType={localType}
               onChange={handleTypeChange}
+              onDuplicate={onDuplicate}
+              onDelete={onDelete}
               onClose={() => setShowTypePicker(false)}
             />
           )}
@@ -410,7 +381,7 @@ export function SetRow({
               }}
               onFocus={e => e.target.select()}
               onBlur={() => {
-                const w = parseFloat(localWeight.replace(',', '.'));
+                const w = parseDecimalInput(localWeight);
                 updateSet(set.id, { weight_kg: isNaN(w) ? 0 : toStorage(w) });
               }}
               className={`w-full min-h-11 rounded-lg px-1.5 py-2.5 text-base text-white text-center font-medium focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all
@@ -473,7 +444,6 @@ export function SetRow({
           )}
         </div>
 
-        <SetRowMenu onDuplicate={onDuplicate} onDelete={onDelete} />
         <button
           type="button"
           onClick={() => void handleToggleComplete()}
@@ -500,7 +470,7 @@ export function SetRow({
                   inputMode="decimal"
                   value={row.weight_kg ? String(toDisplay(row.weight_kg)) : ''}
                   onChange={e => {
-                    const w = parseFloat(e.target.value);
+                    const w = parseDecimalInput(e.target.value);
                     const next = segments.map((s, j) => j === i ? { ...s, weight_kg: isNaN(w) ? 0 : toStorage(w) } : s);
                     setSegments(next);
                   }}

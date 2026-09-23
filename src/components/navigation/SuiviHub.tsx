@@ -1,47 +1,42 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { Eye } from 'lucide-react';
 import ExerciseProgressPage from '../workout/ExerciseProgressPage';
-import WeightPage from '../weight/WeightPage';
+import StatsPage from '../stats/StatsPage';
 import CalendarPage from '../calendar/CalendarPage';
+import HubTabs from './HubTabs';
+import { useResourcePermissions } from '../../lib/useResourcePermissions';
 
-const VIEWS = ['exercises', 'body', 'calendar'] as const;
-type View = (typeof VIEWS)[number];
+type View = 'exercises' | 'trends' | 'calendar';
 
-function viewOf(value: string | null): View {
-  return VIEWS.includes(value as View) ? value as View : 'exercises';
-}
-
+/** Suivi : comprendre, sans saisie. Exercices · Tendances · Calendrier. */
 export default function SuiviHub() {
   const { t } = useTranslation();
+  const { canReadOwnHistory, canOpenPersonalCalendarRoute } = useResourcePermissions();
   const [params, setParams] = useSearchParams();
-  const view = viewOf(params.get('view'));
+  const views: View[] = [
+    'exercises',
+    ...(canReadOwnHistory ? ['trends' as const] : []),
+    ...(canOpenPersonalCalendarRoute ? ['calendar' as const] : []),
+  ];
+  const requested = params.get('view') as View | null;
+  const view = requested && views.includes(requested) ? requested : 'exercises';
   const labels: Record<View, string> = {
     exercises: t('nav.progressTraining'),
-    body: t('nav.sectionBody'),
+    trends: t('nav.progressSummary'),
     calendar: t('nav.calendar'),
   };
 
   return (
     <div>
-      <Link to="/watch" className="block px-4 pt-4 text-sm text-neutral-300 min-h-11">
-        {t('prometheusWatch.title')}
-      </Link>
-      <div className="px-4 pt-2 flex gap-2" role="tablist" aria-label={t('nav.suivi')}>
-        {VIEWS.map((item) => (
-          <button
-            key={item}
-            type="button"
-            role="tab"
-            aria-selected={view === item}
-            onClick={() => setParams({ view: item })}
-            className={`min-h-11 flex-1 rounded-xl px-3 text-sm font-medium ${view === item ? 'bg-blue-600 text-white' : 'bg-neutral-900 text-neutral-300'}`}
-          >
-            {labels[item]}
-          </button>
-        ))}
+      <HubTabs label={t('nav.suivi')} views={views} value={view} labels={labels} onChange={next => setParams({ view: next })} />
+      <div className="px-4 pt-3">
+        <Link to="/watch" className="inline-flex min-h-11 items-center gap-2 text-sm text-neutral-300 hover:text-white">
+          <Eye size={16} className="text-blue-300" /> {t('prometheusWatch.title')}
+        </Link>
       </div>
       {view === 'exercises' ? <ExerciseProgressPage embedded /> : null}
-      {view === 'body' ? <WeightPage /> : null}
+      {view === 'trends' ? <StatsPage embedded /> : null}
       {view === 'calendar' ? <CalendarPage /> : null}
     </div>
   );

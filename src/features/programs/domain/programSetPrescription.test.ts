@@ -28,6 +28,13 @@ test('program set types persist on the day, not as a working-only plate', () => 
     tempo: '3-1-2-0',
   });
   assert.equal(payload.set_type, 'drop');
+  assert.equal(payload.catalog_exercise_id, null);
+  assert.equal(programExerciseRpcFields({
+    name: 'Développé couché',
+    catalog_exercise_id: '11111111-1111-4111-8111-111111111111',
+    default_sets: 3,
+    default_reps: 8,
+  }).catalog_exercise_id, '11111111-1111-4111-8111-111111111111');
   assert.equal(payload.drop_count, 3);
   assert.equal(payload.superset_group, 'A');
   assert.equal(parseDropSegments([{ weight_kg: 80, reps: 6 }, { weight_kg: 60, reps: 8 }]).length, 2);

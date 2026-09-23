@@ -43,3 +43,17 @@ export function applySetPlaceholders(input: {
     duration: input.duration,
   };
 }
+
+/** « 82,5 » and « 82.5 » are the same load. Empty or invalid is NaN. */
+export function parseDecimalInput(value: string | null | undefined): number {
+  const text = (value ?? '').trim().replace(',', '.');
+  if (!/^-?\d*\.?\d+$|^-?\d+\.$/.test(text)) return Number.NaN;
+  return Number.parseFloat(text);
+}
+
+/** Set drafts hold the load as typed, in the profile unit. Storage is kg. */
+export function draftLoadToKg(value: string | null | undefined, unit: 'kg' | 'lbs'): number {
+  const n = parseDecimalInput(value);
+  if (!Number.isFinite(n)) return 0;
+  return unit === 'lbs' ? Math.round((n / 2.20462) * 10) / 10 : n;
+}

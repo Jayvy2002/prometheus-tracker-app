@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Droplets, Dumbbell, ChevronRight, Play, Plus, Scale, AlertCircle, Battery, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
+import { Droplets, Dumbbell, ChevronRight, Play, Plus, Scale, AlertCircle, ClipboardCheck, MessageSquare, CalendarRange } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useProfileStore } from '../../stores/profileStore';
 import { useNutritionStore } from '../../stores/nutritionStore';
@@ -15,7 +15,7 @@ import { useDashboardBootstrap } from '../../features/dashboard/hooks/useDashboa
 import { startWorkoutFromTemplate } from '../../lib/startWorkout';
 import { toWorkoutTemplateExercise } from '../../lib/programSetPrescription';
 import { toLocalDateStr, kgToLbs, programWeekNumber, formatWeekdayDate } from '../../lib/utils';
-import { weeklyAverageKg } from '../../lib/weeklyWeight';
+import { rollingWeightTrend, weeklyAverageKg } from '../../lib/weeklyWeight';
 import { useClientTracking } from '../../lib/useClientTracking';
 import { anyMacroField, showModule, showNutritionField } from '../../lib/clientTracking';
 import { isCoachedAthlete } from '../../lib/coachRole';
@@ -46,6 +46,7 @@ import NutritionRings from '../nutrition/NutritionRings';
 import ClientGymCard from './ClientGymCard';
 import DashboardWeightCard from './DashboardWeightCard';
 import SoloProgramProposal from './SoloProgramProposal';
+import SoloWeeklyReview from './SoloWeeklyReview';
 import LinkEndedBanner from './LinkEndedBanner';
 
 function getWeekDates(todayCivil: string): string[] {
@@ -112,10 +113,6 @@ export default function Dashboard() {
   const weekWorkoutsDone = doneDays.filter(Boolean).length;
   const weekGoalMet = weekWorkoutsDone >= trainingTarget;
 
-  // Weight trend (last 14)
-  const recentWeights = [...measurements]
-    .sort((a, b) => a.measured_at.localeCompare(b.measured_at))
-    .slice(-14);
   const weightUnit = profile?.unit_weight ?? 'kg';
   const weekWeight = weeklyAverageKg(measurements, programClock.today);
   const latestWeight = weekWeight.current == null
@@ -187,7 +184,7 @@ export default function Dashboard() {
 
   const hourNow = new Date().getHours();
   const hasLoggedLunch = logs.some(l => l.category === 'lunch');
-  // Meal / water nudges and the deload tip are self-coaching: a coached athlete's coach decides.
+  // Meal / water nudges are self-coaching: a coached athlete's coach decides.
   const showMealReminder = !hasCoach && !calmHome && (
     (hourNow >= 13 && hourNow <= 16 && !hasLoggedLunch && consumed === 0) ||
     (hourNow >= 13 && !hasLoggedLunch && consumed < calorieTarget * 0.3)
@@ -195,18 +192,6 @@ export default function Dashboard() {
 
   const showWaterReminder = !hasCoach && !calmHome && hourNow >= 15 && waterConsumed > 0 && waterTarget != null && waterPct < 50;
 
-  // Deload suggestion — if trained 4+ consecutive weeks without a break
-  const fourWeeksAgo = new Date();
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-  const recentCompletedWorkouts = workouts.filter(w => w.completed && new Date(w.date) >= fourWeeksAgo);
-  const weeksWithWorkouts = new Set(recentCompletedWorkouts.map(w => {
-    const d = new Date(w.date);
-    const startOfYear = new Date(d.getFullYear(), 0, 1);
-    return Math.floor((d.getTime() - startOfYear.getTime()) / (7 * 86400000));
-  }));
-  const showDeloadSuggestion = false;
-  void recentCompletedWorkouts;
-  void weeksWithWorkouts;
   const showGymHero = hasGymCard && !!assignment?.program;
   const dueGymHero = showGymHero && isProgramDayDue(gymCard);
   const restGymCard = showGymHero && !dueGymHero;
@@ -218,7 +203,8 @@ export default function Dashboard() {
     && homeDismissTick >= 0
     && !isHomeMessageDismissed(user?.id, latestCoachMessage?.id);
   const todayReminder = pickTodayReminder({
-    deload: showDeloadSuggestion,
+    // Deload is a plan decision (phases, signals), not a home nudge.
+    deload: false,
     meal: showNutritionField(tracking, 'calories') && showMealReminder,
     water: showNutritionField(tracking, 'water') && showWaterReminder,
     weight: showModule(tracking, 'weight') && showWeightReminder,
@@ -232,9 +218,10 @@ export default function Dashboard() {
 
   const showRestGym = restGymCard;
   const showEmptyToday = !activityPending && !hasPrimaryHero && !showRestGym && !hasAttention;
-  const weightPoints = recentWeights.map(m => ({
-    date: m.measured_at.slice(5, 10),
-    weight: +(weightUnit === 'lbs' ? kgToLbs(m.weight_kg) : Number(m.weight_kg)).toFixed(1),
+  // The sparkline draws the 7-day trend, not the daily noise.
+  const weightPoints = rollingWeightTrend(measurements).slice(-14).map(m => ({
+    date: m.day.slice(5, 10),
+    weight: +(weightUnit === 'lbs' ? kgToLbs(m.trend_kg) : m.trend_kg).toFixed(1),
   }));
   const weightDeltaDisplay = weightDelta === null
     ? null
@@ -350,18 +337,10 @@ export default function Dashboard() {
         )}
 
         {showNextActionHero && nextAction === 'first_session' && showModule(tracking, 'workouts') ? (
-          <div className="mb-4 space-y-2">
+          <div className="mb-4">
             <Button className="w-full" onClick={() => navigate('/workout/new')}>
               {t('dashboard.firstRun.startSession')}
             </Button>
-            <button
-              type="button"
-              data-import-history="true"
-              className="w-full min-h-11 text-sm text-neutral-400"
-              onClick={() => navigate('/workout')}
-            >
-              {t('dashboard.firstRun.importHistory')}
-            </button>
           </div>
         ) : showNextActionHero && nextAction === 'waiting_program' ? (
           <ListRow
@@ -407,17 +386,6 @@ export default function Dashboard() {
           />
         )}
 
-        {attention.reminder === 'deload' && (
-          <ListRow
-            className="mb-4"
-            tone="warning"
-            icon={<Battery size={16} />}
-            title={t('dashboard.reminders.deload')}
-            onClick={() => navigate('/workout')}
-            onDismiss={() => dismissReminder('deload')}
-            dismissLabel={t('common.dismiss')}
-          />
-        )}
         {attention.reminder === 'meal' && (
           <ListRow
             className="mb-4"
@@ -452,6 +420,9 @@ export default function Dashboard() {
           />
         )}
 
+        {/* One AI card, only when a decision waits. The weekly review also
+            persists the solo's weekly cycle (signals, review) on mount. */}
+        {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
         <SoloProgramProposal variant="notice" />
 
         {!activityPending && (

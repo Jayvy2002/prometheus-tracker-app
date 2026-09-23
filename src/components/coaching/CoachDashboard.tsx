@@ -6,6 +6,7 @@ import {
   Link2,
   Plus,
   Search,
+  Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useCoachingStore } from '../../stores/coachingStore';
@@ -85,7 +86,7 @@ export default function CoachDashboard() {
               <Search size={18} />
             </IconButton>
             <IconButton label={t('coaching.ask.shortcut')} onClick={() => navigate('/prometheus')}>
-              <Search size={18} />
+              <Sparkles size={18} />
             </IconButton>
           </div>
         </div>

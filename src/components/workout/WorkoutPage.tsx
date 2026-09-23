@@ -347,24 +347,6 @@ export default function WorkoutPage() {
         </>
       )}
 
-      {routines.length > 0 && (
-        <div className="mb-4">
-          <h2 className="text-sm font-semibold text-neutral-300 mb-2">{t('nav.routines')}</h2>
-          <div className="space-y-2">
-            {routines.slice(0, 3).map(routine => (
-              <button
-                key={routine.id}
-                type="button"
-                className="min-h-11 w-full rounded-xl bg-neutral-900 px-3 text-left text-sm text-white"
-                onClick={() => navigate('/workout/new', { state: { routineId: routine.id } })}
-              >
-                {routine.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {assignment?.program && gymCard.kind !== 'none' && (
         <ClientGymCard
           card={gymCard}
@@ -386,6 +368,29 @@ export default function WorkoutPage() {
             })
             : null}
         />
+      )}
+
+      {!coached && routines.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-neutral-300">{t('nav.routines')}</h2>
+            <button type="button" onClick={() => navigate('/routines')} className="min-h-11 px-2 text-sm text-blue-400 hover:text-blue-300">
+              {t('workout.seeAllRoutines')}
+            </button>
+          </div>
+          <div className="space-y-2">
+            {routines.slice(0, 3).map(routine => (
+              <button
+                key={routine.id}
+                type="button"
+                className="min-h-11 w-full rounded-xl bg-neutral-900 px-3 text-left text-sm text-white"
+                onClick={() => navigate('/workout/new', { state: { routineId: routine.id } })}
+              >
+                {routine.name}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
 
       {lastCompleted && (

@@ -59,17 +59,19 @@ export type QuickAddDef = {
 const today: NavItemDef = { id: 'today', path: '/dashboard', labelKey: 'nav.today', icon: LayoutDashboard, end: true };
 const workout: NavItemDef = { id: 'train', path: '/workout', labelKey: 'nav.workout', icon: Dumbbell };
 const progress: NavItemDef = { id: 'progress', path: '/exercise-progress', labelKey: 'nav.exerciseProgress', icon: TrendingUp };
+/** Corps : ce qu'on logge chaque jour (nutrition, poids, check-in). */
 const body: NavItemDef = {
   id: 'body',
   path: '/body',
-  match: ['/body', '/nutrition', '/weight', '/checkin', '/photos'],
+  match: ['/body', '/nutrition', '/weight', '/checkin', '/recipes'],
   labelKey: 'nav.sectionBody',
   icon: Apple,
 };
+/** Suivi : comprendre (progression, tendances, calendrier). Pas de saisie. */
 const suivi: NavItemDef = {
   id: 'suivi',
   path: '/suivi',
-  match: ['/suivi', '/exercise-progress', '/calendar', '/stats', '/weight', '/nutrition'],
+  match: ['/suivi', '/exercise-progress', '/progress', '/calendar', '/stats', '/watch'],
   labelKey: 'nav.suivi',
   icon: TrendingUp,
 };
@@ -99,7 +101,16 @@ export function navPersona(context: AccountContext): NavPersona {
   return 'solo';
 }
 
-/** Pas de 6ᵉ onglet. Solo : Accueil, Séance, Suivi, Toi. Coaché et coaching : cinq onglets. */
+export function tracksBody(tracking: NavTracking): boolean {
+  return tracking.track_nutrition || tracking.track_weight || tracking.track_checkins;
+}
+
+/**
+ * Pas de 6ᵉ onglet : cinq au plus, jamais un « Plus ».
+ * Solo : Accueil · Séance · Corps · Suivi · Toi.
+ * Coaché : Accueil · Séance · Corps · Coach · Toi.
+ * Corps disparaît si le coach n'a activé aucun module qu'il contient.
+ */
 export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemDef[] {
   if (persona === 'coaching') {
     return [today, clients, messages, programs, profile];
@@ -108,7 +119,7 @@ export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemD
     return [
       today,
       ...(tracking.track_workouts ? [workout] : []),
-      body,
+      ...(tracksBody(tracking) ? [body] : []),
       messages,
       profile,
     ];
@@ -116,6 +127,7 @@ export function mobileTabs(persona: NavPersona, tracking: NavTracking): NavItemD
   return [
     today,
     ...(tracking.track_workouts ? [workout] : []),
+    ...(tracksBody(tracking) ? [body] : []),
     suivi,
     profile,
   ];
@@ -142,7 +154,8 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
         id: 'train',
         labelKey: 'nav.sectionTrain',
         items: [
-          ...(tracking.track_workouts ? [workout, routines, myProgram] : []),
+          // Routines personnelles : outil du solo. Un coaché suit le plan de son coach.
+          ...(tracking.track_workouts ? [workout, myProgram] : []),
           progress,
           stats,
           calendar,
