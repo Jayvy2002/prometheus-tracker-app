@@ -14,7 +14,7 @@ import { resolveNudgeBody } from '../../lib/coachSettings';
 import { displayName } from '../../lib/coachText';
 import { clientFileHref } from '../../lib/coachSituation';
 import { coachingPassHref } from '../../lib/coachInterventions';
-import { isRelanceKind, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
+import { isRelanceKind, messageInboxDrafts, parsePreparedMessage, preparedTemplateKey } from '../../lib/coachFleet';
 import { loadOrCreateMessageKey, clearMessageKey } from '../../lib/idempotencyKeys';
 import { formatBilanDate, hasBilan, parseBilanQuery } from '../../lib/messageBilan';
 import { supabase } from '../../lib/supabase';
@@ -134,6 +134,8 @@ export default function CoachInboxPage() {
       t(`coaching.queue.templates.${nudgeKey}`, { name: draftName }),
     )
     : undefined;
+
+  const inboxDrafts = messageInboxDrafts(pendingInterventions);
 
   const handleSend = async (body: string) => {
     if (!clientId || !user) return { error: t('coaching.messages.sendFailed') };
@@ -279,13 +281,13 @@ export default function CoachInboxPage() {
         <div className="px-4 pt-6 pb-6 md:px-6">
         <PageHeader title={t('coaching.inbox.title')} subtitle={t('coaching.inbox.subtitle')} />
 
-        {pendingInterventions.length > 0 && (
+        {inboxDrafts.length > 0 && (
           <div className="mb-6">
             <p className="text-xs font-semibold text-neutral-500 uppercase tracking-widest mb-2">
               {t('coaching.inbox.toHandle')}
             </p>
             <div className="space-y-2">
-              {pendingInterventions.map(item => {
+              {inboxDrafts.map(item => {
                 const client = clients.find(c => c.id === item.client_id);
                 return (
                   <InterventionInboxCard

@@ -53,6 +53,10 @@ test('Today keeps File du jour; drafts live in Messages, not a third inbox', () 
   const inbox = src('src/components/coaching/CoachInboxPage.tsx');
   assert.match(inbox, /InterventionInboxCard/);
   assert.match(inbox, /coaching\.inbox\.toHandle/);
+  // Messages keeps prepared messages; program and kcal decisions live in Today.
+  assert.match(inbox, /messageInboxDrafts\(pendingInterventions\)/);
+  const fleet = src('src/features/coaching/domain/coachFleet.ts');
+  assert.match(fleet, /!row\.client_id \|\| isRelanceKind\(row\.kind\)/);
 });
 
 test('Ask opens the editable draft for this question; roster chips stay local', () => {

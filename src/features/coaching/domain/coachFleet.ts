@@ -667,6 +667,15 @@ export function isRelanceKind(kind: CoachInterventionKind): boolean {
   return RELANCE_KINDS.has(kind);
 }
 
+/**
+ * Drafts shown in Messages: prepared messages (relances), plus drafts with no
+ * client, which have no other entry point. Program and calorie drafts are
+ * decisions handled from Today and the client file, not conversations.
+ */
+export function messageInboxDrafts<T extends Pick<CoachIntervention, 'kind' | 'client_id'>>(pending: readonly T[]): T[] {
+  return pending.filter(row => !row.client_id || isRelanceKind(row.kind));
+}
+
 export function isFleetIntervention(row: Pick<CoachIntervention, 'source' | 'payload'>): boolean {
   return row.source === FLEET_SOURCE || row.payload?.source === FLEET_SOURCE;
 }

@@ -852,7 +852,7 @@ Fermé par ce passage :
 - rattachement : révision d’aperçu obligatoire, aucun accès Coach aux lignes après rattachement sans suivi actif, octets rattachés refusés en import direct ;
 - catalogue : renommage sans perte d’identité, `catalog_exercise_id` conservé à la sauvegarde d’un programme, propositions modifiées détectées ;
 - imports : quota à la réouverture, parseur linéaire, incidents bornés et visibles des opérateurs ;
-- parcours : revue hebdo Solo rétablie sur Aujourd’hui, reprise de séance limitée à aujourd’hui/hier, séance vide supprimée, charges en lbs et à virgule justes, fiche client avec onglets Programme et Nutrition, unités du Coach dans ses vues, records comparables (charge × répétitions) et records du jour, navigation Coach « Mon offre » / « Import », « Trouver un coach » dans l’espace personnel Solo.
+- parcours : revue hebdo Solo rétablie sur Aujourd’hui, reprise de séance limitée à aujourd’hui/hier, séance vide supprimée, charges en lbs et à virgule justes, fiche client avec onglets Programme et Nutrition, unités du Coach dans ses vues, records comparables (charge × répétitions) et records du jour, navigation Coach « Mon offre » / « Import », « Trouver un coach » dans l’espace personnel Solo ; Messages ne garde que les brouillons qui sont des messages (relances) et ceux sans client, les décisions programme et calories se prennent depuis Aujourd’hui et la fiche client.
 
 Hors de ce passage : remplacement global des couleurs par les tokens (refactor visuel sans bénéfice fonctionnel), `start_workout_from_template` qui ne lit pas encore `catalog_exercise_id`.
 ---
