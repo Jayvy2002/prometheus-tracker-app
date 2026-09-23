@@ -343,7 +343,7 @@ const common = {
     dataControl: {
       title: 'Tes données',
       photosSelf: 'Photos : visible seulement par toi — aucun coach n’y a accès.',
-      photosCoach: 'Photos : {{name}} les voit dans ta fiche, y compris celles d’avant le suivi.',
+      photosCoach: 'Photos : privées par défaut. Tu choisis de les partager ou non avec {{name}} depuis la page Photos.',
       noCoach: 'Aucun coach n’a accès à tes journaux.',
       sharedModules: 'Suivi visible par ton coach : {{modules}}.',
       noModules: 'Aucun module de suivi n’est partagé pour le moment.',

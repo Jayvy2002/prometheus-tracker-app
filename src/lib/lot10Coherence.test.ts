@@ -117,14 +117,14 @@ test('10h: PageTransition resets tab index when persona changes', () => {
   assert.match(trans, /navPersona\(context\)/);
 });
 
-test('10i: séance / programme / modèle — no zombie “routine” copy', () => {
+test('10i: séance / programme / routine — the Vision §7.1 vocabulary, one word per concept', () => {
   const fr = src('src/i18n/locales/fr.ts');
-  assert.match(fr, /title: 'Modèles'/);
+  assert.match(fr, /title: 'Routines'/);
+  assert.doesNotMatch(fr, /Supprimer le modèle/);
   assert.match(fr, /startRoutineFailed: 'Impossible de démarrer la séance/);
-  assert.doesNotMatch(fr, /Mes routines/);
-  assert.doesNotMatch(fr, /Supprimer la routine/);
+  assert.doesNotMatch(fr, /Mes modèles/);
   const en = src('src/i18n/locales/en.ts');
-  assert.match(en, /title: 'Templates'/);
+  assert.match(en, /title: 'Routines'/);
   assert.doesNotMatch(en, /Failed to start routine/);
 });
 

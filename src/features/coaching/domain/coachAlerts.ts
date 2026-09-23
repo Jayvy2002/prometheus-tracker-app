@@ -17,14 +17,38 @@ const DEFAULT_TRACKING: Pick<
   setup_completed_at: null,
 };
 
+/**
+ * A missing log is not a fault (Vision §8.1, §11.2). The coach is only told
+ * about silence that lasts a whole window, and never before the relationship
+ * is at least that old: a client linked this morning has missed nothing.
+ */
+export const CHECKIN_WINDOW_DAYS = 7;
+export const NUTRITION_WINDOW_DAYS = 3;
+export const WEIGHT_WINDOW_DAYS = 7;
+export const WORKOUT_WINDOW_DAYS = 7;
+
+/** First day of a window of `days` days ending today (inclusive). */
+export function windowStart(today: string, days: number): string {
+  return addDaysToDateStr(today, -(days - 1));
+}
+
+/** True when the link is at least `days` old, so a full window could be observed. */
+export function linkedForAtLeast(linkedAt: string | null | undefined, today: string, days: number): boolean {
+  if (!linkedAt) return true;
+  return linkedAt.slice(0, 10) <= addDaysToDateStr(today, -days);
+}
+
 export interface CoachOpsFacts {
   today: string;
   weekAgo: string;
   weekday: number;
   localHour: number;
   missedWorkoutCutoffHour: number;
+  /** Clients with a check-in in the last CHECKIN_WINDOW_DAYS days. */
   checkinUserIds: Set<string>;
+  /** Clients with a food log in the last NUTRITION_WINDOW_DAYS days. */
   nutritionUserIds: Set<string>;
+  /** Clients with a weigh-in in the last WEIGHT_WINDOW_DAYS days. */
   weightUserIds: Set<string>;
   workoutDatesByUser: Map<string, string[]>;
   scheduledWeekdaysByClient: Map<string, Set<number>>;
@@ -85,13 +109,14 @@ export function buildClientOpsRows(clients: CoachClientSummary[], facts: CoachOp
     } else {
       if (!hasProgram) alerts.push('program_unassigned');
 
-      if (tracking.track_checkins && !facts.checkinUserIds.has(client.id)) {
+      const observed = (days: number) => linkedForAtLeast(client.linked_at, facts.today, days);
+      if (tracking.track_checkins && observed(CHECKIN_WINDOW_DAYS) && !facts.checkinUserIds.has(client.id)) {
         alerts.push('missing_checkin');
       }
-      if (tracking.track_nutrition && !facts.nutritionUserIds.has(client.id)) {
+      if (tracking.track_nutrition && observed(NUTRITION_WINDOW_DAYS) && !facts.nutritionUserIds.has(client.id)) {
         alerts.push('missing_nutrition');
       }
-      if (tracking.track_weight && !facts.weightUserIds.has(client.id)) {
+      if (tracking.track_weight && observed(WEIGHT_WINDOW_DAYS) && !facts.weightUserIds.has(client.id)) {
         alerts.push('missing_weight');
       }
       if (tracking.track_workouts) {
@@ -113,7 +138,7 @@ export function buildClientOpsRows(clients: CoachClientSummary[], facts: CoachOp
           } else if (completedThisWeek < scheduledBeforeToday) {
             alerts.push('missing_workout_week');
           }
-        } else if (!dates.some(d => d >= facts.weekAgo)) {
+        } else if (observed(WORKOUT_WINDOW_DAYS) && !dates.some(d => d >= facts.weekAgo)) {
           alerts.push('missing_workout_week');
         }
       }

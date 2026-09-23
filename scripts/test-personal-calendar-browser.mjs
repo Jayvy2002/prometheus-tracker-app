@@ -247,8 +247,10 @@ try {
   await coachedPage.getByTestId('assigned-plan-read-only').waitFor();
   assert.equal(await coachedPage.getByRole('button', { name: 'Save plan' }).count(), 0);
 
+  // Vision §7.1: a coached athlete may still run a personal routine.
   await coachedPage.goto(origin + '/routines');
-  await coachedPage.waitForURL(/\/dashboard/);
+  await coachedPage.getByRole('heading', { name: 'Routines' }).waitFor();
+  assert.equal(new URL(coachedPage.url()).pathname, '/routines');
 
   const dualPage = await openAs(dual, { width: 1440, height: 1000 });
   await dualPage.goto(origin + '/profile');
@@ -265,7 +267,7 @@ try {
     animations: 'disabled',
   });
 
-  const pass = 'PASS: coached calendar past/future, assigned Upper pull scheduled, paused hides future scheduled, plan legend, no plan editor, routines still deferred, Coach+Coached personal calendar.';
+  const pass = 'PASS: coached calendar past/future, assigned Upper pull scheduled, paused hides future scheduled, plan legend, no plan editor, personal routines open, Coach+Coached personal calendar.';
   await writeFile('artifacts/p13/results.txt', pass + '\n');
   console.log(pass);
 } catch (error) {

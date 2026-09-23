@@ -109,7 +109,8 @@ test('Coached client shell: photos and program in hub, messages in tabs, no coac
   assert.match(profile, /\/become-coach/);
 
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
-  assert.match(app, /CoachedAthleteRedirect/);
+  // No persona page-deny left: permissions decide (CARTE_PRODUIT §19).
+  assert.doesNotMatch(app, /CoachedAthleteRedirect/);
   assert.match(app, /ProgramsHome/);
   assert.match(app, /path="\/programs"/);
   assert.doesNotMatch(app, /path="\/programs" element=\{<CoachedAthleteRedirect>/);
@@ -167,7 +168,10 @@ test('UX28: missing logs are not framed as the athlete’s fault', () => {
   assert.doesNotMatch(fr, /Séance manquée/);
   assert.doesNotMatch(fr, /Check-ins manqués/);
   assert.doesNotMatch(fr, /Séances manquées/);
-  assert.match(fr, /pas de check-in aujourd’hui/);
+  // Silence is reported over a window, never « today » (Vision §11.2).
+  assert.match(fr, /pas de check-in depuis 7 jours/);
+  assert.doesNotMatch(fr, /pas de check-in aujourd’hui/i);
+  assert.doesNotMatch(fr, /missed_checkin: 'Check-in à relire'/);
   assert.match(fr, /Séance non loggée/);
   assert.match(fr, /Signaler une séance non loggée/);
   assert.match(fr, /Check-ins en attente/);

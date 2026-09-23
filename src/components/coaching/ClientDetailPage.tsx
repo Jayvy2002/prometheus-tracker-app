@@ -1,6 +1,7 @@
 import ClientQuestionnairePanel from '../onboarding/ClientQuestionnairePanel';
 import { useEffect, useMemo, useState } from 'react';
 import { useClientDossier } from '../../features/coaching/hooks/useClientDossier';
+import { useClientPhotoSharing } from '../../features/coaching/hooks/useClientPhotoSharing';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -160,6 +161,7 @@ export default function ClientDetailPage() {
   const { t } = useTranslation();
   const unit = useProfileStore(s => s.profile?.unit_weight === 'lbs' ? 'lbs' : 'kg');
   const { id } = useParams();
+  const photoSharing = useClientPhotoSharing(id);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -964,12 +966,23 @@ export default function ClientDetailPage() {
               />
             )}
             <WeightChart points={weightChartPoints(weights)} />
-            <p className="text-sm text-neutral-500">{t('coaching.photos.coachSeesHistory')}</p>
-            {photos.length > 0 ? (
-              <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
-            ) : (
-              <p className="text-sm text-neutral-500">{t('coaching.photos.emptyCoach')}</p>
-            )}
+            {/* Photos are private by default; the athlete chooses to share (Vision §14.4). */}
+            {photoSharing?.status === 'ready' && !photoSharing.shared ? (
+              <p className="text-sm text-neutral-500" data-testid="client-photos-private">
+                {t('coaching.photos.notShared', { name: client ? displayName(client, t('coaching.unnamed')) : '' })}
+              </p>
+            ) : photoSharing?.status === 'ready' ? (
+              <>
+                <p className="text-sm text-neutral-500">
+                  {t('coaching.photos.coachSeesHistory', { name: client ? displayName(client, t('coaching.unnamed')) : '' })}
+                </p>
+                {photos.length > 0 ? (
+                  <ProgressPhotoCompare photos={photos} urls={photoUrls} relanceHref={relanceHref} />
+                ) : (
+                  <p className="text-sm text-neutral-500">{t('coaching.photos.emptyCoach')}</p>
+                )}
+              </>
+            ) : null}
           </div>
         ) : tab === 'checkins' ? (
           <div className="space-y-3">

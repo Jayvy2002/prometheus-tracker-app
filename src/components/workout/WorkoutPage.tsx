@@ -236,17 +236,23 @@ export default function WorkoutPage() {
   return (
     <PageTransition>
     <div className="px-3 pt-5 sm:px-4 sm:pt-6">
-      <div className="flex items-center justify-between gap-3 mb-6 animate-fade-in-down">
-        <h1 className="text-2xl font-bold text-white min-w-0 truncate">{t('workout.title')}</h1>
-        <button type="button" aria-label={t('soloAsk.label')} onClick={() => setAskOpen(v => !v)} className="min-h-11 min-w-11 rounded-xl text-neutral-300">
-          <Sparkles size={18} />
+      <div className="flex items-center gap-2 mb-6 animate-fade-in-down">
+        <h1 className="flex-1 min-w-0 text-2xl font-bold text-white break-words">{t('workout.title')}</h1>
+        <button
+          type="button"
+          aria-label={t('soloAsk.label')}
+          aria-expanded={askOpen}
+          onClick={() => setAskOpen(v => !v)}
+          className={`min-h-11 min-w-11 shrink-0 rounded-xl flex items-center justify-center ${askOpen ? 'bg-blue-600/20 text-blue-300' : 'text-neutral-300 hover:bg-neutral-800'}`}
+        >
+          <Sparkles size={18} aria-hidden="true" />
         </button>
         <Button
           onClick={() => navigate('/workout/new', { state: isProgramDayDue(gymCard) ? { offPlan: true } : undefined })}
           size="sm"
           className="shrink-0"
         >
-          <Plus size={16} /> {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('common.new')}
+          <Plus size={16} aria-hidden="true" /> {t('nav.addWorkoutOffPlan')}
         </Button>
       </div>
 
@@ -370,28 +376,29 @@ export default function WorkoutPage() {
         />
       )}
 
-      {!coached && routines.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold text-neutral-300">{t('nav.routines')}</h2>
-            <button type="button" onClick={() => navigate('/routines')} className="min-h-11 px-2 text-sm text-blue-400 hover:text-blue-300">
-              {t('workout.seeAllRoutines')}
-            </button>
-          </div>
-          <div className="space-y-2">
-            {routines.slice(0, 3).map(routine => (
+      {/* Routines stay available with a program, coached or not (Vision §7.1). */}
+      <div className="mb-4" data-testid="workout-routines">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-neutral-300">{t('nav.routines')}</h2>
+          <button type="button" onClick={() => navigate('/routines')} className="min-h-11 px-2 text-sm text-blue-400 hover:text-blue-300">
+            {routines.length > 0 ? t('workout.seeAllRoutines') : t('routines.createFirstRoutine')}
+          </button>
+        </div>
+        {routines.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {routines.slice(0, 6).map(routine => (
               <button
                 key={routine.id}
                 type="button"
-                className="min-h-11 w-full rounded-xl bg-neutral-900 px-3 text-left text-sm text-white"
+                className="min-h-11 shrink-0 rounded-xl border border-neutral-800 bg-neutral-900 px-3 text-left text-sm text-white hover:border-neutral-700"
                 onClick={() => navigate('/workout/new', { state: { routineId: routine.id } })}
               >
                 {routine.name}
               </button>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {lastCompleted && (
         <div className="mb-6">
@@ -454,7 +461,7 @@ export default function WorkoutPage() {
             onClick={() => navigate('/workout/new', { state: isProgramDayDue(gymCard) ? { offPlan: true } : undefined })}
             size="sm"
           >
-            {isProgramDayDue(gymCard) ? t('nav.addWorkoutOffPlan') : t('workout.startFirstWorkout')}
+            {t('workout.startFirstWorkout')}
           </Button>
         </Card>
       ) : (

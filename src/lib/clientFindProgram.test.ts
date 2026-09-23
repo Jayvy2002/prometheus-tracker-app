@@ -47,7 +47,8 @@ test('waiting for a program goes to Messages; a due plan day is labelled hors pr
   assert.match(workoutPage, /nav\.addWorkoutOffPlan/);
 
   const fr = src('src/i18n/locales/fr.ts');
-  assert.match(fr, /addWorkoutOffPlan: 'Séance hors programme'/);
+  // Vision §7.1 vocabulary: a non-prescribed session is a « séance libre ».
+  assert.match(fr, /addWorkoutOffPlan: 'Séance libre'/);
   assert.match(fr, /nothingToday: 'Rien de prescrit aujourd’hui\.'/);
   assert.match(src('src/i18n/locales/fr/workout.ts'), /offPlanNotice/);
 });

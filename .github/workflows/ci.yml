@@ -521,6 +521,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'p5 audit fixes: deletion, access after claim, revision, dedup, catalog identity, quotas, operator queues, parser' /tmp/p5-audit-fixes.txt
+      - name: Test progress photo sharing
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/progress_photo_sharing.sql | tee /tmp/progress-photo-sharing.txt
+      - name: Confirm progress photo sharing echo
+        run: |
+          set -euo pipefail
+          grep -F 'progress photo sharing: private by default, athlete shares and withdraws, other coaches blind, end of link ends share' /tmp/progress-photo-sharing.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

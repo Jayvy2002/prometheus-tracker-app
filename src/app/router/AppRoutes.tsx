@@ -17,7 +17,6 @@ import { useAuthenticatedSession } from '../bootstrap/useAuthenticatedSession';
 import {
   CoachOnly,
   CoachTrackerRedirect,
-  CoachedAthleteRedirect,
   RouteFallback,
 } from '../guards/RouteGuards';
 
@@ -302,13 +301,12 @@ export default function AppRoutes() {
         <Route path="/programs" element={<ProgramsHome />} />
         <Route path="/programs/new" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
         <Route path="/programs/:id" element={<CoachOnly><ProgramEditorPage /></CoachOnly>} />
+        {/* Routines: Solo and Coaché alike (Vision §7.1). A coach's program never forbids another routine. */}
+        <Route path="/routines" element={<CoachTrackerRedirect><TrackingGate module="workouts"><RoutinesPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/recipes" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><RecipesPage /></TrackingGate></CoachTrackerRedirect>} />
       </Route>
       <Route path="/workout/new" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/workout/:id" element={<CoachTrackerRedirect><TrackingGate module="workouts"><WorkoutForm /></TrackingGate></CoachTrackerRedirect>} />
-      <Route path="/routines" element={<AppLayout />}>
-        <Route index element={<CoachTrackerRedirect><CoachedAthleteRedirect><RoutinesPage /></CoachedAthleteRedirect></CoachTrackerRedirect>} />
-      </Route>
       <Route path="/scanner" element={<CoachTrackerRedirect><TrackingGate module="nutrition"><ScannerPage /></TrackingGate></CoachTrackerRedirect>} />
       <Route path="/intake" element={<KinesiologyIntakeFlow allowExit />} />
       <Route path="/invite/:token" element={<InvitePage />} />

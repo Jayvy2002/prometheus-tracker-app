@@ -55,8 +55,9 @@ test('InvitePage records versioned consent; the store no longer calls the 1-arg 
   assert.doesNotMatch(page, /billing/);
   const fr = src('src/i18n/locales/fr.ts');
   const en = src('src/i18n/locales/en.ts');
-  assert.match(fr, /progress_photos: 'Photos de progression — y compris celles déjà enregistrées avant ce suivi'/);
-  assert.match(en, /progress_photos: 'Progress photos — including those already saved before this coaching relationship'/);
+  // The scope is the ceiling; the athlete still chooses to share (private by default).
+  assert.match(fr, /progress_photos: 'Photos de progression — seulement si tu choisis de les partager ensuite \(privées par défaut\)'/);
+  assert.match(en, /progress_photos: 'Progress photos — only if you choose to share them later \(private by default\)'/);
 
   const app = src('src/App.tsx') + src('src/app/bootstrap/useAuthenticatedSession.ts') + src('src/app/guards/RouteGuards.tsx') + src('src/app/router/AppRoutes.tsx');
   assert.doesNotMatch(app, /await acceptInvite\(token\)/);

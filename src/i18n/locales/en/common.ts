@@ -343,7 +343,7 @@ const common = {
     dataControl: {
       title: 'Your data',
       photosSelf: 'Photos: visible only to you — no coach can see them.',
-      photosCoach: 'Photos: {{name}} sees them in your file, including those from before this coaching relationship.',
+      photosCoach: 'Photos: private by default. You choose whether to share them with {{name}} from the Photos page.',
       noCoach: 'No coach has access to your journals.',
       sharedModules: 'Your coach can see: {{modules}}.',
       noModules: 'No tracking modules are shared right now.',

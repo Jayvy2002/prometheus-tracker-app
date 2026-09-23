@@ -72,7 +72,7 @@ test('athlete photo copy follows the real coach, not a generic “your coach see
   assert.equal(hasPhotosBeforeLink([photo('new', '2026-08-01')], '2026-06-01T10:00:00Z'), false);
 });
 
-test('photos page and consent copy tell the real audience, including history before the link', () => {
+test('photos are private by default: the athlete shares, the copy says so (Vision §14.4)', () => {
   const page = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientPhotosPage.tsx'), 'utf8');
   assert.match(page, /athletePhotoSubtitleKey/);
   assert.match(page, /myCoach/);
@@ -80,6 +80,10 @@ test('photos page and consent copy tell the real audience, including history bef
 
   const dossier = readFileSync(resolve(process.cwd(), 'src/components/coaching/ClientDetailPage.tsx'), 'utf8') + readFileSync(resolve(process.cwd(), 'src/features/coaching/hooks/useClientDossier.ts'), 'utf8');
   assert.match(dossier, /coaching\.photos\.coachSeesHistory/);
+  assert.match(dossier, /coaching\.photos\.notShared/);
+  assert.match(dossier, /useClientPhotoSharing/);
+  assert.match(page, /role="switch"/);
+  assert.match(page, /setMyPhotoSharing/);
 
   const fr = i18nLocaleSource('fr');
   const en = i18nLocaleSource('en');
@@ -87,7 +91,8 @@ test('photos page and consent copy tell the real audience, including history bef
   assert.match(photosFr, /subtitleSolo:/);
   assert.match(photosFr, /subtitleCoached:/);
   assert.doesNotMatch(photosFr, /Ton coach les voit/);
-  assert.match(fr, /progress_photos: 'Photos de progression — y compris celles déjà enregistrées avant ce suivi'/);
-  assert.match(en, /progress_photos: 'Progress photos — including those already saved before this coaching relationship'/);
+  assert.match(fr, /progress_photos: 'Photos de progression — seulement si tu choisis de les partager ensuite \(privées par défaut\)'/);
+  assert.match(en, /progress_photos: 'Progress photos — only if you choose to share them later \(private by default\)'/);
+  assert.match(photosFr, /subtitleCoached: 'Avant \/ après\. Privées par défaut/);
   assert.match(photosFr, /coachSeesHistory:/);
 });
