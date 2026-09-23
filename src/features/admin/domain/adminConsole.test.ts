@@ -69,8 +69,8 @@ test('P5.4 admin is an operator console with confirm gates and no public review 
   assert.match(src('.github/workflows/ci.yml'), /test-p5-operator-lock\.sh/);
   assert.match(src('supabase/tests/rls_matrix.sql'), /P5_ADMIN_GRANTS/);
   const pending = JSON.parse(src('supabase/migrations.pending.json')) as { pending: Array<{ version: string }> };
-  assert.equal(pending.pending.some(row => row.version === '20260923021000'), true);
-  assert.doesNotMatch(src('supabase/schema_migrations.lock.json'), /"version": "20260923021000"/);
+  assert.equal(pending.pending.some(row => row.version === '20260923021000'), false);
+  assert.match(src('supabase/schema_migrations.lock.json'), /"version": "20260923021000"/);
   const page = src('src/components/admin/AdminPage.tsx');
   assert.match(page, /p_confirm: true/);
   assert.match(page, /is_platform_operator/);
