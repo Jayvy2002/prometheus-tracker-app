@@ -375,9 +375,9 @@ const coaching = {
     command: {
       title: 'Dashboard',
       subtitle: 'Qui mérite ton attention et pourquoi. Ouvre la fiche seulement si nécessaire.',
-      prospectsWaiting_one: '{{count}} demande de coaching attend ta réponse',
-      prospectsWaiting_other: '{{count}} demandes de coaching attendent ta réponse',
-      prospectsWaitingHint: 'Accepter de poursuivre ne démarre pas le suivi : l’athlète confirme ensuite.',
+      prospectsWaiting_one: '{{count}} demande de coaching',
+      prospectsWaiting_other: '{{count}} demandes de coaching',
+      prospectsWaitingHint: 'En attente de ta réponse. Accepter ne démarre pas le suivi : l’athlète confirme ensuite.',
       stats: {
         active: 'Clients actifs',
         attention: 'À traiter',
@@ -852,7 +852,7 @@ const coaching = {
       compare: 'Comparer',
       firstDate: 'Première : {{date}}',
       lastDate: 'Dernière : {{date}}',
-      emptyCoach: 'Le client n’a pas encore uploadé de photo.',
+      emptyCoach: 'Le client n’a encore ajouté aucune photo.',
       emptyCoachRelance: 'Aucune photo pour le moment. Tu peux envoyer une relance au client.',
       compareTitle: 'Avant / après',
       before: 'Avant',

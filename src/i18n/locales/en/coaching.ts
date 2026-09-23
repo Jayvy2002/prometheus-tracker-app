@@ -375,9 +375,9 @@ const coaching = {
     command: {
       title: 'Dashboard',
       subtitle: 'Who needs your attention and why. Open a client file only when needed.',
-      prospectsWaiting_one: '{{count}} coaching request is waiting for your answer',
-      prospectsWaiting_other: '{{count}} coaching requests are waiting for your answer',
-      prospectsWaitingHint: 'Agreeing to continue does not start coaching: the athlete confirms next.',
+      prospectsWaiting_one: '{{count}} coaching request',
+      prospectsWaiting_other: '{{count}} coaching requests',
+      prospectsWaitingHint: 'Waiting for your answer. Agreeing does not start coaching: the athlete confirms next.',
       stats: {
         active: 'Active clients',
         attention: 'Need attention',
