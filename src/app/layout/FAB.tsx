@@ -3,10 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Dumbbell, Scale, Flame, X, ClipboardCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useClientTracking } from '@/features/coaching/hooks/useClientTracking';
-import { useProgramStore } from '../../stores/programStore';
-import { useWorkoutStore } from '../../stores/workoutStore';
-import { useProgramCivilClock } from '../../features/programs/hooks/useProgramCivilClock';
-import { isProgramDayDue, resolveAssignmentGymCard } from '../../lib/clientGym';
 
 interface FABAction {
   label: string;
@@ -19,24 +15,13 @@ export default function FAB() {
   const navigate = useNavigate();
   const tracking = useClientTracking();
   const [open, setOpen] = useState(false);
-  const assignment = useProgramStore(s => s.assignment);
-  const workouts = useWorkoutStore(s => s.workouts);
-  const programClock = useProgramCivilClock();
-  const gymDue = isProgramDayDue(resolveAssignmentGymCard({
-    assignment,
-    workouts,
-    todayWeekday: programClock.weekday,
-    todayDate: programClock.today,
-  }));
 
   const actions: FABAction[] = [
     ...(tracking.track_workouts ? [{
-      label: gymDue ? t('nav.addWorkoutOffPlan') : t('nav.addWorkout'),
+      // Opens the training page, not an empty workout.
+      label: t('nav.quickSession'),
       icon: Dumbbell,
-      onClick: () => {
-        navigate('/workout/new', { state: gymDue ? { offPlan: true } : undefined });
-        setOpen(false);
-      },
+      onClick: () => { navigate('/workout'); setOpen(false); },
     }] : []),
     ...(tracking.track_checkins ? [{
       label: t('nav.addCheckin'),

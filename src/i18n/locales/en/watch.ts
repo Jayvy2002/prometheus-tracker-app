@@ -1,5 +1,8 @@
 const watch = {
   prometheusWatch: {
+    summary_one: 'Prometheus is watching {{count}} point',
+    summary_other: 'Prometheus is watching {{count}} points',
+    summaryHint: 'Observations, not scores. Nothing is applied on its own.',
     title: 'What Prometheus is watching',
     subtitle: 'Plain observations, not scores. Nothing is applied on its own.',
     empty: 'Nothing particular to watch yet. Keep logging what you do.',

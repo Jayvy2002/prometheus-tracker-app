@@ -48,6 +48,7 @@ interface ListRowProps {
   chevron?: boolean;
   disabled?: boolean;
   className?: string;
+  'data-testid'?: string;
 }
 
 export default function ListRow({
@@ -65,6 +66,7 @@ export default function ListRow({
   chevron,
   disabled,
   className = '',
+  'data-testid': testId,
 }: ListRowProps) {
   const palette = TONE[tone];
   const interactive = Boolean(to || onClick) && !disabled;
@@ -110,7 +112,7 @@ export default function ListRow({
   );
 
   return (
-    <div className={`flex items-center gap-2 w-full rounded-2xl border px-3.5 py-3 min-h-11 transition-colors ${palette.row} ${className}`}>
+    <div data-testid={testId} className={`flex items-center gap-2 w-full rounded-2xl border px-3.5 py-3 min-h-11 transition-colors ${palette.row} ${className}`}>
       {main}
       {trailing}
       {onDismiss ? (

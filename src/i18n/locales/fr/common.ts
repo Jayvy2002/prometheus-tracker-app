@@ -261,6 +261,9 @@ const common = {
       trialOver: 'Ta période d’essai solo est terminée.',
     },
     gym: {
+      kindToday: 'Aujourd’hui',
+      kindNext: 'Prochaine séance',
+      kindContinue: 'En cours',
       next: 'Prochaine séance : {{name}}',
       continue: 'Reprendre : {{name}}',
       done: 'Séance faite',

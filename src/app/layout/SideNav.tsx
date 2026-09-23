@@ -5,7 +5,6 @@ import { useTranslation } from 'react-i18next';
 import { useCoachingStore } from '../../stores/coachingStore';
 import { useAccountContext } from '@/features/account/hooks/useAccountContext';
 import { desktopSections, navPersona, pathMatchesItem, quickAddActions } from '@/app/navigation/navConfig';
-import { useProgramDayDue } from '@/features/workout/hooks/useProgramDayDue';
 import WorkspaceSwitcher from './WorkspaceSwitcher';
 
 export default function SideNav() {
@@ -17,8 +16,7 @@ export default function SideNav() {
   const { pathname } = useLocation();
   const persona = navPersona(context);
   const sections = desktopSections(persona, tracking);
-  const programDayDue = useProgramDayDue();
-  const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking, { programDayDue });
+  const quickActions = persona === 'coaching' ? [] : quickAddActions(tracking);
 
   return (
     <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-neutral-950 border-r border-neutral-800/60 z-40">

@@ -20,6 +20,7 @@ const navigation = {
     logWeight: 'Peser',
     addMeal: 'Ajouter un repas',
     addWorkout: 'Nouvelle séance',
+    quickSession: 'Séance',
     addWorkoutOffPlan: 'Séance hors programme',
     addWeight: 'Peser',
     addCheckin: 'Check-in',

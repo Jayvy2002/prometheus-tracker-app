@@ -209,19 +209,12 @@ export function desktopSections(persona: NavPersona, tracking: NavTracking): Nav
   ]);
 }
 
-export function quickAddActions(
-  tracking: NavTracking,
-  opts?: { programDayDue?: boolean },
-): QuickAddDef[] {
+export function quickAddActions(tracking: NavTracking): QuickAddDef[] {
   return [
+    // « Séance » opens the training page (today's session, routines, off-plan),
+    // never an empty workout the athlete then has to discard.
     ...(tracking.track_workouts
-      ? [{
-          id: 'newWorkout',
-          path: '/workout/new',
-          labelKey: opts?.programDayDue ? 'nav.addWorkoutOffPlan' : 'nav.newWorkout',
-          icon: Dumbbell,
-          state: opts?.programDayDue ? { offPlan: true } : undefined,
-        }]
+      ? [{ id: 'session', path: '/workout', labelKey: 'nav.quickSession', icon: Dumbbell }]
       : []),
     ...(tracking.track_checkins
       ? [{ id: 'checkin', path: '/checkin', labelKey: 'nav.addCheckin', icon: ClipboardCheck }]

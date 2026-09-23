@@ -261,6 +261,9 @@ const common = {
       trialOver: 'Your solo trial has ended.',
     },
     gym: {
+      kindToday: 'Today',
+      kindNext: 'Next session',
+      kindContinue: 'In progress',
       next: 'Next session: {{name}}',
       continue: 'Resume: {{name}}',
       done: 'Session done',

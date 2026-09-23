@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { test } from 'node:test';
+import { marketplaceUiSource } from '../../../lib/marketplaceUiSource';
 
 function src(rel: string): string {
   return readFileSync(resolve(process.cwd(), rel), 'utf8');
@@ -43,7 +44,7 @@ test('P4.3 prospect messaging opens the thread without is_coach_of or the dossie
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /open prospect helper false while pending/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /missing consent accepted/);
   assert.match(src('supabase/tests/p4_prospect_messaging.sql'), /extra snapshot key accepted/);
-  assert.match(src('src/components/marketplace/MarketplacePage.tsx'), /openConversation/);
+  assert.match(marketplaceUiSource(), /openConversation/);
   assert.match(src('src/features/coaching/domain/coachQueue.ts'), /'prospect'/);
   assert.match(src('src/features/coaching/model/messagesSlice.ts'), /pCoachId/);
   assert.match(src('src/components/coaching/MessageThread.tsx'), /MARKETPLACE_MESSAGE_MAX_LENGTH/);

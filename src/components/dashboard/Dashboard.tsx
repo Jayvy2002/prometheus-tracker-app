@@ -39,7 +39,6 @@ import { dismissHomeMessage, isHomeMessageDismissed } from '../../lib/messageDra
 import type { ProgramDay } from '../../lib/types';
 import PageTransition from '../ui/PageTransition';
 import Button from '../ui/Button';
-import Card from '../ui/Card';
 import CardLink from '../ui/CardLink';
 import ListRow from '../ui/ListRow';
 import NutritionRings from '../nutrition/NutritionRings';
@@ -48,6 +47,7 @@ import DashboardWeightCard from './DashboardWeightCard';
 import SoloProgramProposal from './SoloProgramProposal';
 import SoloWeeklyReview from './SoloWeeklyReview';
 import LinkEndedBanner from './LinkEndedBanner';
+import WatchSummaryRow from './WatchSummaryRow';
 
 function getWeekDates(todayCivil: string): string[] {
   const [y, m, d] = todayCivil.split('-').map(Number);
@@ -282,6 +282,7 @@ export default function Dashboard() {
             onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
             phaseName={gymPhaseName}
             plannedChange={gymPlannedChange}
+            onOpenProgram={() => navigate('/programs')}
           />
         )}
 
@@ -420,6 +421,8 @@ export default function Dashboard() {
           />
         )}
 
+        {!activityPending && !firstRun && <WatchSummaryRow athleteId={user?.id} />}
+
         {/* One AI card, only when a decision waits. The weekly review also
             persists the solo's weekly cycle (signals, review) on mount. */}
         {!hasCoach && !activityPending && !firstRun && <SoloWeeklyReview />}
@@ -443,124 +446,88 @@ export default function Dashboard() {
             onEditPlan={canEditOwnPlan ? () => navigate('/programs') : undefined}
             phaseName={gymPhaseName}
             plannedChange={gymPlannedChange}
+            onOpenProgram={() => navigate('/programs')}
           />
         )}
 
         {showModule(tracking, 'workouts') && !activityPending && !hasGymCard && (
-          <CardLink to="/programs" className="mb-4" data-testid="dashboard-program">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <CalendarRange size={16} className="text-blue-400 shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white">{t('nav.myProgram')}</p>
-                  <p className="text-[11px] text-neutral-500 truncate">
-                    {assignment?.program?.name
-                      ?? (hasCoach ? t('dashboard.firstRun.waitingProgram') : t('dashboard.programHint'))}
-                  </p>
-                </div>
-              </div>
-              <ChevronRight size={16} className="text-neutral-600 shrink-0" />
-            </div>
-          </CardLink>
+          <ListRow
+            className="mb-4"
+            data-testid="dashboard-program"
+            icon={<CalendarRange size={16} />}
+            title={t('nav.myProgram')}
+            subtitle={assignment?.program?.name
+              ?? (hasCoach ? t('dashboard.firstRun.waitingProgram') : t('dashboard.programHint'))}
+            to="/programs"
+          />
         )}
         {showNutritionRings && (
           <div className="relative mb-4">
             <CardLink to="/nutrition">
-              <NutritionRings />
+              <NutritionRings className="pr-12" />
             </CardLink>
             <button
               type="button"
               aria-label={t('nutrition.add')}
               onClick={() => navigate('/nutrition?add=1')}
-              className="absolute top-3 right-3 min-h-11 min-w-11 rounded-xl bg-neutral-900 text-white"
+              className="absolute top-1/2 -translate-y-1/2 right-2 min-h-11 min-w-11 rounded-xl text-neutral-300 hover:text-white"
             >
               <Plus size={16} className="mx-auto" />
             </button>
           </div>
         )}
 
-        {showModule(tracking, 'weight') && !activityPending && (
-          <div className="relative">
-            <DashboardWeightCard
-              points={weightPoints}
-              unit={weightUnit}
-              latest={latestWeight}
-              delta={weightDeltaDisplay}
-            />
-            <button
-              type="button"
-              aria-label={t('weight.log')}
-              onClick={() => navigate('/weight?log=1')}
-              className="absolute top-3 right-3 min-h-11 min-w-11 rounded-xl bg-neutral-900 text-white"
-            >
-              <Plus size={16} className="mx-auto" />
-            </button>
-          </div>
-        )}
-
-        {showModule(tracking, 'workouts') && !activityPending && (
-        <Card className="mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${weekGoalMet ? 'bg-emerald-500/20' : 'bg-blue-500/20'}`}>
-                <Dumbbell size={15} className={weekGoalMet ? 'text-emerald-400' : 'text-blue-400'} />
+        {!activityPending && (showModule(tracking, 'weight') || showModule(tracking, 'workouts')) && (
+          <div className={`grid gap-3 mb-4 ${showModule(tracking, 'weight') && showModule(tracking, 'workouts') ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {showModule(tracking, 'weight') && (
+              <div className="relative">
+                <DashboardWeightCard
+                  points={weightPoints}
+                  unit={weightUnit}
+                  latest={latestWeight}
+                  delta={weightDeltaDisplay}
+                />
+                <button
+                  type="button"
+                  aria-label={t('weight.log')}
+                  onClick={() => navigate('/weight?log=1')}
+                  className="absolute top-1.5 right-1.5 min-h-11 min-w-11 rounded-xl text-neutral-300 hover:text-white"
+                >
+                  <Plus size={16} className="mx-auto" />
+                </button>
               </div>
-              <div>
-                <p className="text-sm font-semibold text-white">{t('dashboard.weeklyWorkouts')}</p>
-                <p className="text-[11px] text-neutral-500">
-                  {weekWorkoutsDone}/{trainingTarget} {t('dashboard.sessionsThisWeek')}
+            )}
+            {showModule(tracking, 'workouts') && (
+              <CardLink to="/calendar" className="h-full" data-testid="dashboard-week">
+                <div className="flex items-center gap-2 mb-2">
+                  <Dumbbell size={14} className={weekGoalMet ? 'text-emerald-400' : 'text-blue-400'} aria-hidden="true" />
+                  <p className="text-xs text-neutral-400">{t('dashboard.weeklyWorkouts')}</p>
+                </div>
+                <p className="text-lg font-semibold text-white leading-tight">
+                  {weekWorkoutsDone}/{trainingTarget}
+                  <span className="text-xs font-normal text-neutral-500"> {t('dashboard.sessionsThisWeek')}</span>
                 </p>
-              </div>
-            </div>
-            {weekGoalMet && (
-              <span className="text-xs font-medium text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-lg">
-                {t('dashboard.goalReached')}
-              </span>
+                {weekGoalMet && <p className="text-[11px] text-emerald-400">{t('dashboard.goalReached')}</p>}
+                {/* Day dots: done, today, rest of the week. */}
+                <div className="mt-3 flex justify-between gap-1" aria-hidden="true">
+                  {DAY_KEYS.map((key, i) => {
+                    const isDone = doneDays[i];
+                    const isToday = i === todayIndex;
+                    return (
+                      <div key={key} className="flex flex-col items-center gap-1 flex-1">
+                        <span className={`h-2 w-2 rounded-full ${isDone
+                          ? weekGoalMet ? 'bg-emerald-400' : 'bg-blue-400'
+                          : isToday ? 'bg-neutral-300' : 'bg-neutral-700'}`} />
+                        <span className={`text-[9px] ${isToday ? 'text-white' : 'text-neutral-600'}`}>
+                          {t(`routines.form.days.${key}`)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardLink>
             )}
           </div>
-
-          {/* Day dots */}
-          <div className="flex justify-between gap-1">
-            {DAY_KEYS.map((key, i) => {
-              const label = t(`routines.form.days.${key}`);
-              const isDone = doneDays[i];
-              const isToday = i === todayIndex;
-              const isFuture = i > todayIndex;
-              return (
-                <div key={i} className="flex flex-col items-center gap-1 flex-1">
-                  <div className={`
-                    w-full aspect-square max-w-[36px] rounded-lg flex items-center justify-center text-[11px] font-semibold transition-all
-                    ${isDone
-                      ? weekGoalMet
-                        ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
-                        : 'bg-blue-500/20 text-blue-400 ring-1 ring-blue-500/30'
-                      : isToday
-                      ? 'bg-neutral-800 text-white ring-1 ring-neutral-600'
-                      : isFuture
-                      ? 'bg-neutral-900/40 text-neutral-700'
-                      : 'bg-neutral-800/60 text-neutral-600'
-                    }
-                  `}>
-                    {isDone ? '✓' : label}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Progress bar */}
-          <div className="mt-3 h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full transition-all duration-700"
-              style={{
-                width: `${Math.min(100, (weekWorkoutsDone / trainingTarget) * 100)}%`,
-                background: weekGoalMet
-                  ? 'linear-gradient(90deg, #10b981, #34d399)'
-                  : 'linear-gradient(90deg, #2563eb, #3b82f6)',
-              }}
-            />
-          </div>
-        </Card>
         )}
 
         {!activityPending && (hasCoach || (showModule(tracking, 'checkins') && todayCheckin) || (showModule(tracking, 'workouts') && !firstRun)) && (

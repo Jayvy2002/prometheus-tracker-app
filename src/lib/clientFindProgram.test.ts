@@ -40,14 +40,11 @@ test('waiting for a program goes to Messages; a due plan day is labelled hors pr
   assert.match(dash, /to="\/messages"/);
   assert.match(dash, /dashboard\.nothingToday/);
 
+  // Quick add « Séance » opens the training page, which offers the off-plan session.
   const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /isProgramDayDue/);
-  assert.match(fab, /nav\.addWorkoutOffPlan/);
-  assert.match(fab, /offPlan: true/);
-
-  const side = src('src/app/layout/SideNav.tsx');
-  assert.match(side, /useProgramDayDue/);
-  assert.match(side, /programDayDue/);
+  assert.match(fab, /nav\.quickSession/);
+  const workoutPage = src('src/components/workout/WorkoutPage.tsx');
+  assert.match(workoutPage, /nav\.addWorkoutOffPlan/);
 
   const fr = src('src/i18n/locales/fr.ts');
   assert.match(fr, /addWorkoutOffPlan: 'Séance hors programme'/);

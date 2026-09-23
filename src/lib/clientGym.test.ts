@@ -388,6 +388,5 @@ test('Dashboard leads with the gym card; logging uses tracking vars; PR 34/35 st
   assert.match(layout, /startsWith\('\/checkin'\)/);
 
   const fab = src('src/app/layout/FAB.tsx');
-  assert.match(fab, /isProgramDayDue/);
-  assert.match(fab, /nav\.addWorkoutOffPlan/);
+  assert.match(fab, /navigate\('\/workout'\)/);
 });

@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { parseAccountSnapshot, resolveAccountContext } from '../../lib/accountContext';
 import { desktopSections, mobileTabs, navPersona, pathMatchesItem, quickAddActions, tabIndexForPath } from './navConfig';
+
+const src = (rel: string) => readFileSync(resolve(process.cwd(), rel), 'utf8');
 
 const trackingOn = {
   track_workouts: true,
@@ -61,15 +65,15 @@ test('coached mobile tabs are home, workout, body, coach and profile', () => {
   assert.equal(paths.includes('/exercise-progress'), false);
 });
 
-test('UX84 quick add names an off-plan session when a program day is due', () => {
-  const due = quickAddActions(trackingOn, { programDayDue: true });
-  const rest = quickAddActions(trackingOn, { programDayDue: false });
-  const workoutDue = due.find(action => action.id === 'newWorkout');
-  const workoutRest = rest.find(action => action.id === 'newWorkout');
-  assert.equal(workoutDue?.labelKey, 'nav.addWorkoutOffPlan');
-  assert.deepEqual(workoutDue?.state, { offPlan: true });
-  assert.equal(workoutRest?.labelKey, 'nav.newWorkout');
-  assert.equal(workoutRest?.state, undefined);
+test('quick add « Séance » opens the training page, never an empty workout', () => {
+  const session = quickAddActions(trackingOn).find(action => action.id === 'session');
+  assert.equal(session?.labelKey, 'nav.quickSession');
+  assert.equal(session?.path, '/workout');
+  assert.equal(session?.state, undefined);
+  assert.equal(quickAddActions(trackingOn).some(action => action.path === '/workout/new'), false);
+  const fab = src('src/app/layout/FAB.tsx');
+  assert.match(fab, /navigate\('\/workout'\)/);
+  assert.doesNotMatch(fab, /\/workout\/new/);
 });
 
 test('coached body tab keeps nutrition on desktop and off the marketplace', () => {
