@@ -1,6 +1,7 @@
 import { supabase } from '../../../lib/supabase';
 import { isTransportError, type OfflineOp } from '../../../lib/offlineQueue';
 import { offlineTempId } from './offlineIds';
+import { mapOfflineStartShape, type OfflineStartShape } from '../domain/offlineStart';
 
 interface ReplayResult {
   error?: string;
@@ -29,6 +30,26 @@ export async function replayOfflineOp(
   const str = (v: unknown) => (typeof v === 'string' ? v : '');
   try {
     switch (op.type) {
+      case 'workout.startTemplate': {
+        // Vision §26: the server command is idempotent on op.id, so a lost
+        // response replays into the same session, never a second one.
+        const { data, error } = await supabase.rpc('start_workout_from_template_op', {
+          p_client_op_id: op.id,
+          p_name: str(p.name),
+          p_date: str(p.date) || null,
+          p_routine_id: str(p.routineId) || null,
+          p_program_assignment_id: str(p.programAssignmentId) || null,
+          p_program_day_id: str(p.programDayId) || null,
+          p_exercises: Array.isArray(p.exercises) ? p.exercises : [],
+        });
+        if (!error && data) {
+          const pairs = mapOfflineStartShape(op.id, data as OfflineStartShape);
+          const [, realId] = pairs[0];
+          return { realId, extraMaps: pairs.slice(1) };
+        }
+        if (error && isTransportError(error)) return { transport: true };
+        return { error: error?.message ?? 'workout.startTemplate failed' };
+      }
       case 'workout.create': {
         const { data, error } = await supabase
           .from('workouts')

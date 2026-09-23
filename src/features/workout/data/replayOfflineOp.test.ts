@@ -26,6 +26,32 @@ const g = globalThis as unknown as { __replayTest: { db: FakeDb } };
 function fakeSupabase() {
   const db = () => g.__replayTest.db;
   return {
+    // Mirrors start_workout_from_template_op: idempotent on the op id.
+    async rpc(name: string, args: Record<string, unknown>) {
+      if (db().failNextWrite) {
+        const error = db().failNextWrite;
+        db().failNextWrite = null;
+        return { data: null, error };
+      }
+      if (name !== 'start_workout_from_template_op') return { data: null, error: { message: 'unknown rpc' } };
+      const rows = (db().tables.workouts ??= []);
+      let workout = rows.find(r => r.client_op_id === args.p_client_op_id);
+      if (!workout) {
+        workout = { id: `srv-${++db().seq}`, client_op_id: args.p_client_op_id, name: args.p_name, date: args.p_date } as Row;
+        rows.push(workout);
+        const exercises = (args.p_exercises as Array<{ default_sets?: number }>).map((ex, i) => ({
+          id: `srv-ex-${workout!.id}-${i}`, order_index: i,
+          sets: Array.from({ length: ex.default_sets ?? 3 }, (_, j) => `srv-set-${workout!.id}-${i}-${j}`),
+        }));
+        workout.shape = { workout_id: workout.id, exercises };
+      }
+      const result = { data: workout.shape, error: null };
+      if (db().loseNextResponse) {
+        db().loseNextResponse = false;
+        return { data: null, error: { message: 'Failed to fetch' } };
+      }
+      return result;
+    },
     from(table: string) {
       const rows = () => (db().tables[table] ??= []);
       let filters: Array<[string, unknown]> = [];
@@ -161,4 +187,21 @@ test('sets created offline land on the server exercise once its temporary id is 
   assert.ok(result.realId);
   assert.equal(g.__replayTest.db.tables.workout_sets[0].exercise_id, 'srv-ex-9');
   assert.equal(g.__replayTest.db.tables.workout_sets[0].client_op_id, 'op-s3');
+});
+
+test('a session started offline replays once and hands back real ids for every exercise and set', async () => {
+  g.__replayTest = { db: freshDb() };
+  const { replayOfflineOp } = await loadReplay();
+  const start = op('op-start', 'workout.startTemplate', {
+    name: 'Lower', date: '2026-09-20T09:00:00', programAssignmentId: 'a1', programDayId: 'd1',
+    exercises: [{ name: 'Squat', default_sets: 2, default_reps: 5, order_index: 0 }],
+  });
+  g.__replayTest.db.loseNextResponse = true;
+  assert.equal((await replayOfflineOp(start, identity)).transport, true);
+  const replay = await replayOfflineOp(start, identity) as { realId?: string; extraMaps?: Array<[string, string]> };
+  assert.equal(g.__replayTest.db.tables.workouts.length, 1);
+  assert.equal(replay.realId, 'srv-1');
+  const maps = new Map(replay.extraMaps);
+  assert.equal(maps.get('local-op-start.e0'), 'srv-ex-srv-1-0');
+  assert.equal(maps.get('local-op-start.e0.s1'), 'srv-set-srv-1-0-1');
 });

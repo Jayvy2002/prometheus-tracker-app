@@ -11,6 +11,10 @@
     {
       "version": "20260923170000",
       "name": "progress_photo_sharing"
+    },
+    {
+      "version": "20260924090000",
+      "name": "offline_session_start"
     }
   ]
 }

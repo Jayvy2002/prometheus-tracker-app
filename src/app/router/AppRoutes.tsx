@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../../stores/authStore';
@@ -25,7 +25,10 @@ const OnboardingFlow = lazy(() => import('../../components/onboarding/Onboarding
 const KinesiologyIntakeFlow = lazy(() => import('../../components/onboarding/KinesiologyIntakeFlow'));
 const EntryIntentionPage = lazy(() => import('../../components/onboarding/EntryIntentionPage'));
 const WorkoutPage = lazy(() => import('../../components/workout/WorkoutPage'));
-const WorkoutForm = lazy(() => import('../../components/workout/WorkoutForm'));
+// Vision §26: the session logger must open without network. Its chunk is
+// fetched once the app is idle so the service worker already holds it.
+const loadWorkoutForm = () => import('../../components/workout/WorkoutForm');
+const WorkoutForm = lazy(loadWorkoutForm);
 const ExerciseProgressPage = lazy(() => import('../../components/workout/ExerciseProgressPage'));
 const StatsPage = lazy(() => import('../../components/stats/StatsPage'));
 const RoutinesPage = lazy(() => import('../../components/routines/RoutinesPage'));
@@ -116,6 +119,14 @@ export default function AppRoutes() {
     pendingInvite,
     pendingDossier,
   } = session;
+
+  useEffect(() => {
+    if (!user) return;
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number };
+    const prefetch = () => { void loadWorkoutForm().catch(() => undefined); };
+    if (w.requestIdleCallback) w.requestIdleCallback(prefetch);
+    else window.setTimeout(prefetch, 1500);
+  }, [user]);
 
   if (authLoading || !initialized) {
     return (

@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
+import { getCacheItem, setCacheItem } from '../lib/offlineCache';
+import { isTransportError } from '../lib/offlineQueue';
 import type { Routine, RoutineExercise } from '../lib/types';
 
 interface RoutineState {
@@ -16,33 +18,48 @@ interface RoutineState {
   reset: () => void;
 }
 
-export const useRoutineStore = create<RoutineState>((set) => ({
+export const useRoutineStore = create<RoutineState>((set, get) => ({
   routines: [],
   loading: false,
 
   fetchRoutines: async (userId) => {
     set({ loading: true });
-    const { data } = await supabase
-      .from('routines')
-      .select('*, routine_exercises(*)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    set({
-      routines: (data ?? []).map(row => {
-        const routine = row as Routine & { routine_exercises?: RoutineExercise[] };
-        routine.exercises = (routine.routine_exercises ?? []).sort((a, b) => a.order_index - b.order_index);
-        return routine;
-      }),
-      loading: false,
+    // Vision §26: routines already synced stay usable offline.
+    const cacheKey = `routines:${userId}`;
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    const { data, error } = offline
+      ? { data: null, error: { message: 'offline' } }
+      : await supabase
+        .from('routines')
+        .select('*, routine_exercises(*)')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+    if (error && (offline || isTransportError(error))) {
+      set({ routines: getCacheItem<Routine[]>(cacheKey) ?? [], loading: false });
+      return;
+    }
+    const routines = (data ?? []).map(row => {
+      const routine = row as Routine & { routine_exercises?: RoutineExercise[] };
+      routine.exercises = (routine.routine_exercises ?? []).sort((a, b) => a.order_index - b.order_index);
+      return routine;
     });
+    if (!error) setCacheItem(cacheKey, routines);
+    set({ routines, loading: false });
   },
 
   fetchRoutineWithExercises: async (routineId) => {
-    const { data } = await supabase
-      .from('routines')
-      .select('*, routine_exercises(*)')
-      .eq('id', routineId)
-      .maybeSingle();
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    const { data, error } = offline
+      ? { data: null, error: { message: 'offline' } }
+      : await supabase
+        .from('routines')
+        .select('*, routine_exercises(*)')
+        .eq('id', routineId)
+        .maybeSingle();
+    if (error && (offline || isTransportError(error))) {
+      // Offline: the list already loaded (or cached) carries its exercises.
+      return get().routines.find(r => r.id === routineId) ?? null;
+    }
     if (data) {
       const routine = data as Routine;
       routine.exercises = (data as unknown as { routine_exercises: RoutineExercise[] }).routine_exercises

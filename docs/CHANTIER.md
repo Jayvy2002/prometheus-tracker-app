@@ -869,6 +869,16 @@ Suite de l’audit UX/tests du 23 septembre. Une migration pending, append-only 
 - **UX** : échelle de check-in unique 0–10, plus de série « jours de suite », tuile poids « moy. 7 j » sans couleur de jugement, séance du jour non dupliquée, badge Prospect, pluriels i18next, prix localisés, pas de suppression de client à un tap.
 - **Tests** : F38 réellement testé, `program_phases` / `program_versions` en `ROLLBACK`, plus aucun verrou satisfait par un commentaire, regex bornées, test de comportement de la resynchro hors ligne (`replayOfflineOp`).
 
+## Hors ligne — démarrer une séance sans réseau (branche `agent/p5-6-seance-hors-ligne`, en revue)
+
+Vision §26. Migration pending `20260924090000_offline_session_start` ; preuve SQL `supabase/tests/offline_session_start.sql`.
+
+- `start_workout_from_template_op` enveloppe `start_workout_from_template` (seul chemin qui pose la provenance programme) avec l’identifiant de l’opération hors ligne : un rejeu rend la même séance, jamais une seconde.
+- Sans réseau, la séance prévue ou la routine démarre localement (ids temporaires stables) ; l’opération `workout.startTemplate` passe en tête de file ; au rejeu, chaque exercice et chaque série temporaires reçoivent leur id serveur (même ordre, même nombre de séries).
+- Une modification sur une ligne encore temporaire attend dans la file au lieu d’être envoyée (et perdue).
+- Programme actif et routines sont gardés en cache par compte : consultables et lançables hors ligne.
+- Limite connue : si le plan a changé côté serveur pendant la séance hors ligne, les séries sans jumeau serveur tombent en dead-letter visible, jamais ailleurs.
+
 Écarts Vision restant hors de cette PR (chantiers à ouvrir, pas de code spéculatif) : cycle de vie des objectifs (§6), habitudes (§10), constructeur de check-in et fréquence (§11), « bloquer » distinct de « signaler » (§31), recherche globale (§33), vidéos de technique (§20). L’export JSON « Télécharger mes journaux » reste en place en attendant une décision portabilité légale ≠ fonctionnalité (§24.4).
 ---
 

@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import { track } from '../lib/telemetryClient';
+import { getCacheItem, setCacheItem, clearCacheItem } from '../lib/offlineCache';
+import { isTransportError } from '../lib/offlineQueue';
 import type {
   Program,
   ProgramAssignment,
@@ -377,13 +379,22 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
   },
 
   fetchMyAssignment: async (clientId) => {
+    // Vision §26: the plan already synced stays readable (and startable) offline.
+    const cacheKey = `assignment:${clientId}`;
+    const fromCache = () => {
+      const cached = getCacheItem<ProgramAssignment>(cacheKey);
+      if (cached) set({ assignment: cached });
+      return cached;
+    };
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return fromCache();
     const { data: { user } } = await supabase.auth.getUser();
-    const { data: active } = await supabase
+    const { data: active, error: activeError } = await supabase
       .from('program_assignments')
       .select('*')
       .eq('client_id', clientId)
       .eq('status', 'active')
       .maybeSingle();
+    if (activeError && isTransportError(activeError)) return fromCache();
     let row = active;
     // After unlink the assignment is paused; the athlete must still read it.
     if (!row && user?.id === clientId) {
@@ -398,6 +409,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       row = paused;
     }
     if (!row) {
+      clearCacheItem(cacheKey);
       set({ assignment: null });
       return null;
     }
@@ -410,6 +422,7 @@ export const useProgramStore = create<ProgramState>((set, get) => ({
       ...assignmentRow,
       program: program ?? undefined,
     };
+    if (assignment.program) setCacheItem(cacheKey, assignment);
     set({ assignment });
     return assignment;
   },

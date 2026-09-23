@@ -529,6 +529,14 @@ jobs:
         run: |
           set -euo pipefail
           grep -F 'progress photo sharing: private by default, athlete shares and withdraws, other coaches blind, end of link ends share' /tmp/progress-photo-sharing.txt
+      - name: Test offline session start
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/tests/offline_session_start.sql | tee /tmp/offline-session-start.txt
+      - name: Confirm offline session start echo
+        run: |
+          set -euo pipefail
+          grep -F 'offline session start: idempotent replay, offline date kept, foreign op refused, provenance RPC-only' /tmp/offline-session-start.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
@@ -585,11 +593,14 @@ jobs:
         run: node scripts/test-resource-permissions-browser.mjs
       - name: Personal calendar browser journey
         run: node scripts/test-personal-calendar-browser.mjs
+      - name: Offline session browser journey
+        run: node scripts/test-offline-session-browser.mjs
       - name: Confirm browser PASS files
         run: |
           set -euo pipefail
           grep -F 'PASS: coached stats history' artifacts/p12/results.txt
           grep -F 'PASS: coached calendar past/future' artifacts/p13/results.txt
+          grep -F 'PASS: planned session started offline' artifacts/offline/results.txt
           grep -F 'PASS: responsive directory, concurrent confirmation' /tmp/questionnaire-browser-results.txt
       - name: Upload Coach capability browser proof
         if: always()
@@ -611,6 +622,13 @@ jobs:
         with:
           name: personal-calendar-browser-proof
           path: artifacts/p13/
+          if-no-files-found: warn
+      - name: Upload offline session browser proof
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-session-browser-proof
+          path: artifacts/offline/
           if-no-files-found: warn
       - name: Upload questionnaire browser proof
         if: always()
