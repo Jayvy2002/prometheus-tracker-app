@@ -237,10 +237,20 @@ function QualificationQueue() {
 
   if (state !== 'ready') {
     return (
-      <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />
+      <div className="space-y-3">
+        <StatusLine code={code} notice={notice} />
+        <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />
+      </div>
     );
   }
-  if (rows.length === 0) return <p>{t('admin.empty.qualifications')}</p>;
+  if (rows.length === 0) {
+    return (
+      <div className="space-y-3">
+        <StatusLine code={code} notice={notice} />
+        <p>{t('admin.empty.qualifications')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -589,8 +599,22 @@ function ImportQueue() {
     setRetry(n => n + 1);
   }
 
-  if (state !== 'ready') return <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />;
-  if (rows.length === 0) return <p>{t('admin.empty.imports')}</p>;
+  if (state !== 'ready') {
+    return (
+      <div className="space-y-3">
+        <StatusLine code={code} notice={notice} />
+        <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="space-y-3">
+        <StatusLine code={code} notice={notice} />
+        <p>{t('admin.empty.imports')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -667,8 +691,22 @@ function ReportQueue() {
     setRetry(n => n + 1);
   }
 
-  if (state !== 'ready') return <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />;
-  if (rows.length === 0) return <p>{t('admin.empty.reports')}</p>;
+  if (state !== 'ready') {
+    return (
+      <div className="space-y-3">
+        <StatusLine code={code} notice={notice} />
+        <QueueStatus state={state} onRetry={() => setRetry(n => n + 1)} />
+      </div>
+    );
+  }
+  if (rows.length === 0) {
+    return (
+      <div className="space-y-3">
+        <StatusLine code={code} notice={notice} />
+        <p>{t('admin.empty.reports')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

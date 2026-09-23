@@ -84,7 +84,6 @@ export default function ProfilePage() {
   const coached = context.personalCoaching === 'coached';
 
   const [openSection, setOpenSection] = useState<Section | null>(null);
-  const [operator, setOperator] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
