@@ -34,6 +34,7 @@ const WeightPage = lazy(() => import('../../components/weight/WeightPage'));
 const NutritionPage = lazy(() => import('../../components/nutrition/NutritionPage'));
 const ScannerPage = lazy(() => import('../../components/scanner/ScannerPage'));
 const ProfilePage = lazy(() => import('../../components/profile/ProfilePage'));
+const AdminPage = lazy(() => import('../../components/admin/AdminPage'));
 const CalendarPage = lazy(() => import('../../components/calendar/CalendarPage'));
 const RecipesPage = lazy(() => import('../../components/nutrition/RecipesPage'));
 const CheckInPage = lazy(() => import('../../components/checkin/CheckInPage'));
@@ -271,6 +272,7 @@ export default function AppRoutes() {
         <Route path="/weight" element={<CoachTrackerRedirect><TrackingGate module="weight"><WeightPage /></TrackingGate></CoachTrackerRedirect>} />
         <Route path="/calendar" element={<CoachTrackerRedirect><CalendarPage /></CoachTrackerRedirect>} />
         <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="/exercise-progress" element={<CoachTrackerRedirect><ExerciseProgressPage /></CoachTrackerRedirect>} />
         <Route path="/stats" element={<CoachTrackerRedirect><StatsPage /></CoachTrackerRedirect>} />
         <Route path="/checkin" element={<CoachTrackerRedirect><TrackingGate module="checkins"><CheckInPage /></TrackingGate></CoachTrackerRedirect>} />

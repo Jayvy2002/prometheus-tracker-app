@@ -32,7 +32,7 @@ Prometheus dispose déjà d’un socle important :
 
 Le travail restant n’est pas une reconstruction. Le principal enjeu est désormais de **faire converger les contrats métier et l’architecture vers la Vision de référence**.
 
-> **CURRENT IMPLEMENTATION GATE — P5.4.** Production/lock **137**. P5.3 est CLOSED (`20260923014500_p5_exercise_catalog`, 74 statements, `created_by` null, timestamp Git conservé). Ne pas commencer P6. Job `coach-import-preview-purge` actif. Watch n’applique pas.
+> **CURRENT IMPLEMENTATION GATE — P5.4 en revue.** Production/lock **137**. P5.3 est CLOSED (`20260923014500_p5_exercise_catalog`, 74 statements, `created_by` null, timestamp Git conservé). Le candidat `20260923021000_p5_minimal_admin` est pending, pas encore observé en production. Ne pas commencer P6. Job `coach-import-preview-purge` actif. Watch n’applique pas.
 >
 > Watch reste une surface d’observation, d’explicabilité, de correction de contexte et de décision humaine. Accepter, modifier ou refuser depuis Watch n’applique pas automatiquement une cible ou un programme. `commit_solo_weekly_review_decision` et `apply_intervention` restent les chemins d’effet durable. Aucune auto-application. Aucune réécriture des mesures sources. **Ce bloc est l’unique pointeur de “prochaine tâche” à maintenir.** Les autres documents doivent le lire plutôt que dupliquer un numéro de chantier.
 
@@ -64,7 +64,7 @@ Le template `.github/pull_request_template.md` fait partie de la Definition of D
 | **P2** | Cerveau Prometheus | **P2.1–P2.5 + Hotfix B actifs en production** (128 migrations) | Unifier revue hebdo + signaux + mémoire + décisions |
 | **P3** | Planification avancée | **P3.1–P3.3 + hardening clos (130)** | Clos |
 | **P4** | Marketplace complète | **P4.1–P4.4 clos (134)** | Qualifications, matching, prospect, signalement |
-| **P5** | Adoption Coach | **P5.1–P5.3 clos (137). P5.4 ouvert** | Imports, dossier provisoire, bibliothèque, admin |
+| **P5** | Adoption Coach | **P5.1–P5.3 clos (137). P5.4 en revue** | Imports, dossier provisoire, bibliothèque, admin |
 | **P6** | Bêta économique | À faire après entitlements P1 | Entitlements, essais, grâce, mesure coûts |
 | **P7** | Intégrations et polish | Dernier | Health/wearables, offline secondaire, E2E final |
 
@@ -118,7 +118,7 @@ Cette configuration est un **contrôle administrateur GitHub**, pas une modifica
 
 ### Point de départ agent
 
-P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`), P5.2 (`#215`, `#216`) et P5.3 (`#217`) sont en production (137 migrations). **P5.4 est le prochain sous-chantier.** Watch n’applique pas.
+P1.5–P2.5, P3, P4 (`#210`), P5.1 (`#213`), P5.2 (`#215`, `#216`) et P5.3 (`#217`) sont en production (137 migrations). **P5.4 est en revue** (`20260923021000` pending). Watch n’applique pas.
 
 ## P0.3 — Baseline sécurité — ✅ ÉVALUÉ
 
@@ -829,7 +829,9 @@ Alias, recherche normalisée, propositions en attente, fusion explicite. Le nom 
 
 ## P5.4 — Admin minimal
 
-Seulement les outils nécessaires pour opérer :
+**En revue.** Contrat : `docs/P5_4_MINIMAL_ADMIN.md`. Migration candidate `20260923021000_p5_minimal_admin` (pending, hors lock 137).
+
+Console opérateur pour :
 
 - qualifications ;
 - propositions d’exercices ;
@@ -837,7 +839,7 @@ Seulement les outils nécessaires pour opérer :
 - imports problématiques ;
 - signalements.
 
-Ne pas construire un back-office générique sans besoin réel.
+Ne pas construire un back-office générique sans besoin réel. Abonnements, santé système et télémétrie de coût restent hors scope (P6). L’accord et la révocation d’opérateur partagent le mutex `20014508`. L’autorité est revérifiée sous ce verrou ; une course ne peut pas laisser zéro opérateur actif ni appliquer un grant devenu obsolète.
 
 ---
 
