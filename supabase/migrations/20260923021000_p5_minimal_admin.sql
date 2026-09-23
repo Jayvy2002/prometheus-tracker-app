@@ -240,7 +240,7 @@ $$;
 REVOKE ALL ON FUNCTION public.lock_platform_operators() FROM PUBLIC, anon, authenticated;
 
 COMMENT ON FUNCTION public.lock_platform_operators() IS
-  'Internal. Serializes grant_platform_operator and admin_revoke_platform_operator. Class 20014508. The active-operator count is read only while this lock is held.';
+  'Internal. Serializes grant_platform_operator and admin_revoke_platform_operator. Class 20014508. After the lock, an authenticated actor is rechecked with is_platform_operator() before any allowlist read or write.';
 
 CREATE OR REPLACE FUNCTION public.grant_platform_operator(p_user uuid, p_confirm boolean)
 RETURNS jsonb
@@ -262,6 +262,9 @@ BEGIN
     RAISE EXCEPTION 'not_found';
   END IF;
   PERFORM public.lock_platform_operators();
+  IF v_role IS DISTINCT FROM 'service_role' AND NOT public.is_platform_operator() THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
   v_actor := public.marketplace_audit_actor();
   INSERT INTO public.platform_operators (user_id, granted_by_ref)
   VALUES (p_user, v_actor)
@@ -287,6 +290,10 @@ DECLARE
 BEGIN
   v_actor := public.admin_require(p_confirm);
   PERFORM public.lock_platform_operators();
+  IF coalesce(nullif(auth.role(), ''), current_user) IS DISTINCT FROM 'service_role'
+     AND NOT public.is_platform_operator() THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
   SELECT count(*) FILTER (WHERE revoked_at IS NULL),
          count(*) FILTER (WHERE user_id = p_user AND revoked_at IS NULL)
     INTO v_active, v_target

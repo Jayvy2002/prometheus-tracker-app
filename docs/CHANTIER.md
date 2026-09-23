@@ -839,7 +839,7 @@ Console opérateur pour :
 - imports problématiques ;
 - signalements.
 
-Ne pas construire un back-office générique sans besoin réel. Abonnements, santé système et télémétrie de coût restent hors scope (P6). L’accord et la révocation d’opérateur partagent le mutex `20014508` ; une course ne peut pas laisser zéro opérateur actif.
+Ne pas construire un back-office générique sans besoin réel. Abonnements, santé système et télémétrie de coût restent hors scope (P6). L’accord et la révocation d’opérateur partagent le mutex `20014508`. L’autorité est revérifiée sous ce verrou ; une course ne peut pas laisser zéro opérateur actif ni appliquer un grant devenu obsolète.
 
 ---
 

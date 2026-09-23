@@ -512,7 +512,7 @@ jobs:
       - name: Confirm P5.4 operator allowlist echo
         run: |
           set -euo pipefail
-          grep -F 'p5.4 revoke × revoke × grant: one survivor, second last_operator, grant serialized, no zero operators, no deadlock' /tmp/p5-operator-lock.txt
+          grep -F 'p5.4 revoke × revoke × grant: one survivor, waiter not_authorized, grant serialized, queued grant after revoke is not_authorized, no zero operators, no deadlock' /tmp/p5-operator-lock.txt
       - name: Test qualification proof Storage API withdraw
         env:
           DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres

@@ -55,8 +55,14 @@ test('P5.4 admin is an operator console with confirm gates and no public review 
   const revoke = fnBody(sql, 'admin_revoke_platform_operator');
   assert.match(grant, /lock_platform_operators\(\)/);
   assert.match(revoke, /lock_platform_operators\(\)/);
-  assert.ok(grant.indexOf('lock_platform_operators()') < grant.indexOf('INSERT INTO public.platform_operators'));
-  assert.ok(revoke.indexOf('lock_platform_operators()') < revoke.indexOf('INTO v_active, v_target'));
+  const grantLock = grant.indexOf('lock_platform_operators()');
+  const grantRecheck = grant.indexOf('is_platform_operator()', grantLock);
+  const grantWrite = grant.indexOf('INSERT INTO public.platform_operators');
+  assert.ok(grantLock >= 0 && grantRecheck > grantLock && grantRecheck < grantWrite);
+  const revokeLock = revoke.indexOf('lock_platform_operators()');
+  const revokeRecheck = revoke.indexOf('is_platform_operator()', revokeLock);
+  const revokeCount = revoke.indexOf('INTO v_active, v_target');
+  assert.ok(revokeLock >= 0 && revokeRecheck > revokeLock && revokeRecheck < revokeCount);
   assert.match(sql, /pg_advisory_xact_lock\(20014508, 1135\)/);
   assert.match(revoke, /v_target = 1 AND v_active <= 1/);
   assert.match(src('.github/workflows/ci.yml'), /p5_minimal_admin\.sql/);

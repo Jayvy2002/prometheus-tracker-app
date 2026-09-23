@@ -10,7 +10,7 @@ Console privée pour opérer le catalogue, les qualifications, les imports en é
 
 Le premier opérateur est accordé par `grant_platform_operator` avec le rôle serveur (`service_role`). Un opérateur déjà actif peut ensuite en accorder ou en retirer un autre, avec `p_confirm = true`. Le dernier opérateur actif ne peut pas se retirer (`last_operator`).
 
-`grant_platform_operator` et `admin_revoke_platform_operator` prennent le même mutex `lock_platform_operators` (classe `20014508`) après l’autorisation et avant toute lecture ou écriture de l’allowlist. Le nombre d’opérateurs actifs est recompté sous ce verrou. Une révocation qui laisserait zéro opérateur actif échoue, y compris quand deux révocations croisées arrivent ensemble.
+`grant_platform_operator` et `admin_revoke_platform_operator` prennent le même mutex `lock_platform_operators` (classe `20014508`). Un contrôle d’opérateur avant le verrou échoue vite. Sous le verrou, un appel `service_role` reste autorisé ; un utilisateur authentifié est revérifié avec `is_platform_operator()`. S’il a été révoqué pendant l’attente, l’appel échoue `not_authorized` avant toute lecture ou écriture de l’allowlist. Le nombre d’opérateurs actifs est recompté sous ce verrou. Une révocation qui laisserait zéro opérateur actif échoue, y compris quand deux révocations croisées arrivent ensemble.
 
 `platform_admin_audit` enregistre l’acteur, l’action, le sujet et une note. Les deux tables ont RLS activé, aucune policy cliente, et aucun droit `anon` / `authenticated`.
 
